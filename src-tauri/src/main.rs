@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    auto_condition_trade_lib::run();
+    kis_auto_trade_lib::run();
 }

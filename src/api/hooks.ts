@@ -36,6 +36,7 @@ import type {
   UpdateInfo,
   UpdateProfileInput,
   UpdateStrategyInput,
+  WebConfig,
 } from './types'
 
 // ─── Query Keys ────────────────────────────────────────────────────
@@ -59,6 +60,7 @@ export const KEYS = {
   kisExecuted: (from: string, to: string) => ['kisExecuted', from, to] as const,
   recentLogs: ['recentLogs'] as const,
   updateCheck: ['updateCheck'] as const,
+  webConfig: ['webConfig'] as const,
 }
 
 // ─── 앱 설정 ───────────────────────────────────────────────────────
@@ -455,5 +457,24 @@ export function useUpdateCheck() {
     retry: 1,
     // 실패해도 UI 먹스에 영향 없음
     throwOnError: false,
+  })
+}
+
+// ─── 웹 접속 설정 ─────────────────────────────────────────────────
+export function useWebConfig() {
+  return useQuery<WebConfig>({
+    queryKey: KEYS.webConfig,
+    queryFn: cmd.getWebConfig,
+    staleTime: Infinity,
+  })
+}
+
+export function useSaveWebConfig() {
+  const qc = useQueryClient()
+  return useMutation<string, Error, number>({
+    mutationFn: (newPort) => cmd.saveWebConfig(newPort),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KEYS.webConfig })
+    },
   })
 }

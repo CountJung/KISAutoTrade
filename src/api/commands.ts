@@ -29,6 +29,7 @@ import type {
   UpdateInfo,
   UpdateProfileInput,
   UpdateStrategyInput,
+  WebConfig,
 } from './types'
 
 // ─── 앱 설정 ───────────────────────────────────────────────────────
@@ -151,3 +152,9 @@ export const writeFrontendLog = (input: FrontendLogInput): Promise<void> =>
 // ─── 업데이트 확인 ────────────────────────────────────────────────
 export const checkForUpdate = (): Promise<UpdateInfo> =>
   invoke('check_for_update')
+// ─── 웹 접속 설정 ─────────────────────────────────────────────────
+export const getWebConfig = (): Promise<WebConfig> =>
+  invoke('get_web_config')
+
+export const saveWebConfig = (newPort: number): Promise<string> =>
+  invoke('save_web_config', { newPort })

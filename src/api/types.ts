@@ -263,3 +263,8 @@ export interface UpdateInfo {
   releaseUrl: string
   releaseNotes: string | null
 }
+// ─── 웹 접속 설정 ─────────────────────────────────────────────────
+export interface WebConfig {
+  runningPort: number
+  accessUrl: string
+}

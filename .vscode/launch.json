@@ -6,12 +6,12 @@
       "type": "cppvsdbg",
       "request": "launch",
       "name": "Rust: Debug App (Windows MSVC)",
-      "program": "${workspaceFolder}/target/debug/auto-condition-trade.exe",
+      "program": "${workspaceFolder}/target/debug/kis-auto-trade.exe",
       "args": [],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [
-        { "name": "RUST_LOG", "value": "debug,auto_condition_trade_lib=trace" },
+        { "name": "RUST_LOG", "value": "debug,kis_auto_trade_lib=trace" },
         { "name": "RUST_BACKTRACE", "value": "1" }
       ],
       "preLaunchTask": "rust: build debug + vite dev",
@@ -28,14 +28,14 @@
           "--manifest-path=${workspaceFolder}/src-tauri/Cargo.toml"
         ],
         "filter": {
-          "name": "auto-condition-trade",
+          "name": "kis-auto-trade",
           "kind": "bin"
         }
       },
       "args": [],
       "cwd": "${workspaceFolder}",
       "env": {
-        "RUST_LOG": "debug,auto_condition_trade_lib=trace",
+        "RUST_LOG": "debug,kis_auto_trade_lib=trace",
         "RUST_BACKTRACE": "1"
       },
       "preLaunchTask": "vite: dev server"

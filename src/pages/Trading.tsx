@@ -29,6 +29,8 @@ import Divider from '@mui/material/Divider'
 import Autocomplete from '@mui/material/Autocomplete'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
+import SearchIcon from '@mui/icons-material/Search'
+import IconButton from '@mui/material/IconButton'
 
 import { useBalance, usePlaceOrder, usePrice, useStockSearch, useTodayExecuted } from '../api/hooks'
 import type { BalanceItem, OrderSide, OrderType } from '../api/types'
@@ -225,7 +227,7 @@ export default function Trading() {
   const { data: balance }                 = useBalance()
   const { data: priceData }               = usePrice(symbol.length === 6 ? symbol : '')
   const { data: executed }                = useTodayExecuted()
-  const { data: searchResults = [] }      = useStockSearch(searchQuery)
+  const { data: searchResults = [], isFetching: isFetchingSearch } = useStockSearch(searchQuery)
   const { mutate: placeOrder, isPending } = usePlaceOrder()
 
   // Autocomplete 옵션: 보유 종목 (즉시) + 검색 결과 (API, 디바운스)
@@ -435,6 +437,25 @@ export default function Trading() {
                       ? `${priceData.hts_kor_isnm} / 현재가 ${fmt(parseInt(priceData.stck_prpr))}원`
                       : '종목명 또는 6자리 코드 입력'
                   }
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {isFetchingSearch && (
+                          <CircularProgress size={16} color="inherit" sx={{ mr: 0.5 }} />
+                        )}
+                        <IconButton
+                          size="small"
+                          onClick={() => setSearchQuery(inputValue)}
+                          disabled={!inputValue}
+                          aria-label="종목 검색"
+                        >
+                          <SearchIcon fontSize="small" />
+                        </IconButton>
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
                 />
               )}
               sx={{ mb: 0 }}

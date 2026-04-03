@@ -1,11 +1,12 @@
 {
-  "name": "auto-condition-trade",
+  "name": "kis-auto-trade",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tauri build",
+    "build:web": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
     "build:app": "tauri build",

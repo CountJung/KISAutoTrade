@@ -54,6 +54,8 @@ pub struct AppState {
     pub data_dir: PathBuf,
     /// KRX 캐시된 종목 목록 (이름 검색용)
     pub stock_list: Arc<RwLock<Vec<crate::api::rest::StockSearchItem>>>,
+    /// 웹 서버 포트
+    pub web_port: u16,
 }
 
 impl AppState {
@@ -65,6 +67,7 @@ impl AppState {
         data_dir: PathBuf,
         log_dir: PathBuf,
         log_config: LogConfig,
+        web_port: u16,
     ) -> Self {
         let rest_client = make_rest_client(&config);
 
@@ -106,6 +109,7 @@ impl AppState {
             log_config: Arc::new(RwLock::new(log_config)),
             data_dir,
             stock_list: Arc::new(RwLock::new(vec![])),
+            web_port,
         }
     }
 }
@@ -1046,4 +1050,57 @@ pub async fn check_for_update() -> CmdResult<crate::updater::UpdateInfo> {
             code: "UPDATE_CHECK_FAILED".into(),
             message,
         })
+}
+
+// ── 웹 접속 설정 ──────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebConfig {
+    pub running_port: u16,
+    pub access_url: String,
+}
+
+#[tauri::command]
+pub async fn get_web_config(state: State<'_, AppState>) -> CmdResult<WebConfig> {
+    let port = state.web_port;
+    Ok(WebConfig {
+        running_port: port,
+        access_url: format!("http://localhost:{}", port),
+    })
+}
+
+#[tauri::command]
+pub async fn save_web_config(new_port: u16) -> CmdResult<String> {
+    use std::io::Write;
+    if !(1024..=65535).contains(&new_port) {
+        return Err(CmdError {
+            code: "INVALID_PORT".into(),
+            message: "포트는 1024~65535 사이여야 합니다".into(),
+        });
+    }
+    let env_path = std::env::current_dir()
+        .unwrap_or_else(|_| std::path::PathBuf::from("."))
+        .join(".env");
+    // 기존 .env 읽어서 WEB_PORT 줄만 교체
+    let existing = std::fs::read_to_string(&env_path).unwrap_or_default();
+    let mut lines: Vec<String> = existing
+        .lines()
+        .filter(|l| !l.starts_with("WEB_PORT="))
+        .map(String::from)
+        .collect();
+    lines.push(format!("WEB_PORT={}", new_port));
+    let content = lines.join("\n");
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&env_path)
+        .and_then(|mut f| f.write_all(content.as_bytes()))
+        .map_err(|e| CmdError {
+            code: "SAVE_FAILED".into(),
+            message: e.to_string(),
+        })?;
+    tracing::info!(".env 저장 완료 — WEB_PORT={}", new_port);
+    Ok(format!(".env 저장 완료: WEB_PORT={}", new_port))
 }

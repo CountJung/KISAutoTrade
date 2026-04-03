@@ -34,7 +34,7 @@ pub fn run() {
             // 로그 시스템 초기화 (daily rolling + 시작 시 정리)
             logging::init(&log_dir, &log_cfg)?;
 
-            tracing::info!("AutoConditionTrade 시작 - 데이터 경로: {:?}", app_data_dir);
+            tracing::info!("KISAutoTrade 시작 - 데이터 경로: {:?}", app_data_dir);
             tracing::info!("로그 경로: {:?}, 보관 {}일, 최대 {}MB", log_dir, log_cfg.retention_days, log_cfg.max_size_mb);
 
             // profiles.json 경로: 항상 app_data_dir 사용 (실행 방식과 무관하게 일관된 경로)
@@ -71,8 +71,14 @@ pub fn run() {
             // 데이터 저장 경로
             let data_dir = app_data_dir.join("data");
 
+            // 웹 서버 포트 (WEB_PORT 환경변수, 기본 7474)
+            let web_port: u16 = std::env::var("WEB_PORT")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(7474);
+
             // AppState 초기화 및 등록
-            let state = AppState::new(config, discord_config, profiles, profiles_path, data_dir.clone(), log_dir.clone(), log_cfg);
+            let state = AppState::new(config, discord_config, profiles, profiles_path, data_dir.clone(), log_dir.clone(), log_cfg, web_port);
             app.manage(state);
 
             // ── 비동기 백그라운드 작업 ──────────────────────────
@@ -84,12 +90,13 @@ pub fn run() {
                 *st.stock_list.write().await = items;
             });
 
-            // 2) 모바일 웹 서버 시작 (포트 7474)
+            // 2) 모바일 웹 서버 시작 (포트 web_port)
             {
                 let st: tauri::State<AppState> = app.state();
                 let rest_client = st.rest_client.clone();
+                let port = st.web_port;
                 tauri::async_runtime::spawn(async move {
-                    server::start(rest_client, 7474).await;
+                    server::start(rest_client, port).await;
                 });
             }
 
@@ -129,6 +136,8 @@ pub fn run() {
             commands::get_kis_executed_by_range,
             commands::get_recent_logs,
             commands::check_for_update,
+            commands::get_web_config,
+            commands::save_web_config,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri 애플리케이션 실행 중 오류 발생");

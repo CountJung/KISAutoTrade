@@ -1,16 +1,18 @@
 /// 모바일/외부 접속용 경량 웹 서버 (axum)
 ///
 /// 엔드포인트:
-///   GET /          → 모바일 대시보드 HTML
-///   GET /api/balance           → 잔고 JSON
-///   GET /api/price/:symbol     → 현재가 JSON
-///   GET /api/executed          → 당일 체결 JSON
+///   GET /                    → React 앱(dist/) 또는 모바일 대시보드 HTML
+///   GET /api/info            → 앱 정보 JSON
+///   GET /api/balance         → 잔고 JSON
+///   GET /api/price/:symbol   → 현재가 JSON
+///   GET /api/executed        → 당일 체결 JSON
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::{
     extract::{Path, State},
-    response::Html,
+    response::{Html, IntoResponse, Response},
     routing::get,
     Json, Router,
 };
@@ -22,17 +24,35 @@ use crate::api::rest::KisRestClient;
 #[derive(Clone)]
 struct ServerState {
     rest_client: Arc<RwLock<Arc<KisRestClient>>>,
+    web_port: u16,
+    dist_path: PathBuf,
 }
 
 /// 서버 시작 (포트 바인드 실패 시 경고만 내고 종료)
 pub async fn start(rest_client: Arc<RwLock<Arc<KisRestClient>>>, port: u16) {
-    let state = ServerState { rest_client };
+    let dist_path = web_dist_path();
+
+    if dist_path.join("index.html").exists() {
+        tracing::info!("웹 모드: React 앱을 {:?} 에서 서비스합니다", dist_path);
+    } else {
+        tracing::info!("웹 모드: dist/ 없음 — 모바일 대시보드 HTML로 서비스합니다");
+        tracing::info!(
+            "React 앱을 서비스하려면 프로젝트 루트에서 'npm run build:web' 을 실행하세요"
+        );
+    }
+
+    let state = ServerState {
+        rest_client,
+        web_port: port,
+        dist_path,
+    };
 
     let app = Router::new()
-        .route("/", get(mobile_dashboard))
+        .route("/api/info", get(info_handler))
         .route("/api/balance", get(balance_handler))
         .route("/api/price/:symbol", get(price_handler))
         .route("/api/executed", get(executed_handler))
+        .fallback(get(spa_handler))
         .layer(CorsLayer::permissive())
         .with_state(state);
 
@@ -40,23 +60,52 @@ pub async fn start(rest_client: Arc<RwLock<Arc<KisRestClient>>>, port: u16) {
     match tokio::net::TcpListener::bind(addr).await {
         Ok(listener) => {
             tracing::info!(
-                "모바일 웹 서버 시작: http://0.0.0.0:{} (같은 네트워크에서 접속 가능)",
+                "웹 서버 시작: http://0.0.0.0:{} (같은 네트워크에서 접속 가능)",
                 port
             );
             if let Err(e) = axum::serve(listener, app).await {
-                tracing::error!("모바일 서버 종료: {}", e);
+                tracing::error!("웹 서버 종료: {}", e);
             }
         }
         Err(e) => {
-            tracing::warn!("모바일 서버 포트 {} 바인드 실패: {} — 모바일 접속 비활성", port, e);
+            tracing::warn!("웹 서버 포트 {} 바인드 실패: {} — 웹 접속 비활성", port, e);
         }
     }
 }
 
+/// dist/ 폴더 경로 탐색: 바이너리 옆 dist/ → 현재 작업 디렉토리의 dist/
+fn web_dist_path() -> PathBuf {
+    if let Some(p) = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join("dist")))
+    {
+        if p.exists() {
+            return p;
+        }
+    }
+    std::env::current_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join("dist")
+}
+
 // ── 핸들러 ──────────────────────────────────────────────────────────
 
-async fn mobile_dashboard() -> Html<&'static str> {
-    Html(MOBILE_HTML)
+/// SPA fallback: dist/index.html 서비스 또는 모바일 대시보드 HTML 반환
+async fn spa_handler(State(s): State<ServerState>) -> Response {
+    let index_path = s.dist_path.join("index.html");
+    match tokio::fs::read_to_string(&index_path).await {
+        Ok(content) => Html(content).into_response(),
+        Err(_) => Html(MOBILE_HTML).into_response(),
+    }
+}
+
+async fn info_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "app": "KISAutoTrade",
+        "version": env!("CARGO_PKG_VERSION"),
+        "port": s.web_port,
+        "mode": "web",
+    }))
 }
 
 async fn balance_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
@@ -86,18 +135,19 @@ async fn executed_handler(State(s): State<ServerState>) -> Json<serde_json::Valu
     }
 }
 
-// ── 모바일 대시보드 HTML ────────────────────────────────────────────
+// ── 모바일 대시보드 HTML (dist/index.html 없을 때 폴백) ────────────
 
 static MOBILE_HTML: &str = r#"<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AutoConditionTrade</title>
+  <title>KISAutoTrade</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, sans-serif; background: #121212; color: #e0e0e0; padding: 16px; }
-    h1 { font-size: 18px; color: #90caf9; margin-bottom: 16px; }
+    h1 { font-size: 18px; color: #90caf9; margin-bottom: 4px; }
+    .subtitle { font-size: 12px; color: #757575; margin-bottom: 16px; }
     h2 { font-size: 14px; color: #90caf9; margin-bottom: 8px; }
     .card { background: #1e1e1e; border-radius: 8px; padding: 14px; margin-bottom: 12px; }
     .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #2a2a2a; font-size: 13px; }
@@ -115,12 +165,18 @@ static MOBILE_HTML: &str = r#"<!DOCTYPE html>
     .sub { font-size: 11px; color: #757575; }
     .refresh { margin-top: 8px; text-align: right; font-size: 11px; color: #757575; }
     button { background: #1565c0; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+    .notice { background: #1a237e; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: 12px; color: #90caf9; }
   </style>
 </head>
 <body>
-  <h1>AutoConditionTrade</h1>
+  <h1>KISAutoTrade</h1>
+  <div class="subtitle">모바일 대시보드 (읽기 전용)</div>
+  <div class="notice">
+    💡 전체 UI는 데스크탑 앱에서 사용하거나, 프로젝트 루트에서
+    <code>npm run build:web</code> 실행 후 접속하세요.
+  </div>
 
-  <div class="card" id="balance-card">
+  <div class="card">
     <h2>잔고</h2>
     <div id="balance-body"><div class="label">로딩 중...</div></div>
   </div>

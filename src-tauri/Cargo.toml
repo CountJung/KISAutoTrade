@@ -1,20 +1,20 @@
 [package]
-name = "auto-condition-trade"
+name = "kis-auto-trade"
 version = "0.1.0"
-description = "AutoConditionTrade - Personal Stock Auto Trading System"
+description = "KISAutoTrade - Personal Stock Auto Trading System"
 authors = []
 license = "MIT"
 repository = ""
-default-run = "auto-condition-trade"
+default-run = "kis-auto-trade"
 edition = "2021"
 rust-version = "1.77.2"
 
 [lib]
-name = "auto_condition_trade_lib"
+name = "kis_auto_trade_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "auto-condition-trade"
+name = "kis-auto-trade"
 path = "src/main.rs"
 
 [build-dependencies]

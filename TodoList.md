@@ -1,7 +1,7 @@
-# AutoConditionTrade — Todo List
+# KISAutoTrade — Todo List
 
-> MasterPlan.md의 Phase별 진행 상황을 추출한 실시간 태스크 목록입니다.  
-> 이 파일은 작업 진행 시 업데이트됩니다.
+> Phase별 진행 현황 및 미완성 작업 목록입니다.  
+> 작업 완료 시 즉시 업데이트합니다.
 
 ---
 
@@ -16,6 +16,7 @@
 | Phase 5 | 알림 시스템 | ✅ 완료 |
 | Phase 6 | 로그 및 통계 | ✅ 완료 |
 | Phase 7 | 최적화 및 배포 | 🔄 진행 중 |
+| Phase 8+ | 고도화 | 🔄 진행 중 |
 
 ---
 
@@ -36,7 +37,7 @@
 - [x] 토큰 자동 갱신 로직 (`src-tauri/src/api/token.rs`)
   - POST /oauth2/tokenP, 만료 5분 전 자동 갱신
 - [x] 계좌 조회 (잔고, 보유종목)
-- [x] IPC Command 연결 12종 (`src-tauri/src/commands.rs`)
+- [x] IPC Command 연결 (Tauri ↔ React)
 
 ---
 
@@ -82,31 +83,36 @@
 
 - [x] Vite 청크 분리 (`vite.config.ts` — vendor/mui/tanstack 별도 청크)
 - [x] 실전/모의투자 API 키 통합 설정 (`secure_config.json` 기반)
-  - 실전/모의 별도 키 지원, `is_paper_trading` 플래그 (기본값: false = 실전투자)
 - [x] `check_config` IPC 커맨드 — 진단 모드
-  - API 설정 상태, 각 키 설정 여부, Discord 연결 상태
-- [x] Settings 화면 개선 — 진단 정보 표시 (실전/모의 키 상태 Chip, 문제 목록)
+- [x] Settings 화면 개선 — 진단 정보 표시
 - [x] `secure_config.example.json` 템플릿 파일 생성
-- [x] 에러 핸들링 강화 — Dashboard 설정 미비 경고 배너, start_trading 미설정 시 에러 반환
-- [x] README.md 작성, MIT 라이선스 적용, .gitignore 수정 (src-tauri/target 제거)
-- [ ] Tauri 빌드 및 배포 (`cargo tauri build`)
+- [x] 에러 핸들링 강화 — Dashboard 설정 미비 경고 배너
+- [x] README.md 작성, MIT 라이선스 적용
+- [x] GitHub Releases API 버전 확인 기능 (updater 모듈)
+- [x] 앱 빌드 모드 세팅 (`pnpm build:app`, NSIS Windows 번들)
+- [x] 앱 이름 KISAutoTrade로 변경
+- [x] pnpm build → 전체 앱 빌드 (`tauri build`)
+- [x] 웹 모드 단독 동작 지원 (axum ServeDir + transport layer)
+- [x] Settings 웹 접속 포트 설정 + .env 저장
+- [x] Trading 종목 검색 UI 개선 (돋보기 버튼, 로딩 인디케이터)
 - [ ] `agent.md` 최종 정리
 
 ---
 
-## 다음 작업 후보 (Phase 8+)
+## Phase 8+ — 고도화 🔄
 
-> MasterPlan에 없지만 품질 향상을 위해 고려할 사항
-
-- [x] 자동 매매 start/stop IPC 커맨드 구현 (`get_trading_status`, `start_trading`, `stop_trading`)
+- [x] 자동 매매 start/stop IPC 커맨드 구현
 - [x] 포지션 정보 UI 표시 (`get_positions` IPC + Dashboard 포지션 테이블)
 - [x] 전략 IPC 연결 (`get_strategies`, `update_strategy`) + Strategy 페이지 실제 연동
 - [x] Dashboard 설정 미비 경고 배너 + 자동매매 start/stop 버튼
+- [x] 멀티 계좌 프로파일 관리 (Settings 화면)
 - [ ] WebSocket 연결 상태 Tauri Event emit → Dashboard 실시간 반영
 - [ ] `trading/order.rs` OrderManager 구현 (현재 stubbed)
 - [ ] 추가 전략 구현 (모멘텀, RSI, 이격도)
 - [ ] 차트 컴포넌트 (History 페이지 일별 PnL 차트)
+- [ ] GitHub Actions CI/CD (Windows + macOS 자동 빌드 & 릴리스)
+- [ ] 웹 모드 고도화 (주문 REST API 추가, 인증 처리)
 
 ---
 
-*마지막 업데이트: 2026-04-02*
+*마지막 업데이트: 2026-04-03*

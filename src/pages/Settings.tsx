@@ -45,6 +45,8 @@ import {
   useSetActiveProfile,
   useLogConfig,
   useSetLogConfig,
+  useWebConfig,
+  useSaveWebConfig,
 } from '../api/hooks'
 import type { AccountProfileView, AddProfileInput, UpdateProfileInput } from '../api/types'
 import type { ThemeMode } from '../theme'
@@ -385,6 +387,18 @@ export default function Settings() {
   const [editProfile, setEditProfile] = useState<AccountProfileView | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<AccountProfileView | null>(null)
 
+  // 웹 접속 설정
+  const { data: webConfig } = useWebConfig()
+  const { mutate: saveWebConfig, isPending: webSaving } = useSaveWebConfig()
+  const [webPortInput, setWebPortInput] = useState<string>('')
+  const [webSaveResult, setWebSaveResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  // webConfig가 로드되면 입력칼 동기화
+  const prevWebConfigRef = useState<typeof webConfig>(undefined)
+  if (webConfig && webConfig !== prevWebConfigRef[0]) {
+    prevWebConfigRef[1](webConfig)
+    setWebPortInput(String(webConfig.runningPort))
+  }
+
   const handleTestDiscord = () => {
     setDiscordResult(null)
     sendTestDiscord(undefined, {
@@ -574,6 +588,51 @@ export default function Settings() {
                 APP SECRET은 저장 후 마스킹되어 표시됩니다.
               </Typography>
             </Alert>
+          </Stack>
+        </Section>
+
+        {/* ── 웹 접속 설정 ──────────────────────────────────────── */}
+        <Section title="웹 접속 설정">
+          <Stack spacing={2}>
+            <Typography variant="body2" color="text.secondary">
+              같은 네트워크의 다른 기기(모바일, 태블릿 등)에서 브라우저로 접속할 수 있습니다.
+              <br />
+              접속 URL: <code>{webConfig?.accessUrl ?? `http://localhost:7474`}</code>
+            </Typography>
+            <Box display="flex" alignItems="center" gap={1}>
+              <TextField
+                label="웹 서버 포트"
+                value={webPortInput}
+                onChange={(e) => { setWebPortInput(e.target.value); setWebSaveResult(null) }}
+                size="small"
+                type="number"
+                inputProps={{ min: 1024, max: 65535 }}
+                sx={{ width: 140 }}
+                helperText="기본값: 7474 (재시작 후 적용)"
+              />
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  const port = parseInt(webPortInput, 10)
+                  if (isNaN(port)) return
+                  setWebSaveResult(null)
+                  saveWebConfig(port, {
+                    onSuccess: (msg) => setWebSaveResult({ ok: true, msg }),
+                    onError: (err) => setWebSaveResult({ ok: false, msg: String(err) }),
+                  })
+                }}
+                disabled={webSaving || !webPortInput}
+                startIcon={webSaving ? <CircularProgress size={16} /> : null}
+              >
+                저장
+              </Button>
+            </Box>
+            {webSaveResult && (
+              <Alert severity={webSaveResult.ok ? 'success' : 'error'}>
+                {webSaveResult.msg}
+                {webSaveResult.ok && ' — 앱을 재시작하면 새 포트가 적용됩니다.'}
+              </Alert>
+            )}
           </Stack>
         </Section>
 
