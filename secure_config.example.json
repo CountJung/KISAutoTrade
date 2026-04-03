@@ -1,0 +1,22 @@
+{
+  "_comment": "이 파일을 secure_config.json으로 복사한 뒤 실제 값을 입력하세요.",
+  "_comment2": "secure_config.json은 .gitignore에 포함되어 있습니다.",
+
+  "// ── KIS 실전투자 API 키 ──────────────────────────────": "",
+  "kis_app_key": "여기에_실전투자_앱키_입력",
+  "kis_app_secret": "여기에_실전투자_앱시크릿_입력",
+  "kis_account_no": "12345678-01",
+
+  "// ── KIS 모의투자 API 키 (선택) ─────────────────────────": "",
+  "kis_paper_app_key": "",
+  "kis_paper_app_secret": "",
+  "kis_paper_account_no": "",
+
+  "// ── 투자 모드 ─────────────────────────────────────────": "",
+  "is_paper_trading": false,
+
+  "// ── Discord 알림 (선택) ───────────────────────────────": "",
+  "discord_bot_token": "",
+  "discord_channel_id": "",
+  "notification_levels": ["CRITICAL", "ERROR", "TRADE"]
+}

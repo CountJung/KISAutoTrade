@@ -1,0 +1,17 @@
+{
+  "recommendations": [
+    // Rust
+    "rust-lang.rust-analyzer",
+    "tauri-apps.tauri-vscode",
+    // Rust 디버거 (MSVC 계열)
+    "ms-vscode.cpptools",
+    // Rust 디버거 (CodeLLDB, cross-platform)
+    "vadimcn.vscode-lldb",
+    // TypeScript / React
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    // 기타 편의
+    "usernamehw.errorlens",
+    "streetsidesoftware.code-spell-checker"
+  ]
+}

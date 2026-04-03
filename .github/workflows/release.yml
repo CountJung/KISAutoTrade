@@ -1,0 +1,99 @@
+# AutoConditionTrade — 자동 빌드 & 릴리즈
+#
+# 사용법:
+#   git tag v1.0.0 && git push origin v1.0.0
+#
+# 결과:
+#   - Windows: .msi / NSIS .exe 설치 파일
+#   - macOS:   Universal .dmg (Apple Silicon + Intel)
+#   - GitHub Releases에 드래프트로 생성됨 → 확인 후 Publish
+
+name: Release
+
+on:
+  push:
+    tags:
+      # v숫자.숫자.숫자 형식의 태그만 트리거
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  build-tauri:
+    permissions:
+      contents: write   # 릴리즈 업로드에 필요
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ── Windows ─────────────────────────────────────────────
+          - platform: windows-latest
+            rust-targets: ''
+            tauri-args: ''
+
+          # ── macOS Universal (Apple Silicon + Intel) ─────────────
+          - platform: macos-latest
+            rust-targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
+            tauri-args: '--target universal-apple-darwin'
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      # ── 소스 체크아웃 ─────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Node.js 설정 ──────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ── Rust 툴체인 설정 ──────────────────────────────────────
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      # ── Rust 빌드 캐시 ────────────────────────────────────────
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      # ── macOS 전용: pkg-config (일부 크레이트에 필요) ─────────
+      - name: Install pkg-config (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: brew install pkg-config
+
+      # ── npm 의존성 설치 ───────────────────────────────────────
+      - name: Install frontend dependencies
+        run: npm install
+
+      # ── Tauri 빌드 & 릴리즈 업로드 ───────────────────────────
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'AutoConditionTrade ${{ github.ref_name }}'
+          releaseBody: |
+            ## 변경 사항
+
+            <!-- 릴리즈 노트를 여기에 작성하세요 -->
+
+            ## 설치 파일
+
+            | 플랫폼 | 파일 |
+            |--------|------|
+            | Windows | `.msi` 또는 NSIS `.exe` |
+            | macOS   | Universal `.dmg` (Apple Silicon + Intel) |
+
+            ## 주의 사항
+
+            - **모의투자**로 먼저 충분히 검증 후 실전 계좌에 사용하세요.
+            - `secure_config.json` 파일은 직접 생성해야 합니다 (`secure_config.example.json` 참고).
+            - KIS API 키는 앱 실행 후 Settings에서 등록합니다.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.tauri-args }}

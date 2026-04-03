@@ -1,0 +1,86 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    // ── Windows MSVC (C++ Tools 확장 필요) ───────────────────────
+    {
+      "type": "cppvsdbg",
+      "request": "launch",
+      "name": "Rust: Debug App (Windows MSVC)",
+      "program": "${workspaceFolder}/target/debug/auto-condition-trade.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [
+        { "name": "RUST_LOG", "value": "debug,auto_condition_trade_lib=trace" },
+        { "name": "RUST_BACKTRACE", "value": "1" }
+      ],
+      "preLaunchTask": "rust: build debug + vite dev",
+      "console": "integratedTerminal"
+    },
+    // ── CodeLLDB (cross-platform, cargo integration) ────────────
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Rust: Debug App (CodeLLDB)",
+      "cargo": {
+        "args": [
+          "build",
+          "--manifest-path=${workspaceFolder}/src-tauri/Cargo.toml"
+        ],
+        "filter": {
+          "name": "auto-condition-trade",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "RUST_LOG": "debug,auto_condition_trade_lib=trace",
+        "RUST_BACKTRACE": "1"
+      },
+      "preLaunchTask": "vite: dev server"
+    },
+    // ── Frontend: Chrome/Edge DevTools (Vite dev server 연결) ───
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Frontend: Chrome (Vite Dev)",
+      "url": "http://localhost:1420",
+      "webRoot": "${workspaceFolder}/src",
+      "sourceMapPathOverrides": {
+        "/@fs/*": "${workspaceFolder}/*"
+      }
+    },
+    {
+      "type": "msedge",
+      "request": "launch",
+      "name": "Frontend: Edge (Vite Dev)",
+      "url": "http://localhost:1420",
+      "webRoot": "${workspaceFolder}/src",
+      "sourceMapPathOverrides": {
+        "/@fs/*": "${workspaceFolder}/*"
+      }
+    }
+  ],
+  "compounds": [
+    // ── 복합 실행: Rust + Frontend 동시 디버깅 (Windows MSVC) ──
+    {
+      "name": "Tauri: Full Debug (MSVC + Chrome)",
+      "configurations": [
+        "Rust: Debug App (Windows MSVC)",
+        "Frontend: Chrome (Vite Dev)"
+      ],
+      "stopAll": true,
+      "presentation": { "order": 1 }
+    },
+    {
+      "name": "Tauri: Full Debug (CodeLLDB + Chrome)",
+      "configurations": [
+        "Rust: Debug App (CodeLLDB)",
+        "Frontend: Chrome (Vite Dev)"
+      ],
+      "stopAll": true,
+      "presentation": { "order": 2 }
+    }
+  ]
+}

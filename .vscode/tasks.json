@@ -1,0 +1,131 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    // ── Vite dev server (background) ────────────────────────────
+    {
+      "label": "vite: dev server",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev"],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "label": "Vite Dev Server"
+      },
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "\\[vite\\]|VITE",
+          "endsPattern": "Local:\\s+http://localhost:1420"
+        }
+      }
+    },
+    // ── Cargo: debug build ───────────────────────────────────────
+    {
+      "label": "cargo: build debug",
+      "type": "shell",
+      "command": "cargo",
+      "args": [
+        "build",
+        "--manifest-path",
+        "src-tauri/Cargo.toml"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": ["$rustc"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    // ── Cargo: check (빠른 타입 검증) ───────────────────────────
+    {
+      "label": "cargo: check",
+      "type": "shell",
+      "command": "cargo",
+      "args": [
+        "check",
+        "--manifest-path",
+        "src-tauri/Cargo.toml"
+      ],
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": ["$rustc"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    // ── TypeScript: type check ───────────────────────────────────
+    {
+      "label": "tsc: type check",
+      "type": "shell",
+      "command": "npx",
+      "args": ["tsc", "--noEmit"],
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": ["$tsc"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    // ── Tauri: full dev (디버거 없이 일반 개발용) ──────────────
+    {
+      "label": "tauri: dev",
+      "type": "shell",
+      "command": "npx",
+      "args": ["tauri", "dev"],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "label": "Tauri Dev"
+      },
+      "problemMatcher": {
+        "owner": "tauri",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Compiling|Running|tauri",
+          "endsPattern": "Finished|running|WebviewWindow"
+        }
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    // ── 복합: Vite + Cargo build (debugger preLaunchTask용) ──────
+    {
+      "label": "rust: build debug + vite dev",
+      "dependsOn": ["vite: dev server", "cargo: build debug"],
+      "dependsOrder": "parallel",
+      "presentation": {
+        "reveal": "silent"
+      }
+    },
+    // ── 검증 전체 (cargo check + tsc) ───────────────────────────
+    {
+      "label": "verify: all",
+      "dependsOn": ["cargo: check", "tsc: type check"],
+      "dependsOrder": "parallel",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ]
+}

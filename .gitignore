@@ -1,0 +1,46 @@
+# ── 환경변수 / 민감 정보 (절대 커밋 금지) ───────────────────────
+.env
+.env.local
+.env.production
+secure_config.json
+discord_config.json
+profiles.json
+
+# ── 거래 데이터 및 로그 (로컬 전용) ────────────────────────────
+/data/
+/logs/
+
+# ── 빌드 산출물 ─────────────────────────────────────────────────
+# Vite / React
+/dist/
+
+# Rust / Cargo (모든 depth)
+target/
+**/target/
+src-tauri/target/
+
+# Tauri 번들 산출물
+src-tauri/gen/
+*.app
+*.dmg
+*.deb
+*.rpm
+*.msi
+*.exe
+
+# ── 의존성 ──────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ── 에디터 ──────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*.log.*
+
+# ── OS ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
