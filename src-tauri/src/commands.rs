@@ -1035,3 +1035,15 @@ pub async fn get_recent_logs(
 ) -> CmdResult<Vec<crate::logging::LogEntry>> {
     Ok(crate::logging::read_recent_entries(&state.log_dir, count as usize))
 }
+
+// ── 업데이트 확인 ────────────────────────────────────────────────
+#[tauri::command]
+pub async fn check_for_update() -> CmdResult<crate::updater::UpdateInfo> {
+    let client = reqwest::Client::new();
+    crate::updater::check(&client)
+        .await
+        .map_err(|message| CmdError {
+            code: "UPDATE_CHECK_FAILED".into(),
+            message,
+        })
+}

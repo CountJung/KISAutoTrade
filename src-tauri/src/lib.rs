@@ -7,6 +7,7 @@ pub mod notifications;
 pub mod server;
 pub mod storage;
 pub mod trading;
+pub mod updater;
 
 use std::path::PathBuf;
 use tauri::Manager;
@@ -127,6 +128,7 @@ pub fn run() {
             commands::refresh_stock_list,
             commands::get_kis_executed_by_range,
             commands::get_recent_logs,
+            commands::check_for_update,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri 애플리케이션 실행 중 오류 발생");

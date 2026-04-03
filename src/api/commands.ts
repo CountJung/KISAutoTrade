@@ -26,6 +26,7 @@ import type {
   StrategyView,
   TradeRecord,
   TradingStatus,
+  UpdateInfo,
   UpdateProfileInput,
   UpdateStrategyInput,
 } from './types'
@@ -146,3 +147,7 @@ export const setLogConfig = (input: SetLogConfigInput): Promise<LogConfig> =>
 // ─── 프론트엔드 로그 기록 ─────────────────────────────────────────
 export const writeFrontendLog = (input: FrontendLogInput): Promise<void> =>
   invoke('write_frontend_log', { input })
+
+// ─── 업데이트 확인 ────────────────────────────────────────────────
+export const checkForUpdate = (): Promise<UpdateInfo> =>
+  invoke('check_for_update')

@@ -45,6 +45,14 @@
         "windowSize": { "width": 660, "height": 400 }
       }
     },
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": false,
+        "languages": ["Korean"],
+        "installMode": "perMachine"
+      },
+      "wix": null
+    },
     "shortDescription": "개인용 자동 주식 매매 시스템"
   }
 }

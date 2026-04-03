@@ -254,3 +254,12 @@ export interface ChartDataInput {
   start_date: string    // YYYYMMDD
   end_date: string      // YYYYMMDD
 }
+
+// ─── 업데이트 정보 ────────────────────────────────────────────────
+export interface UpdateInfo {
+  hasUpdate: boolean
+  currentVersion: string
+  latestVersion: string
+  releaseUrl: string
+  releaseNotes: string | null
+}

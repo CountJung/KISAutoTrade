@@ -7,7 +7,7 @@
 > - 추측이 아닌 이 맵을 기반으로 작업한다.
 
 **마지막 업데이트**: 2026-04-03  
-**프로젝트 상태**: Phase 1~6 완료 / Phase 7 진행 중 (멀티 계좌 프로파일 관리 완료)
+**프로젝트 상태**: Phase 1~6 완료 / Phase 7 진행 중 (업데이트 확인 기능 + 앱 빌드 모드 세팅 완료)
 
 ---
 
@@ -102,9 +102,11 @@ AutoConditionTrade/                   ← 루트
 │       │   └── types.rs              ← NotificationLevel/Event, to_discord_message()
 │       ├── logging/
 │       │   └── mod.rs                ← tracing-appender (app.log, error.log) ✅
-│       ├── commands.rs               ← AppState + 13개 IPC 커맨드 핸들러 (check_config 포함) ✅
+│       ├── commands.rs               ← AppState + IPC 커맨드 핸들러 (check_for_update 포함) ✅
 │       └── config/
 │           └── mod.rs                ← AccountProfile, ProfilesConfig, AppConfig(from_profile), DiscordConfig ✅
+│       ├── updater/
+│           └── mod.rs                ← GitHub Releases API 버전 확인 (check_for_update IPC) ✅
 │
 ├── data/                             ← JSON 데이터 (git ignore)
 ├── log/                              ← 로그 파일 (git ignore)

@@ -33,6 +33,7 @@ import type {
   StrategyView,
   TradeRecord,
   TradingStatus,
+  UpdateInfo,
   UpdateProfileInput,
   UpdateStrategyInput,
 } from './types'
@@ -57,6 +58,7 @@ export const KEYS = {
   stockSearch: (q: string) => ['stockSearch', q] as const,
   kisExecuted: (from: string, to: string) => ['kisExecuted', from, to] as const,
   recentLogs: ['recentLogs'] as const,
+  updateCheck: ['updateCheck'] as const,
 }
 
 // ─── 앱 설정 ───────────────────────────────────────────────────────
@@ -441,4 +443,17 @@ export const frontendLogger = {
     console.debug(`[${context ?? 'frontend'}] ${message}`)
     cmd.writeFrontendLog({ level: 'debug', message, context }).catch(() => {})
   },
+}
+
+// ─── 업데이트 확인 ────────────────────────────────────────────────
+export function useUpdateCheck() {
+  return useQuery<UpdateInfo>({
+    queryKey: KEYS.updateCheck,
+    queryFn: cmd.checkForUpdate,
+    // 앱 시작 시 한 번만 확인. 성공하면 24시간 동안 재요청 안 함
+    staleTime: 1000 * 60 * 60 * 24,
+    retry: 1,
+    // 실패해도 UI 먹스에 영향 없음
+    throwOnError: false,
+  })
 }
