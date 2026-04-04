@@ -37,6 +37,7 @@ import type {
   UpdateProfileInput,
   UpdateStrategyInput,
   WebConfig,
+  DetectTradingTypeResult,
 } from './types'
 
 // ─── Query Keys ────────────────────────────────────────────────────
@@ -353,6 +354,26 @@ export function useSetActiveProfile() {
       void qc.invalidateQueries({ queryKey: KEYS.checkConfig })
       // 프로파일 전환 시 잔고 캠시 무효화
       void qc.invalidateQueries({ queryKey: KEYS.balance })
+    },
+  })
+}
+
+/** APP KEY + APP SECRET으로 실전/모의투자를 자동 감지합니다. */
+export function useDetectTradingType() {
+  return useMutation<DetectTradingTypeResult, Error, { appKey: string; appSecret: string }>({
+    mutationFn: ({ appKey, appSecret }) => cmd.detectTradingType(appKey, appSecret),
+  })
+}
+
+/** 저장된 프로파일 키로 실전/모의 감지 후 즉시 저장합니다. */
+export function useDetectProfileTradingType() {
+  const qc = useQueryClient()
+  return useMutation<AccountProfileView, Error, string>({
+    mutationFn: (profileId) => cmd.detectProfileTradingType(profileId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: KEYS.profiles })
+      void qc.invalidateQueries({ queryKey: KEYS.appConfig })
+      void qc.invalidateQueries({ queryKey: KEYS.checkConfig })
     },
   })
 }

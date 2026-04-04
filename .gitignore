@@ -33,6 +33,9 @@ node_modules/
 .pnp
 .pnp.js
 
+# ── Cargo 로컬 설정 (머신별 경로 포함, 커밋 금지) ──────────────
+.cargo/config.toml
+
 # ── 에디터 ──────────────────────────────────────────────────────
 .vscode/settings.json
 .idea/
@@ -42,5 +45,6 @@ node_modules/
 
 # ── OS ──────────────────────────────────────────────────────────
 .DS_Store
+._*
 Thumbs.db
 Desktop.ini

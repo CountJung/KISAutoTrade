@@ -6,8 +6,8 @@
 > - 이 파일이 최신 상태가 아니라면 작업 전에 먼저 갱신한다.
 > - 추측이 아닌 이 맵을 기반으로 작업한다.
 
-**마지막 업데이트**: 2026-04-03  
-**프로젝트 상태**: Phase 1~6 완료 / Phase 7 진행 중 (업데이트 확인 기능 + 앱 빌드 모드 세팅 완료)
+**마지막 업데이트**: 2026-04-04  
+**프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (멀티 프로파일·차트·로그 설정·종목 검색 완료)
 
 ---
 
@@ -31,15 +31,22 @@ AutoConditionTrade/                   ← 루트
 │
 ├── agent.md                          ← [이 파일] 하네스 구조 맵 (항상 최신)
 ├── MasterPlan.md                     ← 전체 설계 문서
+├── TodoList.md                       ← Phase별 할 일 목록 (항상 최신)
 ├── Cargo.toml                        ← Rust workspace 루트 (resolver="2", profile 설정)
-├── package.json                      ← npm 패키지 설정
-├── vite.config.ts                    ← Vite 빌드 설정 (port:1420)
+├── package.json                      ← npm 패키지 설정 (engines: node>=20)
+├── vite.config.ts                    ← Vite 빌드 설정 (port:1420, 청크 분리)
 ├── tsconfig.json / tsconfig.node.json
 ├── index.html                        ← HTML 진입점 (테마 Hydration 스크립트 포함)
-├── .gitignore                        ← 민감 파일/데이터/빌드 제외
+├── .nvmrc                            ← Node.js 버전 고정 (25.9.0) ✅
+├── .gitignore                        ← 민감 파일/데이터/빌드/.cargo/config.toml 제외
+├── .cargo/
+│   └── config.toml                   ← Cargo 로컬 설정 (gitignore, 머신별 target-dir)
 ├── .env.example                      ← 환경변수 예시
 ├── secure_config.example.json        ← 민감 설정 템플릿 (실전/모의 키 포함) ✅
 ├── profiles.json                     ← 멀티 계좌 프로파일 (git ignore, 로컬 전용)
+│
+├── scripts/
+│   └── setup-local.sh                ← 로컬 환경 초기 설정 스크립트 (macOS exFAT 대응) ✅
 │
 ├── docs/
 │   ├── discord-setup-guide.md        ← Discord 봇 연계 상세 가이드 ✅
@@ -50,9 +57,9 @@ AutoConditionTrade/                   ← 루트
 │   ├── router/
 │   │   └── index.ts                  ← TanStack Router 코드 기반 라우팅 ✅
 │   ├── api/
-│   │   ├── types.ts                  ← Rust 타입 미러 (TypeScript, ConfigDiagnostic 포함) ✅
-│   │   ├── commands.ts               ← invoke() 래퍼 함수 13종 (checkConfig 포함) ✅
-│   │   └── hooks.ts                  ← TanStack Query 훅 모음 (useCheckConfig 포함) ✅
+│   │   ├── types.ts                  ← Rust 타입 미러 (TypeScript, 모든 IPC 응답 타입) ✅
+│   │   ├── commands.ts               ← invoke() 래퍼 함수 35종 ✅
+│   │   └── hooks.ts                  ← TanStack Query 훅 모음 (KEYS 상수 관리) ✅
 │   ├── theme/
 │   │   └── index.ts                  ← createAppTheme, getResolvedMode, Hydration ✅
 │   ├── store/
@@ -60,16 +67,19 @@ AutoConditionTrade/                   ← 루트
 │   │   ├── accountStore.ts           ← 계좌 잔고 상태 ✅
 │   │   └── tradingStore.ts           ← 자동매매 실행 상태 ✅
 │   ├── components/
+│   │   ├── LayoutResizer.tsx         ← 사이드바 드래그 리사이즈 ✅
+│   │   ├── chart/
+│   │   │   └── StockChart.tsx        ← lightweight-charts v5 캔들 차트 ✅
 │   │   └── layout/
 │   │       ├── AppShell.tsx          ← 전체 레이아웃 + ThemeProvider + Outlet ✅
 │   │       └── Sidebar.tsx           ← MUI permanent/temporary Drawer ✅
 │   └── pages/
-│       ├── Dashboard.tsx             ← 잔고/수익 카드, 당일 거래 목록 (IPC 연결) ✅
-│       ├── Trading.tsx               ← 수동 매수/매도 폼 + 체결 내역 ✅
-│       ├── Strategy.tsx              ← MA Cross 전략 ON/OFF, 파라미터 설정 ✅
+│       ├── Dashboard.tsx             ← 잔고/수익 카드, 당일 거래 목록, 포지션 테이블 ✅
+│       ├── Trading.tsx               ← 수동 매수/매도 폼 + 종목 검색 + 체결 내역 ✅
+│       ├── Strategy.tsx              ← MA Cross 전략 ON/OFF, 파라미터 설정 (IPC 연결) ✅
 │       ├── History.tsx               ← 날짜 범위 조회, 통계 요약, 거래 테이블 ✅
 │       ├── Log.tsx                   ← 레벨 필터, 검색, 색상 구분 로그 뷰어 ✅
-│       ├── Settings.tsx              ← Discord 테스트, API 키 표시, 테마 설정, 멀티 계좌 프로파일 관리 ✅
+│       ├── Settings.tsx              ← Discord 테스트, API 키 표시, 테마 설정, 멀티 계좌 프로파일, 웹 포트 ✅
 │
 ├── src-tauri/                        ← Rust Backend
 │   ├── Cargo.toml                    ← Tauri v2 + reqwest + tokio + tracing 등
@@ -84,10 +94,16 @@ AutoConditionTrade/                   ← 루트
 │       │   ├── rest.rs               ← KisRestClient — get_balance, place_order, get_today_executed_orders, get_price ✅
 │       │   ├── token.rs              ← TokenManager — issue_token, get_token, is_expired (auto-refresh) ✅
 │       │   └── websocket.rs          ← KisWebSocketClient — subscribe, parse_realtime_price ✅
+│       ├── market/
+│       │   └── mod.rs                ← KRX 종목 목록 StockList (CSV 파싱, 캐시, 이름/코드 검색) ✅
+│       ├── server/
+│       │   └── mod.rs                ← axum 웹 서버 (ServeDir, REST proxy — WEB_PORT 기본 7474) ✅
+│       ├── updater/
+│       │   └── mod.rs                ← GitHub Releases API 버전 확인 (check_for_update IPC) ✅
 │       ├── trading/
-│       │   ├── mod.rs
+│       │   ├── mod.rs                ← 장 시간 감지, 전략 루프 실행 ✅
 │       │   ├── strategy.rs           ← Strategy trait, MovingAverageCrossStrategy, StrategyManager ✅
-│       │   ├── order.rs              ← OrderManager 스텁
+│       │   ├── order.rs              ← OrderManager 스텁 (미구현)
 │       │   ├── position.rs           ← PositionTracker (add_buy/reduce/unrealized_pnl) ✅
 │       │   └── risk.rs               ← RiskManager (emergency_stop, record_pnl, check_position_size) ✅
 │       ├── storage/                  ← 연/월/일 JSON 파일 I/O ✅
@@ -146,22 +162,72 @@ AutoConditionTrade/                   ← 루트
 
 ---
 
-## 4. IPC Command 목록 (Tauri)
+## 4. IPC Command 목록 (Tauri) — 35개
 
-| Command | 방향 | 설명 |
-|---------|------|------|
-| `get_balance` | Frontend → Backend | 잔고 조회 |
-| `place_order` | Frontend → Backend | 수동 주문 |
-| `get_orders` | Frontend → Backend | 주문 이력 조회 |
-| `get_trades` | Frontend → Backend | 체결 기록 조회 (날짜 범위) |
-| `get_daily_stats` | Frontend → Backend | 일별 통계 조회 |
-| `start_trading` | Frontend → Backend | 자동 매매 시작 |
-| `stop_trading` | Frontend → Backend | 자동 매매 정지 |
-| `get_strategies` | Frontend → Backend | 전략 목록 조회 |
-| `save_settings` | Frontend → Backend | 설정 저장 |
-| `send_test_notification` | Frontend → Backend | Discord 테스트 알림 전송 |
-| `get_app_config` | Frontend → Backend | 앱 설정 조회 (키 마스킹, 모드) |
-| `check_config` | Frontend → Backend | API 설정 진단 (ConfigDiagnostic 반환) |
+### 설정 / 프로파일
+
+| Command | 설명 |
+|---------|------|
+| `get_app_config` | 앱 설정 조회 (키 마스킹, 모드) |
+| `check_config` | API 설정 진단 (ConfigDiagnostic 반환) |
+| `list_profiles` | 멀티 계좌 프로파일 목록 조회 |
+| `add_profile` | 프로파일 추가 |
+| `update_profile` | 프로파일 수정 |
+| `delete_profile` | 프로파일 삭제 |
+| `set_active_profile` | 활성 프로파일 전환 (REST 클라이언트 재초기화) |
+| `get_web_config` | 웹 서버 포트 설정 조회 |
+| `save_web_config` | 웹 서버 포트 저장 (.env) |
+
+### 시세 / 주문
+
+| Command | 설명 |
+|---------|------|
+| `get_balance` | 잔고 조회 (BalanceSummary + items) |
+| `get_price` | 종목 현재가 조회 |
+| `get_chart_data` | 종목 차트 데이터 조회 (일봉) |
+| `place_order` | 수동 주문 (매수/매도) |
+| `get_today_executed` | 당일 체결 내역 (KIS API) |
+| `search_stock` | 종목명/코드 검색 (캐시된 KRX 목록) |
+| `refresh_stock_list` | KRX 종목 목록 강제 갱신 |
+| `get_kis_executed_by_range` | KIS API 날짜 범위 체결 조회 |
+
+### 거래 기록 / 통계
+
+| Command | 설명 |
+|---------|------|
+| `get_today_trades` | 당일 저장된 거래 기록 조회 |
+| `get_trades_by_range` | 날짜 범위 거래 기록 조회 (JSON 파일) |
+| `get_today_stats` | 당일 통계 조회 |
+| `get_stats_by_range` | 날짜 범위 통계 조회 |
+| `save_trade` | 체결 기록 JSON 저장 |
+| `upsert_daily_stats` | 일별 통계 저장/갱신 |
+
+### 자동 매매
+
+| Command | 설명 |
+|---------|------|
+| `get_trading_status` | 자동 매매 실행 상태 조회 |
+| `start_trading` | 자동 매매 시작 |
+| `stop_trading` | 자동 매매 정지 |
+| `get_positions` | 포지션 목록 조회 |
+| `get_strategies` | 전략 목록 조회 |
+| `update_strategy` | 전략 파라미터 업데이트 |
+
+### 로그
+
+| Command | 설명 |
+|---------|------|
+| `get_log_config` | 로그 설정 조회 (보관 기간, 최대 용량) |
+| `set_log_config` | 로그 설정 저장 |
+| `write_frontend_log` | 프론트엔드 로그 → 백엔드 파일 기록 |
+| `get_recent_logs` | 최근 로그 라인 조회 |
+
+### 알림 / 업데이트
+
+| Command | 설명 |
+|---------|------|
+| `send_test_discord` | Discord 테스트 알림 전송 |
+| `check_for_update` | GitHub Releases API 버전 확인 |
 
 ---
 
@@ -245,6 +311,7 @@ KIS_IS_PAPER_TRADING=false   # 기본값: 실전투자
 |------|----------|--------|
 | 2025-07-04 | 최초 생성 (Phase 1~6 완료 상태) | AI Agent |
 | 2025-07-16 | Phase 7: 듀얼 키 설정, check_config IPC, Settings UI 진단, secure_config.example.json | AI Agent |
+| 2026-04-04 | Phase 7 완료 확인. Phase 8 주요 기능 반영: market/server/updater 모듈, 35개 IPC 커맨드 목록 전면 갱신, scripts/setup-local.sh, .nvmrc, .cargo/config.toml 크로스플랫폼 처리, TodoList 동기화 | AI Agent |
 
 ---
 

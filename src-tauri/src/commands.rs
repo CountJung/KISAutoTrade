@@ -1104,3 +1104,255 @@ pub async fn save_web_config(new_port: u16) -> CmdResult<String> {
     tracing::info!(".env 저장 완료 — WEB_PORT={}", new_port);
     Ok(format!(".env 저장 완료: WEB_PORT={}", new_port))
 }
+
+// ────────────────────────────────────────────────────────────────────
+// 실전/모의투자 자동 감지
+// ────────────────────────────────────────────────────────────────────
+
+/// 실전/모의 토큰 발급 테스트용 요청 바디
+#[derive(Serialize)]
+struct DetectTokenReq {
+    grant_type: String,
+    appkey: String,
+    appsecret: String,
+}
+
+/// 자동 감지 결과
+#[derive(Debug, Serialize)]
+pub struct DetectTradingTypeResult {
+    /// true = 모의투자, false = 실전투자
+    pub is_paper_trading: bool,
+    pub message: String,
+}
+
+/// APP KEY + APP SECRET으로 실전/모의투자 여부를 자동 감지합니다.
+///
+/// 실전 URL → 모의 URL 순서로 토큰 발급을 시도하여
+/// 실제로 `access_token`이 반환된 환경을 기준으로 판별합니다.
+#[tauri::command]
+pub async fn detect_trading_type(
+    app_key: String,
+    app_secret: String,
+) -> CmdResult<DetectTradingTypeResult> {
+    const REAL_URL: &str = "https://openapi.koreainvestment.com:9443/oauth2/tokenP";
+    const PAPER_URL: &str = "https://openapivts.koreainvestment.com:29443/oauth2/tokenP";
+
+    if app_key.trim().is_empty() || app_secret.trim().is_empty() {
+        return Err(CmdError {
+            code: "INVALID_INPUT".into(),
+            message: "APP KEY와 APP SECRET을 모두 입력하세요.".into(),
+        });
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| CmdError {
+            code: "CLIENT_BUILD".into(),
+            message: e.to_string(),
+        })?;
+
+    // ── 실전투자 URL 시도 ──────────────────────────────────────────
+    let real_result = client
+        .post(REAL_URL)
+        .header("content-type", "application/json; charset=utf-8")
+        .json(&DetectTokenReq {
+            grant_type: "client_credentials".into(),
+            appkey: app_key.clone(),
+            appsecret: app_secret.clone(),
+        })
+        .send()
+        .await;
+
+    if let Ok(resp) = real_result {
+        if resp.status().is_success() {
+            if let Ok(val) = resp.json::<serde_json::Value>().await {
+                let token_ok = val
+                    .get("access_token")
+                    .and_then(|v| v.as_str())
+                    .map(|t| !t.is_empty())
+                    .unwrap_or(false);
+                if token_ok {
+                    tracing::info!("자동 감지 완료: 실전투자 키");
+                    return Ok(DetectTradingTypeResult {
+                        is_paper_trading: false,
+                        message: "실전투자 키로 확인되었습니다.".into(),
+                    });
+                }
+            }
+        }
+    }
+
+    // ── 모의투자 URL 시도 ──────────────────────────────────────────
+    let paper_result = client
+        .post(PAPER_URL)
+        .header("content-type", "application/json; charset=utf-8")
+        .json(&DetectTokenReq {
+            grant_type: "client_credentials".into(),
+            appkey: app_key,
+            appsecret: app_secret,
+        })
+        .send()
+        .await;
+
+    if let Ok(resp) = paper_result {
+        if resp.status().is_success() {
+            if let Ok(val) = resp.json::<serde_json::Value>().await {
+                let token_ok = val
+                    .get("access_token")
+                    .and_then(|v| v.as_str())
+                    .map(|t| !t.is_empty())
+                    .unwrap_or(false);
+                if token_ok {
+                    tracing::info!("자동 감지 완료: 모의투자 키");
+                    return Ok(DetectTradingTypeResult {
+                        is_paper_trading: true,
+                        message: "모의투자 키로 확인되었습니다.".into(),
+                    });
+                }
+            }
+        }
+    }
+
+    Err(CmdError {
+        code: "DETECT_FAILED".into(),
+        message: "실전/모의 키를 자동 감지하지 못했습니다. 네트워크 또는 API 키를 확인하거나 직접 선택해 주세요.".into(),
+    })
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 기존 프로파일의 실전/모의 자동 감지 + 즉시 저장
+// ────────────────────────────────────────────────────────────────────
+
+/// 저장된 프로파일의 실제 키로 실전/모의 여부를 감지하고 자동으로 업데이트합니다.
+///
+/// detect_trading_type 과 달리 키를 UI로 전달할 필요 없이
+/// profile_id 하나로 백엔드가 직접 저장된 키를 읽어 판별합니다.
+#[tauri::command]
+pub async fn detect_profile_trading_type(
+    profile_id: String,
+    state: State<'_, AppState>,
+) -> CmdResult<ProfileView> {
+    // 1) 해당 프로파일의 키 복사 (read lock 빠르게 해제)
+    let (app_key, app_secret) = {
+        let profiles = state.profiles.read().await;
+        let p = profiles
+            .profiles
+            .iter()
+            .find(|p| p.id == profile_id)
+            .ok_or_else(|| CmdError {
+                code: "PROFILE_NOT_FOUND".into(),
+                message: format!("프로파일을 찾을 수 없습니다: {}", profile_id),
+            })?;
+        if p.app_key.is_empty() || p.app_secret.is_empty() {
+            return Err(CmdError {
+                code: "KEY_NOT_SET".into(),
+                message: "APP KEY 또는 APP SECRET이 설정되지 않았습니다.".into(),
+            });
+        }
+        (p.app_key.clone(), p.app_secret.clone())
+    };
+
+    // 2) 실전/모의 토큰 발급 시도 (detect_trading_type 로직 재사용)
+    const REAL_URL: &str = "https://openapi.koreainvestment.com:9443/oauth2/tokenP";
+    const PAPER_URL: &str = "https://openapivts.koreainvestment.com:29443/oauth2/tokenP";
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| CmdError {
+            code: "CLIENT_BUILD".into(),
+            message: e.to_string(),
+        })?;
+
+    let mut detected_paper: Option<bool> = None;
+
+    // 실전 시도
+    if let Ok(resp) = client
+        .post(REAL_URL)
+        .header("content-type", "application/json; charset=utf-8")
+        .json(&DetectTokenReq {
+            grant_type: "client_credentials".into(),
+            appkey: app_key.clone(),
+            appsecret: app_secret.clone(),
+        })
+        .send()
+        .await
+    {
+        if resp.status().is_success() {
+            if let Ok(val) = resp.json::<serde_json::Value>().await {
+                let ok = val
+                    .get("access_token")
+                    .and_then(|v| v.as_str())
+                    .map(|t| !t.is_empty())
+                    .unwrap_or(false);
+                if ok {
+                    detected_paper = Some(false);
+                }
+            }
+        }
+    }
+
+    // 실전 실패 시 모의 시도
+    if detected_paper.is_none() {
+        if let Ok(resp) = client
+            .post(PAPER_URL)
+            .header("content-type", "application/json; charset=utf-8")
+            .json(&DetectTokenReq {
+                grant_type: "client_credentials".into(),
+                appkey: app_key,
+                appsecret: app_secret,
+            })
+            .send()
+            .await
+        {
+            if resp.status().is_success() {
+                if let Ok(val) = resp.json::<serde_json::Value>().await {
+                    let ok = val
+                        .get("access_token")
+                        .and_then(|v| v.as_str())
+                        .map(|t| !t.is_empty())
+                        .unwrap_or(false);
+                    if ok {
+                        detected_paper = Some(true);
+                    }
+                }
+            }
+        }
+    }
+
+    let is_paper = detected_paper.ok_or_else(|| CmdError {
+        code: "DETECT_FAILED".into(),
+        message: "실전/모의 키를 자동 감지하지 못했습니다. 네트워크 또는 API 키를 확인해 주세요.".into(),
+    })?;
+
+    // 3) 프로파일 업데이트 및 저장
+    let view = {
+        let mut profiles = state.profiles.write().await;
+        let updated = profiles
+            .update(&profile_id, None, Some(is_paper), None, None, None)
+            .ok_or_else(|| CmdError {
+                code: "PROFILE_NOT_FOUND".into(),
+                message: format!("프로파일을 찾을 수 없습니다: {}", profile_id),
+            })?;
+        profile_to_view(&updated, &profiles.active_id)
+    };
+
+    // 4) 해당 프로파일이 활성 프로파일이면 런타임 config도 갱신
+    let is_active = {
+        let profiles = state.profiles.read().await;
+        profiles.active_id.as_deref() == Some(&profile_id)
+    };
+    if is_active {
+        apply_active_profile(&state).await?;
+    }
+
+    save_profiles(&state).await?;
+
+    tracing::info!(
+        "프로파일 '{}' 감지 완료: {}",
+        view.name,
+        if is_paper { "모의투자" } else { "실전투자" }
+    );
+    Ok(view)
+}

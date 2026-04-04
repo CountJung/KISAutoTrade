@@ -138,6 +138,8 @@ pub fn run() {
             commands::check_for_update,
             commands::get_web_config,
             commands::save_web_config,
+            commands::detect_trading_type,
+            commands::detect_profile_trading_type,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri 애플리케이션 실행 중 오류 발생");

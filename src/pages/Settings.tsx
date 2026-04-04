@@ -32,6 +32,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
+import SyncIcon from '@mui/icons-material/Sync'
 
 import { useSettingsStore } from '../store/settingsStore'
 import {
@@ -47,6 +48,8 @@ import {
   useSetLogConfig,
   useWebConfig,
   useSaveWebConfig,
+  useDetectTradingType,
+  useDetectProfileTradingType,
 } from '../api/hooks'
 import type { AccountProfileView, AddProfileInput, UpdateProfileInput } from '../api/types'
 import type { ThemeMode } from '../theme'
@@ -72,9 +75,11 @@ interface ProfileFormState {
   account_no: string
 }
 
+type DetectStatus = 'idle' | 'detecting' | 'detected' | 'failed'
+
 const emptyForm = (): ProfileFormState => ({
   name: '',
-  is_paper_trading: true,
+  is_paper_trading: false,
   app_key: '',
   app_secret: '',
   account_no: '',
@@ -90,7 +95,32 @@ function AddProfileDialog({
 }) {
   const [form, setForm] = useState<ProfileFormState>(emptyForm())
   const [error, setError] = useState<string | null>(null)
+  const [detectStatus, setDetectStatus] = useState<DetectStatus>('idle')
+  const [detectMsg, setDetectMsg] = useState<string>('')
   const { mutate: addProfile, isPending } = useAddProfile()
+  const { mutate: detectType, isPending: isDetecting } = useDetectTradingType()
+
+  const canDetect = form.app_key.trim().length > 0 && form.app_secret.trim().length > 0
+
+  const handleDetect = () => {
+    if (!canDetect) return
+    setDetectStatus('detecting')
+    setDetectMsg('')
+    detectType(
+      { appKey: form.app_key.trim(), appSecret: form.app_secret.trim() },
+      {
+        onSuccess: (res) => {
+          setForm((f) => ({ ...f, is_paper_trading: res.is_paper_trading }))
+          setDetectStatus('detected')
+          setDetectMsg(res.message)
+        },
+        onError: (e) => {
+          setDetectStatus('failed')
+          setDetectMsg(String(e))
+        },
+      },
+    )
+  }
 
   const handleSubmit = () => {
     if (!form.name.trim()) { setError('프로파일 이름을 입력하세요.'); return }
@@ -100,12 +130,16 @@ function AddProfileDialog({
 
     const input: AddProfileInput = { ...form }
     addProfile(input, {
-      onSuccess: () => { setForm(emptyForm()); setError(null); onClose() },
+      onSuccess: () => {
+        setForm(emptyForm()); setError(null); setDetectStatus('idle'); setDetectMsg(''); onClose()
+      },
       onError: (e) => setError(String(e)),
     })
   }
 
-  const handleClose = () => { setForm(emptyForm()); setError(null); onClose() }
+  const handleClose = () => {
+    setForm(emptyForm()); setError(null); setDetectStatus('idle'); setDetectMsg(''); onClose()
+  }
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -117,37 +151,88 @@ function AddProfileDialog({
             label="프로파일 이름"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="예: 모의투자 1호 계좌"
+            placeholder="예: 실전 1호 계좌"
             fullWidth size="small"
-          />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={form.is_paper_trading}
-                onChange={(e) => setForm({ ...form, is_paper_trading: e.target.checked })}
-              />
-            }
-            label={
-              <Chip
-                size="small"
-                label={form.is_paper_trading ? '모의투자' : '실전투자'}
-                color={form.is_paper_trading ? 'warning' : 'primary'}
-              />
-            }
           />
           <TextField
             label="APP KEY"
             value={form.app_key}
-            onChange={(e) => setForm({ ...form, app_key: e.target.value })}
+            onChange={(e) => {
+              setForm({ ...form, app_key: e.target.value })
+              setDetectStatus('idle')
+            }}
             fullWidth size="small" autoComplete="off"
           />
           <TextField
             label="APP SECRET"
             value={form.app_secret}
-            onChange={(e) => setForm({ ...form, app_secret: e.target.value })}
+            onChange={(e) => {
+              setForm({ ...form, app_secret: e.target.value })
+              setDetectStatus('idle')
+            }}
+            onBlur={() => { if (canDetect) handleDetect() }}
             type="password"
             fullWidth size="small" autoComplete="new-password"
           />
+
+          {/* ── 자동 감지 영역 ─────────────────────────────── */}
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Button
+              size="small"
+              variant="outlined"
+              color={detectStatus === 'failed' ? 'error' : 'primary'}
+              startIcon={isDetecting
+                ? <CircularProgress size={14} color="inherit" />
+                : <SyncIcon />
+              }
+              onClick={handleDetect}
+              disabled={!canDetect || isDetecting}
+            >
+              {isDetecting ? '감지 중...' : '실전/모의 자동 감지'}
+            </Button>
+            {detectStatus === 'detected' && (
+              <Chip
+                size="small"
+                label={form.is_paper_trading ? '모의투자' : '실전투자'}
+                color={form.is_paper_trading ? 'warning' : 'primary'}
+              />
+            )}
+            {detectMsg && (
+              <Typography
+                variant="caption"
+                color={detectStatus === 'failed' ? 'error' : 'text.secondary'}
+              >
+                {detectMsg}
+              </Typography>
+            )}
+          </Stack>
+
+          {/* ── 수동 override (감지 실패 또는 직접 변경 시) ── */}
+          <FormControlLabel
+            control={
+              <Switch
+                checked={form.is_paper_trading}
+                onChange={(e) => {
+                  setForm({ ...form, is_paper_trading: e.target.checked })
+                  setDetectStatus('idle')
+                  setDetectMsg('')
+                }}
+              />
+            }
+            label={
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Chip
+                  size="small"
+                  label={form.is_paper_trading ? '모의투자' : '실전투자'}
+                  color={form.is_paper_trading ? 'warning' : 'primary'}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  자동 감지 또는 직접 선택
+                </Typography>
+              </Stack>
+            }
+          />
+
           <TextField
             label="계좌번호 (10자리 입력, 예: 12345678-01)"
             value={form.account_no}
@@ -176,7 +261,10 @@ function EditProfileDialog({
 }) {
   const [form, setForm] = useState<ProfileFormState>(emptyForm())
   const [error, setError] = useState<string | null>(null)
+  const [detectStatus, setDetectStatus] = useState<DetectStatus>('idle')
+  const [detectMsg, setDetectMsg] = useState<string>('')
   const { mutate: updateProfile, isPending } = useUpdateProfile()
+  const { mutate: detectType, isPending: isDetecting } = useDetectTradingType()
 
   // profile 변경 시 form 동기화
   const prevId = form.name === '' ? null : profile?.id
@@ -188,6 +276,31 @@ function EditProfileDialog({
       app_secret: '',
       account_no: profile.account_no,
     })
+    setDetectStatus('idle')
+    setDetectMsg('')
+  }
+
+  // 새 키가 양쪽 모두 입력된 경우에만 감지 가능
+  const canDetect = form.app_key.trim().length > 0 && form.app_secret.trim().length > 0
+
+  const handleDetect = () => {
+    if (!canDetect) return
+    setDetectStatus('detecting')
+    setDetectMsg('')
+    detectType(
+      { appKey: form.app_key.trim(), appSecret: form.app_secret.trim() },
+      {
+        onSuccess: (res) => {
+          setForm((f) => ({ ...f, is_paper_trading: res.is_paper_trading }))
+          setDetectStatus('detected')
+          setDetectMsg(res.message)
+        },
+        onError: (e) => {
+          setDetectStatus('failed')
+          setDetectMsg(String(e))
+        },
+      },
+    )
   }
 
   const handleSubmit = () => {
@@ -203,12 +316,12 @@ function EditProfileDialog({
       account_no: form.account_no || undefined,
     }
     updateProfile(input, {
-      onSuccess: () => { setError(null); onClose() },
+      onSuccess: () => { setError(null); setDetectStatus('idle'); setDetectMsg(''); onClose() },
       onError: (e) => setError(String(e)),
     })
   }
 
-  const handleClose = () => { setError(null); onClose() }
+  const handleClose = () => { setError(null); setDetectStatus('idle'); setDetectMsg(''); onClose() }
 
   return (
     <Dialog open={!!profile} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -222,36 +335,87 @@ function EditProfileDialog({
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             fullWidth size="small"
           />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={form.is_paper_trading}
-                onChange={(e) => setForm({ ...form, is_paper_trading: e.target.checked })}
-              />
-            }
-            label={
-              <Chip
-                size="small"
-                label={form.is_paper_trading ? '모의투자' : '실전투자'}
-                color={form.is_paper_trading ? 'warning' : 'primary'}
-              />
-            }
-          />
           <TextField
             label="APP KEY (변경 시에만 입력)"
             value={form.app_key}
-            onChange={(e) => setForm({ ...form, app_key: e.target.value })}
+            onChange={(e) => {
+              setForm({ ...form, app_key: e.target.value })
+              setDetectStatus('idle')
+            }}
             placeholder={profile?.app_key_masked ?? ''}
             fullWidth size="small" autoComplete="off"
           />
           <TextField
             label="APP SECRET (변경 시에만 입력)"
             value={form.app_secret}
-            onChange={(e) => setForm({ ...form, app_secret: e.target.value })}
+            onChange={(e) => {
+              setForm({ ...form, app_secret: e.target.value })
+              setDetectStatus('idle')
+            }}
+            onBlur={() => { if (canDetect) handleDetect() }}
             type="password"
             placeholder="변경 시에만 입력"
             fullWidth size="small" autoComplete="new-password"
           />
+
+          {/* ── 자동 감지 영역 (새 키 입력 시) ──────────────── */}
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Button
+              size="small"
+              variant="outlined"
+              color={detectStatus === 'failed' ? 'error' : 'primary'}
+              startIcon={isDetecting
+                ? <CircularProgress size={14} color="inherit" />
+                : <SyncIcon />
+              }
+              onClick={handleDetect}
+              disabled={!canDetect || isDetecting}
+            >
+              {isDetecting ? '감지 중...' : '실전/모의 자동 감지'}
+            </Button>
+            {detectStatus === 'detected' && (
+              <Chip
+                size="small"
+                label={form.is_paper_trading ? '모의투자' : '실전투자'}
+                color={form.is_paper_trading ? 'warning' : 'primary'}
+              />
+            )}
+            {detectMsg && (
+              <Typography
+                variant="caption"
+                color={detectStatus === 'failed' ? 'error' : 'text.secondary'}
+              >
+                {detectMsg}
+              </Typography>
+            )}
+          </Stack>
+
+          {/* ── 실전/모의 수동 선택 ───────────────────────────── */}
+          <FormControlLabel
+            control={
+              <Switch
+                checked={form.is_paper_trading}
+                onChange={(e) => {
+                  setForm({ ...form, is_paper_trading: e.target.checked })
+                  setDetectStatus('idle')
+                  setDetectMsg('')
+                }}
+              />
+            }
+            label={
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Chip
+                  size="small"
+                  label={form.is_paper_trading ? '모의투자' : '실전투자'}
+                  color={form.is_paper_trading ? 'warning' : 'primary'}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  자동 감지 또는 직접 선택
+                </Typography>
+              </Stack>
+            }
+          />
+
           <TextField
             label="계좌번호"
             value={form.account_no}
@@ -283,6 +447,15 @@ function ProfileCard({
   onSetActive: (id: string) => void
 }) {
   const { isPending: activating } = useSetActiveProfile()
+  const { mutate: detectProfile, isPending: detecting } = useDetectProfileTradingType()
+  const [detectError, setDetectError] = useState<string | null>(null)
+
+  const handleDetect = () => {
+    setDetectError(null)
+    detectProfile(profile.id, {
+      onError: (e) => setDetectError(String(e)),
+    })
+  }
 
   return (
     <Paper
@@ -296,7 +469,7 @@ function ProfileCard({
     >
       <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
         <Stack spacing={0.5} flex={1}>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
             {profile.is_active ? (
               <RadioButtonCheckedIcon color="primary" fontSize="small" />
             ) : (
@@ -313,11 +486,37 @@ function ProfileCard({
             {!profile.is_configured && (
               <Chip size="small" label="키 미설정" color="error" variant="outlined" />
             )}
+            {/* 실전/모의 자동 감지 버튼 */}
+            {profile.is_configured && (
+              <Tooltip title="저장된 키로 실전/모의 여부를 자동 감지하여 즉시 업데이트합니다">
+                <span>
+                  <Button
+                    size="small"
+                    variant="text"
+                    color="inherit"
+                    startIcon={detecting
+                      ? <CircularProgress size={12} color="inherit" />
+                      : <SyncIcon fontSize="small" />
+                    }
+                    onClick={handleDetect}
+                    disabled={detecting}
+                    sx={{ fontSize: '0.7rem', px: 0.5, minWidth: 0 }}
+                  >
+                    {detecting ? '감지 중...' : '자동 감지'}
+                  </Button>
+                </span>
+              </Tooltip>
+            )}
           </Stack>
           <Typography variant="body2" color="text.secondary" pl={3.5}>
             KEY: <code>{profile.app_key_masked}</code>
             &nbsp;&nbsp;계좌: <code>{profile.account_no || '(미설정)'}</code>
           </Typography>
+          {detectError && (
+            <Typography variant="caption" color="error" pl={3.5}>
+              {detectError}
+            </Typography>
+          )}
         </Stack>
 
         <Stack direction="row" spacing={0.5} alignItems="center">

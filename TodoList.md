@@ -95,7 +95,10 @@
 - [x] 웹 모드 단독 동작 지원 (axum ServeDir + transport layer)
 - [x] Settings 웹 접속 포트 설정 + .env 저장
 - [x] Trading 종목 검색 UI 개선 (돋보기 버튼, 로딩 인디케이터)
-- [ ] `agent.md` 최종 정리
+- [x] KRX 종목 목록 로드/캐시 (`market/mod.rs`, `search_stock` IPC)
+- [x] 로그 설정 UI (`get_log_config` / `set_log_config` IPC — 보관 기간·최대 용량)
+- [x] 프론트엔드 로그 백엔드 전달 (`write_frontend_log` IPC)
+- [x] `agent.md` 최종 정리 ✅ 2026-04-04
 
 ---
 
@@ -105,14 +108,28 @@
 - [x] 포지션 정보 UI 표시 (`get_positions` IPC + Dashboard 포지션 테이블)
 - [x] 전략 IPC 연결 (`get_strategies`, `update_strategy`) + Strategy 페이지 실제 연동
 - [x] Dashboard 설정 미비 경고 배너 + 자동매매 start/stop 버튼
-- [x] 멀티 계좌 프로파일 관리 (Settings 화면)
+- [x] 멀티 계좌 프로파일 관리 (Settings 화면) — add/update/delete/set_active_profile
+- [x] 날짜 범위 KIS API 체결 조회 (`get_kis_executed_by_range` IPC)
+- [x] 최근 로그 조회 (`get_recent_logs` IPC)
+- [x] 차트 데이터 조회 (`get_chart_data` IPC — lightweight-charts v5)
 - [ ] WebSocket 연결 상태 Tauri Event emit → Dashboard 실시간 반영
 - [ ] `trading/order.rs` OrderManager 구현 (현재 stubbed)
 - [ ] 추가 전략 구현 (모멘텀, RSI, 이격도)
-- [ ] 차트 컴포넌트 (History 페이지 일별 PnL 차트)
+- [ ] 차트 컴포넌트 고도화 (History 페이지 일별 PnL 차트 + candlestick 연동)
 - [ ] GitHub Actions CI/CD (Windows + macOS 자동 빌드 & 릴리스)
 - [ ] 웹 모드 고도화 (주문 REST API 추가, 인증 처리)
+- [ ] 실전 매매 검증 (모의투자 완전 통과 후 실전 전환)
+- [ ] 다중 종목 동시 전략 실행 (StrategyManager 확장)
 
 ---
 
-*마지막 업데이트: 2026-04-03*
+## 환경 설정 참고
+
+- **Node.js**: `>=20.0.0` (`.nvmrc`: 25.9.0)
+- **Rust**: 1.93.1+
+- **macOS 외장 드라이브 사용 시**: `./scripts/setup-local.sh` 실행 필수
+  - `.cargo/config.toml` 자동 생성 (gitignore, 머신별 target 경로 분리)
+
+---
+
+*마지막 업데이트: 2026-04-04*

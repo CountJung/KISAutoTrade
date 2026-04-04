@@ -20,6 +20,9 @@ React UI  →  Tauri IPC  →  Rust Backend  →  KIS Open API (REST + WebSocket
 | Token Manager | `src-tauri/src/api/token.rs` |
 | WebSocket | `src-tauri/src/api/websocket.rs` |
 | 전략 엔진 | `src-tauri/src/trading/strategy.rs` |
+| KRX 종목 목록 | `src-tauri/src/market/mod.rs` |
+| 웹 서버 (axum) | `src-tauri/src/server/mod.rs` |
+| 업데이트 확인 | `src-tauri/src/updater/mod.rs` |
 | React 훅 | `src/api/hooks.ts` |
 | TS 타입 미러 | `src/api/types.ts` |
 
@@ -73,6 +76,7 @@ npx vite build
 - DB 없음 — JSON 파일만 사용
 - 경로 패턴: `{app_data_dir}/data/{category}/{YYYY}/{MM}/{DD}/{file}.json`
 - `data/`, `log/`, `.env`, `secure_config.json`은 `.gitignore`에 포함되어야 한다
+- `.cargo/config.toml`은 gitignore에 포함 — macOS 외장 드라이브(exFAT) 사용 시 `scripts/setup-local.sh` 실행으로 자동 생성
 
 ---
 
@@ -97,6 +101,7 @@ npx vite build
 | React 성능 최적화, waterfall, MUI 번들 | `.github/skills/react-best-practices/SKILL.md` |
 | Rust 데이터 구조, trait, 에러 처리, serde | `.github/skills/rust-skills/SKILL.md` |
 | KIS API 인증, REST/WS 호출, tr_id, 에러코드 | `.github/skills/kis-api/SKILL.md` |
+| MUI v6 컴포넌트, 차트, 색상, 금융 UI 컨벤션 | `.github/skills/ui-conventions/SKILL.md` |
 
 ---
 

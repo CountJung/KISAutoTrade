@@ -14,6 +14,7 @@ import type {
   ChartDataInput,
   ConfigDiagnostic,
   DailyStats,
+  DetectTradingTypeResult,
   ExecutedOrder,
   FrontendLogInput,
   LogConfig,
@@ -158,3 +159,11 @@ export const getWebConfig = (): Promise<WebConfig> =>
 
 export const saveWebConfig = (newPort: number): Promise<string> =>
   invoke('save_web_config', { newPort })
+
+// ─── 실전/모의투자 자동 감지 ──────────────────────────────────────
+export const detectTradingType = (appKey: string, appSecret: string): Promise<DetectTradingTypeResult> =>
+  invoke('detect_trading_type', { appKey, appSecret })
+
+/** 저장된 프로파일의 키로 직접 감지 후 is_paper_trading 자동 업데이트 */
+export const detectProfileTradingType = (profileId: string): Promise<AccountProfileView> =>
+  invoke('detect_profile_trading_type', { profileId })

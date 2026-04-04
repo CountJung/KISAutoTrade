@@ -48,6 +48,13 @@ export interface UpdateProfileInput {
   account_no?: string
 }
 
+// ─── 실전/모의투자 자동 감지 결과 ─────────────────────────────────
+export interface DetectTradingTypeResult {
+  /** true = 모의투자, false = 실전투자 */
+  is_paper_trading: boolean
+  message: string
+}
+
 // ─── 진단 모드 ────────────────────────────────────────────────
 export interface ConfigDiagnostic {
   real_key_set: boolean
