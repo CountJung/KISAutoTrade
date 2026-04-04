@@ -24,7 +24,9 @@ import type {
   ExecutedOrder,
   FrontendLogInput,
   LogConfig,
+  OverseasPriceResponse,
   PlaceOrderInput,
+  PlaceOverseasOrderInput,
   PositionView,
   PriceResponse,
   SetLogConfigInput,
@@ -62,6 +64,7 @@ export const KEYS = {
   recentLogs: ['recentLogs'] as const,
   updateCheck: ['updateCheck'] as const,
   webConfig: ['webConfig'] as const,
+  overseasPrice: (exchange: string, symbol: string) => ['overseasPrice', exchange, symbol] as const,
 }
 
 // ─── 앱 설정 ───────────────────────────────────────────────────────
@@ -496,6 +499,36 @@ export function useSaveWebConfig() {
     mutationFn: (newPort) => cmd.saveWebConfig(newPort),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEYS.webConfig })
+    },
+  })
+}
+
+// ─── 해외(미국) 현재가 ───────────────────────────────────────────────
+export function useOverseasPrice(
+  symbol: string,
+  exchange: string,
+  options?: Partial<UseQueryOptions<OverseasPriceResponse>>
+) {
+  return useQuery({
+    queryKey: KEYS.overseasPrice(exchange, symbol),
+    queryFn: () => cmd.getOverseasPrice(symbol, exchange),
+    enabled: !!symbol && !!exchange,
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+    retry: false,
+    ...options,
+  })
+}
+
+// ─── 해외 주문 (지정가 한정) ────────────────────────────────────────
+/** 해외 주문 — 지정가만 지원, USD 단위 가격 입력 */
+export function usePlaceOverseasOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: PlaceOverseasOrderInput) => cmd.placeOverseasOrder(input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: KEYS.balance })
+      void qc.invalidateQueries({ queryKey: KEYS.todayExecuted })
     },
   })
 }

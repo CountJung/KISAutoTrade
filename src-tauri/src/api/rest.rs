@@ -259,6 +259,55 @@ pub struct StockSearchItem {
 }
 
 // ────────────────────────────────────────────────────────────────────
+// 해외 현재가
+// ────────────────────────────────────────────────────────────────────
+
+/// 해외 현재가 응답 (KIS HHDFS76200200)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct OverseasPriceResponse {
+    /// 현지 현재가 (USD 등)
+    pub last: String,
+    /// 전일대비
+    pub diff: String,
+    /// 등락률 (%)
+    pub rate: String,
+    /// 거래량
+    pub tvol: String,
+    /// 종목명
+    pub name: String,
+    /// 시가
+    pub open: String,
+    /// 고가
+    pub high: String,
+    /// 저가
+    pub low: String,
+    /// 52주 최고
+    pub h52p: String,
+    /// 52주 최저
+    pub l52p: String,
+    /// 거래소 심볼 (rsym)
+    pub rsym: String,
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 해외 주문
+// ────────────────────────────────────────────────────────────────────
+
+/// 해외 주문 요청
+#[derive(Debug, Serialize)]
+pub struct OverseasOrderRequest {
+    /// 티커 (AAPL 등)
+    pub symbol: String,
+    /// KIS 거래소 코드 (NASD / NYSE / AMEX)
+    pub exchange: String,
+    pub side: OrderSide,
+    pub quantity: u64,
+    /// USD 가격 (해외는 지정가만 지원)
+    pub price: f64,
+}
+
+// ────────────────────────────────────────────────────────────────────
 // 클라이언트 구현
 // ────────────────────────────────────────────────────────────────────
 
@@ -598,6 +647,130 @@ impl KisRestClient {
         candles.reverse();
         tracing::debug!("차트 데이터 조회 완료: {} ({}) {} 봉", symbol, period_code, candles.len());
         Ok(candles)
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // 해외 현재가 조회
+    // GET /uapi/overseas-price/v1/quotations/price
+    // TR-ID: HHDFS76200200 (실전/모의 공통)
+    // EXCD: NAS(NASDAQ), NYS(NYSE), AMS(AMEX) 등
+    // ──────────────────────────────────────────────────────────
+    pub async fn get_overseas_price(&self, symbol: &str, exchange: &str) -> Result<OverseasPriceResponse> {
+        let url = format!("{}/uapi/overseas-price/v1/quotations/price", self.base_url);
+        let headers = self.auth_headers("HHDFS76200200").await?;
+
+        let resp = self
+            .client
+            .get(&url)
+            .headers(headers)
+            .query(&[("AUTH", ""), ("EXCD", exchange), ("SYMB", symbol)])
+            .send()
+            .await?;
+
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+
+        if !status.is_success() {
+            anyhow::bail!("해외 현재가 조회 실패 HTTP {}: {}", status, body);
+        }
+
+        #[derive(Deserialize)]
+        struct Raw {
+            rt_cd: String,
+            msg1: String,
+            output: Option<OverseasPriceResponse>,
+        }
+
+        let raw: Raw = serde_json::from_str(&body).map_err(|e| {
+            anyhow::anyhow!("해외 현재가 JSON 파싱 실패: {}", e)
+        })?;
+
+        if raw.rt_cd != "0" {
+            anyhow::bail!("해외 현재가 조회 오류: {}", raw.msg1);
+        }
+
+        raw.output.ok_or_else(|| anyhow::anyhow!("해외 현재가 응답 없음"))
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // 해외 주문 (지정가만 지원)
+    // POST /uapi/overseas-stock/v1/trading/order
+    // TR-ID: TTTT1002U(실전매수) TTTT1006U(실전매도)
+    //         VTTT1002U(모의매수) VTTT1006U(모의매도)
+    // ──────────────────────────────────────────────────────────
+    pub async fn place_overseas_order(&self, req: &OverseasOrderRequest) -> Result<OrderResponse> {
+        let tr_id = match (self.is_paper, &req.side) {
+            (false, OrderSide::Buy)  => "TTTT1002U",
+            (false, OrderSide::Sell) => "TTTT1006U",
+            (true,  OrderSide::Buy)  => "VTTT1002U",
+            (true,  OrderSide::Sell) => "VTTT1006U",
+        };
+
+        let (cano, acnt_prdt_cd) = self.split_account();
+        let url = format!("{}/uapi/overseas-stock/v1/trading/order", self.base_url);
+        let headers = self.auth_headers(tr_id).await?;
+
+        #[derive(Serialize)]
+        struct Body<'a> {
+            #[serde(rename = "CANO")]           cano: &'a str,
+            #[serde(rename = "ACNT_PRDT_CD")]   acnt_prdt_cd: &'a str,
+            #[serde(rename = "OVRS_EXCG_CD")]   ovrs_excg_cd: &'a str,
+            #[serde(rename = "PDNO")]            pdno: &'a str,
+            #[serde(rename = "ORD_DVSN")]        ord_dvsn: &'static str,
+            #[serde(rename = "ORD_QTY")]         ord_qty: String,
+            #[serde(rename = "OVRS_ORD_UNPR")]   ovrs_ord_unpr: String,
+            #[serde(rename = "ORD_SVR_DVSN_CD")] ord_svr_dvsn_cd: &'static str,
+        }
+
+        let body = Body {
+            cano,
+            acnt_prdt_cd,
+            ovrs_excg_cd: &req.exchange,
+            pdno: &req.symbol,
+            ord_dvsn: "00", // 지정가
+            ord_qty: req.quantity.to_string(),
+            ovrs_ord_unpr: format!("{:.2}", req.price),
+            ord_svr_dvsn_cd: "0",
+        };
+
+        let resp = self
+            .client
+            .post(&url)
+            .headers(headers)
+            .json(&body)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            anyhow::bail!("해외 주문 실패 HTTP {}: {}", status, text);
+        }
+
+        #[derive(Deserialize)]
+        struct Raw {
+            rt_cd: String,
+            msg1: String,
+            output: Option<OverseasOrderOutput>,
+        }
+        #[derive(Deserialize)]
+        struct OverseasOrderOutput {
+            odno: Option<String>,
+            ord_tmd: Option<String>,
+        }
+
+        let raw: Raw = resp.json().await?;
+        if raw.rt_cd != "0" {
+            anyhow::bail!("해외 주문 오류: {}", raw.msg1);
+        }
+
+        let out = raw.output.unwrap_or(OverseasOrderOutput { odno: None, ord_tmd: None });
+        Ok(OrderResponse {
+            odno: out.odno.unwrap_or_default(),
+            ord_tmd: out.ord_tmd.unwrap_or_default(),
+            rt_cd: raw.rt_cd,
+            msg1: raw.msg1,
+        })
     }
 
     // ──────────────────────────────────────────────────────────

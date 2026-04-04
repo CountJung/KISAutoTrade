@@ -94,9 +94,10 @@ pub fn run() {
             {
                 let st: tauri::State<AppState> = app.state();
                 let rest_client = st.rest_client.clone();
+                let stock_list  = st.stock_list.clone();
                 let port = st.web_port;
                 tauri::async_runtime::spawn(async move {
-                    server::start(rest_client, port).await;
+                    server::start(rest_client, stock_list, port).await;
                 });
             }
 
@@ -140,6 +141,8 @@ pub fn run() {
             commands::save_web_config,
             commands::detect_trading_type,
             commands::detect_profile_trading_type,
+            commands::get_overseas_price,
+            commands::place_overseas_order,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri 애플리케이션 실행 중 오류 발생");

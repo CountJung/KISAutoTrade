@@ -2,7 +2,7 @@
  * Tauri IPC invoke 래퍼
  * 모든 커맨드 호출 시 에러를 타입 안전하게 처리합니다.
  */
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from './transport'
 
 import type {
   AccountProfileView,
@@ -19,7 +19,9 @@ import type {
   FrontendLogInput,
   LogConfig,
   OrderResponse,
+  OverseasPriceResponse,
   PlaceOrderInput,
+  PlaceOverseasOrderInput,
   PositionView,
   PriceResponse,
   SetLogConfigInput,
@@ -167,3 +169,12 @@ export const detectTradingType = (appKey: string, appSecret: string): Promise<De
 /** 저장된 프로파일의 키로 직접 감지 후 is_paper_trading 자동 업데이트 */
 export const detectProfileTradingType = (profileId: string): Promise<AccountProfileView> =>
   invoke('detect_profile_trading_type', { profileId })
+
+// ─── 해외(미국) 주식 ───────────────────────────────────────────────
+/** 해외 현재가 조회 (NAS/NYS/AMS) */
+export const getOverseasPrice = (symbol: string, exchange: string): Promise<OverseasPriceResponse> =>
+  invoke('get_overseas_price', { symbol, exchange })
+
+/** 해외 주식 주문 (지정가 한정) */
+export const placeOverseasOrder = (input: PlaceOverseasOrderInput): Promise<OrderResponse> =>
+  invoke('place_overseas_order', { input })

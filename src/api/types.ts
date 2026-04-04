@@ -270,6 +270,48 @@ export interface UpdateInfo {
   releaseUrl: string
   releaseNotes: string | null
 }
+// ─── 해외(미국) 주식 ───────────────────────────────────────────────
+/** KIS 해외 거래소 코드 */
+export type OverseasExchange = 'NAS' | 'NYS' | 'AMS'
+/** KIS 해외 주문용 거래소 코드 (TR-ID OVRS_EXCG_CD) */
+export type OverseasOrderExchange = 'NASD' | 'NYSE' | 'AMEX'
+
+export interface OverseasPriceResponse {
+  /** 현지 현재가 (USD 등) */
+  last: string
+  /** 전일대비 */
+  diff: string
+  /** 등락률 (%) */
+  rate: string
+  /** 거래량 */
+  tvol: string
+  /** 종목명 */
+  name: string
+  /** 시가 */
+  open: string
+  /** 고가 */
+  high: string
+  /** 저가 */
+  low: string
+  /** 52주 최고 */
+  h52p: string
+  /** 52주 최저 */
+  l52p: string
+  /** 거래소 코드 (NAS/NYS/AMS) */
+  exchange: string
+  /** 티커 (AAPL 등) */
+  symbol: string
+}
+
+export interface PlaceOverseasOrderInput {
+  symbol: string
+  exchange: OverseasOrderExchange
+  side: OrderSide
+  /** 해외는 지정가만 지원 */
+  price: number
+  quantity: number
+}
+
 // ─── 웹 접속 설정 ─────────────────────────────────────────────────
 export interface WebConfig {
   runningPort: number

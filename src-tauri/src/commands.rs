@@ -1356,3 +1356,88 @@ pub async fn detect_profile_trading_type(
     );
     Ok(view)
 }
+
+// ────────────────────────────────────────────────────────────────────
+// 해외(미국) 주식 현재가 조회
+// ────────────────────────────────────────────────────────────────────
+
+/// 해외 현재가 뷰 (camelCase → TypeScript 1:1)
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverseasPriceView {
+    pub symbol: String,
+    pub exchange: String,
+    pub name: String,
+    pub last: String,
+    pub diff: String,
+    pub rate: String,
+    pub open: String,
+    pub high: String,
+    pub low: String,
+    pub h52p: String,
+    pub l52p: String,
+    pub tvol: String,
+}
+
+/// 해외 주문 입력 (TypeScript PlaceOverseasOrderInput 1:1)
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverseasOrderInput {
+    pub symbol: String,
+    pub exchange: String, // NASD / NYSE / AMEX
+    pub side: String,
+    pub price: f64,
+    pub quantity: u64,
+}
+
+#[tauri::command]
+pub async fn get_overseas_price(
+    symbol: String,
+    exchange: String,
+    state: State<'_, AppState>,
+) -> CmdResult<OverseasPriceView> {
+    let client = state.rest_client.read().await.clone();
+    let resp = client
+        .get_overseas_price(&symbol, &exchange)
+        .await
+        .map_err(CmdError::from)?;
+
+    Ok(OverseasPriceView {
+        symbol,
+        exchange,
+        name:  resp.name,
+        last:  resp.last,
+        diff:  resp.diff,
+        rate:  resp.rate,
+        open:  resp.open,
+        high:  resp.high,
+        low:   resp.low,
+        h52p:  resp.h52p,
+        l52p:  resp.l52p,
+        tvol:  resp.tvol,
+    })
+}
+
+#[tauri::command]
+pub async fn place_overseas_order(
+    input: OverseasOrderInput,
+    state: State<'_, AppState>,
+) -> CmdResult<OrderResponse> {
+    use crate::api::rest::{OrderSide, OverseasOrderRequest};
+
+    let side = match input.side.as_str() {
+        "Buy" => OrderSide::Buy,
+        _ => OrderSide::Sell,
+    };
+
+    let req = OverseasOrderRequest {
+        symbol: input.symbol,
+        exchange: input.exchange,
+        side,
+        quantity: input.quantity,
+        price: input.price,
+    };
+
+    let client = state.rest_client.read().await.clone();
+    client.place_overseas_order(&req).await.map_err(CmdError::from)
+}
