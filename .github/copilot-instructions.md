@@ -41,7 +41,8 @@ npx tsc --noEmit
 npx vite build
 ```
 
-모든 변경 후 `cargo check` → `npx tsc --noEmit` 순서로 검증한다.
+모든 변경 후 `cargo check` → `npx tsc --noEmit` 순서로 검증한다.  
+**경고(warning) 0개**를 목표로 한다. 경고가 남아있으면 완료로 보고하지 않는다.
 
 ---
 
@@ -50,6 +51,7 @@ npx vite build
 ### Rust
 
 - `cargo check` 성공 없이 코드 완료로 보고하지 않는다
+- `cargo check` 및 빌드에서 발생하는 **경고(warning)도 반드시 해소**한다. `#[allow(...)]` 어트리뷰트는 최후 수단으로만 사용하며, 사용 시 이유를 주석으로 명시한다
 - IPC 커맨드 반환 타입: `CmdResult<T>` = `Result<T, CmdError { code, message }>`
 - 공유 상태: `Arc<RwLock<T>>` (async read-heavy), `Arc<Mutex<T>>` (write)
 - JSON 직렬화는 `#[serde(rename_all = "camelCase")]` ← TypeScript 인터페이스와 1:1 매핑
@@ -58,6 +60,7 @@ npx vite build
 
 ### TypeScript / React
 
+- TypeScript 컴파일 경고(unused variable, implicit any 등)도 **반드시 해소**한다. `// @ts-ignore`, `as any` 캐스트는 최후 수단으로만 사용하며, 사용 시 이유를 주석으로 명시한다
 - MUI 아이콘: **직접 경로** import 필수 (`@mui/icons-material/PlayArrow`)
 - TanStack Query 훅은 `src/api/hooks.ts`에 집중 관리, `KEYS` 상수 사용
 - 새 Tauri invoke 래퍼는 `src/api/commands.ts`에 추가

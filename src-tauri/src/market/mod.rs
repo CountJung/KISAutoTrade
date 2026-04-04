@@ -4,7 +4,7 @@
 /// 로컬 JSON 파일로 캐시합니다. 24시간마다 자동 갱신.
 use anyhow::Result;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::path::Path;
 
 use crate::api::rest::StockSearchItem;

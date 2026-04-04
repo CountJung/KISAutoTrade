@@ -75,6 +75,17 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
         url: `/api/overseas-price/${args.exchange}/${args.symbol}`,
       }
 
+    // ─── 해외 차트 ────────────────────────────────────────────
+    case 'get_overseas_chart_data': {
+      const period = (args.periodCode as string) ?? 'D'
+      const countMap: Record<string, number> = { D: 100, W: 78, M: 60 }
+      const count = countMap[period] ?? 100
+      return {
+        method: 'GET',
+        url: `/api/overseas-chart/${args.exchange}/${args.symbol}?period=${period}&count=${count}`,
+      }
+    }
+
     // ─── 해외 주문 ────────────────────────────────────────────
     case 'place_overseas_order':
       return { method: 'POST', url: '/api/overseas-order', body: args.input }

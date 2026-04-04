@@ -175,6 +175,15 @@ export const detectProfileTradingType = (profileId: string): Promise<AccountProf
 export const getOverseasPrice = (symbol: string, exchange: string): Promise<OverseasPriceResponse> =>
   invoke('get_overseas_price', { symbol, exchange })
 
+/** 해외 주식 기간별 차트 데이터 (일/주/월봉) */
+export const getOverseasChartData = (
+  symbol: string,
+  exchange: string,
+  periodCode: string,
+  baseDate: string,
+): Promise<ChartCandle[]> =>
+  invoke('get_overseas_chart_data', { symbol, exchange, periodCode, baseDate })
+
 /** 해외 주식 주문 (지정가 한정) */
 export const placeOverseasOrder = (input: PlaceOverseasOrderInput): Promise<OrderResponse> =>
   invoke('place_overseas_order', { input })

@@ -58,8 +58,9 @@ AutoConditionTrade/                   ← 루트
 │   │   └── index.ts                  ← TanStack Router 코드 기반 라우팅 ✅
 │   ├── api/
 │   │   ├── types.ts                  ← Rust 타입 미러 (TypeScript, 모든 IPC 응답 타입) ✅
-│   │   ├── commands.ts               ← invoke() 래퍼 함수 35종 ✅
-│   │   └── hooks.ts                  ← TanStack Query 훅 모음 (KEYS 상수 관리) ✅
+│   │   ├── commands.ts               ← invoke() 래퍼 함수 37종 ✅
+│   │   ├── hooks.ts                  ← TanStack Query 훅 모음 (KEYS 상수 관리) ✅
+│   │   └── transport.ts              ← Tauri IPC / Web REST 듀얼 모드 invoke 래퍼 ✅
 │   ├── theme/
 │   │   └── index.ts                  ← createAppTheme, getResolvedMode, Hydration ✅
 │   ├── store/
@@ -69,7 +70,8 @@ AutoConditionTrade/                   ← 루트
 │   ├── components/
 │   │   ├── LayoutResizer.tsx         ← 사이드바 드래그 리사이즈 ✅
 │   │   ├── chart/
-│   │   │   └── StockChart.tsx        ← lightweight-charts v5 캔들 차트 ✅
+│   │   │   ├── StockChart.tsx        ← lightweight-charts v5 국내주식 캔들 차트 ✅
+│   │   │   └── OverseasStockChart.tsx← lightweight-charts v5 해외주식 캔들 차트 ✅
 │   │   └── layout/
 │   │       ├── AppShell.tsx          ← 전체 레이아웃 + ThemeProvider + Outlet ✅
 │   │       └── Sidebar.tsx           ← MUI permanent/temporary Drawer ✅
@@ -91,7 +93,7 @@ AutoConditionTrade/                   ← 루트
 │       ├── lib.rs                    ← Builder 설정 + logging 초기화 ✅
 │       ├── api/
 │       │   ├── mod.rs                ← KisRestClient, KisWebSocketClient 재공개
-│       │   ├── rest.rs               ← KisRestClient — get_balance, place_order, get_today_executed_orders, get_price ✅
+│       │   ├── rest.rs               ← KisRestClient — get_balance, place_order, get_today_executed_orders, get_price, get_chart_data, get_overseas_price, get_overseas_chart_data ✅
 │       │   ├── token.rs              ← TokenManager — issue_token, get_token, is_expired (auto-refresh) ✅
 │       │   └── websocket.rs          ← KisWebSocketClient — subscribe, parse_realtime_price ✅
 │       ├── market/
@@ -125,14 +127,19 @@ AutoConditionTrade/                   ← 루트
 │           └── mod.rs                ← GitHub Releases API 버전 확인 (check_for_update IPC) ✅
 │
 ├── data/                             ← JSON 데이터 (git ignore)
-├── log/                              ← 로그 파일 (git ignore)
+├── log/                              ← 로그 파일 (git ignore, CWD 기준 logs/)
 ├── target/                           ← Cargo 빌드 산출물 (git ignore)
 ├── node_modules/                     ← npm 패키지 (git ignore)
 ├── dist/                             ← Vite 빌드 산출물 (git ignore)
-├── secure_config.json                ← 민감 설정 (git ignore) — 실전/모의 키 모두 포함 가능
+├── secure_config.json                ← Discord 봇 토큰 (git ignore, 프로젝트 루트)
 ├── secure_config.example.json        ← 설정 템플릿 (git 추적)
-└── .env                              ← 환경변수 (git ignore)
+└── .env                              ← 환경변수 (git ignore, 프로젝트 루트)
 ```
+
+> **파일 저장 위치 요약**  
+> - `profiles.json` + `data/` → Tauri app_data_dir: `~/Library/Application Support/com.countjung.kisautotrade/` (macOS)  
+> - `logs/` → CWD 기준 프로젝트 루트 `logs/`  
+> - `secure_config.json` + `.env` → 프로젝트 루트 (CWD)
 
 ---
 
@@ -185,6 +192,7 @@ AutoConditionTrade/                   ← 루트
 | `get_balance` | 잔고 조회 (BalanceSummary + items) |
 | `get_price` | 종목 현재가 조회 |
 | `get_chart_data` | 종목 차트 데이터 조회 (일봉) |
+| `get_overseas_chart_data` | 해외주식 기간별 차트 데이터 조회 (일/주/월봉) |
 | `place_order` | 수동 주문 (매수/매도) |
 | `get_today_executed` | 당일 체결 내역 (KIS API) |
 | `search_stock` | 종목명/코드 검색 (캐시된 KRX 목록) |
@@ -312,6 +320,7 @@ KIS_IS_PAPER_TRADING=false   # 기본값: 실전투자
 | 2025-07-04 | 최초 생성 (Phase 1~6 완료 상태) | AI Agent |
 | 2025-07-16 | Phase 7: 듀얼 키 설정, check_config IPC, Settings UI 진단, secure_config.example.json | AI Agent |
 | 2026-04-04 | Phase 7 완료 확인. Phase 8 주요 기능 반영: market/server/updater 모듈, 35개 IPC 커맨드 목록 전면 갱신, scripts/setup-local.sh, .nvmrc, .cargo/config.toml 크로스플랫폼 처리, TodoList 동기화 | AI Agent |
+| 2026-04-14 | transport.ts(Tauri↔REST 듀얼), 해외주식 API(rest.rs/commands.rs), OverseasStockChart.tsx, 37개 IPC 커맨드(get_overseas_chart_data 추가), server/mod.rs overseas-chart 엔드포인트, Rust 경고 4개 해소, copilot-instructions.md 경고수정 지침 강화, README OS별 파일 경로 상세화 | AI Agent |
 
 ---
 

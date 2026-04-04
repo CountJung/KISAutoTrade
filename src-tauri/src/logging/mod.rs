@@ -3,6 +3,22 @@ use std::path::{Path, PathBuf};
 use tracing_appender::{non_blocking, rolling};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 
+/// 로그 타임스탬프를 시스템 로컬 시간(KST = UTC+9)으로 출력하는 타이머
+///
+/// 기본 `tracing-subscriber` 타이머는 UTC(`Z`)를 사용하므로
+/// `chrono::Local::now()`를 이용한 커스텀 타이머로 교체한다.
+#[derive(Clone, Copy)]
+struct LocalTimer;
+
+impl tracing_subscriber::fmt::time::FormatTime for LocalTimer {
+    fn format_time(
+        &self,
+        w: &mut tracing_subscriber::fmt::format::Writer<'_>,
+    ) -> std::fmt::Result {
+        write!(w, "{}", chrono::Local::now().format("%Y-%m-%dT%H:%M:%S%.6f%:z"))
+    }
+}
+
 /// 로그 엔트리 (IPC로 프론트엔드에 전달)
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct LogEntry {
@@ -105,6 +121,7 @@ pub fn init(log_dir: &Path, cfg: &LogConfig) -> Result<()> {
     let app_file = rolling::daily(log_dir, "app.log");
     let (app_writer, _app_guard) = non_blocking(app_file);
     let app_layer = fmt::layer()
+        .with_timer(LocalTimer)
         .with_writer(app_writer)
         .with_ansi(false)
         .with_filter(EnvFilter::new("info"));
@@ -113,12 +130,14 @@ pub fn init(log_dir: &Path, cfg: &LogConfig) -> Result<()> {
     let error_file = rolling::daily(log_dir, "error.log");
     let (error_writer, _error_guard) = non_blocking(error_file);
     let error_layer = fmt::layer()
+        .with_timer(LocalTimer)
         .with_writer(error_writer)
         .with_ansi(false)
         .with_filter(EnvFilter::new("warn"));
 
     // 콘솔 출력 (RUST_LOG 환경변수 또는 debug 기본값)
     let console_layer = fmt::layer()
+        .with_timer(LocalTimer)
         .with_filter(EnvFilter::from_default_env().add_directive(
             "auto_condition_trade_lib=debug".parse().unwrap(),
         ));

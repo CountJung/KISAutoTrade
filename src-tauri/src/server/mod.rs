@@ -1,16 +1,17 @@
 /// 모바일/외부 접속용 경량 웹 서버 (axum)
 ///
 /// 엔드포인트:
-///   GET  /                              → React 앱(dist/) 또는 모바일 대시보드 HTML
-///   GET  /api/info                      → 앱 정보 JSON
-///   GET  /api/balance                   → 잔고 JSON
-///   GET  /api/price/:symbol             → 국내 현재가 JSON
-///   GET  /api/overseas-price/:ex/:sym   → 해외 현재가 JSON (NAS/NYS/AMS)
-///   GET  /api/executed                  → 당일 체결 JSON
-///   GET  /api/search/:query             → 종목 검색 (KRX 로컬 캐시)
-///   POST /api/order                     → 국내 주문 실행
-///   POST /api/overseas-order            → 해외 주문 실행
-///   GET  /api/chart/:symbol             → 국내 차트 데이터 (?period=D&count=100)
+///   GET  /                                    → React 앱(dist/) 또는 모바일 대시보드 HTML
+///   GET  /api/info                            → 앱 정보 JSON
+///   GET  /api/balance                         → 잔고 JSON
+///   GET  /api/price/:symbol                   → 국내 현재가 JSON
+///   GET  /api/overseas-price/:ex/:sym         → 해외 현재가 JSON (NAS/NYS/AMS)
+///   GET  /api/executed                        → 당일 체결 JSON
+///   GET  /api/search/:query                   → 종목 검색 (KRX 로컬 캐시)
+///   POST /api/order                           → 국내 주문 실행
+///   POST /api/overseas-order                  → 해외 주문 실행
+///   GET  /api/chart/:symbol                   → 국내 차트 데이터 (?period=D&count=100)
+///   GET  /api/overseas-chart/:ex/:symbol      → 해외 차트 데이터 (?period=D&count=100)
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -65,6 +66,7 @@ pub async fn start(
         .route("/api/order",                      post(order_handler))
         .route("/api/overseas-order",             post(overseas_order_handler))
         .route("/api/chart/:symbol",              get(chart_handler))
+        .route("/api/overseas-chart/:ex/:symbol", get(overseas_chart_handler))
         .fallback(get(spa_handler))
         .layer(CorsLayer::permissive())
         .with_state(state);
@@ -259,6 +261,32 @@ async fn chart_handler(
 
     let client = s.rest_client.read().await.clone();
     match client.get_chart_data(&symbol, period, &start_date, &end_date).await {
+        Ok(candles) => Json(serde_json::to_value(candles).unwrap_or_default()),
+        Err(e)      => Json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+/// GET /api/overseas-chart/:ex/:symbol?period=D&count=100
+async fn overseas_chart_handler(
+    State(s): State<ServerState>,
+    Path((exchange, symbol)): Path<(String, String)>,
+    Query(params): Query<ChartQuery>,
+) -> Json<serde_json::Value> {
+    let period = params.period.as_deref().unwrap_or("D");
+    let count  = params.count.unwrap_or(100).max(1).min(500);
+
+    // count → 기준일 계산 (당일로부터 과거 N일 기준)
+    let factor: i64 = match period {
+        "W" => 7,
+        "M" => 31,
+        _   => 2, // D: 거래일은 캘린더의 약 절반
+    };
+    let base_day = chrono::Local::now().date_naive()
+        - chrono::Duration::days(count * factor);
+    let base_date = base_day.format("%Y%m%d").to_string();
+
+    let client = s.rest_client.read().await.clone();
+    match client.get_overseas_chart_data(&symbol, &exchange, period, &base_date).await {
         Ok(candles) => Json(serde_json::to_value(candles).unwrap_or_default()),
         Err(e)      => Json(serde_json::json!({ "error": e.to_string() })),
     }

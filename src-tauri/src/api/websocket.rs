@@ -28,8 +28,8 @@ pub struct RealtimePrice {
 pub struct KisWebSocketClient {
     is_paper: bool,
     token_manager: Arc<RwLock<TokenManager>>,
-    app_key: String,
-    app_secret: String,
+    _app_key: String,
+    _app_secret: String,
     /// 실시간 이벤트 브로드캐스트 채널
     pub price_tx: broadcast::Sender<RealtimePrice>,
 }
@@ -45,8 +45,8 @@ impl KisWebSocketClient {
         Self {
             is_paper,
             token_manager,
-            app_key,
-            app_secret,
+            _app_key: app_key,
+            _app_secret: app_secret,
             price_tx,
         }
     }

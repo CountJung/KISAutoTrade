@@ -65,6 +65,7 @@ export const KEYS = {
   updateCheck: ['updateCheck'] as const,
   webConfig: ['webConfig'] as const,
   overseasPrice: (exchange: string, symbol: string) => ['overseasPrice', exchange, symbol] as const,
+  overseasChart: (exchange: string, symbol: string, presetKey: string) => ['overseasChart', exchange, symbol, presetKey] as const,
 }
 
 // ─── 앱 설정 ───────────────────────────────────────────────────────
@@ -500,6 +501,40 @@ export function useSaveWebConfig() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEYS.webConfig })
     },
+  })
+}
+
+// ─── 해외(미국) 차트 데이터 ──────────────────────────────────────────
+const OVERSEAS_CHART_PRESETS: Record<string, { periodCode: string; months: number }> = {
+  '1M': { periodCode: 'D', months: 1  },
+  '3M': { periodCode: 'D', months: 3  },
+  '6M': { periodCode: 'W', months: 6  },
+  '1Y': { periodCode: 'W', months: 12 },
+  '5Y': { periodCode: 'M', months: 60 },
+}
+
+export function useOverseasChartData(
+  symbol: string,
+  exchange: string,
+  presetKey: string = '3M',
+  options?: Partial<UseQueryOptions<ChartCandle[]>>
+) {
+  const cfg = OVERSEAS_CHART_PRESETS[presetKey] ?? OVERSEAS_CHART_PRESETS['3M']
+  const baseDate = (() => {
+    const d = new Date()
+    d.setMonth(d.getMonth() - cfg.months)
+    return d.toISOString().slice(0, 10).replace(/-/g, '')
+  })()
+
+  return useQuery({
+    queryKey: KEYS.overseasChart(exchange, symbol, presetKey),
+    queryFn: () =>
+      cmd.getOverseasChartData(symbol, exchange, cfg.periodCode, baseDate),
+    enabled: !!symbol && !!exchange,
+    staleTime: 3 * 60_000,
+    gcTime: 10 * 60_000,
+    retry: false,
+    ...options,
   })
 }
 

@@ -1391,6 +1391,21 @@ pub struct OverseasOrderInput {
 }
 
 #[tauri::command]
+pub async fn get_overseas_chart_data(
+    symbol: String,
+    exchange: String,
+    period_code: String, // "D", "W", "M"
+    base_date: String,   // YYYYMMDD — 비워두면 당일 기준
+    state: State<'_, AppState>,
+) -> CmdResult<Vec<ChartCandle>> {
+    let client = state.rest_client.read().await.clone();
+    client
+        .get_overseas_chart_data(&symbol, &exchange, &period_code, &base_date)
+        .await
+        .map_err(CmdError::from)
+}
+
+#[tauri::command]
 pub async fn get_overseas_price(
     symbol: String,
     exchange: String,

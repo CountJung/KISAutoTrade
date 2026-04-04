@@ -52,6 +52,7 @@ import type {
   OrderType,
 } from '../api/types'
 import { StockChart } from '../components/chart/StockChart'
+import { OverseasStockChart } from '../components/chart/OverseasStockChart'
 
 function fmt(n: number) {
   return n.toLocaleString('ko-KR')
@@ -640,10 +641,8 @@ export default function Trading() {
               </Box>
             )}
             {market === 'US' && symbol ? (
-              <Box sx={{ p: 3, textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary">
-                  해외 주식 차트는 준비 중입니다.
-                </Typography>
+              <Box sx={{ p: { xs: 1, sm: 2 } }}>
+                <OverseasStockChart symbol={symbol} exchange={usExchange} stockName={stockName} />
               </Box>
             ) : (
               <Box sx={{ p: { xs: 1, sm: 2 } }}>

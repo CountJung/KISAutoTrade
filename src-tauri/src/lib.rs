@@ -142,6 +142,7 @@ pub fn run() {
             commands::detect_trading_type,
             commands::detect_profile_trading_type,
             commands::get_overseas_price,
+            commands::get_overseas_chart_data,
             commands::place_overseas_order,
         ])
         .run(tauri::generate_context!())

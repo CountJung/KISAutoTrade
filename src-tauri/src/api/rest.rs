@@ -774,6 +774,110 @@ impl KisRestClient {
     }
 
     // ──────────────────────────────────────────────────────────
+    // 해외주식 기간별시세 (차트 데이터)
+    // GET /uapi/overseas-price/v1/quotations/dailyprice
+    // TR-ID: HHDFS76200200 (실전/모의 공통)
+    // GUBN: 0=일별, 1=주별, 2=월별
+    // BYMD: 조회 기준일 YYYYMMDD (빈 문자열이면 당일 기준)
+    // MODP: 1=수정주가 반영
+    // ──────────────────────────────────────────────────────────
+    pub async fn get_overseas_chart_data(
+        &self,
+        symbol: &str,
+        exchange: &str,
+        period_code: &str, // "D"=일, "W"=주, "M"=월
+        base_date: &str,   // YYYYMMDD — 비워두면 오늘 기준
+    ) -> Result<Vec<ChartCandle>> {
+        let url = format!(
+            "{}/uapi/overseas-price/v1/quotations/dailyprice",
+            self.base_url
+        );
+        let headers = self.auth_headers("HHDFS76200200").await?;
+
+        let gubn = match period_code {
+            "W" => "1",
+            "M" => "2",
+            _   => "0", // D
+        };
+
+        let resp = self
+            .client
+            .get(&url)
+            .headers(headers)
+            .query(&[
+                ("AUTH", ""),
+                ("EXCD", exchange),
+                ("SYMB", symbol),
+                ("GUBN", gubn),
+                ("BYMD", base_date),
+                ("MODP", "1"),
+            ])
+            .send()
+            .await?;
+
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+
+        if !status.is_success() {
+            anyhow::bail!("해외 차트 조회 HTTP {}: {}", status, body);
+        }
+
+        #[derive(Deserialize)]
+        struct Raw {
+            rt_cd: String,
+            msg1: String,
+            output2: Option<Vec<RawOverseasCandle>>,
+        }
+
+        #[derive(Deserialize, Default)]
+        #[serde(default)]
+        struct RawOverseasCandle {
+            bass_dt: String, // 기준일자
+            open:    String, // 시가
+            high:    String, // 고가
+            low:     String, // 저가
+            clos:    String, // 종가
+            tvol:    String, // 거래량
+        }
+
+        let raw: Raw = serde_json::from_str(&body).map_err(|e| {
+            tracing::error!(
+                "해외 차트 JSON 파싱 실패: {}\nbody: {}",
+                e,
+                &body[..body.len().min(300)]
+            );
+            anyhow::anyhow!("해외 차트 JSON 파싱 실패: {}", e)
+        })?;
+
+        if raw.rt_cd != "0" {
+            anyhow::bail!("해외 차트 조회 오류: {}", raw.msg1);
+        }
+
+        // KIS는 최신순(내림차순) 반환 → 오름차순으로 뒤집기
+        let mut candles: Vec<ChartCandle> = raw
+            .output2
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|c| !c.bass_dt.is_empty())
+            .map(|c| ChartCandle {
+                date:   c.bass_dt,
+                open:   c.open,
+                high:   c.high,
+                low:    c.low,
+                close:  c.clos,
+                volume: c.tvol,
+            })
+            .collect();
+
+        candles.reverse();
+        tracing::debug!(
+            "해외 차트 조회 완료: {} {} ({}) {} 봉",
+            exchange, symbol, period_code, candles.len()
+        );
+        Ok(candles)
+    }
+
+    // ──────────────────────────────────────────────────────────
     // 현재가 조회
     // GET /uapi/domestic-stock/v1/quotations/inquire-price
     // ──────────────────────────────────────────────────────────
