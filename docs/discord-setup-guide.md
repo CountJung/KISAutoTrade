@@ -286,5 +286,5 @@
 
 ---
 
-*이 문서는 AutoConditionTrade `MasterPlan.md` 및 `agent.md`와 함께 유지됩니다.*  
+*이 문서는 AutoConditionTrade `docs/MasterPlan.md` 및 `agent.md`와 함께 유지됩니다.*  
 *Discord API 변경 시 이 문서도 업데이트가 필요합니다.*

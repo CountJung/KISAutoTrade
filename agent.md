@@ -30,7 +30,6 @@
 AutoConditionTrade/                   ← 루트
 │
 ├── agent.md                          ← [이 파일] 하네스 구조 맵 (항상 최신)
-├── MasterPlan.md                     ← 전체 설계 문서
 ├── TodoList.md                       ← Phase별 할 일 목록 (항상 최신)
 ├── Cargo.toml                        ← Rust workspace 루트 (resolver="2", profile 설정)
 ├── package.json                      ← npm 패키지 설정 (engines: node>=20)
@@ -49,6 +48,7 @@ AutoConditionTrade/                   ← 루트
 │   └── setup-local.sh                ← 로컬 환경 초기 설정 스크립트 (macOS exFAT 대응) ✅
 │
 ├── docs/
+│   ├── MasterPlan.md                 ← 전체 설계 문서 (아카이브, 읽기 전용) ✅
 │   ├── discord-setup-guide.md        ← Discord 봇 연계 상세 가이드 ✅
 │   └── api-reference.md              ← KIS API 참조 (추후 작성)
 │

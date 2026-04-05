@@ -21,10 +21,11 @@ impl AccessToken {
 }
 
 /// 토큰 발급 응답
+/// KIS API 응답: { "access_token": "...", "token_type": "Bearer", "expires_in": 86400, ... }
+/// token_type 등 미사용 필드는 serde가 자동으로 무시함
 #[derive(Debug, Deserialize)]
 struct TokenIssueResponse {
     access_token: String,
-    _token_type: String,
     expires_in: i64,
 }
 

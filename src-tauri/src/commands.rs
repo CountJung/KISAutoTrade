@@ -16,9 +16,11 @@ use crate::{
     config::{AccountProfile, AppConfig, DiscordConfig, ProfilesConfig},
     logging::LogConfig,
     notifications::{discord::DiscordNotifier, types::NotificationEvent},
-    storage::{stats_store::DailyStats, trade_store::TradeRecord, StatsStore, TradeStore},
+    storage::{stats_store::DailyStats, trade_store::TradeRecord, OrderStore, StatsStore, TradeStore},
     trading::{
+        order::OrderManager,
         position::{Position, PositionTracker},
+        risk::RiskManager,
         strategy::{MaCrossParams, MovingAverageCrossStrategy, StrategyConfig, StrategyManager},
     },
 };
@@ -46,6 +48,12 @@ pub struct AppState {
     pub strategy_manager: Arc<Mutex<StrategyManager>>,
     /// 포지션 트래커
     pub position_tracker: Arc<Mutex<PositionTracker>>,
+    /// 주문 관리자 (전략 신호 → KIS 주문 + 체결 추적)
+    pub order_manager: Arc<Mutex<OrderManager>>,
+    /// 주문 이력 저장소
+    pub order_store: Arc<OrderStore>,
+    /// 리스크 관리자
+    pub risk_manager: Arc<Mutex<RiskManager>>,
     /// 로그 디렉토리 경로
     pub log_dir: PathBuf,
     /// 로그 설정 (보관 기간, 최대 용량)
@@ -80,6 +88,21 @@ impl AppState {
 
         let trade_store = Arc::new(TradeStore::new(data_dir.clone()));
         let stats_store = Arc::new(StatsStore::new(data_dir.clone()));
+        let order_store = Arc::new(OrderStore::new(data_dir.clone()));
+        let risk_manager = Arc::new(Mutex::new(RiskManager::default()));
+        let position_tracker = Arc::new(Mutex::new(PositionTracker::new()));
+
+        // rest_client를 RwLock으로 감싸서 OrderManager와 공유
+        let rest_client_rw = Arc::new(RwLock::new(rest_client));
+
+        let order_manager = Arc::new(Mutex::new(OrderManager::new(
+            Arc::clone(&rest_client_rw),
+            Arc::clone(&order_store),
+            Arc::clone(&position_tracker),
+            Arc::clone(&stats_store),
+            Arc::clone(&risk_manager),
+            discord.clone(),
+        )));
 
         // 기본 MA 크로스 전략 등록
         let mut strategy_manager = StrategyManager::new();
@@ -95,16 +118,19 @@ impl AppState {
 
         Self {
             config: Arc::new(RwLock::new(config)),
-            rest_client: Arc::new(RwLock::new(rest_client)),
+            rest_client: rest_client_rw,
             discord,
             discord_config,
             profiles: Arc::new(RwLock::new(profiles)),
             profiles_path,
             trade_store,
             stats_store,
+            order_store,
             is_trading: Arc::new(Mutex::new(false)),
             strategy_manager: Arc::new(Mutex::new(strategy_manager)),
-            position_tracker: Arc::new(Mutex::new(PositionTracker::new())),
+            position_tracker,
+            order_manager,
+            risk_manager,
             log_dir,
             log_config: Arc::new(RwLock::new(log_config)),
             data_dir,

@@ -111,7 +111,7 @@ npx vite build
 ## 참고 문서
 
 - `agent.md` — 전체 디렉토리 맵 및 모듈 책임 (항상 최신 유지)
-- `MasterPlan.md` — 전체 설계 및 Phase 진행 상황
+- `docs/MasterPlan.md` — 전체 설계 문서 (아카이브, 읽기 전용)
 - `docs/discord-setup-guide.md` — Discord 봇 설정 가이드
 - [KIS Developers 포털](https://apiportal.koreainvestment.com/)
 - [KIS Open API 샘플 코드](https://github.com/koreainvestment/open-trading-api)

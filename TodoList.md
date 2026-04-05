@@ -118,17 +118,17 @@
 - [x] README OS별 프로필/AppData 경로 안내 상세화
 - [x] copilot-instructions.md 경고 해소 의무 지침 강화
 - [ ] WebSocket 연결 상태 Tauri Event emit → Dashboard 실시간 반영
-- [ ] `trading/order.rs` **OrderManager 구현** — 아래 세부 항목 참고
-  - [ ] ① 전략 신호 실행: `Signal::Buy/Sell` → KIS API `place_order()` 호출 (전략 루프에서 `StrategyManager`가 OrderManager 에 위임)
-  - [ ] ② 미체결 주문 풀: `HashMap<odno, PendingOrder>` — 주문 접수 후 체결/취소 확인 전까지 관리
-  - [ ] ③ 중복 주문 방지: 동일 종목에 Pending 상태 주문이 있으면 신규 주문 차단
-  - [ ] ④ 체결 이벤트 처리: WebSocket `H0STCNI0` (체결 통보) 수신 → 미체결 풀 상태 갱신
-  - [ ] ⑤ 포지션 연동: 체결 확인 시 `PositionTracker.on_buy/on_sell()` 호출
-  - [ ] ⑥ 주문 저장: 체결·취소 완료 시 `OrderStore.append()` 로 JSON 기록
-  - [ ] ⑦ 통계 연동: 체결 손익 계산 후 `StatsStore.upsert_daily()` 및 `RiskManager.record_pnl()` 호출
-  - [ ] ⑧ 리스크 검증: 주문 전 `RiskManager.can_trade()` + `check_position_size()` 통과 여부 확인
-  - [ ] ⑨ Discord 알림: 체결 완료 시 `NotificationService.send(TRADE)` 호출
-  - [ ] ⑩ 주문 재시도: KIS API rate-limit(EGW00133) 오류 시 1초 대기 후 최대 3회 재시도
+- [x] `trading/order.rs` **OrderManager 구현** ✅ 2026-04-05
+  - [x] ① 전략 신호 실행: `Signal::Buy/Sell` → KIS API `place_order()` 호출 (전략 루프에서 `StrategyManager`가 OrderManager 에 위임)
+  - [x] ② 미체결 주문 풀: `HashMap<odno, PendingOrder>` — 주문 접수 후 체결/취소 확인 전까지 관리
+  - [x] ③ 중복 주문 방지: 동일 종목에 Pending 상태 주문이 있으면 신규 주문 차단
+  - [x] ④ 체결 이벤트 처리: `on_fill(odno, filled_qty, avg_price)` — WebSocket H0STCNI0 또는 폴링에서 호출
+  - [x] ⑤ 포지션 연동: 체결 확인 시 `PositionTracker.on_buy/on_sell()` 호출
+  - [x] ⑥ 주문 저장: 체결·취소 완료 시 `OrderStore.append()` 로 JSON 기록
+  - [x] ⑦ 통계 연동: 매도 체결 손익 계산 후 `StatsStore.upsert()` 및 `RiskManager.record_pnl()` 호출
+  - [x] ⑧ 리스크 검증: 주문 전 `RiskManager.can_trade()` + `check_position_size()` 통과 여부 확인
+  - [x] ⑨ Discord 알림: 체결 완료 시 `NotificationEvent::trade()` 전송
+  - [x] ⑩ 주문 재시도: KIS API rate-limit(EGW00133) 오류 시 1초 대기 후 최대 3회 재시도
 - [ ] 추가 전략 구현 (모멘텀, RSI, 이격도)
 - [ ] 차트 컴포넌트 고도화 (History 페이지 일별 PnL 차트 + candlestick 연동)
 - [ ] GitHub Actions CI/CD (Windows + macOS 자동 빌드 & 릴리스)
@@ -147,4 +147,4 @@
 
 ---
 
-*마지막 업데이트: 2026-04-14*
+*마지막 업데이트: 2026-04-05*
