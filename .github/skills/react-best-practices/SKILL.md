@@ -83,6 +83,22 @@ export const useBalance = () =>
 
 새 훅은 반드시 `src/api/hooks.ts`에 추가하고 `KEYS`에 키를 등록합니다.
 
+### TanStack Query `enabled` 조건 — 검색 필터 주의사항
+
+`enabled` 조건에 **입력값 타입 필터**(숫자/문자 구분 등)를 추가하면 의도치 않은 검색 차단이 발생한다.
+
+```typescript
+// ❌ 잘못된 패턴 — 숫자로만 구성된 쿼리를 차단 → "200", "005" 등 이름 검색 불가
+enabled: query.length >= 2 && !/^\d+$/.test(query)
+
+// ✅ 올바른 패턴 — 길이만 체크, 백엔드 라우팅에 맡김
+enabled: query.length >= 2
+```
+
+백엔드 `search_stock`이 이미 6자리 숫자 → KIS API, 그 외 → 로컬 KRX 캐시로 분기하므로  
+프론트에서 타입 필터를 추가할 필요 없음.  
+→ 관련 패턴 상세는 `ui-conventions/SKILL.md` 섹션 10 참조.
+
 ---
 
 ## 4. 파생 상태 계산 — useState/useEffect 남용 금지 (MEDIUM)
@@ -180,7 +196,7 @@ if (error) return <Alert severity="error">{(error as CmdError).message}</Alert>;
 
 ---
 
-> 마지막 업데이트: 2026-04-03
+> 마지막 업데이트: 2026-04-05
 
 ---
 

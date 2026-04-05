@@ -351,5 +351,54 @@ TextField에 `helperText`가 있으면 컴포넌트 전체 높이가 늘어나 `
 | TextField에 helperText 없음 | `"center"` | TextField 내부 |
 | TextField에 helperText 있음 | `"center"` | Stack **밖** `<Typography variant="caption">` |
 
+---
+
+## 10. TanStack Query `enabled` 조건 — 검색 필터 주의사항
+
+### 실제 발생 버그 (반복 패턴)
+
+**증상**: "한국 주식 종목이 이름으로 검색되지 않는다" — 숫자를 포함한 이름(예: "200", "코스피200")은 검색되지 않고, 6자리 완전한 코드만 동작.
+
+**근본 원인**: `hooks.ts`의 `useStockSearch` `enabled` 조건에 숫자 전용 쿼리 차단 필터가 포함되어 있었음.
+
+```typescript
+// ❌ 잘못된 패턴 — 숫자만으로 구성된 검색어를 차단 → 이름 검색 불가
+enabled: query.length >= 2 && !/^\d+$/.test(query)
+//                           ^^^^^^^^^^^^^^^^^^^^^^^^ 이 조건이 "200", "005" 등을 막음
+
+// ✅ 올바른 패턴 — 길이만 체크, 숫자/문자 구분 없이 허용
+enabled: query.length >= 2
+```
+
+**백엔드 `search_stock` 동작 (변경 불필요)**:
+```rust
+// 6자리 숫자 → KIS API 현재가 조회 (종목코드 직접 조회)
+if query.len() == 6 && query.chars().all(|c| c.is_ascii_digit()) { ... }
+// 그 외(부분 숫자 포함) → 로컬 KRX 캐시 이름 검색
+// → "200" 입력 시 "KODEX200", "코스피200 ETF" 등 반환됨
+```
+
+**함께 수정해야 하는 프론트엔드 패턴**:
+```tsx
+// ❌ Trading.tsx useEffect — 숫자 전용 입력 시 searchQuery 설정 차단
+useEffect(() => {
+  if (market !== 'KR' || !inputValue || /^\d+$/.test(inputValue)) {  // ← 이 조건 제거
+    setSearchQuery('')
+    return
+  }
+  ...
+}, [inputValue, market])
+
+// ✅ 올바른 패턴
+useEffect(() => {
+  if (market !== 'KR' || !inputValue) {
+    setSearchQuery('')
+    return
+  }
+  const t = setTimeout(() => setSearchQuery(inputValue), 400)
+  return () => clearTimeout(t)
+}, [inputValue, market])
+```
+
 > 마지막 업데이트: 2026-04-05
 
