@@ -144,6 +144,10 @@ pub fn run() {
             commands::get_overseas_price,
             commands::get_overseas_chart_data,
             commands::place_overseas_order,
+            commands::get_risk_config,
+            commands::update_risk_config,
+            commands::clear_emergency_stop,
+            commands::get_pending_orders,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri 애플리케이션 실행 중 오류 발생");

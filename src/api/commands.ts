@@ -20,10 +20,12 @@ import type {
   LogConfig,
   OrderResponse,
   OverseasPriceResponse,
+  PendingOrderView,
   PlaceOrderInput,
   PlaceOverseasOrderInput,
   PositionView,
   PriceResponse,
+  RiskConfigView,
   SetLogConfigInput,
   StockSearchItem,
   StrategyView,
@@ -31,6 +33,7 @@ import type {
   TradingStatus,
   UpdateInfo,
   UpdateProfileInput,
+  UpdateRiskConfigInput,
   UpdateStrategyInput,
   WebConfig,
 } from './types'
@@ -187,3 +190,17 @@ export const getOverseasChartData = (
 /** 해외 주식 주문 (지정가 한정) */
 export const placeOverseasOrder = (input: PlaceOverseasOrderInput): Promise<OrderResponse> =>
   invoke('place_overseas_order', { input })
+
+// ─── 리스크 관리 ───────────────────────────────────────────────────
+export const getRiskConfig = (): Promise<RiskConfigView> =>
+  invoke('get_risk_config')
+
+export const updateRiskConfig = (input: UpdateRiskConfigInput): Promise<RiskConfigView> =>
+  invoke('update_risk_config', { input })
+
+export const clearEmergencyStop = (): Promise<RiskConfigView> =>
+  invoke('clear_emergency_stop')
+
+// ─── 미체결 주문 목록 ──────────────────────────────────────────────
+export const getPendingOrders = (): Promise<PendingOrderView[]> =>
+  invoke('get_pending_orders')

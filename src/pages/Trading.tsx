@@ -23,10 +23,6 @@ import TableRow from '@mui/material/TableRow'
 import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
 import Autocomplete from '@mui/material/Autocomplete'
-import MenuItem from '@mui/material/MenuItem'
-import Select from '@mui/material/Select'
-import FormControl from '@mui/material/FormControl'
-import InputLabel from '@mui/material/InputLabel'
 import Tooltip from '@mui/material/Tooltip'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
@@ -44,6 +40,7 @@ import {
   useOverseasPrice,
   usePlaceOverseasOrder,
 } from '../api/hooks'
+import * as cmd from '../api/commands'
 import type {
   BalanceItem,
   OverseasExchange,
@@ -263,6 +260,7 @@ export default function Trading() {
   const [inputValue, setInputValue]   = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [usExchange, setUsExchange]   = useState<OverseasExchange>('NAS')
+  const [usSearching, setUsSearching] = useState(false)
   const [side, setSide]               = useState<OrderSide>('Buy')
   const [orderType, setOrderType]     = useState<OrderType>('Limit')
   const [quantity, setQuantity]       = useState('')
@@ -278,10 +276,11 @@ export default function Trading() {
     setQuantity('')
     setResult(null)
     setErrorMsg(null)
+    setUsSearching(false)
   }, [market])
 
   useEffect(() => {
-    if (market !== 'KR' || !inputValue || /^\d+$/.test(inputValue)) {
+    if (market !== 'KR' || !inputValue) {
       setSearchQuery('')
       return
     }
@@ -321,6 +320,29 @@ export default function Trading() {
     setInputValue(item.prdt_name)
     setResult(null)
     setErrorMsg(null)
+  }
+
+  /** 미국 주식 거래소 자동 감지: NAS → NYS → AMS 순서로 조회 */
+  const handleUsSearch = async () => {
+    const ticker = inputValue.trim().toUpperCase()
+    if (!ticker) return
+    setUsSearching(true)
+    setErrorMsg(null)
+    const exchanges: OverseasExchange[] = ['NAS', 'NYS', 'AMS']
+    for (const exc of exchanges) {
+      try {
+        const res = await cmd.getOverseasPrice(ticker, exc)
+        if (res && parseFloat(res.last) > 0) {
+          setUsExchange(exc)
+          setSymbol(ticker)
+          setResult(null)
+          setUsSearching(false)
+          return
+        }
+      } catch { /* 다음 거래소 시도 */ }
+    }
+    setErrorMsg(`"${ticker}"을 NAS·NYS·AMEX에서 찾을 수 없습니다.`)
+    setUsSearching(false)
   }
 
   const handleFillMarketPrice = () => {
@@ -471,41 +493,47 @@ export default function Trading() {
             )}
           />
         ) : (
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="flex-start">
-            <FormControl size="small" sx={{ minWidth: 120, flexShrink: 0 }}>
-              <InputLabel>거래소</InputLabel>
-              <Select
-                value={usExchange}
-                label="거래소"
-                onChange={(e) => setUsExchange(e.target.value as OverseasExchange)}
-              >
-                <MenuItem value="NAS">NASDAQ</MenuItem>
-                <MenuItem value="NYS">NYSE</MenuItem>
-                <MenuItem value="AMS">AMEX</MenuItem>
-              </Select>
-            </FormControl>
+          <Stack direction="row" spacing={1} alignItems="flex-start">
             <TextField
               label="티커 (AAPL, TSLA …)"
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value.toUpperCase())}
-              onKeyDown={(e) => { if (e.key === 'Enter' && inputValue) setSymbol(inputValue.trim()) }}
+              onChange={(e) => {
+                const v = e.target.value.toUpperCase()
+                setInputValue(v)
+                if (!v) setSymbol('')
+              }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && inputValue) void handleUsSearch() }}
               size="small"
               fullWidth
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton
-                      size="small"
-                      onClick={() => inputValue && setSymbol(inputValue.trim())}
-                      disabled={!inputValue}
-                    >
-                      <SearchIcon fontSize="small" />
-                    </IconButton>
+                    {usSearching
+                      ? <CircularProgress size={16} color="inherit" sx={{ mr: 0.5 }} />
+                      : (
+                        <IconButton
+                          size="small"
+                          onClick={() => void handleUsSearch()}
+                          disabled={!inputValue}
+                        >
+                          <SearchIcon fontSize="small" />
+                        </IconButton>
+                      )
+                    }
                   </InputAdornment>
                 ),
               }}
-              helperText="Enter 또는 검색 버튼 클릭 시 현재가를 조회합니다"
+              helperText="Enter 또는 검색 버튼 — 나스닥·뉴욕·AMEX 자동 감지"
             />
+            {symbol && (
+              <Chip
+                label={usExchange}
+                size="small"
+                color="info"
+                variant="outlined"
+                sx={{ mt: 1, flexShrink: 0 }}
+              />
+            )}
           </Stack>
         )}
 

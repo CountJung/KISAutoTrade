@@ -923,6 +923,141 @@ pub async fn update_strategy(
 }
 
 // ────────────────────────────────────────────────────────────────────
+// 리스크 관리 설정 조회 / 변경 / 비상 정지 해제
+// ────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RiskConfigView {
+    /// 일일 최대 손실 한도 (원, 양수)
+    pub daily_loss_limit: i64,
+    /// 단일 종목 최대 비중 (0.0~1.0)
+    pub max_position_ratio: f64,
+    /// 오늘 누적 손실 (음수)
+    pub current_loss: i64,
+    /// 손실 한도 소진율 (0.0 ~ 1.0+)
+    pub loss_ratio: f64,
+    /// 비상 정지 여부
+    pub is_emergency_stop: bool,
+    /// 추가 거래 가능 여부
+    pub can_trade: bool,
+}
+
+#[tauri::command]
+pub async fn get_risk_config(state: State<'_, AppState>) -> CmdResult<RiskConfigView> {
+    let risk = state.risk_manager.lock().await;
+    Ok(RiskConfigView {
+        daily_loss_limit: risk.daily_loss_limit,
+        max_position_ratio: risk.max_position_ratio,
+        current_loss: risk.current_loss(),
+        loss_ratio: risk.loss_ratio(),
+        is_emergency_stop: risk.is_emergency_stop(),
+        can_trade: risk.can_trade(),
+    })
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateRiskConfigInput {
+    pub daily_loss_limit: Option<i64>,
+    /// 0.01 ~ 1.0 (1% ~ 100%)
+    pub max_position_ratio: Option<f64>,
+}
+
+#[tauri::command]
+pub async fn update_risk_config(
+    input: UpdateRiskConfigInput,
+    state: State<'_, AppState>,
+) -> CmdResult<RiskConfigView> {
+    let mut risk = state.risk_manager.lock().await;
+    if let Some(limit) = input.daily_loss_limit {
+        if limit < 0 {
+            return Err(CmdError {
+                code: "INVALID_PARAM".into(),
+                message: "손실 한도는 0 이상이어야 합니다.".into(),
+            });
+        }
+        risk.daily_loss_limit = limit;
+    }
+    if let Some(ratio) = input.max_position_ratio {
+        if !(0.0..=1.0).contains(&ratio) {
+            return Err(CmdError {
+                code: "INVALID_PARAM".into(),
+                message: "포지션 비중은 0.0~1.0 범위여야 합니다.".into(),
+            });
+        }
+        risk.max_position_ratio = ratio;
+    }
+    tracing::info!(
+        "리스크 설정 변경: 일일손실한도={}원, 종목비중={:.0}%",
+        risk.daily_loss_limit,
+        risk.max_position_ratio * 100.0
+    );
+    Ok(RiskConfigView {
+        daily_loss_limit: risk.daily_loss_limit,
+        max_position_ratio: risk.max_position_ratio,
+        current_loss: risk.current_loss(),
+        loss_ratio: risk.loss_ratio(),
+        is_emergency_stop: risk.is_emergency_stop(),
+        can_trade: risk.can_trade(),
+    })
+}
+
+/// 비상 정지 수동 해제
+#[tauri::command]
+pub async fn clear_emergency_stop(state: State<'_, AppState>) -> CmdResult<RiskConfigView> {
+    let mut risk = state.risk_manager.lock().await;
+    risk.clear_emergency_stop();
+    Ok(RiskConfigView {
+        daily_loss_limit: risk.daily_loss_limit,
+        max_position_ratio: risk.max_position_ratio,
+        current_loss: risk.current_loss(),
+        loss_ratio: risk.loss_ratio(),
+        is_emergency_stop: risk.is_emergency_stop(),
+        can_trade: risk.can_trade(),
+    })
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 미체결 주문 목록 조회
+// ────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingOrderView {
+    pub odno: String,
+    pub symbol: String,
+    pub symbol_name: String,
+    /// "buy" | "sell"
+    pub side: String,
+    pub quantity: u64,
+    pub timestamp: String,
+    pub signal_reason: String,
+}
+
+#[tauri::command]
+pub async fn get_pending_orders(state: State<'_, AppState>) -> CmdResult<Vec<PendingOrderView>> {
+    let mgr = state.order_manager.lock().await;
+    let views = mgr
+        .pending_orders()
+        .iter()
+        .map(|p| PendingOrderView {
+            odno: p.record.kis_order_id.clone().unwrap_or_default(),
+            symbol: p.record.symbol.clone(),
+            symbol_name: p.record.symbol_name.clone(),
+            side: match &p.record.side {
+                crate::storage::order_store::OrderSide::Buy => "buy".into(),
+                crate::storage::order_store::OrderSide::Sell => "sell".into(),
+            },
+            quantity: p.record.quantity,
+            timestamp: p.record.timestamp.clone(),
+            signal_reason: p.signal_reason.clone(),
+        })
+        .collect();
+    Ok(views)
+}
+
+// ────────────────────────────────────────────────────────────────────
 // 로그 설정 조회 / 변경
 // ────────────────────────────────────────────────────────────────────
 

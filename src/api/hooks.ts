@@ -40,6 +40,9 @@ import type {
   UpdateStrategyInput,
   WebConfig,
   DetectTradingTypeResult,
+  RiskConfigView,
+  UpdateRiskConfigInput,
+  PendingOrderView,
 } from './types'
 
 // ─── Query Keys ────────────────────────────────────────────────────
@@ -66,6 +69,8 @@ export const KEYS = {
   webConfig: ['webConfig'] as const,
   overseasPrice: (exchange: string, symbol: string) => ['overseasPrice', exchange, symbol] as const,
   overseasChart: (exchange: string, symbol: string, presetKey: string) => ['overseasChart', exchange, symbol, presetKey] as const,
+  riskConfig: ['riskConfig'] as const,
+  pendingOrders: ['pendingOrders'] as const,
 }
 
 // ─── 앱 설정 ───────────────────────────────────────────────────────
@@ -417,7 +422,7 @@ export function useStockSearch(query: string) {
   return useQuery<StockSearchItem[]>({
     queryKey: KEYS.stockSearch(query),
     queryFn: () => cmd.searchStock(query),
-    enabled: query.length >= 2 && !/^\d+$/.test(query),
+    enabled: query.length >= 2,
     staleTime: 30_000,
     placeholderData: [],
   })
@@ -565,5 +570,47 @@ export function usePlaceOverseasOrder() {
       void qc.invalidateQueries({ queryKey: KEYS.balance })
       void qc.invalidateQueries({ queryKey: KEYS.todayExecuted })
     },
+  })
+}
+
+// ─── 리스크 관리 ───────────────────────────────────────────────────
+export function useRiskConfig(options?: Partial<UseQueryOptions<RiskConfigView>>) {
+  return useQuery<RiskConfigView>({
+    queryKey: KEYS.riskConfig,
+    queryFn: cmd.getRiskConfig,
+    staleTime: 10_000,
+    refetchInterval: 10_000,
+    ...options,
+  })
+}
+
+export function useUpdateRiskConfig() {
+  const qc = useQueryClient()
+  return useMutation<RiskConfigView, Error, UpdateRiskConfigInput>({
+    mutationFn: (input) => cmd.updateRiskConfig(input),
+    onSuccess: (data) => {
+      qc.setQueryData(KEYS.riskConfig, data)
+    },
+  })
+}
+
+export function useClearEmergencyStop() {
+  const qc = useQueryClient()
+  return useMutation<RiskConfigView, Error, void>({
+    mutationFn: () => cmd.clearEmergencyStop(),
+    onSuccess: (data) => {
+      qc.setQueryData(KEYS.riskConfig, data)
+    },
+  })
+}
+
+export function usePendingOrders(options?: Partial<UseQueryOptions<PendingOrderView[]>>) {
+  return useQuery<PendingOrderView[]>({
+    queryKey: KEYS.pendingOrders,
+    queryFn: cmd.getPendingOrders,
+    staleTime: 5_000,
+    refetchInterval: 5_000,
+    placeholderData: [],
+    ...options,
   })
 }

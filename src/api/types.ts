@@ -317,3 +317,37 @@ export interface WebConfig {
   runningPort: number
   accessUrl: string
 }
+
+// ─── 리스크 관리 ───────────────────────────────────────────────────
+export interface RiskConfigView {
+  /** 일일 최대 손실 한도 (원) */
+  dailyLossLimit: number
+  /** 단일 종목 최대 비중 (0.0~1.0) */
+  maxPositionRatio: number
+  /** 오늘 누적 손실 (음수) */
+  currentLoss: number
+  /** 손실 소진율 (0.0~1.0+) */
+  lossRatio: number
+  /** 비상 정지 여부 */
+  isEmergencyStop: boolean
+  /** 추가 거래 가능 여부 */
+  canTrade: boolean
+}
+
+export interface UpdateRiskConfigInput {
+  dailyLossLimit?: number
+  /** 0.01 ~ 1.0 */
+  maxPositionRatio?: number
+}
+
+// ─── 미체결 주문 ───────────────────────────────────────────────────
+export interface PendingOrderView {
+  odno: string
+  symbol: string
+  symbolName: string
+  /** "buy" | "sell" */
+  side: string
+  quantity: number
+  timestamp: string
+  signalReason: string
+}

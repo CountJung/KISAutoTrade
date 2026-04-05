@@ -473,7 +473,18 @@ function ProfileCard({
             {profile.is_active ? (
               <RadioButtonCheckedIcon color="primary" fontSize="small" />
             ) : (
-              <RadioButtonUncheckedIcon color="disabled" fontSize="small" />
+              <Tooltip title="클릭하여 이 프로파일로 전환">
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={() => onSetActive(profile.id)}
+                    disabled={activating}
+                    sx={{ p: 0 }}
+                  >
+                    <RadioButtonUncheckedIcon color="disabled" fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
             )}
             <Typography variant="body1" fontWeight={600}>
               {profile.name}
@@ -520,21 +531,6 @@ function ProfileCard({
         </Stack>
 
         <Stack direction="row" spacing={0.5} alignItems="center">
-          {!profile.is_active && (
-            <Tooltip title="이 프로파일로 전환">
-              <span>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => onSetActive(profile.id)}
-                  disabled={activating}
-                  sx={{ whiteSpace: 'nowrap' }}
-                >
-                  활성화
-                </Button>
-              </span>
-            </Tooltip>
-          )}
           <Tooltip title="편집">
             <IconButton size="small" onClick={() => onEdit(profile)}>
               <EditIcon fontSize="small" />
@@ -798,33 +794,37 @@ export default function Settings() {
               <br />
               접속 URL: <code>{webConfig?.accessUrl ?? `http://localhost:7474`}</code>
             </Typography>
-            <Box display="flex" alignItems="center" gap={1}>
-              <TextField
-                label="웹 서버 포트"
-                value={webPortInput}
-                onChange={(e) => { setWebPortInput(e.target.value); setWebSaveResult(null) }}
-                size="small"
-                type="number"
-                inputProps={{ min: 1024, max: 65535 }}
-                sx={{ width: 140 }}
-                helperText="기본값: 7474 (재시작 후 적용)"
-              />
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  const port = parseInt(webPortInput, 10)
-                  if (isNaN(port)) return
-                  setWebSaveResult(null)
-                  saveWebConfig(port, {
-                    onSuccess: (msg) => setWebSaveResult({ ok: true, msg }),
-                    onError: (err) => setWebSaveResult({ ok: false, msg: String(err) }),
-                  })
-                }}
-                disabled={webSaving || !webPortInput}
-                startIcon={webSaving ? <CircularProgress size={16} /> : null}
-              >
-                저장
-              </Button>
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <TextField
+                  label="웹 서버 포트"
+                  value={webPortInput}
+                  onChange={(e) => { setWebPortInput(e.target.value); setWebSaveResult(null) }}
+                  size="small"
+                  type="number"
+                  inputProps={{ min: 1024, max: 65535 }}
+                  sx={{ width: 140 }}
+                />
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    const port = parseInt(webPortInput, 10)
+                    if (isNaN(port)) return
+                    setWebSaveResult(null)
+                    saveWebConfig(port, {
+                      onSuccess: (msg) => setWebSaveResult({ ok: true, msg }),
+                      onError: (err) => setWebSaveResult({ ok: false, msg: String(err) }),
+                    })
+                  }}
+                  disabled={webSaving || !webPortInput}
+                  startIcon={webSaving ? <CircularProgress size={16} /> : null}
+                >
+                  저장
+                </Button>
+              </Stack>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                기본값: 7474 (재시작 후 적용)
+              </Typography>
             </Box>
             {webSaveResult && (
               <Alert severity={webSaveResult.ok ? 'success' : 'error'}>

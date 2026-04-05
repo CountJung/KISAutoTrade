@@ -299,4 +299,57 @@ React useChartData(symbol, periodCode, startDate, endDate, presetKey)
 
 ---
 
-> 마지막 업데이트: 2026-04-03
+---
+
+## 9. TextField + Button 인라인 정렬
+
+TextField에 `helperText`가 있으면 컴포넌트 전체 높이가 늘어나 `alignItems="center"`만으로는 Button이 입력 필드 중앙에 정렬되지 않는다.
+
+### 원인
+
+```
+┌─ TextField ─────────────────┐   ┌─ Button ─┐
+│ label                       │   │          │  ← center = helperText 위쪽
+│ [ input field         ]     │   │  저장     │
+│ helperText                  │   └──────────┘
+└─────────────────────────────┘
+```
+
+`alignItems="center"` 시 Button의 수직 중심이 helperText 위로 올라가 시각적으로 입력 필드보다 낮게 보임.
+
+### 해결 — helperText를 Stack 밖으로 분리
+
+```tsx
+// ✅ 권장 패턴
+<Box>
+  <Stack direction="row" spacing={1} alignItems="center">
+    <TextField
+      label="레이블"
+      size="small"
+      sx={{ width: 140 }}
+      // helperText 제거 — Stack 밖으로 분리
+    />
+    <Button variant="outlined">저장</Button>
+  </Stack>
+  {/* 도움말은 TextField 너비 이하에 별도 표시 */}
+  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+    기본값: 7474 (재시작 후 적용)
+  </Typography>
+</Box>
+
+// ❌ 잘못된 패턴 — helperText가 포함된 상태로 alignItems="center"
+<Box display="flex" alignItems="center">
+  <TextField helperText="..." />  {/* Button이 입력 필드보다 낮게 표시됨 */}
+  <Button>저장</Button>
+</Box>
+```
+
+### 요약 규칙
+
+| 상황 | alignItems | helperText 위치 |
+|------|-----------|----------------|
+| TextField에 helperText 없음 | `"center"` | TextField 내부 |
+| TextField에 helperText 있음 | `"center"` | Stack **밖** `<Typography variant="caption">` |
+
+> 마지막 업데이트: 2026-04-05
+
