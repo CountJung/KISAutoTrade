@@ -9,6 +9,7 @@ import {
   createChart,
   CandlestickSeries,
   HistogramSeries,
+  LineSeries,
   ColorType,
   CrosshairMode,
   type IChartApi,
@@ -27,6 +28,8 @@ import Tooltip from '@mui/material/Tooltip'
 import ZoomInIcon from '@mui/icons-material/ZoomIn'
 import ZoomOutIcon from '@mui/icons-material/ZoomOut'
 import FitScreenIcon from '@mui/icons-material/FitScreen'
+import CandlestickChartIcon from '@mui/icons-material/CandlestickChart'
+import ShowChartIcon from '@mui/icons-material/ShowChart'
 import { useTheme } from '@mui/material/styles'
 import { useChartData } from '../../api/hooks'
 import type { ChartCandle } from '../../api/types'
@@ -84,9 +87,15 @@ interface VolumePoint {
   color: string
 }
 
-function toChartPoints(candles: ChartCandle[]): { candleData: CandlePoint[]; volumeData: VolumePoint[] } {
+interface LinePoint {
+  time: Time
+  value: number
+}
+
+function toChartPoints(candles: ChartCandle[]): { candleData: CandlePoint[]; volumeData: VolumePoint[]; lineData: LinePoint[] } {
   const candleData: CandlePoint[] = []
   const volumeData: VolumePoint[] = []
+  const lineData: LinePoint[] = []
 
   for (const c of candles) {
     if (!c.date || c.date.length !== 8) continue
@@ -104,9 +113,10 @@ function toChartPoints(candles: ChartCandle[]): { candleData: CandlePoint[]; vol
       value: vol,
       color: close >= open ? 'rgba(38,166,154,0.45)' : 'rgba(239,83,80,0.45)',
     })
+    lineData.push({ time, value: close })
   }
 
-  return { candleData, volumeData }
+  return { candleData, volumeData, lineData }
 }
 
 // ─── 차트 생성 옵션 ────────────────────────────────────────────────
@@ -161,15 +171,19 @@ interface CrosshairData {
   volume: number
 }
 
+type ChartType = 'candle' | 'line'
+
 export function StockChart({ symbol, stockName }: StockChartProps) {
   const theme = useTheme()
   const isDark = theme.palette.mode === 'dark'
 
   const [preset, setPreset] = useState<ChartPreset>(CHART_PRESETS[0])
+  const [chartType, setChartType] = useState<ChartType>('candle')
   const [crosshair, setCrosshair] = useState<CrosshairData | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef     = useRef<IChartApi | null>(null)
   const candleRef    = useRef<ISeriesApi<'Candlestick'> | null>(null)
+  const lineRef      = useRef<ISeriesApi<'Line'> | null>(null)
   const volumeRef    = useRef<ISeriesApi<'Histogram'> | null>(null)
 
   const startDate = monthsAgoYYYYMMDD(preset.months)
@@ -200,6 +214,13 @@ export function StockChart({ symbol, stockName }: StockChartProps) {
       wickDownColor: '#ef5350',
     })
 
+    // 라인 시리즈 (초기 숨김)
+    const ls = chart.addSeries(LineSeries, {
+      color: '#2196f3',
+      lineWidth: 2,
+      visible: false,
+    })
+
     // 거래량 시리즈 (아래 15% 영역)
     const vs = chart.addSeries(HistogramSeries, {
       priceFormat: { type: 'volume' },
@@ -211,6 +232,7 @@ export function StockChart({ symbol, stockName }: StockChartProps) {
 
     chartRef.current  = chart
     candleRef.current = cs
+    lineRef.current   = ls
     volumeRef.current = vs
 
     // ── 크로스헤어 이동 → 툴팁 데이터 업데이트 ─────────────────────
@@ -221,13 +243,16 @@ export function StockChart({ symbol, stockName }: StockChartProps) {
       }
       const c = param.seriesData.get(cs) as CandlePoint | undefined
       const v = param.seriesData.get(vs) as { value: number } | undefined
-      if (!c) { setCrosshair(null); return }
+      // 라인 모드에서는 LineSeries 데이터로 폴백
+      const lp = param.seriesData.get(ls) as LinePoint | undefined
+      const closeVal = c?.close ?? lp?.value ?? 0
+      if (!c && !lp) { setCrosshair(null); return }
       setCrosshair({
         time: param.time as string,
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
+        open: c?.open ?? closeVal,
+        high: c?.high ?? closeVal,
+        low: c?.low ?? closeVal,
+        close: closeVal,
         volume: v?.value ?? 0,
       })
     })
@@ -245,6 +270,7 @@ export function StockChart({ symbol, stockName }: StockChartProps) {
       chart.remove()
       chartRef.current  = null
       candleRef.current = null
+      lineRef.current   = null
       volumeRef.current = null
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -260,12 +286,20 @@ export function StockChart({ symbol, stockName }: StockChartProps) {
 
   // ── 데이터 업데이트 ─────────────────────────────────────────────
   useEffect(() => {
-    if (!candles || !candleRef.current || !volumeRef.current) return
-    const { candleData, volumeData } = toChartPoints(candles)
+    if (!candles || !candleRef.current || !volumeRef.current || !lineRef.current) return
+    const { candleData, volumeData, lineData } = toChartPoints(candles)
     candleRef.current.setData(candleData)
+    lineRef.current.setData(lineData)
     volumeRef.current.setData(volumeData)
     chartRef.current?.timeScale().fitContent()
   }, [candles])
+
+  // ── 차트 타입 전환 (캔들 ↔ 라인) ────────────────────────────────
+  useEffect(() => {
+    if (!candleRef.current || !lineRef.current) return
+    candleRef.current.applyOptions({ visible: chartType === 'candle' })
+    lineRef.current.applyOptions({ visible: chartType === 'line' })
+  }, [chartType])
 
   // ── 줌 / 피트 컨트롤 ──────────────────────────────────────────
   const handleZoomIn = useCallback(() => {
@@ -322,6 +356,25 @@ export function StockChart({ symbol, stockName }: StockChartProps) {
         </ToggleButtonGroup>
 
         <Box sx={{ flex: 1 }} />
+
+        {/* 차트 타입 토글 */}
+        <ToggleButtonGroup
+          value={chartType}
+          exclusive
+          onChange={(_, v) => { if (v) setChartType(v as ChartType) }}
+          size="small"
+        >
+          <ToggleButton value="candle" sx={{ px: 1 }}>
+            <Tooltip title="캔들 차트">
+              <CandlestickChartIcon fontSize="small" />
+            </Tooltip>
+          </ToggleButton>
+          <ToggleButton value="line" sx={{ px: 1 }}>
+            <Tooltip title="라인 차트">
+              <ShowChartIcon fontSize="small" />
+            </Tooltip>
+          </ToggleButton>
+        </ToggleButtonGroup>
 
         {/* 줌 컨트롤 */}
         <Tooltip title="확대">

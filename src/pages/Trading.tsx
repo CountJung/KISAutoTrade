@@ -322,7 +322,10 @@ export default function Trading() {
     for (const exc of exchanges) {
       try {
         const res = await cmd.getOverseasPrice(ticker, exc)
-        if (res && parseFloat(res.last) > 0) {
+        // 가격 > 0 이거나 종목명이 있으면 유효 (NYSE Arca ETF 등 특수 케이스 포함)
+        const validPrice = parseFloat(res.last) > 0
+        const hasName = res.name && res.name.trim().length > 0
+        if (res && (validPrice || hasName)) {
           setUsExchange(exc)
           setSymbol(ticker)
           setResult(null)

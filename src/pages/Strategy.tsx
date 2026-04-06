@@ -29,6 +29,10 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import SearchIcon from '@mui/icons-material/Search'
 import RefreshIcon from '@mui/icons-material/Refresh'
+import PublicIcon from '@mui/icons-material/Public'
+import FlagIcon from '@mui/icons-material/Flag'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import { useState, useRef, useEffect } from 'react'
 import {
   useStrategies,
@@ -41,7 +45,12 @@ import {
   useStockSearch,
   useRefreshStockList,
 } from '../api/hooks'
-import type { CmdError, StockSearchItem, UpdateStrategyInput } from '../api/types'
+import * as cmd from '../api/commands'
+import type { CmdError, OverseasExchange, StockSearchItem, UpdateStrategyInput } from '../api/types'
+
+type Market = 'KR' | 'US'
+
+const EXCHANGE_SEARCH_ORDER: OverseasExchange[] = ['NAS', 'NYS', 'AMS']
 
 function fmt(n: number) {
   return n.toLocaleString('ko-KR')
@@ -342,11 +351,14 @@ export default function Strategy() {
   const [editMap, setEditMap] = useState<Record<string, EditState>>({})
 
   // ── 상단 종목 검색 상태 ─────────────────────────────────────────
+  const [market, setMarket]                   = useState<Market>('KR')
   const [selectedStock, setSelectedStock]     = useState<StockSearchItem | null>(null)
   const [searchInput, setSearchInput]         = useState('')
   const [searchQuery, setSearchQuery]         = useState('')
   const [showSearch, setShowSearch]           = useState(false)
   const searchCloseTimer                      = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [usSearching, setUsSearching]         = useState(false)
+  const [usSearchError, setUsSearchError]     = useState<string | null>(null)
   /** 종목코드 → 이름 캐시 (세션 중 검색으로 추가된 종목) */
   const [symbolNames, setSymbolNames]         = useState<Record<string, string>>({})
 
@@ -365,13 +377,46 @@ export default function Strategy() {
     // 6자 미만이면 대기, 그 외(6자 초과 등)는 무시
     setSearchQuery('')
   }, [searchInput, showSearch])
-
+  /** 해외(미국) 거래소 자동 감지: NAS → NYS → AMS 순서로 조회 */
+  const handleUsSearch = async () => {
+    const ticker = searchInput.trim().toUpperCase()
+    if (!ticker) return
+    setUsSearching(true)
+    setUsSearchError(null)
+    for (const exc of EXCHANGE_SEARCH_ORDER) {
+      try {
+        const res = await cmd.getOverseasPrice(ticker, exc)
+        // 가격 또는 종목명이 있으면 유효한 종목으로 간주
+        const validPrice = parseFloat(res.last) > 0
+        const hasName = res.name && res.name.trim().length > 0
+        if (res && (validPrice || hasName)) {
+          const item: StockSearchItem = { pdno: ticker, prdt_name: res.name || ticker }
+          setSelectedStock(item)
+          setSearchInput(res.name || ticker)
+          setSymbolNames(prev => ({ ...prev, [ticker]: res.name || ticker }))
+          setUsSearching(false)
+          return
+        }
+      } catch { /* 다음 거래소 시도 */ }
+    }
+    setUsSearchError(`"${ticker}"을 NAS·NYS·AMEX에서 찾을 수 없습니다.`)
+    setUsSearching(false)
+  }
   // 전략이 로드됐을 때 기존 symbolNames에 없는 종목 이름 등록 (strategies 데이터에서)
   useEffect(() => {
     if (!strategies) return
     // targetSymbolNames는 없으므로 code 그대로 사용 (이름은 검색 시 채워짐)
     // 단, strategies에 name 정보가 있으면 활용
   }, [strategies])
+
+  // 시장 변경 시 검색 상태 초기화
+  useEffect(() => {
+    setSelectedStock(null)
+    setSearchInput('')
+    setSearchQuery('')
+    setShowSearch(false)
+    setUsSearchError(null)
+  }, [market])
 
   const getEdit = (id: string, s: { targetSymbols: string[]; orderQuantity: number; params: Record<string, unknown> }): EditState => {
     if (editMap[id]) return editMap[id]
@@ -444,110 +489,168 @@ export default function Strategy() {
       {/* ── 0. 종목 선택 패널 ─────────────────────────────────────── */}
       <Paper sx={{ p: { xs: 1.5, sm: 2.5 }, mb: 2 }}>
         <Typography variant="subtitle1" fontWeight={600} mb={0.5}>종목 선택</Typography>
-        <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+        <Typography variant="caption" color="text.secondary" display="block" mb={1}>
           종목을 검색하여 선택한 후, 각 전략 카드의 "추가" 버튼으로 전략에 등록하세요
         </Typography>
-        <Typography variant="caption" color="warning.main" display="block" mb={1.5}>
-          ⚠ 국내 주식은 6자리 종목코드로만 검색 가능합니다 (예: 005930 — 삼성전자, 0005A0 — ETF)
-        </Typography>
+
+        {/* 시장 토글 */}
+        <ToggleButtonGroup
+          value={market}
+          exclusive
+          onChange={(_, v) => { if (v) setMarket(v as Market) }}
+          size="small"
+          sx={{ mb: 1.5 }}
+        >
+          <ToggleButton value="KR">
+            <FlagIcon fontSize="small" sx={{ mr: 0.5 }} />국내
+          </ToggleButton>
+          <ToggleButton value="US">
+            <PublicIcon fontSize="small" sx={{ mr: 0.5 }} />해외 (미국)
+          </ToggleButton>
+        </ToggleButtonGroup>
+
         <Box sx={{ position: 'relative' }}>
-          <TextField
-            label="6자리 종목코드 (예: 005930, 0005A0)"
-            value={searchInput}
-            onChange={(e) => {
-              setSearchInput(e.target.value)
-              setShowSearch(true)
-              if (!e.target.value) { setSelectedStock(null); setShowSearch(false) }
-            }}
-            onBlur={() => { searchCloseTimer.current = setTimeout(() => setShowSearch(false), 180) }}
-            onFocus={() => {
-              if (searchCloseTimer.current) clearTimeout(searchCloseTimer.current)
-              if (searchInput.length >= 2) setShowSearch(true)
-            }}
-            size="small"
-            fullWidth
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  {isFetchingSearch && <CircularProgress size={14} color="inherit" sx={{ mr: 0.5 }} />}
-                  <IconButton
-                    size="small"
-                    disabled={!searchInput || searchInput.length < 2}
-                    onClick={() => { if (searchInput.length >= 2) { setSearchQuery(searchInput); setShowSearch(true) } }}
-                  >
-                    <SearchIcon fontSize="small" />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-            helperText={
-              selectedStock
-                ? `선택됨: ${selectedStock.prdt_name} (${selectedStock.pdno})`
-                : '국내 주식은 6자리 종목코드로만 검색 가능합니다 (예: 005930, 0005A0)'
-            }
-          />
-          {/* 검색 결과 드롭다운 */}
-          {showSearch && (searchResults.length > 0 || isFetchingSearch) && (
-            <Paper
-              elevation={8}
-              onMouseDown={(e) => { e.preventDefault(); if (searchCloseTimer.current) clearTimeout(searchCloseTimer.current) }}
-              sx={{ mt: 0.5, maxHeight: 240, overflow: 'auto', border: 1, borderColor: 'divider', zIndex: 1400, position: 'absolute', width: '100%' }}
-            >
-              {isFetchingSearch && searchResults.length === 0 ? (
-                <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CircularProgress size={14} />
-                  <Typography variant="caption" color="text.secondary">검색 중...</Typography>
-                </Box>
-              ) : (
-                <Table size="small">
-                  <TableBody>
-                    {searchResults.map((r) => (
-                      <TableRow
-                        key={r.pdno}
-                        hover
-                        sx={{ cursor: 'pointer' }}
-                        onClick={() => {
-                          setSelectedStock(r)
-                          setSearchInput(r.prdt_name)
-                          setShowSearch(false)
-                          setSearchQuery('')
-                          setSymbolNames(prev => ({ ...prev, [r.pdno]: r.prdt_name }))
-                        }}
+          {market === 'KR' ? (
+            <>
+              <TextField
+                label="6자리 종목코드 (예: 005930, 0005A0)"
+                value={searchInput}
+                onChange={(e) => {
+                  setSearchInput(e.target.value)
+                  setShowSearch(true)
+                  if (!e.target.value) { setSelectedStock(null); setShowSearch(false) }
+                }}
+                onBlur={() => { searchCloseTimer.current = setTimeout(() => setShowSearch(false), 180) }}
+                onFocus={() => {
+                  if (searchCloseTimer.current) clearTimeout(searchCloseTimer.current)
+                  if (searchInput.length >= 2) setShowSearch(true)
+                }}
+                size="small"
+                fullWidth
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      {isFetchingSearch && <CircularProgress size={14} color="inherit" sx={{ mr: 0.5 }} />}
+                      <IconButton
+                        size="small"
+                        disabled={!searchInput || searchInput.length < 2}
+                        onClick={() => { if (searchInput.length >= 2) { setSearchQuery(searchInput); setShowSearch(true) } }}
                       >
-                        <TableCell sx={{ py: 0.75 }}>
-                          <Typography variant="body2" noWrap>{r.prdt_name}</Typography>
-                        </TableCell>
-                        <TableCell sx={{ py: 0.75, width: 80 }}>
-                          <Typography variant="caption" color="text.secondary">{r.pdno}</Typography>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </Paper>
-          )}
-          {/* STOCK_LIST_EMPTY 경고 */}
-          {showSearch && isStockListEmpty && (
-            <Alert
-              severity="warning"
-              sx={{ mt: 0.5 }}
-              action={
-                <Button
-                  size="small"
-                  color="warning"
-                  variant="outlined"
-                  onClick={() => doRefreshList()}
-                  disabled={isRefreshing}
-                  startIcon={isRefreshing ? <CircularProgress size={12} /> : <RefreshIcon fontSize="small" />}
+                        <SearchIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+                helperText={
+                  selectedStock
+                    ? `선택됨: ${selectedStock.prdt_name} (${selectedStock.pdno})`
+                    : '국내 주식은 6자리 종목코드로만 검색 가능합니다 (예: 005930, 0005A0)'
+                }
+              />
+              {/* 검색 결과 드롭다운 */}
+              {showSearch && (searchResults.length > 0 || isFetchingSearch) && (
+                <Paper
+                  elevation={8}
+                  onMouseDown={(e) => { e.preventDefault(); if (searchCloseTimer.current) clearTimeout(searchCloseTimer.current) }}
+                  sx={{ mt: 0.5, maxHeight: 240, overflow: 'auto', border: 1, borderColor: 'divider', zIndex: 1400, position: 'absolute', width: '100%' }}
                 >
-                  {isRefreshing ? '다운로드 중...' : '종목 목록 새로고침'}
+                  {isFetchingSearch && searchResults.length === 0 ? (
+                    <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CircularProgress size={14} />
+                      <Typography variant="caption" color="text.secondary">검색 중...</Typography>
+                    </Box>
+                  ) : (
+                    <Table size="small">
+                      <TableBody>
+                        {searchResults.map((r) => (
+                          <TableRow
+                            key={r.pdno}
+                            hover
+                            sx={{ cursor: 'pointer' }}
+                            onClick={() => {
+                              setSelectedStock(r)
+                              setSearchInput(r.prdt_name)
+                              setShowSearch(false)
+                              setSearchQuery('')
+                              setSymbolNames(prev => ({ ...prev, [r.pdno]: r.prdt_name }))
+                            }}
+                          >
+                            <TableCell sx={{ py: 0.75 }}>
+                              <Typography variant="body2" noWrap>{r.prdt_name}</Typography>
+                            </TableCell>
+                            <TableCell sx={{ py: 0.75, width: 80 }}>
+                              <Typography variant="caption" color="text.secondary">{r.pdno}</Typography>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </Paper>
+              )}
+              {/* STOCK_LIST_EMPTY 경고 */}
+              {showSearch && isStockListEmpty && (
+                <Alert
+                  severity="warning"
+                  sx={{ mt: 0.5 }}
+                  action={
+                    <Button
+                      size="small"
+                      color="warning"
+                      variant="outlined"
+                      onClick={() => doRefreshList()}
+                      disabled={isRefreshing}
+                      startIcon={isRefreshing ? <CircularProgress size={12} /> : <RefreshIcon fontSize="small" />}
+                    >
+                      {isRefreshing ? '다운로드 중...' : '종목 목록 새로고침'}
+                    </Button>
+                  }
+                >
+                  <Typography variant="caption">종목 목록이 로드되지 않았습니다. 새로고침을 눌러주세요.</Typography>
+                </Alert>
+              )}
+            </>
+          ) : (
+            /* ── 해외(미국) 주식 검색 ─── */
+            <Stack spacing={1}>
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  label="티커 (예: AAPL, SPYM, QQQ)"
+                  value={searchInput}
+                  onChange={(e) => {
+                    setSearchInput(e.target.value.toUpperCase())
+                    setUsSearchError(null)
+                    setSelectedStock(null)
+                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleUsSearch() }}
+                  size="small"
+                  fullWidth
+                  inputProps={{ style: { textTransform: 'uppercase' } }}
+                  helperText={
+                    selectedStock
+                      ? `선택됨: ${selectedStock.prdt_name} (${selectedStock.pdno})`
+                      : 'NAS(NASDAQ)·NYS·AMEX 순서로 자동 감지합니다'
+                  }
+                />
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={handleUsSearch}
+                  disabled={!searchInput.trim() || usSearching}
+                  startIcon={usSearching ? <CircularProgress size={14} color="inherit" /> : <SearchIcon />}
+                  sx={{ minWidth: 80, alignSelf: 'flex-start', mt: 0.5 }}
+                >
+                  검색
                 </Button>
-              }
-            >
-              <Typography variant="caption">종목 목록이 로드되지 않았습니다. 새로고침을 눌러주세요.</Typography>
-            </Alert>
+              </Stack>
+              {usSearchError && (
+                <Alert severity="warning" sx={{ py: 0.5 }}>
+                  <Typography variant="caption">{usSearchError}</Typography>
+                </Alert>
+              )}
+            </Stack>
           )}
+
           {/* 선택된 종목 칩 */}
           {selectedStock && (
             <Box sx={{ mt: 1 }}>
