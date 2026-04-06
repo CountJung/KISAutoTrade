@@ -95,6 +95,7 @@
 - [x] 웹 모드 단독 동작 지원 (axum ServeDir + transport layer)
 - [x] Settings 웹 접속 포트 설정 + .env 저장
 - [x] Trading 종목 검색 UI 개선 (돋보기 버튼, 로딩 인디케이터)
+- [x] Trading KR 종목 검색 결과 테이블 표시 ✅ 2026-04-06 (TextField + Paper/Table 드롭다운 방식으로 교체)
 - [x] KRX 종목 목록 로드/캐시 (`market/mod.rs`, `search_stock` IPC)
 - [x] 로그 설정 UI (`get_log_config` / `set_log_config` IPC — 보관 기간·최대 용량)
 - [x] 프론트엔드 로그 백엔드 전달 (`write_frontend_log` IPC)
@@ -135,8 +136,65 @@
   - [x] ⑧ 리스크 검증: 주문 전 `RiskManager.can_trade()` + `check_position_size()` 통과 여부 확인
   - [x] ⑨ Discord 알림: 체결 완료 시 `NotificationEvent::trade()` 전송
   - [x] ⑩ 주문 재시도: KIS API rate-limit(EGW00133) 오류 시 1초 대기 후 최대 3회 재시도
-- [ ] 추가 전략 구현 (모멘텀, RSI, 이격도)
-- [ ] 차트 컴포넌트 고도화 (History 페이지 일별 PnL 차트 + candlestick 연동)
+- [x] 추가 전략 구현 (모멘텀, RSI, 이격도) ✅ 2026-04-06
+  - [x] `RsiStrategy` — RSI 과매도(기본 30) 돌파 시 매수 / 과매수(기본 70) 하향 시 매도
+  - [x] `MomentumStrategy` — N기간 전 대비 변화율 임계값 돌파 시 매매
+  - [x] `DeviationStrategy` — 이격도(현재가/MA-1)*100 임계값 매매
+  - [x] `commands.rs` — rsi_default / momentum_default / deviation_default 등록
+  - [x] `Strategy.tsx` — 파라미터 UI 범용화 (STRATEGY_PARAM_META 드리프트 렌더링)
+- [x] 국내 주식 검색 STOCK_LIST_EMPTY 진단 및 복구 UI ✅ 2026-04-07
+  - [x] `search_stock` IPC: 목록 비어있을 때 `STOCK_LIST_EMPTY` 에러코드 반환 + 로그
+  - [x] `market/mod.rs load_or_fetch`: 캐시/KRX 다운로드 상세 로그 추가
+  - [x] `useStockSearch`: STOCK_LIST_EMPTY 오류 시 재시도 중단, 에러 타입 `CmdError`
+  - [x] `useRefreshStockList`: 강제 새로고침 mutation — 성공 시 stockSearch 캐시 무효화
+  - [x] Trading.tsx: 종목 목록 없을 때 Warning Alert + 새로고침 버튼 표시
+- [x] Strategy.tsx 종목 검색 패널 + 테이블 UI ✅ 2026-04-07
+  - [x] 상단 종목 선택 패널: 검색/드롭다운/선택 칩 (검색어 디바운스 350ms)
+  - [x] 각 전략 카드: 종목 코드+이름 테이블 (삭제 버튼), "선택한 종목 추가" 버튼
+  - [x] `symbolNames` 캐시로 코드→이름 표시 유지
+  - [x] `EditState.symbols: string[]` — 직접 배열로 관리 (쉼표 구분 문자열 제거)
+- [x] StockStore 영구 캐시 + Settings 종목 목록 관리 섹션 ✅ 2026-04-06
+  - [x] `storage/stock_store.rs` — `StockEntry { name, updated_at }` + `StockStore` 영구 JSON 캐시 (`stocklist/stocklist.json`)
+  - [x] `storage/mod.rs` — `pub mod stock_store` + `pub use StockStore` 등록
+  - [x] `AppState.stock_store: Arc<StockStore>` — `AppState::new()` 초기화 연결
+  - [x] `get_balance` IPC — 응답 `prdt_name` 에서 자동 upsert (incremental 수집)
+  - [x] `get_price` IPC — 응답 `hts_kor_isnm` 에서 자동 upsert
+  - [x] `search_stock` 4단계: StockStore → KRX 레거시 캐시 → NAVER 실시간(+upsert) → STOCK_LIST_EMPTY
+  - [x] `get_stock_list_stats` / `set_stock_update_interval` IPC 추가
+  - [x] `lib.rs` — KRX 백그라운드 로드 시 `stock_store.upsert_many` 동기화
+  - [x] `types.ts` — `StockListStats` 인터페이스 추가
+  - [x] `commands.ts` — `getStockListStats`, `setStockUpdateInterval` 래퍼 추가
+  - [x] `hooks.ts` — `useStockListStats`, `useSetStockUpdateInterval` 훅 추가 / `useRefreshStockList` invalidation 갱신
+  - [x] `Settings.tsx` — "종목 목록 관리" 섹션 추가 (통계 Chip, 자동 갱신 간격, KRX 다운로드 버튼, 경로 표시)
+- [ ] 추가 프리셋 전략 구현 (나머지 6개)
+  - [x] **03. 52주 신고가** (`FiftyTwoWeekHighStrategy`) ✅ 2026-04-06
+    - `strategy.rs`: `FiftyTwoWeekHighParams { lookback_days, stop_loss_pct }` + `FiftyTwoWeekHighStrategy` 구현
+    - `Strategy` trait에 `initialize_historical(symbol, prices)` 추가 (기본 no-op)
+    - `StrategyManager::initialize_historical(symbol, prices)` — 해당 종목 타겟 전략에 일괄 전달
+    - `commands.rs` `start_trading`: 활성 종목별 KIS 일봉 차트 400일치 로드 → `initialize_historical` 호출
+    - `commands.rs` AppState: `FiftyTwoWeekHighStrategy` 기본 등록 (`fifty_two_week_high_default`)
+    - `Strategy.tsx` `STRATEGY_PARAM_META` + `STRATEGY_DESCRIPTION` + `getStrategyType` 추가
+    - **동작**: 자동매매 시작 시 KIS 차트 API로 52주 고가 자동 초기화 → 실시간 틱에서 돌파 감지 → 매수; 매수 후 stop_loss_pct% 하락 시 자동 손절
+  - [ ] **04. 연속 상승/하락** (`ConsecutiveMoveStrategy`) — N일 연속 종가 상승 시 매수, M일 연속 하락 시 매도
+    - 파라미터: `buy_days: u32 = 3`, `sell_days: u32 = 3`
+    - 데이터: 최근 `buy_days + 1` 일봉 종가로 판단
+  - [ ] **06. 돌파 실패** (`FailedBreakoutStrategy`) — 전고점 돌파 후 당일 종가가 다시 전고점 아래로 내려오면 손절/매도
+    - 파라미터: `lookback_days: u32 = 20`, `buffer_pct: f64 = 0.5`
+    - 조건: 전고점 × (1 + buffer_pct/100) 이상 → 매수, 종가 < 전고점 → 이탈 → 매도
+  - [ ] **07. 강한 종가** (`StrongCloseStrategy`) — 종가가 당일 고가 대비 N% 이내(강한 마감)이면 다음날 매수
+    - 파라미터: `threshold_pct: f64 = 3.0` (고가-종가 < 고가 × threshold_pct/100)
+    - 데이터: 전일 일봉 1개 (고가, 종가 비교)
+  - [ ] **08. 변동성 확장** (`VolatilityExpansionStrategy`) — N일 평균 변동성(일봉 고-저 범위) 대비 당일 변동성이 K배 이상이면 방향에 따라 매수/매도
+    - 파라미터: `lookback_days: u32 = 10`, `expansion_factor: f64 = 2.0`
+    - 조건: 당일 변동폭 > 평균 변동폭 × expansion_factor AND 종가 > 시가 → 매수
+  - [ ] **09. 평균회귀** (`MeanReversionStrategy`) — 현재가가 MA에서 N 표준편차 이상 이탈 시 반대 방향으로 매매 (볼린저 밴드 기반)
+    - 파라미터: `period: u32 = 20`, `std_dev: f64 = 2.0`
+    - 조건: 현재가 < 하단밴드 → 매수 / 현재가 > 상단밴드 → 매도
+  - [ ] **10. 추세 필터** (`TrendFilterStrategy`) — 장기 MA(기본 200일) 위에서 단기 상승 신호(5일 MA > 20일 MA) 시에만 매수
+    - 파라미터: `long_period: u32 = 200`, `short_period: u32 = 5`, `mid_period: u32 = 20`
+    - 조건: 현재가 > long_MA AND short_MA > mid_MA → 매수; 현재가 < long_MA → 청산
+  - [ ] 각 전략을 `commands.rs` 의 `*_default()` 헬퍼로 등록 (프리셋 기본값)
+  - [ ] `Strategy.tsx` — 신규 전략 파라미터 메타 (`STRATEGY_PARAM_META`) 추가
 - [ ] GitHub Actions CI/CD (Windows + macOS 자동 빌드 & 릴리스)
 - [ ] 웹 모드 고도화 (주문 REST API 추가, 인증 처리)
 - [ ] 실전 매매 검증 (모의투자 완전 통과 후 실전 전환)
@@ -153,4 +211,4 @@
 
 ---
 
-*마지마 업데이트: 2026-04-06*
+*마지막 업데이트: 2026-04-06*

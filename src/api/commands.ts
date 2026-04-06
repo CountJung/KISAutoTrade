@@ -27,6 +27,7 @@ import type {
   PriceResponse,
   RiskConfigView,
   SetLogConfigInput,
+  StockListStats,
   StockSearchItem,
   StrategyView,
   TradeRecord,
@@ -80,6 +81,12 @@ export const searchStock = (query: string): Promise<StockSearchItem[]> =>
 
 export const refreshStockList = (): Promise<number> =>
   invoke('refresh_stock_list')
+
+export const getStockListStats = (): Promise<StockListStats> =>
+  invoke('get_stock_list_stats')
+
+export const setStockUpdateInterval = (hours: number): Promise<void> =>
+  invoke('set_stock_update_interval', { hours })
 
 // ─── KIS 기간별 체결 내역 ──────────────────────────────────────────
 export const getKisExecutedByRange = (from: string, to: string): Promise<ExecutedOrder[]> =>

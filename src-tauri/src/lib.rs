@@ -87,7 +87,13 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 let items = market::StockList::load_or_fetch(&data_dir).await;
                 let st: tauri::State<AppState> = app_handle.state();
-                *st.stock_list.write().await = items;
+                // KRX 결과가 있으면 stock_list(레거시) + stock_store(영구) 양쪽 저장
+                if !items.is_empty() {
+                    st.stock_store.upsert_many(
+                        items.iter().map(|i| (i.pdno.clone(), i.prdt_name.clone()))
+                    ).await;
+                    *st.stock_list.write().await = items;
+                }
             });
 
             // 2) 모바일 웹 서버 시작 (포트 web_port)
@@ -134,6 +140,8 @@ pub fn run() {
             commands::write_frontend_log,
             commands::search_stock,
             commands::refresh_stock_list,
+            commands::get_stock_list_stats,
+            commands::set_stock_update_interval,
             commands::get_kis_executed_by_range,
             commands::get_recent_logs,
             commands::check_for_update,

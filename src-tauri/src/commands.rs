@@ -22,12 +22,18 @@ use crate::{
     config::{AccountProfile, AppConfig, DiscordConfig, ProfilesConfig},
     logging::LogConfig,
     notifications::{discord::DiscordNotifier, types::NotificationEvent},
-    storage::{stats_store::DailyStats, trade_store::TradeRecord, OrderStore, StatsStore, TradeStore},
+    storage::{stats_store::DailyStats, stock_store::{StockListStats, StockStore}, trade_store::TradeRecord, OrderStore, StatsStore, TradeStore},
     trading::{
         order::OrderManager,
         position::{Position, PositionTracker},
         risk::RiskManager,
-        strategy::{MaCrossParams, MovingAverageCrossStrategy, StrategyConfig, StrategyManager},
+    strategy::{
+        DeviationParams, DeviationStrategy,
+        FiftyTwoWeekHighParams, FiftyTwoWeekHighStrategy,
+        MaCrossParams, MomentumParams, MomentumStrategy,
+        MovingAverageCrossStrategy, RsiParams, RsiStrategy,
+        StrategyConfig, StrategyManager,
+    },
     },
 };
 
@@ -66,8 +72,10 @@ pub struct AppState {
     pub log_config: Arc<RwLock<LogConfig>>,
     /// 데이터 저장 경로
     pub data_dir: PathBuf,
-    /// KRX 캐시된 종목 목록 (이름 검색용)
+    /// KRX 캐시된 종목 목록 (이름 검색용, 레거시 — KRX WAF 차단 시 빈 채로 유지될 수 있음)
     pub stock_list: Arc<RwLock<Vec<crate::api::rest::StockSearchItem>>>,
+    /// 영구 종목 목록 캐시 (KIS API 응답에서 자동 수집 + stocklist/stocklist.json)
+    pub stock_store: Arc<StockStore>,
     /// 웹 서버 포트
     pub web_port: u16,
     /// WebSocket 연결 상태 (Dashboard 실시간 반영용)
@@ -124,6 +132,50 @@ impl AppState {
         };
         strategy_manager.add(Box::new(MovingAverageCrossStrategy::new(default_strategy)));
 
+        // RSI 전략 (기본 등록, 비활성)
+        let rsi_strategy = StrategyConfig {
+            id: "rsi_default".to_string(),
+            name: "RSI 전략".to_string(),
+            enabled: false,
+            target_symbols: vec![],
+            order_quantity: 1,
+            params: serde_json::to_value(RsiParams::default()).unwrap_or_default(),
+        };
+        strategy_manager.add(Box::new(RsiStrategy::new(rsi_strategy)));
+
+        // 모멘텀 전략 (기본 등록, 비활성)
+        let momentum_strategy = StrategyConfig {
+            id: "momentum_default".to_string(),
+            name: "모멘텀 전략".to_string(),
+            enabled: false,
+            target_symbols: vec![],
+            order_quantity: 1,
+            params: serde_json::to_value(MomentumParams::default()).unwrap_or_default(),
+        };
+        strategy_manager.add(Box::new(MomentumStrategy::new(momentum_strategy)));
+
+        // 이격도 전략 (기본 등록, 비활성)
+        let deviation_strategy = StrategyConfig {
+            id: "deviation_default".to_string(),
+            name: "이격도 전략".to_string(),
+            enabled: false,
+            target_symbols: vec![],
+            order_quantity: 1,
+            params: serde_json::to_value(DeviationParams::default()).unwrap_or_default(),
+        };
+        strategy_manager.add(Box::new(DeviationStrategy::new(deviation_strategy)));
+
+        // 52주 신고가 전략 (기본 등록, 비활성)
+        let fifty_two_week_high_strategy = StrategyConfig {
+            id: "fifty_two_week_high_default".to_string(),
+            name: "52주 신고가 전략".to_string(),
+            enabled: false,
+            target_symbols: vec![],
+            order_quantity: 1,
+            params: serde_json::to_value(FiftyTwoWeekHighParams::default()).unwrap_or_default(),
+        };
+        strategy_manager.add(Box::new(FiftyTwoWeekHighStrategy::new(fifty_two_week_high_strategy)));
+
         Self {
             config: Arc::new(RwLock::new(config)),
             rest_client: rest_client_rw,
@@ -141,8 +193,9 @@ impl AppState {
             risk_manager,
             log_dir,
             log_config: Arc::new(RwLock::new(log_config)),
-            data_dir,
+            data_dir: data_dir.clone(),
             stock_list: Arc::new(RwLock::new(vec![])),
+            stock_store: Arc::new(StockStore::new(&data_dir)),
             web_port,
             ws_connected: Arc::new(AtomicBool::new(false)),
         }
@@ -499,6 +552,10 @@ pub async fn get_balance(state: State<'_, AppState>) -> CmdResult<BalanceResult>
                 resp.items.len(),
                 resp.summary.as_ref().map(|s| s.tot_evlu_amt.as_str()).unwrap_or("미제공")
             );
+            // 잔고 응답의 종목코드+이름 데이터 자동 수집
+            state.stock_store.upsert_many(
+                resp.items.iter().map(|i| (i.pdno.clone(), i.prdt_name.clone()))
+            ).await;
             Ok(BalanceResult { items: resp.items, summary: resp.summary })
         }
         Err(e) => {
@@ -540,7 +597,12 @@ pub async fn get_chart_data(
 #[tauri::command]
 pub async fn get_price(symbol: String, state: State<'_, AppState>) -> CmdResult<PriceResponse> {
     let client = state.rest_client.read().await.clone();
-    client.get_price(&symbol).await.map_err(CmdError::from)
+    let result = client.get_price(&symbol).await.map_err(CmdError::from)?;
+    // 현재가 응답에서 종목명 자동 수집
+    if !result.hts_kor_isnm.is_empty() {
+        state.stock_store.upsert(&symbol, &result.hts_kor_isnm).await;
+    }
+    Ok(result)
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -811,6 +873,38 @@ pub async fn start_trading(
         )).await;
     }
     drop(is_running);
+
+    // 활성 전략의 종목별 일봉 차트 데이터 로드 → 히스토리 기반 전략 초기화 (52주 신고가 등)
+    {
+        let active_symbols: Vec<String> = state.strategy_manager.lock().await.active_symbols();
+        if !active_symbols.is_empty() {
+            let rest = state.rest_client.read().await.clone();
+            let today = chrono::Local::now();
+            let end_date = today.format("%Y%m%d").to_string();
+            // 400일치 조회 (52주 = 252거래일 + 여유분)
+            let start_date = (today - chrono::Duration::days(400)).format("%Y%m%d").to_string();
+
+            for symbol in &active_symbols {
+                match rest.get_chart_data(symbol, "D", &start_date, &end_date).await {
+                    Ok(candles) if !candles.is_empty() => {
+                        // 일봉 고가 배열 추출 (52주 신고가 전략에서 사용)
+                        let highs: Vec<u64> = candles.iter()
+                            .filter_map(|c| c.high.parse::<u64>().ok())
+                            .collect();
+                        if !highs.is_empty() {
+                            state.strategy_manager.lock().await
+                                .initialize_historical(symbol, &highs);
+                            tracing::info!("전략 히스토리 초기화 완료: {} ({}봉)", symbol, highs.len());
+                        }
+                    }
+                    Ok(_) => tracing::debug!("차트 데이터 없음 (히스토리 초기화 건너뜀): {}", symbol),
+                    Err(e) => tracing::warn!(
+                        "차트 데이터 조회 실패 (히스토리 초기화 건너뜀): {} — {}", symbol, e
+                    ),
+                }
+            }
+        }
+    }
 
     // WebSocket 연결 시작
     {
@@ -1194,33 +1288,103 @@ pub async fn search_stock(
     query: String,
     state: State<'_, AppState>,
 ) -> CmdResult<Vec<StockSearchItem>> {
-    // 6자리 숫자 코드 → KIS 현재가로 종목명 확인
-    if query.len() == 6 && query.chars().all(|c| c.is_ascii_digit()) {
-        let client = state.rest_client.read().await.clone();
-        return Ok(match client.get_price(&query).await {
-            Ok(p) if !p.hts_kor_isnm.is_empty() => vec![StockSearchItem {
-                pdno: query,
-                prdt_name: p.hts_kor_isnm,
-            }],
-            _ => vec![],
-        });
-    }
-
     if query.len() < 2 {
         return Ok(vec![]);
     }
 
-    // 이름/부분 검색 → 캐시된 KRX 목록에서 로컬 검색
-    let stock_list = state.stock_list.read().await;
-    Ok(crate::market::search_local(&stock_list, &query, 20))
+    // ① 6자리 코드 입력 → KIS 현재가에서 이름 확인 (코드를 아는 경우)
+    if query.len() == 6 && query.chars().all(|c| c.is_ascii_digit()) {
+        // StockStore에 이미 있으면 빠르게 반환
+        if let Some(name) = state.stock_store.get_name(&query).await {
+            return Ok(vec![StockSearchItem { pdno: query, prdt_name: name }]);
+        }
+        // 없으면 KIS get_price로 확인
+        let client = state.rest_client.read().await.clone();
+        if let Ok(p) = client.get_price(&query).await {
+            if !p.hts_kor_isnm.is_empty() {
+                state.stock_store.upsert(&query, &p.hts_kor_isnm).await;
+                return Ok(vec![StockSearchItem { pdno: query.clone(), prdt_name: p.hts_kor_isnm }]);
+            }
+        }
+        // KIS 실패 시 Yahoo Finance로 이름 조회 (설정 없이도 동작)
+        tracing::debug!("KIS 현재가 실패 → Yahoo Finance로 종목명 조회: {}", query);
+        match crate::market::lookup_name_by_code(&query).await {
+            Ok(name) => {
+                tracing::info!("Yahoo Finance 이름 조회 성공: {} → {}", query, name);
+                state.stock_store.upsert(&query, &name).await;
+                return Ok(vec![StockSearchItem { pdno: query, prdt_name: name }]);
+            }
+            Err(e) => {
+                tracing::warn!("Yahoo Finance 이름 조회 실패: {} — {}", query, e);
+                return Ok(vec![]);
+            }
+        }
+    }
+
+    // ② StockStore(영구 캐시) 검색 — 우선순위 최상
+    let local_results = state.stock_store.search(&query, 20).await;
+    if !local_results.is_empty() {
+        tracing::debug!("StockStore 검색: query={:?}, {}개 결과", query, local_results.len());
+        return Ok(local_results);
+    }
+
+    // ③ KRX 레거시 캐시 검색 (stock_list — KRX 다운로드 성공 시에만 유효)
+    {
+        let stock_list = state.stock_list.read().await;
+        if !stock_list.is_empty() {
+            let results = crate::market::search_local(&stock_list, &query, 20);
+            if !results.is_empty() {
+                tracing::debug!("KRX 캐시 검색: query={:?}, {}개 결과", query, results.len());
+                return Ok(results);
+            }
+        }
+    }
+
+    // ④ NAVER Finance 실시간 검색 폴백
+    tracing::info!("search_stock: 로컬 검색 결과 없음 → NAVER 실시간 검색 (query={:?})", query);
+    match crate::market::search_naver_live(&query).await {
+        Ok(results) if !results.is_empty() => {
+            tracing::info!("NAVER 검색 성공: {}개 결과 (query={:?})", results.len(), query);
+            // NAVER 결과도 StockStore에 캐시
+            state.stock_store.upsert_many(
+                results.iter().map(|r| (r.pdno.clone(), r.prdt_name.clone()))
+            ).await;
+            return Ok(results);
+        }
+        Ok(_) => {
+            tracing::debug!("NAVER 검색 결과 없음 (query={:?})", query);
+            return Ok(vec![]);
+        }
+        Err(e) => {
+            tracing::warn!("NAVER 검색 실패: {} (query={:?})", e, query);
+            return Err(CmdError {
+                code: "STOCK_LIST_EMPTY".into(),
+                message: "종목 검색에 실패했습니다. 네트워크 연결을 확인하거나 '종목 목록 새로고침'을 눌러주세요.".into(),
+            });
+        }
+    }
 }
 
 // ── 종목 목록 새로고침 ─────────────────────────────────────────────
 #[tauri::command]
 pub async fn refresh_stock_list(state: State<'_, AppState>) -> CmdResult<usize> {
+    tracing::info!("수동 종목 목록 새로고침 시작 (KRX 다운로드 시도)...");
     let items = crate::market::StockList::fetch_from_krx()
         .await
         .map_err(CmdError::from)?;
+
+    if items.is_empty() {
+        tracing::warn!(
+            "KRX 다운로드 결과가 0개입니다. \
+             KRX 데이터 포털(data.krx.co.kr)이 봇 차단(WAF)을 적용 중이거나 \
+             네트워크 문제일 수 있습니다. \
+             종목 검색은 NAVER Finance 실시간 검색으로 자동 대체됩니다."
+        );
+        return Err(CmdError {
+            code: "KRX_EMPTY".into(),
+            message: "KRX에서 종목 목록을 가져오지 못했습니다 (0개). 종목 검색은 실시간 검색으로 동작합니다.".into(),
+        });
+    }
 
     let count = items.len();
 
@@ -1229,12 +1393,45 @@ pub async fn refresh_stock_list(state: State<'_, AppState>) -> CmdResult<usize> 
 
     // 캐시 파일 갱신
     let cache_path = state.data_dir.join("stock_list.json");
+    if let Some(dir) = cache_path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
     if let Ok(json) = serde_json::to_string(&items) {
         let _ = std::fs::write(&cache_path, json);
     }
 
-    tracing::info!("종목 목록 수동 갱신: {}개", count);
+    tracing::info!("종목 목록 수동 갱신 완료: {}개", count);
     Ok(count)
+}
+
+// ── 종목 목록 통계 조회 ────────────────────────────────────────────
+#[tauri::command]
+pub async fn get_stock_list_stats(state: State<'_, AppState>) -> CmdResult<StockListStats> {
+    let count = state.stock_store.size().await;
+    let last_updated_at = state.stock_store.last_updated_at().await;
+    let update_interval_hours = state.stock_store.get_interval_hours().await;
+    let file_path = state.data_dir
+        .join("stocklist")
+        .join("stocklist.json")
+        .to_string_lossy()
+        .to_string();
+    Ok(StockListStats {
+        count,
+        last_updated_at,
+        file_path,
+        update_interval_hours,
+    })
+}
+
+// ── 종목 목록 자동 갱신 간격 설정 ────────────────────────────────
+#[tauri::command]
+pub async fn set_stock_update_interval(
+    hours: u32,
+    state: State<'_, AppState>,
+) -> CmdResult<()> {
+    state.stock_store.set_interval_hours(hours).await.map_err(CmdError::from)?;
+    tracing::info!("종목 목록 갱신 간격 변경: {}시간", hours);
+    Ok(())
 }
 
 // ── KIS 기간별 체결 내역 ──────────────────────────────────────────

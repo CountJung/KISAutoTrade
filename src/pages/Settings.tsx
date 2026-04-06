@@ -34,6 +34,14 @@ import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import SyncIcon from '@mui/icons-material/Sync'
 
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
+import InputLabel from '@mui/material/InputLabel'
+import FormControl from '@mui/material/FormControl'
+
+import RefreshIcon from '@mui/icons-material/Refresh'
+import StorageIcon from '@mui/icons-material/Storage'
+
 import { useSettingsStore } from '../store/settingsStore'
 import {
   useAppConfig,
@@ -50,6 +58,9 @@ import {
   useSaveWebConfig,
   useDetectTradingType,
   useDetectProfileTradingType,
+  useStockListStats,
+  useRefreshStockList,
+  useSetStockUpdateInterval,
 } from '../api/hooks'
 import type { AccountProfileView, AddProfileInput, UpdateProfileInput } from '../api/types'
 import type { ThemeMode } from '../theme'
@@ -64,6 +75,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       {children}
     </Paper>
   )
+}
+
+/** Tauri IPC 에러는 `{ code, message }` 객체 → message 를 우선 추출 */
+function cmdErrMsg(e: unknown): string {
+  if (e && typeof e === 'object' && 'message' in e) {
+    return String((e as { message: unknown }).message)
+  }
+  return String(e)
 }
 
 // ── 프로파일 입력 폼 상태 ──────────────────────────────────────────
@@ -116,7 +135,7 @@ function AddProfileDialog({
         },
         onError: (e) => {
           setDetectStatus('failed')
-          setDetectMsg(String(e))
+          setDetectMsg(cmdErrMsg(e))
         },
       },
     )
@@ -133,7 +152,7 @@ function AddProfileDialog({
       onSuccess: () => {
         setForm(emptyForm()); setError(null); setDetectStatus('idle'); setDetectMsg(''); onClose()
       },
-      onError: (e) => setError(String(e)),
+      onError: (e) => setError(cmdErrMsg(e)),
     })
   }
 
@@ -297,7 +316,7 @@ function EditProfileDialog({
         },
         onError: (e) => {
           setDetectStatus('failed')
-          setDetectMsg(String(e))
+          setDetectMsg(cmdErrMsg(e))
         },
       },
     )
@@ -317,7 +336,7 @@ function EditProfileDialog({
     }
     updateProfile(input, {
       onSuccess: () => { setError(null); setDetectStatus('idle'); setDetectMsg(''); onClose() },
-      onError: (e) => setError(String(e)),
+      onError: (e) => setError(cmdErrMsg(e)),
     })
   }
 
@@ -453,7 +472,7 @@ function ProfileCard({
   const handleDetect = () => {
     setDetectError(null)
     detectProfile(profile.id, {
-      onError: (e) => setDetectError(String(e)),
+      onError: (e) => setDetectError(cmdErrMsg(e)),
     })
   }
 
@@ -593,6 +612,12 @@ export default function Settings() {
     prevWebConfigRef[1](webConfig)
     setWebPortInput(String(webConfig.runningPort))
   }
+
+  // 종목 목록 관리
+  const { data: stockStats, isFetching: statsFetching } = useStockListStats()
+  const { mutate: doRefreshStockList, isPending: stockRefreshing } = useRefreshStockList()
+  const { mutate: doSetInterval } = useSetStockUpdateInterval()
+  const [stockRefreshResult, setStockRefreshResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
   const handleTestDiscord = () => {
     setDiscordResult(null)
@@ -832,6 +857,94 @@ export default function Settings() {
                 {webSaveResult.ok && ' — 앱을 재시작하면 새 포트가 적용됩니다.'}
               </Alert>
             )}
+          </Stack>
+        </Section>
+
+        {/* ── 종목 목록 관리 ─────────────────────────────────────── */}
+        <Section title="종목 목록 관리">
+          <Stack spacing={2}>
+            <Typography variant="body2" color="text.secondary">
+              종목명 검색은 <strong>로컬 캐시 → NAVER Finance → KIS API</strong> 순서로 동작합니다.
+              잔고 조회·현재가 조회·주문 체결 시 종목명이 자동으로 캐시에 누적됩니다.
+            </Typography>
+
+            {/* 통계 */}
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Chip
+                icon={<StorageIcon />}
+                label={statsFetching ? '로딩 중...' : `저장된 종목: ${stockStats?.count ?? 0}개`}
+                color={stockStats && stockStats.count > 0 ? 'success' : 'default'}
+                variant="outlined"
+                size="small"
+              />
+              {stockStats?.lastUpdatedAt && (
+                <Typography variant="caption" color="text.secondary">
+                  마지막 갱신: {new Date(stockStats.lastUpdatedAt).toLocaleString('ko-KR')}
+                </Typography>
+              )}
+            </Box>
+
+            <Divider />
+
+            {/* 자동 갱신 간격 */}
+            <Box>
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>자동 갱신 간격</InputLabel>
+                <Select
+                  value={stockStats?.updateIntervalHours ?? 24}
+                  label="자동 갱신 간격"
+                  onChange={(e) => doSetInterval(Number(e.target.value))}
+                >
+                  <MenuItem value={0}>수동 전용 (자동 갱신 없음)</MenuItem>
+                  <MenuItem value={6}>6시간마다</MenuItem>
+                  <MenuItem value={12}>12시간마다</MenuItem>
+                  <MenuItem value={24}>매일 (24시간)</MenuItem>
+                  <MenuItem value={168}>매주 (7일)</MenuItem>
+                </Select>
+              </FormControl>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                앱 시작 시 설정된 간격이 지났으면 자동으로 KRX 다운로드를 시도합니다.
+              </Typography>
+            </Box>
+
+            {/* 수동 새로고침 */}
+            <Box>
+              <Button
+                variant="outlined"
+                startIcon={stockRefreshing ? <CircularProgress size={16} /> : <RefreshIcon />}
+                disabled={stockRefreshing}
+                onClick={() => {
+                  setStockRefreshResult(null)
+                  doRefreshStockList(undefined, {
+                    onSuccess: (count) => setStockRefreshResult({ ok: true, msg: `KRX에서 ${count}개 종목을 가져왔습니다.` }),
+                    onError: (err) => {
+                      if (err.code === 'KRX_EMPTY') {
+                        setStockRefreshResult({ ok: false, msg: 'KRX에서 데이터를 받지 못했습니다. 종목 검색은 NAVER 실시간 검색으로 계속 동작합니다.' })
+                      } else {
+                        setStockRefreshResult({ ok: false, msg: err.message })
+                      }
+                    },
+                  })
+                }}
+              >
+                {stockRefreshing ? '다운로드 중...' : '지금 KRX 다운로드'}
+              </Button>
+            </Box>
+
+            {stockRefreshResult && (
+              <Alert severity={stockRefreshResult.ok ? 'success' : 'warning'}>
+                {stockRefreshResult.msg}
+              </Alert>
+            )}
+
+            <Alert severity="info">
+              <Typography variant="caption">
+                파일 경로: <code>{stockStats?.filePath ?? '로딩 중...'}</code>
+                <br />
+                종목명 검색이 안 될 때: 잔고 조회를 먼저 실행하면 보유 종목이 자동 등록됩니다.
+                6자리 코드를 검색창에 입력하면 KIS API로 즉시 확인할 수 있습니다.
+              </Typography>
+            </Alert>
           </Stack>
         </Section>
 

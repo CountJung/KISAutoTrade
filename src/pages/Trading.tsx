@@ -1,7 +1,7 @@
 /**
  * Trading 페이지 — KR / US 주식, 모바일 반응형
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Typography from '@mui/material/Typography'
 import Paper from '@mui/material/Paper'
 import Box from '@mui/material/Box'
@@ -22,10 +22,10 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
-import Autocomplete from '@mui/material/Autocomplete'
 import Tooltip from '@mui/material/Tooltip'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
+import RefreshIcon from '@mui/icons-material/Refresh'
 import SearchIcon from '@mui/icons-material/Search'
 import PublicIcon from '@mui/icons-material/Public'
 import FlagIcon from '@mui/icons-material/Flag'
@@ -39,10 +39,12 @@ import {
   useTodayExecuted,
   useOverseasPrice,
   usePlaceOverseasOrder,
+  useRefreshStockList,
 } from '../api/hooks'
 import * as cmd from '../api/commands'
 import type {
   BalanceItem,
+  CmdError,
   OverseasExchange,
   OverseasOrderExchange,
   OrderSide,
@@ -245,20 +247,13 @@ function UsStockInfoCard({ symbol, exchange }: { symbol: string; exchange: Overs
   )
 }
 
-// --- 검색 옵션 타입
-interface StockOption {
-  code: string
-  name: string
-  source: 'holding' | 'search'
-  qty?: string
-}
-
 // --- Trading 메인
 export default function Trading() {
   const [market, setMarket]           = useState<Market>('KR')
   const [symbol, setSymbol]           = useState('')
   const [inputValue, setInputValue]   = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [showResults, setShowResults] = useState(false)
   const [usExchange, setUsExchange]   = useState<OverseasExchange>('NAS')
   const [usSearching, setUsSearching] = useState(false)
   const [side, setSide]               = useState<OrderSide>('Buy')
@@ -267,11 +262,14 @@ export default function Trading() {
   const [price, setPrice]             = useState('')
   const [result, setResult]           = useState<string | null>(null)
   const [errorMsg, setErrorMsg]       = useState<string | null>(null)
+  // 검색 결과 테이블 마우스 다운 시 blur 이벤트 지연 취소용
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     setSymbol('')
     setInputValue('')
     setSearchQuery('')
+    setShowResults(false)
     setPrice('')
     setQuantity('')
     setResult(null)
@@ -280,35 +278,27 @@ export default function Trading() {
   }, [market])
 
   useEffect(() => {
-    if (market !== 'KR' || !inputValue) {
-      setSearchQuery('')
+    if (market !== 'KR' || !inputValue || !showResults) {
+      if (!inputValue || !showResults) setSearchQuery('')
       return
     }
     const t = setTimeout(() => setSearchQuery(inputValue), 400)
     return () => clearTimeout(t)
-  }, [inputValue, market])
+  }, [inputValue, market, showResults])
 
   const { data: balance }                                           = useBalance()
   const { data: krPrice }                                           = usePrice(market === 'KR' && symbol.length === 6 ? symbol : '')
   const { data: usPrice }                                           = useOverseasPrice(market === 'US' ? symbol : '', market === 'US' ? usExchange : '')
   const { data: executed }                                          = useTodayExecuted()
-  const { data: searchResults = [], isFetching: isFetchingSearch } = useStockSearch(searchQuery)
+  const { data: searchResults = [], isFetching: isFetchingSearch,
+          isError: isSearchError, error: searchError }              = useStockSearch(searchQuery)
   const { mutate: placeOrder,         isPending: isPendingKr }     = usePlaceOrder()
   const { mutate: placeOverseasOrder, isPending: isPendingUs }     = usePlaceOverseasOrder()
+  const { mutate: doRefreshList,      isPending: isRefreshing }    = useRefreshStockList()
   const isPending = isPendingKr || isPendingUs
 
-  const symbolOptions = useMemo<StockOption[]>(() => {
-    if (market !== 'KR') return []
-    const q = inputValue.toLowerCase()
-    const holdingOpts: StockOption[] = (balance?.items ?? [])
-      .filter(i => q.length < 1 || i.pdno.includes(q) || i.prdt_name.toLowerCase().includes(q))
-      .map(i => ({ code: i.pdno, name: i.prdt_name, source: 'holding' as const, qty: i.hldg_qty }))
-    const holdingCodes = new Set(holdingOpts.map(h => h.code))
-    const searchOpts: StockOption[] = searchResults
-      .filter(r => !holdingCodes.has(r.pdno))
-      .map(r => ({ code: r.pdno, name: r.prdt_name, source: 'search' as const }))
-    return [...holdingOpts, ...searchOpts]
-  }, [balance?.items, inputValue, searchResults, market])
+  // STOCK_LIST_EMPTY 에러 감지: KRX 다운로드 미완료 or 실패
+  const isStockListEmpty = isSearchError && (searchError as CmdError | null)?.code === 'STOCK_LIST_EMPTY'
 
   const availableCash  = parseInt(balance?.summary?.dnca_tot_amt ?? '0') || 0
   const krCurrentPrice = krPrice ? parseInt(krPrice.stck_prpr) : null
@@ -424,74 +414,170 @@ export default function Trading() {
         <Divider sx={{ mb: 1.5 }} />
 
         {market === 'KR' ? (
-          <Autocomplete<StockOption, false, false, true>
-            freeSolo
-            options={symbolOptions}
-            groupBy={(opt) =>
-              typeof opt !== 'string'
-                ? opt.source === 'holding' ? '보유 중' : '검색 결과'
-                : ''
-            }
-            getOptionLabel={(opt) => typeof opt === 'string' ? opt : opt.name}
-            renderOption={(props, opt) => {
-              const { key: _k, ...rest } = props as React.HTMLAttributes<HTMLLIElement> & { key?: React.Key }
-              return (
-                <Box component="li" key={opt.code} {...rest}>
-                  <Typography variant="body2" sx={{ flexGrow: 1 }}>{opt.name}</Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                    {opt.code}{opt.qty ? ' · ' + fmt(parseInt(opt.qty)) + '주' : ''}
-                  </Typography>
-                </Box>
-              )
-            }}
-            isOptionEqualToValue={(opt, val) =>
-              typeof opt !== 'string' && typeof val !== 'string' && opt.code === val.code
-            }
-            inputValue={inputValue}
-            onInputChange={(_, v, reason) => {
-              setInputValue(v)
-              if (reason === 'input') {
-                if (/^\d{6}$/.test(v)) { setSymbol(v); setResult(null); setErrorMsg(null) }
-                else if (!v) setSymbol('')
+          /* ── KR 종목 검색: TextField + 검색결과 드롭다운 테이블 ── */
+          <Box>
+            <TextField
+              label="종목명 또는 6자리 코드"
+              value={inputValue}
+              onChange={(e) => {
+                const v = e.target.value
+                setInputValue(v)
+                if (/^\d{6}$/.test(v)) {
+                  // 6자리 코드 직접 입력
+                  setSymbol(v)
+                  setShowResults(false)
+                  setSearchQuery('')
+                  setResult(null)
+                  setErrorMsg(null)
+                } else if (!v) {
+                  setSymbol('')
+                  setShowResults(false)
+                  setSearchQuery('')
+                } else {
+                  setShowResults(true)
+                }
+              }}
+              onBlur={() => {
+                // 결과 테이블 클릭 허용을 위해 약간 지연 후 닫기
+                closeTimerRef.current = setTimeout(() => setShowResults(false), 180)
+              }}
+              onFocus={() => {
+                if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+                if (inputValue.length >= 2 && !symbol) setShowResults(true)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') { setShowResults(false); setSearchQuery('') }
+              }}
+              size="small"
+              fullWidth
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    {isFetchingSearch && (
+                      <CircularProgress size={16} color="inherit" sx={{ mr: 0.5 }} />
+                    )}
+                    <Tooltip title="검색">
+                      <span>
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            if (inputValue.length >= 2) {
+                              setSearchQuery(inputValue)
+                              setShowResults(true)
+                            }
+                          }}
+                          disabled={!inputValue || inputValue.length < 2}
+                        >
+                          <RefreshIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </InputAdornment>
+                ),
+              }}
+              helperText={
+                symbol
+                  ? `선택됨: ${symbol}`
+                  : '종목명(예: 삼성전자)을 입력하면 검색 결과가 아래에 표시됩니다'
               }
-            }}
-            onChange={(_, value) => {
-              if (!value) {
-                setSymbol(''); setInputValue('')
-              } else if (typeof value === 'string') {
-                if (/^\d{6}$/.test(value)) { setSymbol(value); setInputValue(value) }
-              } else {
-                setSymbol(value.code); setInputValue(value.name)
-                setResult(null); setErrorMsg(null)
-              }
-            }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="종목명 또는 6자리 코드"
-                size="small"
-                fullWidth
-                InputProps={{
-                  ...params.InputProps,
-                  endAdornment: (
-                    <>
-                      {isFetchingSearch && (
-                        <CircularProgress size={16} color="inherit" sx={{ mr: 0.5 }} />
-                      )}
-                      <IconButton
-                        size="small"
-                        onClick={() => setSearchQuery(inputValue)}
-                        disabled={!inputValue}
-                      >
-                        <SearchIcon fontSize="small" />
-                      </IconButton>
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
+            />
+
+            {/* 검색 결과 드롭다운 테이블 */}
+            {showResults && (searchResults.length > 0 || isFetchingSearch) && (
+              <Paper
+                elevation={8}
+                onMouseDown={(e) => {
+                  // blur 이전에 클릭 이벤트가 발생하도록 preventDefault
+                  e.preventDefault()
+                  if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
                 }}
-              />
+                sx={{
+                  mt: 0.5,
+                  maxHeight: 260,
+                  overflow: 'auto',
+                  border: 1,
+                  borderColor: 'divider',
+                  zIndex: 1400,
+                  position: 'relative',
+                }}
+              >
+                {isFetchingSearch && searchResults.length === 0 ? (
+                  <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={14} />
+                    <Typography variant="caption" color="text.secondary">검색 중...</Typography>
+                  </Box>
+                ) : (
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ py: 0.75, fontWeight: 700, fontSize: '0.7rem' }}>종목명</TableCell>
+                        <TableCell sx={{ py: 0.75, fontWeight: 700, fontSize: '0.7rem', width: 80 }}>코드</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {searchResults.map((r) => (
+                        <TableRow
+                          key={r.pdno}
+                          hover
+                          sx={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            setSymbol(r.pdno)
+                            setInputValue(r.prdt_name)
+                            setShowResults(false)
+                            setSearchQuery('')
+                            setResult(null)
+                            setErrorMsg(null)
+                          }}
+                        >
+                          <TableCell sx={{ py: 0.75 }}>
+                            <Typography variant="body2" noWrap>{r.prdt_name}</Typography>
+                          </TableCell>
+                          <TableCell sx={{ py: 0.75 }}>
+                            <Typography variant="caption" color="text.secondary">{r.pdno}</Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </Paper>
             )}
-          />
+
+            {/* 검색어 입력됐으나 결과 없음 또는 종목 목록 비어있음 */}
+            {showResults && !isFetchingSearch && searchQuery.length >= 2 && (searchResults.length === 0 || isStockListEmpty) && (
+              <Box sx={{ mt: 0.5, px: 1.5, py: 1 }}>
+                {isStockListEmpty ? (
+                  <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                    <Alert
+                      severity="warning"
+                      sx={{ flex: 1, py: 0.5, '& .MuiAlert-message': { display: 'flex', alignItems: 'center', gap: 1 } }}
+                      action={
+                        <Button
+                          size="small"
+                          color="warning"
+                          variant="outlined"
+                          onClick={() => doRefreshList()}
+                          disabled={isRefreshing}
+                          startIcon={isRefreshing ? <CircularProgress size={12} color="inherit" /> : undefined}
+                          sx={{ whiteSpace: 'nowrap' }}
+                        >
+                          {isRefreshing ? '다운로드 중...' : '종목 목록 새로고침'}
+                        </Button>
+                      }
+                    >
+                      <Typography variant="caption">
+                        종목 목록이 로드되지 않았습니다. KRX 서버 연결을 확인 후 새로고침을 눌러주세요.
+                      </Typography>
+                    </Alert>
+                  </Stack>
+                ) : (
+                  <Typography variant="caption" color="text.secondary">
+                    "{searchQuery}"에 대한 검색 결과가 없습니다
+                  </Typography>
+                )}
+              </Box>
+            )}
+          </Box>
         ) : (
           <Stack direction="row" spacing={1} alignItems="flex-start">
             <TextField

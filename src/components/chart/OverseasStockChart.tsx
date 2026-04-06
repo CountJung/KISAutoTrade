@@ -125,11 +125,21 @@ interface OverseasStockChartProps {
   stockName?: string
 }
 
+interface CrosshairData {
+  time: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
 export function OverseasStockChart({ symbol, exchange, stockName }: OverseasStockChartProps) {
   const theme  = useTheme()
   const isDark = theme.palette.mode === 'dark'
 
   const [presetKey, setPresetKey] = useState('3M')
+  const [crosshair, setCrosshair] = useState<CrosshairData | null>(null)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef     = useRef<IChartApi | null>(null)
@@ -169,6 +179,25 @@ export function OverseasStockChart({ symbol, exchange, stockName }: OverseasStoc
     chartRef.current  = chart
     candleRef.current = cs
     volumeRef.current = vs
+
+    // ── 크로스헤어 이동 → 툴팁 데이터 업데이트 ─────────────────────
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.time || param.point === undefined || param.point.x < 0 || param.point.y < 0) {
+        setCrosshair(null)
+        return
+      }
+      const c = param.seriesData.get(cs) as CandlePoint | undefined
+      const v = param.seriesData.get(vs) as { value: number } | undefined
+      if (!c) { setCrosshair(null); return }
+      setCrosshair({
+        time: param.time as string,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+        volume: v?.value ?? 0,
+      })
+    })
 
     const ro = new ResizeObserver(() => {
       if (container && chartRef.current) {
@@ -289,17 +318,38 @@ export function OverseasStockChart({ symbol, exchange, stockName }: OverseasStoc
         </Box>
       ) : null}
 
-      {/* lightweight-charts 렌더 타겟 — 항상 DOM에 유지 */}
-      <Box
-        ref={containerRef}
-        sx={{
-          width: '100%',
-          height: 380,
-          display: isLoading || isError || isEmpty ? 'none' : 'block',
-          borderRadius: 1,
-          overflow: 'hidden',
-        }}
-      />
+      {/* lightweight-charts 렌더 타겟 + 툴팁 오버레이 */}
+      <Box sx={{ position: 'relative' }}>
+        <Box
+          ref={containerRef}
+          sx={{
+            width: '100%',
+            height: 380,
+            display: isLoading || isError || isEmpty ? 'none' : 'block',
+            borderRadius: 1,
+            overflow: 'hidden',
+          }}
+        />
+        {crosshair && !isLoading && !isError && !isEmpty && (
+          <Box sx={{
+            position: 'absolute', top: 8, left: 8,
+            bgcolor: 'rgba(0,0,0,0.72)',
+            color: '#fff',
+            borderRadius: 1,
+            px: 1.5, py: 0.75,
+            pointerEvents: 'none',
+            zIndex: 10,
+            fontSize: '11px',
+            lineHeight: 1.7,
+            minWidth: 160,
+          }}>
+            <Box sx={{ fontWeight: 600, mb: 0.2 }}>{crosshair.time}</Box>
+            <Box>O&nbsp;{crosshair.open.toFixed(2)}&ensp;H&nbsp;{crosshair.high.toFixed(2)}</Box>
+            <Box>L&nbsp;{crosshair.low.toFixed(2)}&ensp;C&nbsp;<Box component="span" sx={{ color: crosshair.close >= crosshair.open ? '#26a69a' : '#ef5350', fontWeight: 600 }}>{crosshair.close.toFixed(2)}</Box></Box>
+            <Box sx={{ color: '#aaa' }}>Vol&nbsp;{Math.round(crosshair.volume).toLocaleString()}</Box>
+          </Box>
+        )}
+      </Box>
     </Box>
   )
 }

@@ -43,6 +43,7 @@ import type {
   RiskConfigView,
   UpdateRiskConfigInput,
   PendingOrderView,
+  CmdError,
 } from './types'
 
 // ─── Query Keys ────────────────────────────────────────────────────
@@ -417,14 +418,56 @@ export function useWriteFrontendLog() {
 }
 
 // ─── 종목 검색 ─────────────────────────────────────────────────────
-/** query 2자 이상 & 숫자가 아닌 경우에만 KIS 검색 API 호출 */
+/** query 2자 이상인 경우 KIS/로컬 검색 (stock_list 비어있으면 STOCK_LIST_EMPTY 에러) */
 export function useStockSearch(query: string) {
-  return useQuery<StockSearchItem[]>({
+  return useQuery<StockSearchItem[], CmdError>({
     queryKey: KEYS.stockSearch(query),
     queryFn: () => cmd.searchStock(query),
     enabled: query.length >= 2,
     staleTime: 30_000,
     placeholderData: [],
+    // STOCK_LIST_EMPTY는 재시도 불필요 (사용자가 수동으로 새로고침 필요)
+    retry: (count, err) => {
+      if ((err as CmdError | null)?.code === 'STOCK_LIST_EMPTY') return false
+      return count < 2
+    },
+  })
+}
+
+// ─── 종목 목록 새로고침 ──────────────────────────────────────────────
+export function useRefreshStockList() {
+  const qc = useQueryClient()
+  return useMutation<number, CmdError>({
+    mutationFn: () => cmd.refreshStockList(),
+    onSuccess: () => {
+      // 검색 캐시 + 통계 캐시 전체 무효화
+      qc.invalidateQueries({ queryKey: ['stockSearch'] })
+      qc.invalidateQueries({ queryKey: ['stockListStats'] })
+    },
+    onError: (err) => {
+      // KRX_EMPTY: KRX 다운로드가 0개 반환 — NAVER 실시간 검색으로 폴백 동작 중
+      if (err.code !== 'KRX_EMPTY') {
+        console.warn('[useRefreshStockList]', err.code, err.message)
+      }
+    },
+  })
+}
+
+// ─── 종목 목록 통계 ──────────────────────────────────────────────────
+export function useStockListStats() {
+  return useQuery({
+    queryKey: ['stockListStats'],
+    queryFn: () => cmd.getStockListStats(),
+    staleTime: 30_000,
+  })
+}
+
+// ─── 종목 목록 갱신 간격 변경 ──────────────────────────────────────
+export function useSetStockUpdateInterval() {
+  const qc = useQueryClient()
+  return useMutation<void, CmdError, number>({
+    mutationFn: (hours: number) => cmd.setStockUpdateInterval(hours),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['stockListStats'] }),
   })
 }
 

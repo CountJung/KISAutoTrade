@@ -359,3 +359,15 @@ export interface PendingOrderView {
   timestamp: string
   signalReason: string
 }
+
+// ─── 종목 목록 통계 ──────────────────────────────────────────────
+export interface StockListStats {
+  /** 저장된 종목 수 */
+  count: number
+  /** 마지막 upsert 시각 (ISO8601), 없으면 null */
+  lastUpdatedAt: string | null
+  /** stocklist.json 절대 경로 (디버그용) */
+  filePath: string
+  /** 자동 갱신 간격 (시간, 0 = 수동 전용) */
+  updateIntervalHours: number
+}

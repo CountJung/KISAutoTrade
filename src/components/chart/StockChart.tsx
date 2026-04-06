@@ -151,11 +151,22 @@ interface StockChartProps {
   stockName?: string
 }
 
+// ─── 툴팁 데이터 타입 ───────────────────────────────────────────────
+interface CrosshairData {
+  time: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
 export function StockChart({ symbol, stockName }: StockChartProps) {
   const theme = useTheme()
   const isDark = theme.palette.mode === 'dark'
 
   const [preset, setPreset] = useState<ChartPreset>(CHART_PRESETS[0])
+  const [crosshair, setCrosshair] = useState<CrosshairData | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef     = useRef<IChartApi | null>(null)
   const candleRef    = useRef<ISeriesApi<'Candlestick'> | null>(null)
@@ -201,6 +212,25 @@ export function StockChart({ symbol, stockName }: StockChartProps) {
     chartRef.current  = chart
     candleRef.current = cs
     volumeRef.current = vs
+
+    // ── 크로스헤어 이동 → 툴팁 데이터 업데이트 ─────────────────────
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.time || param.point === undefined || param.point.x < 0 || param.point.y < 0) {
+        setCrosshair(null)
+        return
+      }
+      const c = param.seriesData.get(cs) as CandlePoint | undefined
+      const v = param.seriesData.get(vs) as { value: number } | undefined
+      if (!c) { setCrosshair(null); return }
+      setCrosshair({
+        time: param.time as string,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+        volume: v?.value ?? 0,
+      })
+    })
 
     // 리사이즈 감지
     const ro = new ResizeObserver(() => {
@@ -320,17 +350,38 @@ export function StockChart({ symbol, stockName }: StockChartProps) {
         <Skeleton variant="rectangular" height={380} sx={{ borderRadius: 1 }} />
       ) : null}
 
-      {/* lightweight-charts 렌더 타겟 — 항상 DOM에 유지 */}
-      <Box
-        ref={containerRef}
-        sx={{
-          width: '100%',
-          height: 380,
-          display: isLoading || isError ? 'none' : 'block',
-          borderRadius: 1,
-          overflow: 'hidden',
-        }}
-      />
+      {/* lightweight-charts 렌더 타겟 + 툴팁 오버레이 */}
+      <Box sx={{ position: 'relative' }}>
+        <Box
+          ref={containerRef}
+          sx={{
+            width: '100%',
+            height: 380,
+            display: isLoading || isError ? 'none' : 'block',
+            borderRadius: 1,
+            overflow: 'hidden',
+          }}
+        />
+        {crosshair && !isLoading && !isError && (
+          <Box sx={{
+            position: 'absolute', top: 8, left: 8,
+            bgcolor: 'rgba(0,0,0,0.72)',
+            color: '#fff',
+            borderRadius: 1,
+            px: 1.5, py: 0.75,
+            pointerEvents: 'none',
+            zIndex: 10,
+            fontSize: '11px',
+            lineHeight: 1.7,
+            minWidth: 160,
+          }}>
+            <Box sx={{ fontWeight: 600, mb: 0.2 }}>{crosshair.time}</Box>
+            <Box>시가&nbsp;{crosshair.open.toLocaleString('ko-KR')}&ensp;고가&nbsp;{crosshair.high.toLocaleString('ko-KR')}</Box>
+            <Box>저가&nbsp;{crosshair.low.toLocaleString('ko-KR')}&ensp;종가&nbsp;<Box component="span" sx={{ color: crosshair.close >= crosshair.open ? '#26a69a' : '#ef5350', fontWeight: 600 }}>{crosshair.close.toLocaleString('ko-KR')}</Box></Box>
+            <Box sx={{ color: '#aaa' }}>거래량&nbsp;{Math.round(crosshair.volume).toLocaleString('ko-KR')}</Box>
+          </Box>
+        )}
+      </Box>
 
       {/* 심볼 미입력 빈 상태 */}
       {symbol.length !== 6 && !isLoading && !isError && (

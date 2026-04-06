@@ -346,5 +346,88 @@ pub trait Strategy: Send + Sync {
 > - [KIS Developers 포털](https://apiportal.koreainvestment.com/)
 > - [Open Trading API 샘플](https://github.com/koreainvestment/open-trading-api)
 > - [KIS AI Extensions](https://github.com/koreainvestment/kis-ai-extensions)
->
-> 마지막 업데이트: 2026-04-02
+
+---
+
+## 9. 국내 종목 검색 (KRX 차단 → NAVER 폴백)
+
+### ❌ 잘못된 패턴 — KRX data.krx.co.kr AJAX 직접 호출
+
+```rust
+// ❌ 브라우저 없이 AJAX 직접 호출 → WAF "LOGOUT" 응답 반환
+// data.krx.co.kr은 2024년 이후 세션/JS 없는 봇 접근 차단됨
+let resp = client
+    .post("https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd")
+    .body("bld=dbms%2FMDC%2FSTAT%2Fstandard%2FMDCSTAT01901&...")
+    .send().await?;
+// → 응답이 "LOGOUT" 텍스트 → JSON 파싱 실패 → 0개
+```
+
+### ✅ 올바른 패턴 — NAVER Finance 자동완성 API 실시간 폴백
+
+```rust
+// ✅ KRX 캐시 없을 때 NAVER Finance ac.stock.naver.com으로 폴백
+// - 인증 불필요, 브라우저 없이도 접근 가능
+// - reqwest .query()로 한글 자동 URL 인코딩
+
+let resp = client
+    .get("https://ac.stock.naver.com/ac")
+    .query(&[("query", query), ("target", "stock,etf"), ("source", "domestic")])
+    .header("Referer", "https://finance.naver.com/")
+    .send()
+    .await?;
+
+// 응답: { "query": "...", "items": [{"code":"005930","name":"삼성전자",...}] }
+```
+
+### 아키텍처 결정
+
+| 상황 | 동작 |
+|------|------|
+| KRX 캐시 있음 (24h 이내) | 로컬 즉시 검색 |
+| KRX 캐시 없음 | NAVER 실시간 검색 자동 폴백 |
+| NAVER도 실패 | `STOCK_LIST_EMPTY` 에러 + UI 경고 |
+| `refresh_stock_list` 실행 | KRX 시도 → 0개면 `KRX_EMPTY` 에러 (검색은 이미 NAVER로 동작) |
+
+### ❌ 문제: KRX/NAVER 종목 이름 검색 불안정
+
+| 방법 | 상태 | 원인 |
+|------|------|------|
+| `data.krx.co.kr` | ❌ 차단 | WAF 봇 차단 |
+| `ac.finance.naver.com` | ❌ DNS 없음 | 도메인 폐지 |
+| `ac.stock.naver.com` | ⚠️ 항상 빈 결과 | API 스펙 변경됨 |
+
+### ✅ 해결: Yahoo Finance 코드→이름 조회 (종목코드 6자리 전용)
+
+```
+GET https://query1.finance.yahoo.com/v1/finance/search
+    ?q=005930.KS&lang=ko&region=KR&quotesCount=1&newsCount=0&listsCount=0
+```
+
+응답 `quotes[0].longname` = `"삼성전자(주)"` (한글 정식명)
+
+- **한글 이름 검색은 지원하지 않음** (Error "Invalid Search Query")
+- **6자리 코드 + `.KS` 접미사로만 사용 가능**
+- API 키 불필요, 별도 인증 없음
+
+```rust
+// 구현 위치: src-tauri/src/market/mod.rs
+pub async fn lookup_name_by_code(code: &str) -> Result<String> {
+    let symbol = format!("{}.KS", code);
+    // GET query1.finance.yahoo.com/v1/finance/search?q={symbol}...
+    // quotes[0].longname 반환
+}
+```
+
+`search_stock` IPC 6자리 코드 처리 순서:
+1. StockStore 캐시 확인 (O(1))
+2. KIS `get_price` (인증 필요, 이름 포함)
+3. Yahoo Finance `lookup_name_by_code` (인증 불필요)
+4. 실패 시 빈 배열
+
+### 구현 위치
+
+- `src-tauri/src/market/mod.rs` — `lookup_name_by_code()`, `search_naver_live()`, `StockList::fetch_from_krx()`
+- `src-tauri/src/commands.rs` — `search_stock`: Yahoo 폴백 로직, `refresh_stock_list`: KRX_EMPTY 에러 처리
+
+> 마지막 업데이트: 2026-04-06
