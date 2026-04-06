@@ -181,7 +181,7 @@ AutoConditionTrade/                   ← 루트
 | `add_profile` | 프로파일 추가 |
 | `update_profile` | 프로파일 수정 |
 | `delete_profile` | 프로파일 삭제 |
-| `set_active_profile` | 활성 프로파일 전환 (REST 클라이언트 재초기화) |
+| `set_active_profile` | 활성 프로파일 전환 (자동매매 중이면 UI active_id만 변경, REST 클라이언트 보존) |
 | `get_web_config` | 웹 서버 포트 설정 조회 |
 | `save_web_config` | 웹 서버 포트 저장 (.env) |
 

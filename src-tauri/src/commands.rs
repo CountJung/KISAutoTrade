@@ -28,7 +28,9 @@ use crate::{
         position::{Position, PositionTracker},
         risk::RiskManager,
     strategy::{
+        ConsecutiveMoveParams, ConsecutiveMoveStrategy,
         DeviationParams, DeviationStrategy,
+        FailedBreakoutParams, FailedBreakoutStrategy,
         FiftyTwoWeekHighParams, FiftyTwoWeekHighStrategy,
         MaCrossParams, MomentumParams, MomentumStrategy,
         MovingAverageCrossStrategy, RsiParams, RsiStrategy,
@@ -80,6 +82,8 @@ pub struct AppState {
     pub web_port: u16,
     /// WebSocket 연결 상태 (Dashboard 실시간 반영용)
     pub ws_connected: Arc<AtomicBool>,
+    /// 자동매매가 시작된 시점의 프로파일 ID (프로파일 전환 중에도 유지)
+    pub trading_profile_id: Arc<RwLock<Option<String>>>,
 }
 
 impl AppState {
@@ -176,6 +180,28 @@ impl AppState {
         };
         strategy_manager.add(Box::new(FiftyTwoWeekHighStrategy::new(fifty_two_week_high_strategy)));
 
+        // 연속 상승/하락 전략 (기본 등록, 비활성)
+        let consecutive_move_strategy = StrategyConfig {
+            id: "consecutive_move_default".to_string(),
+            name: "연속 상승/하락 전략".to_string(),
+            enabled: false,
+            target_symbols: vec![],
+            order_quantity: 1,
+            params: serde_json::to_value(ConsecutiveMoveParams::default()).unwrap_or_default(),
+        };
+        strategy_manager.add(Box::new(ConsecutiveMoveStrategy::new(consecutive_move_strategy)));
+
+        // 돌파 실패 전략 (기본 등록, 비활성)
+        let failed_breakout_strategy = StrategyConfig {
+            id: "failed_breakout_default".to_string(),
+            name: "돌파 실패 전략".to_string(),
+            enabled: false,
+            target_symbols: vec![],
+            order_quantity: 1,
+            params: serde_json::to_value(FailedBreakoutParams::default()).unwrap_or_default(),
+        };
+        strategy_manager.add(Box::new(FailedBreakoutStrategy::new(failed_breakout_strategy)));
+
         Self {
             config: Arc::new(RwLock::new(config)),
             rest_client: rest_client_rw,
@@ -198,6 +224,7 @@ impl AppState {
             stock_store: Arc::new(StockStore::new(&data_dir)),
             web_port,
             ws_connected: Arc::new(AtomicBool::new(false)),
+            trading_profile_id: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -497,6 +524,17 @@ pub async fn set_active_profile(
             code: "PROFILE_NOT_FOUND".into(),
             message: format!("프로파일을 찾을 수 없습니다: {}", id),
         });
+    }
+
+    // 자동매매 실행 중에는 REST 클라이언트/config 교체를 하지 않는다.
+    // active_id만 변경(UI 반영용)하여 진행 중 주문·포지션에 영향이 없도록 한다.
+    if *state.is_trading.lock().await {
+        tracing::warn!(
+            "자동매매 실행 중 프로파일 전환 요청 (id={}): UI active_id만 변경, REST 클라이언트 유지",
+            id
+        );
+        save_profiles(&state).await?;
+        return get_app_config(state).await;
     }
 
     apply_active_profile(&state).await?;
@@ -824,6 +862,8 @@ pub struct TradingStatus {
     pub total_unrealized_pnl: i64,
     /// WebSocket 실시간 시세 연결 여부
     pub ws_connected: bool,
+    /// 자동매매가 실행 중인 프로파일 ID (미실행 시 None)
+    pub trading_profile_id: Option<String>,
 }
 
 #[tauri::command]
@@ -835,12 +875,14 @@ pub async fn get_trading_status(state: State<'_, AppState>) -> CmdResult<Trading
         (tracker.count(), tracker.total_pnl())
     };
     let ws_connected = state.ws_connected.load(Ordering::Relaxed);
+    let trading_profile_id = state.trading_profile_id.read().await.clone();
     Ok(TradingStatus {
         is_running,
         active_strategies: strategies,
         position_count,
         total_unrealized_pnl: total_pnl,
         ws_connected,
+        trading_profile_id,
     })
 }
 
@@ -865,6 +907,12 @@ pub async fn start_trading(
     }
     *is_running = true;
     tracing::info!("자동 매매 시작");
+
+    // 자동매매 시작 시점의 활성 프로파일 ID 스냅샷 저장
+    {
+        let active_id = state.profiles.read().await.active_id.clone();
+        *state.trading_profile_id.write().await = active_id;
+    }
 
     if let Some(notifier) = &state.discord {
         let _ = notifier.send(NotificationEvent::info(
@@ -938,12 +986,14 @@ pub async fn start_trading(
         (tracker.count(), tracker.total_pnl())
     };
     let ws_connected = state.ws_connected.load(Ordering::Relaxed);
+    let trading_profile_id = state.trading_profile_id.read().await.clone();
     Ok(TradingStatus {
         is_running: true,
         active_strategies: strategies,
         position_count,
         total_unrealized_pnl: total_pnl,
         ws_connected,
+        trading_profile_id,
     })
 }
 
@@ -952,6 +1002,9 @@ pub async fn stop_trading(state: State<'_, AppState>) -> CmdResult<TradingStatus
     let mut is_running = state.is_trading.lock().await;
     *is_running = false;
     tracing::info!("자동 매매 정지");
+
+    // 자동매매 종료 시 트레이딩 프로파일 ID 클리어
+    *state.trading_profile_id.write().await = None;
 
     if let Some(notifier) = &state.discord {
         let _ = notifier.send(NotificationEvent::info(
@@ -973,6 +1026,7 @@ pub async fn stop_trading(state: State<'_, AppState>) -> CmdResult<TradingStatus
         position_count,
         total_unrealized_pnl: total_pnl,
         ws_connected,
+        trading_profile_id: None,
     })
 }
 

@@ -110,6 +110,11 @@
 - [x] 전략 IPC 연결 (`get_strategies`, `update_strategy`) + Strategy 페이지 실제 연동
 - [x] Dashboard 설정 미비 경고 배너 + 자동매매 start/stop 버튼
 - [x] 멀티 계좌 프로파일 관리 (Settings 화면) — add/update/delete/set_active_profile
+- [x] 멀티프로필 동작 기능 강화 ✅ 2026-04-07
+  - `AppState.trading_profile_id`: 자동매매 시작 시점 프로파일 ID 스냅샷 저장
+  - `TradingStatus.trading_profile_id`: 현재 동작 중인 프로파일 ID 반환
+  - `set_active_profile`: 자동매매 실행 중 프로파일 전환 시 REST 클라이언트 교체 방지 (UI active_id만 변경)
+  - `Settings.tsx`: 동작 중인 프로파일 카드에 "동작중" Chip 표시, 실행 중 경고 배너 추가
 - [x] 날짜 범위 KIS API 체결 조회 (`get_kis_executed_by_range` IPC)
 - [x] 최근 로그 조회 (`get_recent_logs` IPC)
 - [x] 차트 데이터 조회 (`get_chart_data` IPC — lightweight-charts v5)
@@ -175,12 +180,18 @@
     - `commands.rs` AppState: `FiftyTwoWeekHighStrategy` 기본 등록 (`fifty_two_week_high_default`)
     - `Strategy.tsx` `STRATEGY_PARAM_META` + `STRATEGY_DESCRIPTION` + `getStrategyType` 추가
     - **동작**: 자동매매 시작 시 KIS 차트 API로 52주 고가 자동 초기화 → 실시간 틱에서 돌파 감지 → 매수; 매수 후 stop_loss_pct% 하락 시 자동 손절
-  - [ ] **04. 연속 상승/하락** (`ConsecutiveMoveStrategy`) — N일 연속 종가 상승 시 매수, M일 연속 하락 시 매도
-    - 파라미터: `buy_days: u32 = 3`, `sell_days: u32 = 3`
-    - 데이터: 최근 `buy_days + 1` 일봉 종가로 판단
-  - [ ] **06. 돌파 실패** (`FailedBreakoutStrategy`) — 전고점 돌파 후 당일 종가가 다시 전고점 아래로 내려오면 손절/매도
-    - 파라미터: `lookback_days: u32 = 20`, `buffer_pct: f64 = 0.5`
-    - 조건: 전고점 × (1 + buffer_pct/100) 이상 → 매수, 종가 < 전고점 → 이탈 → 매도
+  - [x] **04. 연속 상승/하락** (`ConsecutiveMoveStrategy`) ✅ 2026-04-06
+    - `strategy.rs`: `ConsecutiveMoveParams { buy_days, sell_days }` + `ConsecutiveMoveStrategy` 구현
+    - N일 연속 종가 상승(prev < cur 비교) 시 매수, M일 연속 하락 시 매도
+    - `in_position` 플래그로 중복 매수 방지; 매도 후 포지션 해제
+    - `commands.rs`: `consecutive_move_default` 기본 등록
+    - `Strategy.tsx`: `STRATEGY_PARAM_META`, `STRATEGY_DESCRIPTION`, `getStrategyType` 추가
+    - Trading/Strategy 검색창: "국내 주식은 6자리 종목코드로만 검색 가능" 안내 추가 및 이름 입력 차단
+  - [ ] **06. 돌파 실패** (`FailedBreakoutStrategy`) — 전고점 돌파 후 당일 종가가 다시 전고점 아래로 내려오면 손절/매도 ✅ 2026-04-07
+    - 파라미터: `lookback_days: usize = 20`, `buffer_pct: f64 = 0.5`
+    - 조건: 전고점 × (1 + buffer_pct/100) 이상 → 매수, 현재가 < 전고점 → 이탈 → 매도
+    - `commands.rs`: `failed_breakout_default` 기본 등록
+    - `Strategy.tsx`: `STRATEGY_PARAM_META`, `STRATEGY_DESCRIPTION`, `getStrategyType` 추가
   - [ ] **07. 강한 종가** (`StrongCloseStrategy`) — 종가가 당일 고가 대비 N% 이내(강한 마감)이면 다음날 매수
     - 파라미터: `threshold_pct: f64 = 3.0` (고가-종가 < 고가 × threshold_pct/100)
     - 데이터: 전일 일봉 1개 (고가, 종가 비교)

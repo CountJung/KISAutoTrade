@@ -417,7 +417,7 @@ export default function Trading() {
           /* ── KR 종목 검색: TextField + 검색결과 드롭다운 테이블 ── */
           <Box>
             <TextField
-              label="종목명 또는 6자리 코드"
+              label="6자리 종목코드 (예: 005930)"
               value={inputValue}
               onChange={(e) => {
                 const v = e.target.value
@@ -433,8 +433,12 @@ export default function Trading() {
                   setSymbol('')
                   setShowResults(false)
                   setSearchQuery('')
+                } else if (/^\d+$/.test(v) && v.length < 6) {
+                  // 숫자 입력 중: 아직 6자리 미만이면 대기
+                  setShowResults(false)
                 } else {
-                  setShowResults(true)
+                  // 숫자 외 문자 입력 시 무시 (코드만 허용)
+                  setShowResults(false)
                 }
               }}
               onBlur={() => {
@@ -478,7 +482,7 @@ export default function Trading() {
               helperText={
                 symbol
                   ? `선택됨: ${symbol}`
-                  : '종목명(예: 삼성전자)을 입력하면 검색 결과가 아래에 표시됩니다'
+                  : '국내 주식은 6자리 종목코드로만 검색 가능합니다 (예: 005930)'
               }
             />
 

@@ -61,6 +61,7 @@ import {
   useStockListStats,
   useRefreshStockList,
   useSetStockUpdateInterval,
+  useTradingStatus,
 } from '../api/hooks'
 import type { AccountProfileView, AddProfileInput, UpdateProfileInput } from '../api/types'
 import type { ThemeMode } from '../theme'
@@ -459,15 +460,19 @@ function ProfileCard({
   onEdit,
   onDelete,
   onSetActive,
+  tradingProfileId,
 }: {
   profile: AccountProfileView
   onEdit: (p: AccountProfileView) => void
   onDelete: (p: AccountProfileView) => void
   onSetActive: (id: string) => void
+  tradingProfileId: string | null
 }) {
   const { isPending: activating } = useSetActiveProfile()
   const { mutate: detectProfile, isPending: detecting } = useDetectProfileTradingType()
   const [detectError, setDetectError] = useState<string | null>(null)
+
+  const isActiveTrading = tradingProfileId === profile.id
 
   const handleDetect = () => {
     setDetectError(null)
@@ -515,6 +520,9 @@ function ProfileCard({
             />
             {!profile.is_configured && (
               <Chip size="small" label="키 미설정" color="error" variant="outlined" />
+            )}
+            {isActiveTrading && (
+              <Chip size="small" label="동작중" color="success" variant="outlined" />
             )}
             {/* 실전/모의 자동 감지 버튼 */}
             {profile.is_configured && (
@@ -577,6 +585,7 @@ export default function Settings() {
   const { data: diag, refetch: recheckConfig, isFetching: diagFetching } = useCheckConfig()
   const { mutate: sendTestDiscord, isPending: discordPending } = useSendTestDiscord()
   const [discordResult, setDiscordResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const { data: tradingStatus } = useTradingStatus()
 
   // 로그 설정 (백엔드 IPC)
   const { data: logCfg } = useLogConfig()
@@ -760,6 +769,14 @@ export default function Settings() {
 
             <Divider />
 
+            {/* 자동매매 중 프로필 전환 경고 */}
+            {tradingStatus?.isRunning && (
+              <Alert severity="warning">
+                자동매매가 실행 중입니다. 프로필을 전환해도 현재 매매에는 영향이 없으며,
+                REST 클라이언트는 자동매매 종료 후 전환됩니다.
+              </Alert>
+            )}
+
             {/* 프로파일 목록 */}
             {profilesLoading ? (
               <CircularProgress size={24} />
@@ -776,6 +793,7 @@ export default function Settings() {
                     onEdit={setEditProfile}
                     onDelete={setDeleteTarget}
                     onSetActive={(id) => setActive(id)}
+                    tradingProfileId={tradingStatus?.tradingProfileId ?? null}
                   />
                 ))}
               </Stack>

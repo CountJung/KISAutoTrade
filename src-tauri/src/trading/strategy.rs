@@ -652,3 +652,227 @@ impl Strategy for FiftyTwoWeekHighStrategy {
         self.buy_price = None;
     }
 }
+
+// ────────────────────────────────────────────────────────────────────
+// 연속 상승/하락 전략 (Consecutive Move)
+// - N일 연속 종가 상승 → 매수
+// - M일 연속 종가 하락 → 매도
+// ────────────────────────────────────────────────────────────────────
+
+/// 연속 상승/하락 전략 파라미터
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsecutiveMoveParams {
+    /// 매수 발동 연속 상승 횟수 (기본 3)
+    pub buy_days: usize,
+    /// 매도 발동 연속 하락 횟수 (기본 3)
+    pub sell_days: usize,
+}
+
+impl Default for ConsecutiveMoveParams {
+    fn default() -> Self {
+        Self { buy_days: 3, sell_days: 3 }
+    }
+}
+
+pub struct ConsecutiveMoveStrategy {
+    config: StrategyConfig,
+    params: ConsecutiveMoveParams,
+    /// 최근 가격 이력 — buy_days/sell_days 의 최대값+1 개만 유지
+    prices: VecDeque<u64>,
+    /// 연속 매수 후 재진입 방지 플래그
+    in_position: bool,
+}
+
+impl ConsecutiveMoveStrategy {
+    pub fn new(config: StrategyConfig) -> Self {
+        let params: ConsecutiveMoveParams =
+            serde_json::from_value(config.params.clone()).unwrap_or_default();
+        let cap = params.buy_days.max(params.sell_days) + 1;
+        Self { config, params, prices: VecDeque::with_capacity(cap), in_position: false }
+    }
+
+    /// 최근 n+1개 가격에서 마지막 n개 구간이 모두 연속 상승인지 확인
+    fn is_consecutive_up(prices: &VecDeque<u64>, n: usize) -> bool {
+        if prices.len() < n + 1 { return false; }
+        let slice: Vec<u64> = prices.iter().rev().take(n + 1).cloned().collect();
+        // slice[0] = 최신, slice[n] = 가장 오래된
+        (0..n).all(|i| slice[i] > slice[i + 1])
+    }
+
+    /// 최근 n+1개 가격에서 마지막 n개 구간이 모두 연속 하락인지 확인
+    fn is_consecutive_down(prices: &VecDeque<u64>, n: usize) -> bool {
+        if prices.len() < n + 1 { return false; }
+        let slice: Vec<u64> = prices.iter().rev().take(n + 1).cloned().collect();
+        (0..n).all(|i| slice[i] < slice[i + 1])
+    }
+}
+
+impl Strategy for ConsecutiveMoveStrategy {
+    fn id(&self) -> &str { &self.config.id }
+    fn name(&self) -> &str { &self.config.name }
+    fn config(&self) -> &StrategyConfig { &self.config }
+    fn config_mut(&mut self) -> &mut StrategyConfig { &mut self.config }
+    fn is_enabled(&self) -> bool { self.config.enabled }
+    fn set_enabled(&mut self, enabled: bool) { self.config.enabled = enabled; }
+
+    fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
+        if !self.config.enabled { return Signal::Hold; }
+        if !self.config.target_symbols.contains(&symbol.to_string()) { return Signal::Hold; }
+
+        let cap = self.params.buy_days.max(self.params.sell_days) + 1;
+        self.prices.push_back(price);
+        if self.prices.len() > cap {
+            self.prices.pop_front();
+        }
+
+        // ① 매도 우선 확인 (포지션 있을 때 연속 하락이면 손절)
+        if self.in_position && Self::is_consecutive_down(&self.prices, self.params.sell_days) {
+            self.in_position = false;
+            return Signal::Sell {
+                symbol: symbol.to_string(),
+                quantity: self.config.order_quantity,
+                reason: format!("{}일 연속 하락 → 매도", self.params.sell_days),
+            };
+        }
+
+        // ② 매수: 포지션 없을 때 연속 상승
+        if !self.in_position && Self::is_consecutive_up(&self.prices, self.params.buy_days) {
+            self.in_position = true;
+            return Signal::Buy {
+                symbol: symbol.to_string(),
+                quantity: self.config.order_quantity,
+                reason: format!("{}일 연속 상승 → 매수", self.params.buy_days),
+            };
+        }
+
+        Signal::Hold
+    }
+
+    fn reset(&mut self) {
+        self.prices.clear();
+        self.in_position = false;
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 06. 돌파 실패 전략 (FailedBreakoutStrategy)
+// ────────────────────────────────────────────────────────────────────
+// 동작:
+//  1. 최근 lookback_days개 가격에서 전고점(prev_high) 계산
+//  2. 현재가 ≥ prev_high × (1 + buffer_pct/100) → 전고점 돌파 → 매수
+//  3. 매수 후 현재가 < 돌파 시점의 prev_high → 돌파 실패 → 매도
+// ────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FailedBreakoutParams {
+    /// 전고점을 계산하기 위한 과거 기간 (기본 20)
+    pub lookback_days: usize,
+    /// 전고점 대비 돌파로 인정하는 버퍼 % (기본 0.5)
+    pub buffer_pct: f64,
+}
+
+impl Default for FailedBreakoutParams {
+    fn default() -> Self {
+        Self { lookback_days: 20, buffer_pct: 0.5 }
+    }
+}
+
+pub struct FailedBreakoutStrategy {
+    config: StrategyConfig,
+    params: FailedBreakoutParams,
+    /// 최근 lookback_days개의 가격 히스토리 (매수 판단 시점의 전고점 계산용)
+    prices: VecDeque<u64>,
+    /// 포지션 진입 여부
+    in_position: bool,
+    /// 돌파 매수 시점의 전고점 (돌파 실패 매도 기준)
+    breakout_prev_high: Option<u64>,
+}
+
+impl FailedBreakoutStrategy {
+    pub fn new(config: StrategyConfig) -> Self {
+        let params: FailedBreakoutParams =
+            serde_json::from_value(config.params.clone()).unwrap_or_default();
+        Self {
+            config,
+            params,
+            prices: VecDeque::new(),
+            in_position: false,
+            breakout_prev_high: None,
+        }
+    }
+}
+
+impl Strategy for FailedBreakoutStrategy {
+    fn id(&self) -> &str { &self.config.id }
+    fn name(&self) -> &str { &self.config.name }
+    fn config(&self) -> &StrategyConfig { &self.config }
+    fn config_mut(&mut self) -> &mut StrategyConfig { &mut self.config }
+    fn is_enabled(&self) -> bool { self.config.enabled }
+    fn set_enabled(&mut self, enabled: bool) { self.config.enabled = enabled; }
+
+    fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
+        if !self.config.enabled { return Signal::Hold; }
+        if !self.config.target_symbols.contains(&symbol.to_string()) { return Signal::Hold; }
+
+        // 현재 틱 수신 전 기존 히스토리에서 전고점 계산
+        let prev_high = self.prices.iter().copied().max().unwrap_or(0);
+
+        // ① 매도 우선: 포지션 진입 후 가격이 돌파 시점 전고점 이하로 내려오면 실패 매도
+        if self.in_position {
+            if let Some(ref_high) = self.breakout_prev_high {
+                if price < ref_high {
+                    self.in_position = false;
+                    self.breakout_prev_high = None;
+                    self.prices.push_back(price);
+                    if self.prices.len() > self.params.lookback_days {
+                        self.prices.pop_front();
+                    }
+                    return Signal::Sell {
+                        symbol: symbol.to_string(),
+                        quantity: self.config.order_quantity,
+                        reason: format!(
+                            "돌파 실패: 현재가 {} < 전고점 {} → 매도",
+                            price, ref_high
+                        ),
+                    };
+                }
+            }
+        }
+
+        // ② 매수: lookback_days 이상 데이터가 쌓인 상태에서 전고점 돌파 확인
+        if !self.in_position && self.prices.len() >= self.params.lookback_days && prev_high > 0 {
+            let breakout_threshold =
+                (prev_high as f64 * (1.0 + self.params.buffer_pct / 100.0)) as u64;
+            if price >= breakout_threshold {
+                self.in_position = true;
+                self.breakout_prev_high = Some(prev_high);
+                self.prices.push_back(price);
+                if self.prices.len() > self.params.lookback_days {
+                    self.prices.pop_front();
+                }
+                return Signal::Buy {
+                    symbol: symbol.to_string(),
+                    quantity: self.config.order_quantity,
+                    reason: format!(
+                        "전고점 돌파 매수: {} ≥ {} (전고점 {} + {:.1}% 버퍼)",
+                        price, breakout_threshold, prev_high, self.params.buffer_pct
+                    ),
+                };
+            }
+        }
+
+        // 가격 히스토리 업데이트
+        self.prices.push_back(price);
+        if self.prices.len() > self.params.lookback_days {
+            self.prices.pop_front();
+        }
+
+        Signal::Hold
+    }
+
+    fn reset(&mut self) {
+        self.prices.clear();
+        self.in_position = false;
+        self.breakout_prev_high = None;
+    }
+}

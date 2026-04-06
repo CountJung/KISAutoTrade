@@ -294,6 +294,14 @@ const STRATEGY_PARAM_META: Record<string, ParamMeta[]> = {
     { key: 'lookback_days', label: '조회 기간 (거래일)', min: 60, max: 504, step: 1, description: '52주 신고가 계산을 위한 과거 거래일 수 (기본 252 ≈ 1년)' },
     { key: 'stop_loss_pct', label: '손절 기준 (%)',      min: 1,  max: 15,  step: 0.5, description: '매수가 대비 이 % 이상 하락 시 손절 매도 (기본 3.0)' },
   ],
+  consecutive_move: [
+    { key: 'buy_days',  label: '연속 상승 횟수', min: 2, max: 10, step: 1, description: 'N일 연속 종가 상승 시 매수 (기본 3)' },
+    { key: 'sell_days', label: '연속 하락 횟수', min: 2, max: 10, step: 1, description: 'M일 연속 종가 하락 시 매도 (기본 3)' },
+  ],
+  failed_breakout: [
+    { key: 'lookback_days', label: '전고점 기간', min: 5, max: 60, step: 1, description: '전고점 계산을 위한 과거 기간 (기본 20)' },
+    { key: 'buffer_pct',    label: '돌파 버퍼 (%)', min: 0.1, max: 5.0, step: 0.1, description: '전고점 대비 돌파로 인정하는 추가 % (기본 0.5)' },
+  ],
 }
 
 const STRATEGY_DESCRIPTION: Record<string, string> = {
@@ -302,6 +310,8 @@ const STRATEGY_DESCRIPTION: Record<string, string> = {
   momentum:              'N기간 전 가격 대비 현재가 변화율이 임계값 이상이면 매수, 이하이면 매도 (추세 추종).',
   deviation:             '현재가가 이동평균 대비 일정 % 이하이면 매수(저평가), 일정 % 이상이면 매도(고평가).',
   fifty_two_week_high:   '최근 252 거래일(1년) 최고가를 재돌파하면 매수. 매수 후 지정 % 하락 시 손절. 자동매매 시작 시 KIS 차트 API로 초기화됨.',
+  consecutive_move:      'N일 연속 종가 상승 시 매수, M일 연속 하락 시 매도. 추세 과쟥에 상승/하락할 때 조기에 편승하는 추세추종 전략.',
+  failed_breakout:       '최근 N일 전고점을 버퍼% 이상 돌파하면 매수. 이후 가격이 전고점 이하로 내려오면 돌파 실패로 판단하여 즉시 매도.',
 }
 
 function getStrategyType(id: string): string {
@@ -310,6 +320,8 @@ function getStrategyType(id: string): string {
   if (id.startsWith('momentum'))             return 'momentum'
   if (id.startsWith('deviation'))            return 'deviation'
   if (id.startsWith('fifty_two_week_high'))  return 'fifty_two_week_high'
+  if (id.startsWith('consecutive_move'))     return 'consecutive_move'
+  if (id.startsWith('failed_breakout'))      return 'failed_breakout'
   return 'unknown'
 }
 
@@ -337,12 +349,15 @@ export default function Strategy() {
   const { mutate: doRefreshList, isPending: isRefreshing } = useRefreshStockList()
   const isStockListEmpty = isSearchError && (searchError as CmdError | null)?.code === 'STOCK_LIST_EMPTY'
 
-  // 검색어 디바운스
+  // 검색어 디바운스 — 6자리 숫자 코드만 검색 허용
   useEffect(() => {
     if (!searchInput || !showSearch) { setSearchQuery(''); return }
-    if (/^\d{6}$/.test(searchInput)) { setSearchQuery(searchInput); return }
-    const t = setTimeout(() => setSearchQuery(searchInput), 350)
-    return () => clearTimeout(t)
+    if (/^\d{6}$/.test(searchInput)) {
+      setSearchQuery(searchInput)
+      return
+    }
+    // 코드 입력 중(숫자만 & 6자 미만)이면 즉시 비움, 그 외 문자 입력은 무시
+    setSearchQuery('')
   }, [searchInput, showSearch])
 
   // 전략이 로드됐을 때 기존 symbolNames에 없는 종목 이름 등록 (strategies 데이터에서)
@@ -423,12 +438,15 @@ export default function Strategy() {
       {/* ── 0. 종목 선택 패널 ─────────────────────────────────────── */}
       <Paper sx={{ p: { xs: 1.5, sm: 2.5 }, mb: 2 }}>
         <Typography variant="subtitle1" fontWeight={600} mb={0.5}>종목 선택</Typography>
-        <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
+        <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
           종목을 검색하여 선택한 후, 각 전략 카드의 "추가" 버튼으로 전략에 등록하세요
+        </Typography>
+        <Typography variant="caption" color="warning.main" display="block" mb={1.5}>
+          ⚠ 국내 주식은 6자리 종목코드로만 검색 가능합니다 (예: 005930 — 삼성전자)
         </Typography>
         <Box sx={{ position: 'relative' }}>
           <TextField
-            label="종목명 검색 (예: 삼성전자)"
+            label="6자리 종목코드 (예: 005930)"
             value={searchInput}
             onChange={(e) => {
               setSearchInput(e.target.value)
@@ -459,7 +477,7 @@ export default function Strategy() {
             helperText={
               selectedStock
                 ? `선택됨: ${selectedStock.prdt_name} (${selectedStock.pdno})`
-                : '종목명을 2자 이상 입력하면 자동 검색됩니다'
+                : '국내 주식은 6자리 종목코드로만 검색 가능합니다 (예: 005930)'
             }
           />
           {/* 검색 결과 드롭다운 */}

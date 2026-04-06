@@ -180,6 +180,8 @@ export interface TradingStatus {
   totalUnrealizedPnl: number
   /** WebSocket 실시간 시세 연결 여부 */
   wsConnected: boolean
+  /** 자동매매가 실행 중인 프로파일 ID (미실행 시 null) */
+  tradingProfileId: string | null
 }
 
 // ─── WebSocket 연결 상태 이벤트 (Tauri 'ws-status' 이벤트 페이로드) ──
