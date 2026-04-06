@@ -372,9 +372,9 @@ enabled: query.length >= 2
 
 **백엔드 `search_stock` 동작 (변경 불필요)**:
 ```rust
-// 6자리 숫자 → KIS API 현재가 조회 (종목코드 직접 조회)
-if query.len() == 6 && query.chars().all(|c| c.is_ascii_digit()) { ... }
-// 그 외(부분 숫자 포함) → 로컬 KRX 캐시 이름 검색
+// 6자리 영숫자 코드 입력 → KIS API 현재가 조회 (종목코드 직접 조회, 0005A0 등 ETF 포함)
+if query.len() == 6 && query.chars().all(|c| c.is_ascii_alphanumeric()) { ... }
+// 그 외(부분 코드 포함) → 로컬 KRX 캐시 이름 검색
 // → "200" 입력 시 "KODEX200", "코스피200 ETF" 등 반환됨
 ```
 
@@ -400,5 +400,5 @@ useEffect(() => {
 }, [inputValue, market])
 ```
 
-> 마지막 업데이트: 2026-04-05
+> 마지막 업데이트: 2026-04-07
 

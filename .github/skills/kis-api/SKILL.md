@@ -425,9 +425,52 @@ pub async fn lookup_name_by_code(code: &str) -> Result<String> {
 3. Yahoo Finance `lookup_name_by_code` (인증 불필요)
 4. 실패 시 빈 배열
 
+---
+
+## KRX 종목코드 패턴 (중요)
+
+### ✅ 올바른 패턴
+
+KRX에 상장된 종목의 코드는 **6자리 영숫자**이며, 알파벳이 포함될 수 있다.
+
+| 종류 | 코드 예시 | 패턴 |
+|------|----------|------|
+| 일반 주식 (KOSPI/KOSDAQ) | `005930`, `035720` | 6자리 숫자 |
+| ETF (커버드콜 등) | `0005A0`, `0089C0` | 6자리, 대문자 알파벳 포함 가능 |
+| ETN | `580006` | 6자리 숫자 |
+
+```typescript
+// ✅ 올바른 검증 (6자리 영숫자)
+/^[A-Z0-9]{6}$/i.test(code)
+
+// ❌ 잘못된 검증 (숫자만)
+/^\d{6}$/.test(code)  // 0005A0, 0089C0 등 ETF 코드를 거부함
+```
+
+```rust
+// ✅ 올바른 Rust 검증
+fn is_valid_krx_code(code: &str) -> bool {
+    code.len() == 6 && code.chars().all(|c| c.is_ascii_alphanumeric())
+}
+// ❌ 잘못된 Rust 검증
+code.chars().all(|c| c.is_ascii_digit())
+```
+
+### ❌ 잘못된 패턴 (실제 발생한 사례)
+
+**이전 세션에서의 오류**: 사용자가 "KRX 종목코드에 알파벳이 들어갈 수 있다"고 주장했을 때,  
+"KRX는 6자리 숫자만 사용합니다"로 기각함.
+
+→ 실제 확인 결과: `KODEX 미국S&P500데일리커버드콜OTM`의 코드는 `0005A0`,  
+`KODEX 미국S&P500변동성확대시커버드콜`의 코드는 `0089C0` (삼성자산운용 공식 사이트 확인).
+
+**교훈**: 사용자가 사실을 주장할 때 먼저 외부 소스나 실제 데이터로 검증한 후 판단한다.
+
+---
+
 ### 구현 위치
 
 - `src-tauri/src/market/mod.rs` — `lookup_name_by_code()`, `search_naver_live()`, `StockList::fetch_from_krx()`
 - `src-tauri/src/commands.rs` — `search_stock`: Yahoo 폴백 로직, `refresh_stock_list`: KRX_EMPTY 에러 처리
 
-> 마지막 업데이트: 2026-04-06
+> 마지막 업데이트: 2026-04-07

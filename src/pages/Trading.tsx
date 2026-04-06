@@ -348,7 +348,7 @@ export default function Trading() {
     if (!qty || qty <= 0) { setErrorMsg('수량을 입력하세요.'); return }
 
     if (market === 'KR') {
-      if (symbol.length !== 6) { setErrorMsg('국내 종목코드는 6자리 숫자입니다.'); return }
+      if (!/^[A-Z0-9]{6}$/i.test(symbol)) { setErrorMsg('국내 종목코드는 6자리 영숫자입니다 (예: 005930, 0005A0).'); return }
       const prc = parseInt(price)
       if (orderType === 'Limit' && (!prc || prc <= 0)) {
         setErrorMsg('지정가 주문은 가격을 입력해야 합니다.')
@@ -417,14 +417,14 @@ export default function Trading() {
           /* ── KR 종목 검색: TextField + 검색결과 드롭다운 테이블 ── */
           <Box>
             <TextField
-              label="6자리 종목코드 (예: 005930)"
+              label="6자리 종목코드 (예: 005930, 0005A0)"
               value={inputValue}
               onChange={(e) => {
                 const v = e.target.value
                 setInputValue(v)
-                if (/^\d{6}$/.test(v)) {
-                  // 6자리 코드 직접 입력
-                  setSymbol(v)
+                if (/^[A-Z0-9]{6}$/i.test(v)) {
+                  // 6자리 영숫자 코드 직접 입력 (0005A0 등 ETF 포함)
+                  setSymbol(v.toUpperCase())
                   setShowResults(false)
                   setSearchQuery('')
                   setResult(null)
@@ -433,11 +433,11 @@ export default function Trading() {
                   setSymbol('')
                   setShowResults(false)
                   setSearchQuery('')
-                } else if (/^\d+$/.test(v) && v.length < 6) {
-                  // 숫자 입력 중: 아직 6자리 미만이면 대기
+                } else if (v.length < 6) {
+                  // 6자리 미만이면 대기
                   setShowResults(false)
                 } else {
-                  // 숫자 외 문자 입력 시 무시 (코드만 허용)
+                  // 6자리 초과 입력 시 무시
                   setShowResults(false)
                 }
               }}
@@ -482,7 +482,7 @@ export default function Trading() {
               helperText={
                 symbol
                   ? `선택됨: ${symbol}`
-                  : '국내 주식은 6자리 종목코드로만 검색 가능합니다 (예: 005930)'
+                  : '국내 주식은 6자리 종목코드로만 검색 가능합니다 (예: 005930, 0005A0)'
               }
             />
 

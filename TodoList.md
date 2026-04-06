@@ -187,14 +187,18 @@
     - `commands.rs`: `consecutive_move_default` 기본 등록
     - `Strategy.tsx`: `STRATEGY_PARAM_META`, `STRATEGY_DESCRIPTION`, `getStrategyType` 추가
     - Trading/Strategy 검색창: "국내 주식은 6자리 종목코드로만 검색 가능" 안내 추가 및 이름 입력 차단
-  - [ ] **06. 돌파 실패** (`FailedBreakoutStrategy`) — 전고점 돌파 후 당일 종가가 다시 전고점 아래로 내려오면 손절/매도 ✅ 2026-04-07
+  - [x] **06. 돌파 실패** (`FailedBreakoutStrategy`) — 전고점 돌파 후 당일 종가가 다시 전고점 아래로 내려오면 손절/매도 ✅ 2026-04-07
     - 파라미터: `lookback_days: usize = 20`, `buffer_pct: f64 = 0.5`
     - 조건: 전고점 × (1 + buffer_pct/100) 이상 → 매수, 현재가 < 전고점 → 이탈 → 매도
     - `commands.rs`: `failed_breakout_default` 기본 등록
     - `Strategy.tsx`: `STRATEGY_PARAM_META`, `STRATEGY_DESCRIPTION`, `getStrategyType` 추가
-  - [ ] **07. 강한 종가** (`StrongCloseStrategy`) — 종가가 당일 고가 대비 N% 이내(강한 마감)이면 다음날 매수
-    - 파라미터: `threshold_pct: f64 = 3.0` (고가-종가 < 고가 × threshold_pct/100)
-    - 데이터: 전일 일봉 1개 (고가, 종가 비교)
+  - [x] **07. 강한 종가** (`StrongCloseStrategy`) — 종가가 당일 고가 대비 N% 이내(강한 마감)이면 다음날 매수 ✅ 2026-04-07
+    - 파라미터: `threshold_pct: f64 = 3.0`, `stop_loss_pct: f64 = 3.0`
+    - 자동매매 시작 시 `initialize_candles`로 전일 일봉 (고가, 종가) 전달 → 강한 종가 감지
+    - 강한 종가 확인 시 `pending_buy` 설정 → 당일 첫 틱에서 매수
+    - 매수 후 `stop_loss_pct%` 하락 시 손절 매도
+    - `commands.rs`: `strong_close_default` 기본 등록, `start_trading` `initialize_candles` 호출 추가
+    - `Strategy.tsx`: `STRATEGY_PARAM_META`, `STRATEGY_DESCRIPTION`, `getStrategyType` 추가
   - [ ] **08. 변동성 확장** (`VolatilityExpansionStrategy`) — N일 평균 변동성(일봉 고-저 범위) 대비 당일 변동성이 K배 이상이면 방향에 따라 매수/매도
     - 파라미터: `lookback_days: u32 = 10`, `expansion_factor: f64 = 2.0`
     - 조건: 당일 변동폭 > 평균 변동폭 × expansion_factor AND 종가 > 시가 → 매수

@@ -34,6 +34,7 @@ use crate::{
         FiftyTwoWeekHighParams, FiftyTwoWeekHighStrategy,
         MaCrossParams, MomentumParams, MomentumStrategy,
         MovingAverageCrossStrategy, RsiParams, RsiStrategy,
+        StrongCloseParams, StrongCloseStrategy,
         StrategyConfig, StrategyManager,
     },
     },
@@ -201,6 +202,17 @@ impl AppState {
             params: serde_json::to_value(FailedBreakoutParams::default()).unwrap_or_default(),
         };
         strategy_manager.add(Box::new(FailedBreakoutStrategy::new(failed_breakout_strategy)));
+
+        // 강한 종가 전략 (기본 등록, 비활성)
+        let strong_close_strategy = StrategyConfig {
+            id: "strong_close_default".to_string(),
+            name: "강한 종가 전략".to_string(),
+            enabled: false,
+            target_symbols: vec![],
+            order_quantity: 1,
+            params: serde_json::to_value(StrongCloseParams::default()).unwrap_or_default(),
+        };
+        strategy_manager.add(Box::new(StrongCloseStrategy::new(strong_close_strategy)));
 
         Self {
             config: Arc::new(RwLock::new(config)),
@@ -944,6 +956,18 @@ pub async fn start_trading(
                                 .initialize_historical(symbol, &highs);
                             tracing::info!("전략 히스토리 초기화 완료: {} ({}봉)", symbol, highs.len());
                         }
+                        // (고가, 종가) 쌍 추출 (강한 종가 전략 등에서 사용)
+                        let high_close: Vec<(u64, u64)> = candles.iter()
+                            .filter_map(|c| {
+                                let h = c.high.parse::<u64>().ok()?;
+                                let cl = c.close.parse::<u64>().ok()?;
+                                Some((h, cl))
+                            })
+                            .collect();
+                        if !high_close.is_empty() {
+                            state.strategy_manager.lock().await
+                                .initialize_candles(symbol, &high_close);
+                        }
                     }
                     Ok(_) => tracing::debug!("차트 데이터 없음 (히스토리 초기화 건너뜀): {}", symbol),
                     Err(e) => tracing::warn!(
@@ -1346,30 +1370,31 @@ pub async fn search_stock(
         return Ok(vec![]);
     }
 
-    // ① 6자리 코드 입력 → KIS 현재가에서 이름 확인 (코드를 아는 경우)
-    if query.len() == 6 && query.chars().all(|c| c.is_ascii_digit()) {
+    // ① 6자리 영숫자 코드 입력 → KIS 현재가에서 이름 확인 (0005A0 등 ETF 코드 포함)
+    if query.len() == 6 && query.chars().all(|c| c.is_ascii_alphanumeric()) {
+        let code = query.to_uppercase();
         // StockStore에 이미 있으면 빠르게 반환
-        if let Some(name) = state.stock_store.get_name(&query).await {
-            return Ok(vec![StockSearchItem { pdno: query, prdt_name: name }]);
+        if let Some(name) = state.stock_store.get_name(&code).await {
+            return Ok(vec![StockSearchItem { pdno: code, prdt_name: name }]);
         }
         // 없으면 KIS get_price로 확인
         let client = state.rest_client.read().await.clone();
-        if let Ok(p) = client.get_price(&query).await {
+        if let Ok(p) = client.get_price(&code).await {
             if !p.hts_kor_isnm.is_empty() {
-                state.stock_store.upsert(&query, &p.hts_kor_isnm).await;
-                return Ok(vec![StockSearchItem { pdno: query.clone(), prdt_name: p.hts_kor_isnm }]);
+                state.stock_store.upsert(&code, &p.hts_kor_isnm).await;
+                return Ok(vec![StockSearchItem { pdno: code, prdt_name: p.hts_kor_isnm }]);
             }
         }
         // KIS 실패 시 Yahoo Finance로 이름 조회 (설정 없이도 동작)
-        tracing::debug!("KIS 현재가 실패 → Yahoo Finance로 종목명 조회: {}", query);
-        match crate::market::lookup_name_by_code(&query).await {
+        tracing::debug!("KIS 현재가 실패 → Yahoo Finance로 종목명 조회: {}", code);
+        match crate::market::lookup_name_by_code(&code).await {
             Ok(name) => {
-                tracing::info!("Yahoo Finance 이름 조회 성공: {} → {}", query, name);
-                state.stock_store.upsert(&query, &name).await;
-                return Ok(vec![StockSearchItem { pdno: query, prdt_name: name }]);
+                tracing::info!("Yahoo Finance 이름 조회 성공: {} → {}", code, name);
+                state.stock_store.upsert(&code, &name).await;
+                return Ok(vec![StockSearchItem { pdno: code, prdt_name: name }]);
             }
             Err(e) => {
-                tracing::warn!("Yahoo Finance 이름 조회 실패: {} — {}", query, e);
+                tracing::warn!("Yahoo Finance 이름 조회 실패: {} — {}", code, e);
                 return Ok(vec![]);
             }
         }

@@ -37,6 +37,8 @@ pub trait Strategy: Send + Sync {
     fn on_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal;
     /// 전략 시작 시 일봉 가격 배열로 초기화. 히스토리가 필요 없는 전략은 기본 no-op.
     fn initialize_historical(&mut self, _symbol: &str, _prices: &[u64]) {}
+    /// 전략 시작 시 일봉 (고가, 종가) 쌍 배열로 초기화. 강한 종가 등 복합 일봉 데이터가 필요한 전략에서 재정의.
+    fn initialize_candles(&mut self, _symbol: &str, _candles: &[(u64, u64)]) {}
     /// 전략 상태 초기화 (일 초기화 등)
     fn reset(&mut self);
 }
@@ -206,6 +208,15 @@ impl StrategyManager {
         for s in &mut self.strategies {
             if s.config().target_symbols.contains(&symbol.to_string()) {
                 s.initialize_historical(symbol, prices);
+            }
+        }
+    }
+
+    /// 특정 종목을 타겟으로 하는 모든 전략에 일봉 (고가, 종가) 쌍 데이터 전달 (강한 종가 등)
+    pub fn initialize_candles(&mut self, symbol: &str, candles: &[(u64, u64)]) {
+        for s in &mut self.strategies {
+            if s.config().target_symbols.contains(&symbol.to_string()) {
+                s.initialize_candles(symbol, candles);
             }
         }
     }
@@ -874,5 +885,121 @@ impl Strategy for FailedBreakoutStrategy {
         self.prices.clear();
         self.in_position = false;
         self.breakout_prev_high = None;
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 07. 강한 종가 전략 (StrongCloseStrategy)
+// ────────────────────────────────────────────────────────────────────
+// 동작:
+//  1. 자동매매 시작 시 `initialize_candles`로 일봉 (고가, 종가) 배열 전달
+//  2. 전일 종가가 전일 고가 대비 threshold_pct% 이내이면 "강한 종가" → 다음날(당일) 매수 신호 대기
+//  3. 당일 첫 틱 수신 시 매수 신호 발생 (1회 발생 후 pending 해제)
+//  4. 매도 조건: 매수 후 현재가가 매수가 대비 stop_loss_pct% 이상 하락 시 손절
+// ────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StrongCloseParams {
+    /// 고가 대비 종가가 이 % 이내이면 강한 종가로 판단 (기본 3.0)
+    pub threshold_pct: f64,
+    /// 매수 후 손절 기준 % (기본 3.0)
+    pub stop_loss_pct: f64,
+}
+
+impl Default for StrongCloseParams {
+    fn default() -> Self {
+        Self { threshold_pct: 3.0, stop_loss_pct: 3.0 }
+    }
+}
+
+pub struct StrongCloseStrategy {
+    config: StrategyConfig,
+    params: StrongCloseParams,
+    /// 다음 틱에서 매수 신호를 발생시킬지 여부 (강한 종가 감지 후 설정)
+    pending_buy: bool,
+    /// 포지션 진입 여부
+    in_position: bool,
+    /// 매수 가격 (손절 기준)
+    entry_price: Option<u64>,
+}
+
+impl StrongCloseStrategy {
+    pub fn new(config: StrategyConfig) -> Self {
+        let params: StrongCloseParams =
+            serde_json::from_value(config.params.clone()).unwrap_or_default();
+        Self { config, params, pending_buy: false, in_position: false, entry_price: None }
+    }
+}
+
+impl Strategy for StrongCloseStrategy {
+    fn id(&self) -> &str { &self.config.id }
+    fn name(&self) -> &str { &self.config.name }
+    fn config(&self) -> &StrategyConfig { &self.config }
+    fn config_mut(&mut self) -> &mut StrategyConfig { &mut self.config }
+    fn is_enabled(&self) -> bool { self.config.enabled }
+    fn set_enabled(&mut self, enabled: bool) { self.config.enabled = enabled; }
+
+    fn initialize_candles(&mut self, symbol: &str, candles: &[(u64, u64)]) {
+        if !self.config.target_symbols.contains(&symbol.to_string()) { return; }
+        // 마지막 완성된 일봉(가장 최근 캔들)의 고가·종가 비교
+        if let Some(&(high, close)) = candles.last() {
+            if high == 0 { return; }
+            let gap_pct = (high as f64 - close as f64) / high as f64 * 100.0;
+            if gap_pct <= self.params.threshold_pct {
+                self.pending_buy = true;
+                tracing::info!(
+                    "강한 종가 감지 ({}): 고가={}, 종가={}, 이격={:.2}% → 다음 틱 매수 대기",
+                    symbol, high, close, gap_pct
+                );
+            }
+        }
+    }
+
+    fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
+        if !self.config.enabled { return Signal::Hold; }
+        if !self.config.target_symbols.contains(&symbol.to_string()) { return Signal::Hold; }
+
+        // ① 손절 우선: 포지션 진입 후 매수가 대비 stop_loss_pct% 이상 하락 시 손절
+        if self.in_position {
+            if let Some(ep) = self.entry_price {
+                let loss_pct = (ep as f64 - price as f64) / ep as f64 * 100.0;
+                if loss_pct >= self.params.stop_loss_pct {
+                    self.in_position = false;
+                    self.entry_price = None;
+                    return Signal::Sell {
+                        symbol: symbol.to_string(),
+                        quantity: self.config.order_quantity,
+                        reason: format!(
+                            "강한 종가 손절: 현재가 {} (매수가 {} 대비 -{:.2}%)",
+                            price, ep, loss_pct
+                        ),
+                    };
+                }
+            }
+            return Signal::Hold;
+        }
+
+        // ② 강한 종가 감지 후 첫 틱에서 매수
+        if self.pending_buy {
+            self.pending_buy = false;
+            self.in_position = true;
+            self.entry_price = Some(price);
+            return Signal::Buy {
+                symbol: symbol.to_string(),
+                quantity: self.config.order_quantity,
+                reason: format!(
+                    "강한 종가 후 매수: 현재가 {} (전일 종가가 고가 대비 {:.1}% 이내)",
+                    price, self.params.threshold_pct
+                ),
+            };
+        }
+
+        Signal::Hold
+    }
+
+    fn reset(&mut self) {
+        self.pending_buy = false;
+        self.in_position = false;
+        self.entry_price = None;
     }
 }
