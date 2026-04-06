@@ -186,6 +186,19 @@ impl StrategyManager {
             .collect()
     }
 
+    /// 활성 전략에 등록된 구독 종목 코드 목록 (중복 제거)
+    pub fn active_symbols(&self) -> Vec<String> {
+        let mut symbols: Vec<String> = self
+            .strategies
+            .iter()
+            .filter(|s| s.is_enabled())
+            .flat_map(|s| s.config().target_symbols.clone())
+            .collect();
+        symbols.sort_unstable();
+        symbols.dedup();
+        symbols
+    }
+
     /// 전체 전략 설정 반환
     pub fn all_configs(&self) -> Vec<&StrategyConfig> {
         self.strategies.iter().map(|s| s.config()).collect()

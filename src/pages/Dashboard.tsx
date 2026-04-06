@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import Typography from '@mui/material/Typography'
 import Grid from '@mui/material/Grid'
 import Paper from '@mui/material/Paper'
@@ -17,10 +18,13 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
+import WifiIcon from '@mui/icons-material/Wifi'
+import WifiOffIcon from '@mui/icons-material/WifiOff'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
+import type { WsStatusEvent } from '../api/types'
 
 import {
   useBalance,
@@ -93,6 +97,35 @@ export default function Dashboard() {
   const { mutate: startTrading, isPending: startPending } = useStartTrading()
   const { mutate: stopTrading, isPending: stopPending } = useStopTrading()
 
+  // WebSocket 연결 상태 — Tauri 'ws-status' 이벤트로 실시간 갱신
+  const [wsConnected, setWsConnected] = useState<boolean>(
+    tradingStatus?.wsConnected ?? false
+  )
+
+  useEffect(() => {
+    // TradingStatus 초기 응답에서 서버 측 연결 상태로 동기화
+    if (tradingStatus !== undefined) {
+      setWsConnected(tradingStatus.wsConnected)
+    }
+  }, [tradingStatus?.wsConnected])
+
+  useEffect(() => {
+    // Tauri 환경에서만 이벤트 리스너 등록
+    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) {
+      return
+    }
+    let unlisten: (() => void) | undefined
+    void (async () => {
+      const { listen } = await import('@tauri-apps/api/event')
+      unlisten = await listen<WsStatusEvent>('ws-status', (event) => {
+        setWsConnected(event.payload.connected)
+      })
+    })()
+    return () => {
+      unlisten?.()
+    }
+  }, [])
+
   const totalBalance = parseInt(balance?.summary?.tot_evlu_amt ?? '0') || 0
   const availableCash = parseInt(balance?.summary?.dnca_tot_amt ?? '0') || 0
   const netProfit = stats?.net_profit ?? 0
@@ -147,6 +180,15 @@ export default function Dashboard() {
           color={isRunning ? 'success' : 'default'}
           size="small"
         />
+        <Tooltip title={wsConnected ? 'WebSocket 연결됨' : 'WebSocket 끊김'}>
+          <Chip
+            icon={wsConnected ? <WifiIcon fontSize="small" /> : <WifiOffIcon fontSize="small" />}
+            label={wsConnected ? 'WS 연결' : 'WS 끊김'}
+            color={wsConnected ? 'success' : 'default'}
+            variant={wsConnected ? 'filled' : 'outlined'}
+            size="small"
+          />
+        </Tooltip>
         <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
           {isRunning ? (
             <Button

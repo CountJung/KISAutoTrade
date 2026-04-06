@@ -178,6 +178,14 @@ export interface TradingStatus {
   activeStrategies: string[]
   positionCount: number
   totalUnrealizedPnl: number
+  /** WebSocket 실시간 시세 연결 여부 */
+  wsConnected: boolean
+}
+
+// ─── WebSocket 연결 상태 이벤트 (Tauri 'ws-status' 이벤트 페이로드) ──
+export interface WsStatusEvent {
+  connected: boolean
+  message: string
 }
 
 // ─── 포지션 ────────────────────────────────────────────────────────

@@ -331,6 +331,26 @@ impl KisRestClient {
         }
     }
 
+    /// TokenManager 참조 반환 (WebSocket 클라이언트와 토큰 공유용)
+    pub fn token_manager(&self) -> Arc<RwLock<TokenManager>> {
+        Arc::clone(&self.token_manager)
+    }
+
+    /// is_paper 모드 반환
+    pub fn is_paper(&self) -> bool {
+        self.is_paper
+    }
+
+    /// app_key 반환 (WebSocket 클라이언트 생성용)
+    pub fn app_key(&self) -> &str {
+        &self.app_key
+    }
+
+    /// app_secret 반환 (WebSocket 클라이언트 생성용)
+    pub fn app_secret(&self) -> &str {
+        &self.app_secret
+    }
+
     /// 공통 인증 헤더 빌더
     async fn auth_headers(&self, tr_id: &str) -> Result<reqwest::header::HeaderMap> {
         let token = self.token_manager.read().await.get_token().await?;

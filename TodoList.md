@@ -117,7 +117,13 @@
 - [x] 해외 주식 차트 (`OverseasStockChart.tsx`, `get_overseas_chart_data` IPC, `/api/overseas-chart` 웹 엔드포인트)
 - [x] README OS별 프로필/AppData 경로 안내 상세화
 - [x] copilot-instructions.md 경고 해소 의무 지침 강화
-- [ ] WebSocket 연결 상태 Tauri Event emit → Dashboard 실시간 반영
+- [x] WebSocket 연결 상태 Tauri Event emit → Dashboard 실시간 반영 ✅ 2026-04-06
+  - [x] `WsStatusEvent { connected, message }` Rust 구조체 + Tauri `ws-status` emit
+  - [x] `AppState.ws_connected: Arc<AtomicBool>` 관리
+  - [x] `start_trading` 시 `KisWebSocketClient` 생성 및 subscribe 연동
+  - [x] `TradingStatus.wsConnected` 필드 추가
+  - [x] Dashboard: `listen('ws-status')` 훅 + WS Chip 표시
+  - [x] `StrategyManager.active_symbols()` 메서드 추가
 - [x] `trading/order.rs` **OrderManager 구현** ✅ 2026-04-05
   - [x] ① 전략 신호 실행: `Signal::Buy/Sell` → KIS API `place_order()` 호출 (전략 루프에서 `StrategyManager`가 OrderManager 에 위임)
   - [x] ② 미체결 주문 풀: `HashMap<odno, PendingOrder>` — 주문 접수 후 체결/취소 확인 전까지 관리
@@ -147,4 +153,4 @@
 
 ---
 
-*마지막 업데이트: 2026-04-05*
+*마지마 업데이트: 2026-04-06*

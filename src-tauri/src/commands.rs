@@ -2,7 +2,13 @@
 ///
 /// Frontend(React) ↔ Backend(Rust) 통신 인터페이스
 /// 모든 커맨드는 AppState를 통해 공유 리소스에 접근합니다.
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -64,6 +70,8 @@ pub struct AppState {
     pub stock_list: Arc<RwLock<Vec<crate::api::rest::StockSearchItem>>>,
     /// 웹 서버 포트
     pub web_port: u16,
+    /// WebSocket 연결 상태 (Dashboard 실시간 반영용)
+    pub ws_connected: Arc<AtomicBool>,
 }
 
 impl AppState {
@@ -136,6 +144,7 @@ impl AppState {
             data_dir,
             stock_list: Arc::new(RwLock::new(vec![])),
             web_port,
+            ws_connected: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -751,6 +760,8 @@ pub struct TradingStatus {
     pub active_strategies: Vec<String>,
     pub position_count: usize,
     pub total_unrealized_pnl: i64,
+    /// WebSocket 실시간 시세 연결 여부
+    pub ws_connected: bool,
 }
 
 #[tauri::command]
@@ -761,11 +772,21 @@ pub async fn get_trading_status(state: State<'_, AppState>) -> CmdResult<Trading
         let tracker = state.position_tracker.lock().await;
         (tracker.count(), tracker.total_pnl())
     };
-    Ok(TradingStatus { is_running, active_strategies: strategies, position_count, total_unrealized_pnl: total_pnl })
+    let ws_connected = state.ws_connected.load(Ordering::Relaxed);
+    Ok(TradingStatus {
+        is_running,
+        active_strategies: strategies,
+        position_count,
+        total_unrealized_pnl: total_pnl,
+        ws_connected,
+    })
 }
 
 #[tauri::command]
-pub async fn start_trading(state: State<'_, AppState>) -> CmdResult<TradingStatus> {
+pub async fn start_trading(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> CmdResult<TradingStatus> {
     if !state.config.read().await.is_kis_configured() {
         return Err(CmdError {
             code: "CONFIG_NOT_READY".into(),
@@ -791,12 +812,45 @@ pub async fn start_trading(state: State<'_, AppState>) -> CmdResult<TradingStatu
     }
     drop(is_running);
 
+    // WebSocket 연결 시작
+    {
+        let rest = state.rest_client.read().await.clone();
+        let ws_client = crate::api::KisWebSocketClient::new(
+            rest.is_paper(),
+            rest.app_key().to_string(),
+            rest.app_secret().to_string(),
+            rest.token_manager(),
+        );
+
+        // 활성 전략에서 구독할 종목 수집
+        let symbols: Vec<String> = state
+            .strategy_manager
+            .lock()
+            .await
+            .active_symbols();
+
+        let ws_connected = Arc::clone(&state.ws_connected);
+        let app_handle = app.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Err(e) = ws_client.subscribe(symbols, app_handle, ws_connected).await {
+                tracing::error!("WebSocket 연결 실패: {}", e);
+            }
+        });
+    }
+
     let strategies = state.strategy_manager.lock().await.active_names();
     let (position_count, total_pnl) = {
         let tracker = state.position_tracker.lock().await;
         (tracker.count(), tracker.total_pnl())
     };
-    Ok(TradingStatus { is_running: true, active_strategies: strategies, position_count, total_unrealized_pnl: total_pnl })
+    let ws_connected = state.ws_connected.load(Ordering::Relaxed);
+    Ok(TradingStatus {
+        is_running: true,
+        active_strategies: strategies,
+        position_count,
+        total_unrealized_pnl: total_pnl,
+        ws_connected,
+    })
 }
 
 #[tauri::command]
@@ -818,7 +872,14 @@ pub async fn stop_trading(state: State<'_, AppState>) -> CmdResult<TradingStatus
         let tracker = state.position_tracker.lock().await;
         (tracker.count(), tracker.total_pnl())
     };
-    Ok(TradingStatus { is_running: false, active_strategies: strategies, position_count, total_unrealized_pnl: total_pnl })
+    let ws_connected = state.ws_connected.load(Ordering::Relaxed);
+    Ok(TradingStatus {
+        is_running: false,
+        active_strategies: strategies,
+        position_count,
+        total_unrealized_pnl: total_pnl,
+        ws_connected,
+    })
 }
 
 // ────────────────────────────────────────────────────────────────────

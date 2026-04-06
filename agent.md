@@ -6,8 +6,8 @@
 > - 이 파일이 최신 상태가 아니라면 작업 전에 먼저 갱신한다.
 > - 추측이 아닌 이 맵을 기반으로 작업한다.
 
-**마지막 업데이트**: 2026-04-04  
-**프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (멀티 프로파일·차트·로그 설정·종목 검색 완료)
+**마지마 업데이트**: 2026-04-06  
+**프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (WebSocket Dashboard 연동 완료 ✅)
 
 ---
 
@@ -76,7 +76,7 @@ AutoConditionTrade/                   ← 루트
 │   │       ├── AppShell.tsx          ← 전체 레이아웃 + ThemeProvider + Outlet ✅
 │   │       └── Sidebar.tsx           ← MUI permanent/temporary Drawer ✅
 │   └── pages/
-│       ├── Dashboard.tsx             ← 잔고/수익 카드, 당일 거래 목록, 포지션 테이블 ✅
+│       ├── Dashboard.tsx             ← 잔고/수익 카드, 당일 거래 목록, 포지션 테이블, WS연결상태 Chip ✅
 │       ├── Trading.tsx               ← 수동 매수/매도 폼 + 종목 검색 + 체결 내역 ✅
 │       ├── Strategy.tsx              ← MA Cross 전략 ON/OFF, 파라미터 설정 (IPC 연결) ✅
 │       ├── History.tsx               ← 날짜 범위 조회, 통계 요약, 거래 테이블 ✅
@@ -95,7 +95,7 @@ AutoConditionTrade/                   ← 루트
 │       │   ├── mod.rs                ← KisRestClient, KisWebSocketClient 재공개
 │       │   ├── rest.rs               ← KisRestClient — get_balance, place_order, get_today_executed_orders, get_price, get_chart_data, get_overseas_price, get_overseas_chart_data ✅
 │       │   ├── token.rs              ← TokenManager — issue_token, get_token, is_expired (auto-refresh) ✅
-│       │   └── websocket.rs          ← KisWebSocketClient — subscribe, parse_realtime_price ✅
+│       │   └── websocket.rs          ← KisWebSocketClient — subscribe (WsStatusEvent emit, ws-status Tauri 이벤트) ✅
 │       ├── market/
 │       │   └── mod.rs                ← KRX 종목 목록 StockList (CSV 파싱, 캐시, 이름/코드 검색) ✅
 │       ├── server/
@@ -104,7 +104,7 @@ AutoConditionTrade/                   ← 루트
 │       │   └── mod.rs                ← GitHub Releases API 버전 확인 (check_for_update IPC) ✅
 │       ├── trading/
 │       │   ├── mod.rs                ← 장 시간 감지, 전략 루프 실행 ✅
-│       │   ├── strategy.rs           ← Strategy trait, MovingAverageCrossStrategy, StrategyManager ✅
+│       ├── strategy.rs           ← Strategy trait, MovingAverageCrossStrategy, StrategyManager (active_symbols 포함) ✅
 │       │   ├── order.rs              ← OrderManager 스텁 (미구현)
 │       │   ├── position.rs           ← PositionTracker (add_buy/reduce/unrealized_pnl) ✅
 │       │   └── risk.rs               ← RiskManager (emergency_stop, record_pnl, check_position_size) ✅
@@ -120,7 +120,7 @@ AutoConditionTrade/                   ← 루트
 │       │   └── types.rs              ← NotificationLevel/Event, to_discord_message()
 │       ├── logging/
 │       │   └── mod.rs                ← tracing-appender (app.log, error.log) ✅
-│       ├── commands.rs               ← AppState + IPC 커맨드 핸들러 (check_for_update 포함) ✅
+│       ├── commands.rs               ← AppState(ws_connected:Arc<AtomicBool> 포함) + IPC 커맨드 핸들러 ✅
 │       └── config/
 │           └── mod.rs                ← AccountProfile, ProfilesConfig, AppConfig(from_profile), DiscordConfig ✅
 │       ├── updater/
@@ -214,8 +214,8 @@ AutoConditionTrade/                   ← 루트
 
 | Command | 설명 |
 |---------|------|
-| `get_trading_status` | 자동 매매 실행 상태 조회 |
-| `start_trading` | 자동 매매 시작 |
+| `get_trading_status` | 자동 매매 실행 상태 조회 (wsConnected 포함) |
+| `start_trading` | 자동 매매 시작 + WebSocket 연결 (`ws-status` 이벤트 emit) |
 | `stop_trading` | 자동 매매 정지 |
 | `get_positions` | 포지션 목록 조회 |
 | `get_strategies` | 전략 목록 조회 |

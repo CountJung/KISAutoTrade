@@ -1,11 +1,25 @@
 use anyhow::Result;
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+use tauri::{AppHandle, Emitter};
 use tokio::sync::{broadcast, RwLock};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 use crate::api::token::TokenManager;
+
+/// WebSocket 연결 상태 이벤트 (Tauri 프론트로 emit)
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WsStatusEvent {
+    /// 현재 연결 여부
+    pub connected: bool,
+    /// 상태 메시지 (디버그용)
+    pub message: String,
+}
 
 /// KIS WebSocket 실시간 시세 이벤트
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,7 +74,15 @@ impl KisWebSocketClient {
     }
 
     /// 지정 종목 실시간 시세 구독 시작 (백그라운드 태스크)
-    pub async fn subscribe(&self, symbols: Vec<String>) -> Result<()> {
+    ///
+    /// - `app_handle`: Tauri AppHandle — 연결 상태 변경 시 `ws-status` 이벤트 emit
+    /// - `ws_connected`: 공유 연결 상태 플래그 (AppState에서 참조)
+    pub async fn subscribe(
+        &self,
+        symbols: Vec<String>,
+        app_handle: AppHandle,
+        ws_connected: Arc<AtomicBool>,
+    ) -> Result<()> {
         let url = self.ws_url();
         let token = self
             .token_manager
@@ -71,6 +93,16 @@ impl KisWebSocketClient {
 
         let (ws_stream, _) = connect_async(url).await?;
         tracing::info!("KIS WebSocket 연결: {}", url);
+
+        // 연결 성공 — 상태 업데이트 및 이벤트 emit
+        ws_connected.store(true, Ordering::Relaxed);
+        let _ = app_handle.emit(
+            "ws-status",
+            WsStatusEvent {
+                connected: true,
+                message: "KIS WebSocket 연결됨".to_string(),
+            },
+        );
 
         let (mut write, mut read) = ws_stream.split();
 
@@ -132,6 +164,17 @@ impl KisWebSocketClient {
                     _ => {}
                 }
             }
+
+            // 루프 종료 = 연결 끊김 — 상태 업데이트 및 이벤트 emit
+            ws_connected.store(false, Ordering::Relaxed);
+            let _ = app_handle.emit(
+                "ws-status",
+                WsStatusEvent {
+                    connected: false,
+                    message: "KIS WebSocket 연결 끊김".to_string(),
+                },
+            );
+            tracing::info!("KIS WebSocket 수신 루프 종료");
         });
 
         Ok(())
