@@ -39,6 +39,8 @@ pub trait Strategy: Send + Sync {
     fn initialize_historical(&mut self, _symbol: &str, _prices: &[u64]) {}
     /// 전략 시작 시 일봉 (고가, 종가) 쌍 배열로 초기화. 강한 종가 등 복합 일봉 데이터가 필요한 전략에서 재정의.
     fn initialize_candles(&mut self, _symbol: &str, _candles: &[(u64, u64)]) {}
+    /// 전략 시작 시 일봉 변동 범위(고가-저가) 배열로 초기화. 변동성 확장 전략에서 사용.
+    fn initialize_range_data(&mut self, _symbol: &str, _ranges: &[u64]) {}
     /// 전략 상태 초기화 (일 초기화 등)
     fn reset(&mut self);
 }
@@ -217,6 +219,27 @@ impl StrategyManager {
         for s in &mut self.strategies {
             if s.config().target_symbols.contains(&symbol.to_string()) {
                 s.initialize_candles(symbol, candles);
+            }
+        }
+    }
+
+    /// 특정 종목을 타겟으로 하는 모든 전략에 일봉 변동 범위(고가-저가) 데이터 전달 (변동성 확장 전략)
+    pub fn initialize_range_data(&mut self, symbol: &str, ranges: &[u64]) {
+        for s in &mut self.strategies {
+            if s.config().target_symbols.contains(&symbol.to_string()) {
+                s.initialize_range_data(symbol, ranges);
+            }
+        }
+    }
+
+    /// 저장된 전략 설정으로 인메모리 전략 상태 업데이트 (프로그램 재시작 후 복원)
+    pub fn apply_saved_configs(&mut self, saved: &[StrategyConfig]) {
+        for saved_cfg in saved {
+            if let Some(cfg) = self.get_config_mut(&saved_cfg.id) {
+                cfg.enabled = saved_cfg.enabled;
+                cfg.target_symbols = saved_cfg.target_symbols.clone();
+                cfg.order_quantity = saved_cfg.order_quantity;
+                cfg.params = saved_cfg.params.clone();
             }
         }
     }
@@ -999,6 +1022,158 @@ impl Strategy for StrongCloseStrategy {
 
     fn reset(&mut self) {
         self.pending_buy = false;
+        self.in_position = false;
+        self.entry_price = None;
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 08. 변동성 확장 전략 (VolatilityExpansionStrategy)
+// ────────────────────────────────────────────────────────────────────
+// 동작:
+//  1. 자동매매 시작 시 `initialize_range_data`로 일봉 변동폭(고-저) 배열 전달 → 평균 변동폭 계산
+//  2. 장중 첫 틱 = 시가(day_open), 이후 틱마다 당일 고/저 추적
+//  3. 당일 변동폭 > 평균 변동폭 × expansion_factor AND 현재가 > day_open → 매수 (변동성 방향 확인)
+//  4. 매수 후 stop_loss_pct% 하락 시 손절 매도
+// ────────────────────────────────────────────────────────────────────
+
+/// 변동성 확장 전략 파라미터
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VolatilityExpansionParams {
+    /// 평균 변동폭 계산에 사용할 과거 기간 (기본 10거래일)
+    pub lookback_days: usize,
+    /// 평균 변동폭 대비 확장 배율 (기본 2.0배 이상이면 발동)
+    pub expansion_factor: f64,
+    /// 매수 후 손절 기준 % (기본 3.0)
+    pub stop_loss_pct: f64,
+}
+
+impl Default for VolatilityExpansionParams {
+    fn default() -> Self {
+        Self { lookback_days: 10, expansion_factor: 2.0, stop_loss_pct: 3.0 }
+    }
+}
+
+pub struct VolatilityExpansionStrategy {
+    config: StrategyConfig,
+    params: VolatilityExpansionParams,
+    /// 역사적 평균 변동폭 (일봉 고-저 평균). initialize_range_data 호출 후 설정됨.
+    avg_range: Option<f64>,
+    /// 당일 시가 (첫 틱에서 설정)
+    day_open: Option<u64>,
+    /// 당일 고가 (틱마다 업데이트)
+    day_high: u64,
+    /// 당일 저가 (틱마다 업데이트, u64::MAX에서 시작)
+    day_low: u64,
+    /// 포지션 진입 여부
+    in_position: bool,
+    /// 매수 기준가 (손절 계산용)
+    entry_price: Option<u64>,
+}
+
+impl VolatilityExpansionStrategy {
+    pub fn new(config: StrategyConfig) -> Self {
+        let params: VolatilityExpansionParams =
+            serde_json::from_value(config.params.clone()).unwrap_or_default();
+        Self {
+            config,
+            params,
+            avg_range: None,
+            day_open: None,
+            day_high: 0,
+            day_low: u64::MAX,
+            in_position: false,
+            entry_price: None,
+        }
+    }
+}
+
+impl Strategy for VolatilityExpansionStrategy {
+    fn id(&self) -> &str { &self.config.id }
+    fn name(&self) -> &str { &self.config.name }
+    fn config(&self) -> &StrategyConfig { &self.config }
+    fn config_mut(&mut self) -> &mut StrategyConfig { &mut self.config }
+    fn is_enabled(&self) -> bool { self.config.enabled }
+    fn set_enabled(&mut self, enabled: bool) { self.config.enabled = enabled; }
+
+    /// ranges: 일봉 변동폭(고-저) 배열, start_trading 시 전달됨
+    fn initialize_range_data(&mut self, symbol: &str, ranges: &[u64]) {
+        if !self.config.target_symbols.contains(&symbol.to_string()) { return; }
+        let lookback = self.params.lookback_days.min(ranges.len());
+        if lookback == 0 {
+            tracing::warn!("변동성 확장 [{}]: 일봉 데이터 없음 — avg_range 미초기화", symbol);
+            return;
+        }
+        let slice = &ranges[ranges.len().saturating_sub(lookback)..];
+        let avg = slice.iter().sum::<u64>() as f64 / slice.len() as f64;
+        tracing::info!(
+            "변동성 확장 초기화 [{}]: 평균 변동폭 {:.0}원 (최근 {}거래일)",
+            symbol, avg, slice.len()
+        );
+        self.avg_range = Some(avg);
+    }
+
+    fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
+        if !self.config.enabled { return Signal::Hold; }
+        if !self.config.target_symbols.contains(&symbol.to_string()) { return Signal::Hold; }
+
+        // 당일 고/저 업데이트
+        if price > self.day_high { self.day_high = price; }
+        if price < self.day_low  { self.day_low  = price; }
+
+        // 첫 틱 → 시가 설정
+        if self.day_open.is_none() {
+            self.day_open = Some(price);
+        }
+
+        // ① 손절 우선
+        if self.in_position {
+            if let Some(ep) = self.entry_price {
+                let loss_pct = (ep as f64 - price as f64) / ep as f64 * 100.0;
+                if loss_pct >= self.params.stop_loss_pct {
+                    self.in_position = false;
+                    self.entry_price = None;
+                    return Signal::Sell {
+                        symbol: symbol.to_string(),
+                        quantity: self.config.order_quantity,
+                        reason: format!(
+                            "변동성 확장 손절: 현재가 {} (매수가 {} 대비 -{:.2}%)",
+                            price, ep, loss_pct
+                        ),
+                    };
+                }
+            }
+            return Signal::Hold;
+        }
+
+        // ② 매수 조건: 당일 변동폭 > 평균 × factor AND 현재가 > 시가
+        if let (Some(ar), Some(day_open)) = (self.avg_range, self.day_open) {
+            // day_low가 아직 u64::MAX이면 가드
+            if self.day_low == u64::MAX { return Signal::Hold; }
+            let intraday_range = self.day_high.saturating_sub(self.day_low);
+            let threshold = ar * self.params.expansion_factor;
+            if intraday_range as f64 > threshold && price > day_open {
+                self.in_position = true;
+                self.entry_price = Some(price);
+                return Signal::Buy {
+                    symbol: symbol.to_string(),
+                    quantity: self.config.order_quantity,
+                    reason: format!(
+                        "변동성 확장 매수: 당일 변동폭 {}원 > 평균 {:.0}원 × {:.1} (상승 방향)",
+                        intraday_range, ar, self.params.expansion_factor
+                    ),
+                };
+            }
+        }
+
+        Signal::Hold
+    }
+
+    fn reset(&mut self) {
+        // 일 초기화: 당일 고/저/시가 리셋 (avg_range는 유지)
+        self.day_open = None;
+        self.day_high = 0;
+        self.day_low = u64::MAX;
         self.in_position = false;
         self.entry_price = None;
     }

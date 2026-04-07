@@ -22,7 +22,7 @@ use crate::{
     config::{AccountProfile, AppConfig, DiscordConfig, ProfilesConfig},
     logging::LogConfig,
     notifications::{discord::DiscordNotifier, types::NotificationEvent},
-    storage::{stats_store::DailyStats, stock_store::{StockListStats, StockStore}, trade_store::TradeRecord, OrderStore, StatsStore, TradeStore},
+    storage::{stats_store::DailyStats, stock_store::{StockListStats, StockStore}, strategy_store::StrategyStore, trade_store::TradeRecord, OrderStore, StatsStore, TradeStore},
     trading::{
         order::OrderManager,
         position::{Position, PositionTracker},
@@ -35,6 +35,7 @@ use crate::{
         MaCrossParams, MomentumParams, MomentumStrategy,
         MovingAverageCrossStrategy, RsiParams, RsiStrategy,
         StrongCloseParams, StrongCloseStrategy,
+        VolatilityExpansionParams, VolatilityExpansionStrategy,
         StrategyConfig, StrategyManager,
     },
     },
@@ -79,6 +80,8 @@ pub struct AppState {
     pub stock_list: Arc<RwLock<Vec<crate::api::rest::StockSearchItem>>>,
     /// 영구 종목 목록 캐시 (KIS API 응답에서 자동 수집 + stocklist/stocklist.json)
     pub stock_store: Arc<StockStore>,
+    /// 전략 설정 영구 저장소 (프로파일별 JSON)
+    pub strategy_store: Arc<StrategyStore>,
     /// 웹 서버 포트
     pub web_port: u16,
     /// WebSocket 연결 상태 (Dashboard 실시간 반영용)
@@ -214,6 +217,32 @@ impl AppState {
         };
         strategy_manager.add(Box::new(StrongCloseStrategy::new(strong_close_strategy)));
 
+        // 변동성 확장 전략 (기본 등록, 비활성)
+        let volatility_expansion_strategy = StrategyConfig {
+            id: "volatility_expansion_default".to_string(),
+            name: "변동성 확장 전략".to_string(),
+            enabled: false,
+            target_symbols: vec![],
+            order_quantity: 1,
+            params: serde_json::to_value(VolatilityExpansionParams::default()).unwrap_or_default(),
+        };
+        strategy_manager.add(Box::new(VolatilityExpansionStrategy::new(volatility_expansion_strategy)));
+
+        // 전략 설정 영구 저장소
+        let strategy_store = Arc::new(StrategyStore::new(&data_dir));
+
+        // 저장된 전략 설정 로드 (프로파일별, 프로그램 재시작 후 복원)
+        if let Some(profile_id) = profiles.active_id.as_deref() {
+            let saved = strategy_store.load_sync(profile_id);
+            if !saved.is_empty() {
+                strategy_manager.apply_saved_configs(&saved);
+                tracing::info!(
+                    "전략 설정 복원: 프로파일 '{}', {}개 전략",
+                    profile_id, saved.len()
+                );
+            }
+        }
+
         Self {
             config: Arc::new(RwLock::new(config)),
             rest_client: rest_client_rw,
@@ -234,6 +263,7 @@ impl AppState {
             data_dir: data_dir.clone(),
             stock_list: Arc::new(RwLock::new(vec![])),
             stock_store: Arc::new(StockStore::new(&data_dir)),
+            strategy_store,
             web_port,
             ws_connected: Arc::new(AtomicBool::new(false)),
             trading_profile_id: Arc::new(RwLock::new(None)),
@@ -554,20 +584,34 @@ pub async fn set_active_profile(
     get_app_config(state).await
 }
 
-/// 현재 active_id 기반으로 config + rest_client 교체
+/// 현재 active_id 기반으로 config + rest_client + 전략 설정 교체
 async fn apply_active_profile(state: &AppState) -> CmdResult<()> {
-    let new_config = {
+    let (new_config, active_id) = {
         let profiles = state.profiles.read().await;
-        match profiles.get_active() {
+        let cfg = match profiles.get_active() {
             Some(p) => AppConfig::from_profile(p, &state.discord_config),
             None => AppConfig::empty(&state.discord_config),
-        }
+        };
+        (cfg, profiles.active_id.clone())
     };
 
     let new_client = make_rest_client(&new_config);
 
     *state.config.write().await = new_config;
     *state.rest_client.write().await = new_client;
+
+    // 프로파일 전환 시 해당 프로파일의 전략 설정 로드 (재시작 없이도 반영)
+    if let Some(pid) = &active_id {
+        let saved = state.strategy_store.load_sync(pid);
+        if !saved.is_empty() {
+            let mut mgr = state.strategy_manager.lock().await;
+            mgr.apply_saved_configs(&saved);
+            tracing::info!(
+                "프로파일 전환 — 전략 설정 복원: 프로파일 '{}', {}개 전략",
+                pid, saved.len()
+            );
+        }
+    }
 
     tracing::info!("활성 프로파일 적용 완료");
     Ok(())
@@ -968,6 +1012,18 @@ pub async fn start_trading(
                             state.strategy_manager.lock().await
                                 .initialize_candles(symbol, &high_close);
                         }
+                        // 일봉 변동폭(고-저) 배열 추출 (변동성 확장 전략에서 사용)
+                        let ranges: Vec<u64> = candles.iter()
+                            .filter_map(|c| {
+                                let h = c.high.parse::<u64>().ok()?;
+                                let l = c.low.parse::<u64>().ok()?;
+                                Some(h.saturating_sub(l))
+                            })
+                            .collect();
+                        if !ranges.is_empty() {
+                            state.strategy_manager.lock().await
+                                .initialize_range_data(symbol, &ranges);
+                        }
                     }
                     Ok(_) => tracing::debug!("차트 데이터 없음 (히스토리 초기화 건너뜀): {}", symbol),
                     Err(e) => tracing::warn!(
@@ -1134,25 +1190,41 @@ pub async fn update_strategy(
     input: UpdateStrategyInput,
     state: State<'_, AppState>,
 ) -> CmdResult<StrategyView> {
-    let mut mgr = state.strategy_manager.lock().await;
-    let cfg = mgr.get_config_mut(&input.id).ok_or_else(|| CmdError {
-        code: "STRATEGY_NOT_FOUND".into(),
-        message: format!("전략을 찾을 수 없습니다: {}", input.id),
-    })?;
+    let view = {
+        let mut mgr = state.strategy_manager.lock().await;
+        let cfg = mgr.get_config_mut(&input.id).ok_or_else(|| CmdError {
+            code: "STRATEGY_NOT_FOUND".into(),
+            message: format!("전략을 찾을 수 없습니다: {}", input.id),
+        })?;
 
-    if let Some(enabled) = input.enabled { cfg.enabled = enabled; }
-    if let Some(symbols) = input.target_symbols { cfg.target_symbols = symbols; }
-    if let Some(qty) = input.order_quantity { cfg.order_quantity = qty; }
-    if let Some(params) = input.params { cfg.params = params; }
+        if let Some(enabled) = input.enabled { cfg.enabled = enabled; }
+        if let Some(symbols) = input.target_symbols { cfg.target_symbols = symbols; }
+        if let Some(qty) = input.order_quantity { cfg.order_quantity = qty; }
+        if let Some(params) = input.params { cfg.params = params; }
 
-    Ok(StrategyView {
-        id: cfg.id.clone(),
-        name: cfg.name.clone(),
-        enabled: cfg.enabled,
-        target_symbols: cfg.target_symbols.clone(),
-        order_quantity: cfg.order_quantity,
-        params: cfg.params.clone(),
-    })
+        StrategyView {
+            id: cfg.id.clone(),
+            name: cfg.name.clone(),
+            enabled: cfg.enabled,
+            target_symbols: cfg.target_symbols.clone(),
+            order_quantity: cfg.order_quantity,
+            params: cfg.params.clone(),
+        }
+    };
+
+    // 변경된 전략 설정을 디스크에 영구 저장 (프로파일별)
+    let profile_id = state.profiles.read().await.active_id.clone();
+    if let Some(pid) = &profile_id {
+        let all_configs: Vec<crate::trading::strategy::StrategyConfig> = {
+            let mgr = state.strategy_manager.lock().await;
+            mgr.all_configs().into_iter().cloned().collect()
+        };
+        if let Err(e) = state.strategy_store.save(pid, &all_configs).await {
+            tracing::warn!("전략 설정 저장 실패 (프로파일 {}): {}", pid, e);
+        }
+    }
+
+    Ok(view)
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -1938,19 +2010,39 @@ pub async fn place_overseas_order(
 ) -> CmdResult<OrderResponse> {
     use crate::api::rest::{OrderSide, OverseasOrderRequest};
 
+    tracing::info!(
+        "해외 주문 요청: {} {} {} 수량={} 가격={}",
+        input.exchange, input.symbol, input.side, input.quantity, input.price
+    );
+
     let side = match input.side.as_str() {
         "Buy" => OrderSide::Buy,
         _ => OrderSide::Sell,
     };
 
     let req = OverseasOrderRequest {
-        symbol: input.symbol,
-        exchange: input.exchange,
+        symbol: input.symbol.clone(),
+        exchange: input.exchange.clone(),
         side,
         quantity: input.quantity,
         price: input.price,
     };
 
     let client = state.rest_client.read().await.clone();
-    client.place_overseas_order(&req).await.map_err(CmdError::from)
+    match client.place_overseas_order(&req).await {
+        Ok(resp) => {
+            tracing::info!(
+                "해외 주문 완료: {} {} — 주문번호={}, 시각={}",
+                input.exchange, input.symbol, resp.odno, resp.ord_tmd
+            );
+            Ok(resp)
+        }
+        Err(e) => {
+            tracing::error!(
+                "해외 주문 실패: {} {} 수량={} 가격={} — {}",
+                input.exchange, input.symbol, input.quantity, input.price, e
+            );
+            Err(CmdError::from(e))
+        }
+    }
 }

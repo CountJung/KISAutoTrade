@@ -110,7 +110,16 @@
 - [x] 전략 IPC 연결 (`get_strategies`, `update_strategy`) + Strategy 페이지 실제 연동
 - [x] Dashboard 설정 미비 경고 배너 + 자동매매 start/stop 버튼
 - [x] 멀티 계좌 프로파일 관리 (Settings 화면) — add/update/delete/set_active_profile
-- [x] 멀티프로필 동작 기능 강화 ✅ 2026-04-07
+- [x] 수동매매 미국주식 주문 오류 수정 ✅ 2026-04-07
+  - `Trading.tsx`: `onError: (e) => setErrorMsg(String(e))` → CmdError 객체에서 `.message` 필드 추출
+  - `commands.rs`: `place_overseas_order` tracing::info/error 로그 추가 (주문 요청/성공/실패 상세 기록)
+- [x] 전략 설정 프로파일별 영구 저장 ✅ 2026-04-07
+  - `storage/strategy_store.rs` 신규: 동기 load_sync / 비동기 save (per-profile JSON)
+  - `AppState.strategy_store: Arc<StrategyStore>` 추가
+  - `AppState::new()`: 기본 전략 등록 후 저장된 설정 로드 → `apply_saved_configs()`
+  - `update_strategy` IPC: 전략 업데이트 후 `strategy_store.save(profile_id, &all_configs)` 영구 저장
+  - `apply_active_profile`: 프로파일 전환 시 해당 프로파일의 전략 설정 즉시 로드
+  - 저장 경로: `{app_data_dir}/data/strategies/{profile_id}/strategies.json`
   - `AppState.trading_profile_id`: 자동매매 시작 시점 프로파일 ID 스냅샷 저장
   - `TradingStatus.trading_profile_id`: 현재 동작 중인 프로파일 ID 반환
   - `set_active_profile`: 자동매매 실행 중 프로파일 전환 시 REST 클라이언트 교체 방지 (UI active_id만 변경)
@@ -199,9 +208,13 @@
     - 매수 후 `stop_loss_pct%` 하락 시 손절 매도
     - `commands.rs`: `strong_close_default` 기본 등록, `start_trading` `initialize_candles` 호출 추가
     - `Strategy.tsx`: `STRATEGY_PARAM_META`, `STRATEGY_DESCRIPTION`, `getStrategyType` 추가
-  - [ ] **08. 변동성 확장** (`VolatilityExpansionStrategy`) — N일 평균 변동성(일봉 고-저 범위) 대비 당일 변동성이 K배 이상이면 방향에 따라 매수/매도
-    - 파라미터: `lookback_days: u32 = 10`, `expansion_factor: f64 = 2.0`
-    - 조건: 당일 변동폭 > 평균 변동폭 × expansion_factor AND 종가 > 시가 → 매수
+- [x] **08. 변동성 확장** (`VolatilityExpansionStrategy`) ✅ 2026-04-07
+    - 파라미터: `lookback_days: usize = 10`, `expansion_factor: f64 = 2.0`, `stop_loss_pct: f64 = 3.0`
+    - `Strategy` trait에 `fn initialize_range_data(symbol, ranges: &[u64])` 추가 (기본 no-op)
+    - `StrategyManager::initialize_range_data` 추가 → start_trading 시 일봉 변동폭(고-저) 배열 전달
+    - 조건: 당일 변동폭 > 평균 변동폭 × expansion_factor AND 현재가 > 시가(첫 틱) → 매수; stop_loss_pct% 하락 시 손절
+    - `commands.rs`: `volatility_expansion_default` 기본 등록, `start_trading` `initialize_range_data` 호출 추가
+    - `Strategy.tsx`: `STRATEGY_PARAM_META`, `STRATEGY_DESCRIPTION`, `getStrategyType` 추가
   - [ ] **09. 평균회귀** (`MeanReversionStrategy`) — 현재가가 MA에서 N 표준편차 이상 이탈 시 반대 방향으로 매매 (볼린저 밴드 기반)
     - 파라미터: `period: u32 = 20`, `std_dev: f64 = 2.0`
     - 조건: 현재가 < 하단밴드 → 매수 / 현재가 > 상단밴드 → 매도
@@ -226,4 +239,4 @@
 
 ---
 
-*마지막 업데이트: 2026-04-06*
+*마지막 업데이트: 2026-04-07*

@@ -315,6 +315,11 @@ const STRATEGY_PARAM_META: Record<string, ParamMeta[]> = {
     { key: 'threshold_pct', label: '강한 종가 기준 (%)', min: 0.5, max: 10.0, step: 0.5, description: '종가가 고가 대비 이 % 이내이면 실개로 강한 종가로 판단 (기본 3.0)' },
     { key: 'stop_loss_pct', label: '손절 기준 (%)', min: 1.0, max: 10.0, step: 0.5, description: '매수가 대비 이 % 이상 하락 시 손절 (기본 3.0)' },
   ],
+  volatility_expansion: [
+    { key: 'lookback_days',     label: '평균 기간 (거래일)', min: 3, max: 60,  step: 1,   description: '평균 변동폭 계산에 사용할 과거 거래일 수 (기본 10)' },
+    { key: 'expansion_factor',  label: '확장 배율',          min: 1.1, max: 5.0, step: 0.1, description: '당일 변동폭이 평균의 이 배 이상이면 매수 (기본 2.0)' },
+    { key: 'stop_loss_pct',     label: '손절 기준 (%)',       min: 1.0, max: 10.0, step: 0.5, description: '매수가 대비 이 % 이상 하락 시 손절 (기본 3.0)' },
+  ],
 }
 
 const STRATEGY_DESCRIPTION: Record<string, string> = {
@@ -326,6 +331,7 @@ const STRATEGY_DESCRIPTION: Record<string, string> = {
   consecutive_move:      'N일 연속 종가 상승 시 매수, M일 연속 하락 시 매도. 추세 과쟥에 상승/하락할 때 조기에 편승하는 추세추종 전략.',
   failed_breakout:       '최근 N일 전고점을 버퍼% 이상 돌파하면 매수. 이후 가격이 전고점 이하로 내려오면 돌파 실패로 판단하여 즉시 매도.',
   strong_close:          '자동매매 시작 시 전일 종가가 고가 대비 N% 이내여서 강하게 마감하면 당일 첫 틱에 매수. 매수 후 지정 % 하락 시 손절.',
+  volatility_expansion:  '당일 변동폭(고-저)이 최근 N거래일 평균 변동폭의 K배 이상이며 현재가 > 시가인 경우 매수. 장중 변동성 폭발 구간에 상승 방향으로 편승. 매수 후 지정 % 하락 시 손절.',
 }
 
 function getStrategyType(id: string): string {
@@ -336,7 +342,8 @@ function getStrategyType(id: string): string {
   if (id.startsWith('fifty_two_week_high'))  return 'fifty_two_week_high'
   if (id.startsWith('consecutive_move'))     return 'consecutive_move'
   if (id.startsWith('failed_breakout'))      return 'failed_breakout'
-  if (id.startsWith('strong_close'))         return 'strong_close'
+  if (id.startsWith('strong_close'))             return 'strong_close'
+  if (id.startsWith('volatility_expansion'))     return 'volatility_expansion'
   return 'unknown'
 }
 

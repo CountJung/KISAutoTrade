@@ -2,6 +2,7 @@ pub mod balance_store;
 pub mod order_store;
 pub mod stats_store;
 pub mod stock_store;
+pub mod strategy_store;
 pub mod trade_store;
 
 pub use trade_store::TradeStore;
@@ -9,6 +10,7 @@ pub use order_store::OrderStore;
 pub use stats_store::StatsStore;
 pub use balance_store::BalanceStore;
 pub use stock_store::StockStore;
+pub use strategy_store::StrategyStore;
 
 use anyhow::Result;
 use chrono::{Datelike, NaiveDate};

@@ -6,8 +6,8 @@
 > - 이 파일이 최신 상태가 아니라면 작업 전에 먼저 갱신한다.
 > - 추측이 아닌 이 맵을 기반으로 작업한다.
 
-**마지막 업데이트**: 2026-04-06  
-**프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (WebSocket Dashboard 연동 ✅, 추가 전략 RSI·모멘텀·이격도 ✅, 수동매매 KR 종목 검색 UI ✅)
+**마지막 업데이트**: 2026-04-07  
+**프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (WebSocket Dashboard 연동 ✅, 추가 전략 RSI·모멘텀·이격도·52주신고가·연속상승·돌파실패·강한종가·변동성확장 ✅, 전략 설정 프로파일별 영구 저장 ✅)
 
 ---
 
@@ -164,6 +164,7 @@ AutoConditionTrade/                   ← 루트
 | `trading/risk.rs` | 일일 손실 한도 감시, 비상 정지 |
 | `storage/trade_store.rs` | `data/trades/YYYY/MM/DD/trades.json` 읽기/쓰기 |
 | `storage/stats_store.rs` | 체결 집계 → `data/stats/YYYY/MM/daily_stats.json` |
+| `storage/strategy_store.rs` | 전략 설정 영구 저장 → `data/strategies/{profile_id}/strategies.json` |
 | `notifications/discord.rs` | Discord Bot으로 알림 메시지 전송 |
 | `config/mod.rs` | `secure_config.json` + `.env` 로드 (실전/모의 듀얼 키, 기본: 실전투자) |
 

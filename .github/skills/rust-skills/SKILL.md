@@ -243,4 +243,35 @@ fn parse_order_side(s: &str) -> Result<OrderSide, CmdError> {
 
 ---
 
-> 마지막 업데이트: 2026-04-02
+## Runtime 상태 영구 저장 패턴 (sync load + async save)
+
+AppState 구조체가 sync 초기화(`fn new`)를 사용할 때 파일 I/O 처리:
+
+```rust
+// 저장소 구조체
+pub struct StrategyStore { data_dir: PathBuf }
+
+impl StrategyStore {
+    // AppState::new() (sync) — std::fs 사용
+    pub fn load_sync(&self, profile_id: &str) -> Vec<StrategyConfig> {
+        let path = self.config_path(profile_id);
+        if !path.exists() { return vec![]; }
+        std::fs::read_to_string(&path)
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default()
+    }
+
+    // IPC 커맨드 (async) — tokio::fs 사용
+    pub async fn save(&self, profile_id: &str, configs: &[StrategyConfig]) -> anyhow::Result<()> {
+        let path = self.config_path(profile_id);
+        if let Some(parent) = path.parent() { tokio::fs::create_dir_all(parent).await?; }
+        tokio::fs::write(&path, serde_json::to_string_pretty(configs)?).await?;
+        Ok(())
+    }
+}
+```
+
+핵심: `AppState::new()`는 sync → `std::fs`, IPC 커맨드는 async → `tokio::fs`
+
+> 마지막 업데이트: 2026-04-07

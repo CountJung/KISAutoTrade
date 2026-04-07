@@ -361,7 +361,10 @@ export default function Trading() {
         { symbol, side, order_type: orderType, quantity: qty, price: orderType === 'Market' ? 0 : prc },
         {
           onSuccess: (d) => { setResult('주문 완료 — 주문번호: ' + d.odno); setQuantity(''); setPrice('') },
-          onError:   (e) => setErrorMsg(String(e)),
+          onError:   (e) => {
+            const err = e as { message?: string } | Error | null
+            setErrorMsg(err instanceof Error ? err.message : (err as { message?: string })?.message ?? String(e))
+          },
         },
       )
     } else {
@@ -371,7 +374,10 @@ export default function Trading() {
         { symbol, exchange: EXCHANGE_ORDER_MAP[usExchange], side, quantity: qty, price: prc },
         {
           onSuccess: (d) => { setResult('주문 완료 — 주문번호: ' + d.odno); setQuantity(''); setPrice('') },
-          onError:   (e) => setErrorMsg(String(e)),
+          onError:   (e) => {
+            const err = e as { message?: string } | Error | null
+            setErrorMsg(err instanceof Error ? err.message : (err as { message?: string })?.message ?? String(e))
+          },
         },
       )
     }

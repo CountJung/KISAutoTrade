@@ -473,4 +473,30 @@ code.chars().all(|c| c.is_ascii_digit())
 - `src-tauri/src/market/mod.rs` — `lookup_name_by_code()`, `search_naver_live()`, `StockList::fetch_from_krx()`
 - `src-tauri/src/commands.rs` — `search_stock`: Yahoo 폴백 로직, `refresh_stock_list`: KRX_EMPTY 에러 처리
 
+---
+
+## 10. IPC 에러 표시 (CmdError → JS)
+
+### ❌ 잘못된 패턴 — `String(e)` 그대로 사용
+
+```typescript
+// ❌ Tauri v2는 Rust Err를 JSON 객체로 throw → String(e) = "[object Object]"
+onError: (e) => setErrorMsg(String(e))
+```
+
+### ✅ 올바른 패턴 — CmdError.message 추출
+
+```typescript
+// ✅ CmdError { code, message } 에서 message 필드 추출
+onError: (e) => {
+  const err = e as { message?: string } | Error | null
+  setErrorMsg(err instanceof Error ? err.message : (err as { message?: string })?.message ?? String(e))
+}
+```
+
+### 원인
+- Tauri v2에서 `Result<T, CmdError>`의 Err를 반환하면 JS 측에서 `{ code: "ERROR", message: "..." }` 형태의 plain object가 throw됨
+- `Error` 인스턴스가 아니므로 `String(e)` → `[object Object]`
+- 해외 주문(`place_overseas_order`) 등 KIS API 오류 발생 시 증상 나타남
+
 > 마지막 업데이트: 2026-04-07
