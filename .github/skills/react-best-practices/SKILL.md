@@ -196,7 +196,110 @@ if (error) return <Alert severity="error">{(error as CmdError).message}</Alert>;
 
 ---
 
-> 마지막 업데이트: 2026-04-05
+## 9. 전역 폴링 스케쥴러 패턴 (Global Polling Scheduler)
+
+KIS API rate limit에 맞춰 모든 폴링 주기를 중앙에서 관리한다.
+
+### 핵심 원칙
+
+| 규칙 | 내용 |
+|------|------|
+| 상수 관리 | `src/scheduler/index.ts`의 `POLL_INTERVALS` 상수를 통해 관리 |
+| 중복 제거 | TanStack Query는 동일 queryKey를 여러 컴포넌트가 구독해도 하나의 폴링만 실행 |
+| 주기 일관성 | 하드코딩 숫자 금지 — 반드시 `POLL_INTERVALS.*` 상수 사용 |
+| 주문 후 체결 조회 | 즉시 re-fetch하면 KIS 미반영 가능 → `ORDER_REFETCH_DELAY_MS` 후 조회 |
+
+### KIS API rate limit
+
+- **실전**: 20 calls/s per TR-ID
+- **모의**: 2 calls/s per TR-ID (→ 동일 TR-ID 최소 500ms 간격)
+
+### 폴링 카테고리
+
+```typescript
+// src/scheduler/index.ts
+export const POLL_INTERVALS = {
+  FAST:    10_000,  // 현재가, 자동매매 상태, 리스크 (10s)
+  NORMAL:  30_000,  // 체결 내역, 포지션 (30s)
+  SLOW:    60_000,  // 잔고, 통계 (60s)
+  LOG:      5_000,  // 앱 로그 스트리밍 (5s)
+  PENDING:  5_000,  // 미체결 주문 체크 (5s)
+} as const
+```
+
+### 훅 작성 규칙
+
+```typescript
+// ✅ 올바른 패턴 — 스케쥴러 상수 사용
+import { POLL_INTERVALS, ORDER_REFETCH_DELAY_MS } from '../scheduler'
+
+export function useBalance() {
+  return useQuery({
+    queryKey: KEYS.balance,
+    queryFn: cmd.getBalance,
+    refetchInterval: POLL_INTERVALS.SLOW,  // 상수 사용 필수
+  })
+}
+
+// ✅ 주문 후 체결 내역 지연 갱신
+export function usePlaceOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: cmd.placeOrder,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: KEYS.balance })  // 즉시
+      // KIS 서버 처리 딜레이 후 체결 조회
+      setTimeout(
+        () => void qc.invalidateQueries({ queryKey: KEYS.todayExecuted }),
+        ORDER_REFETCH_DELAY_MS.REAL,
+      )
+    },
+  })
+}
+
+// ❌ 금지 — 하드코딩 숫자 직접 사용
+return useQuery({ refetchInterval: 30_000 })  // 상수 사용으로 교체할 것
+```
+
+### ✅ 체결 내역 표시 시 isError 처리
+
+`useTodayExecuted`가 오류 상태일 때 빈 상태 대신 경고를 표시해야 한다.
+
+```tsx
+const { data: executed, isError: isExecutedError } = useTodayExecuted()
+
+{isExecutedError ? (
+  <Alert severity="warning">체결 내역 조회 실패 — 계좌 설정을 확인하세요.</Alert>
+) : !executed || executed.length === 0 ? (
+  <Typography>당일 체결 내역이 없습니다.</Typography>
+) : (
+  // 테이블 렌더링
+)}
+```
+
+### 미래 개선 방향 (Rust event-based scheduler)
+
+현재는 React TanStack Query 기반 폴링이지만, 다음 단계로 Rust 백그라운드 스케쥴러로 전환할 수 있다:
+
+```rust
+// 미래 설계: Rust background task → Tauri event emit
+tokio::spawn(async move {
+    let mut interval = tokio::time::interval(Duration::from_secs(30));
+    loop {
+        interval.tick().await;
+        let balance = rest_client.get_balance().await?;
+        app_handle.emit("balance_update", balance)?;
+    }
+});
+
+// React: listen('balance_update', handler) → qc.setQueryData(...)
+```
+
+장점: 여러 브라우저 탭이 열려도 중복 API 호출 없음, rate limit 완전 통제.
+
+---
+
+> 마지막 업데이트: 2026-04-07
 
 ---
 

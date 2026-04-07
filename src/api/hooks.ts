@@ -12,6 +12,7 @@ import {
   type UseQueryOptions,
 } from '@tanstack/react-query'
 
+import { POLL_INTERVALS, ORDER_REFETCH_DELAY_MS } from '../scheduler'
 import * as cmd from './commands'
 import type {
   AccountProfileView,
@@ -94,7 +95,7 @@ export function useBalance(
     queryKey: KEYS.balance,
     queryFn: cmd.getBalance,
     staleTime: 30_000,
-    refetchInterval: 60_000, // 1분마다 자동 갱신
+    refetchInterval: POLL_INTERVALS.SLOW, // 60s — 스케쥴러 기준
     ...options,
   })
 }
@@ -135,7 +136,7 @@ export function usePrice(
     queryFn: () => cmd.getPrice(symbol),
     enabled: !!symbol,
     staleTime: 5_000,
-    refetchInterval: 10_000, // 10초마다 자동 갱신
+    refetchInterval: POLL_INTERVALS.FAST, // 10s — 스케쥴러 기준
     ...options,
   })
 }
@@ -147,10 +148,14 @@ export function usePlaceOrder() {
   return useMutation({
     mutationFn: (input: PlaceOrderInput) => cmd.placeOrder(input),
     onSuccess: () => {
-      // 주문 성공 시 잔고 및 체결 내역 갱신
+      // 잔고·로컬 체결 기록은 즉시 무효화
       void qc.invalidateQueries({ queryKey: KEYS.balance })
-      void qc.invalidateQueries({ queryKey: KEYS.todayExecuted })
       void qc.invalidateQueries({ queryKey: KEYS.todayTrades })
+      // KIS 서버 처리 딜레이 후 체결 내역 갱신 (즉시 재조회 시 미반영 가능)
+      setTimeout(
+        () => void qc.invalidateQueries({ queryKey: KEYS.todayExecuted }),
+        ORDER_REFETCH_DELAY_MS.REAL,
+      )
     },
   })
 }
@@ -163,7 +168,9 @@ export function useTodayExecuted(
     queryKey: KEYS.todayExecuted,
     queryFn: cmd.getTodayExecuted,
     staleTime: 15_000,
-    refetchInterval: 30_000,
+    refetchInterval: POLL_INTERVALS.NORMAL, // 30s — 스케쥴러 기준
+    refetchOnWindowFocus: true,
+    placeholderData: [],
     ...options,
   })
 }
@@ -247,7 +254,7 @@ export function useTradingStatus(
     queryKey: KEYS.tradingStatus,
     queryFn: cmd.getTradingStatus,
     staleTime: 5_000,
-    refetchInterval: 10_000,
+    refetchInterval: POLL_INTERVALS.FAST, // 10s — 스케쥴러 기준
     ...options,
   })
 }
@@ -280,7 +287,7 @@ export function usePositions(
     queryKey: KEYS.positions,
     queryFn: cmd.getPositions,
     staleTime: 10_000,
-    refetchInterval: 30_000,
+    refetchInterval: POLL_INTERVALS.NORMAL, // 30s — 스케쥴러 기준
     ...options,
   })
 }
@@ -611,7 +618,11 @@ export function usePlaceOverseasOrder() {
     mutationFn: (input: PlaceOverseasOrderInput) => cmd.placeOverseasOrder(input),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: KEYS.balance })
-      void qc.invalidateQueries({ queryKey: KEYS.todayExecuted })
+      // KIS 서버 처리 딜레이 후 체결 내역 갱신
+      setTimeout(
+        () => void qc.invalidateQueries({ queryKey: KEYS.todayExecuted }),
+        ORDER_REFETCH_DELAY_MS.REAL,
+      )
     },
   })
 }
@@ -622,7 +633,7 @@ export function useRiskConfig(options?: Partial<UseQueryOptions<RiskConfigView>>
     queryKey: KEYS.riskConfig,
     queryFn: cmd.getRiskConfig,
     staleTime: 10_000,
-    refetchInterval: 10_000,
+    refetchInterval: POLL_INTERVALS.FAST, // 10s — 실시간 리스크 반영
     ...options,
   })
 }
@@ -652,7 +663,7 @@ export function usePendingOrders(options?: Partial<UseQueryOptions<PendingOrderV
     queryKey: KEYS.pendingOrders,
     queryFn: cmd.getPendingOrders,
     staleTime: 5_000,
-    refetchInterval: 5_000,
+    refetchInterval: POLL_INTERVALS.PENDING, // 5s — 스케쥴러 기준
     placeholderData: [],
     ...options,
   })

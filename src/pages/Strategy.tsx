@@ -320,6 +320,11 @@ const STRATEGY_PARAM_META: Record<string, ParamMeta[]> = {
     { key: 'expansion_factor',  label: '확장 배율',          min: 1.1, max: 5.0, step: 0.1, description: '당일 변동폭이 평균의 이 배 이상이면 매수 (기본 2.0)' },
     { key: 'stop_loss_pct',     label: '손절 기준 (%)',       min: 1.0, max: 10.0, step: 0.5, description: '매수가 대비 이 % 이상 하락 시 손절 (기본 3.0)' },
   ],
+  mean_reversion: [
+    { key: 'period',        label: '볼린저 밴드 기간', min: 5,   max: 120, step: 1,   description: '이동평균과 표준편차 계산 기간 (기본 20)' },
+    { key: 'std_dev',       label: '표준편차 배율',       min: 0.5, max: 4.0, step: 0.5, description: '상/하단 밴드 너비 조정 (기본 2.0 = ±2시그마)' },
+    { key: 'stop_loss_pct', label: '손절 기준 (%)',             min: 1.0, max: 15.0, step: 0.5, description: '매수가 대비 이 % 이상 하락 시 손절 (기본 5.0)' },
+  ],
 }
 
 const STRATEGY_DESCRIPTION: Record<string, string> = {
@@ -332,6 +337,7 @@ const STRATEGY_DESCRIPTION: Record<string, string> = {
   failed_breakout:       '최근 N일 전고점을 버퍼% 이상 돌파하면 매수. 이후 가격이 전고점 이하로 내려오면 돌파 실패로 판단하여 즉시 매도.',
   strong_close:          '자동매매 시작 시 전일 종가가 고가 대비 N% 이내여서 강하게 마감하면 당일 첫 틱에 매수. 매수 후 지정 % 하락 시 손절.',
   volatility_expansion:  '당일 변동폭(고-저)이 최근 N거래일 평균 변동폭의 K배 이상이며 현재가 > 시가인 경우 매수. 장중 변동성 폭발 구간에 상승 방향으로 편승. 매수 후 지정 % 하락 시 손절.',
+  mean_reversion:        '현재가가 볼린저 밴드 하단(mean - Nσ) 아래로 바운스하면 매수(과매도). 현재가 상단 밴드 돌파 시 익절 매도, 손절 기준 % 이상 하락 시 손절. 자동매매 시작 시 과거 N일 종가로 버퍼 적재.',
 }
 
 function getStrategyType(id: string): string {
@@ -344,6 +350,7 @@ function getStrategyType(id: string): string {
   if (id.startsWith('failed_breakout'))      return 'failed_breakout'
   if (id.startsWith('strong_close'))             return 'strong_close'
   if (id.startsWith('volatility_expansion'))     return 'volatility_expansion'
+  if (id.startsWith('mean_reversion'))            return 'mean_reversion'
   return 'unknown'
 }
 

@@ -289,7 +289,7 @@ export default function Trading() {
   const { data: balance }                                           = useBalance()
   const { data: krPrice }                                           = usePrice(market === 'KR' && symbol.length === 6 ? symbol : '')
   const { data: usPrice }                                           = useOverseasPrice(market === 'US' ? symbol : '', market === 'US' ? usExchange : '')
-  const { data: executed }                                          = useTodayExecuted()
+  const { data: executed, isError: isExecutedError }                = useTodayExecuted()
   const { data: searchResults = [], isFetching: isFetchingSearch,
           isError: isSearchError, error: searchError }              = useStockSearch(searchQuery)
   const { mutate: placeOrder,         isPending: isPendingKr }     = usePlaceOrder()
@@ -360,7 +360,12 @@ export default function Trading() {
       placeOrder(
         { symbol, side, order_type: orderType, quantity: qty, price: orderType === 'Market' ? 0 : prc },
         {
-          onSuccess: (d) => { setResult('주문 완료 — 주문번호: ' + d.odno); setQuantity(''); setPrice('') },
+          onSuccess: (d) => {
+            const odno = d.odno || '(접수됨)'
+            setResult('주문 완료 — 주문번호: ' + odno)
+            setQuantity('')
+            setPrice('')
+          },
           onError:   (e) => {
             const err = e as { message?: string } | Error | null
             setErrorMsg(err instanceof Error ? err.message : (err as { message?: string })?.message ?? String(e))
@@ -373,7 +378,12 @@ export default function Trading() {
       placeOverseasOrder(
         { symbol, exchange: EXCHANGE_ORDER_MAP[usExchange], side, quantity: qty, price: prc },
         {
-          onSuccess: (d) => { setResult('주문 완료 — 주문번호: ' + d.odno); setQuantity(''); setPrice('') },
+          onSuccess: (d) => {
+            const odno = d.odno || '(접수됨)'
+            setResult('주문 완료 — 주문번호: ' + odno)
+            setQuantity('')
+            setPrice('')
+          },
           onError:   (e) => {
             const err = e as { message?: string } | Error | null
             setErrorMsg(err instanceof Error ? err.message : (err as { message?: string })?.message ?? String(e))
@@ -786,7 +796,11 @@ export default function Trading() {
           당일 체결 내역 (KIS)
         </Typography>
         <Divider sx={{ mb: 2 }} />
-        {!executed || executed.length === 0 ? (
+        {isExecutedError ? (
+          <Alert severity="warning" sx={{ mb: 1 }}>
+            체결 내역 조회 실패 — 계좌 설정을 확인하거나 잠시 후 다시 시도하세요.
+          </Alert>
+        ) : !executed || executed.length === 0 ? (
           <Typography variant="body2" color="text.secondary">당일 체결 내역이 없습니다.</Typography>
         ) : (
           <TableContainer sx={{ maxHeight: 280, overflowX: 'auto' }}>

@@ -1178,3 +1178,174 @@ impl Strategy for VolatilityExpansionStrategy {
         self.entry_price = None;
     }
 }
+
+// ────────────────────────────────────────────────────────────────────
+// 09. 평균회귀 전략 (MeanReversionStrategy) — 볼린저 밴드
+// ────────────────────────────────────────────────────────────────────
+// 동작:
+//  1. 자동매매 시작 시 `initialize_historical`로 과거 종가 배열 전달 → 가격 버퍼 사전 적재
+//  2. 실시간 틱마다 볼린저 밴드 계산:
+//       mean      = 최근 period 개의 평균
+//       std_dev   = population std deviation
+//       upper     = mean + std_dev * 배율
+//       lower     = mean - std_dev * 배율
+//  3. 미포지션 && 현재가 < lower band → 매수 (과매도, 평균 회귀 기대)
+//  4. 포지션 보유 && (현재가 > upper band → 익절 매도 OR 손절 기준 초과 → 손절)
+// ────────────────────────────────────────────────────────────────────
+
+/// 평균회귀 전략 파라미터
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeanReversionParams {
+    /// 볼린저 밴드 기간 (기본 20)
+    pub period: u32,
+    /// 표준편차 배율 (기본 2.0)
+    pub std_dev: f64,
+    /// 손절 기준 % (기본 5.0)
+    pub stop_loss_pct: f64,
+}
+
+impl Default for MeanReversionParams {
+    fn default() -> Self {
+        Self { period: 20, std_dev: 2.0, stop_loss_pct: 5.0 }
+    }
+}
+
+pub struct MeanReversionStrategy {
+    config: StrategyConfig,
+    params: MeanReversionParams,
+    /// 최근 N 틱 가격 (볼린저 밴드 계산용)
+    prices: VecDeque<u64>,
+    /// 포지션 보유 여부
+    in_position: bool,
+    /// 매수 진입가 (손절 계산용)
+    entry_price: Option<u64>,
+}
+
+impl MeanReversionStrategy {
+    pub fn new(config: StrategyConfig) -> Self {
+        let params: MeanReversionParams =
+            serde_json::from_value(config.params.clone()).unwrap_or_default();
+        let cap = (params.period as usize) + 1;
+        Self {
+            config,
+            params,
+            prices: VecDeque::with_capacity(cap),
+            in_position: false,
+            entry_price: None,
+        }
+    }
+
+    /// 볼린저 밴드 계산 (mean, upper, lower) 반환. 데이터 부족 시 None.
+    fn bollinger_bands(&self) -> Option<(f64, f64, f64)> {
+        let n = self.params.period as usize;
+        if self.prices.len() < n {
+            return None;
+        }
+        let slice: Vec<f64> = self.prices.iter().rev().take(n)
+            .map(|&p| p as f64)
+            .collect();
+        let mean = slice.iter().sum::<f64>() / n as f64;
+        let variance = slice.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / n as f64;
+        let std = variance.sqrt();
+        let upper = mean + self.params.std_dev * std;
+        let lower = mean - self.params.std_dev * std;
+        Some((mean, upper, lower))
+    }
+}
+
+impl Strategy for MeanReversionStrategy {
+    fn id(&self) -> &str { &self.config.id }
+    fn name(&self) -> &str { &self.config.name }
+    fn config(&self) -> &StrategyConfig { &self.config }
+    fn config_mut(&mut self) -> &mut StrategyConfig { &mut self.config }
+    fn is_enabled(&self) -> bool { self.config.enabled }
+    fn set_enabled(&mut self, enabled: bool) { self.config.enabled = enabled; }
+
+    /// 과거 종가로 가격 버퍼 사전 적재 (start_trading 시 호출됨)
+    fn initialize_historical(&mut self, symbol: &str, prices: &[u64]) {
+        if !self.config.target_symbols.contains(&symbol.to_string()) { return; }
+        let n = self.params.period as usize;
+        let take = prices.len().min(n);
+        self.prices.clear();
+        for &p in prices[prices.len().saturating_sub(take)..].iter() {
+            self.prices.push_back(p);
+        }
+        tracing::info!(
+            "평균회귀 초기화 [{}]: 과거 {}개 가격 로드 (period={})",
+            symbol, self.prices.len(), n
+        );
+    }
+
+    fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
+        if !self.config.enabled { return Signal::Hold; }
+        if !self.config.target_symbols.contains(&symbol.to_string()) { return Signal::Hold; }
+
+        // 가격 버퍼에 현재 틱 추가 (period+1 이상이면 앞쪽 제거)
+        self.prices.push_back(price);
+        let max_cap = (self.params.period as usize) + 1;
+        while self.prices.len() > max_cap {
+            self.prices.pop_front();
+        }
+
+        // 볼린저 밴드 계산 (데이터 부족 시 Hold)
+        let (mean, upper, lower) = match self.bollinger_bands() {
+            Some(b) => b,
+            None => return Signal::Hold,
+        };
+
+        // ① 포지션 보유 중: 손절 또는 익절 확인
+        if self.in_position {
+            if let Some(ep) = self.entry_price {
+                let loss_pct = (ep as f64 - price as f64) / ep as f64 * 100.0;
+                if loss_pct >= self.params.stop_loss_pct {
+                    self.in_position = false;
+                    self.entry_price = None;
+                    return Signal::Sell {
+                        symbol: symbol.to_string(),
+                        quantity: self.config.order_quantity,
+                        reason: format!(
+                            "평균회귀 손절: 현재가 {} (매수가 {} 대비 -{:.2}%)",
+                            price, ep, loss_pct
+                        ),
+                    };
+                }
+            }
+            // 현재가 > 상단밴드 → 평균 회귀 목표 도달 → 익절 매도
+            if price as f64 > upper {
+                self.in_position = false;
+                self.entry_price = None;
+                return Signal::Sell {
+                    symbol: symbol.to_string(),
+                    quantity: self.config.order_quantity,
+                    reason: format!(
+                        "평균회귀 익절: 현재가 {} > 상단밴드 {:.0} (mean={:.0})",
+                        price, upper, mean
+                    ),
+                };
+            }
+            return Signal::Hold;
+        }
+
+        // ② 미포지션: 현재가 < 하단밴드 → 과매도 → 매수
+        if (price as f64) < lower {
+            self.in_position = true;
+            self.entry_price = Some(price);
+            return Signal::Buy {
+                symbol: symbol.to_string(),
+                quantity: self.config.order_quantity,
+                reason: format!(
+                    "평균회귀 매수: 현재가 {} < 하단밴드 {:.0} (mean={:.0})",
+                    price, lower, mean
+                ),
+            };
+        }
+
+        Signal::Hold
+    }
+
+    fn reset(&mut self) {
+        // 일 초기화: 포지션만 초기화, 가격 버퍼는 유지 (볼린저 밴드 연속성 보장)
+        self.in_position = false;
+        self.entry_price = None;
+    }
+}

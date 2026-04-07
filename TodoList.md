@@ -215,14 +215,23 @@
     - 조건: 당일 변동폭 > 평균 변동폭 × expansion_factor AND 현재가 > 시가(첫 틱) → 매수; stop_loss_pct% 하락 시 손절
     - `commands.rs`: `volatility_expansion_default` 기본 등록, `start_trading` `initialize_range_data` 호출 추가
     - `Strategy.tsx`: `STRATEGY_PARAM_META`, `STRATEGY_DESCRIPTION`, `getStrategyType` 추가
-  - [ ] **09. 평균회귀** (`MeanReversionStrategy`) — 현재가가 MA에서 N 표준편차 이상 이탈 시 반대 방향으로 매매 (볼린저 밴드 기반)
-    - 파라미터: `period: u32 = 20`, `std_dev: f64 = 2.0`
-    - 조건: 현재가 < 하단밴드 → 매수 / 현재가 > 상단밴드 → 매도
+  - [x] **09. 평균회귀** (`MeanReversionStrategy`) — 현재가가 MA에서 N 표준편차 이상 이탈 시 반대 방향으로 매매 (볼린저 밴드 기반) ✅ 2026-04-07
+    - 파라미터: `period: u32 = 20`, `std_dev: f64 = 2.0`, `stop_loss_pct: f64 = 5.0`
+    - 조건: 현재가 < 하단밴드 → 매수 / 현재가 > 상단밴드 → 익절 / 손절_pct% 이상 하락 → 손절
+    - `initialize_historical` 사용: start_trading 시 과거 N일 종가 버퍼 적재 지원
+    - `commands.rs`: `mean_reversion_default` 기본 등록
+    - `Strategy.tsx`: `STRATEGY_PARAM_META`, `STRATEGY_DESCRIPTION`, `getStrategyType` 추가
   - [ ] **10. 추세 필터** (`TrendFilterStrategy`) — 장기 MA(기본 200일) 위에서 단기 상승 신호(5일 MA > 20일 MA) 시에만 매수
     - 파라미터: `long_period: u32 = 200`, `short_period: u32 = 5`, `mid_period: u32 = 20`
     - 조건: 현재가 > long_MA AND short_MA > mid_MA → 매수; 현재가 < long_MA → 청산
   - [ ] 각 전략을 `commands.rs` 의 `*_default()` 헬퍼로 등록 (프리셋 기본값)
   - [ ] `Strategy.tsx` — 신규 전략 파라미터 메타 (`STRATEGY_PARAM_META`) 추가
+- [x] 수동 주문 체결 세부로그 등록 및 당일 체결 업데이트 수정 ✅ 2026-04-07
+  - `api/rest.rs`: `ExecutedOrder` 구조체에 `#[serde(default)]` + `Default` 트레이트 추가 (역직렬화 실패 시 빈 필드로 처리)
+  - `src/scheduler/index.ts`: 전역 폴링 스케쥴러 생성 (`POLL_INTERVALS`, `ORDER_REFETCH_DELAY_MS`, `getIntervals(isPaper)`)
+  - `api/hooks.ts`: 스케쥴러 상수 임포트 후 모든 `refetchInterval` 하드코딩 제거, 주문 후 `todayExecuted` 1.5초 지연 갱신
+  - `pages/Trading.tsx`: 주문번호 빈 시 `(접수됨)` 폴백 표시, `isExecutedError` 경고 배너 추가
+  - `react-best-practices/SKILL.md`: 섹션 9 추가 — 전역 폴링 스케쥴러 패턴 + Rust event-based 미래 설계 문서화
 - [ ] GitHub Actions CI/CD (Windows + macOS 자동 빌드 & 릴리스)
 - [ ] 웹 모드 고도화 (주문 REST API 추가, 인증 처리)
 - [ ] 실전 매매 검증 (모의투자 완전 통과 후 실전 전환)

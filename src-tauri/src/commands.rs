@@ -36,6 +36,7 @@ use crate::{
         MovingAverageCrossStrategy, RsiParams, RsiStrategy,
         StrongCloseParams, StrongCloseStrategy,
         VolatilityExpansionParams, VolatilityExpansionStrategy,
+        MeanReversionParams, MeanReversionStrategy,
         StrategyConfig, StrategyManager,
     },
     },
@@ -227,6 +228,17 @@ impl AppState {
             params: serde_json::to_value(VolatilityExpansionParams::default()).unwrap_or_default(),
         };
         strategy_manager.add(Box::new(VolatilityExpansionStrategy::new(volatility_expansion_strategy)));
+
+        // 평균회귀 전략 (기본 등록, 비활성)
+        let mean_reversion_strategy = StrategyConfig {
+            id: "mean_reversion_default".to_string(),
+            name: "평균회귀 전략 (볼린저 밴드)".to_string(),
+            enabled: false,
+            target_symbols: vec![],
+            order_quantity: 1,
+            params: serde_json::to_value(MeanReversionParams::default()).unwrap_or_default(),
+        };
+        strategy_manager.add(Box::new(MeanReversionStrategy::new(mean_reversion_strategy)));
 
         // 전략 설정 영구 저장소
         let strategy_store = Arc::new(StrategyStore::new(&data_dir));

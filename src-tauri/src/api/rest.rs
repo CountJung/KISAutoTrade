@@ -185,7 +185,8 @@ pub struct OrderResponse {
 // ────────────────────────────────────────────────────────────────────
 
 /// 체결 내역 1건
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default)]
 pub struct ExecutedOrder {
     /// 종목코드
     pub pdno: String,
