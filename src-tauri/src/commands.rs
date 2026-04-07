@@ -1003,6 +1003,8 @@ pub async fn start_trading(
     drop(is_running);
 
     // 활성 전략의 종목별 일봉 차트 데이터 로드 → 히스토리 기반 전략 초기화 (52주 신고가 등)
+    // 국내 종목: get_chart_data (KRW 정수 가격)
+    // 해외 종목: get_overseas_chart_data (USD float → ×100 센트로 정수화)
     {
         let active_symbols: Vec<String> = state.strategy_manager.lock().await.active_symbols();
         if !active_symbols.is_empty() {
@@ -1013,52 +1015,112 @@ pub async fn start_trading(
             let start_date = (today - chrono::Duration::days(400)).format("%Y%m%d").to_string();
 
             for symbol in &active_symbols {
-                match rest.get_chart_data(symbol, "D", &start_date, &end_date).await {
-                    Ok(candles) if !candles.is_empty() => {
-                        // 일봉 고가 배열 추출 (52주 신고가 전략에서 사용)
-                        let highs: Vec<u64> = candles.iter()
-                            .filter_map(|c| c.high.parse::<u64>().ok())
-                            .collect();
-                        if !highs.is_empty() {
-                            state.strategy_manager.lock().await
-                                .initialize_historical(symbol, &highs);
-                            tracing::info!("전략 히스토리 초기화 완료: {} ({}봉)", symbol, highs.len());
+                if is_domestic_symbol(symbol) {
+                    // ── 국내 종목 초기화 ──
+                    match rest.get_chart_data(symbol, "D", &start_date, &end_date).await {
+                        Ok(candles) if !candles.is_empty() => {
+                            let highs: Vec<u64> = candles.iter()
+                                .filter_map(|c| c.high.parse::<u64>().ok())
+                                .collect();
+                            if !highs.is_empty() {
+                                state.strategy_manager.lock().await
+                                    .initialize_historical(symbol, &highs);
+                                tracing::info!("전략 히스토리 초기화 완료: {} ({}봉)", symbol, highs.len());
+                            }
+                            let high_close: Vec<(u64, u64)> = candles.iter()
+                                .filter_map(|c| {
+                                    let h = c.high.parse::<u64>().ok()?;
+                                    let cl = c.close.parse::<u64>().ok()?;
+                                    Some((h, cl))
+                                })
+                                .collect();
+                            if !high_close.is_empty() {
+                                state.strategy_manager.lock().await
+                                    .initialize_candles(symbol, &high_close);
+                            }
+                            let ranges: Vec<u64> = candles.iter()
+                                .filter_map(|c| {
+                                    let h = c.high.parse::<u64>().ok()?;
+                                    let l = c.low.parse::<u64>().ok()?;
+                                    Some(h.saturating_sub(l))
+                                })
+                                .collect();
+                            if !ranges.is_empty() {
+                                state.strategy_manager.lock().await
+                                    .initialize_range_data(symbol, &ranges);
+                            }
                         }
-                        // (고가, 종가) 쌍 추출 (강한 종가 전략 등에서 사용)
-                        let high_close: Vec<(u64, u64)> = candles.iter()
-                            .filter_map(|c| {
-                                let h = c.high.parse::<u64>().ok()?;
-                                let cl = c.close.parse::<u64>().ok()?;
-                                Some((h, cl))
-                            })
-                            .collect();
-                        if !high_close.is_empty() {
-                            state.strategy_manager.lock().await
-                                .initialize_candles(symbol, &high_close);
-                        }
-                        // 일봉 변동폭(고-저) 배열 추출 (변동성 확장 전략에서 사용)
-                        let ranges: Vec<u64> = candles.iter()
-                            .filter_map(|c| {
-                                let h = c.high.parse::<u64>().ok()?;
-                                let l = c.low.parse::<u64>().ok()?;
-                                Some(h.saturating_sub(l))
-                            })
-                            .collect();
-                        if !ranges.is_empty() {
-                            state.strategy_manager.lock().await
-                                .initialize_range_data(symbol, &ranges);
+                        Ok(_) => tracing::debug!("차트 데이터 없음 (히스토리 초기화 건너뜀): {}", symbol),
+                        Err(e) => tracing::warn!(
+                            "차트 데이터 조회 실패 (히스토리 초기화 건너뜀): {} — {}", symbol, e
+                        ),
+                    }
+                } else {
+                    // ── 해외 종목 초기화 (NAS → NYS → AMS 순 시도) ──
+                    let mut initialized = false;
+                    for exchange in &["NAS", "NYS", "AMS"] {
+                        match rest.get_overseas_chart_data(symbol, exchange, "D", &end_date).await {
+                            Ok(candles) if !candles.is_empty() => {
+                                // USD float 문자열 → ×100 센트(u64)로 변환하여 전략 히스토리 초기화
+                                let highs: Vec<u64> = candles.iter()
+                                    .filter_map(|c| {
+                                        c.high.parse::<f64>().ok()
+                                            .map(|v| (v * 100.0).round() as u64)
+                                    })
+                                    .filter(|&v| v > 0)
+                                    .collect();
+                                if !highs.is_empty() {
+                                    state.strategy_manager.lock().await
+                                        .initialize_historical(symbol, &highs);
+                                    tracing::info!(
+                                        "해외 전략 히스토리 초기화: {} @ {} ({}봉, 센트 단위)",
+                                        symbol, exchange, highs.len()
+                                    );
+                                }
+                                let high_close: Vec<(u64, u64)> = candles.iter()
+                                    .filter_map(|c| {
+                                        let h = c.high.parse::<f64>().ok()
+                                            .map(|v| (v * 100.0).round() as u64)?;
+                                        let cl = c.close.parse::<f64>().ok()
+                                            .map(|v| (v * 100.0).round() as u64)?;
+                                        if h > 0 && cl > 0 { Some((h, cl)) } else { None }
+                                    })
+                                    .collect();
+                                if !high_close.is_empty() {
+                                    state.strategy_manager.lock().await
+                                        .initialize_candles(symbol, &high_close);
+                                }
+                                let ranges: Vec<u64> = candles.iter()
+                                    .filter_map(|c| {
+                                        let h = c.high.parse::<f64>().ok()?;
+                                        let l = c.low.parse::<f64>().ok()?;
+                                        let diff = ((h - l) * 100.0).round() as u64;
+                                        if diff > 0 { Some(diff) } else { None }
+                                    })
+                                    .collect();
+                                if !ranges.is_empty() {
+                                    state.strategy_manager.lock().await
+                                        .initialize_range_data(symbol, &ranges);
+                                }
+                                initialized = true;
+                                break;
+                            }
+                            Ok(_) => continue,
+                            Err(_) => continue,
                         }
                     }
-                    Ok(_) => tracing::debug!("차트 데이터 없음 (히스토리 초기화 건너뜀): {}", symbol),
-                    Err(e) => tracing::warn!(
-                        "차트 데이터 조회 실패 (히스토리 초기화 건너뜀): {} — {}", symbol, e
-                    ),
+                    if !initialized {
+                        tracing::warn!(
+                            "해외 종목 히스토리 초기화 실패: {} (NAS/NYS/AMS 모두 실패, 실시간 틱 누적 모드로 시작)",
+                            symbol
+                        );
+                    }
                 }
             }
         }
     }
 
-    // WebSocket 연결 시작
+    // WebSocket 연결 시작 (보조 — 실패해도 폴링 루프가 독립 동작)
     {
         let rest = state.rest_client.read().await.clone();
         let ws_client = crate::api::KisWebSocketClient::new(
@@ -1080,6 +1142,118 @@ pub async fn start_trading(
         tauri::async_runtime::spawn(async move {
             if let Err(e) = ws_client.subscribe(symbols, app_handle, ws_connected).await {
                 tracing::error!("WebSocket 연결 실패: {}", e);
+            }
+        });
+    }
+
+    // ── 폴링 기반 자동매매 루프 ──────────────────────────────────
+    // WebSocket 연결 여부와 무관하게 독립적으로 동작한다.
+    // 매 10초마다 활성 전략의 종목 현재가를 조회하고 on_tick → 신호 → 주문 파이프라인 실행.
+    {
+        let is_trading    = Arc::clone(&state.is_trading);
+        let strategy_mgr  = Arc::clone(&state.strategy_manager);
+        let order_mgr     = Arc::clone(&state.order_manager);
+        let risk_mgr      = Arc::clone(&state.risk_manager);
+        let rest_arc      = Arc::clone(&state.rest_client);
+        let stock_store   = Arc::clone(&state.stock_store);
+
+        tauri::async_runtime::spawn(async move {
+            tracing::info!("자동매매 폴링 루프 시작");
+            let mut last_reset_date = chrono::Local::now().date_naive();
+
+            loop {
+                // 종료 체크
+                if !*is_trading.lock().await {
+                    tracing::info!("자동매매 폴링 루프 종료");
+                    break;
+                }
+
+                // 날짜 변경 시 일별 초기화
+                let today = chrono::Local::now().date_naive();
+                if today != last_reset_date {
+                    last_reset_date = today;
+                    risk_mgr.lock().await.reset_if_new_day();
+                    order_mgr.lock().await.reset_day();
+                    tracing::info!("자동매매 일별 초기화 완료 ({})", today);
+                }
+
+                // 활성 전략의 종목 수집
+                let symbols: Vec<String> = strategy_mgr.lock().await.active_symbols();
+                if symbols.is_empty() {
+                    // 대기 후 재시도
+                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+                    continue;
+                }
+
+                let rest = rest_arc.read().await.clone();
+                let is_paper = rest.is_paper();
+
+                // 종목별 현재가 조회 + 전략 신호 처리
+                for symbol in &symbols {
+                    if !*is_trading.lock().await {
+                        break;
+                    }
+
+                    // 국내/해외 구분 후 현재가 조회
+                    let tick = if is_domestic_symbol(symbol) {
+                        rest.get_price(symbol).await
+                            .map(|p| {
+                                let price = p.stck_prpr.parse::<u64>().unwrap_or(0);
+                                let volume = p.acml_vol.parse::<u64>().unwrap_or(0);
+                                (price, volume)
+                            })
+                            .map_err(|e| e.to_string())
+                    } else {
+                        fetch_overseas_tick(&rest, symbol).await
+                            .map_err(|e| e.to_string())
+                    };
+
+                    match tick {
+                        Ok((price, volume)) if price > 0 => {
+                            // 전략 신호 생성
+                            let signals = strategy_mgr.lock().await.on_tick(symbol, price, volume);
+
+                            for signal in signals {
+                                use crate::trading::strategy::Signal;
+                                if matches!(signal, Signal::Hold) {
+                                    continue;
+                                }
+                                // 종목명 조회 (없으면 코드로 대체)
+                                let symbol_name = stock_store.get_name(symbol).await
+                                    .unwrap_or_else(|| symbol.clone());
+
+                                if let Err(e) = order_mgr.lock().await
+                                    .submit_signal(signal, &symbol_name, 0)
+                                    .await
+                                {
+                                    tracing::warn!("신호 처리 실패 ({}): {}", symbol, e);
+                                }
+                            }
+                        }
+                        Ok((_, _)) => {
+                            tracing::debug!("현재가 0 — 건너뜀: {}", symbol);
+                        }
+                        Err(e) => {
+                            tracing::warn!("현재가 조회 실패 ({}): {}", symbol, e);
+                        }
+                    }
+
+                    // API rate-limit 방지 딜레이 (모의: 600ms, 실전: 120ms)
+                    let delay_ms: u64 = if is_paper { 600 } else { 120 };
+                    tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+
+                    if !*is_trading.lock().await {
+                        break;
+                    }
+                }
+
+                // 다음 틱까지 10초 대기 (100ms × 100 — 종료 신호 즉시 반응)
+                for _ in 0u32..100 {
+                    if !*is_trading.lock().await {
+                        break;
+                    }
+                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                }
             }
         });
     }
@@ -2110,4 +2284,38 @@ pub async fn place_overseas_order(
             Err(CmdError::from(e))
         }
     }
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 자동매매 폴링 루프 헬퍼
+// ────────────────────────────────────────────────────────────────────
+
+/// 국내 주식 종목코드 판별
+/// KRX 종목코드: 6자리, 첫 글자가 숫자 (예: 005930, 0005A0)
+fn is_domestic_symbol(symbol: &str) -> bool {
+    symbol.len() == 6 && symbol.chars().next().map_or(false, |c| c.is_ascii_digit())
+}
+
+/// 해외 주식 현재가 조회 (NAS → NYS → AMS 순으로 시도)
+/// 반환값: (price_cents: u64, volume: u64)
+/// - price_cents = USD 현재가 × 100 (정수화하여 on_tick에 전달)
+async fn fetch_overseas_tick(
+    rest: &std::sync::Arc<crate::api::rest::KisRestClient>,
+    symbol: &str,
+) -> anyhow::Result<(u64, u64)> {
+    for exchange in &["NAS", "NYS", "AMS"] {
+        match rest.get_overseas_price(symbol, exchange).await {
+            Ok(p) => {
+                let price_f: f64 = p.last.parse().unwrap_or(0.0);
+                if price_f > 0.0 {
+                    // USD → 센트(×100) 변환으로 u64 정수화
+                    let price_cents = (price_f * 100.0).round() as u64;
+                    let volume = p.tvol.parse::<u64>().unwrap_or(0);
+                    return Ok((price_cents, volume));
+                }
+            }
+            Err(_) => continue,
+        }
+    }
+    anyhow::bail!("해외 현재가 조회 실패: {} (NAS/NYS/AMS 모두 실패)", symbol)
 }

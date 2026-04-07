@@ -130,7 +130,7 @@ AutoConditionTrade/                   ← 루트
 │       │   ├── discord.rs            ← DiscordNotifier (HTTP POST to Discord API)
 │       │   └── types.rs              ← NotificationLevel/Event, to_discord_message()
 │       ├── logging/
-│       │   └── mod.rs                ← tracing-appender (app.log, error.log), LogConfig(retention_days, max_size_mb, api_debug) ✅
+│       │   └── mod.rs                ← tracing-appender (app.log, error.log), LogConfig, read_recent_entries (날짜 폴백 포함) ✅
 │       ├── commands.rs               ← AppState(ws_connected:Arc<AtomicBool> 포함) + IPC 커맨드 핸들러 ✅
 │       └── config/
 │           └── mod.rs                ← AccountProfile, ProfilesConfig, AppConfig(from_profile), DiscordConfig ✅
@@ -173,6 +173,7 @@ AutoConditionTrade/                   ← 루트
 | `api/websocket.rs` | 실시간 시세 수신, 체결 콜백 |
 | `trading/mod.rs` | 전략 루프 실행, 장 시간 감지 |
 | `trading/risk.rs` | 일일 손실 한도 감시, 비상 정지 |
+| `commands.rs::start_trading` | **폴링 루프** (10초 주기, 국내/해외 현재가 → on_tick → submit_signal) + 일별 초기화 |
 | `storage/trade_store.rs` | `data/trades/YYYY/MM/DD/trades.json` 읽기/쓰기 |
 | `storage/stats_store.rs` | 체결 집계 → `data/stats/YYYY/MM/daily_stats.json` |
 | `storage/strategy_store.rs` | 전략 설정 영구 저장 → `data/strategies/{profile_id}/strategies.json` |
@@ -227,7 +228,7 @@ AutoConditionTrade/                   ← 루트
 | Command | 설명 |
 |---------|------|
 | `get_trading_status` | 자동 매매 실행 상태 조회 (wsConnected 포함) |
-| `start_trading` | 자동 매매 시작 + WebSocket 연결 (`ws-status` 이벤트 emit) |
+| `start_trading` | 자동 매매 시작 + WebSocket 연결 + **폴링 루프** spawn (`ws-status` 이벤트 emit) |
 | `stop_trading` | 자동 매매 정지 |
 | `get_positions` | 포지션 목록 조회 |
 | `get_strategies` | 전략 목록 조회 |

@@ -510,4 +510,92 @@ onError: (e) => {
 - `Error` 인스턴스가 아니므로 `String(e)` → `[object Object]`
 - 해외 주문(`place_overseas_order`) 등 KIS API 오류 발생 시 증상 나타남
 
-> 마지막 업데이트: 2026-04-07T17:48:01
+---
+
+## 11. 자동매매 폴링 루프 설계 (핵심 패턴)
+
+### ❌ 잘못된 패턴 — WebSocket broadcast 수신자 즉시 드롭
+
+```rust
+// ❌ receiver(_)를 드롭하면 아무도 메시지를 받지 못함
+let (price_tx, _) = broadcast::channel(256);
+// price_tx.send(event) → 수신자 없음 → 모든 틱 유실 → 전략 한 번도 실행 안 됨
+```
+
+### ✅ 올바른 패턴 — 폴링 루프로 독립 동작
+
+`start_trading()` 에서 WebSocket과 **별도로** 폴링 루프를 spawn한다.
+
+```rust
+// ✅ 폴링 루프: 10초마다 가격 조회 → on_tick → submit_signal
+let is_trading = Arc::clone(&state.is_trading);
+let strategy_mgr = Arc::clone(&state.strategy_manager);
+let order_mgr = Arc::clone(&state.order_manager);
+let rest_arc = Arc::clone(&state.rest_client);
+
+tauri::async_runtime::spawn(async move {
+    loop {
+        if !*is_trading.lock().await { break; }
+
+        let symbols = strategy_mgr.lock().await.active_symbols();
+        let rest = rest_arc.read().await.clone();
+
+        for symbol in &symbols {
+            let tick = if is_domestic_symbol(symbol) {
+                rest.get_price(symbol).await
+                    .map(|p| (p.stck_prpr.parse::<u64>().unwrap_or(0),
+                              p.acml_vol.parse::<u64>().unwrap_or(0)))
+                    .map_err(|e| e.to_string())
+            } else {
+                fetch_overseas_tick(&rest, symbol).await.map_err(|e| e.to_string())
+            };
+
+            if let Ok((price, volume)) = tick {
+                let signals = strategy_mgr.lock().await.on_tick(symbol, price, volume);
+                for signal in signals {
+                    let _ = order_mgr.lock().await.submit_signal(signal, symbol, 0).await;
+                }
+            }
+            // rate-limit: 모의 600ms, 실전 120ms
+        }
+
+        // 10초 대기 (100ms × 100 슬라이스 — 종료 즉시 반응)
+        for _ in 0u32..100 {
+            if !*is_trading.lock().await { break; }
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        }
+    }
+});
+```
+
+### 해외 종목 가격 단위 변환
+
+- `get_overseas_price()` 반환값 `last` = USD float 문자열 (예: `"78.72"`)
+- `on_tick(price: u64)` 는 정수 필요 → `(price_f * 100.0).round() as u64` (센트 단위)
+- `initialize_historical()` 에도 동일 변환 적용 (일관성 유지)
+
+### 국내/해외 종목 자동 판별
+
+```rust
+fn is_domestic_symbol(symbol: &str) -> bool {
+    // KRX 종목코드: 6자리, 첫 글자가 숫자 (예: 005930, 0005A0)
+    symbol.len() == 6 && symbol.chars().next().map_or(false, |c| c.is_ascii_digit())
+}
+```
+
+### 일별 초기화
+
+폴링 루프 내에서 매 반복 시 날짜 변경 감지:
+
+```rust
+let mut last_reset_date = chrono::Local::now().date_naive();
+// ...루프 내...
+let today = chrono::Local::now().date_naive();
+if today != last_reset_date {
+    last_reset_date = today;
+    risk_mgr.lock().await.reset_if_new_day();
+    order_mgr.lock().await.reset_day();
+}
+```
+
+> 마지막 업데이트: 2026-04-08T14:30:00

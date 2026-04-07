@@ -52,24 +52,70 @@ fn parse_log_line(line: &str) -> Option<LogEntry> {
 }
 
 /// 오늘 app.log 파일에서 최근 `count`줄 읽기
+/// 오늘 파일이 없거나 비어 있으면 가장 최근 app.log.* 파일로 자동 폴백
 pub fn read_recent_entries(log_dir: &Path, count: usize) -> Vec<LogEntry> {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-    let log_file = log_dir.join(format!("app.log.{}", today));
+    let today_file = log_dir.join(format!("app.log.{}", today));
 
-    let content = match std::fs::read_to_string(&log_file) {
-        Ok(c) => c,
-        Err(_) => return vec![],
-    };
+    // 1) 오늘 파일 시도
+    if let Some(entries) = read_log_file(&today_file, count) {
+        if !entries.is_empty() {
+            return entries;
+        }
+    }
 
+    // 2) 오늘 파일이 없거나 비어있으면 가장 최근 로그 파일로 폴백
+    //    (자정 직후 새 파일 생성 전 공백 상태 방지)
+    if let Some(fallback) = find_most_recent_log_file(log_dir) {
+        if fallback != today_file {
+            tracing::debug!(
+                "오늘 로그 파일 없음 — 폴백: {:?}",
+                fallback.file_name()
+            );
+        }
+        if let Some(entries) = read_log_file(&fallback, count) {
+            return entries;
+        }
+    }
+
+    vec![]
+}
+
+/// 단일 log 파일에서 최근 `count`줄 파싱 (파일 없으면 None, 비어있으면 Some(vec![]))
+fn read_log_file(path: &std::path::Path, count: usize) -> Option<Vec<LogEntry>> {
+    let content = std::fs::read_to_string(path).ok()?;
+    if content.is_empty() {
+        return Some(vec![]);
+    }
     let mut entries: Vec<LogEntry> = content
         .lines()
         .rev()
         .take(count)
         .filter_map(parse_log_line)
         .collect();
-
     entries.reverse();
-    entries
+    Some(entries)
+}
+
+/// logs 디렉토리에서 수정 시간 기준 가장 최근 app.log.YYYY-MM-DD 파일 반환
+fn find_most_recent_log_file(log_dir: &Path) -> Option<std::path::PathBuf> {
+    let mut files: Vec<(std::path::PathBuf, std::time::SystemTime)> =
+        std::fs::read_dir(log_dir)
+            .ok()?
+            .filter_map(|e| {
+                let e = e.ok()?;
+                let path = e.path();
+                let name = path.file_name()?.to_str()?;
+                if !name.starts_with("app.log.") {
+                    return None;
+                }
+                let modified = e.metadata().ok()?.modified().ok()?;
+                Some((path, modified))
+            })
+            .collect();
+    // 수정 시간 내림차순(최신 먼저)
+    files.sort_by(|a, b| b.1.cmp(&a.1));
+    files.into_iter().map(|(p, _)| p).next()
 }
 
 /// 로그 설정 (JSON 직렬화 가능)
