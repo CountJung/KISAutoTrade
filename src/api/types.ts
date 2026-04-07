@@ -241,11 +241,14 @@ export interface DailyStats {
 export interface LogConfig {
   retention_days: number
   max_size_mb: number
+  /** KIS API 진단 로그: true 시 요청 파라미터·응답 전체를 로그에 기록 */
+  api_debug: boolean
 }
 
 export interface SetLogConfigInput {
   retention_days: number
   max_size_mb: number
+  api_debug: boolean
 }
 
 export type FrontendLogLevel = 'error' | 'warn' | 'info' | 'debug'

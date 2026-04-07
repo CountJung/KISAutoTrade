@@ -274,4 +274,4 @@ impl StrategyStore {
 
 핵심: `AppState::new()`는 sync → `std::fs`, IPC 커맨드는 async → `tokio::fs`
 
-> 마지막 업데이트: 2026-04-07
+> 마지막 업데이트: 2026-04-07T17:48:01

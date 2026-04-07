@@ -6,8 +6,8 @@
 > - 이 파일이 최신 상태가 아니라면 작업 전에 먼저 갱신한다.
 > - 추측이 아닌 이 맵을 기반으로 작업한다.
 
-**마지막 업데이트**: 2026-04-07  
-**프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (WebSocket Dashboard 연동 ✅, 추가 전략 RSI·모멘텀·이격도·52주신고가·연속상승·돌파실패·강한종가·변동성확장 ✅, 전략 설정 프로파일별 영구 저장 ✅)
+**마지막 업데이트**: 2026-04-07T17:48:01  
+**프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (WebSocket Dashboard 연동 ✅, 추가 전략 RSI·모멘텀·이격도·52주신고가·연속상승·돌파실패·강한종가·변동성확장 ✅, 전략 설정 프로파일별 영구 저장 ✅, GitHub Actions 자동 빌드 ✅)
 
 ---
 
@@ -44,7 +44,17 @@ AutoConditionTrade/                   ← 루트
 ├── secure_config.example.json        ← 민감 설정 템플릿 (실전/모의 키 포함) ✅
 ├── profiles.json                     ← 멀티 계좌 프로파일 (git ignore, 로컬 전용)
 │
-├── scripts/
+├── .github/
+│   ├── copilot-instructions.md       ← AI 에이전트 프로젝트 지침 (살아있는 문서)
+│   ├── skills/                       ← 도메인 스킬 파일 4종 (KIS API, Rust, React, UI)
+│   └── workflows/
+│       └── release.yml               ← GitHub Actions 자동 빌드/릴리즈 (Windows + macOS Universal) ✅
+├── .vscode/
+│   ├── settings.json                 ← rust-analyzer.linkedProjects, TypeScript SDK 지정 (Go-to-Definition) ✅
+│   ├── launch.json                   ← cppvsdbg + CodeLLDB + Chrome 디버거 설정
+│   ├── extensions.json               ← 권장 확장 목록
+│   └── tasks.json                    ← cargo check, tsc --noEmit, Vite dev, Tauri dev 태스크
+│
 │   └── setup-local.sh                ← 로컬 환경 초기 설정 스크립트 (macOS exFAT 대응) ✅
 │
 ├── docs/
@@ -119,7 +129,7 @@ AutoConditionTrade/                   ← 루트
 │       │   ├── discord.rs            ← DiscordNotifier (HTTP POST to Discord API)
 │       │   └── types.rs              ← NotificationLevel/Event, to_discord_message()
 │       ├── logging/
-│       │   └── mod.rs                ← tracing-appender (app.log, error.log) ✅
+│       │   └── mod.rs                ← tracing-appender (app.log, error.log), LogConfig(retention_days, max_size_mb, api_debug) ✅
 │       ├── commands.rs               ← AppState(ws_connected:Arc<AtomicBool> 포함) + IPC 커맨드 핸들러 ✅
 │       └── config/
 │           └── mod.rs                ← AccountProfile, ProfilesConfig, AppConfig(from_profile), DiscordConfig ✅
@@ -321,7 +331,7 @@ KIS_IS_PAPER_TRADING=false   # 기본값: 실전투자
 | 2025-07-04 | 최초 생성 (Phase 1~6 완료 상태) | AI Agent |
 | 2025-07-16 | Phase 7: 듀얼 키 설정, check_config IPC, Settings UI 진단, secure_config.example.json | AI Agent |
 | 2026-04-04 | Phase 7 완료 확인. Phase 8 주요 기능 반영: market/server/updater 모듈, 35개 IPC 커맨드 목록 전면 갱신, scripts/setup-local.sh, .nvmrc, .cargo/config.toml 크로스플랫폼 처리, TodoList 동기화 | AI Agent |
-| 2026-04-14 | transport.ts(Tauri↔REST 듀얼), 해외주식 API(rest.rs/commands.rs), OverseasStockChart.tsx, 37개 IPC 커맨드(get_overseas_chart_data 추가), server/mod.rs overseas-chart 엔드포인트, Rust 경고 4개 해소, copilot-instructions.md 경고수정 지침 강화, README OS별 파일 경로 상세화 | AI Agent |
+| 2026-04-07T17:48:01 | 타임스탬프 형식 날짜→datetime(YYYY-MM-DDTHH:MM:SS) 전환(agent.md+4개SKILL.md+copilot-instructions.md), .vscode/settings.json 생성(rust-analyzer linkedProjects+TSsdk), strategy.rs apply_saved_configs 프로필 전환 시 전략 기본값 리셋 버그 수정, release.yml releaseName 앱명 수정(AutoConditionTrade→KISAutoTrade), .github/workflows/release.yml+.vscode/ 디렉토리 맵 추가 | AI Agent |
 
 ---
 

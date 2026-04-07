@@ -510,4 +510,4 @@ onError: (e) => {
 - `Error` 인스턴스가 아니므로 `String(e)` → `[object Object]`
 - 해외 주문(`place_overseas_order`) 등 KIS API 오류 발생 시 증상 나타남
 
-> 마지막 업데이트: 2026-04-07
+> 마지막 업데이트: 2026-04-07T17:48:01

@@ -232,8 +232,18 @@ impl StrategyManager {
         }
     }
 
-    /// 저장된 전략 설정으로 인메모리 전략 상태 업데이트 (프로그램 재시작 후 복원)
+    /// 저장된 전략 설정으로 인메모리 전략 상태 업데이트 (프로그램 재시작 또는 프로필 전환 후 복원)
+    ///
+    /// 모든 전략을 기본값(비활성화, 종목 없음)으로 먼저 리셋한 뒤 저장된 설정을 덮어씀.
+    /// 저장된 설정이 없는 프로필로 전환할 때 이전 프로필 종목이 잔류하는 버그를 방지함.
     pub fn apply_saved_configs(&mut self, saved: &[StrategyConfig]) {
+        // 1) 모든 전략 기본값으로 초기화 (프로필 전환 시 이전 상태 잔류 방지)
+        for s in &mut self.strategies {
+            let cfg = s.config_mut();
+            cfg.enabled = false;
+            cfg.target_symbols = Vec::new();
+        }
+        // 2) 저장된 설정 적용
         for saved_cfg in saved {
             if let Some(cfg) = self.get_config_mut(&saved_cfg.id) {
                 cfg.enabled = saved_cfg.enabled;

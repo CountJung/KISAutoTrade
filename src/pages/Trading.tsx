@@ -36,7 +36,6 @@ import {
   usePlaceOrder,
   usePrice,
   useStockSearch,
-  useTodayExecuted,
   useOverseasPrice,
   usePlaceOverseasOrder,
   useRefreshStockList,
@@ -289,7 +288,6 @@ export default function Trading() {
   const { data: balance }                                           = useBalance()
   const { data: krPrice }                                           = usePrice(market === 'KR' && symbol.length === 6 ? symbol : '')
   const { data: usPrice }                                           = useOverseasPrice(market === 'US' ? symbol : '', market === 'US' ? usExchange : '')
-  const { data: executed, isError: isExecutedError }                = useTodayExecuted()
   const { data: searchResults = [], isFetching: isFetchingSearch,
           isError: isSearchError, error: searchError }              = useStockSearch(searchQuery)
   const { mutate: placeOrder,         isPending: isPendingKr }     = usePlaceOrder()
@@ -789,61 +787,6 @@ export default function Trading() {
           </Paper>
         </Grid>
       </Grid>
-
-      {/* 4. 당일 체결 내역 */}
-      <Paper sx={{ p: { xs: 1.5, sm: 2.5 }, mt: 2 }}>
-        <Typography variant="subtitle1" fontWeight={600} mb={2}>
-          당일 체결 내역 (KIS)
-        </Typography>
-        <Divider sx={{ mb: 2 }} />
-        {isExecutedError ? (
-          <Alert severity="warning" sx={{ mb: 1 }}>
-            체결 내역 조회 실패 — 계좌 설정을 확인하거나 잠시 후 다시 시도하세요.
-          </Alert>
-        ) : !executed || executed.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">당일 체결 내역이 없습니다.</Typography>
-        ) : (
-          <TableContainer sx={{ maxHeight: 280, overflowX: 'auto' }}>
-            <Table size="small" stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ minWidth: 100 }}>종목</TableCell>
-                  <TableCell>구분</TableCell>
-                  <TableCell align="right">체결수량</TableCell>
-                  <TableCell align="right">단가</TableCell>
-                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>금액</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {executed.map((o) => (
-                  <TableRow key={o.odno + o.ord_tmd}>
-                    <TableCell>
-                      <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 100, sm: 'none' } }}>
-                        {o.prdt_name}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">{o.pdno}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={o.sll_buy_dvsn_cd === '01' ? '매도' : '매수'}
-                        color={o.sll_buy_dvsn_cd === '01' ? 'error' : 'primary'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="right">{fmt(parseInt(o.tot_ccld_qty))}</TableCell>
-                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                      {fmt(parseInt(o.ord_unpr))}원
-                    </TableCell>
-                    <TableCell align="right" sx={{ whiteSpace: 'nowrap', display: { xs: 'none', sm: 'table-cell' } }}>
-                      {fmt(parseInt(o.tot_ccld_amt))}원
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-      </Paper>
     </Box>
   )
 }

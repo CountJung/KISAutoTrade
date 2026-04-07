@@ -1,7 +1,10 @@
 use anyhow::Result;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use tokio::sync::RwLock;
 
 use super::token::TokenManager;
@@ -15,6 +18,8 @@ pub struct KisRestClient {
     account_no: String,
     is_paper: bool,
     token_manager: Arc<RwLock<TokenManager>>,
+    /// KIS API 진단 로그 활성화 플래그 (런타임 토글 가능)
+    api_debug: Arc<AtomicBool>,
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -329,6 +334,7 @@ impl KisRestClient {
             account_no,
             is_paper,
             token_manager,
+            api_debug: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -340,6 +346,11 @@ impl KisRestClient {
     /// is_paper 모드 반환
     pub fn is_paper(&self) -> bool {
         self.is_paper
+    }
+
+    /// KIS API 진단 로그 ON/OFF (런타임 토글)
+    pub fn set_api_debug(&self, enabled: bool) {
+        self.api_debug.store(enabled, Ordering::Relaxed);
     }
 
     /// app_key 반환 (WebSocket 클라이언트 생성용)
@@ -574,7 +585,16 @@ impl KisRestClient {
             output1: Option<Vec<ExecutedOrder>>,
         }
 
-        let raw: Raw = resp.json().await?;
+        let body = resp.text().await?;
+        if self.api_debug.load(Ordering::Relaxed) {
+            tracing::info!(
+                "[KIS-DEBUG][{}] 체결내역 조회 params CANO={} FROM={} TO={} 모의={}",
+                tr_id, cano, from, to, self.is_paper
+            );
+            tracing::info!("[KIS-DEBUG][{}] 체결내역 조회 response: {}", tr_id, body);
+        }
+        let raw: Raw = serde_json::from_str(&body)
+            .map_err(|e| anyhow::anyhow!("체결 내역 JSON 파싱 오류: {} (body={})", e, &body[..body.len().min(200)]))?;
         if raw.rt_cd != "0" {
             anyhow::bail!("체결 내역 조회 오류: {}", raw.msg1);
         }

@@ -76,7 +76,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'AutoConditionTrade ${{ github.ref_name }}'
+          releaseName: 'KISAutoTrade ${{ github.ref_name }}'
           releaseBody: |
             ## 변경 사항
 

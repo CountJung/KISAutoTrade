@@ -166,7 +166,7 @@ impl StockStore {
         if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
-        match serde_json::to_string(data) {
+        match serde_json::to_string_pretty(data) {
             Ok(json) => {
                 if let Err(e) = std::fs::write(&path, json) {
                     tracing::warn!("StockStore 저장 실패: {}", e);

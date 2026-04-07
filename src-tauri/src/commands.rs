@@ -1434,6 +1434,8 @@ pub async fn get_log_config(state: State<'_, AppState>) -> CmdResult<LogConfig> 
 pub struct SetLogConfigInput {
     pub retention_days: u32,
     pub max_size_mb: u64,
+    #[serde(default)]
+    pub api_debug: bool,
 }
 
 #[tauri::command]
@@ -1444,10 +1446,14 @@ pub async fn set_log_config(
     let new_cfg = LogConfig {
         retention_days: input.retention_days.clamp(1, 365),
         max_size_mb: input.max_size_mb.clamp(10, 10240),
+        api_debug: input.api_debug,
     };
 
     // AppState 업데이트
     *state.log_config.write().await = new_cfg.clone();
+
+    // REST 클라이언트에 즉시 반영
+    state.rest_client.read().await.set_api_debug(new_cfg.api_debug);
 
     // 파일 저장
     new_cfg.save_sync(&state.log_dir).map_err(CmdError::from)?;
@@ -1456,8 +1462,8 @@ pub async fn set_log_config(
     crate::logging::cleanup(&state.log_dir, &new_cfg);
 
     tracing::info!(
-        "로그 설정 변경: 보관 {}일, 최대 {}MB",
-        new_cfg.retention_days, new_cfg.max_size_mb
+        "로그 설정 변경: 보관 {}일, 최대 {}MB, API 진단={}",
+        new_cfg.retention_days, new_cfg.max_size_mb, new_cfg.api_debug
     );
 
     Ok(new_cfg)
@@ -1606,7 +1612,7 @@ pub async fn refresh_stock_list(state: State<'_, AppState>) -> CmdResult<usize> 
     if let Some(dir) = cache_path.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
-    if let Ok(json) = serde_json::to_string(&items) {
+    if let Ok(json) = serde_json::to_string_pretty(&items) {
         let _ = std::fs::write(&cache_path, json);
     }
 

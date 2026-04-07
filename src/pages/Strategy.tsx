@@ -41,7 +41,6 @@ import {
   useRiskConfig,
   useUpdateRiskConfig,
   useClearEmergencyStop,
-  usePendingOrders,
   useStockSearch,
   useRefreshStockList,
 } from '../api/hooks'
@@ -206,67 +205,6 @@ function RiskPanel() {
         </Typography>
       )}
     </Box>
-  )
-}
-
-// ─── 미체결 주문 패널 ─────────────────────────────────────────────
-function PendingOrdersPanel() {
-  const { data: orders = [], isLoading } = usePendingOrders()
-
-  if (isLoading) {
-    return <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}><CircularProgress size={20} /></Box>
-  }
-
-  if (orders.length === 0) {
-    return (
-      <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-        미체결 주문이 없습니다.
-      </Typography>
-    )
-  }
-
-  return (
-    <TableContainer sx={{ maxHeight: 260 }}>
-      <Table size="small" stickyHeader>
-        <TableHead>
-          <TableRow>
-            <TableCell>종목</TableCell>
-            <TableCell>구분</TableCell>
-            <TableCell align="right">수량</TableCell>
-            <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>주문번호</TableCell>
-            <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>신호 이유</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {orders.map((o) => (
-            <TableRow key={o.odno || o.symbol + o.timestamp}>
-              <TableCell>
-                <Typography variant="body2" noWrap>{o.symbolName}</Typography>
-                <Typography variant="caption" color="text.secondary">{o.symbol}</Typography>
-              </TableCell>
-              <TableCell>
-                <Chip
-                  label={o.side === 'buy' ? '매수' : '매도'}
-                  color={o.side === 'buy' ? 'primary' : 'error'}
-                  size="small"
-                />
-              </TableCell>
-              <TableCell align="right">{o.quantity.toLocaleString()}</TableCell>
-              <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                <Typography variant="caption" color="text.secondary" noWrap>
-                  {o.odno || '—'}
-                </Typography>
-              </TableCell>
-              <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                <Typography variant="caption" color="text.secondary" noWrap>
-                  {o.signalReason || '—'}
-                </Typography>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
   )
 }
 
@@ -849,21 +787,6 @@ export default function Strategy() {
         </Stack>
         <Divider sx={{ mb: 2 }} />
         <RiskPanel />
-      </Paper>
-
-      {/* ── 3. OrderManager: 미체결 주문 ─────────────────────────── */}
-      <Paper sx={{ p: { xs: 2, sm: 3 } }}>
-        <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
-          <Typography variant="subtitle1" fontWeight={600}>미체결 주문</Typography>
-          <Tooltip
-            title="자동 매매 엔진이 KIS API에 접수했으나 아직 체결되지 않은 주문 목록입니다. 5초마다 갱신됩니다."
-            arrow
-          >
-            <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.disabled', cursor: 'pointer' }} />
-          </Tooltip>
-        </Stack>
-        <Divider sx={{ mb: 2 }} />
-        <PendingOrdersPanel />
       </Paper>
     </Box>
   )

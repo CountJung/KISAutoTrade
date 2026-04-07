@@ -235,7 +235,10 @@
   - `api/hooks.ts`: 스케쥴러 상수 임포트 후 모든 `refetchInterval` 하드코딩 제거, 주문 후 `todayExecuted` 1.5초 지연 갱신
   - `pages/Trading.tsx`: 주문번호 빈 시 `(접수됨)` 폴백 표시, `isExecutedError` 경고 배너 추가
   - `react-best-practices/SKILL.md`: 섹션 9 추가 — 전역 폴링 스케쥴러 패턴 + Rust event-based 미래 설계 문서화
-- [ ] GitHub Actions CI/CD (Windows + macOS 자동 빌드 & 릴리스)
+- [x] GitHub Actions CI/CD (Windows + macOS 자동 빌드 & 릴리스) ✅ 2026-04-07T17:48:01
+  - `.github/workflows/release.yml` 이미 존재: `v*.*.*` 태그 push 시 자동 빌드 → GitHub Releases 드래프트 생성
+  - 수정: `releaseName` `AutoConditionTrade` → `KISAutoTrade` 업데이트
+  - 패키지 매니저: `npm` (package.json 확인) — 현행 유지
 - [ ] 웹 모드 고도화 (주문 REST API 추가, 인증 처리)
 - [ ] 실전 매매 검증 (모의투자 완전 통과 후 실전 전환)
 - [ ] 다중 종목 동시 전략 실행 (StrategyManager 확장)

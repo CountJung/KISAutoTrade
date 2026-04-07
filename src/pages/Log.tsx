@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Typography from '@mui/material/Typography'
 import Paper from '@mui/material/Paper'
 import Box from '@mui/material/Box'
@@ -26,7 +26,25 @@ const LEVEL_COLORS: Record<string, string> = {
 export default function Log() {
   const [level, setLevel]   = useState<LogLevel>('ALL')
   const [search, setSearch] = useState('')
+  const [logHeight, setLogHeight] = useState(480)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const dragStartRef = useRef<{ y: number; h: number } | null>(null)
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    dragStartRef.current = { y: e.clientY, h: logHeight }
+    const onMove = (mv: MouseEvent) => {
+      if (!dragStartRef.current) return
+      const delta = mv.clientY - dragStartRef.current.y
+      setLogHeight(Math.max(160, dragStartRef.current.h + delta))
+    }
+    const onUp = () => {
+      dragStartRef.current = null
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [logHeight])
 
   const { data: logs = [], isLoading } = useRecentLogs(300)
 
@@ -81,7 +99,8 @@ export default function Log() {
           bgcolor: 'background.paper',
           fontFamily: 'monospace',
           fontSize: '0.78rem',
-          maxHeight: 480,
+          height: logHeight,
+          minHeight: 160,
         }}
       >
         {filtered.map((log: AppLogEntry, i: number) => (
@@ -116,6 +135,19 @@ export default function Log() {
         ))}
         <div ref={bottomRef} />
       </Paper>
+
+      {/* 높이 조절 핸들 */}
+      <Box
+        onMouseDown={handleDragStart}
+        sx={{
+          height: 6,
+          cursor: 'ns-resize',
+          bgcolor: 'divider',
+          borderRadius: 1,
+          mt: 0.5,
+          '&:hover': { bgcolor: 'action.selected' },
+        }}
+      />
     </Box>
   )
 }

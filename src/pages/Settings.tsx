@@ -39,7 +39,6 @@ import MenuItem from '@mui/material/MenuItem'
 import InputLabel from '@mui/material/InputLabel'
 import FormControl from '@mui/material/FormControl'
 
-import RefreshIcon from '@mui/icons-material/Refresh'
 import StorageIcon from '@mui/icons-material/Storage'
 
 import { useSettingsStore } from '../store/settingsStore'
@@ -59,7 +58,6 @@ import {
   useDetectTradingType,
   useDetectProfileTradingType,
   useStockListStats,
-  useRefreshStockList,
   useSetStockUpdateInterval,
   useTradingStatus,
 } from '../api/hooks'
@@ -601,7 +599,6 @@ export default function Settings() {
     setLocalRetentionDays(logCfg.retention_days)
     setLocalMaxSizeMb(logCfg.max_size_mb)
   }
-
   // 프로파일 관리 상태
   const { data: profiles = [], isLoading: profilesLoading } = useProfiles()
   const { mutate: setActive } = useSetActiveProfile()
@@ -624,9 +621,7 @@ export default function Settings() {
 
   // 종목 목록 관리
   const { data: stockStats, isFetching: statsFetching } = useStockListStats()
-  const { mutate: doRefreshStockList, isPending: stockRefreshing } = useRefreshStockList()
   const { mutate: doSetInterval } = useSetStockUpdateInterval()
-  const [stockRefreshResult, setStockRefreshResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
   const handleTestDiscord = () => {
     setDiscordResult(null)
@@ -687,6 +682,7 @@ export default function Settings() {
                 onChangeCommitted={(_, v) => saveLogConfig({
                   retention_days: v as number,
                   max_size_mb: localMaxSizeMb,
+                  api_debug: logCfg?.api_debug ?? false,
                 })}
                 sx={{ maxWidth: 300 }}
                 valueLabelDisplay="auto"
@@ -704,11 +700,31 @@ export default function Settings() {
                 onChangeCommitted={(_, v) => saveLogConfig({
                   retention_days: localRetentionDays,
                   max_size_mb: v as number,
+                  api_debug: logCfg?.api_debug ?? false,
                 })}
                 sx={{ maxWidth: 300 }}
                 valueLabelDisplay="auto"
                 disabled={logSaving}
               />
+            </Box>
+            <Box>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={logCfg?.api_debug ?? false}
+                    disabled={logSaving}
+                    onChange={(e) => saveLogConfig({
+                      retention_days: localRetentionDays,
+                      max_size_mb: localMaxSizeMb,
+                      api_debug: e.target.checked,
+                    })}
+                  />
+                }
+                label="KIS API 진단 로그"
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                ON 시 KIS API 요청 파라미터와 응답 JSON 전체를 로그에 기록합니다. 체결 내역 0건 등 문제 진단용입니다. 진단 후 반드시 OFF 하세요.
+              </Typography>
             </Box>
             <Typography variant="caption" color="text.secondary">
               로그 파일 위치: <code>./logs/</code> (앱 실행 폴더 기준)
@@ -921,39 +937,11 @@ export default function Settings() {
                 </Select>
               </FormControl>
               <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                앱 시작 시 설정된 간격이 지났으면 자동으로 KRX 다운로드를 시도합니다.
+                앱 시작 시 설정된 간격이 지났으면 NAVER Finance 실시간 검색으로 종목 정보를 업데이트합니다.
               </Typography>
             </Box>
 
-            {/* 수동 새로고침 */}
-            <Box>
-              <Button
-                variant="outlined"
-                startIcon={stockRefreshing ? <CircularProgress size={16} /> : <RefreshIcon />}
-                disabled={stockRefreshing}
-                onClick={() => {
-                  setStockRefreshResult(null)
-                  doRefreshStockList(undefined, {
-                    onSuccess: (count) => setStockRefreshResult({ ok: true, msg: `KRX에서 ${count}개 종목을 가져왔습니다.` }),
-                    onError: (err) => {
-                      if (err.code === 'KRX_EMPTY') {
-                        setStockRefreshResult({ ok: false, msg: 'KRX에서 데이터를 받지 못했습니다. 종목 검색은 NAVER 실시간 검색으로 계속 동작합니다.' })
-                      } else {
-                        setStockRefreshResult({ ok: false, msg: err.message })
-                      }
-                    },
-                  })
-                }}
-              >
-                {stockRefreshing ? '다운로드 중...' : '지금 KRX 다운로드'}
-              </Button>
-            </Box>
 
-            {stockRefreshResult && (
-              <Alert severity={stockRefreshResult.ok ? 'success' : 'warning'}>
-                {stockRefreshResult.msg}
-              </Alert>
-            )}
 
             <Alert severity="info">
               <Typography variant="caption">

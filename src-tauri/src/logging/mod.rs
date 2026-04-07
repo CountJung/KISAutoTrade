@@ -79,11 +79,14 @@ pub struct LogConfig {
     pub retention_days: u32,
     /// 파일 최대 합산 용량 (MB). 기본 100
     pub max_size_mb: u64,
+    /// KIS API 진단 로그: true 시 요청 파라미터·응답 전체를 INFO로 기록
+    #[serde(default)]
+    pub api_debug: bool,
 }
 
 impl Default for LogConfig {
     fn default() -> Self {
-        Self { retention_days: 5, max_size_mb: 100 }
+        Self { retention_days: 5, max_size_mb: 100, api_debug: false }
     }
 }
 
