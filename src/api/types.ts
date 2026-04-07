@@ -207,6 +207,8 @@ export interface StrategyView {
   name: string
   enabled: boolean
   targetSymbols: string[]
+  /** 종목코드 → 종목명 맵 (StockStore 조회 결과) */
+  targetSymbolNames: Record<string, string>
   orderQuantity: number
   params: Record<string, unknown>
 }

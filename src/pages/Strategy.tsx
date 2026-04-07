@@ -423,11 +423,18 @@ export default function Strategy() {
     setUsSearchError(`"${ticker}"을 NAS·NYS·AMEX에서 찾을 수 없습니다.`)
     setUsSearching(false)
   }
-  // 전략이 로드됐을 때 기존 symbolNames에 없는 종목 이름 등록 (strategies 데이터에서)
+  // 전략이 로드됐을 때 targetSymbolNames를 symbolNames 캐시에 반영
   useEffect(() => {
     if (!strategies) return
-    // targetSymbolNames는 없으므로 code 그대로 사용 (이름은 검색 시 채워짐)
-    // 단, strategies에 name 정보가 있으면 활용
+    const names: Record<string, string> = {}
+    for (const s of strategies) {
+      for (const [code, name] of Object.entries(s.targetSymbolNames)) {
+        names[code] = name
+      }
+    }
+    if (Object.keys(names).length > 0) {
+      setSymbolNames(prev => ({ ...names, ...prev }))
+    }
   }, [strategies])
 
   // 시장 변경 시 검색 상태 초기화

@@ -550,7 +550,7 @@ impl KisRestClient {
                 ("SLL_BUY_DVSN_CD", "00"),
                 ("INQR_DVSN", "00"),
                 ("PDNO", ""),
-                ("CCLD_DVSN", "01"),
+                ("CCLD_DVSN", "00"), // 00=전체(체결+미체결), 01=체결, 02=미체결
                 ("ORD_GNO_BRNO", ""),
                 ("ODNO", ""),
                 ("INQR_DVSN_3", "00"),
@@ -579,9 +579,12 @@ impl KisRestClient {
             anyhow::bail!("체결 내역 조회 오류: {}", raw.msg1);
         }
 
-        Ok(raw.output1.unwrap_or_default())
+        let orders = raw.output1.unwrap_or_default();
+        tracing::debug!("체결 내역 조회: {}~{} → {}건", from, to, orders.len());
+        Ok(orders)
     }
-
+    // GET /uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice
+    // TR-ID: FHKST03010100 (실전/모의 공통)
     // ──────────────────────────────────────────────────────────
     // 기간별 차트 데이터 조회
     // GET /uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice

@@ -14,6 +14,9 @@ pub struct RiskManager {
     current_loss: i64,
     /// 비상 정지 여부
     emergency_stop: bool,
+    /// 일별 초기화 기준 날짜
+    #[serde(default)]
+    last_reset_date: Option<chrono::NaiveDate>,
 }
 
 impl RiskManager {
@@ -23,6 +26,7 @@ impl RiskManager {
             max_position_ratio,
             current_loss: 0,
             emergency_stop: false,
+            last_reset_date: Some(chrono::Local::now().date_naive()),
         }
     }
 
@@ -83,7 +87,18 @@ impl RiskManager {
     /// 일 초기화 (매 거래일 시작 시 호출)
     pub fn reset_daily(&mut self) {
         self.current_loss = 0;
+        self.last_reset_date = Some(chrono::Local::now().date_naive());
         // 비상 정지는 수동 해제 필요
+    }
+
+    /// 날짜가 바뀌었으면 자동으로 일별 손실 초기화
+    pub fn reset_if_new_day(&mut self) {
+        let today = chrono::Local::now().date_naive();
+        if self.last_reset_date != Some(today) {
+            self.current_loss = 0;
+            self.last_reset_date = Some(today);
+            tracing::info!("리스크 관리자 일별 초기화 완료 (날짜: {})", today);
+        }
     }
 
     /// 현재 누적 손실 (원)

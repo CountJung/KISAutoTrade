@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import Typography from '@mui/material/Typography'
 import Grid from '@mui/material/Grid'
 import Paper from '@mui/material/Paper'
@@ -18,18 +17,15 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
-import WifiIcon from '@mui/icons-material/Wifi'
-import WifiOffIcon from '@mui/icons-material/WifiOff'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import type { WsStatusEvent } from '../api/types'
 
 import {
   useBalance,
   useTodayStats,
-  useTodayTrades,
+  useTodayExecuted,
   useCheckConfig,
   useTradingStatus,
   useStartTrading,
@@ -90,41 +86,12 @@ export default function Dashboard() {
 
   const { data: balance, isLoading: balanceLoading, isError: balanceError, error: balanceErrorDetail } = useBalance()
   const { data: stats, isLoading: statsLoading } = useTodayStats()
-  const { data: trades } = useTodayTrades()
+  const { data: executed, isError: isExecutedError } = useTodayExecuted()
   const { data: diag } = useCheckConfig()
   const { data: tradingStatus } = useTradingStatus()
   const { data: positions } = usePositions()
   const { mutate: startTrading, isPending: startPending } = useStartTrading()
   const { mutate: stopTrading, isPending: stopPending } = useStopTrading()
-
-  // WebSocket 연결 상태 — Tauri 'ws-status' 이벤트로 실시간 갱신
-  const [wsConnected, setWsConnected] = useState<boolean>(
-    tradingStatus?.wsConnected ?? false
-  )
-
-  useEffect(() => {
-    // TradingStatus 초기 응답에서 서버 측 연결 상태로 동기화
-    if (tradingStatus !== undefined) {
-      setWsConnected(tradingStatus.wsConnected)
-    }
-  }, [tradingStatus?.wsConnected])
-
-  useEffect(() => {
-    // Tauri 환경에서만 이벤트 리스너 등록
-    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) {
-      return
-    }
-    let unlisten: (() => void) | undefined
-    void (async () => {
-      const { listen } = await import('@tauri-apps/api/event')
-      unlisten = await listen<WsStatusEvent>('ws-status', (event) => {
-        setWsConnected(event.payload.connected)
-      })
-    })()
-    return () => {
-      unlisten?.()
-    }
-  }, [])
 
   const totalBalance = parseInt(balance?.summary?.tot_evlu_amt ?? '0') || 0
   const availableCash = parseInt(balance?.summary?.dnca_tot_amt ?? '0') || 0
@@ -136,7 +103,7 @@ export default function Dashboard() {
   const handleRefresh = () => {
     void qc.invalidateQueries({ queryKey: KEYS.balance })
     void qc.invalidateQueries({ queryKey: KEYS.todayStats })
-    void qc.invalidateQueries({ queryKey: KEYS.todayTrades })
+    void qc.invalidateQueries({ queryKey: KEYS.todayExecuted })
     void qc.invalidateQueries({ queryKey: KEYS.tradingStatus })
     void qc.invalidateQueries({ queryKey: KEYS.positions })
   }
@@ -180,15 +147,7 @@ export default function Dashboard() {
           color={isRunning ? 'success' : 'default'}
           size="small"
         />
-        <Tooltip title={wsConnected ? 'WebSocket 연결됨' : 'WebSocket 끊김'}>
-          <Chip
-            icon={wsConnected ? <WifiIcon fontSize="small" /> : <WifiOffIcon fontSize="small" />}
-            label={wsConnected ? 'WS 연결' : 'WS 끊김'}
-            color={wsConnected ? 'success' : 'default'}
-            variant={wsConnected ? 'filled' : 'outlined'}
-            size="small"
-          />
-        </Tooltip>
+
         <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
           {isRunning ? (
             <Button
@@ -303,9 +262,13 @@ export default function Dashboard() {
       {/* 당일 체결 내역 */}
       <Paper sx={{ p: 2.5 }}>
         <Typography variant="subtitle1" fontWeight={600} mb={2}>
-          당일 체결 내역
+          당일 체결 내역 (KIS)
         </Typography>
-        {!trades || trades.length === 0 ? (
+        {isExecutedError ? (
+          <Alert severity="warning" sx={{ mb: 1 }}>
+            체결 내역 조회 실패 — 계좌 설정을 확인하거나 잠시 후 다시 시도하세요.
+          </Alert>
+        ) : !executed || executed.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             아직 체결 내역이 없습니다.
           </Typography>
@@ -314,28 +277,28 @@ export default function Dashboard() {
             <TableHead>
               <TableRow>
                 <TableCell>종목명</TableCell>
-                <TableCell>매매</TableCell>
-                <TableCell align="right">수량</TableCell>
-                <TableCell align="right">가격</TableCell>
+                <TableCell>구분</TableCell>
+                <TableCell align="right">체결수량</TableCell>
+                <TableCell align="right">단가</TableCell>
                 <TableCell align="right">금액</TableCell>
                 <TableCell>시각</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {trades.map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell>{t.symbol_name} ({t.symbol})</TableCell>
+              {executed.map((o) => (
+                <TableRow key={o.odno + o.ord_tmd}>
+                  <TableCell>{o.prdt_name} ({o.pdno})</TableCell>
                   <TableCell>
                     <Chip
-                      label={t.side === 'buy' ? '매수' : '매도'}
-                      color={t.side === 'buy' ? 'primary' : 'error'}
+                      label={o.sll_buy_dvsn_cd === '01' ? '매도' : '매수'}
+                      color={o.sll_buy_dvsn_cd === '01' ? 'error' : 'primary'}
                       size="small"
                     />
                   </TableCell>
-                  <TableCell align="right">{fmt(t.quantity)}</TableCell>
-                  <TableCell align="right">{fmt(t.price)}원</TableCell>
-                  <TableCell align="right">{fmt(t.total_amount)}원</TableCell>
-                  <TableCell>{t.timestamp.slice(11, 19)}</TableCell>
+                  <TableCell align="right">{fmt(parseInt(o.tot_ccld_qty))}</TableCell>
+                  <TableCell align="right">{fmt(parseInt(o.ord_unpr))}원</TableCell>
+                  <TableCell align="right">{fmt(parseInt(o.tot_ccld_amt))}원</TableCell>
+                  <TableCell>{o.ord_tmd.slice(0, 6)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

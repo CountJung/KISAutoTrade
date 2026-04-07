@@ -1183,6 +1183,8 @@ pub struct StrategyView {
     pub name: String,
     pub enabled: bool,
     pub target_symbols: Vec<String>,
+    /// 종목코드 → 종목명 (StockStore에서 조회, 없으면 코드 그대로)
+    pub target_symbol_names: std::collections::HashMap<String, String>,
     pub order_quantity: u64,
     pub params: serde_json::Value,
 }
@@ -1190,14 +1192,25 @@ pub struct StrategyView {
 #[tauri::command]
 pub async fn get_strategies(state: State<'_, AppState>) -> CmdResult<Vec<StrategyView>> {
     let mgr = state.strategy_manager.lock().await;
-    Ok(mgr.all_configs().iter().map(|c| StrategyView {
-        id: c.id.clone(),
-        name: c.name.clone(),
-        enabled: c.enabled,
-        target_symbols: c.target_symbols.clone(),
-        order_quantity: c.order_quantity,
-        params: c.params.clone(),
-    }).collect())
+    let mut views = Vec::new();
+    for c in mgr.all_configs() {
+        let mut symbol_names = std::collections::HashMap::new();
+        for code in &c.target_symbols {
+            let name = state.stock_store.get_name(code).await
+                .unwrap_or_else(|| code.clone());
+            symbol_names.insert(code.clone(), name);
+        }
+        views.push(StrategyView {
+            id: c.id.clone(),
+            name: c.name.clone(),
+            enabled: c.enabled,
+            target_symbols: c.target_symbols.clone(),
+            target_symbol_names: symbol_names,
+            order_quantity: c.order_quantity,
+            params: c.params.clone(),
+        });
+    }
+    Ok(views)
 }
 
 #[derive(Debug, Deserialize)]
@@ -1215,7 +1228,7 @@ pub async fn update_strategy(
     input: UpdateStrategyInput,
     state: State<'_, AppState>,
 ) -> CmdResult<StrategyView> {
-    let view = {
+    let target_symbols_snapshot = {
         let mut mgr = state.strategy_manager.lock().await;
         let cfg = mgr.get_config_mut(&input.id).ok_or_else(|| CmdError {
             code: "STRATEGY_NOT_FOUND".into(),
@@ -1227,11 +1240,30 @@ pub async fn update_strategy(
         if let Some(qty) = input.order_quantity { cfg.order_quantity = qty; }
         if let Some(params) = input.params { cfg.params = params; }
 
+        cfg.target_symbols.clone()
+    };
+
+    // StockStore에서 종목명 조회
+    let mut symbol_names = std::collections::HashMap::new();
+    for code in &target_symbols_snapshot {
+        let name = state.stock_store.get_name(code).await
+            .unwrap_or_else(|| code.clone());
+        symbol_names.insert(code.clone(), name);
+    }
+
+    let view = {
+        let mgr = state.strategy_manager.lock().await;
+        let cfg = mgr.all_configs().into_iter().find(|c| c.id == input.id)
+            .ok_or_else(|| CmdError {
+                code: "STRATEGY_NOT_FOUND".into(),
+                message: format!("전략을 찾을 수 없습니다: {}", input.id),
+            })?;
         StrategyView {
             id: cfg.id.clone(),
             name: cfg.name.clone(),
             enabled: cfg.enabled,
             target_symbols: cfg.target_symbols.clone(),
+            target_symbol_names: symbol_names,
             order_quantity: cfg.order_quantity,
             params: cfg.params.clone(),
         }
@@ -1275,7 +1307,9 @@ pub struct RiskConfigView {
 
 #[tauri::command]
 pub async fn get_risk_config(state: State<'_, AppState>) -> CmdResult<RiskConfigView> {
-    let risk = state.risk_manager.lock().await;
+    let mut risk = state.risk_manager.lock().await;
+    // 날짜가 바뀌면 자동으로 당일 손실 초기화
+    risk.reset_if_new_day();
     Ok(RiskConfigView {
         daily_loss_limit: risk.daily_loss_limit,
         max_position_ratio: risk.max_position_ratio,

@@ -166,7 +166,7 @@ Content-Type: application/json
 | `VTTC0802U` | 모의 | 매수 |
 | `VTTC0801U` | 모의 | 매도 |
 
-### 당일 체결 내역
+### 당일/기간별 체결 내역
 
 ```
 GET /uapi/domestic-stock/v1/trading/inquire-daily-ccld
@@ -179,11 +179,22 @@ GET /uapi/domestic-stock/v1/trading/inquire-daily-ccld
 
 | 주요 파라미터 | 값 |
 |------------|---|
-| `INQR_STRT_DT` | 오늘 날짜 `YYYYMMDD` |
-| `INQR_END_DT` | 오늘 날짜 `YYYYMMDD` |
+| `INQR_STRT_DT` | 시작 날짜 `YYYYMMDD` |
+| `INQR_END_DT` | 종료 날짜 `YYYYMMDD` |
 | `SLL_BUY_DVSN_CD` | `00` (전체), `01` (매도), `02` (매수) |
 | `INQR_DVSN` | `00` (역순) |
 | `PDNO` | `""` (전체 종목) |
+| `CCLD_DVSN` | `00` (전체), `01` (체결), `02` (미체결) |
+| `INQR_DVSN_3` | `00` (전체) |
+
+#### ❌ 잘못된 패턴
+`CCLD_DVSN: "01"` (체결만) 사용 시 모의투자 환경에서 주문 자체가 조회 안 될 수 있음.  
+수동/자동 체결 모두 포함하려면 `"00"` (전체) 사용.
+
+#### ✅ 올바른 패턴
+```rust
+("CCLD_DVSN", "00"), // 00=전체(체결+미체결), 01=체결, 02=미체결
+```
 
 ---
 
