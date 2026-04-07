@@ -60,6 +60,7 @@ AutoConditionTrade/                   ← 루트
 ├── docs/
 │   ├── MasterPlan.md                 ← 전체 설계 문서 (아카이브, 읽기 전용) ✅
 │   ├── discord-setup-guide.md        ← Discord 봇 연계 상세 가이드 ✅
+│   ├── user-guide.md                 ← 사용 가이드 (개요·GitHub Actions·전략 세팅) ✅
 │   └── api-reference.md              ← KIS API 참조 (추후 작성)
 │
 ├── src/                              ← React Frontend (TypeScript)
