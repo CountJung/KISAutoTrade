@@ -78,7 +78,7 @@ AutoConditionTrade/                   ← 루트
 │   └── pages/
 │       ├── Dashboard.tsx             ← 잔고/수익 카드, 당일 거래 목록, 포지션 테이블, WS연결상태 Chip ✅
 │       ├── Trading.tsx               ← 수동 매수/매도 폼 + 종목 검색 + 체결 내역 ✅
-│       ├── Strategy.tsx              ← 전략 ON/OFF, 파라미터 설정 (MA Cross·RSI·모멘텀·이격도 범용 UI) ✅
+│       ├── Strategy.tsx              ← 전략 ON/OFF, 파라미터 설정 (10개 전략 범용 UI, STRATEGY_PARAM_META) ✅
 │       ├── History.tsx               ← 날짜 범위 조회, 통계 요약, 거래 테이블 ✅
 │       ├── Log.tsx                   ← 레벨 필터, 검색, 색상 구분 로그 뷰어 ✅
 │       ├── Settings.tsx              ← Discord 테스트, API 키 표시, 테마 설정, 멀티 계좌 프로파일, 웹 포트 ✅
@@ -104,7 +104,7 @@ AutoConditionTrade/                   ← 루트
 │       │   └── mod.rs                ← GitHub Releases API 버전 확인 (check_for_update IPC) ✅
 │       ├── trading/
 │       │   ├── mod.rs                ← 장 시간 감지, 전략 루프 실행 ✅
-│       │   ├── strategy.rs       ← Strategy trait, MovingAverageCrossStrategy, RsiStrategy, MomentumStrategy, DeviationStrategy, StrategyManager ✅
+│       │   ├── strategy.rs       ← Strategy trait, 10개 전략 (MA Cross·RSI·모멘텀·이격도·52주신고가·연속상승하락·돌파실패·강한종가·변동성확장·평균회귀·추세필터), StrategyManager ✅
 │       │   ├── order.rs              ← OrderManager 스텁 (미구현)
 │       │   ├── position.rs           ← PositionTracker (add_buy/reduce/unrealized_pnl) ✅
 │       │   └── risk.rs               ← RiskManager (emergency_stop, record_pnl, check_position_size) ✅

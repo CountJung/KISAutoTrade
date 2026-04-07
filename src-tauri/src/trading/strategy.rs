@@ -1349,3 +1349,132 @@ impl Strategy for MeanReversionStrategy {
         self.entry_price = None;
     }
 }
+
+// ────────────────────────────────────────────────────────────────────
+// 10. 추세 필터 전략 (TrendFilterStrategy)
+// ────────────────────────────────────────────────────────────────────
+// 동작:
+//  1. 자동매매 시작 시 `initialize_historical`로 과거 종가 배열 전달 → 가격 버퍼 사전 적재
+//  2. 실시간 틱마다 3개의 이동평균 계산:
+//       short_MA  = 최근 short_period 개의 평균
+//       mid_MA    = 최근 mid_period 개의 평균
+//       long_MA   = 최근 long_period 개의 평균
+//  3. 미포지션 AND 현재가 > long_MA AND short_MA > mid_MA → 매수 (상승 추세 확인)
+//  4. 포지션 보유 AND 현재가 < long_MA → 장기 추세 전환 → 청산 매도
+// ────────────────────────────────────────────────────────────────────
+
+/// 추세 필터 전략 파라미터
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrendFilterParams {
+    /// 장기 추세 기준 이동평균 기간 (기본 200일)
+    pub long_period: u32,
+    /// 단기 이동평균 기간 (기본 5일)
+    pub short_period: u32,
+    /// 중기 이동평균 기간 (기본 20일)
+    pub mid_period: u32,
+}
+
+impl Default for TrendFilterParams {
+    fn default() -> Self {
+        Self { long_period: 200, short_period: 5, mid_period: 20 }
+    }
+}
+
+pub struct TrendFilterStrategy {
+    config: StrategyConfig,
+    params: TrendFilterParams,
+    /// 최근 long_period+1 개 가격 버퍼
+    prices: VecDeque<u64>,
+    /// 포지션 보유 여부
+    in_position: bool,
+}
+
+impl TrendFilterStrategy {
+    pub fn new(config: StrategyConfig) -> Self {
+        let params: TrendFilterParams =
+            serde_json::from_value(config.params.clone()).unwrap_or_default();
+        let cap = (params.long_period as usize) + 1;
+        Self { config, params, prices: VecDeque::with_capacity(cap), in_position: false }
+    }
+
+    fn moving_avg(prices: &VecDeque<u64>, period: usize) -> Option<f64> {
+        if prices.len() < period { return None; }
+        let sum: u64 = prices.iter().rev().take(period).sum();
+        Some(sum as f64 / period as f64)
+    }
+}
+
+impl Strategy for TrendFilterStrategy {
+    fn id(&self) -> &str { &self.config.id }
+    fn name(&self) -> &str { &self.config.name }
+    fn config(&self) -> &StrategyConfig { &self.config }
+    fn config_mut(&mut self) -> &mut StrategyConfig { &mut self.config }
+    fn is_enabled(&self) -> bool { self.config.enabled }
+    fn set_enabled(&mut self, enabled: bool) { self.config.enabled = enabled; }
+
+    /// 과거 종가로 가격 버퍼 사전 적재 (start_trading 시 호출됨)
+    fn initialize_historical(&mut self, symbol: &str, prices: &[u64]) {
+        if !self.config.target_symbols.contains(&symbol.to_string()) { return; }
+        let n = self.params.long_period as usize;
+        let take = prices.len().min(n);
+        self.prices.clear();
+        for &p in prices[prices.len().saturating_sub(take)..].iter() {
+            self.prices.push_back(p);
+        }
+        tracing::info!(
+            "추세 필터 초기화 [{}]: 과거 {}개 가격 로드 (long_period={})",
+            symbol, self.prices.len(), n
+        );
+    }
+
+    fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
+        if !self.config.enabled { return Signal::Hold; }
+        if !self.config.target_symbols.contains(&symbol.to_string()) { return Signal::Hold; }
+
+        let max_cap = (self.params.long_period as usize) + 1;
+        self.prices.push_back(price);
+        while self.prices.len() > max_cap {
+            self.prices.pop_front();
+        }
+
+        let long_ma  = Self::moving_avg(&self.prices, self.params.long_period as usize);
+        let mid_ma   = Self::moving_avg(&self.prices, self.params.mid_period as usize);
+        let short_ma = Self::moving_avg(&self.prices, self.params.short_period as usize);
+
+        match (long_ma, mid_ma, short_ma) {
+            (Some(lma), Some(mma), Some(sma)) => {
+                // ① 포지션 보유: 현재가 < 장기MA → 추세 전환 → 청산
+                if self.in_position && (price as f64) < lma {
+                    self.in_position = false;
+                    return Signal::Sell {
+                        symbol: symbol.to_string(),
+                        quantity: self.config.order_quantity,
+                        reason: format!(
+                            "추세 필터 청산: 현재가 {} < 장기MA {:.0}",
+                            price, lma
+                        ),
+                    };
+                }
+                // ② 미포지션: 현재가 > 장기MA AND 단기MA > 중기MA → 매수
+                if !self.in_position && (price as f64) > lma && sma > mma {
+                    self.in_position = true;
+                    return Signal::Buy {
+                        symbol: symbol.to_string(),
+                        quantity: self.config.order_quantity,
+                        reason: format!(
+                            "추세 필터 매수: 현재가 {} > 장기MA {:.0}, 단기MA {:.0} > 중기MA {:.0}",
+                            price, lma, sma, mma
+                        ),
+                    };
+                }
+                Signal::Hold
+            }
+            _ => Signal::Hold,
+        }
+    }
+
+    fn reset(&mut self) {
+        // 일 초기화: 포지션 초기화, 가격 버퍼는 유지 (장기 MA 연속성 보장)
+        self.in_position = false;
+    }
+}

@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Path, Query, State},
+    http::{header, Uri},
     response::{Html, IntoResponse, Response},
     routing::{get, post},
     Json, Router,
@@ -105,13 +106,43 @@ fn web_dist_path() -> PathBuf {
 
 // ── 핸들러 ──────────────────────────────────────────────────────────
 
-/// SPA fallback: dist/index.html 서비스 또는 모바일 대시보드 HTML 반환
-async fn spa_handler(State(s): State<ServerState>) -> Response {
+/// SPA fallback: 요청된 파일이 dist/에 존재하면 서빙, 없으면 index.html 또는 모바일 대시보드 HTML 반환
+async fn spa_handler(State(s): State<ServerState>, uri: Uri) -> Response {
+    let req_path = uri.path().trim_start_matches('/');
+
+    // 경로가 비어있지 않으면 dist/ 에서 실제 파일 서빙 시도
+    if !req_path.is_empty() {
+        let file_path = s.dist_path.join(req_path);
+        // 경로 순회 공격 방지: dist_path 내부인지 확인
+        if file_path.starts_with(&s.dist_path) && file_path.is_file() {
+            if let Ok(bytes) = tokio::fs::read(&file_path).await {
+                let mime = guess_mime(req_path);
+                return ([(header::CONTENT_TYPE, mime)], bytes).into_response();
+            }
+        }
+    }
+
+    // SPA 라우팅 fallback: index.html 반환 또는 모바일 대시보드 HTML
     let index_path = s.dist_path.join("index.html");
     match tokio::fs::read_to_string(&index_path).await {
         Ok(content) => Html(content).into_response(),
         Err(_) => Html(MOBILE_HTML).into_response(),
     }
+}
+
+/// 파일 확장자로 MIME 타입 추론
+fn guess_mime(path: &str) -> &'static str {
+    if path.ends_with(".js") || path.ends_with(".mjs") { "application/javascript; charset=utf-8" }
+    else if path.ends_with(".css")   { "text/css; charset=utf-8" }
+    else if path.ends_with(".html")  { "text/html; charset=utf-8" }
+    else if path.ends_with(".json")  { "application/json; charset=utf-8" }
+    else if path.ends_with(".ico")   { "image/x-icon" }
+    else if path.ends_with(".png")   { "image/png" }
+    else if path.ends_with(".svg")   { "image/svg+xml" }
+    else if path.ends_with(".woff")  { "font/woff" }
+    else if path.ends_with(".woff2") { "font/woff2" }
+    else if path.ends_with(".webp")  { "image/webp" }
+    else { "application/octet-stream" }
 }
 
 async fn info_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {

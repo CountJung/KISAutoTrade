@@ -145,7 +145,7 @@ export default function History() {
               </Typography>
             )}
             {kisLoading && <CircularProgress />}
-            {kisError && <Alert severity="error">{String(kisError)}</Alert>}
+            {kisError && <Alert severity="error">{(kisError as { message?: string })?.message ?? String(kisError)}</Alert>}
             {kisOrders && kisOrders.length === 0 && !kisLoading && (
               <Typography variant="body2" color="text.secondary">
                 해당 기간에 체결 내역이 없습니다.
@@ -226,7 +226,7 @@ export default function History() {
               </Typography>
             )}
             {tradesLoading && <CircularProgress />}
-            {tradesError  && <Alert severity="error">{String(tradesError)}</Alert>}
+            {tradesError  && <Alert severity="error">{(tradesError as { message?: string })?.message ?? String(tradesError)}</Alert>}
             {trades && trades.length === 0 && !tradesLoading && (
               <Typography variant="body2" color="text.secondary">
                 해당 기간에 체결 기록이 없습니다. (자동매매 실행 시 기록됩니다)

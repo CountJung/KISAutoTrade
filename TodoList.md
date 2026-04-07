@@ -221,11 +221,14 @@
     - `initialize_historical` 사용: start_trading 시 과거 N일 종가 버퍼 적재 지원
     - `commands.rs`: `mean_reversion_default` 기본 등록
     - `Strategy.tsx`: `STRATEGY_PARAM_META`, `STRATEGY_DESCRIPTION`, `getStrategyType` 추가
-  - [ ] **10. 추세 필터** (`TrendFilterStrategy`) — 장기 MA(기본 200일) 위에서 단기 상승 신호(5일 MA > 20일 MA) 시에만 매수
+  - [x] **10. 추세 필터** (`TrendFilterStrategy`) — 장기 MA(기본 200일) 위에서 단기 상승 신호(5일 MA > 20일 MA) 시에만 매수 ✅ 2026-04-07
     - 파라미터: `long_period: u32 = 200`, `short_period: u32 = 5`, `mid_period: u32 = 20`
     - 조건: 현재가 > long_MA AND short_MA > mid_MA → 매수; 현재가 < long_MA → 청산
-  - [ ] 각 전략을 `commands.rs` 의 `*_default()` 헬퍼로 등록 (프리셋 기본값)
-  - [ ] `Strategy.tsx` — 신규 전략 파라미터 메타 (`STRATEGY_PARAM_META`) 추가
+    - `initialize_historical` 사용: start_trading 시 과거 N일 종가로 long_period 분량 버퍼 적재
+    - `commands.rs`: `trend_filter_default` 기본 등록
+    - `Strategy.tsx`: `STRATEGY_PARAM_META`, `STRATEGY_DESCRIPTION`, `getStrategyType` 추가
+  - [x] 각 전략을 `commands.rs` 의 `*_default()` 헬퍼로 등록 (프리셋 기본값)
+  - [x] `Strategy.tsx` — 신규 전략 파라미터 메타 (`STRATEGY_PARAM_META`) 추가
 - [x] 수동 주문 체결 세부로그 등록 및 당일 체결 업데이트 수정 ✅ 2026-04-07
   - `api/rest.rs`: `ExecutedOrder` 구조체에 `#[serde(default)]` + `Default` 트레이트 추가 (역직렬화 실패 시 빈 필드로 처리)
   - `src/scheduler/index.ts`: 전역 폴링 스케쥴러 생성 (`POLL_INTERVALS`, `ORDER_REFETCH_DELAY_MS`, `getIntervals(isPaper)`)

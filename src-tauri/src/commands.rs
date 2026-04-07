@@ -35,6 +35,7 @@ use crate::{
         MaCrossParams, MomentumParams, MomentumStrategy,
         MovingAverageCrossStrategy, RsiParams, RsiStrategy,
         StrongCloseParams, StrongCloseStrategy,
+        TrendFilterParams, TrendFilterStrategy,
         VolatilityExpansionParams, VolatilityExpansionStrategy,
         MeanReversionParams, MeanReversionStrategy,
         StrategyConfig, StrategyManager,
@@ -239,6 +240,17 @@ impl AppState {
             params: serde_json::to_value(MeanReversionParams::default()).unwrap_or_default(),
         };
         strategy_manager.add(Box::new(MeanReversionStrategy::new(mean_reversion_strategy)));
+
+        // 추세 필터 전략 (기본 등록, 비활성)
+        let trend_filter_strategy = StrategyConfig {
+            id: "trend_filter_default".to_string(),
+            name: "추세 필터 전략".to_string(),
+            enabled: false,
+            target_symbols: vec![],
+            order_quantity: 1,
+            params: serde_json::to_value(TrendFilterParams::default()).unwrap_or_default(),
+        };
+        strategy_manager.add(Box::new(TrendFilterStrategy::new(trend_filter_strategy)));
 
         // 전략 설정 영구 저장소
         let strategy_store = Arc::new(StrategyStore::new(&data_dir));
@@ -1189,6 +1201,7 @@ pub async fn get_strategies(state: State<'_, AppState>) -> CmdResult<Vec<Strateg
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateStrategyInput {
     pub id: String,
     pub enabled: Option<bool>,
