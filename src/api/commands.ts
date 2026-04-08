@@ -27,9 +27,12 @@ import type {
   PriceResponse,
   RiskConfigView,
   SetLogConfigInput,
+  SetTradeArchiveConfigInput,
   StockListStats,
   StockSearchItem,
   StrategyView,
+  TradeArchiveConfig,
+  TradeArchiveStats,
   TradeRecord,
   TradingStatus,
   UpdateInfo,
@@ -211,3 +214,13 @@ export const clearEmergencyStop = (): Promise<RiskConfigView> =>
 // ─── 미체결 주문 목록 ──────────────────────────────────────────────
 export const getPendingOrders = (): Promise<PendingOrderView[]> =>
   invoke('get_pending_orders')
+
+// ─── 체결 기록 보관 설정 ──────────────────────────────────────────
+export const getTradeArchiveConfig = (): Promise<TradeArchiveConfig> =>
+  invoke('get_trade_archive_config')
+
+export const setTradeArchiveConfig = (input: SetTradeArchiveConfigInput): Promise<TradeArchiveConfig> =>
+  invoke('set_trade_archive_config', { input })
+
+export const getTradeArchiveStats = (): Promise<TradeArchiveStats> =>
+  invoke('get_trade_archive_stats')

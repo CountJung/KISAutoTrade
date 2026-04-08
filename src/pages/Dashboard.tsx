@@ -14,6 +14,7 @@ import TableRow from '@mui/material/TableRow'
 import Divider from '@mui/material/Divider'
 import Stack from '@mui/material/Stack'
 import Button from '@mui/material/Button'
+import TextField from '@mui/material/TextField'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import RefreshIcon from '@mui/icons-material/Refresh'
@@ -22,6 +23,7 @@ import StopIcon from '@mui/icons-material/Stop'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
+import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 
@@ -35,11 +37,121 @@ import {
   useStopTrading,
   usePositions,
   usePendingOrders,
+  useTradesByRange,
   KEYS,
 } from '../api/hooks'
 
 function fmt(n: number) {
   return n.toLocaleString('ko-KR')
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+// ─── 체결 내역 패널 (자동매매 기록) ────────────────────
+function FilledOrdersPanel() {
+  const [from, setFrom] = useState(todayStr)
+  const [to, setTo] = useState(todayStr)
+  const [queryFrom, setQueryFrom] = useState(todayStr)
+  const [queryTo, setQueryTo] = useState(todayStr)
+
+  const { data: trades = [], isLoading } = useTradesByRange(queryFrom, queryTo)
+
+  const handleQuery = () => {
+    setQueryFrom(from)
+    setQueryTo(to)
+  }
+
+  return (
+    <Box>
+      {/* 기간 선택 */}
+      <Stack direction="row" spacing={1} alignItems="center" mb={1.5} flexWrap="wrap">
+        <TextField
+          type="date"
+          label="시작일"
+          value={from}
+          onChange={(e) => setFrom(e.target.value)}
+          size="small"
+          slotProps={{ inputLabel: { shrink: true } }}
+          sx={{ width: 150 }}
+        />
+        <TextField
+          type="date"
+          label="종료일"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          size="small"
+          slotProps={{ inputLabel: { shrink: true } }}
+          sx={{ width: 150 }}
+        />
+        <Button variant="outlined" size="small" onClick={handleQuery}>
+          조회
+        </Button>
+      </Stack>
+
+      {isLoading ? (
+        <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}>
+          <CircularProgress size={20} />
+        </Box>
+      ) : trades.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">
+          해당 기간에 체결 내역이 없습니다.
+        </Typography>
+      ) : (
+        <TableContainer sx={{ maxHeight: 320 }}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell>종목</TableCell>
+                <TableCell>구분</TableCell>
+                <TableCell align="right">수량</TableCell>
+                <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>단가</TableCell>
+                <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>금액</TableCell>
+                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>일시</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {trades.map((t) => (
+                <TableRow key={t.id} hover>
+                  <TableCell>
+                    <Typography variant="body2" component="span" fontWeight={500}>
+                      {t.symbol_name}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      component="span"
+                      sx={{ ml: 0.5 }}
+                    >
+                      {t.symbol}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={t.side === 'buy' ? '매수' : '매도'}
+                      color={t.side === 'buy' ? 'primary' : 'error'}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell align="right">{fmt(t.quantity)}</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                    {fmt(t.price)}원
+                  </TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                    {fmt(t.total_amount)}원
+                  </TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                    {t.timestamp.slice(0, 16).replace('T', ' ')}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Box>
+  )
 }
 
 // ─── 미체결 주문 패널 ─────────────────────────────────────────────
@@ -337,6 +449,15 @@ export default function Dashboard() {
         </Stack>
         <Divider sx={{ mb: 2 }} />
         <PendingOrdersPanel />
+      </Paper>
+
+      {/* 자동매매 체결 내역 */}
+      <Paper sx={{ p: 2.5, mb: 2 }}>
+        <Typography variant="subtitle1" fontWeight={600} mb={1.5}>
+          체결 내역 (자동매매)
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
+        <FilledOrdersPanel />
       </Paper>
 
       {/* 당일 체결 내역 */}

@@ -58,7 +58,6 @@ impl DiscordNotifier {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::notifications::types::NotificationEvent;
 
     #[test]

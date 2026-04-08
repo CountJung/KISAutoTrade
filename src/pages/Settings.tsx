@@ -53,6 +53,9 @@ import {
   useSetActiveProfile,
   useLogConfig,
   useSetLogConfig,
+  useTradeArchiveConfig,
+  useSetTradeArchiveConfig,
+  useTradeArchiveStats,
   useWebConfig,
   useSaveWebConfig,
   useDetectTradingType,
@@ -599,6 +602,21 @@ export default function Settings() {
     setLocalRetentionDays(logCfg.retention_days)
     setLocalMaxSizeMb(logCfg.max_size_mb)
   }
+  // 체결 기록 보관 설정 (IPC)
+  const { data: archiveCfg } = useTradeArchiveConfig()
+  const { mutate: saveArchiveConfig, isPending: archiveSaving } = useSetTradeArchiveConfig()
+  const { data: archiveStats } = useTradeArchiveStats()
+  const [localArchiveRetentionDays, setLocalArchiveRetentionDays] = useState<number>(90)
+  const [localArchiveMaxSizeMb, setLocalArchiveMaxSizeMb] = useState<number>(500)
+
+  // archiveCfg 로드 시 로컈 동기화
+  const prevArchiveCfgRef = useState<typeof archiveCfg>(undefined)
+  if (archiveCfg && archiveCfg !== prevArchiveCfgRef[0]) {
+    prevArchiveCfgRef[1](archiveCfg)
+    setLocalArchiveRetentionDays(archiveCfg.retention_days)
+    setLocalArchiveMaxSizeMb(archiveCfg.max_size_mb)
+  }
+
   // 프로파일 관리 상태
   const { data: profiles = [], isLoading: profilesLoading } = useProfiles()
   const { mutate: setActive } = useSetActiveProfile()
@@ -730,6 +748,60 @@ export default function Settings() {
               로그 파일 위치: <code>./logs/</code> (앱 실행 폴더 기준)
               <br />
               설정은 즉시 적용되며 초과 파일은 자동 정리됩니다.
+            </Typography>
+          </Stack>
+        </Section>
+
+        {/* ── 체결 기록 보관 설정 ─────────────────────────────────── */}
+        <Section title="체결 기록 보관">
+          <Stack spacing={3}>
+            <Box>
+              <Typography variant="body2" gutterBottom>
+                보관 기간: {localArchiveRetentionDays}일
+              </Typography>
+              <Slider
+                value={localArchiveRetentionDays}
+                min={1} max={365} step={1}
+                onChange={(_, v) => setLocalArchiveRetentionDays(v as number)}
+                onChangeCommitted={(_, v) => saveArchiveConfig({
+                  retention_days: v as number,
+                  max_size_mb: localArchiveMaxSizeMb,
+                })}
+                sx={{ maxWidth: 300 }}
+                valueLabelDisplay="auto"
+                disabled={archiveSaving}
+              />
+            </Box>
+            <Box>
+              <Typography variant="body2" gutterBottom>
+                최대 용량: {localArchiveMaxSizeMb}MB
+              </Typography>
+              <Slider
+                value={localArchiveMaxSizeMb}
+                min={50} max={2000} step={50}
+                onChange={(_, v) => setLocalArchiveMaxSizeMb(v as number)}
+                onChangeCommitted={(_, v) => saveArchiveConfig({
+                  retention_days: localArchiveRetentionDays,
+                  max_size_mb: v as number,
+                })}
+                sx={{ maxWidth: 300 }}
+                valueLabelDisplay="auto"
+                disabled={archiveSaving}
+              />
+            </Box>
+            {archiveStats && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  현재 저장: {(archiveStats.size_bytes / 1024 / 1024).toFixed(2)}MB
+                  {archiveStats.oldest_date && ` · 오래된 날짜 ${archiveStats.oldest_date}`}
+                  {archiveStats.newest_date && ` · 최신 날짜 ${archiveStats.newest_date}`}
+                </Typography>
+              </Box>
+            )}
+            <Typography variant="caption" color="text.secondary">
+              체결 기록 저장 위치: <code>data/trades/YYYY/MM/DD/</code>
+              <br />
+              설정 저장 시 보관 기간 초과 데이터는 자동 정리됩니다.
             </Typography>
           </Stack>
         </Section>

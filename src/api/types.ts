@@ -378,3 +378,25 @@ export interface StockListStats {
   /** 자동 갱신 간격 (시간, 0 = 수동 전용) */
   updateIntervalHours: number
 }
+
+// ─── 체결 기록 보관 설정 ─────────────────────────────────────────
+export interface TradeArchiveConfig {
+  retention_days: number
+  max_size_mb: number
+}
+
+export interface SetTradeArchiveConfigInput {
+  retention_days: number
+  max_size_mb: number
+}
+
+export interface TradeArchiveStats {
+  /** 전체 trades.json 파일 수 */
+  total_files: number
+  /** 전체 저장 용량 (바이트) */
+  size_bytes: number
+  /** 가장 오래된 날짜 (YYYY-MM-DD), 없으면 null */
+  oldest_date: string | null
+  /** 가장 최근 날짜 (YYYY-MM-DD), 없으면 null */
+  newest_date: string | null
+}

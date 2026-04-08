@@ -45,6 +45,9 @@ import type {
   UpdateRiskConfigInput,
   PendingOrderView,
   CmdError,
+  TradeArchiveConfig,
+  SetTradeArchiveConfigInput,
+  TradeArchiveStats,
 } from './types'
 
 // ─── Query Keys ────────────────────────────────────────────────────
@@ -73,6 +76,8 @@ export const KEYS = {
   overseasChart: (exchange: string, symbol: string, presetKey: string) => ['overseasChart', exchange, symbol, presetKey] as const,
   riskConfig: ['riskConfig'] as const,
   pendingOrders: ['pendingOrders'] as const,
+  tradeArchiveConfig: ['tradeArchiveConfig'] as const,
+  tradeArchiveStats: ['tradeArchiveStats'] as const,
 }
 
 // ─── 앱 설정 ───────────────────────────────────────────────────────
@@ -665,6 +670,40 @@ export function usePendingOrders(options?: Partial<UseQueryOptions<PendingOrderV
     staleTime: 5_000,
     refetchInterval: POLL_INTERVALS.PENDING, // 5s — 스케쥴러 기준
     placeholderData: [],
+    ...options,
+  })
+}
+// ─── 체결 기록 보관 설정 ────────────────────────────────────────────────────
+export function useTradeArchiveConfig(
+  options?: Partial<UseQueryOptions<TradeArchiveConfig>>
+) {
+  return useQuery<TradeArchiveConfig>({
+    queryKey: KEYS.tradeArchiveConfig,
+    queryFn: cmd.getTradeArchiveConfig,
+    staleTime: Infinity,
+    ...options,
+  })
+}
+
+export function useSetTradeArchiveConfig() {
+  const qc = useQueryClient()
+  return useMutation<TradeArchiveConfig, Error, SetTradeArchiveConfigInput>({
+    mutationFn: (input) => cmd.setTradeArchiveConfig(input),
+    onSuccess: (newCfg) => {
+      qc.setQueryData(KEYS.tradeArchiveConfig, newCfg)
+      // 설정 변경 후 통계 새로고침
+      qc.invalidateQueries({ queryKey: KEYS.tradeArchiveStats })
+    },
+  })
+}
+
+export function useTradeArchiveStats(
+  options?: Partial<UseQueryOptions<TradeArchiveStats>>
+) {
+  return useQuery<TradeArchiveStats>({
+    queryKey: KEYS.tradeArchiveStats,
+    queryFn: cmd.getTradeArchiveStats,
+    staleTime: 30_000,
     ...options,
   })
 }
