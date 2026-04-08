@@ -15,12 +15,19 @@ import Divider from '@mui/material/Divider'
 import Stack from '@mui/material/Stack'
 import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
+import LinearProgress from '@mui/material/LinearProgress'
+import Collapse from '@mui/material/Collapse'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
+import LockOpenIcon from '@mui/icons-material/LockOpen'
+import SaveIcon from '@mui/icons-material/Save'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
 import { useState } from 'react'
@@ -30,7 +37,6 @@ import { useNavigate } from '@tanstack/react-router'
 import {
   useBalance,
   useTodayStats,
-  useTodayExecuted,
   useCheckConfig,
   useTradingStatus,
   useStartTrading,
@@ -38,6 +44,9 @@ import {
   usePositions,
   usePendingOrders,
   useTradesByRange,
+  useRiskConfig,
+  useUpdateRiskConfig,
+  useClearEmergencyStop,
   KEYS,
 } from '../api/hooks'
 
@@ -47,6 +56,159 @@ function fmt(n: number) {
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
+}
+
+// ─── 리스크 관리 패널 ─────────────────────────────────────────────
+function RiskPanel() {
+  const { data: risk, isLoading } = useRiskConfig()
+  const { mutate: update, isPending: saving } = useUpdateRiskConfig()
+  const { mutate: clearStop, isPending: clearing } = useClearEmergencyStop()
+
+  const [limitInput, setLimitInput]   = useState('')
+  const [ratioInput, setRatioInput]   = useState('')
+  const [dirty, setDirty]             = useState(false)
+
+  const handleSave = () => {
+    const input: { dailyLossLimit?: number; maxPositionRatio?: number } = {}
+    const parsed = parseInt(limitInput.replace(/,/g, ''))
+    const parsedRatio = parseFloat(ratioInput)
+    if (!isNaN(parsed) && parsed >= 0)            input.dailyLossLimit = parsed
+    if (!isNaN(parsedRatio) && parsedRatio > 0)   input.maxPositionRatio = parsedRatio / 100
+    update(input, {
+      onSuccess: () => { setLimitInput(''); setRatioInput(''); setDirty(false) },
+    })
+  }
+
+  if (isLoading || !risk) {
+    return <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}><CircularProgress size={20} /></Box>
+  }
+
+  const lossRatioPct = Math.min(risk.lossRatio * 100, 100)
+  const barColor = lossRatioPct < 50 ? 'success' : lossRatioPct < 80 ? 'warning' : 'error'
+
+  return (
+    <Box>
+      {/* 비상 정지 배너 */}
+      {risk.isEmergencyStop && (
+        <Alert
+          severity="error"
+          icon={<WarningAmberIcon />}
+          sx={{ mb: 2 }}
+          action={
+            <Button
+              size="small"
+              color="inherit"
+              startIcon={clearing ? <CircularProgress size={14} color="inherit" /> : <LockOpenIcon />}
+              onClick={() => clearStop()}
+              disabled={clearing}
+            >
+              비상정지 해제
+            </Button>
+          }
+        >
+          <strong>비상 정지 활성</strong> — 일일 손실 한도를 초과하여 자동 매매가 중단되었습니다.
+          시장 상황을 확인 후 수동으로 해제하세요.
+        </Alert>
+      )}
+
+      {/* 손실 한도 진행바 */}
+      <Box sx={{ mb: 2 }}>
+        <Stack direction="row" justifyContent="space-between" mb={0.5}>
+          <Typography variant="caption" color="text.secondary">
+            손실 소진율
+          </Typography>
+          <Typography
+            variant="caption"
+            fontWeight={700}
+            color={`${barColor}.main`}
+          >
+            {fmt(Math.abs(risk.currentLoss))}원 / {fmt(risk.dailyLossLimit)}원
+            &nbsp;({lossRatioPct.toFixed(1)}%)
+          </Typography>
+        </Stack>
+        <LinearProgress
+          variant="determinate"
+          value={lossRatioPct}
+          color={barColor}
+          sx={{ borderRadius: 1, height: 8 }}
+        />
+      </Box>
+
+      {/* 현재 설정값 표시 */}
+      <Grid container spacing={1.5} sx={{ mb: 2 }}>
+        <Grid item xs={6}>
+          <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, textAlign: 'center' }}>
+            <Typography variant="caption" color="text.secondary" display="block">일일 손실 한도</Typography>
+            <Typography variant="body1" fontWeight={700}>{fmt(risk.dailyLossLimit)}원</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={6}>
+          <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, textAlign: 'center' }}>
+            <Typography variant="caption" color="text.secondary" display="block">종목당 최대 비중</Typography>
+            <Typography variant="body1" fontWeight={700}>{(risk.maxPositionRatio * 100).toFixed(0)}%</Typography>
+          </Box>
+        </Grid>
+      </Grid>
+
+      {/* 설정 변경 입력 */}
+      <Grid container spacing={1.5} alignItems="flex-end">
+        <Grid item xs={12} sm={5}>
+          <Tooltip
+            title="하루 최대 허용 손실 금액(원). 이 금액을 초과하면 비상 정지됩니다."
+            arrow placement="top"
+          >
+            <TextField
+              label="일일 손실 한도 (원)"
+              value={limitInput}
+              placeholder={fmt(risk.dailyLossLimit)}
+              onChange={(e) => { setLimitInput(e.target.value.replace(/[^\d,]/g, '')); setDirty(true) }}
+              size="small"
+              fullWidth
+              InputProps={{ endAdornment: <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.disabled' }} /> }}
+            />
+          </Tooltip>
+        </Grid>
+        <Grid item xs={12} sm={5}>
+          <Tooltip
+            title="단일 종목에 투자할 수 있는 최대 비중(%). 예: 20 → 총 잔고의 20%까지."
+            arrow placement="top"
+          >
+            <TextField
+              label="종목당 최대 비중 (%)"
+              value={ratioInput}
+              placeholder={(risk.maxPositionRatio * 100).toFixed(0)}
+              onChange={(e) => { setRatioInput(e.target.value.replace(/[^\d.]/g, '')); setDirty(true) }}
+              size="small"
+              fullWidth
+              InputProps={{ endAdornment: <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.disabled' }} /> }}
+            />
+          </Tooltip>
+        </Grid>
+        <Grid item xs={12} sm={2}>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <SaveIcon />}
+            onClick={handleSave}
+            disabled={!dirty || saving}
+            fullWidth
+          >
+            저장
+          </Button>
+        </Grid>
+      </Grid>
+
+      {!risk.isEmergencyStop && (
+        <Typography
+          variant="caption"
+          color={risk.canTrade ? 'success.main' : 'warning.main'}
+          sx={{ mt: 1, display: 'block' }}
+        >
+          {risk.canTrade ? '✅ 거래 가능 상태' : '⚠️ 거래 불가 상태'}
+        </Typography>
+      )}
+    </Box>
+  )
 }
 
 // ─── 체결 내역 패널 (자동매매 기록) ────────────────────
@@ -261,9 +423,10 @@ export default function Dashboard() {
   const qc = useQueryClient()
   const navigate = useNavigate()
 
+  const [riskExpanded, setRiskExpanded] = useState(false)
+
   const { data: balance, isLoading: balanceLoading, isError: balanceError, error: balanceErrorDetail } = useBalance()
   const { data: stats, isLoading: statsLoading } = useTodayStats()
-  const { data: executed, isError: isExecutedError } = useTodayExecuted()
   const { data: diag } = useCheckConfig()
   const { data: tradingStatus } = useTradingStatus()
   const { data: positions } = usePositions()
@@ -280,7 +443,6 @@ export default function Dashboard() {
   const handleRefresh = () => {
     void qc.invalidateQueries({ queryKey: KEYS.balance })
     void qc.invalidateQueries({ queryKey: KEYS.todayStats })
-    void qc.invalidateQueries({ queryKey: KEYS.todayExecuted })
     void qc.invalidateQueries({ queryKey: KEYS.tradingStatus })
     void qc.invalidateQueries({ queryKey: KEYS.positions })
   }
@@ -460,53 +622,35 @@ export default function Dashboard() {
         <FilledOrdersPanel />
       </Paper>
 
-      {/* 당일 체결 내역 */}
+      {/* ── 리스크 관리 (펼치기/접기) ────────────────────────────── */}
       <Paper sx={{ p: 2.5 }}>
-        <Typography variant="subtitle1" fontWeight={600} mb={2}>
-          당일 체결 내역 (KIS)
-        </Typography>
-        {isExecutedError ? (
-          <Alert severity="warning" sx={{ mb: 1 }}>
-            체결 내역 조회 실패 — 계좌 설정을 확인하거나 잠시 후 다시 시도하세요.
-          </Alert>
-        ) : !executed || executed.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            아직 체결 내역이 없습니다.
-          </Typography>
-        ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>종목명</TableCell>
-                <TableCell>구분</TableCell>
-                <TableCell align="right">체결수량</TableCell>
-                <TableCell align="right">단가</TableCell>
-                <TableCell align="right">금액</TableCell>
-                <TableCell>시각</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {executed.map((o) => (
-                <TableRow key={o.odno + o.ord_tmd}>
-                  <TableCell>{o.prdt_name} ({o.pdno})</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={o.sll_buy_dvsn_cd === '01' ? '매도' : '매수'}
-                      color={o.sll_buy_dvsn_cd === '01' ? 'error' : 'primary'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell align="right">{fmt(parseInt(o.tot_ccld_qty))}</TableCell>
-                  <TableCell align="right">{fmt(parseInt(o.ord_unpr))}원</TableCell>
-                  <TableCell align="right">{fmt(parseInt(o.tot_ccld_amt))}원</TableCell>
-                  <TableCell>{o.ord_tmd.slice(0, 6)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1}
+          onClick={() => setRiskExpanded(v => !v)}
+          sx={{ cursor: 'pointer', userSelect: 'none' }}
+        >
+          <Typography variant="subtitle1" fontWeight={600}>리스크 관리</Typography>
+          <Tooltip
+            title="일일 손실이 한도를 초과하거나, 종목 비중이 초과되면 주문이 자동으로 차단됩니다."
+            arrow
+          >
+            <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+          </Tooltip>
+          <Box sx={{ ml: 'auto' }}>
+            <IconButton size="small" tabIndex={-1}>
+              {riskExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+            </IconButton>
+          </Box>
+        </Stack>
+        <Collapse in={riskExpanded}>
+          <Divider sx={{ my: 1.5 }} />
+          <RiskPanel />
+        </Collapse>
       </Paper>
     </Box>
   )
 }
+
 

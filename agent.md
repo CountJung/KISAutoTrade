@@ -87,10 +87,10 @@ AutoConditionTrade/                   ← 루트
 │   │       ├── AppShell.tsx          ← 전체 레이아웃 + ThemeProvider + Outlet ✅
 │   │       └── Sidebar.tsx           ← MUI permanent/temporary Drawer ✅
 │   └── pages/
-│       ├── Dashboard.tsx             ← 잔고/수익 카드, 당일 거래 목록, 포지션 테이블, WS연결상태 Chip ✅
+│       ├── Dashboard.tsx             ← 잔고/수익 카드, 포지션 테이블, 미체결/체결 주문, 리스크 관리(접기/펼치기) ✅
 │       ├── Trading.tsx               ← 수동 매수/매도 폼 + 종목 검색 + 체결 내역 ✅
-│       ├── Strategy.tsx              ← 전략 ON/OFF, 파라미터 설정 (10개 전략 범용 UI, STRATEGY_PARAM_META) ✅
-│       ├── History.tsx               ← 날짜 범위 조회, 통계 요약, 거래 테이블 ✅
+│       ├── Strategy.tsx              ← 전략 ON/OFF, 파라미터 설정 (11개 전략 범용 UI, STRATEGY_PARAM_META) ✅
+│       ├── History.tsx               ← 날짜 범위 조회, 자동매매 체결 기록, 통계 요약 ✅
 │       ├── Log.tsx                   ← 레벨 필터, 검색, 색상 구분 로그 뷰어 ✅
 │       ├── Settings.tsx              ← Discord 테스트, API 키 표시, 테마 설정, 멀티 계좌 프로파일, 웹 포트 ✅
 │
@@ -339,6 +339,7 @@ KIS_IS_PAPER_TRADING=false   # 기본값: 실전투자
 | 2026-04-04 | Phase 7 완료 확인. Phase 8 주요 기능 반영: market/server/updater 모듈, 35개 IPC 커맨드 목록 전면 갱신, scripts/setup-local.sh, .nvmrc, .cargo/config.toml 크로스플랫폼 처리, TodoList 동기화 | AI Agent |
 | 2026-04-07T17:48:01 | 타임스탬프 형식 날짜→datetime(YYYY-MM-DDTHH:MM:SS) 전환(agent.md+4개SKILL.md+copilot-instructions.md), .vscode/settings.json 생성(rust-analyzer linkedProjects+TSsdk), strategy.rs apply_saved_configs 프로필 전환 시 전략 기본값 리셋 버그 수정, release.yml releaseName 앱명 수정(AutoConditionTrade→KISAutoTrade), .github/workflows/release.yml+.vscode/ 디렉토리 맵 추가 | AI Agent |
 | 2026-04-08 | 체결 기록 보관 기능 추가: TradeArchiveConfig 구조체+commands.rs 3개 커맨드 (get/set/stats), lib.rs 등록, types.ts+commands.ts+hooks.ts 프론트엔드 연동, Dashboard FilledOrdersPanel(날짜 범위 조회), Settings 체결 기록 보관 섹션, discord.rs 미사용 import 제거 | AI Agent |
+| 2026-04-08T14:00:00 | KIS체결내역 제거: Dashboard useTodayExecuted+KIS섹션 삭제, History.tsx KIS탭(Tab0) 제거→로컬 기록 단독뷰; 리스크 관리 이동: Strategy.tsx RiskPanel→Dashboard.tsx 접기/펼치기 Collapse 패널; docs/user-guide.md 상승장 전략 가이드 섹션 추가(EGW00201 분석, 전략 추천/비추천 표) | AI Agent |
 
 ---
 
