@@ -21,6 +21,7 @@ use crate::{
     },
     config::{AccountProfile, AppConfig, DiscordConfig, ProfilesConfig},
     logging::LogConfig,
+    market_hours::{is_domestic_symbol, is_market_open_for, open_markets_summary},
     notifications::{discord::DiscordNotifier, types::NotificationEvent},
     storage::{stats_store::DailyStats, stock_store::{StockListStats, StockStore}, strategy_store::StrategyStore, trade_store::TradeRecord, OrderStore, StatsStore, TradeStore},
     trading::{
@@ -1359,10 +1360,38 @@ pub async fn start_trading(
                 // 가격 조회 + 주문 각 1회씩 → 700ms 간격으로 초당 ~1.4건 유지
                 let delay_ms: u64 = if is_paper { 700 } else { 150 };
 
+                // ── 시장 개장 여부 사전 체크 ─────────────────────────────
+                // 모든 활성 종목의 시장이 폐장 중이면 API 호출 없이 대기
+                {
+                    let all_closed = symbols.iter().all(|s| !is_market_open_for(s));
+                    if all_closed {
+                        tracing::info!(
+                            "모든 시장 폐장 ({}) — 5분 대기 후 재확인",
+                            open_markets_summary()
+                        );
+                        market_pause_until = Some(
+                            tokio::time::Instant::now()
+                                + tokio::time::Duration::from_secs(300)
+                        );
+                        continue 'main_loop;
+                    }
+                    tracing::debug!("시장 상태: {}", open_markets_summary());
+                }
+
                 // 종목별 현재가 조회 + 전략 신호 처리
                 'symbol_loop: for symbol in &symbols {
                     if !*is_trading.lock().await {
                         break 'symbol_loop;
+                    }
+
+                    // 개별 종목: 해당 시장 폐장 중이면 API 호출 없이 건너뜀
+                    if !is_market_open_for(symbol) {
+                        tracing::debug!(
+                            "시장 폐장 — 건너뜀: {} ({})",
+                            symbol,
+                            if is_domestic_symbol(symbol) { "KRX" } else { "US" }
+                        );
+                        continue;
                     }
 
                     // 국내/해외 구분 후 현재가 조회
@@ -2582,11 +2611,8 @@ fn is_market_closed_error(msg: &str) -> bool {
         || msg.contains("OPCODE-100")
 }
 
-/// 국내 주식 종목코드 판별
-/// KRX 종목코드: 6자리, 첫 글자가 숫자 (예: 005930, 0005A0)
-fn is_domestic_symbol(symbol: &str) -> bool {
-    symbol.len() == 6 && symbol.chars().next().map_or(false, |c| c.is_ascii_digit())
-}
+/// 국내 주식 종목코드 판별 — `crate::market_hours::is_domestic_symbol` 에서 재공개
+// (이 함수는 market_hours.rs로 이전됨)
 
 /// 해외 주식 현재가 조회 (NAS → NYS → AMS 순으로 시도)
 /// 반환값: (price_cents: u64, volume: u64)

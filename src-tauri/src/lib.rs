@@ -3,6 +3,7 @@ pub mod commands;
 pub mod config;
 pub mod logging;
 pub mod market;
+pub mod market_hours;
 pub mod notifications;
 pub mod server;
 pub mod storage;
