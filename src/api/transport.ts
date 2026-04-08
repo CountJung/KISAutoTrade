@@ -89,6 +89,86 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
     // ─── 해외 주문 ────────────────────────────────────────────
     case 'place_overseas_order':
       return { method: 'POST', url: '/api/overseas-order', body: args.input }
+    // ─── 자동매매 제어 ────────────────────────────────────────────────
+    case 'get_trading_status':
+      return { method: 'GET', url: '/api/trading/status' }
+
+    case 'start_trading':
+      return { method: 'POST', url: '/api/trading/start' }
+
+    case 'stop_trading':
+      return { method: 'POST', url: '/api/trading/stop' }
+
+    case 'get_strategies':
+      return { method: 'GET', url: '/api/strategies' }
+
+    case 'update_strategy':
+      return { method: 'POST', url: `/api/strategies/${(args.input as { id: string }).id}`, body: args.input }
+
+    // ─── 앱 설정 / 프로파일 ──────────────────────────────────────────
+    case 'get_app_config':
+      return { method: 'GET', url: '/api/app-config' }
+
+    case 'list_profiles':
+      return { method: 'GET', url: '/api/profiles' }
+
+    // ─── 포지션 ──────────────────────────────────────────────────────
+    case 'get_positions':
+      return { method: 'GET', url: '/api/positions' }
+
+    // ─── 통계 / 체결 기록 ────────────────────────────────────────────
+    case 'get_today_stats':
+      return { method: 'GET', url: '/api/today-stats' }
+
+    case 'get_stats_by_range': {
+      const inp = args.input as { from: string; to: string }
+      return { method: 'GET', url: `/api/stats?from=${inp.from}&to=${inp.to}` }
+    }
+
+    case 'get_trades_by_range': {
+      const inp = args.input as { from: string; to: string }
+      return { method: 'GET', url: `/api/trades?from=${inp.from}&to=${inp.to}` }
+    }
+
+    case 'get_kis_executed_by_range':
+      return { method: 'GET', url: `/api/kis-executed?from=${args.from}&to=${args.to}` }
+
+    case 'get_pending_orders':
+      return { method: 'GET', url: '/api/pending-orders' }
+
+    // ─── 로그 설정 ────────────────────────────────────────────────────
+    case 'get_log_config':
+      return { method: 'GET', url: '/api/log-config' }
+
+    case 'set_log_config':
+      return { method: 'POST', url: '/api/log-config', body: args.input }
+
+    case 'get_recent_logs':
+      return { method: 'GET', url: `/api/recent-logs?count=${args.count ?? 100}` }
+
+    // ─── 체결 기록 보관 설정 ─────────────────────────────────────────
+    case 'get_trade_archive_config':
+      return { method: 'GET', url: '/api/archive-config' }
+
+    case 'set_trade_archive_config':
+      return { method: 'POST', url: '/api/archive-config', body: args.input }
+
+    case 'get_trade_archive_stats':
+      return { method: 'GET', url: '/api/archive-stats' }
+
+    // ─── 리스크 관리 ─────────────────────────────────────────────────
+    case 'get_risk_config':
+      return { method: 'GET', url: '/api/risk-config' }
+
+    case 'update_risk_config':
+      return { method: 'POST', url: '/api/risk-config', body: args.input }
+
+    case 'clear_emergency_stop':
+      return { method: 'POST', url: '/api/risk-config/clear-emergency' }
+
+    // ─── 웹 설정 ─────────────────────────────────────────────────────
+    case 'get_web_config':
+      return { method: 'GET', url: '/api/web-config' }
 
     default:
       throw new Error(

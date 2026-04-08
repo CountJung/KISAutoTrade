@@ -1287,210 +1287,9 @@ pub async fn start_trading(
     }
 
     // ── 폴링 기반 자동매매 루프 ──────────────────────────────────
-    // WebSocket 연결 여부와 무관하게 독립적으로 동작한다.
-    // 매 10초마다 활성 전략의 종목 현재가를 조회하고 on_tick → 신호 → 주문 파이프라인 실행.
-    {
-        let is_trading    = Arc::clone(&state.is_trading);
-        let strategy_mgr  = Arc::clone(&state.strategy_manager);
-        let order_mgr     = Arc::clone(&state.order_manager);
-        let risk_mgr      = Arc::clone(&state.risk_manager);
-        let rest_arc      = Arc::clone(&state.rest_client);
-        let stock_store   = Arc::clone(&state.stock_store);
-
-        tauri::async_runtime::spawn(async move {
-            tracing::info!("자동매매 폴링 루프 시작");
-            let mut last_reset_date = chrono::Local::now().date_naive();
-            // 장 마감/장외 감지 시 일시 대기 종료 시각 (None = 정상 동작)
-            let mut market_pause_until: Option<tokio::time::Instant> = None;
-            // 이전 틱에서 접수된 시장가 주문 — 다음 틱 시작 시 체결 확인
-            // (symbol, 접수 당시 현재가)
-            let mut fills_pending: Vec<(String, u64)> = Vec::new();
-
-            'main_loop: loop {
-                // 종료 체크
-                if !*is_trading.lock().await {
-                    tracing::info!("자동매매 폴링 루프 종료");
-                    break 'main_loop;
-                }
-
-                // 장 마감으로 대기 중 → 30초 슬립 후 재진입 (타임아웃 소진 여부 재확인)
-                if let Some(pause_until) = market_pause_until {
-                    if tokio::time::Instant::now() < pause_until {
-                        tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
-                        continue 'main_loop;
-                    }
-                    // 대기 완료 → 정상 폴링 재개
-                    tracing::info!("장 마감 대기 완료 — 폴링 재개");
-                    market_pause_until = None;
-                }
-
-                // ── 이전 틱 시장가 주문 자동 체결 확인 ────────────────────────
-                // 시장가 주문은 즉시 체결되므로, 주문 접수 후 10초(1 tick) 후에 체결 확인
-                if !fills_pending.is_empty() {
-                    let fills = std::mem::take(&mut fills_pending);
-                    for (sym, fill_price) in fills {
-                        if let Err(e) = order_mgr.lock().await
-                            .confirm_fill_by_symbol(&sym, fill_price)
-                            .await
-                        {
-                            tracing::warn!("자동 체결 확인 실패 ({}): {}", sym, e);
-                        }
-                    }
-                }
-
-                // 날짜 변경 시 일별 초기화
-                let today = chrono::Local::now().date_naive();
-                if today != last_reset_date {
-                    last_reset_date = today;
-                    risk_mgr.lock().await.reset_if_new_day();
-                    order_mgr.lock().await.reset_day();
-                    tracing::info!("자동매매 일별 초기화 완료 ({})", today);
-                }
-
-                // 활성 전략의 종목 수집
-                let symbols: Vec<String> = strategy_mgr.lock().await.active_symbols();
-                if symbols.is_empty() {
-                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-                    continue 'main_loop;
-                }
-
-                let rest = rest_arc.read().await.clone();
-                let is_paper = rest.is_paper();
-                // API rate-limit 방지 딜레이 (모의: 700ms, 실전: 150ms)
-                // 가격 조회 + 주문 각 1회씩 → 700ms 간격으로 초당 ~1.4건 유지
-                let delay_ms: u64 = if is_paper { 700 } else { 150 };
-
-                // ── 시장 개장 여부 사전 체크 ─────────────────────────────
-                // 모든 활성 종목의 시장이 폐장 중이면 API 호출 없이 대기
-                {
-                    let all_closed = symbols.iter().all(|s| !is_market_open_for(s));
-                    if all_closed {
-                        tracing::info!(
-                            "모든 시장 폐장 ({}) — 5분 대기 후 재확인",
-                            open_markets_summary()
-                        );
-                        market_pause_until = Some(
-                            tokio::time::Instant::now()
-                                + tokio::time::Duration::from_secs(300)
-                        );
-                        continue 'main_loop;
-                    }
-                    tracing::debug!("시장 상태: {}", open_markets_summary());
-                }
-
-                // 종목별 현재가 조회 + 전략 신호 처리
-                'symbol_loop: for symbol in &symbols {
-                    if !*is_trading.lock().await {
-                        break 'symbol_loop;
-                    }
-
-                    // 개별 종목: 해당 시장 폐장 중이면 API 호출 없이 건너뜀
-                    if !is_market_open_for(symbol) {
-                        tracing::debug!(
-                            "시장 폐장 — 건너뜀: {} ({})",
-                            symbol,
-                            if is_domestic_symbol(symbol) { "KRX" } else { "US" }
-                        );
-                        continue;
-                    }
-
-                    // 국내/해외 구분 후 현재가 조회
-                    let tick = if is_domestic_symbol(symbol) {
-                        rest.get_price(symbol).await
-                            .map(|p| {
-                                let price = p.stck_prpr.parse::<u64>().unwrap_or(0);
-                                let volume = p.acml_vol.parse::<u64>().unwrap_or(0);
-                                (price, volume)
-                            })
-                            .map_err(|e| e.to_string())
-                    } else {
-                        fetch_overseas_tick(&rest, symbol).await
-                            .map_err(|e| e.to_string())
-                    };
-
-                    match tick {
-                        Ok((price, volume)) if price > 0 => {
-                            // 전략 신호 생성
-                            let signals = strategy_mgr.lock().await.on_tick(symbol, price, volume);
-
-                            for signal in signals {
-                                use crate::trading::strategy::Signal;
-                                if matches!(signal, Signal::Hold) {
-                                    continue;
-                                }
-                                let symbol_name = stock_store.get_name(symbol).await
-                                    .unwrap_or_else(|| symbol.clone());
-
-                                match order_mgr.lock().await
-                                    .submit_signal(signal, &symbol_name, 0)
-                                    .await
-                                {
-                                    Ok(()) => {
-                                        // 시장가 주문 접수 성공 → 다음 틱에 체결 확인 예약
-                                        fills_pending.push((symbol.clone(), price));
-                                        // 주문 API 호출 후 rate-limit 방지 딜레이
-                                        tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
-                                    }
-                                    Err(e) => {
-                                        let msg = e.to_string();
-                                        if is_market_closed_error(&msg) {
-                                            tracing::info!(
-                                                "장 마감/장외 시간 감지 (주문, {}) — 5분 대기: {}",
-                                                symbol, msg
-                                            );
-                                            market_pause_until = Some(
-                                                tokio::time::Instant::now()
-                                                    + tokio::time::Duration::from_secs(300)
-                                            );
-                                            break 'symbol_loop;
-                                        }
-                                        tracing::warn!("신호 처리 실패 ({}): {}", symbol, msg);
-                                    }
-                                }
-                            }
-                        }
-                        Ok(_) => {
-                            tracing::debug!("현재가 0 — 건너뜀: {}", symbol);
-                        }
-                        Err(e) => {
-                            if is_market_closed_error(&e) {
-                                tracing::info!(
-                                    "장 마감/장외 시간 감지 (현재가, {}) — 5분 대기: {}",
-                                    symbol, e
-                                );
-                                market_pause_until = Some(
-                                    tokio::time::Instant::now()
-                                        + tokio::time::Duration::from_secs(300)
-                                );
-                                break 'symbol_loop;
-                            }
-                            tracing::warn!("현재가 조회 실패 ({}): {}", symbol, e);
-                        }
-                    }
-
-                    // API rate-limit 방지 딜레이 (가격 조회 후)
-                    tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
-
-                    if !*is_trading.lock().await {
-                        break 'symbol_loop;
-                    }
-                }
-
-                // 장 마감 감지 후 즉시 대기 루프로 진입
-                if market_pause_until.is_some() {
-                    continue 'main_loop;
-                }
-
-                // 다음 틱까지 10초 대기 (100ms × 100 — 종료 신호 즉시 반응)
-                for _ in 0u32..100 {
-                    if !*is_trading.lock().await {
-                        break;
-                    }
-                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-                }
-            }
-        });
-    }
+    // run_trading_daemon() 이 앱 시작 시 영구 데몬으로 이미 실행 중이다.
+    // is_trading 플래그가 true 로 바뀌면 데몬이 자동으로 폴링을 재개한다.
+    // (이전 spawn 블록은 lib.rs → tauri::async_runtime::spawn(run_trading_daemon(...)) 로 이동)
 
     let strategies = state.strategy_manager.lock().await.active_names();
     let (position_count, total_pnl) = {
@@ -1540,6 +1339,201 @@ pub async fn stop_trading(state: State<'_, AppState>) -> CmdResult<TradingStatus
         ws_connected,
         trading_profile_id: None,
     })
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 자동매매 폴링 데몬 (lib.rs 에서 앱 시작 시 영구 spawn)
+//
+// is_trading 플래그가 false 이면 5초마다 재확인하며 대기.
+// true 로 바뀌면 즉시 폴링 재개. start_trading / web API 모두 이 방식으로 제어.
+// ────────────────────────────────────────────────────────────────────
+pub async fn run_trading_daemon(
+    is_trading:   Arc<Mutex<bool>>,
+    strategy_mgr: Arc<Mutex<crate::trading::strategy::StrategyManager>>,
+    order_mgr:    Arc<Mutex<crate::trading::order::OrderManager>>,
+    risk_mgr:     Arc<Mutex<crate::trading::risk::RiskManager>>,
+    rest_arc:     Arc<RwLock<Arc<KisRestClient>>>,
+    stock_store:  Arc<crate::storage::stock_store::StockStore>,
+) {
+    tracing::info!("자동매매 폴링 데몬 시작 (is_trading=false 대기 중)");
+    let mut last_reset_date = chrono::Local::now().date_naive();
+    let mut market_pause_until: Option<tokio::time::Instant> = None;
+    let mut fills_pending: Vec<(String, u64)> = Vec::new();
+    let mut was_running = false;
+
+    'main_loop: loop {
+        let is_running = *is_trading.lock().await;
+
+        // ── 자동매매 비활성 → 5초 슬립 후 재확인 ─────────────────
+        if !is_running {
+            if was_running {
+                fills_pending.clear();
+                market_pause_until = None;
+                tracing::info!("자동매매 폴링 데몬 일시 정지 (is_trading=false)");
+            }
+            was_running = false;
+            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+            continue 'main_loop;
+        }
+
+        // ── 방금 활성화됨 → 로컬 상태 초기화 ─────────────────────
+        if !was_running {
+            was_running = true;
+            fills_pending.clear();
+            market_pause_until = None;
+            last_reset_date = chrono::Local::now().date_naive();
+            tracing::info!("자동매매 폴링 데몬 활성화");
+        }
+
+        // 장 마감으로 대기 중 → 30초 슬립 후 재진입
+        if let Some(pause_until) = market_pause_until {
+            if tokio::time::Instant::now() < pause_until {
+                tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+                continue 'main_loop;
+            }
+            tracing::info!("장 마감 대기 완료 — 폴링 재개");
+            market_pause_until = None;
+        }
+
+        // ── 이전 틱 시장가 주문 자동 체결 확인 ──────────────────────
+        if !fills_pending.is_empty() {
+            let fills = std::mem::take(&mut fills_pending);
+            for (sym, fill_price) in fills {
+                if let Err(e) = order_mgr.lock().await
+                    .confirm_fill_by_symbol(&sym, fill_price)
+                    .await
+                {
+                    tracing::warn!("자동 체결 확인 실패 ({}): {}", sym, e);
+                }
+            }
+        }
+
+        // 날짜 변경 시 일별 초기화
+        let today = chrono::Local::now().date_naive();
+        if today != last_reset_date {
+            last_reset_date = today;
+            risk_mgr.lock().await.reset_if_new_day();
+            order_mgr.lock().await.reset_day();
+            tracing::info!("자동매매 일별 초기화 완료 ({})", today);
+        }
+
+        // 활성 전략의 종목 수집
+        let symbols: Vec<String> = strategy_mgr.lock().await.active_symbols();
+        if symbols.is_empty() {
+            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+            continue 'main_loop;
+        }
+
+        let rest = rest_arc.read().await.clone();
+        let is_paper = rest.is_paper();
+        let delay_ms: u64 = if is_paper { 700 } else { 150 };
+
+        // ── 시장 개장 여부 사전 체크 ─────────────────────────────────
+        {
+            let all_closed = symbols.iter().all(|s| !is_market_open_for(s));
+            if all_closed {
+                tracing::info!(
+                    "모든 시장 폐장 ({}) — 5분 대기 후 재확인",
+                    open_markets_summary()
+                );
+                market_pause_until = Some(
+                    tokio::time::Instant::now() + tokio::time::Duration::from_secs(300)
+                );
+                continue 'main_loop;
+            }
+            tracing::debug!("시장 상태: {}", open_markets_summary());
+        }
+
+        // ── 종목별 현재가 조회 + 전략 신호 처리 ─────────────────────
+        'symbol_loop: for symbol in &symbols {
+            if !*is_trading.lock().await {
+                break 'symbol_loop;
+            }
+
+            if !is_market_open_for(symbol) {
+                tracing::debug!(
+                    "시장 폐장 — 건너뜀: {} ({})",
+                    symbol,
+                    if is_domestic_symbol(symbol) { "KRX" } else { "US" }
+                );
+                continue;
+            }
+
+            let tick = if is_domestic_symbol(symbol) {
+                rest.get_price(symbol).await
+                    .map(|p| {
+                        let price  = p.stck_prpr.parse::<u64>().unwrap_or(0);
+                        let volume = p.acml_vol.parse::<u64>().unwrap_or(0);
+                        (price, volume)
+                    })
+                    .map_err(|e| e.to_string())
+            } else {
+                fetch_overseas_tick(&rest, symbol).await
+                    .map_err(|e| e.to_string())
+            };
+
+            match tick {
+                Ok((price, volume)) if price > 0 => {
+                    let signals = strategy_mgr.lock().await.on_tick(symbol, price, volume);
+                    for signal in signals {
+                        use crate::trading::strategy::Signal;
+                        if matches!(signal, Signal::Hold) { continue; }
+                        let symbol_name = stock_store.get_name(symbol).await
+                            .unwrap_or_else(|| symbol.clone());
+                        match order_mgr.lock().await
+                            .submit_signal(signal, &symbol_name, 0)
+                            .await
+                        {
+                            Ok(()) => {
+                                fills_pending.push((symbol.clone(), price));
+                                tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+                            }
+                            Err(e) => {
+                                let msg = e.to_string();
+                                if is_market_closed_error(&msg) {
+                                    tracing::info!(
+                                        "장 마감/장외 시간 감지 (주문, {}) — 5분 대기: {}",
+                                        symbol, msg
+                                    );
+                                    market_pause_until = Some(
+                                        tokio::time::Instant::now()
+                                            + tokio::time::Duration::from_secs(300)
+                                    );
+                                    break 'symbol_loop;
+                                }
+                                tracing::warn!("신호 처리 실패 ({}): {}", symbol, msg);
+                            }
+                        }
+                    }
+                }
+                Ok(_) => { tracing::debug!("현재가 0 — 건너뜀: {}", symbol); }
+                Err(e) => {
+                    if is_market_closed_error(&e) {
+                        tracing::info!(
+                            "장 마감/장외 시간 감지 (현재가, {}) — 5분 대기: {}",
+                            symbol, e
+                        );
+                        market_pause_until = Some(
+                            tokio::time::Instant::now() + tokio::time::Duration::from_secs(300)
+                        );
+                        break 'symbol_loop;
+                    }
+                    tracing::warn!("현재가 조회 실패 ({}): {}", symbol, e);
+                }
+            }
+
+            tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+            if !*is_trading.lock().await { break 'symbol_loop; }
+        }
+
+        if market_pause_until.is_some() { continue 'main_loop; }
+
+        // 다음 틱까지 10초 대기 (100ms × 100 — 종료 신호 즉시 반응)
+        for _ in 0u32..100 {
+            if !*is_trading.lock().await { break; }
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        }
+    }
 }
 
 // ────────────────────────────────────────────────────────────────────

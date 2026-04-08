@@ -97,14 +97,49 @@ pub fn run() {
                 }
             });
 
-            // 2) 모바일 웹 서버 시작 (포트 web_port)
+            // 2) 자동매매 폴링 데몬 영구 spawn (is_trading 플래그로 활성/비활성 제어)
             {
                 let st: tauri::State<AppState> = app.state();
-                let rest_client = st.rest_client.clone();
-                let stock_list  = st.stock_list.clone();
-                let port = st.web_port;
+                let is_trading   = st.is_trading.clone();
+                let strategy_mgr = st.strategy_manager.clone();
+                let order_mgr    = st.order_manager.clone();
+                let risk_mgr     = st.risk_manager.clone();
+                let rest_arc     = st.rest_client.clone();
+                let stock_store  = st.stock_store.clone();
+                tauri::async_runtime::spawn(commands::run_trading_daemon(
+                    is_trading, strategy_mgr, order_mgr, risk_mgr, rest_arc, stock_store,
+                ));
+            }
+
+            // 3) 모바일 웹 서버 시작 (포트 web_port) — React 앱(dist/) 서비스
+            {
+                let st: tauri::State<AppState> = app.state();
+                let rest_client          = st.rest_client.clone();
+                let stock_list           = st.stock_list.clone();
+                let port                 = st.web_port;
+                let is_trading           = st.is_trading.clone();
+                let strategy_manager     = st.strategy_manager.clone();
+                let position_tracker     = st.position_tracker.clone();
+                let config               = st.config.clone();
+                let profiles             = st.profiles.clone();
+                let trade_store          = st.trade_store.clone();
+                let stats_store          = st.stats_store.clone();
+                let log_config           = st.log_config.clone();
+                let log_dir              = st.log_dir.clone();
+                let trade_archive_config = st.trade_archive_config.clone();
+                let data_dir             = st.data_dir.clone();
+                let risk_manager         = st.risk_manager.clone();
+                let order_manager        = st.order_manager.clone();
+                let stock_store          = st.stock_store.clone();
+                let strategy_store       = st.strategy_store.clone();
                 tauri::async_runtime::spawn(async move {
-                    server::start(rest_client, stock_list, port).await;
+                    server::start(
+                        rest_client, stock_list, port,
+                        is_trading, strategy_manager, position_tracker,
+                        config, profiles, trade_store, stats_store,
+                        log_config, log_dir, trade_archive_config, data_dir,
+                        risk_manager, order_manager, stock_store, strategy_store,
+                    ).await;
                 });
             }
 

@@ -519,6 +519,70 @@ export default function Dashboard() {
         </Box>
       </Box>
 
+      {/* ── 보유 주식 목록 (항상 표시) ──────────────────────────── */}
+      <Paper sx={{ p: 2.5, mb: 2 }}>
+        <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
+          <Typography variant="subtitle1" fontWeight={600}>보유 주식</Typography>
+          <Chip
+            size="small"
+            label={`${positions?.length ?? 0}종목`}
+            color={(positions?.length ?? 0) > 0 ? 'primary' : 'default'}
+            sx={{ height: 20, fontSize: '0.7rem' }}
+          />
+        </Stack>
+        <Divider sx={{ mb: 1.5 }} />
+        {!positions || positions.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+            보유 종목이 없습니다.
+          </Typography>
+        ) : (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>종목명</TableCell>
+                  <TableCell align="right">수량</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>평균단가</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>현재가</TableCell>
+                  <TableCell align="right">미실현손익</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>수익률</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {positions.map((p) => (
+                  <TableRow key={p.symbol} hover>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={500}>{p.symbolName}</Typography>
+                      <Typography variant="caption" color="text.secondary">{p.symbol}</Typography>
+                    </TableCell>
+                    <TableCell align="right">{fmt(p.quantity)}</TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                      {fmt(Math.round(p.avgPrice))}원
+                    </TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                      {fmt(p.currentPrice)}원
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{ color: p.unrealizedPnl >= 0 ? 'success.main' : 'error.main', fontWeight: 600 }}
+                    >
+                      {p.unrealizedPnl >= 0 ? '+' : ''}{fmt(p.unrealizedPnl)}원
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{ color: p.unrealizedPnlRate >= 0 ? 'success.main' : 'error.main', display: { xs: 'none', md: 'table-cell' } }}
+                    >
+                      {p.unrealizedPnlRate >= 0 ? '+' : ''}{p.unrealizedPnlRate.toFixed(2)}%
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Paper>
+
+      {/* ── 요약 통계 카드 ──────────────────────────────────────── */}
       <Grid container spacing={2} mb={3}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
@@ -547,56 +611,15 @@ export default function Dashboard() {
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            label="보유 포지션"
-            value={`${tradingStatus?.positionCount ?? 0}종목`}
-            sub={`미실현 손익 ${fmt(tradingStatus?.totalUnrealizedPnl ?? 0)}원`}
+            label="미실현 손익"
+            value={(tradingStatus?.totalUnrealizedPnl ?? 0) >= 0
+              ? '+' + fmt(tradingStatus?.totalUnrealizedPnl ?? 0) + '원'
+              : fmt(tradingStatus?.totalUnrealizedPnl ?? 0) + '원'}
+            sub={`보유 ${tradingStatus?.positionCount ?? 0}종목`}
             positive={(tradingStatus?.totalUnrealizedPnl ?? 0) >= 0}
           />
         </Grid>
       </Grid>
-
-      {/* 포지션 현황 */}
-      {positions && positions.length > 0 && (
-        <Paper sx={{ p: 2.5, mb: 2 }}>
-          <Typography variant="subtitle1" fontWeight={600} mb={2}>
-            보유 포지션
-          </Typography>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>종목명</TableCell>
-                <TableCell align="right">수량</TableCell>
-                <TableCell align="right">평균단가</TableCell>
-                <TableCell align="right">현재가</TableCell>
-                <TableCell align="right">미실현손익</TableCell>
-                <TableCell align="right">수익률</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {positions.map((p) => (
-                <TableRow key={p.symbol}>
-                  <TableCell>{p.symbolName} ({p.symbol})</TableCell>
-                  <TableCell align="right">{fmt(p.quantity)}</TableCell>
-                  <TableCell align="right">{fmt(Math.round(p.avgPrice))}원</TableCell>
-                  <TableCell align="right">{fmt(p.currentPrice)}원</TableCell>
-                  <TableCell
-                    align="right"
-                    sx={{ color: p.unrealizedPnl >= 0 ? 'success.main' : 'error.main' }}
-                  >
-                    {p.unrealizedPnl >= 0 ? '+' : ''}{fmt(p.unrealizedPnl)}원
-                  </TableCell>
-                  <TableCell
-                    align="right"
-                    sx={{ color: p.unrealizedPnlRate >= 0 ? 'success.main' : 'error.main' }}
-                  >
-                    {p.unrealizedPnlRate >= 0 ? '+' : ''}{p.unrealizedPnlRate.toFixed(2)}%
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Paper>
-      )}
 
       {/* 미체결 주문 (자동매매) */}
       <Paper sx={{ p: 2.5, mb: 2 }}>

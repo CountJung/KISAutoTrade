@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import InputAdornment from '@mui/material/InputAdornment'
 import Typography from '@mui/material/Typography'
 import Paper from '@mui/material/Paper'
 import Box from '@mui/material/Box'
@@ -76,6 +77,96 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       </Typography>
       {children}
     </Paper>
+  )
+}
+
+// ── 슬라이더 + 텍스트 입력 복합 컴포넌트 ─────────────────────────
+interface SliderWithInputProps {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  unit?: string
+  disabled?: boolean
+  onChange: (v: number) => void
+  onChangeCommitted: (v: number) => void
+}
+
+function SliderWithInput({
+  label, value, min, max, step, unit, disabled,
+  onChange, onChangeCommitted,
+}: SliderWithInputProps) {
+  const [inputVal, setInputVal] = useState(String(value))
+  const prevValue = useRef(value)
+
+  // 외부 value 변경 시 텍스트 필드 동기화 (슬라이더 드래그 완료 후)
+  useEffect(() => {
+    if (prevValue.current !== value) {
+      prevValue.current = value
+      setInputVal(String(value))
+    }
+  }, [value])
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/[^\d.]/g, '')
+    setInputVal(raw)
+    const n = parseFloat(raw)
+    if (!isNaN(n) && n >= min && n <= max) {
+      onChange(n)
+    }
+  }
+
+  const handleInputBlur = () => {
+    const n = parseFloat(inputVal)
+    if (!isNaN(n)) {
+      const clamped = Math.max(min, Math.min(max, Math.round(n / step) * step))
+      prevValue.current = clamped
+      setInputVal(String(clamped))
+      onChange(clamped)
+      onChangeCommitted(clamped)
+    } else {
+      setInputVal(String(value))
+    }
+  }
+
+  const handleInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+  }
+
+  return (
+    <Box>
+      <Typography variant="body2" gutterBottom>
+        {label}: <strong>{value}{unit}</strong>
+      </Typography>
+      <Stack direction="row" alignItems="center" spacing={2}>
+        <Slider
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          onChange={(_, v) => onChange(v as number)}
+          onChangeCommitted={(_, v) => onChangeCommitted(v as number)}
+          valueLabelDisplay="auto"
+          disabled={disabled}
+          sx={{ flex: 1, maxWidth: 260 }}
+        />
+        <TextField
+          value={inputVal}
+          onChange={handleInputChange}
+          onBlur={handleInputBlur}
+          onKeyDown={handleInputKeyDown}
+          size="small"
+          disabled={disabled}
+          sx={{ width: 100 }}
+          slotProps={{
+            input: unit ? {
+              endAdornment: <InputAdornment position="end">{unit}</InputAdornment>,
+            } : {},
+          }}
+        />
+      </Stack>
+    </Box>
   )
 }
 
@@ -689,42 +780,32 @@ export default function Settings() {
         {/* ── 로그 설정 ─────────────────────────────────────────── */}
         <Section title="로그 설정">
           <Stack spacing={3}>
-            <Box>
-              <Typography variant="body2" gutterBottom>
-                보관 기간: {localRetentionDays}일
-              </Typography>
-              <Slider
-                value={localRetentionDays}
-                min={1} max={30} step={1}
-                onChange={(_, v) => setLocalRetentionDays(v as number)}
-                onChangeCommitted={(_, v) => saveLogConfig({
-                  retention_days: v as number,
-                  max_size_mb: localMaxSizeMb,
-                  api_debug: logCfg?.api_debug ?? false,
-                })}
-                sx={{ maxWidth: 300 }}
-                valueLabelDisplay="auto"
-                disabled={logSaving}
-              />
-            </Box>
-            <Box>
-              <Typography variant="body2" gutterBottom>
-                최대 용량: {localMaxSizeMb}MB
-              </Typography>
-              <Slider
-                value={localMaxSizeMb}
-                min={10} max={500} step={10}
-                onChange={(_, v) => setLocalMaxSizeMb(v as number)}
-                onChangeCommitted={(_, v) => saveLogConfig({
-                  retention_days: localRetentionDays,
-                  max_size_mb: v as number,
-                  api_debug: logCfg?.api_debug ?? false,
-                })}
-                sx={{ maxWidth: 300 }}
-                valueLabelDisplay="auto"
-                disabled={logSaving}
-              />
-            </Box>
+            <SliderWithInput
+              label="보관 기간"
+              value={localRetentionDays}
+              min={1} max={30} step={1}
+              unit="일"
+              disabled={logSaving}
+              onChange={(v) => setLocalRetentionDays(v)}
+              onChangeCommitted={(v) => saveLogConfig({
+                retention_days: v,
+                max_size_mb: localMaxSizeMb,
+                api_debug: logCfg?.api_debug ?? false,
+              })}
+            />
+            <SliderWithInput
+              label="최대 용량"
+              value={localMaxSizeMb}
+              min={10} max={500} step={10}
+              unit="MB"
+              disabled={logSaving}
+              onChange={(v) => setLocalMaxSizeMb(v)}
+              onChangeCommitted={(v) => saveLogConfig({
+                retention_days: localRetentionDays,
+                max_size_mb: v,
+                api_debug: logCfg?.api_debug ?? false,
+              })}
+            />
             <Box>
               <FormControlLabel
                 control={
@@ -755,40 +836,30 @@ export default function Settings() {
         {/* ── 체결 기록 보관 설정 ─────────────────────────────────── */}
         <Section title="체결 기록 보관">
           <Stack spacing={3}>
-            <Box>
-              <Typography variant="body2" gutterBottom>
-                보관 기간: {localArchiveRetentionDays}일
-              </Typography>
-              <Slider
-                value={localArchiveRetentionDays}
-                min={1} max={365} step={1}
-                onChange={(_, v) => setLocalArchiveRetentionDays(v as number)}
-                onChangeCommitted={(_, v) => saveArchiveConfig({
-                  retention_days: v as number,
-                  max_size_mb: localArchiveMaxSizeMb,
-                })}
-                sx={{ maxWidth: 300 }}
-                valueLabelDisplay="auto"
-                disabled={archiveSaving}
-              />
-            </Box>
-            <Box>
-              <Typography variant="body2" gutterBottom>
-                최대 용량: {localArchiveMaxSizeMb}MB
-              </Typography>
-              <Slider
-                value={localArchiveMaxSizeMb}
-                min={50} max={2000} step={50}
-                onChange={(_, v) => setLocalArchiveMaxSizeMb(v as number)}
-                onChangeCommitted={(_, v) => saveArchiveConfig({
-                  retention_days: localArchiveRetentionDays,
-                  max_size_mb: v as number,
-                })}
-                sx={{ maxWidth: 300 }}
-                valueLabelDisplay="auto"
-                disabled={archiveSaving}
-              />
-            </Box>
+            <SliderWithInput
+              label="보관 기간"
+              value={localArchiveRetentionDays}
+              min={1} max={365} step={1}
+              unit="일"
+              disabled={archiveSaving}
+              onChange={(v) => setLocalArchiveRetentionDays(v)}
+              onChangeCommitted={(v) => saveArchiveConfig({
+                retention_days: v,
+                max_size_mb: localArchiveMaxSizeMb,
+              })}
+            />
+            <SliderWithInput
+              label="최대 용량"
+              value={localArchiveMaxSizeMb}
+              min={50} max={2000} step={50}
+              unit="MB"
+              disabled={archiveSaving}
+              onChange={(v) => setLocalArchiveMaxSizeMb(v)}
+              onChangeCommitted={(v) => saveArchiveConfig({
+                retention_days: localArchiveRetentionDays,
+                max_size_mb: v,
+              })}
+            />
             {archiveStats && (
               <Box>
                 <Typography variant="caption" color="text.secondary">

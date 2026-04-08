@@ -6,8 +6,8 @@
 > - 이 파일이 최신 상태가 아니라면 작업 전에 먼저 갱신한다.
 > - 추측이 아닌 이 맵을 기반으로 작업한다.
 
-**마지막 업데이트**: 2026-04-08T16:00:00  
-**프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (WebSocket Dashboard 연동 ✅, 추가 전략 RSI·모멘텀·이격도·52주신고가·연속상승·돌파실패·강한종가·변동성확장 ✅, 전략 설정 프로파일별 영구 저장 ✅, GitHub Actions 자동 빌드 ✅, 체결 기록 보관 설정+대시보드 조회 ✅)
+**마지막 업데이트**: 2026-04-08T20:00:00  
+**프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (WebSocket Dashboard 연동 ✅, 추가 전략 RSI·모멘텀·이격도·52주신고가·연속상승·돌파실패·강한종가·변동성확장 ✅, 전략 설정 프로파일별 영구 저장 ✅, GitHub Actions 자동 빌드 ✅, 체결 기록 보관 설정+대시보드 조회 ✅, 네비게이션 단일화(Sidebar only) ✅, 모바일 완전 동일 기능 REST API ✅)
 
 ---
 
@@ -175,7 +175,7 @@ AutoConditionTrade/                   ← 루트
 | `trading/mod.rs` | 전략 루프 실행, 장 시간 감지 |
 | `trading/risk.rs` | 일일 손실 한도 감시, 비상 정지 |
 | `market_hours.rs` | 시장 개장 여부 판단 (KRX·US), 폴링 루프에서 폐장 시 API 호출 자동 건너뜀 |
-| `commands.rs::start_trading` | **폴링 루프** (10초 주기, 시장 폐장 사전 체크 → 국내/해외 현재가 → on_tick → submit_signal → fills_pending → confirm_fill_by_symbol) + 일별 초기화 |
+| `commands.rs::run_trading_daemon` | **자동매매 폴링 데스크💤 (lib.rs 시작 시 spawn, is_trading=false일 때 5수 슬립, true일 때 자동 재개)** |
 | `trading/order.rs::OrderManager` | submit_signal → KIS 주문, on_fill → TradeStore+OrderStore+StatsStore 저장, confirm_fill_by_symbol → 시장가 자동 체결 확인 |
 | `storage/trade_store.rs` | `data/trades/YYYY/MM/DD/trades.json` 읽기/쓰기 |
 | `storage/stats_store.rs` | 체결 집계 → `data/stats/YYYY/MM/daily_stats.json` |
@@ -231,7 +231,7 @@ AutoConditionTrade/                   ← 루트
 | Command | 설명 |
 |---------|------|
 | `get_trading_status` | 자동 매매 실행 상태 조회 (wsConnected 포함) |
-| `start_trading` | 자동 매매 시작 + WebSocket 연결 + **폴링 루프** spawn (`ws-status` 이벤트 emit) |
+| `start_trading` | 자동 매매 시작 (is_trading=true 설정) + WebSocket 연결 — 폴링은 `run_trading_daemon` 영구 데몬이 담당 (`ws-status` 이벤트 emit) |
 | `stop_trading` | 자동 매매 정지 |
 | `get_positions` | 포지션 목록 조회 |
 | `get_strategies` | 전략 목록 조회 |
@@ -342,8 +342,8 @@ KIS_IS_PAPER_TRADING=false   # 기본값: 실전투자
 | 2026-04-07T17:48:01 | 타임스탬프 형식 날짜→datetime(YYYY-MM-DDTHH:MM:SS) 전환(agent.md+4개SKILL.md+copilot-instructions.md), .vscode/settings.json 생성(rust-analyzer linkedProjects+TSsdk), strategy.rs apply_saved_configs 프로필 전환 시 전략 기본값 리셋 버그 수정, release.yml releaseName 앱명 수정(AutoConditionTrade→KISAutoTrade), .github/workflows/release.yml+.vscode/ 디렉토리 맵 추가 | AI Agent |
 | 2026-04-08 | 체결 기록 보관 기능 추가: TradeArchiveConfig 구조체+commands.rs 3개 커맨드 (get/set/stats), lib.rs 등록, types.ts+commands.ts+hooks.ts 프론트엔드 연동, Dashboard FilledOrdersPanel(날짜 범위 조회), Settings 체결 기록 보관 섹션, discord.rs 미사용 import 제거 | AI Agent |
 | 2026-04-08T14:00:00 | KIS체결내역 제거: Dashboard useTodayExecuted+KIS섹션 삭제, History.tsx KIS탭(Tab0) 제거→로컬 기록 단독뷰; 리스크 관리 이동: Strategy.tsx RiskPanel→Dashboard.tsx 접기/펼치기 Collapse 패널; docs/user-guide.md 상승장 전략 가이드 섹션 추가(EGW00201 분석, 전략 추천/비추천 표) | AI Agent |
-| 2026-04-08T16:00:00 | 시장 시간표 자동 제어: market_hours.rs 신규 모듈 (KRX 09:00-15:30 KST / US 22:00-07:00 KST), lib.rs 등록, commands.rs 폴링 루프에 전체 폐장 5분 대기 + 종목별 skip 게이팅 추가, is_domestic_symbol commands.rs→market_hours.rs 이동, user-guide.md 섹션7(시장 시간표 자동 제어) 추가 | AI Agent |
-
+| 2026-04-08T16:00:00 | 시장 시간표 자동 제어: market_hours.rs 신규 모듈 (KRX 09:00-15:30 KST / US 22:00-07:00 KST), lib.rs 등록, commands.rs 폴링 루프에 전체 폐장 5분 대기 + 종목별 skip 게이팅 추가, is_domestic_symbol commands.rs→market_hours.rs 이동, user-guide.md 섹션7(시장 시간표 자동 제어) 추가 | AI Agent || 2026-04-08T18:00:00 | UI 4가지 개선: (1) Dashboard 보유 종목 상단 문제 (2) AppShell TopBar + 자동매매 상태 칩(FiberManualRecord pulse) (3) Settings SliderWithInput 컴포넌트(4개 Slider 교체) (4) 모바일 웹 자동매매: run_trading_daemon 폴링데스크 lib.rs에서 영구 spawn, server/mod.rs /api/trading/* REST 라우트, transport.ts 매핑, MOBILE_HTML start/stop 버튼 추가 | AI Agent |
+| 2026-04-08T20:00:00 | 네비게이션 단일화 + 모바일 완전 동일 기능화: (1) AppShell TopBar 제거 → 모바일 전용 미니 AppBar(햄버거+타이틀만), Sidebar DrawerContent에 자동매매 상태 칩+pulse 이전 — 데스크탑=사이드바 only, 모바일=AppBar+Drawer (2) server/mod.rs ServerState 12개 Arc 필드 추가(config, profiles, trade/stats_store, log_config, trade_archive_config, risk/order_manager, stock/strategy_store 등), 18개 신규 REST 엔드포인트 (/api/app-config, /api/profiles, /api/positions, /api/today-stats, /api/stats, /api/trades, /api/kis-executed, /api/pending-orders, /api/log-config, /api/recent-logs, /api/archive-config, /api/archive-stats, /api/risk-config, /api/risk-config/clear-emergency, /api/web-config, /api/strategies/:id) (3) lib.rs 서버 spawn 18개 Arc 전달 (4) transport.ts resolveRest() 16개 신규 케이스 추가 — 모든 페이지(Dashboard/Trading/Strategy/History/Settings/Log) 웹 모드 완전 지원 | AI Agent |
 ---
 
 > **에이전트에게**: 이 파일을 읽었으면 작업을 시작하세요.  

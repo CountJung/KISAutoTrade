@@ -5,6 +5,11 @@ import CssBaseline from '@mui/material/CssBaseline'
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
 import Button from '@mui/material/Button'
+import AppBar from '@mui/material/AppBar'
+import Toolbar from '@mui/material/Toolbar'
+import Typography from '@mui/material/Typography'
+import IconButton from '@mui/material/IconButton'
+import MenuIcon from '@mui/icons-material/Menu'
 import { ThemeProvider } from '@mui/material/styles'
 import { Sidebar } from './Sidebar'
 import { LayoutResizer } from '../LayoutResizer'
@@ -58,6 +63,33 @@ export function AppShell() {
     <ThemeProvider theme={muiTheme}>
       <CssBaseline />
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+        {/* 모바일 전용 상단 바 — md+ 에서는 사이드바가 모든 정보를 표시하므로 숨김 */}
+        <AppBar
+          position="static"
+          elevation={0}
+          sx={{
+            display: { xs: 'flex', md: 'none' },
+            bgcolor: 'background.paper',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            color: 'text.primary',
+            flexShrink: 0,
+          }}
+        >
+          <Toolbar variant="dense" sx={{ minHeight: 48, gap: 1 }}>
+            <IconButton
+              size="small"
+              onClick={() => setMobileOpen(true)}
+              aria-label="메뉴 열기"
+            >
+              <MenuIcon fontSize="small" />
+            </IconButton>
+            <Typography variant="subtitle2" fontWeight={700} color="primary" noWrap>
+              KISAutoTrade
+            </Typography>
+          </Toolbar>
+        </AppBar>
+
         {showUpdateBanner && (
           <Alert
             severity="info"

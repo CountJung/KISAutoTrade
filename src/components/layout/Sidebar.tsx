@@ -16,8 +16,9 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import HistoryIcon from '@mui/icons-material/History'
 import ArticleIcon from '@mui/icons-material/Article'
 import SettingsIcon from '@mui/icons-material/Settings'
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 import { useNavigate, useLocation } from '@tanstack/react-router'
-import { useAppConfig } from '../../api/hooks'
+import { useAppConfig, useTradingStatus } from '../../api/hooks'
 
 interface NavItem {
   label: string
@@ -43,11 +44,13 @@ function DrawerContent({ drawerWidth }: { drawerWidth: number }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { data: appConfig } = useAppConfig()
+  const { data: tradingStatus } = useTradingStatus()
+  const isRunning = tradingStatus?.isRunning ?? false
 
   return (
     <Box sx={{ width: drawerWidth, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* 로고 영역 */}
-      <Box sx={{ px: 2, py: 2.5, overflow: 'hidden' }}>
+      <Box sx={{ px: 2, py: 2, overflow: 'hidden' }}>
         <Typography variant="subtitle2" color="primary" fontWeight={700} noWrap>
           AutoConditionTrade
         </Typography>
@@ -68,6 +71,29 @@ function DrawerContent({ drawerWidth }: { drawerWidth: number }) {
             개인용 자동매매
           </Typography>
         )}
+        {/* 자동매매 실행 상태 */}
+        <Box sx={{ mt: 0.75 }}>
+          <Chip
+            icon={
+              <FiberManualRecordIcon
+                sx={{
+                  fontSize: '0.6rem !important',
+                  color: isRunning ? 'success.main' : 'text.disabled',
+                  animation: isRunning ? 'pulse 1.8s ease-in-out infinite' : 'none',
+                  '@keyframes pulse': {
+                    '0%, 100%': { opacity: 1 },
+                    '50%': { opacity: 0.3 },
+                  },
+                }}
+              />
+            }
+            label={isRunning ? '자동매매 실행 중' : '대기 중'}
+            size="small"
+            color={isRunning ? 'success' : 'default'}
+            variant={isRunning ? 'filled' : 'outlined'}
+            sx={{ height: 20, fontSize: '0.68rem', fontWeight: isRunning ? 700 : 400 }}
+          />
+        </Box>
       </Box>
       <Divider />
 

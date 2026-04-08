@@ -12,6 +12,10 @@
 ///   POST /api/overseas-order                  → 해외 주문 실행
 ///   GET  /api/chart/:symbol                   → 국내 차트 데이터 (?period=D&count=100)
 ///   GET  /api/overseas-chart/:ex/:symbol      → 해외 차트 데이터 (?period=D&count=100)
+///   GET  /api/trading/status                  → 자동매매 상태 JSON
+///   POST /api/trading/start                   → 자동매매 시작 (is_trading=true)
+///   POST /api/trading/stop                    → 자동매매 정지 (is_trading=false)
+///   GET  /api/strategies                      → 활성 전략 목록
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -24,25 +28,84 @@ use axum::{
     Json, Router,
 };
 use serde::Deserialize;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tower_http::cors::CorsLayer;
 
 use crate::api::rest::{KisRestClient, OverseasOrderRequest, OrderRequest, OrderSide, OrderType, StockSearchItem};
+use crate::commands::TradeArchiveConfig;
+use crate::config::{AppConfig, ProfilesConfig};
+use crate::logging::LogConfig;
 use crate::market;
+use crate::storage::{
+    stats_store::StatsStore, stock_store::StockStore, strategy_store::StrategyStore,
+    trade_store::TradeStore,
+};
+use crate::trading::{
+    order::OrderManager,
+    position::PositionTracker,
+    risk::RiskManager,
+    strategy::StrategyManager,
+};
 
 #[derive(Clone)]
 struct ServerState {
-    rest_client: Arc<RwLock<Arc<KisRestClient>>>,
-    stock_list:  Arc<RwLock<Vec<StockSearchItem>>>,
-    web_port:    u16,
-    dist_path:   PathBuf,
+    rest_client:           Arc<RwLock<Arc<KisRestClient>>>,
+    stock_list:            Arc<RwLock<Vec<StockSearchItem>>>,
+    web_port:              u16,
+    dist_path:             PathBuf,
+    /// 자동매매 활성 여부 (commands.rs AppState 와 Arc 공유)
+    is_trading:            Arc<Mutex<bool>>,
+    /// 전략 관리자
+    strategy_manager:      Arc<Mutex<StrategyManager>>,
+    /// 포지션 트래커
+    position_tracker:      Arc<Mutex<PositionTracker>>,
+    /// 활성 프로파일 설정 (AppConfig)
+    config:                Arc<RwLock<Arc<AppConfig>>>,
+    /// 계좌 프로파일 목록
+    profiles:              Arc<RwLock<ProfilesConfig>>,
+    /// 체결 기록 저장소
+    trade_store:           Arc<TradeStore>,
+    /// 일별 통계 저장소
+    stats_store:           Arc<StatsStore>,
+    /// 로그 설정 (AppState 와 Arc 공유)
+    log_config:            Arc<RwLock<LogConfig>>,
+    /// 로그 디렉토리 경로
+    log_dir:               PathBuf,
+    /// 체결 기록 보관 설정
+    trade_archive_config:  Arc<RwLock<TradeArchiveConfig>>,
+    /// 데이터 디렉토리 경로
+    data_dir:              PathBuf,
+    /// 리스크 관리자
+    risk_manager:          Arc<Mutex<RiskManager>>,
+    /// 주문 관리자 (미체결 주문 조회용)
+    order_manager:         Arc<Mutex<OrderManager>>,
+    /// 영구 종목목록 캐시 (전략 업데이트 시 종목명 조회용)
+    stock_store:           Arc<StockStore>,
+    /// 전략 설정 저장소
+    strategy_store:        Arc<StrategyStore>,
 }
 
 /// 서버 시작 (포트 바인드 실패 시 경고만 내고 종료)
+#[allow(clippy::too_many_arguments)]
 pub async fn start(
-    rest_client: Arc<RwLock<Arc<KisRestClient>>>,
-    stock_list:  Arc<RwLock<Vec<StockSearchItem>>>,
-    port:        u16,
+    rest_client:          Arc<RwLock<Arc<KisRestClient>>>,
+    stock_list:           Arc<RwLock<Vec<StockSearchItem>>>,
+    port:                 u16,
+    is_trading:           Arc<Mutex<bool>>,
+    strategy_manager:     Arc<Mutex<StrategyManager>>,
+    position_tracker:     Arc<Mutex<PositionTracker>>,
+    config:               Arc<RwLock<Arc<AppConfig>>>,
+    profiles:             Arc<RwLock<ProfilesConfig>>,
+    trade_store:          Arc<TradeStore>,
+    stats_store:          Arc<StatsStore>,
+    log_config:           Arc<RwLock<LogConfig>>,
+    log_dir:              PathBuf,
+    trade_archive_config: Arc<RwLock<TradeArchiveConfig>>,
+    data_dir:             PathBuf,
+    risk_manager:         Arc<Mutex<RiskManager>>,
+    order_manager:        Arc<Mutex<OrderManager>>,
+    stock_store:          Arc<StockStore>,
+    strategy_store:       Arc<StrategyStore>,
 ) {
     let dist_path = web_dist_path();
 
@@ -55,19 +118,49 @@ pub async fn start(
         );
     }
 
-    let state = ServerState { rest_client, stock_list, web_port: port, dist_path };
+    let state = ServerState {
+        rest_client, stock_list, web_port: port, dist_path,
+        is_trading, strategy_manager, position_tracker,
+        config, profiles, trade_store, stats_store,
+        log_config, log_dir, trade_archive_config, data_dir,
+        risk_manager, order_manager, stock_store, strategy_store,
+    };
 
     let app = Router::new()
-        .route("/api/info",                       get(info_handler))
-        .route("/api/balance",                    get(balance_handler))
-        .route("/api/price/:symbol",              get(price_handler))
-        .route("/api/overseas-price/:ex/:symbol", get(overseas_price_handler))
-        .route("/api/executed",                   get(executed_handler))
-        .route("/api/search/:query",              get(search_handler))
-        .route("/api/order",                      post(order_handler))
-        .route("/api/overseas-order",             post(overseas_order_handler))
-        .route("/api/chart/:symbol",              get(chart_handler))
-        .route("/api/overseas-chart/:ex/:symbol", get(overseas_chart_handler))
+        .route("/api/info",                        get(info_handler))
+        .route("/api/app-config",                  get(app_config_handler))
+        .route("/api/profiles",                    get(profiles_handler))
+        .route("/api/balance",                     get(balance_handler))
+        .route("/api/positions",                   get(positions_handler))
+        .route("/api/price/:symbol",               get(price_handler))
+        .route("/api/overseas-price/:ex/:symbol",  get(overseas_price_handler))
+        .route("/api/executed",                    get(executed_handler))
+        .route("/api/kis-executed",                get(kis_executed_handler))
+        .route("/api/pending-orders",              get(pending_orders_handler))
+        .route("/api/search/:query",               get(search_handler))
+        .route("/api/order",                       post(order_handler))
+        .route("/api/overseas-order",              post(overseas_order_handler))
+        .route("/api/chart/:symbol",               get(chart_handler))
+        .route("/api/overseas-chart/:ex/:symbol",  get(overseas_chart_handler))
+        .route("/api/today-stats",                 get(today_stats_handler))
+        .route("/api/stats",                       get(stats_by_range_handler))
+        .route("/api/trades",                      get(trades_by_range_handler))
+        .route("/api/log-config",                  get(log_config_handler)
+                                                     .post(set_log_config_handler))
+        .route("/api/recent-logs",                 get(recent_logs_handler))
+        .route("/api/archive-config",              get(archive_config_handler)
+                                                     .post(set_archive_config_handler))
+        .route("/api/archive-stats",               get(archive_stats_handler))
+        .route("/api/risk-config",                 get(risk_config_handler)
+                                                     .post(update_risk_config_handler))
+        .route("/api/risk-config/clear-emergency", post(clear_emergency_handler))
+        .route("/api/web-config",                  get(web_config_handler))
+        // ── 자동매매 제어 ──
+        .route("/api/trading/status",              get(trading_status_handler))
+        .route("/api/trading/start",               post(trading_start_handler))
+        .route("/api/trading/stop",                post(trading_stop_handler))
+        .route("/api/strategies",                  get(strategies_handler))
+        .route("/api/strategies/:id",              post(update_strategy_handler))
         .fallback(get(spa_handler))
         .layer(CorsLayer::permissive())
         .with_state(state);
@@ -323,6 +416,492 @@ async fn overseas_chart_handler(
     }
 }
 
+// ── 자동매매 제어 핸들러 ────────────────────────────────────────────
+
+/// GET /api/trading/status
+async fn trading_status_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let is_running = *s.is_trading.lock().await;
+    let active_strategies: Vec<String> = s.strategy_manager.lock().await.active_names();
+    let (position_count, total_unrealized_pnl) = {
+        let tracker = s.position_tracker.lock().await;
+        (tracker.count(), tracker.total_pnl())
+    };
+    Json(serde_json::json!({
+        "isRunning":          is_running,
+        "activeStrategies":   active_strategies,
+        "positionCount":      position_count,
+        "totalUnrealizedPnl": total_unrealized_pnl,
+        "wsConnected":        false,
+        "tradingProfileId":   null,
+    }))
+}
+
+/// POST /api/trading/start — is_trading = true (폴링 데몬이 자동으로 재개)
+async fn trading_start_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let mut flag = s.is_trading.lock().await;
+    if *flag {
+        return Json(serde_json::json!({ "ok": false, "message": "이미 실행 중입니다." }));
+    }
+    *flag = true;
+    drop(flag);
+    tracing::info!("자동매매 시작 (웹 API 요청)");
+    Json(serde_json::json!({ "ok": true, "message": "자동매매 시작됨" }))
+}
+
+/// POST /api/trading/stop — is_trading = false (폴링 데몬 자동 일시 정지)
+async fn trading_stop_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    *s.is_trading.lock().await = false;
+    tracing::info!("자동매매 정지 (웹 API 요청)");
+    Json(serde_json::json!({ "ok": true, "message": "자동매매 정지됨" }))
+}
+
+/// GET /api/strategies — 전략 목록 (이름, 활성 여부, 대상 종목)
+async fn strategies_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let mgr = s.strategy_manager.lock().await;
+    let configs = mgr.all_configs();
+    Json(serde_json::to_value(configs).unwrap_or_default())
+}
+
+// ── 전략 업데이트 ─────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateStrategyBody {
+    enabled:         Option<bool>,
+    target_symbols:  Option<Vec<String>>,
+    order_quantity:  Option<u64>,
+    params:          Option<serde_json::Value>,
+}
+
+/// POST /api/strategies/:id — 전략 파라미터 업데이트
+async fn update_strategy_handler(
+    State(s): State<ServerState>,
+    Path(id): Path<String>,
+    Json(body): Json<UpdateStrategyBody>,
+) -> Json<serde_json::Value> {
+    let target_symbols_snapshot = {
+        let mut mgr = s.strategy_manager.lock().await;
+        let cfg = match mgr.get_config_mut(&id) {
+            Some(c) => c,
+            None => return Json(serde_json::json!({ "error": format!("전략을 찾을 수 없습니다: {}", id) })),
+        };
+        if let Some(en) = body.enabled         { cfg.enabled = en; }
+        if let Some(sym) = body.target_symbols { cfg.target_symbols = sym; }
+        if let Some(qty) = body.order_quantity  { cfg.order_quantity = qty; }
+        if let Some(p) = body.params            { cfg.params = p; }
+        cfg.target_symbols.clone()
+    };
+
+    let mut symbol_names = std::collections::HashMap::new();
+    for code in &target_symbols_snapshot {
+        let name = s.stock_store.get_name(code).await.unwrap_or_else(|| code.clone());
+        symbol_names.insert(code.clone(), name);
+    }
+
+    // 디스크에 영구 저장
+    let profile_id = s.profiles.read().await.active_id.clone();
+    if let Some(pid) = &profile_id {
+        let all_configs: Vec<crate::trading::strategy::StrategyConfig> = {
+            let mgr = s.strategy_manager.lock().await;
+            mgr.all_configs().into_iter().cloned().collect()
+        };
+        if let Err(e) = s.strategy_store.save(pid, &all_configs).await {
+            tracing::warn!("전략 설정 저장 실패: {}", e);
+        }
+    }
+
+    let mgr = s.strategy_manager.lock().await;
+    match mgr.all_configs().into_iter().find(|c| c.id == id) {
+        Some(cfg) => Json(serde_json::json!({
+            "id":              cfg.id,
+            "name":            cfg.name,
+            "enabled":         cfg.enabled,
+            "targetSymbols":   cfg.target_symbols,
+            "targetSymbolNames": symbol_names,
+            "orderQuantity":   cfg.order_quantity,
+            "params":          cfg.params,
+        })),
+        None => Json(serde_json::json!({ "error": "전략을 찾을 수 없습니다" })),
+    }
+}
+
+// ── 앱 설정 / 프로파일 ────────────────────────────────────────────
+
+/// GET /api/app-config
+async fn app_config_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let cfg = s.config.read().await.clone();
+    let masked_key = if cfg.kis_app_key.len() > 6 {
+        format!("{}****", &cfg.kis_app_key[..6])
+    } else if cfg.kis_app_key.is_empty() {
+        "(미설정)".into()
+    } else {
+        "****".into()
+    };
+    let (active_id, active_name) = {
+        let profiles = s.profiles.read().await;
+        match profiles.get_active() {
+            Some(p) => (Some(p.id.clone()), Some(p.name.clone())),
+            None    => (None, None),
+        }
+    };
+    Json(serde_json::json!({
+        "kisAppKeyMasked":   masked_key,
+        "kisAccountNo":      cfg.kis_account_no,
+        "kisIsPaperTrading": cfg.kis_is_paper_trading,
+        "kisConfigured":     cfg.is_kis_configured(),
+        "discordEnabled":    cfg.discord_bot_token.is_some(),
+        "activeProfileId":   active_id,
+        "activeProfileName": active_name,
+    }))
+}
+
+/// GET /api/profiles
+async fn profiles_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let profiles = s.profiles.read().await;
+    let views: Vec<serde_json::Value> = profiles.profiles.iter().map(|p| {
+        let masked = if p.app_key.len() > 6 {
+            format!("{}****", &p.app_key[..6])
+        } else {
+            "****".into()
+        };
+        serde_json::json!({
+            "id":             p.id,
+            "name":           p.name,
+            "isPaperTrading": p.is_paper_trading,
+            "appKeyMasked":   masked,
+            "accountNo":      p.account_no,
+            "isActive":       profiles.active_id.as_deref() == Some(&p.id),
+            "isConfigured":   p.is_configured(),
+        })
+    }).collect();
+    Json(serde_json::to_value(views).unwrap_or_default())
+}
+
+// ── 포지션 / 통계 / 체결 ──────────────────────────────────────────
+
+/// GET /api/positions
+async fn positions_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let tracker = s.position_tracker.lock().await;
+    let mut positions: Vec<serde_json::Value> = tracker.all().iter().map(|p| {
+        serde_json::json!({
+            "symbol":             p.symbol,
+            "symbolName":         p.symbol_name,
+            "quantity":           p.quantity,
+            "avgPrice":           p.avg_price,
+            "currentPrice":       p.current_price,
+            "unrealizedPnl":      p.unrealized_pnl(),
+            "unrealizedPnlRate":  p.unrealized_pnl_rate(),
+        })
+    }).collect();
+    positions.sort_by(|a, b| {
+        let qa = a.get("quantity").and_then(|v| v.as_u64()).unwrap_or(0);
+        let qb = b.get("quantity").and_then(|v| v.as_u64()).unwrap_or(0);
+        qb.cmp(&qa)
+    });
+    Json(serde_json::to_value(positions).unwrap_or_default())
+}
+
+/// GET /api/today-stats
+async fn today_stats_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let today = chrono::Local::now().date_naive();
+    match s.stats_store.get_by_date(today).await {
+        Ok(stats) => Json(serde_json::to_value(stats).unwrap_or_default()),
+        Err(e)    => Json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+#[derive(Deserialize)]
+struct DateRangeQuery {
+    from: Option<String>,
+    to:   Option<String>,
+}
+
+/// GET /api/stats?from=YYYY-MM-DD&to=YYYY-MM-DD
+async fn stats_by_range_handler(
+    State(s): State<ServerState>,
+    Query(params): Query<DateRangeQuery>,
+) -> Json<serde_json::Value> {
+    use chrono::NaiveDate;
+    let from_str = params.from.as_deref().unwrap_or("2020-01-01");
+    let to_str   = params.to.as_deref().unwrap_or_else(|| {
+        // 최대 범위 — 호출 시점 날짜 (아래에서 직접 계산)
+        ""
+    });
+    let today = chrono::Local::now().date_naive().to_string();
+    let to_str = if to_str.is_empty() { today.as_str() } else { to_str };
+
+    let from = match NaiveDate::parse_from_str(from_str, "%Y-%m-%d") {
+        Ok(d) => d,
+        Err(e) => return Json(serde_json::json!({ "error": format!("from 날짜 오류: {}", e) })),
+    };
+    let to = match NaiveDate::parse_from_str(to_str, "%Y-%m-%d") {
+        Ok(d) => d,
+        Err(e) => return Json(serde_json::json!({ "error": format!("to 날짜 오류: {}", e) })),
+    };
+    match s.stats_store.get_by_range(from, to).await {
+        Ok(stats) => Json(serde_json::to_value(stats).unwrap_or_default()),
+        Err(e)    => Json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+/// GET /api/trades?from=YYYY-MM-DD&to=YYYY-MM-DD
+async fn trades_by_range_handler(
+    State(s): State<ServerState>,
+    Query(params): Query<DateRangeQuery>,
+) -> Json<serde_json::Value> {
+    use chrono::NaiveDate;
+    let from_str = params.from.as_deref().unwrap_or("2020-01-01");
+    let today = chrono::Local::now().date_naive().to_string();
+    let to_str = params.to.as_deref().unwrap_or(today.as_str());
+
+    let from = match NaiveDate::parse_from_str(from_str, "%Y-%m-%d") {
+        Ok(d) => d,
+        Err(e) => return Json(serde_json::json!({ "error": format!("from 날짜 오류: {}", e) })),
+    };
+    let to = match NaiveDate::parse_from_str(to_str, "%Y-%m-%d") {
+        Ok(d) => d,
+        Err(e) => return Json(serde_json::json!({ "error": format!("to 날짜 오류: {}", e) })),
+    };
+    match s.trade_store.get_by_range(from, to).await {
+        Ok(trades) => Json(serde_json::to_value(trades).unwrap_or_default()),
+        Err(e)     => Json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+/// GET /api/kis-executed?from=YYYY-MM-DD&to=YYYY-MM-DD
+async fn kis_executed_handler(
+    State(s): State<ServerState>,
+    Query(params): Query<DateRangeQuery>,
+) -> Json<serde_json::Value> {
+    let today = chrono::Local::now().format("%Y%m%d").to_string();
+    let from_fmt = params.from.as_deref()
+        .map(|d| d.replace('-', ""))
+        .unwrap_or_else(|| today.clone());
+    let to_fmt = params.to.as_deref()
+        .map(|d| d.replace('-', ""))
+        .unwrap_or(today);
+    let client = s.rest_client.read().await.clone();
+    match client.get_executed_orders_range(&from_fmt, &to_fmt).await {
+        Ok(orders) => Json(serde_json::to_value(orders).unwrap_or_default()),
+        Err(e)     => Json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+/// GET /api/pending-orders
+async fn pending_orders_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let mgr = s.order_manager.lock().await;
+    let views: Vec<serde_json::Value> = mgr.pending_orders().iter().map(|p| {
+        serde_json::json!({
+            "odno":         p.record.kis_order_id.clone().unwrap_or_default(),
+            "symbol":       p.record.symbol,
+            "symbolName":   p.record.symbol_name,
+            "side":         match &p.record.side {
+                crate::storage::order_store::OrderSide::Buy  => "buy",
+                crate::storage::order_store::OrderSide::Sell => "sell",
+            },
+            "quantity":     p.record.quantity,
+            "timestamp":    p.record.timestamp,
+            "signalReason": p.signal_reason,
+        })
+    }).collect();
+    Json(serde_json::to_value(views).unwrap_or_default())
+}
+
+// ── 로그 설정 ─────────────────────────────────────────────────────
+
+/// GET /api/log-config
+async fn log_config_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let cfg = s.log_config.read().await.clone();
+    Json(serde_json::to_value(cfg).unwrap_or_default())
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SetLogConfigBody {
+    retention_days: Option<u32>,
+    max_size_mb:    Option<u64>,
+    api_debug:      Option<bool>,
+}
+
+/// POST /api/log-config
+async fn set_log_config_handler(
+    State(s): State<ServerState>,
+    Json(body): Json<SetLogConfigBody>,
+) -> Json<serde_json::Value> {
+    let current = s.log_config.read().await.clone();
+    let new_cfg = LogConfig {
+        retention_days: body.retention_days.unwrap_or(current.retention_days).clamp(1, 365),
+        max_size_mb:    body.max_size_mb.unwrap_or(current.max_size_mb).clamp(10, 10240),
+        api_debug:      body.api_debug.unwrap_or(current.api_debug),
+    };
+    *s.log_config.write().await = new_cfg.clone();
+    s.rest_client.read().await.set_api_debug(new_cfg.api_debug);
+    new_cfg.save_sync(&s.log_dir).ok();
+    crate::logging::cleanup(&s.log_dir, &new_cfg);
+    Json(serde_json::to_value(new_cfg).unwrap_or_default())
+}
+
+/// GET /api/recent-logs?count=100
+async fn recent_logs_handler(
+    State(s): State<ServerState>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Json<serde_json::Value> {
+    let count = params.get("count")
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(100);
+    let entries = crate::logging::read_recent_entries(&s.log_dir, count);
+    Json(serde_json::to_value(entries).unwrap_or_default())
+}
+
+// ── 체결 기록 보관 설정 ───────────────────────────────────────────
+
+/// GET /api/archive-config
+async fn archive_config_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let cfg = s.trade_archive_config.read().await.clone();
+    Json(serde_json::to_value(cfg).unwrap_or_default())
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SetArchiveConfigBody {
+    retention_days: u32,
+    max_size_mb:    u64,
+}
+
+/// POST /api/archive-config
+async fn set_archive_config_handler(
+    State(s): State<ServerState>,
+    Json(body): Json<SetArchiveConfigBody>,
+) -> Json<serde_json::Value> {
+    let new_cfg = TradeArchiveConfig {
+        retention_days: body.retention_days.clamp(1, 3650),
+        max_size_mb:    body.max_size_mb.clamp(50, 102400),
+    };
+    *s.trade_archive_config.write().await = new_cfg.clone();
+    new_cfg.save_sync(&s.data_dir).ok();
+    tracing::info!("체결 기록 보관 설정 변경 (웹 API): 보관 {}일, 최대 {}MB",
+        new_cfg.retention_days, new_cfg.max_size_mb);
+    Json(serde_json::to_value(new_cfg).unwrap_or_default())
+}
+
+/// GET /api/archive-stats
+async fn archive_stats_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let data_dir = s.data_dir.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        let trades_dir = data_dir.join("trades");
+        let mut total_files: u64 = 0;
+        let mut size_bytes: u64 = 0;
+        let mut dates: Vec<String> = Vec::new();
+        if trades_dir.exists() {
+            if let Ok(years) = std::fs::read_dir(&trades_dir) {
+                for year in years.flatten() {
+                    if let Ok(months) = std::fs::read_dir(year.path()) {
+                        for month in months.flatten() {
+                            if let Ok(days) = std::fs::read_dir(month.path()) {
+                                for day in days.flatten() {
+                                    dates.push(format!("{}-{}-{}",
+                                        year.file_name().to_string_lossy(),
+                                        month.file_name().to_string_lossy(),
+                                        day.file_name().to_string_lossy()));
+                                    if let Ok(files) = std::fs::read_dir(day.path()) {
+                                        for f in files.flatten() {
+                                            if f.path().is_file() {
+                                                total_files += 1;
+                                                size_bytes += f.path().metadata()
+                                                    .map(|m| m.len()).unwrap_or(0);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        dates.sort();
+        serde_json::json!({
+            "totalFiles": total_files,
+            "sizeBytes":  size_bytes,
+            "oldestDate": dates.first(),
+            "newestDate": dates.last(),
+        })
+    }).await;
+    match result {
+        Ok(val) => Json(val),
+        Err(e)  => Json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+// ── 리스크 관리 ───────────────────────────────────────────────────
+
+/// GET /api/risk-config
+async fn risk_config_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let mut risk = s.risk_manager.lock().await;
+    risk.reset_if_new_day();
+    Json(serde_json::json!({
+        "dailyLossLimit":   risk.daily_loss_limit,
+        "maxPositionRatio": risk.max_position_ratio,
+        "currentLoss":      risk.current_loss(),
+        "lossRatio":        risk.loss_ratio(),
+        "isEmergencyStop":  risk.is_emergency_stop(),
+        "canTrade":         risk.can_trade(),
+    }))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateRiskConfigBody {
+    daily_loss_limit:   Option<i64>,
+    max_position_ratio: Option<f64>,
+}
+
+/// POST /api/risk-config
+async fn update_risk_config_handler(
+    State(s): State<ServerState>,
+    Json(body): Json<UpdateRiskConfigBody>,
+) -> Json<serde_json::Value> {
+    let mut risk = s.risk_manager.lock().await;
+    if let Some(limit) = body.daily_loss_limit {
+        if limit >= 0 { risk.daily_loss_limit = limit; }
+    }
+    if let Some(ratio) = body.max_position_ratio {
+        if (0.0..=1.0).contains(&ratio) { risk.max_position_ratio = ratio; }
+    }
+    Json(serde_json::json!({
+        "dailyLossLimit":   risk.daily_loss_limit,
+        "maxPositionRatio": risk.max_position_ratio,
+        "currentLoss":      risk.current_loss(),
+        "lossRatio":        risk.loss_ratio(),
+        "isEmergencyStop":  risk.is_emergency_stop(),
+        "canTrade":         risk.can_trade(),
+    }))
+}
+
+/// POST /api/risk-config/clear-emergency
+async fn clear_emergency_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let mut risk = s.risk_manager.lock().await;
+    risk.clear_emergency_stop();
+    Json(serde_json::json!({
+        "dailyLossLimit":   risk.daily_loss_limit,
+        "maxPositionRatio": risk.max_position_ratio,
+        "currentLoss":      risk.current_loss(),
+        "lossRatio":        risk.loss_ratio(),
+        "isEmergencyStop":  risk.is_emergency_stop(),
+        "canTrade":         risk.can_trade(),
+    }))
+}
+
+// ── 웹 설정 ───────────────────────────────────────────────────────
+
+/// GET /api/web-config
+async fn web_config_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "runningPort": s.web_port,
+        "accessUrl":   format!("http://localhost:{}", s.web_port),
+    }))
+}
+
 // ── 모바일 대시보드 HTML (dist/index.html 없을 때 폴백) ────────────
 
 static MOBILE_HTML: &str = r#"<!DOCTYPE html>
@@ -347,28 +926,47 @@ static MOBILE_HTML: &str = r#"<!DOCTYPE html>
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th { color: #9e9e9e; text-align: left; padding: 4px 0; border-bottom: 1px solid #333; }
     td { padding: 6px 0; border-bottom: 1px solid #2a2a2a; vertical-align: top; }
-    .chip { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+    .chip { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
     .chip-buy { background: #1565c0; color: #fff; }
     .chip-sell { background: #b71c1c; color: #fff; }
+    .chip-running { background: #2e7d32; color: #fff; }
+    .chip-stopped { background: #424242; color: #9e9e9e; }
     .sub { font-size: 11px; color: #757575; }
     .refresh { margin-top: 8px; text-align: right; font-size: 11px; color: #757575; }
-    button { background: #1565c0; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; }
-    .notice { background: #1a237e; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: 12px; color: #90caf9; }
+    .btn { border: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 600; }
+    .btn-primary { background: #1565c0; color: #fff; }
+    .btn-danger  { background: #b71c1c; color: #fff; }
+    .btn-refresh { background: #37474f; color: #ccc; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .status-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
   </style>
 </head>
 <body>
   <h1>KISAutoTrade</h1>
-  <div class="subtitle">모바일 대시보드 (읽기 전용)</div>
-  <div class="notice">
-    💡 전체 UI는 데스크탑 앱에서 사용하거나, 프로젝트 루트에서
-    <code>npm run build:web</code> 실행 후 접속하세요.
+  <div class="subtitle">모바일 대시보드</div>
+
+  <!-- 자동매매 제어 -->
+  <div class="card">
+    <h2>자동매매</h2>
+    <div class="status-row">
+      <span class="label">상태</span>
+      <span id="trading-status-chip" class="chip chip-stopped">대기 중</span>
+    </div>
+    <div id="trading-strategies" class="sub" style="margin-bottom:8px;color:#757575"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="tradingStart()">▶ 시작</button>
+      <button class="btn btn-danger"  onclick="tradingStop()">■ 정지</button>
+    </div>
+    <div id="trading-msg" class="sub" style="margin-top:6px;color:#ffb300"></div>
   </div>
 
+  <!-- 잔고 -->
   <div class="card">
     <h2>잔고</h2>
     <div id="balance-body"><div class="label">로딩 중...</div></div>
   </div>
 
+  <!-- 보유 종목 -->
   <div class="card">
     <h2>보유 종목</h2>
     <table>
@@ -377,6 +975,7 @@ static MOBILE_HTML: &str = r#"<!DOCTYPE html>
     </table>
   </div>
 
+  <!-- 당일 체결 -->
   <div class="card">
     <h2>당일 체결</h2>
     <table>
@@ -387,12 +986,45 @@ static MOBILE_HTML: &str = r#"<!DOCTYPE html>
 
   <div class="refresh" id="refresh-time"></div>
   <br>
-  <button onclick="load()">새로고침</button>
+  <button class="btn btn-refresh" onclick="load()">↺ 새로고침</button>
 
   <script>
     function fmt(n) { return Number(n || 0).toLocaleString('ko-KR'); }
 
+    async function tradingStart() {
+      document.getElementById('trading-msg').textContent = '요청 중...';
+      try {
+        const r = await fetch('/api/trading/start', { method: 'POST' }).then(r => r.json());
+        document.getElementById('trading-msg').textContent = r.message || '';
+        await loadTradingStatus();
+      } catch(e) { document.getElementById('trading-msg').textContent = '오류: ' + e.message; }
+    }
+    async function tradingStop() {
+      document.getElementById('trading-msg').textContent = '요청 중...';
+      try {
+        const r = await fetch('/api/trading/stop', { method: 'POST' }).then(r => r.json());
+        document.getElementById('trading-msg').textContent = r.message || '';
+        await loadTradingStatus();
+      } catch(e) { document.getElementById('trading-msg').textContent = '오류: ' + e.message; }
+    }
+    async function loadTradingStatus() {
+      try {
+        const t = await fetch('/api/trading/status').then(r => r.json());
+        const chip = document.getElementById('trading-status-chip');
+        if (t.isRunning) {
+          chip.className = 'chip chip-running'; chip.textContent = '● 자동매매 중';
+        } else {
+          chip.className = 'chip chip-stopped'; chip.textContent = '대기 중';
+        }
+        document.getElementById('trading-strategies').textContent =
+          t.activeStrategies && t.activeStrategies.length
+            ? '전략: ' + t.activeStrategies.join(', ')
+            : '활성 전략 없음';
+      } catch(e) { console.error('trading status', e); }
+    }
+
     async function load() {
+      await loadTradingStatus();
       try {
         const bal = await fetch('/api/balance').then(r => r.json());
         const s = bal.summary || {};
