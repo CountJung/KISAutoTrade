@@ -598,4 +598,58 @@ if today != last_reset_date {
 }
 ```
 
-> 마지막 업데이트: 2026-04-08T14:30:00
+### 장 마감 / 장외 시간 자동 대기
+
+KIS API 응답 메시지에서 장 마감 키워드를 감지하면 5분 대기 후 재시도.
+`WARN` 로그가 누적되는 것을 방지하고 불필요한 API 호출을 차단한다.
+
+```rust
+/// KIS API 장외 시간 응답 감지 (실제 수집된 메시지 패턴)
+fn is_market_closed_error(msg: &str) -> bool {
+    msg.contains("장종료")
+        || msg.contains("장마감")
+        || msg.contains("장시작전")
+        || msg.contains("장운영시간")
+        || msg.contains("시간외거래")
+        || msg.contains("OPCODE-100")
+}
+```
+
+폴링 루프에서의 처리 패턴:
+
+```rust
+let mut market_pause_until: Option<tokio::time::Instant> = None;
+
+'main_loop: loop {
+    // 대기 중이면 30초 슬립 후 재진입
+    if let Some(until) = market_pause_until {
+        if tokio::time::Instant::now() < until {
+            tokio::time::sleep(Duration::from_secs(30)).await;
+            continue 'main_loop;
+        }
+        tracing::info!("장 마감 대기 완료 — 폴링 재개");
+        market_pause_until = None;
+    }
+
+    'symbol_loop: for symbol in &symbols {
+        match fetch_tick(&rest, symbol).await {
+            Err(e) if is_market_closed_error(&e) => {
+                tracing::info!("장 마감/장외 감지 ({}): {} — 5분 대기", symbol, e);
+                market_pause_until = Some(
+                    tokio::time::Instant::now() + Duration::from_secs(300)
+                );
+                break 'symbol_loop; // 나머지 종목 건너뜀
+            }
+            Err(e) => tracing::warn!("현재가 조회 실패 ({}): {}", symbol, e),
+            Ok(_) => { /* 신호 처리 */ }
+        }
+    }
+    // 장 마감 감지 시 즉시 대기 루프로 진입
+    if market_pause_until.is_some() { continue 'main_loop; }
+    // 정상 10초 대기...
+}
+```
+
+> **핵심 규칙**: 장 마감 감지 시 `WARN` 대신 `INFO`로 한 번만 기록하고, 이후 대기 기간 동안은 30초 sleep → continue 패턴으로 API 호출을 완전히 차단.
+
+> 마지막 업데이트: 2026-04-08T15:00:00

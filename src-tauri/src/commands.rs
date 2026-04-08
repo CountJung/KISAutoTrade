@@ -1160,12 +1160,25 @@ pub async fn start_trading(
         tauri::async_runtime::spawn(async move {
             tracing::info!("자동매매 폴링 루프 시작");
             let mut last_reset_date = chrono::Local::now().date_naive();
+            // 장 마감/장외 감지 시 일시 대기 종료 시각 (None = 정상 동작)
+            let mut market_pause_until: Option<tokio::time::Instant> = None;
 
-            loop {
+            'main_loop: loop {
                 // 종료 체크
                 if !*is_trading.lock().await {
                     tracing::info!("자동매매 폴링 루프 종료");
-                    break;
+                    break 'main_loop;
+                }
+
+                // 장 마감으로 대기 중 → 30초 슬립 후 재진입 (타임아웃 소진 여부 재확인)
+                if let Some(pause_until) = market_pause_until {
+                    if tokio::time::Instant::now() < pause_until {
+                        tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+                        continue 'main_loop;
+                    }
+                    // 대기 완료 → 정상 폴링 재개
+                    tracing::info!("장 마감 대기 완료 — 폴링 재개");
+                    market_pause_until = None;
                 }
 
                 // 날짜 변경 시 일별 초기화
@@ -1180,18 +1193,17 @@ pub async fn start_trading(
                 // 활성 전략의 종목 수집
                 let symbols: Vec<String> = strategy_mgr.lock().await.active_symbols();
                 if symbols.is_empty() {
-                    // 대기 후 재시도
                     tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-                    continue;
+                    continue 'main_loop;
                 }
 
                 let rest = rest_arc.read().await.clone();
                 let is_paper = rest.is_paper();
 
                 // 종목별 현재가 조회 + 전략 신호 처리
-                for symbol in &symbols {
+                'symbol_loop: for symbol in &symbols {
                     if !*is_trading.lock().await {
-                        break;
+                        break 'symbol_loop;
                     }
 
                     // 국내/해외 구분 후 현재가 조회
@@ -1218,7 +1230,6 @@ pub async fn start_trading(
                                 if matches!(signal, Signal::Hold) {
                                     continue;
                                 }
-                                // 종목명 조회 (없으면 코드로 대체)
                                 let symbol_name = stock_store.get_name(symbol).await
                                     .unwrap_or_else(|| symbol.clone());
 
@@ -1226,14 +1237,37 @@ pub async fn start_trading(
                                     .submit_signal(signal, &symbol_name, 0)
                                     .await
                                 {
-                                    tracing::warn!("신호 처리 실패 ({}): {}", symbol, e);
+                                    let msg = e.to_string();
+                                    if is_market_closed_error(&msg) {
+                                        tracing::info!(
+                                            "장 마감/장외 시간 감지 (주문, {}) — 5분 대기: {}",
+                                            symbol, msg
+                                        );
+                                        market_pause_until = Some(
+                                            tokio::time::Instant::now()
+                                                + tokio::time::Duration::from_secs(300)
+                                        );
+                                        break 'symbol_loop;
+                                    }
+                                    tracing::warn!("신호 처리 실패 ({}): {}", symbol, msg);
                                 }
                             }
                         }
-                        Ok((_, _)) => {
+                        Ok(_) => {
                             tracing::debug!("현재가 0 — 건너뜀: {}", symbol);
                         }
                         Err(e) => {
+                            if is_market_closed_error(&e) {
+                                tracing::info!(
+                                    "장 마감/장외 시간 감지 (현재가, {}) — 5분 대기: {}",
+                                    symbol, e
+                                );
+                                market_pause_until = Some(
+                                    tokio::time::Instant::now()
+                                        + tokio::time::Duration::from_secs(300)
+                                );
+                                break 'symbol_loop;
+                            }
                             tracing::warn!("현재가 조회 실패 ({}): {}", symbol, e);
                         }
                     }
@@ -1243,8 +1277,13 @@ pub async fn start_trading(
                     tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
 
                     if !*is_trading.lock().await {
-                        break;
+                        break 'symbol_loop;
                     }
+                }
+
+                // 장 마감 감지 후 즉시 대기 루프로 진입
+                if market_pause_until.is_some() {
+                    continue 'main_loop;
                 }
 
                 // 다음 틱까지 10초 대기 (100ms × 100 — 종료 신호 즉시 반응)
@@ -2289,6 +2328,24 @@ pub async fn place_overseas_order(
 // ────────────────────────────────────────────────────────────────────
 // 자동매매 폴링 루프 헬퍼
 // ────────────────────────────────────────────────────────────────────
+
+/// 장 마감 / 장외 시간 오류 여부 감지
+///
+/// KIS API가 시장 비운영 시간에 반환하는 공통 메시지 패턴을 검사한다.
+///
+/// ## 실제 KIS 응답 예시 (에러 로그에서 수집)
+/// - `"모의투자 장종료 입니다."`
+/// - `"모의투자 장시작전 입니다."`
+/// - `"장운영시간이 아닙니다."`
+/// - `"시간외거래"`
+fn is_market_closed_error(msg: &str) -> bool {
+    msg.contains("장종료")
+        || msg.contains("장마감")
+        || msg.contains("장시작전")
+        || msg.contains("장운영시간")
+        || msg.contains("시간외거래")
+        || msg.contains("OPCODE-100")
+}
 
 /// 국내 주식 종목코드 판별
 /// KRX 종목코드: 6자리, 첫 글자가 숫자 (예: 005930, 0005A0)
