@@ -139,6 +139,9 @@ export default function History() {
           <Paper sx={{ p: 2.5 }}>
             <Typography variant="subtitle1" fontWeight={600} mb={2}>KIS 체결 내역</Typography>
             <Divider sx={{ mb: 2 }} />
+            <Alert severity="info" sx={{ mb: 2 }}>
+              국내 주식(KRX) 체결 내역만 조회됩니다. 해외 주식(NASDAQ/NYSE/AMEX)은 KIS 해외 체결 조회 API를 통해 별도 확인하세요.
+            </Alert>
             {!query && (
               <Typography variant="body2" color="text.secondary">
                 기간을 선택하고 조회 버튼을 누르세요.

@@ -652,4 +652,100 @@ let mut market_pause_until: Option<tokio::time::Instant> = None;
 
 > **핵심 규칙**: 장 마감 감지 시 `WARN` 대신 `INFO`로 한 번만 기록하고, 이후 대기 기간 동안은 30초 sleep → continue 패턴으로 API 호출을 완전히 차단.
 
-> 마지막 업데이트: 2026-04-08T15:00:00
+---
+
+## 12. 체결 내역 조회 주의사항
+
+### 국내 vs 해외 체결 조회 API 분리
+
+`TTTC8001R` / `VTTC8001R` (`inquire-daily-ccld`)은 **국내 주식 전용**이다.  
+해외 주식(NASDAQ/NYSE/AMEX)은 이 API로 조회되지 않는다.
+
+| 대상 | TR-ID (실전/모의) | Endpoint |
+|------|-----------------|----------|
+| 국내 체결 | `TTTC8001R` / `VTTC8001R` | `/uapi/domestic-stock/v1/trading/inquire-daily-ccld` |
+| 해외 체결 | `TTTS3035R` / `VTTS3035R` | `/uapi/overseas-stock/v1/trading/inquire-ccnl` |
+
+### CCLD_DVSN 파라미터
+
+```
+"00" = 전체(체결 + 미체결) ← 미체결 주문도 포함되어 체결 내역 탭에서 혼동 유발
+"01" = 체결만              ← History 조회 시 올바른 값
+"02" = 미체결만
+```
+
+✅ **올바른 설정**: `("CCLD_DVSN", "01")` — 체결 내역 조회 시 반드시 사용
+
+### 모의투자 환경에서 odno(주문번호) 빈 문자열 반환
+
+KIS 모의투자 환경에서 `place_order()` 성공 시 `odno`가 빈 문자열 `""` 로 반환될 수 있다.  
+이 경우 pending map의 키가 충돌하여 모든 미체결 주문이 하나로 덮어써진다.
+
+❌ **잘못된 패턴**:
+```rust
+// ondo가 ""면 모든 주문이 같은 키 → 덮어쓰기
+self.pending.insert(response.ondo, PendingOrder { ... });
+```
+
+✅ **올바른 패턴**:
+```rust
+let ondo = if response.ondo.is_empty() {
+    format!("LOCAL-{}", uuid::Uuid::new_v4())  // 로컬 UUID로 대체
+} else {
+    response.ondo
+};
+self.pending.insert(ondo, PendingOrder { ... });
+```
+
+---
+
+## 13. 시장가 주문 체결 확인 패턴
+
+KIS 시장가 주문은 접수 즉시 체결이 일어난다. WebSocket 체결 이벤트가 없는 상황에서  
+폴링 루프에서 `on_fill()`을 호출하려면 "다음 틱 자동 확인" 패턴을 사용한다.
+
+```rust
+// 폴링 루프 시작 전 선언
+let mut fills_pending: Vec<(String, u64)> = Vec::new(); // (symbol, 접수 당시 가격)
+
+'main_loop: loop {
+    // ① 이전 틱에서 접수된 주문의 체결 확인 (10초 뒤 → 시장가 주문 체결 충분)
+    if !fills_pending.is_empty() {
+        let fills = std::mem::take(&mut fills_pending);
+        for (sym, fill_price) in fills {
+            let _ = order_mgr.lock().await
+                .confirm_fill_by_symbol(&sym, fill_price).await;
+        }
+    }
+
+    'symbol_loop: for symbol in &symbols {
+        let (price, volume) = fetch_tick(...);
+        let signals = strategy.on_tick(symbol, price, volume);
+        for signal in signals {
+            match order_mgr.submit_signal(signal, ...).await {
+                Ok(()) => {
+                    fills_pending.push((symbol.clone(), price)); // ② 다음 틱에 체결 확인 예약
+                    tokio::time::sleep(delay_ms).await;           // ③ rate-limit 방지
+                }
+                Err(e) => { /* 오류 처리 */ }
+            }
+        }
+        tokio::time::sleep(delay_ms).await; // 가격 조회 후 delay
+    }
+    // ④ 다음 틱까지 10초 대기
+}
+```
+
+### EGW00201 rate-limit 재시도
+
+KIS 초당 거래건수 제한 오류 (`EGW00201`) 도 `EGW00133`과 마찬가지로 재시도 처리가 필요하다.  
+`place_with_retry()`에서 두 코드를 모두 감지해야 한다:
+
+```rust
+let is_rate_limit = msg.contains("EGW00133") || msg.contains("EGW00201");
+if is_rate_limit && attempt < MAX_RETRIES - 1 {
+    tokio::time::sleep(Duration::from_secs(2)).await; // 2초 대기 (모의: 0.5req/s)
+}
+```
+
+> 마지막 업데이트: 2026-04-09T10:30:00

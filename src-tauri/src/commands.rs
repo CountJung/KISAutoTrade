@@ -124,6 +124,7 @@ impl AppState {
         let order_manager = Arc::new(Mutex::new(OrderManager::new(
             Arc::clone(&rest_client_rw),
             Arc::clone(&order_store),
+            Arc::clone(&trade_store),
             Arc::clone(&position_tracker),
             Arc::clone(&stats_store),
             Arc::clone(&risk_manager),
@@ -1162,6 +1163,9 @@ pub async fn start_trading(
             let mut last_reset_date = chrono::Local::now().date_naive();
             // 장 마감/장외 감지 시 일시 대기 종료 시각 (None = 정상 동작)
             let mut market_pause_until: Option<tokio::time::Instant> = None;
+            // 이전 틱에서 접수된 시장가 주문 — 다음 틱 시작 시 체결 확인
+            // (symbol, 접수 당시 현재가)
+            let mut fills_pending: Vec<(String, u64)> = Vec::new();
 
             'main_loop: loop {
                 // 종료 체크
@@ -1179,6 +1183,20 @@ pub async fn start_trading(
                     // 대기 완료 → 정상 폴링 재개
                     tracing::info!("장 마감 대기 완료 — 폴링 재개");
                     market_pause_until = None;
+                }
+
+                // ── 이전 틱 시장가 주문 자동 체결 확인 ────────────────────────
+                // 시장가 주문은 즉시 체결되므로, 주문 접수 후 10초(1 tick) 후에 체결 확인
+                if !fills_pending.is_empty() {
+                    let fills = std::mem::take(&mut fills_pending);
+                    for (sym, fill_price) in fills {
+                        if let Err(e) = order_mgr.lock().await
+                            .confirm_fill_by_symbol(&sym, fill_price)
+                            .await
+                        {
+                            tracing::warn!("자동 체결 확인 실패 ({}): {}", sym, e);
+                        }
+                    }
                 }
 
                 // 날짜 변경 시 일별 초기화
@@ -1199,6 +1217,9 @@ pub async fn start_trading(
 
                 let rest = rest_arc.read().await.clone();
                 let is_paper = rest.is_paper();
+                // API rate-limit 방지 딜레이 (모의: 700ms, 실전: 150ms)
+                // 가격 조회 + 주문 각 1회씩 → 700ms 간격으로 초당 ~1.4건 유지
+                let delay_ms: u64 = if is_paper { 700 } else { 150 };
 
                 // 종목별 현재가 조회 + 전략 신호 처리
                 'symbol_loop: for symbol in &symbols {
@@ -1233,23 +1254,31 @@ pub async fn start_trading(
                                 let symbol_name = stock_store.get_name(symbol).await
                                     .unwrap_or_else(|| symbol.clone());
 
-                                if let Err(e) = order_mgr.lock().await
+                                match order_mgr.lock().await
                                     .submit_signal(signal, &symbol_name, 0)
                                     .await
                                 {
-                                    let msg = e.to_string();
-                                    if is_market_closed_error(&msg) {
-                                        tracing::info!(
-                                            "장 마감/장외 시간 감지 (주문, {}) — 5분 대기: {}",
-                                            symbol, msg
-                                        );
-                                        market_pause_until = Some(
-                                            tokio::time::Instant::now()
-                                                + tokio::time::Duration::from_secs(300)
-                                        );
-                                        break 'symbol_loop;
+                                    Ok(()) => {
+                                        // 시장가 주문 접수 성공 → 다음 틱에 체결 확인 예약
+                                        fills_pending.push((symbol.clone(), price));
+                                        // 주문 API 호출 후 rate-limit 방지 딜레이
+                                        tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
                                     }
-                                    tracing::warn!("신호 처리 실패 ({}): {}", symbol, msg);
+                                    Err(e) => {
+                                        let msg = e.to_string();
+                                        if is_market_closed_error(&msg) {
+                                            tracing::info!(
+                                                "장 마감/장외 시간 감지 (주문, {}) — 5분 대기: {}",
+                                                symbol, msg
+                                            );
+                                            market_pause_until = Some(
+                                                tokio::time::Instant::now()
+                                                    + tokio::time::Duration::from_secs(300)
+                                            );
+                                            break 'symbol_loop;
+                                        }
+                                        tracing::warn!("신호 처리 실패 ({}): {}", symbol, msg);
+                                    }
                                 }
                             }
                         }
@@ -1272,8 +1301,7 @@ pub async fn start_trading(
                         }
                     }
 
-                    // API rate-limit 방지 딜레이 (모의: 600ms, 실전: 120ms)
-                    let delay_ms: u64 = if is_paper { 600 } else { 120 };
+                    // API rate-limit 방지 딜레이 (가격 조회 후)
                     tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
 
                     if !*is_trading.lock().await {

@@ -25,7 +25,8 @@ use crate::{
     notifications::{discord::DiscordNotifier, types::NotificationEvent},
     storage::{
         order_store::{OrderRecord, OrderSide, OrderStatus},
-        OrderStore, StatsStore,
+        trade_store::{TradeRecord, TradeSide},
+        OrderStore, StatsStore, TradeStore,
     },
     trading::{position::PositionTracker, risk::RiskManager, strategy::Signal},
 };
@@ -60,6 +61,7 @@ pub struct OrderManager {
     /// KIS REST 클라이언트 (프로파일 전환 시 내부 Arc만 교체됨)
     rest_client: Arc<RwLock<Arc<KisRestClient>>>,
     order_store: Arc<OrderStore>,
+    trade_store: Arc<TradeStore>,
     position_tracker: Arc<Mutex<PositionTracker>>,
     stats_store: Arc<StatsStore>,
     /// 리스크 관리자 — AppState에서 Arc 공유
@@ -71,6 +73,7 @@ impl OrderManager {
     pub fn new(
         rest_client: Arc<RwLock<Arc<KisRestClient>>>,
         order_store: Arc<OrderStore>,
+        trade_store: Arc<TradeStore>,
         position_tracker: Arc<Mutex<PositionTracker>>,
         stats_store: Arc<StatsStore>,
         risk_manager: Arc<Mutex<RiskManager>>,
@@ -81,6 +84,7 @@ impl OrderManager {
             symbol_to_odno: HashMap::new(),
             rest_client,
             order_store,
+            trade_store,
             position_tracker,
             stats_store,
             risk_manager,
@@ -184,6 +188,26 @@ impl OrderManager {
         filled_record.quantity = filled_qty;
         if let Err(e) = self.order_store.append(filled_record).await {
             tracing::error!("주문 기록 저장 실패 (Filled): {}", e);
+        }
+
+        // ⑥-b TradeStore 저장 (자동매매 로컬 체결 기록)
+        let trade_side = match &pending.record.side {
+            OrderSide::Buy  => TradeSide::Buy,
+            OrderSide::Sell => TradeSide::Sell,
+        };
+        let order_id = pending.record.kis_order_id.clone().unwrap_or_default();
+        let trade_record = TradeRecord::new(
+            symbol.clone(),
+            symbol_name.clone(),
+            trade_side,
+            filled_qty,
+            avg_price,
+            0,        // fee: KIS 수수료 미포함 (TODO)
+            order_id,
+            None,     // strategy_id: OrderRecord에 없음
+        );
+        if let Err(e) = self.trade_store.append(trade_record).await {
+            tracing::error!("TradeStore 저장 실패: {}", e);
         }
 
         // ⑨ Discord 알림
@@ -378,20 +402,27 @@ impl OrderManager {
             0, // price — 체결 시점(on_fill)에 avg_price로 갱신
             "Market".to_string(),
         );
-        record.kis_order_id = Some(response.odno.clone());
+        // KIS 모의투자 환경에서 ondo가 빈 문자열로 반환될 수 있음 → 로컬 UUID로 대체
+        let odno = if response.odno.is_empty() {
+            format!("LOCAL-{}", uuid::Uuid::new_v4())
+        } else {
+            response.odno
+        };
+        record.kis_order_id = Some(odno.clone());
 
         if let Err(e) = self.order_store.append(record.clone()).await {
             tracing::error!("주문 기록 저장 실패 (Pending): {}", e);
         }
 
-        self.symbol_to_odno.insert(symbol, response.odno.clone());
-        self.pending
-            .insert(response.odno, PendingOrder { record, signal_reason: reason });
+        self.symbol_to_odno.insert(symbol, odno.clone());
+        self.pending.insert(odno, PendingOrder { record, signal_reason: reason });
 
         Ok(())
     }
 
-    /// ⑩ 재시도 로직 — KIS rate-limit(EGW00133) 오류 시 1초 대기 × 최대 3회
+    /// ⑩ 재시도 로직 — KIS rate-limit 오류 시 2초 대기 × 최대 3회
+    /// - EGW00133: 초당 주문건수 초과
+    /// - EGW00201: 초당 거래건수 초과 (price/order 공통)
     async fn place_with_retry(&self, req: &OrderRequest) -> Result<OrderResponse> {
         const MAX_RETRIES: u32 = 3;
         let mut last_err = anyhow::anyhow!("주문 최대 재시도 횟수(3회) 초과");
@@ -401,14 +432,16 @@ impl OrderManager {
             match client.place_order(req).await {
                 Ok(resp) => return Ok(resp),
                 Err(e) => {
-                    let is_rate_limit = e.to_string().contains("EGW00133");
+                    let msg = e.to_string();
+                    let is_rate_limit = msg.contains("EGW00133") || msg.contains("EGW00201");
                     if is_rate_limit && attempt < MAX_RETRIES - 1 {
                         tracing::warn!(
-                            "KIS rate-limit (EGW00133) — 1초 후 재시도 ({}/{})",
+                            "KIS rate-limit ({}) — 2초 후 재시도 ({}/{})",
+                            if msg.contains("EGW00201") { "EGW00201" } else { "EGW00133" },
                             attempt + 1,
                             MAX_RETRIES
                         );
-                        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
                         last_err = e;
                     } else {
                         return Err(e);
@@ -417,5 +450,17 @@ impl OrderManager {
             }
         }
         Err(last_err)
+    }
+
+    /// 종목명으로 미체결 주문을 체결 처리 (시장가 주문 자동 확인용)
+    ///
+    /// 폴링 루프에서 주문 접수 후 다음 틱에 호출 — 시장가 주문은 즉시 체결 가정
+    pub async fn confirm_fill_by_symbol(&mut self, symbol: &str, fill_price: u64) -> Result<()> {
+        let ondo = match self.symbol_to_odno.get(symbol).cloned() {
+            Some(o) => o,
+            None => return Ok(()), // 미체결 주문 없음
+        };
+        let qty = self.pending.get(&ondo).map(|p| p.record.quantity).unwrap_or(1);
+        self.on_fill(&ondo, qty, fill_price).await
     }
 }

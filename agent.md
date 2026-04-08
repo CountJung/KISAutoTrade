@@ -116,7 +116,7 @@ AutoConditionTrade/                   ← 루트
 │       ├── trading/
 │       │   ├── mod.rs                ← 장 시간 감지, 전략 루프 실행 ✅
 │       │   ├── strategy.rs       ← Strategy trait, 10개 전략 (MA Cross·RSI·모멘텀·이격도·52주신고가·연속상승하락·돌파실패·강한종가·변동성확장·평균회귀·추세필터), StrategyManager ✅
-│       │   ├── order.rs              ← OrderManager 스텁 (미구현)
+│       │   ├── order.rs              ← OrderManager: submit_signal → place_order, on_fill → TradeStore+OrderStore 저장, confirm_fill_by_symbol (시장가 자동 확인), EGW00201 재시도, 빈 ondo UUID fallback ✅
 │       │   ├── position.rs           ← PositionTracker (add_buy/reduce/unrealized_pnl) ✅
 │       │   └── risk.rs               ← RiskManager (emergency_stop, record_pnl, check_position_size) ✅
 │       ├── storage/                  ← 연/월/일 JSON 파일 I/O ✅
@@ -173,7 +173,8 @@ AutoConditionTrade/                   ← 루트
 | `api/websocket.rs` | 실시간 시세 수신, 체결 콜백 |
 | `trading/mod.rs` | 전략 루프 실행, 장 시간 감지 |
 | `trading/risk.rs` | 일일 손실 한도 감시, 비상 정지 |
-| `commands.rs::start_trading` | **폴링 루프** (10초 주기, 국내/해외 현재가 → on_tick → submit_signal) + 일별 초기화 |
+| `commands.rs::start_trading` | **폴링 루프** (10초 주기, 국내/해외 현재가 → on_tick → submit_signal → fills_pending → confirm_fill_by_symbol) + 일별 초기화 |
+| `trading/order.rs::OrderManager` | submit_signal → KIS 주문, on_fill → TradeStore+OrderStore+StatsStore 저장, confirm_fill_by_symbol → 시장가 자동 체결 확인 |
 | `storage/trade_store.rs` | `data/trades/YYYY/MM/DD/trades.json` 읽기/쓰기 |
 | `storage/stats_store.rs` | 체결 집계 → `data/stats/YYYY/MM/daily_stats.json` |
 | `storage/strategy_store.rs` | 전략 설정 영구 저장 → `data/strategies/{profile_id}/strategies.json` |

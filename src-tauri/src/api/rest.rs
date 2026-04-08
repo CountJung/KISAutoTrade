@@ -561,7 +561,7 @@ impl KisRestClient {
                 ("SLL_BUY_DVSN_CD", "00"),
                 ("INQR_DVSN", "00"),
                 ("PDNO", ""),
-                ("CCLD_DVSN", "00"), // 00=전체(체결+미체결), 01=체결, 02=미체결
+                ("CCLD_DVSN", "01"), // 01=체결만 (00=전체 포함 미체결)
                 ("ORD_GNO_BRNO", ""),
                 ("ODNO", ""),
                 ("INQR_DVSN_3", "00"),
