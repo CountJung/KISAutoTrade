@@ -1488,3 +1488,150 @@ impl Strategy for TrendFilterStrategy {
         self.in_position = false;
     }
 }
+
+// ────────────────────────────────────────────────────────────────────
+// 11. 가격 조건 매매 전략 (PriceConditionStrategy)
+// ────────────────────────────────────────────────────────────────────
+// 동작:
+//  1. buy_trigger_price > 0 이고 미포지션 상태에서 현재가 ≤ buy_trigger_price → 매수
+//  2. 매수 후 다음 중 먼저 충족되는 조건에서 매도:
+//     a) stop_loss_pct > 0 이고 손실률 ≥ stop_loss_pct (최우선 — 손절)
+//     b) sell_trigger_price > 0 이고 현재가 ≥ sell_trigger_price (지정가 익절)
+//     c) take_profit_pct > 0 이고 수익률 ≥ take_profit_pct (비율 익절)
+// ────────────────────────────────────────────────────────────────────
+
+/// 가격 조건 매매 전략 파라미터
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PriceConditionParams {
+    /// 매수 트리거가 (원) — 현재가 ≤ 이 값이면 매수. 0이면 비활성.
+    pub buy_trigger_price: f64,
+    /// 지정 익절가 (원) — 현재가 ≥ 이 값이면 익절 매도. 0이면 비활성.
+    pub sell_trigger_price: f64,
+    /// % 익절 기준 — 매수가 대비 이 % 이상 상승 시 익절. 0이면 비활성.
+    pub take_profit_pct: f64,
+    /// % 손절 기준 — 매수가 대비 이 % 이상 하락 시 손절. 0이면 비활성.
+    pub stop_loss_pct: f64,
+}
+
+impl Default for PriceConditionParams {
+    fn default() -> Self {
+        Self {
+            buy_trigger_price: 0.0,
+            sell_trigger_price: 0.0,
+            take_profit_pct: 5.0,
+            stop_loss_pct: 3.0,
+        }
+    }
+}
+
+pub struct PriceConditionStrategy {
+    config: StrategyConfig,
+    params: PriceConditionParams,
+    /// 이 전략이 매수한 포지션 보유 여부
+    in_position: bool,
+    /// 매수 진입가 (익절/손절 기준)
+    entry_price: Option<u64>,
+}
+
+impl PriceConditionStrategy {
+    pub fn new(config: StrategyConfig) -> Self {
+        let params: PriceConditionParams =
+            serde_json::from_value(config.params.clone()).unwrap_or_default();
+        Self { config, params, in_position: false, entry_price: None }
+    }
+}
+
+impl Strategy for PriceConditionStrategy {
+    fn id(&self) -> &str { &self.config.id }
+    fn name(&self) -> &str { &self.config.name }
+    fn config(&self) -> &StrategyConfig { &self.config }
+    fn config_mut(&mut self) -> &mut StrategyConfig { &mut self.config }
+    fn is_enabled(&self) -> bool { self.config.enabled }
+    fn set_enabled(&mut self, enabled: bool) { self.config.enabled = enabled; }
+
+    fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
+        if !self.config.enabled { return Signal::Hold; }
+        if !self.config.target_symbols.contains(&symbol.to_string()) { return Signal::Hold; }
+
+        if self.in_position {
+            let ep = match self.entry_price { Some(v) => v, None => return Signal::Hold };
+
+            // 1) 손절 최우선 (매수가 대비 하락 %)
+            if self.params.stop_loss_pct > 0.0 && price < ep {
+                let loss_pct = (ep as f64 - price as f64) / ep as f64 * 100.0;
+                if loss_pct >= self.params.stop_loss_pct {
+                    self.in_position = false;
+                    self.entry_price = None;
+                    return Signal::Sell {
+                        symbol: symbol.to_string(),
+                        quantity: self.config.order_quantity,
+                        reason: format!(
+                            "가격조건 손절: -{:.1}% ({:.0}원 → {:.0}원)",
+                            loss_pct, ep as f64, price as f64
+                        ),
+                    };
+                }
+            }
+
+            // 2) 지정가 익절 (현재가 ≥ 목표 매도가)
+            if self.params.sell_trigger_price > 0.0 {
+                let sell_threshold = self.params.sell_trigger_price as u64;
+                if price >= sell_threshold {
+                    self.in_position = false;
+                    self.entry_price = None;
+                    return Signal::Sell {
+                        symbol: symbol.to_string(),
+                        quantity: self.config.order_quantity,
+                        reason: format!(
+                            "지정가 익절: {:.0}원 ≥ 목표 {:.0}원",
+                            price as f64, self.params.sell_trigger_price
+                        ),
+                    };
+                }
+            }
+
+            // 3) % 익절 (매수가 대비 상승 %)
+            if self.params.take_profit_pct > 0.0 && price > ep {
+                let profit_pct = (price as f64 - ep as f64) / ep as f64 * 100.0;
+                if profit_pct >= self.params.take_profit_pct {
+                    self.in_position = false;
+                    self.entry_price = None;
+                    return Signal::Sell {
+                        symbol: symbol.to_string(),
+                        quantity: self.config.order_quantity,
+                        reason: format!(
+                            "비율 익절: +{:.1}% ({:.0}원 → {:.0}원)",
+                            profit_pct, ep as f64, price as f64
+                        ),
+                    };
+                }
+            }
+
+            return Signal::Hold;
+        }
+
+        // 미포지션: 매수 조건 — 현재가 ≤ 트리거가
+        if self.params.buy_trigger_price > 0.0 {
+            let buy_threshold = self.params.buy_trigger_price as u64;
+            if price <= buy_threshold {
+                self.in_position = true;
+                self.entry_price = Some(price);
+                return Signal::Buy {
+                    symbol: symbol.to_string(),
+                    quantity: self.config.order_quantity,
+                    reason: format!(
+                        "지정가 매수: {:.0}원 ≤ 트리거 {:.0}원",
+                        price as f64, self.params.buy_trigger_price
+                    ),
+                };
+            }
+        }
+
+        Signal::Hold
+    }
+
+    fn reset(&mut self) {
+        self.in_position = false;
+        self.entry_price = None;
+    }
+}

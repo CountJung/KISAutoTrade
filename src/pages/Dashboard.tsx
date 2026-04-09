@@ -39,7 +39,6 @@ import {
   useTradingStatus,
   useStartTrading,
   useStopTrading,
-  usePositions,
   usePendingOrders,
   useTradesByRange,
   useRiskConfig,
@@ -460,11 +459,10 @@ export default function Dashboard() {
   const intervalMs = refreshIntervalSec * 1000
 
   const { data: balance, isLoading: balanceLoading, isError: balanceError, error: balanceErrorDetail } = useBalance({ refetchInterval: intervalMs })
-  const { data: overseasBalance } = useOverseasBalance({ refetchInterval: intervalMs })
+  const { data: overseasBalance, isLoading: overseasLoading, isError: overseasError } = useOverseasBalance({ refetchInterval: intervalMs })
   const { data: stats, isLoading: statsLoading } = useTodayStats({ refetchInterval: intervalMs })
   const { data: diag } = useCheckConfig()
   const { data: tradingStatus } = useTradingStatus()
-  const { data: positions } = usePositions()
   const { mutate: startTrading, isPending: startPending } = useStartTrading()
   const { mutate: stopTrading, isPending: stopPending } = useStopTrading()
 
@@ -475,12 +473,20 @@ export default function Dashboard() {
   const isRunning = tradingStatus?.isRunning ?? false
   const configReady = diag?.is_ready ?? true  // 데이터 없으면 배너 숨김
 
+  // ── 국내/해외 합산 계산 ────────────────────────────────────────
+  const domesticItems = balance?.items ?? []
+  const overseasItems = overseasBalance?.items ?? []
+  const overseasTotalKrw = Math.round(
+    parseFloat(overseasBalance?.summary?.frcr_evlu_tota ?? '0') * exchangeRateKrw
+  )
+  // 국내 총평가(예수금+국내주식) + 해외주식 평가(KRW 환산) = 합산 총평가
+  const combinedTotalKrw = totalBalance + (overseasItems.length > 0 ? overseasTotalKrw : 0)
+
   const handleRefresh = () => {
     void qc.invalidateQueries({ queryKey: KEYS.balance })
     void qc.invalidateQueries({ queryKey: KEYS.overseasBalance })
     void qc.invalidateQueries({ queryKey: KEYS.todayStats })
     void qc.invalidateQueries({ queryKey: KEYS.tradingStatus })
-    void qc.invalidateQueries({ queryKey: KEYS.positions })
   }
 
   return (
@@ -555,21 +561,33 @@ export default function Dashboard() {
         </Box>
       </Box>
 
-      {/* ── 보유 주식 목록 (항상 표시) ──────────────────────────── */}
+      {/* ── 국내 보유주식 (잔고 API 직접) ───────────────────────── */}
       <Paper sx={{ p: 2.5, mb: 2 }}>
-        <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
-          <Typography variant="subtitle1" fontWeight={600}>보유 주식</Typography>
+        <Stack direction="row" alignItems="center" spacing={1} mb={1.5} flexWrap="wrap">
+          <Typography variant="subtitle1" fontWeight={600}>국내 보유주식</Typography>
           <Chip
             size="small"
-            label={`${positions?.length ?? 0}종목`}
-            color={(positions?.length ?? 0) > 0 ? 'primary' : 'default'}
+            label={`${domesticItems.length}종목`}
+            color={domesticItems.length > 0 ? 'primary' : 'default'}
             sx={{ height: 20, fontSize: '0.7rem' }}
           />
+          {balance?.summary && (
+            <Typography variant="caption" color="text.secondary">
+              총평가 {fmt(totalBalance)}원
+              {balance.summary.tot_evlu_pfls_rt
+                ? ` · 수익률 ${parseFloat(balance.summary.tot_evlu_pfls_rt).toFixed(2)}%`
+                : ''}
+            </Typography>
+          )}
         </Stack>
         <Divider sx={{ mb: 1.5 }} />
-        {!positions || positions.length === 0 ? (
+        {balanceLoading ? (
+          <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}><CircularProgress size={20} /></Box>
+        ) : balanceError ? (
+          <Alert severity="warning" sx={{ py: 0.5 }}>잔고 조회 실패 — 계좌 설정을 확인하세요.</Alert>
+        ) : domesticItems.length === 0 ? (
           <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-            보유 종목이 없습니다.
+            보유한 국내 종목이 없습니다.
           </Typography>
         ) : (
           <TableContainer>
@@ -580,38 +598,42 @@ export default function Dashboard() {
                   <TableCell align="right">수량</TableCell>
                   <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>평균단가</TableCell>
                   <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>현재가</TableCell>
-                  <TableCell align="right">미실현손익</TableCell>
+                  <TableCell align="right">평가손익</TableCell>
                   <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>수익률</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {positions.map((p) => (
-                  <TableRow key={p.symbol} hover>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={500}>{p.symbolName}</Typography>
-                      <Typography variant="caption" color="text.secondary">{p.symbol}</Typography>
-                    </TableCell>
-                    <TableCell align="right">{fmt(p.quantity)}</TableCell>
-                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                      {fmt(Math.round(p.avgPrice))}원
-                    </TableCell>
-                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                      {fmt(p.currentPrice)}원
-                    </TableCell>
-                    <TableCell
-                      align="right"
-                      sx={{ color: p.unrealizedPnl >= 0 ? 'success.main' : 'error.main', fontWeight: 600 }}
-                    >
-                      {p.unrealizedPnl >= 0 ? '+' : ''}{fmt(p.unrealizedPnl)}원
-                    </TableCell>
-                    <TableCell
-                      align="right"
-                      sx={{ color: p.unrealizedPnlRate >= 0 ? 'success.main' : 'error.main', display: { xs: 'none', md: 'table-cell' } }}
-                    >
-                      {p.unrealizedPnlRate >= 0 ? '+' : ''}{p.unrealizedPnlRate.toFixed(2)}%
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {domesticItems.map((item) => {
+                  const pnl = parseInt(item.evlu_pfls_amt)
+                  const pnlRate = parseFloat(item.evlu_pfls_rt)
+                  return (
+                    <TableRow key={item.pdno} hover>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={500}>{item.prdt_name}</Typography>
+                        <Typography variant="caption" color="text.secondary">{item.pdno}</Typography>
+                      </TableCell>
+                      <TableCell align="right">{fmt(parseInt(item.hldg_qty))}</TableCell>
+                      <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                        {fmt(Math.round(parseFloat(item.pchs_avg_pric)))}원
+                      </TableCell>
+                      <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                        {fmt(parseInt(item.prpr))}원
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{ color: pnl >= 0 ? 'success.main' : 'error.main', fontWeight: 600 }}
+                      >
+                        {pnl >= 0 ? '+' : ''}{fmt(pnl)}원
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{ color: pnlRate >= 0 ? 'success.main' : 'error.main', display: { xs: 'none', md: 'table-cell' } }}
+                      >
+                        {pnlRate >= 0 ? '+' : ''}{pnlRate.toFixed(2)}%
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           </TableContainer>
@@ -619,27 +641,29 @@ export default function Dashboard() {
       </Paper>
 
       {/* ── 해외 보유주식 ──────────────────────────────────────────── */}
-      {overseasBalance && overseasBalance.items.length > 0 && (
-        <Paper sx={{ p: 2.5, mb: 2 }}>
-          <Stack direction="row" alignItems="center" spacing={1} mb={1.5} flexWrap="wrap">
-            <Typography variant="subtitle1" fontWeight={600}>해외 보유주식</Typography>
+      <Paper sx={{ p: 2.5, mb: 2 }}>
+        <Stack direction="row" alignItems="center" spacing={1} mb={1.5} flexWrap="wrap">
+          <Typography variant="subtitle1" fontWeight={600}>해외 보유주식</Typography>
+          {!overseasLoading && !overseasError && overseasBalance && (
             <Chip
               size="small"
               label={`${overseasBalance.items.length}종목`}
-              color="primary"
+              color={overseasBalance.items.length > 0 ? 'primary' : 'default'}
               sx={{ height: 20, fontSize: '0.7rem' }}
             />
-            {overseasBalance.summary && (
-              <Typography variant="caption" color="text.secondary">
-                평가금액{' '}
-                {overseasCurrency === 'USD'
-                  ? `$${parseFloat(overseasBalance.summary.frcr_evlu_tota).toFixed(2)}`
-                  : `${Math.round(parseFloat(overseasBalance.summary.frcr_evlu_tota) * exchangeRateKrw).toLocaleString('ko-KR')}원`}
-                {' · '}
-                수익률 {parseFloat(overseasBalance.summary.tot_pftrt).toFixed(2)}%
-              </Typography>
-            )}
-            {/* USD / KRW 통화 토글 */}
+          )}
+          {overseasBalance?.summary && (overseasBalance.items.length ?? 0) > 0 && (
+            <Typography variant="caption" color="text.secondary">
+              평가금액{' '}
+              {overseasCurrency === 'USD'
+                ? `$${parseFloat(overseasBalance.summary.frcr_evlu_tota).toFixed(2)}`
+                : `${Math.round(parseFloat(overseasBalance.summary.frcr_evlu_tota) * exchangeRateKrw).toLocaleString('ko-KR')}원`}
+              {' · '}
+              수익률 {parseFloat(overseasBalance.summary.tot_pftrt).toFixed(2)}%
+            </Typography>
+          )}
+          {overseasBalance && overseasBalance.items.length > 0 && (
+            /* USD / KRW 통화 토글 */
             <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5 }}>
               <Button
                 size="small"
@@ -654,8 +678,20 @@ export default function Dashboard() {
                 sx={{ minWidth: 48, px: 1, py: 0.25 }}
               >KRW</Button>
             </Box>
-          </Stack>
-          <Divider sx={{ mb: 1.5 }} />
+          )}
+        </Stack>
+        <Divider sx={{ mb: 1.5 }} />
+        {overseasLoading ? (
+          <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}><CircularProgress size={20} /></Box>
+        ) : overseasError ? (
+          <Alert severity="warning" sx={{ py: 0.5 }}>
+            해외 잔고 조회 실패 — 계좌 설정 및 API 인증 상태를 확인하세요.
+          </Alert>
+        ) : !overseasBalance || overseasBalance.items.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+            보유한 해외 종목이 없습니다.
+          </Typography>
+        ) : (
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -715,17 +751,19 @@ export default function Dashboard() {
               </TableBody>
             </Table>
           </TableContainer>
-        </Paper>
-      )}
+        )}
+      </Paper>
 
       {/* ── 요약 통계 카드 ──────────────────────────────────────── */}
       <Grid container spacing={2} mb={3}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            label="총 평가금액"
-            value={fmt(totalBalance) + '원'}
-            sub="예수금 + 주식평가"
-            loading={balanceLoading}
+            label="총 평가금액 (합산)"
+            value={fmt(combinedTotalKrw) + '원'}
+            sub={overseasItems.length > 0
+              ? `국내 ${fmt(totalBalance)}원 + 해외 ${fmt(overseasTotalKrw)}원`
+              : '예수금 + 국내주식 평가'}
+            loading={balanceLoading || overseasLoading}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -751,7 +789,7 @@ export default function Dashboard() {
             value={(tradingStatus?.totalUnrealizedPnl ?? 0) >= 0
               ? '+' + fmt(tradingStatus?.totalUnrealizedPnl ?? 0) + '원'
               : fmt(tradingStatus?.totalUnrealizedPnl ?? 0) + '원'}
-            sub={`보유 ${tradingStatus?.positionCount ?? 0}종목`}
+            sub={`국내 ${domesticItems.length}종목 · 해외 ${overseasItems.length}종목`}
             positive={(tradingStatus?.totalUnrealizedPnl ?? 0) >= 0}
           />
         </Grid>

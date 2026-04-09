@@ -39,6 +39,7 @@ use crate::{
         TrendFilterParams, TrendFilterStrategy,
         VolatilityExpansionParams, VolatilityExpansionStrategy,
         MeanReversionParams, MeanReversionStrategy,
+        PriceConditionParams, PriceConditionStrategy,
         StrategyConfig, StrategyManager,
     },
     },
@@ -395,6 +396,17 @@ impl AppState {
             params: serde_json::to_value(TrendFilterParams::default()).unwrap_or_default(),
         };
         strategy_manager.add(Box::new(TrendFilterStrategy::new(trend_filter_strategy)));
+
+        // 가격 조건 매매 전략 (기본 등록, 비활성)
+        let price_condition_strategy = StrategyConfig {
+            id: "price_condition_default".to_string(),
+            name: "가격 조건 매매".to_string(),
+            enabled: false,
+            target_symbols: vec![],
+            order_quantity: 1,
+            params: serde_json::to_value(PriceConditionParams::default()).unwrap_or_default(),
+        };
+        strategy_manager.add(Box::new(PriceConditionStrategy::new(price_condition_strategy)));
 
         // 전략 설정 영구 저장소
         let strategy_store = Arc::new(StrategyStore::new(&data_dir));
@@ -862,20 +874,9 @@ pub async fn get_overseas_balance(state: State<'_, AppState>) -> CmdResult<Overs
                 "해외 잔고 조회 성공: 보유종목 {}개",
                 resp.items.len()
             );
-            // 국내 잔고 미존재 시 해외 포지션으로 position_tracker 초기화
-            // (USD 가격은 cents ×100 변환으로 u64 정수화)
-            {
-                let mut tracker = state.position_tracker.lock().await;
-                tracker.load_if_empty(
-                    resp.items.iter().map(|i| (
-                        i.ovrs_pdno.clone(),
-                        i.ovrs_item_name.clone(),
-                        i.ovrs_cblc_qty.parse::<u64>().unwrap_or(0),
-                        (i.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) * 100.0) as u64,
-                        (i.now_pric2.parse::<f64>().unwrap_or(0.0) * 100.0) as u64,
-                    ))
-                );
-            }
+            // 해외 잔고는 position_tracker에 혼입하지 않는다.
+            // Dashboard는 overseasBalance.items를 직접 표시하므로 load_if_empty 불필요.
+            // (국내/해외 혼입 시 먼저 응답이 오는 쪽만 등록되는 레이스 컨디션 발생)
             Ok(OverseasBalanceResult { items: resp.items, summary: resp.summary })
         }
         Err(e) => {

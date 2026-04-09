@@ -103,6 +103,12 @@ const STRATEGY_PARAM_META: Record<string, ParamMeta[]> = {
     { key: 'short_period', label: '단기 MA 기간',  min: 2,   max: 30,  step: 1, description: '단기 모멘텀 판단 이동평균 기간 (기본 5일)' },
     { key: 'mid_period',   label: '중기 MA 기간',  min: 5,   max: 60,  step: 1, description: '중기 추세 비교 이동평균 기간 (기본 20일)' },
   ],
+  price_condition: [
+    { key: 'buy_trigger_price',  label: '매수 트리거가 (원)', min: 0, max: 9999999, step: 100, description: '현재가 ≤ 이 값이면 매수. 0이면 비활성.' },
+    { key: 'sell_trigger_price', label: '지정 익절가 (원)', min: 0, max: 9999999, step: 100, description: '현재가 ≥ 이 값이면 익절 매도. 0이면 비활성.' },
+    { key: 'take_profit_pct',    label: '익절 기준 (%)',  min: 0, max: 100,    step: 0.5, description: '매수가 대비 이 % 이상 상승 시 익절. 0이면 비활성.' },
+    { key: 'stop_loss_pct',      label: '손절 기준 (%)',  min: 0, max: 50,     step: 0.5, description: '매수가 대비 이 % 이상 하락 시 손절. 0이면 비활성.' },
+  ],
 }
 
 const STRATEGY_DESCRIPTION: Record<string, string> = {
@@ -117,6 +123,7 @@ const STRATEGY_DESCRIPTION: Record<string, string> = {
   volatility_expansion:  '당일 변동폭(고-저)이 최근 N거래일 평균 변동폭의 K배 이상이며 현재가 > 시가인 경우 매수. 장중 변동성 폭발 구간에 상승 방향으로 편승. 매수 후 지정 % 하락 시 손절.',
   mean_reversion:        '현재가가 볼린저 밴드 하단(mean - Nσ) 아래로 바운스하면 매수(과매도). 현재가 상단 밴드 돌파 시 익절 매도, 손절 기준 % 이상 하락 시 손절. 자동매매 시작 시 과거 N일 종가로 버퍼 적재.',
   trend_filter:          '장기 MA(기본 200일) 위에서 단기 MA(5일)가 중기 MA(20일)를 상회할 때만 매수(이중 추세 확인). 현재가가 장기 MA 아래로 하락하면 추세 반전으로 판단하여 청산. 자동매매 시작 시 과거 종가로 버퍼 적재.',
+  price_condition:        '지정가 이하에서 자동 매수. 매수 후 지정가 또는 설정 % 이상 상승 시 익절 매도, 손절 % 이하 하락 시 손절. 가격/비율 조건을 각각 설정하거나 조합해서 사용 가능. 0은 해당 조건 비활성.',
 }
 
 function getStrategyType(id: string): string {
@@ -131,6 +138,7 @@ function getStrategyType(id: string): string {
   if (id.startsWith('volatility_expansion'))     return 'volatility_expansion'
   if (id.startsWith('mean_reversion'))            return 'mean_reversion'
   if (id.startsWith('trend_filter'))              return 'trend_filter'
+  if (id.startsWith('price_condition'))            return 'price_condition'
   return 'unknown'
 }
 

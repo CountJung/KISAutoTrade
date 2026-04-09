@@ -568,7 +568,8 @@ impl KisRestClient {
             rt_cd: String,
             msg1: String,
             output1: Option<Vec<OverseasBalanceItem>>,
-            output2: Option<Vec<OverseasBalanceSummary>>,
+            // output2는 배열이 아닌 단일 오브젝트(map)로 반환됨
+            output2: Option<OverseasBalanceSummary>,
         }
 
         let raw: Raw = serde_json::from_str(&body).map_err(|e| {
@@ -582,7 +583,7 @@ impl KisRestClient {
 
         Ok(OverseasBalanceResponse {
             items: raw.output1.unwrap_or_default(),
-            summary: raw.output2.and_then(|v| v.into_iter().next()),
+            summary: raw.output2,
         })
     }
 
