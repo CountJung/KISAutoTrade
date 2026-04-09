@@ -31,6 +31,9 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
     case 'get_balance':
       return { method: 'GET', url: '/api/balance' }
 
+    case 'get_overseas_balance':
+      return { method: 'GET', url: '/api/overseas-balance' }
+
     // ─── 현재가 ──────────────────────────────────────────────
     case 'get_price':
       return { method: 'GET', url: `/api/price/${args.symbol}` }

@@ -90,6 +90,46 @@ export interface BalanceResult {
   summary: BalanceSummary | null
 }
 
+// ─── 해외 잔고 ─────────────────────────────────────────────────────
+export interface OverseasBalanceItem {
+  /** 종목코드 (티커) */
+  ovrs_pdno: string
+  /** 종목명 */
+  ovrs_item_name: string
+  /** 해외잔고수량 */
+  ovrs_cblc_qty: string
+  /** 매입평균가격 (USD) */
+  pchs_avg_pric: string
+  /** 현재가 (USD) */
+  now_pric2: string
+  /** 해외주식평가금액 (USD) */
+  ovrs_stck_evlu_amt: string
+  /** 외화평가손익금액 (USD) */
+  frcr_evlu_pfls_amt: string
+  /** 평가손익율 (%) */
+  evlu_pfls_rt: string
+  /** 거래소코드 (NAS/NYS/AMS 등) */
+  ovrs_excg_cd: string
+  /** 시장명 */
+  tr_mket_name: string
+}
+
+export interface OverseasBalanceSummary {
+  /** 외화매입금액합계 (USD) */
+  frcr_pchs_amt1: string
+  /** 해외총손익 (USD) */
+  ovrs_tot_pfls: string
+  /** 외화평가금액합계 (USD) */
+  frcr_evlu_tota: string
+  /** 총수익률 (%) */
+  tot_pftrt: string
+}
+
+export interface OverseasBalanceResult {
+  items: OverseasBalanceItem[]
+  summary: OverseasBalanceSummary | null
+}
+
 // ─── 현재가 ────────────────────────────────────────────────────────
 export interface PriceResponse {
   stck_prpr: string

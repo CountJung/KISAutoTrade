@@ -400,5 +400,80 @@ useEffect(() => {
 }, [inputValue, market])
 ```
 
-> 마지막 업데이트: 2026-04-07T17:48:01
+---
+
+## 해외 잔고 통화 표시 패턴
+
+KIS TTTS3012R은 USD 기준 잔고를 반환한다. KRW 환산이 필요한 경우 근사 환율 상수를 사용한다.
+
+```tsx
+/** 근사 환율 (2026-04-09 기준 1 USD ≈ 1,450원) — 정확도 필요 시 별도 환율 API 연동 */
+const KRW_RATE = 1450
+
+// USD/KRW 토글 상태 — 상위 컴포넌트에서 관리
+const [overseasCurrency, setOverseasCurrency] = useState<'USD' | 'KRW'>('USD')
+
+// 토글 버튼: ButtonGroup 없이 인접 Button 2개로 구현
+<Box sx={{ ml: 'auto', display: 'flex', gap: 0.5 }}>
+  <Button size="small" variant={overseasCurrency === 'USD' ? 'contained' : 'outlined'}
+    onClick={() => setOverseasCurrency('USD')} sx={{ minWidth: 48, px: 1 }}>USD</Button>
+  <Button size="small" variant={overseasCurrency === 'KRW' ? 'contained' : 'outlined'}
+    onClick={() => setOverseasCurrency('KRW')} sx={{ minWidth: 48, px: 1 }}>KRW</Button>
+</Box>
+
+// 값 표시: 컴포넌트 내부 헬퍼 함수 (state 클로저 활용)
+const fmtFx = (usdStr: string) => {
+  const v = parseFloat(usdStr)
+  return overseasCurrency === 'USD'
+    ? `$${v.toFixed(2)}`
+    : `${Math.round(v * KRW_RATE).toLocaleString('ko-KR')}원`
+}
+```
+
+❌ **잘못된 패턴**: KRW 환산 시 환율 상수 없이 하드코딩된 숫자 직접 사용  
+✅ **올바른 패턴**: 파일 상단에 `KRW_RATE` 상수와 주석으로 날짜 및 근거 명시
+
+---
+
+## 대시보드 패널 확장/축소 패턴
+
+**리스크 관리처럼 항상 표시해야 하는 패널**은 `Collapse`를 사용하지 않는다.  
+대신 기능 ON/OFF 버튼을 패널 내부에 배치한다.
+
+```tsx
+// ❌ 잘못된 패턴 — 리스크 관리 같은 중요 패널에 Collapse 사용
+<Stack onClick={() => setExpanded(v => !v)} sx={{ cursor: 'pointer' }}>
+  <Typography>리스크 관리</Typography>
+  <IconButton><ExpandMoreIcon /></IconButton>
+</Stack>
+<Collapse in={expanded}><RiskPanel /></Collapse>
+
+// ✅ 올바른 패턴 — 항상 펼쳐서 표시, 기능은 버튼으로 제어
+<Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
+  <Typography variant="subtitle1" fontWeight={600}>리스크 관리</Typography>
+  <Tooltip title="..."><InfoOutlinedIcon /></Tooltip>
+</Stack>
+<Divider sx={{ mb: 1.5 }} />
+<RiskPanel />  {/* 항상 표시 */}
+```
+
+비상정지 상태 토글 버튼 패턴:
+```tsx
+// 비상정지 상태에 따라 다른 버튼 표시
+<Stack direction="row" justifyContent="space-between" alignItems="center" mt={1.5}>
+  <Typography variant="caption" color={
+    risk.isEmergencyStop ? 'error.main' : risk.canTrade ? 'success.main' : 'warning.main'
+  }>
+    {risk.isEmergencyStop ? '🚫 비상정지 활성' : risk.canTrade ? '✅ 거래 가능' : '⚠️ 거래 불가'}
+  </Typography>
+  {!risk.isEmergencyStop && (
+    <Button variant="outlined" color="warning" size="small"
+      startIcon={<WarningAmberIcon fontSize="small" />}
+      onClick={() => activateStop()}
+    >비상정지 발동</Button>
+  )}
+</Stack>
+```
+
+> 마지막 업데이트: 2026-04-09T12:30:00
 

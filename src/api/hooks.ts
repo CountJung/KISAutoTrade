@@ -19,6 +19,7 @@ import type {
   AddProfileInput,
   AppConfigView,
   BalanceResult,
+  OverseasBalanceResult,
   ChartCandle,
   ConfigDiagnostic,
   DailyStats,
@@ -59,6 +60,7 @@ export const KEYS = {
   positions: ['positions'] as const,
   strategies: ['strategies'] as const,
   balance: ['balance'] as const,
+  overseasBalance: ['overseasBalance'] as const,
   price: (symbol: string) => ['price', symbol] as const,
   todayExecuted: ['todayExecuted'] as const,
   todayTrades: ['todayTrades'] as const,
@@ -101,6 +103,18 @@ export function useBalance(
     queryFn: cmd.getBalance,
     staleTime: 30_000,
     refetchInterval: POLL_INTERVALS.SLOW, // 60s — 스케쥴러 기준
+    ...options,
+  })
+}
+
+export function useOverseasBalance(
+  options?: Partial<UseQueryOptions<OverseasBalanceResult>>
+) {
+  return useQuery({
+    queryKey: KEYS.overseasBalance,
+    queryFn: cmd.getOverseasBalance,
+    staleTime: 30_000,
+    refetchInterval: POLL_INTERVALS.SLOW, // 60s
     ...options,
   })
 }
@@ -657,6 +671,16 @@ export function useClearEmergencyStop() {
   const qc = useQueryClient()
   return useMutation<RiskConfigView, Error, void>({
     mutationFn: () => cmd.clearEmergencyStop(),
+    onSuccess: (data) => {
+      qc.setQueryData(KEYS.riskConfig, data)
+    },
+  })
+}
+
+export function useActivateEmergencyStop() {
+  const qc = useQueryClient()
+  return useMutation<RiskConfigView, Error, void>({
+    mutationFn: () => cmd.activateEmergencyStop(),
     onSuccess: (data) => {
       qc.setQueryData(KEYS.riskConfig, data)
     },

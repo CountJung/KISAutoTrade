@@ -98,6 +98,31 @@ impl PositionTracker {
         self.positions.get(symbol)
     }
 
+    /// 잔고 API 응답으로부터 포지션 초기화 (비어있을 때만 적용)
+    ///
+    /// 앱 재시작 시 in-memory tracker가 비어있을 때 KIS 잔고 응답으로 복원한다.
+    /// 이미 포지션이 있으면 세션 상태를 보존하기 위해 아무것도 하지 않는다.
+    ///
+    /// 입력: `(symbol, name, qty, avg_price, current_price)` 이터레이터
+    /// - 국내: avg_price/current_price = KRW 정수
+    /// - 해외: avg_price/current_price = USD × 100 (센트 정수화)
+    pub fn load_if_empty<I>(&mut self, entries: I)
+    where
+        I: IntoIterator<Item = (String, String, u64, u64, u64)>,
+    {
+        if !self.positions.is_empty() {
+            return; // 이미 포지션이 있으면 세션 상태 유지
+        }
+        for (symbol, name, qty, avg_price, current_price) in entries {
+            if qty == 0 {
+                continue;
+            }
+            let mut pos = Position::new(symbol.clone(), name, qty, avg_price);
+            pos.current_price = current_price;
+            self.positions.insert(symbol, pos);
+        }
+    }
+
     /// 총 평가손익
     pub fn total_pnl(&self) -> i64 {
         self.positions.values().map(|p| p.unrealized_pnl()).sum()

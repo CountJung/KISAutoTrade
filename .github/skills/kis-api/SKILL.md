@@ -748,4 +748,63 @@ if is_rate_limit && attempt < MAX_RETRIES - 1 {
 }
 ```
 
-> 마지막 업데이트: 2026-04-09T10:30:00
+---
+
+## 해외 자동매매 — 주요 패턴
+
+### 거래소 코드 변환 (가격 API vs 주문 API)
+
+```
+가격 조회 EXCD:  NAS  →  주문 OVRS_EXCG_CD: NASD
+가격 조회 EXCD:  NYS  →  주문 OVRS_EXCG_CD: NYSE
+가격 조회 EXCD:  AMS  →  주문 OVRS_EXCG_CD: AMEX
+```
+
+❌ **잘못된 패턴**: NAS 코드를 그대로 `place_overseas_order`에 사용  
+✅ **올바른 패턴**: 아래 매핑 후 사용
+
+```rust
+let order_exch = match exch.as_str() {
+    "NAS" => "NASD",
+    "NYS" => "NYSE",
+    "AMS" => "AMEX",
+    other => other,
+};
+```
+
+### 해외 자동매매는 지정가만 지원
+
+KIS 해외 주문 API (`TTTT1002U`)는 시장가(ord_dvsn="00"만)를 지원하지 않는다.  
+`fetch_overseas_tick`에서 반환된 현재가를 그대로 지정가로 사용한다.
+
+```rust
+// fetch_overseas_tick → (price_cents, volume, exchange)
+// price_cents = USD × 100
+let usd_price = tick_price as f64 / 100.0;
+```
+
+### submit_signal 시그니처 (현재 버전)
+
+```rust
+pub async fn submit_signal(
+    &mut self,
+    signal: Signal,
+    symbol_name: &str,
+    total_balance: i64,
+    exchange: Option<String>,  // None = 국내, Some("NAS"/"NYS"/"AMS") = 해외
+    tick_price: u64,           // 국내 = 원, 해외 = USD × 100
+) -> Result<()>
+```
+
+### 해외 잔고 조회 (TTTS3012R / VTTS3012R)
+
+```
+GET /uapi/overseas-stock/v1/trading/inquire-balance
+params: CANO, ACNT_PRDT_CD, OVRS_EXCG_CD(""), TR_CRCY_CD("USD"),
+        CTX_AREA_FK200(""), CTX_AREA_NK200("")
+```
+
+응답 output1 (per item): `ovrs_pdno`, `ovrs_item_name`, `ovrs_cblc_qty`, `pchs_avg_pric`, `now_pric2`, `ovrs_stck_evlu_amt`, `frcr_evlu_pfls_amt`, `evlu_pfls_rt`, `ovrs_excg_cd`, `tr_mket_name`  
+응답 output2 (summary): `frcr_pchs_amt1`, `ovrs_tot_pfls`, `frcr_evlu_tota`, `tot_pftrt`
+
+> 마지막 업데이트: 2026-04-09T13:00:00

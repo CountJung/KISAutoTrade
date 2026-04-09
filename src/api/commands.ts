@@ -10,6 +10,7 @@ import type {
   AppConfigView,
   AppLogEntry,
   BalanceResult,
+  OverseasBalanceResult,
   ChartCandle,
   ChartDataInput,
   ConfigDiagnostic,
@@ -65,6 +66,9 @@ export const setActiveProfile = (id: string): Promise<AppConfigView> =>
 // ─── 잔고 ──────────────────────────────────────────────────────────
 export const getBalance = (): Promise<BalanceResult> =>
   invoke('get_balance')
+
+export const getOverseasBalance = (): Promise<OverseasBalanceResult> =>
+  invoke('get_overseas_balance')
 
 // ─── 현재가 ────────────────────────────────────────────────────────
 export const getPrice = (symbol: string): Promise<PriceResponse> =>
@@ -210,6 +214,9 @@ export const updateRiskConfig = (input: UpdateRiskConfigInput): Promise<RiskConf
 
 export const clearEmergencyStop = (): Promise<RiskConfigView> =>
   invoke('clear_emergency_stop')
+
+export const activateEmergencyStop = (): Promise<RiskConfigView> =>
+  invoke('activate_emergency_stop')
 
 // ─── 미체결 주문 목록 ──────────────────────────────────────────────
 export const getPendingOrders = (): Promise<PendingOrderView[]> =>

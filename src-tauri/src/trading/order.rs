@@ -21,6 +21,7 @@ use tokio::sync::{Mutex, RwLock};
 use crate::{
     api::rest::{
         KisRestClient, OrderRequest, OrderResponse, OrderSide as RestOrderSide, OrderType,
+        OverseasOrderRequest,
     },
     notifications::{discord::DiscordNotifier, types::NotificationEvent},
     storage::{
@@ -98,19 +99,23 @@ impl OrderManager {
     ///
     /// - `symbol_name`: 한국어 종목명 (PositionTracker, 알림에 사용)
     /// - `total_balance`: 총 잔고(원) — 0이면 포지션 비중 검사 skip
+    /// - `exchange`: None = 국내, Some("NAS"/"NYS"/"AMS") = 해외
+    /// - `tick_price`: 현재가 (국내 = 원, 해외 = USD × 100)
     pub async fn submit_signal(
         &mut self,
         signal: Signal,
         symbol_name: &str,
         total_balance: i64,
+        exchange: Option<String>,
+        tick_price: u64,
     ) -> Result<()> {
         match signal {
             Signal::Buy { symbol, quantity, reason } => {
-                self.process_buy(symbol, symbol_name.to_string(), quantity, reason, total_balance)
+                self.process_buy(symbol, symbol_name.to_string(), quantity, reason, total_balance, exchange, tick_price)
                     .await
             }
             Signal::Sell { symbol, quantity, reason } => {
-                self.process_sell(symbol, symbol_name.to_string(), quantity, reason)
+                self.process_sell(symbol, symbol_name.to_string(), quantity, reason, exchange, tick_price)
                     .await
             }
             Signal::Hold => Ok(()),
@@ -280,6 +285,8 @@ impl OrderManager {
         quantity: u64,
         reason: String,
         total_balance: i64,
+        exchange: Option<String>,
+        tick_price: u64,
     ) -> Result<()> {
         // ③ 중복 주문 방지
         if self.symbol_to_odno.contains_key(&symbol) {
@@ -312,15 +319,40 @@ impl OrderManager {
             }
         }
 
-        // ① 시장가 매수 주문 실행 (⑩ 재시도 포함)
-        let req = OrderRequest {
-            symbol: symbol.clone(),
-            side: RestOrderSide::Buy,
-            order_type: OrderType::Market,
-            quantity,
-            price: 0,
+        // ① 주문 실행 — 해외(지정가 USD) / 국내(시장가 KRW) 분기
+        let response = if let Some(ref exch) = exchange {
+            // 해외 지정가 주문 (KIS 해외는 시장가 미지원)
+            // fetch_overseas_tick 반환 코드(NAS/NYS/AMS) → 주문 코드(NASD/NYSE/AMEX) 변환
+            let order_exch = match exch.as_str() {
+                "NAS" => "NASD",
+                "NYS" => "NYSE",
+                "AMS" => "AMEX",
+                other => other,
+            };
+            let usd_price = tick_price as f64 / 100.0;
+            let req = OverseasOrderRequest {
+                symbol: symbol.clone(),
+                exchange: order_exch.to_string(),
+                side: RestOrderSide::Buy,
+                quantity,
+                price: usd_price,
+            };
+            tracing::info!(
+                "해외 매수 주문 시도: {} {}주 @ ${:.2} ({}) — {}",
+                symbol, quantity, usd_price, order_exch, reason
+            );
+            self.place_overseas_with_retry(&req).await?
+        } else {
+            // 국내 시장가 매수
+            let req = OrderRequest {
+                symbol: symbol.clone(),
+                side: RestOrderSide::Buy,
+                order_type: OrderType::Market,
+                quantity,
+                price: 0,
+            };
+            self.place_with_retry(&req).await?
         };
-        let response = self.place_with_retry(&req).await?;
         tracing::info!(
             "매수 주문 접수: {} {}주 — {} (odno: {})",
             symbol,
@@ -339,6 +371,8 @@ impl OrderManager {
         symbol_name: String,
         quantity: u64,
         reason: String,
+        exchange: Option<String>,
+        tick_price: u64,
     ) -> Result<()> {
         // ③ 중복 주문 방지
         if self.symbol_to_odno.contains_key(&symbol) {
@@ -346,16 +380,22 @@ impl OrderManager {
             return Ok(());
         }
 
-        // 보유 포지션 확인 (없으면 매도 불가)
-        let position_qty = {
-            let tracker = self.position_tracker.lock().await;
-            tracker.get(&symbol).map(|p| p.quantity).unwrap_or(0)
+        // 보유 포지션 확인
+        // - 국내: position_tracker 확인 필수
+        // - 해외: tracker 미동기화 상태일 수 있으므로 수량 그대로 신뢰
+        let sell_qty = if exchange.is_none() {
+            let position_qty = {
+                let tracker = self.position_tracker.lock().await;
+                tracker.get(&symbol).map(|p| p.quantity).unwrap_or(0)
+            };
+            if position_qty == 0 {
+                tracing::debug!("매도 스킵 — {} 보유 포지션 없음", symbol);
+                return Ok(());
+            }
+            quantity.min(position_qty)
+        } else {
+            quantity
         };
-        if position_qty == 0 {
-            tracing::debug!("매도 스킵 — {} 보유 포지션 없음", symbol);
-            return Ok(());
-        }
-        let sell_qty = quantity.min(position_qty);
 
         // ⑧ 비상정지 확인 (매도는 손실한도와 무관하게 실행 허용)
         if self.risk_manager.lock().await.is_emergency_stop() {
@@ -363,15 +403,37 @@ impl OrderManager {
             return Ok(());
         }
 
-        // ① 시장가 매도 주문 실행 (⑩ 재시도 포함)
-        let req = OrderRequest {
-            symbol: symbol.clone(),
-            side: RestOrderSide::Sell,
-            order_type: OrderType::Market,
-            quantity: sell_qty,
-            price: 0,
+        // ① 주문 실행 — 해외(지정가 USD) / 국내(시장가 KRW) 분기
+        let response = if let Some(ref exch) = exchange {
+            let order_exch = match exch.as_str() {
+                "NAS" => "NASD",
+                "NYS" => "NYSE",
+                "AMS" => "AMEX",
+                other => other,
+            };
+            let usd_price = tick_price as f64 / 100.0;
+            let req = OverseasOrderRequest {
+                symbol: symbol.clone(),
+                exchange: order_exch.to_string(),
+                side: RestOrderSide::Sell,
+                quantity: sell_qty,
+                price: usd_price,
+            };
+            tracing::info!(
+                "해외 매도 주문 시도: {} {}주 @ ${:.2} ({}) — {}",
+                symbol, sell_qty, usd_price, order_exch, reason
+            );
+            self.place_overseas_with_retry(&req).await?
+        } else {
+            let req = OrderRequest {
+                symbol: symbol.clone(),
+                side: RestOrderSide::Sell,
+                order_type: OrderType::Market,
+                quantity: sell_qty,
+                price: 0,
+            };
+            self.place_with_retry(&req).await?
         };
-        let response = self.place_with_retry(&req).await?;
         tracing::info!(
             "매도 주문 접수: {} {}주 — {} (odno: {})",
             symbol,
@@ -437,6 +499,36 @@ impl OrderManager {
                     if is_rate_limit && attempt < MAX_RETRIES - 1 {
                         tracing::warn!(
                             "KIS rate-limit ({}) — 2초 후 재시도 ({}/{})",
+                            if msg.contains("EGW00201") { "EGW00201" } else { "EGW00133" },
+                            attempt + 1,
+                            MAX_RETRIES
+                        );
+                        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                        last_err = e;
+                    } else {
+                        return Err(e);
+                    }
+                }
+            }
+        }
+        Err(last_err)
+    }
+
+    /// ⑩ 해외 주문 재시도 — 국내와 동일한 rate-limit 재시도 로직
+    async fn place_overseas_with_retry(&self, req: &OverseasOrderRequest) -> Result<OrderResponse> {
+        const MAX_RETRIES: u32 = 3;
+        let mut last_err = anyhow::anyhow!("해외 주문 최대 재시도 횟수(3회) 초과");
+
+        for attempt in 0..MAX_RETRIES {
+            let client = self.rest_client.read().await.clone();
+            match client.place_overseas_order(req).await {
+                Ok(resp) => return Ok(resp),
+                Err(e) => {
+                    let msg = e.to_string();
+                    let is_rate_limit = msg.contains("EGW00133") || msg.contains("EGW00201");
+                    if is_rate_limit && attempt < MAX_RETRIES - 1 {
+                        tracing::warn!(
+                            "KIS rate-limit (해외, {}) — 2초 후 재시도 ({}/{})",
                             if msg.contains("EGW00201") { "EGW00201" } else { "EGW00133" },
                             attempt + 1,
                             MAX_RETRIES

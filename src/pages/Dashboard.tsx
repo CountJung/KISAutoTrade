@@ -16,7 +16,6 @@ import Stack from '@mui/material/Stack'
 import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import LinearProgress from '@mui/material/LinearProgress'
-import Collapse from '@mui/material/Collapse'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import RefreshIcon from '@mui/icons-material/Refresh'
@@ -26,8 +25,6 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
 import SaveIcon from '@mui/icons-material/Save'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
 import { useState } from 'react'
@@ -36,6 +33,7 @@ import { useNavigate } from '@tanstack/react-router'
 
 import {
   useBalance,
+  useOverseasBalance,
   useTodayStats,
   useCheckConfig,
   useTradingStatus,
@@ -47,12 +45,16 @@ import {
   useRiskConfig,
   useUpdateRiskConfig,
   useClearEmergencyStop,
+  useActivateEmergencyStop,
   KEYS,
 } from '../api/hooks'
 
 function fmt(n: number) {
   return n.toLocaleString('ko-KR')
 }
+
+/** 해외주식 KRW 환산 근사 환율 (2026-04-09 기준: 1 USD ≈ 1,450원) */
+const KRW_RATE = 1450
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -63,6 +65,7 @@ function RiskPanel() {
   const { data: risk, isLoading } = useRiskConfig()
   const { mutate: update, isPending: saving } = useUpdateRiskConfig()
   const { mutate: clearStop, isPending: clearing } = useClearEmergencyStop()
+  const { mutate: activateStop, isPending: activating } = useActivateEmergencyStop()
 
   const [limitInput, setLimitInput]   = useState('')
   const [ratioInput, setRatioInput]   = useState('')
@@ -198,15 +201,33 @@ function RiskPanel() {
         </Grid>
       </Grid>
 
-      {!risk.isEmergencyStop && (
+      {/* 거래 상태 + 비상정지 수동 발동 버튼 */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mt={1.5}>
         <Typography
           variant="caption"
-          color={risk.canTrade ? 'success.main' : 'warning.main'}
-          sx={{ mt: 1, display: 'block' }}
+          color={risk.isEmergencyStop ? 'error.main' : risk.canTrade ? 'success.main' : 'warning.main'}
         >
-          {risk.canTrade ? '✅ 거래 가능 상태' : '⚠️ 거래 불가 상태'}
+          {risk.isEmergencyStop
+            ? '🚫 비상정지 활성 — 자동매매 중단됨'
+            : risk.canTrade ? '✅ 거래 가능 상태' : '⚠️ 거래 불가 상태'}
         </Typography>
-      )}
+        {!risk.isEmergencyStop && (
+          <Button
+            variant="outlined"
+            color="warning"
+            size="small"
+            startIcon={
+              activating
+                ? <CircularProgress size={14} color="inherit" />
+                : <WarningAmberIcon fontSize="small" />
+            }
+            onClick={() => activateStop()}
+            disabled={activating}
+          >
+            비상정지 발동
+          </Button>
+        )}
+      </Stack>
     </Box>
   )
 }
@@ -423,9 +444,10 @@ export default function Dashboard() {
   const qc = useQueryClient()
   const navigate = useNavigate()
 
-  const [riskExpanded, setRiskExpanded] = useState(false)
+  const [overseasCurrency, setOverseasCurrency] = useState<'USD' | 'KRW'>('USD')
 
   const { data: balance, isLoading: balanceLoading, isError: balanceError, error: balanceErrorDetail } = useBalance()
+  const { data: overseasBalance } = useOverseasBalance()
   const { data: stats, isLoading: statsLoading } = useTodayStats()
   const { data: diag } = useCheckConfig()
   const { data: tradingStatus } = useTradingStatus()
@@ -442,6 +464,7 @@ export default function Dashboard() {
 
   const handleRefresh = () => {
     void qc.invalidateQueries({ queryKey: KEYS.balance })
+    void qc.invalidateQueries({ queryKey: KEYS.overseasBalance })
     void qc.invalidateQueries({ queryKey: KEYS.todayStats })
     void qc.invalidateQueries({ queryKey: KEYS.tradingStatus })
     void qc.invalidateQueries({ queryKey: KEYS.positions })
@@ -582,6 +605,106 @@ export default function Dashboard() {
         )}
       </Paper>
 
+      {/* ── 해외 보유주식 ──────────────────────────────────────────── */}
+      {overseasBalance && overseasBalance.items.length > 0 && (
+        <Paper sx={{ p: 2.5, mb: 2 }}>
+          <Stack direction="row" alignItems="center" spacing={1} mb={1.5} flexWrap="wrap">
+            <Typography variant="subtitle1" fontWeight={600}>해외 보유주식</Typography>
+            <Chip
+              size="small"
+              label={`${overseasBalance.items.length}종목`}
+              color="primary"
+              sx={{ height: 20, fontSize: '0.7rem' }}
+            />
+            {overseasBalance.summary && (
+              <Typography variant="caption" color="text.secondary">
+                평가금액{' '}
+                {overseasCurrency === 'USD'
+                  ? `$${parseFloat(overseasBalance.summary.frcr_evlu_tota).toFixed(2)}`
+                  : `${Math.round(parseFloat(overseasBalance.summary.frcr_evlu_tota) * KRW_RATE).toLocaleString('ko-KR')}원`}
+                {' · '}
+                수익률 {parseFloat(overseasBalance.summary.tot_pftrt).toFixed(2)}%
+              </Typography>
+            )}
+            {/* USD / KRW 통화 토글 */}
+            <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5 }}>
+              <Button
+                size="small"
+                variant={overseasCurrency === 'USD' ? 'contained' : 'outlined'}
+                onClick={() => setOverseasCurrency('USD')}
+                sx={{ minWidth: 48, px: 1, py: 0.25 }}
+              >USD</Button>
+              <Button
+                size="small"
+                variant={overseasCurrency === 'KRW' ? 'contained' : 'outlined'}
+                onClick={() => setOverseasCurrency('KRW')}
+                sx={{ minWidth: 48, px: 1, py: 0.25 }}
+              >KRW</Button>
+            </Box>
+          </Stack>
+          <Divider sx={{ mb: 1.5 }} />
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>종목명</TableCell>
+                  <TableCell align="right">수량</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>평균단가({overseasCurrency})</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>현재가({overseasCurrency})</TableCell>
+                  <TableCell align="right">평가손익({overseasCurrency})</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>수익률</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {overseasBalance.items.map((item) => {
+                  const pnlUsd = parseFloat(item.frcr_evlu_pfls_amt)
+                  const pnlRate = parseFloat(item.evlu_pfls_rt)
+                  const fmtFx = (usdStr: string) => {
+                    const v = parseFloat(usdStr)
+                    return overseasCurrency === 'USD'
+                      ? `$${v.toFixed(2)}`
+                      : `${Math.round(v * KRW_RATE).toLocaleString('ko-KR')}원`
+                  }
+                  const pnlSign = pnlUsd >= 0 ? '+' : ''
+                  const pnlDisplay = overseasCurrency === 'USD'
+                    ? `${pnlSign}$${pnlUsd.toFixed(2)}`
+                    : `${pnlSign}${Math.round(pnlUsd * KRW_RATE).toLocaleString('ko-KR')}원`
+                  return (
+                    <TableRow key={item.ovrs_pdno} hover>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={500}>{item.ovrs_item_name}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {item.ovrs_pdno} · {item.ovrs_excg_cd}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">{item.ovrs_cblc_qty}</TableCell>
+                      <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                        {fmtFx(item.pchs_avg_pric)}
+                      </TableCell>
+                      <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                        {fmtFx(item.now_pric2)}
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{ color: pnlUsd >= 0 ? 'success.main' : 'error.main', fontWeight: 600 }}
+                      >
+                        {pnlDisplay}
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{ color: pnlRate >= 0 ? 'success.main' : 'error.main', display: { xs: 'none', md: 'table-cell' } }}
+                      >
+                        {pnlRate >= 0 ? '+' : ''}{pnlRate.toFixed(2)}%
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
+
       {/* ── 요약 통계 카드 ──────────────────────────────────────── */}
       <Grid container spacing={2} mb={3}>
         <Grid item xs={12} sm={6} md={3}>
@@ -645,15 +768,9 @@ export default function Dashboard() {
         <FilledOrdersPanel />
       </Paper>
 
-      {/* ── 리스크 관리 (펼치기/접기) ────────────────────────────── */}
+      {/* ── 리스크 관리 (항상 표시) ────────────────────────────── */}
       <Paper sx={{ p: 2.5 }}>
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={1}
-          onClick={() => setRiskExpanded(v => !v)}
-          sx={{ cursor: 'pointer', userSelect: 'none' }}
-        >
+        <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
           <Typography variant="subtitle1" fontWeight={600}>리스크 관리</Typography>
           <Tooltip
             title="일일 손실이 한도를 초과하거나, 종목 비중이 초과되면 주문이 자동으로 차단됩니다."
@@ -661,16 +778,9 @@ export default function Dashboard() {
           >
             <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.disabled' }} />
           </Tooltip>
-          <Box sx={{ ml: 'auto' }}>
-            <IconButton size="small" tabIndex={-1}>
-              {riskExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-            </IconButton>
-          </Box>
         </Stack>
-        <Collapse in={riskExpanded}>
-          <Divider sx={{ my: 1.5 }} />
-          <RiskPanel />
-        </Collapse>
+        <Divider sx={{ mb: 1.5 }} />
+        <RiskPanel />
       </Paper>
     </Box>
   )

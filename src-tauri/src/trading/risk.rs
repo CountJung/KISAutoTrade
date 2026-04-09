@@ -84,6 +84,12 @@ impl RiskManager {
         tracing::info!("비상 정지 해제");
     }
 
+    /// 비상 정지 수동 발동 (사용자 요청)
+    pub fn trigger_emergency_stop(&mut self) {
+        self.emergency_stop = true;
+        tracing::warn!("비상 정지 수동 발동 (사용자 요청)");
+    }
+
     /// 일 초기화 (매 거래일 시작 시 호출)
     pub fn reset_daily(&mut self) {
         self.current_loss = 0;

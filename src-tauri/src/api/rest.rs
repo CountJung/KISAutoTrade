@@ -113,6 +113,85 @@ pub struct BalanceResponse {
 }
 
 // ────────────────────────────────────────────────────────────────────
+// 해외 잔고 조회
+// ────────────────────────────────────────────────────────────────────
+
+/// 해외 잔고 응답 (1건, TTTS3012R output1)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OverseasBalanceItem {
+    /// 종목코드 (티커)
+    pub ovrs_pdno: String,
+    /// 종목명
+    pub ovrs_item_name: String,
+    /// 해외잔고수량
+    pub ovrs_cblc_qty: String,
+    /// 매입평균가격 (USD)
+    pub pchs_avg_pric: String,
+    /// 현재가 (USD)
+    pub now_pric2: String,
+    /// 해외주식평가금액 (USD)
+    pub ovrs_stck_evlu_amt: String,
+    /// 외화평가손익금액 (USD)
+    pub frcr_evlu_pfls_amt: String,
+    /// 평가손익율 (%)
+    pub evlu_pfls_rt: String,
+    /// 거래소코드 (NAS/NYS/AMS 등)
+    pub ovrs_excg_cd: String,
+    /// 시장명
+    pub tr_mket_name: String,
+}
+
+impl Default for OverseasBalanceItem {
+    fn default() -> Self {
+        Self {
+            ovrs_pdno: String::new(),
+            ovrs_item_name: String::new(),
+            ovrs_cblc_qty: String::from("0"),
+            pchs_avg_pric: String::from("0"),
+            now_pric2: String::from("0"),
+            ovrs_stck_evlu_amt: String::from("0"),
+            frcr_evlu_pfls_amt: String::from("0"),
+            evlu_pfls_rt: String::from("0"),
+            ovrs_excg_cd: String::new(),
+            tr_mket_name: String::new(),
+        }
+    }
+}
+
+/// 해외 잔고 요약 (TTTS3012R output2)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OverseasBalanceSummary {
+    /// 외화매입금액합계 (USD)
+    pub frcr_pchs_amt1: String,
+    /// 해외총손익 (USD)
+    pub ovrs_tot_pfls: String,
+    /// 외화평가금액합계 (USD)
+    pub frcr_evlu_tota: String,
+    /// 총수익률 (%)
+    pub tot_pftrt: String,
+}
+
+impl Default for OverseasBalanceSummary {
+    fn default() -> Self {
+        Self {
+            frcr_pchs_amt1: String::from("0"),
+            ovrs_tot_pfls: String::from("0"),
+            frcr_evlu_tota: String::from("0"),
+            tot_pftrt: String::from("0"),
+        }
+    }
+}
+
+/// 해외 잔고 전체 응답
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OverseasBalanceResponse {
+    pub items: Vec<OverseasBalanceItem>,
+    pub summary: Option<OverseasBalanceSummary>,
+}
+
+// ────────────────────────────────────────────────────────────────────
 // 차트 (기간별 시세)
 // ────────────────────────────────────────────────────────────────────
 
@@ -443,6 +522,65 @@ impl KisRestClient {
         }
 
         Ok(BalanceResponse {
+            items: raw.output1.unwrap_or_default(),
+            summary: raw.output2.and_then(|v| v.into_iter().next()),
+        })
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // 해외 잔고 조회
+    // GET /uapi/overseas-stock/v1/trading/inquire-balance
+    // TR-ID: TTTS3012R (실전) / VTTS3012R (모의)
+    // ──────────────────────────────────────────────────────────
+    pub async fn get_overseas_balance(&self) -> Result<OverseasBalanceResponse> {
+        let tr_id = if self.is_paper { "VTTS3012R" } else { "TTTS3012R" };
+        let (cano, acnt_prdt_cd) = self.split_account();
+
+        let url = format!("{}/uapi/overseas-stock/v1/trading/inquire-balance", self.base_url);
+        let headers = self.auth_headers(tr_id).await?;
+
+        let resp = self
+            .client
+            .get(&url)
+            .headers(headers)
+            .query(&[
+                ("CANO", cano),
+                ("ACNT_PRDT_CD", acnt_prdt_cd),
+                ("OVRS_EXCG_CD", ""),   // 빈 문자열 = 전체 거래소
+                ("TR_CRCY_CD", "USD"),  // 달러 기준
+                ("CTX_AREA_FK200", ""),
+                ("CTX_AREA_NK200", ""),
+            ])
+            .send()
+            .await?;
+
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+
+        if !status.is_success() {
+            anyhow::bail!("해외 잔고 조회 실패 HTTP {}: {}", status, body);
+        }
+
+        tracing::debug!("해외 잔고 조회 raw 응답: {}", body);
+
+        #[derive(Deserialize)]
+        struct Raw {
+            rt_cd: String,
+            msg1: String,
+            output1: Option<Vec<OverseasBalanceItem>>,
+            output2: Option<Vec<OverseasBalanceSummary>>,
+        }
+
+        let raw: Raw = serde_json::from_str(&body).map_err(|e| {
+            tracing::error!("해외 잔고 JSON 파싱 실패: {}\nraw body: {}", e, &body[..body.len().min(500)]);
+            anyhow::anyhow!("해외 잔고 JSON 파싱 실패: {}", e)
+        })?;
+
+        if raw.rt_cd != "0" {
+            anyhow::bail!("해외 잔고 조회 오류: {}", raw.msg1);
+        }
+
+        Ok(OverseasBalanceResponse {
             items: raw.output1.unwrap_or_default(),
             summary: raw.output2.and_then(|v| v.into_iter().next()),
         })

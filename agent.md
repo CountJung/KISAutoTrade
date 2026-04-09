@@ -6,8 +6,8 @@
 > - 이 파일이 최신 상태가 아니라면 작업 전에 먼저 갱신한다.
 > - 추측이 아닌 이 맵을 기반으로 작업한다.
 
-**마지막 업데이트**: 2026-04-08T20:00:00  
-**프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (WebSocket Dashboard 연동 ✅, 추가 전략 RSI·모멘텀·이격도·52주신고가·연속상승·돌파실패·강한종가·변동성확장 ✅, 전략 설정 프로파일별 영구 저장 ✅, GitHub Actions 자동 빌드 ✅, 체결 기록 보관 설정+대시보드 조회 ✅, 네비게이션 단일화(Sidebar only) ✅, 모바일 완전 동일 기능 REST API ✅)
+**마지막 업데이트**: 2026-04-09T12:30:00  
+**프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (WebSocket Dashboard 연동 ✅, 추가 전략 RSI·모멘텀·이격도·52주신고가·연속상승·돌파실패·강한종가·변동성확장 ✅, 전략 설정 프로파일별 영구 저장 ✅, GitHub Actions 자동 빌드 ✅, 체결 기록 보관 설정+대시보드 조회 ✅, 네비게이션 단일화(Sidebar only) ✅, 모바일 완전 동일 기능 REST API ✅, 비상정지 수동 발동/해제 버튼 ✅, 해외잔고 USD/KRW 토글 ✅)
 
 ---
 
@@ -104,7 +104,7 @@ AutoConditionTrade/                   ← 루트
 │       ├── lib.rs                    ← Builder 설정 + logging 초기화 ✅
 │       ├── api/
 │       │   ├── mod.rs                ← KisRestClient, KisWebSocketClient 재공개
-│       │   ├── rest.rs               ← KisRestClient — get_balance, place_order, get_today_executed_orders, get_price, get_chart_data, get_overseas_price, get_overseas_chart_data ✅
+│       │   ├── rest.rs               ← KisRestClient — get_balance, get_overseas_balance, place_order, place_overseas_order, get_today_executed_orders, get_price, get_chart_data, get_overseas_price, get_overseas_chart_data ✅
 │       │   ├── token.rs              ← TokenManager — issue_token, get_token, is_expired (auto-refresh) ✅
 │       │   └── websocket.rs          ← KisWebSocketClient — subscribe (WsStatusEvent emit, ws-status Tauri 이벤트) ✅
 │       ├── market/
@@ -117,9 +117,9 @@ AutoConditionTrade/                   ← 루트
 │       ├── trading/
 │       │   ├── mod.rs                ← 장 시간 감지, 전략 루프 실행 ✅
 │       │   ├── strategy.rs       ← Strategy trait, 10개 전략 (MA Cross·RSI·모멘텀·이격도·52주신고가·연속상승하락·돌파실패·강한종가·변동성확장·평균회귀·추세필터), StrategyManager ✅
-│       │   ├── order.rs              ← OrderManager: submit_signal → place_order, on_fill → TradeStore+OrderStore 저장, confirm_fill_by_symbol (시장가 자동 확인), EGW00201 재시도, 빈 ondo UUID fallback ✅
-│       │   ├── position.rs           ← PositionTracker (add_buy/reduce/unrealized_pnl) ✅
-│       │   └── risk.rs               ← RiskManager (emergency_stop, record_pnl, check_position_size) ✅
+│       │   ├── order.rs              ← OrderManager: submit_signal(exchange, tick_price) → place_order(국내)/place_overseas_order(해외) 자동 분기, on_fill → TradeStore+OrderStore 저장, confirm_fill_by_symbol (시장가 자동 확인), EGW00201 재시도, 빈 ondo UUID fallback ✅
+│       │   ├── position.rs           ← PositionTracker (on_buy/on_sell/load_if_empty — 앱 재시작 시 잔고 API로 복원) ✅
+│       │   └── risk.rs               ← RiskManager (emergency_stop, record_pnl, check_position_size, trigger/clear_emergency_stop) ✅
 │       ├── storage/                  ← 연/월/일 JSON 파일 I/O ✅
 │       │   ├── mod.rs                ← build_daily_path, read_json_or_default, write_json
 │       │   ├── trade_store.rs        ← TradeRecord, TradeStore
@@ -205,7 +205,8 @@ AutoConditionTrade/                   ← 루트
 
 | Command | 설명 |
 |---------|------|
-| `get_balance` | 잔고 조회 (BalanceSummary + items) |
+| `get_balance` | 국내 잔고 조회 (BalanceSummary + items, position_tracker 동기화 포함) |
+| `get_overseas_balance` | 해외 잔고 조회 (OverseasBalanceItem[] + summary, TR TTTS3012R) |
 | `get_price` | 종목 현재가 조회 |
 | `get_chart_data` | 종목 차트 데이터 조회 (일봉) |
 | `get_overseas_chart_data` | 해외주식 기간별 차트 데이터 조회 (일/주/월봉) |
@@ -344,6 +345,8 @@ KIS_IS_PAPER_TRADING=false   # 기본값: 실전투자
 | 2026-04-08T14:00:00 | KIS체결내역 제거: Dashboard useTodayExecuted+KIS섹션 삭제, History.tsx KIS탭(Tab0) 제거→로컬 기록 단독뷰; 리스크 관리 이동: Strategy.tsx RiskPanel→Dashboard.tsx 접기/펼치기 Collapse 패널; docs/user-guide.md 상승장 전략 가이드 섹션 추가(EGW00201 분석, 전략 추천/비추천 표) | AI Agent |
 | 2026-04-08T16:00:00 | 시장 시간표 자동 제어: market_hours.rs 신규 모듈 (KRX 09:00-15:30 KST / US 22:00-07:00 KST), lib.rs 등록, commands.rs 폴링 루프에 전체 폐장 5분 대기 + 종목별 skip 게이팅 추가, is_domestic_symbol commands.rs→market_hours.rs 이동, user-guide.md 섹션7(시장 시간표 자동 제어) 추가 | AI Agent || 2026-04-08T18:00:00 | UI 4가지 개선: (1) Dashboard 보유 종목 상단 문제 (2) AppShell TopBar + 자동매매 상태 칩(FiberManualRecord pulse) (3) Settings SliderWithInput 컴포넌트(4개 Slider 교체) (4) 모바일 웹 자동매매: run_trading_daemon 폴링데스크 lib.rs에서 영구 spawn, server/mod.rs /api/trading/* REST 라우트, transport.ts 매핑, MOBILE_HTML start/stop 버튼 추가 | AI Agent |
 | 2026-04-08T20:00:00 | 네비게이션 단일화 + 모바일 완전 동일 기능화: (1) AppShell TopBar 제거 → 모바일 전용 미니 AppBar(햄버거+타이틀만), Sidebar DrawerContent에 자동매매 상태 칩+pulse 이전 — 데스크탑=사이드바 only, 모바일=AppBar+Drawer (2) server/mod.rs ServerState 12개 Arc 필드 추가(config, profiles, trade/stats_store, log_config, trade_archive_config, risk/order_manager, stock/strategy_store 등), 18개 신규 REST 엔드포인트 (/api/app-config, /api/profiles, /api/positions, /api/today-stats, /api/stats, /api/trades, /api/kis-executed, /api/pending-orders, /api/log-config, /api/recent-logs, /api/archive-config, /api/archive-stats, /api/risk-config, /api/risk-config/clear-emergency, /api/web-config, /api/strategies/:id) (3) lib.rs 서버 spawn 18개 Arc 전달 (4) transport.ts resolveRest() 16개 신규 케이스 추가 — 모든 페이지(Dashboard/Trading/Strategy/History/Settings/Log) 웹 모드 완전 지원 | AI Agent |
+| 2026-04-09T00:00:00 | 3개 버그 수정: (1) Dashboard 보유 주식 미표시 — PositionTracker.load_if_empty() 추가, get_balance/get_overseas_balance 호출 시 tracker 복원 (2) 해외 자동매수 실패 — fetch_overseas_tick 거래소 반환(NAS/NYS/AMS), submit_signal(exchange, tick_price) 파라미터 추가, OrderManager.process_buy/sell 국내(시장가)/해외(지정가USD) 분기, place_overseas_with_retry 추가, NAS→NASD 등 주문코드 변환 (3) 해외 잔고 미표시 — rest.rs OverseasBalanceItem/Summary/Response+get_overseas_balance(TR TTTS3012R), get_overseas_balance IPC커맨드, lib.rs 등록, types.ts/commands.ts/hooks.ts 연동, Dashboard 해외보유주식 섹션 추가(USD 표시), server/mod.rs /api/overseas-balance 엔드포인트, transport.ts 매핑 | AI Agent |
+| 2026-04-09T12:30:00 | 4가지 기능 개선: (1) 비상정지 수동 발동 — risk.rs trigger_emergency_stop(), commands.rs activate_emergency_stop IPC, lib.rs 등록, commands.ts/hooks.ts useActivateEmergencyStop 추가 (2) Dashboard RiskPanel Collapse 제거 → 항상 펼침, 비상정지 발동/해제 버튼 토글 (하락장 대응) (3) 해외 보유주식 USD/KRW 토글 — KRW_RATE=1450 근사 환산, 헤더 버튼 2개 (4) user-guide.md 섹션8 하락장 방어전략(2026-04-09) + 섹션9 FAQ(수수료 0원 이유) 추가 | AI Agent |
 ---
 
 > **에이전트에게**: 이 파일을 읽었으면 작업을 시작하세요.  

@@ -16,7 +16,7 @@ use tokio::sync::{Mutex, RwLock};
 
 use crate::{
     api::{
-        rest::{BalanceItem, BalanceSummary, ChartCandle, ExecutedOrder, KisRestClient, OrderRequest, OrderResponse, PriceResponse, StockSearchItem},
+        rest::{BalanceItem, BalanceSummary, ChartCandle, ExecutedOrder, KisRestClient, OrderRequest, OrderResponse, OverseasBalanceItem, OverseasBalanceSummary, PriceResponse, StockSearchItem},
         token::TokenManager,
     },
     config::{AccountProfile, AppConfig, DiscordConfig, ProfilesConfig},
@@ -814,10 +814,65 @@ pub async fn get_balance(state: State<'_, AppState>) -> CmdResult<BalanceResult>
             state.stock_store.upsert_many(
                 resp.items.iter().map(|i| (i.pdno.clone(), i.prdt_name.clone()))
             ).await;
+            // 앱 재시작 후 position_tracker가 비어있으면 잔고 응답으로 복원
+            {
+                let mut tracker = state.position_tracker.lock().await;
+                tracker.load_if_empty(
+                    resp.items.iter().map(|i| (
+                        i.pdno.clone(),
+                        i.prdt_name.clone(),
+                        i.hldg_qty.parse::<u64>().unwrap_or(0),
+                        i.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) as u64,
+                        i.prpr.parse::<u64>().unwrap_or(0),
+                    ))
+                );
+            }
             Ok(BalanceResult { items: resp.items, summary: resp.summary })
         }
         Err(e) => {
             tracing::error!("잔고 조회 실패: {}", e);
+            Err(CmdError::from(e))
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 해외 잔고 조회
+// ────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+pub struct OverseasBalanceResult {
+    pub items: Vec<OverseasBalanceItem>,
+    pub summary: Option<OverseasBalanceSummary>,
+}
+
+#[tauri::command]
+pub async fn get_overseas_balance(state: State<'_, AppState>) -> CmdResult<OverseasBalanceResult> {
+    let client = state.rest_client.read().await.clone();
+    match client.get_overseas_balance().await {
+        Ok(resp) => {
+            tracing::info!(
+                "해외 잔고 조회 성공: 보유종목 {}개",
+                resp.items.len()
+            );
+            // 국내 잔고 미존재 시 해외 포지션으로 position_tracker 초기화
+            // (USD 가격은 cents ×100 변환으로 u64 정수화)
+            {
+                let mut tracker = state.position_tracker.lock().await;
+                tracker.load_if_empty(
+                    resp.items.iter().map(|i| (
+                        i.ovrs_pdno.clone(),
+                        i.ovrs_item_name.clone(),
+                        i.ovrs_cblc_qty.parse::<u64>().unwrap_or(0),
+                        (i.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) * 100.0) as u64,
+                        (i.now_pric2.parse::<f64>().unwrap_or(0.0) * 100.0) as u64,
+                    ))
+                );
+            }
+            Ok(OverseasBalanceResult { items: resp.items, summary: resp.summary })
+        }
+        Err(e) => {
+            tracing::error!("해외 잔고 조회 실패: {}", e);
             Err(CmdError::from(e))
         }
     }
@@ -1459,18 +1514,23 @@ pub async fn run_trading_daemon(
                 continue;
             }
 
-            let tick = if is_domestic_symbol(symbol) {
-                rest.get_price(symbol).await
-                    .map(|p| {
-                        let price  = p.stck_prpr.parse::<u64>().unwrap_or(0);
-                        let volume = p.acml_vol.parse::<u64>().unwrap_or(0);
-                        (price, volume)
-                    })
-                    .map_err(|e| e.to_string())
-            } else {
-                fetch_overseas_tick(&rest, symbol).await
-                    .map_err(|e| e.to_string())
-            };
+            // 현재가 조회 + 해외 주문용 거래소 코드 캡처 (단일 호출)
+            let (tick, exchange_opt): (Result<(u64, u64), String>, Option<String>) =
+                if is_domestic_symbol(symbol) {
+                    let t = rest.get_price(symbol).await
+                        .map(|p| {
+                            let price  = p.stck_prpr.parse::<u64>().unwrap_or(0);
+                            let volume = p.acml_vol.parse::<u64>().unwrap_or(0);
+                            (price, volume)
+                        })
+                        .map_err(|e| e.to_string());
+                    (t, None)
+                } else {
+                    match fetch_overseas_tick(&rest, symbol).await {
+                        Ok((price, volume, exch)) => (Ok((price, volume)), Some(exch)),
+                        Err(e) => (Err(e.to_string()), None),
+                    }
+                };
 
             match tick {
                 Ok((price, volume)) if price > 0 => {
@@ -1481,7 +1541,7 @@ pub async fn run_trading_daemon(
                         let symbol_name = stock_store.get_name(symbol).await
                             .unwrap_or_else(|| symbol.clone());
                         match order_mgr.lock().await
-                            .submit_signal(signal, &symbol_name, 0)
+                            .submit_signal(signal, &symbol_name, 0, exchange_opt.clone(), price)
                             .await
                         {
                             Ok(()) => {
@@ -1774,6 +1834,21 @@ pub async fn update_risk_config(
 pub async fn clear_emergency_stop(state: State<'_, AppState>) -> CmdResult<RiskConfigView> {
     let mut risk = state.risk_manager.lock().await;
     risk.clear_emergency_stop();
+    Ok(RiskConfigView {
+        daily_loss_limit: risk.daily_loss_limit,
+        max_position_ratio: risk.max_position_ratio,
+        current_loss: risk.current_loss(),
+        loss_ratio: risk.loss_ratio(),
+        is_emergency_stop: risk.is_emergency_stop(),
+        can_trade: risk.can_trade(),
+    })
+}
+
+/// 비상 정지 수동 발동 (사용자가 직접 자동매매를 중단시킬 때)
+#[tauri::command]
+pub async fn activate_emergency_stop(state: State<'_, AppState>) -> CmdResult<RiskConfigView> {
+    let mut risk = state.risk_manager.lock().await;
+    risk.trigger_emergency_stop();
     Ok(RiskConfigView {
         daily_loss_limit: risk.daily_loss_limit,
         max_position_ratio: risk.max_position_ratio,
@@ -2609,12 +2684,13 @@ fn is_market_closed_error(msg: &str) -> bool {
 // (이 함수는 market_hours.rs로 이전됨)
 
 /// 해외 주식 현재가 조회 (NAS → NYS → AMS 순으로 시도)
-/// 반환값: (price_cents: u64, volume: u64)
+/// 반환값: (price_cents: u64, volume: u64, exchange: String)
 /// - price_cents = USD 현재가 × 100 (정수화하여 on_tick에 전달)
+/// - exchange = 성공한 거래소 코드 ("NAS" / "NYS" / "AMS")
 async fn fetch_overseas_tick(
     rest: &std::sync::Arc<crate::api::rest::KisRestClient>,
     symbol: &str,
-) -> anyhow::Result<(u64, u64)> {
+) -> anyhow::Result<(u64, u64, String)> {
     for exchange in &["NAS", "NYS", "AMS"] {
         match rest.get_overseas_price(symbol, exchange).await {
             Ok(p) => {
@@ -2623,7 +2699,7 @@ async fn fetch_overseas_tick(
                     // USD → 센트(×100) 변환으로 u64 정수화
                     let price_cents = (price_f * 100.0).round() as u64;
                     let volume = p.tvol.parse::<u64>().unwrap_or(0);
-                    return Ok((price_cents, volume));
+                    return Ok((price_cents, volume, exchange.to_string()));
                 }
             }
             Err(_) => continue,

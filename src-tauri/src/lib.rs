@@ -154,6 +154,7 @@ pub fn run() {
             commands::delete_profile,
             commands::set_active_profile,
             commands::get_balance,
+            commands::get_overseas_balance,
             commands::get_chart_data,
             commands::get_price,
             commands::place_order,
@@ -194,6 +195,7 @@ pub fn run() {
             commands::get_risk_config,
             commands::update_risk_config,
             commands::clear_emergency_stop,
+            commands::activate_emergency_stop,
             commands::get_pending_orders,
         ])
         .run(tauri::generate_context!())

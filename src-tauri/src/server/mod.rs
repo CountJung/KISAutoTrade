@@ -131,6 +131,7 @@ pub async fn start(
         .route("/api/app-config",                  get(app_config_handler))
         .route("/api/profiles",                    get(profiles_handler))
         .route("/api/balance",                     get(balance_handler))
+        .route("/api/overseas-balance",             get(overseas_balance_handler))
         .route("/api/positions",                   get(positions_handler))
         .route("/api/price/:symbol",               get(price_handler))
         .route("/api/overseas-price/:ex/:symbol",  get(overseas_price_handler))
@@ -250,6 +251,14 @@ async fn info_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
 async fn balance_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
     let client = s.rest_client.read().await.clone();
     match client.get_balance().await {
+        Ok(b) => Json(serde_json::to_value(b).unwrap_or_default()),
+        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+async fn overseas_balance_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let client = s.rest_client.read().await.clone();
+    match client.get_overseas_balance().await {
         Ok(b) => Json(serde_json::to_value(b).unwrap_or_default()),
         Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
