@@ -78,8 +78,19 @@ pub fn run() {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(7474);
 
+            // 공통 데이터 갱신 주기 (REFRESH_INTERVAL_SEC 환경변수, 기본 30초, 최소 5초)
+            let refresh_interval_sec: u64 = std::env::var("REFRESH_INTERVAL_SEC")
+                .ok()
+                .and_then(|v| v.parse::<u64>().ok())
+                .unwrap_or(30)
+                .max(5);
+            tracing::info!(
+                "환경 설정: WEB_PORT={}, REFRESH_INTERVAL_SEC={}실",
+                web_port, refresh_interval_sec
+            );
+
             // AppState 초기화 및 등록
-            let state = AppState::new(config, discord_config, profiles, profiles_path, data_dir.clone(), log_dir.clone(), log_cfg, web_port);
+            let state = AppState::new(config, discord_config, profiles, profiles_path, data_dir.clone(), log_dir.clone(), log_cfg, web_port, refresh_interval_sec);
             app.manage(state);
 
             // ── 비동기 백그라운드 작업 ──────────────────────────
@@ -143,6 +154,33 @@ pub fn run() {
                 });
             }
 
+            // 4) 환율 갱신 데뼼 — REFRESH_INTERVAL_SEC마다 USD/KRW 환율 업데이트
+            {
+                let st: tauri::State<AppState> = app.state();
+                let exchange_rate = st.exchange_rate_krw.clone();
+                let interval_sec = st.refresh_interval_sec;
+                tauri::async_runtime::spawn(async move {
+                    // 시작 시 즉시 1회 갱신
+                    match crate::api::rest::fetch_usd_krw_rate().await {
+                        Ok(rate) => {
+                            *exchange_rate.write().await = rate;
+                            tracing::info!("USD/KRW 환율 초기값: {:.2}원", rate);
+                        }
+                        Err(e) => tracing::warn!("환율 초기 조회 실패 (기본값 1450원 사용): {}", e),
+                    }
+                    loop {
+                        tokio::time::sleep(tokio::time::Duration::from_secs(interval_sec)).await;
+                        match crate::api::rest::fetch_usd_krw_rate().await {
+                            Ok(rate) => {
+                                *exchange_rate.write().await = rate;
+                                tracing::debug!("USD/KRW 환율 갱신: {:.2}원", rate);
+                            }
+                            Err(e) => tracing::warn!("환율 갱신 실패 (이전 값 유지): {}", e),
+                        }
+                    }
+                });
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -197,6 +235,8 @@ pub fn run() {
             commands::clear_emergency_stop,
             commands::activate_emergency_stop,
             commands::get_pending_orders,
+            commands::get_exchange_rate,
+            commands::get_refresh_interval,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri 애플리케이션 실행 중 오류 발생");

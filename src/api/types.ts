@@ -210,6 +210,8 @@ export interface TradeRecord {
   strategy_id: string | null
   order_id: string
   status: TradeStatus
+  /** 체결 원인 — 어떤 전략 신호에 의해 매매됩는지 */
+  signal_reason: string
 }
 
 // ─── 자동 매매 상태 ─────────────────────────────────────────────────

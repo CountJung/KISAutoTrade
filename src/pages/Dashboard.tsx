@@ -46,15 +46,14 @@ import {
   useUpdateRiskConfig,
   useClearEmergencyStop,
   useActivateEmergencyStop,
+  useExchangeRate,
+  useRefreshInterval,
   KEYS,
 } from '../api/hooks'
 
 function fmt(n: number) {
   return n.toLocaleString('ko-KR')
 }
-
-/** 해외주식 KRW 환산 근사 환율 (2026-04-09 기준: 1 USD ≈ 1,450원) */
-const KRW_RATE = 1450
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -291,8 +290,7 @@ function FilledOrdersPanel() {
                 <TableCell align="right">수량</TableCell>
                 <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>단가</TableCell>
                 <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>금액</TableCell>
-                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>일시</TableCell>
-              </TableRow>
+                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>일시</TableCell>                  <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>체결사유</TableCell>              </TableRow>
             </TableHead>
             <TableBody>
               {trades.map((t) => (
@@ -326,6 +324,16 @@ function FilledOrdersPanel() {
                   </TableCell>
                   <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     {t.timestamp.slice(0, 16).replace('T', ' ')}
+                  </TableCell>
+                  <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      title={t.signal_reason || undefined}
+                      sx={{ maxWidth: 160, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    >
+                      {t.signal_reason || '—'}
+                    </Typography>
                   </TableCell>
                 </TableRow>
               ))}
@@ -446,9 +454,14 @@ export default function Dashboard() {
 
   const [overseasCurrency, setOverseasCurrency] = useState<'USD' | 'KRW'>('USD')
 
-  const { data: balance, isLoading: balanceLoading, isError: balanceError, error: balanceErrorDetail } = useBalance()
-  const { data: overseasBalance } = useOverseasBalance()
-  const { data: stats, isLoading: statsLoading } = useTodayStats()
+  // ── 공통 갱신 주기 + 실시간 환율 ────────────────────────
+  const { data: refreshIntervalSec = 30 } = useRefreshInterval()
+  const { data: exchangeRateKrw = 1450 } = useExchangeRate()
+  const intervalMs = refreshIntervalSec * 1000
+
+  const { data: balance, isLoading: balanceLoading, isError: balanceError, error: balanceErrorDetail } = useBalance({ refetchInterval: intervalMs })
+  const { data: overseasBalance } = useOverseasBalance({ refetchInterval: intervalMs })
+  const { data: stats, isLoading: statsLoading } = useTodayStats({ refetchInterval: intervalMs })
   const { data: diag } = useCheckConfig()
   const { data: tradingStatus } = useTradingStatus()
   const { data: positions } = usePositions()
@@ -621,7 +634,7 @@ export default function Dashboard() {
                 평가금액{' '}
                 {overseasCurrency === 'USD'
                   ? `$${parseFloat(overseasBalance.summary.frcr_evlu_tota).toFixed(2)}`
-                  : `${Math.round(parseFloat(overseasBalance.summary.frcr_evlu_tota) * KRW_RATE).toLocaleString('ko-KR')}원`}
+                  : `${Math.round(parseFloat(overseasBalance.summary.frcr_evlu_tota) * exchangeRateKrw).toLocaleString('ko-KR')}원`}
                 {' · '}
                 수익률 {parseFloat(overseasBalance.summary.tot_pftrt).toFixed(2)}%
               </Typography>
@@ -663,12 +676,12 @@ export default function Dashboard() {
                     const v = parseFloat(usdStr)
                     return overseasCurrency === 'USD'
                       ? `$${v.toFixed(2)}`
-                      : `${Math.round(v * KRW_RATE).toLocaleString('ko-KR')}원`
+                      : `${Math.round(v * exchangeRateKrw).toLocaleString('ko-KR')}원`
                   }
                   const pnlSign = pnlUsd >= 0 ? '+' : ''
                   const pnlDisplay = overseasCurrency === 'USD'
                     ? `${pnlSign}$${pnlUsd.toFixed(2)}`
-                    : `${pnlSign}${Math.round(pnlUsd * KRW_RATE).toLocaleString('ko-KR')}원`
+                    : `${pnlSign}${Math.round(pnlUsd * exchangeRateKrw).toLocaleString('ko-KR')}원`
                   return (
                     <TableRow key={item.ovrs_pdno} hover>
                       <TableCell>

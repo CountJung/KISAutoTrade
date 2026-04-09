@@ -210,6 +210,7 @@ impl OrderManager {
             0,        // fee: KIS 수수료 미포함 (TODO)
             order_id,
             None,     // strategy_id: OrderRecord에 없음
+            pending.signal_reason.clone(), // 체결 원인 (전략 신호 이유)
         );
         if let Err(e) = self.trade_store.append(trade_record).await {
             tracing::error!("TradeStore 저장 실패: {}", e);

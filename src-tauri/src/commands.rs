@@ -228,6 +228,10 @@ pub struct AppState {
     pub ws_connected: Arc<AtomicBool>,
     /// 자동매매가 시작된 시점의 프로파일 ID (프로파일 전환 중에도 유지)
     pub trading_profile_id: Arc<RwLock<Option<String>>>,
+    /// USD/KRW 환율 캐시 (REFRESH_INTERVAL_SEC마다 백그라운드 갱신, 기본 1450원)
+    pub exchange_rate_krw: Arc<RwLock<f64>>,
+    /// 공통 데이터 갱신 주기(초) — REFRESH_INTERVAL_SEC 환경변수 (기본 30, 최소 5)
+    pub refresh_interval_sec: u64,
 }
 
 impl AppState {
@@ -240,6 +244,7 @@ impl AppState {
         log_dir: PathBuf,
         log_config: LogConfig,
         web_port: u16,
+        refresh_interval_sec: u64,
     ) -> Self {
         let rest_client = make_rest_client(&config);
 
@@ -431,6 +436,8 @@ impl AppState {
             web_port,
             ws_connected: Arc::new(AtomicBool::new(false)),
             trading_profile_id: Arc::new(RwLock::new(None)),
+            exchange_rate_krw: Arc::new(RwLock::new(1450.0_f64)),
+            refresh_interval_sec,
         }
     }
 }
@@ -1095,6 +1102,7 @@ pub async fn save_trade(
         input.symbol, input.symbol_name, side.clone(),
         input.quantity, input.price, input.fee,
         input.order_id, input.strategy_id,
+        String::new(), // 수동 저장 시 signal_reason 없음
     );
 
     state.trade_store.append(record.clone()).await.map_err(CmdError::from)?;
@@ -1896,6 +1904,22 @@ pub async fn get_pending_orders(state: State<'_, AppState>) -> CmdResult<Vec<Pen
         })
         .collect();
     Ok(views)
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 환율 조회
+// ────────────────────────────────────────────────────────────────────
+
+/// 현재 USD/KRW 환율 조회 (캐시값 반환 — REFRESH_INTERVAL_SEC마다 자동 갱신)
+#[tauri::command]
+pub async fn get_exchange_rate(state: State<'_, AppState>) -> CmdResult<f64> {
+    Ok(*state.exchange_rate_krw.read().await)
+}
+
+/// 공통 데이터 갱신 주기 조회 (초) — REFRESH_INTERVAL_SEC 환경변수 값
+#[tauri::command]
+pub async fn get_refresh_interval(state: State<'_, AppState>) -> CmdResult<u64> {
+    Ok(state.refresh_interval_sec)
 }
 
 // ────────────────────────────────────────────────────────────────────

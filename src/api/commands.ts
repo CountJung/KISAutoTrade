@@ -218,9 +218,18 @@ export const clearEmergencyStop = (): Promise<RiskConfigView> =>
 export const activateEmergencyStop = (): Promise<RiskConfigView> =>
   invoke('activate_emergency_stop')
 
-// ─── 미체결 주문 목록 ──────────────────────────────────────────────
+// ─── 미체결 주문 목록 ──────────────────────────────────────────
 export const getPendingOrders = (): Promise<PendingOrderView[]> =>
   invoke('get_pending_orders')
+
+// ─── 환율 / 공통 갱신 주기 ──────────────────────────────────────
+/** 현재 USD/KRW 환율 조회 (캐시, REFRESH_INTERVAL_SEC마다 갱신) */
+export const getExchangeRate = (): Promise<number> =>
+  invoke('get_exchange_rate')
+
+/** 공통 데이터 갱신 주기 조회 (초) — REFRESH_INTERVAL_SEC 환경변수 */
+export const getRefreshInterval = (): Promise<number> =>
+  invoke('get_refresh_interval')
 
 // ─── 체결 기록 보관 설정 ──────────────────────────────────────────
 export const getTradeArchiveConfig = (): Promise<TradeArchiveConfig> =>

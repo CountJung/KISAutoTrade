@@ -80,6 +80,8 @@ export const KEYS = {
   pendingOrders: ['pendingOrders'] as const,
   tradeArchiveConfig: ['tradeArchiveConfig'] as const,
   tradeArchiveStats: ['tradeArchiveStats'] as const,
+  exchangeRate: ['exchangeRate'] as const,
+  refreshInterval: ['refreshInterval'] as const,
 }
 
 // ─── 앱 설정 ───────────────────────────────────────────────────────
@@ -684,6 +686,37 @@ export function useActivateEmergencyStop() {
     onSuccess: (data) => {
       qc.setQueryData(KEYS.riskConfig, data)
     },
+  })
+}
+
+// ─── 환율 / 공통 갱신 주기 ──────────────────────────────────────
+/**
+ * 공통 데이터 갱신 주기 조회 (초)
+ * REFRESH_INTERVAL_SEC 환경변수를 Rust에서 읽어 반환합니다.
+ * 시작 시 1회만 페치하여 다음 지점까지 캐시(staleTime=Infinity)합니다.
+ */
+export function useRefreshInterval() {
+  return useQuery<number>({
+    queryKey: KEYS.refreshInterval,
+    queryFn: cmd.getRefreshInterval,
+    staleTime: Infinity,
+    placeholderData: 30,
+  })
+}
+
+/**
+ * USD/KRW 환율 조회
+ * REFRESH_INTERVAL_SEC마다 Rust 백그라운드에서 자동 갱신된 캐시 값을 반환합니다.
+ * KRW 모드 없으면 기본값 1450원 사용합니다.
+ */
+export function useExchangeRate() {
+  const { data: intervalSec = 30 } = useRefreshInterval()
+  return useQuery<number>({
+    queryKey: KEYS.exchangeRate,
+    queryFn: cmd.getExchangeRate,
+    staleTime: intervalSec * 900,  // 90% 주기도다 짧게 stale 표시
+    refetchInterval: intervalSec * 1000,
+    placeholderData: 1450,
   })
 }
 

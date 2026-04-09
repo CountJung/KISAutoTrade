@@ -404,11 +404,14 @@ useEffect(() => {
 
 ## 해외 잔고 통화 표시 패턴
 
-KIS TTTS3012R은 USD 기준 잔고를 반환한다. KRW 환산이 필요한 경우 근사 환율 상수를 사용한다.
+KIS TTTS3012R은 USD 기준 잔고를 반환한다. KRW 환산은 **하드코딩 상수 금지** — `useExchangeRate()` 훅으로 실시간 환율을 가져온다.
 
 ```tsx
-/** 근사 환율 (2026-04-09 기준 1 USD ≈ 1,450원) — 정확도 필요 시 별도 환율 API 연동 */
-const KRW_RATE = 1450
+// ❌ 잘못된 패턴: KRW_RATE 상수 하드코딩
+const KRW_RATE = 1450  // ← 절대 사용 금지
+
+// ✅ 올바른 패턴: 동적 환율 (useExchangeRate 훅)
+const { data: exchangeRateKrw = 1450 } = useExchangeRate()
 
 // USD/KRW 토글 상태 — 상위 컴포넌트에서 관리
 const [overseasCurrency, setOverseasCurrency] = useState<'USD' | 'KRW'>('USD')
@@ -421,17 +424,38 @@ const [overseasCurrency, setOverseasCurrency] = useState<'USD' | 'KRW'>('USD')
     onClick={() => setOverseasCurrency('KRW')} sx={{ minWidth: 48, px: 1 }}>KRW</Button>
 </Box>
 
-// 값 표시: 컴포넌트 내부 헬퍼 함수 (state 클로저 활용)
+// 값 표시: 컴포넌트 내부 헬퍼 함수 (state + 동적 환율 클로저 활용)
 const fmtFx = (usdStr: string) => {
   const v = parseFloat(usdStr)
   return overseasCurrency === 'USD'
     ? `$${v.toFixed(2)}`
-    : `${Math.round(v * KRW_RATE).toLocaleString('ko-KR')}원`
+    : `${Math.round(v * exchangeRateKrw).toLocaleString('ko-KR')}원`
 }
 ```
 
-❌ **잘못된 패턴**: KRW 환산 시 환율 상수 없이 하드코딩된 숫자 직접 사용  
-✅ **올바른 패턴**: 파일 상단에 `KRW_RATE` 상수와 주석으로 날짜 및 근거 명시
+❌ **잘못된 패턴**: KRW 환산 시 환율 상수 하드코딩 또는 KRW_RATE 상수 사용  
+✅ **올바른 패턴**: `useExchangeRate()` 훅 → `exchangeRateKrw` (기본값 1450, open.er-api.com에서 REFRESH_INTERVAL_SEC마다 갱신)
+
+---
+
+## 공통 갱신 주기 패턴 (REFRESH_INTERVAL_SEC)
+
+`REFRESH_INTERVAL_SEC` 환경변수(기본 30초, 최소 5초)로 가격/잔고/환율 전체 갱신 주기를 제어한다.
+
+```tsx
+// Dashboard에서 동적 인터벌 사용
+const { data: refreshIntervalSec = 30 } = useRefreshInterval()
+const intervalMs = refreshIntervalSec * 1000
+
+const { data: balance } = useBalance({ refetchInterval: intervalMs })
+const { data: overseasBalance } = useOverseasBalance({ refetchInterval: intervalMs })
+const { data: stats } = useTodayStats({ refetchInterval: intervalMs })
+```
+
+| 환경변수 | 기본값 | 최소값 | 역할 |
+|-----------|------|------|------|
+| `REFRESH_INTERVAL_SEC` | 30 | 5 | 가격/잔고/환율 전체 갱신 주기(초) |
+| `WEB_PORT` | 7474 | — | 모바일 웹서버 포트 |
 
 ---
 
@@ -475,5 +499,5 @@ const fmtFx = (usdStr: string) => {
 </Stack>
 ```
 
-> 마지막 업데이트: 2026-04-09T12:30:00
+> 마지막 업데이트: 2026-04-09T15:00:00
 

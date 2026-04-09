@@ -38,6 +38,10 @@ pub struct TradeRecord {
     pub strategy_id: Option<String>,
     pub order_id: String,
     pub status: TradeStatus,
+    /// 체결 원인 — 어떤 전략 신호에 의해 매매됐는지 기록
+    /// (기존 JSON 파일과의 하위 호환을 위해 default 적용)
+    #[serde(default)]
+    pub signal_reason: String,
 }
 
 impl TradeRecord {
@@ -50,6 +54,7 @@ impl TradeRecord {
         fee: u64,
         order_id: String,
         strategy_id: Option<String>,
+        signal_reason: String,
     ) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
@@ -64,6 +69,7 @@ impl TradeRecord {
             strategy_id,
             order_id,
             status: TradeStatus::Filled,
+            signal_reason,
         }
     }
 }

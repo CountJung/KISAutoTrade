@@ -6,8 +6,8 @@
 > - 이 파일이 최신 상태가 아니라면 작업 전에 먼저 갱신한다.
 > - 추측이 아닌 이 맵을 기반으로 작업한다.
 
-**마지막 업데이트**: 2026-04-09T12:30:00  
-**프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (WebSocket Dashboard 연동 ✅, 추가 전략 RSI·모멘텀·이격도·52주신고가·연속상승·돌파실패·강한종가·변동성확장 ✅, 전략 설정 프로파일별 영구 저장 ✅, GitHub Actions 자동 빌드 ✅, 체결 기록 보관 설정+대시보드 조회 ✅, 네비게이션 단일화(Sidebar only) ✅, 모바일 완전 동일 기능 REST API ✅, 비상정지 수동 발동/해제 버튼 ✅, 해외잔고 USD/KRW 토글 ✅)
+**마지막 업데이트**: 2026-04-09T15:00:00  
+**프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (WebSocket Dashboard 연동 ✅, 추가 전략 RSI·모멘텀·이격도·52주신고가·연속상승·돌파실패·강한종가·변동성확장 ✅, 전략 설정 프로파일별 영구 저장 ✅, GitHub Actions 자동 빌드 ✅, 체결 기록 보관 설정+대시보드 조회 ✅, 네비게이션 단일화(Sidebar only) ✅, 모바일 완전 동일 기능 REST API ✅, 비상정지 수동 발동/해제 버튼 ✅, 해외잔고 USD/KRW 토글 ✅, 실시간 환율 + REFRESH_INTERVAL_SEC ✅, 체결사유 필수 기록 ✅)
 
 ---
 
@@ -347,6 +347,7 @@ KIS_IS_PAPER_TRADING=false   # 기본값: 실전투자
 | 2026-04-08T20:00:00 | 네비게이션 단일화 + 모바일 완전 동일 기능화: (1) AppShell TopBar 제거 → 모바일 전용 미니 AppBar(햄버거+타이틀만), Sidebar DrawerContent에 자동매매 상태 칩+pulse 이전 — 데스크탑=사이드바 only, 모바일=AppBar+Drawer (2) server/mod.rs ServerState 12개 Arc 필드 추가(config, profiles, trade/stats_store, log_config, trade_archive_config, risk/order_manager, stock/strategy_store 등), 18개 신규 REST 엔드포인트 (/api/app-config, /api/profiles, /api/positions, /api/today-stats, /api/stats, /api/trades, /api/kis-executed, /api/pending-orders, /api/log-config, /api/recent-logs, /api/archive-config, /api/archive-stats, /api/risk-config, /api/risk-config/clear-emergency, /api/web-config, /api/strategies/:id) (3) lib.rs 서버 spawn 18개 Arc 전달 (4) transport.ts resolveRest() 16개 신규 케이스 추가 — 모든 페이지(Dashboard/Trading/Strategy/History/Settings/Log) 웹 모드 완전 지원 | AI Agent |
 | 2026-04-09T00:00:00 | 3개 버그 수정: (1) Dashboard 보유 주식 미표시 — PositionTracker.load_if_empty() 추가, get_balance/get_overseas_balance 호출 시 tracker 복원 (2) 해외 자동매수 실패 — fetch_overseas_tick 거래소 반환(NAS/NYS/AMS), submit_signal(exchange, tick_price) 파라미터 추가, OrderManager.process_buy/sell 국내(시장가)/해외(지정가USD) 분기, place_overseas_with_retry 추가, NAS→NASD 등 주문코드 변환 (3) 해외 잔고 미표시 — rest.rs OverseasBalanceItem/Summary/Response+get_overseas_balance(TR TTTS3012R), get_overseas_balance IPC커맨드, lib.rs 등록, types.ts/commands.ts/hooks.ts 연동, Dashboard 해외보유주식 섹션 추가(USD 표시), server/mod.rs /api/overseas-balance 엔드포인트, transport.ts 매핑 | AI Agent |
 | 2026-04-09T12:30:00 | 4가지 기능 개선: (1) 비상정지 수동 발동 — risk.rs trigger_emergency_stop(), commands.rs activate_emergency_stop IPC, lib.rs 등록, commands.ts/hooks.ts useActivateEmergencyStop 추가 (2) Dashboard RiskPanel Collapse 제거 → 항상 펼침, 비상정지 발동/해제 버튼 토글 (하락장 대응) (3) 해외 보유주식 USD/KRW 토글 — KRW_RATE=1450 근사 환산, 헤더 버튼 2개 (4) user-guide.md 섹션8 하락장 방어전략(2026-04-09) + 섹션9 FAQ(수수료 0원 이유) 추가 | AI Agent |
+| 2026-04-09T15:00:00 | 2가지 기능 추가: (1) 실시간 환율 + 공통 갱신주기 — rest.rs fetch_usd_krw_rate()(open.er-api.com), AppState exchange_rate_krw(Arc<RwLock<f64>>)+refresh_interval_sec(u64), REFRESH_INTERVAL_SEC 환경변수(기본 30초/최소 5초), lib.rs 환율 갱신 데뼼(4번 백그라운드 태스크), get_exchange_rate/get_refresh_interval IPC, useExchangeRate/useRefreshInterval 훅, Dashboard KRW_RATE 상수 제거→동적환율, useBalance/useOverseasBalance/useTodayStats refetchInterval 동적화 (2) 체결사유 필수 기록 — TradeRecord signal_reason 필드(serde default), on_fill() pending.signal_reason 전달, Dashboard FilledOrdersPanel 체결사유 커럼메 | AI Agent |
 ---
 
 > **에이전트에게**: 이 파일을 읽었으면 작업을 시작하세요.  
