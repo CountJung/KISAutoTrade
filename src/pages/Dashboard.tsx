@@ -476,11 +476,15 @@ export default function Dashboard() {
   // ── 국내/해외 합산 계산 ────────────────────────────────────────
   const domesticItems = balance?.items ?? []
   const overseasItems = overseasBalance?.items ?? []
-  const overseasTotalKrw = Math.round(
-    parseFloat(overseasBalance?.summary?.frcr_evlu_tota ?? '0') * exchangeRateKrw
-  )
-  // 국내 총평가(예수금+국내주식) + 해외주식 평가(KRW 환산) = 합산 총평가
-  const combinedTotalKrw = totalBalance + (overseasItems.length > 0 ? overseasTotalKrw : 0)
+  // 해외 모의투자에서 output2의 frcr_evlu_tota가 0으로 오는 경우 items에서 합산
+  const overseasTotalUsd = (() => {
+    if (!overseasBalance || overseasItems.length === 0) return 0
+    const fromSummary = parseFloat(overseasBalance.summary?.frcr_evlu_tota ?? '0')
+    if (fromSummary > 0) return fromSummary
+    return overseasItems.reduce((sum, i) => sum + parseFloat(i.ovrs_stck_evlu_amt), 0)
+  })()
+  const overseasTotalKrw = Math.round(overseasTotalUsd * exchangeRateKrw)
+  const combinedTotalKrw = totalBalance + overseasTotalKrw
 
   const handleRefresh = () => {
     void qc.invalidateQueries({ queryKey: KEYS.balance })
@@ -652,12 +656,12 @@ export default function Dashboard() {
               sx={{ height: 20, fontSize: '0.7rem' }}
             />
           )}
-          {overseasBalance?.summary && (overseasBalance.items.length ?? 0) > 0 && (
+          {overseasBalance?.summary && overseasItems.length > 0 && (
             <Typography variant="caption" color="text.secondary">
               평가금액{' '}
               {overseasCurrency === 'USD'
-                ? `$${parseFloat(overseasBalance.summary.frcr_evlu_tota).toFixed(2)}`
-                : `${Math.round(parseFloat(overseasBalance.summary.frcr_evlu_tota) * exchangeRateKrw).toLocaleString('ko-KR')}원`}
+                ? `$${overseasTotalUsd.toFixed(2)}`
+                : `${Math.round(overseasTotalUsd * exchangeRateKrw).toLocaleString('ko-KR')}원`}
               {' · '}
               수익률 {parseFloat(overseasBalance.summary.tot_pftrt).toFixed(2)}%
             </Typography>
@@ -770,7 +774,8 @@ export default function Dashboard() {
           <StatCard
             label="예수금"
             value={fmt(availableCash) + '원'}
-            sub="매매 가능 금액"
+            sub={availableCash < 0 ? '현금 차와매매 초과 (모의도 정상)' : '매매 가능 현금'}
+            positive={availableCash >= 0}
             loading={balanceLoading}
           />
         </Grid>

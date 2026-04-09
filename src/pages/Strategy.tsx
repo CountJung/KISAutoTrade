@@ -26,8 +26,10 @@ import SearchIcon from '@mui/icons-material/Search'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import PublicIcon from '@mui/icons-material/Public'
 import FlagIcon from '@mui/icons-material/Flag'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
+import Tooltip from '@mui/material/Tooltip'
 import { useState, useRef, useEffect } from 'react'
 import {
   useStrategies,
@@ -37,7 +39,7 @@ import {
   useRefreshStockList,
 } from '../api/hooks'
 import * as cmd from '../api/commands'
-import type { CmdError, OverseasExchange, StockSearchItem, UpdateStrategyInput } from '../api/types'
+import type { CmdError, OverseasExchange, PriceConditionSymbolConfig, StockSearchItem, UpdateStrategyInput } from '../api/types'
 
 type Market = 'KR' | 'US'
 
@@ -103,12 +105,7 @@ const STRATEGY_PARAM_META: Record<string, ParamMeta[]> = {
     { key: 'short_period', label: '단기 MA 기간',  min: 2,   max: 30,  step: 1, description: '단기 모멘텀 판단 이동평균 기간 (기본 5일)' },
     { key: 'mid_period',   label: '중기 MA 기간',  min: 5,   max: 60,  step: 1, description: '중기 추세 비교 이동평균 기간 (기본 20일)' },
   ],
-  price_condition: [
-    { key: 'buy_trigger_price',  label: '매수 트리거가 (원)', min: 0, max: 9999999, step: 100, description: '현재가 ≤ 이 값이면 매수. 0이면 비활성.' },
-    { key: 'sell_trigger_price', label: '지정 익절가 (원)', min: 0, max: 9999999, step: 100, description: '현재가 ≥ 이 값이면 익절 매도. 0이면 비활성.' },
-    { key: 'take_profit_pct',    label: '익절 기준 (%)',  min: 0, max: 100,    step: 0.5, description: '매수가 대비 이 % 이상 상승 시 익절. 0이면 비활성.' },
-    { key: 'stop_loss_pct',      label: '손절 기준 (%)',  min: 0, max: 50,     step: 0.5, description: '매수가 대비 이 % 이상 하락 시 손절. 0이면 비활성.' },
-  ],
+  // price_condition은 커스텀 편집 UI로 처리하므로 STRATEGY_PARAM_META 제외
 }
 
 const STRATEGY_DESCRIPTION: Record<string, string> = {
@@ -142,6 +139,174 @@ function getStrategyType(id: string): string {
   return 'unknown'
 }
 
+// ─── 가격 조건 매매 커스텀 편집 UI ─────────────────────────────
+function PriceConditionEditorPanel({
+  stratEnabled,
+  initialSymbols,
+  editedSymbols,
+  selectedStock,
+  market,
+  onUpdate,
+}: {
+  stratEnabled: boolean
+  initialSymbols: PriceConditionSymbolConfig[]
+  editedSymbols: PriceConditionSymbolConfig[] | undefined
+  selectedStock: StockSearchItem | null
+  market: Market
+  onUpdate: (symbols: PriceConditionSymbolConfig[]) => void
+}) {
+  const symbols = editedSymbols ?? initialSymbols
+
+  const handleAdd = () => {
+    if (!selectedStock || symbols.some((s) => s.symbol === selectedStock.pdno)) return
+    onUpdate([
+      ...symbols,
+      {
+        symbol: selectedStock.pdno,
+        symbol_name: selectedStock.prdt_name,
+        quantity: 1,
+        buy_trigger_price: 0,
+        sell_trigger_price: 0,
+        take_profit_pct: 5,
+        stop_loss_pct: 3,
+        // 현재 시장 선택 기준으로 is_overseas 자동 설정
+        is_overseas: market === 'US',
+      },
+    ])
+  }
+
+  const handleRemove = (sym: string) => {
+    onUpdate(symbols.filter((s) => s.symbol !== sym))
+  }
+
+  const handleFieldChange = (
+    sym: string,
+    field: keyof PriceConditionSymbolConfig,
+    value: number | boolean,
+  ) => {
+    onUpdate(symbols.map((s) => (s.symbol === sym ? { ...s, [field]: value } : s)))
+  }
+
+  // 고정 컬럼 정의 (가격 컬럼은 is_overseas에 따라 step/단위가 달라짐)
+  const numFields: { key: keyof PriceConditionSymbolConfig; label: string; isPrice: boolean }[] = [
+    { key: 'quantity',           label: '수량',   isPrice: false },
+    { key: 'buy_trigger_price',  label: '매수가', isPrice: true  },
+    { key: 'sell_trigger_price', label: '익절가', isPrice: true  },
+    { key: 'take_profit_pct',    label: '익절%',  isPrice: false },
+    { key: 'stop_loss_pct',      label: '손절%',  isPrice: false },
+  ]
+
+  return (
+    <Stack spacing={1.5}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+        <Stack direction="row" alignItems="center" gap={0.5}>
+          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+            대상 종목 ({symbols.length}개)
+          </Typography>
+          <Tooltip
+            title="종목별로 매수가·익절가·손절%·익절%를 독립 설정. 매수가 ≤ 현재가이면 매수, 매수 후 지정가/비율 조건 달성 시 매도. 0은 해당 조건 비활성."
+            arrow
+          >
+            <InfoOutlinedIcon sx={{ fontSize: 13, color: 'text.disabled', cursor: 'help' }} />
+          </Tooltip>
+        </Stack>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<AddIcon />}
+          disabled={!selectedStock || stratEnabled || symbols.some((s) => s.symbol === (selectedStock?.pdno ?? ''))}
+          onClick={handleAdd}
+          sx={{ fontSize: '0.7rem', py: 0.3 }}
+        >
+          {selectedStock ? `${selectedStock.prdt_name} 추가` : '위에서 종목 선택'}
+        </Button>
+      </Stack>
+
+      {symbols.length === 0 ? (
+        <Typography variant="caption" color="text.disabled" sx={{ pl: 0.5 }}>
+          추가된 종목이 없습니다
+        </Typography>
+      ) : (
+        <TableContainer sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflowX: 'auto' }}>
+          <Table size="small" sx={{ minWidth: 750 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontSize: '0.7rem', py: 0.75, minWidth: 110 }}>종목</TableCell>
+                {numFields.map((f) => (
+                  <TableCell
+                    key={f.key}
+                    sx={{ fontSize: '0.7rem', py: 0.75, minWidth: f.isPrice ? 130 : 90 }}
+                    align="center"
+                  >
+                    {f.isPrice
+                      ? `${f.label}(원/$)`
+                      : f.key === 'quantity' ? f.label : `${f.label}`}
+                  </TableCell>
+                ))}
+                <TableCell sx={{ width: 36, py: 0.75 }} />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {symbols.map((sym) => (
+                <TableRow key={sym.symbol}>
+                  <TableCell sx={{ py: 0.5 }}>
+                    <Stack direction="row" alignItems="center" gap={0.5}>
+                      {sym.is_overseas && (
+                        <Typography variant="caption" color="primary.main" fontWeight={700} sx={{ fontSize: '0.6rem' }}>$</Typography>
+                      )}
+                      <Box>
+                        <Typography variant="caption" fontWeight={600}>{sym.symbol}</Typography>
+                        <Typography variant="caption" color="text.secondary" display="block" noWrap sx={{ maxWidth: 80 }}>
+                          {sym.symbol_name}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </TableCell>
+                  {numFields.map((f) => {
+                    const step = f.isPrice ? (sym.is_overseas ? 0.01 : 100) : 0.5
+                    const fieldStep = f.key === 'quantity' ? 1 : step
+                    return (
+                      <TableCell key={f.key} sx={{ py: 0.25 }} align="center">
+                        <TextField
+                          type="number"
+                          value={sym[f.key] as number}
+                          disabled={stratEnabled}
+                          size="small"
+                          onChange={(e) => handleFieldChange(sym.symbol, f.key, Number(e.target.value))}
+                          inputProps={{
+                            min: f.key === 'quantity' ? 1 : 0,
+                            step: fieldStep,
+                            style: { padding: '4px 4px', fontSize: '0.75rem', textAlign: 'right' },
+                          }}
+                          InputProps={f.isPrice ? {
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', lineHeight: 1 }}>
+                                  {sym.is_overseas ? '$' : '원'}
+                                </Typography>
+                              </InputAdornment>
+                            ),
+                          } : undefined}
+                          sx={{ width: '100%', '& .MuiInputBase-root': { fontSize: '0.75rem' } }}
+                        />
+                      </TableCell>
+                    )
+                  })}
+                  <TableCell sx={{ py: 0.5 }}>
+                    <IconButton size="small" disabled={stratEnabled} onClick={() => handleRemove(sym.symbol)}>
+                      <DeleteIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Stack>
+  )
+}
+
 type EditState = { symbols: string[]; quantity: number; params: Record<string, number> }
 
 // ─── Strategy 메인 ────────────────────────────────────────────────
@@ -151,6 +316,8 @@ export default function Strategy() {
   const { mutate: updateStrategy, isPending: saving } = useUpdateStrategy()
 
   const [editMap, setEditMap] = useState<Record<string, EditState>>({})
+  // 가격 조건 매매 전략 전용: 종목별 설정 배열
+  const [pcEditMap, setPcEditMap] = useState<Record<string, PriceConditionSymbolConfig[]>>({})
 
   // ── 상단 종목 검색 상태 ─────────────────────────────────────────
   const [market, setMarket]                   = useState<Market>('KR')
@@ -271,6 +438,18 @@ export default function Strategy() {
         params: edit.params,
       } satisfies UpdateStrategyInput,
       { onSuccess: () => setEditMap(prev => { const n = { ...prev }; delete n[id]; return n }) },
+    )
+  }
+
+  const handleSavePc = (id: string) => {
+    const pcSymbols = pcEditMap[id] ?? []
+    updateStrategy(
+      {
+        id,
+        targetSymbols: pcSymbols.map((s) => s.symbol),
+        params: { symbols: pcSymbols },
+      } satisfies UpdateStrategyInput,
+      { onSuccess: () => setPcEditMap(prev => { const n = { ...prev }; delete n[id]; return n }) },
     )
   }
 
@@ -483,7 +662,7 @@ export default function Strategy() {
           const paramMetas = STRATEGY_PARAM_META[sType] ?? []
           const stratDesc = STRATEGY_DESCRIPTION[sType]
           return (
-            <Grid item xs={12} md={6} key={s.id}>
+            <Grid item xs={12} md={sType === 'price_condition' ? 12 : 6} key={s.id}>
               <Paper sx={{ p: 3 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                   <Typography variant="subtitle1" fontWeight={600}>{s.name}</Typography>
@@ -502,8 +681,20 @@ export default function Strategy() {
                 </Box>
                 <Divider sx={{ mb: 2 }} />
 
-                <Stack spacing={2}>
-                  {/* 종목 목록 테이블 */}
+              <Stack spacing={2}>
+                  {/* price_condition: 커스텀 편집 UI */}
+                  {sType === 'price_condition' ? (
+                    <PriceConditionEditorPanel
+                      stratEnabled={s.enabled}
+                      initialSymbols={(s.params['symbols'] as PriceConditionSymbolConfig[] | undefined) ?? []}
+                      editedSymbols={pcEditMap[s.id]}
+                      selectedStock={selectedStock}
+                      market={market}
+                      onUpdate={(syms) => setPcEditMap((prev) => ({ ...prev, [s.id]: syms }))}
+                    />
+                  ) : (
+                    <>
+                      {/* 종목 목록 테이블 */}
                   <Box>
                     <Stack direction="row" alignItems="center" justifyContent="space-between" mb={0.5}>
                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
@@ -588,28 +779,47 @@ export default function Strategy() {
                       </Grid>
                     ))}
                   </Grid>
+                    </>
+                  )}
                 </Stack>
 
-                {stratDesc && (
-                  <Box sx={{ mt: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      {stratDesc}
-                    </Typography>
-                  </Box>
+                {stratDesc && sType !== 'price_condition' && (
+                  <Tooltip title={stratDesc} arrow placement="bottom-start">
+                    <Stack direction="row" alignItems="center" gap={0.5} sx={{ mt: 1.5, cursor: 'help', width: 'fit-content' }}>
+                      <InfoOutlinedIcon sx={{ fontSize: 13, color: 'text.disabled' }} />
+                      <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.65rem' }}>전략 설명 보기</Typography>
+                    </Stack>
+                  </Tooltip>
                 )}
 
-                {isDirty && !s.enabled && (
-                  <Box sx={{ mt: 1.5 }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
-                      onClick={() => handleSave(s.id)}
-                      disabled={saving}
-                    >
-                      변경사항 저장
-                    </Button>
-                  </Box>
+                {sType === 'price_condition' ? (
+                  pcEditMap[s.id] !== undefined && !s.enabled && (
+                    <Box sx={{ mt: 1.5 }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
+                        onClick={() => handleSavePc(s.id)}
+                        disabled={saving}
+                      >
+                        변경사항 저장
+                      </Button>
+                    </Box>
+                  )
+                ) : (
+                  isDirty && !s.enabled && (
+                    <Box sx={{ mt: 1.5 }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
+                        onClick={() => handleSave(s.id)}
+                        disabled={saving}
+                      >
+                        변경사항 저장
+                      </Button>
+                    </Box>
+                  )
                 )}
               </Paper>
             </Grid>

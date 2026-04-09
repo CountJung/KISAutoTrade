@@ -808,3 +808,69 @@ params: CANO, ACNT_PRDT_CD, OVRS_EXCG_CD(""), TR_CRCY_CD("USD"),
 응답 output2 (summary): `frcr_pchs_amt1`, `ovrs_tot_pfls`, `frcr_evlu_tota`, `tot_pftrt`
 
 > 마지막 업데이트: 2026-04-09T13:00:00
+
+---
+
+## 가격 스케일 — 국내/해외 on_tick 단위 불일치 패턴 (재발 방지)
+
+### 핵심 규칙
+
+| 종목 구분 | on_tick `price: u64` 단위 | 트리거가 저장 단위 | 비교 시 변환 |
+|----------|-------------------------|-----------------|------------|
+| 국내 (is_domestic_symbol) | 원 (KRW) 정수, e.g. 55000 | 원 그대로 | 변환 불필요 |
+| 해외 (US 주식)             | USD × 100 (cents), e.g. $619.50 → 61950 | USD face value, e.g. 619.50 | `trigger × 100` 후 비교 |
+
+### ❌ 잘못된 패턴 — 해외 종목에서 영원히 신호가 발동하지 않음
+
+```rust
+// ❌ VOO $619.50 → price=61950, buy_trigger_price=620.0
+// 61950 <= 620 → false → 매수 신호 발동 안 됨!!
+if price <= sym_cfg.buy_trigger_price as u64 { ... }
+```
+
+### ✅ 올바른 패턴 — is_overseas 플래그로 스케일 맞춤
+
+```rust
+// strategy.rs
+let scale: f64  = if sym_cfg.is_overseas { 100.0 } else { 1.0 };
+let buy_thresh  = (sym_cfg.buy_trigger_price  * scale).round() as u64;
+let sell_thresh = (sym_cfg.sell_trigger_price * scale).round() as u64;
+let to_disp     = |p: u64| p as f64 / scale;  // 로그 출력용 역변환
+
+if buy_thresh > 0 && price <= buy_thresh { /* 매수 */ }
+if sell_thresh > 0 && price >= sell_thresh { /* 익절 */ }
+```
+
+### fetch_overseas_tick 반환 규격
+
+```rust
+// commands.rs
+async fn fetch_overseas_tick(rest, symbol) -> (price_cents: u64, volume: u64, exchange: String)
+// price_cents = USD 현재가 × 100 (정수화, e.g. $619.50 → 61950)
+// on_tick(symbol, price_cents, volume) 으로 전달됨
+```
+
+### PriceConditionSymbolConfig — is_overseas 필드
+
+```rust
+// strategy.rs
+pub struct PriceConditionSymbolConfig {
+    pub is_overseas: bool,  // true = 해외, 가격 단위 USD (on_tick에서 ×100 처리됨)
+    pub buy_trigger_price: f64,   // 국내: 원 | 해외: USD face value (e.g. 620.0)
+    pub sell_trigger_price: f64,  // 국내: 원 | 해외: USD face value
+    // ...
+}
+```
+
+UI에서 해외 종목 추가 시 `is_overseas: market === 'US'` 자동 설정 (Strategy.tsx `handleAdd`).
+
+### 중복 주문 방지 — in_position 플래그
+
+`PriceConditionStrategy`의 `positions: HashMap<String, (bool, Option<u64>)>`에서  
+`(in_position, entry_price)` 를 추적합니다.
+
+- 매수 신호 발생 → `in_position = true` **즉시** (비동기 주문 제출 전에 설정)
+- 다음 틱에서 `in_position = true` → 매수 신호 스킵 → **중복 매수 방지**
+- 매도 신호 발생 → `in_position = false`, `entry_price = None` 즉시
+- on_tick은 동기 함수 내에서 flag 설정하므로 race condition 없음
+

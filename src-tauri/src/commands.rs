@@ -404,7 +404,7 @@ impl AppState {
             enabled: false,
             target_symbols: vec![],
             order_quantity: 1,
-            params: serde_json::to_value(PriceConditionParams::default()).unwrap_or_default(),
+            params: serde_json::to_value(PriceConditionParams { symbols: vec![] }).unwrap_or_default(),
         };
         strategy_manager.add(Box::new(PriceConditionStrategy::new(price_condition_strategy)));
 

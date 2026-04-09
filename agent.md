@@ -6,8 +6,8 @@
 > - 이 파일이 최신 상태가 아니라면 작업 전에 먼저 갱신한다.
 > - 추측이 아닌 이 맵을 기반으로 작업한다.
 
-**마지막 업데이트**: 2026-04-09T16:00:00  
-**프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (WebSocket Dashboard 연동 ✅, 추가 전략 RSI·모멘텀·이격도·52주신고가·연속상승·돌파실패·강한종가·변동성확장·평균회귀·추세필터·**가격조건** ✅, 전략 설정 프로파일별 영구 저장 ✅, GitHub Actions 자동 빌드 ✅, 체결 기록 보관 설정+대시보드 조회 ✅, 네비게이션 단일화(Sidebar only) ✅, 모바일 완전 동일 기능 REST API ✅, 비상정지 수동 발동/해제 버튼 ✅, 해외잔고 USD/KRW 토글 ✅, 실시간 환율 + REFRESH_INTERVAL_SEC ✅, 체결사유 필수 기록 ✅, 해외잔고 항상 표시 + 가격조건매매 전략 ✅)
+**마지막 업데이트**: 2026-04-09T18:00:00  
+**프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (WebSocket Dashboard 연동 ✅, 추가 전략 RSI·모멘텀·이격도·52주신고가·연속상승·돌파실패·강한종가·변동성확장·평균회귀·추세필터·**가격조건** ✅, 전략 설정 프로파일별 영구 저장 ✅, GitHub Actions 자동 빌드 ✅, 체결 기록 보관 설정+대시보드 조회 ✅, 네비게이션 단일화(Sidebar only) ✅, 모바일 완전 동일 기능 REST API ✅, 비상정지 수동 발동/해제 버튼 ✅, 해외잔고 USD/KRW 토글 ✅, 실시간 환율 + REFRESH_INTERVAL_SEC ✅, 체결사유 필수 기록 ✅, 해외잔고 항상 표시 + 가격조건매매 전략 ✅, **해외주식 USD 가격 스케일 수정** ✅)
 
 ---
 
@@ -349,6 +349,7 @@ KIS_IS_PAPER_TRADING=false   # 기본값: 실전투자
 | 2026-04-09T12:30:00 | 4가지 기능 개선: (1) 비상정지 수동 발동 — risk.rs trigger_emergency_stop(), commands.rs activate_emergency_stop IPC, lib.rs 등록, commands.ts/hooks.ts useActivateEmergencyStop 추가 (2) Dashboard RiskPanel Collapse 제거 → 항상 펼침, 비상정지 발동/해제 버튼 토글 (하락장 대응) (3) 해외 보유주식 USD/KRW 토글 — KRW_RATE=1450 근사 환산, 헤더 버튼 2개 (4) user-guide.md 섹션8 하락장 방어전략(2026-04-09) + 섹션9 FAQ(수수료 0원 이유) 추가 | AI Agent |
 | 2026-04-09T15:00:00 | 2가지 기능 추가: (1) 실시간 환율 + 공통 갱신주기 — rest.rs fetch_usd_krw_rate()(open.er-api.com), AppState exchange_rate_krw(Arc<RwLock<f64>>)+refresh_interval_sec(u64), REFRESH_INTERVAL_SEC 환경변수(기본 30초/최소 5초), lib.rs 환율 갱신 데뼼(4번 백그라운드 태스크), get_exchange_rate/get_refresh_interval IPC, useExchangeRate/useRefreshInterval 훅, Dashboard KRW_RATE 상수 제거→동적환율, useBalance/useOverseasBalance/useTodayStats refetchInterval 동적화 (2) 체결사유 필수 기록 — TradeRecord signal_reason 필드(serde default), on_fill() pending.signal_reason 전달, Dashboard FilledOrdersPanel 체결사유 커럼메 | AI Agent |
 | 2026-04-09T16:00:00 | 2가지 개선: (1) 해외 보유주식 패널 항상 표시 — Dashboard overseasBalance 조건부 숨김 제거, isLoading/isError 추출, 로딩/에러/빈 상태 메시지 표시 (기존: 해외주식 없으면 섹션 자체 숨겨져 API 오류 디버깅 불가) (2) 가격 조건 매매 전략 — strategy.rs PriceConditionStrategy(buy_trigger_price 이하 매수 / sell_trigger_price 이상 지정가익절 / take_profit_pct% 비율익절 / stop_loss_pct% 손절), commands.rs 등록, Strategy.tsx 파라미터 메타+설명 추가 | AI Agent |
+| 2026-04-09T18:00:00 | 4가지 개선: (1) **해외주식 USD 가격 스케일 수정(크리티컬 버그)** — fetch_overseas_tick이 USD×100(cents)을 on_tick에 전달하지만 buy_trigger_price가 USD face value로 저장돼 비교 시 항상 false였던 버그 수정. PriceConditionSymbolConfig에 is_overseas:bool 추가, on_tick에서 is_overseas=true이면 threshold×100으로 스케일 변환 후 비교, reason 문자열도 USD/원 분기 (2) **Strategy UI — market 전달 + USD 표시** — PriceConditionEditorPanel에 market prop 추가, handleAdd에서 is_overseas:market==='US' 자동 설정, 가격 칼럼 헤더 "매수가(원/$)", 입력칸에 원/$endAdornment, 해외 종목 행에 "$" 파란 배지, 가격 칼럼 minWidth 70→100, 테이블 minWidth 500→600, step 국내=100/해외=0.01 동적 (3) **중복 주문 방지** — in_position 플래그가 on_tick 내에서 즉시 true 설정(비동기 제출 전)되므로 이미 방지됨. 추가 변경 없음 (4) **전략 카드 시각 정리** — 카드 하단 verbose 설명 박스를 Tooltip 아이콘("전략 설명 보기")으로 교체, 카드 세로 공간 대폭 축소 | AI Agent |
 ---
 
 > **에이전트에게**: 이 파일을 읽었으면 작업을 시작하세요.  

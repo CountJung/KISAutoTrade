@@ -243,6 +243,20 @@ export interface PositionView {
   unrealizedPnlRate: number
 }
 
+// ─── 가격 조건 매매 종목별 설정 ──────────────────────────────────────
+/** PriceConditionStrategy params.symbols 내 개별 종목 설정 (snake_case: Rust params JSON과 1:1) */
+export interface PriceConditionSymbolConfig {
+  symbol: string
+  symbol_name: string
+  quantity: number
+  buy_trigger_price: number
+  sell_trigger_price: number
+  take_profit_pct: number
+  stop_loss_pct: number
+  /** 해외 주식 여부. true이면 가격 단위 = USD */
+  is_overseas: boolean
+}
+
 // ─── 전략 ──────────────────────────────────────────────────────────
 export interface StrategyView {
   id: string
