@@ -1082,7 +1082,92 @@ params: CANO, ACNT_PRDT_CD, OVRS_EXCG_CD(""), TR_CRCY_CD("USD"),
 응답 output1 (per item): `ovrs_pdno`, `ovrs_item_name`, `ovrs_cblc_qty`, `pchs_avg_pric`, `now_pric2`, `ovrs_stck_evlu_amt`, `frcr_evlu_pfls_amt`, `evlu_pfls_rt`, `ovrs_excg_cd`, `tr_mket_name`  
 응답 output2 (summary): `frcr_pchs_amt1`, `ovrs_tot_pfls`, `frcr_evlu_tota`, `tot_pftrt`
 
-> 마지막 업데이트: 2026-04-10T12:00:00
+---
+
+## 16. 국내 주식 종목명 검색 — KRX 프록시 우선 전략
+
+### 문제 배경
+
+KRX data.krx.co.kr에서 전체 종목 목록을 직접 다운로드하는 방식은 **WAF 봇 차단** 으로 간헐적으로 실패한다.  
+실패 시 캐시가 없으면 종목 검색이 동작하지 않는다.
+
+### 해결: 4단계 폴백 체계
+
+```
+① StockStore 영구 캐시 (이전에 본 종목)
+② KRX 레거시 캐시 (24시간 TTL, 다운로드 성공 시)
+③ KRX 프록시 검색 — k-skill-proxy (공식 KRX 데이터, API 키 불필요) ← 신규
+④ NAVER Finance 자동완성 (최후 수단)
+```
+
+### KRX 프록시 엔드포인트
+
+출처: https://github.com/CountJung/k-skill/blob/main/korean-stock-search/SKILL.md
+
+```
+GET https://k-skill-proxy.nomadamas.org/v1/korean-stock/search?q={검색어}&limit={N}
+```
+
+응답 형태:
+```json
+{
+  "items": [
+    {
+      "market": "KOSPI",
+      "code": "005930",
+      "standard_code": "KR7005930003",
+      "name": "삼성전자",
+      "short_name": "삼성전자",
+      "english_name": "Samsung Electronics",
+      "listed_at": "1975-06-11"
+    }
+  ],
+  "query": { "q": "삼성전자", "bas_dd": "20260404", "limit": 10 }
+}
+```
+
+### Rust 구현 패턴
+
+```rust
+// market/mod.rs
+pub async fn search_krx_proxy(query: &str, limit: usize) -> Result<Vec<StockSearchItem>> {
+    let base = std::env::var("KSKILL_PROXY_BASE_URL")
+        .unwrap_or_else(|_| "https://k-skill-proxy.nomadamas.org".to_string());
+    let resp = client
+        .get(format!("{}/v1/korean-stock/search", base))
+        .query(&[("q", query), ("limit", &limit.to_string())])
+        .send().await?;
+    // items.market → StockSearchItem.market: Option<String>
+}
+```
+
+### StockSearchItem 구조체 (market 필드 추가됨)
+
+```rust
+pub struct StockSearchItem {
+    pub pdno: String,        // 종목코드 (6자리)
+    pub prdt_name: String,   // 종목명
+    pub market: Option<String>, // "KOSPI" | "KOSDAQ" | "KONEX" | "US" | None
+}
+```
+
+TypeScript 미러:
+```typescript
+export interface StockSearchItem {
+  pdno: string
+  prdt_name: string
+  market?: string  // "KOSPI" | "KOSDAQ" | "KONEX" | "US"
+}
+```
+
+### 주의사항
+
+- `KSKILL_PROXY_BASE_URL` 환경변수로 프록시 기본 URL 오버라이드 가능
+- 프록시는 KRX_API_KEY를 서버에서 관리 → 사용자 발급 불필요
+- 응답 캐시 TTL: 300,000ms (5분) — 프록시 서버 측 캐시
+- 기존 StockSearchItem 생성 시 `market: None` 으로 초기화해야 컴파일 오류 없음
+
+> 마지막 업데이트: 2026-04-10T14:30:00
 
 ---
 

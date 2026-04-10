@@ -274,4 +274,94 @@ impl StrategyStore {
 
 핵심: `AppState::new()`는 sync → `std::fs`, IPC 커맨드는 async → `tokio::fs`
 
-> 마지막 업데이트: 2026-04-07T17:48:01
+---
+
+## 10. 전략별 종목 독립 상태 패턴 (Per-Symbol HashMap State)
+
+자동매매 전략처럼 **여러 종목을 하나의 전략 인스턴스에서 처리**할 때, 종목별 상태를 독립 관리하는 패턴.
+
+### 문제: 단일 상태 공유
+
+```rust
+// ❌ 잘못된 패턴 — 모든 종목이 prices/in_position 공유
+pub struct SomeStrategy {
+    prices: VecDeque<u64>,  // KODEX+ACE 가격이 뒤섞임
+    in_position: bool,       // 한 종목이 매수하면 다른 종목 매수 불가
+}
+```
+
+### 해결: 종목코드 키 HashMap
+
+```rust
+// ✅ 올바른 패턴 — 종목별 독립 상태
+struct SomeState {
+    prices: VecDeque<u64>,
+    in_position: bool,
+    // 전략별 추가 필드 (last_buy_price, avg_range 등)
+}
+
+pub struct SomeStrategy {
+    config: StrategyConfig,
+    params: SomeParams,
+    states: std::collections::HashMap<String, SomeState>,  // 종목코드 → 상태
+}
+
+impl SomeStrategy {
+    fn on_tick(&mut self, symbol: &str, price: u64, ...) -> Option<Signal> {
+        let state = self.states.entry(symbol.to_string()).or_insert_with(|| SomeState {
+            prices: VecDeque::new(),
+            in_position: false,
+        });
+        // state를 통해 종목별 독립 판단
+    }
+}
+```
+
+### reset() 패턴별 구현
+
+```rust
+// 패턴 A: 단순 초기화 (initialize_*에서 복원 가능한 경우)
+fn reset(&mut self) {
+    self.states.clear();
+}
+
+// 패턴 B: 가격 버퍼 유지, 포지션만 초기화 (MA 계산에 히스토리 필요한 경우)
+fn reset(&mut self) {
+    for state in self.states.values_mut() {
+        state.in_position = false;
+        state.entry_price = None;
+    }
+}
+
+// 패턴 C: 일부 필드만 유지 (VolatilityExpansionStrategy — avg_range 유지)
+fn reset(&mut self) {
+    for state in self.states.values_mut() {
+        // avg_range는 유지 (초기화하면 다음 날 첫 틱까지 신호 없음)
+        state.day_open = None;
+        state.day_high = None;
+        state.day_low = None;
+        state.in_position = false;
+        state.entry_price = None;
+    }
+}
+```
+
+### 이 프로젝트에서의 적용
+
+`strategy.rs`의 11개 전략 모두 이 패턴 사용:
+
+| 전략 | State 구조체 | 핵심 유지 필드 |
+|------|------------|--------------|
+| MA교차(1) | `MaCrossState` | `prev_short_ma`, `prev_long_ma` |
+| RSI(2) | 인라인 튜플 | `(VecDeque<u64>, Option<f64>)` |
+| 모멘텀(3) | `MomentumState` | `last_buy_price`, `last_sell_price` |
+| 이격도(4) | 인라인 | `VecDeque<u64>` |
+| 52주신고가(5) | `FiftyTwoWeekState` | `prev_price`, `high_52w`, `buy_price` |
+| 연속상승(6) | `ConsecutiveMoveState` | `prices`, `in_position` |
+| 돌파실패(7) | `FailedBreakoutState` | `breakout_prev_high` |
+| 강한종가(8) | `StrongCloseState` | `pending_buy`, `entry_price` |
+| 변동성확장(9) | `VolatilityExpansionState` | `avg_range` (reset 후 유지) |
+| 평균회귀(10) | `MeanReversionState` | `prices` (reset 후 유지) |
+| 추세필터(11) | `TrendFilterState` | `prices` (reset 후 유지) |
+
+> 마지막 업데이트: 2026-04-10T14:00:00

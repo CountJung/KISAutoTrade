@@ -81,6 +81,7 @@ impl StockStore {
             .map(|(code, entry)| StockSearchItem {
                 pdno: code.clone(),
                 prdt_name: entry.name.clone(),
+                market: None,
             })
             .collect();
         // 코드 완전 일치 우선 정렬

@@ -2124,14 +2124,14 @@ pub async fn search_stock(
         let code = query.to_uppercase();
         // StockStore에 이미 있으면 빠르게 반환
         if let Some(name) = state.stock_store.get_name(&code).await {
-            return Ok(vec![StockSearchItem { pdno: code, prdt_name: name }]);
+            return Ok(vec![StockSearchItem { pdno: code, prdt_name: name, market: None }]);
         }
         // 없으면 KIS get_price로 확인
         let client = state.rest_client.read().await.clone();
         if let Ok(p) = client.get_price(&code).await {
             if !p.hts_kor_isnm.is_empty() {
                 state.stock_store.upsert(&code, &p.hts_kor_isnm).await;
-                return Ok(vec![StockSearchItem { pdno: code, prdt_name: p.hts_kor_isnm }]);
+                return Ok(vec![StockSearchItem { pdno: code, prdt_name: p.hts_kor_isnm, market: None }]);
             }
         }
         // KIS 실패 시 Yahoo Finance로 이름 조회 (설정 없이도 동작)
@@ -2140,7 +2140,7 @@ pub async fn search_stock(
             Ok(name) => {
                 tracing::info!("Yahoo Finance 이름 조회 성공: {} → {}", code, name);
                 state.stock_store.upsert(&code, &name).await;
-                return Ok(vec![StockSearchItem { pdno: code, prdt_name: name }]);
+                return Ok(vec![StockSearchItem { pdno: code, prdt_name: name, market: None }]);
             }
             Err(e) => {
                 tracing::warn!("Yahoo Finance 이름 조회 실패: {} — {}", code, e);
@@ -2168,8 +2168,23 @@ pub async fn search_stock(
         }
     }
 
-    // ④ NAVER Finance 실시간 검색 폴백
-    tracing::info!("search_stock: 로컬 검색 결과 없음 → NAVER 실시간 검색 (query={:?})", query);
+    // ④ KRX 프록시 검색 (k-skill-proxy — 공식 KRX 데이터, API 키 불필요, 시장구분 포함)
+    tracing::info!("search_stock: 로컬 캐시 miss → KRX 프록시 검색 (query={:?})", query);
+    match crate::market::search_krx_proxy(&query, 20).await {
+        Ok(results) if !results.is_empty() => {
+            tracing::info!("KRX 프록시 검색 성공: {}개 결과 (query={:?})", results.len(), query);
+            // 결과를 StockStore에 캐시
+            state.stock_store.upsert_many(
+                results.iter().map(|r| (r.pdno.clone(), r.prdt_name.clone()))
+            ).await;
+            return Ok(results);
+        }
+        Ok(_) => tracing::debug!("KRX 프록시 결과 없음 (query={:?}), NAVER 폴백 시도", query),
+        Err(e) => tracing::warn!("KRX 프록시 검색 실패: {} (query={:?}), NAVER 폴백 시도", e, query),
+    }
+
+    // ⑤ NAVER Finance 실시간 검색 폴백 (최후 수단)
+    tracing::info!("search_stock: KRX 프록시 miss → NAVER 실시간 검색 (query={:?})", query);
     match crate::market::search_naver_live(&query).await {
         Ok(results) if !results.is_empty() => {
             tracing::info!("NAVER 검색 성공: {}개 결과 (query={:?})", results.len(), query);

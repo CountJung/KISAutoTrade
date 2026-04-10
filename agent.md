@@ -6,7 +6,7 @@
 > - 이 파일이 최신 상태가 아니라면 작업 전에 먼저 갱신한다.
 > - 추측이 아닌 이 맵을 기반으로 작업한다.
 
-**마지막 업데이트**: 2026-04-10T12:00:00  
+**마지막 업데이트**: 2026-04-10T14:30:00  
 **프로젝트 상태**: Phase 1~7 완료 / Phase 8+ 진행 중 (WebSocket Dashboard 연동 ✅, 추가 전략 RSI·모멘텀·이격도·52주신고가·연속상승·돌파실패·강한종가·변동성확장·평균회귀·추세필터·**가격조건** ✅, 전략 설정 프로파일별 영구 저장 ✅, GitHub Actions 자동 빌드 ✅, 체결 기록 보관 설정+대시보드 조회 ✅, 네비게이션 단일화(Sidebar only) ✅, 모바일 완전 동일 기능 REST API ✅, 비상정지 수동 발동/해제 버튼 ✅, 해외잔고 USD/KRW 토글 ✅, 실시간 환율 + REFRESH_INTERVAL_SEC ✅, 체결사유 필수 기록 ✅, 해외잔고 항상 표시 + 가격조건매매 전략 ✅, **해외주식 USD 가격 스케일 수정** ✅, **리스크 관리 enabled on/off + 순손실 계산** ✅, **잔고부족 매수정지(buy_suspended)** ✅)
 
 ---
@@ -334,24 +334,20 @@ KIS_IS_PAPER_TRADING=false   # 기본값: 실전투자
 
 ---
 
-## 8. 변경 이력
+## 8. 최근 변경 요약
 
-| 날짜 | 변경 내용 | 작성자 |
-|------|----------|--------|
-| 2025-07-04 | 최초 생성 (Phase 1~6 완료 상태) | AI Agent |
-| 2025-07-16 | Phase 7: 듀얼 키 설정, check_config IPC, Settings UI 진단, secure_config.example.json | AI Agent |
-| 2026-04-04 | Phase 7 완료 확인. Phase 8 주요 기능 반영: market/server/updater 모듈, 35개 IPC 커맨드 목록 전면 갱신, scripts/setup-local.sh, .nvmrc, .cargo/config.toml 크로스플랫폼 처리, TodoList 동기화 | AI Agent |
-| 2026-04-07T17:48:01 | 타임스탬프 형식 날짜→datetime(YYYY-MM-DDTHH:MM:SS) 전환(agent.md+4개SKILL.md+copilot-instructions.md), .vscode/settings.json 생성(rust-analyzer linkedProjects+TSsdk), strategy.rs apply_saved_configs 프로필 전환 시 전략 기본값 리셋 버그 수정, release.yml releaseName 앱명 수정(AutoConditionTrade→KISAutoTrade), .github/workflows/release.yml+.vscode/ 디렉토리 맵 추가 | AI Agent |
-| 2026-04-08 | 체결 기록 보관 기능 추가: TradeArchiveConfig 구조체+commands.rs 3개 커맨드 (get/set/stats), lib.rs 등록, types.ts+commands.ts+hooks.ts 프론트엔드 연동, Dashboard FilledOrdersPanel(날짜 범위 조회), Settings 체결 기록 보관 섹션, discord.rs 미사용 import 제거 | AI Agent |
-| 2026-04-08T14:00:00 | KIS체결내역 제거: Dashboard useTodayExecuted+KIS섹션 삭제, History.tsx KIS탭(Tab0) 제거→로컬 기록 단독뷰; 리스크 관리 이동: Strategy.tsx RiskPanel→Dashboard.tsx 접기/펼치기 Collapse 패널; docs/user-guide.md 상승장 전략 가이드 섹션 추가(EGW00201 분석, 전략 추천/비추천 표) | AI Agent |
-| 2026-04-08T16:00:00 | 시장 시간표 자동 제어: market_hours.rs 신규 모듈 (KRX 09:00-15:30 KST / US 22:00-07:00 KST), lib.rs 등록, commands.rs 폴링 루프에 전체 폐장 5분 대기 + 종목별 skip 게이팅 추가, is_domestic_symbol commands.rs→market_hours.rs 이동, user-guide.md 섹션7(시장 시간표 자동 제어) 추가 | AI Agent || 2026-04-08T18:00:00 | UI 4가지 개선: (1) Dashboard 보유 종목 상단 문제 (2) AppShell TopBar + 자동매매 상태 칩(FiberManualRecord pulse) (3) Settings SliderWithInput 컴포넌트(4개 Slider 교체) (4) 모바일 웹 자동매매: run_trading_daemon 폴링데스크 lib.rs에서 영구 spawn, server/mod.rs /api/trading/* REST 라우트, transport.ts 매핑, MOBILE_HTML start/stop 버튼 추가 | AI Agent |
-| 2026-04-08T20:00:00 | 네비게이션 단일화 + 모바일 완전 동일 기능화: (1) AppShell TopBar 제거 → 모바일 전용 미니 AppBar(햄버거+타이틀만), Sidebar DrawerContent에 자동매매 상태 칩+pulse 이전 — 데스크탑=사이드바 only, 모바일=AppBar+Drawer (2) server/mod.rs ServerState 12개 Arc 필드 추가(config, profiles, trade/stats_store, log_config, trade_archive_config, risk/order_manager, stock/strategy_store 등), 18개 신규 REST 엔드포인트 (/api/app-config, /api/profiles, /api/positions, /api/today-stats, /api/stats, /api/trades, /api/kis-executed, /api/pending-orders, /api/log-config, /api/recent-logs, /api/archive-config, /api/archive-stats, /api/risk-config, /api/risk-config/clear-emergency, /api/web-config, /api/strategies/:id) (3) lib.rs 서버 spawn 18개 Arc 전달 (4) transport.ts resolveRest() 16개 신규 케이스 추가 — 모든 페이지(Dashboard/Trading/Strategy/History/Settings/Log) 웹 모드 완전 지원 | AI Agent |
-| 2026-04-09T00:00:00 | 3개 버그 수정: (1) Dashboard 보유 주식 미표시 — PositionTracker.load_if_empty() 추가, get_balance/get_overseas_balance 호출 시 tracker 복원 (2) 해외 자동매수 실패 — fetch_overseas_tick 거래소 반환(NAS/NYS/AMS), submit_signal(exchange, tick_price) 파라미터 추가, OrderManager.process_buy/sell 국내(시장가)/해외(지정가USD) 분기, place_overseas_with_retry 추가, NAS→NASD 등 주문코드 변환 (3) 해외 잔고 미표시 — rest.rs OverseasBalanceItem/Summary/Response+get_overseas_balance(TR TTTS3012R), get_overseas_balance IPC커맨드, lib.rs 등록, types.ts/commands.ts/hooks.ts 연동, Dashboard 해외보유주식 섹션 추가(USD 표시), server/mod.rs /api/overseas-balance 엔드포인트, transport.ts 매핑 | AI Agent |
-| 2026-04-09T12:30:00 | 4가지 기능 개선: (1) 비상정지 수동 발동 — risk.rs trigger_emergency_stop(), commands.rs activate_emergency_stop IPC, lib.rs 등록, commands.ts/hooks.ts useActivateEmergencyStop 추가 (2) Dashboard RiskPanel Collapse 제거 → 항상 펼침, 비상정지 발동/해제 버튼 토글 (하락장 대응) (3) 해외 보유주식 USD/KRW 토글 — KRW_RATE=1450 근사 환산, 헤더 버튼 2개 (4) user-guide.md 섹션8 하락장 방어전략(2026-04-09) + 섹션9 FAQ(수수료 0원 이유) 추가 | AI Agent |
-| 2026-04-09T15:00:00 | 2가지 기능 추가: (1) 실시간 환율 + 공통 갱신주기 — rest.rs fetch_usd_krw_rate()(open.er-api.com), AppState exchange_rate_krw(Arc<RwLock<f64>>)+refresh_interval_sec(u64), REFRESH_INTERVAL_SEC 환경변수(기본 30초/최소 5초), lib.rs 환율 갱신 데뼼(4번 백그라운드 태스크), get_exchange_rate/get_refresh_interval IPC, useExchangeRate/useRefreshInterval 훅, Dashboard KRW_RATE 상수 제거→동적환율, useBalance/useOverseasBalance/useTodayStats refetchInterval 동적화 (2) 체결사유 필수 기록 — TradeRecord signal_reason 필드(serde default), on_fill() pending.signal_reason 전달, Dashboard FilledOrdersPanel 체결사유 커럼메 | AI Agent |
-| 2026-04-09T16:00:00 | 2가지 개선: (1) 해외 보유주식 패널 항상 표시 — Dashboard overseasBalance 조건부 숨김 제거, isLoading/isError 추출, 로딩/에러/빈 상태 메시지 표시 (기존: 해외주식 없으면 섹션 자체 숨겨져 API 오류 디버깅 불가) (2) 가격 조건 매매 전략 — strategy.rs PriceConditionStrategy(buy_trigger_price 이하 매수 / sell_trigger_price 이상 지정가익절 / take_profit_pct% 비율익절 / stop_loss_pct% 손절), commands.rs 등록, Strategy.tsx 파라미터 메타+설명 추가 | AI Agent |
-| 2026-04-09T18:00:00 | 4가지 개선: (1) **해외주식 USD 가격 스케일 수정(크리티컬 버그)** — fetch_overseas_tick이 USD×100(cents)을 on_tick에 전달하지만 buy_trigger_price가 USD face value로 저장돼 비교 시 항상 false였던 버그 수정. PriceConditionSymbolConfig에 is_overseas:bool 추가, on_tick에서 is_overseas=true이면 threshold×100으로 스케일 변환 후 비교, reason 문자열도 USD/원 분기 (2) **Strategy UI — market 전달 + USD 표시** — PriceConditionEditorPanel에 market prop 추가, handleAdd에서 is_overseas:market==='US' 자동 설정, 가격 칼럼 헤더 "매수가(원/$)", 입력칸에 원/$endAdornment, 해외 종목 행에 "$" 파란 배지, 가격 칼럼 minWidth 70→100, 테이블 minWidth 500→600, step 국내=100/해외=0.01 동적 (3) **중복 주문 방지** — in_position 플래그가 on_tick 내에서 즉시 true 설정(비동기 제출 전)되므로 이미 방지됨. 추가 변경 없음 (4) **전략 카드 시각 정리** — 카드 하단 verbose 설명 박스를 Tooltip 아이콘("전략 설명 보기")으로 교체, 카드 세로 공간 대폭 축소 | AI Agent || 2026-04-10T10:00:00 | 리스크 관리 개편: (1) **RiskManager enabled on/off** — enabled 필드 추가(#[serde(default="default_true")]), Settings페이지 Switch로 토글, 비활성 시 대시보드 리스크 패널 숨김(RiskPanelWrapper), 비활성 시 자동 비상정지 스킵 (2) **순손실 계산** — daily_profit 필드 추가, net_loss()=총손실-당일수익, record_pnl(수익도 추적), 순손실이 한도 이상일 때만 비상정지 (3) commands.rs build_risk_view() 헬퍼 함수+RiskConfigView 업데이트(enabled/dailyProfit/netLoss) (4) Settings.tsx RiskSection 컴포넌트 추가(Slider 한도 설정+오늘 현황 요약) | AI Agent |
-| 2026-04-10T12:00:00 | **잔고부족 매수정지(buy_suspended) 구현**: (1) order.rs OrderManager.buy_suspended/buy_suspended_reason 필드, process_buy에서 is_insufficient_balance_error() 감지(APBK0013/APBK0915/APBK0017+msg 키워드) 시 플래그 세팅+Ok(()) 반환, on_fill Sell 체결 시 자동 해제, reset_day()에 자동 초기화 추가 (2) commands.rs TradingStatus에 buySuspended/buySuspendedReason 필드, clear_buy_suspension 커맨드 신규 (3) lib.rs 커맨드 등록 (4) server/mod.rs 거래상태 JSON에 buySuspended/buySuspendedReason 추가 (5) types.ts/commands.ts/hooks.ts 프론트엔드 연동(useClearBuySuspension 훁) (6) Dashboard/Trading 페이지에 경고 Alert+매수재개 버튼 UI (7) 스킬 파일 업데이트: kis-api/SKILL.md 실제 APBK* 에러코드+buy_suspended/RiskManager 패턴 신규 섹션 14~15 추가 | AI Agent |---
+> 전체 이력은 `git log --oneline` 으로 확인. 여기는 최근 5건만 유지한다.
+
+| 날짜 | 한줄 요약 |
+|------|----------|
+| 2026-04-10 | KRX 프록시 폴백 추가(search_krx_proxy), StockSearchItem.market 필드, copilot-instructions 버그→개선 원칙 |
+| 2026-04-10 | 전략 1~11 HashMap per-symbol 리팩토링(다중 종목 독립 신호 지원) |
+| 2026-04-10 | buy_suspended 매수정지 플래그 + 자동 해제(APBK* 에러 감지) |
+| 2026-04-10 | RiskManager enabled on/off + 순손실(net_loss) 계산 |
+| 2026-04-09 | 해외주식 USD 스케일 버그 수정, 가격조건매매 전략(12번) 추가 |
+
+---
 
 > **에이전트에게**: 이 파일을 읽었으면 작업을 시작하세요.  
-> 작업 완료 후 **8. 변경 이력** 섹션과 **2. 전체 디렉토리 맵**을 반드시 업데이트하세요.
+> 작업 완료 후 **2. 전체 디렉토리 맵**과 **8. 최근 변경 요약**을 업데이트하되, 이력은 **최근 5건만 유지**하고 오래된 항목은 삭제한다. 세부 이력은 git에 위임한다.
+

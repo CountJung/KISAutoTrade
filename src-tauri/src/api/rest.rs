@@ -341,6 +341,9 @@ pub struct StockSearchItem {
     /// 종목명 (prdt_abrv_name 필드도 수용)
     #[serde(alias = "prdt_abrv_name")]
     pub prdt_name: String,
+    /// 시장구분: "KOSPI" | "KOSDAQ" | "KONEX" | "US" (없으면 None)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub market: Option<String>,
 }
 
 // ────────────────────────────────────────────────────────────────────

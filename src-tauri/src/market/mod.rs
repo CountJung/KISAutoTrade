@@ -97,6 +97,7 @@ impl StockList {
                                             all.push(StockSearchItem {
                                                 pdno: item.code,
                                                 prdt_name: item.full_name,
+                                                market: None,
                                             });
                                         }
                                     }
@@ -316,6 +317,76 @@ pub async fn search_naver_live(query: &str) -> Result<Vec<StockSearchItem>> {
         .map(|i| StockSearchItem {
             pdno: i.code,
             prdt_name: i.name,
+            market: None,
+        })
+        .collect())
+}
+
+// ── KRX 프록시 검색 (k-skill-proxy) ─────────────────────────────────
+//
+// k-skill-proxy는 KRX Open API를 API 키 없이 래핑하는 공개 프록시다.
+// 공식 KRX 데이터(KOSPI/KOSDAQ/KONEX 시장 구분 포함)를 반환하며,
+// data.krx.co.kr WAF 차단 문제를 우회한다.
+// 출처: https://github.com/CountJung/k-skill/blob/main/korean-stock-search/SKILL.md
+const KRX_PROXY_BASE: &str = "https://k-skill-proxy.nomadamas.org";
+
+/// KRX 프록시 검색 결과 아이템 (k-skill-proxy 응답 형태)
+#[derive(Deserialize)]
+struct KrxProxyItem {
+    market: String,
+    code: String,
+    name: String,
+}
+
+#[derive(Deserialize)]
+struct KrxProxySearchResponse {
+    #[serde(default)]
+    items: Vec<KrxProxyItem>,
+}
+
+/// k-skill-proxy를 통한 KRX 공식 종목 이름 검색
+///
+/// - 이름 또는 종목코드 검색 가능
+/// - API 키 불필요 (프록시 서버가 KRX_API_KEY 관리)
+/// - 시장 구분(KOSPI/KOSDAQ/KONEX) 포함 반환
+/// - KRX data.krx.co.kr WAF 차단 우회 가능
+pub async fn search_krx_proxy(query: &str, limit: usize) -> Result<Vec<StockSearchItem>> {
+    let client = Client::builder()
+        .user_agent("Mozilla/5.0 (compatible; KISAutoTrade)")
+        .timeout(std::time::Duration::from_secs(8))
+        .build()?;
+
+    let base = std::env::var("KSKILL_PROXY_BASE_URL")
+        .unwrap_or_else(|_| KRX_PROXY_BASE.to_string());
+
+    let resp = client
+        .get(format!("{}/v1/korean-stock/search", base))
+        .query(&[("q", query), ("limit", &limit.to_string())])
+        .header("Accept", "application/json")
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        return Err(anyhow!("KRX 프록시 HTTP 오류: {}", resp.status()));
+    }
+
+    let text = resp.text().await?;
+    tracing::debug!("KRX 프록시 검색 응답: {:.300}", text);
+
+    let data: KrxProxySearchResponse = serde_json::from_str(&text)
+        .map_err(|e| anyhow!("KRX 프록시 응답 파싱 실패: {} (본문: {:.200})", e, text))?;
+
+    if data.items.is_empty() {
+        tracing::debug!("KRX 프록시 검색 결과 없음: query={:?}", query);
+    }
+
+    Ok(data.items
+        .into_iter()
+        .filter(|i| !i.code.is_empty())
+        .map(|i| StockSearchItem {
+            pdno: i.code,
+            prdt_name: i.name,
+            market: Some(i.market),
         })
         .collect())
 }

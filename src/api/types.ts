@@ -158,6 +158,8 @@ export interface AppLogEntry {
 export interface StockSearchItem {
   pdno: string
   prdt_name: string
+  /** 시장구분: "KOSPI" | "KOSDAQ" | "KONEX" | "US" */
+  market?: string
 }
 
 // ─── 주문 ──────────────────────────────────────────────────────────
