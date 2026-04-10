@@ -218,6 +218,10 @@ export const clearEmergencyStop = (): Promise<RiskConfigView> =>
 export const activateEmergencyStop = (): Promise<RiskConfigView> =>
   invoke('activate_emergency_stop')
 
+/** 잔고 부족 매수 정지를 수동으로 해제 */
+export const clearBuySuspension = (): Promise<TradingStatus> =>
+  invoke('clear_buy_suspension')
+
 // ─── 미체결 주문 목록 ──────────────────────────────────────────
 export const getPendingOrders = (): Promise<PendingOrderView[]> =>
   invoke('get_pending_orders')

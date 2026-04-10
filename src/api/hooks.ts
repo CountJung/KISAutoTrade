@@ -689,6 +689,17 @@ export function useActivateEmergencyStop() {
   })
 }
 
+/** 잔고 부족 매수 정지를 수동으로 해제 */
+export function useClearBuySuspension() {
+  const qc = useQueryClient()
+  return useMutation<TradingStatus, Error, void>({
+    mutationFn: () => cmd.clearBuySuspension(),
+    onSuccess: (data) => {
+      qc.setQueryData(KEYS.tradingStatus, data)
+    },
+  })
+}
+
 // ─── 환율 / 공통 갱신 주기 ──────────────────────────────────────
 /**
  * 공통 데이터 갱신 주기 조회 (초)

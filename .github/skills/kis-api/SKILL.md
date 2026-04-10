@@ -267,10 +267,14 @@ fn parse_realtime_price(text: &str) -> Option<RealtimePrice> {
 | 코드 | 설명 | 대응 |
 |------|------|------|
 | `EGW00201` | 초당 거래건수 초과 | sleep 후 재시도 |
+| `EGW00133` | 초당 주문건수 초과 | sleep 후 재시도 |
 | `OPSP00002` | 유효하지 않은 토큰 | 토큰 재발급 |
 | `OPSQ00002` | 앱키 오류 | `appkey` 확인 |
 | `40600000` | 비정상 접근 | API 키 확인 |
 | `OPSQ00001` | 계좌번호 오류 | CANO/ACNT_PRDT_CD 확인 |
+| `APBK0013` | 주문가능금액 부족 | 매수 일시 정지 → 매도 체결 시 자동 해제 |
+| `APBK0915` | 잔고 부족 | 동일 |
+| `APBK0017` | 주문가능금액이 없습니다 | 동일 |
 
 ### Rust 에러 처리 패턴
 
@@ -654,6 +658,277 @@ let mut market_pause_until: Option<tokio::time::Instant> = None;
 
 ---
 
+## 14. 잔고 부족 매수 정지 패턴 (buy_suspended)
+
+### 문제 상황
+
+KIS 내부 잔고 상태와 로컬 잔고 추정이 달라질 경우, 잔고 부족 응답을 받아도 다음 틱에서 계속 매수 주문을 시도한다.  
+→ API 호출 낭비 + KIS rate-limit 소모 + 에러 로그 폭증.
+
+### 잔고 부족 KIS 에러 패턴
+
+| 에러코드 | msg1 키워드 | 발생 조건 |
+|---------|-----------|----------|
+| `APBK0013` | 주문가능금액부족, 주문가능금액 부족 | 주문금액 > 예수금 |
+| `APBK0915` | 잔고부족, 잔고 부족 | 가용잔고 = 0 |
+| `APBK0017` | 주문가능금액이 없습니다 | 예수금 자체 없음 |
+
+```rust
+/// KIS API 응답에서 잔고 부족 오류인지 판별
+/// 실제 수집된 msg1 메시지 + 에러코드 패턴 기반
+fn is_insufficient_balance_error(msg: &str) -> bool {
+    msg.contains("잔고부족")
+        || msg.contains("잔고 부족")
+        || msg.contains("주문가능금액부족")
+        || msg.contains("주문가능금액 부족")
+        || msg.contains("APBK0013")
+        || msg.contains("APBK0915")
+        || msg.contains("APBK0017")
+}
+```
+
+### buy_suspended 플래그 — OrderManager 설계
+
+```rust
+pub struct OrderManager {
+    // ...
+    /// true = KIS 잔고부족 응답 수신 후 매수 일시 정지
+    /// 매도 체결 또는 수동 해제 시 false로 전환됨
+    pub buy_suspended: bool,
+    /// 매수 정지 사유 (KIS 응답 msg1)
+    pub buy_suspended_reason: Option<String>,
+}
+```
+
+### 감지 → 정지 → 해제 흐름
+
+```
+매수 주문 시도 → KIS API 호출
+  ↓
+응답: 잔고부족 에러 (APBK0013 등)
+  ↓
+buy_suspended = true, buy_suspended_reason = Some(msg)
+  ↓ (이후 모든 틱)
+buy_suspended 체크 → 매수 주문 즉시 skip (API 호출 없음)
+  ↓ (해제 조건 중 하나)
+① 매도 주문 체결 (on_fill → Sell) → buy_suspended = false (자본 확보)
+② reset_day() 호출 (일 초기화, 매매 재시작) → false
+③ clear_buy_suspension IPC (사용자 수동 해제, 입금 후) → false
+```
+
+### process_buy 구현 패턴
+
+```rust
+async fn process_buy(&mut self, ...) -> Result<()> {
+    // ① 잔고 부족 정지 체크 — API 호출 전에 먼저 확인
+    if self.buy_suspended {
+        tracing::debug!("매수 스킵 — 잔고 부족 정지 중: {} ({})",
+            symbol, self.buy_suspended_reason.as_deref().unwrap_or("사유 없음"));
+        return Ok(());  // 에러 전파 없이 정상 종료 → 폴링 루프 계속
+    }
+    // ... 주문 실행 ...
+    let response = match order_result {
+        Ok(resp) => resp,
+        Err(e) => {
+            let msg = e.to_string();
+            if is_insufficient_balance_error(&msg) {
+                self.buy_suspended = true;
+                self.buy_suspended_reason = Some(msg.clone());
+                tracing::warn!("잔고 부족 감지 — 매수 주문 정지: {}", symbol);
+                return Ok(());  // 에러 전파 없음: 상위 루프 계속 실행
+            }
+            return Err(e);  // 다른 에러는 그대로 전파
+        }
+    };
+    // ...
+}
+```
+
+### on_fill에서 자동 해제 (매도 체결)
+
+```rust
+// on_fill() 내부 — OrderSide::Sell 체결 시
+if matches!(pending.record.side, OrderSide::Sell) {
+    // 매도 체결 = 자본 확보 → 매수 정지 자동 해제
+    if self.buy_suspended {
+        self.buy_suspended = false;
+        self.buy_suspended_reason = None;
+        tracing::info!("매도 체결로 자본 확보 — 잔고 부족 매수 정지 해제: {}", symbol);
+    }
+    self.risk_manager.lock().await.record_pnl(pnl);
+    // ...
+}
+```
+
+### IPC 커맨드 — clear_buy_suspension
+
+```rust
+// commands.rs
+#[tauri::command]
+pub async fn clear_buy_suspension(state: State<'_, AppState>) -> CmdResult<TradingStatus> {
+    state.order_manager.lock().await.clear_buy_suspension();
+    // ... TradingStatus 반환
+}
+```
+
+```typescript
+// commands.ts
+export const clearBuySuspension = (): Promise<TradingStatus> =>
+  invoke('clear_buy_suspension')
+
+// hooks.ts
+export function useClearBuySuspension() {
+  const qc = useQueryClient()
+  return useMutation<TradingStatus, Error, void>({
+    mutationFn: () => cmd.clearBuySuspension(),
+    onSuccess: (data) => { qc.setQueryData(KEYS.tradingStatus, data) },
+  })
+}
+```
+
+### UI 패턴 — 경고 Alert + 수동 해제 버튼
+
+```tsx
+// Dashboard.tsx / Trading.tsx 공통 패턴
+{tradingStatus?.buySuspended && (
+  <Alert severity="warning" sx={{ mb: 2 }}
+    action={
+      <Button size="small" onClick={() => clearBuySuspension()}
+        disabled={clearingBuySusp}>
+        매수 재개
+      </Button>
+    }
+  >
+    <strong>잔고 부족 — 매수 정지 중</strong>{' '}
+    매도 체결 시 자동 재개됩니다. 입금 후 수동으로 재개할 수도 있습니다.
+  </Alert>
+)}
+```
+
+### ❌ 잘못된 패턴 — 에러 전파로 루프 중단
+
+```rust
+// ❌ 잔고부족을 Err로 반환하면 상위에서 warn 로그 + 루프 계속이지만
+//    다음 틱에도 동일 매수를 시도 → 무한 잔고부족 에러
+return Err(anyhow::anyhow!("잔고 부족: {}", msg));
+```
+
+### ✅ 올바른 패턴 — Ok(())로 정상 종료 + suspended 플래그
+
+```rust
+// ✅ 에러 전파 없이 Ok(())로 종료 → 폴링 루프가 다른 종목 처리 계속
+// buy_suspended 플래그가 이후 틱에서 매수 시도를 선제적으로 차단
+return Ok(());
+```
+
+---
+
+## 15. 리스크 관리 enabled 필드 + 순손실 계산
+
+### RiskManager 설계
+
+```rust
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RiskManager {
+    /// 리스크 관리 활성화 여부. false이면 자동 비상정지·한도 검사 비활성.
+    /// false여도 수동 비상정지(emergency_stop)는 유효함.
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    pub daily_loss_limit: i64,     // 일일 최대 순손실 한도 (원)
+    pub max_position_ratio: f64,   // 단일 종목 최대 투자 비중 (0.0~1.0)
+    current_loss: i64,             // 오늘 누적 총 손실 (음수 누적)
+    daily_profit: i64,             // 오늘 누적 총 수익 (양수 누적)
+    emergency_stop: bool,
+    last_reset_date: Option<chrono::NaiveDate>,
+}
+
+fn default_true() -> bool { true }
+```
+
+### 순손실(net_loss) 계산
+
+```rust
+/// 순손실 = 총 손실 - 당일 수익
+/// 양수 = 순손실 (비상정지 트리거 기준)
+/// 0 이하 = 수익 우세 (비상정지 불필요)
+pub fn net_loss(&self) -> i64 {
+    let gross_loss = self.current_loss.abs();
+    if gross_loss > self.daily_profit {
+        gross_loss - self.daily_profit
+    } else {
+        0
+    }
+}
+
+/// 체결 손익 반영 (positive = 수익, negative = 손실)
+pub fn record_pnl(&mut self, pnl: i64) {
+    if pnl < 0 { self.current_loss += pnl; }      // current_loss: 음수 누적
+    else if pnl > 0 { self.daily_profit += pnl; }  // daily_profit: 양수 누적
+    if !self.enabled { return; }                    // 비활성화 시 자동 비상정지 스킵
+    if self.net_loss() >= self.daily_loss_limit {
+        self.emergency_stop = true;
+    }
+}
+
+pub fn can_trade(&self) -> bool {
+    if !self.enabled {
+        return !self.emergency_stop;  // 비활성 시에도 수동 비상정지는 유효
+    }
+    !self.emergency_stop && self.net_loss() < self.daily_loss_limit
+}
+```
+
+### enabled on/off UI 패턴
+
+- `enabled = false` → Dashboard의 리스크 관리 패널 자체를 숨김 (`RiskPanelWrapper`)
+- `enabled = false` → 한도 검사·자동 비상정지 비활성 (수동 비상정지는 여전히 작동)
+- Settings 페이지에서 Switch로 즉시 저장
+
+```typescript
+// UpdateRiskConfigInput에 enabled 추가
+export interface UpdateRiskConfigInput {
+  enabled?: boolean
+  dailyLossLimit?: number
+  maxPositionRatio?: number
+}
+```
+
+### RiskConfigView — 프론트엔드 표시용
+
+```typescript
+export interface RiskConfigView {
+  enabled: boolean
+  dailyLossLimit: number
+  maxPositionRatio: number
+  currentLoss: number    // 오늘 누적 총 손실 (음수)
+  dailyProfit: number    // 오늘 누적 총 수익 (양수)
+  netLoss: number        // 순손실 = |currentLoss| - dailyProfit (≥0)
+  lossRatio: number      // netLoss / dailyLossLimit (0.0~1.0+)
+  isEmergencyStop: boolean
+  canTrade: boolean
+}
+```
+
+### ❌ 잘못된 패턴 — 총 손실만으로 비상정지 판단
+
+```rust
+// ❌ 당일 수익을 무시하면 수익이 나도 비상정지가 걸릴 수 있음
+if self.current_loss.abs() >= self.daily_loss_limit {
+    self.emergency_stop = true;
+}
+```
+
+### ✅ 올바른 패턴 — net_loss(순손실) 기준
+
+```rust
+// ✅ 수익을 공제한 순손실이 한도 이상일 때만 비상정지
+if self.net_loss() >= self.daily_loss_limit {
+    self.emergency_stop = true;
+}
+```
+
+---
+
 ## 12. 체결 내역 조회 주의사항
 
 ### 국내 vs 해외 체결 조회 API 분리
@@ -807,7 +1082,7 @@ params: CANO, ACNT_PRDT_CD, OVRS_EXCG_CD(""), TR_CRCY_CD("USD"),
 응답 output1 (per item): `ovrs_pdno`, `ovrs_item_name`, `ovrs_cblc_qty`, `pchs_avg_pric`, `now_pric2`, `ovrs_stck_evlu_amt`, `frcr_evlu_pfls_amt`, `evlu_pfls_rt`, `ovrs_excg_cd`, `tr_mket_name`  
 응답 output2 (summary): `frcr_pchs_amt1`, `ovrs_tot_pfls`, `frcr_evlu_tota`, `tot_pftrt`
 
-> 마지막 업데이트: 2026-04-09T13:00:00
+> 마지막 업데이트: 2026-04-10T12:00:00
 
 ---
 

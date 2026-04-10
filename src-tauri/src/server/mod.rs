@@ -435,13 +435,19 @@ async fn trading_status_handler(State(s): State<ServerState>) -> Json<serde_json
         let tracker = s.position_tracker.lock().await;
         (tracker.count(), tracker.total_pnl())
     };
+    let (buy_suspended, buy_suspended_reason) = {
+        let om = s.order_manager.lock().await;
+        (om.buy_suspended, om.buy_suspended_reason.clone())
+    };
     Json(serde_json::json!({
-        "isRunning":          is_running,
-        "activeStrategies":   active_strategies,
-        "positionCount":      position_count,
-        "totalUnrealizedPnl": total_unrealized_pnl,
-        "wsConnected":        false,
-        "tradingProfileId":   null,
+        "isRunning":           is_running,
+        "activeStrategies":    active_strategies,
+        "positionCount":       position_count,
+        "totalUnrealizedPnl":  total_unrealized_pnl,
+        "wsConnected":         false,
+        "tradingProfileId":    null,
+        "buySuspended":        buy_suspended,
+        "buySuspendedReason":  buy_suspended_reason,
     }))
 }
 

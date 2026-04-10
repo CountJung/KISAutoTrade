@@ -224,6 +224,10 @@ export interface TradingStatus {
   wsConnected: boolean
   /** 자동매매가 실행 중인 프로파일 ID (미실행 시 null) */
   tradingProfileId: string | null
+  /** 잔고 부족으로 매수가 정지된 여부 */
+  buySuspended: boolean
+  /** 매수 정지 사유 (KIS msg1, 없으면 null) */
+  buySuspendedReason?: string | null
 }
 
 // ─── WebSocket 연결 상태 이벤트 (Tauri 'ws-status' 이벤트 페이로드) ──

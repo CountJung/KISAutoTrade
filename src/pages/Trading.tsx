@@ -39,6 +39,8 @@ import {
   useOverseasPrice,
   usePlaceOverseasOrder,
   useRefreshStockList,
+  useTradingStatus,
+  useClearBuySuspension,
 } from '../api/hooks'
 import * as cmd from '../api/commands'
 import type {
@@ -293,6 +295,8 @@ export default function Trading() {
   const { mutate: placeOrder,         isPending: isPendingKr }     = usePlaceOrder()
   const { mutate: placeOverseasOrder, isPending: isPendingUs }     = usePlaceOverseasOrder()
   const { mutate: doRefreshList,      isPending: isRefreshing }    = useRefreshStockList()
+  const { data: tradingStatus }                                     = useTradingStatus()
+  const { mutate: clearBuySuspension, isPending: clearingBuySusp } = useClearBuySuspension()
   const isPending = isPendingKr || isPendingUs
 
   // STOCK_LIST_EMPTY 에러 감지: KRX 다운로드 미완료 or 실패
@@ -743,6 +747,28 @@ export default function Trading() {
 
             {result   && <Alert severity="success" sx={{ mb: 1.5 }}>{result}</Alert>}
             {errorMsg && <Alert severity="error"   sx={{ mb: 1.5 }}>{errorMsg}</Alert>}
+
+            {/* 잔고 부족 매수 정지 경고 */}
+            {tradingStatus?.buySuspended && side === 'Buy' && (
+              <Alert
+                severity="warning"
+                sx={{ mb: 1.5 }}
+                action={
+                  <Button
+                    size="small"
+                    color="inherit"
+                    onClick={() => clearBuySuspension()}
+                    disabled={clearingBuySusp}
+                    startIcon={clearingBuySusp ? <CircularProgress size={12} color="inherit" /> : undefined}
+                  >
+                    해제
+                  </Button>
+                }
+              >
+                잔고 부족으로 매수 주문이 정지되었습니다.
+                매도 체결로 자본 확보 시 자동 재개됩니다.
+              </Alert>
+            )}
 
             <Button
               variant="contained"

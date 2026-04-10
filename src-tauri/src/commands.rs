@@ -1148,6 +1148,11 @@ pub struct TradingStatus {
     pub ws_connected: bool,
     /// 자동매매가 실행 중인 프로파일 ID (미실행 시 None)
     pub trading_profile_id: Option<String>,
+    /// 잔고 부족으로 매수 정지 여부
+    pub buy_suspended: bool,
+    /// 매수 정지 사유 (KIS 응답 msg1)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub buy_suspended_reason: Option<String>,
 }
 
 #[tauri::command]
@@ -1160,6 +1165,10 @@ pub async fn get_trading_status(state: State<'_, AppState>) -> CmdResult<Trading
     };
     let ws_connected = state.ws_connected.load(Ordering::Relaxed);
     let trading_profile_id = state.trading_profile_id.read().await.clone();
+    let (buy_suspended, buy_suspended_reason) = {
+        let om = state.order_manager.lock().await;
+        (om.buy_suspended, om.buy_suspended_reason.clone())
+    };
     Ok(TradingStatus {
         is_running,
         active_strategies: strategies,
@@ -1167,6 +1176,8 @@ pub async fn get_trading_status(state: State<'_, AppState>) -> CmdResult<Trading
         total_unrealized_pnl: total_pnl,
         ws_connected,
         trading_profile_id,
+        buy_suspended,
+        buy_suspended_reason,
     })
 }
 
@@ -1362,6 +1373,10 @@ pub async fn start_trading(
     };
     let ws_connected = state.ws_connected.load(Ordering::Relaxed);
     let trading_profile_id = state.trading_profile_id.read().await.clone();
+    let (buy_suspended, buy_suspended_reason) = {
+        let om = state.order_manager.lock().await;
+        (om.buy_suspended, om.buy_suspended_reason.clone())
+    };
     Ok(TradingStatus {
         is_running: true,
         active_strategies: strategies,
@@ -1369,6 +1384,8 @@ pub async fn start_trading(
         total_unrealized_pnl: total_pnl,
         ws_connected,
         trading_profile_id,
+        buy_suspended,
+        buy_suspended_reason,
     })
 }
 
@@ -1402,6 +1419,34 @@ pub async fn stop_trading(state: State<'_, AppState>) -> CmdResult<TradingStatus
         total_unrealized_pnl: total_pnl,
         ws_connected,
         trading_profile_id: None,
+        buy_suspended: false,
+        buy_suspended_reason: None,
+    })
+}
+
+/// 잔고 부족 매수 정지를 수동으로 해제합니다.
+/// 계좌에 자금을 입금한 경우 또는 오판 시 사용.
+#[tauri::command]
+pub async fn clear_buy_suspension(state: State<'_, AppState>) -> CmdResult<TradingStatus> {
+    state.order_manager.lock().await.clear_buy_suspension();
+
+    let is_running = *state.is_trading.lock().await;
+    let strategies = state.strategy_manager.lock().await.active_names();
+    let (position_count, total_pnl) = {
+        let tracker = state.position_tracker.lock().await;
+        (tracker.count(), tracker.total_pnl())
+    };
+    let ws_connected = state.ws_connected.load(Ordering::Relaxed);
+    let trading_profile_id = state.trading_profile_id.read().await.clone();
+    Ok(TradingStatus {
+        is_running,
+        active_strategies: strategies,
+        position_count,
+        total_unrealized_pnl: total_pnl,
+        ws_connected,
+        trading_profile_id,
+        buy_suspended: false,
+        buy_suspended_reason: None,
     })
 }
 

@@ -58,6 +58,13 @@ pub struct OrderManager {
     /// symbol → odno (미체결 주문이 있는 종목)
     symbol_to_odno: HashMap<String, String>,
 
+    // ── ⑪ 잔고 부족 매수 정지 ────────────────────────────────────
+    /// true = KIS 잔고부족 응답 수신 후 매수 일시 정지.
+    /// 매도 체결 또는 수동 해제 시 false로 전환됨.
+    pub buy_suspended: bool,
+    /// 매수 정지 사유 (KIS 응답 msg1)
+    pub buy_suspended_reason: Option<String>,
+
     // ── 공유 의존성 (Arc) ───────────────────────────────────────────
     /// KIS REST 클라이언트 (프로파일 전환 시 내부 Arc만 교체됨)
     rest_client: Arc<RwLock<Arc<KisRestClient>>>,
@@ -83,6 +90,8 @@ impl OrderManager {
         Self {
             pending: HashMap::new(),
             symbol_to_odno: HashMap::new(),
+            buy_suspended: false,
+            buy_suspended_reason: None,
             rest_client,
             order_store,
             trade_store,
@@ -165,8 +174,14 @@ impl OrderManager {
             }
         };
 
-        // ⑦ 매도 체결 시 통계/리스크 반영
+        // ⑦ 매도 체결 시 통계/리스크 반영 + ⑪ 잔고 부족 정지 자동 해제
         if matches!(pending.record.side, OrderSide::Sell) {
+            // 매도 체결 = 자본 확보 → 매수 정지 해제
+            if self.buy_suspended {
+                self.buy_suspended = false;
+                self.buy_suspended_reason = None;
+                tracing::info!("매도 체결로 자본 확보 — 잔고 부족 매수 정지 해제: {}", symbol);
+            }
             self.risk_manager.lock().await.record_pnl(pnl);
 
             let today = chrono::Local::now().date_naive();
@@ -252,6 +267,20 @@ impl OrderManager {
         Ok(())
     }
 
+    /// 잔고 부족으로 매수가 정지됐는지 여부
+    pub fn is_buy_suspended(&self) -> bool {
+        self.buy_suspended
+    }
+
+    /// 잔고 부족 매수 정지 수동 해제 (예: 입금 후 사용자 요청)
+    pub fn clear_buy_suspension(&mut self) {
+        if self.buy_suspended {
+            self.buy_suspended = false;
+            self.buy_suspended_reason = None;
+            tracing::info!("잔고 부족 매수 정지 해제 (수동)");
+        }
+    }
+
     /// 미체결 주문 건수
     pub fn pending_count(&self) -> usize {
         self.pending.len()
@@ -272,6 +301,9 @@ impl OrderManager {
         let n = self.pending.len();
         self.pending.clear();
         self.symbol_to_odno.clear();
+        // 전일 잔고부족 정지도 초기화
+        self.buy_suspended = false;
+        self.buy_suspended_reason = None;
         if n > 0 {
             tracing::warn!("일 초기화: 미처리 미체결 주문 {}건 폐기", n);
         }
@@ -289,6 +321,16 @@ impl OrderManager {
         exchange: Option<String>,
         tick_price: u64,
     ) -> Result<()> {
+        // ⑪ 잔고 부족 매수 정지 체크
+        if self.buy_suspended {
+            tracing::debug!(
+                "매수 스킵 — 잔고 부족 정지 중: {} (사유: {})",
+                symbol,
+                self.buy_suspended_reason.as_deref().unwrap_or("알 수 없음")
+            );
+            return Ok(());
+        }
+
         // ③ 중복 주문 방지
         if self.symbol_to_odno.contains_key(&symbol) {
             tracing::debug!("매수 스킵 — {} 미체결 주문 이미 존재", symbol);
@@ -321,7 +363,7 @@ impl OrderManager {
         }
 
         // ① 주문 실행 — 해외(지정가 USD) / 국내(시장가 KRW) 분기
-        let response = if let Some(ref exch) = exchange {
+        let order_result = if let Some(ref exch) = exchange {
             // 해외 지정가 주문 (KIS 해외는 시장가 미지원)
             // fetch_overseas_tick 반환 코드(NAS/NYS/AMS) → 주문 코드(NASD/NYSE/AMEX) 변환
             let order_exch = match exch.as_str() {
@@ -342,7 +384,7 @@ impl OrderManager {
                 "해외 매수 주문 시도: {} {}주 @ ${:.2} ({}) — {}",
                 symbol, quantity, usd_price, order_exch, reason
             );
-            self.place_overseas_with_retry(&req).await?
+            self.place_overseas_with_retry(&req).await
         } else {
             // 국내 시장가 매수
             let req = OrderRequest {
@@ -352,7 +394,25 @@ impl OrderManager {
                 quantity,
                 price: 0,
             };
-            self.place_with_retry(&req).await?
+            self.place_with_retry(&req).await
+        };
+
+        // ⑪ 잔고 부족 에러 감지 — 이후 매수 주문 정지
+        let response = match order_result {
+            Ok(resp) => resp,
+            Err(e) => {
+                let msg = e.to_string();
+                if is_insufficient_balance_error(&msg) {
+                    self.buy_suspended = true;
+                    self.buy_suspended_reason = Some(msg.clone());
+                    tracing::warn!(
+                        "잔고 부족 감지 — 매수 주문 정지: {} (매도 체결 또는 수동 해제 시 재개) | {}",
+                        symbol, msg
+                    );
+                    return Ok(()); // 에러 전파 없이 정상 종료 (상위 루프가 계속 실행되도록)
+                }
+                return Err(e);
+            }
         };
         tracing::info!(
             "매수 주문 접수: {} {}주 — {} (odno: {})",
@@ -556,4 +616,25 @@ impl OrderManager {
         let qty = self.pending.get(&ondo).map(|p| p.record.quantity).unwrap_or(1);
         self.on_fill(&ondo, qty, fill_price).await
     }
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 잔고 부족 에러 감지 헬퍼
+// ────────────────────────────────────────────────────────────────────
+
+/// KIS API 응답에서 잔고 부족 오류인지 판별.
+///
+/// 알려진 KIS 에러코드/메시지:
+/// - `APBK0013`: 주문가능금액 부족
+/// - `APBK0915`: 잔고 부족
+/// - `APBK0017`: 주문가능금액이 없습니다
+/// - msg1 키워드: "잔고부족", "잔고 부족", "주문가능금액부족", "주문가능금액 부족"
+fn is_insufficient_balance_error(msg: &str) -> bool {
+    msg.contains("잔고부족")
+        || msg.contains("잔고 부족")
+        || msg.contains("주문가능금액부족")
+        || msg.contains("주문가능금액 부족")
+        || msg.contains("APBK0013")
+        || msg.contains("APBK0915")
+        || msg.contains("APBK0017")
 }

@@ -237,6 +237,7 @@ pub fn run() {
             commands::get_pending_orders,
             commands::get_exchange_rate,
             commands::get_refresh_interval,
+            commands::clear_buy_suspension,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri 애플리케이션 실행 중 오류 발생");

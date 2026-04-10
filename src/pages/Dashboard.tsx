@@ -47,6 +47,7 @@ import {
   useActivateEmergencyStop,
   useExchangeRate,
   useRefreshInterval,
+  useClearBuySuspension,
   KEYS,
 } from '../api/hooks'
 
@@ -496,6 +497,7 @@ export default function Dashboard() {
   const { data: tradingStatus } = useTradingStatus()
   const { mutate: startTrading, isPending: startPending } = useStartTrading()
   const { mutate: stopTrading, isPending: stopPending } = useStopTrading()
+  const { mutate: clearBuySuspension, isPending: clearingBuySusp } = useClearBuySuspension()
 
   const totalBalance = parseInt(balance?.summary?.tot_evlu_amt ?? '0') || 0
   const availableCash = parseInt(balance?.summary?.dnca_tot_amt ?? '0') || 0
@@ -595,6 +597,28 @@ export default function Dashboard() {
           </Tooltip>
         </Box>
       </Box>
+
+      {/* ── 잔고 부족 매수 정지 경고 ──────────────────────────────── */}
+      {tradingStatus?.buySuspended && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          action={
+            <Button
+              size="small"
+              color="inherit"
+              onClick={() => clearBuySuspension()}
+              disabled={clearingBuySusp}
+              startIcon={clearingBuySusp ? <CircularProgress size={12} color="inherit" /> : undefined}
+            >
+              매수 재개
+            </Button>
+          }
+        >
+          <strong>잔고 부족 — 매수 정지 중</strong>{' '}
+          매도 체결 시 자동 재개됩니다. 입금 후 수동으로 재개할 수도 있습니다.
+        </Alert>
+      )}
 
       {/* ── 국내 보유주식 (잔고 API 직접) ───────────────────────── */}
       <Paper sx={{ p: 2.5, mb: 2 }}>

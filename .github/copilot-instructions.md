@@ -63,6 +63,7 @@ npx vite build
 2. 코드베이스 내 관련 파일 검색으로 현재 구현 상태 파악
 3. 사실이 확인되면 즉시 관련 코드·문서·스킬 파일 업데이트
 4. 잘못된 기존 지식은 스킬 파일(`kis-api/SKILL.md` 등)에서 수정하고 `❌ 잘못된 패턴` 섹션을 추가한다
+5. **KIS API 에러코드·응답 필드·동작 특이사항을 새로 발견하거나 구현했을 때는 반드시 `kis-api/SKILL.md`의 해당 섹션을 즉시 업데이트하거나 신규 섹션을 추가한다** — 다음 에이전트 세션의 재발견 비용 제거
 
 ---
 
@@ -138,10 +139,12 @@ npx vite build
 | 상황 | 업데이트 대상 |
 |------|-------------|
 | 새 모듈/파일 추가 | `agent.md` 디렉토리 맵 |
-| 새 IPC 커맨드 추가 | `agent.md` 모듈 책임 |
+| 새 IPC 커맨드 추가 | `agent.md` 모듈 책임 + IPC 커맨드 목록 |
 | UI 패턴/컨벤션 발견 또는 수정 | `ui-conventions/SKILL.md` |
 | Rust trait·에러 처리 패턴 추가 | `rust-skills/SKILL.md` |
 | KIS API 동작 특이사항 확인 | `kis-api/SKILL.md` |
+| **KIS API 에러코드 신규 발견** | **`kis-api/SKILL.md` Section 5 에러코드 테이블** |
+| **KIS API 연동 패턴 구현** (주문·잔고·체결 등) | **`kis-api/SKILL.md` 해당 섹션 또는 신규 섹션** |
 | React 성능·번들 최적화 적용 | `react-best-practices/SKILL.md` |
 
 ### 반복 프롬프트 패턴 감지 및 스킬 자가 개선
