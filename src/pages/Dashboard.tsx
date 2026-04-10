@@ -107,23 +107,23 @@ function RiskPanel() {
             </Button>
           }
         >
-          <strong>비상 정지 활성</strong> — 일일 손실 한도를 초과하여 자동 매매가 중단되었습니다.
+          <strong>비상 정지 활성</strong> — 일일 순손실 한도를 초과하여 자동 매매가 중단되었습니다.
           시장 상황을 확인 후 수동으로 해제하세요.
         </Alert>
       )}
 
-      {/* 손실 한도 진행바 */}
+      {/* 순손실 한도 진행바 */}
       <Box sx={{ mb: 2 }}>
         <Stack direction="row" justifyContent="space-between" mb={0.5}>
           <Typography variant="caption" color="text.secondary">
-            손실 소진율
+            순손실 소진율
           </Typography>
           <Typography
             variant="caption"
             fontWeight={700}
             color={`${barColor}.main`}
           >
-            {fmt(Math.abs(risk.currentLoss))}원 / {fmt(risk.dailyLossLimit)}원
+            {fmt(risk.netLoss)}원 / {fmt(risk.dailyLossLimit)}원
             &nbsp;({lossRatioPct.toFixed(1)}%)
           </Typography>
         </Stack>
@@ -133,6 +133,14 @@ function RiskPanel() {
           color={barColor}
           sx={{ borderRadius: 1, height: 8 }}
         />
+        {/* 당일 수익 반영 표시 */}
+        {risk.dailyProfit > 0 && (
+          <Stack direction="row" justifyContent="flex-end" mt={0.5}>
+            <Typography variant="caption" color="success.main">
+              당일 수익 +{fmt(risk.dailyProfit)}원 반영됨 (총손실 {fmt(Math.abs(risk.currentLoss))}원 - 수익 {fmt(risk.dailyProfit)}원)
+            </Typography>
+          </Stack>
+        )}
       </Box>
 
       {/* 현재 설정값 표시 */}
@@ -227,6 +235,29 @@ function RiskPanel() {
         )}
       </Stack>
     </Box>
+  )
+}
+
+// ─── 리스크 패널 래퍼 — enabled=false이면 숨김 ──────────────────────
+function RiskPanelWrapper() {
+  const { data: risk, isLoading } = useRiskConfig()
+  if (isLoading) return null
+  // 리스크 관리 비활성화 상태이면 패널 자체를 표시하지 않음
+  if (!risk?.enabled) return null
+  return (
+    <Paper sx={{ p: 2.5 }}>
+      <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
+        <Typography variant="subtitle1" fontWeight={600}>리스크 관리</Typography>
+        <Tooltip
+          title="일일 순손실(총손실 - 당일수익)이 한도를 초과하면 자동매매가 중단됩니다. 설정 페이지에서 활성화/비활성화할 수 있습니다."
+          arrow
+        >
+          <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+        </Tooltip>
+      </Stack>
+      <Divider sx={{ mb: 1.5 }} />
+      <RiskPanel />
+    </Paper>
   )
 }
 
@@ -824,20 +855,8 @@ export default function Dashboard() {
         <FilledOrdersPanel />
       </Paper>
 
-      {/* ── 리스크 관리 (항상 표시) ────────────────────────────── */}
-      <Paper sx={{ p: 2.5 }}>
-        <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
-          <Typography variant="subtitle1" fontWeight={600}>리스크 관리</Typography>
-          <Tooltip
-            title="일일 손실이 한도를 초과하거나, 종목 비중이 초과되면 주문이 자동으로 차단됩니다."
-            arrow
-          >
-            <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.disabled' }} />
-          </Tooltip>
-        </Stack>
-        <Divider sx={{ mb: 1.5 }} />
-        <RiskPanel />
-      </Paper>
+      {/* ── 리스크 관리 (enabled=true인 경우에만 표시) ────────────── */}
+      <RiskPanelWrapper />
     </Box>
   )
 }

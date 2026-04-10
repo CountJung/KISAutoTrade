@@ -1762,13 +1762,19 @@ pub async fn update_strategy(
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RiskConfigView {
-    /// 일일 최대 손실 한도 (원, 양수)
+    /// 리스크 관리 활성화 여부
+    pub enabled: bool,
+    /// 일일 최대 순손실 한도 (원, 양수)
     pub daily_loss_limit: i64,
     /// 단일 종목 최대 비중 (0.0~1.0)
     pub max_position_ratio: f64,
-    /// 오늘 누적 손실 (음수)
+    /// 오늘 누적 총 손실 (음수)
     pub current_loss: i64,
-    /// 손실 한도 소진율 (0.0 ~ 1.0+)
+    /// 오늘 누적 총 수익 (양수)
+    pub daily_profit: i64,
+    /// 순손실 = 총손실 - 당일수익 (양수 = 순손실)
+    pub net_loss: i64,
+    /// 순손실 한도 소진율 (0.0 ~ 1.0+)
     pub loss_ratio: f64,
     /// 비상 정지 여부
     pub is_emergency_stop: bool,
@@ -1776,24 +1782,33 @@ pub struct RiskConfigView {
     pub can_trade: bool,
 }
 
-#[tauri::command]
-pub async fn get_risk_config(state: State<'_, AppState>) -> CmdResult<RiskConfigView> {
-    let mut risk = state.risk_manager.lock().await;
-    // 날짜가 바뀌면 자동으로 당일 손실 초기화
-    risk.reset_if_new_day();
-    Ok(RiskConfigView {
+fn build_risk_view(risk: &crate::trading::risk::RiskManager) -> RiskConfigView {
+    RiskConfigView {
+        enabled: risk.is_enabled(),
         daily_loss_limit: risk.daily_loss_limit,
         max_position_ratio: risk.max_position_ratio,
         current_loss: risk.current_loss(),
+        daily_profit: risk.daily_profit(),
+        net_loss: risk.net_loss(),
         loss_ratio: risk.loss_ratio(),
         is_emergency_stop: risk.is_emergency_stop(),
         can_trade: risk.can_trade(),
-    })
+    }
+}
+
+#[tauri::command]
+pub async fn get_risk_config(state: State<'_, AppState>) -> CmdResult<RiskConfigView> {
+    let mut risk = state.risk_manager.lock().await;
+    // 날짜가 바뀌면 자동으로 당일 손익 초기화
+    risk.reset_if_new_day();
+    Ok(build_risk_view(&risk))
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateRiskConfigInput {
+    /// 리스크 관리 활성화 여부
+    pub enabled: Option<bool>,
     pub daily_loss_limit: Option<i64>,
     /// 0.01 ~ 1.0 (1% ~ 100%)
     pub max_position_ratio: Option<f64>,
@@ -1805,6 +1820,9 @@ pub async fn update_risk_config(
     state: State<'_, AppState>,
 ) -> CmdResult<RiskConfigView> {
     let mut risk = state.risk_manager.lock().await;
+    if let Some(en) = input.enabled {
+        risk.set_enabled(en);
+    }
     if let Some(limit) = input.daily_loss_limit {
         if limit < 0 {
             return Err(CmdError {
@@ -1824,18 +1842,10 @@ pub async fn update_risk_config(
         risk.max_position_ratio = ratio;
     }
     tracing::info!(
-        "리스크 설정 변경: 일일손실한도={}원, 종목비중={:.0}%",
-        risk.daily_loss_limit,
-        risk.max_position_ratio * 100.0
+        "리스크 설정 변경: 활성={}, 일일손실한도={}원, 종목비중={:.0}%",
+        risk.is_enabled(), risk.daily_loss_limit, risk.max_position_ratio * 100.0
     );
-    Ok(RiskConfigView {
-        daily_loss_limit: risk.daily_loss_limit,
-        max_position_ratio: risk.max_position_ratio,
-        current_loss: risk.current_loss(),
-        loss_ratio: risk.loss_ratio(),
-        is_emergency_stop: risk.is_emergency_stop(),
-        can_trade: risk.can_trade(),
-    })
+    Ok(build_risk_view(&risk))
 }
 
 /// 비상 정지 수동 해제
@@ -1843,14 +1853,7 @@ pub async fn update_risk_config(
 pub async fn clear_emergency_stop(state: State<'_, AppState>) -> CmdResult<RiskConfigView> {
     let mut risk = state.risk_manager.lock().await;
     risk.clear_emergency_stop();
-    Ok(RiskConfigView {
-        daily_loss_limit: risk.daily_loss_limit,
-        max_position_ratio: risk.max_position_ratio,
-        current_loss: risk.current_loss(),
-        loss_ratio: risk.loss_ratio(),
-        is_emergency_stop: risk.is_emergency_stop(),
-        can_trade: risk.can_trade(),
-    })
+    Ok(build_risk_view(&risk))
 }
 
 /// 비상 정지 수동 발동 (사용자가 직접 자동매매를 중단시킬 때)
@@ -1858,14 +1861,7 @@ pub async fn clear_emergency_stop(state: State<'_, AppState>) -> CmdResult<RiskC
 pub async fn activate_emergency_stop(state: State<'_, AppState>) -> CmdResult<RiskConfigView> {
     let mut risk = state.risk_manager.lock().await;
     risk.trigger_emergency_stop();
-    Ok(RiskConfigView {
-        daily_loss_limit: risk.daily_loss_limit,
-        max_position_ratio: risk.max_position_ratio,
-        current_loss: risk.current_loss(),
-        loss_ratio: risk.loss_ratio(),
-        is_emergency_stop: risk.is_emergency_stop(),
-        can_trade: risk.can_trade(),
-    })
+    Ok(build_risk_view(&risk))
 }
 
 // ────────────────────────────────────────────────────────────────────

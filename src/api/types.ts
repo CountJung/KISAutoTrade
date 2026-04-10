@@ -391,13 +391,19 @@ export interface WebConfig {
 
 // ─── 리스크 관리 ───────────────────────────────────────────────────
 export interface RiskConfigView {
-  /** 일일 최대 손실 한도 (원) */
+  /** 리스크 관리 활성화 여부 */
+  enabled: boolean
+  /** 일일 최대 순손실 한도 (원) */
   dailyLossLimit: number
   /** 단일 종목 최대 비중 (0.0~1.0) */
   maxPositionRatio: number
-  /** 오늘 누적 손실 (음수) */
+  /** 오늘 누적 총 손실 (음수) */
   currentLoss: number
-  /** 손실 소진율 (0.0~1.0+) */
+  /** 오늘 누적 총 수익 (양수) */
+  dailyProfit: number
+  /** 순손실 = 총손실 - 당일수익 (양수 = 순손실) */
+  netLoss: number
+  /** 순손실 소진율 (0.0~1.0+) */
   lossRatio: number
   /** 비상 정지 여부 */
   isEmergencyStop: boolean
@@ -406,6 +412,8 @@ export interface RiskConfigView {
 }
 
 export interface UpdateRiskConfigInput {
+  /** 리스크 관리 활성화 여부 */
+  enabled?: boolean
   dailyLossLimit?: number
   /** 0.01 ~ 1.0 */
   maxPositionRatio?: number

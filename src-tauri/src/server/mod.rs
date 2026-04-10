@@ -849,9 +849,12 @@ async fn risk_config_handler(State(s): State<ServerState>) -> Json<serde_json::V
     let mut risk = s.risk_manager.lock().await;
     risk.reset_if_new_day();
     Json(serde_json::json!({
+        "enabled":          risk.is_enabled(),
         "dailyLossLimit":   risk.daily_loss_limit,
         "maxPositionRatio": risk.max_position_ratio,
         "currentLoss":      risk.current_loss(),
+        "dailyProfit":      risk.daily_profit(),
+        "netLoss":          risk.net_loss(),
         "lossRatio":        risk.loss_ratio(),
         "isEmergencyStop":  risk.is_emergency_stop(),
         "canTrade":         risk.can_trade(),
@@ -861,6 +864,7 @@ async fn risk_config_handler(State(s): State<ServerState>) -> Json<serde_json::V
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct UpdateRiskConfigBody {
+    enabled:            Option<bool>,
     daily_loss_limit:   Option<i64>,
     max_position_ratio: Option<f64>,
 }
@@ -871,6 +875,9 @@ async fn update_risk_config_handler(
     Json(body): Json<UpdateRiskConfigBody>,
 ) -> Json<serde_json::Value> {
     let mut risk = s.risk_manager.lock().await;
+    if let Some(en) = body.enabled {
+        risk.set_enabled(en);
+    }
     if let Some(limit) = body.daily_loss_limit {
         if limit >= 0 { risk.daily_loss_limit = limit; }
     }
@@ -878,9 +885,12 @@ async fn update_risk_config_handler(
         if (0.0..=1.0).contains(&ratio) { risk.max_position_ratio = ratio; }
     }
     Json(serde_json::json!({
+        "enabled":          risk.is_enabled(),
         "dailyLossLimit":   risk.daily_loss_limit,
         "maxPositionRatio": risk.max_position_ratio,
         "currentLoss":      risk.current_loss(),
+        "dailyProfit":      risk.daily_profit(),
+        "netLoss":          risk.net_loss(),
         "lossRatio":        risk.loss_ratio(),
         "isEmergencyStop":  risk.is_emergency_stop(),
         "canTrade":         risk.can_trade(),
@@ -892,9 +902,12 @@ async fn clear_emergency_handler(State(s): State<ServerState>) -> Json<serde_jso
     let mut risk = s.risk_manager.lock().await;
     risk.clear_emergency_stop();
     Json(serde_json::json!({
+        "enabled":          risk.is_enabled(),
         "dailyLossLimit":   risk.daily_loss_limit,
         "maxPositionRatio": risk.max_position_ratio,
         "currentLoss":      risk.current_loss(),
+        "dailyProfit":      risk.daily_profit(),
+        "netLoss":          risk.net_loss(),
         "lossRatio":        risk.loss_ratio(),
         "isEmergencyStop":  risk.is_emergency_stop(),
         "canTrade":         risk.can_trade(),

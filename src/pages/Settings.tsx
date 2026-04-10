@@ -14,6 +14,8 @@ import Button from '@mui/material/Button'
 import Alert from '@mui/material/Alert'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
+import Collapse from '@mui/material/Collapse'
+import LinearProgress from '@mui/material/LinearProgress'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
@@ -64,9 +66,13 @@ import {
   useStockListStats,
   useSetStockUpdateInterval,
   useTradingStatus,
+  useRiskConfig,
+  useUpdateRiskConfig,
 } from '../api/hooks'
-import type { AccountProfileView, AddProfileInput, UpdateProfileInput } from '../api/types'
+import type { AccountProfileView, AddProfileInput, UpdateProfileInput, UpdateRiskConfigInput } from '../api/types'
 import type { ThemeMode } from '../theme'
+
+const fmt = (n: number) => n.toLocaleString('ko-KR')
 
 // ── 공통 섹션 래퍼 ─────────────────────────────────────────────────
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -667,6 +673,170 @@ function ProfileCard({
 }
 
 // ── 메인 Settings 페이지 ───────────────────────────────────────────
+// ── 리스크 관리 섹션 ──────────────────────────────────────────────
+function RiskSection() {
+  const { data: risk, isLoading } = useRiskConfig()
+  const { mutate: updateRisk, isPending: saving } = useUpdateRiskConfig()
+
+  const [lossLimit, setLossLimit] = useState<number>(0)
+  const [posRatio, setPosRatio]   = useState<number>(0)
+  const [dirty, setDirty]         = useState(false)
+
+  // risk 데이터가 처음 로드되거나 외부에서 변경됐을 때 로컬 상태 초기화
+  useEffect(() => {
+    if (risk && !dirty) {
+      setLossLimit(risk.dailyLossLimit)
+      setPosRatio(Math.round(risk.maxPositionRatio * 100))
+    }
+  }, [risk, dirty])
+
+  const handleToggleEnabled = (enabled: boolean) => {
+    updateRisk({ enabled })
+  }
+
+  const handleSave = () => {
+    const input: UpdateRiskConfigInput = {
+      dailyLossLimit: lossLimit,
+      maxPositionRatio: posRatio / 100,
+    }
+    updateRisk(input, { onSuccess: () => setDirty(false) })
+  }
+
+  if (isLoading || !risk) return null
+
+  const netLossPct = Math.min(risk.lossRatio * 100, 100)
+  const barColor = netLossPct < 50 ? 'success' : netLossPct < 80 ? 'warning' : 'error'
+
+  return (
+    <Section title="리스크 관리">
+      <Stack spacing={2}>
+        {/* 활성화 토글 */}
+        <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
+          <Box>
+            <Typography variant="body2" fontWeight={600}>
+              리스크 관리 사용
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              비활성화 시 손실 한도 초과 비상정지가 작동하지 않으며 대시보드에 리스크 패널이 표시되지 않습니다.
+            </Typography>
+          </Box>
+          <Switch
+            checked={risk.enabled}
+            onChange={(e) => handleToggleEnabled(e.target.checked)}
+            disabled={saving}
+            color="success"
+          />
+        </Stack>
+
+        {/* 활성화 상태에서만 표시 */}
+        <Collapse in={risk.enabled} unmountOnExit>
+          <Stack spacing={2}>
+            <Divider />
+
+            {/* 오늘 현황 요약 */}
+            <Box>
+              <Typography variant="body2" fontWeight={600} gutterBottom>
+                오늘 현황
+              </Typography>
+              <Stack direction="row" spacing={1.5}>
+                <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, flex: 1, textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary" display="block">총 손실</Typography>
+                  <Typography variant="body2" fontWeight={700} color="error.main">
+                    -{fmt(Math.abs(risk.currentLoss))}원
+                  </Typography>
+                </Box>
+                <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, flex: 1, textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary" display="block">당일 수익</Typography>
+                  <Typography variant="body2" fontWeight={700} color="success.main">
+                    +{fmt(risk.dailyProfit)}원
+                  </Typography>
+                </Box>
+                <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, flex: 1, textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary" display="block">순 손실</Typography>
+                  <Typography
+                    variant="body2"
+                    fontWeight={700}
+                    color={risk.netLoss > 0 ? 'warning.main' : 'text.primary'}
+                  >
+                    {fmt(risk.netLoss)}원
+                  </Typography>
+                </Box>
+              </Stack>
+
+              {/* 순손실 진행바 */}
+              <Box sx={{ mt: 1.5 }}>
+                <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                  <Typography variant="caption" color="text.secondary">순손실 소진율</Typography>
+                  <Typography variant="caption" fontWeight={700} color={`${barColor}.main`}>
+                    {netLossPct.toFixed(1)}%
+                  </Typography>
+                </Stack>
+                <LinearProgress
+                  variant="determinate"
+                  value={netLossPct}
+                  color={barColor}
+                  sx={{ borderRadius: 1, height: 6 }}
+                />
+              </Box>
+
+              {/* 비상정지 상태 알림 */}
+              {risk.isEmergencyStop && (
+                <Alert severity="error" sx={{ mt: 1 }}>
+                  비상정지 활성 — 대시보드의 리스크 관리 패널에서 해제할 수 있습니다.
+                </Alert>
+              )}
+            </Box>
+
+            <Divider />
+
+            {/* 한도 설정 슬라이더 */}
+            <Box>
+              <Typography variant="body2" fontWeight={600} gutterBottom>
+                한도 설정
+              </Typography>
+              <Stack spacing={2}>
+                <SliderWithInput
+                  label="일일 순손실 한도"
+                  value={lossLimit}
+                  min={0}
+                  max={5_000_000}
+                  step={100_000}
+                  unit="원"
+                  disabled={saving}
+                  onChange={(v) => { setLossLimit(v); setDirty(true) }}
+                  onChangeCommitted={(v) => { setLossLimit(v); setDirty(true) }}
+                />
+                <SliderWithInput
+                  label="종목당 최대 비중"
+                  value={posRatio}
+                  min={1}
+                  max={100}
+                  step={1}
+                  unit="%"
+                  disabled={saving}
+                  onChange={(v) => { setPosRatio(v); setDirty(true) }}
+                  onChangeCommitted={(v) => { setPosRatio(v); setDirty(true) }}
+                />
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={handleSave}
+                    disabled={!dirty || saving}
+                    startIcon={saving ? <CircularProgress size={14} color="inherit" /> : undefined}
+                  >
+                    저장
+                  </Button>
+                </Box>
+              </Stack>
+            </Box>
+          </Stack>
+        </Collapse>
+      </Stack>
+    </Section>
+  )
+}
+
 export default function Settings() {
   const {
     theme, discordEnabled,
@@ -1096,6 +1266,9 @@ export default function Settings() {
             </Alert>
           </Stack>
         </Section>
+
+        {/* ── 리스크 관리 ───────────────────────────────────────── */}
+        <RiskSection />
 
         {/* ── Discord 알림 ───────────────────────────────────────── */}
         <Section title="Discord 알림">
