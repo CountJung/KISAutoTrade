@@ -145,7 +145,8 @@ fn dir_size_bytes(path: &Path) -> u64 {
 }
 
 /// 오래된 체결 기록 파일 정리 (보관 기간 초과 + 용량 초과)
-fn purge_old_trade_files(data_dir: &Path, cfg: &TradeArchiveConfig) {
+/// lib.rs 시작 시 및 일일 정리 데몬에서 호출 가능하도록 pub
+pub fn purge_old_trade_files(data_dir: &Path, cfg: &TradeArchiveConfig) {
     let cutoff = chrono::Local::now().date_naive()
         - chrono::Duration::days(cfg.retention_days as i64);
 

@@ -340,11 +340,11 @@ KIS_IS_PAPER_TRADING=false   # 기본값: 실전투자
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-04-11 | log cleanup extension 필터 버그 수정, data_dir 실행위치 이전(copy_dir_all migration), 시작/24h 주기 체결기록 정리 데몬 추가 |
 | 2026-04-11 | Trading 페이지 해외 보유종목 표시(OverseasHoldingsTable), 클릭 시 매도폼 자동완성(normalizeExchange), usePlaceOverseasOrder overseasBalance 캐시 갱신 |
 | 2026-04-10 | KRX 프록시 폴백 추가(search_krx_proxy), StockSearchItem.market 필드, copilot-instructions 버그→개선 원칙 |
 | 2026-04-10 | 전략 1~11 HashMap per-symbol 리팩토링(다중 종목 독립 신호 지원) |
 | 2026-04-10 | buy_suspended 매수정지 플래그 + 자동 해제(APBK* 에러 감지) |
-| 2026-04-10 | RiskManager enabled on/off + 순손실(net_loss) 계산 |
 
 ---
 

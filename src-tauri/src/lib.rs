@@ -17,6 +17,31 @@ use commands::AppState;
 use config::{AppConfig, DiscordConfig, ProfilesConfig};
 use logging::LogConfig;
 
+/// 디렉토리 재귀 복사 (cross-filesystem 이전 시 rename 대신 사용)
+/// macOS ._* 리소스 포크 파일은 건너뜀
+fn copy_dir_all(
+    src: &std::path::Path,
+    dst: &std::path::Path,
+) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        // macOS exFAT 리소스 포크(._*) 제외
+        if file_name.to_str().map(|n| n.starts_with("._")).unwrap_or(false) {
+            continue;
+        }
+        let src_path = entry.path();
+        let dst_path = dst.join(&file_name);
+        if src_path.is_dir() {
+            copy_dir_all(&src_path, &dst_path)?;
+        } else if src_path.is_file() {
+            std::fs::copy(&src_path, &dst_path)?;
+        }
+    }
+    Ok(())
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -69,8 +94,42 @@ pub fn run() {
                     (config, discord, profiles)
                 });
 
-            // 데이터 저장 경로
-            let data_dir = app_data_dir.join("data");
+            // 데이터 저장 경로: 로그처럼 실행 위치 기준 ./data/
+            // (기존 앱 데이터 디렉토리 경로에서 최초 1회 이전 시도)
+            let preferred_data_dir = std::env::current_dir()
+                .unwrap_or_else(|_| PathBuf::from("."))
+                .join("data");
+            let legacy_data_dir = app_data_dir.join("data");
+
+            let data_dir = if preferred_data_dir.exists() {
+                // 이미 실행 위치에 데이터 존재 → 그대로 사용
+                preferred_data_dir
+            } else if legacy_data_dir.exists() {
+                // 기존 앱 데이터 디렉토리에만 있음 → 이전 시도
+                // exFAT 외장 드라이브 등 크로스 파일시스템이면 rename 실패 → copy 시도
+                if std::fs::rename(&legacy_data_dir, &preferred_data_dir).is_ok() {
+                    tracing::info!("데이터 이전(rename) 완료: {:?} → {:?}", legacy_data_dir, preferred_data_dir);
+                    preferred_data_dir
+                } else {
+                    match copy_dir_all(&legacy_data_dir, &preferred_data_dir) {
+                        Ok(_) => {
+                            let _ = std::fs::remove_dir_all(&legacy_data_dir);
+                            tracing::info!("데이터 이전(copy) 완료: {:?} → {:?}", legacy_data_dir, preferred_data_dir);
+                            preferred_data_dir
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                "데이터 이전 실패 — 기존 위치 계속 사용 ({:?}): {}",
+                                legacy_data_dir, e
+                            );
+                            legacy_data_dir
+                        }
+                    }
+                }
+            } else {
+                // 신규 설치 — 실행 위치에 새로 생성
+                preferred_data_dir
+            };
 
             // 웹 서버 포트 (WEB_PORT 환경변수, 기본 7474)
             let web_port: u16 = std::env::var("WEB_PORT")
@@ -92,6 +151,19 @@ pub fn run() {
             // AppState 초기화 및 등록
             let state = AppState::new(config, discord_config, profiles, profiles_path, data_dir.clone(), log_dir.clone(), log_cfg, web_port, refresh_interval_sec);
             app.manage(state);
+
+            // 시작 시 체결 기록 즉시 정리 (로그와 동일하게 시작 시 1회 실행)
+            {
+                let st: tauri::State<AppState> = app.state();
+                // setup 클로저는 동기 컨텍스트이므로 blocking_read() + std::thread::spawn 사용
+                // tokio::task::spawn_blocking은 runtime handle이 없으면 패닉하므로 사용 불가
+                let trade_cfg  = st.trade_archive_config.blocking_read().clone();
+                let data_dir_c = st.data_dir.clone();
+                std::thread::spawn(move || {
+                    commands::purge_old_trade_files(&data_dir_c, &trade_cfg);
+                    tracing::info!("시작 시 체결 기록 정리 완료 (보관 {}일)", trade_cfg.retention_days);
+                });
+            }
 
             // ── 비동기 백그라운드 작업 ──────────────────────────
             // 1) KRX 종목 목록 로드 (캐시 우선, 없으면 다운로드)
@@ -177,6 +249,33 @@ pub fn run() {
                             }
                             Err(e) => tracing::warn!("환율 갱신 실패 (이전 값 유지): {}", e),
                         }
+                    }
+                });
+            }
+
+            // 5) 일일 로그/체결 기록 정리 데몬 — 24시간마다 retention 설정대로 파일 삭제
+            // (앱 시작 시 cleanup 이외에, 장기 실행 시에도 자동 정리 보장)
+            {
+                let st: tauri::State<AppState> = app.state();
+                let log_config_arc           = st.log_config.clone();
+                let trade_archive_config_arc = st.trade_archive_config.clone();
+                let log_dir_d  = st.log_dir.clone();
+                let data_dir_d = st.data_dir.clone();
+                tauri::async_runtime::spawn(async move {
+                    loop {
+                        // 24시간 대기 후 정리
+                        tokio::time::sleep(tokio::time::Duration::from_secs(24 * 3600)).await;
+
+                        let log_cfg   = log_config_arc.read().await.clone();
+                        crate::logging::cleanup(&log_dir_d, &log_cfg);
+                        tracing::info!("일일 로그 정리 완료 (보관 {}일)", log_cfg.retention_days);
+
+                        let trade_cfg  = trade_archive_config_arc.read().await.clone();
+                        let data_dir_c = data_dir_d.clone();
+                        tokio::task::spawn_blocking(move || {
+                            commands::purge_old_trade_files(&data_dir_c, &trade_cfg);
+                            tracing::info!("일일 체결 기록 정리 완료 (보관 {}일)", trade_cfg.retention_days);
+                        });
                     }
                 });
             }

@@ -217,8 +217,13 @@ pub fn cleanup(log_dir: &Path, cfg: &LogConfig) {
         .filter_map(|entry| {
             let entry = entry.ok()?;
             let path = entry.path();
-            // .log 확장자 / log_config.json 제외
-            if path.extension()?.to_str()? != "log" { return None; }
+            // tracing-appender daily 형식: "app.log.YYYY-MM-DD" / "error.log.YYYY-MM-DD"
+            // path.extension()은 마지막 '.' 이후를 반환하므로 날짜 문자열이 나옴 — 사용 불가.
+            // 파일명 starts_with 로 정확히 판별 (log_config.json, macOS ._* 리소스 포크 제외)
+            let name = path.file_name()?.to_str()?;
+            if !(name.starts_with("app.log.") || name.starts_with("error.log.")) {
+                return None;
+            }
             let meta = std::fs::metadata(&path).ok()?;
             Some((path, meta))
         })
