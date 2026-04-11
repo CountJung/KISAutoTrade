@@ -61,6 +61,7 @@ AutoConditionTrade/                   ← 루트
 │   ├── MasterPlan.md                 ← 전체 설계 문서 (아카이브, 읽기 전용) ✅
 │   ├── discord-setup-guide.md        ← Discord 봇 연계 상세 가이드 ✅
 │   ├── user-guide.md                 ← 사용 가이드 (개요·GitHub Actions·전략 세팅) ✅
+│   ├── coding-guide.md               ← 코딩 가이드 (설정 추가·AppState·IPC·데몬·제어흐름) ✅
 │   └── api-reference.md              ← KIS API 참조 (추후 작성)
 │
 ├── src/                              ← React Frontend (TypeScript)
@@ -340,11 +341,11 @@ KIS_IS_PAPER_TRADING=false   # 기본값: 실전투자
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-04-11 | run_trading_daemon 레이블 루프 제거(poll_symbols_tick 분리+TickCycleResult), coding-guide.md 신규, copilot-instructions UI동기화 원칙 추가 |
 | 2026-04-11 | log cleanup extension 필터 버그 수정, data_dir 실행위치 이전(copy_dir_all migration), 시작/24h 주기 체결기록 정리 데몬 추가 |
 | 2026-04-11 | Trading 페이지 해외 보유종목 표시(OverseasHoldingsTable), 클릭 시 매도폼 자동완성(normalizeExchange), usePlaceOverseasOrder overseasBalance 캐시 갱신 |
 | 2026-04-10 | KRX 프록시 폴백 추가(search_krx_proxy), StockSearchItem.market 필드, copilot-instructions 버그→개선 원칙 |
 | 2026-04-10 | 전략 1~11 HashMap per-symbol 리팩토링(다중 종목 독립 신호 지원) |
-| 2026-04-10 | buy_suspended 매수정지 플래그 + 자동 해제(APBK* 에러 감지) |
 
 ---
 

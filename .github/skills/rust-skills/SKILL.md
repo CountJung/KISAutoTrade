@@ -364,4 +364,74 @@ fn reset(&mut self) {
 | 평균회귀(10) | `MeanReversionState` | `prices` (reset 후 유지) |
 | 추세필터(11) | `TrendFilterState` | `prices` (reset 후 유지) |
 
-> 마지막 업데이트: 2026-04-10T14:00:00
+---
+
+## 레이블 루프 금지 원칙
+
+### ❌ 잘못된 패턴 — goto 유사 레이블 루프
+
+```rust
+// 이 프로젝트에서 발견된 실제 버그 패턴
+'main_loop: loop {
+    // ...
+    'inner: for item in &items {
+        if condition {
+            break 'main_loop;      // 외부 루프로 jump — 비선형 흐름
+        }
+        if other {
+            continue 'main_loop;   // 외부 루프로 jump — goto와 동일
+        }
+    }
+    // 내부 루프 실행 이후 흐름이 불명확
+    if some_flag { continue 'main_loop; }
+}
+```
+
+**문제**: 내부 루프에서 `break 'outer` / `continue 'outer` 를 사용하면:
+- 코드를 위→아래로 읽을 때 흐름 추적이 불가능
+- 중간에 상태(`market_pause_until` 등)를 변경한 채로 루프를 탈출하면 디버깅 어려움
+- C/C++의 `goto`와 동일한 가독성 문제 발생
+
+### ✅ 올바른 패턴 — 함수 분리 + return
+
+내부 루프 로직을 별도 `async fn`으로 추출하고, 조기 탈출은 `return`으로 처리한다.
+호출자는 반환값(enum)을 보고 후속 동작을 결정한다.
+
+```rust
+/// 처리 결과를 enum으로 명시 — 호출자가 결과에 따라 분기
+#[derive(Debug, PartialEq)]
+enum TickCycleResult {
+    Done,
+    MarketClosed,   // → 호출자가 pause 설정
+    Stopped,        // → 호출자가 다음 사이클 skip
+}
+
+/// 내부 루프를 별도 함수로 추출 — 조기 탈출은 return
+async fn process_items(items: &[String], flag: &Arc<Mutex<bool>>) -> TickCycleResult {
+    for item in items {
+        if !*flag.lock().await {
+            return TickCycleResult::Stopped;    // break 'outer 대신
+        }
+        if is_closed(item) {
+            return TickCycleResult::MarketClosed; // break 'outer 대신
+        }
+        // 정상 처리
+    }
+    TickCycleResult::Done
+}
+
+/// 호출자 — 레이블 없는 단순 loop
+loop {
+    // ...
+    let result = process_items(&items, &flag).await;
+    if result == TickCycleResult::MarketClosed {
+        pause_until = Some(Instant::now() + Duration::from_secs(300));
+        continue;   // 레이블 없는 continue — 외부 루프만
+    }
+    // ...
+}
+```
+
+**실제 적용**: `commands.rs`의 `run_trading_daemon` + `poll_symbols_tick`
+
+> 마지막 업데이트: 2026-04-11T00:00:00

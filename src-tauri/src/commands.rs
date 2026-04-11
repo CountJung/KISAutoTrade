@@ -1456,7 +1456,136 @@ pub async fn clear_buy_suspension(state: State<'_, AppState>) -> CmdResult<Tradi
 //
 // is_trading 플래그가 false 이면 5초마다 재확인하며 대기.
 // true 로 바뀌면 즉시 폴링 재개. start_trading / web API 모두 이 방식으로 제어.
+//
+// 설계 원칙:
+//   - 레이블 루프(labeled loop)·goto 유사 패턴 사용 금지
+//   - 제어 흐름은 항상 위→아래 순차 실행
+//   - 내부 루프에서 외부 루프로 점프하는 break 'label / continue 'label 금지
+//   - 내부 루프 조기 탈출이 필요한 경우 별도 함수로 추출 후 return 사용
 // ────────────────────────────────────────────────────────────────────
+
+/// 종목 폴링 한 사이클(틱)의 처리 결과
+///
+/// `poll_symbols_tick` 반환값으로 사용. 호출자가 결과에 따라
+/// 시장 대기 여부를 결정한다.
+#[derive(Debug, PartialEq)]
+enum TickCycleResult {
+    /// 모든 종목 정상 처리 완료
+    Done,
+    /// 장 마감 / 장외 시간 감지 → 호출자는 market_pause_until 설정 후 다음 이터레이션으로
+    MarketClosed,
+    /// is_trading 플래그가 false 로 바뀜 → 이번 사이클 조기 종료
+    Stopped,
+}
+
+/// 종목 목록을 순차적으로 순회하여 현재가 조회 + 전략 신호 처리
+///
+/// `break 'label` / `continue 'label` 없이 `return`으로 조기 탈출한다.
+/// 장 마감 감지 시 `TickCycleResult::MarketClosed` 를 반환하고,
+/// 호출자(run_trading_daemon)가 market_pause_until 을 설정한다.
+async fn poll_symbols_tick(
+    symbols:      &[String],
+    is_trading:   &Arc<Mutex<bool>>,
+    strategy_mgr: &Arc<Mutex<crate::trading::strategy::StrategyManager>>,
+    order_mgr:    &Arc<Mutex<crate::trading::order::OrderManager>>,
+    stock_store:  &Arc<crate::storage::stock_store::StockStore>,
+    rest:         &Arc<KisRestClient>,
+    delay_ms:     u64,
+    fills_pending: &mut Vec<(String, u64)>,
+) -> TickCycleResult {
+    for symbol in symbols {
+        // 종료 플래그 선행 확인
+        if !*is_trading.lock().await {
+            return TickCycleResult::Stopped;
+        }
+
+        // 해당 종목 시장 개장 여부 확인 (폐장이면 건너뜀)
+        if !is_market_open_for(symbol) {
+            tracing::debug!(
+                "시장 폐장 — 건너뜀: {} ({})",
+                symbol,
+                if is_domestic_symbol(symbol) { "KRX" } else { "US" }
+            );
+            continue;
+        }
+
+        // 현재가 조회 + 해외 주문용 거래소 코드 캡처
+        let (tick, exchange_opt): (Result<(u64, u64), String>, Option<String>) =
+            if is_domestic_symbol(symbol) {
+                let t = rest.get_price(symbol).await
+                    .map(|p| {
+                        let price  = p.stck_prpr.parse::<u64>().unwrap_or(0);
+                        let volume = p.acml_vol.parse::<u64>().unwrap_or(0);
+                        (price, volume)
+                    })
+                    .map_err(|e| e.to_string());
+                (t, None)
+            } else {
+                match fetch_overseas_tick(rest, symbol).await {
+                    Ok((price, volume, exch)) => (Ok((price, volume)), Some(exch)),
+                    Err(e) => (Err(e.to_string()), None),
+                }
+            };
+
+        // 틱 처리: 현재가 기반 전략 신호 생성 → 주문
+        match tick {
+            Ok((price, volume)) if price > 0 => {
+                let signals = strategy_mgr.lock().await.on_tick(symbol, price, volume);
+                for signal in signals {
+                    use crate::trading::strategy::Signal;
+                    if matches!(signal, Signal::Hold) {
+                        continue;
+                    }
+                    let symbol_name = stock_store.get_name(symbol).await
+                        .unwrap_or_else(|| symbol.clone());
+                    let submit_result = order_mgr.lock().await
+                        .submit_signal(signal, &symbol_name, 0, exchange_opt.clone(), price)
+                        .await;
+                    match submit_result {
+                        Ok(()) => {
+                            fills_pending.push((symbol.clone(), price));
+                            tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+                        }
+                        Err(e) => {
+                            let msg = e.to_string();
+                            if is_market_closed_error(&msg) {
+                                tracing::info!(
+                                    "장 마감/장외 시간 감지 (주문, {}) — 5분 대기: {}",
+                                    symbol, msg
+                                );
+                                return TickCycleResult::MarketClosed;
+                            }
+                            tracing::warn!("신호 처리 실패 ({}): {}", symbol, msg);
+                        }
+                    }
+                }
+            }
+            Ok(_) => {
+                tracing::debug!("현재가 0 — 건너뜀: {}", symbol);
+            }
+            Err(e) => {
+                if is_market_closed_error(&e) {
+                    tracing::info!(
+                        "장 마감/장외 시간 감지 (현재가, {}) — 5분 대기: {}",
+                        symbol, e
+                    );
+                    return TickCycleResult::MarketClosed;
+                }
+                tracing::warn!("현재가 조회 실패 ({}): {}", symbol, e);
+            }
+        }
+
+        // 종목 간 API 호출 딜레이
+        tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+
+        // 딜레이 후 종료 플래그 재확인
+        if !*is_trading.lock().await {
+            return TickCycleResult::Stopped;
+        }
+    }
+    TickCycleResult::Done
+}
+
 pub async fn run_trading_daemon(
     is_trading:   Arc<Mutex<bool>>,
     strategy_mgr: Arc<Mutex<crate::trading::strategy::StrategyManager>>,
@@ -1471,10 +1600,11 @@ pub async fn run_trading_daemon(
     let mut fills_pending: Vec<(String, u64)> = Vec::new();
     let mut was_running = false;
 
-    'main_loop: loop {
+    // 레이블 없는 단순 루프 — 제어 흐름은 위→아래 순차 실행
+    loop {
         let is_running = *is_trading.lock().await;
 
-        // ── 자동매매 비활성 → 5초 슬립 후 재확인 ─────────────────
+        // ── Phase 1: 자동매매 비활성 → 5초 대기 후 재확인 ──────────
         if !is_running {
             if was_running {
                 fills_pending.clear();
@@ -1483,10 +1613,10 @@ pub async fn run_trading_daemon(
             }
             was_running = false;
             tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-            continue 'main_loop;
+            continue;
         }
 
-        // ── 방금 활성화됨 → 로컬 상태 초기화 ─────────────────────
+        // ── Phase 2: 방금 활성화됨 → 로컬 상태 초기화 ──────────────
         if !was_running {
             was_running = true;
             fills_pending.clear();
@@ -1495,17 +1625,17 @@ pub async fn run_trading_daemon(
             tracing::info!("자동매매 폴링 데몬 활성화");
         }
 
-        // 장 마감으로 대기 중 → 30초 슬립 후 재진입
+        // ── Phase 3: 장 마감으로 대기 중 → 30초 슬립 후 재확인 ─────
         if let Some(pause_until) = market_pause_until {
             if tokio::time::Instant::now() < pause_until {
                 tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
-                continue 'main_loop;
+                continue;
             }
             tracing::info!("장 마감 대기 완료 — 폴링 재개");
             market_pause_until = None;
         }
 
-        // ── 이전 틱 시장가 주문 자동 체결 확인 ──────────────────────
+        // ── Phase 4: 이전 틱 시장가 주문 자동 체결 확인 ────────────
         if !fills_pending.is_empty() {
             let fills = std::mem::take(&mut fills_pending);
             for (sym, fill_price) in fills {
@@ -1518,7 +1648,7 @@ pub async fn run_trading_daemon(
             }
         }
 
-        // 날짜 변경 시 일별 초기화
+        // ── Phase 5: 날짜 변경 시 일별 초기화 ──────────────────────
         let today = chrono::Local::now().date_naive();
         if today != last_reset_date {
             last_reset_date = today;
@@ -1527,125 +1657,54 @@ pub async fn run_trading_daemon(
             tracing::info!("자동매매 일별 초기화 완료 ({})", today);
         }
 
-        // 활성 전략의 종목 수집
+        // ── Phase 6: 활성 전략의 종목 수집 ─────────────────────────
         let symbols: Vec<String> = strategy_mgr.lock().await.active_symbols();
         if symbols.is_empty() {
             tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-            continue 'main_loop;
+            continue;
         }
 
         let rest = rest_arc.read().await.clone();
-        let is_paper = rest.is_paper();
-        let delay_ms: u64 = if is_paper { 700 } else { 150 };
+        let delay_ms: u64 = if rest.is_paper() { 700 } else { 150 };
 
-        // ── 시장 개장 여부 사전 체크 ─────────────────────────────────
-        {
-            let all_closed = symbols.iter().all(|s| !is_market_open_for(s));
-            if all_closed {
-                tracing::info!(
-                    "모든 시장 폐장 ({}) — 5분 대기 후 재확인",
-                    open_markets_summary()
-                );
-                market_pause_until = Some(
-                    tokio::time::Instant::now() + tokio::time::Duration::from_secs(300)
-                );
-                continue 'main_loop;
-            }
-            tracing::debug!("시장 상태: {}", open_markets_summary());
+        // ── Phase 7: 전체 시장 폐장 여부 사전 체크 ─────────────────
+        if symbols.iter().all(|s| !is_market_open_for(s)) {
+            tracing::info!(
+                "모든 시장 폐장 ({}) — 5분 대기 후 재확인",
+                open_markets_summary()
+            );
+            market_pause_until = Some(
+                tokio::time::Instant::now() + tokio::time::Duration::from_secs(300)
+            );
+            continue;
+        }
+        tracing::debug!("시장 상태: {}", open_markets_summary());
+
+        // ── Phase 8: 종목별 현재가 조회 + 전략 신호 처리 ───────────
+        //   내부 루프는 poll_symbols_tick() 으로 분리 — goto 유사 패턴 없음
+        let tick_result = poll_symbols_tick(
+            &symbols,
+            &is_trading,
+            &strategy_mgr,
+            &order_mgr,
+            &stock_store,
+            &rest,
+            delay_ms,
+            &mut fills_pending,
+        ).await;
+
+        if tick_result == TickCycleResult::MarketClosed {
+            market_pause_until = Some(
+                tokio::time::Instant::now() + tokio::time::Duration::from_secs(300)
+            );
+            continue;
         }
 
-        // ── 종목별 현재가 조회 + 전략 신호 처리 ─────────────────────
-        'symbol_loop: for symbol in &symbols {
-            if !*is_trading.lock().await {
-                break 'symbol_loop;
-            }
-
-            if !is_market_open_for(symbol) {
-                tracing::debug!(
-                    "시장 폐장 — 건너뜀: {} ({})",
-                    symbol,
-                    if is_domestic_symbol(symbol) { "KRX" } else { "US" }
-                );
-                continue;
-            }
-
-            // 현재가 조회 + 해외 주문용 거래소 코드 캡처 (단일 호출)
-            let (tick, exchange_opt): (Result<(u64, u64), String>, Option<String>) =
-                if is_domestic_symbol(symbol) {
-                    let t = rest.get_price(symbol).await
-                        .map(|p| {
-                            let price  = p.stck_prpr.parse::<u64>().unwrap_or(0);
-                            let volume = p.acml_vol.parse::<u64>().unwrap_or(0);
-                            (price, volume)
-                        })
-                        .map_err(|e| e.to_string());
-                    (t, None)
-                } else {
-                    match fetch_overseas_tick(&rest, symbol).await {
-                        Ok((price, volume, exch)) => (Ok((price, volume)), Some(exch)),
-                        Err(e) => (Err(e.to_string()), None),
-                    }
-                };
-
-            match tick {
-                Ok((price, volume)) if price > 0 => {
-                    let signals = strategy_mgr.lock().await.on_tick(symbol, price, volume);
-                    for signal in signals {
-                        use crate::trading::strategy::Signal;
-                        if matches!(signal, Signal::Hold) { continue; }
-                        let symbol_name = stock_store.get_name(symbol).await
-                            .unwrap_or_else(|| symbol.clone());
-                        match order_mgr.lock().await
-                            .submit_signal(signal, &symbol_name, 0, exchange_opt.clone(), price)
-                            .await
-                        {
-                            Ok(()) => {
-                                fills_pending.push((symbol.clone(), price));
-                                tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
-                            }
-                            Err(e) => {
-                                let msg = e.to_string();
-                                if is_market_closed_error(&msg) {
-                                    tracing::info!(
-                                        "장 마감/장외 시간 감지 (주문, {}) — 5분 대기: {}",
-                                        symbol, msg
-                                    );
-                                    market_pause_until = Some(
-                                        tokio::time::Instant::now()
-                                            + tokio::time::Duration::from_secs(300)
-                                    );
-                                    break 'symbol_loop;
-                                }
-                                tracing::warn!("신호 처리 실패 ({}): {}", symbol, msg);
-                            }
-                        }
-                    }
-                }
-                Ok(_) => { tracing::debug!("현재가 0 — 건너뜀: {}", symbol); }
-                Err(e) => {
-                    if is_market_closed_error(&e) {
-                        tracing::info!(
-                            "장 마감/장외 시간 감지 (현재가, {}) — 5분 대기: {}",
-                            symbol, e
-                        );
-                        market_pause_until = Some(
-                            tokio::time::Instant::now() + tokio::time::Duration::from_secs(300)
-                        );
-                        break 'symbol_loop;
-                    }
-                    tracing::warn!("현재가 조회 실패 ({}): {}", symbol, e);
-                }
-            }
-
-            tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
-            if !*is_trading.lock().await { break 'symbol_loop; }
-        }
-
-        if market_pause_until.is_some() { continue 'main_loop; }
-
-        // 다음 틱까지 10초 대기 (100ms × 100 — 종료 신호 즉시 반응)
+        // ── Phase 9: 다음 틱까지 10초 대기 (100ms 단위 — 종료 신호 즉시 반응) ──
         for _ in 0u32..100 {
-            if !*is_trading.lock().await { break; }
+            if !*is_trading.lock().await {
+                break;
+            }
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         }
     }
