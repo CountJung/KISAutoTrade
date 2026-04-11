@@ -33,6 +33,7 @@ import IconButton from '@mui/material/IconButton'
 
 import {
   useBalance,
+  useOverseasBalance,
   usePlaceOrder,
   usePrice,
   useStockSearch,
@@ -45,6 +46,7 @@ import {
 import * as cmd from '../api/commands'
 import type {
   BalanceItem,
+  OverseasBalanceItem,
   CmdError,
   OverseasExchange,
   OverseasOrderExchange,
@@ -66,7 +68,20 @@ const EXCHANGE_ORDER_MAP: Record<OverseasExchange, OverseasOrderExchange> = {
   AMS: 'AMEX',
 }
 
-// --- 보유 종목 테이블
+/**
+ * KIS 잔고 API의 ovrs_excg_cd (NAS/NYS/AMS 또는 NASD/NYSE/AMEX 모두 처리)
+ * → 프론트엔드 OverseasExchange ('NAS' | 'NYS' | 'AMS') 로 정규화
+ */
+function normalizeExchange(code: string): OverseasExchange {
+  const map: Record<string, OverseasExchange> = {
+    NAS: 'NAS', NASD: 'NAS', NASDAQ: 'NAS',
+    NYS: 'NYS', NYSE: 'NYS',
+    AMS: 'AMS', AMEX: 'AMS',
+  }
+  return map[code.toUpperCase()] ?? 'NAS'
+}
+
+// --- 보유 종목 테이블 (국내)
 interface HoldingsTableProps {
   items: BalanceItem[]
   onSelect: (item: BalanceItem) => void
@@ -127,6 +142,79 @@ function HoldingsTable({ items, onSelect }: HoldingsTableProps) {
                     noWrap
                   >
                     {positive ? '+' : ''}{fmt(parseInt(item.evlu_pfls_amt))}원
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  )
+}
+
+// --- 해외 보유 종목 테이블
+interface OverseasHoldingsTableProps {
+  items: OverseasBalanceItem[]
+  onSelect: (item: OverseasBalanceItem) => void
+}
+function OverseasHoldingsTable({ items, onSelect }: OverseasHoldingsTableProps) {
+  if (items.length === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+        해외 보유 종목 없음
+      </Typography>
+    )
+  }
+  return (
+    <TableContainer sx={{ maxHeight: { xs: 200, sm: 260 }, overflowX: 'auto' }}>
+      <Table size="small" stickyHeader>
+        <TableHead>
+          <TableRow>
+            <TableCell sx={{ minWidth: 120 }}>종목</TableCell>
+            <TableCell align="right" sx={{ minWidth: 60 }}>수량</TableCell>
+            <TableCell align="right" sx={{ minWidth: 90 }}>현재가(USD)</TableCell>
+            <TableCell align="right" sx={{ minWidth: 90 }}>손익률</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {items.map((item) => {
+            const pfls = parseFloat(item.evlu_pfls_rt)
+            const positive = pfls >= 0
+            return (
+              <TableRow
+                key={item.ovrs_pdno}
+                hover
+                onClick={() => onSelect(item)}
+                sx={{ cursor: 'pointer' }}
+              >
+                <TableCell>
+                  <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 130, sm: 'none' } }}>
+                    {item.ovrs_item_name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {item.ovrs_pdno} · {item.ovrs_excg_cd}
+                  </Typography>
+                </TableCell>
+                <TableCell align="right">{item.ovrs_cblc_qty}</TableCell>
+                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                  ${parseFloat(item.now_pric2).toFixed(2)}
+                </TableCell>
+                <TableCell align="right">
+                  <Typography
+                    variant="body2"
+                    color={positive ? 'success.main' : 'error.main'}
+                    fontWeight={600}
+                    noWrap
+                  >
+                    {positive ? '+' : ''}{pfls.toFixed(2)}%
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color={positive ? 'success.main' : 'error.main'}
+                    noWrap
+                  >
+                    {positive ? '+' : ''}${parseFloat(item.frcr_evlu_pfls_amt).toFixed(2)}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -288,6 +376,7 @@ export default function Trading() {
   }, [inputValue, market, showResults])
 
   const { data: balance }                                           = useBalance()
+  const { data: overseasBalance }                                   = useOverseasBalance()
   const { data: krPrice }                                           = usePrice(market === 'KR' && symbol.length === 6 ? symbol : '')
   const { data: usPrice }                                           = useOverseasPrice(market === 'US' ? symbol : '', market === 'US' ? usExchange : '')
   const { data: searchResults = [], isFetching: isFetchingSearch,
@@ -310,6 +399,18 @@ export default function Trading() {
   const handleSelectHolding = (item: BalanceItem) => {
     setSymbol(item.pdno)
     setInputValue(item.prdt_name)
+    setResult(null)
+    setErrorMsg(null)
+  }
+
+  /** 해외 보유 종목 클릭 → US 모드로 전환 후 매도 폼 자동 완성 */
+  const handleSelectOverseasHolding = (item: OverseasBalanceItem) => {
+    setMarket('US')
+    setSymbol(item.ovrs_pdno)
+    setInputValue(item.ovrs_item_name)
+    // ovrs_excg_cd: KIS는 잔고 API에서 'NAS'/'NYS'/'AMS' 반환
+    // 방어적으로 'NASD'/'NYSE'/'AMEX' 장포맷도 OverseasExchange로 정규화
+    setUsExchange(normalizeExchange(item.ovrs_excg_cd))
     setResult(null)
     setErrorMsg(null)
   }
@@ -408,13 +509,28 @@ export default function Trading() {
           <Typography variant="subtitle1" fontWeight={600}>보유 종목</Typography>
           {balance?.summary && (
             <Typography variant="caption" color="text.secondary" noWrap>
-              총평가 {fmt(parseInt(balance.summary.tot_evlu_amt))}원 ·
               예수금 {fmt(parseInt(balance.summary.dnca_tot_amt))}원
             </Typography>
           )}
         </Stack>
         <Divider sx={{ mb: 1.5 }} />
+
+        {/* 국내 보유 */}
+        <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
+          🇰🇷 국내
+        </Typography>
         <HoldingsTable items={balance?.items ?? []} onSelect={handleSelectHolding} />
+
+        {/* 해외 보유 */}
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
+            🇺🇸 해외 — 클릭하면 US 매도 폼 자동 완성
+          </Typography>
+          <OverseasHoldingsTable
+            items={overseasBalance?.items ?? []}
+            onSelect={handleSelectOverseasHolding}
+          />
+        </Box>
       </Paper>
 
       {/* 2. 종목 검색 패널 */}

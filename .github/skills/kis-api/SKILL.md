@@ -1082,6 +1082,43 @@ params: CANO, ACNT_PRDT_CD, OVRS_EXCG_CD(""), TR_CRCY_CD("USD"),
 응답 output1 (per item): `ovrs_pdno`, `ovrs_item_name`, `ovrs_cblc_qty`, `pchs_avg_pric`, `now_pric2`, `ovrs_stck_evlu_amt`, `frcr_evlu_pfls_amt`, `evlu_pfls_rt`, `ovrs_excg_cd`, `tr_mket_name`  
 응답 output2 (summary): `frcr_pchs_amt1`, `ovrs_tot_pfls`, `frcr_evlu_tota`, `tot_pftrt`
 
+### `ovrs_excg_cd` 형식 (잔고 응답 vs 주문 요청)
+
+| API | 코드 형식 | 예시 |
+|-----|----------|------|
+| 잔고 조회 응답 (TTTS3012R output1) | **단축** | `NAS`, `NYS`, `AMS` |
+| 가격 조회 EXCD 파라미터 | **단축** | `NAS`, `NYS`, `AMS` |
+| 주문 OVRS_EXCG_CD 파라미터 | **장형** | `NASD`, `NYSE`, `AMEX` |
+
+✅ **올바른 패턴** — 잔고 보유종목 클릭으로 매도 폼 자동완성 시 반드시 정규화:
+
+```typescript
+// 단축/장형 모두 OverseasExchange ('NAS'|'NYS'|'AMS')로 정규화
+function normalizeExchange(code: string): OverseasExchange {
+  const map: Record<string, OverseasExchange> = {
+    NAS: 'NAS', NASD: 'NAS', NASDAQ: 'NAS',
+    NYS: 'NYS', NYSE: 'NYS',
+    AMS: 'AMS', AMEX: 'AMS',
+  }
+  return map[code.toUpperCase()] ?? 'NAS'
+}
+
+// 매도 폼 자동완성
+const handleSelectOverseasHolding = (item: OverseasBalanceItem) => {
+  setMarket('US')
+  setSymbol(item.ovrs_pdno)
+  setInputValue(item.ovrs_item_name)
+  setUsExchange(normalizeExchange(item.ovrs_excg_cd)) // ← 정규화 필수
+  ...
+}
+```
+
+❌ **잘못된 패턴** — 정규화 없이 직접 사용:
+```typescript
+// ovrs_excg_cd가 'NASD' 형태면 EXCHANGE_ORDER_MAP['NASD'] = undefined → 주문 실패!
+setUsExchange(item.ovrs_excg_cd as OverseasExchange)
+```
+
 ---
 
 ## 16. 국내 주식 종목명 검색 — KRX 프록시 우선 전략
@@ -1167,7 +1204,7 @@ export interface StockSearchItem {
 - 응답 캐시 TTL: 300,000ms (5분) — 프록시 서버 측 캐시
 - 기존 StockSearchItem 생성 시 `market: None` 으로 초기화해야 컴파일 오류 없음
 
-> 마지막 업데이트: 2026-04-10T14:30:00
+> 마지막 업데이트: 2026-04-11T10:00:00
 
 ---
 

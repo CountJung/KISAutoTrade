@@ -639,6 +639,8 @@ export function usePlaceOverseasOrder() {
     mutationFn: (input: PlaceOverseasOrderInput) => cmd.placeOverseasOrder(input),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: KEYS.balance })
+      // 해외 주문 체결 후 해외 잔고도 갱신
+      void qc.invalidateQueries({ queryKey: KEYS.overseasBalance })
       // KIS 서버 처리 딜레이 후 체결 내역 갱신
       setTimeout(
         () => void qc.invalidateQueries({ queryKey: KEYS.todayExecuted }),
