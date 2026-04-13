@@ -173,6 +173,80 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
     case 'get_web_config':
       return { method: 'GET', url: '/api/web-config' }
 
+    // ─── 설정 진단 ───────────────────────────────────────────────────
+    case 'check_config':
+      return { method: 'GET', url: '/api/check-config' }
+
+    // ─── 프로파일 관리 ───────────────────────────────────────────────
+    case 'add_profile':
+      return { method: 'POST', url: '/api/profiles/add', body: args.input }
+
+    case 'update_profile':
+      return { method: 'POST', url: '/api/profiles/update', body: args.input }
+
+    case 'delete_profile':
+      return { method: 'POST', url: '/api/profiles/delete', body: { id: args.id } }
+
+    case 'set_active_profile':
+      return { method: 'POST', url: `/api/profiles/${args.id}/set-active` }
+
+    case 'detect_trading_type':
+      return { method: 'POST', url: '/api/detect-trading-type', body: { appKey: args.appKey, appSecret: args.appSecret } }
+
+    case 'detect_profile_trading_type':
+      return { method: 'POST', url: `/api/profiles/${args.profileId}/detect` }
+
+    // ─── 종목 목록 ───────────────────────────────────────────────────
+    case 'get_stock_list_stats':
+      return { method: 'GET', url: '/api/stock-list-stats' }
+
+    case 'set_stock_update_interval':
+      return { method: 'POST', url: '/api/stock-update-interval', body: { hours: args.hours } }
+
+    case 'refresh_stock_list':
+      return { method: 'POST', url: '/api/refresh-stock-list' }
+
+    // ─── Discord 테스트 ──────────────────────────────────────────────
+    case 'send_test_discord':
+      return { method: 'POST', url: '/api/test-discord' }
+
+    // ─── 당일 체결 기록 ──────────────────────────────────────────────
+    case 'get_today_trades':
+      return { method: 'GET', url: '/api/today-trades' }
+
+    // ─── 업데이트 확인 ───────────────────────────────────────────────
+    case 'check_for_update':
+      return { method: 'GET', url: '/api/check-update' }
+
+    // ─── 웹 설정 저장 ────────────────────────────────────────────────
+    case 'save_web_config':
+      return { method: 'POST', url: '/api/web-config/save', body: { newPort: args.newPort } }
+
+    // ─── 환율 / 갱신 주기 ────────────────────────────────────────────
+    case 'get_exchange_rate':
+      return { method: 'GET', url: '/api/exchange-rate' }
+
+    case 'get_refresh_interval':
+      return { method: 'GET', url: '/api/refresh-interval' }
+
+    // ─── 매수 정지 / 비상 정지 ───────────────────────────────────────
+    case 'clear_buy_suspension':
+      return { method: 'POST', url: '/api/buy-suspension/clear' }
+
+    case 'activate_emergency_stop':
+      return { method: 'POST', url: '/api/activate-emergency' }
+
+    // ─── 체결 기록 / 통계 저장 ───────────────────────────────────────
+    case 'save_trade':
+      return { method: 'POST', url: '/api/save-trade', body: args.input }
+
+    case 'upsert_daily_stats':
+      return { method: 'POST', url: '/api/upsert-stats', body: args.stats }
+
+    // ─── 프론트엔드 로그 ─────────────────────────────────────────────
+    case 'write_frontend_log':
+      return { method: 'POST', url: '/api/frontend-log', body: args.input }
+
     default:
       throw new Error(
         `웹 모드에서 지원되지 않는 커맨드: ${command} (데스크탑 앱에서만 사용 가능)`

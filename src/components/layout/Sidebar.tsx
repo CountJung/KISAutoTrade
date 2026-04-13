@@ -40,7 +40,7 @@ interface SidebarProps {
   onMobileClose: () => void
 }
 
-function DrawerContent({ drawerWidth }: { drawerWidth: number }) {
+function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; onMobileClose?: () => void }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { data: appConfig } = useAppConfig()
@@ -106,7 +106,7 @@ function DrawerContent({ drawerWidth }: { drawerWidth: number }) {
               <Tooltip title={item.label} placement="right" arrow>
                 <ListItemButton
                   selected={isActive}
-                  onClick={() => navigate({ to: item.path })}
+                  onClick={() => { navigate({ to: item.path }); onMobileClose?.() }}
                   sx={{
                     mx: 1,
                     borderRadius: 1,
@@ -134,7 +134,7 @@ function DrawerContent({ drawerWidth }: { drawerWidth: number }) {
         <ListItem disablePadding>
           <ListItemButton
             selected={location.pathname === '/settings'}
-            onClick={() => navigate({ to: '/settings' })}
+            onClick={() => { navigate({ to: '/settings' }); onMobileClose?.() }}
             sx={{ mx: 1, borderRadius: 1 }}
           >
             <ListItemIcon sx={{ minWidth: 36 }}>
@@ -150,11 +150,8 @@ function DrawerContent({ drawerWidth }: { drawerWidth: number }) {
 
 export function Sidebar({ drawerWidth, mobileOpen, onMobileClose }: SidebarProps) {
   return (
-    <Box
-      component="nav"
-      sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
-    >
-      {/* 모바일용 임시 Drawer */}
+    <>
+      {/* 모바일용 임시 Drawer (xs~sm) — 햄버거 메뉴로 열림 */}
       <Drawer
         variant="temporary"
         open={mobileOpen}
@@ -165,26 +162,27 @@ export function Sidebar({ drawerWidth, mobileOpen, onMobileClose }: SidebarProps
           '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box', overflowX: 'hidden' },
         }}
       >
-        <DrawerContent drawerWidth={drawerWidth} />
+        <DrawerContent drawerWidth={drawerWidth} onMobileClose={onMobileClose} />
       </Drawer>
 
-      {/* 데스크탑용 영구 Drawer */}
-      <Drawer
-        variant="permanent"
+      {/* 데스크탑용 사이드바 (md+) — Drawer variant="permanent" 대신 Box 사용
+          MUI 영구 Drawer는 웹 브라우저 flex 레이아웃에서 height 계산 오류 발생 */}
+      <Box
+        component="nav"
         sx={{
-          display: { xs: 'none', md: 'block' },
-          '& .MuiDrawer-paper': {
-            width: drawerWidth,
-            boxSizing: 'border-box',
-            borderRight: '1px solid',
-            borderColor: 'divider',
-            overflowX: 'hidden',
-          },
+          display: { xs: 'none', md: 'flex' },
+          flexDirection: 'column',
+          width: drawerWidth,
+          flexShrink: 0,
+          borderRight: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          overflowX: 'hidden',
+          overflowY: 'auto',
         }}
-        open
       >
         <DrawerContent drawerWidth={drawerWidth} />
-      </Drawer>
-    </Box>
+      </Box>
+    </>
   )
 }

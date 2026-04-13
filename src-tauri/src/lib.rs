@@ -215,6 +215,10 @@ pub fn run() {
                 let order_manager        = st.order_manager.clone();
                 let stock_store          = st.stock_store.clone();
                 let strategy_store       = st.strategy_store.clone();
+                let profiles_path        = st.profiles_path.clone();
+                let discord              = st.discord.clone();
+                let exchange_rate_krw    = st.exchange_rate_krw.clone();
+                let refresh_interval_sec = st.refresh_interval_sec;
                 tauri::async_runtime::spawn(async move {
                     server::start(
                         rest_client, stock_list, port,
@@ -222,6 +226,7 @@ pub fn run() {
                         config, profiles, trade_store, stats_store,
                         log_config, log_dir, trade_archive_config, data_dir,
                         risk_manager, order_manager, stock_store, strategy_store,
+                        profiles_path, discord, exchange_rate_krw, refresh_interval_sec,
                     ).await;
                 });
             }

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef } from 'react'
-import { Outlet } from '@tanstack/react-router'
+import { Outlet, useLocation, useNavigate } from '@tanstack/react-router'
 import Box from '@mui/material/Box'
 import CssBaseline from '@mui/material/CssBaseline'
 import Alert from '@mui/material/Alert'
@@ -9,7 +9,16 @@ import AppBar from '@mui/material/AppBar'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
+import Paper from '@mui/material/Paper'
+import BottomNavigation from '@mui/material/BottomNavigation'
+import BottomNavigationAction from '@mui/material/BottomNavigationAction'
 import MenuIcon from '@mui/icons-material/Menu'
+import DashboardIcon from '@mui/icons-material/Dashboard'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import HistoryIcon from '@mui/icons-material/History'
+import ArticleIcon from '@mui/icons-material/Article'
+import SettingsIcon from '@mui/icons-material/Settings'
 import { ThemeProvider } from '@mui/material/styles'
 import { Sidebar } from './Sidebar'
 import { LayoutResizer } from '../LayoutResizer'
@@ -21,6 +30,16 @@ const SIDEBAR_KEY = 'act:panel:sidebar:width'
 const SIDEBAR_DEFAULT = 220
 const SIDEBAR_MIN = 160
 const SIDEBAR_MAX = 400
+
+/** 모바일 하단 내비게이션 항목 */
+const BOTTOM_NAV_ITEMS = [
+  { label: 'Dashboard', path: '/',         icon: <DashboardIcon /> },
+  { label: 'Trading',   path: '/trading',   icon: <TrendingUpIcon /> },
+  { label: 'Strategy',  path: '/strategy',  icon: <AutoAwesomeIcon /> },
+  { label: 'History',   path: '/history',   icon: <HistoryIcon /> },
+  { label: 'Log',       path: '/log',       icon: <ArticleIcon /> },
+  { label: 'Settings',  path: '/settings',  icon: <SettingsIcon /> },
+]
 
 function readSidebarWidth(): number {
   const raw = localStorage.getItem(SIDEBAR_KEY)
@@ -37,6 +56,9 @@ export function AppShell() {
 
   const { data: updateInfo } = useUpdateCheck()
   const showUpdateBanner = !updateDismissed && updateInfo?.hasUpdate === true
+
+  const location = useLocation()
+  const navigate = useNavigate()
 
   // onResizeEnd 클로저에서 최신 width를 읽기 위한 ref
   const sidebarWidthRef = useRef(sidebarWidth)
@@ -121,11 +143,14 @@ export function AppShell() {
             mobileOpen={mobileOpen}
             onMobileClose={() => setMobileOpen(false)}
           />
-          <LayoutResizer
-            direction="horizontal"
-            onResize={handleSidebarResize}
-            onResizeEnd={handleSidebarResizeEnd}
-          />
+          {/* 리사이저: 데스크탑(md+)에서만 표시 */}
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, height: '100%' }}>
+            <LayoutResizer
+              direction="horizontal"
+              onResize={handleSidebarResize}
+              onResizeEnd={handleSidebarResizeEnd}
+            />
+          </Box>
           <Box
             component="main"
             sx={{
@@ -133,11 +158,48 @@ export function AppShell() {
               overflow: 'auto',
               bgcolor: 'background.default',
               p: 2,
+              pb: { xs: 9, md: 2 }, // 모바일 하단 내비게이션 공간 확보 (60px bar + 여유)
             }}
           >
             <Outlet />
           </Box>
         </Box>
+
+        {/* 모바일 하단 내비게이션 — md+ 에서는 사이드바가 있으므로 숨김 */}
+        <Paper
+          elevation={8}
+          sx={{
+            display: { xs: 'block', md: 'none' },
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1300,
+          }}
+        >
+          <BottomNavigation
+            value={location.pathname}
+            onChange={(_evt, newPath: unknown) => {
+              if (typeof newPath === 'string') void navigate({ to: newPath })
+            }}
+            sx={{ height: 60 }}
+          >
+            {BOTTOM_NAV_ITEMS.map((item) => (
+              <BottomNavigationAction
+                key={item.path}
+                value={item.path}
+                icon={item.icon}
+                label={item.label}
+                sx={{
+                  minWidth: 'auto',
+                  px: 0.5,
+                  fontSize: '0.6rem',
+                  '& .MuiBottomNavigationAction-label': { fontSize: '0.6rem' },
+                }}
+              />
+            ))}
+          </BottomNavigation>
+        </Paper>
       </Box>
     </ThemeProvider>
   )
