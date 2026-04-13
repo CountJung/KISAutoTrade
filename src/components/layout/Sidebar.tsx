@@ -35,6 +35,7 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 interface SidebarProps {
+  isDesktop: boolean
   drawerWidth: number
   mobileOpen: boolean
   onMobileClose: () => void
@@ -148,41 +149,43 @@ function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; on
   )
 }
 
-export function Sidebar({ drawerWidth, mobileOpen, onMobileClose }: SidebarProps) {
+export function Sidebar({ isDesktop, drawerWidth, mobileOpen, onMobileClose }: SidebarProps) {
   return (
     <>
-      {/* 모바일용 임시 Drawer (xs~sm) — 햄버거 메뉴로 열림 */}
-      <Drawer
-        variant="temporary"
-        open={mobileOpen}
-        onClose={onMobileClose}
-        ModalProps={{ keepMounted: true }}
-        sx={{
-          display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box', overflowX: 'hidden' },
-        }}
-      >
-        <DrawerContent drawerWidth={drawerWidth} onMobileClose={onMobileClose} />
-      </Drawer>
+      {/* 데스크탑: Box로 직접 렌더링 — JS 조건부라 CSS 우선순위/뷰포트 문제 없음 */}
+      {isDesktop && (
+        <Box
+          component="nav"
+          sx={{
+            width: drawerWidth,
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            borderRight: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            overflowX: 'hidden',
+            overflowY: 'auto',
+          }}
+        >
+          <DrawerContent drawerWidth={drawerWidth} />
+        </Box>
+      )}
 
-      {/* 데스크탑용 사이드바 (md+) — Drawer variant="permanent" 대신 Box 사용
-          MUI 영구 Drawer는 웹 브라우저 flex 레이아웃에서 height 계산 오류 발생 */}
-      <Box
-        component="nav"
-        sx={{
-          display: { xs: 'none', md: 'flex' },
-          flexDirection: 'column',
-          width: drawerWidth,
-          flexShrink: 0,
-          borderRight: '1px solid',
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
-          overflowX: 'hidden',
-          overflowY: 'auto',
-        }}
-      >
-        <DrawerContent drawerWidth={drawerWidth} />
-      </Box>
+      {/* 모바일: 임시 Drawer — 햄버거 메뉴로 열림, 내비게이션 후 자동 닫힘 */}
+      {!isDesktop && (
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={onMobileClose}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box', overflowX: 'hidden' },
+          }}
+        >
+          <DrawerContent drawerWidth={drawerWidth} onMobileClose={onMobileClose} />
+        </Drawer>
+      )}
     </>
   )
 }

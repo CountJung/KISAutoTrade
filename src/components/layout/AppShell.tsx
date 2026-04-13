@@ -12,6 +12,7 @@ import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
 import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
+import useMediaQuery from '@mui/material/useMediaQuery'
 import MenuIcon from '@mui/icons-material/Menu'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
@@ -49,6 +50,11 @@ function readSidebarWidth(): number {
 }
 
 export function AppShell() {
+  // CSS 브레이크포인트 대신 JS window.matchMedia 기반 감지:
+  // 브라우저/WebView/줌 레벨 무관하게 정확하게 동작하며, CSS 우선순위 문제 없음.
+  // defaultMatches:true → 첫 렌더링 시 데스크탑 레이아웃으로 시작해 flash 방지
+  const isDesktop = useMediaQuery('(min-width:900px)', { defaultMatches: true })
+
   const theme = useSettingsStore((s) => s.theme)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth)
@@ -85,32 +91,34 @@ export function AppShell() {
     <ThemeProvider theme={muiTheme}>
       <CssBaseline />
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-        {/* 모바일 전용 상단 바 — md+ 에서는 사이드바가 모든 정보를 표시하므로 숨김 */}
-        <AppBar
-          position="static"
-          elevation={0}
-          sx={{
-            display: { xs: 'flex', md: 'none' },
-            bgcolor: 'background.paper',
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-            color: 'text.primary',
-            flexShrink: 0,
-          }}
-        >
-          <Toolbar variant="dense" sx={{ minHeight: 48, gap: 1 }}>
-            <IconButton
-              size="small"
-              onClick={() => setMobileOpen(true)}
-              aria-label="메뉴 열기"
-            >
-              <MenuIcon fontSize="small" />
-            </IconButton>
-            <Typography variant="subtitle2" fontWeight={700} color="primary" noWrap>
-              KISAutoTrade
-            </Typography>
-          </Toolbar>
-        </AppBar>
+
+        {/* 모바일 전용 상단 바 — JS 기반으로 isDesktop이 false일 때만 렌더링 */}
+        {!isDesktop && (
+          <AppBar
+            position="static"
+            elevation={0}
+            sx={{
+              bgcolor: 'background.paper',
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              color: 'text.primary',
+              flexShrink: 0,
+            }}
+          >
+            <Toolbar variant="dense" sx={{ minHeight: 48, gap: 1 }}>
+              <IconButton
+                size="small"
+                onClick={() => setMobileOpen(true)}
+                aria-label="메뉴 열기"
+              >
+                <MenuIcon fontSize="small" />
+              </IconButton>
+              <Typography variant="subtitle2" fontWeight={700} color="primary" noWrap>
+                KISAutoTrade
+              </Typography>
+            </Toolbar>
+          </AppBar>
+        )}
 
         {showUpdateBanner && (
           <Alert
@@ -137,20 +145,23 @@ export function AppShell() {
             현재 v{updateInfo!.currentVersion} → 최신 v{updateInfo!.latestVersion} 로 업데이트가 가능합니다.
           </Alert>
         )}
+
+        {/* 사이드바 + 메인 컨텐츠 */}
         <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           <Sidebar
+            isDesktop={isDesktop}
             drawerWidth={sidebarWidth}
             mobileOpen={mobileOpen}
             onMobileClose={() => setMobileOpen(false)}
           />
-          {/* 리사이저: 데스크탑(md+)에서만 표시 */}
-          <Box sx={{ display: { xs: 'none', md: 'flex' }, height: '100%' }}>
+          {/* 리사이저: JS로 데스크탑에서만 렌더링 */}
+          {isDesktop && (
             <LayoutResizer
               direction="horizontal"
               onResize={handleSidebarResize}
               onResizeEnd={handleSidebarResizeEnd}
             />
-          </Box>
+          )}
           <Box
             component="main"
             sx={{
@@ -158,49 +169,43 @@ export function AppShell() {
               overflow: 'auto',
               bgcolor: 'background.default',
               p: 2,
-              pb: { xs: 9, md: 2 }, // 모바일 하단 내비게이션 공간 확보 (60px bar + 여유)
+              // 모바일 하단 내비게이션(60px) 높이만큼 여백 확보
+              pb: isDesktop ? 2 : 9,
             }}
           >
             <Outlet />
           </Box>
         </Box>
 
-        {/* 모바일 하단 내비게이션 — md+ 에서는 사이드바가 있으므로 숨김 */}
-        <Paper
-          elevation={8}
-          sx={{
-            display: { xs: 'block', md: 'none' },
-            position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 1300,
-          }}
-        >
-          <BottomNavigation
-            value={location.pathname}
-            onChange={(_evt, newPath: unknown) => {
-              if (typeof newPath === 'string') void navigate({ to: newPath })
-            }}
-            sx={{ height: 60 }}
+        {/* 모바일 하단 내비게이션 — JS 기반으로 isDesktop이 false일 때만 렌더링 */}
+        {!isDesktop && (
+          <Paper
+            elevation={8}
+            sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1300 }}
           >
-            {BOTTOM_NAV_ITEMS.map((item) => (
-              <BottomNavigationAction
-                key={item.path}
-                value={item.path}
-                icon={item.icon}
-                label={item.label}
-                sx={{
-                  minWidth: 'auto',
-                  px: 0.5,
-                  fontSize: '0.6rem',
-                  '& .MuiBottomNavigationAction-label': { fontSize: '0.6rem' },
-                }}
-              />
-            ))}
-          </BottomNavigation>
-        </Paper>
-      </Box>
+            <BottomNavigation
+              value={location.pathname}
+              onChange={(_evt, newPath: unknown) => {
+                if (typeof newPath === 'string') void navigate({ to: newPath })
+              }}
+              sx={{ height: 60 }}
+            >
+              {BOTTOM_NAV_ITEMS.map((item) => (
+                <BottomNavigationAction
+                  key={item.path}
+                  value={item.path}
+                  icon={item.icon}
+                  label={item.label}
+                  sx={{
+                    minWidth: 'auto',
+                    px: 0.5,
+                    '& .MuiBottomNavigationAction-label': { fontSize: '0.6rem' },
+                  }}
+                />
+              ))}
+            </BottomNavigation>
+          </Paper>
+        )}      </Box>
     </ThemeProvider>
   )
 }
