@@ -220,7 +220,7 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
 
     // ─── 웹 설정 저장 ────────────────────────────────────────────────
     case 'save_web_config':
-      return { method: 'POST', url: '/api/web-config/save', body: { newPort: args.newPort } }
+      return { method: 'POST', url: '/api/web-config/save', body: { newPort: args.newPort, distPath: args.distPath } }
 
     // ─── 환율 / 갱신 주기 ────────────────────────────────────────────
     case 'get_exchange_rate':

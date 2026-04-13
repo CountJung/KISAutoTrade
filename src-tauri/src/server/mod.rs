@@ -76,6 +76,8 @@ struct ServerState {
     stock_list:            Arc<RwLock<Vec<StockSearchItem>>>,
     web_port:              u16,
     dist_path:             PathBuf,
+    /// dist/index.html 존재 여부 (서버 시작 시 평가)
+    dist_found:            bool,
     /// 자동매매 활성 여부 (commands.rs AppState 와 Arc 공유)
     is_trading:            Arc<Mutex<bool>>,
     /// 전략 관리자
@@ -143,18 +145,20 @@ pub async fn start(
     refresh_interval_sec: u64,
 ) {
     let dist_path = web_dist_path();
+    let dist_found = dist_path.join("index.html").exists();
 
-    if dist_path.join("index.html").exists() {
+    if dist_found {
         tracing::info!("웹 모드: React 앱을 {:?} 에서 서비스합니다", dist_path);
     } else {
-        tracing::info!("웹 모드: dist/ 없음 — 모바일 대시보드 HTML로 서비스합니다");
-        tracing::info!(
-            "React 앱을 서비스하려면 프로젝트 루트에서 'npm run build' 를 실행하세요"
+        tracing::warn!(
+            "웹 모드: dist/index.html 없음 ({:?}) — 설치 안내 페이지를 서비스합니다. \
+             'npm run build' 실행 후 앱을 재시작하거나 DIST_PATH 환경 변수를 설정하세요.",
+            dist_path
         );
     }
 
     let state = ServerState {
-        rest_client, stock_list, web_port: port, dist_path,
+        rest_client, stock_list, web_port: port, dist_path, dist_found,
         is_trading, strategy_manager, position_tracker,
         config, profiles, trade_store, stats_store,
         log_config, log_dir, trade_archive_config, data_dir,
@@ -251,16 +255,51 @@ pub async fn start(
     }
 }
 
-/// dist/ 폴더 경로 탐색: 바이너리 옆 dist/ → 현재 작업 디렉토리의 dist/
+/// dist/ 폴더 경로 탐색
+///
+/// 탐색 순서:
+///   1. `DIST_PATH` 환경 변수 (사용자 직접 지정, 최우선)
+///   2. 실행 파일 기준 상위 디렉토리 최대 5단계 탐색
+///      - 디버그 빌드: src-tauri/target/debug/exe → 프로젝트 루트(4단계 위)
+///      - macOS .app: Contents/MacOS/exe → ../Resources/dist 탐색
+///   3. 현재 작업 디렉토리 `dist/` (cwd에서 실행할 경우)
 fn web_dist_path() -> PathBuf {
-    if let Some(p) = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.join("dist")))
-    {
-        if p.exists() {
+    // 1. DIST_PATH 환경 변수 최우선
+    if let Ok(env_path) = std::env::var("DIST_PATH") {
+        let p = PathBuf::from(&env_path);
+        if p.join("index.html").exists() {
+            tracing::info!("dist/ 경로: DIST_PATH 환경 변수 = {:?}", p);
             return p;
         }
+        tracing::warn!("DIST_PATH={:?} 에 index.html 없음 — 자동 탐색 시도", p);
     }
+
+    // 2. exe 기준 상위 디렉토리 탐색 (5단계)
+    if let Ok(exe) = std::env::current_exe() {
+        let mut dir = exe.parent().map(PathBuf::from);
+        for depth in 0..5u32 {
+            if let Some(ref d) = dir {
+                // dist/ 직접 확인
+                let candidate = d.join("dist");
+                if candidate.join("index.html").exists() {
+                    tracing::info!("dist/ 경로: exe 기준 {}단계 위 = {:?}", depth, candidate);
+                    return candidate;
+                }
+                // macOS 앱 번들: Contents/MacOS/ → ../Resources/dist
+                let resources = d.join("../Resources/dist");
+                if resources.join("index.html").exists() {
+                    let resolved = resources.canonicalize().unwrap_or(resources);
+                    tracing::info!("dist/ 경로: macOS Resources = {:?}", resolved);
+                    return resolved;
+                }
+                dir = d.parent().map(PathBuf::from);
+            } else {
+                break;
+            }
+        }
+    }
+
+    // 3. 현재 작업 디렉토리 기준 (cwd/dist)
     std::env::current_dir()
         .unwrap_or_else(|_| PathBuf::from("."))
         .join("dist")
@@ -284,11 +323,11 @@ async fn spa_handler(State(s): State<ServerState>, uri: Uri) -> Response {
         }
     }
 
-    // SPA 라우팅 fallback: index.html 반환 또는 모바일 대시보드 HTML
+    // SPA 라우팅 fallback: index.html 반환 또는 설치 안내 HTML
     let index_path = s.dist_path.join("index.html");
     match tokio::fs::read_to_string(&index_path).await {
         Ok(content) => Html(content).into_response(),
-        Err(_) => Html(MOBILE_HTML).into_response(),
+        Err(_) => Html(SETUP_HTML).into_response(),
     }
 }
 
@@ -995,6 +1034,8 @@ async fn web_config_handler(State(s): State<ServerState>) -> Json<serde_json::Va
     Json(serde_json::json!({
         "runningPort": s.web_port,
         "accessUrl":   format!("http://localhost:{}", s.web_port),
+        "distPath":    s.dist_path.to_string_lossy(),
+        "distFound":   s.dist_found,
     }))
 }
 
@@ -1397,16 +1438,25 @@ async fn check_update_handler(_s: State<ServerState>) -> Json<serde_json::Value>
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SaveWebConfigBody { new_port: u16 }
+struct SaveWebConfigBody {
+    new_port: u16,
+    /// DIST_PATH 환경 변수에 저장할 dist/ 경로 (비어있으면 수정 안 함)
+    dist_path: Option<String>,
+}
 
-/// POST /api/web-config/save — .env WEB_PORT 저장 (재시작 후 반영)
+/// POST /api/web-config/save — .env WEB_PORT (및 선택적 DIST_PATH) 저장 (재시작 후 반영)
 async fn save_web_config_handler(
     State(_s): State<ServerState>,
     Json(body): Json<SaveWebConfigBody>,
 ) -> Json<serde_json::Value> {
     use std::io::Write;
     let env_path = std::env::current_dir().unwrap_or_default().join(".env");
-    let content = format!("WEB_PORT={}\n", body.new_port);
+    let mut content = format!("WEB_PORT={}\n", body.new_port);
+    if let Some(ref dp) = body.dist_path {
+        if !dp.is_empty() {
+            content.push_str(&format!("DIST_PATH={}\n", dp));
+        }
+    }
     match std::fs::OpenOptions::new()
         .create(true).write(true).truncate(true)
         .open(&env_path)
@@ -1501,169 +1551,50 @@ async fn frontend_log_handler(Json(body): Json<FrontendLogBody>) -> Json<serde_j
     Json(serde_json::json!({ "ok": true }))
 }
 
-// ── 모바일 대시보드 HTML (dist/index.html 없을 때 폴백) ────────────
+// ── 프론트엔드 미빌드 시 안내 페이지 ────────────────────────────────
 
-static MOBILE_HTML: &str = r#"<!DOCTYPE html>
+static SETUP_HTML: &str = r#"<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KISAutoTrade</title>
+  <title>KISAutoTrade — 설정 필요</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, sans-serif; background: #121212; color: #e0e0e0; padding: 16px; }
-    h1 { font-size: 18px; color: #90caf9; margin-bottom: 4px; }
-    .subtitle { font-size: 12px; color: #757575; margin-bottom: 16px; }
-    h2 { font-size: 14px; color: #90caf9; margin-bottom: 8px; }
-    .card { background: #1e1e1e; border-radius: 8px; padding: 14px; margin-bottom: 12px; }
-    .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #2a2a2a; font-size: 13px; }
-    .row:last-child { border-bottom: none; }
-    .label { color: #9e9e9e; }
-    .value { font-weight: 600; }
-    .green { color: #4caf50; }
-    .red { color: #ef5350; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th { color: #9e9e9e; text-align: left; padding: 4px 0; border-bottom: 1px solid #333; }
-    td { padding: 6px 0; border-bottom: 1px solid #2a2a2a; vertical-align: top; }
-    .chip { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-    .chip-buy { background: #1565c0; color: #fff; }
-    .chip-sell { background: #b71c1c; color: #fff; }
-    .chip-running { background: #2e7d32; color: #fff; }
-    .chip-stopped { background: #424242; color: #9e9e9e; }
-    .sub { font-size: 11px; color: #757575; }
-    .refresh { margin-top: 8px; text-align: right; font-size: 11px; color: #757575; }
-    .btn { border: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 600; }
-    .btn-primary { background: #1565c0; color: #fff; }
-    .btn-danger  { background: #b71c1c; color: #fff; }
-    .btn-refresh { background: #37474f; color: #ccc; }
-    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-    .status-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    body { font-family: -apple-system, sans-serif; background: #121212; color: #e0e0e0;
+           max-width: 640px; margin: 60px auto; padding: 24px; line-height: 1.6; }
+    h1 { color: #90caf9; font-size: 22px; margin-bottom: 6px; }
+    .subtitle { color: #757575; font-size: 13px; margin-bottom: 24px; }
+    .warn { background: #2c1500; border: 1px solid #f57c00; border-radius: 8px;
+            padding: 14px 16px; margin: 16px 0; color: #ffb74d; font-size: 14px; }
+    pre { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px;
+          font-size: 13px; color: #80cbc4; overflow-x: auto; margin: 12px 0; }
+    p { margin: 10px 0; font-size: 14px; color: #bdbdbd; }
+    a { color: #90caf9; }
+    .ok { color: #81c784; }
   </style>
 </head>
 <body>
-  <h1>KISAutoTrade</h1>
-  <div class="subtitle">모바일 대시보드</div>
+  <h1>KISAutoTrade 웹 서버</h1>
+  <div class="subtitle">API 서버가 실행 중입니다.</div>
 
-  <!-- 자동매매 제어 -->
-  <div class="card">
-    <h2>자동매매</h2>
-    <div class="status-row">
-      <span class="label">상태</span>
-      <span id="trading-status-chip" class="chip chip-stopped">대기 중</span>
-    </div>
-    <div id="trading-strategies" class="sub" style="margin-bottom:8px;color:#757575"></div>
-    <div class="btn-row">
-      <button class="btn btn-primary" onclick="tradingStart()">▶ 시작</button>
-      <button class="btn btn-danger"  onclick="tradingStop()">■ 정지</button>
-    </div>
-    <div id="trading-msg" class="sub" style="margin-top:6px;color:#ffb300"></div>
+  <div class="warn">
+    ⚠️ <strong>프론트엔드 빌드 파일을 찾을 수 없습니다.</strong><br>
+    <code>dist/index.html</code> 이 서버에서 탐색되지 않았습니다.
   </div>
 
-  <!-- 잔고 -->
-  <div class="card">
-    <h2>잔고</h2>
-    <div id="balance-body"><div class="label">로딩 중...</div></div>
-  </div>
+  <p><strong>해결 방법 1</strong> — 프론트엔드를 빌드하세요:</p>
+  <pre>cd KISAutoTrade
+npm run build
+# 이후 앱(또는 서버)을 재시작</pre>
 
-  <!-- 보유 종목 -->
-  <div class="card">
-    <h2>보유 종목</h2>
-    <table>
-      <thead><tr><th>종목</th><th style="text-align:right">수량</th><th style="text-align:right">손익률</th></tr></thead>
-      <tbody id="holdings"></tbody>
-    </table>
-  </div>
+  <p><strong>해결 방법 2</strong> — <code>.env</code> 파일에 dist/ 경로를 직접 지정하세요:</p>
+  <pre># .env
+DIST_PATH=/절대경로/KISAutoTrade/dist</pre>
 
-  <!-- 당일 체결 -->
-  <div class="card">
-    <h2>당일 체결</h2>
-    <table>
-      <thead><tr><th>종목</th><th>구분</th><th style="text-align:right">체결가</th></tr></thead>
-      <tbody id="executed"></tbody>
-    </table>
-  </div>
-
-  <div class="refresh" id="refresh-time"></div>
-  <br>
-  <button class="btn btn-refresh" onclick="load()">↺ 새로고침</button>
-
-  <script>
-    function fmt(n) { return Number(n || 0).toLocaleString('ko-KR'); }
-
-    async function tradingStart() {
-      document.getElementById('trading-msg').textContent = '요청 중...';
-      try {
-        const r = await fetch('/api/trading/start', { method: 'POST' }).then(r => r.json());
-        document.getElementById('trading-msg').textContent = r.message || '';
-        await loadTradingStatus();
-      } catch(e) { document.getElementById('trading-msg').textContent = '오류: ' + e.message; }
-    }
-    async function tradingStop() {
-      document.getElementById('trading-msg').textContent = '요청 중...';
-      try {
-        const r = await fetch('/api/trading/stop', { method: 'POST' }).then(r => r.json());
-        document.getElementById('trading-msg').textContent = r.message || '';
-        await loadTradingStatus();
-      } catch(e) { document.getElementById('trading-msg').textContent = '오류: ' + e.message; }
-    }
-    async function loadTradingStatus() {
-      try {
-        const t = await fetch('/api/trading/status').then(r => r.json());
-        const chip = document.getElementById('trading-status-chip');
-        if (t.isRunning) {
-          chip.className = 'chip chip-running'; chip.textContent = '● 자동매매 중';
-        } else {
-          chip.className = 'chip chip-stopped'; chip.textContent = '대기 중';
-        }
-        document.getElementById('trading-strategies').textContent =
-          t.activeStrategies && t.activeStrategies.length
-            ? '전략: ' + t.activeStrategies.join(', ')
-            : '활성 전략 없음';
-      } catch(e) { console.error('trading status', e); }
-    }
-
-    async function load() {
-      await loadTradingStatus();
-      try {
-        const bal = await fetch('/api/balance').then(r => r.json());
-        const s = bal.summary || {};
-        document.getElementById('balance-body').innerHTML =
-          `<div class="row"><span class="label">예수금</span><span class="value">${fmt(s.dnca_tot_amt)}원</span></div>` +
-          `<div class="row"><span class="label">총평가금액</span><span class="value">${fmt(s.tot_evlu_amt)}원</span></div>` +
-          `<div class="row"><span class="label">순자산</span><span class="value">${fmt(s.nass_amt)}원</span></div>`;
-
-        const tbody = document.getElementById('holdings');
-        tbody.innerHTML = (bal.items || []).map(i => {
-          const pf = parseFloat(i.evlu_pfls_rt || 0);
-          const cls = pf >= 0 ? 'green' : 'red';
-          const sign = pf >= 0 ? '+' : '';
-          return `<tr>
-            <td>${i.prdt_name}<div class="sub">${i.pdno}</div></td>
-            <td style="text-align:right">${fmt(i.hldg_qty)}주</td>
-            <td style="text-align:right" class="${cls}">${sign}${pf.toFixed(2)}%<div class="sub ${cls}">${sign}${fmt(i.evlu_pfls_amt)}원</div></td>
-          </tr>`;
-        }).join('') || '<tr><td colspan="3" class="label" style="text-align:center;padding:8px">보유 종목 없음</td></tr>';
-      } catch(e) { console.error('balance', e); }
-
-      try {
-        const ex = await fetch('/api/executed').then(r => r.json());
-        const etbody = document.getElementById('executed');
-        etbody.innerHTML = (Array.isArray(ex) ? ex : []).map(o => {
-          const isSell = o.sll_buy_dvsn_cd === '01';
-          return `<tr>
-            <td>${o.prdt_name}<div class="sub">${o.pdno}</div></td>
-            <td><span class="chip ${isSell ? 'chip-sell' : 'chip-buy'}">${isSell ? '매도' : '매수'}</span></td>
-            <td style="text-align:right">${fmt(o.ord_unpr)}원<div class="sub">${fmt(o.tot_ccld_qty)}주</div></td>
-          </tr>`;
-        }).join('') || '<tr><td colspan="3" class="label" style="text-align:center;padding:8px">체결 내역 없음</td></tr>';
-      } catch(e) { console.error('executed', e); }
-
-      document.getElementById('refresh-time').textContent =
-        '최종 업데이트: ' + new Date().toLocaleTimeString('ko-KR');
-    }
-
-    load();
-    setInterval(load, 30000);
-  </script>
+  <p>API는 정상 작동 중: <span class="ok">✓</span>
+     <a href="/api/info">/api/info</a> ·
+     <a href="/api/trading/status">/api/trading/status</a>
+  </p>
 </body>
 </html>"#;

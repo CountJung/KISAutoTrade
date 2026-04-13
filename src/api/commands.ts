@@ -176,8 +176,8 @@ export const checkForUpdate = (): Promise<UpdateInfo> =>
 export const getWebConfig = (): Promise<WebConfig> =>
   invoke('get_web_config')
 
-export const saveWebConfig = (newPort: number): Promise<string> =>
-  invoke('save_web_config', { newPort })
+export const saveWebConfig = (newPort: number, distPath?: string): Promise<string> =>
+  invoke('save_web_config', { newPort, distPath })
 
 // ─── 실전/모의투자 자동 감지 ──────────────────────────────────────
 export const detectTradingType = (appKey: string, appSecret: string): Promise<DetectTradingTypeResult> =>

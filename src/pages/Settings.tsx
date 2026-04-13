@@ -890,12 +890,17 @@ export default function Settings() {
   const { data: webConfig } = useWebConfig()
   const { mutate: saveWebConfig, isPending: webSaving } = useSaveWebConfig()
   const [webPortInput, setWebPortInput] = useState<string>('')
+  const [distPathInput, setDistPathInput] = useState<string>('')
   const [webSaveResult, setWebSaveResult] = useState<{ ok: boolean; msg: string } | null>(null)
-  // webConfig가 로드되면 입력칼 동기화
+  // webConfig가 로드되면 입력칸 동기화
   const prevWebConfigRef = useState<typeof webConfig>(undefined)
   if (webConfig && webConfig !== prevWebConfigRef[0]) {
     prevWebConfigRef[1](webConfig)
     setWebPortInput(String(webConfig.runningPort))
+    // distPath는 사용자가 직접 입력한 경우에만 동기화
+    if (!distPathInput && webConfig.distPath) {
+      setDistPathInput(webConfig.distPath)
+    }
   }
 
   // 종목 목록 관리
@@ -1166,6 +1171,29 @@ export default function Settings() {
               <br />
               접속 URL: <code>{webConfig?.accessUrl ?? `http://localhost:7474`}</code>
             </Typography>
+
+            {/* dist/ 빌드 파일 상태 */}
+            {webConfig && (
+              webConfig.distFound === false ? (
+                <Alert severity="warning">
+                  <Typography variant="body2" fontWeight={600} mb={0.5}>
+                    프론트엔드 빌드 파일 없음
+                  </Typography>
+                  <Typography variant="body2">
+                    탐색 경로: <code>{webConfig.distPath}</code>
+                    <br />
+                    해결방법: 프로젝트 루트에서 <code>npm run build</code> 실행 후 앱 재시작,
+                    또는 아래 dist/ 경로 직접 설정
+                  </Typography>
+                </Alert>
+              ) : (
+                <Alert severity="success" sx={{ py: 0.5 }}>
+                  React 앱 서비스 중 — <code>{webConfig.distPath}</code>
+                </Alert>
+              )
+            )}
+
+            {/* 포트 설정 */}
             <Box>
               <Stack direction="row" spacing={1} alignItems="center">
                 <TextField
@@ -1183,10 +1211,13 @@ export default function Settings() {
                     const port = parseInt(webPortInput, 10)
                     if (isNaN(port)) return
                     setWebSaveResult(null)
-                    saveWebConfig(port, {
-                      onSuccess: (msg) => setWebSaveResult({ ok: true, msg }),
-                      onError: (err) => setWebSaveResult({ ok: false, msg: String(err) }),
-                    })
+                    saveWebConfig(
+                      { newPort: port, distPath: distPathInput.trim() || undefined },
+                      {
+                        onSuccess: (msg) => setWebSaveResult({ ok: true, msg }),
+                        onError: (err) => setWebSaveResult({ ok: false, msg: String(err) }),
+                      },
+                    )
                   }}
                   disabled={webSaving || !webPortInput}
                   startIcon={webSaving ? <CircularProgress size={16} /> : null}
@@ -1198,10 +1229,24 @@ export default function Settings() {
                 기본값: 7474 (재시작 후 적용)
               </Typography>
             </Box>
+
+            {/* dist/ 경로 직접 설정 */}
+            <Box>
+              <TextField
+                label="dist/ 경로 (선택)"
+                placeholder="예: /Users/me/KISAutoTrade/dist"
+                value={distPathInput}
+                onChange={(e) => setDistPathInput(e.target.value)}
+                size="small"
+                fullWidth
+                helperText="비워두면 자동 탐색. 빌드 파일을 찾지 못할 때 절대 경로를 입력하세요. (.env DIST_PATH에 저장됨)"
+              />
+            </Box>
+
             {webSaveResult && (
               <Alert severity={webSaveResult.ok ? 'success' : 'error'}>
                 {webSaveResult.msg}
-                {webSaveResult.ok && ' — 앱을 재시작하면 새 포트가 적용됩니다.'}
+                {webSaveResult.ok && ' — 앱을 재시작하면 새 설정이 적용됩니다.'}
               </Alert>
             )}
           </Stack>

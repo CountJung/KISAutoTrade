@@ -572,8 +572,8 @@ export function useWebConfig() {
 
 export function useSaveWebConfig() {
   const qc = useQueryClient()
-  return useMutation<string, Error, number>({
-    mutationFn: (newPort) => cmd.saveWebConfig(newPort),
+  return useMutation<string, Error, { newPort: number; distPath?: string }>({
+    mutationFn: ({ newPort, distPath }) => cmd.saveWebConfig(newPort, distPath),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEYS.webConfig })
     },

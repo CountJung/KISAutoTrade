@@ -393,6 +393,10 @@ export interface PlaceOverseasOrderInput {
 export interface WebConfig {
   runningPort: number
   accessUrl: string
+  /** 서버가 탐색한 dist/ 디렉터리 절대 경로 */
+  distPath?: string
+  /** dist/index.html 존재 여부 */
+  distFound?: boolean
 }
 
 // ─── 리스크 관리 ───────────────────────────────────────────────────
