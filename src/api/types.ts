@@ -79,7 +79,12 @@ export interface BalanceItem {
 }
 
 export interface BalanceSummary {
+  /** 예수금총금액 (D+0, 매수 당일 결제 전 음수 가능) */
   dnca_tot_amt: string
+  /** 익일정산금액 (D+1 예수금) */
+  nxdy_excc_amt: string
+  /** 가수도정산금액 (D+2 예수금, 실제 인출·매매 가능 현금) */
+  prvs_rcdl_excc_amt: string
   tot_evlu_amt: string
   nass_amt: string
   tot_evlu_pfls_rt: string

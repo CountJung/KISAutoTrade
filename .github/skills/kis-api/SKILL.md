@@ -1228,7 +1228,60 @@ export interface StockSearchItem {
 - 응답 캐시 TTL: 300,000ms (5분) — 프록시 서버 측 캐시
 - 기존 StockSearchItem 생성 시 `market: None` 으로 초기화해야 컴파일 오류 없음
 
-> 마지막 업데이트: 2026-04-07T14:30:00
+---
+
+## 17. 국내 잔고 조회 — 예수금·수익율 필드 주의사항
+
+### 예수금 필드 (BalanceSummary output2)
+
+| 필드명 | 설명 | 주의 |
+|--------|------|------|
+| `dnca_tot_amt` | 예수금총금액 (D+0) | 매수 체결 당일 결제 전 **음수 가능** (정상) |
+| `nxdy_excc_amt` | 익일정산금액 (D+1) | T+1 기준 예수금 |
+| `prvs_rcdl_excc_amt` | 가수도정산금액 (D+2) | **실제 인출·매매 가능 현금** |
+| `tot_evlu_amt` | 총평가금액 | 유가증권 평가합계 + D+2 예수금 |
+
+✅ **올바른 패턴** — 예수금 표시 시 D+2 우선, 없으면 D+1, 없으면 D+0:
+```typescript
+const d0Cash = parseInt(balance?.summary?.dnca_tot_amt ?? '0') || 0
+const d1Cash = parseInt(balance?.summary?.nxdy_excc_amt ?? '0') || 0
+const d2Cash = parseInt(balance?.summary?.prvs_rcdl_excc_amt ?? '0') || 0
+const availableCash = d2Cash !== 0 ? d2Cash : (d1Cash !== 0 ? d1Cash : d0Cash)
+```
+
+❌ **잘못된 패턴** — D+0 단독 사용:
+```typescript
+// 매수 당일 결제 전에는 음수가 되어 "예수금 마이너스" 오해 발생
+const availableCash = parseInt(balance?.summary?.dnca_tot_amt ?? '0') || 0
+```
+
+### 수익율 필드 (BalanceItem output1)
+
+| 필드명 | 설명 | 주의 |
+|--------|------|------|
+| `evlu_pfls_rt` | 평가손익율 | **정상 반환됨** |
+| `evlu_erng_rt` | 평가수익율 | **미사용항목, 항상 0으로 출력** (KIS 공식 확인) |
+
+모의투자 환경에서 `evlu_pfls_rt`가 0으로 올 수 있음. `pchs_avg_pric`/`prpr`로 fallback 계산:
+
+✅ **올바른 패턴** — fallback 직접 계산:
+```typescript
+const pnlRateRaw = parseFloat(item.evlu_pfls_rt)
+const avg = parseFloat(item.pchs_avg_pric)
+const cur = parseInt(item.prpr)
+// evlu_pfls_rt가 0이고 평균단가가 있으면 직접 계산
+const pnlRate = pnlRateRaw !== 0 || avg === 0
+  ? pnlRateRaw
+  : ((cur - avg) / avg) * 100
+```
+
+❌ **잘못된 패턴** — `evlu_erng_rt` 사용 또는 fallback 없음:
+```typescript
+const pnlRate = parseFloat(item.evlu_erng_rt)  // 항상 0!
+const pnlRate = parseFloat(item.evlu_pfls_rt)   // 모의에서 0 가능
+```
+
+> 마지막 업데이트: 2026-04-07T15:10:00
 
 ---
 

@@ -213,11 +213,16 @@ export function useTradesByRange(
   to: string,
   options?: Partial<UseQueryOptions<TradeRecord[]>>
 ) {
+  // 오늘 날짜 범위이면 NORMAL(30s) 주기로 자동 갱신, 과거 기간은 staleTime 무제한
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const isToday = to === todayStr
   return useQuery({
     queryKey: KEYS.tradeRange(from, to),
     queryFn: () => cmd.getTradesByRange(from, to),
     enabled: !!from && !!to,
-    staleTime: 60_000,
+    staleTime: isToday ? 20_000 : Infinity,
+    refetchInterval: isToday ? POLL_INTERVALS.NORMAL : false,
+    refetchOnWindowFocus: isToday,
     ...options,
   })
 }

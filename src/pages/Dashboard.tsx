@@ -8,6 +8,10 @@ import Alert from '@mui/material/Alert'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
@@ -268,13 +272,32 @@ function FilledOrdersPanel() {
   const [to, setTo] = useState(todayStr)
   const [queryFrom, setQueryFrom] = useState(todayStr)
   const [queryTo, setQueryTo] = useState(todayStr)
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState<25 | 50 | 100>(25)
 
-  const { data: trades = [], isLoading } = useTradesByRange(queryFrom, queryTo)
+  const { data: trades = [], isLoading, dataUpdatedAt, refetch, isFetching } = useTradesByRange(queryFrom, queryTo)
+
+  // 조회 기간이 오늘인지 여부 (오늘이면 자동 새로고침)
+  const todayIso = todayStr()
+  const isQueryToday = queryTo === todayIso
+
+  const totalPages = Math.max(1, Math.ceil(trades.length / pageSize))
+  const pagedTrades = trades.slice(page * pageSize, (page + 1) * pageSize)
 
   const handleQuery = () => {
     setQueryFrom(from)
     setQueryTo(to)
+    setPage(0)
   }
+
+  const handlePageSizeChange = (newSize: 25 | 50 | 100) => {
+    setPageSize(newSize)
+    setPage(0)
+  }
+
+  const lastUpdated = dataUpdatedAt
+    ? new Date(dataUpdatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    : null
 
   return (
     <Box>
@@ -301,6 +324,24 @@ function FilledOrdersPanel() {
         <Button variant="outlined" size="small" onClick={handleQuery}>
           조회
         </Button>
+        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+          {lastUpdated && (
+            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+              {isQueryToday ? '🔄 ' : ''}마지막 갱신 {lastUpdated}
+            </Typography>
+          )}
+          <Tooltip title="수동 새로고침">
+            <IconButton
+              size="small"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
+              {isFetching
+                ? <CircularProgress size={14} />
+                : <RefreshIcon fontSize="small" />}
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Stack>
 
       {isLoading ? (
@@ -312,65 +353,127 @@ function FilledOrdersPanel() {
           해당 기간에 체결 내역이 없습니다.
         </Typography>
       ) : (
-        <TableContainer sx={{ maxHeight: 320 }}>
-          <Table size="small" stickyHeader>
-            <TableHead>
-              <TableRow>
-                <TableCell>종목</TableCell>
-                <TableCell>구분</TableCell>
-                <TableCell align="right">수량</TableCell>
-                <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>단가</TableCell>
-                <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>금액</TableCell>
-                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>일시</TableCell>                  <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>체결사유</TableCell>              </TableRow>
-            </TableHead>
-            <TableBody>
-              {trades.map((t) => (
-                <TableRow key={t.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" component="span" fontWeight={500}>
-                      {t.symbol_name}
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      component="span"
-                      sx={{ ml: 0.5 }}
-                    >
-                      {t.symbol}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={t.side === 'buy' ? '매수' : '매도'}
-                      color={t.side === 'buy' ? 'primary' : 'error'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell align="right">{fmt(t.quantity)}</TableCell>
-                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                    {fmt(t.price)}원
-                  </TableCell>
-                  <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                    {fmt(t.total_amount)}원
-                  </TableCell>
-                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                    {t.timestamp.slice(0, 16).replace('T', ' ')}
-                  </TableCell>
-                  <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      title={t.signal_reason || undefined}
-                      sx={{ maxWidth: 160, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                    >
-                      {t.signal_reason || '—'}
-                    </Typography>
-                  </TableCell>
+        <>
+          <TableContainer sx={{ maxHeight: 380 }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>종목</TableCell>
+                  <TableCell>구분</TableCell>
+                  <TableCell align="right">수량</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>단가</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>금액</TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>일시</TableCell>
+                  <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>체결사유</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {pagedTrades.map((t) => (
+                  <TableRow key={t.id} hover>
+                    <TableCell>
+                      <Typography variant="body2" component="span" fontWeight={500}>
+                        {t.symbol_name}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        component="span"
+                        sx={{ ml: 0.5 }}
+                      >
+                        {t.symbol}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={t.side === 'buy' ? '매수' : '매도'}
+                        color={t.side === 'buy' ? 'primary' : 'error'}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell align="right">{fmt(t.quantity)}</TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                      {fmt(t.price)}원
+                    </TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                      {fmt(t.total_amount)}원
+                    </TableCell>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                      {t.timestamp.slice(0, 16).replace('T', ' ')}
+                    </TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        title={t.signal_reason || undefined}
+                        sx={{ maxWidth: 160, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      >
+                        {t.signal_reason || '—'}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {/* 페이지네이션 컨트롤 */}
+          <Stack direction="row" justifyContent="space-between" alignItems="center" mt={1} flexWrap="wrap" gap={1}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={page === 0}
+                onClick={() => setPage(0)}
+                sx={{ minWidth: 0, px: 1 }}
+              >
+                «
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={page === 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                sx={{ minWidth: 0, px: 1 }}
+              >
+                ‹
+              </Button>
+              <Typography variant="caption" sx={{ px: 1, whiteSpace: 'nowrap' }}>
+                {page + 1} / {totalPages} 페이지 · 총 {trades.length}건
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={page >= totalPages - 1}
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                sx={{ minWidth: 0, px: 1 }}
+              >
+                ›
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={page >= totalPages - 1}
+                onClick={() => setPage(totalPages - 1)}
+                sx={{ minWidth: 0, px: 1 }}
+              >
+                »
+              </Button>
+            </Stack>
+            <FormControl size="small" sx={{ minWidth: 90 }}>
+              <InputLabel id="page-size-label">표시 건수</InputLabel>
+              <Select<25 | 50 | 100>
+                labelId="page-size-label"
+                label="표시 건수"
+                value={pageSize}
+                onChange={(e) => handlePageSizeChange(e.target.value as 25 | 50 | 100)}
+              >
+                <MenuItem value={25}>25건</MenuItem>
+                <MenuItem value={50}>50건</MenuItem>
+                <MenuItem value={100}>100건</MenuItem>
+              </Select>
+            </FormControl>
+          </Stack>
+        </>
       )}
     </Box>
   )
@@ -500,7 +603,11 @@ export default function Dashboard() {
   const { mutate: clearBuySuspension, isPending: clearingBuySusp } = useClearBuySuspension()
 
   const totalBalance = parseInt(balance?.summary?.tot_evlu_amt ?? '0') || 0
-  const availableCash = parseInt(balance?.summary?.dnca_tot_amt ?? '0') || 0
+  // D+2 가수도정산금액 우선 (실제 인출·매매 가능), 없으면 D+1, 없으면 D+0
+  const d0Cash = parseInt(balance?.summary?.dnca_tot_amt ?? '0') || 0
+  const d1Cash = parseInt(balance?.summary?.nxdy_excc_amt ?? '0') || 0
+  const d2Cash = parseInt(balance?.summary?.prvs_rcdl_excc_amt ?? '0') || 0
+  const availableCash = d2Cash !== 0 ? d2Cash : (d1Cash !== 0 ? d1Cash : d0Cash)
   const netProfit = stats?.net_profit ?? 0
   const profitPositive = netProfit >= 0
   const isRunning = tradingStatus?.isRunning ?? false
@@ -664,7 +771,13 @@ export default function Dashboard() {
               <TableBody>
                 {domesticItems.map((item) => {
                   const pnl = parseInt(item.evlu_pfls_amt)
-                  const pnlRate = parseFloat(item.evlu_pfls_rt)
+                  // evlu_pfls_rt가 0이면 (모의투자 등) pchs_avg_pric/prpr로 직접 계산
+                  const pnlRateRaw = parseFloat(item.evlu_pfls_rt)
+                  const avg = parseFloat(item.pchs_avg_pric)
+                  const cur = parseInt(item.prpr)
+                  const pnlRate = pnlRateRaw !== 0 || avg === 0
+                    ? pnlRateRaw
+                    : ((cur - avg) / avg) * 100
                   return (
                     <TableRow key={item.pdno} hover>
                       <TableCell>
@@ -829,7 +942,15 @@ export default function Dashboard() {
           <StatCard
             label="예수금"
             value={fmt(availableCash) + '원'}
-            sub={availableCash < 0 ? '현금 차와매매 초과 (모의도 정상)' : '매매 가능 현금'}
+            sub={
+              d2Cash !== 0
+                ? `D+2 정산기준 · D+0 ${fmt(d0Cash)}원`
+                : d1Cash !== 0
+                  ? `D+1 정산기준 · D+0 ${fmt(d0Cash)}원`
+                  : d0Cash < 0
+                    ? 'D+0 기준 (매수 당일 결제 전 일시 음수)'
+                    : '매매 가능 현금'
+            }
             positive={availableCash >= 0}
             loading={balanceLoading}
           />

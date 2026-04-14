@@ -84,8 +84,12 @@ impl Default for BalanceItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct BalanceSummary {
-    /// 예수금총금액
+    /// 예수금총금액 (D+0, 매수 당일 결제 전 음수 가능)
     pub dnca_tot_amt: String,
+    /// 익일정산금액 (D+1 예수금)
+    pub nxdy_excc_amt: String,
+    /// 가수도정산금액 (D+2 예수금, 실제 인출·매매 가능 현금)
+    pub prvs_rcdl_excc_amt: String,
     /// 총평가금액
     pub tot_evlu_amt: String,
     /// 순자산금액
@@ -98,6 +102,8 @@ impl Default for BalanceSummary {
     fn default() -> Self {
         Self {
             dnca_tot_amt: String::from("0"),
+            nxdy_excc_amt: String::from("0"),
+            prvs_rcdl_excc_amt: String::from("0"),
             tot_evlu_amt: String::from("0"),
             nass_amt: String::from("0"),
             tot_evlu_pfls_rt: String::from("0"),
