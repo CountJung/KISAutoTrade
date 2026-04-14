@@ -1281,7 +1281,76 @@ const pnlRate = parseFloat(item.evlu_erng_rt)  // 항상 0!
 const pnlRate = parseFloat(item.evlu_pfls_rt)   // 모의에서 0 가능
 ```
 
-> 마지막 업데이트: 2026-04-07T15:10:00
+---
+
+## 18. 해외주식 모의투자 매도 제한 — "해당업무가 제공되지 않습니다"
+
+### 에러 발생 상황
+
+```
+해외 주문 오류: 모의투자에서는 해당업무가 제공되지 않습니다.
+```
+
+### 원인
+
+KIS 모의투자 해외 매도(`VTTT1006U`) 지원 제한이 있음:
+- **AMEX/NYSE Arca 거래소**: 모의투자에서 AMEX 주문 자체가 미지원
+- **일부 ETF**: QQQM 등 최근 상장 ETF가 KIS 모의투자 종목 목록에 없음
+
+TR-ID `VTTT1006U`는 KIS 공식 문서에서 올바른 값이지만, 서버 측 stock universe 제한으로 특정 종목/거래소에서 위 에러 반환.
+
+### 에러 비대칭 패턴
+
+| 구분 | TR-ID | 동작 |
+|------|-------|------|
+| 모의투자 매수 | VTTT1002U | 정상 동작 (장종료, 잔고부족 등 비즈니스 에러) |
+| 모의투자 매도 | VTTT1006U | 특정 종목/AMEX → "해당업무가 제공되지 않습니다" |
+
+### 확인된 제한 목록
+
+- AMEX (NYSE Arca): VOO, SPY 등 NYSE Arca ETF → 모의투자 매도 불가
+- 일부 NASDAQ ETF: QQQM → 모의투자 매도 불가 (매수는 가능)
+
+### 코드 처리 패턴
+
+✅ **올바른 패턴** — 자동매매에서 이 에러 감지 시 Ok()로 스킵:
+```rust
+// order.rs process_sell()
+match self.place_overseas_with_retry(&req).await {
+    Ok(resp) => resp,
+    Err(e) => {
+        let msg = e.to_string();
+        if is_paper_unsupported_error(&msg) {
+            tracing::warn!("모의투자 매도 미지원 — 스킵: {} ({}) | {}", symbol, order_exch, msg);
+            return Ok(());  // 에러 전파 없이 스킵 (스팸 방지)
+        }
+        return Err(e);
+    }
+}
+
+fn is_paper_unsupported_error(msg: &str) -> bool {
+    msg.contains("해당업무가 제공되지 않습니다")
+}
+```
+
+✅ **UI 수동 주문** — 에러 전파하여 사용자에게 명확한 안내:
+```typescript
+if (rawMsg.includes('해당업무가 제공되지 않습니다')) {
+    setErrorMsg(
+        `모의투자 미지원: ${rawMsg}\n` +
+        `이 종목 또는 거래소(AMEX 등)는 모의투자에서 매도 주문이 지원되지 않습니다. ` +
+        `실전투자로 전환하거나 NASD/NYSE 종목을 이용하세요.`
+    )
+}
+```
+
+❌ **잘못된 패턴** — 자동매매에서 이 에러를 그냥 전파:
+```rust
+// 매 틱마다 WARN 로그 스팸 + 불필요한 에러 전파
+self.place_overseas_with_retry(&req).await?  // ← 스킵 처리 없이 ? 사용
+```
+
+> 마지막 업데이트: 2026-04-14T23:00:00
 
 ---
 

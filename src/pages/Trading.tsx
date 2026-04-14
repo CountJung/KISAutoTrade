@@ -487,9 +487,18 @@ export default function Trading() {
             setQuantity('')
             setPrice('')
           },
-          onError:   (e) => {
+          onError: (e) => {
             const err = e as { message?: string } | Error | null
-            setErrorMsg(err instanceof Error ? err.message : (err as { message?: string })?.message ?? String(e))
+            const rawMsg = err instanceof Error ? err.message : (err as { message?: string })?.message ?? String(e)
+            if (rawMsg.includes('해당업무가 제공되지 않습니다')) {
+              setErrorMsg(
+                `모의투자 미지원: ${rawMsg}\n` +
+                `이 종목(${symbol}) 또는 거래소(${EXCHANGE_ORDER_MAP[usExchange]})는 모의투자에서 매도 주문이 지원되지 않습니다. ` +
+                `실전투자로 전환하거나 NASD/NYSE 종목을 이용하세요.`
+              )
+            } else {
+              setErrorMsg(rawMsg)
+            }
           },
         },
       )

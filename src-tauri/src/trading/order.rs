@@ -484,7 +484,22 @@ impl OrderManager {
                 "해외 매도 주문 시도: {} {}주 @ ${:.2} ({}) — {}",
                 symbol, sell_qty, usd_price, order_exch, reason
             );
-            self.place_overseas_with_retry(&req).await?
+            match self.place_overseas_with_retry(&req).await {
+                Ok(resp) => resp,
+                Err(e) => {
+                    let msg = e.to_string();
+                    // KIS 모의투자에서 특정 종목/거래소(AMEX 등) 매도 미지원
+                    // → 에러 전파 없이 스킵하여 자동매매 루프 스팸 방지
+                    if is_paper_unsupported_error(&msg) {
+                        tracing::warn!(
+                            "모의투자 매도 미지원 — 스킵: {} ({}) | {}",
+                            symbol, order_exch, msg
+                        );
+                        return Ok(());
+                    }
+                    return Err(e);
+                }
+            }
         } else {
             let req = OrderRequest {
                 symbol: symbol.clone(),
@@ -637,4 +652,16 @@ fn is_insufficient_balance_error(msg: &str) -> bool {
         || msg.contains("APBK0013")
         || msg.contains("APBK0915")
         || msg.contains("APBK0017")
+}
+
+/// KIS 모의투자에서 해당 종목/거래소가 지원되지 않는 에러 감지.
+///
+/// 발생 상황:
+/// - AMEX(NYSE Arca) 거래소: 모의투자에서 AMEX 주문 미지원
+/// - 일부 ETF(QQQM 등): KIS 모의투자 지원 종목 목록에 미포함
+///
+/// 이 에러는 자동매매 매도 루프에서 스킵(Ok 반환)하여 스팸 방지.
+/// 수동 UI 주문에서는 그대로 사용자에게 표시됨.
+fn is_paper_unsupported_error(msg: &str) -> bool {
+    msg.contains("해당업무가 제공되지 않습니다")
 }

@@ -341,11 +341,11 @@ KIS_IS_PAPER_TRADING=false   # 기본값: 실전투자
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-04-14 | 해외주식 모의투자 매도 에러 처리: is_paper_unsupported_error() 추가, process_sell에서 AMEX/QQQM 등 "해당업무 미지원" 스킵, Trading.tsx 사용자 안내 메시지 개선 |
 | 2026-04-12 | Dashboard 체결내역 실시간갱신(30s)+페이지네이션(25/50/100건), 국내수익율 fallback 직접계산, 예수금 D+2 우선 표시(BalanceSummary에 nxdy_excc_amt/prvs_rcdl_excc_amt 추가) |
 | 2026-04-12 | 모바일 내비게이션 개선: AppShell에 BottomNavigation(xs/sm) 추가, LayoutResizer 모바일 숨김, Sidebar 드로어 클릭 시 자동 닫힘(onMobileClose 전파) |
 | 2026-04-12 | 웹/앱 UI 완전 일치: server/mod.rs 21개 REST 핸들러 추가(프로파일 CRUD, 감지, 종목목록, Discord, 환율, 비상정지 등), transport.ts resolveRest() 완성 |
 | 2026-04-11 | run_trading_daemon 레이블 루프 제거(poll_symbols_tick 분리+TickCycleResult), coding-guide.md 신규, copilot-instructions UI동기화 원칙 추가 |
-| 2026-04-11 | log cleanup extension 필터 버그 수정, data_dir 실행위치 이전(copy_dir_all migration), 시작/24h 주기 체결기록 정리 데몬 추가 |
 
 ---
 
