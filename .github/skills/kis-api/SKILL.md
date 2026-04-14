@@ -30,11 +30,35 @@ fn split_account(account_no: &str) -> (&str, &str) {
 }
 
 // ACNT_PRDT_CD 값 참조
-// "01" → 종합계좌
+// "01" → 종합계좌  ← Open API 주문 가능 (유일하게 지원)
 // "03" → 국내선물옵션
 // "08" → 해외선물옵션
-// "22" → 개인연금
-// "29" → 퇴직연금
+// "22" → 개인연금(IRP)  ⚠️ Open API 주문 불가
+// "29" → 퇴직연금(DC/DB)  ⚠️ Open API 주문 불가
+```
+
+### ⚠️ 퇴직연금·연금 계좌 제한 (KIS Open API 사용 불가)
+
+KIS Open API 주문·계좌 API는 **종합위탁계좌(ACNT_PRDT_CD="01")** 에서만 사용 가능합니다.
+
+| 계좌 유형 | ACNT_PRDT_CD | Open API 주문 | 비고 |
+|----------|-------------|-------------|------|
+| 종합위탁계좌 | `01` | ✅ 가능 | 자동매매 정상 동작 |
+| 국내선물옵션 | `03` | ⚠️ 별도 TR-ID 필요 | 미지원 |
+| 개인연금(IRP) | `22` | ❌ 불가 | API 오류 반환 |
+| 퇴직연금(DC/DB) | `29` | ❌ 불가 | API 오류 반환 |
+
+**증상**: 퇴직연금 계좌(계좌번호 끝 2자리가 `22` 또는 `29`)로 주문 API 호출 시 오류 응답.
+
+**해결**: 일반 종합위탁계좌(끝 2자리 `01`)를 별도 개설하여 해당 계좌번호로 프로파일을 등록해야 합니다.
+
+**UI 대응 (Settings.tsx)**: 계좌번호 입력 시 ACNT_PRDT_CD가 `22`/`29`이면 자동으로 경고 Alert 표시.
+
+```tsx
+// 퇴직연금 계좌 감지 (AddProfileDialog/EditProfileDialog 공통)
+const digits = form.account_no.replace('-', '').trim()
+const suffix = digits.length >= 10 ? digits.slice(8) : ''
+const isPension = suffix === '22' || suffix === '29'
 ```
 
 ### API 호출 제한
@@ -1204,7 +1228,7 @@ export interface StockSearchItem {
 - 응답 캐시 TTL: 300,000ms (5분) — 프록시 서버 측 캐시
 - 기존 StockSearchItem 생성 시 `market: None` 으로 초기화해야 컴파일 오류 없음
 
-> 마지막 업데이트: 2026-04-11T10:00:00
+> 마지막 업데이트: 2026-04-07T14:30:00
 
 ---
 

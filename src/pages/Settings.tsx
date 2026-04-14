@@ -357,6 +357,19 @@ function AddProfileDialog({
             onChange={(e) => setForm({ ...form, account_no: e.target.value })}
             fullWidth size="small"
           />
+          {(()=>{
+            const digits = form.account_no.replace('-', '').trim()
+            const suffix = digits.length >= 10 ? digits.slice(8) : ''
+            if (suffix === '22' || suffix === '29') {
+              return (
+                <Alert severity="warning" sx={{ py: 0.5 }}>
+                  <strong>퇴직연금 계좌({suffix === '22' ? '개인연금·IRP' : '퇴직연금·DC/DB'})은 KIS Open API 주문이 불가합니다.</strong>
+                  &nbsp;일반 종합위탁계좌(ACNT_PRDT_CD “01”)만 지원됩니다.
+                </Alert>
+              )
+            }
+            return null
+          })()}
         </Stack>
       </DialogContent>
       <DialogActions>
@@ -540,6 +553,19 @@ function EditProfileDialog({
             onChange={(e) => setForm({ ...form, account_no: e.target.value })}
             fullWidth size="small"
           />
+          {(()=>{
+            const digits = form.account_no.replace('-', '').trim()
+            const suffix = digits.length >= 10 ? digits.slice(8) : ''
+            if (suffix === '22' || suffix === '29') {
+              return (
+                <Alert severity="warning" sx={{ py: 0.5 }}>
+                  <strong>퇴직연금 계좌({suffix === '22' ? '개인연금·IRP' : '퇴직연금·DC/DB'})은 KIS Open API 주문이 불가합니다.</strong>
+                  &nbsp;일반 종합위탁계좌(ACNT_PRDT_CD "01")만 지원됩니다.
+                </Alert>
+              )
+            }
+            return null
+          })()}
         </Stack>
       </DialogContent>
       <DialogActions>
@@ -558,19 +584,21 @@ function ProfileCard({
   onEdit,
   onDelete,
   onSetActive,
+  isRunning,
   tradingProfileId,
 }: {
   profile: AccountProfileView
   onEdit: (p: AccountProfileView) => void
   onDelete: (p: AccountProfileView) => void
   onSetActive: (id: string) => void
+  isRunning: boolean
   tradingProfileId: string | null
 }) {
   const { isPending: activating } = useSetActiveProfile()
   const { mutate: detectProfile, isPending: detecting } = useDetectProfileTradingType()
   const [detectError, setDetectError] = useState<string | null>(null)
 
-  const isActiveTrading = tradingProfileId === profile.id
+  const isActiveTrading = isRunning && tradingProfileId === profile.id
 
   const handleDetect = () => {
     setDetectError(null)
@@ -619,9 +647,38 @@ function ProfileCard({
             {!profile.is_configured && (
               <Chip size="small" label="키 미설정" color="error" variant="outlined" />
             )}
-            {isActiveTrading && (
-              <Chip size="small" label="동작중" color="success" variant="outlined" />
-            )}
+            {isActiveTrading ? (
+              <Chip
+                size="small"
+                label="● 자동매매 실행 중"
+                color="success"
+                sx={{ fontWeight: 700, letterSpacing: '0.01em' }}
+              />
+            ) : isRunning ? (
+              <Chip
+                size="small"
+                label="매매 대기"
+                color="default"
+                variant="outlined"
+                sx={{ opacity: 0.55 }}
+              />
+            ) : null}
+            {(()=>{
+              const digits = (profile.account_no ?? '').replace('-', '')
+              const suffix = digits.length >= 10 ? digits.slice(8) : ''
+              if (suffix === '22' || suffix === '29') {
+                return (
+                  <Chip
+                    size="small"
+                    label={suffix === '22' ? 'IRP/개인연금' : '퇴직연금'}
+                    color="warning"
+                    variant="outlined"
+                    title="퇴직연금 계좌는 KIS Open API 주문이 불가합니다"
+                  />
+                )
+              }
+              return null
+            })()}
             {/* 실전/모의 자동 감지 버튼 */}
             {profile.is_configured && (
               <Tooltip title="저장된 키로 실전/모의 여부를 자동 감지하여 즉시 업데이트합니다">
@@ -1127,6 +1184,7 @@ export default function Settings() {
                     onEdit={setEditProfile}
                     onDelete={setDeleteTarget}
                     onSetActive={(id) => setActive(id)}
+                    isRunning={tradingStatus?.isRunning ?? false}
                     tradingProfileId={tradingStatus?.tradingProfileId ?? null}
                   />
                 ))}
