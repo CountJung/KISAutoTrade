@@ -1350,7 +1350,78 @@ if (rawMsg.includes('해당업무가 제공되지 않습니다')) {
 self.place_overseas_with_retry(&req).await?  // ← 스킵 처리 없이 ? 사용
 ```
 
-> 마지막 업데이트: 2026-04-14T23:00:00
+---
+
+## Section N. 수수료 처리 패턴
+
+### KIS API 수수료 제공 여부
+
+| API | 수수료 제공 여부 |
+|-----|----------------|
+| `TTTC8001R` (체결내역 조회) `output1` (건별) | ❌ 없음 |
+| `TTTC8001R` `output2` (`prsm_tlex_smtl`) | ⚠️ 조회 기간 전체 합산만 제공 |
+| `H0STCNI0` (WebSocket 실시간 체결) | ❌ 없음 |
+| 해외주식 `TTTS3012R` | ❌ 없음 |
+
+**결론**: KIS API는 체결 건별 수수료를 응답하지 않는다. 따라서 **표준 수수료율 기반 추정 계산**이 필요하다.
+
+### 국내주식 수수료 계산식 (2024~2025년 기준)
+
+```rust
+/// 국내주식 매매 수수료 추정
+/// - 위탁수수료: 0.015% (매수·매도 모두)
+/// - 증권거래세: 0.20% (매도 시에만, 코스피/코스닥 모두)
+fn calculate_domestic_fee(price: u64, quantity: u64, is_sell: bool) -> u64 {
+    let total = price * quantity;
+    let commission = (total as f64 * 0.00015) as u64;   // 0.015%
+    let transaction_tax = if is_sell {
+        (total as f64 * 0.002) as u64                    // 0.20%
+    } else {
+        0
+    };
+    commission + transaction_tax
+}
+```
+
+- **매수**: 체결금액 × 0.015% (위탁수수료만)
+- **매도**: 체결금액 × 0.215% (위탁수수료 0.015% + 증권거래세 0.20%)
+
+### 수수료 반영 위치
+
+```rust
+// on_fill() 내에서 수수료 계산 및 반영
+let is_sell = matches!(pending.record.side, OrderSide::Sell);
+let fee = calculate_domestic_fee(avg_price, filled_qty, is_sell);
+
+// TradeRecord에 fee 저장
+let trade_record = TradeRecord::new(..., fee, ...);
+
+// DailyStats.fees_paid 누적 (매수/매도 모두)
+stats.fees_paid += fee;
+
+// net_profit 자동 차감 (이미 공식에 포함)
+// net_profit = gross_profit + gross_loss - fees_paid
+stats.recalculate();
+```
+
+### ❌ 잘못된 패턴
+
+```rust
+// fee를 항상 0으로 하드코딩 — 순손익 과대계상
+let trade_record = TradeRecord::new(..., 0, ...);  // ← 수정 전 코드
+```
+
+### ✅ 올바른 패턴
+
+```rust
+// 체결 시 수수료율 기반 추정치 계산
+let fee = calculate_domestic_fee(avg_price, filled_qty, is_sell);
+let trade_record = TradeRecord::new(..., fee, ...);
+stats.fees_paid += fee;  // DailyStats에도 누적
+```
+
+> 마지막 업데이트: 2026-04-15T10:00:00
+
 
 ---
 

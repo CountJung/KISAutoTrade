@@ -149,6 +149,7 @@ impl OrderManager {
         self.symbol_to_odno.remove(&symbol);
 
         // ⑤ 포지션 연동 + ⑦ 매도 시 PnL 계산 (포지션 업데이트 전에 avg_price 읽기)
+        let is_sell = matches!(pending.record.side, OrderSide::Sell);
         let pnl = {
             let mut tracker = self.position_tracker.lock().await;
             match &pending.record.side {
@@ -174,8 +175,13 @@ impl OrderManager {
             }
         };
 
+        // 수수료 계산 (국내주식 추정, KIS API는 건별 수수료 미제공)
+        // - 위탁수수료 0.015% (매수/매도 공통)
+        // - 증권거래세 0.20% (매도 시에만)
+        let fee = calculate_domestic_fee(avg_price, filled_qty, is_sell);
+
         // ⑦ 매도 체결 시 통계/리스크 반영 + ⑪ 잔고 부족 정지 자동 해제
-        if matches!(pending.record.side, OrderSide::Sell) {
+        if is_sell {
             // 매도 체결 = 자본 확보 → 매수 정지 해제
             if self.buy_suspended {
                 self.buy_suspended = false;
@@ -194,9 +200,20 @@ impl OrderManager {
                     stats.losing_trades += 1;
                     stats.gross_loss += pnl;
                 }
+                stats.fees_paid += fee; // 매도 수수료(위탁수수료 + 거래세) 누적
                 stats.recalculate();
                 if let Err(e) = self.stats_store.upsert(stats).await {
                     tracing::error!("통계 저장 실패: {}", e);
+                }
+            }
+        } else {
+            // 매수 체결 시 수수료만 통계 업데이트 (PnL은 매도 시 확정)
+            let today = chrono::Local::now().date_naive();
+            if let Ok(mut stats) = self.stats_store.get_by_date(today).await {
+                stats.fees_paid += fee; // 매수 위탁수수료 누적
+                stats.recalculate();
+                if let Err(e) = self.stats_store.upsert(stats).await {
+                    tracing::error!("통계 저장 실패 (매수 수수료): {}", e);
                 }
             }
         }
@@ -222,7 +239,7 @@ impl OrderManager {
             trade_side,
             filled_qty,
             avg_price,
-            0,        // fee: KIS 수수료 미포함 (TODO)
+            fee,      // 추정 수수료 (위탁수수료 + 매도 시 거래세)
             order_id,
             None,     // strategy_id: OrderRecord에 없음
             pending.signal_reason.clone(), // 체결 원인 (전략 신호 이유)
@@ -233,11 +250,11 @@ impl OrderManager {
 
         // ⑨ Discord 알림
         if let Some(discord) = &self.discord {
-            let side_str = if matches!(pending.record.side, OrderSide::Buy) { "매수" } else { "매도" };
-            let pnl_str = if matches!(pending.record.side, OrderSide::Sell) {
-                format!(" (PnL: {}{}원)", if pnl >= 0 { "+" } else { "" }, pnl)
+            let side_str = if !is_sell { "매수" } else { "매도" };
+            let pnl_str = if is_sell {
+                format!(" (PnL: {}{}원, 수수료: {}원)", if pnl >= 0 { "+" } else { "" }, pnl, fee)
             } else {
-                String::new()
+                format!(" (수수료: {}원)", fee)
             };
             let content = format!(
                 "{} {} {}주 @ {}원{}",
@@ -636,6 +653,28 @@ impl OrderManager {
 // ────────────────────────────────────────────────────────────────────
 // 잔고 부족 에러 감지 헬퍼
 // ────────────────────────────────────────────────────────────────────
+
+/// 국내주식 매매 수수료 추정
+///
+/// # 구성 (2024~2025년 기준)
+/// - 위탁수수료: 0.015% (매수·매도 모두)
+/// - 증권거래세: 0.20% (매도 시에만, 코스피/코스닥 모두 동일 적용)
+///
+/// KIS API(`TTTC8001R`)는 체결 건별(output1) 수수료를 제공하지 않으며
+/// output2 합산(`prsm_tlex_smtl`) 에만 전체 기간 추정제비용이 있다.
+/// 따라서 체결 시 표준 수수료율로 추정한 값을 로컬에 기록한다.
+fn calculate_domestic_fee(price: u64, quantity: u64, is_sell: bool) -> u64 {
+    let total = price * quantity;
+    // 위탁수수료 0.015% = 3/20000
+    let commission = (total as f64 * 0.00015) as u64;
+    // 증권거래세 0.20% = 1/500 (매도 시에만)
+    let transaction_tax = if is_sell {
+        (total as f64 * 0.002) as u64
+    } else {
+        0
+    };
+    commission + transaction_tax
+}
 
 /// KIS API 응답에서 잔고 부족 오류인지 판별.
 ///

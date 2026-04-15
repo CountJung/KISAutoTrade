@@ -957,9 +957,9 @@ export default function Dashboard() {
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            label="당일 손익"
+            label="당일 순손익 (수수료 차감)"
             value={(profitPositive ? '+' : '') + fmt(netProfit) + '원'}
-            sub={`승률 ${stats ? (stats.win_rate * 100).toFixed(1) : '-'}%`}
+            sub={`수수료 ${fmt(stats?.fees_paid ?? 0)}원 · 승률 ${stats ? (stats.win_rate * 100).toFixed(1) : '-'}%`}
             positive={profitPositive}
             loading={statsLoading}
           />
