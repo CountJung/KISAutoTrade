@@ -141,7 +141,82 @@ pub enum TradeSide { Buy, Sell }
 // JSON: "buy", "sell"
 ```
 
-### Arc<RwLock<T>> 읽기 많은 공유 상태
+---
+
+### ⚠️ 웹 핸들러(axum)에서 내부 Struct 직렬화 금지 패턴
+
+> **2026-04-16 실제 버그에서 추출** — Strategy 페이지 `Cannot read properties of undefined (reading 'length')` 오류
+
+이 프로젝트는 **Tauri IPC + axum 웹 REST** 듀얼 모드를 지원한다.
+내부 도메인 struct(`StrategyConfig`, `TradeRecord` 등)는 디스크 저장 포맷이 snake_case이므로
+`#[serde(rename_all = "camelCase")]`가 붙어 있지 않다.
+
+axum 핸들러에서 이런 struct를 `serde_json::to_value(struct)` 로 직접 직렬화하면
+**snake_case JSON이 프론트엔드에 전달**되고, TypeScript가 `undefined`로 읽어 런타임 크래시가 발생한다.
+
+#### ❌ 잘못된 패턴 (snake_case 노출)
+
+```rust
+async fn strategies_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let mgr = s.strategy_manager.lock().await;
+    let configs = mgr.all_configs();                      // Vec<&StrategyConfig>
+    Json(serde_json::to_value(configs).unwrap_or_default()) // ← snake_case 출력!
+    // → { "target_symbols": [...], "order_quantity": 1 }
+    // TypeScript는 targetSymbols를 찾으므로 undefined → 런타임 크래시
+}
+```
+
+#### ✅ 올바른 패턴 A: serde_json::json! 매크로로 직접 조립
+
+```rust
+async fn strategies_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let configs: Vec<StrategyConfig> = {
+        let mgr = s.strategy_manager.lock().await;
+        mgr.all_configs().into_iter().cloned().collect()
+    };
+    let views: Vec<_> = configs.iter().map(|cfg| serde_json::json!({
+        "id":             cfg.id,
+        "name":           cfg.name,
+        "enabled":        cfg.enabled,
+        "targetSymbols":  cfg.target_symbols,   // ← 직접 camelCase 키 지정
+        "orderQuantity":  cfg.order_quantity,
+        "params":         cfg.params,
+    })).collect();
+    Json(serde_json::Value::Array(views))
+}
+```
+
+#### ✅ 올바른 패턴 B: 별도 View struct 사용 (필드가 많을 때 권장)
+
+```rust
+/// axum 응답 전용 View — camelCase로 직렬화
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StrategyView {
+    id: String,
+    name: String,
+    enabled: bool,
+    target_symbols: Vec<String>,          // JSON: "targetSymbols"
+    target_symbol_names: HashMap<String, String>, // JSON: "targetSymbolNames"
+    order_quantity: u64,                  // JSON: "orderQuantity"
+    params: serde_json::Value,
+}
+
+// StrategyConfig → StrategyView 변환 후 직렬화
+let view = StrategyView { target_symbols: cfg.target_symbols.clone(), ... };
+Json(serde_json::to_value(view)?)
+```
+
+> **판단 기준**: 필드 3개 이하 → json! 매크로, 4개 이상 또는 중첩 타입 포함 → View struct
+
+#### 체크리스트 — axum 핸들러 작성 시
+
+- [ ] 내부 struct를 `serde_json::to_value()`로 직접 직렬화하지 않는다
+- [ ] `serde_json::json!{}` 매크로로 camelCase 키를 명시하거나 View struct를 별도 정의한다
+- [ ] Tauri IPC `commands.rs`의 동일 커맨드 응답 필드와 **키 이름이 일치하는지** 확인한다
+- [ ] TypeScript `types.ts`의 interface 필드명과 한 번 더 대조한다
+
+---
 
 ```rust
 use std::sync::Arc;
@@ -434,4 +509,4 @@ loop {
 
 **실제 적용**: `commands.rs`의 `run_trading_daemon` + `poll_symbols_tick`
 
-> 마지막 업데이트: 2026-04-11T00:00:00
+> 마지막 업데이트: 2026-04-16T00:00:00

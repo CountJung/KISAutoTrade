@@ -131,6 +131,7 @@ npx vite build
 - IPC 커맨드 반환 타입: `CmdResult<T>` = `Result<T, CmdError { code, message }>`
 - 공유 상태: `Arc<RwLock<T>>` (async read-heavy), `Arc<Mutex<T>>` (write)
 - JSON 직렬화는 `#[serde(rename_all = "camelCase")]` ← TypeScript 인터페이스와 1:1 매핑
+- **axum 웹 핸들러에서 내부 struct(StrategyConfig 등)를 `serde_json::to_value()`로 직접 직렬화 금지** — snake_case가 그대로 노출됨. `serde_json::json!{}` 매크로로 camelCase 키를 명시하거나, `#[serde(rename_all = "camelCase")]` 달린 별도 View struct를 사용. Tauri IPC `commands.rs`의 동일 커맨드 응답 필드와 키 이름이 반드시 일치해야 함 (→ `rust-skills/SKILL.md` 참조)
 - 에러 처리: `thiserror` + `?` 연산자. `unwrap()` 최소화
 - 새 IPC 커맨드 추가 시 반드시 `lib.rs`의 `generate_handler!`에 등록
 

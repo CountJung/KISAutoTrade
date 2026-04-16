@@ -578,10 +578,32 @@ async fn trading_stop_handler(State(s): State<ServerState>) -> Json<serde_json::
 }
 
 /// GET /api/strategies — 전략 목록 (이름, 활성 여부, 대상 종목)
+/// StrategyConfig는 snake_case로 직렬화되므로, TypeScript(camelCase)와 호환되는
+/// 뷰 JSON을 직접 조립하여 반환한다. targetSymbolNames도 포함.
 async fn strategies_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
-    let mgr = s.strategy_manager.lock().await;
-    let configs = mgr.all_configs();
-    Json(serde_json::to_value(configs).unwrap_or_default())
+    let configs: Vec<crate::trading::strategy::StrategyConfig> = {
+        let mgr = s.strategy_manager.lock().await;
+        mgr.all_configs().into_iter().cloned().collect()
+    };
+
+    let mut views = Vec::with_capacity(configs.len());
+    for cfg in &configs {
+        let mut symbol_names = std::collections::HashMap::new();
+        for code in &cfg.target_symbols {
+            let name = s.stock_store.get_name(code).await.unwrap_or_else(|| code.clone());
+            symbol_names.insert(code.clone(), name);
+        }
+        views.push(serde_json::json!({
+            "id":                cfg.id,
+            "name":              cfg.name,
+            "enabled":           cfg.enabled,
+            "targetSymbols":     cfg.target_symbols,
+            "targetSymbolNames": symbol_names,
+            "orderQuantity":     cfg.order_quantity,
+            "params":            cfg.params,
+        }));
+    }
+    Json(serde_json::Value::Array(views))
 }
 
 // ── 전략 업데이트 ─────────────────────────────────────────────────
