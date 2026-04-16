@@ -124,27 +124,28 @@ export default function History() {
           </Typography>
         )}
         {trades && trades.length > 0 && (
-          <TableContainer sx={{ maxHeight: 480 }}>
+          <TableContainer sx={{ maxHeight: 480, overflowX: 'auto' }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell>일시</TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>일시</TableCell>
                   <TableCell>종목</TableCell>
                   <TableCell>구분</TableCell>
                   <TableCell align="right">수량</TableCell>
-                  <TableCell align="right">가격</TableCell>
-                  <TableCell align="right">금액</TableCell>
-                  <TableCell align="right">수수료</TableCell>
-                  <TableCell>전략</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>가격</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>금액</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>수수료</TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>전략</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {trades.map((t) => (
                   <TableRow key={t.id}>
-                    <TableCell>{t.timestamp.slice(0, 19).replace('T', ' ')}</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>
+                      {t.timestamp.slice(0, 16).replace('T', ' ')}
+                    </TableCell>
                     <TableCell>
-                      {t.symbol_name}
-                      <br />
+                      <Typography variant="body2" noWrap>{t.symbol_name}</Typography>
                       <Typography variant="caption" color="text.secondary">{t.symbol}</Typography>
                     </TableCell>
                     <TableCell>
@@ -155,10 +156,12 @@ export default function History() {
                       />
                     </TableCell>
                     <TableCell align="right">{fmt(t.quantity)}</TableCell>
-                    <TableCell align="right">{fmt(t.price)}원</TableCell>
-                    <TableCell align="right">{fmt(t.total_amount)}원</TableCell>
-                    <TableCell align="right">{fmt(t.fee)}원</TableCell>
-                    <TableCell>{t.strategy_id ?? '-'}</TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>{fmt(t.price)}원</TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' }, whiteSpace: 'nowrap' }}>{fmt(t.total_amount)}원</TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' }, whiteSpace: 'nowrap' }}>{fmt(t.fee)}원</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                      <Typography variant="caption" noWrap>{t.strategy_id ?? '-'}</Typography>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

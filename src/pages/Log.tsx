@@ -8,6 +8,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import TextField from '@mui/material/TextField'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
+import useMediaQuery from '@mui/material/useMediaQuery'
 
 import { useRecentLogs } from '../api/hooks'
 import type { AppLogEntry } from '../api/types'
@@ -24,6 +25,7 @@ const LEVEL_COLORS: Record<string, string> = {
 }
 
 export default function Log() {
+  const isMobile = useMediaQuery('(max-width:600px)')
   const [level, setLevel]   = useState<LogLevel>('ALL')
   const [search, setSearch] = useState('')
   const [logHeight, setLogHeight] = useState(480)
@@ -66,7 +68,7 @@ export default function Log() {
       </Typography>
 
       {/* 필터 */}
-      <Stack direction="row" spacing={2} mb={2} alignItems="center" flexWrap="wrap">
+      <Stack direction="row" spacing={1} mb={2} alignItems="center" flexWrap="wrap" gap={1} useFlexGap>
         <ToggleButtonGroup
           value={level}
           exclusive
@@ -74,7 +76,7 @@ export default function Log() {
           size="small"
         >
           {(['ALL', 'DEBUG', 'INFO', 'WARN', 'ERROR'] as LogLevel[]).map((l) => (
-            <ToggleButton key={l} value={l} sx={{ minWidth: 64 }}>
+            <ToggleButton key={l} value={l} sx={{ minWidth: { xs: 42, sm: 56 }, px: { xs: 0.5, sm: 1 }, fontSize: { xs: '0.68rem', sm: '0.8125rem' } }}>
               {l}
             </ToggleButton>
           ))}
@@ -84,7 +86,7 @@ export default function Log() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           size="small"
-          sx={{ width: 200 }}
+          sx={{ flex: 1, minWidth: 100, maxWidth: { xs: '100%', sm: 200 } }}
         />
         <Chip label={`${filtered.length}건`} size="small" />
         {isLoading && <CircularProgress size={16} />}
@@ -93,14 +95,16 @@ export default function Log() {
       {/* 로그 뷰어 */}
       <Paper
         sx={{
-          flex: 1,
-          p: 1.5,
+          p: 1,
           overflow: 'auto',
           bgcolor: 'background.paper',
           fontFamily: 'monospace',
-          fontSize: '0.78rem',
-          height: logHeight,
-          minHeight: 160,
+          fontSize: { xs: '0.7rem', sm: '0.78rem' },
+          // 모바일: flex로 가용 높이 채움 / 데스크탑: 드래그 조절 가능한 고정 높이
+          ...(isMobile
+            ? { flex: 1, minHeight: 200 }
+            : { height: logHeight, minHeight: 160 }
+          ),
         }}
       >
         {filtered.map((log: AppLogEntry, i: number) => (
@@ -108,46 +112,56 @@ export default function Log() {
             key={i}
             sx={{
               display: 'flex',
-              gap: 1.5,
-              py: 0.2,
+              gap: 1,
+              py: 0.25,
               borderBottom: '1px solid',
               borderBottomColor: 'divider',
+              lineHeight: 1.4,
             }}
           >
-            <Box sx={{ color: 'text.secondary', whiteSpace: 'nowrap', minWidth: 90 }}>
-              {log.timestamp.length > 23 ? log.timestamp.slice(11, 23) : log.timestamp}
+            {/* 타임스탬프: 모바일은 시:분:초만 표시 */}
+            <Box sx={{ color: 'text.secondary', whiteSpace: 'nowrap', minWidth: { xs: 64, sm: 90 }, flexShrink: 0 }}>
+              {isMobile
+                ? log.timestamp.slice(11, 19)
+                : (log.timestamp.length > 23 ? log.timestamp.slice(11, 23) : log.timestamp)}
             </Box>
             <Box
               sx={{
                 color: LEVEL_COLORS[log.level] ?? '#888',
                 fontWeight: 700,
-                minWidth: 46,
+                minWidth: { xs: 38, sm: 46 },
                 whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
-              {log.level}
+              {isMobile ? log.level.slice(0, 4) : log.level}
             </Box>
-            <Box sx={{ color: 'text.secondary', minWidth: 160, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {log.target}
-            </Box>
-            <Box sx={{ flex: 1 }}>{log.message}</Box>
+            {/* target: 모바일에서 숨김 */}
+            {!isMobile && (
+              <Box sx={{ color: 'text.secondary', minWidth: 140, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>
+                {log.target}
+              </Box>
+            )}
+            <Box sx={{ flex: 1, wordBreak: 'break-all' }}>{log.message}</Box>
           </Box>
         ))}
         <div ref={bottomRef} />
       </Paper>
 
-      {/* 높이 조절 핸들 */}
-      <Box
-        onMouseDown={handleDragStart}
-        sx={{
-          height: 6,
-          cursor: 'ns-resize',
-          bgcolor: 'divider',
-          borderRadius: 1,
-          mt: 0.5,
-          '&:hover': { bgcolor: 'action.selected' },
-        }}
-      />
+      {/* 높이 조절 핸들 — 데스크탑 전용 */}
+      {!isMobile && (
+        <Box
+          onMouseDown={handleDragStart}
+          sx={{
+            height: 6,
+            cursor: 'ns-resize',
+            bgcolor: 'divider',
+            borderRadius: 1,
+            mt: 0.5,
+            '&:hover': { bgcolor: 'action.selected' },
+          }}
+        />
+      )}
     </Box>
   )
 }
