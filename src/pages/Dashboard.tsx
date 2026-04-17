@@ -8,6 +8,7 @@ import Alert from '@mui/material/Alert'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
+import TableSortLabel from '@mui/material/TableSortLabel'
 import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
 import FormControl from '@mui/material/FormControl'
@@ -15,6 +16,8 @@ import InputLabel from '@mui/material/InputLabel'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Divider from '@mui/material/Divider'
 import Stack from '@mui/material/Stack'
 import Button from '@mui/material/Button'
@@ -266,6 +269,10 @@ function RiskPanelWrapper() {
   )
 }
 
+// ─── 체결 내역 패널 소팅 타입 ─────────────────────────────────────
+type TradeSort = 'timestamp' | 'symbol_name' | 'side' | 'quantity' | 'price' | 'total_amount'
+type SortDir  = 'asc' | 'desc'
+
 // ─── 체결 내역 패널 (자동매매 기록) ────────────────────
 function FilledOrdersPanel() {
   const [from, setFrom] = useState(todayStr)
@@ -275,14 +282,45 @@ function FilledOrdersPanel() {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState<25 | 50 | 100>(25)
 
+  // ── 필터 상태 ────────────────────────────────────────────────────
+  const [sideFilter, setSideFilter] = useState<'all' | 'buy' | 'sell'>('all')
+  const [symbolSearch, setSymbolSearch] = useState('')
+
+  // ── 소팅 상태 ────────────────────────────────────────────────────
+  const [sortBy, setSortBy]   = useState<TradeSort>('timestamp')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
   const { data: trades = [], isLoading, dataUpdatedAt, refetch, isFetching } = useTradesByRange(queryFrom, queryTo)
 
-  // 조회 기간이 오늘인지 여부 (오늘이면 자동 새로고침)
   const todayIso = todayStr()
   const isQueryToday = queryTo === todayIso
 
-  const totalPages = Math.max(1, Math.ceil(trades.length / pageSize))
-  const pagedTrades = trades.slice(page * pageSize, (page + 1) * pageSize)
+  // ── 필터 적용 ────────────────────────────────────────────────────
+  const filtered = trades.filter((t) => {
+    if (sideFilter !== 'all' && t.side !== sideFilter) return false
+    if (symbolSearch) {
+      const q = symbolSearch.toLowerCase()
+      if (!t.symbol.toLowerCase().includes(q) && !t.symbol_name.toLowerCase().includes(q)) return false
+    }
+    return true
+  })
+
+  // ── 소팅 적용 ────────────────────────────────────────────────────
+  const sorted = [...filtered].sort((a, b) => {
+    let cmp = 0
+    switch (sortBy) {
+      case 'timestamp':    cmp = a.timestamp.localeCompare(b.timestamp); break
+      case 'symbol_name':  cmp = a.symbol_name.localeCompare(b.symbol_name); break
+      case 'side':         cmp = a.side.localeCompare(b.side); break
+      case 'quantity':     cmp = a.quantity - b.quantity; break
+      case 'price':        cmp = a.price - b.price; break
+      case 'total_amount': cmp = a.total_amount - b.total_amount; break
+    }
+    return sortDir === 'asc' ? cmp : -cmp
+  })
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
+  const pagedTrades = sorted.slice(page * pageSize, (page + 1) * pageSize)
 
   const handleQuery = () => {
     setQueryFrom(from)
@@ -295,14 +333,44 @@ function FilledOrdersPanel() {
     setPage(0)
   }
 
+  const handleSort = (col: TradeSort) => {
+    if (sortBy === col) {
+      setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(col)
+      setSortDir('desc')
+    }
+    setPage(0)
+  }
+
+  const handleSideFilter = (_: React.MouseEvent, v: 'all' | 'buy' | 'sell' | null) => {
+    setSideFilter(v ?? 'all')
+    setPage(0)
+  }
+
   const lastUpdated = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     : null
 
+  // 헤더 셀 소팅 헬퍼
+  const SortCell = ({
+    col, label, align, sx,
+  }: { col: TradeSort; label: string; align?: 'right' | 'left' | 'center'; sx?: object }) => (
+    <TableCell align={align} sx={sx}>
+      <TableSortLabel
+        active={sortBy === col}
+        direction={sortBy === col ? sortDir : 'desc'}
+        onClick={() => handleSort(col)}
+      >
+        {label}
+      </TableSortLabel>
+    </TableCell>
+  )
+
   return (
     <Box>
-      {/* 기간 선택 */}
-      <Stack direction="row" spacing={1} alignItems="center" mb={1.5} flexWrap="wrap">
+      {/* ── 기간 선택 ──────────────────────────────────────────────── */}
+      <Stack direction="row" spacing={1} alignItems="center" mb={1} flexWrap="wrap" useFlexGap>
         <TextField
           type="date"
           label="시작일"
@@ -331,18 +399,57 @@ function FilledOrdersPanel() {
             </Typography>
           )}
           <Tooltip title="수동 새로고침">
-            <IconButton
-              size="small"
-              onClick={() => void refetch()}
-              disabled={isFetching}
-            >
-              {isFetching
-                ? <CircularProgress size={14} />
-                : <RefreshIcon fontSize="small" />}
+            <IconButton size="small" onClick={() => void refetch()} disabled={isFetching}>
+              {isFetching ? <CircularProgress size={14} /> : <RefreshIcon fontSize="small" />}
             </IconButton>
           </Tooltip>
         </Box>
       </Stack>
+
+      {/* ── 필터 영역 ──────────────────────────────────────────────── */}
+      {!isLoading && trades.length > 0 && (
+        <Stack direction="row" spacing={1} alignItems="center" mb={1.5} flexWrap="wrap" useFlexGap>
+          {/* 매수/매도 필터 */}
+          <ToggleButtonGroup
+            value={sideFilter}
+            exclusive
+            onChange={handleSideFilter}
+            size="small"
+          >
+            <ToggleButton value="all" sx={{ px: 1.5, fontSize: '0.75rem' }}>전체</ToggleButton>
+            <ToggleButton value="buy" sx={{ px: 1.5, fontSize: '0.75rem', '&.Mui-selected': { color: 'primary.main' } }}>매수</ToggleButton>
+            <ToggleButton value="sell" sx={{ px: 1.5, fontSize: '0.75rem', '&.Mui-selected': { color: 'error.main' } }}>매도</ToggleButton>
+          </ToggleButtonGroup>
+
+          {/* 종목 검색 */}
+          <TextField
+            placeholder="종목코드·종목명 검색"
+            value={symbolSearch}
+            onChange={(e) => { setSymbolSearch(e.target.value); setPage(0) }}
+            size="small"
+            sx={{ width: { xs: '100%', sm: 200 } }}
+          />
+
+          {/* 필터 결과 건수 */}
+          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+            {filtered.length !== trades.length
+              ? `${filtered.length} / ${trades.length}건 표시`
+              : `총 ${trades.length}건`}
+          </Typography>
+
+          {/* 필터 초기화 */}
+          {(sideFilter !== 'all' || symbolSearch) && (
+            <Button
+              size="small"
+              variant="text"
+              onClick={() => { setSideFilter('all'); setSymbolSearch(''); setPage(0) }}
+              sx={{ fontSize: '0.72rem', px: 1 }}
+            >
+              필터 초기화
+            </Button>
+          )}
+        </Stack>
+      )}
 
       {isLoading ? (
         <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}>
@@ -352,18 +459,22 @@ function FilledOrdersPanel() {
         <Typography variant="body2" color="text.secondary">
           해당 기간에 체결 내역이 없습니다.
         </Typography>
+      ) : sorted.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">
+          필터 조건에 맞는 체결 내역이 없습니다.
+        </Typography>
       ) : (
         <>
-          <TableContainer sx={{ maxHeight: 380 }}>
+          <TableContainer sx={{ maxHeight: 400, overflowX: 'auto' }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell>종목</TableCell>
-                  <TableCell>구분</TableCell>
-                  <TableCell align="right">수량</TableCell>
-                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>단가</TableCell>
-                  <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>금액</TableCell>
-                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>일시</TableCell>
+                  <SortCell col="symbol_name" label="종목" />
+                  <SortCell col="side" label="구분" />
+                  <SortCell col="quantity" label="수량" align="right" />
+                  <SortCell col="price" label="단가" align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }} />
+                  <SortCell col="total_amount" label="금액" align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }} />
+                  <SortCell col="timestamp" label="일시" sx={{ display: { xs: 'none', sm: 'table-cell' } }} />
                   <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>체결사유</TableCell>
                 </TableRow>
               </TableHead>
@@ -374,12 +485,7 @@ function FilledOrdersPanel() {
                       <Typography variant="body2" component="span" fontWeight={500}>
                         {t.symbol_name}
                       </Typography>
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        component="span"
-                        sx={{ ml: 0.5 }}
-                      >
+                      <Typography variant="caption" color="text.secondary" component="span" sx={{ ml: 0.5 }}>
                         {t.symbol}
                       </Typography>
                     </TableCell>
@@ -397,7 +503,7 @@ function FilledOrdersPanel() {
                     <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                       {fmt(t.total_amount)}원
                     </TableCell>
-                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>
                       {t.timestamp.slice(0, 16).replace('T', ' ')}
                     </TableCell>
                     <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
@@ -419,45 +525,13 @@ function FilledOrdersPanel() {
           {/* 페이지네이션 컨트롤 */}
           <Stack direction="row" justifyContent="space-between" alignItems="center" mt={1} flexWrap="wrap" gap={1}>
             <Stack direction="row" spacing={0.5} alignItems="center">
-              <Button
-                size="small"
-                variant="outlined"
-                disabled={page === 0}
-                onClick={() => setPage(0)}
-                sx={{ minWidth: 0, px: 1 }}
-              >
-                «
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                disabled={page === 0}
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                sx={{ minWidth: 0, px: 1 }}
-              >
-                ‹
-              </Button>
+              <Button size="small" variant="outlined" disabled={page === 0} onClick={() => setPage(0)} sx={{ minWidth: 0, px: 1 }}>«</Button>
+              <Button size="small" variant="outlined" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} sx={{ minWidth: 0, px: 1 }}>‹</Button>
               <Typography variant="caption" sx={{ px: 1, whiteSpace: 'nowrap' }}>
-                {page + 1} / {totalPages} 페이지 · 총 {trades.length}건
+                {page + 1} / {totalPages} 페이지 · {sorted.length}건
               </Typography>
-              <Button
-                size="small"
-                variant="outlined"
-                disabled={page >= totalPages - 1}
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                sx={{ minWidth: 0, px: 1 }}
-              >
-                ›
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                disabled={page >= totalPages - 1}
-                onClick={() => setPage(totalPages - 1)}
-                sx={{ minWidth: 0, px: 1 }}
-              >
-                »
-              </Button>
+              <Button size="small" variant="outlined" disabled={page >= totalPages - 1} onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} sx={{ minWidth: 0, px: 1 }}>›</Button>
+              <Button size="small" variant="outlined" disabled={page >= totalPages - 1} onClick={() => setPage(totalPages - 1)} sx={{ minWidth: 0, px: 1 }}>»</Button>
             </Stack>
             <FormControl size="small" sx={{ minWidth: 90 }}>
               <InputLabel id="page-size-label">표시 건수</InputLabel>
