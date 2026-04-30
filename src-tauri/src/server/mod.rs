@@ -54,7 +54,7 @@ use tokio::sync::{Mutex, RwLock};
 use tower_http::cors::CorsLayer;
 
 use crate::api::rest::{KisRestClient, OverseasOrderRequest, OrderRequest, OrderSide, OrderType, StockSearchItem};
-use crate::commands::TradeArchiveConfig;
+use crate::commands::{RefreshConfig, TradeArchiveConfig};
 use crate::config::{AccountProfile, AppConfig, ProfilesConfig};
 use crate::logging::LogConfig;
 use crate::market;
@@ -114,8 +114,8 @@ struct ServerState {
     discord:               Option<Arc<DiscordNotifier>>,
     /// USD/KRW 환율 캐시 (AppState와 Arc 공유)
     exchange_rate_krw:     Arc<RwLock<f64>>,
-    /// 공통 데이터 갱신 주기(초)
-    refresh_interval_sec:  u64,
+    /// 데이터 갱신 주기 설정 (AppState와 Arc 공유)
+    refresh_config:        Arc<RwLock<RefreshConfig>>,
 }
 
 /// 서버 시작 (포트 바인드 실패 시 경고만 내고 종료)
@@ -142,7 +142,7 @@ pub async fn start(
     profiles_path:        PathBuf,
     discord:              Option<Arc<DiscordNotifier>>,
     exchange_rate_krw:    Arc<RwLock<f64>>,
-    refresh_interval_sec: u64,
+    refresh_config:       Arc<RwLock<RefreshConfig>>,
 ) {
     let dist_path = web_dist_path();
     let dist_found = dist_path.join("index.html").exists();
@@ -163,7 +163,7 @@ pub async fn start(
         config, profiles, trade_store, stats_store,
         log_config, log_dir, trade_archive_config, data_dir,
         risk_manager, order_manager, stock_store, strategy_store,
-        profiles_path, discord, exchange_rate_krw, refresh_interval_sec,
+        profiles_path, discord, exchange_rate_krw, refresh_config,
     };
 
     let app = Router::new()
@@ -1498,7 +1498,7 @@ async fn exchange_rate_handler(State(s): State<ServerState>) -> Json<serde_json:
 
 /// GET /api/refresh-interval
 async fn refresh_interval_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
-    Json(serde_json::json!(s.refresh_interval_sec))
+    Json(serde_json::json!(s.refresh_config.read().await.interval_sec))
 }
 
 // ── 매수 정지 / 비상 정지 ─────────────────────────────────────────

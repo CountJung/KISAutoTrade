@@ -12,7 +12,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use tauri::State;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{watch, Mutex, RwLock};
 
 use crate::{
     api::{
@@ -81,6 +81,40 @@ impl TradeArchiveConfig {
         let path = data_dir.join("trade_archive_config.json");
         let content = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
         std::fs::write(&path, content).map_err(|e| e.to_string())
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 데이터 갱신 주기 설정
+// ────────────────────────────────────────────────────────────────────
+
+/// 데이터 갱신 주기 설정 — UI에서 변경 가능, JSON 영구 저장
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RefreshConfig {
+    /// 갱신 주기(초), 기본 30, 최소 5, 최대 3600
+    pub interval_sec: u64,
+}
+
+impl Default for RefreshConfig {
+    fn default() -> Self {
+        Self { interval_sec: 30 }
+    }
+}
+
+impl RefreshConfig {
+    /// .env 파일에서 REFRESH_INTERVAL_SEC 읽기 — 없으면 env_fallback 값 사용
+    pub fn load_from_env(env_fallback: u64) -> Self {
+        let env_path = std::env::current_dir()
+            .unwrap_or_else(|_| std::path::PathBuf::from("."))
+            .join(".env");
+        let interval_sec = std::fs::read_to_string(&env_path)
+            .unwrap_or_default()
+            .lines()
+            .find(|l| l.starts_with("REFRESH_INTERVAL_SEC="))
+            .and_then(|l| l["REFRESH_INTERVAL_SEC=".len()..].parse::<u64>().ok())
+            .unwrap_or(env_fallback)
+            .clamp(5, 3600);
+        Self { interval_sec }
     }
 }
 
@@ -230,10 +264,12 @@ pub struct AppState {
     pub ws_connected: Arc<AtomicBool>,
     /// 자동매매가 시작된 시점의 프로파일 ID (프로파일 전환 중에도 유지)
     pub trading_profile_id: Arc<RwLock<Option<String>>>,
-    /// USD/KRW 환율 캐시 (REFRESH_INTERVAL_SEC마다 백그라운드 갱신, 기본 1450원)
+    /// USD/KRW 환율 캐시 (refresh_interval_sec마다 백그라운드 갱신, 기본 1450원)
     pub exchange_rate_krw: Arc<RwLock<f64>>,
-    /// 공통 데이터 갱신 주기(초) — REFRESH_INTERVAL_SEC 환경변수 (기본 30, 최소 5)
-    pub refresh_interval_sec: u64,
+    /// 데이터 갱신 주기 설정 (UI에서 변경 가능, JSON 영구 저장)
+    pub refresh_config: Arc<RwLock<RefreshConfig>>,
+    /// 갱신 주기 변경을 백그라운드 데몬에 전달하는 채널 (설정 저장 시 즉시 적용)
+    pub refresh_interval_tx: Arc<watch::Sender<u64>>,
 }
 
 impl AppState {
@@ -246,7 +282,8 @@ impl AppState {
         log_dir: PathBuf,
         log_config: LogConfig,
         web_port: u16,
-        refresh_interval_sec: u64,
+        refresh_config: RefreshConfig,
+        refresh_interval_tx: watch::Sender<u64>,
     ) -> Self {
         let rest_client = make_rest_client(&config);
 
@@ -450,7 +487,8 @@ impl AppState {
             ws_connected: Arc::new(AtomicBool::new(false)),
             trading_profile_id: Arc::new(RwLock::new(None)),
             exchange_rate_krw: Arc::new(RwLock::new(1450.0_f64)),
-            refresh_interval_sec,
+            refresh_config: Arc::new(RwLock::new(refresh_config)),
+            refresh_interval_tx: Arc::new(refresh_interval_tx),
         }
     }
 }
@@ -2018,10 +2056,55 @@ pub async fn get_exchange_rate(state: State<'_, AppState>) -> CmdResult<f64> {
     Ok(*state.exchange_rate_krw.read().await)
 }
 
-/// 공통 데이터 갱신 주기 조회 (초) — REFRESH_INTERVAL_SEC 환경변수 값
+/// 데이터 갱신 주기 조회 (초) — refresh_config.interval_sec
 #[tauri::command]
 pub async fn get_refresh_interval(state: State<'_, AppState>) -> CmdResult<u64> {
-    Ok(state.refresh_interval_sec)
+    Ok(state.refresh_config.read().await.interval_sec)
+}
+
+/// 데이터 갱신 주기 설정 전체 조회
+#[tauri::command]
+pub async fn get_refresh_config(state: State<'_, AppState>) -> CmdResult<RefreshConfig> {
+    Ok(state.refresh_config.read().await.clone())
+}
+
+/// 데이터 갱신 주기 변경 — .env 영구 저장 + 백그라운드 데몬 즉시 적용
+#[tauri::command]
+pub async fn set_refresh_config(
+    interval_sec: u64,
+    state: State<'_, AppState>,
+) -> CmdResult<RefreshConfig> {
+    use std::io::Write;
+    let new_cfg = RefreshConfig {
+        interval_sec: interval_sec.clamp(5, 3600),
+    };
+    // .env 파일에서 REFRESH_INTERVAL_SEC 줄만 교체 (save_web_config 동일 패턴)
+    let env_path = std::env::current_dir()
+        .unwrap_or_else(|_| std::path::PathBuf::from("."))
+        .join(".env");
+    let existing = std::fs::read_to_string(&env_path).unwrap_or_default();
+    let mut lines: Vec<String> = existing
+        .lines()
+        .filter(|l| !l.starts_with("REFRESH_INTERVAL_SEC="))
+        .map(String::from)
+        .collect();
+    lines.push(format!("REFRESH_INTERVAL_SEC={}", new_cfg.interval_sec));
+    let content = lines.join("\n");
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&env_path)
+        .and_then(|mut f| f.write_all(content.as_bytes()))
+        .map_err(|e| CmdError {
+            code: "SAVE_FAILED".into(),
+            message: e.to_string(),
+        })?;
+    *state.refresh_config.write().await = new_cfg.clone();
+    // 백그라운드 데몬에 새 주기 즉시 전달 (슬립 취소 → 새 주기로 재시작)
+    let _ = state.refresh_interval_tx.send(new_cfg.interval_sec);
+    tracing::info!(".env 저장 완료 — REFRESH_INTERVAL_SEC={}", new_cfg.interval_sec);
+    Ok(new_cfg)
 }
 
 // ────────────────────────────────────────────────────────────────────

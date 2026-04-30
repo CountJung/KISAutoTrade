@@ -11,6 +11,8 @@ import {
   useQueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { listen } from '@tauri-apps/api/event'
 
 import { POLL_INTERVALS, ORDER_REFETCH_DELAY_MS } from '../scheduler'
 import * as cmd from './commands'
@@ -49,6 +51,7 @@ import type {
   TradeArchiveConfig,
   SetTradeArchiveConfigInput,
   TradeArchiveStats,
+  RefreshConfig,
 } from './types'
 
 // ─── Query Keys ────────────────────────────────────────────────────
@@ -82,6 +85,7 @@ export const KEYS = {
   tradeArchiveStats: ['tradeArchiveStats'] as const,
   exchangeRate: ['exchangeRate'] as const,
   refreshInterval: ['refreshInterval'] as const,
+  refreshConfig: ['refreshConfig'] as const,
 }
 
 // ─── 앱 설정 ───────────────────────────────────────────────────────
@@ -709,26 +713,52 @@ export function useClearBuySuspension() {
 
 // ─── 환율 / 공통 갱신 주기 ──────────────────────────────────────
 /**
- * 공통 데이터 갱신 주기 조회 (초)
- * REFRESH_INTERVAL_SEC 환경변수를 Rust에서 읽어 반환합니다.
- * 시작 시 1회만 페치하여 다음 지점까지 캐시(staleTime=Infinity)합니다.
+ * REFRESH_INTERVAL_SEC를 Rust에서 읽어 반환합니다.
+ * setRefreshConfig 호출 시 캐시가 즉시 갱신됩니다.
  */
 export function useRefreshInterval() {
   return useQuery<number>({
     queryKey: KEYS.refreshInterval,
     queryFn: cmd.getRefreshInterval,
-    staleTime: Infinity,
+    staleTime: 30_000,  // 30초 후 stale (setRefreshConfig 시 queryData로 즉시 동기화)
     placeholderData: 30,
   })
 }
 
 /**
+ * 데이터 갱신 주기 설정 조회
+ */
+export function useRefreshConfig() {
+  return useQuery<RefreshConfig>({
+    queryKey: KEYS.refreshConfig,
+    queryFn: cmd.getRefreshConfig,
+    staleTime: Infinity,
+    placeholderData: { interval_sec: 30 },
+  })
+}
+
+/**
+ * 데이터 갱신 주기 변경 — JSON 저장 + 백그라운드 데몬 즉시 적용
+ */
+export function useSetRefreshConfig() {
+  const qc = useQueryClient()
+  return useMutation<RefreshConfig, Error, number>({
+    mutationFn: (interval_sec) => cmd.setRefreshConfig(interval_sec),
+    onSuccess: (data) => {
+      qc.setQueryData(KEYS.refreshConfig, data)
+      qc.setQueryData(KEYS.refreshInterval, data.interval_sec)
+    },
+  })
+}
+
+/**
  * USD/KRW 환율 조회
- * REFRESH_INTERVAL_SEC마다 Rust 백그라운드에서 자동 갱신된 캐시 값을 반환합니다.
+ * refresh_config.interval_sec마다 Rust 백그라운드에서 자동 갱신된 캐시 값을 반환합니다.
  * KRW 모드 없으면 기본값 1450원 사용합니다.
  */
 export function useExchangeRate() {
-  const { data: intervalSec = 30 } = useRefreshInterval()
+  const { data: cfg } = useRefreshConfig()
+  const intervalSec = cfg?.interval_sec ?? 30
   return useQuery<number>({
     queryKey: KEYS.exchangeRate,
     queryFn: cmd.getExchangeRate,
@@ -736,6 +766,47 @@ export function useExchangeRate() {
     refetchInterval: intervalSec * 1000,
     placeholderData: 1450,
   })
+}
+
+/**
+ * 백그라운드 데몬 이벤트 수신
+ *
+ * Rust 백그라운드에서 발행하는 이벤트를 리슬하여 TanStack Query 캐시를 직접 갱신합니다.
+ * 프론트엔드 폴링없이 데이터를 즈시 수신하여 UI를 업데이트합니다.
+ * App 컴포넌트 루트에서 1회 호출하세요:
+ *   function App() { useBackendEvents(); ... }
+ */
+export function useBackendEvents() {
+  const qc = useQueryClient()
+
+  useEffect(() => {
+    const unlisteners: Promise<() => void>[] = []
+
+    // 환율 갱신 이벤트
+    unlisteners.push(
+      listen<number>('exchange-rate-updated', (event) => {
+        qc.setQueryData(KEYS.exchangeRate, event.payload)
+      })
+    )
+
+    // 국내 잔고 갱신 이벤트
+    unlisteners.push(
+      listen<BalanceResult>('balance-updated', (event) => {
+        qc.setQueryData(KEYS.balance, event.payload)
+      })
+    )
+
+    // 해외 잔고 갱신 이벤트
+    unlisteners.push(
+      listen<OverseasBalanceResult>('overseas-balance-updated', (event) => {
+        qc.setQueryData(KEYS.overseasBalance, event.payload)
+      })
+    )
+
+    return () => {
+      unlisteners.forEach((p) => p.then((fn) => fn()))
+    }
+  }, [qc])
 }
 
 export function usePendingOrders(options?: Partial<UseQueryOptions<PendingOrderView[]>>) {

@@ -25,7 +25,7 @@ import { Sidebar } from './Sidebar'
 import { LayoutResizer } from '../LayoutResizer'
 import { createAppTheme, getResolvedMode, THEME_STORAGE_KEY } from '../../theme'
 import { useSettingsStore } from '../../store/settingsStore'
-import { useUpdateCheck } from '../../api/hooks'
+import { useUpdateCheck, useBackendEvents } from '../../api/hooks'
 
 const SIDEBAR_KEY = 'act:panel:sidebar:width'
 const SIDEBAR_DEFAULT = 220
@@ -61,6 +61,8 @@ export function AppShell() {
   const [updateDismissed, setUpdateDismissed] = useState(false)
 
   const { data: updateInfo } = useUpdateCheck()
+  // 백그라운드 데몬 이벤트 수신 (환율·잔고 push 갱신)
+  useBackendEvents()
   const showUpdateBanner = !updateDismissed && updateInfo?.hasUpdate === true
 
   const location = useLocation()

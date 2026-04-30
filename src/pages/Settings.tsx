@@ -68,6 +68,8 @@ import {
   useTradingStatus,
   useRiskConfig,
   useUpdateRiskConfig,
+  useRefreshConfig,
+  useSetRefreshConfig,
 } from '../api/hooks'
 import type { AccountProfileView, AddProfileInput, UpdateProfileInput, UpdateRiskConfigInput } from '../api/types'
 import type { ThemeMode } from '../theme'
@@ -960,6 +962,18 @@ export default function Settings() {
     }
   }
 
+  // 데이터 갱신 주기 설정 (IPC)
+  const { data: refreshCfg } = useRefreshConfig()
+  const { mutate: saveRefreshConfig, isPending: refreshSaving } = useSetRefreshConfig()
+  const [localIntervalSec, setLocalIntervalSec] = useState<number>(30)
+
+  // refreshCfg 로드 시 로컈 동기화
+  const prevRefreshCfgRef = useState<typeof refreshCfg>(undefined)
+  if (refreshCfg && refreshCfg !== prevRefreshCfgRef[0]) {
+    prevRefreshCfgRef[1](refreshCfg)
+    setLocalIntervalSec(refreshCfg.interval_sec)
+  }
+
   // 종목 목록 관리
   const { data: stockStats, isFetching: statsFetching } = useStockListStats()
   const { mutate: doSetInterval } = useSetStockUpdateInterval()
@@ -1007,6 +1021,26 @@ export default function Settings() {
               시스템
             </ToggleButton>
           </ToggleButtonGroup>
+        </Section>
+
+        {/* ── 데이터 갱신 주기 ──────────────────────────────────── */}
+        <Section title="데이터 갱신 주기">
+          <Stack spacing={2}>
+            <SliderWithInput
+              label="갱신 주기"
+              value={localIntervalSec}
+              min={5} max={300} step={5}
+              unit="초"
+              disabled={refreshSaving}
+              onChange={(v) => setLocalIntervalSec(v)}
+              onChangeCommitted={(v) => saveRefreshConfig(v)}
+            />
+            <Typography variant="caption" color="text.secondary">
+              잔고, 환율 등 주요 데이터를 백그라운드에서 이 주기마다 자동 갱신합니다. 변경 후 재시작 없이 즉시 적용됩니다.
+              <br />
+              최소 5초, 최대 300초. 모의투자 모드에서는 KIS API 제한(2 calls/s)을 고려하여 60초 이상을 권장합니다.
+            </Typography>
+          </Stack>
         </Section>
 
         {/* ── 로그 설정 ─────────────────────────────────────────── */}

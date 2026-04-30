@@ -11,9 +11,9 @@ pub mod trading;
 pub mod updater;
 
 use std::path::PathBuf;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
-use commands::AppState;
+use commands::{AppState, RefreshConfig};
 use config::{AppConfig, DiscordConfig, ProfilesConfig};
 use logging::LogConfig;
 
@@ -137,19 +137,22 @@ pub fn run() {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(7474);
 
-            // 공통 데이터 갱신 주기 (REFRESH_INTERVAL_SEC 환경변수, 기본 30초, 최소 5초)
-            let refresh_interval_sec: u64 = std::env::var("REFRESH_INTERVAL_SEC")
+            // 공통 데이터 갱신 주기 환경변수 폴백 (UI 저장 없으면 이 값 사용)
+            let refresh_interval_env: u64 = std::env::var("REFRESH_INTERVAL_SEC")
                 .ok()
                 .and_then(|v| v.parse::<u64>().ok())
                 .unwrap_or(30)
                 .max(5);
+            // 데이터 갱신 주기 설정 로드 (.env REFRESH_INTERVAL_SEC 우선, 없으면 환경변수 폴백)
+            let refresh_config = RefreshConfig::load_from_env(refresh_interval_env);
+            let (interval_tx, _) = tokio::sync::watch::channel(refresh_config.interval_sec);
             tracing::info!(
-                "환경 설정: WEB_PORT={}, REFRESH_INTERVAL_SEC={}실",
-                web_port, refresh_interval_sec
+                "환경 설정: WEB_PORT={}, 갱신 주기={}s (.env 또는 기본값)",
+                web_port, refresh_config.interval_sec
             );
 
             // AppState 초기화 및 등록
-            let state = AppState::new(config, discord_config, profiles, profiles_path, data_dir.clone(), log_dir.clone(), log_cfg, web_port, refresh_interval_sec);
+            let state = AppState::new(config, discord_config, profiles, profiles_path, data_dir.clone(), log_dir.clone(), log_cfg, web_port, refresh_config, interval_tx);
             app.manage(state);
 
             // 시작 시 체결 기록 즉시 정리 (로그와 동일하게 시작 시 1회 실행)
@@ -218,7 +221,7 @@ pub fn run() {
                 let profiles_path        = st.profiles_path.clone();
                 let discord              = st.discord.clone();
                 let exchange_rate_krw    = st.exchange_rate_krw.clone();
-                let refresh_interval_sec = st.refresh_interval_sec;
+                let refresh_config       = st.refresh_config.clone();
                 tauri::async_runtime::spawn(async move {
                     server::start(
                         rest_client, stock_list, port,
@@ -226,33 +229,45 @@ pub fn run() {
                         config, profiles, trade_store, stats_store,
                         log_config, log_dir, trade_archive_config, data_dir,
                         risk_manager, order_manager, stock_store, strategy_store,
-                        profiles_path, discord, exchange_rate_krw, refresh_interval_sec,
+                        profiles_path, discord, exchange_rate_krw, refresh_config,
                     ).await;
                 });
             }
 
-            // 4) 환율 갱신 데뼼 — REFRESH_INTERVAL_SEC마다 USD/KRW 환율 업데이트
+            // 4) 환율 갱신 데몬 — refresh_config.interval_sec마다 USD/KRW 환율 업데이트 + 이벤트 발행
             {
                 let st: tauri::State<AppState> = app.state();
                 let exchange_rate = st.exchange_rate_krw.clone();
-                let interval_sec = st.refresh_interval_sec;
+                let interval_tx   = st.refresh_interval_tx.clone();
+                let app_handle    = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
+                    let mut interval_rx = interval_tx.subscribe();
                     // 시작 시 즉시 1회 갱신
                     match crate::api::rest::fetch_usd_krw_rate().await {
                         Ok(rate) => {
                             *exchange_rate.write().await = rate;
+                            let _ = app_handle.emit("exchange-rate-updated", rate);
                             tracing::info!("USD/KRW 환율 초기값: {:.2}원", rate);
                         }
                         Err(e) => tracing::warn!("환율 초기 조회 실패 (기본값 1450원 사용): {}", e),
                     }
+                    let mut current_interval = *interval_rx.borrow_and_update();
                     loop {
-                        tokio::time::sleep(tokio::time::Duration::from_secs(interval_sec)).await;
-                        match crate::api::rest::fetch_usd_krw_rate().await {
-                            Ok(rate) => {
-                                *exchange_rate.write().await = rate;
-                                tracing::debug!("USD/KRW 환율 갱신: {:.2}원", rate);
+                        tokio::select! {
+                            _ = tokio::time::sleep(tokio::time::Duration::from_secs(current_interval)) => {
+                                match crate::api::rest::fetch_usd_krw_rate().await {
+                                    Ok(rate) => {
+                                        *exchange_rate.write().await = rate;
+                                        let _ = app_handle.emit("exchange-rate-updated", rate);
+                                        tracing::debug!("USD/KRW 환율 갱신: {:.2}원", rate);
+                                    }
+                                    Err(e) => tracing::warn!("환율 갱신 실패 (이전 값 유지): {}", e),
+                                }
                             }
-                            Err(e) => tracing::warn!("환율 갱신 실패 (이전 값 유지): {}", e),
+                            _ = interval_rx.changed() => {
+                                current_interval = *interval_rx.borrow_and_update();
+                                tracing::info!("환율 갱신 주기 변경: {}초", current_interval);
+                            }
                         }
                     }
                 });
@@ -284,7 +299,72 @@ pub fn run() {
                     }
                 });
             }
-
+            // 6) 잠고 백그라운드 갱신 데몬 — refresh_config.interval_sec마다 잔고 조회 후 이벤트 발행
+            // 프론트엔드는 balance-updated / overseas-balance-updated 이벤트를 리신하여
+            // TanStack Query 캐시를 직접 갱신합니다 (폴링 전환 가능).
+            {
+                let st: tauri::State<AppState> = app.state();
+                let rest_arc         = st.rest_client.clone();
+                let interval_tx      = st.refresh_interval_tx.clone();
+                let stock_store_arc  = st.stock_store.clone();
+                let position_tracker = st.position_tracker.clone();
+                let app_handle       = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let mut interval_rx = interval_tx.subscribe();
+                    // 앱 초기화 완료 대기 (5초)
+                    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                    let mut current_interval = *interval_rx.borrow_and_update();
+                    loop {
+                        let client = rest_arc.read().await.clone();
+                        if !client.app_key().is_empty() {
+                            // 국내 잔고
+                            match client.get_balance().await {
+                                Ok(resp) => {
+                                    stock_store_arc.upsert_many(
+                                        resp.items.iter().map(|i| (i.pdno.clone(), i.prdt_name.clone()))
+                                    ).await;
+                                    {
+                                        let mut tracker = position_tracker.lock().await;
+                                        tracker.load_if_empty(
+                                            resp.items.iter().map(|i| (
+                                                i.pdno.clone(),
+                                                i.prdt_name.clone(),
+                                                i.hldg_qty.parse::<u64>().unwrap_or(0),
+                                                i.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) as u64,
+                                                i.prpr.parse::<u64>().unwrap_or(0),
+                                            ))
+                                        );
+                                    }
+                                    let payload = serde_json::json!({
+                                        "items": resp.items,
+                                        "summary": resp.summary,
+                                    });
+                                    let _ = app_handle.emit("balance-updated", payload);
+                                }
+                                Err(e) => tracing::debug!("잔고 백그라운드 조회 실패: {}", e),
+                            }
+                            // 해외 잔고
+                            match client.get_overseas_balance().await {
+                                Ok(resp) => {
+                                    let payload = serde_json::json!({
+                                        "items": resp.items,
+                                        "summary": resp.summary,
+                                    });
+                                    let _ = app_handle.emit("overseas-balance-updated", payload);
+                                }
+                                Err(e) => tracing::debug!("해외 잔고 백그라운드 조회 실패: {}", e),
+                            }
+                        }
+                        tokio::select! {
+                            _ = tokio::time::sleep(tokio::time::Duration::from_secs(current_interval)) => {}
+                            _ = interval_rx.changed() => {
+                                current_interval = *interval_rx.borrow_and_update();
+                                tracing::info!("잔고 갱신 주기 변경: {}초", current_interval);
+                            }
+                        }
+                    }
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -341,8 +421,25 @@ pub fn run() {
             commands::get_pending_orders,
             commands::get_exchange_rate,
             commands::get_refresh_interval,
+            commands::get_refresh_config,
+            commands::set_refresh_config,
             commands::clear_buy_suspension,
         ])
+        .on_window_event(|window, event| {
+            // 앱 종료 요청 시 자동매매 정지 신호 전송 (트레이딩 데몬 루프 안전 종료)
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                let state: tauri::State<commands::AppState> = window.state();
+                let is_trading = state.is_trading.clone();
+                tauri::async_runtime::spawn(async move {
+                    let mut guard = is_trading.lock().await;
+                    if *guard {
+                        *guard = false;
+                        tracing::info!("앱 종료 — 자동매매 정지 신호 전송");
+                    }
+                });
+                tracing::info!("앱 종료 요청");
+            }
+        })
         .run(tauri::generate_context!())
         .expect("Tauri 애플리케이션 실행 중 오류 발생");
 }

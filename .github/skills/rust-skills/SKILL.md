@@ -509,4 +509,93 @@ loop {
 
 **실제 적용**: `commands.rs`의 `run_trading_daemon` + `poll_symbols_tick`
 
-> 마지막 업데이트: 2026-04-16T00:00:00
+---
+
+## 8. Tauri 백그라운드 데몬 패턴
+
+### watch::Sender로 런타임 interval 변경
+
+설정값(간격 등)이 UI에서 실시간으로 바뀌어야 할 때 `tokio::sync::watch` 채널 사용.
+
+```rust
+// AppState 초기화 시
+let (interval_tx, _) = tokio::sync::watch::channel(initial_interval);
+// AppState 필드: refresh_interval_tx: Arc<watch::Sender<u64>>
+
+// 데몬 내부
+let mut interval_rx = interval_tx.subscribe();
+let mut current_interval = *interval_rx.borrow_and_update();
+loop {
+    tokio::select! {
+        _ = tokio::time::sleep(Duration::from_secs(current_interval)) => {
+            // 주기 작업 수행
+        }
+        _ = interval_rx.changed() => {
+            current_interval = *interval_rx.borrow_and_update();
+            tracing::info!("간격 변경: {}초", current_interval);
+            // 즉시 새 간격으로 재시작
+        }
+    }
+}
+
+// IPC 커맨드에서 간격 변경
+let _ = state.refresh_interval_tx.send(new_interval);
+```
+
+### on_window_event — 앱 종료 시 안전 처리
+
+Tauri v2 Builder에 `on_window_event` 등록으로 종료 시 자동매매 정지:
+
+```rust
+.on_window_event(|window, event| {
+    if let tauri::WindowEvent::CloseRequested { .. } = event {
+        let state: tauri::State<commands::AppState> = window.state();
+        let is_trading = state.is_trading.clone();
+        // sync 컨텍스트 → spawn으로 비동기 작업 예약
+        tauri::async_runtime::spawn(async move {
+            let mut guard = is_trading.lock().await;
+            if *guard {
+                *guard = false;
+                tracing::info!("앱 종료 — 자동매매 정지 신호 전송");
+            }
+        });
+        tracing::info!("앱 종료 요청");
+    }
+})
+```
+
+> ⚠️ `on_window_event` 콜백은 동기 컨텍스트. `tokio::sync::Mutex` 의 `.lock().await` 는 직접 호출 불가 → `spawn` 으로 예약.
+
+### .env 파일 단일 값 저장/로드 패턴
+
+`WEB_PORT`, `REFRESH_INTERVAL_SEC` 등 단순 값은 `.env` 에 저장 (JSON 파일 불필요):
+
+```rust
+// 저장 (기존 줄 교체)
+use std::io::Write;
+let env_path = std::env::current_dir().unwrap_or_default().join(".env");
+let existing = std::fs::read_to_string(&env_path).unwrap_or_default();
+let mut lines: Vec<String> = existing
+    .lines()
+    .filter(|l| !l.starts_with("MY_KEY="))
+    .map(String::from)
+    .collect();
+lines.push(format!("MY_KEY={}", value));
+std::fs::OpenOptions::new()
+    .write(true).create(true).truncate(true)
+    .open(&env_path)
+    .and_then(|mut f| f.write_all(lines.join("\n").as_bytes()))?;
+
+// 로드
+let value = std::fs::read_to_string(&env_path)
+    .unwrap_or_default()
+    .lines()
+    .find(|l| l.starts_with("MY_KEY="))
+    .and_then(|l| l["MY_KEY=".len()..].parse::<u64>().ok())
+    .unwrap_or(default_value);
+```
+
+> ❌ 단순 설정 값에 별도 JSON 파일(`refresh_config.json`) 사용 — 복잡도만 증가  
+> ✅ `.env` 에 `KEY=value` 형식으로 통일 (WEB_PORT, REFRESH_INTERVAL_SEC 등)
+
+> 마지막 업데이트: 2026-05-01T00:00:00

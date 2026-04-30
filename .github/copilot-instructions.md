@@ -1,7 +1,7 @@
 # AutoConditionTrade — 프로젝트 지침
 
 개인용 자동 주식 매매 시스템. **Rust (Tauri v2) + React 18 + TypeScript** 풀스택.  
-작업 전 반드시 `agent.md`를 읽어 현재 구조를 파악한다.
+작업 전 반드시 `agents.md`를 읽어 현재 구조를 파악한다.
 
 ---
 
@@ -187,15 +187,15 @@ npx vite build
 
 ## 살아있는 문서 원칙 (Living Documentation)
 
-`agent.md`, `copilot-instructions.md`, `.github/skills/**` 는 **항상 현재 코드베이스를 정확히 반영하는 살아있는 문서**여야 한다.  
+`agents.md`, `docs/project-map.md`, `docs/ipc-commands.md`, `copilot-instructions.md`, `.github/skills/**` 는 **항상 현재 코드베이스를 정확히 반영하는 살아있는 문서**여야 한다.  
 작업 종료 시점에 아래 기준을 충족하지 못하면 완료로 보고하지 않는다.
 
 ### 업데이트 트리거
 
 | 상황 | 업데이트 대상 |
 |------|-------------|
-| 새 모듈/파일 추가 | `agent.md` 디렉토리 맵 |
-| 새 IPC 커맨드 추가 | `agent.md` 모듈 책임 + IPC 커맨드 목록 |
+| 새 모듈/파일 추가 | `docs/project-map.md` 디렉토리 맵 |
+| 새 IPC 커맨드 추가 | `docs/ipc-commands.md` IPC 커맨드 목록 |
 | UI 패턴/컨벤션 발견 또는 수정 | `ui-conventions/SKILL.md` |
 | Rust trait·에러 처리 패턴 추가 | `rust-skills/SKILL.md` |
 | KIS API 동작 특이사항 확인 | `kis-api/SKILL.md` |
@@ -203,7 +203,7 @@ npx vite build
 | **KIS API 연동 패턴 구현** (주문·잔고·체결 등) | **`kis-api/SKILL.md` 해당 섹션 또는 신규 섹션** |
 | React 성능·번들 최적화 적용 | `react-best-practices/SKILL.md` |
 
-> **`agent.md` 변경 이력(섹션 8)**: 작업마다 한 줄 요약을 추가하되 **최근 5건만 유지**한다. 오래된 항목은 삭제하고 세부 이력은 git commit 메시지에 위임한다.
+> **`agents.md` 변경 이력**: 작업마다 한 줄 요약을 추가하되 **최근 5건만 유지**한다. 오래된 항목은 삭제하고 세부 이력은 git commit 메시지에 위임한다.
 
 ### 반복 프롬프트 패턴 감지 및 스킬 자가 개선
 
@@ -229,7 +229,9 @@ npx vite build
 
 ## 참고 문서
 
-- `agent.md` — 전체 디렉토리 맵 및 모듈 책임 (항상 최신 유지)
+- `agents.md` — 에이전트 가이드 (핵심 경로·빌드·변경 이력)
+- `docs/project-map.md` — 전체 디렉토리 맵 및 모듈 책임 (항상 최신 유지)
+- `docs/ipc-commands.md` — IPC 커맨드 전체 목록 (항상 최신 유지)
 - `docs/coding-guide.md` — 설정 추가·AppState·IPC·데몬·제어흐름 실전 가이드
 - `docs/MasterPlan.md` — 전체 설계 문서 (아카이브, 읽기 전용)
 - `docs/discord-setup-guide.md` — Discord 봇 설정 가이드

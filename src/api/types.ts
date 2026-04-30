@@ -479,3 +479,9 @@ export interface TradeArchiveStats {
   /** 가장 최근 날짜 (YYYY-MM-DD), 없으면 null */
   newest_date: string | null
 }
+
+// ─── 데이터 갱신 주기 설정 ──────────────────────────────────────────────
+export interface RefreshConfig {
+  /** 갱신 주기(초), 기본 30, 최소 5, 최대 3600 */
+  interval_sec: number
+}

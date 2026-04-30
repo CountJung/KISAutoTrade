@@ -41,6 +41,7 @@ import type {
   UpdateRiskConfigInput,
   UpdateStrategyInput,
   WebConfig,
+  RefreshConfig,
 } from './types'
 
 // ─── 앱 설정 ───────────────────────────────────────────────────────
@@ -231,9 +232,17 @@ export const getPendingOrders = (): Promise<PendingOrderView[]> =>
 export const getExchangeRate = (): Promise<number> =>
   invoke('get_exchange_rate')
 
-/** 공통 데이터 갱신 주기 조회 (초) — REFRESH_INTERVAL_SEC 환경변수 */
+/** 데이터 갱신 주기 조회 (초) — refresh_config.interval_sec */
 export const getRefreshInterval = (): Promise<number> =>
   invoke('get_refresh_interval')
+
+/** 데이터 갱신 주기 설정 전체 조회 */
+export const getRefreshConfig = (): Promise<RefreshConfig> =>
+  invoke('get_refresh_config')
+
+/** 데이터 갱신 주기 변경 — JSON 저장 + 백그라운드 데몬 즉시 적용 */
+export const setRefreshConfig = (interval_sec: number): Promise<RefreshConfig> =>
+  invoke('set_refresh_config', { interval_sec })
 
 // ─── 체결 기록 보관 설정 ──────────────────────────────────────────
 export const getTradeArchiveConfig = (): Promise<TradeArchiveConfig> =>
