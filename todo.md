@@ -77,7 +77,28 @@
 - [ ] 슬리피지 추정/기록
   - 신호 가격, 주문 가격, 체결 가격을 모두 저장해 전략 성과를 사후 분석할 수 있게 한다.
 
-## P3 — Codex 마이그레이션
+## P3 — Frontend FSD 구조화
+
+- [ ] 프론트엔드에 Feature-Sliced Design(FSD) 점진 도입
+  - Rust/Tauri 백엔드(`src-tauri/src/{trading,storage,api,...}`)는 현재 도메인별 분리가 잘 되어 있으므로 우선 변경하지 않는다.
+  - 대상은 React 프론트엔드 `src/`이며, 기능 변경과 구조 이동을 섞지 않고 작은 PR/커밋 단위로 진행한다.
+- [ ] `shared` 레이어 신설
+  - 공통 Tauri IPC wrapper, 공통 타입, theme/helper, 범용 UI를 `src/shared/{api,lib,ui,config}`로 이동한다.
+  - 1차 후보: `src/api/commands.ts`, `src/api/transport.ts`, `src/theme`, 범용 layout/helper.
+- [ ] `entities` 레이어 신설
+  - 도메인 명사 기준으로 `account`, `stock`, `order`, `trade`, `position`, `strategy`, `settings`, `log` slice를 만든다.
+  - 1차 후보: `src/store/accountStore.ts`, `src/store/settingsStore.ts`, `src/api/types.ts`의 도메인 타입, 전략 관련 타입.
+- [ ] `features` 레이어 신설
+  - 사용자 행동 기준으로 `manual-order`, `symbol-search`, `strategy-toggle`, `strategy-configure`, `trading-start-stop`, `log-filter`, `discord-notification-config`를 분리한다.
+  - `features`는 `entities`와 `shared`만 직접 의존하도록 한다.
+- [ ] `widgets`/`pages` 레이어 정리
+  - 큰 UI 블록은 `widgets/app-shell`, `widgets/sidebar`, `widgets/stock-chart`, `widgets/account-summary`, `widgets/strategy-list`, `widgets/log-viewer`로 분리한다.
+  - `pages/{dashboard,trading,strategy,history,log,settings}`는 라우트 조립만 담당하게 얇게 만든다.
+- [ ] FSD import 경계 검증 추가
+  - 구조 이동 후 ESLint 또는 별도 스크립트로 하위 레이어가 상위 레이어를 import하지 못하게 한다.
+  - 허용 방향: `app → pages → widgets → features → entities → shared`.
+
+## P4 — Codex 마이그레이션
 
 - [ ] `AGENTS.md`를 Codex의 최상위 작업 지침으로 유지
   - 작업 전 읽을 문서, 검증 명령, 금지사항, 변경 이력만 간결히 둔다.
@@ -88,7 +109,7 @@
 - [ ] 신규 리스크/전략 안정화 패턴을 `rust-skills`와 `kis-api`에 반영
   - 같은 문제가 반복되면 코드 수정과 동시에 스킬 문서를 업데이트한다.
 
-## P4 — 검증과 운영
+## P5 — 검증과 운영
 
 - [ ] `cargo check` / `npx tsc --noEmit` 경고 0개 유지
 - [ ] 전략별 단위 테스트 추가
