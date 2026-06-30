@@ -29,7 +29,12 @@ use crate::{
         trade_store::{TradeRecord, TradeSide},
         OrderStore, StatsStore, TradeStore,
     },
-    trading::{position::PositionTracker, risk::RiskManager, strategy::Signal},
+    trading::{
+        guard::{GuardDecision, TradeGuard},
+        position::PositionTracker,
+        risk::RiskManager,
+        strategy::Signal,
+    },
 };
 
 // ────────────────────────────────────────────────────────────────────
@@ -74,6 +79,8 @@ pub struct OrderManager {
     stats_store: Arc<StatsStore>,
     /// 리스크 관리자 — AppState에서 Arc 공유
     pub risk_manager: Arc<Mutex<RiskManager>>,
+    /// 전략 신호와 주문 실행 사이의 반복매매/휩소 방어 계층
+    trade_guard: TradeGuard,
     discord: Option<Arc<DiscordNotifier>>,
 }
 
@@ -98,6 +105,7 @@ impl OrderManager {
             position_tracker,
             stats_store,
             risk_manager,
+            trade_guard: TradeGuard::default(),
             discord,
         }
     }
@@ -118,14 +126,62 @@ impl OrderManager {
         exchange: Option<String>,
         tick_price: u64,
     ) -> Result<()> {
-        match signal {
-            Signal::Buy { symbol, quantity, reason } => {
-                self.process_buy(symbol, symbol_name.to_string(), quantity, reason, total_balance, exchange, tick_price)
-                    .await
+        let (held_quantity, avg_price) = match &signal {
+            Signal::Buy { symbol, .. } | Signal::Sell { symbol, .. } => {
+                let tracker = self.position_tracker.lock().await;
+                tracker
+                    .get(symbol)
+                    .map(|p| (p.quantity, Some(p.avg_price.round() as u64)))
+                    .unwrap_or((0, None))
             }
-            Signal::Sell { symbol, quantity, reason } => {
-                self.process_sell(symbol, symbol_name.to_string(), quantity, reason, exchange, tick_price)
-                    .await
+            Signal::Hold => (0, None),
+        };
+
+        match self.trade_guard.evaluate(
+            &signal,
+            held_quantity,
+            avg_price,
+            tick_price,
+            exchange.is_some(),
+        ) {
+            GuardDecision::Allow => {}
+            GuardDecision::Block { reason } => {
+                tracing::info!("TradeGuard 차단 — {}", reason);
+                return Ok(());
+            }
+        }
+
+        match signal {
+            Signal::Buy {
+                symbol,
+                quantity,
+                reason,
+            } => {
+                self.process_buy(
+                    symbol,
+                    symbol_name.to_string(),
+                    quantity,
+                    reason,
+                    total_balance,
+                    exchange,
+                    tick_price,
+                )
+                .await
+            }
+            Signal::Sell {
+                symbol,
+                quantity,
+                reason,
+            } => {
+                self.process_sell(
+                    symbol,
+                    symbol_name.to_string(),
+                    quantity,
+                    reason,
+                    exchange,
+                    tick_price,
+                )
+                .await
             }
             Signal::Hold => Ok(()),
         }
@@ -186,7 +242,10 @@ impl OrderManager {
             if self.buy_suspended {
                 self.buy_suspended = false;
                 self.buy_suspended_reason = None;
-                tracing::info!("매도 체결로 자본 확보 — 잔고 부족 매수 정지 해제: {}", symbol);
+                tracing::info!(
+                    "매도 체결로 자본 확보 — 잔고 부족 매수 정지 해제: {}",
+                    symbol
+                );
             }
             self.risk_manager.lock().await.record_pnl(pnl);
 
@@ -229,7 +288,7 @@ impl OrderManager {
 
         // ⑥-b TradeStore 저장 (자동매매 로컬 체결 기록)
         let trade_side = match &pending.record.side {
-            OrderSide::Buy  => TradeSide::Buy,
+            OrderSide::Buy => TradeSide::Buy,
             OrderSide::Sell => TradeSide::Sell,
         };
         let order_id = pending.record.kis_order_id.clone().unwrap_or_default();
@@ -239,9 +298,9 @@ impl OrderManager {
             trade_side,
             filled_qty,
             avg_price,
-            fee,      // 추정 수수료 (위탁수수료 + 매도 시 거래세)
+            fee, // 추정 수수료 (위탁수수료 + 매도 시 거래세)
             order_id,
-            None,     // strategy_id: OrderRecord에 없음
+            None,                          // strategy_id: OrderRecord에 없음
             pending.signal_reason.clone(), // 체결 원인 (전략 신호 이유)
         );
         if let Err(e) = self.trade_store.append(trade_record).await {
@@ -252,7 +311,12 @@ impl OrderManager {
         if let Some(discord) = &self.discord {
             let side_str = if !is_sell { "매수" } else { "매도" };
             let pnl_str = if is_sell {
-                format!(" (PnL: {}{}원, 수수료: {}원)", if pnl >= 0 { "+" } else { "" }, pnl, fee)
+                format!(
+                    " (PnL: {}{}원, 수수료: {}원)",
+                    if pnl >= 0 { "+" } else { "" },
+                    pnl,
+                    fee
+                )
             } else {
                 format!(" (수수료: {}원)", fee)
             };
@@ -318,6 +382,7 @@ impl OrderManager {
         let n = self.pending.len();
         self.pending.clear();
         self.symbol_to_odno.clear();
+        self.trade_guard.reset_day();
         // 전일 잔고부족 정지도 초기화
         self.buy_suspended = false;
         self.buy_suspended_reason = None;
@@ -399,7 +464,11 @@ impl OrderManager {
             };
             tracing::info!(
                 "해외 매수 주문 시도: {} {}주 @ ${:.2} ({}) — {}",
-                symbol, quantity, usd_price, order_exch, reason
+                symbol,
+                quantity,
+                usd_price,
+                order_exch,
+                reason
             );
             self.place_overseas_with_retry(&req).await
         } else {
@@ -439,8 +508,15 @@ impl OrderManager {
             response.odno
         );
 
-        self.register_pending(symbol, symbol_name, OrderSide::Buy, quantity, reason, response)
-            .await
+        self.register_pending(
+            symbol,
+            symbol_name,
+            OrderSide::Buy,
+            quantity,
+            reason,
+            response,
+        )
+        .await
     }
 
     async fn process_sell(
@@ -499,7 +575,11 @@ impl OrderManager {
             };
             tracing::info!(
                 "해외 매도 주문 시도: {} {}주 @ ${:.2} ({}) — {}",
-                symbol, sell_qty, usd_price, order_exch, reason
+                symbol,
+                sell_qty,
+                usd_price,
+                order_exch,
+                reason
             );
             match self.place_overseas_with_retry(&req).await {
                 Ok(resp) => resp,
@@ -510,7 +590,9 @@ impl OrderManager {
                     if is_paper_unsupported_error(&msg) {
                         tracing::warn!(
                             "모의투자 매도 미지원 — 스킵: {} ({}) | {}",
-                            symbol, order_exch, msg
+                            symbol,
+                            order_exch,
+                            msg
                         );
                         return Ok(());
                     }
@@ -535,8 +617,15 @@ impl OrderManager {
             response.odno
         );
 
-        self.register_pending(symbol, symbol_name, OrderSide::Sell, sell_qty, reason, response)
-            .await
+        self.register_pending(
+            symbol,
+            symbol_name,
+            OrderSide::Sell,
+            sell_qty,
+            reason,
+            response,
+        )
+        .await
     }
 
     /// 미체결 풀 등록 + ⑥ 주문 기록 저장 (Pending)
@@ -552,7 +641,7 @@ impl OrderManager {
         let mut record = OrderRecord::new(
             symbol.clone(),
             symbol_name,
-            side,
+            side.clone(),
             quantity,
             0, // price — 체결 시점(on_fill)에 avg_price로 갱신
             "Market".to_string(),
@@ -569,8 +658,27 @@ impl OrderManager {
             tracing::error!("주문 기록 저장 실패 (Pending): {}", e);
         }
 
-        self.symbol_to_odno.insert(symbol, odno.clone());
-        self.pending.insert(odno, PendingOrder { record, signal_reason: reason });
+        self.symbol_to_odno.insert(symbol.clone(), odno.clone());
+        let guard_signal = match side {
+            OrderSide::Buy => Signal::Buy {
+                symbol: symbol.clone(),
+                quantity,
+                reason: reason.clone(),
+            },
+            OrderSide::Sell => Signal::Sell {
+                symbol: symbol.clone(),
+                quantity,
+                reason: reason.clone(),
+            },
+        };
+        self.trade_guard.record_submitted(&guard_signal);
+        self.pending.insert(
+            odno,
+            PendingOrder {
+                record,
+                signal_reason: reason,
+            },
+        );
 
         Ok(())
     }
@@ -592,7 +700,11 @@ impl OrderManager {
                     if is_rate_limit && attempt < MAX_RETRIES - 1 {
                         tracing::warn!(
                             "KIS rate-limit ({}) — 2초 후 재시도 ({}/{})",
-                            if msg.contains("EGW00201") { "EGW00201" } else { "EGW00133" },
+                            if msg.contains("EGW00201") {
+                                "EGW00201"
+                            } else {
+                                "EGW00133"
+                            },
                             attempt + 1,
                             MAX_RETRIES
                         );
@@ -622,7 +734,11 @@ impl OrderManager {
                     if is_rate_limit && attempt < MAX_RETRIES - 1 {
                         tracing::warn!(
                             "KIS rate-limit (해외, {}) — 2초 후 재시도 ({}/{})",
-                            if msg.contains("EGW00201") { "EGW00201" } else { "EGW00133" },
+                            if msg.contains("EGW00201") {
+                                "EGW00201"
+                            } else {
+                                "EGW00133"
+                            },
                             attempt + 1,
                             MAX_RETRIES
                         );
@@ -645,8 +761,52 @@ impl OrderManager {
             Some(o) => o,
             None => return Ok(()), // 미체결 주문 없음
         };
-        let qty = self.pending.get(&ondo).map(|p| p.record.quantity).unwrap_or(1);
+        let qty = self
+            .pending
+            .get(&ondo)
+            .map(|p| p.record.quantity)
+            .unwrap_or(1);
         self.on_fill(&ondo, qty, fill_price).await
+    }
+
+    /// 국내 주문번호 기반 체결 확인.
+    ///
+    /// KIS 당일 체결 내역에서 pending 주문번호를 찾아 실제 체결수량/체결금액으로 반영한다.
+    /// 해외 체결 조회는 별도 API가 필요하므로 현재는 국내 주문만 확인한다.
+    pub async fn confirm_pending_fills_from_broker(&mut self) -> Result<()> {
+        let pending_ondos: Vec<String> = self.pending.keys().cloned().collect();
+        if pending_ondos.is_empty() {
+            return Ok(());
+        }
+
+        let client = self.rest_client.read().await.clone();
+        let executed = client.get_today_executed_orders().await?;
+        for odno in pending_ondos {
+            let Some(order) = executed.iter().find(|o| o.odno == odno) else {
+                continue;
+            };
+            let qty = order.tot_ccld_qty.parse::<u64>().unwrap_or(0);
+            if qty == 0 {
+                continue;
+            }
+            let amount = order.tot_ccld_amt.parse::<u64>().unwrap_or(0);
+            let avg_price = if amount > 0 {
+                amount / qty
+            } else {
+                order.ord_unpr.parse::<u64>().unwrap_or(0)
+            };
+            if avg_price == 0 {
+                continue;
+            }
+            tracing::info!(
+                "주문번호 기반 체결 확인: odno={} qty={} avg={}",
+                odno,
+                qty,
+                avg_price
+            );
+            self.on_fill(&odno, qty, avg_price).await?;
+        }
+        Ok(())
     }
 }
 

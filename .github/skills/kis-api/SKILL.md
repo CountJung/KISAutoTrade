@@ -1003,6 +1003,28 @@ self.pending.insert(ondo, PendingOrder { ... });
 KIS 시장가 주문은 접수 즉시 체결이 일어난다. WebSocket 체결 이벤트가 없는 상황에서  
 폴링 루프에서 `on_fill()`을 호출하려면 "다음 틱 자동 확인" 패턴을 사용한다.
 
+### 우선 패턴: 국내 주문번호 기반 확인 후 fallback
+
+국내 주문은 다음 틱 가격으로 바로 체결 가정하기 전에 `TTTC8001R`/`VTTC8001R`
+당일 체결 내역에서 주문번호(`odno`)를 먼저 찾아 실제 체결수량/체결금액을 반영한다.
+
+```rust
+let executed = client.get_today_executed_orders().await?;
+if let Some(order) = executed.iter().find(|o| o.odno == odno) {
+    let qty = order.tot_ccld_qty.parse::<u64>().unwrap_or(0);
+    let amount = order.tot_ccld_amt.parse::<u64>().unwrap_or(0);
+    let avg_price = amount / qty;
+    self.on_fill(&odno, qty, avg_price).await?;
+}
+```
+
+폴링 루프에서는:
+1. `confirm_pending_fills_from_broker()`로 국내 주문번호 기반 확인
+2. 확인 실패 또는 KIS 반영 지연 시 기존 `confirm_fill_by_symbol(symbol, tick_price)` fallback
+
+해외 주문번호 기반 확인은 `/uapi/overseas-stock/v1/trading/inquire-ccnl`
+(`TTTS3035R`/`VTTS3035R`) 연동 후 동일 패턴으로 확장한다.
+
 ```rust
 // 폴링 루프 시작 전 선언
 let mut fills_pending: Vec<(String, u64)> = Vec::new(); // (symbol, 접수 당시 가격)

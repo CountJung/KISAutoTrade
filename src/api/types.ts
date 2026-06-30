@@ -268,6 +268,20 @@ export interface PriceConditionSymbolConfig {
   is_overseas: boolean
 }
 
+// ─── 레버리지 추세 보유 전략 설정 ─────────────────────────────────
+export interface LeveragedTrendHoldEntry {
+  leveraged_symbol: string
+  leveraged_symbol_name: string
+  inverse_leveraged_symbol: string
+  inverse_leveraged_symbol_name: string
+  base_symbols: string[]
+  base_symbol_names: Record<string, string>
+  quantity: number
+  inverse_quantity: number
+  /** 해외 주식 여부. true이면 가격 단위 = USD */
+  is_overseas: boolean
+}
+
 // ─── 전략 ──────────────────────────────────────────────────────────
 export interface StrategyView {
   id: string

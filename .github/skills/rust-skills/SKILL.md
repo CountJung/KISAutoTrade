@@ -649,3 +649,81 @@ if matches!(decision, GuardDecision::Allow) {
 전략 내부 `in_position` 플래그는 프로세스 재시작 또는 수동 매매 후 실제 잔고와 어긋날 수 있다. 자동매매 시작 시 국내는 `PositionTracker`/KIS 잔고, 해외는 `get_overseas_balance()`를 기준으로 전략 상태를 복원하는 API를 별도로 설계한다.
 
 > 마지막 업데이트: 2026-06-30T00:00:00
+
+---
+
+## 11. 전략 신호 공통 TradeGuard 패턴
+
+전략별 `on_tick()`에서 반복 매매 방어를 각각 구현하면 전략마다 기준이 달라지고 누락이 생긴다.
+전략 신호와 주문 실행 사이의 `OrderManager::submit_signal()`에서 공통 `TradeGuard`를 먼저 통과시킨다.
+
+### 구현 위치
+
+| 역할 | 위치 |
+|------|------|
+| guard 상태/판단 | `src-tauri/src/trading/guard.rs` |
+| 주문 전 평가 | `src-tauri/src/trading/order.rs::submit_signal()` |
+| 일별 초기화 | `OrderManager::reset_day()` |
+
+### 검사 항목
+
+1. 동일 종목/동일 방향 쿨다운
+2. 매도 후 재매수 쿨다운
+3. 손절 후 당일 재진입 금지
+4. 최근 반대 방향 신호 반복 시 종목 단위 휩소 쿨다운
+5. 익절 매도에서 수수료·세금·슬리피지 차감 후 기대 순익 확인
+
+```rust
+match self.trade_guard.evaluate(&signal, held_qty, avg_price, tick_price, exchange.is_some()) {
+    GuardDecision::Allow => {}
+    GuardDecision::Block { reason } => {
+        tracing::info!("TradeGuard 차단 — {}", reason);
+        return Ok(());
+    }
+}
+```
+
+> 마지막 업데이트: 2026-06-30T00:00:00
+
+---
+
+## 12. 전략 상태와 실제 잔고 동기화 패턴
+
+내부 `in_position` 플래그가 있는 전략은 앱 재시작 후 실제 잔고와 상태가 어긋날 수 있다.
+자동매매 시작 전에 KIS 잔고를 읽고 `Strategy::sync_position()` 훅으로 전략별 상태를 복원한다.
+
+```rust
+pub trait Strategy: Send + Sync {
+    fn sync_position(&mut self, _symbol: &str, _quantity: u64, _avg_price: u64) {}
+}
+```
+
+- 국내: `get_balance()` → `PositionTracker::load_if_empty()` + `StrategyManager::sync_position()`
+- 해외: `get_overseas_balance()` → `StrategyManager::sync_position()`만 호출하고 국내 `PositionTracker`에는 혼입하지 않는다.
+- 해외 평균단가/현재가는 USD × 100(cents)로 변환해서 전략에 전달한다.
+
+> 마지막 업데이트: 2026-06-30T00:00:00
+
+---
+
+## 13. 레버리지/역방향 레버리지 전략 매핑 패턴
+
+기초 지수 ETF와 매매 대상 레버리지 ETF를 고정하지 말고 설정 데이터로 분리한다.
+상승 추세는 정방향 레버리지, 하락 추세는 선택적 역방향 레버리지를 매수하도록 같은 row에서 관리한다.
+
+```rust
+pub struct LeveragedTrendHoldEntry {
+    pub leveraged_symbol: String,          // 예: SOXL
+    pub inverse_leveraged_symbol: String,  // 예: SOXS, 비어 있으면 비활성
+    pub base_symbols: Vec<String>,         // 예: SOXX, SMH
+    pub quantity: u64,
+    pub inverse_quantity: u64,
+}
+```
+
+- `target_symbols`에는 정방향, 역방향, 기초 종목을 모두 포함해야 폴링 루프가 필요한 시세를 수집한다.
+- 기초 상승 조건: 현재가 > EMA20, EMA20 > EMA60, RSI 상단 기준 이상, ADX 기준 이상, 최근 3봉 중 2개 이상 양봉.
+- 기초 하락 조건: 현재가 < EMA20, EMA20 < EMA60, RSI 하단 기준 이하, ADX 기준 이상, 최근 3봉 중 2개 이상 음봉.
+- 정방향/역방향 포지션은 같은 `positions: HashMap<String, ...>`에 실제 매매 종목 코드별로 독립 저장한다.
+
+> 마지막 업데이트: 2026-06-30T00:00:00

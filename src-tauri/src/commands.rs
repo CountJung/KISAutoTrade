@@ -16,32 +16,38 @@ use tokio::sync::{watch, Mutex, RwLock};
 
 use crate::{
     api::{
-        rest::{BalanceItem, BalanceSummary, ChartCandle, ExecutedOrder, KisRestClient, OrderRequest, OrderResponse, OverseasBalanceItem, OverseasBalanceSummary, PriceResponse, StockSearchItem},
+        rest::{
+            BalanceItem, BalanceSummary, ChartCandle, ExecutedOrder, KisRestClient, OrderRequest,
+            OrderResponse, OverseasBalanceItem, OverseasBalanceSummary, PriceResponse,
+            StockSearchItem,
+        },
         token::TokenManager,
     },
     config::{AccountProfile, AppConfig, DiscordConfig, ProfilesConfig},
     logging::LogConfig,
     market_hours::{is_domestic_symbol, is_market_open_for, open_markets_summary},
     notifications::{discord::DiscordNotifier, types::NotificationEvent},
-    storage::{stats_store::DailyStats, stock_store::{StockListStats, StockStore}, strategy_store::StrategyStore, trade_store::TradeRecord, OrderStore, StatsStore, TradeStore},
+    storage::{
+        stats_store::DailyStats,
+        stock_store::{StockListStats, StockStore},
+        strategy_store::StrategyStore,
+        trade_store::TradeRecord,
+        OrderStore, StatsStore, TradeStore,
+    },
     trading::{
         order::OrderManager,
         position::{Position, PositionTracker},
         risk::RiskManager,
-    strategy::{
-        ConsecutiveMoveParams, ConsecutiveMoveStrategy,
-        DeviationParams, DeviationStrategy,
-        FailedBreakoutParams, FailedBreakoutStrategy,
-        FiftyTwoWeekHighParams, FiftyTwoWeekHighStrategy,
-        MaCrossParams, MomentumParams, MomentumStrategy,
-        MovingAverageCrossStrategy, RsiParams, RsiStrategy,
-        StrongCloseParams, StrongCloseStrategy,
-        TrendFilterParams, TrendFilterStrategy,
-        VolatilityExpansionParams, VolatilityExpansionStrategy,
-        MeanReversionParams, MeanReversionStrategy,
-        PriceConditionParams, PriceConditionStrategy,
-        StrategyConfig, StrategyManager,
-    },
+        strategy::{
+            ConsecutiveMoveParams, ConsecutiveMoveStrategy, DeviationParams, DeviationStrategy,
+            FailedBreakoutParams, FailedBreakoutStrategy, FiftyTwoWeekHighParams,
+            FiftyTwoWeekHighStrategy, LeveragedTrendHoldParams, LeveragedTrendHoldStrategy,
+            MaCrossParams, MeanReversionParams, MeanReversionStrategy, MomentumParams,
+            MomentumStrategy, MovingAverageCrossStrategy, OhlcCandle, PriceConditionParams,
+            PriceConditionStrategy, RsiParams, RsiStrategy, StrategyConfig, StrategyManager,
+            StrongCloseParams, StrongCloseStrategy, TrendFilterParams, TrendFilterStrategy,
+            VolatilityExpansionParams, VolatilityExpansionStrategy,
+        },
     },
 };
 
@@ -52,13 +58,16 @@ use crate::{
 /// 체결 기록 보관 설정 (보관 기간, 최대 저장 용량)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TradeArchiveConfig {
-    pub retention_days: u32,  // 보관 기간 (일), 기본 90
-    pub max_size_mb: u64,     // 최대 저장 용량 (MB), 기본 500
+    pub retention_days: u32, // 보관 기간 (일), 기본 90
+    pub max_size_mb: u64,    // 최대 저장 용량 (MB), 기본 500
 }
 
 impl Default for TradeArchiveConfig {
     fn default() -> Self {
-        Self { retention_days: 90, max_size_mb: 500 }
+        Self {
+            retention_days: 90,
+            max_size_mb: 500,
+        }
     }
 }
 
@@ -134,24 +143,48 @@ fn collect_trade_day_dirs(data_dir: &Path) -> Vec<(chrono::NaiveDate, PathBuf)> 
         return vec![];
     }
     let mut result = Vec::new();
-    let Ok(year_entries) = std::fs::read_dir(&trades_dir) else { return result; };
+    let Ok(year_entries) = std::fs::read_dir(&trades_dir) else {
+        return result;
+    };
     for year_entry in year_entries.flatten() {
         let year_path = year_entry.path();
-        if !year_path.is_dir() { continue; }
-        let Some(year_str) = year_entry.file_name().into_string().ok() else { continue; };
-        let Ok(year) = year_str.parse::<i32>() else { continue; };
-        let Ok(month_entries) = std::fs::read_dir(&year_path) else { continue; };
+        if !year_path.is_dir() {
+            continue;
+        }
+        let Some(year_str) = year_entry.file_name().into_string().ok() else {
+            continue;
+        };
+        let Ok(year) = year_str.parse::<i32>() else {
+            continue;
+        };
+        let Ok(month_entries) = std::fs::read_dir(&year_path) else {
+            continue;
+        };
         for month_entry in month_entries.flatten() {
             let month_path = month_entry.path();
-            if !month_path.is_dir() { continue; }
-            let Some(month_str) = month_entry.file_name().into_string().ok() else { continue; };
-            let Ok(month) = month_str.parse::<u32>() else { continue; };
-            let Ok(day_entries) = std::fs::read_dir(&month_path) else { continue; };
+            if !month_path.is_dir() {
+                continue;
+            }
+            let Some(month_str) = month_entry.file_name().into_string().ok() else {
+                continue;
+            };
+            let Ok(month) = month_str.parse::<u32>() else {
+                continue;
+            };
+            let Ok(day_entries) = std::fs::read_dir(&month_path) else {
+                continue;
+            };
             for day_entry in day_entries.flatten() {
                 let day_path = day_entry.path();
-                if !day_path.is_dir() { continue; }
-                let Some(day_str) = day_entry.file_name().into_string().ok() else { continue; };
-                let Ok(day) = day_str.parse::<u32>() else { continue; };
+                if !day_path.is_dir() {
+                    continue;
+                }
+                let Some(day_str) = day_entry.file_name().into_string().ok() else {
+                    continue;
+                };
+                let Ok(day) = day_str.parse::<u32>() else {
+                    continue;
+                };
                 if let Some(date) = chrono::NaiveDate::from_ymd_opt(year, month, day) {
                     result.push((date, day_path));
                 }
@@ -181,8 +214,8 @@ fn dir_size_bytes(path: &Path) -> u64 {
 /// 오래된 체결 기록 파일 정리 (보관 기간 초과 + 용량 초과)
 /// lib.rs 시작 시 및 일일 정리 데몬에서 호출 가능하도록 pub
 pub fn purge_old_trade_files(data_dir: &Path, cfg: &TradeArchiveConfig) {
-    let cutoff = chrono::Local::now().date_naive()
-        - chrono::Duration::days(cfg.retention_days as i64);
+    let cutoff =
+        chrono::Local::now().date_naive() - chrono::Duration::days(cfg.retention_days as i64);
 
     let mut day_dirs = collect_trade_day_dirs(data_dir);
 
@@ -204,7 +237,9 @@ pub fn purge_old_trade_files(data_dir: &Path, cfg: &TradeArchiveConfig) {
     let max_bytes = cfg.max_size_mb * 1024 * 1024;
     let mut total_size: u64 = remaining.iter().map(|(_, d)| dir_size_bytes(d)).sum();
     for (date, dir) in &remaining {
-        if total_size <= max_bytes { break; }
+        if total_size <= max_bytes {
+            break;
+        }
         let sz = dir_size_bytes(dir);
         if let Err(e) = std::fs::remove_dir_all(dir) {
             tracing::warn!("체결 기록 용량 정리 실패 ({:?}): {}", dir, e);
@@ -288,9 +323,9 @@ impl AppState {
         let rest_client = make_rest_client(&config);
 
         let discord = match (&discord_config.bot_token, &discord_config.channel_id) {
-            (Some(token), Some(channel)) if !token.is_empty() && !channel.is_empty() => {
-                Some(Arc::new(DiscordNotifier::new(token.clone(), channel.clone())))
-            }
+            (Some(token), Some(channel)) if !token.is_empty() && !channel.is_empty() => Some(
+                Arc::new(DiscordNotifier::new(token.clone(), channel.clone())),
+            ),
             _ => None,
         };
 
@@ -367,7 +402,9 @@ impl AppState {
             order_quantity: 1,
             params: serde_json::to_value(FiftyTwoWeekHighParams::default()).unwrap_or_default(),
         };
-        strategy_manager.add(Box::new(FiftyTwoWeekHighStrategy::new(fifty_two_week_high_strategy)));
+        strategy_manager.add(Box::new(FiftyTwoWeekHighStrategy::new(
+            fifty_two_week_high_strategy,
+        )));
 
         // 연속 상승/하락 전략 (기본 등록, 비활성)
         let consecutive_move_strategy = StrategyConfig {
@@ -378,7 +415,9 @@ impl AppState {
             order_quantity: 1,
             params: serde_json::to_value(ConsecutiveMoveParams::default()).unwrap_or_default(),
         };
-        strategy_manager.add(Box::new(ConsecutiveMoveStrategy::new(consecutive_move_strategy)));
+        strategy_manager.add(Box::new(ConsecutiveMoveStrategy::new(
+            consecutive_move_strategy,
+        )));
 
         // 돌파 실패 전략 (기본 등록, 비활성)
         let failed_breakout_strategy = StrategyConfig {
@@ -389,7 +428,9 @@ impl AppState {
             order_quantity: 1,
             params: serde_json::to_value(FailedBreakoutParams::default()).unwrap_or_default(),
         };
-        strategy_manager.add(Box::new(FailedBreakoutStrategy::new(failed_breakout_strategy)));
+        strategy_manager.add(Box::new(FailedBreakoutStrategy::new(
+            failed_breakout_strategy,
+        )));
 
         // 강한 종가 전략 (기본 등록, 비활성)
         let strong_close_strategy = StrategyConfig {
@@ -411,7 +452,9 @@ impl AppState {
             order_quantity: 1,
             params: serde_json::to_value(VolatilityExpansionParams::default()).unwrap_or_default(),
         };
-        strategy_manager.add(Box::new(VolatilityExpansionStrategy::new(volatility_expansion_strategy)));
+        strategy_manager.add(Box::new(VolatilityExpansionStrategy::new(
+            volatility_expansion_strategy,
+        )));
 
         // 평균회귀 전략 (기본 등록, 비활성)
         let mean_reversion_strategy = StrategyConfig {
@@ -422,7 +465,9 @@ impl AppState {
             order_quantity: 1,
             params: serde_json::to_value(MeanReversionParams::default()).unwrap_or_default(),
         };
-        strategy_manager.add(Box::new(MeanReversionStrategy::new(mean_reversion_strategy)));
+        strategy_manager.add(Box::new(MeanReversionStrategy::new(
+            mean_reversion_strategy,
+        )));
 
         // 추세 필터 전략 (기본 등록, 비활성)
         let trend_filter_strategy = StrategyConfig {
@@ -435,6 +480,19 @@ impl AppState {
         };
         strategy_manager.add(Box::new(TrendFilterStrategy::new(trend_filter_strategy)));
 
+        // 레버리지 추세 보유 전략 (기본 등록, 비활성)
+        let leveraged_trend_hold_strategy = StrategyConfig {
+            id: "leveraged_trend_hold_default".to_string(),
+            name: "LeveragedTrendHoldStrategy".to_string(),
+            enabled: false,
+            target_symbols: vec![],
+            order_quantity: 1,
+            params: serde_json::to_value(LeveragedTrendHoldParams::default()).unwrap_or_default(),
+        };
+        strategy_manager.add(Box::new(LeveragedTrendHoldStrategy::new(
+            leveraged_trend_hold_strategy,
+        )));
+
         // 가격 조건 매매 전략 (기본 등록, 비활성)
         let price_condition_strategy = StrategyConfig {
             id: "price_condition_default".to_string(),
@@ -442,9 +500,12 @@ impl AppState {
             enabled: false,
             target_symbols: vec![],
             order_quantity: 1,
-            params: serde_json::to_value(PriceConditionParams { symbols: vec![] }).unwrap_or_default(),
+            params: serde_json::to_value(PriceConditionParams { symbols: vec![] })
+                .unwrap_or_default(),
         };
-        strategy_manager.add(Box::new(PriceConditionStrategy::new(price_condition_strategy)));
+        strategy_manager.add(Box::new(PriceConditionStrategy::new(
+            price_condition_strategy,
+        )));
 
         // 전략 설정 영구 저장소
         let strategy_store = Arc::new(StrategyStore::new(&data_dir));
@@ -456,7 +517,8 @@ impl AppState {
                 strategy_manager.apply_saved_configs(&saved);
                 tracing::info!(
                     "전략 설정 복원: 프로파일 '{}', {}개 전략",
-                    profile_id, saved.len()
+                    profile_id,
+                    saved.len()
                 );
             }
         }
@@ -478,7 +540,9 @@ impl AppState {
             risk_manager,
             log_dir,
             log_config: Arc::new(RwLock::new(log_config)),
-            trade_archive_config: Arc::new(RwLock::new(TradeArchiveConfig::load_or_default(&data_dir))),
+            trade_archive_config: Arc::new(RwLock::new(TradeArchiveConfig::load_or_default(
+                &data_dir,
+            ))),
             data_dir: data_dir.clone(),
             stock_list: Arc::new(RwLock::new(vec![])),
             stock_store: Arc::new(StockStore::new(&data_dir)),
@@ -596,7 +660,9 @@ pub async fn check_config(state: State<'_, AppState>) -> CmdResult<ConfigDiagnos
     let mut issues = Vec::new();
 
     if cfg.kis_app_key.is_empty() {
-        issues.push("KIS APP KEY가 설정되지 않았습니다. Settings에서 계좌 프로파일을 추가하세요.".into());
+        issues.push(
+            "KIS APP KEY가 설정되지 않았습니다. Settings에서 계좌 프로파일을 추가하세요.".into(),
+        );
     }
     if cfg.kis_app_secret.is_empty() {
         issues.push("KIS APP SECRET이 설정되지 않았습니다.".into());
@@ -606,13 +672,20 @@ pub async fn check_config(state: State<'_, AppState>) -> CmdResult<ConfigDiagnos
     }
 
     let profiles = state.profiles.read().await;
-    let paper_available = profiles.profiles.iter().any(|p| p.is_paper_trading && p.is_configured());
+    let paper_available = profiles
+        .profiles
+        .iter()
+        .any(|p| p.is_paper_trading && p.is_configured());
 
     Ok(ConfigDiagnostic {
         real_key_set: !cfg.kis_app_key.is_empty(),
         real_account_set: !cfg.kis_account_no.is_empty(),
         paper_key_set: paper_available,
-        active_mode: if cfg.kis_is_paper_trading { "모의투자".into() } else { "실전투자".into() },
+        active_mode: if cfg.kis_is_paper_trading {
+            "모의투자".into()
+        } else {
+            "실전투자".into()
+        },
         is_ready: cfg.is_kis_configured(),
         discord_configured: cfg.discord_bot_token.is_some(),
         base_url: cfg.kis_base_url().to_string(),
@@ -752,10 +825,7 @@ pub async fn update_profile(
 }
 
 #[tauri::command]
-pub async fn delete_profile(
-    id: String,
-    state: State<'_, AppState>,
-) -> CmdResult<()> {
+pub async fn delete_profile(id: String, state: State<'_, AppState>) -> CmdResult<()> {
     let deleted = {
         let mut profiles = state.profiles.write().await;
         profiles.delete(&id)
@@ -830,7 +900,8 @@ async fn apply_active_profile(state: &AppState) -> CmdResult<()> {
             mgr.apply_saved_configs(&saved);
             tracing::info!(
                 "프로파일 전환 — 전략 설정 복원: 프로파일 '{}', {}개 전략",
-                pid, saved.len()
+                pid,
+                saved.len()
             );
         }
     }
@@ -866,26 +937,37 @@ pub async fn get_balance(state: State<'_, AppState>) -> CmdResult<BalanceResult>
             tracing::info!(
                 "잔고 조회 성공: 보유종목 {}개, 총평가금액 {}원",
                 resp.items.len(),
-                resp.summary.as_ref().map(|s| s.tot_evlu_amt.as_str()).unwrap_or("미제공")
+                resp.summary
+                    .as_ref()
+                    .map(|s| s.tot_evlu_amt.as_str())
+                    .unwrap_or("미제공")
             );
             // 잔고 응답의 종목코드+이름 데이터 자동 수집
-            state.stock_store.upsert_many(
-                resp.items.iter().map(|i| (i.pdno.clone(), i.prdt_name.clone()))
-            ).await;
+            state
+                .stock_store
+                .upsert_many(
+                    resp.items
+                        .iter()
+                        .map(|i| (i.pdno.clone(), i.prdt_name.clone())),
+                )
+                .await;
             // 앱 재시작 후 position_tracker가 비어있으면 잔고 응답으로 복원
             {
                 let mut tracker = state.position_tracker.lock().await;
-                tracker.load_if_empty(
-                    resp.items.iter().map(|i| (
+                tracker.load_if_empty(resp.items.iter().map(|i| {
+                    (
                         i.pdno.clone(),
                         i.prdt_name.clone(),
                         i.hldg_qty.parse::<u64>().unwrap_or(0),
                         i.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) as u64,
                         i.prpr.parse::<u64>().unwrap_or(0),
-                    ))
-                );
+                    )
+                }));
             }
-            Ok(BalanceResult { items: resp.items, summary: resp.summary })
+            Ok(BalanceResult {
+                items: resp.items,
+                summary: resp.summary,
+            })
         }
         Err(e) => {
             tracing::error!("잔고 조회 실패: {}", e);
@@ -909,14 +991,14 @@ pub async fn get_overseas_balance(state: State<'_, AppState>) -> CmdResult<Overs
     let client = state.rest_client.read().await.clone();
     match client.get_overseas_balance().await {
         Ok(resp) => {
-            tracing::info!(
-                "해외 잔고 조회 성공: 보유종목 {}개",
-                resp.items.len()
-            );
+            tracing::info!("해외 잔고 조회 성공: 보유종목 {}개", resp.items.len());
             // 해외 잔고는 position_tracker에 혼입하지 않는다.
             // Dashboard는 overseasBalance.items를 직접 표시하므로 load_if_empty 불필요.
             // (국내/해외 혼입 시 먼저 응답이 오는 쪽만 등록되는 레이스 컨디션 발생)
-            Ok(OverseasBalanceResult { items: resp.items, summary: resp.summary })
+            Ok(OverseasBalanceResult {
+                items: resp.items,
+                summary: resp.summary,
+            })
         }
         Err(e) => {
             tracing::error!("해외 잔고 조회 실패: {}", e);
@@ -945,7 +1027,12 @@ pub async fn get_chart_data(
 ) -> CmdResult<Vec<ChartCandle>> {
     let client = state.rest_client.read().await.clone();
     client
-        .get_chart_data(&input.symbol, &input.period_code, &input.start_date, &input.end_date)
+        .get_chart_data(
+            &input.symbol,
+            &input.period_code,
+            &input.start_date,
+            &input.end_date,
+        )
         .await
         .map_err(CmdError::from)
 }
@@ -960,7 +1047,10 @@ pub async fn get_price(symbol: String, state: State<'_, AppState>) -> CmdResult<
     let result = client.get_price(&symbol).await.map_err(CmdError::from)?;
     // 현재가 응답에서 종목명 자동 수집
     if !result.hts_kor_isnm.is_empty() {
-        state.stock_store.upsert(&symbol, &result.hts_kor_isnm).await;
+        state
+            .stock_store
+            .upsert(&symbol, &result.hts_kor_isnm)
+            .await;
     }
     Ok(result)
 }
@@ -988,22 +1078,32 @@ pub async fn place_order(
     let side = match input.side.as_str() {
         "buy" | "Buy" => OrderSide::Buy,
         "sell" | "Sell" => OrderSide::Sell,
-        other => return Err(CmdError {
-            code: "INVALID_SIDE".into(),
-            message: format!("알 수 없는 주문 방향: {}", other),
-        }),
+        other => {
+            return Err(CmdError {
+                code: "INVALID_SIDE".into(),
+                message: format!("알 수 없는 주문 방향: {}", other),
+            })
+        }
     };
 
     let order_type = match input.order_type.as_str() {
         "limit" | "Limit" => OrderType::Limit,
         "market" | "Market" => OrderType::Market,
-        other => return Err(CmdError {
-            code: "INVALID_ORDER_TYPE".into(),
-            message: format!("알 수 없는 주문 유형: {}", other),
-        }),
+        other => {
+            return Err(CmdError {
+                code: "INVALID_ORDER_TYPE".into(),
+                message: format!("알 수 없는 주문 유형: {}", other),
+            })
+        }
     };
 
-    let req = OrderRequest { symbol: input.symbol, side, order_type, quantity: input.quantity, price: input.price };
+    let req = OrderRequest {
+        symbol: input.symbol,
+        side,
+        order_type,
+        quantity: input.quantity,
+        price: input.price,
+    };
     let client = state.rest_client.read().await.clone();
     client.place_order(&req).await.map_err(CmdError::from)
 }
@@ -1015,7 +1115,10 @@ pub async fn place_order(
 #[tauri::command]
 pub async fn get_today_executed(state: State<'_, AppState>) -> CmdResult<Vec<ExecutedOrder>> {
     let client = state.rest_client.read().await.clone();
-    client.get_today_executed_orders().await.map_err(CmdError::from)
+    client
+        .get_today_executed_orders()
+        .await
+        .map_err(CmdError::from)
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -1025,7 +1128,11 @@ pub async fn get_today_executed(state: State<'_, AppState>) -> CmdResult<Vec<Exe
 #[tauri::command]
 pub async fn get_today_trades(state: State<'_, AppState>) -> CmdResult<Vec<TradeRecord>> {
     let today = chrono::Local::now().date_naive();
-    state.trade_store.get_by_date(today).await.map_err(CmdError::from)
+    state
+        .trade_store
+        .get_by_date(today)
+        .await
+        .map_err(CmdError::from)
 }
 
 #[derive(Debug, Deserialize)]
@@ -1048,7 +1155,11 @@ pub async fn get_trades_by_range(
         code: "INVALID_DATE".into(),
         message: format!("to 날짜 형식 오류: {}", e),
     })?;
-    state.trade_store.get_by_range(from, to).await.map_err(CmdError::from)
+    state
+        .trade_store
+        .get_by_range(from, to)
+        .await
+        .map_err(CmdError::from)
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -1058,7 +1169,11 @@ pub async fn get_trades_by_range(
 #[tauri::command]
 pub async fn get_today_stats(state: State<'_, AppState>) -> CmdResult<DailyStats> {
     let today = chrono::Local::now().date_naive();
-    state.stats_store.get_by_date(today).await.map_err(CmdError::from)
+    state
+        .stats_store
+        .get_by_date(today)
+        .await
+        .map_err(CmdError::from)
 }
 
 #[derive(Debug, Deserialize)]
@@ -1081,7 +1196,11 @@ pub async fn get_stats_by_range(
         code: "INVALID_DATE".into(),
         message: format!("to 날짜 형식 오류: {}", e),
     })?;
-    state.stats_store.get_by_range(from, to).await.map_err(CmdError::from)
+    state
+        .stats_store
+        .get_by_range(from, to)
+        .await
+        .map_err(CmdError::from)
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -1132,23 +1251,38 @@ pub async fn save_trade(
     let side = match input.side.as_str() {
         "buy" | "Buy" => TradeSide::Buy,
         "sell" | "Sell" => TradeSide::Sell,
-        other => return Err(CmdError {
-            code: "INVALID_SIDE".into(),
-            message: format!("알 수 없는 방향: {}", other),
-        }),
+        other => {
+            return Err(CmdError {
+                code: "INVALID_SIDE".into(),
+                message: format!("알 수 없는 방향: {}", other),
+            })
+        }
     };
 
     let record = TradeRecord::new(
-        input.symbol, input.symbol_name, side.clone(),
-        input.quantity, input.price, input.fee,
-        input.order_id, input.strategy_id,
+        input.symbol,
+        input.symbol_name,
+        side.clone(),
+        input.quantity,
+        input.price,
+        input.fee,
+        input.order_id,
+        input.strategy_id,
         String::new(), // 수동 저장 시 signal_reason 없음
     );
 
-    state.trade_store.append(record.clone()).await.map_err(CmdError::from)?;
+    state
+        .trade_store
+        .append(record.clone())
+        .await
+        .map_err(CmdError::from)?;
 
     if let Some(notifier) = &state.discord {
-        let side_label = if side == TradeSide::Buy { "매수" } else { "매도" };
+        let side_label = if side == TradeSide::Buy {
+            "매수"
+        } else {
+            "매도"
+        };
         let _ = notifier
             .send(NotificationEvent::trade(format!(
                 "{} {} {}주 @{}원",
@@ -1165,11 +1299,12 @@ pub async fn save_trade(
 // ────────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn upsert_daily_stats(
-    stats: DailyStats,
-    state: State<'_, AppState>,
-) -> CmdResult<()> {
-    state.stats_store.upsert(stats).await.map_err(CmdError::from)
+pub async fn upsert_daily_stats(stats: DailyStats, state: State<'_, AppState>) -> CmdResult<()> {
+    state
+        .stats_store
+        .upsert(stats)
+        .await
+        .map_err(CmdError::from)
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -1232,6 +1367,68 @@ pub async fn start_trading(
         });
     }
 
+    if *state.is_trading.lock().await {
+        return Err(CmdError {
+            code: "ALREADY_RUNNING".into(),
+            message: "자동 매매가 이미 실행 중입니다.".into(),
+        });
+    }
+
+    // 자동매매 시작 전 실제 잔고를 전략 내부 포지션 상태와 동기화한다.
+    // 재시작 직후 내부 in_position=false 상태로 같은 종목을 재매수하는 위험을 줄인다.
+    {
+        let rest = state.rest_client.read().await.clone();
+        match rest.get_balance().await {
+            Ok(resp) => {
+                state
+                    .stock_store
+                    .upsert_many(
+                        resp.items
+                            .iter()
+                            .map(|i| (i.pdno.clone(), i.prdt_name.clone())),
+                    )
+                    .await;
+                {
+                    let mut tracker = state.position_tracker.lock().await;
+                    tracker.load_if_empty(resp.items.iter().map(|i| {
+                        (
+                            i.pdno.clone(),
+                            i.prdt_name.clone(),
+                            i.hldg_qty.parse::<u64>().unwrap_or(0),
+                            i.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) as u64,
+                            i.prpr.parse::<u64>().unwrap_or(0),
+                        )
+                    }));
+                }
+                {
+                    let mut mgr = state.strategy_manager.lock().await;
+                    for item in &resp.items {
+                        let qty = item.hldg_qty.parse::<u64>().unwrap_or(0);
+                        let avg = item.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) as u64;
+                        mgr.sync_position(&item.pdno, qty, avg);
+                    }
+                }
+            }
+            Err(e) => tracing::warn!("자동매매 시작 전 국내 잔고 동기화 실패: {}", e),
+        }
+
+        match rest.get_overseas_balance().await {
+            Ok(resp) => {
+                let mut mgr = state.strategy_manager.lock().await;
+                for item in &resp.items {
+                    let qty = item.ovrs_cblc_qty.parse::<u64>().unwrap_or(0);
+                    let avg = item
+                        .pchs_avg_pric
+                        .parse::<f64>()
+                        .map(|v| (v * 100.0).round() as u64)
+                        .unwrap_or(0);
+                    mgr.sync_position(&item.ovrs_pdno, qty, avg);
+                }
+            }
+            Err(e) => tracing::warn!("자동매매 시작 전 해외 잔고 동기화 실패: {}", e),
+        }
+    }
+
     let mut is_running = state.is_trading.lock().await;
     if *is_running {
         return Err(CmdError {
@@ -1249,10 +1446,12 @@ pub async fn start_trading(
     }
 
     if let Some(notifier) = &state.discord {
-        let _ = notifier.send(NotificationEvent::info(
-            "자동 매매 시작".to_string(),
-            "AutoConditionTrade 자동 매매가 시작되었습니다.".to_string(),
-        )).await;
+        let _ = notifier
+            .send(NotificationEvent::info(
+                "자동 매매 시작".to_string(),
+                "AutoConditionTrade 자동 매매가 시작되었습니다.".to_string(),
+            ))
+            .await;
     }
     drop(is_running);
 
@@ -1266,22 +1465,36 @@ pub async fn start_trading(
             let today = chrono::Local::now();
             let end_date = today.format("%Y%m%d").to_string();
             // 400일치 조회 (52주 = 252거래일 + 여유분)
-            let start_date = (today - chrono::Duration::days(400)).format("%Y%m%d").to_string();
+            let start_date = (today - chrono::Duration::days(400))
+                .format("%Y%m%d")
+                .to_string();
 
             for symbol in &active_symbols {
                 if is_domestic_symbol(symbol) {
                     // ── 국내 종목 초기화 ──
-                    match rest.get_chart_data(symbol, "D", &start_date, &end_date).await {
+                    match rest
+                        .get_chart_data(symbol, "D", &start_date, &end_date)
+                        .await
+                    {
                         Ok(candles) if !candles.is_empty() => {
-                            let highs: Vec<u64> = candles.iter()
+                            let highs: Vec<u64> = candles
+                                .iter()
                                 .filter_map(|c| c.high.parse::<u64>().ok())
                                 .collect();
                             if !highs.is_empty() {
-                                state.strategy_manager.lock().await
+                                state
+                                    .strategy_manager
+                                    .lock()
+                                    .await
                                     .initialize_historical(symbol, &highs);
-                                tracing::info!("전략 히스토리 초기화 완료: {} ({}봉)", symbol, highs.len());
+                                tracing::info!(
+                                    "전략 히스토리 초기화 완료: {} ({}봉)",
+                                    symbol,
+                                    highs.len()
+                                );
                             }
-                            let high_close: Vec<(u64, u64)> = candles.iter()
+                            let high_close: Vec<(u64, u64)> = candles
+                                .iter()
                                 .filter_map(|c| {
                                     let h = c.high.parse::<u64>().ok()?;
                                     let cl = c.close.parse::<u64>().ok()?;
@@ -1289,10 +1502,32 @@ pub async fn start_trading(
                                 })
                                 .collect();
                             if !high_close.is_empty() {
-                                state.strategy_manager.lock().await
+                                state
+                                    .strategy_manager
+                                    .lock()
+                                    .await
                                     .initialize_candles(symbol, &high_close);
                             }
-                            let ranges: Vec<u64> = candles.iter()
+                            let ohlc: Vec<OhlcCandle> = candles
+                                .iter()
+                                .filter_map(|c| {
+                                    Some(OhlcCandle {
+                                        open: c.open.parse::<u64>().ok()?,
+                                        high: c.high.parse::<u64>().ok()?,
+                                        low: c.low.parse::<u64>().ok()?,
+                                        close: c.close.parse::<u64>().ok()?,
+                                    })
+                                })
+                                .collect();
+                            if !ohlc.is_empty() {
+                                state
+                                    .strategy_manager
+                                    .lock()
+                                    .await
+                                    .initialize_ohlc(symbol, &ohlc);
+                            }
+                            let ranges: Vec<u64> = candles
+                                .iter()
                                 .filter_map(|c| {
                                     let h = c.high.parse::<u64>().ok()?;
                                     let l = c.low.parse::<u64>().ok()?;
@@ -1300,60 +1535,137 @@ pub async fn start_trading(
                                 })
                                 .collect();
                             if !ranges.is_empty() {
-                                state.strategy_manager.lock().await
+                                state
+                                    .strategy_manager
+                                    .lock()
+                                    .await
                                     .initialize_range_data(symbol, &ranges);
                             }
                         }
-                        Ok(_) => tracing::debug!("차트 데이터 없음 (히스토리 초기화 건너뜀): {}", symbol),
+                        Ok(_) => {
+                            tracing::debug!("차트 데이터 없음 (히스토리 초기화 건너뜀): {}", symbol)
+                        }
                         Err(e) => tracing::warn!(
-                            "차트 데이터 조회 실패 (히스토리 초기화 건너뜀): {} — {}", symbol, e
+                            "차트 데이터 조회 실패 (히스토리 초기화 건너뜀): {} — {}",
+                            symbol,
+                            e
                         ),
                     }
                 } else {
                     // ── 해외 종목 초기화 (NAS → NYS → AMS 순 시도) ──
                     let mut initialized = false;
                     for exchange in &["NAS", "NYS", "AMS"] {
-                        match rest.get_overseas_chart_data(symbol, exchange, "D", &end_date).await {
+                        match rest
+                            .get_overseas_chart_data(symbol, exchange, "D", &end_date)
+                            .await
+                        {
                             Ok(candles) if !candles.is_empty() => {
                                 // USD float 문자열 → ×100 센트(u64)로 변환하여 전략 히스토리 초기화
-                                let highs: Vec<u64> = candles.iter()
+                                let highs: Vec<u64> = candles
+                                    .iter()
                                     .filter_map(|c| {
-                                        c.high.parse::<f64>().ok()
+                                        c.high
+                                            .parse::<f64>()
+                                            .ok()
                                             .map(|v| (v * 100.0).round() as u64)
                                     })
                                     .filter(|&v| v > 0)
                                     .collect();
                                 if !highs.is_empty() {
-                                    state.strategy_manager.lock().await
+                                    state
+                                        .strategy_manager
+                                        .lock()
+                                        .await
                                         .initialize_historical(symbol, &highs);
                                     tracing::info!(
                                         "해외 전략 히스토리 초기화: {} @ {} ({}봉, 센트 단위)",
-                                        symbol, exchange, highs.len()
+                                        symbol,
+                                        exchange,
+                                        highs.len()
                                     );
                                 }
-                                let high_close: Vec<(u64, u64)> = candles.iter()
+                                let high_close: Vec<(u64, u64)> = candles
+                                    .iter()
                                     .filter_map(|c| {
-                                        let h = c.high.parse::<f64>().ok()
+                                        let h = c
+                                            .high
+                                            .parse::<f64>()
+                                            .ok()
                                             .map(|v| (v * 100.0).round() as u64)?;
-                                        let cl = c.close.parse::<f64>().ok()
+                                        let cl = c
+                                            .close
+                                            .parse::<f64>()
+                                            .ok()
                                             .map(|v| (v * 100.0).round() as u64)?;
-                                        if h > 0 && cl > 0 { Some((h, cl)) } else { None }
+                                        if h > 0 && cl > 0 {
+                                            Some((h, cl))
+                                        } else {
+                                            None
+                                        }
                                     })
                                     .collect();
                                 if !high_close.is_empty() {
-                                    state.strategy_manager.lock().await
+                                    state
+                                        .strategy_manager
+                                        .lock()
+                                        .await
                                         .initialize_candles(symbol, &high_close);
                                 }
-                                let ranges: Vec<u64> = candles.iter()
+                                let ohlc: Vec<OhlcCandle> = candles
+                                    .iter()
+                                    .filter_map(|c| {
+                                        Some(OhlcCandle {
+                                            open: c
+                                                .open
+                                                .parse::<f64>()
+                                                .ok()
+                                                .map(|v| (v * 100.0).round() as u64)?,
+                                            high: c
+                                                .high
+                                                .parse::<f64>()
+                                                .ok()
+                                                .map(|v| (v * 100.0).round() as u64)?,
+                                            low: c
+                                                .low
+                                                .parse::<f64>()
+                                                .ok()
+                                                .map(|v| (v * 100.0).round() as u64)?,
+                                            close: c
+                                                .close
+                                                .parse::<f64>()
+                                                .ok()
+                                                .map(|v| (v * 100.0).round() as u64)?,
+                                        })
+                                    })
+                                    .filter(|c| {
+                                        c.open > 0 && c.high > 0 && c.low > 0 && c.close > 0
+                                    })
+                                    .collect();
+                                if !ohlc.is_empty() {
+                                    state
+                                        .strategy_manager
+                                        .lock()
+                                        .await
+                                        .initialize_ohlc(symbol, &ohlc);
+                                }
+                                let ranges: Vec<u64> = candles
+                                    .iter()
                                     .filter_map(|c| {
                                         let h = c.high.parse::<f64>().ok()?;
                                         let l = c.low.parse::<f64>().ok()?;
                                         let diff = ((h - l) * 100.0).round() as u64;
-                                        if diff > 0 { Some(diff) } else { None }
+                                        if diff > 0 {
+                                            Some(diff)
+                                        } else {
+                                            None
+                                        }
                                     })
                                     .collect();
                                 if !ranges.is_empty() {
-                                    state.strategy_manager.lock().await
+                                    state
+                                        .strategy_manager
+                                        .lock()
+                                        .await
                                         .initialize_range_data(symbol, &ranges);
                                 }
                                 initialized = true;
@@ -1385,11 +1697,7 @@ pub async fn start_trading(
         );
 
         // 활성 전략에서 구독할 종목 수집
-        let symbols: Vec<String> = state
-            .strategy_manager
-            .lock()
-            .await
-            .active_symbols();
+        let symbols: Vec<String> = state.strategy_manager.lock().await.active_symbols();
 
         let ws_connected = Arc::clone(&state.ws_connected);
         let app_handle = app.clone();
@@ -1438,10 +1746,12 @@ pub async fn stop_trading(state: State<'_, AppState>) -> CmdResult<TradingStatus
     *state.trading_profile_id.write().await = None;
 
     if let Some(notifier) = &state.discord {
-        let _ = notifier.send(NotificationEvent::info(
-            "자동 매매 정지".to_string(),
-            "AutoConditionTrade 자동 매매가 정지되었습니다.".to_string(),
-        )).await;
+        let _ = notifier
+            .send(NotificationEvent::info(
+                "자동 매매 정지".to_string(),
+                "AutoConditionTrade 자동 매매가 정지되었습니다.".to_string(),
+            ))
+            .await;
     }
     drop(is_running);
 
@@ -1522,13 +1832,13 @@ enum TickCycleResult {
 /// 장 마감 감지 시 `TickCycleResult::MarketClosed` 를 반환하고,
 /// 호출자(run_trading_daemon)가 market_pause_until 을 설정한다.
 async fn poll_symbols_tick(
-    symbols:      &[String],
-    is_trading:   &Arc<Mutex<bool>>,
+    symbols: &[String],
+    is_trading: &Arc<Mutex<bool>>,
     strategy_mgr: &Arc<Mutex<crate::trading::strategy::StrategyManager>>,
-    order_mgr:    &Arc<Mutex<crate::trading::order::OrderManager>>,
-    stock_store:  &Arc<crate::storage::stock_store::StockStore>,
-    rest:         &Arc<KisRestClient>,
-    delay_ms:     u64,
+    order_mgr: &Arc<Mutex<crate::trading::order::OrderManager>>,
+    stock_store: &Arc<crate::storage::stock_store::StockStore>,
+    rest: &Arc<KisRestClient>,
+    delay_ms: u64,
     fills_pending: &mut Vec<(String, u64)>,
 ) -> TickCycleResult {
     for symbol in symbols {
@@ -1542,7 +1852,11 @@ async fn poll_symbols_tick(
             tracing::debug!(
                 "시장 폐장 — 건너뜀: {} ({})",
                 symbol,
-                if is_domestic_symbol(symbol) { "KRX" } else { "US" }
+                if is_domestic_symbol(symbol) {
+                    "KRX"
+                } else {
+                    "US"
+                }
             );
             continue;
         }
@@ -1550,9 +1864,11 @@ async fn poll_symbols_tick(
         // 현재가 조회 + 해외 주문용 거래소 코드 캡처
         let (tick, exchange_opt): (Result<(u64, u64), String>, Option<String>) =
             if is_domestic_symbol(symbol) {
-                let t = rest.get_price(symbol).await
+                let t = rest
+                    .get_price(symbol)
+                    .await
                     .map(|p| {
-                        let price  = p.stck_prpr.parse::<u64>().unwrap_or(0);
+                        let price = p.stck_prpr.parse::<u64>().unwrap_or(0);
                         let volume = p.acml_vol.parse::<u64>().unwrap_or(0);
                         (price, volume)
                     })
@@ -1574,9 +1890,13 @@ async fn poll_symbols_tick(
                     if matches!(signal, Signal::Hold) {
                         continue;
                     }
-                    let symbol_name = stock_store.get_name(symbol).await
+                    let symbol_name = stock_store
+                        .get_name(symbol)
+                        .await
                         .unwrap_or_else(|| symbol.clone());
-                    let submit_result = order_mgr.lock().await
+                    let submit_result = order_mgr
+                        .lock()
+                        .await
                         .submit_signal(signal, &symbol_name, 0, exchange_opt.clone(), price)
                         .await;
                     match submit_result {
@@ -1589,7 +1909,8 @@ async fn poll_symbols_tick(
                             if is_market_closed_error(&msg) {
                                 tracing::info!(
                                     "장 마감/장외 시간 감지 (주문, {}) — 5분 대기: {}",
-                                    symbol, msg
+                                    symbol,
+                                    msg
                                 );
                                 return TickCycleResult::MarketClosed;
                             }
@@ -1605,7 +1926,8 @@ async fn poll_symbols_tick(
                 if is_market_closed_error(&e) {
                     tracing::info!(
                         "장 마감/장외 시간 감지 (현재가, {}) — 5분 대기: {}",
-                        symbol, e
+                        symbol,
+                        e
                     );
                     return TickCycleResult::MarketClosed;
                 }
@@ -1625,12 +1947,12 @@ async fn poll_symbols_tick(
 }
 
 pub async fn run_trading_daemon(
-    is_trading:   Arc<Mutex<bool>>,
+    is_trading: Arc<Mutex<bool>>,
     strategy_mgr: Arc<Mutex<crate::trading::strategy::StrategyManager>>,
-    order_mgr:    Arc<Mutex<crate::trading::order::OrderManager>>,
-    risk_mgr:     Arc<Mutex<crate::trading::risk::RiskManager>>,
-    rest_arc:     Arc<RwLock<Arc<KisRestClient>>>,
-    stock_store:  Arc<crate::storage::stock_store::StockStore>,
+    order_mgr: Arc<Mutex<crate::trading::order::OrderManager>>,
+    risk_mgr: Arc<Mutex<crate::trading::risk::RiskManager>>,
+    rest_arc: Arc<RwLock<Arc<KisRestClient>>>,
+    stock_store: Arc<crate::storage::stock_store::StockStore>,
 ) {
     tracing::info!("자동매매 폴링 데몬 시작 (is_trading=false 대기 중)");
     let mut last_reset_date = chrono::Local::now().date_naive();
@@ -1675,9 +1997,22 @@ pub async fn run_trading_daemon(
 
         // ── Phase 4: 이전 틱 시장가 주문 자동 체결 확인 ────────────
         if !fills_pending.is_empty() {
+            if let Err(e) = order_mgr
+                .lock()
+                .await
+                .confirm_pending_fills_from_broker()
+                .await
+            {
+                tracing::debug!(
+                    "주문번호 기반 체결 확인 실패 — 다음 틱 가격 확인으로 보완: {}",
+                    e
+                );
+            }
             let fills = std::mem::take(&mut fills_pending);
             for (sym, fill_price) in fills {
-                if let Err(e) = order_mgr.lock().await
+                if let Err(e) = order_mgr
+                    .lock()
+                    .await
                     .confirm_fill_by_symbol(&sym, fill_price)
                     .await
                 {
@@ -1711,9 +2046,8 @@ pub async fn run_trading_daemon(
                 "모든 시장 폐장 ({}) — 5분 대기 후 재확인",
                 open_markets_summary()
             );
-            market_pause_until = Some(
-                tokio::time::Instant::now() + tokio::time::Duration::from_secs(300)
-            );
+            market_pause_until =
+                Some(tokio::time::Instant::now() + tokio::time::Duration::from_secs(300));
             continue;
         }
         tracing::debug!("시장 상태: {}", open_markets_summary());
@@ -1729,12 +2063,12 @@ pub async fn run_trading_daemon(
             &rest,
             delay_ms,
             &mut fills_pending,
-        ).await;
+        )
+        .await;
 
         if tick_result == TickCycleResult::MarketClosed {
-            market_pause_until = Some(
-                tokio::time::Instant::now() + tokio::time::Duration::from_secs(300)
-            );
+            market_pause_until =
+                Some(tokio::time::Instant::now() + tokio::time::Duration::from_secs(300));
             continue;
         }
 
@@ -1781,7 +2115,11 @@ impl From<&Position> for PositionView {
 #[tauri::command]
 pub async fn get_positions(state: State<'_, AppState>) -> CmdResult<Vec<PositionView>> {
     let tracker = state.position_tracker.lock().await;
-    let mut positions: Vec<PositionView> = tracker.all().iter().map(|p| PositionView::from(*p)).collect();
+    let mut positions: Vec<PositionView> = tracker
+        .all()
+        .iter()
+        .map(|p| PositionView::from(*p))
+        .collect();
     positions.sort_by(|a, b| b.quantity.cmp(&a.quantity));
     Ok(positions)
 }
@@ -1810,7 +2148,10 @@ pub async fn get_strategies(state: State<'_, AppState>) -> CmdResult<Vec<Strateg
     for c in mgr.all_configs() {
         let mut symbol_names = std::collections::HashMap::new();
         for code in &c.target_symbols {
-            let name = state.stock_store.get_name(code).await
+            let name = state
+                .stock_store
+                .get_name(code)
+                .await
                 .unwrap_or_else(|| code.clone());
             symbol_names.insert(code.clone(), name);
         }
@@ -1849,10 +2190,18 @@ pub async fn update_strategy(
             message: format!("전략을 찾을 수 없습니다: {}", input.id),
         })?;
 
-        if let Some(enabled) = input.enabled { cfg.enabled = enabled; }
-        if let Some(symbols) = input.target_symbols { cfg.target_symbols = symbols; }
-        if let Some(qty) = input.order_quantity { cfg.order_quantity = qty; }
-        if let Some(params) = input.params { cfg.params = params; }
+        if let Some(enabled) = input.enabled {
+            cfg.enabled = enabled;
+        }
+        if let Some(symbols) = input.target_symbols {
+            cfg.target_symbols = symbols;
+        }
+        if let Some(qty) = input.order_quantity {
+            cfg.order_quantity = qty;
+        }
+        if let Some(params) = input.params {
+            cfg.params = params;
+        }
 
         cfg.target_symbols.clone()
     };
@@ -1860,14 +2209,20 @@ pub async fn update_strategy(
     // StockStore에서 종목명 조회
     let mut symbol_names = std::collections::HashMap::new();
     for code in &target_symbols_snapshot {
-        let name = state.stock_store.get_name(code).await
+        let name = state
+            .stock_store
+            .get_name(code)
+            .await
             .unwrap_or_else(|| code.clone());
         symbol_names.insert(code.clone(), name);
     }
 
     let view = {
         let mgr = state.strategy_manager.lock().await;
-        let cfg = mgr.all_configs().into_iter().find(|c| c.id == input.id)
+        let cfg = mgr
+            .all_configs()
+            .into_iter()
+            .find(|c| c.id == input.id)
             .ok_or_else(|| CmdError {
                 code: "STRATEGY_NOT_FOUND".into(),
                 message: format!("전략을 찾을 수 없습니다: {}", input.id),
@@ -1986,7 +2341,9 @@ pub async fn update_risk_config(
     }
     tracing::info!(
         "리스크 설정 변경: 활성={}, 일일손실한도={}원, 종목비중={:.0}%",
-        risk.is_enabled(), risk.daily_loss_limit, risk.max_position_ratio * 100.0
+        risk.is_enabled(),
+        risk.daily_loss_limit,
+        risk.max_position_ratio * 100.0
     );
     Ok(build_risk_view(&risk))
 }
@@ -2103,7 +2460,10 @@ pub async fn set_refresh_config(
     *state.refresh_config.write().await = new_cfg.clone();
     // 백그라운드 데몬에 새 주기 즉시 전달 (슬립 취소 → 새 주기로 재시작)
     let _ = state.refresh_interval_tx.send(new_cfg.interval_sec);
-    tracing::info!(".env 저장 완료 — REFRESH_INTERVAL_SEC={}", new_cfg.interval_sec);
+    tracing::info!(
+        ".env 저장 완료 — REFRESH_INTERVAL_SEC={}",
+        new_cfg.interval_sec
+    );
     Ok(new_cfg)
 }
 
@@ -2139,7 +2499,11 @@ pub async fn set_log_config(
     *state.log_config.write().await = new_cfg.clone();
 
     // REST 클라이언트에 즉시 반영
-    state.rest_client.read().await.set_api_debug(new_cfg.api_debug);
+    state
+        .rest_client
+        .read()
+        .await
+        .set_api_debug(new_cfg.api_debug);
 
     // 파일 저장
     new_cfg.save_sync(&state.log_dir).map_err(CmdError::from)?;
@@ -2149,7 +2513,9 @@ pub async fn set_log_config(
 
     tracing::info!(
         "로그 설정 변경: 보관 {}일, 최대 {}MB, API 진단={}",
-        new_cfg.retention_days, new_cfg.max_size_mb, new_cfg.api_debug
+        new_cfg.retention_days,
+        new_cfg.max_size_mb,
+        new_cfg.api_debug
     );
 
     Ok(new_cfg)
@@ -2181,7 +2547,10 @@ pub async fn set_trade_archive_config(
     };
 
     *state.trade_archive_config.write().await = new_cfg.clone();
-    new_cfg.save_sync(&state.data_dir).map_err(|e| CmdError { code: "SAVE_ERR".into(), message: e })?;
+    new_cfg.save_sync(&state.data_dir).map_err(|e| CmdError {
+        code: "SAVE_ERR".into(),
+        message: e,
+    })?;
 
     // 즉시 정리 실행
     let data_dir = state.data_dir.clone();
@@ -2190,7 +2559,8 @@ pub async fn set_trade_archive_config(
 
     tracing::info!(
         "체결 기록 보관 설정 변경: 보관 {}일, 최대 {}MB",
-        new_cfg.retention_days, new_cfg.max_size_mb
+        new_cfg.retention_days,
+        new_cfg.max_size_mb
     );
 
     Ok(new_cfg)
@@ -2214,12 +2584,24 @@ pub async fn get_trade_archive_stats(state: State<'_, AppState>) -> CmdResult<Tr
                 }
             }
         }
-        let oldest_date = day_dirs.first().map(|(d, _)| d.format("%Y-%m-%d").to_string());
-        let newest_date = day_dirs.last().map(|(d, _)| d.format("%Y-%m-%d").to_string());
-        TradeArchiveStats { total_files, size_bytes, oldest_date, newest_date }
+        let oldest_date = day_dirs
+            .first()
+            .map(|(d, _)| d.format("%Y-%m-%d").to_string());
+        let newest_date = day_dirs
+            .last()
+            .map(|(d, _)| d.format("%Y-%m-%d").to_string());
+        TradeArchiveStats {
+            total_files,
+            size_bytes,
+            oldest_date,
+            newest_date,
+        }
     })
     .await
-    .map_err(|e| CmdError { code: "TASK_ERR".into(), message: e.to_string() })?;
+    .map_err(|e| CmdError {
+        code: "TASK_ERR".into(),
+        message: e.to_string(),
+    })?;
 
     Ok(stats)
 }
@@ -2245,9 +2627,9 @@ pub async fn write_frontend_log(input: FrontendLogInput) -> CmdResult<()> {
     };
     match input.level.to_lowercase().as_str() {
         "error" => tracing::error!(target: "frontend", "{}", msg),
-        "warn"  => tracing::warn!(target: "frontend", "{}", msg),
+        "warn" => tracing::warn!(target: "frontend", "{}", msg),
         "debug" => tracing::debug!(target: "frontend", "{}", msg),
-        _       => tracing::info!(target: "frontend", "{}", msg),
+        _ => tracing::info!(target: "frontend", "{}", msg),
     }
     Ok(())
 }
@@ -2267,14 +2649,22 @@ pub async fn search_stock(
         let code = query.to_uppercase();
         // StockStore에 이미 있으면 빠르게 반환
         if let Some(name) = state.stock_store.get_name(&code).await {
-            return Ok(vec![StockSearchItem { pdno: code, prdt_name: name, market: None }]);
+            return Ok(vec![StockSearchItem {
+                pdno: code,
+                prdt_name: name,
+                market: None,
+            }]);
         }
         // 없으면 KIS get_price로 확인
         let client = state.rest_client.read().await.clone();
         if let Ok(p) = client.get_price(&code).await {
             if !p.hts_kor_isnm.is_empty() {
                 state.stock_store.upsert(&code, &p.hts_kor_isnm).await;
-                return Ok(vec![StockSearchItem { pdno: code, prdt_name: p.hts_kor_isnm, market: None }]);
+                return Ok(vec![StockSearchItem {
+                    pdno: code,
+                    prdt_name: p.hts_kor_isnm,
+                    market: None,
+                }]);
             }
         }
         // KIS 실패 시 Yahoo Finance로 이름 조회 (설정 없이도 동작)
@@ -2283,7 +2673,11 @@ pub async fn search_stock(
             Ok(name) => {
                 tracing::info!("Yahoo Finance 이름 조회 성공: {} → {}", code, name);
                 state.stock_store.upsert(&code, &name).await;
-                return Ok(vec![StockSearchItem { pdno: code, prdt_name: name, market: None }]);
+                return Ok(vec![StockSearchItem {
+                    pdno: code,
+                    prdt_name: name,
+                    market: None,
+                }]);
             }
             Err(e) => {
                 tracing::warn!("Yahoo Finance 이름 조회 실패: {} — {}", code, e);
@@ -2295,7 +2689,11 @@ pub async fn search_stock(
     // ② StockStore(영구 캐시) 검색 — 우선순위 최상
     let local_results = state.stock_store.search(&query, 20).await;
     if !local_results.is_empty() {
-        tracing::debug!("StockStore 검색: query={:?}, {}개 결과", query, local_results.len());
+        tracing::debug!(
+            "StockStore 검색: query={:?}, {}개 결과",
+            query,
+            local_results.len()
+        );
         return Ok(local_results);
     }
 
@@ -2312,29 +2710,57 @@ pub async fn search_stock(
     }
 
     // ④ KRX 프록시 검색 (k-skill-proxy — 공식 KRX 데이터, API 키 불필요, 시장구분 포함)
-    tracing::info!("search_stock: 로컬 캐시 miss → KRX 프록시 검색 (query={:?})", query);
+    tracing::info!(
+        "search_stock: 로컬 캐시 miss → KRX 프록시 검색 (query={:?})",
+        query
+    );
     match crate::market::search_krx_proxy(&query, 20).await {
         Ok(results) if !results.is_empty() => {
-            tracing::info!("KRX 프록시 검색 성공: {}개 결과 (query={:?})", results.len(), query);
+            tracing::info!(
+                "KRX 프록시 검색 성공: {}개 결과 (query={:?})",
+                results.len(),
+                query
+            );
             // 결과를 StockStore에 캐시
-            state.stock_store.upsert_many(
-                results.iter().map(|r| (r.pdno.clone(), r.prdt_name.clone()))
-            ).await;
+            state
+                .stock_store
+                .upsert_many(
+                    results
+                        .iter()
+                        .map(|r| (r.pdno.clone(), r.prdt_name.clone())),
+                )
+                .await;
             return Ok(results);
         }
         Ok(_) => tracing::debug!("KRX 프록시 결과 없음 (query={:?}), NAVER 폴백 시도", query),
-        Err(e) => tracing::warn!("KRX 프록시 검색 실패: {} (query={:?}), NAVER 폴백 시도", e, query),
+        Err(e) => tracing::warn!(
+            "KRX 프록시 검색 실패: {} (query={:?}), NAVER 폴백 시도",
+            e,
+            query
+        ),
     }
 
     // ⑤ NAVER Finance 실시간 검색 폴백 (최후 수단)
-    tracing::info!("search_stock: KRX 프록시 miss → NAVER 실시간 검색 (query={:?})", query);
+    tracing::info!(
+        "search_stock: KRX 프록시 miss → NAVER 실시간 검색 (query={:?})",
+        query
+    );
     match crate::market::search_naver_live(&query).await {
         Ok(results) if !results.is_empty() => {
-            tracing::info!("NAVER 검색 성공: {}개 결과 (query={:?})", results.len(), query);
+            tracing::info!(
+                "NAVER 검색 성공: {}개 결과 (query={:?})",
+                results.len(),
+                query
+            );
             // NAVER 결과도 StockStore에 캐시
-            state.stock_store.upsert_many(
-                results.iter().map(|r| (r.pdno.clone(), r.prdt_name.clone()))
-            ).await;
+            state
+                .stock_store
+                .upsert_many(
+                    results
+                        .iter()
+                        .map(|r| (r.pdno.clone(), r.prdt_name.clone())),
+                )
+                .await;
             return Ok(results);
         }
         Ok(_) => {
@@ -2396,7 +2822,8 @@ pub async fn get_stock_list_stats(state: State<'_, AppState>) -> CmdResult<Stock
     let count = state.stock_store.size().await;
     let last_updated_at = state.stock_store.last_updated_at().await;
     let update_interval_hours = state.stock_store.get_interval_hours().await;
-    let file_path = state.data_dir
+    let file_path = state
+        .data_dir
         .join("stocklist")
         .join("stocklist.json")
         .to_string_lossy()
@@ -2411,11 +2838,12 @@ pub async fn get_stock_list_stats(state: State<'_, AppState>) -> CmdResult<Stock
 
 // ── 종목 목록 자동 갱신 간격 설정 ────────────────────────────────
 #[tauri::command]
-pub async fn set_stock_update_interval(
-    hours: u32,
-    state: State<'_, AppState>,
-) -> CmdResult<()> {
-    state.stock_store.set_interval_hours(hours).await.map_err(CmdError::from)?;
+pub async fn set_stock_update_interval(hours: u32, state: State<'_, AppState>) -> CmdResult<()> {
+    state
+        .stock_store
+        .set_interval_hours(hours)
+        .await
+        .map_err(CmdError::from)?;
     tracing::info!("종목 목록 갱신 간격 변경: {}시간", hours);
     Ok(())
 }
@@ -2442,7 +2870,10 @@ pub async fn get_recent_logs(
     count: u32,
     state: State<'_, AppState>,
 ) -> CmdResult<Vec<crate::logging::LogEntry>> {
-    Ok(crate::logging::read_recent_entries(&state.log_dir, count as usize))
+    Ok(crate::logging::read_recent_entries(
+        &state.log_dir,
+        count as usize,
+    ))
 }
 
 // ── 업데이트 확인 ────────────────────────────────────────────────
@@ -2728,7 +3159,8 @@ pub async fn detect_profile_trading_type(
 
     let is_paper = detected_paper.ok_or_else(|| CmdError {
         code: "DETECT_FAILED".into(),
-        message: "실전/모의 키를 자동 감지하지 못했습니다. 네트워크 또는 API 키를 확인해 주세요.".into(),
+        message: "실전/모의 키를 자동 감지하지 못했습니다. 네트워크 또는 API 키를 확인해 주세요."
+            .into(),
     })?;
 
     // 3) 프로파일 업데이트 및 저장
@@ -2757,7 +3189,11 @@ pub async fn detect_profile_trading_type(
     tracing::info!(
         "프로파일 '{}' 감지 완료: {}",
         view.name,
-        if is_paper { "모의투자" } else { "실전투자" }
+        if is_paper {
+            "모의투자"
+        } else {
+            "실전투자"
+        }
     );
     Ok(view)
 }
@@ -2825,16 +3261,16 @@ pub async fn get_overseas_price(
     Ok(OverseasPriceView {
         symbol,
         exchange,
-        name:  resp.name,
-        last:  resp.last,
-        diff:  resp.diff,
-        rate:  resp.rate,
-        open:  resp.open,
-        high:  resp.high,
-        low:   resp.low,
-        h52p:  resp.h52p,
-        l52p:  resp.l52p,
-        tvol:  resp.tvol,
+        name: resp.name,
+        last: resp.last,
+        diff: resp.diff,
+        rate: resp.rate,
+        open: resp.open,
+        high: resp.high,
+        low: resp.low,
+        h52p: resp.h52p,
+        l52p: resp.l52p,
+        tvol: resp.tvol,
     })
 }
 
@@ -2847,7 +3283,11 @@ pub async fn place_overseas_order(
 
     tracing::info!(
         "해외 주문 요청: {} {} {} 수량={} 가격={}",
-        input.exchange, input.symbol, input.side, input.quantity, input.price
+        input.exchange,
+        input.symbol,
+        input.side,
+        input.quantity,
+        input.price
     );
 
     let side = match input.side.as_str() {
@@ -2868,14 +3308,21 @@ pub async fn place_overseas_order(
         Ok(resp) => {
             tracing::info!(
                 "해외 주문 완료: {} {} — 주문번호={}, 시각={}",
-                input.exchange, input.symbol, resp.odno, resp.ord_tmd
+                input.exchange,
+                input.symbol,
+                resp.odno,
+                resp.ord_tmd
             );
             Ok(resp)
         }
         Err(e) => {
             tracing::error!(
                 "해외 주문 실패: {} {} 수량={} 가격={} — {}",
-                input.exchange, input.symbol, input.quantity, input.price, e
+                input.exchange,
+                input.symbol,
+                input.quantity,
+                input.price,
+                e
             );
             Err(CmdError::from(e))
         }
