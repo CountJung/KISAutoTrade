@@ -2,13 +2,13 @@
 
 ## ⚙️ 에이전트 필수 규칙 (Harness Convention)
 
-> **이 프로젝트에서 AI 에이전트(GitHub Copilot 등)는 반드시 아래 규칙을 따른다.**
+> **이 프로젝트에서 AI 에이전트(Codex 등)는 반드시 아래 규칙을 따른다.**
 
-1. **모든 작업 시작 전** `agent.md` 파일을 읽어 전체 프로젝트 구조를 파악한다.
-2. **코드 변경, 파일 추가/삭제, 구조 변경 후** `agent.md`를 즉시 업데이트한다.
-3. `agent.md`는 프로젝트의 "살아있는 구조 맵"이며, 항상 최신 상태를 유지해야 한다.
-4. `agent.md`가 없거나 오래된 경우 작업 전에 재생성 또는 갱신한다.
-5. 에이전트는 `agent.md`를 참조하지 않고 추측으로 작업해서는 안 된다.
+1. **모든 작업 시작 전** `AGENTS.md` 파일을 읽어 전체 프로젝트 구조를 파악한다.
+2. **코드 변경, 파일 추가/삭제, 구조 변경 후** `AGENTS.md`와 관련 상세 문서를 즉시 업데이트한다.
+3. `AGENTS.md`는 프로젝트의 "살아있는 구조 맵"이며, 항상 최신 상태를 유지해야 한다.
+4. `AGENTS.md`가 없거나 오래된 경우 작업 전에 재생성 또는 갱신한다.
+5. 에이전트는 `AGENTS.md`를 참조하지 않고 추측으로 작업해서는 안 된다.
 
 ---
 
@@ -501,7 +501,7 @@ Discord 알림 전송
 
 - `.env` 파일 직접 접근 금지
 - 민감 정보는 `secure_config.json`에 분리 저장 (git ignore)
-- 에이전트는 `agent.md`를 통해서만 구조를 파악
+- 에이전트는 `AGENTS.md`를 통해서만 구조를 파악
 
 ---
 
@@ -587,7 +587,7 @@ npm run tauri build
 
 ```
 AutoConditionTrade/
-├── agent.md                    ← ⚠️ 하네스 맵 (항상 최신 유지)
+├── AGENTS.md                   ← ⚠️ 에이전트 맵 (항상 최신 유지)
 ├── MasterPlan.md               ← 마스터 플랜 (이 문서)
 ├── docs/
 │   ├── discord-setup-guide.md  ← Discord 봇 연계 상세 가이드
@@ -653,7 +653,7 @@ AutoConditionTrade/
 
 ---
 
-> **개발 단계별 진행 현황은 `TodoList.md`를 참조하세요.**
+> **개선 백로그와 다음 작업 목록은 `todo.md`를 참조하세요.**
 
 ---
 
@@ -664,7 +664,7 @@ AutoConditionTrade/
 - **실계좌 테스트 전 반드시 모의투자(`KIS_IS_PAPER_TRADING=true`) 충분히 검증**
 - JSON 데이터 폴더(`/data`)는 `.gitignore`에 반드시 포함
 - Discord Bot Token은 절대 코드에 하드코딩 금지
-- `agent.md`는 코드 변경 시마다 즉시 업데이트
+- `AGENTS.md`는 코드 변경 시마다 즉시 업데이트
 
 ---
 

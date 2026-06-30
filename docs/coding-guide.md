@@ -728,7 +728,7 @@ export const usePlaceOrder = () =>
 
 ### 문서
 
-- [ ] `agent.md` 디렉토리 맵 및 IPC 커맨드 목록 업데이트
+- [ ] `AGENTS.md`, `docs/project-map.md`, `docs/ipc-commands.md` 업데이트
 - [ ] `.github/skills/` 관련 스킬 파일 업데이트
 - [ ] 이 `coding-guide.md`에 새 패턴이 생긴 경우 반영
 

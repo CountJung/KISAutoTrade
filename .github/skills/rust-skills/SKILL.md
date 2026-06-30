@@ -598,4 +598,54 @@ let value = std::fs::read_to_string(&env_path)
 > ❌ 단순 설정 값에 별도 JSON 파일(`refresh_config.json`) 사용 — 복잡도만 증가  
 > ✅ `.env` 에 `KEY=value` 형식으로 통일 (WEB_PORT, REFRESH_INTERVAL_SEC 등)
 
-> 마지막 업데이트: 2026-05-01T00:00:00
+---
+
+## 9. 자동매매 반복 매매 방지 패턴
+
+등락 반복 구간에서 전략이 매수/매도를 빠르게 반복하면 수수료, 세금, 슬리피지 때문에 손실이 누적된다. 이 문제는 개별 전략 파라미터만으로 해결하지 말고, 전략 신호와 주문 실행 사이의 공통 방어 계층으로 모델링한다.
+
+### 권장 구조
+
+```rust
+pub enum GuardDecision {
+    Allow,
+    Block { reason: String },
+}
+
+pub struct TradeGuard {
+    cooldowns: std::collections::HashMap<(String, GuardSide), chrono::DateTime<chrono::Utc>>,
+    min_expected_profit_bps: i32,
+}
+```
+
+### 검사 순서
+
+1. 동일 종목/동일 방향 미체결 주문 존재 여부
+2. 손절 후 재진입 금지 시간
+3. 매도 직후 재매수 쿨다운
+4. 예상 순손익이 수수료·세금·슬리피지보다 큰지 확인
+5. 최근 N틱 내 반대 신호 반복 횟수 확인
+
+### ❌ 잘못된 패턴 — 전략 신호 즉시 주문
+
+```rust
+let signals = strategy_mgr.lock().await.on_tick(symbol, price, volume);
+for signal in signals {
+    order_mgr.lock().await.submit_signal(signal, &symbol_name, 0, exchange, price).await?;
+}
+```
+
+### ✅ 올바른 패턴 — 공통 guard 통과 후 주문
+
+```rust
+let decision = trade_guard.lock().await.evaluate(&signal, symbol, price, now);
+if matches!(decision, GuardDecision::Allow) {
+    order_mgr.lock().await.submit_signal(signal, &symbol_name, total_balance, exchange, price).await?;
+}
+```
+
+### 상태 복원 주의
+
+전략 내부 `in_position` 플래그는 프로세스 재시작 또는 수동 매매 후 실제 잔고와 어긋날 수 있다. 자동매매 시작 시 국내는 `PositionTracker`/KIS 잔고, 해외는 `get_overseas_balance()`를 기준으로 전략 상태를 복원하는 API를 별도로 설계한다.
+
+> 마지막 업데이트: 2026-06-30T00:00:00

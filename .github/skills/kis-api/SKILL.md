@@ -1283,7 +1283,34 @@ const pnlRate = parseFloat(item.evlu_pfls_rt)   // 모의에서 0 가능
 
 ---
 
-## 18. 해외주식 모의투자 매도 제한 — "해당업무가 제공되지 않습니다"
+## 18. 해외주식 모의투자 지원 범위 — 주문 TR-ID는 있으나 조건 제한 존재
+
+### 공식 샘플 기준 지원 현황
+
+KIS 공식 `koreainvestment/open-trading-api` 샘플 기준으로 미국 해외주식 주문 API는 실전/모의 TR-ID가 모두 정의되어 있다.
+
+| 구분 | 실전 TR-ID | 모의 TR-ID | 비고 |
+|------|------------|------------|------|
+| 미국 매수 주문 | `TTTT1002U` | `VTTT1002U` | 모의는 `ORD_DVSN="00"` 지정가만 사용 |
+| 미국 매도 주문 | `TTTT1006U` | `VTTT1006U` | 모의는 `ORD_DVSN="00"` 지정가만 사용 |
+| 해외 잔고 | `TTTS3012R` | `VTTS3012R` | 모의 잔고 조회 가능 |
+| 해외 주문체결내역 | `TTTS3035R` | `VTTS3035R` | 모의는 조회 조건을 전체 조회로 제한 |
+
+공식 샘플 참조:
+- `examples_user/overseas_stock/overseas_stock_functions.py`
+- KIS Developers 포털: https://apiportal.koreainvestment.com/
+
+### 모의투자 조회 조건 제한
+
+`/uapi/overseas-stock/v1/trading/inquire-ccnl` 해외 주문체결내역은 모의투자에서 필터 조건을 거의 사용할 수 없다.
+
+| 파라미터 | 실전 | 모의투자 권장값 |
+|----------|------|----------------|
+| `PDNO` | `%` 또는 종목 | `""` 전체 조회 |
+| `SLL_BUY_DVSN` | `00`/`01`/`02` | `00` 전체 |
+| `CCLD_NCCS_DVSN` | `00`/`01`/`02` | `00` 전체 |
+| `OVRS_EXCG_CD` | `%`, `NASD`, `NYSE`, `AMEX` 등 | `""` 전체 |
+| `SORT_SQN` | `DS`/`AS` | 기본값 사용 |
 
 ### 에러 발생 상황
 
@@ -1293,11 +1320,11 @@ const pnlRate = parseFloat(item.evlu_pfls_rt)   // 모의에서 0 가능
 
 ### 원인
 
-KIS 모의투자 해외 매도(`VTTT1006U`) 지원 제한이 있음:
-- **AMEX/NYSE Arca 거래소**: 모의투자에서 AMEX 주문 자체가 미지원
-- **일부 ETF**: QQQM 등 최근 상장 ETF가 KIS 모의투자 종목 목록에 없음
+KIS 모의투자 해외 주문은 TR-ID가 존재하더라도 서버 측 지원 범위가 실전과 다르다.
 
-TR-ID `VTTT1006U`는 KIS 공식 문서에서 올바른 값이지만, 서버 측 stock universe 제한으로 특정 종목/거래소에서 위 에러 반환.
+- **AMEX/NYSE Arca 거래소**: 모의투자 universe에서 제한될 수 있음
+- **일부 ETF**: QQQM 등 최근 상장 ETF가 KIS 모의투자 종목 목록에 없을 수 있음
+- **주문구분**: 모의투자는 미국 매수/매도 모두 `00` 지정가만 안전하게 사용
 
 ### 에러 비대칭 패턴
 
@@ -1338,7 +1365,7 @@ fn is_paper_unsupported_error(msg: &str) -> bool {
 if (rawMsg.includes('해당업무가 제공되지 않습니다')) {
     setErrorMsg(
         `모의투자 미지원: ${rawMsg}\n` +
-        `이 종목 또는 거래소(AMEX 등)는 모의투자에서 매도 주문이 지원되지 않습니다. ` +
+        `이 종목 또는 거래소(AMEX 등)는 모의투자 해외 주문 universe에서 지원되지 않을 수 있습니다. ` +
         `실전투자로 전환하거나 NASD/NYSE 종목을 이용하세요.`
     )
 }
@@ -1420,7 +1447,7 @@ let trade_record = TradeRecord::new(..., fee, ...);
 stats.fees_paid += fee;  // DailyStats에도 누적
 ```
 
-> 마지막 업데이트: 2026-04-15T10:00:00
+> 마지막 업데이트: 2026-06-30T00:00:00
 
 
 ---

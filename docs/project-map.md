@@ -1,6 +1,6 @@
 # AutoConditionTrade — 프로젝트 맵
 
-> 이 문서는 `agents.md` 에서 분리된 상세 디렉토리 맵 및 아키텍처 참조 문서입니다.
+> 이 문서는 `AGENTS.md` 에서 분리된 상세 디렉토리 맵 및 아키텍처 참조 문서입니다.
 
 ---
 
@@ -9,8 +9,8 @@
 ```
 AutoConditionTrade/                   ← 루트
 │
-├── agents.md                         ← 에이전트 네비게이션 가이드 (핵심만)
-├── TodoList.md                       ← Phase별 할 일 목록
+├── AGENTS.md                         ← Codex 에이전트 네비게이션 가이드 (핵심만)
+├── todo.md                           ← 개선 백로그 및 다음 작업 목록
 ├── Cargo.toml                        ← Rust workspace 루트 (resolver="2")
 ├── package.json                      ← npm 패키지 설정 (engines: node>=20)
 ├── vite.config.ts                    ← Vite 빌드 설정 (port:1420, 청크 분리)
@@ -21,7 +21,8 @@ AutoConditionTrade/                   ← 루트
 ├── secure_config.example.json        ← 민감 설정 템플릿 ✅
 │
 ├── .github/
-│   ├── copilot-instructions.md       ← AI 에이전트 프로젝트 지침 (살아있는 문서)
+│   ├── codex-instructions.md         ← Codex 프로젝트 지침 (살아있는 문서)
+│   ├── copilot-instructions.md       ← GitHub Copilot 호환용 shim
 │   ├── skills/                       ← 도메인 스킬 파일 4종 (KIS API, Rust, React, UI)
 │   └── workflows/release.yml         ← GitHub Actions 자동 빌드/릴리즈
 │
