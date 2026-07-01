@@ -82,6 +82,7 @@
 - [ ] 프론트엔드에 Feature-Sliced Design(FSD) 점진 도입
   - Rust/Tauri 백엔드(`src-tauri/src/{trading,storage,api,...}`)는 현재 도메인별 분리가 잘 되어 있으므로 우선 변경하지 않는다.
   - 대상은 React 프론트엔드 `src/`이며, 기능 변경과 구조 이동을 섞지 않고 작은 PR/커밋 단위로 진행한다.
+  - 공용 스킬화 완료: `.github/skills/frontend-fsd/SKILL.md`를 앞으로 프론트엔드 구조 변경 작업의 기준으로 사용한다.
 - [ ] `shared` 레이어 신설
   - 공통 Tauri IPC wrapper, 공통 타입, theme/helper, 범용 UI를 `src/shared/{api,lib,ui,config}`로 이동한다.
   - 1차 후보: `src/api/commands.ts`, `src/api/transport.ts`, `src/theme`, 범용 layout/helper.
@@ -100,12 +101,13 @@
 
 ## P4 — Codex 마이그레이션
 
-- [ ] `AGENTS.md`를 Codex의 최상위 작업 지침으로 유지
+- [x] `AGENTS.md`를 Codex의 최상위 작업 지침으로 유지
   - 작업 전 읽을 문서, 검증 명령, 금지사항, 변경 이력만 간결히 둔다.
-- [ ] `.github/codex-instructions.md`를 상세 에이전트 지침으로 사용
+- [x] `.github/codex-instructions.md`를 상세 에이전트 지침으로 사용
   - 기존 Copilot 중심 지침은 호환용 shim으로 남긴다.
-- [ ] `.github/skills/**/SKILL.md`는 Codex도 읽을 수 있는 도메인 스킬로 유지
+- [x] `.github/skills/**/SKILL.md`는 Codex도 읽을 수 있는 도메인 스킬로 유지
   - KIS 특이사항, Rust/Tauri 패턴, React/UI 규칙을 실제 버그 발견 시 즉시 갱신한다.
+  - Codex 로컬 브리지 스킬 `~/.codex/skills/kisautotrade-*`가 현재 작업 저장소 루트 기준으로 원본 스킬을 다시 읽도록 구성했다.
 - [ ] 신규 리스크/전략 안정화 패턴을 `rust-skills`와 `kis-api`에 반영
   - 같은 문제가 반복되면 코드 수정과 동시에 스킬 문서를 업데이트한다.
 
@@ -128,4 +130,4 @@
 - `run_trading_daemon()`은 국내 주문에 대해 주문번호 기반 체결 조회를 먼저 시도하고, 실패 시 기존 다음 틱 가격 확인으로 보완한다. 해외 주문번호 기반 체결 조회는 아직 남아 있다.
 - KIS 공식 샘플 기준 해외 미국 모의 주문 TR-ID는 존재하나, 모의투자에서는 지정가 주문과 전체 조건 조회 위주로 제한된다.
 
-*마지막 업데이트: 2026-06-30*
+*마지막 업데이트: 2026-07-01*

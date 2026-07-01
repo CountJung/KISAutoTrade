@@ -193,9 +193,12 @@ npx vite build
 | 작업 | 스킬 |
 |------|------|
 | React 성능 최적화, waterfall, MUI 번들 | `.github/skills/react-best-practices/SKILL.md` |
+| 프론트엔드 FSD 구조화, 레이어 경계, 모듈 이동 | `.github/skills/frontend-fsd/SKILL.md` |
 | Rust 데이터 구조, trait, 에러 처리, serde | `.github/skills/rust-skills/SKILL.md` |
 | KIS API 인증, REST/WS 호출, tr_id, 에러코드 | `.github/skills/kis-api/SKILL.md` |
 | MUI v6 컴포넌트, 차트, 색상, 금융 UI 컨벤션 | `.github/skills/ui-conventions/SKILL.md` |
+
+Codex 로컬 환경에서는 `~/.codex/skills/kisautotrade-*` 브리지 스킬이 현재 작업 저장소 루트 기준으로 위 원본 스킬을 다시 읽도록 구성되어 있다. 브리지 스킬은 자동 트리거용 얇은 연결 파일이므로, 규칙 변경 시 반드시 저장소의 `.github/skills/**/SKILL.md`를 수정한다.
 
 ---
 
@@ -211,8 +214,10 @@ npx vite build
 | 새 모듈/파일 추가 | `docs/project-map.md` 디렉토리 맵 |
 | 새 IPC 커맨드 추가 | `docs/ipc-commands.md` IPC 커맨드 목록 |
 | UI 패턴/컨벤션 발견 또는 수정 | `ui-conventions/SKILL.md` |
+| 프론트엔드 모듈 이동 또는 FSD 레이어 경계 변경 | `frontend-fsd/SKILL.md`, `docs/project-map.md` |
 | Rust trait·에러 처리 패턴 추가 | `rust-skills/SKILL.md` |
 | KIS API 동작 특이사항 확인 | `kis-api/SKILL.md` |
+| Codex/Copilot 지침 연결 방식 변경 | `AGENTS.md`, `.github/copilot-instructions.md`, `.github/codex-instructions.md` |
 | **KIS API 에러코드 신규 발견** | **`kis-api/SKILL.md` Section 5 에러코드 테이블** |
 | **KIS API 연동 패턴 구현** (주문·잔고·체결 등) | **`kis-api/SKILL.md` 해당 섹션 또는 신규 섹션** |
 | React 성능·번들 최적화 적용 | `react-best-practices/SKILL.md` |

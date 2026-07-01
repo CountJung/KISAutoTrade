@@ -16,9 +16,11 @@
 | KIS API 스킬 | `.github/skills/kis-api/SKILL.md` |
 | Rust 코딩 스킬 | `.github/skills/rust-skills/SKILL.md` |
 | React/Tauri 성능 스킬 | `.github/skills/react-best-practices/SKILL.md` |
+| Frontend FSD 스킬 | `.github/skills/frontend-fsd/SKILL.md` |
 | UI 컨벤션 스킬 | `.github/skills/ui-conventions/SKILL.md` |
 | Codex 상세 지침 | `.github/codex-instructions.md` |
 | Copilot 호환 지침 | `.github/copilot-instructions.md` |
+| Codex 로컬 브리지 스킬 | `~/.codex/skills/kisautotrade-*` |
 
 ---
 
@@ -54,6 +56,7 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 - KIS API 동작·TR-ID·제한사항은 추측하지 말고 공식 포털 또는 `koreainvestment/open-trading-api` 샘플로 확인한다.
 - 새 IPC 커맨드는 Rust command, `lib.rs` 등록, TypeScript 타입/래퍼/훅, 문서를 함께 갱신한다.
 - 반복 매매·손실 방지 관련 변경은 `todo.md`와 관련 스킬 문서에 남긴다.
+- Copilot 호환 지침과 `.github/skills/**`의 원본 스킬은 Codex 로컬 브리지 스킬(`~/.codex/skills/kisautotrade-*`)을 통해 재사용한다. 원본은 저장소의 `.github/skills/**/SKILL.md`로 유지한다.
 
 ---
 
@@ -63,8 +66,8 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-07-01 | Copilot 호환 지침/스킬을 Codex 로컬 브리지 스킬로 연결 |
+| 2026-07-01 | Frontend FSD 점진 도입 규칙을 공용 스킬로 추가 |
 | 2026-06-30 | TodoList.md → todo.md 개편, Codex 지침/스킬 마이그레이션, 반복 매매 손실 방지 백로그 재작성 |
 | 2026-05-01 | 앱 종료 안전 처리(on_window_event), REFRESH_INTERVAL_SEC .env 통일, 에이전트 문서 구조 개편 |
 | 2026-04-14 | 해외주식 모의투자 매도 에러 처리: is_paper_unsupported_error() 추가 |
-| 2026-04-12 | Dashboard 체결내역 실시간갱신(30s)+페이지네이션, 예수금 D+2 우선 표시 |
-| 2026-04-12 | 모바일 BottomNavigation 추가, Sidebar 드로어 자동 닫힘 |

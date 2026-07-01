@@ -22,8 +22,8 @@ AutoConditionTrade/                   ← 루트
 │
 ├── .github/
 │   ├── codex-instructions.md         ← Codex 프로젝트 지침 (살아있는 문서)
-│   ├── copilot-instructions.md       ← GitHub Copilot 호환용 shim
-│   ├── skills/                       ← 도메인 스킬 파일 4종 (KIS API, Rust, React, UI)
+│   ├── copilot-instructions.md       ← GitHub Copilot/Codex 호환용 shim
+│   ├── skills/                       ← 도메인 스킬 파일 5종 (KIS API, Rust, React, FSD, UI)
 │   └── workflows/release.yml         ← GitHub Actions 자동 빌드/릴리즈
 │
 ├── docs/
@@ -221,3 +221,20 @@ REFRESH_INTERVAL_SEC=30
 |--------|------|------|
 | 한국투자증권 Open API | REST + WebSocket 주식 거래 | [apiportal.koreainvestment.com](https://apiportal.koreainvestment.com) |
 | Discord Bot API | 알림 전송 | `docs/discord-setup-guide.md` |
+
+---
+
+## 8. Codex 로컬 브리지 스킬
+
+GitHub Copilot 호환용으로 유지하던 `.github/skills/**/SKILL.md` 원본 스킬은 Codex에서도 자동 트리거될 수 있도록 사용자 로컬 Codex 스킬 디렉터리에 얇은 브리지로 연결되어 있다. 브리지는 절대 경로를 저장하지 않고, 현재 작업 저장소에서 `AGENTS.md`와 `.github/skills/**`를 찾아 원본을 읽는다.
+
+| Codex 로컬 스킬 | 저장소 원본 |
+|-----------------|-------------|
+| `~/.codex/skills/kisautotrade-project` | `AGENTS.md`, `.github/codex-instructions.md` |
+| `~/.codex/skills/kisautotrade-kis-api` | `.github/skills/kis-api/SKILL.md` |
+| `~/.codex/skills/kisautotrade-rust` | `.github/skills/rust-skills/SKILL.md` |
+| `~/.codex/skills/kisautotrade-react` | `.github/skills/react-best-practices/SKILL.md` |
+| `~/.codex/skills/kisautotrade-frontend-fsd` | `.github/skills/frontend-fsd/SKILL.md` |
+| `~/.codex/skills/kisautotrade-ui` | `.github/skills/ui-conventions/SKILL.md` |
+
+규칙 변경 시 로컬 브리지 파일이 아니라 저장소 원본을 수정한다. 프로젝트 위치나 폴더명이 바뀌어도 `AGENTS.md`와 `.github/skills/**` 구조가 유지되면 브리지는 그대로 동작한다. 새 Codex 세션에서 브리지 스킬 목록이 반영된다.
