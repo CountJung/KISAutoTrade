@@ -1125,6 +1125,14 @@ async fn risk_config_handler(State(s): State<ServerState>) -> Json<serde_json::V
         "enabled":          risk.is_enabled(),
         "dailyLossLimit":   risk.daily_loss_limit,
         "maxPositionRatio": risk.max_position_ratio,
+        "maxDailyBuyOrdersPerSymbol": risk.max_daily_buy_orders_per_symbol,
+        "maxDailySellOrdersPerSymbol": risk.max_daily_sell_orders_per_symbol,
+        "maxConsecutiveLossesPerStrategySymbol": risk.max_consecutive_losses_per_strategy_symbol,
+        "volatilitySizingEnabled": risk.volatility_sizing_enabled,
+        "riskPerTradeBps": risk.risk_per_trade_bps,
+        "atrStopMultiplier": risk.atr_stop_multiplier,
+        "atrSymbolCount": risk.atr_symbol_count(),
+        "blockedStrategySymbolCount": risk.blocked_strategy_symbol_count(),
         "currentLoss":      risk.current_loss(),
         "dailyProfit":      risk.daily_profit(),
         "netLoss":          risk.net_loss(),
@@ -1140,6 +1148,12 @@ struct UpdateRiskConfigBody {
     enabled: Option<bool>,
     daily_loss_limit: Option<i64>,
     max_position_ratio: Option<f64>,
+    max_daily_buy_orders_per_symbol: Option<u32>,
+    max_daily_sell_orders_per_symbol: Option<u32>,
+    max_consecutive_losses_per_strategy_symbol: Option<u32>,
+    volatility_sizing_enabled: Option<bool>,
+    risk_per_trade_bps: Option<u32>,
+    atr_stop_multiplier: Option<f64>,
 }
 
 /// POST /api/risk-config
@@ -1161,10 +1175,40 @@ async fn update_risk_config_handler(
             risk.max_position_ratio = ratio;
         }
     }
+    if let Some(limit) = body.max_daily_buy_orders_per_symbol {
+        risk.max_daily_buy_orders_per_symbol = limit;
+    }
+    if let Some(limit) = body.max_daily_sell_orders_per_symbol {
+        risk.max_daily_sell_orders_per_symbol = limit;
+    }
+    if let Some(limit) = body.max_consecutive_losses_per_strategy_symbol {
+        risk.max_consecutive_losses_per_strategy_symbol = limit;
+    }
+    if let Some(enabled) = body.volatility_sizing_enabled {
+        risk.volatility_sizing_enabled = enabled;
+    }
+    if let Some(bps) = body.risk_per_trade_bps {
+        if bps <= 10_000 {
+            risk.risk_per_trade_bps = bps;
+        }
+    }
+    if let Some(multiplier) = body.atr_stop_multiplier {
+        if (0.1..=20.0).contains(&multiplier) {
+            risk.atr_stop_multiplier = multiplier;
+        }
+    }
     Json(serde_json::json!({
         "enabled":          risk.is_enabled(),
         "dailyLossLimit":   risk.daily_loss_limit,
         "maxPositionRatio": risk.max_position_ratio,
+        "maxDailyBuyOrdersPerSymbol": risk.max_daily_buy_orders_per_symbol,
+        "maxDailySellOrdersPerSymbol": risk.max_daily_sell_orders_per_symbol,
+        "maxConsecutiveLossesPerStrategySymbol": risk.max_consecutive_losses_per_strategy_symbol,
+        "volatilitySizingEnabled": risk.volatility_sizing_enabled,
+        "riskPerTradeBps": risk.risk_per_trade_bps,
+        "atrStopMultiplier": risk.atr_stop_multiplier,
+        "atrSymbolCount": risk.atr_symbol_count(),
+        "blockedStrategySymbolCount": risk.blocked_strategy_symbol_count(),
         "currentLoss":      risk.current_loss(),
         "dailyProfit":      risk.daily_profit(),
         "netLoss":          risk.net_loss(),
@@ -1182,6 +1226,14 @@ async fn clear_emergency_handler(State(s): State<ServerState>) -> Json<serde_jso
         "enabled":          risk.is_enabled(),
         "dailyLossLimit":   risk.daily_loss_limit,
         "maxPositionRatio": risk.max_position_ratio,
+        "maxDailyBuyOrdersPerSymbol": risk.max_daily_buy_orders_per_symbol,
+        "maxDailySellOrdersPerSymbol": risk.max_daily_sell_orders_per_symbol,
+        "maxConsecutiveLossesPerStrategySymbol": risk.max_consecutive_losses_per_strategy_symbol,
+        "volatilitySizingEnabled": risk.volatility_sizing_enabled,
+        "riskPerTradeBps": risk.risk_per_trade_bps,
+        "atrStopMultiplier": risk.atr_stop_multiplier,
+        "atrSymbolCount": risk.atr_symbol_count(),
+        "blockedStrategySymbolCount": risk.blocked_strategy_symbol_count(),
         "currentLoss":      risk.current_loss(),
         "dailyProfit":      risk.daily_profit(),
         "netLoss":          risk.net_loss(),
@@ -1732,6 +1784,14 @@ async fn activate_emergency_handler(State(s): State<ServerState>) -> Json<serde_
         "enabled":          risk.is_enabled(),
         "dailyLossLimit":   risk.daily_loss_limit,
         "maxPositionRatio": risk.max_position_ratio,
+        "maxDailyBuyOrdersPerSymbol": risk.max_daily_buy_orders_per_symbol,
+        "maxDailySellOrdersPerSymbol": risk.max_daily_sell_orders_per_symbol,
+        "maxConsecutiveLossesPerStrategySymbol": risk.max_consecutive_losses_per_strategy_symbol,
+        "volatilitySizingEnabled": risk.volatility_sizing_enabled,
+        "riskPerTradeBps": risk.risk_per_trade_bps,
+        "atrStopMultiplier": risk.atr_stop_multiplier,
+        "atrSymbolCount": risk.atr_symbol_count(),
+        "blockedStrategySymbolCount": risk.blocked_strategy_symbol_count(),
         "currentLoss":      risk.current_loss(),
         "dailyProfit":      risk.daily_profit(),
         "netLoss":          risk.net_loss(),

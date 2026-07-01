@@ -15,10 +15,14 @@ import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
 import Divider from '@mui/material/Divider'
-import { useStatsByRange, useTradesByRange } from '../api/hooks'
+import { useStatsByRange, useTradesByRange } from '../../../api/hooks'
 
 function fmt(n: number) {
   return n.toLocaleString('ko-KR')
+}
+
+function fmtUsd(n: number) {
+  return `$${n.toFixed(2)}`
 }
 
 function today() {
@@ -56,6 +60,41 @@ export default function History() {
   const avgWinRate     = stats && stats.length > 0
     ? stats.reduce((acc, s) => acc + s.win_rate, 0) / stats.length
     : 0
+
+  const isOverseasTrade = (trade: { market?: string; currency?: string }) =>
+    trade.market === 'overseas' || trade.currency === 'USD'
+
+  const renderTradeMoney = (trade: NonNullable<typeof trades>[number], kind: 'price' | 'amount' | 'fee') => {
+    if (!isOverseasTrade(trade)) {
+      const value = kind === 'price' ? trade.price : kind === 'amount' ? trade.total_amount : trade.fee
+      return `${fmt(value)}원`
+    }
+
+    const usdValue = kind === 'price'
+      ? trade.price_usd ?? trade.price / 100
+      : kind === 'amount'
+        ? trade.total_amount_usd ?? trade.total_amount / 100
+        : trade.fee_usd ?? trade.fee / 100
+    const krwValue = kind === 'amount'
+      ? trade.total_amount_krw
+      : kind === 'fee'
+        ? trade.fee_krw
+        : null
+
+    return krwValue == null
+      ? fmtUsd(usdValue)
+      : `${fmtUsd(usdValue)} / ${fmt(krwValue)}원`
+  }
+
+  const renderSlippage = (trade: NonNullable<typeof trades>[number]) => {
+    if (trade.slippage == null) return '-'
+    const sign = trade.slippage > 0 ? '+' : ''
+    const bps = trade.slippage_bps == null ? '' : ` (${sign}${trade.slippage_bps}bps)`
+    if (isOverseasTrade(trade)) {
+      return `${sign}${fmtUsd(trade.slippage / 100)}${bps}`
+    }
+    return `${sign}${fmt(trade.slippage)}원${bps}`
+  }
 
   return (
     <Box>
@@ -135,6 +174,7 @@ export default function History() {
                   <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>가격</TableCell>
                   <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>금액</TableCell>
                   <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>수수료</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>슬리피지</TableCell>
                   <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>전략</TableCell>
                 </TableRow>
               </TableHead>
@@ -146,7 +186,9 @@ export default function History() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" noWrap>{t.symbol_name}</Typography>
-                      <Typography variant="caption" color="text.secondary">{t.symbol}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {t.symbol}{isOverseasTrade(t) && t.exchange ? ` · ${t.exchange}` : ''}
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -156,9 +198,23 @@ export default function History() {
                       />
                     </TableCell>
                     <TableCell align="right">{fmt(t.quantity)}</TableCell>
-                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>{fmt(t.price)}원</TableCell>
-                    <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' }, whiteSpace: 'nowrap' }}>{fmt(t.total_amount)}원</TableCell>
-                    <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' }, whiteSpace: 'nowrap' }}>{fmt(t.fee)}원</TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' }, whiteSpace: 'nowrap' }}>
+                      {renderTradeMoney(t, 'price')}
+                    </TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' }, whiteSpace: 'nowrap' }}>
+                      {renderTradeMoney(t, 'amount')}
+                    </TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' }, whiteSpace: 'nowrap' }}>
+                      {renderTradeMoney(t, 'fee')}
+                    </TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' }, whiteSpace: 'nowrap' }}>
+                      <Typography
+                        variant="body2"
+                        color={(t.slippage ?? 0) > 0 ? 'warning.main' : (t.slippage ?? 0) < 0 ? 'success.main' : 'text.secondary'}
+                      >
+                        {renderSlippage(t)}
+                      </Typography>
+                    </TableCell>
                     <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                       <Typography variant="caption" noWrap>{t.strategy_id ?? '-'}</Typography>
                     </TableCell>

@@ -672,8 +672,20 @@ if matches!(decision, GuardDecision::Allow) {
 3. 손절 후 당일 재진입 금지
 4. 최근 반대 방향 신호 반복 시 종목 단위 휩소 쿨다운
 5. 익절 매도에서 수수료·세금·슬리피지 차감 후 기대 순익 확인
+6. `RiskManager`의 전략 ID + 종목 + 방향 + 날짜별 일일 주문 접수 횟수 제한
+7. `RiskManager`의 전략 ID + 종목별 연속 손실 신규 진입 차단
 
 ```rust
+let strategy_signal = StrategySignal {
+    strategy_id: s.id().to_string(),
+    signal,
+};
+
+if let Some(reason) = risk.daily_order_limit_reason(strategy_id, symbol, side) {
+    tracing::info!("리스크 주문 횟수 제한 — {}", reason);
+    return Ok(());
+}
+
 match self.trade_guard.evaluate(&signal, held_qty, avg_price, tick_price, exchange.is_some()) {
     GuardDecision::Allow => {}
     GuardDecision::Block { reason } => {
@@ -683,7 +695,58 @@ match self.trade_guard.evaluate(&signal, held_qty, avg_price, tick_price, exchan
 }
 ```
 
-> 마지막 업데이트: 2026-06-30T00:00:00
+주문 횟수 카운터는 신호 발생 시점이 아니라 KIS가 주문을 접수해 pending에 등록된 뒤 증가시킨다. 기본값은 전략/종목별 매수 1회, 매도 1회이며 0은 제한 없음으로 취급한다.
+
+연속 손실 차단은 매도 체결로 PnL이 확정된 뒤 `record_strategy_symbol_pnl()`에서 갱신한다. 손실이면 카운터를 증가시키고, 수익이면 해당 전략/종목의 카운터와 차단 상태를 해제한다. 포지션 청산을 막지 않기 위해 차단은 신규 `Buy` 신호에만 적용한다.
+
+> 마지막 업데이트: 2026-07-01T16:45:00
+
+---
+
+## 18. ATR 기반 변동성 주문 수량 산정 패턴
+
+고정 주문 수량은 종목 가격과 변동성이 달라질 때 계좌 위험을 일정하게 유지하지 못한다.
+자동매매 매수 주문은 `RiskManager`가 보관한 ATR과 계좌 총잔고를 기준으로 주문 직전에 수량을 다시 계산한다.
+
+### 구현 위치
+
+| 역할 | 위치 |
+|------|------|
+| ATR 캐시와 수량 계산 | `src-tauri/src/trading/risk.rs::RiskManager` |
+| 주문 직전 수량 조정 | `src-tauri/src/trading/order.rs::process_buy()` |
+| ATR 초기화 | `src-tauri/src/commands.rs::start_trading()` |
+| 총잔고 전달 | `src-tauri/src/commands.rs::run_trading_daemon()` → `poll_symbols_tick()` → `OrderManager::submit_signal()` |
+
+### 계산 기준
+
+```rust
+let risk_amount = total_balance_krw * risk_per_trade_bps / 10_000;
+let stop_distance = atr * atr_stop_multiplier;
+let risk_qty = risk_amount / stop_distance;
+let position_qty = (total_balance_krw * max_position_ratio) / tick_price;
+let adjusted_qty = min(risk_qty, position_qty);
+```
+
+- 국내 가격과 ATR은 KRW 정수 단위다.
+- 해외 가격과 ATR은 USD cents 단위이며, 수량 계산과 포지션 비중 검사는 체결 시점 환율로 KRW 환산한다.
+- ATR이 아직 준비되지 않았거나 총잔고를 조회하지 못하면 기존 전략 수량을 유지한다.
+- `risk_per_trade_bps == 0`이면 변동성 수량 산정을 사실상 우회한다.
+- 계산 결과가 0주면 매수 주문을 스킵한다.
+
+### UI/API 동기화
+
+`RiskConfigView`와 `UpdateRiskConfigInput`에는 아래 필드를 함께 유지한다.
+
+| 필드 | 의미 |
+|------|------|
+| `volatilitySizingEnabled` | ATR 기반 수량 산정 ON/OFF |
+| `riskPerTradeBps` | 거래당 허용 위험 한도. 100 = 1% |
+| `atrStopMultiplier` | ATR 기반 예상 손절폭 배수 |
+| `atrSymbolCount` | 자동매매 시작 후 ATR이 준비된 종목 수 |
+
+새 리스크 필드를 추가하면 Tauri IPC, axum `/api/risk-config`, `src/api/types.ts`, Settings UI를 동시에 갱신한다.
+
+> 마지막 업데이트: 2026-07-01T17:20:00
 
 ---
 
@@ -738,7 +801,7 @@ pub struct LeveragedTrendHoldEntry {
 | 구분 | 트래커 | 가격 단위 | 통계 반영 |
 |------|--------|-----------|-----------|
 | 국내 | `PositionTracker` | KRW 정수 | `StatsStore`/`RiskManager` 반영 |
-| 해외 | `OverseasPositionTracker` | USD × 100 cents | 해외 수수료/환율 구현 전까지 국내 통계에 혼입 금지 |
+| 해외 | `OverseasPositionTracker` | USD × 100 cents | 체결 시점 환율로 KRW 환산 후 `StatsStore`/`RiskManager` 반영 |
 
 ```rust
 pub struct OverseasPosition {
@@ -773,3 +836,91 @@ overseas_position_tracker.on_buy(
 ```
 
 > 마지막 업데이트: 2026-07-01T16:15:13
+
+---
+
+## 15. 해외 체결 수수료/환율 기록 패턴
+
+해외 자동매매 체결은 원본 USD 값과 KRW 환산값을 함께 저장한다. `TradeRecord`의 기존 `price`, `total_amount`, `fee`는 해외에서는 USD cents 단위이고, 화면/분석용 optional 필드에 USD와 KRW 값을 명시한다.
+
+```rust
+pub fn new_overseas(
+    symbol: String,
+    symbol_name: String,
+    side: TradeSide,
+    quantity: u64,
+    price_cents: u64,
+    fee_cents: u64,
+    order_id: String,
+    strategy_id: Option<String>,
+    signal_reason: String,
+    exchange: String,
+    exchange_rate_krw: f64,
+    realized_pnl_cents: Option<i64>,
+) -> Self
+```
+
+기록 필드:
+
+| 필드 | 단위 |
+|------|------|
+| `price_usd`, `total_amount_usd`, `fee_usd`, `realized_pnl_usd` | USD |
+| `exchange_rate_krw` | 체결 시점 USD/KRW |
+| `total_amount_krw`, `fee_krw`, `realized_pnl_krw` | KRW 환산 |
+
+해외 수수료는 KIS 체결 응답에 건별 수수료가 없으므로 체결 금액의 10bps를 추정치로 기록한다. 원화 통계에는 `fee_krw`와 `realized_pnl_krw`만 반영한다.
+
+> 마지막 업데이트: 2026-07-01T16:22:56
+
+---
+
+## 16. 주문번호 기반 부분체결 상태 패턴
+
+KIS 체결 조회 API로 주문번호를 확인할 때 `tot_ccld_qty`는 주문의 누적 체결 수량으로 취급한다. `OrderManager::on_fill()`은 누적 수량과 `PendingOrder.filled_quantity`의 차이만 포지션, 수수료, 거래 기록에 반영해야 한다.
+
+```rust
+let cumulative_filled = filled_qty.min(pending.record.quantity);
+if cumulative_filled <= pending.filled_quantity {
+    return Ok(());
+}
+let delta_qty = cumulative_filled - pending.filled_quantity;
+let is_complete = cumulative_filled >= pending.record.quantity;
+```
+
+상태 분리 규칙:
+
+| 상태 | 처리 |
+|------|------|
+| 미체결 | pending map에 유지, `status = Pending`, `filled_quantity = 0` |
+| 부분체결 | pending map에 유지, `status = PartiallyFilled`, `filled_quantity` 갱신 |
+| 완전체결 | pending map과 `symbol_to_odno`에서 제거, 증가분을 `Filled` 기록으로 저장 |
+| 주문 거부 | pending에 넣지 않고 `OrderStatus::Failed` 주문 이력으로 저장 |
+
+Dashboard 미체결 주문 IPC(`PendingOrderView`)는 `status`, `filled_quantity`, `remaining_quantity`를 camelCase로 내려 UI가 부분체결과 잔여 수량을 표시할 수 있게 한다.
+
+> 마지막 업데이트: 2026-07-01T16:33:25
+
+---
+
+## 17. 자동매매 슬리피지 기록 패턴
+
+전략 성과 분석을 위해 자동매매 체결 기록은 신호가, 주문가, 체결가를 함께 저장한다. `PendingOrder`가 신호 발생 시점 가격과 주문 제출 가격을 보존하고, 체결 시 `TradeRecord::with_execution_prices()`로 슬리피지 필드를 채운다.
+
+| 필드 | 의미 |
+|------|------|
+| `signal_price` | 전략 신호가 발생한 틱 가격 |
+| `order_price` | 주문 제출 가격. 국내 시장가는 0, 해외 지정가는 USD cents |
+| `price` | 실제 체결 평균가 |
+| `slippage` | 슬리피지 비용. 국내 KRW, 해외 USD cents |
+| `slippage_bps` | 신호가 대비 슬리피지 비용 bps |
+
+슬리피지는 비용 관점으로 계산한다. 매수는 `체결가 - 신호가`, 매도는 `신호가 - 체결가`이며 양수면 불리한 체결, 음수면 유리한 체결이다.
+
+```rust
+let slippage = match self.side {
+    TradeSide::Buy => self.price as i64 - signal_price as i64,
+    TradeSide::Sell => signal_price as i64 - self.price as i64,
+};
+```
+
+> 마지막 업데이트: 2026-07-01T16:45:00

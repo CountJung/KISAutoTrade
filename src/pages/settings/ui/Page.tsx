@@ -44,7 +44,7 @@ import FormControl from '@mui/material/FormControl'
 
 import StorageIcon from '@mui/icons-material/Storage'
 
-import { useSettingsStore } from '../store/settingsStore'
+import { useSettingsStore } from '../../../entities/settings'
 import {
   useAppConfig,
   useCheckConfig,
@@ -70,9 +70,9 @@ import {
   useUpdateRiskConfig,
   useRefreshConfig,
   useSetRefreshConfig,
-} from '../api/hooks'
-import type { AccountProfileView, AddProfileInput, UpdateProfileInput, UpdateRiskConfigInput } from '../api/types'
-import type { ThemeMode } from '../theme'
+} from '../../../api/hooks'
+import type { AccountProfileView, AddProfileInput, UpdateProfileInput, UpdateRiskConfigInput } from '../../../api/types'
+import type { ThemeMode } from '../../../shared/config/theme'
 
 const fmt = (n: number) => n.toLocaleString('ko-KR')
 
@@ -739,6 +739,12 @@ function RiskSection() {
 
   const [lossLimit, setLossLimit] = useState<number>(0)
   const [posRatio, setPosRatio]   = useState<number>(0)
+  const [buyLimit, setBuyLimit]   = useState<number>(1)
+  const [sellLimit, setSellLimit] = useState<number>(1)
+  const [lossBlockLimit, setLossBlockLimit] = useState<number>(3)
+  const [volatilitySizing, setVolatilitySizing] = useState<boolean>(false)
+  const [riskPerTradePct, setRiskPerTradePct] = useState<number>(1)
+  const [atrStopMultiplier, setAtrStopMultiplier] = useState<number>(2)
   const [dirty, setDirty]         = useState(false)
 
   // risk 데이터가 처음 로드되거나 외부에서 변경됐을 때 로컬 상태 초기화
@@ -746,6 +752,12 @@ function RiskSection() {
     if (risk && !dirty) {
       setLossLimit(risk.dailyLossLimit)
       setPosRatio(Math.round(risk.maxPositionRatio * 100))
+      setBuyLimit(risk.maxDailyBuyOrdersPerSymbol)
+      setSellLimit(risk.maxDailySellOrdersPerSymbol)
+      setLossBlockLimit(risk.maxConsecutiveLossesPerStrategySymbol)
+      setVolatilitySizing(risk.volatilitySizingEnabled)
+      setRiskPerTradePct(risk.riskPerTradeBps / 100)
+      setAtrStopMultiplier(risk.atrStopMultiplier)
     }
   }, [risk, dirty])
 
@@ -757,6 +769,12 @@ function RiskSection() {
     const input: UpdateRiskConfigInput = {
       dailyLossLimit: lossLimit,
       maxPositionRatio: posRatio / 100,
+      maxDailyBuyOrdersPerSymbol: buyLimit,
+      maxDailySellOrdersPerSymbol: sellLimit,
+      maxConsecutiveLossesPerStrategySymbol: lossBlockLimit,
+      volatilitySizingEnabled: volatilitySizing,
+      riskPerTradeBps: Math.round(riskPerTradePct * 100),
+      atrStopMultiplier,
     }
     updateRisk(input, { onSuccess: () => setDirty(false) })
   }
@@ -844,6 +862,16 @@ function RiskSection() {
                   비상정지 활성 — 대시보드의 리스크 관리 패널에서 해제할 수 있습니다.
                 </Alert>
               )}
+              {risk.blockedStrategySymbolCount > 0 && (
+                <Alert severity="warning" sx={{ mt: 1 }}>
+                  연속 손실로 신규 진입이 차단된 전략/종목 조합 {risk.blockedStrategySymbolCount}개
+                </Alert>
+              )}
+              {risk.volatilitySizingEnabled && (
+                <Alert severity={risk.atrSymbolCount > 0 ? 'info' : 'warning'} sx={{ mt: 1 }}>
+                  변동성 기반 수량 산정 활성 — ATR 준비 종목 {risk.atrSymbolCount}개
+                </Alert>
+              )}
             </Box>
 
             <Divider />
@@ -875,6 +903,78 @@ function RiskSection() {
                   disabled={saving}
                   onChange={(v) => { setPosRatio(v); setDirty(true) }}
                   onChangeCommitted={(v) => { setPosRatio(v); setDirty(true) }}
+                />
+                <SliderWithInput
+                  label="전략/종목별 일일 매수 제한"
+                  value={buyLimit}
+                  min={0}
+                  max={10}
+                  step={1}
+                  unit="회"
+                  disabled={saving}
+                  onChange={(v) => { setBuyLimit(v); setDirty(true) }}
+                  onChangeCommitted={(v) => { setBuyLimit(v); setDirty(true) }}
+                />
+                <SliderWithInput
+                  label="전략/종목별 일일 매도 제한"
+                  value={sellLimit}
+                  min={0}
+                  max={10}
+                  step={1}
+                  unit="회"
+                  disabled={saving}
+                  onChange={(v) => { setSellLimit(v); setDirty(true) }}
+                  onChangeCommitted={(v) => { setSellLimit(v); setDirty(true) }}
+                />
+                <SliderWithInput
+                  label="전략/종목별 연속 손실 차단"
+                  value={lossBlockLimit}
+                  min={0}
+                  max={10}
+                  step={1}
+                  unit="회"
+                  disabled={saving}
+                  onChange={(v) => { setLossBlockLimit(v); setDirty(true) }}
+                  onChangeCommitted={(v) => { setLossBlockLimit(v); setDirty(true) }}
+                />
+                <Divider />
+                <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>
+                      변동성 기반 주문 수량
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      자동매매 시작 시 일봉 ATR을 읽고 계좌 위험 한도와 손절폭으로 매수 수량을 계산합니다.
+                    </Typography>
+                  </Box>
+                  <Switch
+                    checked={volatilitySizing}
+                    onChange={(e) => { setVolatilitySizing(e.target.checked); setDirty(true) }}
+                    disabled={saving}
+                    color="success"
+                  />
+                </Stack>
+                <SliderWithInput
+                  label="거래당 위험 한도"
+                  value={riskPerTradePct}
+                  min={0}
+                  max={10}
+                  step={0.1}
+                  unit="%"
+                  disabled={saving || !volatilitySizing}
+                  onChange={(v) => { setRiskPerTradePct(v); setDirty(true) }}
+                  onChangeCommitted={(v) => { setRiskPerTradePct(v); setDirty(true) }}
+                />
+                <SliderWithInput
+                  label="ATR 손절 배수"
+                  value={atrStopMultiplier}
+                  min={0.5}
+                  max={10}
+                  step={0.5}
+                  unit="배"
+                  disabled={saving || !volatilitySizing}
+                  onChange={(v) => { setAtrStopMultiplier(v); setDirty(true) }}
+                  onChangeCommitted={(v) => { setAtrStopMultiplier(v); setDirty(true) }}
                 />
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <Button

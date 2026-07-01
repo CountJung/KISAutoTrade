@@ -66,11 +66,11 @@
 | `stop_trading` | 자동 매매 정지 |
 | `clear_buy_suspension` | 잔고 부족 매수 정지 수동 해제 |
 | `get_positions` | 포지션 목록 조회 |
-| `get_pending_orders` | 미체결 주문 조회 |
+| `get_pending_orders` | 미체결 주문 조회 (`status`, `filledQuantity`, `remainingQuantity` 포함) |
 | `get_strategies` | 전략 목록 조회 |
 | `update_strategy` | 전략 파라미터 업데이트 |
-| `get_risk_config` | 리스크 설정 조회 |
-| `update_risk_config` | 리스크 설정 변경 |
+| `get_risk_config` | 리스크 설정 조회 (손실/비중/일일 주문 제한/연속 손실/ATR 수량 산정) |
+| `update_risk_config` | 리스크 설정 변경 (손실/비중/일일 주문 제한/연속 손실/ATR 수량 산정) |
 | `clear_emergency_stop` | 비상정지 수동 해제 |
 | `activate_emergency_stop` | 비상정지 수동 발동 |
 

@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "build:app": "tauri build",
-    "build:app:debug": "tauri build --debug"
+    "build:app:debug": "tauri build --debug",
+    "check:fsd": "node scripts/check-fsd-imports.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",

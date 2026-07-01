@@ -337,6 +337,7 @@ impl AppState {
         let risk_manager = Arc::new(Mutex::new(RiskManager::default()));
         let position_tracker = Arc::new(Mutex::new(PositionTracker::new()));
         let overseas_position_tracker = Arc::new(Mutex::new(OverseasPositionTracker::new()));
+        let exchange_rate_krw = Arc::new(RwLock::new(1450.0_f64));
 
         // rest_client를 RwLock으로 감싸서 OrderManager와 공유
         let rest_client_rw = Arc::new(RwLock::new(rest_client));
@@ -348,6 +349,7 @@ impl AppState {
             Arc::clone(&position_tracker),
             Arc::clone(&overseas_position_tracker),
             Arc::clone(&stats_store),
+            Arc::clone(&exchange_rate_krw),
             Arc::clone(&risk_manager),
             discord.clone(),
         )));
@@ -555,7 +557,7 @@ impl AppState {
             web_port,
             ws_connected: Arc::new(AtomicBool::new(false)),
             trading_profile_id: Arc::new(RwLock::new(None)),
-            exchange_rate_krw: Arc::new(RwLock::new(1450.0_f64)),
+            exchange_rate_krw,
             refresh_config: Arc::new(RwLock::new(refresh_config)),
             refresh_interval_tx: Arc::new(refresh_interval_tx),
         }
@@ -591,6 +593,78 @@ fn normalize_overseas_order_exchange(code: &str) -> String {
         "AMS" | "AMEX" => "AMEX".to_string(),
         other => other.to_string(),
     }
+}
+
+fn parse_amount_i64(value: &str) -> i64 {
+    value.trim().replace(',', "").parse::<i64>().unwrap_or(0)
+}
+
+fn parse_amount_f64(value: &str) -> f64 {
+    value.trim().replace(',', "").parse::<f64>().unwrap_or(0.0)
+}
+
+fn balance_summary_total_krw(summary: Option<&BalanceSummary>) -> i64 {
+    let Some(summary) = summary else {
+        return 0;
+    };
+    let net_asset = parse_amount_i64(&summary.nass_amt);
+    if net_asset > 0 {
+        return net_asset;
+    }
+    parse_amount_i64(&summary.tot_evlu_amt)
+}
+
+async fn fetch_account_risk_balance_krw(
+    rest: &Arc<KisRestClient>,
+    include_overseas: bool,
+    exchange_rate_krw: f64,
+) -> i64 {
+    let domestic_total = match rest.get_balance().await {
+        Ok(resp) => balance_summary_total_krw(resp.summary.as_ref()),
+        Err(e) => {
+            tracing::warn!("리스크 총잔고 조회 실패(국내): {}", e);
+            0
+        }
+    };
+
+    if !include_overseas {
+        return domestic_total;
+    }
+
+    let overseas_total = match rest.get_overseas_balance().await {
+        Ok(resp) => resp
+            .summary
+            .as_ref()
+            .map(|s| (parse_amount_f64(&s.frcr_evlu_tota) * exchange_rate_krw).round() as i64)
+            .unwrap_or(0),
+        Err(e) => {
+            tracing::warn!("리스크 총잔고 조회 실패(해외): {}", e);
+            0
+        }
+    };
+
+    domestic_total.saturating_add(overseas_total.max(0))
+}
+
+fn calculate_atr(candles: &[OhlcCandle], period: usize) -> Option<u64> {
+    if candles.len() < 2 || period == 0 {
+        return None;
+    }
+    let start = candles.len().saturating_sub(period).max(1);
+    let mut ranges = Vec::with_capacity(candles.len().saturating_sub(start));
+    for idx in start..candles.len() {
+        let candle = candles[idx];
+        let prev_close = candles[idx - 1].close;
+        let high_low = candle.high.saturating_sub(candle.low);
+        let high_prev = candle.high.abs_diff(prev_close);
+        let low_prev = candle.low.abs_diff(prev_close);
+        ranges.push(high_low.max(high_prev).max(low_prev));
+    }
+    if ranges.is_empty() {
+        return None;
+    }
+    Some((ranges.iter().sum::<u64>() as f64 / ranges.len() as f64).round() as u64)
+        .filter(|atr| *atr > 0)
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -1579,6 +1653,14 @@ pub async fn start_trading(
                                     .lock()
                                     .await
                                     .initialize_ohlc(symbol, &ohlc);
+                                if let Some(atr) = calculate_atr(&ohlc, 14) {
+                                    state.risk_manager.lock().await.set_symbol_atr(symbol, atr);
+                                    tracing::info!(
+                                        "리스크 ATR 초기화 완료: {} ATR14={}",
+                                        symbol,
+                                        atr
+                                    );
+                                }
                             }
                             let ranges: Vec<u64> = candles
                                 .iter()
@@ -1701,6 +1783,15 @@ pub async fn start_trading(
                                         .lock()
                                         .await
                                         .initialize_ohlc(symbol, &ohlc);
+                                    if let Some(atr) = calculate_atr(&ohlc, 14) {
+                                        state.risk_manager.lock().await.set_symbol_atr(symbol, atr);
+                                        tracing::info!(
+                                            "해외 리스크 ATR 초기화: {} @ {} ATR14={} cents",
+                                            symbol,
+                                            exchange,
+                                            atr
+                                        );
+                                    }
                                 }
                                 let ranges: Vec<u64> = candles
                                     .iter()
@@ -1893,6 +1984,7 @@ async fn poll_symbols_tick(
     stock_store: &Arc<crate::storage::stock_store::StockStore>,
     rest: &Arc<KisRestClient>,
     delay_ms: u64,
+    total_balance_krw: i64,
     fills_pending: &mut Vec<(String, u64)>,
 ) -> TickCycleResult {
     for symbol in symbols {
@@ -1939,11 +2031,7 @@ async fn poll_symbols_tick(
         match tick {
             Ok((price, volume)) if price > 0 => {
                 let signals = strategy_mgr.lock().await.on_tick(symbol, price, volume);
-                for signal in signals {
-                    use crate::trading::strategy::Signal;
-                    if matches!(signal, Signal::Hold) {
-                        continue;
-                    }
+                for strategy_signal in signals {
                     let symbol_name = stock_store
                         .get_name(symbol)
                         .await
@@ -1951,7 +2039,14 @@ async fn poll_symbols_tick(
                     let submit_result = order_mgr
                         .lock()
                         .await
-                        .submit_signal(signal, &symbol_name, 0, exchange_opt.clone(), price)
+                        .submit_signal(
+                            Some(strategy_signal.strategy_id),
+                            strategy_signal.signal,
+                            &symbol_name,
+                            total_balance_krw,
+                            exchange_opt.clone(),
+                            price,
+                        )
                         .await;
                     match submit_result {
                         Ok(()) => {
@@ -2106,6 +2201,19 @@ pub async fn run_trading_daemon(
         }
         tracing::debug!("시장 상태: {}", open_markets_summary());
 
+        let exchange_rate = order_mgr.lock().await.current_exchange_rate_krw().await;
+        let total_balance_krw = fetch_account_risk_balance_krw(
+            &rest,
+            symbols.iter().any(|s| !is_domestic_symbol(s)),
+            exchange_rate,
+        )
+        .await;
+        if total_balance_krw <= 0 {
+            tracing::warn!(
+                "리스크 총잔고가 0원으로 조회되어 ATR 수량 산정과 포지션 비중 검사를 건너뜁니다."
+            );
+        }
+
         // ── Phase 8: 종목별 현재가 조회 + 전략 신호 처리 ───────────
         //   내부 루프는 poll_symbols_tick() 으로 분리 — goto 유사 패턴 없음
         let tick_result = poll_symbols_tick(
@@ -2116,6 +2224,7 @@ pub async fn run_trading_daemon(
             &stock_store,
             &rest,
             delay_ms,
+            total_balance_krw,
             &mut fills_pending,
         )
         .await;
@@ -2320,6 +2429,22 @@ pub struct RiskConfigView {
     pub daily_loss_limit: i64,
     /// 단일 종목 최대 비중 (0.0~1.0)
     pub max_position_ratio: f64,
+    /// 전략/종목별 일일 매수 주문 제한. 0이면 제한 없음.
+    pub max_daily_buy_orders_per_symbol: u32,
+    /// 전략/종목별 일일 매도 주문 제한. 0이면 제한 없음.
+    pub max_daily_sell_orders_per_symbol: u32,
+    /// 전략/종목별 연속 손실 차단 기준. 0이면 제한 없음.
+    pub max_consecutive_losses_per_strategy_symbol: u32,
+    /// ATR 기반 주문 수량 산정 활성화 여부
+    pub volatility_sizing_enabled: bool,
+    /// 거래당 허용 위험 한도(bps). 100 = 1%.
+    pub risk_per_trade_bps: u32,
+    /// ATR 손절폭 배수
+    pub atr_stop_multiplier: f64,
+    /// ATR이 준비된 종목 수
+    pub atr_symbol_count: usize,
+    /// 현재 연속 손실로 신규 진입이 차단된 전략/종목 조합 수
+    pub blocked_strategy_symbol_count: usize,
     /// 오늘 누적 총 손실 (음수)
     pub current_loss: i64,
     /// 오늘 누적 총 수익 (양수)
@@ -2339,6 +2464,14 @@ fn build_risk_view(risk: &crate::trading::risk::RiskManager) -> RiskConfigView {
         enabled: risk.is_enabled(),
         daily_loss_limit: risk.daily_loss_limit,
         max_position_ratio: risk.max_position_ratio,
+        max_daily_buy_orders_per_symbol: risk.max_daily_buy_orders_per_symbol,
+        max_daily_sell_orders_per_symbol: risk.max_daily_sell_orders_per_symbol,
+        max_consecutive_losses_per_strategy_symbol: risk.max_consecutive_losses_per_strategy_symbol,
+        volatility_sizing_enabled: risk.volatility_sizing_enabled,
+        risk_per_trade_bps: risk.risk_per_trade_bps,
+        atr_stop_multiplier: risk.atr_stop_multiplier,
+        atr_symbol_count: risk.atr_symbol_count(),
+        blocked_strategy_symbol_count: risk.blocked_strategy_symbol_count(),
         current_loss: risk.current_loss(),
         daily_profit: risk.daily_profit(),
         net_loss: risk.net_loss(),
@@ -2364,6 +2497,18 @@ pub struct UpdateRiskConfigInput {
     pub daily_loss_limit: Option<i64>,
     /// 0.01 ~ 1.0 (1% ~ 100%)
     pub max_position_ratio: Option<f64>,
+    /// 전략/종목별 일일 매수 주문 제한. 0이면 제한 없음.
+    pub max_daily_buy_orders_per_symbol: Option<u32>,
+    /// 전략/종목별 일일 매도 주문 제한. 0이면 제한 없음.
+    pub max_daily_sell_orders_per_symbol: Option<u32>,
+    /// 전략/종목별 연속 손실 차단 기준. 0이면 제한 없음.
+    pub max_consecutive_losses_per_strategy_symbol: Option<u32>,
+    /// ATR 기반 주문 수량 산정 활성화 여부
+    pub volatility_sizing_enabled: Option<bool>,
+    /// 거래당 허용 위험 한도(bps). 0이면 고정 수량 유지.
+    pub risk_per_trade_bps: Option<u32>,
+    /// ATR 손절폭 배수
+    pub atr_stop_multiplier: Option<f64>,
 }
 
 #[tauri::command]
@@ -2393,11 +2538,47 @@ pub async fn update_risk_config(
         }
         risk.max_position_ratio = ratio;
     }
+    if let Some(limit) = input.max_daily_buy_orders_per_symbol {
+        risk.max_daily_buy_orders_per_symbol = limit;
+    }
+    if let Some(limit) = input.max_daily_sell_orders_per_symbol {
+        risk.max_daily_sell_orders_per_symbol = limit;
+    }
+    if let Some(limit) = input.max_consecutive_losses_per_strategy_symbol {
+        risk.max_consecutive_losses_per_strategy_symbol = limit;
+    }
+    if let Some(enabled) = input.volatility_sizing_enabled {
+        risk.volatility_sizing_enabled = enabled;
+    }
+    if let Some(bps) = input.risk_per_trade_bps {
+        if bps > 10_000 {
+            return Err(CmdError {
+                code: "INVALID_PARAM".into(),
+                message: "거래당 위험 한도는 0~10000bps 범위여야 합니다.".into(),
+            });
+        }
+        risk.risk_per_trade_bps = bps;
+    }
+    if let Some(multiplier) = input.atr_stop_multiplier {
+        if !(0.1..=20.0).contains(&multiplier) {
+            return Err(CmdError {
+                code: "INVALID_PARAM".into(),
+                message: "ATR 손절 배수는 0.1~20.0 범위여야 합니다.".into(),
+            });
+        }
+        risk.atr_stop_multiplier = multiplier;
+    }
     tracing::info!(
-        "리스크 설정 변경: 활성={}, 일일손실한도={}원, 종목비중={:.0}%",
+        "리스크 설정 변경: 활성={}, 일일손실한도={}원, 종목비중={:.0}%, 일일주문제한(매수/매도)={}/{}, 연속손실차단={}회, ATR수량산정={}, 거래당위험={}bps, ATR배수={:.2}",
         risk.is_enabled(),
         risk.daily_loss_limit,
-        risk.max_position_ratio * 100.0
+        risk.max_position_ratio * 100.0,
+        risk.max_daily_buy_orders_per_symbol,
+        risk.max_daily_sell_orders_per_symbol,
+        risk.max_consecutive_losses_per_strategy_symbol,
+        risk.volatility_sizing_enabled,
+        risk.risk_per_trade_bps,
+        risk.atr_stop_multiplier
     );
     Ok(build_risk_view(&risk))
 }
@@ -2430,7 +2611,11 @@ pub struct PendingOrderView {
     pub symbol_name: String,
     /// "buy" | "sell"
     pub side: String,
+    /// "pending" | "partially_filled" | "filled" | "cancelled" | "failed"
+    pub status: String,
     pub quantity: u64,
+    pub filled_quantity: u64,
+    pub remaining_quantity: u64,
     pub timestamp: String,
     pub signal_reason: String,
 }
@@ -2449,7 +2634,18 @@ pub async fn get_pending_orders(state: State<'_, AppState>) -> CmdResult<Vec<Pen
                 crate::storage::order_store::OrderSide::Buy => "buy".into(),
                 crate::storage::order_store::OrderSide::Sell => "sell".into(),
             },
+            status: match &p.record.status {
+                crate::storage::order_store::OrderStatus::Pending => "pending".into(),
+                crate::storage::order_store::OrderStatus::Filled => "filled".into(),
+                crate::storage::order_store::OrderStatus::PartiallyFilled => {
+                    "partially_filled".into()
+                }
+                crate::storage::order_store::OrderStatus::Cancelled => "cancelled".into(),
+                crate::storage::order_store::OrderStatus::Failed => "failed".into(),
+            },
             quantity: p.record.quantity,
+            filled_quantity: p.filled_quantity,
+            remaining_quantity: p.record.quantity.saturating_sub(p.filled_quantity),
             timestamp: p.record.timestamp.clone(),
             signal_reason: p.signal_reason.clone(),
         })

@@ -56,7 +56,7 @@ import {
   useRefreshInterval,
   useClearBuySuspension,
   KEYS,
-} from '../api/hooks'
+} from '../../../api/hooks'
 
 function fmt(n: number) {
   return n.toLocaleString('ko-KR')
@@ -117,6 +117,11 @@ function RiskPanel() {
         >
           <strong>비상 정지 활성</strong> — 일일 순손실 한도를 초과하여 자동 매매가 중단되었습니다.
           시장 상황을 확인 후 수동으로 해제하세요.
+        </Alert>
+      )}
+      {risk.blockedStrategySymbolCount > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          연속 손실로 신규 진입이 차단된 전략/종목 조합 {risk.blockedStrategySymbolCount}개
         </Alert>
       )}
 
@@ -576,38 +581,60 @@ function PendingOrdersPanel() {
           <TableRow>
             <TableCell>종목</TableCell>
             <TableCell>구분</TableCell>
+            <TableCell>상태</TableCell>
             <TableCell align="right">수량</TableCell>
             <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>주문번호</TableCell>
             <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>신호 이유</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {orders.map((o) => (
-            <TableRow key={o.odno || o.symbol + o.timestamp}>
-              <TableCell>
-                <Typography variant="body2" noWrap>{o.symbolName}</Typography>
-                <Typography variant="caption" color="text.secondary">{o.symbol}</Typography>
-              </TableCell>
-              <TableCell>
-                <Chip
-                  label={o.side === 'buy' ? '매수' : '매도'}
-                  color={o.side === 'buy' ? 'primary' : 'error'}
-                  size="small"
-                />
-              </TableCell>
-              <TableCell align="right">{o.quantity.toLocaleString()}</TableCell>
-              <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                <Typography variant="caption" color="text.secondary" noWrap>
-                  {o.odno || '—'}
-                </Typography>
-              </TableCell>
-              <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                <Typography variant="caption" color="text.secondary" noWrap>
-                  {o.signalReason || '—'}
-                </Typography>
-              </TableCell>
-            </TableRow>
-          ))}
+          {orders.map((o) => {
+            const isPartial = o.status === 'partially_filled'
+            const statusLabel = isPartial ? '부분체결' : o.status === 'failed' ? '실패' : '미체결'
+            const quantityLabel = isPartial ? `${fmt(o.filledQuantity)} / ${fmt(o.quantity)}` : fmt(o.quantity)
+
+            return (
+              <TableRow key={o.odno || o.symbol + o.timestamp}>
+                <TableCell>
+                  <Typography variant="body2" noWrap>{o.symbolName}</Typography>
+                  <Typography variant="caption" color="text.secondary">{o.symbol}</Typography>
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={o.side === 'buy' ? '매수' : '매도'}
+                    color={o.side === 'buy' ? 'primary' : 'error'}
+                    size="small"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={statusLabel}
+                    color={isPartial ? 'warning' : o.status === 'failed' ? 'error' : 'default'}
+                    size="small"
+                    variant={isPartial ? 'filled' : 'outlined'}
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <Typography variant="body2" noWrap>{quantityLabel}</Typography>
+                  {isPartial && (
+                    <Typography variant="caption" color="text.secondary" noWrap>
+                      잔여 {fmt(o.remainingQuantity)}
+                    </Typography>
+                  )}
+                </TableCell>
+                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                  <Typography variant="caption" color="text.secondary" noWrap>
+                    {o.odno || '-'}
+                  </Typography>
+                </TableCell>
+                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                  <Typography variant="caption" color="text.secondary" noWrap>
+                    {o.signalReason || '-'}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )
+          })}
         </TableBody>
       </Table>
     </TableContainer>

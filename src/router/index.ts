@@ -1,11 +1,11 @@
 import { createRouter, createRoute, createRootRoute } from '@tanstack/react-router'
-import { AppShell } from '../components/layout/AppShell'
-import Dashboard from '../pages/Dashboard'
-import Trading from '../pages/Trading'
-import Strategy from '../pages/Strategy'
-import History from '../pages/History'
-import Log from '../pages/Log'
-import Settings from '../pages/Settings'
+import { AppShell } from '../widgets/app-shell'
+import Dashboard from '../pages/dashboard'
+import Trading from '../pages/trading'
+import Strategy from '../pages/strategy'
+import History from '../pages/history'
+import Log from '../pages/log'
+import Settings from '../pages/settings'
 
 const rootRoute = createRootRoute({
   component: AppShell,

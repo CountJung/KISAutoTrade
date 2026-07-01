@@ -72,3 +72,48 @@ where
     fs::write(path, content).await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn daily_path_uses_date_components_without_string_separators() {
+        let base = PathBuf::from("app data");
+        let date = NaiveDate::from_ymd_opt(2026, 7, 1).expect("valid date");
+        let path = build_daily_path(&base, "trades", date, "trades.json");
+
+        assert_eq!(
+            path.file_name().and_then(|v| v.to_str()),
+            Some("trades.json")
+        );
+        let parts: Vec<String> = path
+            .components()
+            .map(|part| part.as_os_str().to_string_lossy().to_string())
+            .collect();
+        assert!(parts.ends_with(&[
+            "trades".to_string(),
+            "2026".to_string(),
+            "07".to_string(),
+            "01".to_string(),
+            "trades.json".to_string(),
+        ]));
+    }
+
+    #[test]
+    fn monthly_path_zero_pads_month_for_stats() {
+        let base = PathBuf::from("app data");
+        let path = build_monthly_path(&base, "stats", 2026, 7, "daily_stats.json");
+
+        let parts: Vec<String> = path
+            .components()
+            .map(|part| part.as_os_str().to_string_lossy().to_string())
+            .collect();
+        assert!(parts.ends_with(&[
+            "stats".to_string(),
+            "2026".to_string(),
+            "07".to_string(),
+            "daily_stats.json".to_string(),
+        ]));
+    }
+}

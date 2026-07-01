@@ -10,8 +10,8 @@ import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
 import useMediaQuery from '@mui/material/useMediaQuery'
 
-import { useRecentLogs } from '../api/hooks'
-import type { AppLogEntry } from '../api/types'
+import { useRecentLogs } from '../../../api/hooks'
+import type { AppLogEntry } from '../../../api/types'
 
 type LogLevel = 'ALL' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'TRACE'
 

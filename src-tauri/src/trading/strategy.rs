@@ -20,6 +20,13 @@ pub enum Signal {
     Hold,
 }
 
+/// 어떤 전략이 발생시킨 신호인지 함께 보존하는 자동매매 신호
+#[derive(Debug, Clone)]
+pub struct StrategySignal {
+    pub strategy_id: String,
+    pub signal: Signal,
+}
+
 /// 전략 설정 (JSON 직렬화 가능)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StrategyConfig {
@@ -218,11 +225,20 @@ impl StrategyManager {
         self.strategies.push(strategy);
     }
 
-    pub fn on_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Vec<Signal> {
+    pub fn on_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Vec<StrategySignal> {
         self.strategies
             .iter_mut()
-            .map(|s| s.on_tick(symbol, price, volume))
-            .filter(|sig| *sig != Signal::Hold)
+            .filter_map(|s| {
+                let signal = s.on_tick(symbol, price, volume);
+                if signal == Signal::Hold {
+                    None
+                } else {
+                    Some(StrategySignal {
+                        strategy_id: s.id().to_string(),
+                        signal,
+                    })
+                }
+            })
             .collect()
     }
 

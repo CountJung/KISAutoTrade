@@ -37,9 +37,9 @@ import {
   useTradingStatus,
   useStockSearch,
   useRefreshStockList,
-} from '../api/hooks'
-import * as cmd from '../api/commands'
-import type { CmdError, LeveragedTrendHoldEntry, OverseasExchange, PriceConditionSymbolConfig, StockSearchItem, UpdateStrategyInput } from '../api/types'
+} from '../../../api/hooks'
+import * as cmd from '../../../api/commands'
+import type { CmdError, LeveragedTrendHoldEntry, OverseasExchange, PriceConditionSymbolConfig, StockSearchItem, UpdateStrategyInput } from '../../../api/types'
 
 type Market = 'KR' | 'US'
 

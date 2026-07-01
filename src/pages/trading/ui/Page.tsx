@@ -43,8 +43,8 @@ import {
   useTradingStatus,
   useClearBuySuspension,
   useAppConfig,
-} from '../api/hooks'
-import * as cmd from '../api/commands'
+} from '../../../api/hooks'
+import * as cmd from '../../../api/commands'
 import type {
   BalanceItem,
   OverseasBalanceItem,
@@ -53,9 +53,8 @@ import type {
   OverseasOrderExchange,
   OrderSide,
   OrderType,
-} from '../api/types'
-import { StockChart } from '../components/chart/StockChart'
-import { OverseasStockChart } from '../components/chart/OverseasStockChart'
+} from '../../../api/types'
+import { StockChart, OverseasStockChart } from '../../../widgets/stock-chart'
 
 function fmt(n: number) {
   return n.toLocaleString('ko-KR')

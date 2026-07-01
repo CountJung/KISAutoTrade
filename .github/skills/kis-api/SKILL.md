@@ -1029,6 +1029,21 @@ if let Some(order) = executed.iter().find(|o| o.odno == odno) {
 
 해외 체결가는 자동매매 내부 단위와 맞추기 위해 USD × 100(cents)로 변환한다.
 
+### 부분체결/거부 상태 처리
+
+KIS 체결 조회의 체결 수량은 주문번호 기준 누적 체결량으로 처리한다. `OrderManager::on_fill()`은 이미 반영한 `PendingOrder.filled_quantity`와 비교해 증가분만 포지션과 거래 기록에 반영한다.
+
+| 상태 | 프로젝트 처리 |
+|------|---------------|
+| 미체결 | pending map에 유지하고 Dashboard에 `미체결` 표시 |
+| 부분체결 | pending map에 유지, `OrderStatus::PartiallyFilled`, 체결/전체/잔여 수량 표시 |
+| 완전체결 | pending map과 `symbol_to_odno`에서 제거 |
+| 주문 접수 거부 | pending에 넣지 않고 `OrderStatus::Failed` 주문 이력으로 저장 |
+
+❌ **잘못된 패턴**: 체결 조회의 누적 수량 전체를 매번 포지션에 더하거나, 부분체결을 완전체결처럼 pending에서 제거한다.
+
+✅ **올바른 패턴**: `delta_qty = cumulative_filled - filled_quantity`만 반영하고 완전체결 전까지 pending 상태를 유지한다.
+
 ```rust
 // 폴링 루프 시작 전 선언
 let mut fills_pending: Vec<(String, u64)> = Vec::new(); // (symbol, 접수 당시 가격)
@@ -1072,6 +1087,8 @@ if is_rate_limit && attempt < MAX_RETRIES - 1 {
     tokio::time::sleep(Duration::from_secs(2)).await; // 2초 대기 (모의: 0.5req/s)
 }
 ```
+
+> 마지막 업데이트: 2026-07-01T16:33:25
 
 ---
 
@@ -1545,7 +1562,49 @@ let trade_record = TradeRecord::new(..., fee, ...);
 stats.fees_paid += fee;  // DailyStats에도 누적
 ```
 
-> 마지막 업데이트: 2026-07-01T16:06:54
+### 해외주식 수수료/환율 기록 패턴
+
+해외 체결도 KIS API에서 건별 수수료를 제공하지 않으므로 **추정 수수료**를 사용한다.
+현재 프로젝트는 자동매매 guard의 해외 비용 기본값과 맞춰 체결금액의 10bps(0.10%)를 USD cents 단위로 계산한다.
+
+```rust
+fn calculate_overseas_fee_cents(price_cents: u64, quantity: u64) -> u64 {
+    let total_cents = price_cents.saturating_mul(quantity);
+    ((total_cents as f64) * 0.001).ceil() as u64
+}
+```
+
+해외 체결 기록은 `TradeRecord::new_overseas()`를 사용해 다음 값을 함께 저장한다.
+
+| 필드 | 의미 |
+|------|------|
+| `price_usd`, `total_amount_usd`, `fee_usd` | USD 기준 체결 단가/금액/추정 수수료 |
+| `exchange_rate_krw` | 체결 시점 `AppState.exchange_rate_krw` 캐시값 |
+| `total_amount_krw`, `fee_krw` | 체결 금액/수수료의 KRW 환산 |
+| `realized_pnl_usd`, `realized_pnl_krw` | 매도 체결 손익의 USD/KRW 기록 |
+
+```rust
+let exchange_rate = *self.exchange_rate_krw.read().await;
+let fee_cents = calculate_overseas_fee_cents(avg_price_cents, filled_qty);
+let trade_record = TradeRecord::new_overseas(
+    symbol,
+    symbol_name,
+    trade_side,
+    filled_qty,
+    avg_price_cents,
+    fee_cents,
+    order_id,
+    strategy_id,
+    signal_reason,
+    exchange,
+    exchange_rate,
+    realized_pnl_cents,
+);
+```
+
+`DailyStats`와 `RiskManager`는 원화 기준이므로 해외 매도 손익은 체결 시점 환율로 KRW 환산한 값을 반영한다.
+
+> 마지막 업데이트: 2026-07-01T16:22:56
 
 
 ---

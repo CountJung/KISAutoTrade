@@ -30,36 +30,42 @@ AutoConditionTrade/                   ← 루트
 │   ├── project-map.md                ← [이 파일] 디렉토리 맵 + 아키텍처
 │   ├── ipc-commands.md               ← IPC 커맨드 전체 목록 (35개)
 │   ├── coding-guide.md               ← 설정 추가·AppState·IPC·데몬·제어흐름 실전 가이드
+│   ├── mock-trading-e2e-checklist.md ← 모의투자 국내/해외/E2E 검증 체크리스트
 │   ├── MasterPlan.md                 ← 전체 설계 문서 (아카이브, 읽기 전용)
 │   ├── discord-setup-guide.md        ← Discord 봇 설정 가이드
 │   └── user-guide.md                 ← 사용 가이드 (개요·전략 세팅)
 │
-├── src/                              ← React Frontend (TypeScript)
+├── scripts/check-fsd-imports.mjs     ← FSD 레이어 역방향 import 검증
+│
+├── src/                              ← React Frontend (TypeScript, FSD 점진 구조)
 │   ├── main.tsx                      ← React 진입점 (QueryClient, RouterProvider)
 │   ├── router/index.ts               ← TanStack Router 코드 기반 라우팅 ✅
-│   ├── api/
-│   │   ├── types.ts                  ← Rust 타입 미러 (TypeScript)
-│   │   ├── commands.ts               ← invoke() 래퍼 함수 37종
-│   │   ├── hooks.ts                  ← TanStack Query 훅 모음 (KEYS 상수)
-│   │   └── transport.ts              ← Tauri IPC / Web REST 듀얼 모드
-│   ├── theme/index.ts                ← createAppTheme, getResolvedMode
-│   ├── store/
-│   │   ├── settingsStore.ts          ← 테마/로그/Discord 설정 (zustand+persist)
-│   │   ├── accountStore.ts           ← 계좌 잔고 상태
-│   │   └── tradingStore.ts           ← 자동매매 실행 상태
-│   ├── components/
-│   │   ├── LayoutResizer.tsx         ← 사이드바 드래그 리사이즈
-│   │   ├── chart/StockChart.tsx      ← lightweight-charts v5 국내주식 캔들
-│   │   ├── chart/OverseasStockChart.tsx ← lightweight-charts v5 해외주식 캔들
-│   │   ├── layout/AppShell.tsx       ← 전체 레이아웃 + ThemeProvider + Outlet
-│   │   └── layout/Sidebar.tsx        ← MUI permanent/temporary Drawer
-│   └── pages/
-│       ├── Dashboard.tsx             ← 잔고/수익 카드, 포지션, 미체결/체결, 리스크
-│       ├── Trading.tsx               ← 수동 매수/매도 + 종목 검색 + 체결 내역
-│       ├── Strategy.tsx              ← 전략 ON/OFF + 파라미터 설정 (11개 전략)
-│       ├── History.tsx               ← 날짜 범위 조회, 자동매매 체결 기록
-│       ├── Log.tsx                   ← 레벨 필터, 검색, 색상 구분 로그 뷰어
-│       └── Settings.tsx              ← API 키, 테마, 멀티 계좌, 웹 포트, 갱신 주기
+│   ├── shared/
+│   │   ├── api/                      ← Tauri IPC/Web REST 공통 wrapper + Rust 타입 미러
+│   │   ├── config/theme/             ← createAppTheme, getResolvedMode
+│   │   ├── config/scheduler/         ← 전역 폴링 주기 상수
+│   │   └── ui/LayoutResizer.tsx      ← 범용 리사이저 UI
+│   ├── entities/
+│   │   ├── account/model/            ← 계좌 상태 store
+│   │   ├── settings/model/           ← 테마/로그/Discord 설정 store
+│   │   └── trading/model/            ← 자동매매 실행 상태 store
+│   ├── features/                     ← manual-order, symbol-search 등 행동 단위 slice scaffold
+│   ├── widgets/
+│   │   ├── app-shell/                ← 전체 레이아웃 + ThemeProvider + Outlet
+│   │   ├── sidebar/                  ← MUI permanent/temporary Drawer
+│   │   └── stock-chart/              ← 국내/해외 lightweight-charts v5 캔들
+│   ├── pages/
+│   │   ├── dashboard/ui/Page.tsx     ← 잔고/수익 카드, 포지션, 미체결/체결, 리스크
+│   │   ├── trading/ui/Page.tsx       ← 수동 매수/매도 + 종목 검색 + 체결 내역
+│   │   ├── strategy/ui/Page.tsx      ← 전략 ON/OFF + 파라미터 설정 (11개 전략)
+│   │   ├── history/ui/Page.tsx       ← 날짜 범위 조회, 자동매매 체결 기록
+│   │   ├── log/ui/Page.tsx           ← 레벨 필터, 검색, 색상 구분 로그 뷰어
+│   │   └── settings/ui/Page.tsx      ← API 키, 테마, 멀티 계좌, 웹 포트, 리스크 설정
+│   ├── api/                          ← shared/api 호환 re-export + TanStack Query hooks
+│   ├── components/                   ← widgets/shared 호환 re-export
+│   ├── store/                        ← entities 호환 re-export
+│   ├── theme/                        ← shared/config/theme 호환 re-export
+│   └── scheduler/                    ← shared/config/scheduler 호환 re-export
 │
 └── src-tauri/                        ← Rust Backend
     ├── Cargo.toml                    ← Tauri v2 + reqwest + tokio + tracing
@@ -120,11 +126,15 @@ AutoConditionTrade/                   ← 루트
 | 모듈 | 책임 |
 |------|------|
 | `router/` | TanStack Router 기반 라우팅 |
-| `store/` | Zustand 전역 상태 (계좌, 매매, 설정) |
-| `api/hooks.ts` | TanStack Query 훅 + `useBackendEvents()` (Tauri 이벤트 → 캐시 갱신) |
-| `api/commands.ts` | invoke() 래퍼 (37종) |
-| `pages/Settings.tsx` | 데이터 갱신 주기 슬라이더, 웹 포트, 계좌 프로파일, 로그 설정 |
-| `pages/Dashboard.tsx` | 잔고/수익 카드, 포지션, 미체결/체결, 리스크 |
+| `shared/api/` | Tauri IPC/Web REST wrapper, Rust 타입 미러 |
+| `shared/config/theme/` | 앱 테마 생성과 theme mode 타입 |
+| `shared/config/scheduler/` | TanStack Query 공통 폴링 주기 |
+| `entities/*/model/` | Zustand 전역 상태 (계좌, 매매, 설정) |
+| `api/hooks.ts` | TanStack Query 훅 + `useBackendEvents()` (Tauri 이벤트 → 캐시 갱신, 점진 이동 전 legacy entry) |
+| `widgets/app-shell/` | 전체 앱 레이아웃, ThemeProvider, responsive navigation |
+| `widgets/stock-chart/` | 국내/해외 캔들 차트 |
+| `pages/settings/ui/Page.tsx` | 데이터 갱신 주기 슬라이더, 웹 포트, 계좌 프로파일, 로그/리스크 설정 |
+| `pages/dashboard/ui/Page.tsx` | 잔고/수익 카드, 포지션, 미체결/체결, 리스크 |
 
 ### Backend (Rust)
 

@@ -231,3 +231,83 @@ impl Default for TradeGuard {
 fn is_stop_loss_reason(reason: &str) -> bool {
     reason.contains("손절") || reason.contains("stop") || reason.contains("Stop")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn buy_signal() -> Signal {
+        Signal::Buy {
+            symbol: "005930".to_string(),
+            quantity: 1,
+            reason: "test buy".to_string(),
+        }
+    }
+
+    fn sell_signal(reason: &str) -> Signal {
+        Signal::Sell {
+            symbol: "005930".to_string(),
+            quantity: 1,
+            reason: reason.to_string(),
+        }
+    }
+
+    #[test]
+    fn blocks_repeated_same_side_signal_inside_cooldown() {
+        let mut guard = TradeGuard::default();
+        let signal = buy_signal();
+
+        assert!(matches!(
+            guard.evaluate(&signal, 0, None, 70_000, false),
+            GuardDecision::Allow
+        ));
+        guard.record_submitted(&signal);
+
+        assert!(matches!(
+            guard.evaluate(&signal, 0, None, 70_000, false),
+            GuardDecision::Block { .. }
+        ));
+    }
+
+    #[test]
+    fn blocks_reentry_after_stop_loss_sell_on_same_day() {
+        let mut guard = TradeGuard::default();
+        let sell = sell_signal("손절 매도");
+        guard.record_submitted(&sell);
+
+        assert!(matches!(
+            guard.evaluate(&buy_signal(), 0, None, 70_000, false),
+            GuardDecision::Block { reason } if reason.contains("손절 후")
+        ));
+    }
+
+    #[test]
+    fn blocks_whipsaw_after_repeated_opposite_signals() {
+        let config = TradeGuardConfig {
+            same_side_cooldown_min: 0,
+            after_sell_buy_cooldown_min: 0,
+            max_opposite_signals: 2,
+            ..TradeGuardConfig::default()
+        };
+        let mut guard = TradeGuard::new(config);
+        let sell = sell_signal("test sell");
+        guard.record_submitted(&sell);
+        guard.record_submitted(&sell);
+
+        assert!(matches!(
+            guard.evaluate(&buy_signal(), 0, None, 70_000, false),
+            GuardDecision::Block { reason } if reason.contains("반대 신호 반복")
+        ));
+    }
+
+    #[test]
+    fn blocks_tiny_profit_after_costs() {
+        let mut guard = TradeGuard::default();
+        let sell = sell_signal("익절 매도");
+
+        assert!(matches!(
+            guard.evaluate(&sell, 1, Some(70_000), 70_010, false),
+            GuardDecision::Block { reason } if reason.contains("기대 순익")
+        ));
+    }
+}
