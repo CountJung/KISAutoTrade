@@ -24,7 +24,9 @@ pub struct RiskManager {
     last_reset_date: Option<chrono::NaiveDate>,
 }
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 impl RiskManager {
     pub fn new(daily_loss_limit: i64, max_position_ratio: f64) -> Self {
@@ -77,13 +79,18 @@ impl RiskManager {
             self.daily_profit += pnl;
         }
         // 리스크 관리 비활성 시 자동 비상정지 스킵
-        if !self.enabled { return; }
+        if !self.enabled {
+            return;
+        }
         // 순손실이 한도 이상이면 비상 정지
         if self.net_loss() >= self.daily_loss_limit {
             self.emergency_stop = true;
             tracing::warn!(
                 "일일 순손실 한도 초과 — 손실{}원 - 수익{}원 = 순손실{}원 / 한도{}원 → 비상 정지",
-                self.current_loss.abs(), self.daily_profit, self.net_loss(), self.daily_loss_limit
+                self.current_loss.abs(),
+                self.daily_profit,
+                self.net_loss(),
+                self.daily_loss_limit
             );
         }
     }
@@ -103,12 +110,17 @@ impl RiskManager {
     }
 
     /// 리스크 관리 활성화 여부
-    pub fn is_enabled(&self) -> bool { self.enabled }
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
 
     /// 리스크 관리 활성화 토글
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
-        tracing::info!("리스크 관리 {}", if enabled { "활성화" } else { "비활성화" });
+        tracing::info!(
+            "리스크 관리 {}",
+            if enabled { "활성화" } else { "비활성화" }
+        );
     }
 
     /// 비상 정지 상태
@@ -148,10 +160,14 @@ impl RiskManager {
     }
 
     /// 오늘 누적 총 손실 (음수)
-    pub fn current_loss(&self) -> i64 { self.current_loss }
+    pub fn current_loss(&self) -> i64 {
+        self.current_loss
+    }
 
     /// 오늘 누적 총 수익 (양수)
-    pub fn daily_profit(&self) -> i64 { self.daily_profit }
+    pub fn daily_profit(&self) -> i64 {
+        self.daily_profit
+    }
 }
 
 impl Default for RiskManager {
@@ -160,4 +176,3 @@ impl Default for RiskManager {
         Self::new(500_000, 0.20)
     }
 }
-

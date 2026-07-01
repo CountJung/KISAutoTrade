@@ -86,7 +86,12 @@ impl TradeStore {
 
     /// 오늘의 체결 기록 파일 경로
     fn today_path(&self) -> PathBuf {
-        build_daily_path(&self.data_dir, "trades", Local::now().date_naive(), "trades.json")
+        build_daily_path(
+            &self.data_dir,
+            "trades",
+            Local::now().date_naive(),
+            "trades.json",
+        )
     }
 
     /// 체결 기록 저장
@@ -105,11 +110,7 @@ impl TradeStore {
     }
 
     /// 날짜 범위 체결 기록 조회
-    pub async fn get_by_range(
-        &self,
-        from: NaiveDate,
-        to: NaiveDate,
-    ) -> Result<Vec<TradeRecord>> {
+    pub async fn get_by_range(&self, from: NaiveDate, to: NaiveDate) -> Result<Vec<TradeRecord>> {
         let mut all = Vec::new();
         let mut current = from;
         while current <= to {

@@ -5,12 +5,12 @@ pub mod stock_store;
 pub mod strategy_store;
 pub mod trade_store;
 
-pub use trade_store::TradeStore;
+pub use balance_store::BalanceStore;
 pub use order_store::OrderStore;
 pub use stats_store::StatsStore;
-pub use balance_store::BalanceStore;
 pub use stock_store::StockStore;
 pub use strategy_store::StrategyStore;
+pub use trade_store::TradeStore;
 
 use anyhow::Result;
 use chrono::{Datelike, NaiveDate};
@@ -19,12 +19,7 @@ use tokio::fs;
 
 /// 날짜 기반 저장 경로 생성
 /// {base}/{category}/{YYYY}/{MM}/{DD}/{filename}
-pub fn build_daily_path(
-    base: &Path,
-    category: &str,
-    date: NaiveDate,
-    filename: &str,
-) -> PathBuf {
+pub fn build_daily_path(base: &Path, category: &str, date: NaiveDate, filename: &str) -> PathBuf {
     base.join(category)
         .join(format!("{:04}", date.year()))
         .join(format!("{:02}", date.month()))

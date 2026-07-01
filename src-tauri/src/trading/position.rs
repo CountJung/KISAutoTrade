@@ -140,3 +140,133 @@ impl Default for PositionTracker {
     }
 }
 
+/// 해외 단일 종목 포지션.
+///
+/// 가격은 자동매매 내부 단위와 동일하게 USD × 100(cents) 정수로 저장한다.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OverseasPosition {
+    pub symbol: String,
+    pub symbol_name: String,
+    pub exchange: String,
+    pub quantity: u64,
+    pub avg_price_cents: f64,
+    pub current_price_cents: u64,
+}
+
+impl OverseasPosition {
+    pub fn new(
+        symbol: String,
+        symbol_name: String,
+        exchange: String,
+        quantity: u64,
+        price_cents: u64,
+    ) -> Self {
+        Self {
+            symbol,
+            symbol_name,
+            exchange,
+            quantity,
+            avg_price_cents: price_cents as f64,
+            current_price_cents: price_cents,
+        }
+    }
+
+    pub fn add_buy(&mut self, quantity: u64, price_cents: u64) {
+        let total_cost =
+            self.avg_price_cents * self.quantity as f64 + price_cents as f64 * quantity as f64;
+        self.quantity += quantity;
+        self.avg_price_cents = total_cost / self.quantity as f64;
+    }
+
+    pub fn reduce(&mut self, quantity: u64) {
+        self.quantity = self.quantity.saturating_sub(quantity);
+    }
+
+    pub fn unrealized_pnl_cents(&self) -> i64 {
+        (self.current_price_cents as i64 - self.avg_price_cents as i64) * self.quantity as i64
+    }
+}
+
+/// 해외 포지션 추적기.
+///
+/// 국내 `PositionTracker`와 분리해 USD cents, 거래소 코드, 해외 보유 수량을 보존한다.
+pub struct OverseasPositionTracker {
+    positions: HashMap<String, OverseasPosition>,
+}
+
+impl OverseasPositionTracker {
+    pub fn new() -> Self {
+        Self {
+            positions: HashMap::new(),
+        }
+    }
+
+    pub fn on_buy(
+        &mut self,
+        symbol: String,
+        symbol_name: String,
+        exchange: String,
+        quantity: u64,
+        price_cents: u64,
+    ) {
+        self.positions
+            .entry(symbol.clone())
+            .and_modify(|p| {
+                p.exchange = exchange.clone();
+                p.add_buy(quantity, price_cents);
+            })
+            .or_insert_with(|| {
+                OverseasPosition::new(symbol, symbol_name, exchange, quantity, price_cents)
+            });
+    }
+
+    pub fn on_sell(&mut self, symbol: &str, quantity: u64) {
+        if let Some(pos) = self.positions.get_mut(symbol) {
+            pos.reduce(quantity);
+            if pos.quantity == 0 {
+                self.positions.remove(symbol);
+            }
+        }
+    }
+
+    pub fn update_price(&mut self, symbol: &str, price_cents: u64) {
+        if let Some(pos) = self.positions.get_mut(symbol) {
+            pos.current_price_cents = price_cents;
+        }
+    }
+
+    pub fn all(&self) -> Vec<&OverseasPosition> {
+        self.positions.values().collect()
+    }
+
+    pub fn get(&self, symbol: &str) -> Option<&OverseasPosition> {
+        self.positions.get(symbol)
+    }
+
+    /// 해외 잔고 API 응답으로부터 포지션 초기화 (비어있을 때만 적용).
+    ///
+    /// 입력: `(symbol, name, exchange, qty, avg_price_cents, current_price_cents)` 이터레이터
+    pub fn load_if_empty<I>(&mut self, entries: I)
+    where
+        I: IntoIterator<Item = (String, String, String, u64, u64, u64)>,
+    {
+        if !self.positions.is_empty() {
+            return;
+        }
+        for (symbol, name, exchange, qty, avg_price_cents, current_price_cents) in entries {
+            if qty == 0 {
+                continue;
+            }
+            let mut pos =
+                OverseasPosition::new(symbol.clone(), name, exchange, qty, avg_price_cents);
+            pos.current_price_cents = current_price_cents;
+            self.positions.insert(symbol, pos);
+        }
+    }
+}
+
+impl Default for OverseasPositionTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}

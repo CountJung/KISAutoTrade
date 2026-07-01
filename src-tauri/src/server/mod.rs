@@ -53,7 +53,9 @@ use serde::Deserialize;
 use tokio::sync::{Mutex, RwLock};
 use tower_http::cors::CorsLayer;
 
-use crate::api::rest::{KisRestClient, OverseasOrderRequest, OrderRequest, OrderSide, OrderType, StockSearchItem};
+use crate::api::rest::{
+    KisRestClient, OrderRequest, OrderSide, OrderType, OverseasOrderRequest, StockSearchItem,
+};
 use crate::commands::{RefreshConfig, TradeArchiveConfig};
 use crate::config::{AccountProfile, AppConfig, ProfilesConfig};
 use crate::logging::LogConfig;
@@ -64,85 +66,82 @@ use crate::storage::{
     trade_store::TradeStore,
 };
 use crate::trading::{
-    order::OrderManager,
-    position::PositionTracker,
-    risk::RiskManager,
-    strategy::StrategyManager,
+    order::OrderManager, position::PositionTracker, risk::RiskManager, strategy::StrategyManager,
 };
 
 #[derive(Clone)]
 struct ServerState {
-    rest_client:           Arc<RwLock<Arc<KisRestClient>>>,
-    stock_list:            Arc<RwLock<Vec<StockSearchItem>>>,
-    web_port:              u16,
-    dist_path:             PathBuf,
+    rest_client: Arc<RwLock<Arc<KisRestClient>>>,
+    stock_list: Arc<RwLock<Vec<StockSearchItem>>>,
+    web_port: u16,
+    dist_path: PathBuf,
     /// dist/index.html 존재 여부 (서버 시작 시 평가)
-    dist_found:            bool,
+    dist_found: bool,
     /// 자동매매 활성 여부 (commands.rs AppState 와 Arc 공유)
-    is_trading:            Arc<Mutex<bool>>,
+    is_trading: Arc<Mutex<bool>>,
     /// 전략 관리자
-    strategy_manager:      Arc<Mutex<StrategyManager>>,
+    strategy_manager: Arc<Mutex<StrategyManager>>,
     /// 포지션 트래커
-    position_tracker:      Arc<Mutex<PositionTracker>>,
+    position_tracker: Arc<Mutex<PositionTracker>>,
     /// 활성 프로파일 설정 (AppConfig)
-    config:                Arc<RwLock<Arc<AppConfig>>>,
+    config: Arc<RwLock<Arc<AppConfig>>>,
     /// 계좌 프로파일 목록
-    profiles:              Arc<RwLock<ProfilesConfig>>,
+    profiles: Arc<RwLock<ProfilesConfig>>,
     /// 체결 기록 저장소
-    trade_store:           Arc<TradeStore>,
+    trade_store: Arc<TradeStore>,
     /// 일별 통계 저장소
-    stats_store:           Arc<StatsStore>,
+    stats_store: Arc<StatsStore>,
     /// 로그 설정 (AppState 와 Arc 공유)
-    log_config:            Arc<RwLock<LogConfig>>,
+    log_config: Arc<RwLock<LogConfig>>,
     /// 로그 디렉토리 경로
-    log_dir:               PathBuf,
+    log_dir: PathBuf,
     /// 체결 기록 보관 설정
-    trade_archive_config:  Arc<RwLock<TradeArchiveConfig>>,
+    trade_archive_config: Arc<RwLock<TradeArchiveConfig>>,
     /// 데이터 디렉토리 경로
-    data_dir:              PathBuf,
+    data_dir: PathBuf,
     /// 리스크 관리자
-    risk_manager:          Arc<Mutex<RiskManager>>,
+    risk_manager: Arc<Mutex<RiskManager>>,
     /// 주문 관리자 (미체결 주문 조회용)
-    order_manager:         Arc<Mutex<OrderManager>>,
+    order_manager: Arc<Mutex<OrderManager>>,
     /// 영구 종목목록 캐시 (전략 업데이트 시 종목명 조회용)
-    stock_store:           Arc<StockStore>,
+    stock_store: Arc<StockStore>,
     /// 전략 설정 저장소
-    strategy_store:        Arc<StrategyStore>,
+    strategy_store: Arc<StrategyStore>,
     /// 프로파일 저장 경로 (profiles.json)
-    profiles_path:         PathBuf,
+    profiles_path: PathBuf,
     /// Discord 알림 (테스트 발송용)
-    discord:               Option<Arc<DiscordNotifier>>,
+    discord: Option<Arc<DiscordNotifier>>,
     /// USD/KRW 환율 캐시 (AppState와 Arc 공유)
-    exchange_rate_krw:     Arc<RwLock<f64>>,
+    exchange_rate_krw: Arc<RwLock<f64>>,
     /// 데이터 갱신 주기 설정 (AppState와 Arc 공유)
-    refresh_config:        Arc<RwLock<RefreshConfig>>,
+    refresh_config: Arc<RwLock<RefreshConfig>>,
 }
 
 /// 서버 시작 (포트 바인드 실패 시 경고만 내고 종료)
 #[allow(clippy::too_many_arguments)]
 pub async fn start(
-    rest_client:          Arc<RwLock<Arc<KisRestClient>>>,
-    stock_list:           Arc<RwLock<Vec<StockSearchItem>>>,
-    port:                 u16,
-    is_trading:           Arc<Mutex<bool>>,
-    strategy_manager:     Arc<Mutex<StrategyManager>>,
-    position_tracker:     Arc<Mutex<PositionTracker>>,
-    config:               Arc<RwLock<Arc<AppConfig>>>,
-    profiles:             Arc<RwLock<ProfilesConfig>>,
-    trade_store:          Arc<TradeStore>,
-    stats_store:          Arc<StatsStore>,
-    log_config:           Arc<RwLock<LogConfig>>,
-    log_dir:              PathBuf,
+    rest_client: Arc<RwLock<Arc<KisRestClient>>>,
+    stock_list: Arc<RwLock<Vec<StockSearchItem>>>,
+    port: u16,
+    is_trading: Arc<Mutex<bool>>,
+    strategy_manager: Arc<Mutex<StrategyManager>>,
+    position_tracker: Arc<Mutex<PositionTracker>>,
+    config: Arc<RwLock<Arc<AppConfig>>>,
+    profiles: Arc<RwLock<ProfilesConfig>>,
+    trade_store: Arc<TradeStore>,
+    stats_store: Arc<StatsStore>,
+    log_config: Arc<RwLock<LogConfig>>,
+    log_dir: PathBuf,
     trade_archive_config: Arc<RwLock<TradeArchiveConfig>>,
-    data_dir:             PathBuf,
-    risk_manager:         Arc<Mutex<RiskManager>>,
-    order_manager:        Arc<Mutex<OrderManager>>,
-    stock_store:          Arc<StockStore>,
-    strategy_store:       Arc<StrategyStore>,
-    profiles_path:        PathBuf,
-    discord:              Option<Arc<DiscordNotifier>>,
-    exchange_rate_krw:    Arc<RwLock<f64>>,
-    refresh_config:       Arc<RwLock<RefreshConfig>>,
+    data_dir: PathBuf,
+    risk_manager: Arc<Mutex<RiskManager>>,
+    order_manager: Arc<Mutex<OrderManager>>,
+    stock_store: Arc<StockStore>,
+    strategy_store: Arc<StrategyStore>,
+    profiles_path: PathBuf,
+    discord: Option<Arc<DiscordNotifier>>,
+    exchange_rate_krw: Arc<RwLock<f64>>,
+    refresh_config: Arc<RwLock<RefreshConfig>>,
 ) {
     let dist_path = web_dist_path();
     let dist_found = dist_path.join("index.html").exists();
@@ -158,82 +157,127 @@ pub async fn start(
     }
 
     let state = ServerState {
-        rest_client, stock_list, web_port: port, dist_path, dist_found,
-        is_trading, strategy_manager, position_tracker,
-        config, profiles, trade_store, stats_store,
-        log_config, log_dir, trade_archive_config, data_dir,
-        risk_manager, order_manager, stock_store, strategy_store,
-        profiles_path, discord, exchange_rate_krw, refresh_config,
+        rest_client,
+        stock_list,
+        web_port: port,
+        dist_path,
+        dist_found,
+        is_trading,
+        strategy_manager,
+        position_tracker,
+        config,
+        profiles,
+        trade_store,
+        stats_store,
+        log_config,
+        log_dir,
+        trade_archive_config,
+        data_dir,
+        risk_manager,
+        order_manager,
+        stock_store,
+        strategy_store,
+        profiles_path,
+        discord,
+        exchange_rate_krw,
+        refresh_config,
     };
 
     let app = Router::new()
-        .route("/api/info",                        get(info_handler))
-        .route("/api/app-config",                  get(app_config_handler))
-        .route("/api/profiles",                    get(profiles_handler))
-        .route("/api/balance",                     get(balance_handler))
-        .route("/api/overseas-balance",             get(overseas_balance_handler))
-        .route("/api/positions",                   get(positions_handler))
-        .route("/api/price/:symbol",               get(price_handler))
-        .route("/api/overseas-price/:ex/:symbol",  get(overseas_price_handler))
-        .route("/api/executed",                    get(executed_handler))
-        .route("/api/kis-executed",                get(kis_executed_handler))
-        .route("/api/pending-orders",              get(pending_orders_handler))
-        .route("/api/search/:query",               get(search_handler))
-        .route("/api/order",                       post(order_handler))
-        .route("/api/overseas-order",              post(overseas_order_handler))
-        .route("/api/chart/:symbol",               get(chart_handler))
-        .route("/api/overseas-chart/:ex/:symbol",  get(overseas_chart_handler))
-        .route("/api/today-stats",                 get(today_stats_handler))
-        .route("/api/stats",                       get(stats_by_range_handler))
-        .route("/api/trades",                      get(trades_by_range_handler))
-        .route("/api/log-config",                  get(log_config_handler)
-                                                     .post(set_log_config_handler))
-        .route("/api/recent-logs",                 get(recent_logs_handler))
-        .route("/api/archive-config",              get(archive_config_handler)
-                                                     .post(set_archive_config_handler))
-        .route("/api/archive-stats",               get(archive_stats_handler))
-        .route("/api/risk-config",                 get(risk_config_handler)
-                                                     .post(update_risk_config_handler))
-        .route("/api/risk-config/clear-emergency", post(clear_emergency_handler))
-        .route("/api/web-config",                  get(web_config_handler))
+        .route("/api/info", get(info_handler))
+        .route("/api/app-config", get(app_config_handler))
+        .route("/api/profiles", get(profiles_handler))
+        .route("/api/balance", get(balance_handler))
+        .route("/api/overseas-balance", get(overseas_balance_handler))
+        .route("/api/positions", get(positions_handler))
+        .route("/api/price/:symbol", get(price_handler))
+        .route(
+            "/api/overseas-price/:ex/:symbol",
+            get(overseas_price_handler),
+        )
+        .route("/api/executed", get(executed_handler))
+        .route("/api/kis-executed", get(kis_executed_handler))
+        .route("/api/pending-orders", get(pending_orders_handler))
+        .route("/api/search/:query", get(search_handler))
+        .route("/api/order", post(order_handler))
+        .route("/api/overseas-order", post(overseas_order_handler))
+        .route("/api/chart/:symbol", get(chart_handler))
+        .route(
+            "/api/overseas-chart/:ex/:symbol",
+            get(overseas_chart_handler),
+        )
+        .route("/api/today-stats", get(today_stats_handler))
+        .route("/api/stats", get(stats_by_range_handler))
+        .route("/api/trades", get(trades_by_range_handler))
+        .route(
+            "/api/log-config",
+            get(log_config_handler).post(set_log_config_handler),
+        )
+        .route("/api/recent-logs", get(recent_logs_handler))
+        .route(
+            "/api/archive-config",
+            get(archive_config_handler).post(set_archive_config_handler),
+        )
+        .route("/api/archive-stats", get(archive_stats_handler))
+        .route(
+            "/api/risk-config",
+            get(risk_config_handler).post(update_risk_config_handler),
+        )
+        .route(
+            "/api/risk-config/clear-emergency",
+            post(clear_emergency_handler),
+        )
+        .route("/api/web-config", get(web_config_handler))
         // ── 자동매매 제어 ──
-        .route("/api/trading/status",              get(trading_status_handler))
-        .route("/api/trading/start",               post(trading_start_handler))
-        .route("/api/trading/stop",                post(trading_stop_handler))
-        .route("/api/strategies",                  get(strategies_handler))
-        .route("/api/strategies/:id",              post(update_strategy_handler))
+        .route("/api/trading/status", get(trading_status_handler))
+        .route("/api/trading/start", post(trading_start_handler))
+        .route("/api/trading/stop", post(trading_stop_handler))
+        .route("/api/strategies", get(strategies_handler))
+        .route("/api/strategies/:id", post(update_strategy_handler))
         // ── 프로파일 관리 ──
-        .route("/api/profiles/add",                post(add_profile_handler))
-        .route("/api/profiles/update",             post(update_profile_handler))
-        .route("/api/profiles/delete",             post(delete_profile_handler))
-        .route("/api/profiles/:id/set-active",     post(set_active_profile_handler))
-        .route("/api/profiles/:id/detect",         post(detect_profile_handler))
+        .route("/api/profiles/add", post(add_profile_handler))
+        .route("/api/profiles/update", post(update_profile_handler))
+        .route("/api/profiles/delete", post(delete_profile_handler))
+        .route(
+            "/api/profiles/:id/set-active",
+            post(set_active_profile_handler),
+        )
+        .route("/api/profiles/:id/detect", post(detect_profile_handler))
         // ── 설정 진단 / 감지 ──
-        .route("/api/check-config",                get(check_config_handler))
-        .route("/api/detect-trading-type",         post(detect_trading_type_handler))
+        .route("/api/check-config", get(check_config_handler))
+        .route(
+            "/api/detect-trading-type",
+            post(detect_trading_type_handler),
+        )
         // ── 종목 목록 ──
-        .route("/api/stock-list-stats",            get(stock_list_stats_handler))
-        .route("/api/stock-update-interval",       post(set_stock_update_interval_handler))
-        .route("/api/refresh-stock-list",          post(refresh_stock_list_handler))
+        .route("/api/stock-list-stats", get(stock_list_stats_handler))
+        .route(
+            "/api/stock-update-interval",
+            post(set_stock_update_interval_handler),
+        )
+        .route("/api/refresh-stock-list", post(refresh_stock_list_handler))
         // ── Discord 테스트 ──
-        .route("/api/test-discord",                post(test_discord_handler))
+        .route("/api/test-discord", post(test_discord_handler))
         // ── 당일 체결 기록 ──
-        .route("/api/today-trades",                get(today_trades_handler))
+        .route("/api/today-trades", get(today_trades_handler))
         // ── 업데이트 확인 ──
-        .route("/api/check-update",                get(check_update_handler))
+        .route("/api/check-update", get(check_update_handler))
         // ── 웹 설정 저장 ──
-        .route("/api/web-config/save",             post(save_web_config_handler))
+        .route("/api/web-config/save", post(save_web_config_handler))
         // ── 환율 / 갱신 주기 ──
-        .route("/api/exchange-rate",               get(exchange_rate_handler))
-        .route("/api/refresh-interval",            get(refresh_interval_handler))
+        .route("/api/exchange-rate", get(exchange_rate_handler))
+        .route("/api/refresh-interval", get(refresh_interval_handler))
         // ── 매수 정지 / 비상 정지 ──
-        .route("/api/buy-suspension/clear",        post(clear_buy_suspension_handler))
-        .route("/api/activate-emergency",          post(activate_emergency_handler))
+        .route(
+            "/api/buy-suspension/clear",
+            post(clear_buy_suspension_handler),
+        )
+        .route("/api/activate-emergency", post(activate_emergency_handler))
         // ── 체결 기록 / 통계 저장 ──
-        .route("/api/save-trade",                  post(save_trade_handler))
-        .route("/api/upsert-stats",                post(upsert_stats_handler))
+        .route("/api/save-trade", post(save_trade_handler))
+        .route("/api/upsert-stats", post(upsert_stats_handler))
         // ── 프론트엔드 로그 ──
-        .route("/api/frontend-log",                post(frontend_log_handler))
+        .route("/api/frontend-log", post(frontend_log_handler))
         .fallback(get(spa_handler))
         .layer(CorsLayer::permissive())
         .with_state(state);
@@ -333,17 +377,29 @@ async fn spa_handler(State(s): State<ServerState>, uri: Uri) -> Response {
 
 /// 파일 확장자로 MIME 타입 추론
 fn guess_mime(path: &str) -> &'static str {
-    if path.ends_with(".js") || path.ends_with(".mjs") { "application/javascript; charset=utf-8" }
-    else if path.ends_with(".css")   { "text/css; charset=utf-8" }
-    else if path.ends_with(".html")  { "text/html; charset=utf-8" }
-    else if path.ends_with(".json")  { "application/json; charset=utf-8" }
-    else if path.ends_with(".ico")   { "image/x-icon" }
-    else if path.ends_with(".png")   { "image/png" }
-    else if path.ends_with(".svg")   { "image/svg+xml" }
-    else if path.ends_with(".woff")  { "font/woff" }
-    else if path.ends_with(".woff2") { "font/woff2" }
-    else if path.ends_with(".webp")  { "image/webp" }
-    else { "application/octet-stream" }
+    if path.ends_with(".js") || path.ends_with(".mjs") {
+        "application/javascript; charset=utf-8"
+    } else if path.ends_with(".css") {
+        "text/css; charset=utf-8"
+    } else if path.ends_with(".html") {
+        "text/html; charset=utf-8"
+    } else if path.ends_with(".json") {
+        "application/json; charset=utf-8"
+    } else if path.ends_with(".ico") {
+        "image/x-icon"
+    } else if path.ends_with(".png") {
+        "image/png"
+    } else if path.ends_with(".svg") {
+        "image/svg+xml"
+    } else if path.ends_with(".woff") {
+        "font/woff"
+    } else if path.ends_with(".woff2") {
+        "font/woff2"
+    } else if path.ends_with(".webp") {
+        "image/webp"
+    } else {
+        "application/octet-stream"
+    }
 }
 
 async fn info_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
@@ -393,7 +449,7 @@ async fn overseas_price_handler(
             // exchange, symbol 필드 보완
             if let serde_json::Value::Object(ref mut m) = val {
                 m.insert("exchange".into(), serde_json::Value::String(exchange));
-                m.insert("symbol".into(),   serde_json::Value::String(symbol));
+                m.insert("symbol".into(), serde_json::Value::String(symbol));
             }
             Json(val)
         }
@@ -422,11 +478,11 @@ async fn search_handler(
 /// POST /api/order 바디
 #[derive(Deserialize)]
 struct OrderBody {
-    symbol:     String,
-    side:       String,       // "Buy" | "Sell"
-    order_type: String,       // "Limit" | "Market"
-    quantity:   u64,
-    price:      u64,
+    symbol: String,
+    side: String,       // "Buy" | "Sell"
+    order_type: String, // "Limit" | "Market"
+    quantity: u64,
+    price: u64,
 }
 
 /// POST /api/order — 국내 주식 주문
@@ -434,13 +490,27 @@ async fn order_handler(
     State(s): State<ServerState>,
     Json(body): Json<OrderBody>,
 ) -> Json<serde_json::Value> {
-    let side = if body.side == "Buy" { OrderSide::Buy } else { OrderSide::Sell };
-    let order_type = if body.order_type == "Limit" { OrderType::Limit } else { OrderType::Market };
+    let side = if body.side == "Buy" {
+        OrderSide::Buy
+    } else {
+        OrderSide::Sell
+    };
+    let order_type = if body.order_type == "Limit" {
+        OrderType::Limit
+    } else {
+        OrderType::Market
+    };
 
-    let req = OrderRequest { symbol: body.symbol, side, order_type, quantity: body.quantity, price: body.price };
+    let req = OrderRequest {
+        symbol: body.symbol,
+        side,
+        order_type,
+        quantity: body.quantity,
+        price: body.price,
+    };
     let client = s.rest_client.read().await.clone();
     match client.place_order(&req).await {
-        Ok(r)  => Json(serde_json::to_value(r).unwrap_or_default()),
+        Ok(r) => Json(serde_json::to_value(r).unwrap_or_default()),
         Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
@@ -448,11 +518,11 @@ async fn order_handler(
 /// POST /api/overseas-order 바디
 #[derive(Deserialize)]
 struct OverseasOrderBody {
-    symbol:   String,
+    symbol: String,
     exchange: String, // NASD | NYSE | AMEX
-    side:     String, // "Buy" | "Sell"
+    side: String,     // "Buy" | "Sell"
     quantity: u64,
-    price:    f64,
+    price: f64,
 }
 
 /// POST /api/overseas-order — 해외 주식 주문
@@ -461,14 +531,21 @@ async fn overseas_order_handler(
     Json(body): Json<OverseasOrderBody>,
 ) -> Json<serde_json::Value> {
     use crate::api::rest::OrderSide;
-    let side = if body.side == "Buy" { OrderSide::Buy } else { OrderSide::Sell };
+    let side = if body.side == "Buy" {
+        OrderSide::Buy
+    } else {
+        OrderSide::Sell
+    };
     let req = OverseasOrderRequest {
-        symbol: body.symbol, exchange: body.exchange, side,
-        quantity: body.quantity, price: body.price,
+        symbol: body.symbol,
+        exchange: body.exchange,
+        side,
+        quantity: body.quantity,
+        price: body.price,
     };
     let client = s.rest_client.read().await.clone();
     match client.place_overseas_order(&req).await {
-        Ok(r)  => Json(serde_json::to_value(r).unwrap_or_default()),
+        Ok(r) => Json(serde_json::to_value(r).unwrap_or_default()),
         Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
@@ -477,7 +554,7 @@ async fn overseas_order_handler(
 #[derive(Deserialize)]
 struct ChartQuery {
     period: Option<String>, // D / W / M
-    count:  Option<i64>,
+    count: Option<i64>,
 }
 
 async fn chart_handler(
@@ -486,23 +563,26 @@ async fn chart_handler(
     Query(params): Query<ChartQuery>,
 ) -> Json<serde_json::Value> {
     let period = params.period.as_deref().unwrap_or("D");
-    let count  = params.count.unwrap_or(100).max(1).min(500);
+    let count = params.count.unwrap_or(100).max(1).min(500);
 
     // count → 시작일 계산 (넉넉하게 캘린더 일수로 변환)
     let factor: i64 = match period {
         "W" => 7,
         "M" => 31,
-        _   => 2, // D: 거래일 기준이므로 2배 여유
+        _ => 2, // D: 거래일 기준이므로 2배 여유
     };
-    let today     = chrono::Local::now().date_naive();
+    let today = chrono::Local::now().date_naive();
     let start_day = today - chrono::Duration::days(count * factor + 10);
-    let end_date   = today.format("%Y%m%d").to_string();
+    let end_date = today.format("%Y%m%d").to_string();
     let start_date = start_day.format("%Y%m%d").to_string();
 
     let client = s.rest_client.read().await.clone();
-    match client.get_chart_data(&symbol, period, &start_date, &end_date).await {
+    match client
+        .get_chart_data(&symbol, period, &start_date, &end_date)
+        .await
+    {
         Ok(candles) => Json(serde_json::to_value(candles).unwrap_or_default()),
-        Err(e)      => Json(serde_json::json!({ "error": e.to_string() })),
+        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
 
@@ -513,22 +593,24 @@ async fn overseas_chart_handler(
     Query(params): Query<ChartQuery>,
 ) -> Json<serde_json::Value> {
     let period = params.period.as_deref().unwrap_or("D");
-    let count  = params.count.unwrap_or(100).max(1).min(500);
+    let count = params.count.unwrap_or(100).max(1).min(500);
 
     // count → 기준일 계산 (당일로부터 과거 N일 기준)
     let factor: i64 = match period {
         "W" => 7,
         "M" => 31,
-        _   => 2, // D: 거래일은 캘린더의 약 절반
+        _ => 2, // D: 거래일은 캘린더의 약 절반
     };
-    let base_day = chrono::Local::now().date_naive()
-        - chrono::Duration::days(count * factor);
+    let base_day = chrono::Local::now().date_naive() - chrono::Duration::days(count * factor);
     let base_date = base_day.format("%Y%m%d").to_string();
 
     let client = s.rest_client.read().await.clone();
-    match client.get_overseas_chart_data(&symbol, &exchange, period, &base_date).await {
+    match client
+        .get_overseas_chart_data(&symbol, &exchange, period, &base_date)
+        .await
+    {
         Ok(candles) => Json(serde_json::to_value(candles).unwrap_or_default()),
-        Err(e)      => Json(serde_json::json!({ "error": e.to_string() })),
+        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
 
@@ -590,7 +672,11 @@ async fn strategies_handler(State(s): State<ServerState>) -> Json<serde_json::Va
     for cfg in &configs {
         let mut symbol_names = std::collections::HashMap::new();
         for code in &cfg.target_symbols {
-            let name = s.stock_store.get_name(code).await.unwrap_or_else(|| code.clone());
+            let name = s
+                .stock_store
+                .get_name(code)
+                .await
+                .unwrap_or_else(|| code.clone());
             symbol_names.insert(code.clone(), name);
         }
         views.push(serde_json::json!({
@@ -611,10 +697,10 @@ async fn strategies_handler(State(s): State<ServerState>) -> Json<serde_json::Va
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct UpdateStrategyBody {
-    enabled:         Option<bool>,
-    target_symbols:  Option<Vec<String>>,
-    order_quantity:  Option<u64>,
-    params:          Option<serde_json::Value>,
+    enabled: Option<bool>,
+    target_symbols: Option<Vec<String>>,
+    order_quantity: Option<u64>,
+    params: Option<serde_json::Value>,
 }
 
 /// POST /api/strategies/:id — 전략 파라미터 업데이트
@@ -627,18 +713,34 @@ async fn update_strategy_handler(
         let mut mgr = s.strategy_manager.lock().await;
         let cfg = match mgr.get_config_mut(&id) {
             Some(c) => c,
-            None => return Json(serde_json::json!({ "error": format!("전략을 찾을 수 없습니다: {}", id) })),
+            None => {
+                return Json(
+                    serde_json::json!({ "error": format!("전략을 찾을 수 없습니다: {}", id) }),
+                )
+            }
         };
-        if let Some(en) = body.enabled         { cfg.enabled = en; }
-        if let Some(sym) = body.target_symbols { cfg.target_symbols = sym; }
-        if let Some(qty) = body.order_quantity  { cfg.order_quantity = qty; }
-        if let Some(p) = body.params            { cfg.params = p; }
+        if let Some(en) = body.enabled {
+            cfg.enabled = en;
+        }
+        if let Some(sym) = body.target_symbols {
+            cfg.target_symbols = sym;
+        }
+        if let Some(qty) = body.order_quantity {
+            cfg.order_quantity = qty;
+        }
+        if let Some(p) = body.params {
+            cfg.params = p;
+        }
         cfg.target_symbols.clone()
     };
 
     let mut symbol_names = std::collections::HashMap::new();
     for code in &target_symbols_snapshot {
-        let name = s.stock_store.get_name(code).await.unwrap_or_else(|| code.clone());
+        let name = s
+            .stock_store
+            .get_name(code)
+            .await
+            .unwrap_or_else(|| code.clone());
         symbol_names.insert(code.clone(), name);
     }
 
@@ -685,7 +787,7 @@ async fn app_config_handler(State(s): State<ServerState>) -> Json<serde_json::Va
         let profiles = s.profiles.read().await;
         match profiles.get_active() {
             Some(p) => (Some(p.id.clone()), Some(p.name.clone())),
-            None    => (None, None),
+            None => (None, None),
         }
     };
     Json(serde_json::json!({
@@ -702,22 +804,26 @@ async fn app_config_handler(State(s): State<ServerState>) -> Json<serde_json::Va
 /// GET /api/profiles
 async fn profiles_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
     let profiles = s.profiles.read().await;
-    let views: Vec<serde_json::Value> = profiles.profiles.iter().map(|p| {
-        let masked = if p.app_key.len() > 6 {
-            format!("{}****", &p.app_key[..6])
-        } else {
-            "****".into()
-        };
-        serde_json::json!({
-            "id":             p.id,
-            "name":           p.name,
-            "isPaperTrading": p.is_paper_trading,
-            "appKeyMasked":   masked,
-            "accountNo":      p.account_no,
-            "isActive":       profiles.active_id.as_deref() == Some(&p.id),
-            "isConfigured":   p.is_configured(),
+    let views: Vec<serde_json::Value> = profiles
+        .profiles
+        .iter()
+        .map(|p| {
+            let masked = if p.app_key.len() > 6 {
+                format!("{}****", &p.app_key[..6])
+            } else {
+                "****".into()
+            };
+            serde_json::json!({
+                "id":             p.id,
+                "name":           p.name,
+                "isPaperTrading": p.is_paper_trading,
+                "appKeyMasked":   masked,
+                "accountNo":      p.account_no,
+                "isActive":       profiles.active_id.as_deref() == Some(&p.id),
+                "isConfigured":   p.is_configured(),
+            })
         })
-    }).collect();
+        .collect();
     Json(serde_json::to_value(views).unwrap_or_default())
 }
 
@@ -726,17 +832,21 @@ async fn profiles_handler(State(s): State<ServerState>) -> Json<serde_json::Valu
 /// GET /api/positions
 async fn positions_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
     let tracker = s.position_tracker.lock().await;
-    let mut positions: Vec<serde_json::Value> = tracker.all().iter().map(|p| {
-        serde_json::json!({
-            "symbol":             p.symbol,
-            "symbolName":         p.symbol_name,
-            "quantity":           p.quantity,
-            "avgPrice":           p.avg_price,
-            "currentPrice":       p.current_price,
-            "unrealizedPnl":      p.unrealized_pnl(),
-            "unrealizedPnlRate":  p.unrealized_pnl_rate(),
+    let mut positions: Vec<serde_json::Value> = tracker
+        .all()
+        .iter()
+        .map(|p| {
+            serde_json::json!({
+                "symbol":             p.symbol,
+                "symbolName":         p.symbol_name,
+                "quantity":           p.quantity,
+                "avgPrice":           p.avg_price,
+                "currentPrice":       p.current_price,
+                "unrealizedPnl":      p.unrealized_pnl(),
+                "unrealizedPnlRate":  p.unrealized_pnl_rate(),
+            })
         })
-    }).collect();
+        .collect();
     positions.sort_by(|a, b| {
         let qa = a.get("quantity").and_then(|v| v.as_u64()).unwrap_or(0);
         let qb = b.get("quantity").and_then(|v| v.as_u64()).unwrap_or(0);
@@ -750,14 +860,14 @@ async fn today_stats_handler(State(s): State<ServerState>) -> Json<serde_json::V
     let today = chrono::Local::now().date_naive();
     match s.stats_store.get_by_date(today).await {
         Ok(stats) => Json(serde_json::to_value(stats).unwrap_or_default()),
-        Err(e)    => Json(serde_json::json!({ "error": e.to_string() })),
+        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
 
 #[derive(Deserialize)]
 struct DateRangeQuery {
     from: Option<String>,
-    to:   Option<String>,
+    to: Option<String>,
 }
 
 /// GET /api/stats?from=YYYY-MM-DD&to=YYYY-MM-DD
@@ -767,12 +877,16 @@ async fn stats_by_range_handler(
 ) -> Json<serde_json::Value> {
     use chrono::NaiveDate;
     let from_str = params.from.as_deref().unwrap_or("2020-01-01");
-    let to_str   = params.to.as_deref().unwrap_or_else(|| {
+    let to_str = params.to.as_deref().unwrap_or_else(|| {
         // 최대 범위 — 호출 시점 날짜 (아래에서 직접 계산)
         ""
     });
     let today = chrono::Local::now().date_naive().to_string();
-    let to_str = if to_str.is_empty() { today.as_str() } else { to_str };
+    let to_str = if to_str.is_empty() {
+        today.as_str()
+    } else {
+        to_str
+    };
 
     let from = match NaiveDate::parse_from_str(from_str, "%Y-%m-%d") {
         Ok(d) => d,
@@ -784,7 +898,7 @@ async fn stats_by_range_handler(
     };
     match s.stats_store.get_by_range(from, to).await {
         Ok(stats) => Json(serde_json::to_value(stats).unwrap_or_default()),
-        Err(e)    => Json(serde_json::json!({ "error": e.to_string() })),
+        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
 
@@ -808,7 +922,7 @@ async fn trades_by_range_handler(
     };
     match s.trade_store.get_by_range(from, to).await {
         Ok(trades) => Json(serde_json::to_value(trades).unwrap_or_default()),
-        Err(e)     => Json(serde_json::json!({ "error": e.to_string() })),
+        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
 
@@ -818,36 +932,44 @@ async fn kis_executed_handler(
     Query(params): Query<DateRangeQuery>,
 ) -> Json<serde_json::Value> {
     let today = chrono::Local::now().format("%Y%m%d").to_string();
-    let from_fmt = params.from.as_deref()
+    let from_fmt = params
+        .from
+        .as_deref()
         .map(|d| d.replace('-', ""))
         .unwrap_or_else(|| today.clone());
-    let to_fmt = params.to.as_deref()
+    let to_fmt = params
+        .to
+        .as_deref()
         .map(|d| d.replace('-', ""))
         .unwrap_or(today);
     let client = s.rest_client.read().await.clone();
     match client.get_executed_orders_range(&from_fmt, &to_fmt).await {
         Ok(orders) => Json(serde_json::to_value(orders).unwrap_or_default()),
-        Err(e)     => Json(serde_json::json!({ "error": e.to_string() })),
+        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
 
 /// GET /api/pending-orders
 async fn pending_orders_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
     let mgr = s.order_manager.lock().await;
-    let views: Vec<serde_json::Value> = mgr.pending_orders().iter().map(|p| {
-        serde_json::json!({
-            "odno":         p.record.kis_order_id.clone().unwrap_or_default(),
-            "symbol":       p.record.symbol,
-            "symbolName":   p.record.symbol_name,
-            "side":         match &p.record.side {
-                crate::storage::order_store::OrderSide::Buy  => "buy",
-                crate::storage::order_store::OrderSide::Sell => "sell",
-            },
-            "quantity":     p.record.quantity,
-            "timestamp":    p.record.timestamp,
-            "signalReason": p.signal_reason,
+    let views: Vec<serde_json::Value> = mgr
+        .pending_orders()
+        .iter()
+        .map(|p| {
+            serde_json::json!({
+                "odno":         p.record.kis_order_id.clone().unwrap_or_default(),
+                "symbol":       p.record.symbol,
+                "symbolName":   p.record.symbol_name,
+                "side":         match &p.record.side {
+                    crate::storage::order_store::OrderSide::Buy  => "buy",
+                    crate::storage::order_store::OrderSide::Sell => "sell",
+                },
+                "quantity":     p.record.quantity,
+                "timestamp":    p.record.timestamp,
+                "signalReason": p.signal_reason,
+            })
         })
-    }).collect();
+        .collect();
     Json(serde_json::to_value(views).unwrap_or_default())
 }
 
@@ -863,8 +985,8 @@ async fn log_config_handler(State(s): State<ServerState>) -> Json<serde_json::Va
 #[serde(rename_all = "camelCase")]
 struct SetLogConfigBody {
     retention_days: Option<u32>,
-    max_size_mb:    Option<u64>,
-    api_debug:      Option<bool>,
+    max_size_mb: Option<u64>,
+    api_debug: Option<bool>,
 }
 
 /// POST /api/log-config
@@ -874,9 +996,15 @@ async fn set_log_config_handler(
 ) -> Json<serde_json::Value> {
     let current = s.log_config.read().await.clone();
     let new_cfg = LogConfig {
-        retention_days: body.retention_days.unwrap_or(current.retention_days).clamp(1, 365),
-        max_size_mb:    body.max_size_mb.unwrap_or(current.max_size_mb).clamp(10, 10240),
-        api_debug:      body.api_debug.unwrap_or(current.api_debug),
+        retention_days: body
+            .retention_days
+            .unwrap_or(current.retention_days)
+            .clamp(1, 365),
+        max_size_mb: body
+            .max_size_mb
+            .unwrap_or(current.max_size_mb)
+            .clamp(10, 10240),
+        api_debug: body.api_debug.unwrap_or(current.api_debug),
     };
     *s.log_config.write().await = new_cfg.clone();
     s.rest_client.read().await.set_api_debug(new_cfg.api_debug);
@@ -890,7 +1018,8 @@ async fn recent_logs_handler(
     State(s): State<ServerState>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
-    let count = params.get("count")
+    let count = params
+        .get("count")
         .and_then(|v| v.parse::<usize>().ok())
         .unwrap_or(100);
     let entries = crate::logging::read_recent_entries(&s.log_dir, count);
@@ -909,7 +1038,7 @@ async fn archive_config_handler(State(s): State<ServerState>) -> Json<serde_json
 #[serde(rename_all = "camelCase")]
 struct SetArchiveConfigBody {
     retention_days: u32,
-    max_size_mb:    u64,
+    max_size_mb: u64,
 }
 
 /// POST /api/archive-config
@@ -919,12 +1048,15 @@ async fn set_archive_config_handler(
 ) -> Json<serde_json::Value> {
     let new_cfg = TradeArchiveConfig {
         retention_days: body.retention_days.clamp(1, 3650),
-        max_size_mb:    body.max_size_mb.clamp(50, 102400),
+        max_size_mb: body.max_size_mb.clamp(50, 102400),
     };
     *s.trade_archive_config.write().await = new_cfg.clone();
     new_cfg.save_sync(&s.data_dir).ok();
-    tracing::info!("체결 기록 보관 설정 변경 (웹 API): 보관 {}일, 최대 {}MB",
-        new_cfg.retention_days, new_cfg.max_size_mb);
+    tracing::info!(
+        "체결 기록 보관 설정 변경 (웹 API): 보관 {}일, 최대 {}MB",
+        new_cfg.retention_days,
+        new_cfg.max_size_mb
+    );
     Json(serde_json::to_value(new_cfg).unwrap_or_default())
 }
 
@@ -943,16 +1075,21 @@ async fn archive_stats_handler(State(s): State<ServerState>) -> Json<serde_json:
                         for month in months.flatten() {
                             if let Ok(days) = std::fs::read_dir(month.path()) {
                                 for day in days.flatten() {
-                                    dates.push(format!("{}-{}-{}",
+                                    dates.push(format!(
+                                        "{}-{}-{}",
                                         year.file_name().to_string_lossy(),
                                         month.file_name().to_string_lossy(),
-                                        day.file_name().to_string_lossy()));
+                                        day.file_name().to_string_lossy()
+                                    ));
                                     if let Ok(files) = std::fs::read_dir(day.path()) {
                                         for f in files.flatten() {
                                             if f.path().is_file() {
                                                 total_files += 1;
-                                                size_bytes += f.path().metadata()
-                                                    .map(|m| m.len()).unwrap_or(0);
+                                                size_bytes += f
+                                                    .path()
+                                                    .metadata()
+                                                    .map(|m| m.len())
+                                                    .unwrap_or(0);
                                             }
                                         }
                                     }
@@ -970,10 +1107,11 @@ async fn archive_stats_handler(State(s): State<ServerState>) -> Json<serde_json:
             "oldestDate": dates.first(),
             "newestDate": dates.last(),
         })
-    }).await;
+    })
+    .await;
     match result {
         Ok(val) => Json(val),
-        Err(e)  => Json(serde_json::json!({ "error": e.to_string() })),
+        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
 
@@ -999,8 +1137,8 @@ async fn risk_config_handler(State(s): State<ServerState>) -> Json<serde_json::V
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct UpdateRiskConfigBody {
-    enabled:            Option<bool>,
-    daily_loss_limit:   Option<i64>,
+    enabled: Option<bool>,
+    daily_loss_limit: Option<i64>,
     max_position_ratio: Option<f64>,
 }
 
@@ -1014,10 +1152,14 @@ async fn update_risk_config_handler(
         risk.set_enabled(en);
     }
     if let Some(limit) = body.daily_loss_limit {
-        if limit >= 0 { risk.daily_loss_limit = limit; }
+        if limit >= 0 {
+            risk.daily_loss_limit = limit;
+        }
     }
     if let Some(ratio) = body.max_position_ratio {
-        if (0.0..=1.0).contains(&ratio) { risk.max_position_ratio = ratio; }
+        if (0.0..=1.0).contains(&ratio) {
+            risk.max_position_ratio = ratio;
+        }
     }
     Json(serde_json::json!({
         "enabled":          risk.is_enabled(),
@@ -1067,12 +1209,20 @@ async fn web_config_handler(State(s): State<ServerState>) -> Json<serde_json::Va
 async fn check_config_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
     let cfg = s.config.read().await.clone();
     let mut issues: Vec<String> = Vec::new();
-    if cfg.kis_app_key.is_empty()    { issues.push("KIS APP KEY가 설정되지 않았습니다.".into()); }
-    if cfg.kis_app_secret.is_empty() { issues.push("KIS APP SECRET이 설정되지 않았습니다.".into()); }
-    if cfg.kis_account_no.is_empty() { issues.push("KIS 계좌번호가 설정되지 않았습니다.".into()); }
+    if cfg.kis_app_key.is_empty() {
+        issues.push("KIS APP KEY가 설정되지 않았습니다.".into());
+    }
+    if cfg.kis_app_secret.is_empty() {
+        issues.push("KIS APP SECRET이 설정되지 않았습니다.".into());
+    }
+    if cfg.kis_account_no.is_empty() {
+        issues.push("KIS 계좌번호가 설정되지 않았습니다.".into());
+    }
     let paper_available = {
         let p = s.profiles.read().await;
-        p.profiles.iter().any(|p| p.is_paper_trading && p.is_configured())
+        p.profiles
+            .iter()
+            .any(|p| p.is_paper_trading && p.is_configured())
     };
     Json(serde_json::json!({
         "realKeySet":        !cfg.kis_app_key.is_empty(),
@@ -1113,22 +1263,22 @@ async fn apply_profile_change(s: &ServerState) {
         let existing = s.config.read().await.clone();
         match profiles.get_active() {
             Some(p) => Arc::new(AppConfig {
-                kis_app_key:          p.app_key.clone(),
-                kis_app_secret:       p.app_secret.clone(),
-                kis_account_no:       p.account_no.clone(),
+                kis_app_key: p.app_key.clone(),
+                kis_app_secret: p.app_secret.clone(),
+                kis_account_no: p.account_no.clone(),
                 kis_is_paper_trading: p.is_paper_trading,
-                discord_bot_token:    existing.discord_bot_token.clone(),
-                discord_channel_id:   existing.discord_channel_id.clone(),
-                notification_levels:  existing.notification_levels.clone(),
+                discord_bot_token: existing.discord_bot_token.clone(),
+                discord_channel_id: existing.discord_channel_id.clone(),
+                notification_levels: existing.notification_levels.clone(),
             }),
             None => Arc::new(AppConfig {
-                kis_app_key:          String::new(),
-                kis_app_secret:       String::new(),
-                kis_account_no:       String::new(),
+                kis_app_key: String::new(),
+                kis_app_secret: String::new(),
+                kis_account_no: String::new(),
                 kis_is_paper_trading: false,
-                discord_bot_token:    existing.discord_bot_token.clone(),
-                discord_channel_id:   existing.discord_channel_id.clone(),
-                notification_levels:  existing.notification_levels.clone(),
+                discord_bot_token: existing.discord_bot_token.clone(),
+                discord_channel_id: existing.discord_channel_id.clone(),
+                notification_levels: existing.notification_levels.clone(),
             }),
         }
     };
@@ -1171,8 +1321,11 @@ async fn add_profile_handler(
     Json(body): Json<AddProfileBody>,
 ) -> Json<serde_json::Value> {
     let profile = AccountProfile::new(
-        body.name, body.is_paper_trading,
-        body.app_key, body.app_secret, body.account_no,
+        body.name,
+        body.is_paper_trading,
+        body.app_key,
+        body.app_secret,
+        body.account_no,
     );
     let (view, is_first) = {
         let mut profiles = s.profiles.write().await;
@@ -1207,14 +1360,22 @@ async fn update_profile_handler(
     let (view, is_active) = {
         let mut profiles = s.profiles.write().await;
         match profiles.update(
-            &body.id, body.name, body.is_paper_trading,
-            body.app_key, body.app_secret, body.account_no,
+            &body.id,
+            body.name,
+            body.is_paper_trading,
+            body.app_key,
+            body.app_secret,
+            body.account_no,
         ) {
             Some(p) => {
                 let active = profiles.active_id.as_deref() == Some(&body.id);
                 (profile_json(&p, &profiles.active_id), active)
             }
-            None => return Json(serde_json::json!({ "error": format!("프로파일을 찾을 수 없습니다: {}", body.id) })),
+            None => {
+                return Json(
+                    serde_json::json!({ "error": format!("프로파일을 찾을 수 없습니다: {}", body.id) }),
+                )
+            }
         }
     };
     if is_active {
@@ -1239,7 +1400,9 @@ async fn delete_profile_handler(
         profiles.delete(&body.id)
     };
     if !deleted {
-        return Json(serde_json::json!({ "error": format!("프로파일을 찾을 수 없습니다: {}", body.id) }));
+        return Json(
+            serde_json::json!({ "error": format!("프로파일을 찾을 수 없습니다: {}", body.id) }),
+        );
     }
     apply_profile_change(&s).await;
     save_profiles_server(&s).await;
@@ -1256,7 +1419,9 @@ async fn set_active_profile_handler(
         profiles.set_active(&id)
     };
     if !ok {
-        return Json(serde_json::json!({ "error": format!("프로파일을 찾을 수 없습니다: {}", id) }));
+        return Json(
+            serde_json::json!({ "error": format!("프로파일을 찾을 수 없습니다: {}", id) }),
+        );
     }
     if !*s.is_trading.lock().await {
         apply_profile_change(&s).await;
@@ -1295,9 +1460,16 @@ async fn try_detect_token(client: &reqwest::Client, url: &str, key: &str, secret
     else {
         return false;
     };
-    if !resp.status().is_success() { return false; }
-    let Ok(val) = resp.json::<serde_json::Value>().await else { return false; };
-    val.get("access_token").and_then(|v| v.as_str()).map(|t| !t.is_empty()).unwrap_or(false)
+    if !resp.status().is_success() {
+        return false;
+    }
+    let Ok(val) = resp.json::<serde_json::Value>().await else {
+        return false;
+    };
+    val.get("access_token")
+        .and_then(|v| v.as_str())
+        .map(|t| !t.is_empty())
+        .unwrap_or(false)
 }
 
 /// POST /api/detect-trading-type
@@ -1305,20 +1477,27 @@ async fn detect_trading_type_handler(
     State(_s): State<ServerState>,
     Json(body): Json<DetectTradingTypeBody>,
 ) -> Json<serde_json::Value> {
-    const REAL_URL: &str  = "https://openapi.koreainvestment.com:9443/oauth2/tokenP";
+    const REAL_URL: &str = "https://openapi.koreainvestment.com:9443/oauth2/tokenP";
     const PAPER_URL: &str = "https://openapivts.koreainvestment.com:29443/oauth2/tokenP";
     if body.app_key.trim().is_empty() || body.app_secret.trim().is_empty() {
         return Json(serde_json::json!({ "error": "APP KEY와 APP SECRET을 모두 입력하세요." }));
     }
-    let client = match reqwest::Client::builder().timeout(std::time::Duration::from_secs(10)).build() {
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+    {
         Ok(c) => c,
         Err(e) => return Json(serde_json::json!({ "error": e.to_string() })),
     };
     if try_detect_token(&client, REAL_URL, &body.app_key, &body.app_secret).await {
-        return Json(serde_json::json!({ "isPaperTrading": false, "message": "실전투자 키로 확인되었습니다." }));
+        return Json(
+            serde_json::json!({ "isPaperTrading": false, "message": "실전투자 키로 확인되었습니다." }),
+        );
     }
     if try_detect_token(&client, PAPER_URL, &body.app_key, &body.app_secret).await {
-        return Json(serde_json::json!({ "isPaperTrading": true, "message": "모의투자 키로 확인되었습니다." }));
+        return Json(
+            serde_json::json!({ "isPaperTrading": true, "message": "모의투자 키로 확인되었습니다." }),
+        );
     }
     Json(serde_json::json!({ "error": "실전/모의 키를 자동 감지하지 못했습니다." }))
 }
@@ -1331,17 +1510,27 @@ async fn detect_profile_handler(
     let (app_key, app_secret) = {
         let profiles = s.profiles.read().await;
         match profiles.profiles.iter().find(|p| p.id == id) {
-            Some(p) if !p.app_key.is_empty() && !p.app_secret.is_empty() =>
-                (p.app_key.clone(), p.app_secret.clone()),
-            Some(_) =>
-                return Json(serde_json::json!({ "error": "APP KEY 또는 APP SECRET이 설정되지 않았습니다." })),
-            None =>
-                return Json(serde_json::json!({ "error": format!("프로파일을 찾을 수 없습니다: {}", id) })),
+            Some(p) if !p.app_key.is_empty() && !p.app_secret.is_empty() => {
+                (p.app_key.clone(), p.app_secret.clone())
+            }
+            Some(_) => {
+                return Json(
+                    serde_json::json!({ "error": "APP KEY 또는 APP SECRET이 설정되지 않았습니다." }),
+                )
+            }
+            None => {
+                return Json(
+                    serde_json::json!({ "error": format!("프로파일을 찾을 수 없습니다: {}", id) }),
+                )
+            }
         }
     };
-    const REAL_URL: &str  = "https://openapi.koreainvestment.com:9443/oauth2/tokenP";
+    const REAL_URL: &str = "https://openapi.koreainvestment.com:9443/oauth2/tokenP";
     const PAPER_URL: &str = "https://openapivts.koreainvestment.com:29443/oauth2/tokenP";
-    let client = match reqwest::Client::builder().timeout(std::time::Duration::from_secs(10)).build() {
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+    {
         Ok(c) => c,
         Err(e) => return Json(serde_json::json!({ "error": e.to_string() })),
     };
@@ -1356,11 +1545,17 @@ async fn detect_profile_handler(
         let mut profiles = s.profiles.write().await;
         match profiles.update(&id, None, Some(is_paper), None, None, None) {
             Some(p) => profile_json(&p, &profiles.active_id),
-            None    => return Json(serde_json::json!({ "error": format!("프로파일을 찾을 수 없습니다: {}", id) })),
+            None => {
+                return Json(
+                    serde_json::json!({ "error": format!("프로파일을 찾을 수 없습니다: {}", id) }),
+                )
+            }
         }
     };
     let is_active = s.profiles.read().await.active_id.as_deref() == Some(&id);
-    if is_active { apply_profile_change(&s).await; }
+    if is_active {
+        apply_profile_change(&s).await;
+    }
     save_profiles_server(&s).await;
     Json(view)
 }
@@ -1369,8 +1564,8 @@ async fn detect_profile_handler(
 
 /// GET /api/stock-list-stats
 async fn stock_list_stats_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
-    let count                = s.stock_store.size().await;
-    let last_updated_at      = s.stock_store.last_updated_at().await;
+    let count = s.stock_store.size().await;
+    let last_updated_at = s.stock_store.last_updated_at().await;
     let update_interval_hours = s.stock_store.get_interval_hours().await;
     Json(serde_json::json!({
         "count":               count,
@@ -1381,7 +1576,9 @@ async fn stock_list_stats_handler(State(s): State<ServerState>) -> Json<serde_js
 }
 
 #[derive(Deserialize)]
-struct StockIntervalBody { hours: u32 }
+struct StockIntervalBody {
+    hours: u32,
+}
 
 /// POST /api/stock-update-interval
 async fn set_stock_update_interval_handler(
@@ -1389,8 +1586,8 @@ async fn set_stock_update_interval_handler(
     Json(body): Json<StockIntervalBody>,
 ) -> Json<serde_json::Value> {
     match s.stock_store.set_interval_hours(body.hours).await {
-        Ok(())  => Json(serde_json::json!({ "ok": true })),
-        Err(e)  => Json(serde_json::json!({ "error": e.to_string() })),
+        Ok(()) => Json(serde_json::json!({ "ok": true })),
+        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
 
@@ -1398,17 +1595,25 @@ async fn set_stock_update_interval_handler(
 async fn refresh_stock_list_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
     let items = match crate::market::StockList::fetch_from_krx().await {
         Ok(items) if !items.is_empty() => items,
-        Ok(_)  => return Json(serde_json::json!({ "error": "KRX에서 종목 목록을 가져오지 못했습니다 (0개)." })),
+        Ok(_) => {
+            return Json(
+                serde_json::json!({ "error": "KRX에서 종목 목록을 가져오지 못했습니다 (0개)." }),
+            )
+        }
         Err(e) => return Json(serde_json::json!({ "error": e.to_string() })),
     };
     let count = items.len();
     *s.stock_list.write().await = items.clone();
     let cache_path = s.data_dir.join("stock_list.json");
-    if let Some(dir) = cache_path.parent() { let _ = tokio::fs::create_dir_all(dir).await; }
+    if let Some(dir) = cache_path.parent() {
+        let _ = tokio::fs::create_dir_all(dir).await;
+    }
     if let Ok(json) = serde_json::to_string_pretty(&items) {
         let _ = tokio::fs::write(&cache_path, json).await;
     }
-    s.stock_store.upsert_many(items.iter().map(|i| (i.pdno.clone(), i.prdt_name.clone()))).await;
+    s.stock_store
+        .upsert_many(items.iter().map(|i| (i.pdno.clone(), i.prdt_name.clone())))
+        .await;
     tracing::info!("종목 목록 웹 API 갱신 완료: {}개", count);
     Json(serde_json::json!(count))
 }
@@ -1424,7 +1629,9 @@ async fn test_discord_handler(State(s): State<ServerState>) -> Json<serde_json::
                 "KISAutoTrade 알림 시스템이 정상 작동 중입니다.",
             );
             match discord.send(event).await {
-                Ok(_)  => Json(serde_json::json!({ "ok": true, "message": "Discord 테스트 알림 전송 완료" })),
+                Ok(_) => Json(
+                    serde_json::json!({ "ok": true, "message": "Discord 테스트 알림 전송 완료" }),
+                ),
                 Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
             }
         }
@@ -1439,7 +1646,7 @@ async fn today_trades_handler(State(s): State<ServerState>) -> Json<serde_json::
     let today = chrono::Local::now().date_naive();
     match s.trade_store.get_by_date(today).await {
         Ok(trades) => Json(serde_json::to_value(trades).unwrap_or_default()),
-        Err(e)     => Json(serde_json::json!({ "error": e.to_string() })),
+        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
 
@@ -1480,11 +1687,15 @@ async fn save_web_config_handler(
         }
     }
     match std::fs::OpenOptions::new()
-        .create(true).write(true).truncate(true)
+        .create(true)
+        .write(true)
+        .truncate(true)
         .open(&env_path)
         .and_then(|mut f| f.write_all(content.as_bytes()))
     {
-        Ok(_)  => Json(serde_json::json!({ "ok": true, "message": format!(".env 저장 완료: WEB_PORT={}", body.new_port) })),
+        Ok(_) => Json(
+            serde_json::json!({ "ok": true, "message": format!(".env 저장 완료: WEB_PORT={}", body.new_port) }),
+        ),
         Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
@@ -1498,7 +1709,9 @@ async fn exchange_rate_handler(State(s): State<ServerState>) -> Json<serde_json:
 
 /// GET /api/refresh-interval
 async fn refresh_interval_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
-    Json(serde_json::json!(s.refresh_config.read().await.interval_sec))
+    Json(serde_json::json!(
+        s.refresh_config.read().await.interval_sec
+    ))
 }
 
 // ── 매수 정지 / 비상 정지 ─────────────────────────────────────────
@@ -1537,7 +1750,7 @@ async fn save_trade_handler(
 ) -> Json<serde_json::Value> {
     let saved = serde_json::to_value(&record).unwrap_or_default();
     match s.trade_store.append(record).await {
-        Ok(_)  => Json(saved),
+        Ok(_) => Json(saved),
         Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
@@ -1548,7 +1761,7 @@ async fn upsert_stats_handler(
     Json(stats): Json<crate::storage::stats_store::DailyStats>,
 ) -> Json<serde_json::Value> {
     match s.stats_store.upsert(stats).await {
-        Ok(_)  => Json(serde_json::json!({ "ok": true })),
+        Ok(_) => Json(serde_json::json!({ "ok": true })),
         Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
@@ -1557,7 +1770,7 @@ async fn upsert_stats_handler(
 
 #[derive(Deserialize)]
 struct FrontendLogBody {
-    level:   Option<String>,
+    level: Option<String>,
     message: String,
     context: Option<String>,
 }
@@ -1567,8 +1780,8 @@ async fn frontend_log_handler(Json(body): Json<FrontendLogBody>) -> Json<serde_j
     let ctx = body.context.as_deref().unwrap_or("ui");
     match body.level.as_deref().unwrap_or("INFO") {
         "ERROR" => tracing::error!("[Frontend:{}] {}", ctx, body.message),
-        "WARN"  => tracing::warn!("[Frontend:{}] {}", ctx, body.message),
-        _       => tracing::info!("[Frontend:{}] {}", ctx, body.message),
+        "WARN" => tracing::warn!("[Frontend:{}] {}", ctx, body.message),
+        _ => tracing::info!("[Frontend:{}] {}", ctx, body.message),
     }
     Json(serde_json::json!({ "ok": true }))
 }

@@ -42,6 +42,7 @@ import {
   useRefreshStockList,
   useTradingStatus,
   useClearBuySuspension,
+  useAppConfig,
 } from '../api/hooks'
 import * as cmd from '../api/commands'
 import type {
@@ -67,6 +68,8 @@ const EXCHANGE_ORDER_MAP: Record<OverseasExchange, OverseasOrderExchange> = {
   NYS: 'NYSE',
   AMS: 'AMEX',
 }
+
+const PAPER_UNSUPPORTED_US_SELL_SYMBOLS = ['VOO', 'SPY', 'QQQM']
 
 /**
  * KIS 잔고 API의 ovrs_excg_cd (NAS/NYS/AMS 또는 NASD/NYSE/AMEX 모두 처리)
@@ -386,6 +389,7 @@ export default function Trading() {
   const { mutate: doRefreshList,      isPending: isRefreshing }    = useRefreshStockList()
   const { data: tradingStatus }                                     = useTradingStatus()
   const { mutate: clearBuySuspension, isPending: clearingBuySusp } = useClearBuySuspension()
+  const { data: appConfig }                                         = useAppConfig()
   const isPending = isPendingKr || isPendingUs
 
   // STOCK_LIST_EMPTY 에러 감지: KRX 다운로드 미완료 or 실패
@@ -395,6 +399,14 @@ export default function Trading() {
   const krCurrentPrice = krPrice ? parseInt(krPrice.stck_prpr) : null
   const usCurrentPrice = usPrice ? parseFloat(usPrice.last) : null
   const stockName      = market === 'KR' ? krPrice?.hts_kor_isnm : (usPrice?.name ?? symbol)
+  const isPaperTrading = appConfig?.kis_is_paper_trading ?? false
+  const overseasOrderExchange = EXCHANGE_ORDER_MAP[usExchange]
+  const normalizedUsSymbol = symbol.trim().toUpperCase()
+  const isPaperUnsupportedUsSell =
+    market === 'US' &&
+    isPaperTrading &&
+    side === 'Sell' &&
+    (overseasOrderExchange === 'AMEX' || PAPER_UNSUPPORTED_US_SELL_SYMBOLS.includes(normalizedUsSymbol))
 
   const handleSelectHolding = (item: BalanceItem) => {
     setSymbol(item.pdno)
@@ -478,8 +490,15 @@ export default function Trading() {
     } else {
       const prc = parseFloat(price)
       if (!prc || prc <= 0) { setErrorMsg('해외 주문은 USD 가격을 입력해야 합니다.'); return }
+      if (isPaperUnsupportedUsSell) {
+        setErrorMsg(
+          `모의투자 미지원 사전 검증: ${normalizedUsSymbol} (${overseasOrderExchange}) 매도 주문은 ` +
+          'KIS 모의투자 해외 주문 universe에서 제한될 수 있습니다. 실전투자로 전환하거나 NASD/NYSE 지원 종목으로 검증하세요.'
+        )
+        return
+      }
       placeOverseasOrder(
-        { symbol, exchange: EXCHANGE_ORDER_MAP[usExchange], side, quantity: qty, price: prc },
+        { symbol, exchange: overseasOrderExchange, side, quantity: qty, price: prc },
         {
           onSuccess: (d) => {
             const odno = d.odno || '(접수됨)'
@@ -490,10 +509,14 @@ export default function Trading() {
           onError: (e) => {
             const err = e as { message?: string } | Error | null
             const rawMsg = err instanceof Error ? err.message : (err as { message?: string })?.message ?? String(e)
-            if (rawMsg.includes('해당업무가 제공되지 않습니다')) {
+            if (
+              rawMsg.includes('해당업무가 제공되지 않습니다') ||
+              rawMsg.includes('모의투자 미지원') ||
+              rawMsg.includes('PAPER_OVERSEAS_UNSUPPORTED')
+            ) {
               setErrorMsg(
                 `모의투자 미지원: ${rawMsg}\n` +
-                `이 종목(${symbol}) 또는 거래소(${EXCHANGE_ORDER_MAP[usExchange]})는 모의투자에서 매도 주문이 지원되지 않습니다. ` +
+                `이 종목(${symbol}) 또는 거래소(${overseasOrderExchange})는 모의투자에서 매도 주문이 지원되지 않습니다. ` +
                 `실전투자로 전환하거나 NASD/NYSE 종목을 이용하세요.`
               )
             } else {
@@ -873,6 +896,14 @@ export default function Trading() {
             {result   && <Alert severity="success" sx={{ mb: 1.5 }}>{result}</Alert>}
             {errorMsg && <Alert severity="error"   sx={{ mb: 1.5 }}>{errorMsg}</Alert>}
 
+            {market === 'US' && isPaperTrading && (
+              <Alert severity={isPaperUnsupportedUsSell ? 'warning' : 'info'} sx={{ mb: 1.5 }}>
+                {isPaperUnsupportedUsSell
+                  ? `${normalizedUsSymbol || '선택 종목'} (${overseasOrderExchange}) 매도는 KIS 모의투자에서 제한될 수 있어 주문 전 차단됩니다.`
+                  : '모의 해외 주문은 USD 지정가로만 전송합니다. 일부 AMEX/ETF 종목은 모의투자 주문 universe에서 제한될 수 있습니다.'}
+              </Alert>
+            )}
+
             {/* 잔고 부족 매수 정지 경고 */}
             {tradingStatus?.buySuspended && side === 'Buy' && (
               <Alert
@@ -900,7 +931,7 @@ export default function Trading() {
               color={side === 'Buy' ? 'primary' : 'error'}
               fullWidth
               onClick={handleSubmit}
-              disabled={isPending || !symbol}
+              disabled={isPending || !symbol || isPaperUnsupportedUsSell}
               startIcon={isPending ? <CircularProgress size={16} color="inherit" /> : undefined}
               sx={{ py: 1.2 }}
             >

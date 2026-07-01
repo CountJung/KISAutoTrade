@@ -300,6 +300,58 @@ pub struct ExecutedOrder {
     pub ord_tmd: String,
 }
 
+/// 해외 주문체결 내역 1건 (TTTS3035R / VTTS3035R output)
+///
+/// KIS 해외 체결 응답은 필드가 상품/환경별로 일부 비어 있을 수 있어 문자열 기본값으로
+/// 넓게 수용한다. 자동 체결 확인에는 `odno`, 체결수량, 체결단가/체결금액만 사용한다.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct OverseasExecutedOrder {
+    /// 상품번호 / 티커
+    pub pdno: String,
+    /// 상품명
+    pub prdt_name: String,
+    /// 해외거래소코드
+    pub ovrs_excg_cd: String,
+    /// 매도매수구분
+    pub sll_buy_dvsn: String,
+    /// 체결/미체결 구분
+    pub ccld_nccs_dvsn: String,
+    /// 주문수량
+    pub ft_ord_qty: String,
+    /// 해외주문단가
+    pub ft_ord_unpr3: String,
+    /// 체결수량
+    pub ft_ccld_qty: String,
+    /// 체결단가
+    pub ft_ccld_unpr3: String,
+    /// 체결금액
+    pub ft_ccld_amt3: String,
+    /// 주문번호
+    pub odno: String,
+    /// 주문일자
+    pub ord_dt: String,
+    /// 주문시각
+    pub ord_tmd: String,
+    /// 주문채번지점번호
+    pub ord_gno_brno: String,
+}
+
+impl OverseasExecutedOrder {
+    pub fn filled_qty(&self) -> u64 {
+        first_positive_u64(&[&self.ft_ccld_qty])
+    }
+
+    pub fn avg_price_cents(&self) -> u64 {
+        let qty = self.filled_qty();
+        let amount_cents = parse_decimal_cents(&self.ft_ccld_amt3);
+        if qty > 0 && amount_cents > 0 {
+            return amount_cents / qty;
+        }
+        parse_decimal_cents(&self.ft_ccld_unpr3).max(parse_decimal_cents(&self.ft_ord_unpr3))
+    }
+}
+
 // ────────────────────────────────────────────────────────────────────
 // 현재가 조회
 // ────────────────────────────────────────────────────────────────────
@@ -401,6 +453,62 @@ pub struct OverseasOrderRequest {
     pub price: f64,
 }
 
+const PAPER_UNSUPPORTED_SELL_SYMBOLS: &[&str] = &["VOO", "SPY", "QQQM"];
+
+fn validate_overseas_order(req: &OverseasOrderRequest, is_paper: bool) -> Result<()> {
+    let symbol = req.symbol.trim().to_uppercase();
+    let exchange = req.exchange.trim().to_uppercase();
+
+    if symbol.is_empty() {
+        anyhow::bail!("해외 주문 사전 검증 실패: 종목코드가 비어 있습니다.");
+    }
+    if !matches!(exchange.as_str(), "NASD" | "NYSE" | "AMEX") {
+        anyhow::bail!(
+            "해외 주문 사전 검증 실패: 지원하지 않는 거래소 코드입니다: {}",
+            req.exchange
+        );
+    }
+    if req.quantity == 0 {
+        anyhow::bail!("해외 주문 사전 검증 실패: 주문 수량은 1 이상이어야 합니다.");
+    }
+    if !req.price.is_finite() || req.price <= 0.0 {
+        anyhow::bail!("해외 주문 사전 검증 실패: 해외 주문은 0보다 큰 USD 지정가가 필요합니다.");
+    }
+
+    let paper_sell_limited = is_paper
+        && matches!(req.side, OrderSide::Sell)
+        && (exchange == "AMEX" || PAPER_UNSUPPORTED_SELL_SYMBOLS.contains(&symbol.as_str()));
+    if paper_sell_limited {
+        anyhow::bail!(
+            "PAPER_OVERSEAS_UNSUPPORTED: 모의투자 미지원 사전 검증 - {} ({}) 매도 주문은 KIS 모의투자 해외 주문 universe에서 제한됩니다. 해당업무가 제공되지 않습니다. 실전투자로 전환하거나 NASD/NYSE 지원 종목으로 검증하세요.",
+            symbol,
+            exchange
+        );
+    }
+
+    Ok(())
+}
+
+fn parse_decimal_cents(value: &str) -> u64 {
+    let clean = value.trim().replace(',', "");
+    if clean.is_empty() {
+        return 0;
+    }
+    clean
+        .parse::<f64>()
+        .ok()
+        .map(|v| (v * 100.0).round() as u64)
+        .unwrap_or(0)
+}
+
+fn first_positive_u64(values: &[&str]) -> u64 {
+    values
+        .iter()
+        .filter_map(|v| v.trim().replace(',', "").parse::<u64>().ok())
+        .find(|v| *v > 0)
+        .unwrap_or(0)
+}
+
 // ────────────────────────────────────────────────────────────────────
 // 클라이언트 구현
 // ────────────────────────────────────────────────────────────────────
@@ -479,10 +587,17 @@ impl KisRestClient {
     // GET /uapi/domestic-stock/v1/trading/inquire-balance
     // ──────────────────────────────────────────────────────────
     pub async fn get_balance(&self) -> Result<BalanceResponse> {
-        let tr_id = if self.is_paper { "VTTC8434R" } else { "TTTC8434R" };
+        let tr_id = if self.is_paper {
+            "VTTC8434R"
+        } else {
+            "TTTC8434R"
+        };
         let (cano, acnt_prdt_cd) = self.split_account();
 
-        let url = format!("{}/uapi/domestic-stock/v1/trading/inquire-balance", self.base_url);
+        let url = format!(
+            "{}/uapi/domestic-stock/v1/trading/inquire-balance",
+            self.base_url
+        );
         let headers = self.auth_headers(tr_id).await?;
 
         let resp = self
@@ -523,7 +638,11 @@ impl KisRestClient {
         }
 
         let raw: Raw = serde_json::from_str(&body).map_err(|e| {
-            tracing::error!("잔고 JSON 파싱 실패: {}\nraw body: {}", e, &body[..body.len().min(500)]);
+            tracing::error!(
+                "잔고 JSON 파싱 실패: {}\nraw body: {}",
+                e,
+                &body[..body.len().min(500)]
+            );
             anyhow::anyhow!("잔고 JSON 파싱 실패: {}", e)
         })?;
         if raw.rt_cd != "0" {
@@ -542,10 +661,17 @@ impl KisRestClient {
     // TR-ID: TTTS3012R (실전) / VTTS3012R (모의)
     // ──────────────────────────────────────────────────────────
     pub async fn get_overseas_balance(&self) -> Result<OverseasBalanceResponse> {
-        let tr_id = if self.is_paper { "VTTS3012R" } else { "TTTS3012R" };
+        let tr_id = if self.is_paper {
+            "VTTS3012R"
+        } else {
+            "TTTS3012R"
+        };
         let (cano, acnt_prdt_cd) = self.split_account();
 
-        let url = format!("{}/uapi/overseas-stock/v1/trading/inquire-balance", self.base_url);
+        let url = format!(
+            "{}/uapi/overseas-stock/v1/trading/inquire-balance",
+            self.base_url
+        );
         let headers = self.auth_headers(tr_id).await?;
 
         let resp = self
@@ -555,8 +681,8 @@ impl KisRestClient {
             .query(&[
                 ("CANO", cano),
                 ("ACNT_PRDT_CD", acnt_prdt_cd),
-                ("OVRS_EXCG_CD", ""),   // 빈 문자열 = 전체 거래소
-                ("TR_CRCY_CD", "USD"),  // 달러 기준
+                ("OVRS_EXCG_CD", ""),  // 빈 문자열 = 전체 거래소
+                ("TR_CRCY_CD", "USD"), // 달러 기준
                 ("CTX_AREA_FK200", ""),
                 ("CTX_AREA_NK200", ""),
             ])
@@ -582,7 +708,11 @@ impl KisRestClient {
         }
 
         let raw: Raw = serde_json::from_str(&body).map_err(|e| {
-            tracing::error!("해외 잔고 JSON 파싱 실패: {}\nraw body: {}", e, &body[..body.len().min(500)]);
+            tracing::error!(
+                "해외 잔고 JSON 파싱 실패: {}\nraw body: {}",
+                e,
+                &body[..body.len().min(500)]
+            );
             anyhow::anyhow!("해외 잔고 JSON 파싱 실패: {}", e)
         })?;
 
@@ -609,7 +739,10 @@ impl KisRestClient {
         };
 
         let (cano, acnt_prdt_cd) = self.split_account();
-        let url = format!("{}/uapi/domestic-stock/v1/trading/order-cash", self.base_url);
+        let url = format!(
+            "{}/uapi/domestic-stock/v1/trading/order-cash",
+            self.base_url
+        );
         let headers = self.auth_headers(tr_id).await?;
 
         #[derive(Serialize)]
@@ -668,7 +801,10 @@ impl KisRestClient {
             anyhow::bail!("주문 오류: {}", raw.msg1);
         }
 
-        let out = raw.output.unwrap_or(OrderOutput { odno: None, ord_tmd: None });
+        let out = raw.output.unwrap_or(OrderOutput {
+            odno: None,
+            ord_tmd: None,
+        });
         Ok(OrderResponse {
             odno: out.odno.unwrap_or_default(),
             ord_tmd: out.ord_tmd.unwrap_or_default(),
@@ -687,8 +823,16 @@ impl KisRestClient {
     }
 
     /// 몂 범위 체결 내역 (from/to: YYYYMMDD)
-    pub async fn get_executed_orders_range(&self, from: &str, to: &str) -> Result<Vec<ExecutedOrder>> {
-        let tr_id = if self.is_paper { "VTTC8001R" } else { "TTTC8001R" };
+    pub async fn get_executed_orders_range(
+        &self,
+        from: &str,
+        to: &str,
+    ) -> Result<Vec<ExecutedOrder>> {
+        let tr_id = if self.is_paper {
+            "VTTC8001R"
+        } else {
+            "TTTC8001R"
+        };
         let (cano, acnt_prdt_cd) = self.split_account();
 
         let url = format!(
@@ -737,12 +881,21 @@ impl KisRestClient {
         if self.api_debug.load(Ordering::Relaxed) {
             tracing::info!(
                 "[KIS-DEBUG][{}] 체결내역 조회 params CANO={} FROM={} TO={} 모의={}",
-                tr_id, cano, from, to, self.is_paper
+                tr_id,
+                cano,
+                from,
+                to,
+                self.is_paper
             );
             tracing::info!("[KIS-DEBUG][{}] 체결내역 조회 response: {}", tr_id, body);
         }
-        let raw: Raw = serde_json::from_str(&body)
-            .map_err(|e| anyhow::anyhow!("체결 내역 JSON 파싱 오류: {} (body={})", e, &body[..body.len().min(200)]))?;
+        let raw: Raw = serde_json::from_str(&body).map_err(|e| {
+            anyhow::anyhow!(
+                "체결 내역 JSON 파싱 오류: {} (body={})",
+                e,
+                &body[..body.len().min(200)]
+            )
+        })?;
         if raw.rt_cd != "0" {
             anyhow::bail!("체결 내역 조회 오류: {}", raw.msg1);
         }
@@ -750,6 +903,151 @@ impl KisRestClient {
         let orders = raw.output1.unwrap_or_default();
         tracing::debug!("체결 내역 조회: {}~{} → {}건", from, to, orders.len());
         Ok(orders)
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // 해외 주문체결 내역 조회
+    // GET /uapi/overseas-stock/v1/trading/inquire-ccnl
+    // TR-ID: TTTS3035R(실전) / VTTS3035R(모의)
+    // ──────────────────────────────────────────────────────────
+    pub async fn get_today_overseas_executed_orders(&self) -> Result<Vec<OverseasExecutedOrder>> {
+        let today = chrono::Local::now().format("%Y%m%d").to_string();
+        self.get_overseas_executed_orders_range(&today, &today)
+            .await
+    }
+
+    /// 해외 주문체결 내역 날짜 범위 조회 (from/to: YYYYMMDD)
+    pub async fn get_overseas_executed_orders_range(
+        &self,
+        from: &str,
+        to: &str,
+    ) -> Result<Vec<OverseasExecutedOrder>> {
+        let tr_id = if self.is_paper {
+            "VTTS3035R"
+        } else {
+            "TTTS3035R"
+        };
+        let (cano, acnt_prdt_cd) = self.split_account();
+        let url = format!(
+            "{}/uapi/overseas-stock/v1/trading/inquire-ccnl",
+            self.base_url
+        );
+
+        let mut all_orders = Vec::new();
+        let mut ctx_fk200 = String::new();
+        let mut ctx_nk200 = String::new();
+        let mut tr_cont = String::new();
+
+        for depth in 0..10 {
+            let mut headers = self.auth_headers(tr_id).await?;
+            if !tr_cont.is_empty() {
+                headers.insert("tr_cont", tr_cont.parse()?);
+            }
+
+            // KIS 모의투자는 해외 체결 조회 필터 조건을 거의 지원하지 않으므로 전체 조회로 고정한다.
+            let pdno = "";
+            let sll_buy_dvsn = "00";
+            let ccld_nccs_dvsn = "00";
+            let ovrs_excg_cd = "";
+            let sort_sqn = if self.is_paper { "" } else { "DS" };
+
+            let resp = self
+                .client
+                .get(&url)
+                .headers(headers)
+                .query(&[
+                    ("CANO", cano),
+                    ("ACNT_PRDT_CD", acnt_prdt_cd),
+                    ("PDNO", pdno),
+                    ("ORD_STRT_DT", from),
+                    ("ORD_END_DT", to),
+                    ("SLL_BUY_DVSN", sll_buy_dvsn),
+                    ("CCLD_NCCS_DVSN", ccld_nccs_dvsn),
+                    ("OVRS_EXCG_CD", ovrs_excg_cd),
+                    ("SORT_SQN", sort_sqn),
+                    ("ORD_DT", ""),
+                    ("ORD_GNO_BRNO", ""),
+                    ("ODNO", ""),
+                    ("CTX_AREA_FK200", &ctx_fk200),
+                    ("CTX_AREA_NK200", &ctx_nk200),
+                ])
+                .send()
+                .await?;
+
+            let status = resp.status();
+            let response_tr_cont = resp
+                .headers()
+                .get("tr_cont")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("")
+                .to_string();
+            let body = resp.text().await.unwrap_or_default();
+            if !status.is_success() {
+                anyhow::bail!("해외 체결 내역 조회 실패 HTTP {}: {}", status, body);
+            }
+
+            #[derive(Deserialize)]
+            struct Raw {
+                rt_cd: String,
+                msg1: String,
+                output: Option<Vec<OverseasExecutedOrder>>,
+                ctx_area_fk200: Option<String>,
+                ctx_area_nk200: Option<String>,
+            }
+
+            if self.api_debug.load(Ordering::Relaxed) {
+                tracing::info!(
+                    "[KIS-DEBUG][{}] 해외 체결내역 조회 params CANO={} FROM={} TO={} 모의={}",
+                    tr_id,
+                    cano,
+                    from,
+                    to,
+                    self.is_paper
+                );
+                tracing::info!(
+                    "[KIS-DEBUG][{}] 해외 체결내역 조회 response: {}",
+                    tr_id,
+                    body
+                );
+            }
+
+            let raw: Raw = serde_json::from_str(&body).map_err(|e| {
+                anyhow::anyhow!(
+                    "해외 체결 내역 JSON 파싱 오류: {} (body={})",
+                    e,
+                    &body[..body.len().min(200)]
+                )
+            })?;
+            if raw.rt_cd != "0" {
+                anyhow::bail!("해외 체결 내역 조회 오류: {}", raw.msg1);
+            }
+
+            all_orders.extend(raw.output.unwrap_or_default());
+            ctx_fk200 = raw.ctx_area_fk200.unwrap_or_default();
+            ctx_nk200 = raw.ctx_area_nk200.unwrap_or_default();
+
+            if !matches!(response_tr_cont.as_str(), "M" | "F") {
+                break;
+            }
+            tr_cont = "N".to_string();
+
+            if depth < 9 {
+                tokio::time::sleep(tokio::time::Duration::from_millis(if self.is_paper {
+                    550
+                } else {
+                    55
+                }))
+                .await;
+            }
+        }
+
+        tracing::debug!(
+            "해외 체결 내역 조회: {}~{} → {}건",
+            from,
+            to,
+            all_orders.len()
+        );
+        Ok(all_orders)
     }
     // GET /uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice
     // TR-ID: FHKST03010100 (실전/모의 공통)
@@ -812,7 +1110,11 @@ impl KisRestClient {
         }
 
         let raw: Raw = serde_json::from_str(&body).map_err(|e| {
-            tracing::error!("차트 JSON 파싱 실패: {}\nbody preview: {}", e, &body[..body.len().min(300)]);
+            tracing::error!(
+                "차트 JSON 파싱 실패: {}\nbody preview: {}",
+                e,
+                &body[..body.len().min(300)]
+            );
             anyhow::anyhow!("차트 JSON 파싱 실패: {}", e)
         })?;
 
@@ -837,7 +1139,12 @@ impl KisRestClient {
             .collect();
 
         candles.reverse();
-        tracing::debug!("차트 데이터 조회 완료: {} ({}) {} 봉", symbol, period_code, candles.len());
+        tracing::debug!(
+            "차트 데이터 조회 완료: {} ({}) {} 봉",
+            symbol,
+            period_code,
+            candles.len()
+        );
         Ok(candles)
     }
 
@@ -847,7 +1154,11 @@ impl KisRestClient {
     // TR-ID: HHDFS76200200 (실전/모의 공통)
     // EXCD: NAS(NASDAQ), NYS(NYSE), AMS(AMEX) 등
     // ──────────────────────────────────────────────────────────
-    pub async fn get_overseas_price(&self, symbol: &str, exchange: &str) -> Result<OverseasPriceResponse> {
+    pub async fn get_overseas_price(
+        &self,
+        symbol: &str,
+        exchange: &str,
+    ) -> Result<OverseasPriceResponse> {
         let url = format!("{}/uapi/overseas-price/v1/quotations/price", self.base_url);
         let headers = self.auth_headers("HHDFS76200200").await?;
 
@@ -873,15 +1184,15 @@ impl KisRestClient {
             output: Option<OverseasPriceResponse>,
         }
 
-        let raw: Raw = serde_json::from_str(&body).map_err(|e| {
-            anyhow::anyhow!("해외 현재가 JSON 파싱 실패: {}", e)
-        })?;
+        let raw: Raw = serde_json::from_str(&body)
+            .map_err(|e| anyhow::anyhow!("해외 현재가 JSON 파싱 실패: {}", e))?;
 
         if raw.rt_cd != "0" {
             anyhow::bail!("해외 현재가 조회 오류: {}", raw.msg1);
         }
 
-        raw.output.ok_or_else(|| anyhow::anyhow!("해외 현재가 응답 없음"))
+        raw.output
+            .ok_or_else(|| anyhow::anyhow!("해외 현재가 응답 없음"))
     }
 
     // ──────────────────────────────────────────────────────────
@@ -891,11 +1202,13 @@ impl KisRestClient {
     //         VTTT1002U(모의매수) VTTT1006U(모의매도)
     // ──────────────────────────────────────────────────────────
     pub async fn place_overseas_order(&self, req: &OverseasOrderRequest) -> Result<OrderResponse> {
+        validate_overseas_order(req, self.is_paper)?;
+
         let tr_id = match (self.is_paper, &req.side) {
-            (false, OrderSide::Buy)  => "TTTT1002U",
+            (false, OrderSide::Buy) => "TTTT1002U",
             (false, OrderSide::Sell) => "TTTT1006U",
-            (true,  OrderSide::Buy)  => "VTTT1002U",
-            (true,  OrderSide::Sell) => "VTTT1006U",
+            (true, OrderSide::Buy) => "VTTT1002U",
+            (true, OrderSide::Sell) => "VTTT1006U",
         };
 
         let (cano, acnt_prdt_cd) = self.split_account();
@@ -904,14 +1217,22 @@ impl KisRestClient {
 
         #[derive(Serialize)]
         struct Body<'a> {
-            #[serde(rename = "CANO")]           cano: &'a str,
-            #[serde(rename = "ACNT_PRDT_CD")]   acnt_prdt_cd: &'a str,
-            #[serde(rename = "OVRS_EXCG_CD")]   ovrs_excg_cd: &'a str,
-            #[serde(rename = "PDNO")]            pdno: &'a str,
-            #[serde(rename = "ORD_DVSN")]        ord_dvsn: &'static str,
-            #[serde(rename = "ORD_QTY")]         ord_qty: String,
-            #[serde(rename = "OVRS_ORD_UNPR")]   ovrs_ord_unpr: String,
-            #[serde(rename = "ORD_SVR_DVSN_CD")] ord_svr_dvsn_cd: &'static str,
+            #[serde(rename = "CANO")]
+            cano: &'a str,
+            #[serde(rename = "ACNT_PRDT_CD")]
+            acnt_prdt_cd: &'a str,
+            #[serde(rename = "OVRS_EXCG_CD")]
+            ovrs_excg_cd: &'a str,
+            #[serde(rename = "PDNO")]
+            pdno: &'a str,
+            #[serde(rename = "ORD_DVSN")]
+            ord_dvsn: &'static str,
+            #[serde(rename = "ORD_QTY")]
+            ord_qty: String,
+            #[serde(rename = "OVRS_ORD_UNPR")]
+            ovrs_ord_unpr: String,
+            #[serde(rename = "ORD_SVR_DVSN_CD")]
+            ord_svr_dvsn_cd: &'static str,
         }
 
         let body = Body {
@@ -956,7 +1277,10 @@ impl KisRestClient {
             anyhow::bail!("해외 주문 오류: {}", raw.msg1);
         }
 
-        let out = raw.output.unwrap_or(OverseasOrderOutput { odno: None, ord_tmd: None });
+        let out = raw.output.unwrap_or(OverseasOrderOutput {
+            odno: None,
+            ord_tmd: None,
+        });
         Ok(OrderResponse {
             odno: out.odno.unwrap_or_default(),
             ord_tmd: out.ord_tmd.unwrap_or_default(),
@@ -989,7 +1313,7 @@ impl KisRestClient {
         let gubn = match period_code {
             "W" => "1",
             "M" => "2",
-            _   => "0", // D
+            _ => "0", // D
         };
 
         let resp = self
@@ -1025,11 +1349,11 @@ impl KisRestClient {
         #[serde(default)]
         struct RawOverseasCandle {
             bass_dt: String, // 기준일자
-            open:    String, // 시가
-            high:    String, // 고가
-            low:     String, // 저가
-            clos:    String, // 종가
-            tvol:    String, // 거래량
+            open: String,    // 시가
+            high: String,    // 고가
+            low: String,     // 저가
+            clos: String,    // 종가
+            tvol: String,    // 거래량
         }
 
         let raw: Raw = serde_json::from_str(&body).map_err(|e| {
@@ -1052,11 +1376,11 @@ impl KisRestClient {
             .into_iter()
             .filter(|c| !c.bass_dt.is_empty())
             .map(|c| ChartCandle {
-                date:   c.bass_dt,
-                open:   c.open,
-                high:   c.high,
-                low:    c.low,
-                close:  c.clos,
+                date: c.bass_dt,
+                open: c.open,
+                high: c.high,
+                low: c.low,
+                close: c.clos,
                 volume: c.tvol,
             })
             .collect();
@@ -1064,7 +1388,10 @@ impl KisRestClient {
         candles.reverse();
         tracing::debug!(
             "해외 차트 조회 완료: {} {} ({}) {} 봉",
-            exchange, symbol, period_code, candles.len()
+            exchange,
+            symbol,
+            period_code,
+            candles.len()
         );
         Ok(candles)
     }
@@ -1106,7 +1433,8 @@ impl KisRestClient {
             anyhow::bail!("현재가 조회 오류: {}", raw.msg1);
         }
 
-        raw.output.ok_or_else(|| anyhow::anyhow!("현재가 응답 없음"))
+        raw.output
+            .ok_or_else(|| anyhow::anyhow!("현재가 응답 없음"))
     }
 }
 
@@ -1151,4 +1479,3 @@ pub async fn fetch_usd_krw_rate() -> Result<f64> {
         .copied()
         .ok_or_else(|| anyhow::anyhow!("환율 응답에 KRW 없음"))
 }
-

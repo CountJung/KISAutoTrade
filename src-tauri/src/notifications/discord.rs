@@ -62,10 +62,7 @@ mod tests {
 
     #[test]
     fn test_discord_message_format() {
-        let event = NotificationEvent::critical(
-            "테스트",
-            "Rust 패닉 발생",
-        );
+        let event = NotificationEvent::critical("테스트", "Rust 패닉 발생");
         let msg = event.to_discord_message();
         assert!(msg.contains("CRITICAL"));
         assert!(msg.contains("패닉"));

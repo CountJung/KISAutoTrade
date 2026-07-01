@@ -23,6 +23,7 @@ use crate::{
         KisRestClient, OrderRequest, OrderResponse, OrderSide as RestOrderSide, OrderType,
         OverseasOrderRequest,
     },
+    market_hours::is_domestic_symbol,
     notifications::{discord::DiscordNotifier, types::NotificationEvent},
     storage::{
         order_store::{OrderRecord, OrderSide, OrderStatus},
@@ -31,7 +32,7 @@ use crate::{
     },
     trading::{
         guard::{GuardDecision, TradeGuard},
-        position::PositionTracker,
+        position::{OverseasPositionTracker, PositionTracker},
         risk::RiskManager,
         strategy::Signal,
     },
@@ -48,6 +49,8 @@ pub struct PendingOrder {
     pub record: OrderRecord,
     /// 이 주문을 촉발한 전략 신호 이유
     pub signal_reason: String,
+    /// 해외 주문이면 KIS 주문 거래소 코드(NASD/NYSE/AMEX), 국내 주문이면 None
+    pub exchange: Option<String>,
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -76,6 +79,7 @@ pub struct OrderManager {
     order_store: Arc<OrderStore>,
     trade_store: Arc<TradeStore>,
     position_tracker: Arc<Mutex<PositionTracker>>,
+    overseas_position_tracker: Arc<Mutex<OverseasPositionTracker>>,
     stats_store: Arc<StatsStore>,
     /// 리스크 관리자 — AppState에서 Arc 공유
     pub risk_manager: Arc<Mutex<RiskManager>>,
@@ -90,6 +94,7 @@ impl OrderManager {
         order_store: Arc<OrderStore>,
         trade_store: Arc<TradeStore>,
         position_tracker: Arc<Mutex<PositionTracker>>,
+        overseas_position_tracker: Arc<Mutex<OverseasPositionTracker>>,
         stats_store: Arc<StatsStore>,
         risk_manager: Arc<Mutex<RiskManager>>,
         discord: Option<Arc<DiscordNotifier>>,
@@ -103,6 +108,7 @@ impl OrderManager {
             order_store,
             trade_store,
             position_tracker,
+            overseas_position_tracker,
             stats_store,
             risk_manager,
             trade_guard: TradeGuard::default(),
@@ -128,11 +134,19 @@ impl OrderManager {
     ) -> Result<()> {
         let (held_quantity, avg_price) = match &signal {
             Signal::Buy { symbol, .. } | Signal::Sell { symbol, .. } => {
-                let tracker = self.position_tracker.lock().await;
-                tracker
-                    .get(symbol)
-                    .map(|p| (p.quantity, Some(p.avg_price.round() as u64)))
-                    .unwrap_or((0, None))
+                if exchange.is_some() {
+                    let tracker = self.overseas_position_tracker.lock().await;
+                    tracker
+                        .get(symbol)
+                        .map(|p| (p.quantity, Some(p.avg_price_cents.round() as u64)))
+                        .unwrap_or((0, None))
+                } else {
+                    let tracker = self.position_tracker.lock().await;
+                    tracker
+                        .get(symbol)
+                        .map(|p| (p.quantity, Some(p.avg_price.round() as u64)))
+                        .unwrap_or((0, None))
+                }
             }
             Signal::Hold => (0, None),
         };
@@ -206,7 +220,50 @@ impl OrderManager {
 
         // ⑤ 포지션 연동 + ⑦ 매도 시 PnL 계산 (포지션 업데이트 전에 avg_price 읽기)
         let is_sell = matches!(pending.record.side, OrderSide::Sell);
-        let pnl = {
+        let is_overseas = pending.exchange.is_some() || !is_domestic_symbol(&symbol);
+        let pnl = if is_overseas {
+            let exchange = pending
+                .exchange
+                .clone()
+                .unwrap_or_else(|| "UNKNOWN".to_string());
+            let mut tracker = self.overseas_position_tracker.lock().await;
+            match &pending.record.side {
+                OrderSide::Buy => {
+                    tracker.on_buy(
+                        symbol.clone(),
+                        symbol_name.clone(),
+                        exchange.clone(),
+                        filled_qty,
+                        avg_price,
+                    );
+                    tracing::info!(
+                        "해외 매수 체결: {} {} @ ${:.2} ({})",
+                        symbol,
+                        filled_qty,
+                        avg_price as f64 / 100.0,
+                        exchange
+                    );
+                    0i64
+                }
+                OrderSide::Sell => {
+                    let buy_avg = tracker
+                        .get(&symbol)
+                        .map(|p| p.avg_price_cents)
+                        .unwrap_or(0.0);
+                    let realized = (avg_price as f64 - buy_avg) * filled_qty as f64;
+                    tracker.on_sell(&symbol, filled_qty);
+                    tracing::info!(
+                        "해외 매도 체결: {} {} @ ${:.2} ({}) (PnL: ${:.2})",
+                        symbol,
+                        filled_qty,
+                        avg_price as f64 / 100.0,
+                        exchange,
+                        realized / 100.0
+                    );
+                    realized as i64
+                }
+            }
+        } else {
             let mut tracker = self.position_tracker.lock().await;
             match &pending.record.side {
                 OrderSide::Buy => {
@@ -231,10 +288,12 @@ impl OrderManager {
             }
         };
 
-        // 수수료 계산 (국내주식 추정, KIS API는 건별 수수료 미제공)
-        // - 위탁수수료 0.015% (매수/매도 공통)
-        // - 증권거래세 0.20% (매도 시에만)
-        let fee = calculate_domestic_fee(avg_price, filled_qty, is_sell);
+        // 국내 수수료만 추정한다. 해외 수수료/환율 반영은 별도 todo에서 처리한다.
+        let fee = if is_overseas {
+            0
+        } else {
+            calculate_domestic_fee(avg_price, filled_qty, is_sell)
+        };
 
         // ⑦ 매도 체결 시 통계/리스크 반영 + ⑪ 잔고 부족 정지 자동 해제
         if is_sell {
@@ -247,25 +306,29 @@ impl OrderManager {
                     symbol
                 );
             }
-            self.risk_manager.lock().await.record_pnl(pnl);
+            if !is_overseas {
+                self.risk_manager.lock().await.record_pnl(pnl);
+            }
 
-            let today = chrono::Local::now().date_naive();
-            if let Ok(mut stats) = self.stats_store.get_by_date(today).await {
-                stats.total_trades += 1;
-                if pnl > 0 {
-                    stats.winning_trades += 1;
-                    stats.gross_profit += pnl;
-                } else if pnl < 0 {
-                    stats.losing_trades += 1;
-                    stats.gross_loss += pnl;
-                }
-                stats.fees_paid += fee; // 매도 수수료(위탁수수료 + 거래세) 누적
-                stats.recalculate();
-                if let Err(e) = self.stats_store.upsert(stats).await {
-                    tracing::error!("통계 저장 실패: {}", e);
+            if !is_overseas {
+                let today = chrono::Local::now().date_naive();
+                if let Ok(mut stats) = self.stats_store.get_by_date(today).await {
+                    stats.total_trades += 1;
+                    if pnl > 0 {
+                        stats.winning_trades += 1;
+                        stats.gross_profit += pnl;
+                    } else if pnl < 0 {
+                        stats.losing_trades += 1;
+                        stats.gross_loss += pnl;
+                    }
+                    stats.fees_paid += fee; // 매도 수수료(위탁수수료 + 거래세) 누적
+                    stats.recalculate();
+                    if let Err(e) = self.stats_store.upsert(stats).await {
+                        tracing::error!("통계 저장 실패: {}", e);
+                    }
                 }
             }
-        } else {
+        } else if !is_overseas {
             // 매수 체결 시 수수료만 통계 업데이트 (PnL은 매도 시 확정)
             let today = chrono::Local::now().date_naive();
             if let Ok(mut stats) = self.stats_store.get_by_date(today).await {
@@ -311,18 +374,33 @@ impl OrderManager {
         if let Some(discord) = &self.discord {
             let side_str = if !is_sell { "매수" } else { "매도" };
             let pnl_str = if is_sell {
-                format!(
-                    " (PnL: {}{}원, 수수료: {}원)",
-                    if pnl >= 0 { "+" } else { "" },
-                    pnl,
-                    fee
-                )
+                if is_overseas {
+                    format!(
+                        " (PnL: {}${:.2})",
+                        if pnl >= 0 { "+" } else { "" },
+                        pnl as f64 / 100.0
+                    )
+                } else {
+                    format!(
+                        " (PnL: {}{}원, 수수료: {}원)",
+                        if pnl >= 0 { "+" } else { "" },
+                        pnl,
+                        fee
+                    )
+                }
+            } else if is_overseas {
+                String::new()
             } else {
                 format!(" (수수료: {}원)", fee)
             };
+            let price_text = if is_overseas {
+                format!("${:.2}", avg_price as f64 / 100.0)
+            } else {
+                format!("{}원", avg_price)
+            };
             let content = format!(
-                "{} {} {}주 @ {}원{}",
-                symbol_name, side_str, filled_qty, avg_price, pnl_str
+                "{} {} {}주 @ {}{}",
+                symbol_name, side_str, filled_qty, price_text, pnl_str
             );
             let _ = discord.send(NotificationEvent::trade(content)).await;
         }
@@ -515,6 +593,7 @@ impl OrderManager {
             quantity,
             reason,
             response,
+            exchange.map(|exch| order_exchange_code(&exch).to_string()),
         )
         .await
     }
@@ -535,8 +614,8 @@ impl OrderManager {
         }
 
         // 보유 포지션 확인
-        // - 국내: position_tracker 확인 필수
-        // - 해외: tracker 미동기화 상태일 수 있으므로 수량 그대로 신뢰
+        // - 국내: PositionTracker
+        // - 해외: OverseasPositionTracker
         let sell_qty = if exchange.is_none() {
             let position_qty = {
                 let tracker = self.position_tracker.lock().await;
@@ -548,7 +627,15 @@ impl OrderManager {
             }
             quantity.min(position_qty)
         } else {
-            quantity
+            let position_qty = {
+                let tracker = self.overseas_position_tracker.lock().await;
+                tracker.get(&symbol).map(|p| p.quantity).unwrap_or(0)
+            };
+            if position_qty == 0 {
+                tracing::debug!("해외 매도 스킵 — {} 보유 포지션 없음", symbol);
+                return Ok(());
+            }
+            quantity.min(position_qty)
         };
 
         // ⑧ 비상정지 확인 (매도는 손실한도와 무관하게 실행 허용)
@@ -624,6 +711,7 @@ impl OrderManager {
             sell_qty,
             reason,
             response,
+            exchange.map(|exch| order_exchange_code(&exch).to_string()),
         )
         .await
     }
@@ -637,6 +725,7 @@ impl OrderManager {
         quantity: u64,
         reason: String,
         response: OrderResponse,
+        exchange: Option<String>,
     ) -> Result<()> {
         let mut record = OrderRecord::new(
             symbol.clone(),
@@ -677,6 +766,7 @@ impl OrderManager {
             PendingOrder {
                 record,
                 signal_reason: reason,
+                exchange,
             },
         );
 
@@ -769,42 +859,84 @@ impl OrderManager {
         self.on_fill(&ondo, qty, fill_price).await
     }
 
-    /// 국내 주문번호 기반 체결 확인.
+    /// 주문번호 기반 체결 확인.
     ///
     /// KIS 당일 체결 내역에서 pending 주문번호를 찾아 실제 체결수량/체결금액으로 반영한다.
-    /// 해외 체결 조회는 별도 API가 필요하므로 현재는 국내 주문만 확인한다.
+    /// 국내는 원화 정수, 해외는 USD × 100(cents) 단위로 `on_fill()`에 전달한다.
     pub async fn confirm_pending_fills_from_broker(&mut self) -> Result<()> {
-        let pending_ondos: Vec<String> = self.pending.keys().cloned().collect();
-        if pending_ondos.is_empty() {
+        let pending: Vec<(String, String)> = self
+            .pending
+            .iter()
+            .map(|(odno, order)| (odno.clone(), order.record.symbol.clone()))
+            .collect();
+        if pending.is_empty() {
             return Ok(());
         }
 
         let client = self.rest_client.read().await.clone();
-        let executed = client.get_today_executed_orders().await?;
-        for odno in pending_ondos {
-            let Some(order) = executed.iter().find(|o| o.odno == odno) else {
-                continue;
-            };
-            let qty = order.tot_ccld_qty.parse::<u64>().unwrap_or(0);
-            if qty == 0 {
-                continue;
+
+        if pending.iter().any(|(_, symbol)| is_domestic_symbol(symbol)) {
+            let executed = client.get_today_executed_orders().await?;
+            for (odno, symbol) in pending
+                .iter()
+                .filter(|(_, symbol)| is_domestic_symbol(symbol))
+            {
+                let Some(order) = executed.iter().find(|o| o.odno == *odno) else {
+                    continue;
+                };
+                let qty = order.tot_ccld_qty.parse::<u64>().unwrap_or(0);
+                if qty == 0 {
+                    continue;
+                }
+                let amount = order.tot_ccld_amt.parse::<u64>().unwrap_or(0);
+                let avg_price = if amount > 0 {
+                    amount / qty
+                } else {
+                    order.ord_unpr.parse::<u64>().unwrap_or(0)
+                };
+                if avg_price == 0 {
+                    continue;
+                }
+                tracing::info!(
+                    "국내 주문번호 기반 체결 확인: odno={} symbol={} qty={} avg={}",
+                    odno,
+                    symbol,
+                    qty,
+                    avg_price
+                );
+                self.on_fill(odno, qty, avg_price).await?;
             }
-            let amount = order.tot_ccld_amt.parse::<u64>().unwrap_or(0);
-            let avg_price = if amount > 0 {
-                amount / qty
-            } else {
-                order.ord_unpr.parse::<u64>().unwrap_or(0)
-            };
-            if avg_price == 0 {
-                continue;
+        }
+
+        if pending
+            .iter()
+            .any(|(_, symbol)| !is_domestic_symbol(symbol))
+        {
+            let executed = client.get_today_overseas_executed_orders().await?;
+            for (odno, symbol) in pending
+                .iter()
+                .filter(|(_, symbol)| !is_domestic_symbol(symbol))
+            {
+                let Some(order) = executed.iter().find(|o| o.odno == *odno) else {
+                    continue;
+                };
+                let qty = order.filled_qty();
+                if qty == 0 {
+                    continue;
+                }
+                let avg_price_cents = order.avg_price_cents();
+                if avg_price_cents == 0 {
+                    continue;
+                }
+                tracing::info!(
+                    "해외 주문번호 기반 체결 확인: odno={} symbol={} qty={} avg_cents={}",
+                    odno,
+                    symbol,
+                    qty,
+                    avg_price_cents
+                );
+                self.on_fill(odno, qty, avg_price_cents).await?;
             }
-            tracing::info!(
-                "주문번호 기반 체결 확인: odno={} qty={} avg={}",
-                odno,
-                qty,
-                avg_price
-            );
-            self.on_fill(&odno, qty, avg_price).await?;
         }
         Ok(())
     }
@@ -836,6 +968,15 @@ fn calculate_domestic_fee(price: u64, quantity: u64, is_sell: bool) -> u64 {
     commission + transaction_tax
 }
 
+fn order_exchange_code(exchange: &str) -> &str {
+    match exchange {
+        "NAS" => "NASD",
+        "NYS" => "NYSE",
+        "AMS" => "AMEX",
+        other => other,
+    }
+}
+
 /// KIS API 응답에서 잔고 부족 오류인지 판별.
 ///
 /// 알려진 KIS 에러코드/메시지:
@@ -863,4 +1004,6 @@ fn is_insufficient_balance_error(msg: &str) -> bool {
 /// 수동 UI 주문에서는 그대로 사용자에게 표시됨.
 fn is_paper_unsupported_error(msg: &str) -> bool {
     msg.contains("해당업무가 제공되지 않습니다")
+        || msg.contains("모의투자 미지원")
+        || msg.contains("PAPER_OVERSEAS_UNSUPPORTED")
 }

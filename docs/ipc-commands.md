@@ -34,7 +34,9 @@
 | `place_order` | 국내 수동 주문 (매수/매도) |
 | `place_overseas_order` | 해외 수동 주문 |
 | `get_today_executed` | 당일 체결 내역 (KIS API) |
+| `get_today_overseas_executed` | 당일 해외주식 주문체결 내역 (KIS API) |
 | `get_kis_executed_by_range` | KIS API 날짜 범위 체결 조회 |
+| `get_overseas_executed_by_range` | KIS API 날짜 범위 해외주식 주문체결 조회 |
 | `get_exchange_rate` | USD/KRW 환율 조회 (캐시) |
 | `search_stock` | 종목명/코드 검색 (캐시된 KRX 목록) |
 | `refresh_stock_list` | KRX 종목 목록 강제 갱신 |

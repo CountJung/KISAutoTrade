@@ -19,16 +19,17 @@ use logging::LogConfig;
 
 /// 디렉토리 재귀 복사 (cross-filesystem 이전 시 rename 대신 사용)
 /// macOS ._* 리소스 포크 파일은 건너뜀
-fn copy_dir_all(
-    src: &std::path::Path,
-    dst: &std::path::Path,
-) -> std::io::Result<()> {
+fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
         let file_name = entry.file_name();
         // macOS exFAT 리소스 포크(._*) 제외
-        if file_name.to_str().map(|n| n.starts_with("._")).unwrap_or(false) {
+        if file_name
+            .to_str()
+            .map(|n| n.starts_with("._"))
+            .unwrap_or(false)
+        {
             continue;
         }
         let src_path = entry.path();
@@ -381,6 +382,7 @@ pub fn run() {
             commands::get_price,
             commands::place_order,
             commands::get_today_executed,
+            commands::get_today_overseas_executed,
             commands::get_today_trades,
             commands::get_trades_by_range,
             commands::get_today_stats,
@@ -405,6 +407,7 @@ pub fn run() {
             commands::get_stock_list_stats,
             commands::set_stock_update_interval,
             commands::get_kis_executed_by_range,
+            commands::get_overseas_executed_by_range,
             commands::get_recent_logs,
             commands::check_for_update,
             commands::get_web_config,

@@ -2645,10 +2645,7 @@ impl Strategy for LeveragedTrendHoldStrategy {
             let base_entry = entry
                 .base_symbols
                 .iter()
-                .filter_map(|base| {
-                    self.base_entry_ok(base, direction)
-                        .map(|snap| (base, snap))
-                })
+                .filter_map(|base| self.base_entry_ok(base, direction).map(|snap| (base, snap)))
                 .next();
 
             if let Some((base, snap)) = base_entry {

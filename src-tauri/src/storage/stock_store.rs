@@ -53,10 +53,7 @@ impl StockStore {
     pub fn new(data_dir: &Path) -> Self {
         let path = data_dir.join(STOCKLIST_DIR).join(STOCKLIST_FILE);
         let data = load_from_file(&path);
-        tracing::info!(
-            "StockStore 초기화: {}개 종목 로드 ({:?})",
-            data.len(), path
-        );
+        tracing::info!("StockStore 초기화: {}개 종목 로드 ({:?})", data.len(), path);
         Self {
             path,
             data: Arc::new(RwLock::new(data)),
@@ -75,9 +72,7 @@ impl StockStore {
         let data = self.data.read().await;
         let mut results: Vec<StockSearchItem> = data
             .iter()
-            .filter(|(code, entry)| {
-                entry.name.to_lowercase().contains(&q) || code.contains(query)
-            })
+            .filter(|(code, entry)| entry.name.to_lowercase().contains(&q) || code.contains(query))
             .map(|(code, entry)| StockSearchItem {
                 pdno: code.clone(),
                 prdt_name: entry.name.clone(),
@@ -124,7 +119,10 @@ impl StockStore {
             return;
         }
         let now = chrono::Utc::now().to_rfc3339();
-        let entry = StockEntry { name: name.to_string(), updated_at: now };
+        let entry = StockEntry {
+            name: name.to_string(),
+            updated_at: now,
+        };
         let mut data = self.data.write().await;
         data.insert(code.to_string(), entry);
         self.persist(&data);
@@ -146,7 +144,13 @@ impl StockStore {
             if c.is_empty() || n.is_empty() {
                 continue;
             }
-            data.insert(c.to_string(), StockEntry { name: n.to_string(), updated_at: now.clone() });
+            data.insert(
+                c.to_string(),
+                StockEntry {
+                    name: n.to_string(),
+                    updated_at: now.clone(),
+                },
+            );
             changed = true;
         }
         if changed {

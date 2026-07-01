@@ -20,6 +20,7 @@ import type {
   FrontendLogInput,
   LogConfig,
   OrderResponse,
+  OverseasExecutedOrder,
   OverseasPriceResponse,
   PendingOrderView,
   PlaceOrderInput,
@@ -107,6 +108,12 @@ export const getRecentLogs = (count: number): Promise<AppLogEntry[]> =>
 // ─── 당일 체결 내역 (KIS) ─────────────────────────────────────────
 export const getTodayExecuted = (): Promise<ExecutedOrder[]> =>
   invoke('get_today_executed')
+
+export const getTodayOverseasExecuted = (): Promise<OverseasExecutedOrder[]> =>
+  invoke('get_today_overseas_executed')
+
+export const getOverseasExecutedByRange = (from: string, to: string): Promise<OverseasExecutedOrder[]> =>
+  invoke('get_overseas_executed_by_range', { from, to })
 
 // ─── 로컬 체결 기록 ────────────────────────────────────────────────
 export const getTodayTrades = (): Promise<TradeRecord[]> =>

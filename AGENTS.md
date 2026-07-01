@@ -66,8 +66,8 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-07-01 | 해외 자동매매 포지션을 OverseasPositionTracker로 분리 |
+| 2026-07-01 | 해외 모의투자 주문 사전 검증과 UI 제한 안내 추가 |
+| 2026-07-01 | 해외주식 주문체결내역 IPC와 해외 주문번호 기반 체결 확인 추가 |
 | 2026-07-01 | Copilot 호환 지침/스킬을 Codex 로컬 브리지 스킬로 연결 |
 | 2026-07-01 | Frontend FSD 점진 도입 규칙을 공용 스킬로 추가 |
-| 2026-06-30 | TodoList.md → todo.md 개편, Codex 지침/스킬 마이그레이션, 반복 매매 손실 방지 백로그 재작성 |
-| 2026-05-01 | 앱 종료 안전 처리(on_window_event), REFRESH_INTERVAL_SEC .env 통일, 에이전트 문서 구조 개편 |
-| 2026-04-14 | 해외주식 모의투자 매도 에러 처리: is_paper_unsupported_error() 추가 |

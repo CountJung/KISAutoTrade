@@ -18,8 +18,8 @@ use crate::{
     api::{
         rest::{
             BalanceItem, BalanceSummary, ChartCandle, ExecutedOrder, KisRestClient, OrderRequest,
-            OrderResponse, OverseasBalanceItem, OverseasBalanceSummary, PriceResponse,
-            StockSearchItem,
+            OrderResponse, OverseasBalanceItem, OverseasBalanceSummary, OverseasExecutedOrder,
+            PriceResponse, StockSearchItem,
         },
         token::TokenManager,
     },
@@ -36,7 +36,7 @@ use crate::{
     },
     trading::{
         order::OrderManager,
-        position::{Position, PositionTracker},
+        position::{OverseasPositionTracker, Position, PositionTracker},
         risk::RiskManager,
         strategy::{
             ConsecutiveMoveParams, ConsecutiveMoveStrategy, DeviationParams, DeviationStrategy,
@@ -273,6 +273,8 @@ pub struct AppState {
     pub strategy_manager: Arc<Mutex<StrategyManager>>,
     /// 포지션 트래커
     pub position_tracker: Arc<Mutex<PositionTracker>>,
+    /// 해외 포지션 트래커 (USD cents, 거래소 코드 보존)
+    pub overseas_position_tracker: Arc<Mutex<OverseasPositionTracker>>,
     /// 주문 관리자 (전략 신호 → KIS 주문 + 체결 추적)
     pub order_manager: Arc<Mutex<OrderManager>>,
     /// 주문 이력 저장소
@@ -334,6 +336,7 @@ impl AppState {
         let order_store = Arc::new(OrderStore::new(data_dir.clone()));
         let risk_manager = Arc::new(Mutex::new(RiskManager::default()));
         let position_tracker = Arc::new(Mutex::new(PositionTracker::new()));
+        let overseas_position_tracker = Arc::new(Mutex::new(OverseasPositionTracker::new()));
 
         // rest_client를 RwLock으로 감싸서 OrderManager와 공유
         let rest_client_rw = Arc::new(RwLock::new(rest_client));
@@ -343,6 +346,7 @@ impl AppState {
             Arc::clone(&order_store),
             Arc::clone(&trade_store),
             Arc::clone(&position_tracker),
+            Arc::clone(&overseas_position_tracker),
             Arc::clone(&stats_store),
             Arc::clone(&risk_manager),
             discord.clone(),
@@ -536,6 +540,7 @@ impl AppState {
             is_trading: Arc::new(Mutex::new(false)),
             strategy_manager: Arc::new(Mutex::new(strategy_manager)),
             position_tracker,
+            overseas_position_tracker,
             order_manager,
             risk_manager,
             log_dir,
@@ -568,6 +573,24 @@ fn make_rest_client(config: &Arc<AppConfig>) -> Arc<KisRestClient> {
         config.kis_is_paper_trading,
         token_manager,
     ))
+}
+
+fn usd_to_cents(value: &str) -> u64 {
+    value
+        .trim()
+        .replace(',', "")
+        .parse::<f64>()
+        .map(|v| (v * 100.0).round() as u64)
+        .unwrap_or(0)
+}
+
+fn normalize_overseas_order_exchange(code: &str) -> String {
+    match code.trim().to_uppercase().as_str() {
+        "NAS" | "NASD" | "NASDAQ" => "NASD".to_string(),
+        "NYS" | "NYSE" => "NYSE".to_string(),
+        "AMS" | "AMEX" => "AMEX".to_string(),
+        other => other.to_string(),
+    }
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -992,9 +1015,20 @@ pub async fn get_overseas_balance(state: State<'_, AppState>) -> CmdResult<Overs
     match client.get_overseas_balance().await {
         Ok(resp) => {
             tracing::info!("해외 잔고 조회 성공: 보유종목 {}개", resp.items.len());
-            // 해외 잔고는 position_tracker에 혼입하지 않는다.
-            // Dashboard는 overseasBalance.items를 직접 표시하므로 load_if_empty 불필요.
-            // (국내/해외 혼입 시 먼저 응답이 오는 쪽만 등록되는 레이스 컨디션 발생)
+            // 해외 잔고는 국내 position_tracker에 혼입하지 않고 별도 tracker에만 복원한다.
+            {
+                let mut tracker = state.overseas_position_tracker.lock().await;
+                tracker.load_if_empty(resp.items.iter().map(|i| {
+                    (
+                        i.ovrs_pdno.clone(),
+                        i.ovrs_item_name.clone(),
+                        normalize_overseas_order_exchange(&i.ovrs_excg_cd),
+                        i.ovrs_cblc_qty.parse::<u64>().unwrap_or(0),
+                        usd_to_cents(&i.pchs_avg_pric),
+                        usd_to_cents(&i.now_pric2),
+                    )
+                }));
+            }
             Ok(OverseasBalanceResult {
                 items: resp.items,
                 summary: resp.summary,
@@ -1117,6 +1151,17 @@ pub async fn get_today_executed(state: State<'_, AppState>) -> CmdResult<Vec<Exe
     let client = state.rest_client.read().await.clone();
     client
         .get_today_executed_orders()
+        .await
+        .map_err(CmdError::from)
+}
+
+#[tauri::command]
+pub async fn get_today_overseas_executed(
+    state: State<'_, AppState>,
+) -> CmdResult<Vec<OverseasExecutedOrder>> {
+    let client = state.rest_client.read().await.clone();
+    client
+        .get_today_overseas_executed_orders()
         .await
         .map_err(CmdError::from)
 }
@@ -1414,14 +1459,23 @@ pub async fn start_trading(
 
         match rest.get_overseas_balance().await {
             Ok(resp) => {
+                {
+                    let mut tracker = state.overseas_position_tracker.lock().await;
+                    tracker.load_if_empty(resp.items.iter().map(|i| {
+                        (
+                            i.ovrs_pdno.clone(),
+                            i.ovrs_item_name.clone(),
+                            normalize_overseas_order_exchange(&i.ovrs_excg_cd),
+                            i.ovrs_cblc_qty.parse::<u64>().unwrap_or(0),
+                            usd_to_cents(&i.pchs_avg_pric),
+                            usd_to_cents(&i.now_pric2),
+                        )
+                    }));
+                }
                 let mut mgr = state.strategy_manager.lock().await;
                 for item in &resp.items {
                     let qty = item.ovrs_cblc_qty.parse::<u64>().unwrap_or(0);
-                    let avg = item
-                        .pchs_avg_pric
-                        .parse::<f64>()
-                        .map(|v| (v * 100.0).round() as u64)
-                        .unwrap_or(0);
+                    let avg = usd_to_cents(&item.pchs_avg_pric);
                     mgr.sync_position(&item.ovrs_pdno, qty, avg);
                 }
             }
@@ -2860,6 +2914,21 @@ pub async fn get_kis_executed_by_range(
     let client = state.rest_client.read().await.clone();
     client
         .get_executed_orders_range(&from_fmt, &to_fmt)
+        .await
+        .map_err(CmdError::from)
+}
+
+#[tauri::command]
+pub async fn get_overseas_executed_by_range(
+    from: String, // YYYY-MM-DD
+    to: String,   // YYYY-MM-DD
+    state: State<'_, AppState>,
+) -> CmdResult<Vec<crate::api::rest::OverseasExecutedOrder>> {
+    let from_fmt = from.replace('-', "");
+    let to_fmt = to.replace('-', "");
+    let client = state.rest_client.read().await.clone();
+    client
+        .get_overseas_executed_orders_range(&from_fmt, &to_fmt)
         .await
         .map_err(CmdError::from)
 }

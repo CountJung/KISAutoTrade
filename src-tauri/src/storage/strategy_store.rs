@@ -11,7 +11,9 @@ pub struct StrategyStore {
 
 impl StrategyStore {
     pub fn new(data_dir: &Path) -> Self {
-        Self { data_dir: data_dir.to_path_buf() }
+        Self {
+            data_dir: data_dir.to_path_buf(),
+        }
     }
 
     fn config_path(&self, profile_id: &str) -> PathBuf {
@@ -29,14 +31,10 @@ impl StrategyStore {
         }
         match std::fs::read_to_string(&path) {
             Ok(content) => {
-                serde_json::from_str::<Vec<StrategyConfig>>(&content)
-                    .unwrap_or_default()
+                serde_json::from_str::<Vec<StrategyConfig>>(&content).unwrap_or_default()
             }
             Err(e) => {
-                tracing::warn!(
-                    "전략 설정 로드 실패 — {:?}: {} (기본값 사용)",
-                    path, e
-                );
+                tracing::warn!("전략 설정 로드 실패 — {:?}: {} (기본값 사용)", path, e);
                 vec![]
             }
         }

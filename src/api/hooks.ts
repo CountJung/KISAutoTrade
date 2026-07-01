@@ -28,6 +28,7 @@ import type {
   ExecutedOrder,
   FrontendLogInput,
   LogConfig,
+  OverseasExecutedOrder,
   OverseasPriceResponse,
   PlaceOrderInput,
   PlaceOverseasOrderInput,
@@ -66,6 +67,7 @@ export const KEYS = {
   overseasBalance: ['overseasBalance'] as const,
   price: (symbol: string) => ['price', symbol] as const,
   todayExecuted: ['todayExecuted'] as const,
+  todayOverseasExecuted: ['todayOverseasExecuted'] as const,
   todayTrades: ['todayTrades'] as const,
   tradeRange: (from: string, to: string) => ['trades', from, to] as const,
   todayStats: ['todayStats'] as const,
@@ -74,6 +76,7 @@ export const KEYS = {
   chartData: (symbol: string, presetKey: string) => ['chartData', symbol, presetKey] as const,
   stockSearch: (q: string) => ['stockSearch', q] as const,
   kisExecuted: (from: string, to: string) => ['kisExecuted', from, to] as const,
+  overseasExecuted: (from: string, to: string) => ['overseasExecuted', from, to] as const,
   recentLogs: ['recentLogs'] as const,
   updateCheck: ['updateCheck'] as const,
   webConfig: ['webConfig'] as const,
@@ -194,6 +197,20 @@ export function useTodayExecuted(
     queryFn: cmd.getTodayExecuted,
     staleTime: 15_000,
     refetchInterval: POLL_INTERVALS.NORMAL, // 30s — 스케쥴러 기준
+    refetchOnWindowFocus: true,
+    placeholderData: [],
+    ...options,
+  })
+}
+
+export function useTodayOverseasExecuted(
+  options?: Partial<UseQueryOptions<OverseasExecutedOrder[]>>
+) {
+  return useQuery({
+    queryKey: KEYS.todayOverseasExecuted,
+    queryFn: cmd.getTodayOverseasExecuted,
+    staleTime: 15_000,
+    refetchInterval: POLL_INTERVALS.NORMAL,
     refetchOnWindowFocus: true,
     placeholderData: [],
     ...options,
@@ -523,6 +540,20 @@ export function useKisExecutedByRange(
   })
 }
 
+export function useOverseasExecutedByRange(
+  from: string,
+  to: string,
+  options?: Partial<UseQueryOptions<OverseasExecutedOrder[]>>
+) {
+  return useQuery({
+    queryKey: KEYS.overseasExecuted(from, to),
+    queryFn: () => cmd.getOverseasExecutedByRange(from, to),
+    enabled: !!from && !!to,
+    staleTime: 30_000,
+    ...options,
+  })
+}
+
 // ─── 최근 앱 로그 (파일 기반) ─────────────────────────────────────
 export function useRecentLogs(count = 200) {
   return useQuery<AppLogEntry[]>({
@@ -652,7 +683,10 @@ export function usePlaceOverseasOrder() {
       void qc.invalidateQueries({ queryKey: KEYS.overseasBalance })
       // KIS 서버 처리 딜레이 후 체결 내역 갱신
       setTimeout(
-        () => void qc.invalidateQueries({ queryKey: KEYS.todayExecuted }),
+        () => {
+          void qc.invalidateQueries({ queryKey: KEYS.todayExecuted })
+          void qc.invalidateQueries({ queryKey: KEYS.todayOverseasExecuted })
+        },
         ORDER_REFETCH_DELAY_MS.REAL,
       )
     },

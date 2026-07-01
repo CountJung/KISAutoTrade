@@ -48,14 +48,20 @@ impl StockList {
         tracing::debug!("KRX 세션 초기화 중 (루트 페이지 방문)...");
         let _ = client
             .get("https://data.krx.co.kr/")
-            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+            .header(
+                "Accept",
+                "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            )
             .header("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7")
             .send()
             .await;
         // 특정 페이지도 방문해서 Referer 체인 구성
         let init_result = client
             .get("https://data.krx.co.kr/contents/MDC/STAT/standard/MDCSTAT01901.cmd")
-            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            .header(
+                "Accept",
+                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            )
             .header("Referer", "https://data.krx.co.kr/")
             .send()
             .await;
@@ -88,27 +94,27 @@ impl StockList {
                         Ok(text) if text.starts_with("LOGOUT") || text.contains("\"error\"") => {
                             tracing::warn!("KRX {} 세션 오류 응답: {:.80}", mkt_id, text);
                         }
-                        Ok(text) => {
-                            match serde_json::from_str::<KrxResponse>(&text) {
-                                Ok(data) => {
-                                    let prev = all.len();
-                                    for item in data.items {
-                                        if !item.code.is_empty() && !item.full_name.is_empty() {
-                                            all.push(StockSearchItem {
-                                                pdno: item.code,
-                                                prdt_name: item.full_name,
-                                                market: None,
-                                            });
-                                        }
+                        Ok(text) => match serde_json::from_str::<KrxResponse>(&text) {
+                            Ok(data) => {
+                                let prev = all.len();
+                                for item in data.items {
+                                    if !item.code.is_empty() && !item.full_name.is_empty() {
+                                        all.push(StockSearchItem {
+                                            pdno: item.code,
+                                            prdt_name: item.full_name,
+                                            market: None,
+                                        });
                                     }
-                                    tracing::info!("KRX {}: {}개 종목 추가", mkt_id, all.len() - prev);
                                 }
-                                Err(e) => tracing::warn!(
-                                    "KRX {} JSON 파싱 실패: {} (응답 앞 200자: {:.200})",
-                                    mkt_id, e, text
-                                ),
+                                tracing::info!("KRX {}: {}개 종목 추가", mkt_id, all.len() - prev);
                             }
-                        }
+                            Err(e) => tracing::warn!(
+                                "KRX {} JSON 파싱 실패: {} (응답 앞 200자: {:.200})",
+                                mkt_id,
+                                e,
+                                text
+                            ),
+                        },
                         Err(e) => tracing::warn!("KRX {} 응답 텍스트 읽기 실패: {}", mkt_id, e),
                     }
                 }
@@ -141,8 +147,10 @@ impl StockList {
             Ok(_) => {
                 tracing::warn!("KRX 종목 목록이 비어있습니다 — 만료된 캐시로 폴백");
                 try_load_cache_any(&cache_path).unwrap_or_else(|| {
-                    tracing::error!("종목 목록 로드 완전 실패: KRX 응답 비어있고 캐시도 없음. \
-                        앱에서 '종목 목록 새로고침' 버튼을 눌러주세요.");
+                    tracing::error!(
+                        "종목 목록 로드 완전 실패: KRX 응답 비어있고 캐시도 없음. \
+                        앱에서 '종목 목록 새로고침' 버튼을 눌러주세요."
+                    );
                     vec![]
                 })
             }
@@ -191,9 +199,7 @@ pub fn search_local(items: &[StockSearchItem], query: &str, limit: usize) -> Vec
     let q = query.to_lowercase();
     items
         .iter()
-        .filter(|i| {
-            i.prdt_name.to_lowercase().contains(&q) || i.pdno.contains(query)
-        })
+        .filter(|i| i.prdt_name.to_lowercase().contains(&q) || i.pdno.contains(query))
         .take(limit)
         .cloned()
         .collect()
@@ -265,12 +271,18 @@ pub async fn lookup_name_by_code(code: &str) -> Result<String> {
     let data: YahooSearchRaw = serde_json::from_str(&text)
         .map_err(|e| anyhow!("Yahoo Finance 응답 파싱 실패: {} (본문: {:.200})", e, text))?;
 
-    let q = data.quotes.into_iter()
+    let q = data
+        .quotes
+        .into_iter()
         .find(|q| q.symbol == symbol)
         .ok_or_else(|| anyhow!("Yahoo Finance: {} 에 대한 결과 없음", symbol))?;
 
     // longname이 있으면 우선 사용, 없으면 shortname
-    let name = if !q.longname.is_empty() { q.longname } else { q.shortname };
+    let name = if !q.longname.is_empty() {
+        q.longname
+    } else {
+        q.shortname
+    };
     if name.is_empty() {
         return Err(anyhow!("Yahoo Finance: {} 이름 필드 비어있음", symbol));
     }
@@ -290,7 +302,11 @@ pub async fn search_naver_live(query: &str) -> Result<Vec<StockSearchItem>> {
 
     let resp = client
         .get("https://ac.stock.naver.com/ac")
-        .query(&[("query", query), ("target", "stock,etf"), ("source", "domestic")])
+        .query(&[
+            ("query", query),
+            ("target", "stock,etf"),
+            ("source", "domestic"),
+        ])
         .header("Accept", "application/json, text/plain, */*")
         .header("Referer", "https://finance.naver.com/")
         .send()
@@ -356,8 +372,8 @@ pub async fn search_krx_proxy(query: &str, limit: usize) -> Result<Vec<StockSear
         .timeout(std::time::Duration::from_secs(8))
         .build()?;
 
-    let base = std::env::var("KSKILL_PROXY_BASE_URL")
-        .unwrap_or_else(|_| KRX_PROXY_BASE.to_string());
+    let base =
+        std::env::var("KSKILL_PROXY_BASE_URL").unwrap_or_else(|_| KRX_PROXY_BASE.to_string());
 
     let resp = client
         .get(format!("{}/v1/korean-stock/search", base))
@@ -380,7 +396,8 @@ pub async fn search_krx_proxy(query: &str, limit: usize) -> Result<Vec<StockSear
         tracing::debug!("KRX 프록시 검색 결과 없음: query={:?}", query);
     }
 
-    Ok(data.items
+    Ok(data
+        .items
         .into_iter()
         .filter(|i| !i.code.is_empty())
         .map(|i| StockSearchItem {

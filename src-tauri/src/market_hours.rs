@@ -95,9 +95,9 @@ pub fn is_market_open_for(symbol: &str) -> bool {
 /// 현재 개장 중인 시장 요약 문자열 (로그 출력용)
 pub fn open_markets_summary() -> &'static str {
     match (is_krx_open(), is_us_open()) {
-        (true,  true)  => "KRX 개장 / US 개장",
-        (true,  false) => "KRX 개장 / US 폐장",
-        (false, true)  => "KRX 폐장 / US 개장",
+        (true, true) => "KRX 개장 / US 개장",
+        (true, false) => "KRX 개장 / US 폐장",
+        (false, true) => "KRX 폐장 / US 개장",
         (false, false) => "KRX 폐장 / US 폐장",
     }
 }
@@ -108,12 +108,12 @@ mod tests {
 
     #[test]
     fn domestic_symbol_detection() {
-        assert!(is_domestic_symbol("005930"));  // 삼성전자
-        assert!(is_domestic_symbol("069500"));  // KODEX 200
-        assert!(is_domestic_symbol("0005A0"));  // ETF 알파벳 포함
-        assert!(!is_domestic_symbol("AAPL"));   // 해외
-        assert!(!is_domestic_symbol("QQQM"));   // 해외
-        assert!(!is_domestic_symbol("12345"));  // 5자리 (잘못된 코드)
+        assert!(is_domestic_symbol("005930")); // 삼성전자
+        assert!(is_domestic_symbol("069500")); // KODEX 200
+        assert!(is_domestic_symbol("0005A0")); // ETF 알파벳 포함
+        assert!(!is_domestic_symbol("AAPL")); // 해외
+        assert!(!is_domestic_symbol("QQQM")); // 해외
+        assert!(!is_domestic_symbol("12345")); // 5자리 (잘못된 코드)
         assert!(!is_domestic_symbol("A05930")); // 첫 글자 알파벳
     }
 }

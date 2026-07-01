@@ -699,10 +699,11 @@ pub trait Strategy: Send + Sync {
 ```
 
 - 국내: `get_balance()` → `PositionTracker::load_if_empty()` + `StrategyManager::sync_position()`
-- 해외: `get_overseas_balance()` → `StrategyManager::sync_position()`만 호출하고 국내 `PositionTracker`에는 혼입하지 않는다.
+- 해외: `get_overseas_balance()` → `OverseasPositionTracker::load_if_empty()` + `StrategyManager::sync_position()`
 - 해외 평균단가/현재가는 USD × 100(cents)로 변환해서 전략에 전달한다.
+- 해외 잔고와 체결은 국내 `PositionTracker`에 혼입하지 않는다.
 
-> 마지막 업데이트: 2026-06-30T00:00:00
+> 마지막 업데이트: 2026-07-01T16:15:13
 
 ---
 
@@ -727,3 +728,48 @@ pub struct LeveragedTrendHoldEntry {
 - 정방향/역방향 포지션은 같은 `positions: HashMap<String, ...>`에 실제 매매 종목 코드별로 독립 저장한다.
 
 > 마지막 업데이트: 2026-06-30T00:00:00
+
+---
+
+## 14. 국내/해외 포지션 트래커 분리 패턴
+
+국내 원화 포지션과 해외 USD 포지션은 가격 단위, 수수료, 환율, 거래소 코드가 다르므로 같은 `PositionTracker`에 섞지 않는다.
+
+| 구분 | 트래커 | 가격 단위 | 통계 반영 |
+|------|--------|-----------|-----------|
+| 국내 | `PositionTracker` | KRW 정수 | `StatsStore`/`RiskManager` 반영 |
+| 해외 | `OverseasPositionTracker` | USD × 100 cents | 해외 수수료/환율 구현 전까지 국내 통계에 혼입 금지 |
+
+```rust
+pub struct OverseasPosition {
+    pub symbol: String,
+    pub symbol_name: String,
+    pub exchange: String,          // NASD / NYSE / AMEX
+    pub quantity: u64,
+    pub avg_price_cents: f64,
+    pub current_price_cents: u64,
+}
+```
+
+`OrderManager::submit_signal()`은 `exchange.is_some()`이면 `OverseasPositionTracker`에서 보유 수량과 평균가를 읽는다.
+`OrderManager::on_fill()`은 pending 주문의 `exchange`를 기준으로 국내/해외 체결 경로를 분기한다.
+
+❌ 잘못된 패턴:
+```rust
+// 해외 체결가 cents를 국내 원화 PositionTracker에 저장
+position_tracker.on_buy("VOO".into(), "VOO".into(), qty, price_cents);
+stats.gross_profit += overseas_pnl_cents; // 원화 통계 오염
+```
+
+✅ 올바른 패턴:
+```rust
+overseas_position_tracker.on_buy(
+    symbol,
+    symbol_name,
+    exchange,      // NASD / NYSE / AMEX
+    qty,
+    price_cents,   // USD × 100
+);
+```
+
+> 마지막 업데이트: 2026-07-01T16:15:13

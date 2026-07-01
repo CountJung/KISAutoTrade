@@ -84,12 +84,7 @@ impl KisWebSocketClient {
         ws_connected: Arc<AtomicBool>,
     ) -> Result<()> {
         let url = self.ws_url();
-        let token = self
-            .token_manager
-            .read()
-            .await
-            .get_token()
-            .await?;
+        let token = self.token_manager.read().await.get_token().await?;
 
         let (ws_stream, _) = connect_async(url).await?;
         tracing::info!("KIS WebSocket 연결: {}", url);
@@ -214,4 +209,3 @@ fn parse_realtime_price(text: &str) -> Option<RealtimePrice> {
         volume: fields[5].parse().unwrap_or(0),
     })
 }
-

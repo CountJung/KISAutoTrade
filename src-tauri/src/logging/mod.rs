@@ -11,11 +11,12 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Env
 struct LocalTimer;
 
 impl tracing_subscriber::fmt::time::FormatTime for LocalTimer {
-    fn format_time(
-        &self,
-        w: &mut tracing_subscriber::fmt::format::Writer<'_>,
-    ) -> std::fmt::Result {
-        write!(w, "{}", chrono::Local::now().format("%Y-%m-%dT%H:%M:%S%.6f%:z"))
+    fn format_time(&self, w: &mut tracing_subscriber::fmt::format::Writer<'_>) -> std::fmt::Result {
+        write!(
+            w,
+            "{}",
+            chrono::Local::now().format("%Y-%m-%dT%H:%M:%S%.6f%:z")
+        )
     }
 }
 
@@ -23,9 +24,9 @@ impl tracing_subscriber::fmt::time::FormatTime for LocalTimer {
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct LogEntry {
     pub timestamp: String,
-    pub level:     String,
-    pub target:    String,
-    pub message:   String,
+    pub level: String,
+    pub target: String,
+    pub message: String,
 }
 
 /// tracing 포맷 한 줄 파싱
@@ -48,7 +49,12 @@ fn parse_log_line(line: &str) -> Option<LogEntry> {
         None => (String::new(), target_msg.to_string()),
     };
 
-    Some(LogEntry { timestamp, level, target, message })
+    Some(LogEntry {
+        timestamp,
+        level,
+        target,
+        message,
+    })
 }
 
 /// 오늘 app.log 파일에서 최근 `count`줄 읽기
@@ -68,10 +74,7 @@ pub fn read_recent_entries(log_dir: &Path, count: usize) -> Vec<LogEntry> {
     //    (자정 직후 새 파일 생성 전 공백 상태 방지)
     if let Some(fallback) = find_most_recent_log_file(log_dir) {
         if fallback != today_file {
-            tracing::debug!(
-                "오늘 로그 파일 없음 — 폴백: {:?}",
-                fallback.file_name()
-            );
+            tracing::debug!("오늘 로그 파일 없음 — 폴백: {:?}", fallback.file_name());
         }
         if let Some(entries) = read_log_file(&fallback, count) {
             return entries;
@@ -99,20 +102,19 @@ fn read_log_file(path: &std::path::Path, count: usize) -> Option<Vec<LogEntry>> 
 
 /// logs 디렉토리에서 수정 시간 기준 가장 최근 app.log.YYYY-MM-DD 파일 반환
 fn find_most_recent_log_file(log_dir: &Path) -> Option<std::path::PathBuf> {
-    let mut files: Vec<(std::path::PathBuf, std::time::SystemTime)> =
-        std::fs::read_dir(log_dir)
-            .ok()?
-            .filter_map(|e| {
-                let e = e.ok()?;
-                let path = e.path();
-                let name = path.file_name()?.to_str()?;
-                if !name.starts_with("app.log.") {
-                    return None;
-                }
-                let modified = e.metadata().ok()?.modified().ok()?;
-                Some((path, modified))
-            })
-            .collect();
+    let mut files: Vec<(std::path::PathBuf, std::time::SystemTime)> = std::fs::read_dir(log_dir)
+        .ok()?
+        .filter_map(|e| {
+            let e = e.ok()?;
+            let path = e.path();
+            let name = path.file_name()?.to_str()?;
+            if !name.starts_with("app.log.") {
+                return None;
+            }
+            let modified = e.metadata().ok()?.modified().ok()?;
+            Some((path, modified))
+        })
+        .collect();
     // 수정 시간 내림차순(최신 먼저)
     files.sort_by(|a, b| b.1.cmp(&a.1));
     files.into_iter().map(|(p, _)| p).next()
@@ -132,7 +134,11 @@ pub struct LogConfig {
 
 impl Default for LogConfig {
     fn default() -> Self {
-        Self { retention_days: 5, max_size_mb: 100, api_debug: false }
+        Self {
+            retention_days: 5,
+            max_size_mb: 100,
+            api_debug: false,
+        }
     }
 }
 
@@ -185,11 +191,10 @@ pub fn init(log_dir: &Path, cfg: &LogConfig) -> Result<()> {
         .with_filter(EnvFilter::new("warn"));
 
     // 콘솔 출력 (RUST_LOG 환경변수 또는 debug 기본값)
-    let console_layer = fmt::layer()
-        .with_timer(LocalTimer)
-        .with_filter(EnvFilter::from_default_env().add_directive(
-            "auto_condition_trade_lib=debug".parse().unwrap(),
-        ));
+    let console_layer = fmt::layer().with_timer(LocalTimer).with_filter(
+        EnvFilter::from_default_env()
+            .add_directive("auto_condition_trade_lib=debug".parse().unwrap()),
+    );
 
     tracing_subscriber::registry()
         .with(app_layer)
@@ -208,8 +213,7 @@ pub fn init(log_dir: &Path, cfg: &LogConfig) -> Result<()> {
 /// 1. `retention_days`보다 오래된 `.log` 파일 삭제
 /// 2. 전체 합산 용량이 `max_size_mb`를 초과하면 오래된 파일부터 삭제
 pub fn cleanup(log_dir: &Path, cfg: &LogConfig) {
-    let cutoff = chrono::Local::now()
-        - chrono::Duration::days(cfg.retention_days as i64);
+    let cutoff = chrono::Local::now() - chrono::Duration::days(cfg.retention_days as i64);
 
     let mut log_files: Vec<(PathBuf, std::fs::Metadata)> = std::fs::read_dir(log_dir)
         .into_iter()
@@ -230,9 +234,7 @@ pub fn cleanup(log_dir: &Path, cfg: &LogConfig) {
         .collect();
 
     // 수정 시간 기준 오름차순 정렬 (오래된 것 먼저)
-    log_files.sort_by_key(|(_, m)| {
-        m.modified().unwrap_or(std::time::UNIX_EPOCH)
-    });
+    log_files.sort_by_key(|(_, m)| m.modified().unwrap_or(std::time::UNIX_EPOCH));
 
     // 1. 보관 기간 초과 파일 삭제
     log_files.retain(|(path, meta)| {
@@ -250,7 +252,9 @@ pub fn cleanup(log_dir: &Path, cfg: &LogConfig) {
     let mut total: u64 = log_files.iter().map(|(_, m)| m.len()).sum();
 
     for (path, meta) in &log_files {
-        if total <= max_bytes { break; }
+        if total <= max_bytes {
+            break;
+        }
         if std::fs::remove_file(path).is_ok() {
             total = total.saturating_sub(meta.len());
         }

@@ -39,9 +39,7 @@ impl AccountProfile {
     }
 
     pub fn is_configured(&self) -> bool {
-        !self.app_key.is_empty()
-            && !self.app_secret.is_empty()
-            && !self.account_no.is_empty()
+        !self.app_key.is_empty() && !self.app_secret.is_empty() && !self.account_no.is_empty()
     }
 }
 

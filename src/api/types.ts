@@ -200,6 +200,23 @@ export interface ExecutedOrder {
   ord_tmd: string
 }
 
+export interface OverseasExecutedOrder {
+  pdno: string
+  prdt_name: string
+  ovrs_excg_cd: string
+  sll_buy_dvsn: string
+  ccld_nccs_dvsn: string
+  ft_ord_qty: string
+  ft_ord_unpr3: string
+  ft_ccld_qty: string
+  ft_ccld_unpr3: string
+  ft_ccld_amt3: string
+  odno: string
+  ord_dt: string
+  ord_tmd: string
+  ord_gno_brno: string
+}
+
 // ─── 로컬 체결 기록 ────────────────────────────────────────────────
 export type TradeSide = 'buy' | 'sell'
 export type TradeStatus = 'filled' | 'partially_filled' | 'cancelled'

@@ -77,7 +77,12 @@ impl OrderStore {
     }
 
     fn today_path(&self) -> PathBuf {
-        build_daily_path(&self.data_dir, "orders", Local::now().date_naive(), "orders.json")
+        build_daily_path(
+            &self.data_dir,
+            "orders",
+            Local::now().date_naive(),
+            "orders.json",
+        )
     }
 
     pub async fn append(&self, record: OrderRecord) -> Result<()> {

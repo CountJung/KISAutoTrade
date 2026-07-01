@@ -29,7 +29,8 @@
   - 현재 폴링 루프는 다음 틱에서 시장가 체결을 가정해 `confirm_fill_by_symbol()`을 호출한다.
   - 국내/해외 모두 주문번호 기반 체결 조회로 확인하고, 미체결/부분체결/거부 상태를 분리한다.
   - 진행: 국내 주문은 `get_today_executed_orders()`에서 주문번호를 찾아 실제 체결수량/평균가로 먼저 확인한다.
-  - 남은 작업: 해외 주문번호 기반 체결 조회(`/uapi/overseas-stock/v1/trading/inquire-ccnl`)와 부분체결/거부 상태 분리는 P1 해외 체결 IPC와 함께 마무리한다.
+  - 진행: 해외 주문은 `get_today_overseas_executed_orders()`에서 주문번호를 찾아 실제 체결수량/평균가(USD cents)로 먼저 확인한다.
+  - 남은 작업: 미체결/부분체결/거부 상태 분리와 UI 표시를 고도화한다.
 
 ## P0 — 신규 전략: LeveragedTrendHoldStrategy
 
@@ -51,17 +52,20 @@
 
 ## P1 — 해외주식 모의투자 안정화
 
-- [ ] 해외주식 주문체결내역 IPC 추가
+- [x] 해외주식 주문체결내역 IPC 추가
   - KIS 공식 샘플 기준 endpoint: `/uapi/overseas-stock/v1/trading/inquire-ccnl`.
   - TR-ID: 실전 `TTTS3035R`, 모의 `VTTS3035R`.
   - 모의투자 조회 제한: `PDNO=""`, `SLL_BUY_DVSN="00"`, `CCLD_NCCS_DVSN="00"`, `OVRS_EXCG_CD=""`, `SORT_SQN` 기본값 사용.
-- [ ] 해외 모의투자 주문 사전 검증 추가
+  - 구현: `get_today_overseas_executed`, `get_overseas_executed_by_range` IPC와 `KisRestClient::get_overseas_executed_orders_range()`를 추가했다.
+- [x] 해외 모의투자 주문 사전 검증 추가
   - 미국 주문 TR-ID는 실전/모의 모두 존재한다: 매수 `TTTT1002U/VTTT1002U`, 매도 `TTTT1006U/VTTT1006U`.
   - 단, 모의투자 주문구분은 매수/매도 모두 `ORD_DVSN="00"` 지정가만 안전하게 지원한다.
   - AMEX 또는 일부 ETF에서 `"해당업무가 제공되지 않습니다"`가 발생할 수 있으므로 UI와 자동매매 로그에 제한 사유를 명확히 남긴다.
-- [ ] 해외 자동매매 포지션 추적 분리
+  - 구현: `KisRestClient::place_overseas_order()` 앞단에서 모의 AMEX/확인된 ETF 매도 제한을 사전 차단하고, Trading UI에서도 모의투자 제한 경고와 버튼 차단을 표시한다.
+- [x] 해외 자동매매 포지션 추적 분리
   - 국내 `PositionTracker`에 해외 체결을 섞지 않는다.
   - USD 단가, 환율, 거래소 코드, 소수 가격 단위를 보존하는 `OverseasPositionTracker`를 검토한다.
+  - 구현: `OverseasPositionTracker`를 추가해 해외 체결/잔고를 USD cents와 거래소 코드로 별도 추적하고, 국내 손익/수수료 통계에는 혼입하지 않도록 분리했다.
 - [ ] 해외 수수료/환율 반영
   - 해외 체결 손익은 USD 기준과 KRW 환산 기준을 함께 저장한다.
   - 환율은 `get_exchange_rate` 캐시를 사용하고, 체결 시점 환율을 기록한다.
@@ -127,7 +131,8 @@
 
 - `StrategyManager::on_tick()`의 신호는 `OrderManager::submit_signal()`에서 공통 `TradeGuard`를 통과한 뒤 주문된다.
 - `PriceConditionStrategy`와 `LeveragedTrendHoldStrategy`는 자동매매 시작 시 국내/해외 잔고 기반으로 내부 포지션 상태를 복원한다.
-- `run_trading_daemon()`은 국내 주문에 대해 주문번호 기반 체결 조회를 먼저 시도하고, 실패 시 기존 다음 틱 가격 확인으로 보완한다. 해외 주문번호 기반 체결 조회는 아직 남아 있다.
+- `run_trading_daemon()`은 국내/해외 주문 모두 주문번호 기반 체결 조회를 먼저 시도하고, 실패 시 기존 다음 틱 가격 확인으로 보완한다.
+- 해외 자동매매 체결은 국내 `PositionTracker`가 아닌 `OverseasPositionTracker`에 USD cents 단위로 반영한다.
 - KIS 공식 샘플 기준 해외 미국 모의 주문 TR-ID는 존재하나, 모의투자에서는 지정가 주문과 전체 조건 조회 위주로 제한된다.
 
 *마지막 업데이트: 2026-07-01*
