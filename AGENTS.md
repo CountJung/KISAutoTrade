@@ -20,7 +20,7 @@
 | UI 컨벤션 스킬 | `.github/skills/ui-conventions/SKILL.md` |
 | Codex 상세 지침 | `.github/codex-instructions.md` |
 | Copilot 호환 지침 | `.github/copilot-instructions.md` |
-| Codex 로컬 브리지 스킬 | `~/.codex/skills/kisautotrade-*` |
+| Codex 프로젝트 브리지 스킬 | `.codex/skills/kisautotrade-*` |
 
 ---
 
@@ -56,7 +56,7 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 - KIS API 동작·TR-ID·제한사항은 추측하지 말고 공식 포털 또는 `koreainvestment/open-trading-api` 샘플로 확인한다.
 - 새 IPC 커맨드는 Rust command, `lib.rs` 등록, TypeScript 타입/래퍼/훅, 문서를 함께 갱신한다.
 - 반복 매매·손실 방지 관련 변경은 `todo.md`와 관련 스킬 문서에 남긴다.
-- Copilot 호환 지침과 `.github/skills/**`의 원본 스킬은 Codex 로컬 브리지 스킬(`~/.codex/skills/kisautotrade-*`)을 통해 재사용한다. 원본은 저장소의 `.github/skills/**/SKILL.md`로 유지한다.
+- Copilot 호환 지침과 `.github/skills/**`의 원본 스킬은 프로젝트 브리지 스킬(`.codex/skills/kisautotrade-*`)을 통해 재사용한다. Codex 런타임이 계정 스킬만 읽는 경우 `scripts/sync-codex-skills.ps1`로 동기화한다. 원본은 저장소의 `.github/skills/**/SKILL.md`로 유지한다.
 
 ---
 
@@ -66,8 +66,8 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-07-02 | 프로젝트 루트 Codex 브리지 스킬 추가와 레버리지 ETF 초안 세트 설정 UI 개선 |
 | 2026-07-01 | React 프론트엔드 FSD 레이어 구조와 import 경계 검증 스크립트 추가 |
 | 2026-07-01 | ATR 기반 변동성 주문 수량 산정과 Settings 리스크 옵션 추가 |
 | 2026-07-01 | 자동매매 체결 기록에 신호가·주문가·슬리피지 비용/bps 저장 및 History 표시 추가 |
 | 2026-07-01 | 전략/종목별 연속 손실 신규 진입 차단과 리스크 UI 상태 표시 추가 |
-| 2026-07-01 | 전략/종목별 일일 매수·매도 주문 횟수 제한과 Settings 조정 UI 추가 |

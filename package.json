@@ -15,7 +15,8 @@
     "tauri": "tauri",
     "build:app": "tauri build",
     "build:app:debug": "tauri build --debug",
-    "check:fsd": "node scripts/check-fsd-imports.mjs"
+    "check:fsd": "node scripts/check-fsd-imports.mjs",
+    "sync:codex-skills": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-codex-skills.ps1"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",

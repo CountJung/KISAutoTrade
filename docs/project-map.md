@@ -26,6 +26,10 @@ AutoConditionTrade/                   ← 루트
 │   ├── skills/                       ← 도메인 스킬 파일 5종 (KIS API, Rust, React, FSD, UI)
 │   └── workflows/release.yml         ← GitHub Actions 자동 빌드/릴리즈
 │
+├── .codex/
+│   ├── README.md                     ← 프로젝트 소유 Codex 브리지 스킬 안내
+│   └── skills/kisautotrade-*/        ← 계정 홈에 의존하지 않는 Codex 브리지 스킬
+│
 ├── docs/
 │   ├── project-map.md                ← [이 파일] 디렉토리 맵 + 아키텍처
 │   ├── ipc-commands.md               ← IPC 커맨드 전체 목록 (35개)
@@ -36,6 +40,7 @@ AutoConditionTrade/                   ← 루트
 │   └── user-guide.md                 ← 사용 가이드 (개요·전략 세팅)
 │
 ├── scripts/check-fsd-imports.mjs     ← FSD 레이어 역방향 import 검증
+├── scripts/sync-codex-skills.ps1     ← 프로젝트 Codex 브리지 스킬을 계정 Codex 홈으로 동기화 (`npm run sync:codex-skills`)
 │
 ├── src/                              ← React Frontend (TypeScript, FSD 점진 구조)
 │   ├── main.tsx                      ← React 진입점 (QueryClient, RouterProvider)
@@ -57,7 +62,7 @@ AutoConditionTrade/                   ← 루트
 │   ├── pages/
 │   │   ├── dashboard/ui/Page.tsx     ← 잔고/수익 카드, 포지션, 미체결/체결, 리스크
 │   │   ├── trading/ui/Page.tsx       ← 수동 매수/매도 + 종목 검색 + 체결 내역
-│   │   ├── strategy/ui/Page.tsx      ← 전략 ON/OFF + 파라미터 설정 (11개 전략)
+│   │   ├── strategy/ui/Page.tsx      ← 전략 ON/OFF + 파라미터 설정 (12개 전략)
 │   │   ├── history/ui/Page.tsx       ← 날짜 범위 조회, 자동매매 체결 기록
 │   │   ├── log/ui/Page.tsx           ← 레벨 필터, 검색, 색상 구분 로그 뷰어
 │   │   └── settings/ui/Page.tsx      ← API 키, 테마, 멀티 계좌, 웹 포트, 리스크 설정
@@ -85,7 +90,7 @@ AutoConditionTrade/                   ← 루트
         ├── updater/mod.rs            ← GitHub Releases API 버전 확인
         ├── trading/
         │   ├── mod.rs                ← 장 시간 감지, 전략 루프 실행
-        │   ├── strategy.rs           ← Strategy trait + 11개 전략 + StrategyManager
+        │   ├── strategy.rs           ← Strategy trait + 12개 전략 + StrategyManager
         │   ├── order.rs              ← OrderManager: 주문 → 체결 → 저장
         │   ├── position.rs           ← PositionTracker (잔고 API 복원 지원)
         │   └── risk.rs               ← RiskManager (enabled on/off, 비상정지, 순손실)
@@ -234,17 +239,17 @@ REFRESH_INTERVAL_SEC=30
 
 ---
 
-## 8. Codex 로컬 브리지 스킬
+## 8. Codex 프로젝트 브리지 스킬
 
-GitHub Copilot 호환용으로 유지하던 `.github/skills/**/SKILL.md` 원본 스킬은 Codex에서도 자동 트리거될 수 있도록 사용자 로컬 Codex 스킬 디렉터리에 얇은 브리지로 연결되어 있다. 브리지는 절대 경로를 저장하지 않고, 현재 작업 저장소에서 `AGENTS.md`와 `.github/skills/**`를 찾아 원본을 읽는다.
+GitHub Copilot 호환용으로 유지하던 `.github/skills/**/SKILL.md` 원본 스킬은 Codex에서도 자동 트리거될 수 있도록 프로젝트 루트 `.codex/skills/kisautotrade-*`에 얇은 브리지로 연결되어 있다. 브리지는 절대 경로를 저장하지 않고, 현재 작업 저장소에서 `AGENTS.md`와 `.github/skills/**`를 찾아 원본을 읽는다.
 
-| Codex 로컬 스킬 | 저장소 원본 |
+| Codex 프로젝트 스킬 | 저장소 원본 |
 |-----------------|-------------|
-| `~/.codex/skills/kisautotrade-project` | `AGENTS.md`, `.github/codex-instructions.md` |
-| `~/.codex/skills/kisautotrade-kis-api` | `.github/skills/kis-api/SKILL.md` |
-| `~/.codex/skills/kisautotrade-rust` | `.github/skills/rust-skills/SKILL.md` |
-| `~/.codex/skills/kisautotrade-react` | `.github/skills/react-best-practices/SKILL.md` |
-| `~/.codex/skills/kisautotrade-frontend-fsd` | `.github/skills/frontend-fsd/SKILL.md` |
-| `~/.codex/skills/kisautotrade-ui` | `.github/skills/ui-conventions/SKILL.md` |
+| `.codex/skills/kisautotrade-project` | `AGENTS.md`, `.github/codex-instructions.md` |
+| `.codex/skills/kisautotrade-kis-api` | `.github/skills/kis-api/SKILL.md` |
+| `.codex/skills/kisautotrade-rust` | `.github/skills/rust-skills/SKILL.md` |
+| `.codex/skills/kisautotrade-react` | `.github/skills/react-best-practices/SKILL.md` |
+| `.codex/skills/kisautotrade-frontend-fsd` | `.github/skills/frontend-fsd/SKILL.md` |
+| `.codex/skills/kisautotrade-ui` | `.github/skills/ui-conventions/SKILL.md` |
 
-규칙 변경 시 로컬 브리지 파일이 아니라 저장소 원본을 수정한다. 프로젝트 위치나 폴더명이 바뀌어도 `AGENTS.md`와 `.github/skills/**` 구조가 유지되면 브리지는 그대로 동작한다. 새 Codex 세션에서 브리지 스킬 목록이 반영된다.
+규칙 변경 시 브리지 파일이 아니라 저장소 원본을 수정한다. 프로젝트 위치나 폴더명이 바뀌어도 `AGENTS.md`와 `.github/skills/**` 구조가 유지되면 브리지는 그대로 동작한다. Codex 런타임이 프로젝트 스킬을 직접 읽지 못하는 경우 `scripts/sync-codex-skills.ps1`로 계정 홈에 동기화한 뒤 새 세션을 시작한다.

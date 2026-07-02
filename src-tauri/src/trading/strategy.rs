@@ -2031,6 +2031,9 @@ pub struct LeveragedTrendHoldEntry {
     /// 기초 종목명 캐시 (UI 표시용)
     #[serde(default)]
     pub base_symbol_names: HashMap<String, String>,
+    /// 기초 종목 역할. "underlying"은 직접 기초 ETF, "proxy"는 TECL -> VGT 같은 유사 기초 ETF.
+    #[serde(default)]
+    pub base_symbol_roles: HashMap<String, String>,
     /// 1회 주문 수량
     #[serde(default = "lth_default_qty")]
     pub quantity: u64,
@@ -2490,6 +2493,13 @@ impl LeveragedTrendHoldStrategy {
             }
         })
     }
+
+    fn base_role_label(entry: &LeveragedTrendHoldEntry, base_symbol: &str) -> &'static str {
+        match entry.base_symbol_roles.get(base_symbol).map(String::as_str) {
+            Some("proxy") => "유사기초",
+            _ => "기초",
+        }
+    }
 }
 
 fn parse_hhmm(value: &str) -> Option<i64> {
@@ -2665,6 +2675,7 @@ impl Strategy for LeveragedTrendHoldStrategy {
                 .next();
 
             if let Some((base, snap)) = base_entry {
+                let base_role_label = Self::base_role_label(&entry, base);
                 self.positions.insert(
                     symbol.to_string(),
                     LeveragedTrendHoldPosition {
@@ -2678,7 +2689,8 @@ impl Strategy for LeveragedTrendHoldStrategy {
                     quantity,
                     reason: match direction {
                         LeveragedTrendDirection::Long => format!(
-                            "LeveragedTrendHold 정방향 진입: {} EMA{} > EMA{}, RSI {:.1}, ADX {:.1}, 최근 3봉 양봉 {}개",
+                            "LeveragedTrendHold 정방향 진입: {} {} EMA{} > EMA{}, RSI {:.1}, ADX {:.1}, 최근 3봉 양봉 {}개",
+                            base_role_label,
                             base,
                             self.params.ema_short_period,
                             self.params.ema_long_period,
@@ -2687,7 +2699,8 @@ impl Strategy for LeveragedTrendHoldStrategy {
                             snap.bullish_count_3
                         ),
                         LeveragedTrendDirection::Inverse => format!(
-                            "LeveragedTrendHold 역방향 진입: {} EMA{} < EMA{}, RSI {:.1}, ADX {:.1}, 최근 3봉 음봉 {}개",
+                            "LeveragedTrendHold 역방향 진입: {} {} EMA{} < EMA{}, RSI {:.1}, ADX {:.1}, 최근 3봉 음봉 {}개",
+                            base_role_label,
                             base,
                             self.params.ema_short_period,
                             self.params.ema_long_period,

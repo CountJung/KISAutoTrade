@@ -780,17 +780,21 @@ pub struct LeveragedTrendHoldEntry {
     pub leveraged_symbol: String,          // 예: SOXL
     pub inverse_leveraged_symbol: String,  // 예: SOXS, 비어 있으면 비활성
     pub base_symbols: Vec<String>,         // 예: SOXX, SMH
+    pub base_symbol_roles: HashMap<String, String>, // "underlying" 또는 "proxy"
     pub quantity: u64,
     pub inverse_quantity: u64,
 }
 ```
 
 - `target_symbols`에는 정방향, 역방향, 기초 종목을 모두 포함해야 폴링 루프가 필요한 시세를 수집한다.
+- 직접 기초지수 ETF가 애매한 레버리지 ETF는 유사 기초 ETF를 `proxy`로 저장한다. 예: TECL 세트의 추세 판단용으로 VGT를 추가.
+- 역방향 레버리지 ETF가 비어 있으면 하락 추세 진입은 비활성화하고, 정방향 진입/청산만 동작하게 둔다.
+- 기초/유사 기초 ETF가 하나도 없는 세트는 저장하지 않는다. 기초 시세가 없으면 전략은 신호를 만들 수 없다.
 - 기초 상승 조건: 현재가 > EMA20, EMA20 > EMA60, RSI 상단 기준 이상, ADX 기준 이상, 최근 3봉 중 2개 이상 양봉.
 - 기초 하락 조건: 현재가 < EMA20, EMA20 < EMA60, RSI 하단 기준 이하, ADX 기준 이상, 최근 3봉 중 2개 이상 음봉.
 - 정방향/역방향 포지션은 같은 `positions: HashMap<String, ...>`에 실제 매매 종목 코드별로 독립 저장한다.
 
-> 마지막 업데이트: 2026-06-30T00:00:00
+> 마지막 업데이트: 2026-07-02T12:17:57
 
 ---
 

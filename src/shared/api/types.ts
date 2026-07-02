@@ -308,6 +308,8 @@ export interface PriceConditionSymbolConfig {
 }
 
 // ─── 레버리지 추세 보유 전략 설정 ─────────────────────────────────
+export type LeveragedTrendHoldBaseRole = 'underlying' | 'proxy'
+
 export interface LeveragedTrendHoldEntry {
   leveraged_symbol: string
   leveraged_symbol_name: string
@@ -315,6 +317,8 @@ export interface LeveragedTrendHoldEntry {
   inverse_leveraged_symbol_name: string
   base_symbols: string[]
   base_symbol_names: Record<string, string>
+  /** 기초 종목 역할. proxy는 TECL -> VGT처럼 실제 기초지수 대신 쓰는 유사 ETF */
+  base_symbol_roles?: Record<string, LeveragedTrendHoldBaseRole>
   quantity: number
   inverse_quantity: number
   /** 해외 주식 여부. true이면 가격 단위 = USD */
