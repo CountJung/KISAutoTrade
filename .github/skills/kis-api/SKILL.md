@@ -112,11 +112,35 @@ Content-Type: application/json
 | 모의 `openapivts...:29443` | “모의투자 도메인은 실전투자 앱키로 호출할 수 없습니다” 계열 | 실전투자 |
 | 어느 쪽이든 `access_token` 반환 | 해당 도메인 유형 | 해당 환경 |
 
-✅ 올바른 패턴 — 응답 본문(`msg1`, `error_description`, `message`)까지 읽어 분류:
+### 토큰 검증 체크리스트
+
+토큰 관련 수정 또는 Settings 자동감지/수동전환 버그를 만지면 아래를 모두 확인한다.
+
+- 실전 도메인과 모의 도메인 모두 `/oauth2/tokenP`를 호출하는 경로가 있는가?
+- 응답이 HTTP 200이어도 `access_token`이 없으면 성공으로 보지 않는가?
+- 오류 본문(`msg1`, `msg_cd`, `error`, `error_description`, `message`, `detail`)을 버리지 않고 판별과 로그에 사용했는가?
+- 실전 도메인이 “모의투자 앱키”라고 알려주면 모의 도메인 토큰 발급도 한 번 더 시도하는가?
+- 모의 도메인이 “실전투자 앱키”라고 알려주면 실전투자로 판정하는가?
+- 감지 결과가 활성 프로필이면 `AppConfig`, `KisRestClient`, `TokenManager`가 즉시 재생성되는가?
+- 프론트 캐시(`profiles`, `appConfig`, `checkConfig`)가 즉시 갱신되는가?
+
+✅ 올바른 패턴 — 공통 감지 모듈 사용:
 
 ```rust
 let detected = crate::api::detect::detect_trading_type(&client, app_key, app_secret).await?;
 let is_paper = detected.is_paper();
+```
+
+✅ 올바른 패턴 — `TokenManager`는 본문을 먼저 보존한 뒤 파싱:
+
+```rust
+let status = resp.status();
+let text = resp.text().await.unwrap_or_default();
+if !status.is_success() {
+    anyhow::bail!("토큰 발급 실패 HTTP {}: {}", status, text);
+}
+let data: TokenIssueResponse = serde_json::from_str(&text)
+    .map_err(|e| anyhow!("토큰 발급 응답 파싱 실패: {}; body={}", e, text))?;
 ```
 
 ❌ 잘못된 패턴 — `access_token` 성공 여부만 확인:
@@ -129,6 +153,28 @@ if try_detect_token(paper_url).await {
     return Paper;
 }
 // 실전 도메인이 "모의 앱키"라고 알려줘도 여기서는 감지 실패가 됨
+```
+
+❌ 잘못된 패턴 — 반대 도메인 힌트를 받자마자 끝내기:
+
+```rust
+// 실전 도메인이 "모의투자 앱키"라고 응답하면 바로 Paper 반환
+// → 실제 모의 도메인 tokenP 발급 성공 여부를 확인하지 못함
+if real_msg.contains("모의투자 앱키") {
+    return Paper;
+}
+```
+
+✅ 올바른 패턴 — 힌트는 판정 신호이지만 반대 도메인 tokenP를 검증:
+
+```rust
+if matches!(real_probe, TokenProbe::RejectedPaperKey) {
+    let paper_probe = probe_token_domain(client, TokenDomain::Paper, app_key, app_secret).await?;
+    return match paper_probe {
+        TokenProbe::Issued | TokenProbe::RejectedPaperKey | TokenProbe::Rejected => Ok(Paper),
+        TokenProbe::RejectedRealKey => Ok(Real),
+    };
+}
 ```
 
 ### Rust 인증 헤더 패턴
@@ -1633,7 +1679,7 @@ let trade_record = TradeRecord::new_overseas(
 
 `DailyStats`와 `RiskManager`는 원화 기준이므로 해외 매도 손익은 체결 시점 환율로 KRW 환산한 값을 반영한다.
 
-> 마지막 업데이트: 2026-07-02T16:20:00
+> 마지막 업데이트: 2026-07-02T16:45:00
 
 
 ---
