@@ -346,12 +346,16 @@ function LeveragedTrendHoldEditorPanel({
   stratEnabled,
   initialEntries,
   editedEntries,
+  params,
   onUpdate,
+  onParamsUpdate,
 }: {
   stratEnabled: boolean
   initialEntries: LeveragedTrendHoldEntry[]
   editedEntries: LeveragedTrendHoldEntry[] | undefined
+  params: Record<string, unknown>
   onUpdate: (entries: LeveragedTrendHoldEntry[]) => void
+  onParamsUpdate: (params: Record<string, unknown>) => void
 }) {
   const entries = editedEntries ?? initialEntries
   const [pickerMarket, setPickerMarket] = useState<Market>('US')
@@ -374,6 +378,8 @@ function LeveragedTrendHoldEditorPanel({
   const draftMarket = draftLong?.market ?? draftBase?.market ?? draftInverse?.market ?? null
   const invalidEntries = entries.filter((entry) => entry.base_symbols.length === 0)
   const entriesWithoutInverse = entries.filter((entry) => !entry.inverse_leveraged_symbol)
+  const upwardSensitivity = typeof params.upward_sensitivity === 'number' ? params.upward_sensitivity : 1
+  const downwardSensitivity = typeof params.downward_sensitivity === 'number' ? params.downward_sensitivity : 1
   const {
     data: pickerResults = [],
     isFetching: pickerFetching,
@@ -558,6 +564,11 @@ function LeveragedTrendHoldEditorPanel({
         ? { ...entry, [field]: Math.max(1, quantity) }
         : entry
     )))
+  }
+
+  const handleSensitivityChange = (key: 'upward_sensitivity' | 'downward_sensitivity', value: number) => {
+    const nextValue = Number.isFinite(value) ? Math.max(1, Math.min(5, value)) : 1
+    onParamsUpdate({ ...params, [key]: nextValue })
   }
 
   return (
@@ -796,6 +807,32 @@ function LeveragedTrendHoldEditorPanel({
             </Button>
           </Stack>
 
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
+            <TextField
+              label="상승 민감도"
+              type="number"
+              value={upwardSensitivity}
+              disabled={stratEnabled}
+              size="small"
+              onChange={(e) => handleSensitivityChange('upward_sensitivity', Number(e.target.value))}
+              inputProps={{ min: 1, max: 5, step: 0.5 }}
+              sx={{ width: { xs: '100%', md: 140 } }}
+            />
+            <TextField
+              label="하락 민감도"
+              type="number"
+              value={downwardSensitivity}
+              disabled={stratEnabled}
+              size="small"
+              onChange={(e) => handleSensitivityChange('downward_sensitivity', Number(e.target.value))}
+              inputProps={{ min: 1, max: 5, step: 0.5 }}
+              sx={{ width: { xs: '100%', md: 140 } }}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }}>
+              1은 기본값, 값이 높을수록 롱/숏 진입 신호를 더 민감하게 판단합니다.
+            </Typography>
+          </Stack>
+
           {pickerError && (
             <Alert severity="warning" sx={{ py: 0.5 }}>
               <Typography variant="caption">{pickerError}</Typography>
@@ -844,80 +881,18 @@ function LeveragedTrendHoldEditorPanel({
           <Table size="small" sx={{ minWidth: 1120 }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75, minWidth: 150 }}>롱 레버리지 ETF</TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75, width: 100 }} align="center">수량</TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75, minWidth: 180 }}>숏 레버리지 ETF</TableCell>
-                <TableCell sx={{ fontSize: '0.7rem', py: 0.75, width: 100 }} align="center">숏 수량</TableCell>
                 <TableCell sx={{ fontSize: '0.7rem', py: 0.75, minWidth: 300 }}>기초/유사 지수 ETF</TableCell>
                 <TableCell sx={{ fontSize: '0.7rem', py: 0.75, minWidth: 160 }} align="center">기초 추가</TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', py: 0.75, minWidth: 150 }}>롱 레버리지 ETF</TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', py: 0.75, width: 100 }} align="center">롱 수량</TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', py: 0.75, minWidth: 180 }}>숏 레버리지 ETF</TableCell>
+                <TableCell sx={{ fontSize: '0.7rem', py: 0.75, width: 100 }} align="center">숏 수량</TableCell>
                 <TableCell sx={{ width: 36, py: 0.75 }} />
               </TableRow>
             </TableHead>
             <TableBody>
               {entries.map((entry) => (
                 <TableRow key={entry.leveraged_symbol}>
-                  <TableCell sx={{ py: 0.75 }}>
-                    <Stack direction="row" alignItems="center" gap={0.5}>
-                      {entry.is_overseas && (
-                        <Typography variant="caption" color="primary.main" fontWeight={700} sx={{ fontSize: '0.6rem' }}>$</Typography>
-                      )}
-                      <Box>
-                        <Typography variant="caption" fontWeight={600}>{entry.leveraged_symbol}</Typography>
-                        <Typography variant="caption" color="text.secondary" display="block" noWrap sx={{ maxWidth: 120 }}>
-                          {entry.leveraged_symbol_name}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </TableCell>
-                  <TableCell sx={{ py: 0.5 }} align="center">
-                    <TextField
-                      type="number"
-                      value={entry.quantity}
-                      disabled={stratEnabled}
-                      size="small"
-                      onChange={(e) => handleQuantity(entry.leveraged_symbol, Number(e.target.value), 'quantity')}
-                      inputProps={{ min: 1, step: 1, style: { padding: '4px 4px', fontSize: '0.75rem', textAlign: 'right' } }}
-                      sx={{ width: 80, '& .MuiInputBase-root': { fontSize: '0.75rem' } }}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ py: 0.5 }}>
-                    {entry.inverse_leveraged_symbol ? (
-                      <Chip
-                        size="small"
-                        label={`${entry.inverse_leveraged_symbol_name || entry.inverse_leveraged_symbol} (${entry.inverse_leveraged_symbol})`}
-                        onDelete={stratEnabled ? undefined : () => handleClearInverse(entry.leveraged_symbol)}
-                        sx={{ height: 22, fontSize: '0.65rem' }}
-                      />
-                    ) : (
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<AddIcon />}
-                        disabled={
-                          !pickerStock ||
-                          stratEnabled ||
-                          !isSelectionCompatible(entry) ||
-                          pickerStock.pdno === entry.leveraged_symbol ||
-                          entry.base_symbols.includes(pickerStock?.pdno ?? '')
-                        }
-                        onClick={() => handleSetInverse(entry.leveraged_symbol)}
-                        sx={{ fontSize: '0.7rem', py: 0.25 }}
-                      >
-                        {pickerStock ? '숏으로 설정' : 'ETF 선택'}
-                      </Button>
-                    )}
-                  </TableCell>
-                  <TableCell sx={{ py: 0.5 }} align="center">
-                    <TextField
-                      type="number"
-                      value={entry.inverse_quantity || 1}
-                      disabled={stratEnabled || !entry.inverse_leveraged_symbol}
-                      size="small"
-                      onChange={(e) => handleQuantity(entry.leveraged_symbol, Number(e.target.value), 'inverse_quantity')}
-                      inputProps={{ min: 1, step: 1, style: { padding: '4px 4px', fontSize: '0.75rem', textAlign: 'right' } }}
-                      sx={{ width: 80, '& .MuiInputBase-root': { fontSize: '0.75rem' } }}
-                    />
-                  </TableCell>
                   <TableCell sx={{ py: 0.5 }}>
                     <Stack direction="row" gap={0.5} flexWrap="wrap">
                       {entry.base_symbols.length === 0 ? (
@@ -959,6 +934,74 @@ function LeveragedTrendHoldEditorPanel({
                       ))}
                     </Stack>
                   </TableCell>
+                  <TableCell sx={{ py: 0.75 }}>
+                    <Stack direction="row" alignItems="center" gap={0.5} flexWrap="wrap">
+                      {entry.is_overseas && (
+                        <Typography variant="caption" color="primary.main" fontWeight={700} sx={{ fontSize: '0.6rem' }}>$</Typography>
+                      )}
+                      <Chip size="small" label="롱" color="primary" sx={{ height: 20, fontSize: '0.62rem' }} />
+                      <Box>
+                        <Typography variant="caption" color="primary.main" fontWeight={700}>{entry.leveraged_symbol}</Typography>
+                        <Typography variant="caption" color="text.secondary" display="block" noWrap sx={{ maxWidth: 120 }}>
+                          {entry.leveraged_symbol_name}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </TableCell>
+                  <TableCell sx={{ py: 0.5 }} align="center">
+                    <TextField
+                      type="number"
+                      value={entry.quantity}
+                      disabled={stratEnabled}
+                      size="small"
+                      onChange={(e) => handleQuantity(entry.leveraged_symbol, Number(e.target.value), 'quantity')}
+                      inputProps={{ min: 1, step: 1, style: { padding: '4px 4px', fontSize: '0.75rem', textAlign: 'right' } }}
+                      sx={{ width: 80, '& .MuiInputBase-root': { fontSize: '0.75rem' } }}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ py: 0.5 }}>
+                    {entry.inverse_leveraged_symbol ? (
+                      <Stack direction="row" alignItems="center" gap={0.5} flexWrap="wrap">
+                        <Chip size="small" label="숏" color="secondary" sx={{ height: 20, fontSize: '0.62rem' }} />
+                        <Chip
+                          size="small"
+                          color="secondary"
+                          variant="outlined"
+                          label={`${entry.inverse_leveraged_symbol_name || entry.inverse_leveraged_symbol} (${entry.inverse_leveraged_symbol})`}
+                          onDelete={stratEnabled ? undefined : () => handleClearInverse(entry.leveraged_symbol)}
+                          sx={{ height: 22, fontSize: '0.65rem' }}
+                        />
+                      </Stack>
+                    ) : (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<AddIcon />}
+                        disabled={
+                          !pickerStock ||
+                          stratEnabled ||
+                          !isSelectionCompatible(entry) ||
+                          pickerStock.pdno === entry.leveraged_symbol ||
+                          entry.base_symbols.includes(pickerStock?.pdno ?? '')
+                        }
+                        onClick={() => handleSetInverse(entry.leveraged_symbol)}
+                        sx={{ fontSize: '0.7rem', py: 0.25 }}
+                      >
+                        {pickerStock ? '숏으로 설정' : 'ETF 선택'}
+                      </Button>
+                    )}
+                  </TableCell>
+                  <TableCell sx={{ py: 0.5 }} align="center">
+                    <TextField
+                      type="number"
+                      value={entry.inverse_quantity || 1}
+                      disabled={stratEnabled || !entry.inverse_leveraged_symbol}
+                      size="small"
+                      onChange={(e) => handleQuantity(entry.leveraged_symbol, Number(e.target.value), 'inverse_quantity')}
+                      inputProps={{ min: 1, step: 1, style: { padding: '4px 4px', fontSize: '0.75rem', textAlign: 'right' } }}
+                      sx={{ width: 80, '& .MuiInputBase-root': { fontSize: '0.75rem' } }}
+                    />
+                  </TableCell>
                   <TableCell sx={{ py: 0.5 }}>
                     <IconButton size="small" disabled={stratEnabled} onClick={() => handleRemoveLeveraged(entry.leveraged_symbol)}>
                       <DeleteIcon sx={{ fontSize: 14 }} />
@@ -987,6 +1030,7 @@ export default function Strategy() {
   const [pcEditMap, setPcEditMap] = useState<Record<string, PriceConditionSymbolConfig[]>>({})
   // 레버리지 추세 보유 전략 전용: 레버리지/기초 매핑 배열
   const [lthEditMap, setLthEditMap] = useState<Record<string, LeveragedTrendHoldEntry[]>>({})
+  const [lthParamEditMap, setLthParamEditMap] = useState<Record<string, Record<string, unknown>>>({})
 
   // ── 상단 종목 검색 상태 ─────────────────────────────────────────
   const [market, setMarket]                   = useState<Market>('KR')
@@ -1122,8 +1166,9 @@ export default function Strategy() {
     )
   }
 
-  const handleSaveLth = (id: string, params: Record<string, unknown>) => {
-    const entries = lthEditMap[id] ?? []
+  const handleSaveLth = (id: string, params: Record<string, unknown>, initialEntries: LeveragedTrendHoldEntry[]) => {
+    const entries = lthEditMap[id] ?? initialEntries
+    const nextParams = lthParamEditMap[id] ?? params
     if (hasInvalidLthEntries(entries)) return
     const targetSymbols = Array.from(new Set(entries.flatMap((entry) => [
       entry.leveraged_symbol,
@@ -1134,9 +1179,14 @@ export default function Strategy() {
       {
         id,
         targetSymbols,
-        params: { ...params, entries },
+        params: { ...nextParams, entries },
       } satisfies UpdateStrategyInput,
-      { onSuccess: () => setLthEditMap(prev => { const n = { ...prev }; delete n[id]; return n }) },
+      {
+        onSuccess: () => {
+          setLthEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
+          setLthParamEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
+        },
+      },
     )
   }
 
@@ -1348,6 +1398,8 @@ export default function Strategy() {
           const sType = getStrategyType(s.id)
           const paramMetas = STRATEGY_PARAM_META[sType] ?? []
           const stratDesc = STRATEGY_DESCRIPTION[sType]
+          const lthInitialEntries = (s.params['entries'] as LeveragedTrendHoldEntry[] | undefined) ?? []
+          const lthParams = lthParamEditMap[s.id] ?? s.params
           return (
             <Grid item xs={12} md={sType === 'price_condition' || sType === 'leveraged_trend_hold' ? 12 : 6} key={s.id}>
               <Paper sx={{ p: 3 }}>
@@ -1382,9 +1434,11 @@ export default function Strategy() {
                   ) : sType === 'leveraged_trend_hold' ? (
                     <LeveragedTrendHoldEditorPanel
                       stratEnabled={s.enabled}
-                      initialEntries={(s.params['entries'] as LeveragedTrendHoldEntry[] | undefined) ?? []}
+                      initialEntries={lthInitialEntries}
                       editedEntries={lthEditMap[s.id]}
+                      params={lthParams}
                       onUpdate={(entries) => setLthEditMap((prev) => ({ ...prev, [s.id]: entries }))}
+                      onParamsUpdate={(params) => setLthParamEditMap((prev) => ({ ...prev, [s.id]: params }))}
                     />
                   ) : (
                     <>
@@ -1501,14 +1555,14 @@ export default function Strategy() {
                     </Box>
                   )
                 ) : sType === 'leveraged_trend_hold' ? (
-                  lthEditMap[s.id] !== undefined && !s.enabled && (
+                  (lthEditMap[s.id] !== undefined || lthParamEditMap[s.id] !== undefined) && !s.enabled && (
                     <Box sx={{ mt: 1.5 }}>
                       <Button
                         size="small"
                         variant="outlined"
                         startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
-                        onClick={() => handleSaveLth(s.id, s.params)}
-                        disabled={saving || hasInvalidLthEntries(lthEditMap[s.id] ?? [])}
+                        onClick={() => handleSaveLth(s.id, s.params, lthInitialEntries)}
+                        disabled={saving || hasInvalidLthEntries(lthEditMap[s.id] ?? lthInitialEntries)}
                       >
                         변경사항 저장
                       </Button>

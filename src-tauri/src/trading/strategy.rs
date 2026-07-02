@@ -2011,6 +2011,9 @@ fn lth_default_exit_before_close() -> i64 {
 fn lth_default_gap_limit() -> f64 {
     4.0
 }
+fn lth_default_sensitivity() -> f64 {
+    1.0
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LeveragedTrendHoldEntry {
@@ -2059,6 +2062,12 @@ pub struct LeveragedTrendHoldParams {
     pub adx_period: usize,
     #[serde(default = "lth_default_buy_rsi")]
     pub entry_rsi_min: f64,
+    /// 상승 추세 진입 민감도. 1.0은 기존 기준, 값이 높을수록 더 이른 상승 진입을 허용.
+    #[serde(default = "lth_default_sensitivity")]
+    pub upward_sensitivity: f64,
+    /// 하락 추세 진입 민감도. 1.0은 기존 기준, 값이 높을수록 더 이른 하락 진입을 허용.
+    #[serde(default = "lth_default_sensitivity")]
+    pub downward_sensitivity: f64,
     #[serde(default = "lth_default_sell_rsi")]
     pub exit_rsi_below: f64,
     #[serde(default = "lth_default_buy_adx")]
@@ -2093,6 +2102,8 @@ impl Default for LeveragedTrendHoldParams {
             rsi_period: lth_default_rsi_period(),
             adx_period: lth_default_adx_period(),
             entry_rsi_min: lth_default_buy_rsi(),
+            upward_sensitivity: lth_default_sensitivity(),
+            downward_sensitivity: lth_default_sensitivity(),
             exit_rsi_below: lth_default_sell_rsi(),
             entry_adx_min: lth_default_buy_adx(),
             no_trade_adx_below: lth_default_no_trade_adx(),
@@ -2369,6 +2380,16 @@ impl LeveragedTrendHoldStrategy {
         })
     }
 
+    fn upward_entry_rsi_min(&self) -> f64 {
+        let sensitivity = self.params.upward_sensitivity.clamp(1.0, 5.0);
+        (self.params.entry_rsi_min - (sensitivity - 1.0) * 2.0).clamp(45.0, 70.0)
+    }
+
+    fn downward_entry_rsi_max(&self) -> f64 {
+        let sensitivity = self.params.downward_sensitivity.clamp(1.0, 5.0);
+        (self.params.neutral_rsi_low + (sensitivity - 1.0) * 2.0).clamp(30.0, 55.0)
+    }
+
     fn base_entry_ok(
         &self,
         base_symbol: &str,
@@ -2380,10 +2401,7 @@ impl LeveragedTrendHoldStrategy {
         let gap_ok = Self::gap_pct(&state.candles)
             .map(|g| g <= self.params.max_gap_pct)
             .unwrap_or(true);
-        let neutral_rsi =
-            snap.rsi >= self.params.neutral_rsi_low && snap.rsi <= self.params.neutral_rsi_high;
-
-        if !gap_ok || neutral_rsi || snap.adx < self.params.no_trade_adx_below {
+        if !gap_ok || snap.adx < self.params.no_trade_adx_below {
             return None;
         }
 
@@ -2391,13 +2409,13 @@ impl LeveragedTrendHoldStrategy {
             LeveragedTrendDirection::Long => {
                 close > snap.ema_short
                     && snap.ema_short > snap.ema_long
-                    && snap.rsi >= self.params.entry_rsi_min
+                    && snap.rsi >= self.upward_entry_rsi_min()
                     && snap.bullish_count_3 >= 2
             }
             LeveragedTrendDirection::Inverse => {
                 close < snap.ema_short
                     && snap.ema_short < snap.ema_long
-                    && snap.rsi <= self.params.neutral_rsi_low
+                    && snap.rsi <= self.downward_entry_rsi_max()
                     && snap.bearish_count_3 >= 2
             }
         };
