@@ -102,6 +102,35 @@ Content-Type: application/json
 - 1분당 1회 발급 제한 → 만료 5분 전에 갱신
 - `is_expired()`: `expires_at - Utc::now() < Duration::minutes(5)`
 
+### 실전/모의 앱키 자동 감지
+
+토큰 발급 자동 감지는 `access_token` 성공만 보지 말고, 반대 도메인에서 내려주는 오류 메시지도 판별 신호로 사용한다.
+
+| 호출 도메인 | 응답 의미 | 판정 |
+|------------|----------|------|
+| 실전 `openapi...:9443` | “실전투자 도메인은 모의투자 앱키로 호출할 수 없습니다” 계열 | 모의투자 |
+| 모의 `openapivts...:29443` | “모의투자 도메인은 실전투자 앱키로 호출할 수 없습니다” 계열 | 실전투자 |
+| 어느 쪽이든 `access_token` 반환 | 해당 도메인 유형 | 해당 환경 |
+
+✅ 올바른 패턴 — 응답 본문(`msg1`, `error_description`, `message`)까지 읽어 분류:
+
+```rust
+let detected = crate::api::detect::detect_trading_type(&client, app_key, app_secret).await?;
+let is_paper = detected.is_paper();
+```
+
+❌ 잘못된 패턴 — `access_token` 성공 여부만 확인:
+
+```rust
+if try_detect_token(real_url).await {
+    return Real;
+}
+if try_detect_token(paper_url).await {
+    return Paper;
+}
+// 실전 도메인이 "모의 앱키"라고 알려줘도 여기서는 감지 실패가 됨
+```
+
 ### Rust 인증 헤더 패턴
 
 ```rust
@@ -1604,7 +1633,7 @@ let trade_record = TradeRecord::new_overseas(
 
 `DailyStats`와 `RiskManager`는 원화 기준이므로 해외 매도 손익은 체결 시점 환율로 KRW 환산한 값을 반영한다.
 
-> 마지막 업데이트: 2026-07-01T16:22:56
+> 마지막 업데이트: 2026-07-02T16:20:00
 
 
 ---

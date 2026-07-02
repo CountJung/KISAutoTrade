@@ -389,9 +389,22 @@ export function useUpdateProfile() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: UpdateProfileInput) => cmd.updateProfile(input),
-    onSuccess: () => {
+    onSuccess: (updatedProfile) => {
+      qc.setQueryData<AccountProfileView[]>(KEYS.profiles, (old) =>
+        old?.map((profile) =>
+          profile.id === updatedProfile.id ? updatedProfile : profile
+        ) ?? [updatedProfile],
+      )
+      if (updatedProfile.is_active) {
+        qc.setQueryData<AppConfigView>(KEYS.appConfig, (old) =>
+          old
+            ? { ...old, kis_is_paper_trading: updatedProfile.is_paper_trading }
+            : old,
+        )
+      }
       void qc.invalidateQueries({ queryKey: KEYS.profiles })
       void qc.invalidateQueries({ queryKey: KEYS.appConfig })
+      void qc.invalidateQueries({ queryKey: KEYS.checkConfig })
     },
   })
 }
@@ -434,7 +447,19 @@ export function useDetectProfileTradingType() {
   const qc = useQueryClient()
   return useMutation<AccountProfileView, Error, string>({
     mutationFn: (profileId) => cmd.detectProfileTradingType(profileId),
-    onSuccess: () => {
+    onSuccess: (updatedProfile) => {
+      qc.setQueryData<AccountProfileView[]>(KEYS.profiles, (old) =>
+        old?.map((profile) =>
+          profile.id === updatedProfile.id ? updatedProfile : profile
+        ) ?? [updatedProfile],
+      )
+      if (updatedProfile.is_active) {
+        qc.setQueryData<AppConfigView>(KEYS.appConfig, (old) =>
+          old
+            ? { ...old, kis_is_paper_trading: updatedProfile.is_paper_trading }
+            : old,
+        )
+      }
       void qc.invalidateQueries({ queryKey: KEYS.profiles })
       void qc.invalidateQueries({ queryKey: KEYS.appConfig })
       void qc.invalidateQueries({ queryKey: KEYS.checkConfig })

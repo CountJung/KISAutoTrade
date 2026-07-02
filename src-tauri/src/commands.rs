@@ -3210,14 +3210,6 @@ pub async fn save_web_config(new_port: u16) -> CmdResult<String> {
 // 실전/모의투자 자동 감지
 // ────────────────────────────────────────────────────────────────────
 
-/// 실전/모의 토큰 발급 테스트용 요청 바디
-#[derive(Serialize)]
-struct DetectTokenReq {
-    grant_type: String,
-    appkey: String,
-    appsecret: String,
-}
-
 /// 자동 감지 결과
 #[derive(Debug, Serialize)]
 pub struct DetectTradingTypeResult {
@@ -3229,15 +3221,12 @@ pub struct DetectTradingTypeResult {
 /// APP KEY + APP SECRET으로 실전/모의투자 여부를 자동 감지합니다.
 ///
 /// 실전 URL → 모의 URL 순서로 토큰 발급을 시도하여
-/// 실제로 `access_token`이 반환된 환경을 기준으로 판별합니다.
+/// `access_token` 또는 도메인/앱키 불일치 오류 메시지를 기준으로 판별합니다.
 #[tauri::command]
 pub async fn detect_trading_type(
     app_key: String,
     app_secret: String,
 ) -> CmdResult<DetectTradingTypeResult> {
-    const REAL_URL: &str = "https://openapi.koreainvestment.com:9443/oauth2/tokenP";
-    const PAPER_URL: &str = "https://openapivts.koreainvestment.com:29443/oauth2/tokenP";
-
     if app_key.trim().is_empty() || app_secret.trim().is_empty() {
         return Err(CmdError {
             code: "INVALID_INPUT".into(),
@@ -3253,71 +3242,25 @@ pub async fn detect_trading_type(
             message: e.to_string(),
         })?;
 
-    // ── 실전투자 URL 시도 ──────────────────────────────────────────
-    let real_result = client
-        .post(REAL_URL)
-        .header("content-type", "application/json; charset=utf-8")
-        .json(&DetectTokenReq {
-            grant_type: "client_credentials".into(),
-            appkey: app_key.clone(),
-            appsecret: app_secret.clone(),
-        })
-        .send()
-        .await;
+    let detected =
+        crate::api::detect::detect_trading_type(&client, app_key.trim(), app_secret.trim())
+            .await
+            .map_err(|e| CmdError {
+                code: "DETECT_FAILED".into(),
+                message: e.to_string(),
+            })?;
 
-    if let Ok(resp) = real_result {
-        if resp.status().is_success() {
-            if let Ok(val) = resp.json::<serde_json::Value>().await {
-                let token_ok = val
-                    .get("access_token")
-                    .and_then(|v| v.as_str())
-                    .map(|t| !t.is_empty())
-                    .unwrap_or(false);
-                if token_ok {
-                    tracing::info!("자동 감지 완료: 실전투자 키");
-                    return Ok(DetectTradingTypeResult {
-                        is_paper_trading: false,
-                        message: "실전투자 키로 확인되었습니다.".into(),
-                    });
-                }
-            }
+    tracing::info!(
+        "자동 감지 완료: {}",
+        if detected.is_paper() {
+            "모의투자 키"
+        } else {
+            "실전투자 키"
         }
-    }
-
-    // ── 모의투자 URL 시도 ──────────────────────────────────────────
-    let paper_result = client
-        .post(PAPER_URL)
-        .header("content-type", "application/json; charset=utf-8")
-        .json(&DetectTokenReq {
-            grant_type: "client_credentials".into(),
-            appkey: app_key,
-            appsecret: app_secret,
-        })
-        .send()
-        .await;
-
-    if let Ok(resp) = paper_result {
-        if resp.status().is_success() {
-            if let Ok(val) = resp.json::<serde_json::Value>().await {
-                let token_ok = val
-                    .get("access_token")
-                    .and_then(|v| v.as_str())
-                    .map(|t| !t.is_empty())
-                    .unwrap_or(false);
-                if token_ok {
-                    tracing::info!("자동 감지 완료: 모의투자 키");
-                    return Ok(DetectTradingTypeResult {
-                        is_paper_trading: true,
-                        message: "모의투자 키로 확인되었습니다.".into(),
-                    });
-                }
-            }
-        }
-    }
-
-    Err(CmdError {
-        code: "DETECT_FAILED".into(),
-        message: "실전/모의 키를 자동 감지하지 못했습니다. 네트워크 또는 API 키를 확인하거나 직접 선택해 주세요.".into(),
+    );
+    Ok(DetectTradingTypeResult {
+        is_paper_trading: detected.is_paper(),
+        message: detected.message().into(),
     })
 }
 
@@ -3354,10 +3297,6 @@ pub async fn detect_profile_trading_type(
         (p.app_key.clone(), p.app_secret.clone())
     };
 
-    // 2) 실전/모의 토큰 발급 시도 (detect_trading_type 로직 재사용)
-    const REAL_URL: &str = "https://openapi.koreainvestment.com:9443/oauth2/tokenP";
-    const PAPER_URL: &str = "https://openapivts.koreainvestment.com:29443/oauth2/tokenP";
-
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
@@ -3366,67 +3305,13 @@ pub async fn detect_profile_trading_type(
             message: e.to_string(),
         })?;
 
-    let mut detected_paper: Option<bool> = None;
-
-    // 실전 시도
-    if let Ok(resp) = client
-        .post(REAL_URL)
-        .header("content-type", "application/json; charset=utf-8")
-        .json(&DetectTokenReq {
-            grant_type: "client_credentials".into(),
-            appkey: app_key.clone(),
-            appsecret: app_secret.clone(),
-        })
-        .send()
+    let is_paper = crate::api::detect::detect_trading_type(&client, &app_key, &app_secret)
         .await
-    {
-        if resp.status().is_success() {
-            if let Ok(val) = resp.json::<serde_json::Value>().await {
-                let ok = val
-                    .get("access_token")
-                    .and_then(|v| v.as_str())
-                    .map(|t| !t.is_empty())
-                    .unwrap_or(false);
-                if ok {
-                    detected_paper = Some(false);
-                }
-            }
-        }
-    }
-
-    // 실전 실패 시 모의 시도
-    if detected_paper.is_none() {
-        if let Ok(resp) = client
-            .post(PAPER_URL)
-            .header("content-type", "application/json; charset=utf-8")
-            .json(&DetectTokenReq {
-                grant_type: "client_credentials".into(),
-                appkey: app_key,
-                appsecret: app_secret,
-            })
-            .send()
-            .await
-        {
-            if resp.status().is_success() {
-                if let Ok(val) = resp.json::<serde_json::Value>().await {
-                    let ok = val
-                        .get("access_token")
-                        .and_then(|v| v.as_str())
-                        .map(|t| !t.is_empty())
-                        .unwrap_or(false);
-                    if ok {
-                        detected_paper = Some(true);
-                    }
-                }
-            }
-        }
-    }
-
-    let is_paper = detected_paper.ok_or_else(|| CmdError {
-        code: "DETECT_FAILED".into(),
-        message: "실전/모의 키를 자동 감지하지 못했습니다. 네트워크 또는 API 키를 확인해 주세요."
-            .into(),
-    })?;
+        .map_err(|e| CmdError {
+            code: "DETECT_FAILED".into(),
+            message: e.to_string(),
+        })?
+        .is_paper();
 
     // 3) 프로파일 업데이트 및 저장
     let view = {

@@ -791,13 +791,13 @@ async fn app_config_handler(State(s): State<ServerState>) -> Json<serde_json::Va
         }
     };
     Json(serde_json::json!({
-        "kisAppKeyMasked":   masked_key,
-        "kisAccountNo":      cfg.kis_account_no,
-        "kisIsPaperTrading": cfg.kis_is_paper_trading,
-        "kisConfigured":     cfg.is_kis_configured(),
-        "discordEnabled":    cfg.discord_bot_token.is_some(),
-        "activeProfileId":   active_id,
-        "activeProfileName": active_name,
+        "kis_app_key_masked":   masked_key,
+        "kis_account_no":       cfg.kis_account_no,
+        "kis_is_paper_trading": cfg.kis_is_paper_trading,
+        "kis_configured":       cfg.is_kis_configured(),
+        "discord_enabled":      cfg.discord_bot_token.is_some(),
+        "active_profile_id":    active_id,
+        "active_profile_name":  active_name,
     }))
 }
 
@@ -814,13 +814,13 @@ async fn profiles_handler(State(s): State<ServerState>) -> Json<serde_json::Valu
                 "****".into()
             };
             serde_json::json!({
-                "id":             p.id,
-                "name":           p.name,
-                "isPaperTrading": p.is_paper_trading,
-                "appKeyMasked":   masked,
-                "accountNo":      p.account_no,
-                "isActive":       profiles.active_id.as_deref() == Some(&p.id),
-                "isConfigured":   p.is_configured(),
+                "id":               p.id,
+                "name":             p.name,
+                "is_paper_trading": p.is_paper_trading,
+                "app_key_masked":   masked,
+                "account_no":       p.account_no,
+                "is_active":        profiles.active_id.as_deref() == Some(&p.id),
+                "is_configured":    p.is_configured(),
             })
         })
         .collect();
@@ -1277,14 +1277,14 @@ async fn check_config_handler(State(s): State<ServerState>) -> Json<serde_json::
             .any(|p| p.is_paper_trading && p.is_configured())
     };
     Json(serde_json::json!({
-        "realKeySet":        !cfg.kis_app_key.is_empty(),
-        "realAccountSet":    !cfg.kis_account_no.is_empty(),
-        "paperKeySet":       paper_available,
-        "activeMode":        if cfg.kis_is_paper_trading { "모의투자" } else { "실전투자" },
-        "isReady":           cfg.is_kis_configured(),
-        "discordConfigured": cfg.discord_bot_token.is_some(),
-        "baseUrl":           cfg.kis_base_url(),
-        "issues":            issues,
+        "real_key_set":       !cfg.kis_app_key.is_empty(),
+        "real_account_set":   !cfg.kis_account_no.is_empty(),
+        "paper_key_set":      paper_available,
+        "active_mode":        if cfg.kis_is_paper_trading { "모의투자" } else { "실전투자" },
+        "is_ready":           cfg.is_kis_configured(),
+        "discord_configured": cfg.discord_bot_token.is_some(),
+        "base_url":           cfg.kis_base_url(),
+        "issues":             issues,
     }))
 }
 
@@ -1297,13 +1297,13 @@ fn profile_json(p: &AccountProfile, active_id: &Option<String>) -> serde_json::V
         "****".into()
     };
     serde_json::json!({
-        "id":             p.id,
-        "name":           p.name,
-        "isPaperTrading": p.is_paper_trading,
-        "appKeyMasked":   masked,
-        "accountNo":      p.account_no,
-        "isActive":       active_id.as_deref() == Some(&p.id),
-        "isConfigured":   p.is_configured(),
+        "id":               p.id,
+        "name":             p.name,
+        "is_paper_trading": p.is_paper_trading,
+        "app_key_masked":   masked,
+        "account_no":       p.account_no,
+        "is_active":        active_id.as_deref() == Some(&p.id),
+        "is_configured":    p.is_configured(),
     })
 }
 
@@ -1358,12 +1358,15 @@ async fn save_profiles_server(s: &ServerState) {
 // ── 프로파일 CRUD 핸들러 ──────────────────────────────────────────
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct AddProfileBody {
     name: String,
+    #[serde(alias = "isPaperTrading")]
     is_paper_trading: bool,
+    #[serde(alias = "appKey")]
     app_key: String,
+    #[serde(alias = "appSecret")]
     app_secret: String,
+    #[serde(alias = "accountNo")]
     account_no: String,
 }
 
@@ -1394,13 +1397,16 @@ async fn add_profile_handler(
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct UpdateProfileBody {
     id: String,
     name: Option<String>,
+    #[serde(alias = "isPaperTrading")]
     is_paper_trading: Option<bool>,
+    #[serde(alias = "appKey")]
     app_key: Option<String>,
+    #[serde(alias = "appSecret")]
     app_secret: Option<String>,
+    #[serde(alias = "accountNo")]
     account_no: Option<String>,
 }
 
@@ -1484,44 +1490,12 @@ async fn set_active_profile_handler(
 
 // ── 실전/모의 자동 감지 ───────────────────────────────────────────
 
-#[derive(serde::Serialize)]
-struct DetectTokenReq {
-    grant_type: String,
-    appkey: String,
-    appsecret: String,
-}
-
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct DetectTradingTypeBody {
+    #[serde(alias = "appKey")]
     app_key: String,
+    #[serde(alias = "appSecret")]
     app_secret: String,
-}
-
-async fn try_detect_token(client: &reqwest::Client, url: &str, key: &str, secret: &str) -> bool {
-    let Ok(resp) = client
-        .post(url)
-        .header("content-type", "application/json; charset=utf-8")
-        .json(&DetectTokenReq {
-            grant_type: "client_credentials".into(),
-            appkey: key.to_string(),
-            appsecret: secret.to_string(),
-        })
-        .send()
-        .await
-    else {
-        return false;
-    };
-    if !resp.status().is_success() {
-        return false;
-    }
-    let Ok(val) = resp.json::<serde_json::Value>().await else {
-        return false;
-    };
-    val.get("access_token")
-        .and_then(|v| v.as_str())
-        .map(|t| !t.is_empty())
-        .unwrap_or(false)
 }
 
 /// POST /api/detect-trading-type
@@ -1529,8 +1503,6 @@ async fn detect_trading_type_handler(
     State(_s): State<ServerState>,
     Json(body): Json<DetectTradingTypeBody>,
 ) -> Json<serde_json::Value> {
-    const REAL_URL: &str = "https://openapi.koreainvestment.com:9443/oauth2/tokenP";
-    const PAPER_URL: &str = "https://openapivts.koreainvestment.com:29443/oauth2/tokenP";
     if body.app_key.trim().is_empty() || body.app_secret.trim().is_empty() {
         return Json(serde_json::json!({ "error": "APP KEY와 APP SECRET을 모두 입력하세요." }));
     }
@@ -1541,17 +1513,19 @@ async fn detect_trading_type_handler(
         Ok(c) => c,
         Err(e) => return Json(serde_json::json!({ "error": e.to_string() })),
     };
-    if try_detect_token(&client, REAL_URL, &body.app_key, &body.app_secret).await {
-        return Json(
-            serde_json::json!({ "isPaperTrading": false, "message": "실전투자 키로 확인되었습니다." }),
-        );
+    match crate::api::detect::detect_trading_type(
+        &client,
+        body.app_key.trim(),
+        body.app_secret.trim(),
+    )
+    .await
+    {
+        Ok(detected) => Json(serde_json::json!({
+            "is_paper_trading": detected.is_paper(),
+            "message": detected.message(),
+        })),
+        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
-    if try_detect_token(&client, PAPER_URL, &body.app_key, &body.app_secret).await {
-        return Json(
-            serde_json::json!({ "isPaperTrading": true, "message": "모의투자 키로 확인되었습니다." }),
-        );
-    }
-    Json(serde_json::json!({ "error": "실전/모의 키를 자동 감지하지 못했습니다." }))
 }
 
 /// POST /api/profiles/:id/detect
@@ -1577,8 +1551,6 @@ async fn detect_profile_handler(
             }
         }
     };
-    const REAL_URL: &str = "https://openapi.koreainvestment.com:9443/oauth2/tokenP";
-    const PAPER_URL: &str = "https://openapivts.koreainvestment.com:29443/oauth2/tokenP";
     let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
@@ -1586,13 +1558,11 @@ async fn detect_profile_handler(
         Ok(c) => c,
         Err(e) => return Json(serde_json::json!({ "error": e.to_string() })),
     };
-    let is_paper = if try_detect_token(&client, REAL_URL, &app_key, &app_secret).await {
-        false
-    } else if try_detect_token(&client, PAPER_URL, &app_key, &app_secret).await {
-        true
-    } else {
-        return Json(serde_json::json!({ "error": "실전/모의 키를 자동 감지하지 못했습니다." }));
-    };
+    let is_paper =
+        match crate::api::detect::detect_trading_type(&client, &app_key, &app_secret).await {
+            Ok(detected) => detected.is_paper(),
+            Err(e) => return Json(serde_json::json!({ "error": e.to_string() })),
+        };
     let view = {
         let mut profiles = s.profiles.write().await;
         match profiles.update(&id, None, Some(is_paper), None, None, None) {

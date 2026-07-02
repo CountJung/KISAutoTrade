@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -89,13 +89,14 @@ impl TokenManager {
             .send()
             .await?;
 
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let text = resp.text().await.unwrap_or_default();
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        if !status.is_success() {
             anyhow::bail!("토큰 발급 실패 HTTP {}: {}", status, text);
         }
 
-        let data: TokenIssueResponse = resp.json().await?;
+        let data: TokenIssueResponse = serde_json::from_str(&text)
+            .map_err(|e| anyhow!("토큰 발급 응답 파싱 실패: {}; body={}", e, text))?;
 
         let expires_at = Utc::now() + chrono::Duration::seconds(data.expires_in);
         Ok(AccessToken {

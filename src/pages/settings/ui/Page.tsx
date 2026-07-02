@@ -598,15 +598,30 @@ function ProfileCard({
 }) {
   const { isPending: activating } = useSetActiveProfile()
   const { mutate: detectProfile, isPending: detecting } = useDetectProfileTradingType()
+  const { mutate: updateProfile, isPending: updatingMode } = useUpdateProfile()
   const [detectError, setDetectError] = useState<string | null>(null)
 
   const isActiveTrading = isRunning && tradingProfileId === profile.id
+  const manualTargetIsPaper = !profile.is_paper_trading
 
   const handleDetect = () => {
     setDetectError(null)
     detectProfile(profile.id, {
       onError: (e) => setDetectError(cmdErrMsg(e)),
     })
+  }
+
+  const handleManualModeSwitch = () => {
+    setDetectError(null)
+    updateProfile(
+      {
+        id: profile.id,
+        is_paper_trading: manualTargetIsPaper,
+      },
+      {
+        onError: (e) => setDetectError(cmdErrMsg(e)),
+      },
+    )
   }
 
   return (
@@ -694,7 +709,7 @@ function ProfileCard({
                       : <SyncIcon fontSize="small" />
                     }
                     onClick={handleDetect}
-                    disabled={detecting}
+                    disabled={detecting || updatingMode}
                     sx={{ fontSize: '0.7rem', px: 0.5, minWidth: 0 }}
                   >
                     {detecting ? '감지 중...' : '자동 감지'}
@@ -702,6 +717,28 @@ function ProfileCard({
                 </span>
               </Tooltip>
             )}
+            <Tooltip
+              title={`감지 결과와 무관하게 ${manualTargetIsPaper ? '모의투자' : '실전투자'} 모드로 즉시 저장합니다`}
+            >
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color={manualTargetIsPaper ? 'warning' : 'primary'}
+                  startIcon={updatingMode
+                    ? <CircularProgress size={12} color="inherit" />
+                    : <SyncIcon fontSize="small" />
+                  }
+                  onClick={handleManualModeSwitch}
+                  disabled={detecting || updatingMode}
+                  sx={{ fontSize: '0.7rem', px: 0.75, minWidth: 0 }}
+                >
+                  {updatingMode
+                    ? '전환 중...'
+                    : manualTargetIsPaper ? '모의 전환' : '실전 전환'}
+                </Button>
+              </span>
+            </Tooltip>
           </Stack>
           <Typography variant="body2" color="text.secondary" pl={3.5}>
             KEY: <code>{profile.app_key_masked}</code>

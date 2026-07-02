@@ -82,6 +82,7 @@ AutoConditionTrade/                   ← 루트
         ├── commands.rs               ← AppState + IPC 커맨드 핸들러 전체
         ├── market_hours.rs           ← 시장 개장 여부 판단 (KRX / US)
         ├── api/
+        │   ├── detect.rs             ← KIS 실전/모의 앱키 자동 감지
         │   ├── rest.rs               ← KisRestClient — 잔고/주문/차트/환율
         │   ├── token.rs              ← TokenManager — 자동 갱신
         │   └── websocket.rs          ← KisWebSocketClient — 실시간 시세
@@ -147,6 +148,7 @@ AutoConditionTrade/                   ← 루트
 |------|------|
 | `lib.rs` | Tauri Builder + 6개 백그라운드 데몬 spawn + `on_window_event` (종료 안전 처리) |
 | `commands.rs` | AppState + 모든 IPC 커맨드 핸들러 |
+| `api/detect.rs` | KIS 토큰 응답 기반 실전/모의 앱키 자동 감지 |
 | `api/token.rs` | KIS Access Token 자동 갱신 |
 | `api/websocket.rs` | 실시간 시세 수신, 체결 콜백 |
 | `trading/mod.rs` | 전략 루프 실행, 장 시간 감지 |
