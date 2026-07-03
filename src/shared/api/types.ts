@@ -6,8 +6,12 @@ export interface CmdError {
   message: string
 }
 
+export type BrokerId = 'kis' | 'toss'
+
 // ─── 앱 설정 뷰 ────────────────────────────────────────────────────
 export interface AppConfigView {
+  active_broker_id: BrokerId
+  active_broker_account_id: string | null
   kis_app_key_masked: string
   kis_account_no: string
   kis_is_paper_trading: boolean
@@ -21,8 +25,11 @@ export interface AppConfigView {
 // ─── 계좌 프로파일 ───────────────────────────────────────────────────
 export interface AccountProfileView {
   id: string
+  broker_id: BrokerId
+  broker_account_id: string
   name: string
   is_paper_trading: boolean
+  live_trading_consent: boolean
   app_key_masked: string
   account_no: string
   is_active: boolean
@@ -30,8 +37,10 @@ export interface AccountProfileView {
 }
 
 export interface AddProfileInput {
+  broker_id?: BrokerId
   name: string
   is_paper_trading: boolean
+  live_trading_consent: boolean
   app_key: string
   app_secret: string
   account_no: string
@@ -39,8 +48,10 @@ export interface AddProfileInput {
 
 export interface UpdateProfileInput {
   id: string
+  broker_id?: BrokerId
   name?: string
   is_paper_trading?: boolean
+  live_trading_consent?: boolean
   /** 빈 문자열 = 변경 안 함 */
   app_key?: string
   /** 빈 문자열 = 변경 안 함 */
@@ -57,6 +68,8 @@ export interface DetectTradingTypeResult {
 
 // ─── 진단 모드 ────────────────────────────────────────────────
 export interface ConfigDiagnostic {
+  broker_id: BrokerId
+  broker_account_id: string | null
   real_key_set: boolean
   real_account_set: boolean
   paper_key_set: boolean
@@ -64,6 +77,37 @@ export interface ConfigDiagnostic {
   is_ready: boolean
   discord_configured: boolean
   base_url: string
+  issues: string[]
+}
+
+export interface TossConnectionStep {
+  id: string
+  label: string
+  ok: boolean
+  message: string
+}
+
+export interface TossConnectionDiagnostic {
+  profile_id: string
+  profile_name: string
+  broker_id: 'toss'
+  account_seq: string
+  openapi_title: string | null
+  openapi_version: string | null
+  openapi_server: string | null
+  openapi_paths_count: number | null
+  token_type: string | null
+  token_expires_at: string | null
+  accounts_count: number | null
+  matched_account_no: string | null
+  holdings_count: number | null
+  buying_power_krw: string | null
+  buying_power_usd: string | null
+  commissions_count: number | null
+  sellable_quantity_symbol: string | null
+  sellable_quantity: string | null
+  is_ready: boolean
+  steps: TossConnectionStep[]
   issues: string[]
 }
 
@@ -270,6 +314,10 @@ export interface TradingStatus {
   wsConnected: boolean
   /** 자동매매가 실행 중인 프로파일 ID (미실행 시 null) */
   tradingProfileId: string | null
+  /** 자동매매가 실행 중인 broker ID (미실행 시 null) */
+  tradingBrokerId: BrokerId | null
+  /** 자동매매가 실행 중인 broker account ID (미실행 시 null) */
+  tradingAccountId: string | null
   /** 잔고 부족으로 매수가 정지된 여부 */
   buySuspended: boolean
   /** 매수 정지 사유 (KIS msg1, 없으면 null) */

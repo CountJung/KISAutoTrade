@@ -23,6 +23,7 @@ use crate::{
         KisRestClient, OrderRequest, OrderResponse, OrderSide as RestOrderSide, OrderType,
         OverseasOrderRequest,
     },
+    broker::BrokerScope,
     market_hours::is_domestic_symbol,
     notifications::{discord::DiscordNotifier, types::NotificationEvent},
     storage::{
@@ -57,6 +58,8 @@ pub struct PendingOrder {
     pub order_price: u64,
     /// 해외 주문이면 KIS 주문 거래소 코드(NASD/NYSE/AMEX), 국내 주문이면 None
     pub exchange: Option<String>,
+    /// 주문이 발생한 broker/account scope
+    pub broker_scope: BrokerScope,
     /// 주문번호 기반 조회로 이미 반영한 누적 체결 수량
     pub filled_quantity: u64,
 }
@@ -94,6 +97,8 @@ pub struct OrderManager {
     pub risk_manager: Arc<Mutex<RiskManager>>,
     /// 전략 신호와 주문 실행 사이의 반복매매/휩소 방어 계층
     trade_guard: TradeGuard,
+    /// 자동매매 시작 시점의 broker/account scope. 실행 중 프로파일 전환과 분리한다.
+    execution_scope: BrokerScope,
     discord: Option<Arc<DiscordNotifier>>,
 }
 
@@ -123,11 +128,22 @@ impl OrderManager {
             exchange_rate_krw,
             risk_manager,
             trade_guard: TradeGuard::default(),
+            execution_scope: BrokerScope::kis_legacy(),
             discord,
         }
     }
 
     // ── 공개 API ────────────────────────────────────────────────────
+
+    /// 자동매매 실행 scope를 시작 시점 broker/account로 고정한다.
+    pub fn set_execution_scope(&mut self, scope: BrokerScope) {
+        tracing::info!("주문 실행 scope 설정: {:?}", scope);
+        self.execution_scope = scope;
+    }
+
+    pub fn execution_scope(&self) -> &BrokerScope {
+        &self.execution_scope
+    }
 
     /// ① 전략 신호 처리 → 주문 실행
     ///
@@ -144,6 +160,7 @@ impl OrderManager {
         exchange: Option<String>,
         tick_price: u64,
     ) -> Result<()> {
+        let broker_scope = self.execution_scope.clone();
         let (held_quantity, avg_price) = match &signal {
             Signal::Buy { symbol, .. } | Signal::Sell { symbol, .. } => {
                 if exchange.is_some() {
@@ -163,7 +180,8 @@ impl OrderManager {
             Signal::Hold => (0, None),
         };
 
-        match self.trade_guard.evaluate(
+        match self.trade_guard.evaluate_for_scope(
+            &broker_scope,
             &signal,
             held_quantity,
             avg_price,
@@ -178,11 +196,16 @@ impl OrderManager {
         }
 
         if let Some((symbol, side)) = daily_order_limit_key(&signal) {
-            let limit_reason = self.risk_manager.lock().await.daily_order_limit_reason(
-                strategy_id.as_deref().unwrap_or("unknown"),
-                symbol,
-                side,
-            );
+            let limit_reason = self
+                .risk_manager
+                .lock()
+                .await
+                .daily_order_limit_reason_for_scope(
+                    &broker_scope,
+                    strategy_id.as_deref().unwrap_or("unknown"),
+                    symbol,
+                    side,
+                );
             if let Some(reason) = limit_reason {
                 tracing::info!("리스크 주문 횟수 제한 — {} ({})", symbol, reason);
                 return Ok(());
@@ -194,7 +217,11 @@ impl OrderManager {
                 .risk_manager
                 .lock()
                 .await
-                .consecutive_loss_block_reason(strategy_id.as_deref().unwrap_or("unknown"), symbol)
+                .consecutive_loss_block_reason_for_scope(
+                    &broker_scope,
+                    strategy_id.as_deref().unwrap_or("unknown"),
+                    symbol,
+                )
             {
                 tracing::info!("연속 손실 진입 차단 — {} ({})", symbol, reason);
                 return Ok(());
@@ -216,6 +243,7 @@ impl OrderManager {
                     exchange,
                     tick_price,
                     strategy_id,
+                    broker_scope,
                 )
                 .await
             }
@@ -232,6 +260,7 @@ impl OrderManager {
                     exchange,
                     tick_price,
                     strategy_id,
+                    broker_scope,
                 )
                 .await
             }
@@ -383,7 +412,8 @@ impl OrderManager {
             {
                 let mut risk = self.risk_manager.lock().await;
                 risk.record_pnl(pnl_krw);
-                risk.record_strategy_symbol_pnl(
+                risk.record_strategy_symbol_pnl_for_scope(
+                    &pending.broker_scope,
                     pending.strategy_id.as_deref().unwrap_or("unknown"),
                     &symbol,
                     pnl_krw,
@@ -592,6 +622,7 @@ impl OrderManager {
         exchange: Option<String>,
         tick_price: u64,
         strategy_id: Option<String>,
+        broker_scope: BrokerScope,
     ) -> Result<()> {
         // ⑪ 잔고 부족 매수 정지 체크
         if self.buy_suspended {
@@ -762,6 +793,7 @@ impl OrderManager {
             strategy_id,
             tick_price,
             order_price,
+            broker_scope,
         )
         .await
     }
@@ -775,6 +807,7 @@ impl OrderManager {
         exchange: Option<String>,
         tick_price: u64,
         strategy_id: Option<String>,
+        broker_scope: BrokerScope,
     ) -> Result<()> {
         // ③ 중복 주문 방지
         if self.symbol_to_odno.contains_key(&symbol) {
@@ -921,6 +954,7 @@ impl OrderManager {
             strategy_id,
             tick_price,
             order_price,
+            broker_scope,
         )
         .await
     }
@@ -938,6 +972,7 @@ impl OrderManager {
         strategy_id: Option<String>,
         signal_price: u64,
         order_price: u64,
+        broker_scope: BrokerScope,
     ) -> Result<()> {
         let mut record = OrderRecord::new(
             symbol.clone(),
@@ -977,15 +1012,20 @@ impl OrderManager {
                 reason: reason.clone(),
             },
         };
-        self.trade_guard.record_submitted(&guard_signal);
-        self.risk_manager.lock().await.record_order_submitted(
-            strategy_id.as_deref().unwrap_or("unknown"),
-            &symbol,
-            match side {
-                OrderSide::Buy => DailyOrderSide::Buy,
-                OrderSide::Sell => DailyOrderSide::Sell,
-            },
-        );
+        self.trade_guard
+            .record_submitted_for_scope(&broker_scope, &guard_signal);
+        self.risk_manager
+            .lock()
+            .await
+            .record_order_submitted_for_scope(
+                &broker_scope,
+                strategy_id.as_deref().unwrap_or("unknown"),
+                &symbol,
+                match side {
+                    OrderSide::Buy => DailyOrderSide::Buy,
+                    OrderSide::Sell => DailyOrderSide::Sell,
+                },
+            );
         self.pending.insert(
             odno,
             PendingOrder {
@@ -996,6 +1036,7 @@ impl OrderManager {
                 strategy_id,
                 signal_price,
                 order_price,
+                broker_scope,
             },
         );
 

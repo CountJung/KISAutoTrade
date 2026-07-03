@@ -36,6 +36,7 @@ import type {
   TradeArchiveConfig,
   TradeArchiveStats,
   TradeRecord,
+  TossConnectionDiagnostic,
   TradingStatus,
   UpdateInfo,
   UpdateProfileInput,
@@ -194,6 +195,10 @@ export const detectTradingType = (appKey: string, appSecret: string): Promise<De
 /** 저장된 프로파일의 키로 직접 감지 후 is_paper_trading 자동 업데이트 */
 export const detectProfileTradingType = (profileId: string): Promise<AccountProfileView> =>
   invoke('detect_profile_trading_type', { profileId })
+
+/** 저장된 토스 프로파일로 OpenAPI/token/accounts/holdings 연결을 진단 */
+export const checkTossProfileConnection = (profileId: string): Promise<TossConnectionDiagnostic> =>
+  invoke('check_toss_profile_connection', { profileId })
 
 // ─── 해외(미국) 주식 ───────────────────────────────────────────────
 /** 해외 현재가 조회 (NAS/NYS/AMS) */

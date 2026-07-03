@@ -19,6 +19,7 @@
 10. [TypeScript 타입 미러링](#10-typescript-타입-미러링)
 11. [React Query 캐시 무효화 패턴](#11-react-query-캐시-무효화-패턴)
 12. [기능 구현 완료 체크리스트](#12-기능-구현-완료-체크리스트)
+13. [다중 증권사 Adapter 경계](#13-다중-증권사-adapter-경계)
 
 ---
 
@@ -734,4 +735,48 @@ export const usePlaceOrder = () =>
 
 ---
 
-> 마지막 업데이트: 2026-04-11T00:00:00
+## 13. 다중 증권사 Adapter 경계
+
+KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tauri/src/broker/` 아래 공통 타입과 adapter trait으로 점진 래핑한다.
+
+| 역할 | 위치 |
+|------|------|
+| 공통 타입 | `src-tauri/src/broker/domain.rs` |
+| adapter trait / 공통 에러 | `src-tauri/src/broker/adapter.rs` |
+| 기존 KIS 래퍼 | `src-tauri/src/broker/kis.rs` |
+| Toss read-only client/adapter | `src-tauri/src/broker/toss.rs` |
+
+### 공통 타입 규칙
+
+- broker 식별은 `BrokerId::{Kis,Toss}`로 명시한다.
+- 계좌 식별자는 `BrokerAccountId`를 사용한다. KIS 계좌번호와 Toss `accountSeq`를 같은 설정 필드에 섞지 않는다.
+- 주문 실행/리스크 키는 `BrokerScope { broker_id, account_id }`를 사용한다. 단순 문자열 account key만 쓰면 서로 다른 broker의 계좌가 충돌할 수 있다.
+- 금액과 수량은 `BrokerMoney { amount: String, currency }`, `BrokerQuantity(String)`로 보존한다. Toss Decimal/string 값을 `f64`로 먼저 바꾸면 안 된다.
+- 주문 추적은 broker 주문번호 `BrokerOrderId`와 클라이언트 중복 방지용 `BrokerClientOrderId`를 분리한다.
+
+### 프로파일/AppState scope 규칙
+
+- `AccountProfile`에는 `broker_id`를 저장하고, 기존 프로파일에는 serde 기본값 `BrokerId::Kis`가 적용되게 한다.
+- 토스 실거래 동의 상태는 `AccountProfile.live_trading_consent`로 별도 저장한다. 기존 프로파일에는 serde 기본값 `false`를 적용하고, 주문 구현 전까지는 자동매매 unlock이 아니라 명시 승인 기록으로만 사용한다.
+- IPC `AppConfigView`와 `ProfileView`는 활성 broker/account를 내려 UI가 현재 scope를 표시할 수 있게 한다.
+- 자동매매 시작 시 `trading_profile_id`, `trading_broker_id`, `trading_account_id`를 스냅샷으로 저장한다. 실행 중 프로파일 전환이 있어도 주문 경로가 섞이지 않게 하기 위한 값이다.
+- `start_trading()`은 같은 스냅샷으로 `OrderManager::set_execution_scope()`를 호출한다. 이후 `TradeGuard`, `RiskManager`, `PendingOrder`는 같은 `BrokerScope`를 공유한다.
+- 자동매매 주문 경로에서는 scope 없는 `TradeGuard::evaluate()`나 `RiskManager::daily_order_limit_reason()` 대신 `*_for_scope()` 메서드를 호출한다. scope 없는 메서드는 기존 테스트/호출부 하위 호환용이다.
+- 토스 자동매매는 실제 주문/체결 adapter가 준비되기 전까지 `BROKER_NOT_SUPPORTED`로 차단한다.
+
+### 구현 순서
+
+1. read-only 기능부터 adapter에 붙인다: OpenAPI version 진단, token 발급 진단, accounts 조회, holdings 조회.
+2. 주문 전 검증 API(`buying-power`, `sellable-quantity`, `commissions`)를 `TradeGuard`/`RiskManager` 앞단에 연결한다.
+3. 실제 주문 생성은 `clientOrderId` 발급, rate-limit backoff, error envelope 파싱, 소액 검증 체크리스트가 모두 준비된 뒤 자동매매 경로에 연결한다.
+
+### Toss read-only client 규칙
+
+- `POST /oauth2/token`은 `application/x-www-form-urlencoded`로 호출한다. refresh token은 없으므로 만료 또는 401 시 access token을 1회 재발급한다.
+- `/api/v1/accounts`에서 받은 `accountSeq` 문자열을 `BrokerAccountId`로 다루고, holdings 조회 시 `X-Tossinvest-Account` 헤더로 보낸다.
+- holdings 매핑은 `BrokerHolding`까지 허용한다. 주문/체결 adapter가 준비되기 전에는 자동매매와 수동 주문 IPC에 연결하지 않는다.
+- `X-Request-Id`와 `Retry-After`는 에러 메시지 또는 진단 결과에 보존해 CS 문의와 rate-limit 대응에 사용할 수 있게 한다.
+- read-only 연결 진단은 `check_toss_profile_connection` IPC와 `/api/profiles/:id/toss-diagnostic` 웹 REST를 함께 추가한다. 프로파일 lock은 clone까지만 유지하고, OpenAPI/token/accounts/holdings/preflight 네트워크 호출은 lock 밖에서 실행한다.
+- `buying-power`는 KRW/USD를 각각 조회하고, `commissions`는 account 단위로 조회한다. `sellable-quantity`는 symbol이 필수이므로 holdings에 보유 종목이 있을 때 첫 종목으로 확인하고, holdings가 비어 있으면 성공 skip으로 기록한다.
+
+> 마지막 업데이트: 2026-07-03T13:27:56

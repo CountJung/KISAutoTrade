@@ -23,7 +23,7 @@ AutoConditionTrade/                   ← 루트
 ├── .github/
 │   ├── codex-instructions.md         ← Codex 프로젝트 지침 (살아있는 문서)
 │   ├── copilot-instructions.md       ← GitHub Copilot/Codex 호환용 shim
-│   ├── skills/                       ← 도메인 스킬 파일 5종 (KIS API, Rust, React, FSD, UI)
+│   ├── skills/                       ← 도메인 스킬 파일 6종 (KIS API, Toss API, Rust, React, FSD, UI)
 │   └── workflows/release.yml         ← GitHub Actions 자동 빌드/릴리즈
 │
 ├── .codex/
@@ -34,12 +34,15 @@ AutoConditionTrade/                   ← 루트
 │   ├── project-map.md                ← [이 파일] 디렉토리 맵 + 아키텍처
 │   ├── ipc-commands.md               ← IPC 커맨드 전체 목록 (35개)
 │   ├── coding-guide.md               ← 설정 추가·AppState·IPC·데몬·제어흐름 실전 가이드
+│   ├── toss-openapi.md               ← 토스증권 OpenAPI endpoint inventory + 검증 절차
+│   ├── toss-readonly-small-order-checklist.md ← 토스 read-only/소액 실거래 검증 안전 절차
 │   ├── mock-trading-e2e-checklist.md ← 모의투자 국내/해외/E2E 검증 체크리스트
 │   ├── MasterPlan.md                 ← 전체 설계 문서 (아카이브, 읽기 전용)
 │   ├── discord-setup-guide.md        ← Discord 봇 설정 가이드
 │   └── user-guide.md                 ← 사용 가이드 (개요·전략 세팅)
 │
 ├── scripts/check-fsd-imports.mjs     ← FSD 레이어 역방향 import 검증
+├── scripts/verify-toss-openapi.mjs   ← 공식 토스증권 OpenAPI JSON 버전/경로/헤더 검증
 ├── scripts/sync-codex-skills.ps1     ← 프로젝트 Codex 브리지 스킬을 계정 Codex 홈으로 동기화 (`npm run sync:codex-skills`)
 │
 ├── src/                              ← React Frontend (TypeScript, FSD 점진 구조)
@@ -86,6 +89,7 @@ AutoConditionTrade/                   ← 루트
         │   ├── rest.rs               ← KisRestClient — 잔고/주문/차트/환율
         │   ├── token.rs              ← TokenManager — 자동 갱신
         │   └── websocket.rs          ← KisWebSocketClient — 실시간 시세
+        ├── broker/                   ← BrokerId/domain 타입 + BrokerAdapter + KIS/Toss adapter 경계
         ├── market/mod.rs             ← KRX 종목 목록 (CSV 파싱, 캐시, 검색)
         ├── server/mod.rs             ← axum 웹 서버 (ServeDir + REST proxy)
         ├── updater/mod.rs            ← GitHub Releases API 버전 확인
@@ -94,7 +98,7 @@ AutoConditionTrade/                   ← 루트
         │   ├── strategy.rs           ← Strategy trait + 12개 전략 + StrategyManager
         │   ├── order.rs              ← OrderManager: 주문 → 체결 → 저장
         │   ├── position.rs           ← PositionTracker (잔고 API 복원 지원)
-        │   └── risk.rs               ← RiskManager (enabled on/off, 비상정지, 순손실)
+        │   └── risk.rs               ← RiskManager (enabled on/off, 비상정지, 순손실, broker/account scope별 주문/손실 제한)
         ├── storage/
         │   ├── mod.rs                ← build_daily_path, read_json_or_default, write_json
         │   ├── trade_store.rs        ← TradeRecord, TradeStore
@@ -139,7 +143,7 @@ AutoConditionTrade/                   ← 루트
 | `api/hooks.ts` | TanStack Query 훅 + `useBackendEvents()` (Tauri 이벤트 → 캐시 갱신, 점진 이동 전 legacy entry) |
 | `widgets/app-shell/` | 전체 앱 레이아웃, ThemeProvider, responsive navigation |
 | `widgets/stock-chart/` | 국내/해외 캔들 차트 |
-| `pages/settings/ui/Page.tsx` | 데이터 갱신 주기 슬라이더, 웹 포트, 계좌 프로파일, 로그/리스크 설정 |
+| `pages/settings/ui/Page.tsx` | 데이터 갱신 주기 슬라이더, 웹 포트, broker-aware 계좌 프로파일, Toss 연결 진단, 로그/리스크 설정 |
 | `pages/dashboard/ui/Page.tsx` | 잔고/수익 카드, 포지션, 미체결/체결, 리스크 |
 
 ### Backend (Rust)
@@ -149,6 +153,7 @@ AutoConditionTrade/                   ← 루트
 | `lib.rs` | Tauri Builder + 6개 백그라운드 데몬 spawn + `on_window_event` (종료 안전 처리) |
 | `commands.rs` | AppState + 모든 IPC 커맨드 핸들러 |
 | `api/detect.rs` | KIS 토큰 응답 기반 실전/모의 앱키 자동 감지 |
+| `broker/` | 다중 증권사 공통 타입(`BrokerScope` 포함)과 adapter trait. KIS 기존 REST 호출을 점진 래핑하고 Toss token/accounts/holdings read-only client를 수용 |
 | `api/token.rs` | KIS Access Token 자동 갱신 |
 | `api/websocket.rs` | 실시간 시세 수신, 체결 콜백 |
 | `trading/mod.rs` | 전략 루프 실행, 장 시간 감지 |
@@ -237,6 +242,7 @@ REFRESH_INTERVAL_SEC=30
 | 서비스 | 용도 | 참고 |
 |--------|------|------|
 | 한국투자증권 Open API | REST + WebSocket 주식 거래 | [apiportal.koreainvestment.com](https://apiportal.koreainvestment.com) |
+| 토스증권 Open API | REST 기반 시세·계좌·주문 확장 후보 | [developers.tossinvest.com](https://developers.tossinvest.com/docs) |
 | Discord Bot API | 알림 전송 | `docs/discord-setup-guide.md` |
 
 ---
@@ -249,6 +255,7 @@ GitHub Copilot 호환용으로 유지하던 `.github/skills/**/SKILL.md` 원본 
 |-----------------|-------------|
 | `.codex/skills/kisautotrade-project` | `AGENTS.md`, `.github/codex-instructions.md` |
 | `.codex/skills/kisautotrade-kis-api` | `.github/skills/kis-api/SKILL.md` |
+| `.codex/skills/kisautotrade-toss-api` | `.github/skills/toss-api/SKILL.md` |
 | `.codex/skills/kisautotrade-rust` | `.github/skills/rust-skills/SKILL.md` |
 | `.codex/skills/kisautotrade-react` | `.github/skills/react-best-practices/SKILL.md` |
 | `.codex/skills/kisautotrade-frontend-fsd` | `.github/skills/frontend-fsd/SKILL.md` |

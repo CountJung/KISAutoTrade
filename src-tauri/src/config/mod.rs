@@ -4,6 +4,8 @@ use std::{path::Path, sync::Arc};
 use tokio::fs;
 use uuid::Uuid;
 
+use crate::broker::BrokerId;
+
 // ────────────────────────────────────────────────────────────────────
 // AccountProfile — 계좌 프로파일 (민감 정보 포함, profiles.json에 저장)
 // ────────────────────────────────────────────────────────────────────
@@ -13,8 +15,12 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountProfile {
     pub id: String,
+    #[serde(default = "default_broker_id")]
+    pub broker_id: BrokerId,
     pub name: String,
     pub is_paper_trading: bool,
+    #[serde(default)]
+    pub live_trading_consent: bool,
     pub app_key: String,
     pub app_secret: String,
     pub account_no: String,
@@ -30,8 +36,10 @@ impl AccountProfile {
     ) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
+            broker_id: BrokerId::Kis,
             name,
             is_paper_trading,
+            live_trading_consent: false,
             app_key,
             app_secret,
             account_no,
@@ -39,8 +47,29 @@ impl AccountProfile {
     }
 
     pub fn is_configured(&self) -> bool {
-        !self.app_key.is_empty() && !self.app_secret.is_empty() && !self.account_no.is_empty()
+        match self.broker_id {
+            BrokerId::Kis => {
+                !self.app_key.is_empty()
+                    && !self.app_secret.is_empty()
+                    && !self.account_no.is_empty()
+            }
+            BrokerId::Toss => {
+                !self.app_key.is_empty()
+                    && !self.app_secret.is_empty()
+                    && !self.account_no.is_empty()
+            }
+        }
     }
+
+    pub fn broker_account_id(&self) -> String {
+        match self.broker_id {
+            BrokerId::Kis | BrokerId::Toss => self.account_no.clone(),
+        }
+    }
+}
+
+fn default_broker_id() -> BrokerId {
+    BrokerId::Kis
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -92,18 +121,26 @@ impl ProfilesConfig {
     pub fn update(
         &mut self,
         id: &str,
+        broker_id: Option<BrokerId>,
         name: Option<String>,
         is_paper_trading: Option<bool>,
+        live_trading_consent: Option<bool>,
         app_key: Option<String>,
         app_secret: Option<String>,
         account_no: Option<String>,
     ) -> Option<AccountProfile> {
         if let Some(p) = self.profiles.iter_mut().find(|p| p.id == id) {
+            if let Some(v) = broker_id {
+                p.broker_id = v;
+            }
             if let Some(v) = name {
                 p.name = v;
             }
             if let Some(v) = is_paper_trading {
                 p.is_paper_trading = v;
+            }
+            if let Some(v) = live_trading_consent {
+                p.live_trading_consent = v;
             }
             // 빈 문자열이 아닌 경우에만 교체 (UI에서 "변경 안 함" 유지)
             if let Some(v) = app_key {
@@ -154,6 +191,10 @@ impl ProfilesConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
+    // ── 활성 broker/profile scope ─────────────────────────────────
+    pub broker_id: BrokerId,
+    pub broker_account_id: String,
+
     // ── KIS 활성 설정 ─────────────────────────────────────────────
     pub kis_app_key: String,
     pub kis_app_secret: String,
@@ -170,6 +211,8 @@ impl AppConfig {
     /// 활성 AccountProfile + DiscordConfig에서 AppConfig 생성
     pub fn from_profile(profile: &AccountProfile, discord: &DiscordConfig) -> Arc<Self> {
         Arc::new(Self {
+            broker_id: profile.broker_id,
+            broker_account_id: profile.broker_account_id(),
             kis_app_key: profile.app_key.clone(),
             kis_app_secret: profile.app_secret.clone(),
             kis_account_no: profile.account_no.clone(),
@@ -183,6 +226,8 @@ impl AppConfig {
     /// 프로파일이 없는 경우의 빈 설정
     pub fn empty(discord: &DiscordConfig) -> Arc<Self> {
         Arc::new(Self {
+            broker_id: BrokerId::Kis,
+            broker_account_id: String::new(),
             kis_app_key: String::new(),
             kis_app_secret: String::new(),
             kis_account_no: String::new(),
@@ -202,9 +247,23 @@ impl AppConfig {
     }
 
     pub fn is_kis_configured(&self) -> bool {
+        if self.broker_id != BrokerId::Kis {
+            return false;
+        }
         !self.kis_app_key.is_empty()
             && !self.kis_app_secret.is_empty()
             && !self.kis_account_no.is_empty()
+    }
+
+    pub fn is_active_broker_configured(&self) -> bool {
+        match self.broker_id {
+            BrokerId::Kis => self.is_kis_configured(),
+            BrokerId::Toss => {
+                !self.kis_app_key.is_empty()
+                    && !self.kis_app_secret.is_empty()
+                    && !self.broker_account_id.is_empty()
+            }
+        }
     }
 }
 

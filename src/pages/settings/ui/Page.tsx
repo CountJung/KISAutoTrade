@@ -63,6 +63,7 @@ import {
   useSaveWebConfig,
   useDetectTradingType,
   useDetectProfileTradingType,
+  useCheckTossProfileConnection,
   useStockListStats,
   useSetStockUpdateInterval,
   useTradingStatus,
@@ -71,7 +72,7 @@ import {
   useRefreshConfig,
   useSetRefreshConfig,
 } from '../../../api/hooks'
-import type { AccountProfileView, AddProfileInput, UpdateProfileInput, UpdateRiskConfigInput } from '../../../api/types'
+import type { AccountProfileView, AddProfileInput, BrokerId, TossConnectionDiagnostic, UpdateProfileInput, UpdateRiskConfigInput } from '../../../api/types'
 import type { ThemeMode } from '../../../shared/config/theme'
 
 const fmt = (n: number) => n.toLocaleString('ko-KR')
@@ -186,10 +187,41 @@ function cmdErrMsg(e: unknown): string {
   return String(e)
 }
 
+function brokerLabel(brokerId: BrokerId | null | undefined): string {
+  switch (brokerId) {
+    case 'toss':
+      return '토스증권'
+    case 'kis':
+    default:
+      return '한국투자증권'
+  }
+}
+
+function brokerProfileLabels(brokerId: BrokerId) {
+  if (brokerId === 'toss') {
+    return {
+      key: 'Client ID',
+      secret: 'Client Secret',
+      account: 'accountSeq',
+      accountPlaceholder: '예: 1',
+      accountHelp: '토스증권 accounts 응답의 accountSeq 숫자 값을 입력합니다.',
+    }
+  }
+  return {
+    key: 'APP KEY',
+    secret: 'APP SECRET',
+    account: '계좌번호 (10자리 입력, 예: 12345678-01)',
+    accountPlaceholder: '',
+    accountHelp: '',
+  }
+}
+
 // ── 프로파일 입력 폼 상태 ──────────────────────────────────────────
 interface ProfileFormState {
+  broker_id: BrokerId
   name: string
   is_paper_trading: boolean
+  live_trading_consent: boolean
   app_key: string
   app_secret: string
   account_no: string
@@ -198,8 +230,10 @@ interface ProfileFormState {
 type DetectStatus = 'idle' | 'detecting' | 'detected' | 'failed'
 
 const emptyForm = (): ProfileFormState => ({
+  broker_id: 'kis',
   name: '',
   is_paper_trading: false,
+  live_trading_consent: false,
   app_key: '',
   app_secret: '',
   account_no: '',
@@ -220,7 +254,9 @@ function AddProfileDialog({
   const { mutate: addProfile, isPending } = useAddProfile()
   const { mutate: detectType, isPending: isDetecting } = useDetectTradingType()
 
-  const canDetect = form.app_key.trim().length > 0 && form.app_secret.trim().length > 0
+  const labels = brokerProfileLabels(form.broker_id)
+  const isKisProfile = form.broker_id === 'kis'
+  const canDetect = isKisProfile && form.app_key.trim().length > 0 && form.app_secret.trim().length > 0
 
   const handleDetect = () => {
     if (!canDetect) return
@@ -244,9 +280,13 @@ function AddProfileDialog({
 
   const handleSubmit = () => {
     if (!form.name.trim()) { setError('프로파일 이름을 입력하세요.'); return }
-    if (!form.app_key.trim()) { setError('APP KEY를 입력하세요.'); return }
-    if (!form.app_secret.trim()) { setError('APP SECRET을 입력하세요.'); return }
-    if (!form.account_no.trim()) { setError('계좌번호를 입력하세요.'); return }
+    if (!form.app_key.trim()) { setError(`${labels.key}를 입력하세요.`); return }
+    if (!form.app_secret.trim()) { setError(`${labels.secret}을 입력하세요.`); return }
+    if (!form.account_no.trim()) { setError(`${labels.account}를 입력하세요.`); return }
+    if (form.broker_id === 'toss' && !/^\d+$/.test(form.account_no.trim())) {
+      setError('토스증권 accountSeq는 숫자여야 합니다.')
+      return
+    }
 
     const input: AddProfileInput = { ...form }
     addProfile(input, {
@@ -267,6 +307,56 @@ function AddProfileDialog({
       <DialogContent>
         <Stack spacing={2} mt={1}>
           {error && <Alert severity="error">{error}</Alert>}
+          <FormControl fullWidth size="small">
+            <InputLabel id="add-profile-broker-label">증권사</InputLabel>
+            <Select
+              labelId="add-profile-broker-label"
+              label="증권사"
+              value={form.broker_id}
+              onChange={(e) => {
+                const brokerId = e.target.value as BrokerId
+                setForm({
+                  ...form,
+                  broker_id: brokerId,
+                  is_paper_trading: false,
+                  live_trading_consent: false,
+                })
+                setDetectStatus('idle')
+                setDetectMsg('')
+              }}
+            >
+              <MenuItem value="kis">한국투자증권</MenuItem>
+              <MenuItem value="toss">토스증권</MenuItem>
+            </Select>
+          </FormControl>
+          {form.broker_id === 'toss' && (
+            <>
+              <Alert severity="info" sx={{ py: 0.75 }}>
+                토스증권 프로파일은 read-only 연결 진단부터 지원합니다. 실제 주문과 자동매매는 아직 차단됩니다.
+              </Alert>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={form.live_trading_consent}
+                    onChange={(e) => setForm({ ...form, live_trading_consent: e.target.checked })}
+                  />
+                }
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip
+                      size="small"
+                      label={form.live_trading_consent ? '실거래 동의 저장' : '실거래 동의 없음'}
+                      color={form.live_trading_consent ? 'warning' : 'default'}
+                      variant={form.live_trading_consent ? 'filled' : 'outlined'}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      향후 토스 주문 연결 전 명시 승인 상태로만 사용
+                    </Typography>
+                  </Stack>
+                }
+              />
+            </>
+          )}
           <TextField
             label="프로파일 이름"
             value={form.name}
@@ -275,7 +365,7 @@ function AddProfileDialog({
             fullWidth size="small"
           />
           <TextField
-            label="APP KEY"
+            label={labels.key}
             value={form.app_key}
             onChange={(e) => {
               setForm({ ...form, app_key: e.target.value })
@@ -284,7 +374,7 @@ function AddProfileDialog({
             fullWidth size="small" autoComplete="off"
           />
           <TextField
-            label="APP SECRET"
+            label={labels.secret}
             value={form.app_secret}
             onChange={(e) => {
               setForm({ ...form, app_secret: e.target.value })
@@ -296,70 +386,81 @@ function AddProfileDialog({
           />
 
           {/* ── 자동 감지 영역 ─────────────────────────────── */}
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Button
-              size="small"
-              variant="outlined"
-              color={detectStatus === 'failed' ? 'error' : 'primary'}
-              startIcon={isDetecting
-                ? <CircularProgress size={14} color="inherit" />
-                : <SyncIcon />
-              }
-              onClick={handleDetect}
-              disabled={!canDetect || isDetecting}
-            >
-              {isDetecting ? '감지 중...' : '실전/모의 자동 감지'}
-            </Button>
-            {detectStatus === 'detected' && (
-              <Chip
+          {isKisProfile && (
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <Button
                 size="small"
-                label={form.is_paper_trading ? '모의투자' : '실전투자'}
-                color={form.is_paper_trading ? 'warning' : 'primary'}
-              />
-            )}
-            {detectMsg && (
-              <Typography
-                variant="caption"
-                color={detectStatus === 'failed' ? 'error' : 'text.secondary'}
+                variant="outlined"
+                color={detectStatus === 'failed' ? 'error' : 'primary'}
+                startIcon={isDetecting
+                  ? <CircularProgress size={14} color="inherit" />
+                  : <SyncIcon />
+                }
+                onClick={handleDetect}
+                disabled={!canDetect || isDetecting}
               >
-                {detectMsg}
-              </Typography>
-            )}
-          </Stack>
-
-          {/* ── 수동 override (감지 실패 또는 직접 변경 시) ── */}
-          <FormControlLabel
-            control={
-              <Switch
-                checked={form.is_paper_trading}
-                onChange={(e) => {
-                  setForm({ ...form, is_paper_trading: e.target.checked })
-                  setDetectStatus('idle')
-                  setDetectMsg('')
-                }}
-              />
-            }
-            label={
-              <Stack direction="row" spacing={1} alignItems="center">
+                {isDetecting ? '감지 중...' : '실전/모의 자동 감지'}
+              </Button>
+              {detectStatus === 'detected' && (
                 <Chip
                   size="small"
                   label={form.is_paper_trading ? '모의투자' : '실전투자'}
                   color={form.is_paper_trading ? 'warning' : 'primary'}
                 />
-                <Typography variant="caption" color="text.secondary">
-                  자동 감지 또는 직접 선택
+              )}
+              {detectMsg && (
+                <Typography
+                  variant="caption"
+                  color={detectStatus === 'failed' ? 'error' : 'text.secondary'}
+                >
+                  {detectMsg}
                 </Typography>
-              </Stack>
-            }
-          />
+              )}
+            </Stack>
+          )}
+
+          {/* ── 수동 override (감지 실패 또는 직접 변경 시) ── */}
+          {isKisProfile && (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.is_paper_trading}
+                  onChange={(e) => {
+                    setForm({ ...form, is_paper_trading: e.target.checked })
+                    setDetectStatus('idle')
+                    setDetectMsg('')
+                  }}
+                />
+              }
+              label={
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Chip
+                    size="small"
+                    label={form.is_paper_trading ? '모의투자' : '실전투자'}
+                    color={form.is_paper_trading ? 'warning' : 'primary'}
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    자동 감지 또는 직접 선택
+                  </Typography>
+                </Stack>
+              }
+            />
+          )}
 
           <TextField
-            label="계좌번호 (10자리 입력, 예: 12345678-01)"
+            label={labels.account}
+            placeholder={labels.accountPlaceholder}
             value={form.account_no}
             onChange={(e) => setForm({ ...form, account_no: e.target.value })}
             fullWidth size="small"
           />
+          {labels.accountHelp && (
+            <Typography variant="caption" color="text.secondary">
+              {labels.accountHelp}
+            </Typography>
+          )}
           {(()=>{
+            if (!isKisProfile) return null
             const digits = form.account_no.replace('-', '').trim()
             const suffix = digits.length >= 10 ? digits.slice(8) : ''
             if (suffix === '22' || suffix === '29') {
@@ -400,21 +501,28 @@ function EditProfileDialog({
   const { mutate: detectType, isPending: isDetecting } = useDetectTradingType()
 
   // profile 변경 시 form 동기화
-  const prevId = form.name === '' ? null : profile?.id
-  if (profile && profile.id !== prevId) {
+  useEffect(() => {
+    if (!profile) {
+      setForm(emptyForm())
+      return
+    }
     setForm({
+      broker_id: profile.broker_id,
       name: profile.name,
       is_paper_trading: profile.is_paper_trading,
+      live_trading_consent: profile.live_trading_consent,
       app_key: '',         // 보안상 비워둠 (빈 문자열 = 변경 안 함)
       app_secret: '',
       account_no: profile.account_no,
     })
     setDetectStatus('idle')
     setDetectMsg('')
-  }
+  }, [profile])
 
   // 새 키가 양쪽 모두 입력된 경우에만 감지 가능
-  const canDetect = form.app_key.trim().length > 0 && form.app_secret.trim().length > 0
+  const labels = brokerProfileLabels(form.broker_id)
+  const isKisProfile = form.broker_id === 'kis'
+  const canDetect = isKisProfile && form.app_key.trim().length > 0 && form.app_secret.trim().length > 0
 
   const handleDetect = () => {
     if (!canDetect) return
@@ -439,11 +547,17 @@ function EditProfileDialog({
   const handleSubmit = () => {
     if (!profile) return
     if (!form.name.trim()) { setError('프로파일 이름을 입력하세요.'); return }
+    if (form.broker_id === 'toss' && form.account_no.trim() && !/^\d+$/.test(form.account_no.trim())) {
+      setError('토스증권 accountSeq는 숫자여야 합니다.')
+      return
+    }
 
     const input: UpdateProfileInput = {
       id: profile.id,
+      broker_id: form.broker_id,
       name: form.name,
       is_paper_trading: form.is_paper_trading,
+      live_trading_consent: form.live_trading_consent,
       app_key: form.app_key || undefined,
       app_secret: form.app_secret || undefined,
       account_no: form.account_no || undefined,
@@ -462,6 +576,56 @@ function EditProfileDialog({
       <DialogContent>
         <Stack spacing={2} mt={1}>
           {error && <Alert severity="error">{error}</Alert>}
+          <FormControl fullWidth size="small">
+            <InputLabel id="edit-profile-broker-label">증권사</InputLabel>
+            <Select
+              labelId="edit-profile-broker-label"
+              label="증권사"
+              value={form.broker_id}
+              onChange={(e) => {
+                const brokerId = e.target.value as BrokerId
+                setForm({
+                  ...form,
+                  broker_id: brokerId,
+                  is_paper_trading: false,
+                  live_trading_consent: false,
+                })
+                setDetectStatus('idle')
+                setDetectMsg('')
+              }}
+            >
+              <MenuItem value="kis">한국투자증권</MenuItem>
+              <MenuItem value="toss">토스증권</MenuItem>
+            </Select>
+          </FormControl>
+          {form.broker_id === 'toss' && (
+            <>
+              <Alert severity="info" sx={{ py: 0.75 }}>
+                토스증권 프로파일은 read-only 연결 진단부터 지원합니다. 실제 주문과 자동매매는 아직 차단됩니다.
+              </Alert>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={form.live_trading_consent}
+                    onChange={(e) => setForm({ ...form, live_trading_consent: e.target.checked })}
+                  />
+                }
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip
+                      size="small"
+                      label={form.live_trading_consent ? '실거래 동의 저장' : '실거래 동의 없음'}
+                      color={form.live_trading_consent ? 'warning' : 'default'}
+                      variant={form.live_trading_consent ? 'filled' : 'outlined'}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      향후 토스 주문 연결 전 명시 승인 상태로만 사용
+                    </Typography>
+                  </Stack>
+                }
+              />
+            </>
+          )}
           <TextField
             label="프로파일 이름"
             value={form.name}
@@ -469,7 +633,7 @@ function EditProfileDialog({
             fullWidth size="small"
           />
           <TextField
-            label="APP KEY (변경 시에만 입력)"
+            label={`${labels.key} (변경 시에만 입력)`}
             value={form.app_key}
             onChange={(e) => {
               setForm({ ...form, app_key: e.target.value })
@@ -479,7 +643,7 @@ function EditProfileDialog({
             fullWidth size="small" autoComplete="off"
           />
           <TextField
-            label="APP SECRET (변경 시에만 입력)"
+            label={`${labels.secret} (변경 시에만 입력)`}
             value={form.app_secret}
             onChange={(e) => {
               setForm({ ...form, app_secret: e.target.value })
@@ -492,70 +656,81 @@ function EditProfileDialog({
           />
 
           {/* ── 자동 감지 영역 (새 키 입력 시) ──────────────── */}
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Button
-              size="small"
-              variant="outlined"
-              color={detectStatus === 'failed' ? 'error' : 'primary'}
-              startIcon={isDetecting
-                ? <CircularProgress size={14} color="inherit" />
-                : <SyncIcon />
-              }
-              onClick={handleDetect}
-              disabled={!canDetect || isDetecting}
-            >
-              {isDetecting ? '감지 중...' : '실전/모의 자동 감지'}
-            </Button>
-            {detectStatus === 'detected' && (
-              <Chip
+          {isKisProfile && (
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <Button
                 size="small"
-                label={form.is_paper_trading ? '모의투자' : '실전투자'}
-                color={form.is_paper_trading ? 'warning' : 'primary'}
-              />
-            )}
-            {detectMsg && (
-              <Typography
-                variant="caption"
-                color={detectStatus === 'failed' ? 'error' : 'text.secondary'}
+                variant="outlined"
+                color={detectStatus === 'failed' ? 'error' : 'primary'}
+                startIcon={isDetecting
+                  ? <CircularProgress size={14} color="inherit" />
+                  : <SyncIcon />
+                }
+                onClick={handleDetect}
+                disabled={!canDetect || isDetecting}
               >
-                {detectMsg}
-              </Typography>
-            )}
-          </Stack>
-
-          {/* ── 실전/모의 수동 선택 ───────────────────────────── */}
-          <FormControlLabel
-            control={
-              <Switch
-                checked={form.is_paper_trading}
-                onChange={(e) => {
-                  setForm({ ...form, is_paper_trading: e.target.checked })
-                  setDetectStatus('idle')
-                  setDetectMsg('')
-                }}
-              />
-            }
-            label={
-              <Stack direction="row" spacing={1} alignItems="center">
+                {isDetecting ? '감지 중...' : '실전/모의 자동 감지'}
+              </Button>
+              {detectStatus === 'detected' && (
                 <Chip
                   size="small"
                   label={form.is_paper_trading ? '모의투자' : '실전투자'}
                   color={form.is_paper_trading ? 'warning' : 'primary'}
                 />
-                <Typography variant="caption" color="text.secondary">
-                  자동 감지 또는 직접 선택
+              )}
+              {detectMsg && (
+                <Typography
+                  variant="caption"
+                  color={detectStatus === 'failed' ? 'error' : 'text.secondary'}
+                >
+                  {detectMsg}
                 </Typography>
-              </Stack>
-            }
-          />
+              )}
+            </Stack>
+          )}
+
+          {/* ── 실전/모의 수동 선택 ───────────────────────────── */}
+          {isKisProfile && (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.is_paper_trading}
+                  onChange={(e) => {
+                    setForm({ ...form, is_paper_trading: e.target.checked })
+                    setDetectStatus('idle')
+                    setDetectMsg('')
+                  }}
+                />
+              }
+              label={
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Chip
+                    size="small"
+                    label={form.is_paper_trading ? '모의투자' : '실전투자'}
+                    color={form.is_paper_trading ? 'warning' : 'primary'}
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    자동 감지 또는 직접 선택
+                  </Typography>
+                </Stack>
+              }
+            />
+          )}
 
           <TextField
-            label="계좌번호"
+            label={labels.account}
+            placeholder={labels.accountPlaceholder}
             value={form.account_no}
             onChange={(e) => setForm({ ...form, account_no: e.target.value })}
             fullWidth size="small"
           />
+          {labels.accountHelp && (
+            <Typography variant="caption" color="text.secondary">
+              {labels.accountHelp}
+            </Typography>
+          )}
           {(()=>{
+            if (!isKisProfile) return null
             const digits = form.account_no.replace('-', '').trim()
             const suffix = digits.length >= 10 ? digits.slice(8) : ''
             if (suffix === '22' || suffix === '29') {
@@ -598,10 +773,14 @@ function ProfileCard({
 }) {
   const { isPending: activating } = useSetActiveProfile()
   const { mutate: detectProfile, isPending: detecting } = useDetectProfileTradingType()
+  const { mutate: checkTossProfile, isPending: checkingToss } = useCheckTossProfileConnection()
   const { mutate: updateProfile, isPending: updatingMode } = useUpdateProfile()
   const [detectError, setDetectError] = useState<string | null>(null)
+  const [tossDiagnostic, setTossDiagnostic] = useState<TossConnectionDiagnostic | null>(null)
 
   const isActiveTrading = isRunning && tradingProfileId === profile.id
+  const isKisProfile = profile.broker_id === 'kis'
+  const isTossProfile = profile.broker_id === 'toss'
   const manualTargetIsPaper = !profile.is_paper_trading
 
   const handleDetect = () => {
@@ -622,6 +801,15 @@ function ProfileCard({
         onError: (e) => setDetectError(cmdErrMsg(e)),
       },
     )
+  }
+
+  const handleTossDiagnostic = () => {
+    setDetectError(null)
+    setTossDiagnostic(null)
+    checkTossProfile(profile.id, {
+      onSuccess: setTossDiagnostic,
+      onError: (e) => setDetectError(cmdErrMsg(e)),
+    })
   }
 
   return (
@@ -658,9 +846,27 @@ function ProfileCard({
             </Typography>
             <Chip
               size="small"
-              label={profile.is_paper_trading ? '모의투자' : '실전투자'}
-              color={profile.is_paper_trading ? 'warning' : 'primary'}
+              label={brokerLabel(profile.broker_id)}
+              color={profile.broker_id === 'kis' ? 'info' : 'secondary'}
+              variant="outlined"
             />
+            {isKisProfile ? (
+              <Chip
+                size="small"
+                label={profile.is_paper_trading ? '모의투자' : '실전투자'}
+                color={profile.is_paper_trading ? 'warning' : 'primary'}
+              />
+            ) : (
+              <>
+                <Chip size="small" label="read-only 진단" color="secondary" variant="outlined" />
+                <Chip
+                  size="small"
+                  label={profile.live_trading_consent ? '실거래 동의 저장' : '실거래 동의 없음'}
+                  color={profile.live_trading_consent ? 'warning' : 'default'}
+                  variant="outlined"
+                />
+              </>
+            )}
             {!profile.is_configured && (
               <Chip size="small" label="키 미설정" color="error" variant="outlined" />
             )}
@@ -681,6 +887,7 @@ function ProfileCard({
               />
             ) : null}
             {(()=>{
+              if (!isKisProfile) return null
               const digits = (profile.account_no ?? '').replace('-', '')
               const suffix = digits.length >= 10 ? digits.slice(8) : ''
               if (suffix === '22' || suffix === '29') {
@@ -697,7 +904,7 @@ function ProfileCard({
               return null
             })()}
             {/* 실전/모의 자동 감지 버튼 */}
-            {profile.is_configured && (
+            {isKisProfile && profile.is_configured && (
               <Tooltip title="저장된 키로 실전/모의 여부를 자동 감지하여 즉시 업데이트합니다">
                 <span>
                   <Button
@@ -717,37 +924,105 @@ function ProfileCard({
                 </span>
               </Tooltip>
             )}
-            <Tooltip
-              title={`감지 결과와 무관하게 ${manualTargetIsPaper ? '모의투자' : '실전투자'} 모드로 즉시 저장합니다`}
-            >
-              <span>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color={manualTargetIsPaper ? 'warning' : 'primary'}
-                  startIcon={updatingMode
-                    ? <CircularProgress size={12} color="inherit" />
-                    : <SyncIcon fontSize="small" />
-                  }
-                  onClick={handleManualModeSwitch}
-                  disabled={detecting || updatingMode}
-                  sx={{ fontSize: '0.7rem', px: 0.75, minWidth: 0 }}
-                >
-                  {updatingMode
-                    ? '전환 중...'
-                    : manualTargetIsPaper ? '모의 전환' : '실전 전환'}
-                </Button>
-              </span>
-            </Tooltip>
+            {isKisProfile && (
+              <Tooltip
+                title={`감지 결과와 무관하게 ${manualTargetIsPaper ? '모의투자' : '실전투자'} 모드로 즉시 저장합니다`}
+              >
+                <span>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color={manualTargetIsPaper ? 'warning' : 'primary'}
+                    startIcon={updatingMode
+                      ? <CircularProgress size={12} color="inherit" />
+                      : <SyncIcon fontSize="small" />
+                    }
+                    onClick={handleManualModeSwitch}
+                    disabled={detecting || updatingMode}
+                    sx={{ fontSize: '0.7rem', px: 0.75, minWidth: 0 }}
+                  >
+                    {updatingMode
+                      ? '전환 중...'
+                      : manualTargetIsPaper ? '모의 전환' : '실전 전환'}
+                  </Button>
+                </span>
+              </Tooltip>
+            )}
+            {isTossProfile && (
+              <Tooltip title="OpenAPI 스펙, 토큰 발급, 계좌 조회, 잔고 조회를 순서대로 확인합니다">
+                <span>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color={tossDiagnostic?.is_ready ? 'success' : 'secondary'}
+                    startIcon={checkingToss
+                      ? <CircularProgress size={12} color="inherit" />
+                      : <SyncIcon fontSize="small" />
+                    }
+                    onClick={handleTossDiagnostic}
+                    disabled={checkingToss}
+                    sx={{ fontSize: '0.7rem', px: 0.75, minWidth: 0 }}
+                  >
+                    {checkingToss ? '진단 중...' : '연결 진단'}
+                  </Button>
+                </span>
+              </Tooltip>
+            )}
           </Stack>
           <Typography variant="body2" color="text.secondary" pl={3.5}>
             KEY: <code>{profile.app_key_masked}</code>
             &nbsp;&nbsp;계좌: <code>{profile.account_no || '(미설정)'}</code>
+            &nbsp;&nbsp;Broker 계좌: <code>{profile.broker_account_id || '(미설정)'}</code>
           </Typography>
           {detectError && (
             <Typography variant="caption" color="error" pl={3.5}>
               {detectError}
             </Typography>
+          )}
+          {tossDiagnostic && (
+            <Box pl={3.5} mt={1}>
+              <Alert
+                severity={tossDiagnostic.is_ready ? 'success' : 'warning'}
+                sx={{ py: 0.75 }}
+              >
+                <Stack spacing={0.75}>
+                  <Typography variant="caption">
+                    OpenAPI {tossDiagnostic.openapi_version ?? '확인 실패'}
+                    {typeof tossDiagnostic.accounts_count === 'number'
+                      ? ` · 계좌 ${tossDiagnostic.accounts_count}개`
+                      : ''}
+                    {typeof tossDiagnostic.holdings_count === 'number'
+                      ? ` · 보유 ${tossDiagnostic.holdings_count}개`
+                      : ''}
+                    {tossDiagnostic.buying_power_krw
+                      ? ` · KRW ${Number(tossDiagnostic.buying_power_krw).toLocaleString('ko-KR')}`
+                      : ''}
+                    {tossDiagnostic.buying_power_usd
+                      ? ` · USD ${tossDiagnostic.buying_power_usd}`
+                      : ''}
+                    {typeof tossDiagnostic.commissions_count === 'number'
+                      ? ` · 수수료 ${tossDiagnostic.commissions_count}개`
+                      : ''}
+                  </Typography>
+                  <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                    {tossDiagnostic.steps.map((step) => (
+                      <Chip
+                        key={step.id}
+                        size="small"
+                        label={`${step.label}: ${step.ok ? 'OK' : '실패'}`}
+                        color={step.ok ? 'success' : 'error'}
+                        variant="outlined"
+                      />
+                    ))}
+                  </Stack>
+                  {tossDiagnostic.issues[0] && (
+                    <Typography variant="caption" color="text.secondary">
+                      {tossDiagnostic.issues[0]}
+                    </Typography>
+                  )}
+                </Stack>
+              </Alert>
+            </Box>
           )}
         </Stack>
 
@@ -1289,6 +1564,12 @@ export default function Settings() {
                 <>
                   <Chip
                     size="small"
+                    label={`Broker: ${brokerLabel(appConfig.active_broker_id)}`}
+                    color={appConfig.active_broker_id === 'kis' ? 'info' : 'secondary'}
+                    variant="outlined"
+                  />
+                  <Chip
+                    size="small"
                     label={appConfig.kis_is_paper_trading ? '모의투자 모드' : '실전투자 모드'}
                     color={appConfig.kis_is_paper_trading ? 'warning' : 'primary'}
                   />
@@ -1303,6 +1584,13 @@ export default function Settings() {
                     <Chip
                       size="small"
                       label={`활성: ${appConfig.active_profile_name}`}
+                      variant="outlined"
+                    />
+                  )}
+                  {appConfig.active_broker_account_id && (
+                    <Chip
+                      size="small"
+                      label={`계좌: ${appConfig.active_broker_account_id}`}
                       variant="outlined"
                     />
                   )}
@@ -1336,6 +1624,9 @@ export default function Settings() {
               <Alert severity="warning">
                 자동매매가 실행 중입니다. 프로필을 전환해도 현재 매매에는 영향이 없으며,
                 REST 클라이언트는 자동매매 종료 후 전환됩니다.
+                <br />
+                실행 범위: {brokerLabel(tradingStatus.tradingBrokerId)}
+                {tradingStatus.tradingAccountId ? ` / ${tradingStatus.tradingAccountId}` : ''}
               </Alert>
             )}
 

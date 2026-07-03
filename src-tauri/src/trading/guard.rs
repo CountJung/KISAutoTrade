@@ -2,6 +2,7 @@ use std::collections::{HashMap, VecDeque};
 
 use chrono::{DateTime, Duration, Local, NaiveDate};
 
+use crate::broker::BrokerScope;
 use crate::trading::strategy::Signal;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -47,10 +48,10 @@ impl Default for TradeGuardConfig {
 
 pub struct TradeGuard {
     config: TradeGuardConfig,
-    last_order_at: HashMap<(String, GuardSide), DateTime<Local>>,
-    recent_sides: HashMap<String, VecDeque<(DateTime<Local>, GuardSide)>>,
-    cooldown_until: HashMap<String, DateTime<Local>>,
-    stop_loss_block_date: HashMap<String, NaiveDate>,
+    last_order_at: HashMap<(BrokerScope, String, GuardSide), DateTime<Local>>,
+    recent_sides: HashMap<(BrokerScope, String), VecDeque<(DateTime<Local>, GuardSide)>>,
+    cooldown_until: HashMap<(BrokerScope, String), DateTime<Local>>,
+    stop_loss_block_date: HashMap<(BrokerScope, String), NaiveDate>,
 }
 
 impl TradeGuard {
@@ -72,6 +73,25 @@ impl TradeGuard {
         tick_price: u64,
         is_overseas: bool,
     ) -> GuardDecision {
+        self.evaluate_for_scope(
+            &BrokerScope::kis_legacy(),
+            signal,
+            held_quantity,
+            avg_price,
+            tick_price,
+            is_overseas,
+        )
+    }
+
+    pub fn evaluate_for_scope(
+        &mut self,
+        scope: &BrokerScope,
+        signal: &Signal,
+        held_quantity: u64,
+        avg_price: Option<u64>,
+        tick_price: u64,
+        is_overseas: bool,
+    ) -> GuardDecision {
         let (symbol, side) = match signal {
             Signal::Buy { symbol, .. } => (symbol, GuardSide::Buy),
             Signal::Sell { symbol, .. } => (symbol, GuardSide::Sell),
@@ -79,9 +99,10 @@ impl TradeGuard {
         };
 
         let now = Local::now();
-        self.prune_recent(symbol, now);
+        self.prune_recent(scope, symbol, now);
 
-        if let Some(until) = self.cooldown_until.get(symbol) {
+        let symbol_key = (scope.clone(), symbol.clone());
+        if let Some(until) = self.cooldown_until.get(&symbol_key) {
             if *until > now {
                 return GuardDecision::Block {
                     reason: format!("휩소 쿨다운 중: {}까지", until.format("%H:%M:%S")),
@@ -91,14 +112,17 @@ impl TradeGuard {
 
         if side == GuardSide::Buy {
             let today = now.date_naive();
-            if self.stop_loss_block_date.get(symbol) == Some(&today) {
+            if self.stop_loss_block_date.get(&symbol_key) == Some(&today) {
                 return GuardDecision::Block {
                     reason: "손절 후 당일 재진입 금지".to_string(),
                 };
             }
         }
 
-        if let Some(last_same) = self.last_order_at.get(&(symbol.clone(), side)) {
+        if let Some(last_same) = self
+            .last_order_at
+            .get(&(scope.clone(), symbol.clone(), side))
+        {
             let elapsed = now.signed_duration_since(*last_same);
             if elapsed < Duration::minutes(self.config.same_side_cooldown_min) {
                 return GuardDecision::Block {
@@ -111,7 +135,10 @@ impl TradeGuard {
         }
 
         if side == GuardSide::Buy {
-            if let Some(last_sell) = self.last_order_at.get(&(symbol.clone(), GuardSide::Sell)) {
+            if let Some(last_sell) =
+                self.last_order_at
+                    .get(&(scope.clone(), symbol.clone(), GuardSide::Sell))
+            {
                 let elapsed = now.signed_duration_since(*last_sell);
                 if elapsed < Duration::minutes(self.config.after_sell_buy_cooldown_min) {
                     return GuardDecision::Block {
@@ -124,9 +151,9 @@ impl TradeGuard {
             }
         }
 
-        if self.is_whipsaw(symbol, side) {
+        if self.is_whipsaw(scope, symbol, side) {
             let until = now + Duration::minutes(self.config.whipsaw_cooldown_min);
-            self.cooldown_until.insert(symbol.clone(), until);
+            self.cooldown_until.insert(symbol_key, until);
             return GuardDecision::Block {
                 reason: format!(
                     "최근 {}분 내 반대 신호 반복 — {}분 쿨다운",
@@ -157,19 +184,25 @@ impl TradeGuard {
     }
 
     pub fn record_submitted(&mut self, signal: &Signal) {
+        self.record_submitted_for_scope(&BrokerScope::kis_legacy(), signal);
+    }
+
+    pub fn record_submitted_for_scope(&mut self, scope: &BrokerScope, signal: &Signal) {
         let (symbol, side, reason) = match signal {
             Signal::Buy { symbol, reason, .. } => (symbol.clone(), GuardSide::Buy, reason),
             Signal::Sell { symbol, reason, .. } => (symbol.clone(), GuardSide::Sell, reason),
             Signal::Hold => return,
         };
         let now = Local::now();
-        self.last_order_at.insert((symbol.clone(), side), now);
+        let symbol_key = (scope.clone(), symbol.clone());
+        self.last_order_at
+            .insert((scope.clone(), symbol.clone(), side), now);
         if side == GuardSide::Sell && is_stop_loss_reason(reason) {
             self.stop_loss_block_date
-                .insert(symbol.clone(), now.date_naive());
+                .insert(symbol_key.clone(), now.date_naive());
         }
         self.recent_sides
-            .entry(symbol)
+            .entry(symbol_key)
             .or_default()
             .push_back((now, side));
     }
@@ -180,17 +213,19 @@ impl TradeGuard {
         self.recent_sides.clear();
     }
 
-    fn prune_recent(&mut self, symbol: &str, now: DateTime<Local>) {
+    fn prune_recent(&mut self, scope: &BrokerScope, symbol: &str, now: DateTime<Local>) {
         let cutoff = now - Duration::minutes(self.config.whipsaw_window_min);
-        if let Some(recent) = self.recent_sides.get_mut(symbol) {
+        let key = (scope.clone(), symbol.to_string());
+        if let Some(recent) = self.recent_sides.get_mut(&key) {
             while recent.front().map(|(ts, _)| *ts < cutoff).unwrap_or(false) {
                 recent.pop_front();
             }
         }
     }
 
-    fn is_whipsaw(&self, symbol: &str, side: GuardSide) -> bool {
-        let Some(recent) = self.recent_sides.get(symbol) else {
+    fn is_whipsaw(&self, scope: &BrokerScope, symbol: &str, side: GuardSide) -> bool {
+        let key = (scope.clone(), symbol.to_string());
+        let Some(recent) = self.recent_sides.get(&key) else {
             return false;
         };
         let opposite_count = recent.iter().filter(|(_, s)| *s != side).count();
@@ -235,6 +270,11 @@ fn is_stop_loss_reason(reason: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::broker::{BrokerAccountId, BrokerId};
+
+    fn scope(account: &str) -> BrokerScope {
+        BrokerScope::new(BrokerId::Kis, Some(BrokerAccountId(account.to_string())))
+    }
 
     fn buy_signal() -> Signal {
         Signal::Buy {
@@ -266,6 +306,25 @@ mod tests {
         assert!(matches!(
             guard.evaluate(&signal, 0, None, 70_000, false),
             GuardDecision::Block { .. }
+        ));
+    }
+
+    #[test]
+    fn cooldown_is_isolated_by_broker_account_scope() {
+        let mut guard = TradeGuard::default();
+        let signal = buy_signal();
+        let account_a = scope("11111111-01");
+        let account_b = scope("22222222-01");
+
+        guard.record_submitted_for_scope(&account_a, &signal);
+
+        assert!(matches!(
+            guard.evaluate_for_scope(&account_a, &signal, 0, None, 70_000, false),
+            GuardDecision::Block { .. }
+        ));
+        assert!(matches!(
+            guard.evaluate_for_scope(&account_b, &signal, 0, None, 70_000, false),
+            GuardDecision::Allow
         ));
     }
 

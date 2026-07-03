@@ -14,6 +14,7 @@
 | IPC 커맨드 목록 (35개+) | `docs/ipc-commands.md` |
 | 코딩 가이드 (AppState·IPC·데몬) | `docs/coding-guide.md` |
 | KIS API 스킬 | `.github/skills/kis-api/SKILL.md` |
+| Toss API 스킬 | `.github/skills/toss-api/SKILL.md` |
 | Rust 코딩 스킬 | `.github/skills/rust-skills/SKILL.md` |
 | React/Tauri 성능 스킬 | `.github/skills/react-best-practices/SKILL.md` |
 | Frontend FSD 스킬 | `.github/skills/frontend-fsd/SKILL.md` |
@@ -66,8 +67,8 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-07-03 | 토스 프로파일 동의 필드와 broker/account scope별 TradeGuard/RiskManager 격리 추가 |
 | 2026-07-02 | KIS 실전/모의 앱키 자동 감지가 도메인 불일치 응답을 판별하도록 개선 |
-| 2026-07-02 | 프로젝트 루트 Codex 브리지 스킬 추가와 레버리지 ETF 초안 세트 설정 UI 개선 |
 | 2026-07-01 | React 프론트엔드 FSD 레이어 구조와 import 경계 검증 스크립트 추가 |
 | 2026-07-01 | ATR 기반 변동성 주문 수량 산정과 Settings 리스크 옵션 추가 |
 | 2026-07-01 | 자동매매 체결 기록에 신호가·주문가·슬리피지 비용/bps 저장 및 History 표시 추가 |

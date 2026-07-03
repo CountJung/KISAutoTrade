@@ -663,6 +663,7 @@ if matches!(decision, GuardDecision::Allow) {
 |------|------|
 | guard 상태/판단 | `src-tauri/src/trading/guard.rs` |
 | 주문 전 평가 | `src-tauri/src/trading/order.rs::submit_signal()` |
+| 실행 scope 고정 | `src-tauri/src/trading/order.rs::OrderManager::set_execution_scope()` |
 | 일별 초기화 | `OrderManager::reset_day()` |
 
 ### 검사 항목
@@ -672,21 +673,27 @@ if matches!(decision, GuardDecision::Allow) {
 3. 손절 후 당일 재진입 금지
 4. 최근 반대 방향 신호 반복 시 종목 단위 휩소 쿨다운
 5. 익절 매도에서 수수료·세금·슬리피지 차감 후 기대 순익 확인
-6. `RiskManager`의 전략 ID + 종목 + 방향 + 날짜별 일일 주문 접수 횟수 제한
-7. `RiskManager`의 전략 ID + 종목별 연속 손실 신규 진입 차단
+6. `RiskManager`의 broker/account scope + 전략 ID + 종목 + 방향 + 날짜별 일일 주문 접수 횟수 제한
+7. `RiskManager`의 broker/account scope + 전략 ID + 종목별 연속 손실 신규 진입 차단
 
 ```rust
-let strategy_signal = StrategySignal {
-    strategy_id: s.id().to_string(),
-    signal,
-};
+let broker_scope = self.execution_scope.clone();
 
-if let Some(reason) = risk.daily_order_limit_reason(strategy_id, symbol, side) {
+if let Some(reason) =
+    risk.daily_order_limit_reason_for_scope(&broker_scope, strategy_id, symbol, side)
+{
     tracing::info!("리스크 주문 횟수 제한 — {}", reason);
     return Ok(());
 }
 
-match self.trade_guard.evaluate(&signal, held_qty, avg_price, tick_price, exchange.is_some()) {
+match self.trade_guard.evaluate_for_scope(
+    &broker_scope,
+    &signal,
+    held_qty,
+    avg_price,
+    tick_price,
+    exchange.is_some(),
+) {
     GuardDecision::Allow => {}
     GuardDecision::Block { reason } => {
         tracing::info!("TradeGuard 차단 — {}", reason);
@@ -695,11 +702,14 @@ match self.trade_guard.evaluate(&signal, held_qty, avg_price, tick_price, exchan
 }
 ```
 
+`TradeGuard::evaluate()`와 `RiskManager::daily_order_limit_reason()` 같은 scope 없는 메서드는 하위 호환 래퍼로만 사용한다.
+자동매매 주문 경로에서는 반드시 `BrokerScope`를 받는 `*_for_scope()` 메서드를 호출해야 한다. 그렇지 않으면 KIS 계좌와 Toss `accountSeq`, 또는 같은 broker의 서로 다른 계좌 사이에 쿨다운·일일 주문 횟수·연속 손실 차단 상태가 섞인다.
+
 주문 횟수 카운터는 신호 발생 시점이 아니라 KIS가 주문을 접수해 pending에 등록된 뒤 증가시킨다. 기본값은 전략/종목별 매수 1회, 매도 1회이며 0은 제한 없음으로 취급한다.
 
-연속 손실 차단은 매도 체결로 PnL이 확정된 뒤 `record_strategy_symbol_pnl()`에서 갱신한다. 손실이면 카운터를 증가시키고, 수익이면 해당 전략/종목의 카운터와 차단 상태를 해제한다. 포지션 청산을 막지 않기 위해 차단은 신규 `Buy` 신호에만 적용한다.
+연속 손실 차단은 매도 체결로 PnL이 확정된 뒤 `record_strategy_symbol_pnl_for_scope()`에서 갱신한다. 손실이면 카운터를 증가시키고, 수익이면 해당 scope/전략/종목의 카운터와 차단 상태를 해제한다. 포지션 청산을 막지 않기 위해 차단은 신규 `Buy` 신호에만 적용한다.
 
-> 마지막 업데이트: 2026-07-01T16:45:00
+> 마지막 업데이트: 2026-07-03T13:27:56
 
 ---
 
@@ -929,3 +939,36 @@ let slippage = match self.side {
 ```
 
 > 마지막 업데이트: 2026-07-01T16:45:00
+
+---
+
+## 19. Broker-aware 프로파일/AppState 패턴
+
+다중 증권사 확장 시 KIS 계좌번호와 Toss `accountSeq`를 같은 의미로 취급하지 않는다.
+
+구현 위치:
+
+| 역할 | 위치 |
+|------|------|
+| 공통 broker 타입 | `src-tauri/src/broker/domain.rs` |
+| broker adapter trait | `src-tauri/src/broker/adapter.rs` |
+| Toss read-only client/adapter | `src-tauri/src/broker/toss.rs` |
+| 프로파일 저장 broker scope | `src-tauri/src/config/mod.rs::AccountProfile` |
+| 활성 broker/account IPC 표시 | `src-tauri/src/commands.rs::AppConfigView`, `ProfileView` |
+| 자동매매 실행 scope 고정 | `src-tauri/src/commands.rs::TradingStatus` |
+| 자동매매 주문 scope | `src-tauri/src/trading/order.rs::OrderManager::execution_scope` |
+| 주문 방어 scope | `src-tauri/src/trading/guard.rs`, `src-tauri/src/trading/risk.rs` |
+
+규칙:
+
+- 기존 `profiles.json` 하위 호환을 위해 `AccountProfile.broker_id`에는 `#[serde(default = "default_broker_id")]`를 둔다.
+- 자동매매 시작 시점에 `trading_profile_id`, `trading_broker_id`, `trading_account_id`를 모두 저장한다.
+- 자동매매 실행 중 활성 프로파일을 전환해도 실행 중 주문 경로는 시작 시점 scope를 유지한다.
+- `OrderManager::set_execution_scope(BrokerScope)`는 `start_trading()`에서만 설정하고, 주문 전 `TradeGuard`/`RiskManager`/`PendingOrder`에 같은 scope를 전달한다.
+- `BrokerScope`는 `broker_id`와 `Option<BrokerAccountId>`를 함께 들고, KIS 계좌번호와 Toss `accountSeq`가 같은 키 공간을 공유하지 않게 한다.
+- 아직 실제 주문/체결 adapter가 없는 broker는 자동매매 시작 시 `BROKER_NOT_SUPPORTED`로 차단한다.
+- Toss read-only client는 token 발급/401 1회 재시도/accounts/holdings/buying-power/sellable-quantity/commissions 조회를 제공한다. holdings는 `BrokerHolding`으로 매핑하지만 주문 IPC와 자동매매에는 연결하지 않는다.
+- Toss 연결 진단은 `check_toss_profile_connection` IPC에서 프로파일 lock을 짧게 잡아 clone한 뒤 실행한다. 진단 단계는 OpenAPI spec, token, accounts, holdings, order preflight read-only 순서이며 토큰 문자열은 응답에 포함하지 않는다.
+- Tauri IPC와 axum 웹 REST 응답 필드는 같이 갱신한다. 웹 핸들러에서 내부 struct를 그대로 직렬화하지 말고 `serde_json::json!`으로 camel/snake 응답 키를 명시한다.
+
+> 마지막 업데이트: 2026-07-03T13:27:56

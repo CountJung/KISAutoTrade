@@ -196,6 +196,9 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
     case 'detect_profile_trading_type':
       return { method: 'POST', url: `/api/profiles/${args.profileId}/detect` }
 
+    case 'check_toss_profile_connection':
+      return { method: 'POST', url: `/api/profiles/${args.profileId}/toss-diagnostic` }
+
     // ─── 종목 목록 ───────────────────────────────────────────────────
     case 'get_stock_list_stats':
       return { method: 'GET', url: '/api/stock-list-stats' }

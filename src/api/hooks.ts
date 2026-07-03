@@ -12,7 +12,6 @@ import {
   type UseQueryOptions,
 } from '@tanstack/react-query'
 import { useEffect } from 'react'
-import { listen } from '@tauri-apps/api/event'
 
 import { POLL_INTERVALS, ORDER_REFETCH_DELAY_MS } from '../scheduler'
 import * as cmd from './commands'
@@ -52,8 +51,13 @@ import type {
   TradeArchiveConfig,
   SetTradeArchiveConfigInput,
   TradeArchiveStats,
+  TossConnectionDiagnostic,
   RefreshConfig,
 } from './types'
+
+function canUseTauriEvents(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+}
 
 // ─── Query Keys ────────────────────────────────────────────────────
 export const KEYS = {
@@ -398,7 +402,12 @@ export function useUpdateProfile() {
       if (updatedProfile.is_active) {
         qc.setQueryData<AppConfigView>(KEYS.appConfig, (old) =>
           old
-            ? { ...old, kis_is_paper_trading: updatedProfile.is_paper_trading }
+            ? {
+                ...old,
+                active_broker_id: updatedProfile.broker_id,
+                active_broker_account_id: updatedProfile.broker_account_id,
+                kis_is_paper_trading: updatedProfile.is_paper_trading,
+              }
             : old,
         )
       }
@@ -456,7 +465,12 @@ export function useDetectProfileTradingType() {
       if (updatedProfile.is_active) {
         qc.setQueryData<AppConfigView>(KEYS.appConfig, (old) =>
           old
-            ? { ...old, kis_is_paper_trading: updatedProfile.is_paper_trading }
+            ? {
+                ...old,
+                active_broker_id: updatedProfile.broker_id,
+                active_broker_account_id: updatedProfile.broker_account_id,
+                kis_is_paper_trading: updatedProfile.is_paper_trading,
+              }
             : old,
         )
       }
@@ -464,6 +478,13 @@ export function useDetectProfileTradingType() {
       void qc.invalidateQueries({ queryKey: KEYS.appConfig })
       void qc.invalidateQueries({ queryKey: KEYS.checkConfig })
     },
+  })
+}
+
+/** 저장된 토스 프로파일로 OpenAPI/token/accounts/holdings 연결을 진단합니다. */
+export function useCheckTossProfileConnection() {
+  return useMutation<TossConnectionDiagnostic, Error, string>({
+    mutationFn: (profileId) => cmd.checkTossProfileConnection(profileId),
   })
 }
 
@@ -839,30 +860,42 @@ export function useBackendEvents() {
   const qc = useQueryClient()
 
   useEffect(() => {
+    if (!canUseTauriEvents()) {
+      return
+    }
+
+    let active = true
     const unlisteners: Promise<() => void>[] = []
 
-    // 환율 갱신 이벤트
-    unlisteners.push(
-      listen<number>('exchange-rate-updated', (event) => {
-        qc.setQueryData(KEYS.exchangeRate, event.payload)
-      })
-    )
+    void import('@tauri-apps/api/event').then(({ listen }) => {
+      if (!active) {
+        return
+      }
 
-    // 국내 잔고 갱신 이벤트
-    unlisteners.push(
-      listen<BalanceResult>('balance-updated', (event) => {
-        qc.setQueryData(KEYS.balance, event.payload)
-      })
-    )
+      // 환율 갱신 이벤트
+      unlisteners.push(
+        listen<number>('exchange-rate-updated', (event) => {
+          qc.setQueryData(KEYS.exchangeRate, event.payload)
+        })
+      )
 
-    // 해외 잔고 갱신 이벤트
-    unlisteners.push(
-      listen<OverseasBalanceResult>('overseas-balance-updated', (event) => {
-        qc.setQueryData(KEYS.overseasBalance, event.payload)
-      })
-    )
+      // 국내 잔고 갱신 이벤트
+      unlisteners.push(
+        listen<BalanceResult>('balance-updated', (event) => {
+          qc.setQueryData(KEYS.balance, event.payload)
+        })
+      )
+
+      // 해외 잔고 갱신 이벤트
+      unlisteners.push(
+        listen<OverseasBalanceResult>('overseas-balance-updated', (event) => {
+          qc.setQueryData(KEYS.overseasBalance, event.payload)
+        })
+      )
+    })
 
     return () => {
+      active = false
       unlisteners.forEach((p) => p.then((fn) => fn()))
     }
   }, [qc])

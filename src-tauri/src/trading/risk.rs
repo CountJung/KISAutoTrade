@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::broker::BrokerScope;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DailyOrderSide {
     Buy,
@@ -47,15 +49,24 @@ pub struct RiskManager {
     /// 일별 초기화 기준 날짜
     #[serde(default)]
     last_reset_date: Option<chrono::NaiveDate>,
-    /// (날짜, 전략 ID, 종목, 매수/매도)별 주문 접수 횟수
+    /// (날짜, broker/account scope, 전략 ID, 종목, 매수/매도)별 주문 접수 횟수
     #[serde(skip)]
-    daily_order_counts: HashMap<(chrono::NaiveDate, String, String, DailyOrderSide), u32>,
-    /// (전략 ID, 종목)별 연속 손실 횟수
+    daily_order_counts: HashMap<
+        (
+            chrono::NaiveDate,
+            BrokerScope,
+            String,
+            String,
+            DailyOrderSide,
+        ),
+        u32,
+    >,
+    /// (broker/account scope, 전략 ID, 종목)별 연속 손실 횟수
     #[serde(skip)]
-    consecutive_loss_counts: HashMap<(String, String), u32>,
-    /// 연속 손실 기준에 도달해 신규 진입이 차단된 (전략 ID, 종목)
+    consecutive_loss_counts: HashMap<(BrokerScope, String, String), u32>,
+    /// 연속 손실 기준에 도달해 신규 진입이 차단된 (scope, 전략 ID, 종목)
     #[serde(skip)]
-    blocked_strategy_symbols: HashMap<(String, String), u32>,
+    blocked_strategy_symbols: HashMap<(BrokerScope, String, String), u32>,
     /// 종목별 최근 ATR. 국내=KRW, 해외=USD cents.
     #[serde(skip)]
     atr_by_symbol: HashMap<String, u64>,
@@ -276,6 +287,22 @@ impl RiskManager {
         symbol: &str,
         side: DailyOrderSide,
     ) -> Option<String> {
+        self.daily_order_limit_reason_for_scope(
+            &BrokerScope::kis_legacy(),
+            strategy_id,
+            symbol,
+            side,
+        )
+    }
+
+    /// Broker/account scope별 일일 주문 제한 위반 사유를 반환한다.
+    pub fn daily_order_limit_reason_for_scope(
+        &mut self,
+        scope: &BrokerScope,
+        strategy_id: &str,
+        symbol: &str,
+        side: DailyOrderSide,
+    ) -> Option<String> {
         self.reset_if_new_day();
         let limit = match side {
             DailyOrderSide::Buy => self.max_daily_buy_orders_per_symbol,
@@ -286,7 +313,13 @@ impl RiskManager {
         }
 
         let today = chrono::Local::now().date_naive();
-        let key = (today, strategy_id.to_string(), symbol.to_string(), side);
+        let key = (
+            today,
+            scope.clone(),
+            strategy_id.to_string(),
+            symbol.to_string(),
+            side,
+        );
         let current = self.daily_order_counts.get(&key).copied().unwrap_or(0);
         if current >= limit {
             let side_name = match side {
@@ -309,18 +342,54 @@ impl RiskManager {
         symbol: &str,
         side: DailyOrderSide,
     ) {
+        self.record_order_submitted_for_scope(
+            &BrokerScope::kis_legacy(),
+            strategy_id,
+            symbol,
+            side,
+        );
+    }
+
+    /// Broker/account scope별 일일 주문 카운터를 증가시킨다.
+    pub fn record_order_submitted_for_scope(
+        &mut self,
+        scope: &BrokerScope,
+        strategy_id: &str,
+        symbol: &str,
+        side: DailyOrderSide,
+    ) {
         self.reset_if_new_day();
         let today = chrono::Local::now().date_naive();
-        let key = (today, strategy_id.to_string(), symbol.to_string(), side);
+        let key = (
+            today,
+            scope.clone(),
+            strategy_id.to_string(),
+            symbol.to_string(),
+            side,
+        );
         *self.daily_order_counts.entry(key).or_insert(0) += 1;
     }
 
     /// 연속 손실 차단 상태라면 신규 진입 차단 사유를 반환한다.
     pub fn consecutive_loss_block_reason(&self, strategy_id: &str, symbol: &str) -> Option<String> {
+        self.consecutive_loss_block_reason_for_scope(
+            &BrokerScope::kis_legacy(),
+            strategy_id,
+            symbol,
+        )
+    }
+
+    /// Broker/account scope별 연속 손실 차단 상태를 확인한다.
+    pub fn consecutive_loss_block_reason_for_scope(
+        &self,
+        scope: &BrokerScope,
+        strategy_id: &str,
+        symbol: &str,
+    ) -> Option<String> {
         if self.max_consecutive_losses_per_strategy_symbol == 0 {
             return None;
         }
-        let key = (strategy_id.to_string(), symbol.to_string());
+        let key = (scope.clone(), strategy_id.to_string(), symbol.to_string());
         self.blocked_strategy_symbols.get(&key).map(|count| {
             format!(
                 "전략/종목 연속 손실 차단: {}/{}회",
@@ -331,11 +400,27 @@ impl RiskManager {
 
     /// 전략/종목별 확정 손익을 반영해 연속 손실 카운터와 신규 진입 차단 상태를 갱신한다.
     pub fn record_strategy_symbol_pnl(&mut self, strategy_id: &str, symbol: &str, pnl: i64) {
+        self.record_strategy_symbol_pnl_for_scope(
+            &BrokerScope::kis_legacy(),
+            strategy_id,
+            symbol,
+            pnl,
+        );
+    }
+
+    /// Broker/account scope별 확정 손익을 반영한다.
+    pub fn record_strategy_symbol_pnl_for_scope(
+        &mut self,
+        scope: &BrokerScope,
+        strategy_id: &str,
+        symbol: &str,
+        pnl: i64,
+    ) {
         if self.max_consecutive_losses_per_strategy_symbol == 0 {
             return;
         }
 
-        let key = (strategy_id.to_string(), symbol.to_string());
+        let key = (scope.clone(), strategy_id.to_string(), symbol.to_string());
         if pnl < 0 {
             let count = self.consecutive_loss_counts.entry(key.clone()).or_insert(0);
             *count += 1;
@@ -439,6 +524,11 @@ impl Default for RiskManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::broker::{BrokerAccountId, BrokerId};
+
+    fn scope(account: &str) -> BrokerScope {
+        BrokerScope::new(BrokerId::Kis, Some(BrokerAccountId(account.to_string())))
+    }
 
     #[test]
     fn volatility_sizing_uses_risk_amount_and_position_cap_for_domestic() {
@@ -483,6 +573,37 @@ mod tests {
     }
 
     #[test]
+    fn daily_order_limit_isolated_by_broker_account_scope() {
+        let mut risk = RiskManager::default();
+        let account_a = scope("11111111-01");
+        let account_b = scope("22222222-01");
+
+        risk.record_order_submitted_for_scope(
+            &account_a,
+            "strategy",
+            "005930",
+            DailyOrderSide::Buy,
+        );
+
+        assert!(risk
+            .daily_order_limit_reason_for_scope(
+                &account_a,
+                "strategy",
+                "005930",
+                DailyOrderSide::Buy,
+            )
+            .is_some());
+        assert!(risk
+            .daily_order_limit_reason_for_scope(
+                &account_b,
+                "strategy",
+                "005930",
+                DailyOrderSide::Buy,
+            )
+            .is_none());
+    }
+
+    #[test]
     fn consecutive_loss_block_only_clears_after_profit() {
         let mut risk = RiskManager::default();
         risk.max_consecutive_losses_per_strategy_symbol = 2;
@@ -500,6 +621,23 @@ mod tests {
         risk.record_strategy_symbol_pnl("strategy", "005930", 1_000);
         assert!(risk
             .consecutive_loss_block_reason("strategy", "005930")
+            .is_none());
+    }
+
+    #[test]
+    fn consecutive_loss_blocks_are_isolated_by_broker_account_scope() {
+        let mut risk = RiskManager::default();
+        risk.max_consecutive_losses_per_strategy_symbol = 1;
+        let account_a = scope("11111111-01");
+        let account_b = scope("22222222-01");
+
+        risk.record_strategy_symbol_pnl_for_scope(&account_a, "strategy", "005930", -1_000);
+
+        assert!(risk
+            .consecutive_loss_block_reason_for_scope(&account_a, "strategy", "005930")
+            .is_some());
+        assert!(risk
+            .consecutive_loss_block_reason_for_scope(&account_b, "strategy", "005930")
             .is_none());
     }
 }

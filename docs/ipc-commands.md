@@ -9,17 +9,18 @@
 
 | Command | 설명 |
 |---------|------|
-| `get_app_config` | 앱 설정 조회 (키 마스킹, 모드) |
+| `get_app_config` | 앱 설정 조회 (키 마스킹, 활성 broker/profile/account, 모드) |
 | `check_config` | API 설정 진단 (ConfigDiagnostic 반환) |
-| `list_profiles` | 멀티 계좌 프로파일 목록 조회 |
-| `add_profile` | 프로파일 추가 |
-| `update_profile` | 프로파일 수정 |
+| `list_profiles` | 멀티 계좌 프로파일 목록 조회 (`broker_id`, `broker_account_id`, `live_trading_consent` 포함) |
+| `add_profile` | 프로파일 추가 (`live_trading_consent`는 토스 실거래 명시 동의 저장 상태) |
+| `update_profile` | 프로파일 수정 (`live_trading_consent` 갱신 가능) |
 | `delete_profile` | 프로파일 삭제 |
 | `set_active_profile` | 활성 프로파일 전환 |
 | `get_web_config` | 웹 서버 포트 설정 조회 |
 | `save_web_config` | 웹 서버 포트 저장 (`.env` WEB_PORT) |
 | `detect_trading_type` | 실전/모의투자 자동 감지 |
 | `detect_profile_trading_type` | 특정 프로파일 실전/모의 감지 |
+| `check_toss_profile_connection` | 토스증권 프로파일 연결 진단 (OpenAPI spec, token, accounts, holdings 단계 결과) |
 
 ## 시세 / 주문
 
@@ -61,7 +62,7 @@
 
 | Command | 설명 |
 |---------|------|
-| `get_trading_status` | 자동 매매 상태 조회 (wsConnected, buySuspended 포함) |
+| `get_trading_status` | 자동 매매 상태 조회 (wsConnected, buySuspended, 실행 broker/profile/account 스냅샷 포함) |
 | `start_trading` | 자동 매매 시작 (is_trading=true + WebSocket 연결) |
 | `stop_trading` | 자동 매매 정지 |
 | `clear_buy_suspension` | 잔고 부족 매수 정지 수동 해제 |

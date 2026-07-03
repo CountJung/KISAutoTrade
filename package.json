@@ -16,6 +16,8 @@
     "build:app": "tauri build",
     "build:app:debug": "tauri build --debug",
     "check:fsd": "node scripts/check-fsd-imports.mjs",
+    "verify:toss-openapi": "node scripts/verify-toss-openapi.mjs",
+    "test:toss-openapi": "node scripts/verify-toss-openapi.mjs",
     "sync:codex-skills": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-codex-skills.ps1"
   },
   "dependencies": {

@@ -19,6 +19,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 import { useNavigate, useLocation } from '@tanstack/react-router'
 import { useAppConfig, useTradingStatus } from '../../../api/hooks'
+import type { BrokerId } from '../../../api/types'
 
 interface NavItem {
   label: string
@@ -33,6 +34,10 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'History', path: '/history', icon: <HistoryIcon /> },
   { label: 'Log', path: '/log', icon: <ArticleIcon /> },
 ]
+
+function shortBrokerLabel(brokerId: BrokerId | undefined) {
+  return brokerId === 'toss' ? 'Toss' : 'KIS'
+}
 
 interface SidebarProps {
   isDesktop: boolean
@@ -60,6 +65,13 @@ function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; on
             <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1, minWidth: 0 }}>
               {appConfig.active_profile_name}
             </Typography>
+            <Chip
+              size="small"
+              label={shortBrokerLabel(appConfig.active_broker_id)}
+              color="info"
+              variant="outlined"
+              sx={{ height: 16, fontSize: '0.6rem', flexShrink: 0 }}
+            />
             <Chip
               size="small"
               label={appConfig.kis_is_paper_trading ? '모의' : '실전'}

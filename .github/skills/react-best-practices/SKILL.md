@@ -196,6 +196,47 @@ if (error) return <Alert severity="error">{(error as CmdError).message}</Alert>;
 
 ---
 
+## 8-1. Tauri Event 구독은 Tauri 컨텍스트에서만 실행
+
+웹 브라우저/Vite 단독 모드에서는 `@tauri-apps/api/event.listen()`이 내부 `transformCallback`을 찾지 못해 콘솔 에러가 발생한다.
+`useBackendEvents()`처럼 앱 루트에서 항상 실행되는 훅은 이벤트 구독 전에 Tauri 컨텍스트를 확인하고, Tauri event 모듈도 해당 컨텍스트 안에서 동적으로 로드한다.
+
+```typescript
+function canUseTauriEvents(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+}
+
+export function useBackendEvents() {
+  const qc = useQueryClient()
+
+  useEffect(() => {
+    if (!canUseTauriEvents()) return
+
+    let active = true
+    const unlisteners: Promise<() => void>[] = []
+
+    void import('@tauri-apps/api/event').then(({ listen }) => {
+      if (!active) return
+
+      unlisteners.push(
+        listen('balance-updated', (event) => {
+          qc.setQueryData(KEYS.balance, event.payload)
+        })
+      )
+    })
+
+    return () => {
+      active = false
+      unlisteners.forEach((p) => p.then((fn) => fn()))
+    }
+  }, [qc])
+}
+```
+
+> 마지막 업데이트: 2026-07-03T00:00:00
+
+---
+
 ## 9. 전역 폴링 스케쥴러 패턴 (Global Polling Scheduler)
 
 KIS API rate limit에 맞춰 모든 폴링 주기를 중앙에서 관리한다.

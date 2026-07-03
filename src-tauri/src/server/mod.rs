@@ -56,6 +56,7 @@ use tower_http::cors::CorsLayer;
 use crate::api::rest::{
     KisRestClient, OrderRequest, OrderSide, OrderType, OverseasOrderRequest, StockSearchItem,
 };
+use crate::broker::BrokerId;
 use crate::commands::{RefreshConfig, TradeArchiveConfig};
 use crate::config::{AccountProfile, AppConfig, ProfilesConfig};
 use crate::logging::LogConfig;
@@ -243,6 +244,10 @@ pub async fn start(
             post(set_active_profile_handler),
         )
         .route("/api/profiles/:id/detect", post(detect_profile_handler))
+        .route(
+            "/api/profiles/:id/toss-diagnostic",
+            post(toss_profile_diagnostic_handler),
+        )
         // ── 설정 진단 / 감지 ──
         .route("/api/check-config", get(check_config_handler))
         .route(
@@ -783,14 +788,21 @@ async fn app_config_handler(State(s): State<ServerState>) -> Json<serde_json::Va
     } else {
         "****".into()
     };
-    let (active_id, active_name) = {
+    let (active_id, active_name, active_broker_id, active_account_id) = {
         let profiles = s.profiles.read().await;
         match profiles.get_active() {
-            Some(p) => (Some(p.id.clone()), Some(p.name.clone())),
-            None => (None, None),
+            Some(p) => (
+                Some(p.id.clone()),
+                Some(p.name.clone()),
+                p.broker_id,
+                Some(p.broker_account_id()),
+            ),
+            None => (None, None, cfg.broker_id, None),
         }
     };
     Json(serde_json::json!({
+        "active_broker_id":          active_broker_id,
+        "active_broker_account_id":  active_account_id,
         "kis_app_key_masked":   masked_key,
         "kis_account_no":       cfg.kis_account_no,
         "kis_is_paper_trading": cfg.kis_is_paper_trading,
@@ -815,8 +827,11 @@ async fn profiles_handler(State(s): State<ServerState>) -> Json<serde_json::Valu
             };
             serde_json::json!({
                 "id":               p.id,
+                "broker_id":        p.broker_id,
+                "broker_account_id": p.broker_account_id(),
                 "name":             p.name,
                 "is_paper_trading": p.is_paper_trading,
+                "live_trading_consent": p.live_trading_consent,
                 "app_key_masked":   masked,
                 "account_no":       p.account_no,
                 "is_active":        profiles.active_id.as_deref() == Some(&p.id),
@@ -1274,9 +1289,11 @@ async fn check_config_handler(State(s): State<ServerState>) -> Json<serde_json::
         let p = s.profiles.read().await;
         p.profiles
             .iter()
-            .any(|p| p.is_paper_trading && p.is_configured())
+            .any(|p| p.broker_id == BrokerId::Kis && p.is_paper_trading && p.is_configured())
     };
     Json(serde_json::json!({
+        "broker_id":           cfg.broker_id,
+        "broker_account_id":   if cfg.broker_account_id.is_empty() { None::<String> } else { Some(cfg.broker_account_id.clone()) },
         "real_key_set":       !cfg.kis_app_key.is_empty(),
         "real_account_set":   !cfg.kis_account_no.is_empty(),
         "paper_key_set":      paper_available,
@@ -1298,8 +1315,11 @@ fn profile_json(p: &AccountProfile, active_id: &Option<String>) -> serde_json::V
     };
     serde_json::json!({
         "id":               p.id,
+        "broker_id":        p.broker_id,
+        "broker_account_id": p.broker_account_id(),
         "name":             p.name,
         "is_paper_trading": p.is_paper_trading,
+        "live_trading_consent": p.live_trading_consent,
         "app_key_masked":   masked,
         "account_no":       p.account_no,
         "is_active":        active_id.as_deref() == Some(&p.id),
@@ -1315,6 +1335,8 @@ async fn apply_profile_change(s: &ServerState) {
         let existing = s.config.read().await.clone();
         match profiles.get_active() {
             Some(p) => Arc::new(AppConfig {
+                broker_id: p.broker_id,
+                broker_account_id: p.broker_account_id(),
                 kis_app_key: p.app_key.clone(),
                 kis_app_secret: p.app_secret.clone(),
                 kis_account_no: p.account_no.clone(),
@@ -1324,6 +1346,8 @@ async fn apply_profile_change(s: &ServerState) {
                 notification_levels: existing.notification_levels.clone(),
             }),
             None => Arc::new(AppConfig {
+                broker_id: BrokerId::Kis,
+                broker_account_id: String::new(),
                 kis_app_key: String::new(),
                 kis_app_secret: String::new(),
                 kis_account_no: String::new(),
@@ -1359,15 +1383,23 @@ async fn save_profiles_server(s: &ServerState) {
 
 #[derive(Deserialize)]
 struct AddProfileBody {
+    #[serde(default = "default_body_broker_id", alias = "brokerId")]
+    broker_id: BrokerId,
     name: String,
     #[serde(alias = "isPaperTrading")]
     is_paper_trading: bool,
+    #[serde(default, alias = "liveTradingConsent")]
+    live_trading_consent: bool,
     #[serde(alias = "appKey")]
     app_key: String,
     #[serde(alias = "appSecret")]
     app_secret: String,
     #[serde(alias = "accountNo")]
     account_no: String,
+}
+
+fn default_body_broker_id() -> BrokerId {
+    BrokerId::Kis
 }
 
 /// POST /api/profiles/add
@@ -1382,6 +1414,11 @@ async fn add_profile_handler(
         body.app_secret,
         body.account_no,
     );
+    let profile = AccountProfile {
+        broker_id: body.broker_id,
+        live_trading_consent: body.live_trading_consent,
+        ..profile
+    };
     let (view, is_first) = {
         let mut profiles = s.profiles.write().await;
         let was_empty = profiles.profiles.is_empty();
@@ -1399,9 +1436,13 @@ async fn add_profile_handler(
 #[derive(Deserialize)]
 struct UpdateProfileBody {
     id: String,
+    #[serde(alias = "brokerId")]
+    broker_id: Option<BrokerId>,
     name: Option<String>,
     #[serde(alias = "isPaperTrading")]
     is_paper_trading: Option<bool>,
+    #[serde(alias = "liveTradingConsent")]
+    live_trading_consent: Option<bool>,
     #[serde(alias = "appKey")]
     app_key: Option<String>,
     #[serde(alias = "appSecret")]
@@ -1419,8 +1460,10 @@ async fn update_profile_handler(
         let mut profiles = s.profiles.write().await;
         match profiles.update(
             &body.id,
+            body.broker_id,
             body.name,
             body.is_paper_trading,
+            body.live_trading_consent,
             body.app_key,
             body.app_secret,
             body.account_no,
@@ -1565,7 +1608,7 @@ async fn detect_profile_handler(
         };
     let view = {
         let mut profiles = s.profiles.write().await;
-        match profiles.update(&id, None, Some(is_paper), None, None, None) {
+        match profiles.update(&id, None, None, Some(is_paper), None, None, None, None) {
             Some(p) => profile_json(&p, &profiles.active_id),
             None => {
                 return Json(
@@ -1580,6 +1623,35 @@ async fn detect_profile_handler(
     }
     save_profiles_server(&s).await;
     Json(view)
+}
+
+/// POST /api/profiles/:id/toss-diagnostic
+async fn toss_profile_diagnostic_handler(
+    State(s): State<ServerState>,
+    Path(id): Path<String>,
+) -> Json<serde_json::Value> {
+    let profile = {
+        let profiles = s.profiles.read().await;
+        match profiles.profiles.iter().find(|p| p.id == id) {
+            Some(p) => p.clone(),
+            None => {
+                return Json(
+                    serde_json::json!({ "error": format!("프로파일을 찾을 수 없습니다: {}", id) }),
+                )
+            }
+        }
+    };
+
+    if profile.broker_id != BrokerId::Toss {
+        return Json(
+            serde_json::json!({ "error": "토스증권 프로파일만 Toss 연결 진단을 실행할 수 있습니다." }),
+        );
+    }
+
+    let diagnostic = crate::commands::run_toss_connection_diagnostic(profile).await;
+    Json(serde_json::to_value(diagnostic).unwrap_or_else(
+        |e| serde_json::json!({ "error": format!("Toss 연결 진단 결과 직렬화 실패: {}", e) }),
+    ))
 }
 
 // ── 종목 목록 ─────────────────────────────────────────────────────

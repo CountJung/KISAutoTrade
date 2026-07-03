@@ -23,6 +23,10 @@ use crate::{
         },
         token::TokenManager,
     },
+    broker::{
+        BrokerAccountId, BrokerAdapter, BrokerCurrency, BrokerId, BrokerScope, BrokerSymbol,
+        TossBrokerAdapter,
+    },
     config::{AccountProfile, AppConfig, DiscordConfig, ProfilesConfig},
     logging::LogConfig,
     market_hours::{is_domestic_symbol, is_market_open_for, open_markets_summary},
@@ -301,6 +305,10 @@ pub struct AppState {
     pub ws_connected: Arc<AtomicBool>,
     /// 자동매매가 시작된 시점의 프로파일 ID (프로파일 전환 중에도 유지)
     pub trading_profile_id: Arc<RwLock<Option<String>>>,
+    /// 자동매매가 시작된 시점의 broker ID (프로파일 전환 중에도 유지)
+    pub trading_broker_id: Arc<RwLock<Option<BrokerId>>>,
+    /// 자동매매가 시작된 시점의 broker account ID (프로파일 전환 중에도 유지)
+    pub trading_account_id: Arc<RwLock<Option<String>>>,
     /// USD/KRW 환율 캐시 (refresh_interval_sec마다 백그라운드 갱신, 기본 1450원)
     pub exchange_rate_krw: Arc<RwLock<f64>>,
     /// 데이터 갱신 주기 설정 (UI에서 변경 가능, JSON 영구 저장)
@@ -557,6 +565,8 @@ impl AppState {
             web_port,
             ws_connected: Arc::new(AtomicBool::new(false)),
             trading_profile_id: Arc::new(RwLock::new(None)),
+            trading_broker_id: Arc::new(RwLock::new(None)),
+            trading_account_id: Arc::new(RwLock::new(None)),
             exchange_rate_krw,
             refresh_config: Arc::new(RwLock::new(refresh_config)),
             refresh_interval_tx: Arc::new(refresh_interval_tx),
@@ -694,6 +704,8 @@ type CmdResult<T> = Result<T, CmdError>;
 
 #[derive(Debug, Serialize)]
 pub struct AppConfigView {
+    pub active_broker_id: BrokerId,
+    pub active_broker_account_id: Option<String>,
     pub kis_app_key_masked: String,
     pub kis_account_no: String,
     pub kis_is_paper_trading: bool,
@@ -715,15 +727,22 @@ pub async fn get_app_config(state: State<'_, AppState>) -> CmdResult<AppConfigVi
         "****".into()
     };
 
-    let (active_id, active_name) = {
+    let (active_id, active_name, active_broker_id, active_account_id) = {
         let profiles = state.profiles.read().await;
         match profiles.get_active() {
-            Some(p) => (Some(p.id.clone()), Some(p.name.clone())),
-            None => (None, None),
+            Some(p) => (
+                Some(p.id.clone()),
+                Some(p.name.clone()),
+                p.broker_id,
+                Some(p.broker_account_id()),
+            ),
+            None => (None, None, cfg.broker_id, None),
         }
     };
 
     Ok(AppConfigView {
+        active_broker_id,
+        active_broker_account_id: active_account_id,
         kis_app_key_masked: masked_key,
         kis_account_no: cfg.kis_account_no.clone(),
         kis_is_paper_trading: cfg.kis_is_paper_trading,
@@ -741,6 +760,8 @@ pub async fn get_app_config(state: State<'_, AppState>) -> CmdResult<AppConfigVi
 
 #[derive(Debug, Serialize)]
 pub struct ConfigDiagnostic {
+    pub broker_id: BrokerId,
+    pub broker_account_id: Option<String>,
     pub real_key_set: bool,
     pub real_account_set: bool,
     pub paper_key_set: bool,
@@ -769,12 +790,15 @@ pub async fn check_config(state: State<'_, AppState>) -> CmdResult<ConfigDiagnos
     }
 
     let profiles = state.profiles.read().await;
+    let active_profile = profiles.get_active();
     let paper_available = profiles
         .profiles
         .iter()
-        .any(|p| p.is_paper_trading && p.is_configured());
+        .any(|p| p.broker_id == BrokerId::Kis && p.is_paper_trading && p.is_configured());
 
     Ok(ConfigDiagnostic {
+        broker_id: active_profile.map(|p| p.broker_id).unwrap_or(cfg.broker_id),
+        broker_account_id: active_profile.map(|p| p.broker_account_id()),
         real_key_set: !cfg.kis_app_key.is_empty(),
         real_account_set: !cfg.kis_account_no.is_empty(),
         paper_key_set: paper_available,
@@ -790,6 +814,383 @@ pub async fn check_config(state: State<'_, AppState>) -> CmdResult<ConfigDiagnos
     })
 }
 
+#[derive(Debug, Serialize)]
+pub struct TossConnectionStep {
+    pub id: String,
+    pub label: String,
+    pub ok: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TossConnectionDiagnostic {
+    pub profile_id: String,
+    pub profile_name: String,
+    pub broker_id: BrokerId,
+    pub account_seq: String,
+    pub openapi_title: Option<String>,
+    pub openapi_version: Option<String>,
+    pub openapi_server: Option<String>,
+    pub openapi_paths_count: Option<usize>,
+    pub token_type: Option<String>,
+    pub token_expires_at: Option<String>,
+    pub accounts_count: Option<usize>,
+    pub matched_account_no: Option<String>,
+    pub holdings_count: Option<usize>,
+    pub buying_power_krw: Option<String>,
+    pub buying_power_usd: Option<String>,
+    pub commissions_count: Option<usize>,
+    pub sellable_quantity_symbol: Option<String>,
+    pub sellable_quantity: Option<String>,
+    pub is_ready: bool,
+    pub steps: Vec<TossConnectionStep>,
+    pub issues: Vec<String>,
+}
+
+fn toss_diag_step(
+    id: impl Into<String>,
+    label: impl Into<String>,
+    ok: bool,
+    message: impl Into<String>,
+) -> TossConnectionStep {
+    TossConnectionStep {
+        id: id.into(),
+        label: label.into(),
+        ok,
+        message: message.into(),
+    }
+}
+
+pub(crate) async fn run_toss_connection_diagnostic(
+    profile: AccountProfile,
+) -> TossConnectionDiagnostic {
+    let account_seq = profile.broker_account_id();
+    let adapter = TossBrokerAdapter::with_credentials(
+        TossBrokerAdapter::DEFAULT_BASE_URL,
+        profile.app_key.clone(),
+        profile.app_secret.clone(),
+        Some(account_seq.clone()),
+    );
+
+    let mut steps = Vec::new();
+    let mut issues = Vec::new();
+    let mut openapi_title = None;
+    let mut openapi_version = None;
+    let mut openapi_server = None;
+    let mut openapi_paths_count = None;
+    let mut token_type = None;
+    let mut token_expires_at = None;
+    let mut accounts_count = None;
+    let mut matched_account_no = None;
+    let mut holdings_count = None;
+    let mut first_holding_symbol = None;
+    let mut buying_power_krw = None;
+    let mut buying_power_usd = None;
+    let mut commissions_count = None;
+    let mut sellable_quantity_symbol = None;
+    let mut sellable_quantity = None;
+
+    match adapter.openapi_overview().await {
+        Ok(overview) => {
+            let ok = overview.server == TossBrokerAdapter::DEFAULT_BASE_URL
+                && !overview.version.is_empty()
+                && overview.paths_count > 0;
+            if !ok {
+                issues.push("토스증권 OpenAPI 스펙 메타데이터가 예상과 다릅니다.".into());
+            }
+            steps.push(toss_diag_step(
+                "openapi",
+                "OpenAPI 스펙",
+                ok,
+                format!(
+                    "{} v{} · paths {}",
+                    overview.title, overview.version, overview.paths_count
+                ),
+            ));
+            openapi_title = Some(overview.title);
+            openapi_version = Some(overview.version);
+            openapi_server = Some(overview.server);
+            openapi_paths_count = Some(overview.paths_count);
+        }
+        Err(e) => {
+            let message = e.to_string();
+            issues.push(message.clone());
+            steps.push(toss_diag_step("openapi", "OpenAPI 스펙", false, message));
+        }
+    }
+
+    let credentials_present =
+        !profile.app_key.trim().is_empty() && !profile.app_secret.trim().is_empty();
+    let account_seq_valid = account_seq.trim().parse::<i64>().is_ok();
+
+    if !credentials_present {
+        let message = "토스증권 client_id/client_secret이 설정되지 않았습니다.".to_string();
+        issues.push(message.clone());
+        steps.push(toss_diag_step("token", "토큰 발급", false, message));
+    } else {
+        match adapter.check_token().await {
+            Ok(token) => {
+                token_type = Some(token.token_type.clone());
+                token_expires_at = Some(token.expires_at.to_rfc3339());
+                steps.push(toss_diag_step(
+                    "token",
+                    "토큰 발급",
+                    true,
+                    format!("{} token · 만료 {}", token.token_type, token.expires_at),
+                ));
+            }
+            Err(e) => {
+                let message = e.to_string();
+                issues.push(message.clone());
+                steps.push(toss_diag_step("token", "토큰 발급", false, message));
+            }
+        }
+    }
+
+    if credentials_present {
+        match adapter.list_accounts().await {
+            Ok(accounts) => {
+                accounts_count = Some(accounts.len());
+                matched_account_no = accounts
+                    .iter()
+                    .find(|account| account.account_seq.to_string() == account_seq)
+                    .map(|account| account.account_no.clone());
+                let ok = account_seq.trim().is_empty()
+                    || matched_account_no.is_some()
+                    || !account_seq_valid;
+                if !ok {
+                    issues.push(format!(
+                        "저장된 accountSeq({account_seq})와 일치하는 토스 계좌를 찾지 못했습니다."
+                    ));
+                }
+                let message = match &matched_account_no {
+                    Some(account_no) => {
+                        format!("{}개 계좌 조회 · 저장 계좌 {}", accounts.len(), account_no)
+                    }
+                    None if account_seq.trim().is_empty() => {
+                        format!("{}개 계좌 조회 · accountSeq를 저장하세요", accounts.len())
+                    }
+                    None if !account_seq_valid => {
+                        format!(
+                            "{}개 계좌 조회 · accountSeq는 숫자여야 합니다",
+                            accounts.len()
+                        )
+                    }
+                    None => format!("{}개 계좌 조회 · 저장 계좌 불일치", accounts.len()),
+                };
+                steps.push(toss_diag_step("accounts", "계좌 조회", ok, message));
+            }
+            Err(e) => {
+                let message = e.to_string();
+                issues.push(message.clone());
+                steps.push(toss_diag_step("accounts", "계좌 조회", false, message));
+            }
+        }
+    } else {
+        steps.push(toss_diag_step(
+            "accounts",
+            "계좌 조회",
+            false,
+            "토큰 발급 전이라 계좌 조회를 건너뛰었습니다.",
+        ));
+    }
+
+    if account_seq.trim().is_empty() {
+        let message = "토스증권 accountSeq가 설정되지 않았습니다.".to_string();
+        issues.push(message.clone());
+        steps.push(toss_diag_step("holdings", "잔고 조회", false, message));
+    } else if !account_seq_valid {
+        let message = "토스증권 accountSeq는 숫자여야 합니다.".to_string();
+        issues.push(message.clone());
+        steps.push(toss_diag_step("holdings", "잔고 조회", false, message));
+    } else if credentials_present {
+        let account_id = BrokerAccountId(account_seq.clone());
+        match adapter.list_holdings(Some(&account_id)).await {
+            Ok(holdings) => {
+                holdings_count = Some(holdings.len());
+                first_holding_symbol = holdings.first().map(|holding| holding.symbol.0.clone());
+                steps.push(toss_diag_step(
+                    "holdings",
+                    "잔고 조회",
+                    true,
+                    format!("{}개 보유 종목 조회", holdings.len()),
+                ));
+            }
+            Err(e) => {
+                let message = e.to_string();
+                issues.push(message.clone());
+                steps.push(toss_diag_step("holdings", "잔고 조회", false, message));
+            }
+        }
+    } else {
+        steps.push(toss_diag_step(
+            "holdings",
+            "잔고 조회",
+            false,
+            "토큰 발급 전이라 잔고 조회를 건너뛰었습니다.",
+        ));
+    }
+
+    if credentials_present && account_seq_valid && !account_seq.trim().is_empty() {
+        match adapter
+            .get_buying_power(Some(&account_seq), BrokerCurrency::Krw)
+            .await
+        {
+            Ok(power) => {
+                buying_power_krw = Some(power.cash_buying_power.clone());
+                steps.push(toss_diag_step(
+                    "buyingPowerKrw",
+                    "매수가능금액(KRW)",
+                    true,
+                    format!("{} {}", power.cash_buying_power, power.currency),
+                ));
+            }
+            Err(e) => {
+                let message = e.to_string();
+                issues.push(message.clone());
+                steps.push(toss_diag_step(
+                    "buyingPowerKrw",
+                    "매수가능금액(KRW)",
+                    false,
+                    message,
+                ));
+            }
+        }
+
+        match adapter
+            .get_buying_power(Some(&account_seq), BrokerCurrency::Usd)
+            .await
+        {
+            Ok(power) => {
+                buying_power_usd = Some(power.cash_buying_power.clone());
+                steps.push(toss_diag_step(
+                    "buyingPowerUsd",
+                    "매수가능금액(USD)",
+                    true,
+                    format!("{} {}", power.cash_buying_power, power.currency),
+                ));
+            }
+            Err(e) => {
+                let message = e.to_string();
+                issues.push(message.clone());
+                steps.push(toss_diag_step(
+                    "buyingPowerUsd",
+                    "매수가능금액(USD)",
+                    false,
+                    message,
+                ));
+            }
+        }
+
+        match adapter.list_commissions(Some(&account_seq)).await {
+            Ok(commissions) => {
+                commissions_count = Some(commissions.len());
+                steps.push(toss_diag_step(
+                    "commissions",
+                    "수수료 조회",
+                    true,
+                    format!("{}개 수수료 정책 조회", commissions.len()),
+                ));
+            }
+            Err(e) => {
+                let message = e.to_string();
+                issues.push(message.clone());
+                steps.push(toss_diag_step("commissions", "수수료 조회", false, message));
+            }
+        }
+
+        if let Some(symbol) = &first_holding_symbol {
+            let broker_symbol = BrokerSymbol(symbol.clone());
+            match adapter
+                .get_sellable_quantity(Some(&account_seq), &broker_symbol)
+                .await
+            {
+                Ok(quantity) => {
+                    sellable_quantity_symbol = Some(symbol.clone());
+                    sellable_quantity = Some(quantity.sellable_quantity.clone());
+                    steps.push(toss_diag_step(
+                        "sellableQuantity",
+                        "매도가능수량",
+                        true,
+                        format!("{}: {}", symbol, quantity.sellable_quantity),
+                    ));
+                }
+                Err(e) => {
+                    let message = e.to_string();
+                    issues.push(message.clone());
+                    steps.push(toss_diag_step(
+                        "sellableQuantity",
+                        "매도가능수량",
+                        false,
+                        message,
+                    ));
+                }
+            }
+        } else {
+            steps.push(toss_diag_step(
+                "sellableQuantity",
+                "매도가능수량",
+                true,
+                "보유 종목이 없어 매도가능수량 조회를 건너뛰었습니다.",
+            ));
+        }
+    }
+
+    let is_ready = issues.is_empty() && steps.iter().all(|step| step.ok);
+
+    TossConnectionDiagnostic {
+        profile_id: profile.id,
+        profile_name: profile.name,
+        broker_id: BrokerId::Toss,
+        account_seq,
+        openapi_title,
+        openapi_version,
+        openapi_server,
+        openapi_paths_count,
+        token_type,
+        token_expires_at,
+        accounts_count,
+        matched_account_no,
+        holdings_count,
+        buying_power_krw,
+        buying_power_usd,
+        commissions_count,
+        sellable_quantity_symbol,
+        sellable_quantity,
+        is_ready,
+        steps,
+        issues,
+    }
+}
+
+#[tauri::command]
+pub async fn check_toss_profile_connection(
+    profile_id: String,
+    state: State<'_, AppState>,
+) -> CmdResult<TossConnectionDiagnostic> {
+    let profile = {
+        let profiles = state.profiles.read().await;
+        profiles
+            .profiles
+            .iter()
+            .find(|p| p.id == profile_id)
+            .cloned()
+            .ok_or_else(|| CmdError {
+                code: "NOT_FOUND".into(),
+                message: format!("프로파일을 찾을 수 없습니다: {profile_id}"),
+            })?
+    };
+
+    if profile.broker_id != BrokerId::Toss {
+        return Err(CmdError {
+            code: "BROKER_MISMATCH".into(),
+            message: "토스증권 프로파일만 Toss 연결 진단을 실행할 수 있습니다.".into(),
+        });
+    }
+
+    Ok(run_toss_connection_diagnostic(profile).await)
+}
+
 // ────────────────────────────────────────────────────────────────────
 // 계좌 프로파일 관리
 // ────────────────────────────────────────────────────────────────────
@@ -797,8 +1198,11 @@ pub async fn check_config(state: State<'_, AppState>) -> CmdResult<ConfigDiagnos
 #[derive(Debug, Serialize)]
 pub struct ProfileView {
     pub id: String,
+    pub broker_id: BrokerId,
+    pub broker_account_id: String,
     pub name: String,
     pub is_paper_trading: bool,
+    pub live_trading_consent: bool,
     pub app_key_masked: String,
     pub account_no: String,
     pub is_active: bool,
@@ -815,8 +1219,11 @@ fn profile_to_view(p: &AccountProfile, active_id: &Option<String>) -> ProfileVie
     };
     ProfileView {
         id: p.id.clone(),
+        broker_id: p.broker_id,
+        broker_account_id: p.broker_account_id(),
         name: p.name.clone(),
         is_paper_trading: p.is_paper_trading,
+        live_trading_consent: p.live_trading_consent,
         app_key_masked: masked,
         account_no: p.account_no.clone(),
         is_active: active_id.as_deref() == Some(&p.id),
@@ -836,11 +1243,19 @@ pub async fn list_profiles(state: State<'_, AppState>) -> CmdResult<Vec<ProfileV
 
 #[derive(Debug, Deserialize)]
 pub struct AddProfileInput {
+    #[serde(default = "default_input_broker_id")]
+    pub broker_id: BrokerId,
     pub name: String,
     pub is_paper_trading: bool,
+    #[serde(default)]
+    pub live_trading_consent: bool,
     pub app_key: String,
     pub app_secret: String,
     pub account_no: String,
+}
+
+fn default_input_broker_id() -> BrokerId {
+    BrokerId::Kis
 }
 
 #[tauri::command]
@@ -855,6 +1270,11 @@ pub async fn add_profile(
         input.app_secret,
         input.account_no,
     );
+    let profile = AccountProfile {
+        broker_id: input.broker_id,
+        live_trading_consent: input.live_trading_consent,
+        ..profile
+    };
 
     let (view, is_first) = {
         let mut profiles = state.profiles.write().await;
@@ -876,8 +1296,10 @@ pub async fn add_profile(
 #[derive(Debug, Deserialize)]
 pub struct UpdateProfileInput {
     pub id: String,
+    pub broker_id: Option<BrokerId>,
     pub name: Option<String>,
     pub is_paper_trading: Option<bool>,
+    pub live_trading_consent: Option<bool>,
     /// 빈 문자열 = 변경 안 함
     pub app_key: Option<String>,
     /// 빈 문자열 = 변경 안 함
@@ -895,8 +1317,10 @@ pub async fn update_profile(
         let updated = profiles
             .update(
                 &input.id,
+                input.broker_id,
                 input.name,
                 input.is_paper_trading,
+                input.live_trading_consent,
                 input.app_key,
                 input.app_secret,
                 input.account_no,
@@ -1441,6 +1865,10 @@ pub struct TradingStatus {
     pub ws_connected: bool,
     /// 자동매매가 실행 중인 프로파일 ID (미실행 시 None)
     pub trading_profile_id: Option<String>,
+    /// 자동매매가 실행 중인 broker ID (미실행 시 None)
+    pub trading_broker_id: Option<BrokerId>,
+    /// 자동매매가 실행 중인 broker account ID (미실행 시 None)
+    pub trading_account_id: Option<String>,
     /// 잔고 부족으로 매수 정지 여부
     pub buy_suspended: bool,
     /// 매수 정지 사유 (KIS 응답 msg1)
@@ -1458,6 +1886,8 @@ pub async fn get_trading_status(state: State<'_, AppState>) -> CmdResult<Trading
     };
     let ws_connected = state.ws_connected.load(Ordering::Relaxed);
     let trading_profile_id = state.trading_profile_id.read().await.clone();
+    let trading_broker_id = state.trading_broker_id.read().await.clone();
+    let trading_account_id = state.trading_account_id.read().await.clone();
     let (buy_suspended, buy_suspended_reason) = {
         let om = state.order_manager.lock().await;
         (om.buy_suspended, om.buy_suspended_reason.clone())
@@ -1469,6 +1899,8 @@ pub async fn get_trading_status(state: State<'_, AppState>) -> CmdResult<Trading
         total_unrealized_pnl: total_pnl,
         ws_connected,
         trading_profile_id,
+        trading_broker_id,
+        trading_account_id,
         buy_suspended,
         buy_suspended_reason,
     })
@@ -1479,7 +1911,15 @@ pub async fn start_trading(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> CmdResult<TradingStatus> {
-    if !state.config.read().await.is_kis_configured() {
+    let current_cfg = state.config.read().await.clone();
+    if current_cfg.broker_id != BrokerId::Kis {
+        return Err(CmdError {
+            code: "BROKER_NOT_SUPPORTED".into(),
+            message: "현재 자동매매 실행 경로는 KIS broker만 지원합니다. Toss broker는 read-only 진단과 adapter 구현 후 연결하세요."
+                .into(),
+        });
+    }
+    if !current_cfg.is_kis_configured() {
         return Err(CmdError {
             code: "CONFIG_NOT_READY".into(),
             message: "KIS API 설정이 완료되지 않았습니다. Settings에서 API 키를 확인하세요.".into(),
@@ -1569,8 +2009,34 @@ pub async fn start_trading(
 
     // 자동매매 시작 시점의 활성 프로파일 ID 스냅샷 저장
     {
-        let active_id = state.profiles.read().await.active_id.clone();
+        let (active_id, broker_id, account_id) = {
+            let profiles = state.profiles.read().await;
+            match profiles.get_active() {
+                Some(profile) => (
+                    Some(profile.id.clone()),
+                    Some(profile.broker_id),
+                    Some(profile.broker_account_id()),
+                ),
+                None => (
+                    profiles.active_id.clone(),
+                    Some(current_cfg.broker_id),
+                    Some(current_cfg.broker_account_id.clone())
+                        .filter(|account_id| !account_id.is_empty()),
+                ),
+            }
+        };
+        let execution_scope = BrokerScope::new(
+            broker_id.unwrap_or(BrokerId::Kis),
+            account_id.clone().map(BrokerAccountId),
+        );
+        state
+            .order_manager
+            .lock()
+            .await
+            .set_execution_scope(execution_scope);
         *state.trading_profile_id.write().await = active_id;
+        *state.trading_broker_id.write().await = broker_id;
+        *state.trading_account_id.write().await = account_id;
     }
 
     if let Some(notifier) = &state.discord {
@@ -1865,6 +2331,8 @@ pub async fn start_trading(
     };
     let ws_connected = state.ws_connected.load(Ordering::Relaxed);
     let trading_profile_id = state.trading_profile_id.read().await.clone();
+    let trading_broker_id = state.trading_broker_id.read().await.clone();
+    let trading_account_id = state.trading_account_id.read().await.clone();
     let (buy_suspended, buy_suspended_reason) = {
         let om = state.order_manager.lock().await;
         (om.buy_suspended, om.buy_suspended_reason.clone())
@@ -1876,6 +2344,8 @@ pub async fn start_trading(
         total_unrealized_pnl: total_pnl,
         ws_connected,
         trading_profile_id,
+        trading_broker_id,
+        trading_account_id,
         buy_suspended,
         buy_suspended_reason,
     })
@@ -1889,6 +2359,8 @@ pub async fn stop_trading(state: State<'_, AppState>) -> CmdResult<TradingStatus
 
     // 자동매매 종료 시 트레이딩 프로파일 ID 클리어
     *state.trading_profile_id.write().await = None;
+    *state.trading_broker_id.write().await = None;
+    *state.trading_account_id.write().await = None;
 
     if let Some(notifier) = &state.discord {
         let _ = notifier
@@ -1913,6 +2385,8 @@ pub async fn stop_trading(state: State<'_, AppState>) -> CmdResult<TradingStatus
         total_unrealized_pnl: total_pnl,
         ws_connected,
         trading_profile_id: None,
+        trading_broker_id: None,
+        trading_account_id: None,
         buy_suspended: false,
         buy_suspended_reason: None,
     })
@@ -1932,6 +2406,8 @@ pub async fn clear_buy_suspension(state: State<'_, AppState>) -> CmdResult<Tradi
     };
     let ws_connected = state.ws_connected.load(Ordering::Relaxed);
     let trading_profile_id = state.trading_profile_id.read().await.clone();
+    let trading_broker_id = state.trading_broker_id.read().await.clone();
+    let trading_account_id = state.trading_account_id.read().await.clone();
     Ok(TradingStatus {
         is_running,
         active_strategies: strategies,
@@ -1939,6 +2415,8 @@ pub async fn clear_buy_suspension(state: State<'_, AppState>) -> CmdResult<Tradi
         total_unrealized_pnl: total_pnl,
         ws_connected,
         trading_profile_id,
+        trading_broker_id,
+        trading_account_id,
         buy_suspended: false,
         buy_suspended_reason: None,
     })
@@ -3317,7 +3795,16 @@ pub async fn detect_profile_trading_type(
     let view = {
         let mut profiles = state.profiles.write().await;
         let updated = profiles
-            .update(&profile_id, None, Some(is_paper), None, None, None)
+            .update(
+                &profile_id,
+                None,
+                None,
+                Some(is_paper),
+                None,
+                None,
+                None,
+                None,
+            )
             .ok_or_else(|| CmdError {
                 code: "PROFILE_NOT_FOUND".into(),
                 message: format!("프로파일을 찾을 수 없습니다: {}", profile_id),

@@ -38,44 +38,46 @@
 
 ## P0 — 토스증권 공식 API 조사/스킬화
 
-- [ ] 토스증권 OpenAPI JSON을 기준으로 endpoint inventory 작성
+- [x] 토스증권 OpenAPI JSON을 기준으로 endpoint inventory 작성
   - 인증: `POST /oauth2/token`
   - 시세: orderbook, prices, trades, price-limits, candles
   - 종목/시장: stocks, warnings, exchange-rate, KR/US market-calendar
   - 계좌/자산: accounts, holdings
   - 주문: create, modify, cancel, list, detail, buying-power, sellable-quantity, commissions
-- [ ] KIS API 스킬과 분리된 `toss-api` 문서/스킬 초안 작성
+- [x] KIS API 스킬과 분리된 `toss-api` 문서/스킬 초안 작성
   - OAuth2 Client Credentials Grant
   - `X-Tossinvest-Account` 계좌 헤더
   - 공식 rate limit 그룹과 `Retry-After`, `X-RateLimit-*` 헤더 처리
   - 공식 error envelope와 주요 에러 코드
-- [ ] `scripts/` 또는 문서에 공식 OpenAPI 최신 버전 확인 절차 추가
+- [x] `scripts/` 또는 문서에 공식 OpenAPI 최신 버전 확인 절차 추가
   - 작업 시작 시 `openapi.json`의 `info.version`, `servers`, `paths` 개수를 확인한다.
   - 스냅샷을 저장할 경우 민감 정보가 없는 공식 spec만 저장하고, generated code와 수동 수정 코드를 분리한다.
 
 ## P0 — 다중 증권사 아키텍처 설계
 
-- [ ] `KisRestClient` 중심 구조를 `BrokerClient`/`BrokerAdapter` 구조로 분리
+- [x] `KisRestClient` 중심 구조를 `BrokerClient`/`BrokerAdapter` 구조로 분리
   - 공통 trait 후보: auth, price, candle, balance/holdings, order, order status, market calendar, commission.
   - KIS 전용 TR-ID/계좌번호 분리 로직은 `KisBrokerAdapter` 내부에 격리한다.
   - 토스 전용 OAuth2, account header, 통합 국내/미국 symbol 모델은 `TossBrokerAdapter` 내부에 격리한다.
-- [ ] 공통 도메인 타입 정리
+- [x] 공통 도메인 타입 정리
   - `BrokerId`, `BrokerAccountId`, `Market`, `Symbol`, `Currency`, `Money`, `Quantity`, `OrderId`, `ClientOrderId`.
   - KIS KRW/해외 USD cents 처리와 토스 Decimal/string 금액 처리를 안전하게 매핑한다.
-- [ ] AppState와 프로파일 설정을 다중 broker aware 구조로 확장
+- [x] AppState와 프로파일 설정을 다중 broker aware 구조로 확장
   - 현재 활성 broker/profile/account를 명시한다.
   - 자동매매 시작 시 전략별 대상 broker를 고정해 중간 전환으로 주문이 섞이지 않게 한다.
 
 ## P1 — 토스증권 인증/설정 UI
 
-- [ ] Settings에 토스증권 Open API 프로파일 추가
+- [x] Settings에 토스증권 Open API 프로파일 추가
   - `client_id`, `client_secret`, 계좌 식별값, 실거래 사용 동의 상태를 KIS 프로파일과 분리한다.
   - 토스증권 WTS 설정 > Open API 메뉴에서 키를 발급받는 흐름을 도움말로 연결한다.
-- [ ] 토큰 발급/갱신 모듈 추가
+  - Settings Add/Edit 다이얼로그에서 broker 선택과 토스 `Client ID`/`Client Secret`/`accountSeq` 라벨을 제공한다. `live_trading_consent`는 별도 저장 필드이며, 주문/자동매매 unlock이 아니라 향후 소액 검증 gate의 명시 승인 기록으로만 사용한다.
+- [x] 토큰 발급/갱신 모듈 추가
   - KIS `TokenManager`와 독립된 `TossTokenManager` 또는 공통 `OAuthTokenManager`를 검토한다.
   - 만료/401/`expired-token` 시 1회 재발급 후 재시도한다.
-- [ ] 연결 진단 IPC 추가
+- [x] 연결 진단 IPC 추가
   - OpenAPI version 확인, token 발급 가능 여부, accounts 조회 가능 여부를 단계별로 표시한다.
+  - `check_toss_profile_connection`이 OpenAPI spec, token 발급, accounts 조회, holdings 조회를 단계별로 반환하고 Settings 프로파일 카드에서 실행한다.
 
 ## P1 — 시세/종목/캔들 연동
 
@@ -93,6 +95,7 @@
 - [ ] 토스 accounts/holdings 조회 구현
   - KIS 국내/해외 잔고와 동일한 Dashboard/Position UI에 표시한다.
   - 통화별 평가금액, 손익, 수량 precision을 공통 타입으로 정규화한다.
+  - 현재 `TossOpenApiClient`/`TossBrokerAdapter`에는 accounts 조회와 holdings → `BrokerHolding` 매핑이 구현되어 있다. IPC/Settings 진단과 Dashboard/Position UI 연결은 별도 진행한다.
 - [ ] 자동매매 시작 시 토스 holdings 기반 전략 포지션 동기화
   - 기존 `Strategy::sync_position()` 흐름에 broker 인자를 추가한다.
 - [ ] 환율 조회 소스 정책 정리
@@ -108,13 +111,16 @@
   - 이미 체결/취소/거부된 주문에 대한 409 계열 에러를 사용자 로그와 주문 이력에 분리 저장한다.
 - [ ] buying-power/sellable-quantity/commissions를 주문 전 검증에 연결
   - 기존 잔고 부족 반복 주문 방지와 수수료 추정 로직을 토스 공식 수수료 조회로 보완한다.
+  - 현재 Toss adapter와 Settings 연결 진단에는 `buying-power`, `sellable-quantity`, `commissions` read-only 조회가 추가되어 있다. `TradeGuard`/`RiskManager` 주문 전 차단 경로 연결은 별도 진행한다.
 - [ ] 체결 확인 루프를 broker별 adapter로 분리
   - KIS 주문번호 기반 조회와 토스 order detail/list 조회를 같은 `confirm_pending_fills_from_broker()` 흐름에서 사용한다.
 
 ## P2 — 자동매매 안전장치 확장
 
-- [ ] `TradeGuard`와 `RiskManager`에 broker/account scope 추가
+- [x] `TradeGuard`와 `RiskManager`에 broker/account scope 추가
   - 전략/종목/방향/날짜뿐 아니라 broker/account 단위 주문 횟수와 손실 제한을 분리 집계한다.
+  - `BrokerScope`가 공통 broker 도메인 타입으로 추가되었고, 자동매매 시작 시 `OrderManager` 실행 scope가 활성 broker/account 스냅샷으로 고정된다.
+  - `TradeGuard` 쿨다운/손절 재진입 차단과 `RiskManager` 일일 주문 제한/연속 손실 차단은 broker/account scope별로 격리된다.
 - [ ] 반대 미체결 주문 차단 구현
   - 토스 공식 `opposite-pending-order-exists` 에러와 로컬 pending 상태를 모두 고려한다.
 - [ ] rate limit-aware scheduler 도입
@@ -125,6 +131,7 @@
 
 - [ ] broker 선택 UI 추가
   - Settings, Dashboard, Trading, Strategy, History에서 현재 broker/profile/account가 명확히 보이게 한다.
+  - 현재 Settings와 Sidebar에는 활성 broker/account와 자동매매 실행 broker/account 스냅샷을 표시한다. 전 화면 선택 UI는 별도 진행한다.
 - [ ] Strategy 설정에 broker/account scope 추가
   - 같은 전략이 KIS와 토스 계좌를 동시에 대상으로 삼지 않도록 저장 구조를 명확히 한다.
 - [ ] History/Log에 provider 원본 요청 추적 정보 추가
@@ -134,17 +141,20 @@
 
 ## P4 — 검증
 
-- [ ] 공식 OpenAPI JSON 기반 contract test 추가
+- [x] 공식 OpenAPI JSON 기반 contract test 추가
   - 최소한 endpoint 존재, 주요 schema 필드, error envelope, rate limit header 처리 코드를 검증한다.
-- [ ] broker adapter 단위 테스트 추가
+- [x] broker adapter 단위 테스트 추가
   - KIS mock, Toss mock 응답을 각각 공통 도메인 타입으로 변환하는 테스트를 둔다.
-- [ ] 토스증권 sandbox/실계좌 소액 검증 체크리스트 작성
+  - Toss accounts/preflight deserialization, holdings → `BrokerHolding` 매핑, KIS `BalanceItem` → `BrokerHolding` 매핑, adapter trait 기본 unsupported 동작 테스트가 있다.
+- [x] 토스증권 sandbox/실계좌 소액 검증 체크리스트 작성
   - 실제 주문 전 read-only 조회 검증, 주문 가능 금액 조회, 매도가능수량 조회, 수수료 조회를 분리한다.
   - 실거래 주문은 별도 명시 승인과 소액 테스트 절차를 요구한다.
-- [ ] 전체 검증 명령 유지
+  - `docs/toss-readonly-small-order-checklist.md`에 read-only 진단, 주문 전 검증 API, 명시 승인 gate, 자동매매 unlock 기준을 분리했다.
+- [x] 전체 검증 명령 유지
   - `cd src-tauri; cargo check`
   - `npx tsc --noEmit`
   - `npm run check:fsd`
+  - 현재 추가 검증: `cargo test --manifest-path src-tauri\Cargo.toml broker:: --lib`, `cargo test --manifest-path src-tauri\Cargo.toml trading::risk --lib`, `cargo test --manifest-path src-tauri\Cargo.toml trading::guard --lib`, `npm run verify:toss-openapi`, `npm run build:web`, Playwright `/settings` 콘솔 스모크.
 
 ---
 
