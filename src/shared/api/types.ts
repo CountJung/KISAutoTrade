@@ -322,6 +322,14 @@ export interface TradeRecord {
   slippage?: number | null
   /** 신호가 대비 슬리피지 비용(bps). 양수면 불리, 음수면 유리 */
   slippage_bps?: number | null
+  /** 원천 provider 식별자 (예: kis, toss) */
+  provider?: string | null
+  /** provider가 반환한 주문 ID (KIS odno, Toss order id 등) */
+  provider_order_id?: string | null
+  /** provider 원본 요청 추적 ID (Toss requestId, X-Request-Id 등) */
+  provider_request_id?: string | null
+  /** provider 요청 TR-ID (KIS TR-ID 등) */
+  provider_tr_id?: string | null
 }
 
 // ─── 자동 매매 상태 ─────────────────────────────────────────────────
@@ -535,6 +543,8 @@ export interface StrategyView {
   id: string
   name: string
   enabled: boolean
+  brokerId: BrokerId
+  brokerAccountId: string | null
   targetSymbols: string[]
   /** 종목코드 → 종목명 맵 (StockStore 조회 결과) */
   targetSymbolNames: Record<string, string>
@@ -737,6 +747,10 @@ export interface PendingOrderView {
   remainingQuantity: number
   timestamp: string
   signalReason: string
+  provider?: string | null
+  providerOrderId?: string | null
+  providerRequestId?: string | null
+  providerTrId?: string | null
 }
 
 // ─── 종목 목록 통계 ──────────────────────────────────────────────

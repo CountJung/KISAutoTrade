@@ -1,3 +1,5 @@
+use std::time::Duration as StdDuration;
+
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
@@ -11,6 +13,7 @@ use super::{
         BrokerAccountId, BrokerCurrency, BrokerHolding, BrokerId, BrokerMarket, BrokerMoney,
         BrokerPriceQuote, BrokerQuantity, BrokerSymbol,
     },
+    rate_limit::RateLimitScheduler,
 };
 
 /// Toss Open API adapter.
@@ -198,6 +201,62 @@ impl TossBrokerAdapter {
             .map_err(BrokerAdapterError::Provider)
     }
 
+    pub async fn create_order(
+        &self,
+        account_seq: Option<&str>,
+        input: &TossOrderCreateRequest,
+    ) -> BrokerAdapterResult<TossOrderResponse> {
+        self.client
+            .create_order(account_seq, input)
+            .await
+            .map_err(BrokerAdapterError::Provider)
+    }
+
+    pub async fn list_orders(
+        &self,
+        account_seq: Option<&str>,
+        query: &TossOrderListQuery,
+    ) -> BrokerAdapterResult<TossPaginatedOrderResponse> {
+        self.client
+            .list_orders(account_seq, query)
+            .await
+            .map_err(BrokerAdapterError::Provider)
+    }
+
+    pub async fn get_order(
+        &self,
+        account_seq: Option<&str>,
+        order_id: &str,
+    ) -> BrokerAdapterResult<TossOrder> {
+        self.client
+            .get_order(account_seq, order_id)
+            .await
+            .map_err(BrokerAdapterError::Provider)
+    }
+
+    pub async fn modify_order(
+        &self,
+        account_seq: Option<&str>,
+        order_id: &str,
+        input: &TossOrderModifyRequest,
+    ) -> BrokerAdapterResult<TossOrderOperationResponse> {
+        self.client
+            .modify_order(account_seq, order_id, input)
+            .await
+            .map_err(BrokerAdapterError::Provider)
+    }
+
+    pub async fn cancel_order(
+        &self,
+        account_seq: Option<&str>,
+        order_id: &str,
+    ) -> BrokerAdapterResult<TossOrderOperationResponse> {
+        self.client
+            .cancel_order(account_seq, order_id)
+            .await
+            .map_err(BrokerAdapterError::Provider)
+    }
+
     pub fn broker_id(&self) -> BrokerId {
         BrokerId::Toss
     }
@@ -305,6 +364,7 @@ pub struct TossOpenApiClient {
     base_url: String,
     credentials: Option<TossCredentials>,
     current_token: Mutex<Option<TossAccessToken>>,
+    rate_limiter: RateLimitScheduler,
 }
 
 impl TossOpenApiClient {
@@ -314,6 +374,7 @@ impl TossOpenApiClient {
             base_url: trim_base_url(base_url.into()),
             credentials: None,
             current_token: Mutex::new(None),
+            rate_limiter: toss_rate_limiter(),
         }
     }
 
@@ -332,6 +393,7 @@ impl TossOpenApiClient {
                 account_seq: account_seq.map(Into::into),
             }),
             current_token: Mutex::new(None),
+            rate_limiter: toss_rate_limiter(),
         }
     }
 
@@ -366,12 +428,14 @@ impl TossOpenApiClient {
     pub async fn issue_token(&self) -> anyhow::Result<TossAccessToken> {
         let credentials = self.credentials()?;
         let url = format!("{}/oauth2/token", self.base_url);
+        let rate_group = "toss:auth";
         let body = TossTokenRequest {
             grant_type: "client_credentials",
             client_id: &credentials.client_id,
             client_secret: &credentials.client_secret,
         };
 
+        self.rate_limiter.wait(rate_group).await;
         let resp = self
             .http
             .post(url)
@@ -382,6 +446,9 @@ impl TossOpenApiClient {
 
         let status = resp.status();
         let headers = resp.headers().clone();
+        self.rate_limiter
+            .apply_response_headers(rate_group, &headers)
+            .await;
         let text = resp.text().await.unwrap_or_default();
         if !status.is_success() {
             return Err(format_toss_error(status, &headers, &text, "토큰 발급 실패"));
@@ -717,6 +784,91 @@ impl TossOpenApiClient {
         .map(|response| response.result)
     }
 
+    pub async fn create_order(
+        &self,
+        account_seq: Option<&str>,
+        input: &TossOrderCreateRequest,
+    ) -> anyhow::Result<TossOrderResponse> {
+        input.validate()?;
+        let account_seq = self.require_account_seq(account_seq)?;
+        self.post_json::<TossApiResponse<TossOrderResponse>, _>(
+            "/api/v1/orders",
+            Some(&account_seq),
+            input,
+            None,
+        )
+        .await
+        .map(|response| response.result)
+    }
+
+    pub async fn list_orders(
+        &self,
+        account_seq: Option<&str>,
+        query: &TossOrderListQuery,
+    ) -> anyhow::Result<TossPaginatedOrderResponse> {
+        query.validate()?;
+        let account_seq = self.require_account_seq(account_seq)?;
+        let path = query.to_path();
+        self.get_json::<TossApiResponse<TossPaginatedOrderResponse>>(
+            &path,
+            Some(&account_seq),
+            None,
+        )
+        .await
+        .map(|response| response.result)
+    }
+
+    pub async fn get_order(
+        &self,
+        account_seq: Option<&str>,
+        order_id: &str,
+    ) -> anyhow::Result<TossOrder> {
+        validate_toss_order_id(order_id)?;
+        let account_seq = self.require_account_seq(account_seq)?;
+        let path = format!("/api/v1/orders/{}", url_encode(order_id));
+        self.get_json::<TossApiResponse<TossOrder>>(&path, Some(&account_seq), None)
+            .await
+            .map(|response| response.result)
+    }
+
+    pub async fn modify_order(
+        &self,
+        account_seq: Option<&str>,
+        order_id: &str,
+        input: &TossOrderModifyRequest,
+    ) -> anyhow::Result<TossOrderOperationResponse> {
+        validate_toss_order_id(order_id)?;
+        input.validate()?;
+        let account_seq = self.require_account_seq(account_seq)?;
+        let path = format!("/api/v1/orders/{}/modify", url_encode(order_id));
+        self.post_json::<TossApiResponse<TossOrderOperationResponse>, _>(
+            &path,
+            Some(&account_seq),
+            input,
+            None,
+        )
+        .await
+        .map(|response| response.result)
+    }
+
+    pub async fn cancel_order(
+        &self,
+        account_seq: Option<&str>,
+        order_id: &str,
+    ) -> anyhow::Result<TossOrderOperationResponse> {
+        validate_toss_order_id(order_id)?;
+        let account_seq = self.require_account_seq(account_seq)?;
+        let path = format!("/api/v1/orders/{}/cancel", url_encode(order_id));
+        self.post_json::<TossApiResponse<TossOrderOperationResponse>, _>(
+            &path,
+            Some(&account_seq),
+            &serde_json::json!({}),
+            None,
+        )
+        .await
+        .map(|response| response.result)
+    }
+
     async fn get_json<T>(
         &self,
         path: &str,
@@ -732,20 +884,76 @@ impl TossOpenApiClient {
             None => self.get_token().await?,
         };
         let url = format!("{}{}", self.base_url, path);
+        let rate_group = toss_rate_limit_group("GET", path);
         let mut request = self.http.get(url).bearer_auth(token);
         if let Some(account_seq) = account_seq {
             request = request.header("X-Tossinvest-Account", account_seq);
         }
 
+        self.rate_limiter.wait(rate_group).await;
         let resp = request.send().await.context("토스증권 OpenAPI 요청 실패")?;
         let status = resp.status();
         let headers = resp.headers().clone();
+        self.rate_limiter
+            .apply_response_headers(rate_group, &headers)
+            .await;
         let text = resp.text().await.unwrap_or_default();
 
         if status == StatusCode::UNAUTHORIZED && !had_retry_token {
             *self.current_token.lock().await = None;
             let new_token = self.get_token().await?;
             return Box::pin(self.get_json(path, account_seq, Some(new_token))).await;
+        }
+
+        if !status.is_success() {
+            return Err(format_toss_error(
+                status,
+                &headers,
+                &text,
+                "OpenAPI 요청 실패",
+            ));
+        }
+
+        serde_json::from_str(&text)
+            .with_context(|| format!("토스증권 OpenAPI 응답 파싱 실패: body={text}"))
+    }
+
+    async fn post_json<T, B>(
+        &self,
+        path: &str,
+        account_seq: Option<&str>,
+        body: &B,
+        retry_token: Option<String>,
+    ) -> anyhow::Result<T>
+    where
+        T: for<'de> Deserialize<'de>,
+        B: Serialize + Sync,
+    {
+        let had_retry_token = retry_token.is_some();
+        let token = match retry_token {
+            Some(token) => token,
+            None => self.get_token().await?,
+        };
+        let url = format!("{}{}", self.base_url, path);
+        let rate_group = toss_rate_limit_group("POST", path);
+        let mut request = self.http.post(url).bearer_auth(token).json(body);
+        if let Some(account_seq) = account_seq {
+            request = request.header("X-Tossinvest-Account", account_seq);
+        }
+
+        self.rate_limiter.wait(rate_group).await;
+        let resp = request.send().await.context("토스증권 OpenAPI 요청 실패")?;
+        let status = resp.status();
+        let headers = resp.headers().clone();
+        self.rate_limiter
+            .apply_response_headers(rate_group, &headers)
+            .await;
+        let text = resp.text().await.unwrap_or_default();
+
+        if status == StatusCode::UNAUTHORIZED && !had_retry_token {
+            *self.current_token.lock().await = None;
+            let new_token = self.get_token().await?;
+            return Box::pin(self.post_json(path, account_seq, body, Some(new_token))).await;
         }
 
         if !status.is_success() {
@@ -1225,6 +1433,204 @@ pub struct TossCommission {
     pub end_date: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum TossOrderListStatus {
+    Open,
+    Closed,
+}
+
+impl TossOrderListStatus {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Open => "OPEN",
+            Self::Closed => "CLOSED",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TossOrderListQuery {
+    pub status: TossOrderListStatus,
+    pub symbol: Option<String>,
+    pub from: Option<String>,
+    pub to: Option<String>,
+    pub cursor: Option<String>,
+    pub limit: Option<u8>,
+}
+
+impl TossOrderListQuery {
+    pub fn open() -> Self {
+        Self {
+            status: TossOrderListStatus::Open,
+            symbol: None,
+            from: None,
+            to: None,
+            cursor: None,
+            limit: None,
+        }
+    }
+
+    fn validate(&self) -> anyhow::Result<()> {
+        if let Some(symbol) = &self.symbol {
+            validate_toss_symbol(symbol)?;
+        }
+        if let Some(from) = &self.from {
+            validate_iso_date(from)?;
+        }
+        if let Some(to) = &self.to {
+            validate_iso_date(to)?;
+        }
+        if let Some(limit) = self.limit {
+            if !(1..=100).contains(&limit) {
+                return Err(anyhow!(
+                    "토스증권 주문 목록 limit은 1~100 범위여야 합니다: {limit}"
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn to_path(&self) -> String {
+        let mut params = vec![format!("status={}", self.status.as_str())];
+        if let Some(symbol) = &self.symbol {
+            params.push(format!("symbol={}", url_encode(symbol)));
+        }
+        if let Some(from) = &self.from {
+            params.push(format!("from={}", url_encode(from)));
+        }
+        if let Some(to) = &self.to {
+            params.push(format!("to={}", url_encode(to)));
+        }
+        if let Some(cursor) = &self.cursor {
+            params.push(format!("cursor={}", url_encode(cursor)));
+        }
+        if let Some(limit) = self.limit {
+            params.push(format!("limit={limit}"));
+        }
+        format!("/api/v1/orders?{}", params.join("&"))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossOrderCreateRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_order_id: Option<String>,
+    pub symbol: String,
+    pub side: String,
+    pub order_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_in_force: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quantity: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub price: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_amount: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confirm_high_value_order: Option<bool>,
+}
+
+impl TossOrderCreateRequest {
+    pub fn with_generated_client_order_id(mut self) -> Self {
+        self.client_order_id = Some(new_toss_client_order_id());
+        self
+    }
+
+    fn validate(&self) -> anyhow::Result<()> {
+        validate_client_order_id(self.client_order_id.as_deref())?;
+        validate_toss_symbol(&self.symbol)?;
+        validate_order_side(&self.side)?;
+        validate_order_type(&self.order_type)?;
+        if let Some(time_in_force) = &self.time_in_force {
+            validate_time_in_force(time_in_force)?;
+        }
+        validate_optional_decimal("quantity", self.quantity.as_deref())?;
+        validate_optional_decimal("price", self.price.as_deref())?;
+        validate_optional_decimal("orderAmount", self.order_amount.as_deref())?;
+
+        match (self.quantity.is_some(), self.order_amount.is_some()) {
+            (true, false) | (false, true) => Ok(()),
+            _ => Err(anyhow!(
+                "토스증권 주문 생성은 quantity 또는 orderAmount 중 정확히 하나만 허용합니다"
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossOrderModifyRequest {
+    pub order_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quantity: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub price: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confirm_high_value_order: Option<bool>,
+}
+
+impl TossOrderModifyRequest {
+    fn validate(&self) -> anyhow::Result<()> {
+        validate_order_type(&self.order_type)?;
+        validate_optional_decimal("quantity", self.quantity.as_deref())?;
+        validate_optional_decimal("price", self.price.as_deref())?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossOrderResponse {
+    pub order_id: String,
+    pub client_order_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossOrderOperationResponse {
+    pub order_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossPaginatedOrderResponse {
+    pub orders: Vec<TossOrder>,
+    pub next_cursor: Option<String>,
+    pub has_next: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossOrder {
+    pub order_id: String,
+    pub symbol: String,
+    pub side: String,
+    pub order_type: String,
+    pub time_in_force: String,
+    pub status: String,
+    pub price: Option<String>,
+    pub quantity: String,
+    pub order_amount: Option<String>,
+    pub currency: String,
+    pub ordered_at: String,
+    pub canceled_at: Option<String>,
+    pub execution: TossOrderExecution,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossOrderExecution {
+    pub filled_quantity: String,
+    pub average_filled_price: Option<String>,
+    pub filled_amount: Option<String>,
+    pub commission: Option<String>,
+    pub tax: Option<String>,
+    pub filled_at: Option<String>,
+    pub settlement_date: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 struct TossErrorResponse {
     error: TossApiError,
@@ -1274,6 +1680,35 @@ fn format_toss_error(
     )
 }
 
+fn toss_rate_limiter() -> RateLimitScheduler {
+    RateLimitScheduler::with_min_intervals([
+        ("toss:auth", StdDuration::from_millis(500)),
+        ("toss:account", StdDuration::from_millis(200)),
+        ("toss:order", StdDuration::from_millis(500)),
+        ("toss:order_history", StdDuration::from_millis(200)),
+        ("toss:market", StdDuration::from_millis(100)),
+    ])
+}
+
+fn toss_rate_limit_group(method: &str, path: &str) -> &'static str {
+    if path.starts_with("/oauth2/") {
+        "toss:auth"
+    } else if path.starts_with("/api/v1/orders") && method.eq_ignore_ascii_case("GET") {
+        "toss:order_history"
+    } else if path.starts_with("/api/v1/orders") {
+        "toss:order"
+    } else if path.starts_with("/api/v1/accounts")
+        || path.starts_with("/api/v1/holdings")
+        || path.starts_with("/api/v1/buying-power")
+        || path.starts_with("/api/v1/sellable-quantity")
+        || path.starts_with("/api/v1/commissions")
+    {
+        "toss:account"
+    } else {
+        "toss:market"
+    }
+}
+
 fn toss_currency(value: &str) -> anyhow::Result<BrokerCurrency> {
     match value {
         "KRW" => Ok(BrokerCurrency::Krw),
@@ -1319,6 +1754,92 @@ fn validate_toss_symbol(symbol: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn validate_toss_order_id(order_id: &str) -> anyhow::Result<()> {
+    if order_id.is_empty() {
+        return Err(anyhow!("토스증권 orderId는 비어 있을 수 없습니다"));
+    }
+    if !order_id
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(anyhow!(
+            "토스증권 orderId는 영문/숫자/-/_ 문자만 허용합니다: {order_id}"
+        ));
+    }
+    Ok(())
+}
+
+fn validate_client_order_id(value: Option<&str>) -> anyhow::Result<()> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    if value.is_empty() || value.len() > 36 {
+        return Err(anyhow!(
+            "토스증권 clientOrderId는 1~36자여야 합니다: {value}"
+        ));
+    }
+    if !value
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(anyhow!(
+            "토스증권 clientOrderId는 영문/숫자/-/_ 문자만 허용합니다: {value}"
+        ));
+    }
+    Ok(())
+}
+
+fn new_toss_client_order_id() -> String {
+    format!("ka-{}", uuid::Uuid::new_v4().simple())
+}
+
+fn validate_order_side(value: &str) -> anyhow::Result<()> {
+    if matches!(value, "BUY" | "SELL") {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "토스증권 주문 방향은 BUY 또는 SELL만 허용합니다: {value}"
+        ))
+    }
+}
+
+fn validate_order_type(value: &str) -> anyhow::Result<()> {
+    if matches!(value, "LIMIT" | "MARKET") {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "토스증권 주문 유형은 LIMIT 또는 MARKET만 허용합니다: {value}"
+        ))
+    }
+}
+
+fn validate_time_in_force(value: &str) -> anyhow::Result<()> {
+    if matches!(value, "DAY" | "CLS") {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "토스증권 timeInForce는 DAY 또는 CLS만 허용합니다: {value}"
+        ))
+    }
+}
+
+fn validate_optional_decimal(field: &str, value: Option<&str>) -> anyhow::Result<()> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    if value.is_empty()
+        || value.len() > 30
+        || !value.chars().all(|c| c.is_ascii_digit() || c == '.')
+        || value.matches('.').count() > 1
+        || value == "."
+    {
+        return Err(anyhow!(
+            "토스증권 {field}는 양수 decimal 문자열이어야 합니다: {value}"
+        ));
+    }
+    Ok(())
+}
+
 fn validate_iso_date(date: &str) -> anyhow::Result<()> {
     let is_valid = date.len() == 10
         && date.chars().enumerate().all(|(index, ch)| {
@@ -1357,6 +1878,27 @@ mod tests {
         let adapter = TossBrokerAdapter::default();
         assert_eq!(adapter.base_url(), "https://openapi.tossinvest.com");
         assert_eq!(adapter.broker_id(), BrokerId::Toss);
+    }
+
+    #[test]
+    fn classifies_toss_rate_limit_groups() {
+        assert_eq!(toss_rate_limit_group("POST", "/oauth2/token"), "toss:auth");
+        assert_eq!(
+            toss_rate_limit_group("GET", "/api/v1/holdings?currency=USD"),
+            "toss:account"
+        );
+        assert_eq!(
+            toss_rate_limit_group("GET", "/api/v1/orders/order-1"),
+            "toss:order_history"
+        );
+        assert_eq!(
+            toss_rate_limit_group("POST", "/api/v1/orders/order-1/cancel"),
+            "toss:order"
+        );
+        assert_eq!(
+            toss_rate_limit_group("GET", "/api/v1/prices?symbols=AAPL"),
+            "toss:market"
+        );
     }
 
     #[test]
@@ -1465,6 +2007,115 @@ mod tests {
         assert_eq!(sellable.result.quantity().0, "5.5");
         assert_eq!(commissions.result.len(), 2);
         assert_eq!(commissions.result[0].market_country, "KR");
+    }
+
+    #[test]
+    fn validates_order_create_request_shape() {
+        let valid = TossOrderCreateRequest {
+            client_order_id: Some("order-001_A".to_string()),
+            symbol: "005930".to_string(),
+            side: "BUY".to_string(),
+            order_type: "LIMIT".to_string(),
+            time_in_force: Some("DAY".to_string()),
+            quantity: Some("10".to_string()),
+            price: Some("70000".to_string()),
+            order_amount: None,
+            confirm_high_value_order: Some(false),
+        };
+        assert!(valid.validate().is_ok());
+
+        let mut both_quantity_and_amount = valid.clone();
+        both_quantity_and_amount.order_amount = Some("100".to_string());
+        assert!(both_quantity_and_amount.validate().is_err());
+
+        let mut invalid_client_order_id = valid;
+        invalid_client_order_id.client_order_id = Some("bad id with spaces".to_string());
+        assert!(invalid_client_order_id.validate().is_err());
+
+        let generated = new_toss_client_order_id();
+        assert!(generated.len() <= 36);
+        assert!(validate_client_order_id(Some(&generated)).is_ok());
+    }
+
+    #[test]
+    fn deserializes_order_api_responses() {
+        let create_json = r#"{
+          "result": {
+            "orderId": "ORD_001",
+            "clientOrderId": "client-001"
+          }
+        }"#;
+        let list_json = r#"{
+          "result": {
+            "orders": [
+              {
+                "orderId": "ORD_001",
+                "symbol": "AAPL",
+                "side": "BUY",
+                "orderType": "LIMIT",
+                "timeInForce": "DAY",
+                "status": "PARTIAL_FILLED",
+                "price": "185.5",
+                "quantity": "5",
+                "orderAmount": null,
+                "currency": "USD",
+                "orderedAt": "2026-03-29T10:00:00+09:00",
+                "canceledAt": null,
+                "execution": {
+                  "filledQuantity": "2",
+                  "averageFilledPrice": "185.25",
+                  "filledAmount": "370.5",
+                  "commission": "0.66",
+                  "tax": "0",
+                  "filledAt": "2026-03-29T10:00:05+09:00",
+                  "settlementDate": null
+                }
+              }
+            ],
+            "nextCursor": null,
+            "hasNext": false
+          }
+        }"#;
+        let operation_json = r#"{
+          "result": {
+            "orderId": "ORD_002"
+          }
+        }"#;
+
+        let created: TossApiResponse<TossOrderResponse> =
+            serde_json::from_str(create_json).unwrap();
+        let listed: TossApiResponse<TossPaginatedOrderResponse> =
+            serde_json::from_str(list_json).unwrap();
+        let modified: TossApiResponse<TossOrderOperationResponse> =
+            serde_json::from_str(operation_json).unwrap();
+
+        assert_eq!(created.result.order_id, "ORD_001");
+        assert_eq!(
+            created.result.client_order_id.as_deref(),
+            Some("client-001")
+        );
+        assert_eq!(listed.result.orders[0].status, "PARTIAL_FILLED");
+        assert_eq!(listed.result.orders[0].execution.filled_quantity, "2");
+        assert!(!listed.result.has_next);
+        assert_eq!(modified.result.order_id, "ORD_002");
+    }
+
+    #[test]
+    fn builds_order_list_query_path() {
+        let query = TossOrderListQuery {
+            status: TossOrderListStatus::Closed,
+            symbol: Some("BRK.B".to_string()),
+            from: Some("2026-03-01".to_string()),
+            to: Some("2026-03-31".to_string()),
+            cursor: Some("next cursor".to_string()),
+            limit: Some(100),
+        };
+
+        assert!(query.validate().is_ok());
+        assert_eq!(
+            query.to_path(),
+            "/api/v1/orders?status=CLOSED&symbol=BRK.B&from=2026-03-01&to=2026-03-31&cursor=next%20cursor&limit=100"
+        );
     }
 
     #[test]

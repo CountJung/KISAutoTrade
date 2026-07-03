@@ -1,11 +1,16 @@
 use anyhow::Result;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
 };
 use tokio::sync::RwLock;
+
+use crate::broker::RateLimitScheduler;
 
 use super::token::TokenManager;
 
@@ -20,6 +25,7 @@ pub struct KisRestClient {
     token_manager: Arc<RwLock<TokenManager>>,
     /// KIS API 진단 로그 활성화 플래그 (런타임 토글 가능)
     api_debug: Arc<AtomicBool>,
+    rate_limiter: RateLimitScheduler,
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -266,6 +272,8 @@ pub struct OrderResponse {
     pub odno: String,
     /// 주문시각
     pub ord_tmd: String,
+    /// 주문 요청에 사용한 provider TR-ID
+    pub tr_id: String,
     pub rt_cd: String,
     pub msg1: String,
 }
@@ -531,6 +539,10 @@ impl KisRestClient {
             is_paper,
             token_manager,
             api_debug: Arc::new(AtomicBool::new(false)),
+            rate_limiter: RateLimitScheduler::with_min_intervals([(
+                "kis:order",
+                Duration::from_secs(1),
+            )]),
         }
     }
 
@@ -770,6 +782,7 @@ impl KisRestClient {
             ord_unpr: req.price.to_string(),
         };
 
+        self.rate_limiter.wait("kis:order").await;
         let resp = self
             .client
             .post(&url)
@@ -808,6 +821,7 @@ impl KisRestClient {
         Ok(OrderResponse {
             odno: out.odno.unwrap_or_default(),
             ord_tmd: out.ord_tmd.unwrap_or_default(),
+            tr_id: tr_id.to_string(),
             rt_cd: raw.rt_cd,
             msg1: raw.msg1,
         })
@@ -1246,6 +1260,7 @@ impl KisRestClient {
             ord_svr_dvsn_cd: "0",
         };
 
+        self.rate_limiter.wait("kis:order").await;
         let resp = self
             .client
             .post(&url)
@@ -1284,6 +1299,7 @@ impl KisRestClient {
         Ok(OrderResponse {
             odno: out.odno.unwrap_or_default(),
             ord_tmd: out.ord_tmd.unwrap_or_default(),
+            tr_id: tr_id.to_string(),
             rt_cd: raw.rt_cd,
             msg1: raw.msg1,
         })

@@ -12,6 +12,7 @@ import useMediaQuery from '@mui/material/useMediaQuery'
 
 import { useRecentLogs } from '../../../api/hooks'
 import type { AppLogEntry } from '../../../api/types'
+import { hasProviderTrace, parseProviderTraceText, ProviderTraceChips } from '../../../shared/ui'
 
 type LogLevel = 'ALL' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'TRACE'
 
@@ -142,7 +143,14 @@ export default function Log() {
                 {log.target}
               </Box>
             )}
-            <Box sx={{ flex: 1, wordBreak: 'break-all' }}>{log.message}</Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Box sx={{ wordBreak: 'break-all' }}>{log.message}</Box>
+              {hasProviderTrace(parseProviderTraceText(log.message)) && (
+                <Box sx={{ mt: 0.5 }}>
+                  <ProviderTraceChips trace={parseProviderTraceText(log.message)} />
+                </Box>
+              )}
+            </Box>
           </Box>
         ))}
         <div ref={bottomRef} />

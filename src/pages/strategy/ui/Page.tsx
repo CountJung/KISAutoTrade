@@ -32,6 +32,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Tooltip from '@mui/material/Tooltip'
 import { useState, useRef, useEffect } from 'react'
 import {
+  useAppConfig,
   useStrategies,
   useUpdateStrategy,
   useTradingStatus,
@@ -40,6 +41,8 @@ import {
 } from '../../../api/hooks'
 import * as cmd from '../../../api/commands'
 import type {
+  AppConfigView,
+  BrokerId,
   CmdError,
   LeveragedTrendHoldBaseRole,
   LeveragedTrendHoldEntry,
@@ -48,6 +51,7 @@ import type {
   StockSearchItem,
   UpdateStrategyInput,
 } from '../../../api/types'
+import { BrokerScopeIndicator } from '../../../shared/ui'
 
 type Market = 'KR' | 'US'
 type LeveragedSetDraftSlot = 'base' | 'long' | 'inverse'
@@ -171,6 +175,20 @@ function getStrategyType(id: string): string {
   if (id.startsWith('leveraged_trend_hold'))       return 'leveraged_trend_hold'
   if (id.startsWith('price_condition'))            return 'price_condition'
   return 'unknown'
+}
+
+function brokerLabel(brokerId: BrokerId) {
+  return brokerId === 'toss' ? 'Toss' : 'KIS'
+}
+
+function isActiveStrategyScope(
+  strategy: { brokerId: BrokerId; brokerAccountId: string | null },
+  appConfig?: AppConfigView | null,
+) {
+  return (
+    strategy.brokerId === appConfig?.active_broker_id &&
+    strategy.brokerAccountId === appConfig?.active_broker_account_id
+  )
 }
 
 // ─── 가격 조건 매매 커스텀 편집 UI ─────────────────────────────
@@ -1021,6 +1039,7 @@ type EditState = { symbols: string[]; quantity: number; params: Record<string, n
 
 // ─── Strategy 메인 ────────────────────────────────────────────────
 export default function Strategy() {
+  const { data: appConfig } = useAppConfig()
   const { data: strategies, isLoading } = useStrategies()
   const { data: tradingStatus } = useTradingStatus()
   const { mutate: updateStrategy, isPending: saving } = useUpdateStrategy()
@@ -1199,7 +1218,7 @@ export default function Strategy() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
         <Typography variant="h5" fontWeight={700}>Strategy</Typography>
         <Chip
           label={`${activeCount}개 활성`}
@@ -1209,6 +1228,7 @@ export default function Strategy() {
         {isRunning && (
           <Chip label="자동매매 실행 중" color="success" size="small" variant="outlined" />
         )}
+        <BrokerScopeIndicator appConfig={appConfig} compact />
       </Box>
 
       {/* ── 0. 종목 선택 패널 ─────────────────────────────────────── */}
@@ -1400,11 +1420,21 @@ export default function Strategy() {
           const stratDesc = STRATEGY_DESCRIPTION[sType]
           const lthInitialEntries = (s.params['entries'] as LeveragedTrendHoldEntry[] | undefined) ?? []
           const lthParams = lthParamEditMap[s.id] ?? s.params
+          const scopeMatchesActive = isActiveStrategyScope(s, appConfig)
           return (
             <Grid item xs={12} md={sType === 'price_condition' || sType === 'leveraged_trend_hold' ? 12 : 6} key={s.id}>
               <Paper sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="subtitle1" fontWeight={600}>{s.name}</Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1, gap: 1.5 }}>
+                  <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap">
+                    <Typography variant="subtitle1" fontWeight={600}>{s.name}</Typography>
+                    <Chip
+                      size="small"
+                      label={`${brokerLabel(s.brokerId)}${s.brokerAccountId ? ` · ${s.brokerAccountId}` : ''}`}
+                      color={scopeMatchesActive ? 'default' : 'warning'}
+                      variant="outlined"
+                      sx={{ maxWidth: '100%', '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
+                    />
+                  </Stack>
                   <FormControlLabel
                     control={
                       <Switch

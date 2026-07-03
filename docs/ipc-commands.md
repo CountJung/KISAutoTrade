@@ -56,7 +56,7 @@
 | Command | 설명 |
 |---------|------|
 | `get_today_trades` | 당일 저장된 거래 기록 조회 |
-| `get_trades_by_range` | 날짜 범위 거래 기록 조회 (JSON 파일) |
+| `get_trades_by_range` | 날짜 범위 거래 기록 조회 (JSON 파일, provider trace 포함) |
 | `get_today_stats` | 당일 통계 조회 |
 | `get_stats_by_range` | 날짜 범위 통계 조회 |
 | `save_trade` | 체결 기록 JSON 저장 |
@@ -74,9 +74,9 @@
 | `stop_trading` | 자동 매매 정지 |
 | `clear_buy_suspension` | 잔고 부족 매수 정지 수동 해제 |
 | `get_positions` | 포지션 목록 조회 |
-| `get_pending_orders` | 미체결 주문 조회 (`status`, `filledQuantity`, `remainingQuantity` 포함) |
-| `get_strategies` | 전략 목록 조회 |
-| `update_strategy` | 전략 파라미터 업데이트 |
+| `get_pending_orders` | 미체결 주문 조회 (`status`, `filledQuantity`, `remainingQuantity`, provider trace 포함) |
+| `get_strategies` | 전략 목록 조회 (`brokerId`, `brokerAccountId`, 대상 종목, params 포함) |
+| `update_strategy` | 전략 파라미터 업데이트 + 현재 활성 broker/account scope로 저장 |
 | `get_risk_config` | 리스크 설정 조회 (손실/비중/일일 주문 제한/연속 손실/ATR 수량 산정) |
 | `update_risk_config` | 리스크 설정 변경 (손실/비중/일일 주문 제한/연속 손실/ATR 수량 산정) |
 | `clear_emergency_stop` | 비상정지 수동 해제 |
@@ -89,7 +89,7 @@
 | `get_log_config` | 로그 설정 조회 (보관 기간, 최대 용량, api_debug) |
 | `set_log_config` | 로그 설정 저장 |
 | `write_frontend_log` | 프론트엔드 로그 → 백엔드 파일 기록 |
-| `get_recent_logs` | 최근 로그 라인 조회 |
+| `get_recent_logs` | 최근 로그 라인 조회 (`provider=`, `tr_id=`, `odno=`, `requestId=` 토큰은 Log UI trace chip으로 표시) |
 
 ## 데이터 갱신 주기
 

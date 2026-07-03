@@ -125,19 +125,25 @@
 
 ## P2 — 주문/체결/수수료 연동
 
-- [ ] 토스 주문 생성 구현
+- [x] 토스 주문 생성 구현
   - `clientOrderId`를 발급해 중복 주문과 `request-in-progress`를 추적한다.
   - 고액 주문 확인, 주문 가능 시간, 호가 유형 제한, 시장별 지원 여부를 공식 에러 코드 기준으로 처리한다.
-- [ ] 정정/취소/주문 목록/주문 상세 조회 구현
+  - `TossOpenApiClient::create_order()`와 `TossOrderCreateRequest::with_generated_client_order_id()`를 추가했다. 공식 idempotency key 제약(36자, 영숫자/`-`/`_`)은 client-side에서 선검증한다.
+  - 실제 Trading/자동매매 경로 호출은 소액 검증 gate 전까지 계속 차단한다.
+- [x] 정정/취소/주문 목록/주문 상세 조회 구현
   - pending order 상태를 토스 주문 상세 기준으로 갱신한다.
   - 이미 체결/취소/거부된 주문에 대한 409 계열 에러를 사용자 로그와 주문 이력에 분리 저장한다.
+  - `list_orders`, `get_order`, `modify_order`, `cancel_order` client/adapter 메서드와 serde 테스트를 추가했다.
+  - 주문 목록/상세는 `ORDER_HISTORY`, 생성/정정/취소는 `ORDER` rate group으로 분리한다.
 - [x] buying-power/sellable-quantity/commissions를 주문 전 검증에 연결
   - 기존 잔고 부족 반복 주문 방지와 수수료 추정 로직을 토스 공식 수수료 조회로 보완한다.
   - `trading/preflight.rs`에 브로커 공통 주문 전 판정 함수를 추가하고, `check_toss_order_preflight` IPC와 `/api/toss-order-preflight` REST에서 Toss 현재가/종목 유의사항/`buying-power`/`sellable-quantity`/`commissions`를 모아 검증한다.
   - Trading 화면은 활성 Toss 프로파일에서 주문 버튼은 계속 차단하되, 수량 입력 시 주문 전 검증 패널에 주문금액, 필요 현금, 매수가능금액/매도가능수량, 수수료 추정, 차단 사유를 표시한다.
   - Toss 주문 생성 adapter는 아직 `orderAdapterSupported=false`로 내려가며, 실제 주문/자동매매 실행은 소액 검증 gate 전까지 계속 차단된다.
-- [ ] 체결 확인 루프를 broker별 adapter로 분리
+- [x] 체결 확인 루프를 broker별 adapter로 분리
   - KIS 주문번호 기반 조회와 토스 order detail/list 조회를 같은 `confirm_pending_fills_from_broker()` 흐름에서 사용한다.
+  - `OrderRecord.provider` trace로 pending provider를 판정하고, KIS 국내/해외 체결 조회는 `confirm_kis_pending_fills()`로 분리했다.
+  - Toss pending은 주문 상세/목록 adapter 연결 지점에서 명시적으로 skip 로그를 남긴다. 실제 자동매매 연결은 소액 검증 gate 전까지 계속 차단된다.
 
 ## P2 — 자동매매 안전장치 확장
 
@@ -145,23 +151,35 @@
   - 전략/종목/방향/날짜뿐 아니라 broker/account 단위 주문 횟수와 손실 제한을 분리 집계한다.
   - `BrokerScope`가 공통 broker 도메인 타입으로 추가되었고, 자동매매 시작 시 `OrderManager` 실행 scope가 활성 broker/account 스냅샷으로 고정된다.
   - `TradeGuard` 쿨다운/손절 재진입 차단과 `RiskManager` 일일 주문 제한/연속 손실 차단은 broker/account scope별로 격리된다.
-- [ ] 반대 미체결 주문 차단 구현
+- [x] 반대 미체결 주문 차단 구현
   - 토스 공식 `opposite-pending-order-exists` 에러와 로컬 pending 상태를 모두 고려한다.
-- [ ] rate limit-aware scheduler 도입
+  - `OrderManager`는 주문 제출 전 실행 `BrokerScope` + symbol 기준 pending을 scan하고, 같은 방향 미체결과 반대 방향 미체결을 모두 차단하되 로그 사유를 분리한다.
+  - 반대 방향 pending은 “기존 매수/매도 미체결 주문 존재 — 요청 매도/매수 차단” 형식으로 주문번호와 함께 남긴다.
+  - Toss 주문 adapter 구현 시 provider의 `opposite-pending-order-exists` 응답은 같은 pending conflict 계열로 매핑한다.
+- [x] rate limit-aware scheduler 도입
   - 토스 rate limit 그룹별 TPS와 응답 헤더 기반 backoff를 공통 API client 계층에 반영한다.
   - KIS 실전/모의 rate limit도 같은 throttler로 점진 이전한다.
+  - `broker/rate_limit.rs`의 `RateLimitScheduler`가 group별 최소 간격과 `Retry-After`/`X-RateLimit-Reset` pause를 처리한다.
+  - Toss OpenAPI client는 auth/account/market group으로 분류해 `X-RateLimit-*` 응답 헤더를 반영하고, KIS 국내/해외 주문 제출은 `kis:order` group으로 먼저 이전했다.
 
 ## P3 — UI/UX와 문서 정리
 
-- [ ] broker 선택 UI 추가
+- [x] broker 선택 UI 추가
   - Settings, Dashboard, Trading, Strategy, History에서 현재 broker/profile/account가 명확히 보이게 한다.
-  - 현재 Settings와 Sidebar에는 활성 broker/account와 자동매매 실행 broker/account 스냅샷을 표시한다. 전 화면 선택 UI는 별도 진행한다.
-- [ ] Strategy 설정에 broker/account scope 추가
+  - Settings와 Sidebar에는 활성 broker/account와 자동매매 실행 broker/account 스냅샷을 표시한다.
+  - Dashboard, Trading, Strategy, History 제목 영역에 공통 `BrokerScopeIndicator`를 추가해 활성 broker/profile/account와 KIS 모의/실전 모드를 일관되게 표시한다.
+- [x] Strategy 설정에 broker/account scope 추가
   - 같은 전략이 KIS와 토스 계좌를 동시에 대상으로 삼지 않도록 저장 구조를 명확히 한다.
-- [ ] History/Log에 provider 원본 요청 추적 정보 추가
+  - `StrategyConfig`에 `broker_id`/`broker_account_id`를 추가하고, 프로파일 전환·전략 저장 시 현재 활성 broker/account scope로 자동 stamp한다.
+  - 저장 전략이 없는 프로파일로 전환하면 기존 프로파일 전략을 reset해 종목/활성 상태가 계좌 사이에 잔류하지 않게 했다.
+  - Strategy 화면 각 전략 카드에 저장된 broker/account scope chip을 표시하고, 활성 scope와 다르면 warning 색상으로 보여준다.
+- [x] History/Log에 provider 원본 요청 추적 정보 추가
   - 토스 `requestId`, KIS TR-ID/odno 등 문의와 디버깅에 필요한 값을 안전하게 표시한다.
-- [ ] `docs/project-map.md`, `docs/ipc-commands.md`, `docs/coding-guide.md` 갱신
+  - `OrderRecord`/`TradeRecord`에 `provider`, `provider_order_id`, `provider_request_id`, `provider_tr_id`를 추가하고 기존 JSON은 `serde(default)`로 호환한다.
+  - History 체결 테이블과 Log 메시지 trace chip은 공통 `ProviderTraceChips`를 재사용한다.
+- [x] `docs/project-map.md`, `docs/ipc-commands.md`, `docs/coding-guide.md` 갱신
   - 새 broker adapter, IPC, 설정, 검증 절차를 문서화한다.
+  - 기존 IPC 확장 필드와 broker scope/trace 표시 패턴을 함께 반영했다.
 
 ## P4 — 검증
 
@@ -188,5 +206,8 @@
 - 공식 OpenAPI JSON은 `https://openapi.tossinvest.com/openapi-docs/latest/openapi.json`이며, 구현 시점에 매번 최신 version과 paths를 확인한다.
 - 토스증권 API는 KIS의 TR-ID 방식이 아니라 OAuth2 + REST endpoint + account header 중심으로 설계해야 한다.
 - 기존 KIS 전용 파일명과 타입명은 한 번에 모두 바꾸지 말고, adapter 경계부터 만든 뒤 UI와 저장 구조를 단계적으로 이전한다.
+- 주문/체결 trace는 provider 원본 문의에 필요한 최소 식별자만 저장한다. KIS는 TR-ID/odno, Toss는 requestId/order id를 각각 `provider_*` 필드에 매핑한다.
+- rate limit은 `RateLimitScheduler` group key로 관리한다. Toss는 auth/account/market, KIS는 주문 제출부터 `kis:order`로 점진 이전한다.
+- Toss 주문 API client surface는 준비됐지만 UI/자동매매 연결은 소액 검증 gate와 체결 확인 adapter가 준비되기 전까지 열지 않는다.
 
-*마지막 업데이트: 2026-07-03T15:25:46*
+*마지막 업데이트: 2026-07-03T16:35:00+09:00*

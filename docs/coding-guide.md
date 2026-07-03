@@ -436,6 +436,21 @@ fn path_for_date(&self, date: chrono::NaiveDate) -> PathBuf {
 }
 ```
 
+### Provider trace 저장 패턴
+
+주문과 체결 저장 포맷에는 provider 문의·디버깅에 필요한 최소 식별자만 optional 필드로 둔다.
+
+| 필드 | 의미 |
+|------|------|
+| `provider` | `kis`, `toss` 등 원천 provider |
+| `provider_order_id` | KIS `odno`, Toss order id |
+| `provider_request_id` | Toss `requestId`, `X-Request-Id` 등 요청 추적 ID |
+| `provider_tr_id` | KIS 주문/조회 TR-ID |
+
+- 기존 JSON 호환을 위해 새 필드는 항상 `#[serde(default)]`를 붙인다.
+- `OrderResponse → OrderRecord → PendingOrder → TradeRecord` 순서로 trace를 복사하고, History/Log UI는 공통 `ProviderTraceChips`로 표시한다.
+- access token, app secret, 계좌 원문처럼 민감 정보는 trace에 넣지 않는다.
+
 ---
 
 ## 7. 백그라운드 데몬 작성 원칙
@@ -760,15 +775,18 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 - 토스 실거래 동의 상태는 `AccountProfile.live_trading_consent`로 별도 저장한다. 기존 프로파일에는 serde 기본값 `false`를 적용하고, 주문 구현 전까지는 자동매매 unlock이 아니라 명시 승인 기록으로만 사용한다.
 - IPC `AppConfigView`와 `ProfileView`는 활성 broker/account를 내려 UI가 현재 scope를 표시할 수 있게 한다.
 - 자동매매 시작 시 `trading_profile_id`, `trading_broker_id`, `trading_account_id`를 스냅샷으로 저장한다. 실행 중 프로파일 전환이 있어도 주문 경로가 섞이지 않게 하기 위한 값이다.
+- `StrategyConfig`에도 `broker_id`와 `broker_account_id`를 저장한다. 프로파일 전환과 `update_strategy`는 현재 활성 broker/account scope를 전략 설정에 stamp하고, 저장 전략이 없는 프로파일로 전환하면 이전 프로파일 전략을 reset한다.
 - `start_trading()`은 같은 스냅샷으로 `OrderManager::set_execution_scope()`를 호출한다. 이후 `TradeGuard`, `RiskManager`, `PendingOrder`는 같은 `BrokerScope`를 공유한다.
 - 자동매매 주문 경로에서는 scope 없는 `TradeGuard::evaluate()`나 `RiskManager::daily_order_limit_reason()` 대신 `*_for_scope()` 메서드를 호출한다. scope 없는 메서드는 기존 테스트/호출부 하위 호환용이다.
 - 토스 자동매매는 실제 주문/체결 adapter가 준비되기 전까지 `BROKER_NOT_SUPPORTED`로 차단한다. 단, `start_trading()`은 차단 전에 Toss holdings를 읽어 전략 내부 포지션 상태를 복원할 수 있다.
+- `OrderManager`는 KIS 주문 제출 전 로컬 pending을 `BrokerScope` + symbol 기준으로 scan해 같은 방향 미체결과 반대 방향 미체결을 모두 차단한다. 반대 방향이면 기존 pending 주문번호와 요청 방향을 로그에 남긴다.
+- `confirm_pending_fills_from_broker()`는 pending `OrderRecord.provider` trace로 provider를 판정한다. KIS 국내/해외 주문번호 조회는 `confirm_kis_pending_fills()`에 두고, Toss pending은 주문 상세/목록 adapter 연결 전까지 명시 skip 로그만 남긴다.
 
 ### 구현 순서
 
 1. read-only 기능부터 adapter에 붙인다: OpenAPI version 진단, token 발급 진단, accounts 조회, holdings 조회.
 2. 주문 전 검증 API(`buying-power`, `sellable-quantity`, `commissions`)는 `trading/preflight.rs`의 공통 판정 함수와 `check_toss_order_preflight` IPC/REST로 연결한다. 실제 Toss 주문 adapter가 없으면 `orderAdapterSupported=false`, `canSubmit=false`를 유지한다.
-3. 실제 주문 생성은 `clientOrderId` 발급, rate-limit backoff, error envelope 파싱, 소액 검증 체크리스트가 모두 준비된 뒤 자동매매 경로에 연결한다.
+3. 실제 주문 생성 client는 공식 스키마 기준으로 먼저 구현하되, Trading/자동매매 호출은 소액 검증 체크리스트와 체결 확인 adapter가 준비된 뒤 연결한다.
 
 ### Toss read-only client 규칙
 
@@ -787,8 +805,13 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 - Toss 주문 전 검증 UI는 `check_toss_order_preflight`/`/api/toss-order-preflight`/`useTossOrderPreflight()` 경로로 연결한다. 수량 입력 시 주문금액, 필요 현금, 매수가능금액/매도가능수량, 수수료율, 차단 사유를 표시하되 주문 버튼은 Toss 주문 adapter와 소액 검증 gate 전까지 비활성으로 둔다.
 - Toss candles UI는 기존 `ChartCandle[]`/`StockChart`를 재사용하되 `source="toss"`로 분기한다. 일봉은 `YYYYMMDD`, 1분봉은 provider timestamp를 lightweight-charts `Time`으로 변환한다.
 - `X-Request-Id`와 `Retry-After`는 에러 메시지 또는 진단 결과에 보존해 CS 문의와 rate-limit 대응에 사용할 수 있게 한다.
+- rate-limit 대응은 `src-tauri/src/broker/rate_limit.rs`의 `RateLimitScheduler`를 사용한다. Toss client는 auth/account/market/order/order_history group을 분리하고, 응답의 `Retry-After`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`을 scheduler에 반영한다.
+- KIS는 주문 제출부터 `kis:order` group으로 점진 이전한다. 조회 API까지 확장할 때는 TR-ID별로 흩어진 sleep을 추가하지 말고 같은 scheduler group을 사용한다.
 - read-only 연결 진단은 `check_toss_profile_connection` IPC와 `/api/profiles/:id/toss-diagnostic` 웹 REST를 함께 추가한다. 프로파일 lock은 clone까지만 유지하고, OpenAPI/token/accounts/holdings/preflight 네트워크 호출은 lock 밖에서 실행한다.
 - `buying-power`는 KRW/USD를 각각 조회하고, `commissions`는 account 단위로 조회한다. `sellable-quantity`는 symbol이 필수이므로 holdings에 보유 종목이 있을 때 첫 종목으로 확인하고, holdings가 비어 있으면 성공 skip으로 기록한다.
 - `check_toss_order_preflight`는 buy이면 현재 통화의 `buying-power`, sell이면 해당 symbol의 `sellable-quantity`를 조회하고, `commissions.marketCountry`가 현재 market과 일치하는 수수료율을 우선 사용한다. Toss의 `commissionRate`는 percent 문자열로 보고, 추정 수수료 계산에만 사용한다.
+- Toss 주문 adapter를 연결할 때 provider가 `opposite-pending-order-exists`를 반환하면 로컬 pending conflict와 같은 차단 계열로 기록한다. provider 응답을 받기 전에도 로컬 pending scan을 먼저 수행해 같은 symbol의 반대 주문 제출을 막는다.
+- Toss 주문 API surface는 `create_order`, `list_orders`, `get_order`, `modify_order`, `cancel_order`로 나눈다. `TossOrderCreateRequest::with_generated_client_order_id()`가 36자 이하 idempotency key를 생성하고, request type은 `quantity`와 `orderAmount` 중 정확히 하나만 허용한다.
+- Toss 주문 목록/상세는 `toss:order_history`, 생성/정정/취소는 `toss:order` rate group으로 분리한다.
 
-> 마지막 업데이트: 2026-07-03T15:41:19+09:00
+> 마지막 업데이트: 2026-07-03T16:58:38+09:00

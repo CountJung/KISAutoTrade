@@ -15,7 +15,8 @@ import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
 import Divider from '@mui/material/Divider'
-import { useStatsByRange, useTradesByRange } from '../../../api/hooks'
+import { useAppConfig, useStatsByRange, useTradesByRange } from '../../../api/hooks'
+import { BrokerScopeIndicator, ProviderTraceChips } from '../../../shared/ui'
 
 function fmt(n: number) {
   return n.toLocaleString('ko-KR')
@@ -39,6 +40,7 @@ export default function History() {
   const [from, setFrom]   = useState(weekAgo())
   const [to, setTo]       = useState(today())
   const [query, setQuery] = useState<{ from: string; to: string } | null>(null)
+  const { data: appConfig } = useAppConfig()
 
   // ─── 로컬 기록 ──────────────────────────────────────────────────
   const {
@@ -96,11 +98,21 @@ export default function History() {
     return `${sign}${fmt(trade.slippage)}원${bps}`
   }
 
+  const traceOf = (trade: NonNullable<typeof trades>[number]) => ({
+    provider: trade.provider,
+    providerOrderId: trade.provider_order_id ?? trade.order_id,
+    providerRequestId: trade.provider_request_id,
+    providerTrId: trade.provider_tr_id,
+  })
+
   return (
     <Box>
-      <Typography variant="h5" fontWeight={700} mb={3}>
-        History
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
+        <Typography variant="h5" fontWeight={700}>
+          History
+        </Typography>
+        <BrokerScopeIndicator appConfig={appConfig} compact />
+      </Box>
 
       {/* 기간 선택 */}
       <Paper sx={{ p: 2.5, mb: 2 }}>
@@ -175,6 +187,7 @@ export default function History() {
                   <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>금액</TableCell>
                   <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>수수료</TableCell>
                   <TableCell align="right" sx={{ display: { xs: 'none', md: 'table-cell' } }}>슬리피지</TableCell>
+                  <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>Trace</TableCell>
                   <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>전략</TableCell>
                 </TableRow>
               </TableHead>
@@ -189,6 +202,9 @@ export default function History() {
                       <Typography variant="caption" color="text.secondary">
                         {t.symbol}{isOverseasTrade(t) && t.exchange ? ` · ${t.exchange}` : ''}
                       </Typography>
+                      <Box sx={{ display: { xs: 'block', sm: 'none' }, mt: 0.5 }}>
+                        <ProviderTraceChips trace={traceOf(t)} />
+                      </Box>
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -215,8 +231,14 @@ export default function History() {
                         {renderSlippage(t)}
                       </Typography>
                     </TableCell>
+                    <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' }, minWidth: 220 }}>
+                      <ProviderTraceChips trace={traceOf(t)} />
+                    </TableCell>
                     <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                       <Typography variant="caption" noWrap>{t.strategy_id ?? '-'}</Typography>
+                      <Box sx={{ display: { xs: 'block', lg: 'none' }, mt: 0.5 }}>
+                        <ProviderTraceChips trace={traceOf(t)} />
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}

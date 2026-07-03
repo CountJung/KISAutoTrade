@@ -3,7 +3,7 @@
 /// 역할:
 ///  ① 전략 신호(Signal::Buy/Sell) → KIS API place_order() 실행
 ///  ② 미체결 주문 풀(HashMap) 유지 (odno → PendingOrder)
-///  ③ 동일 종목 중복 주문 방지 (symbol_to_odno 맵)
+///  ③ 동일/반대 방향 미체결 주문 방지 (pending scan + symbol_to_odno 맵)
 ///  ④ 체결 이벤트(on_fill) 처리 → 미체결 풀 상태 갱신
 ///     (WebSocket H0STCNI0 수신 또는 폴링에서 호출)
 ///  ⑤ 체결 확인 시 PositionTracker.on_buy/on_sell() 연동
@@ -23,7 +23,7 @@ use crate::{
         KisRestClient, OrderRequest, OrderResponse, OrderSide as RestOrderSide, OrderType,
         OverseasOrderRequest,
     },
-    broker::BrokerScope,
+    broker::{BrokerId, BrokerScope},
     market_hours::is_domestic_symbol,
     notifications::{discord::DiscordNotifier, types::NotificationEvent},
     storage::{
@@ -467,6 +467,11 @@ impl OrderManager {
             OrderSide::Sell => TradeSide::Sell,
         };
         let order_id = pending.record.kis_order_id.clone().unwrap_or_default();
+        let provider_order_id = pending
+            .record
+            .provider_order_id
+            .clone()
+            .or_else(|| Some(order_id.clone()).filter(|id| !id.is_empty()));
         let trade_record = if is_overseas {
             TradeRecord::new_overseas(
                 symbol.clone(),
@@ -486,6 +491,12 @@ impl OrderManager {
                 is_sell.then_some(pnl),
             )
             .with_execution_prices(pending.signal_price, pending.order_price)
+            .with_provider_trace(
+                pending.record.provider.clone(),
+                provider_order_id.clone(),
+                pending.record.provider_request_id.clone(),
+                pending.record.provider_tr_id.clone(),
+            )
         } else {
             TradeRecord::new(
                 symbol.clone(),
@@ -499,7 +510,20 @@ impl OrderManager {
                 pending.signal_reason.clone(), // 체결 원인 (전략 신호 이유)
             )
             .with_execution_prices(pending.signal_price, pending.order_price)
+            .with_provider_trace(
+                pending.record.provider.clone(),
+                provider_order_id.clone(),
+                pending.record.provider_request_id.clone(),
+                pending.record.provider_tr_id.clone(),
+            )
         };
+        tracing::info!(
+            "체결 trace 저장: provider={} tr_id={} order_id={} request_id={}",
+            trade_record.provider.as_deref().unwrap_or("unknown"),
+            trade_record.provider_tr_id.as_deref().unwrap_or("-"),
+            trade_record.provider_order_id.as_deref().unwrap_or("-"),
+            trade_record.provider_request_id.as_deref().unwrap_or("-")
+        );
         if let Err(e) = self.trade_store.append(trade_record).await {
             tracing::error!("TradeStore 저장 실패: {}", e);
         }
@@ -610,6 +634,20 @@ impl OrderManager {
         }
     }
 
+    fn pending_conflict_reason_for_scope(
+        &self,
+        broker_scope: &BrokerScope,
+        symbol: &str,
+        requested_side: &OrderSide,
+    ) -> Option<String> {
+        pending_conflict_reason_for_scope(
+            self.pending.values(),
+            broker_scope,
+            symbol,
+            requested_side,
+        )
+    }
+
     // ── 내부 구현 ────────────────────────────────────────────────────
 
     async fn process_buy(
@@ -634,9 +672,11 @@ impl OrderManager {
             return Ok(());
         }
 
-        // ③ 중복 주문 방지
-        if self.symbol_to_odno.contains_key(&symbol) {
-            tracing::debug!("매수 스킵 — {} 미체결 주문 이미 존재", symbol);
+        // ③ 동일/반대 방향 미체결 주문 방지
+        if let Some(reason) =
+            self.pending_conflict_reason_for_scope(&broker_scope, &symbol, &OrderSide::Buy)
+        {
+            tracing::info!("매수 스킵 — {}", reason);
             return Ok(());
         }
 
@@ -774,10 +814,11 @@ impl OrderManager {
             }
         };
         tracing::info!(
-            "매수 주문 접수: {} {}주 — {} (odno: {})",
+            "매수 주문 접수: {} {}주 — {} (provider=kis tr_id={} odno={})",
             symbol,
             quantity,
             reason,
+            response.tr_id,
             response.odno
         );
 
@@ -809,9 +850,11 @@ impl OrderManager {
         strategy_id: Option<String>,
         broker_scope: BrokerScope,
     ) -> Result<()> {
-        // ③ 중복 주문 방지
-        if self.symbol_to_odno.contains_key(&symbol) {
-            tracing::debug!("매도 스킵 — {} 미체결 주문 이미 존재", symbol);
+        // ③ 동일/반대 방향 미체결 주문 방지
+        if let Some(reason) =
+            self.pending_conflict_reason_for_scope(&broker_scope, &symbol, &OrderSide::Sell)
+        {
+            tracing::info!("매도 스킵 — {}", reason);
             return Ok(());
         }
 
@@ -935,10 +978,11 @@ impl OrderManager {
             }
         };
         tracing::info!(
-            "매도 주문 접수: {} {}주 — {} (odno: {})",
+            "매도 주문 접수: {} {}주 — {} (provider=kis tr_id={} odno={})",
             symbol,
             sell_qty,
             reason,
+            response.tr_id,
             response.odno
         );
 
@@ -986,6 +1030,12 @@ impl OrderManager {
                 "Market"
             }
             .to_string(),
+        )
+        .with_provider_trace(
+            "kis",
+            Some(response.odno.clone()),
+            None,
+            Some(response.tr_id.clone()),
         );
         // KIS 모의투자 환경에서 ondo가 빈 문자열로 반환될 수 있음 → 로컬 UUID로 대체
         let odno = if response.odno.is_empty() {
@@ -994,10 +1044,18 @@ impl OrderManager {
             response.odno
         };
         record.kis_order_id = Some(odno.clone());
+        record.provider_order_id = Some(odno.clone());
 
         if let Err(e) = self.order_store.append(record.clone()).await {
             tracing::error!("주문 기록 저장 실패 (Pending): {}", e);
         }
+
+        tracing::info!(
+            "주문 trace 저장: provider={} tr_id={} order_id={}",
+            record.provider.as_deref().unwrap_or("unknown"),
+            record.provider_tr_id.as_deref().unwrap_or("-"),
+            record.provider_order_id.as_deref().unwrap_or("-")
+        );
 
         self.symbol_to_odno.insert(symbol.clone(), odno.clone());
         let guard_signal = match side {
@@ -1160,15 +1218,45 @@ impl OrderManager {
     /// KIS 당일 체결 내역에서 pending 주문번호를 찾아 실제 체결수량/체결금액으로 반영한다.
     /// 국내는 원화 정수, 해외는 USD × 100(cents) 단위로 `on_fill()`에 전달한다.
     pub async fn confirm_pending_fills_from_broker(&mut self) -> Result<()> {
-        let pending: Vec<(String, String)> = self
+        let pending: Vec<(BrokerId, String, String)> = self
             .pending
             .iter()
-            .map(|(odno, order)| (odno.clone(), order.record.symbol.clone()))
+            .map(|(odno, order)| {
+                (
+                    pending_order_provider(order),
+                    odno.clone(),
+                    order.record.symbol.clone(),
+                )
+            })
             .collect();
         if pending.is_empty() {
             return Ok(());
         }
 
+        let kis_pending: Vec<(String, String)> = pending
+            .iter()
+            .filter(|(broker_id, _, _)| *broker_id == BrokerId::Kis)
+            .map(|(_, odno, symbol)| (odno.clone(), symbol.clone()))
+            .collect();
+        if !kis_pending.is_empty() {
+            self.confirm_kis_pending_fills(kis_pending).await?;
+        }
+
+        let toss_pending = pending
+            .iter()
+            .filter(|(broker_id, _, _)| *broker_id == BrokerId::Toss)
+            .count();
+        if toss_pending > 0 {
+            tracing::warn!(
+                "Toss pending 체결 확인 adapter 미연결 — {}건 스킵 (order detail/list adapter 연결 필요)",
+                toss_pending
+            );
+        }
+
+        Ok(())
+    }
+
+    async fn confirm_kis_pending_fills(&mut self, pending: Vec<(String, String)>) -> Result<()> {
         let client = self.rest_client.read().await.clone();
 
         if pending.iter().any(|(_, symbol)| is_domestic_symbol(symbol)) {
@@ -1305,6 +1393,56 @@ fn daily_order_limit_key(signal: &Signal) -> Option<(&str, DailyOrderSide)> {
     }
 }
 
+fn same_order_side(left: &OrderSide, right: &OrderSide) -> bool {
+    matches!(
+        (left, right),
+        (OrderSide::Buy, OrderSide::Buy) | (OrderSide::Sell, OrderSide::Sell)
+    )
+}
+
+fn pending_order_provider(pending: &PendingOrder) -> BrokerId {
+    match pending.record.provider.as_deref() {
+        Some("toss") => BrokerId::Toss,
+        _ => BrokerId::Kis,
+    }
+}
+
+fn order_side_label(side: &OrderSide) -> &'static str {
+    match side {
+        OrderSide::Buy => "매수",
+        OrderSide::Sell => "매도",
+    }
+}
+
+fn pending_order_conflict_reason(pending: &PendingOrder, requested_side: &OrderSide) -> String {
+    let pending_side = order_side_label(&pending.record.side);
+    let requested_label = order_side_label(requested_side);
+    let odno = pending.record.kis_order_id.as_deref().unwrap_or("unknown");
+
+    if same_order_side(&pending.record.side, requested_side) {
+        format!(
+            "{} {}주 {} 미체결 주문 이미 존재 (odno: {})",
+            pending.record.symbol, pending.record.quantity, pending_side, odno
+        )
+    } else {
+        format!(
+            "{} {}주 {} 미체결 주문 존재 — 요청 {} 차단 (odno: {})",
+            pending.record.symbol, pending.record.quantity, pending_side, requested_label, odno
+        )
+    }
+}
+
+fn pending_conflict_reason_for_scope<'a>(
+    mut pending_orders: impl Iterator<Item = &'a PendingOrder>,
+    broker_scope: &BrokerScope,
+    symbol: &str,
+    requested_side: &OrderSide,
+) -> Option<String> {
+    pending_orders
+        .find(|pending| pending.broker_scope == *broker_scope && pending.record.symbol == symbol)
+        .map(|pending| pending_order_conflict_reason(pending, requested_side))
+}
+
 /// KIS API 응답에서 잔고 부족 오류인지 판별.
 ///
 /// 알려진 KIS 에러코드/메시지:
@@ -1334,4 +1472,98 @@ fn is_paper_unsupported_error(msg: &str) -> bool {
     msg.contains("해당업무가 제공되지 않습니다")
         || msg.contains("모의투자 미지원")
         || msg.contains("PAPER_OVERSEAS_UNSUPPORTED")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::broker::{BrokerAccountId, BrokerId};
+
+    fn scope(broker_id: BrokerId, account_id: &str) -> BrokerScope {
+        BrokerScope::new(broker_id, Some(BrokerAccountId(account_id.to_string())))
+    }
+
+    fn pending_order(side: OrderSide, broker_scope: BrokerScope) -> PendingOrder {
+        let mut record = OrderRecord::new(
+            "005930".to_string(),
+            "삼성전자".to_string(),
+            side,
+            3,
+            0,
+            "Market".to_string(),
+        );
+        record.kis_order_id = Some("ODNO-1".to_string());
+
+        PendingOrder {
+            record,
+            signal_reason: "test".to_string(),
+            strategy_id: Some("strategy".to_string()),
+            signal_price: 75_000,
+            order_price: 0,
+            exchange: None,
+            broker_scope,
+            filled_quantity: 0,
+        }
+    }
+
+    #[test]
+    fn pending_conflict_blocks_opposite_side_in_same_scope() {
+        let broker_scope = scope(BrokerId::Kis, "kis-1");
+        let pending = vec![pending_order(OrderSide::Buy, broker_scope.clone())];
+        let reason = pending_conflict_reason_for_scope(
+            pending.iter(),
+            &broker_scope,
+            "005930",
+            &OrderSide::Sell,
+        )
+        .unwrap();
+
+        assert!(reason.contains("매수 미체결 주문 존재"));
+        assert!(reason.contains("요청 매도 차단"));
+        assert!(reason.contains("ODNO-1"));
+    }
+
+    #[test]
+    fn pending_conflict_blocks_same_side_in_same_scope() {
+        let broker_scope = scope(BrokerId::Kis, "kis-1");
+        let pending = vec![pending_order(OrderSide::Sell, broker_scope.clone())];
+        let reason = pending_conflict_reason_for_scope(
+            pending.iter(),
+            &broker_scope,
+            "005930",
+            &OrderSide::Sell,
+        )
+        .unwrap();
+
+        assert!(reason.contains("매도 미체결 주문 이미 존재"));
+        assert!(reason.contains("ODNO-1"));
+    }
+
+    #[test]
+    fn pending_conflict_scan_ignores_different_scope() {
+        let mut pending = HashMap::new();
+        pending.insert(
+            "ODNO-1".to_string(),
+            pending_order(OrderSide::Buy, scope(BrokerId::Kis, "kis-1")),
+        );
+
+        let requested_scope = scope(BrokerId::Toss, "toss-1");
+        let conflict = pending_conflict_reason_for_scope(
+            pending.values(),
+            &requested_scope,
+            "005930",
+            &OrderSide::Sell,
+        );
+
+        assert!(conflict.is_none());
+    }
+
+    #[test]
+    fn pending_order_provider_uses_provider_trace() {
+        let mut kis_pending = pending_order(OrderSide::Buy, scope(BrokerId::Kis, "kis-1"));
+        assert_eq!(pending_order_provider(&kis_pending), BrokerId::Kis);
+
+        kis_pending.record.provider = Some("toss".to_string());
+        assert_eq!(pending_order_provider(&kis_pending), BrokerId::Toss);
+    }
 }

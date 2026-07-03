@@ -467,159 +467,166 @@ impl AppState {
 
         // 기본 MA 크로스 전략 등록
         let mut strategy_manager = StrategyManager::new();
-        let default_strategy = StrategyConfig {
-            id: "ma_cross_default".to_string(),
-            name: "이동평균 교차 전략".to_string(),
-            enabled: false,
-            target_symbols: vec![],
-            order_quantity: 1,
-            params: serde_json::to_value(MaCrossParams::default()).unwrap_or_default(),
+        let strategy_broker_id = config.broker_id;
+        let strategy_account_id = if config.broker_account_id.is_empty() {
+            None
+        } else {
+            Some(config.broker_account_id.clone())
         };
+        let scoped_strategy =
+            |cfg: StrategyConfig| cfg.with_scope(strategy_broker_id, strategy_account_id.clone());
+        let default_strategy = scoped_strategy(StrategyConfig::new(
+            "ma_cross_default",
+            "이동평균 교차 전략",
+            false,
+            vec![],
+            1,
+            serde_json::to_value(MaCrossParams::default()).unwrap_or_default(),
+        ));
         strategy_manager.add(Box::new(MovingAverageCrossStrategy::new(default_strategy)));
 
         // RSI 전략 (기본 등록, 비활성)
-        let rsi_strategy = StrategyConfig {
-            id: "rsi_default".to_string(),
-            name: "RSI 전략".to_string(),
-            enabled: false,
-            target_symbols: vec![],
-            order_quantity: 1,
-            params: serde_json::to_value(RsiParams::default()).unwrap_or_default(),
-        };
+        let rsi_strategy = scoped_strategy(StrategyConfig::new(
+            "rsi_default",
+            "RSI 전략",
+            false,
+            vec![],
+            1,
+            serde_json::to_value(RsiParams::default()).unwrap_or_default(),
+        ));
         strategy_manager.add(Box::new(RsiStrategy::new(rsi_strategy)));
 
         // 모멘텀 전략 (기본 등록, 비활성)
-        let momentum_strategy = StrategyConfig {
-            id: "momentum_default".to_string(),
-            name: "모멘텀 전략".to_string(),
-            enabled: false,
-            target_symbols: vec![],
-            order_quantity: 1,
-            params: serde_json::to_value(MomentumParams::default()).unwrap_or_default(),
-        };
+        let momentum_strategy = scoped_strategy(StrategyConfig::new(
+            "momentum_default",
+            "모멘텀 전략",
+            false,
+            vec![],
+            1,
+            serde_json::to_value(MomentumParams::default()).unwrap_or_default(),
+        ));
         strategy_manager.add(Box::new(MomentumStrategy::new(momentum_strategy)));
 
         // 이격도 전략 (기본 등록, 비활성)
-        let deviation_strategy = StrategyConfig {
-            id: "deviation_default".to_string(),
-            name: "이격도 전략".to_string(),
-            enabled: false,
-            target_symbols: vec![],
-            order_quantity: 1,
-            params: serde_json::to_value(DeviationParams::default()).unwrap_or_default(),
-        };
+        let deviation_strategy = scoped_strategy(StrategyConfig::new(
+            "deviation_default",
+            "이격도 전략",
+            false,
+            vec![],
+            1,
+            serde_json::to_value(DeviationParams::default()).unwrap_or_default(),
+        ));
         strategy_manager.add(Box::new(DeviationStrategy::new(deviation_strategy)));
 
         // 52주 신고가 전략 (기본 등록, 비활성)
-        let fifty_two_week_high_strategy = StrategyConfig {
-            id: "fifty_two_week_high_default".to_string(),
-            name: "52주 신고가 전략".to_string(),
-            enabled: false,
-            target_symbols: vec![],
-            order_quantity: 1,
-            params: serde_json::to_value(FiftyTwoWeekHighParams::default()).unwrap_or_default(),
-        };
+        let fifty_two_week_high_strategy = scoped_strategy(StrategyConfig::new(
+            "fifty_two_week_high_default",
+            "52주 신고가 전략",
+            false,
+            vec![],
+            1,
+            serde_json::to_value(FiftyTwoWeekHighParams::default()).unwrap_or_default(),
+        ));
         strategy_manager.add(Box::new(FiftyTwoWeekHighStrategy::new(
             fifty_two_week_high_strategy,
         )));
 
         // 연속 상승/하락 전략 (기본 등록, 비활성)
-        let consecutive_move_strategy = StrategyConfig {
-            id: "consecutive_move_default".to_string(),
-            name: "연속 상승/하락 전략".to_string(),
-            enabled: false,
-            target_symbols: vec![],
-            order_quantity: 1,
-            params: serde_json::to_value(ConsecutiveMoveParams::default()).unwrap_or_default(),
-        };
+        let consecutive_move_strategy = scoped_strategy(StrategyConfig::new(
+            "consecutive_move_default",
+            "연속 상승/하락 전략",
+            false,
+            vec![],
+            1,
+            serde_json::to_value(ConsecutiveMoveParams::default()).unwrap_or_default(),
+        ));
         strategy_manager.add(Box::new(ConsecutiveMoveStrategy::new(
             consecutive_move_strategy,
         )));
 
         // 돌파 실패 전략 (기본 등록, 비활성)
-        let failed_breakout_strategy = StrategyConfig {
-            id: "failed_breakout_default".to_string(),
-            name: "돌파 실패 전략".to_string(),
-            enabled: false,
-            target_symbols: vec![],
-            order_quantity: 1,
-            params: serde_json::to_value(FailedBreakoutParams::default()).unwrap_or_default(),
-        };
+        let failed_breakout_strategy = scoped_strategy(StrategyConfig::new(
+            "failed_breakout_default",
+            "돌파 실패 전략",
+            false,
+            vec![],
+            1,
+            serde_json::to_value(FailedBreakoutParams::default()).unwrap_or_default(),
+        ));
         strategy_manager.add(Box::new(FailedBreakoutStrategy::new(
             failed_breakout_strategy,
         )));
 
         // 강한 종가 전략 (기본 등록, 비활성)
-        let strong_close_strategy = StrategyConfig {
-            id: "strong_close_default".to_string(),
-            name: "강한 종가 전략".to_string(),
-            enabled: false,
-            target_symbols: vec![],
-            order_quantity: 1,
-            params: serde_json::to_value(StrongCloseParams::default()).unwrap_or_default(),
-        };
+        let strong_close_strategy = scoped_strategy(StrategyConfig::new(
+            "strong_close_default",
+            "강한 종가 전략",
+            false,
+            vec![],
+            1,
+            serde_json::to_value(StrongCloseParams::default()).unwrap_or_default(),
+        ));
         strategy_manager.add(Box::new(StrongCloseStrategy::new(strong_close_strategy)));
 
         // 변동성 확장 전략 (기본 등록, 비활성)
-        let volatility_expansion_strategy = StrategyConfig {
-            id: "volatility_expansion_default".to_string(),
-            name: "변동성 확장 전략".to_string(),
-            enabled: false,
-            target_symbols: vec![],
-            order_quantity: 1,
-            params: serde_json::to_value(VolatilityExpansionParams::default()).unwrap_or_default(),
-        };
+        let volatility_expansion_strategy = scoped_strategy(StrategyConfig::new(
+            "volatility_expansion_default",
+            "변동성 확장 전략",
+            false,
+            vec![],
+            1,
+            serde_json::to_value(VolatilityExpansionParams::default()).unwrap_or_default(),
+        ));
         strategy_manager.add(Box::new(VolatilityExpansionStrategy::new(
             volatility_expansion_strategy,
         )));
 
         // 평균회귀 전략 (기본 등록, 비활성)
-        let mean_reversion_strategy = StrategyConfig {
-            id: "mean_reversion_default".to_string(),
-            name: "평균회귀 전략 (볼린저 밴드)".to_string(),
-            enabled: false,
-            target_symbols: vec![],
-            order_quantity: 1,
-            params: serde_json::to_value(MeanReversionParams::default()).unwrap_or_default(),
-        };
+        let mean_reversion_strategy = scoped_strategy(StrategyConfig::new(
+            "mean_reversion_default",
+            "평균회귀 전략 (볼린저 밴드)",
+            false,
+            vec![],
+            1,
+            serde_json::to_value(MeanReversionParams::default()).unwrap_or_default(),
+        ));
         strategy_manager.add(Box::new(MeanReversionStrategy::new(
             mean_reversion_strategy,
         )));
 
         // 추세 필터 전략 (기본 등록, 비활성)
-        let trend_filter_strategy = StrategyConfig {
-            id: "trend_filter_default".to_string(),
-            name: "추세 필터 전략".to_string(),
-            enabled: false,
-            target_symbols: vec![],
-            order_quantity: 1,
-            params: serde_json::to_value(TrendFilterParams::default()).unwrap_or_default(),
-        };
+        let trend_filter_strategy = scoped_strategy(StrategyConfig::new(
+            "trend_filter_default",
+            "추세 필터 전략",
+            false,
+            vec![],
+            1,
+            serde_json::to_value(TrendFilterParams::default()).unwrap_or_default(),
+        ));
         strategy_manager.add(Box::new(TrendFilterStrategy::new(trend_filter_strategy)));
 
         // 레버리지 추세 보유 전략 (기본 등록, 비활성)
-        let leveraged_trend_hold_strategy = StrategyConfig {
-            id: "leveraged_trend_hold_default".to_string(),
-            name: "LeveragedTrendHoldStrategy".to_string(),
-            enabled: false,
-            target_symbols: vec![],
-            order_quantity: 1,
-            params: serde_json::to_value(LeveragedTrendHoldParams::default()).unwrap_or_default(),
-        };
+        let leveraged_trend_hold_strategy = scoped_strategy(StrategyConfig::new(
+            "leveraged_trend_hold_default",
+            "LeveragedTrendHoldStrategy",
+            false,
+            vec![],
+            1,
+            serde_json::to_value(LeveragedTrendHoldParams::default()).unwrap_or_default(),
+        ));
         strategy_manager.add(Box::new(LeveragedTrendHoldStrategy::new(
             leveraged_trend_hold_strategy,
         )));
 
         // 가격 조건 매매 전략 (기본 등록, 비활성)
-        let price_condition_strategy = StrategyConfig {
-            id: "price_condition_default".to_string(),
-            name: "가격 조건 매매".to_string(),
-            enabled: false,
-            target_symbols: vec![],
-            order_quantity: 1,
-            params: serde_json::to_value(PriceConditionParams { symbols: vec![] })
-                .unwrap_or_default(),
-        };
+        let price_condition_strategy = scoped_strategy(StrategyConfig::new(
+            "price_condition_default",
+            "가격 조건 매매",
+            false,
+            vec![],
+            1,
+            serde_json::to_value(PriceConditionParams { symbols: vec![] }).unwrap_or_default(),
+        ));
         strategy_manager.add(Box::new(PriceConditionStrategy::new(
             price_condition_strategy,
         )));
@@ -630,14 +637,16 @@ impl AppState {
         // 저장된 전략 설정 로드 (프로파일별, 프로그램 재시작 후 복원)
         if let Some(profile_id) = profiles.active_id.as_deref() {
             let saved = strategy_store.load_sync(profile_id);
-            if !saved.is_empty() {
-                strategy_manager.apply_saved_configs(&saved);
-                tracing::info!(
-                    "전략 설정 복원: 프로파일 '{}', {}개 전략",
-                    profile_id,
-                    saved.len()
-                );
-            }
+            strategy_manager.apply_saved_configs_for_scope(
+                &saved,
+                strategy_broker_id,
+                strategy_account_id.clone(),
+            );
+            tracing::info!(
+                "전략 설정 복원: 프로파일 '{}', {}개 전략",
+                profile_id,
+                saved.len()
+            );
         }
 
         Self {
@@ -1534,17 +1543,27 @@ async fn apply_active_profile(state: &AppState) -> CmdResult<()> {
     *state.rest_client.write().await = new_client;
 
     // 프로파일 전환 시 해당 프로파일의 전략 설정 로드 (재시작 없이도 반영)
+    let active_scope = {
+        let cfg = state.config.read().await.clone();
+        let account_id = if cfg.broker_account_id.is_empty() {
+            None
+        } else {
+            Some(cfg.broker_account_id.clone())
+        };
+        (cfg.broker_id, account_id)
+    };
     if let Some(pid) = &active_id {
         let saved = state.strategy_store.load_sync(pid);
-        if !saved.is_empty() {
-            let mut mgr = state.strategy_manager.lock().await;
-            mgr.apply_saved_configs(&saved);
-            tracing::info!(
-                "프로파일 전환 — 전략 설정 복원: 프로파일 '{}', {}개 전략",
-                pid,
-                saved.len()
-            );
-        }
+        let mut mgr = state.strategy_manager.lock().await;
+        mgr.apply_saved_configs_for_scope(&saved, active_scope.0, active_scope.1.clone());
+        tracing::info!(
+            "프로파일 전환 — 전략 설정 복원: 프로파일 '{}', {}개 전략",
+            pid,
+            saved.len()
+        );
+    } else {
+        let mut mgr = state.strategy_manager.lock().await;
+        mgr.apply_saved_configs_for_scope(&[], active_scope.0, active_scope.1.clone());
     }
 
     tracing::info!("활성 프로파일 적용 완료");
@@ -3988,6 +4007,8 @@ pub struct StrategyView {
     pub id: String,
     pub name: String,
     pub enabled: bool,
+    pub broker_id: BrokerId,
+    pub broker_account_id: Option<String>,
     pub target_symbols: Vec<String>,
     /// 종목코드 → 종목명 (StockStore에서 조회, 없으면 코드 그대로)
     pub target_symbol_names: std::collections::HashMap<String, String>,
@@ -4013,6 +4034,8 @@ pub async fn get_strategies(state: State<'_, AppState>) -> CmdResult<Vec<Strateg
             id: c.id.clone(),
             name: c.name.clone(),
             enabled: c.enabled,
+            broker_id: c.broker_id,
+            broker_account_id: c.broker_account_id.clone(),
             target_symbols: c.target_symbols.clone(),
             target_symbol_names: symbol_names,
             order_quantity: c.order_quantity,
@@ -4037,6 +4060,15 @@ pub async fn update_strategy(
     input: UpdateStrategyInput,
     state: State<'_, AppState>,
 ) -> CmdResult<StrategyView> {
+    let active_scope = {
+        let cfg = state.config.read().await.clone();
+        let account_id = if cfg.broker_account_id.is_empty() {
+            None
+        } else {
+            Some(cfg.broker_account_id.clone())
+        };
+        (cfg.broker_id, account_id)
+    };
     let target_symbols_snapshot = {
         let mut mgr = state.strategy_manager.lock().await;
         let cfg = mgr.get_config_mut(&input.id).ok_or_else(|| CmdError {
@@ -4056,6 +4088,7 @@ pub async fn update_strategy(
         if let Some(params) = input.params {
             cfg.params = params;
         }
+        cfg.set_scope(active_scope.0, active_scope.1.clone());
 
         cfg.target_symbols.clone()
     };
@@ -4085,6 +4118,8 @@ pub async fn update_strategy(
             id: cfg.id.clone(),
             name: cfg.name.clone(),
             enabled: cfg.enabled,
+            broker_id: cfg.broker_id,
+            broker_account_id: cfg.broker_account_id.clone(),
             target_symbols: cfg.target_symbols.clone(),
             target_symbol_names: symbol_names,
             order_quantity: cfg.order_quantity,
@@ -4309,6 +4344,10 @@ pub struct PendingOrderView {
     pub remaining_quantity: u64,
     pub timestamp: String,
     pub signal_reason: String,
+    pub provider: Option<String>,
+    pub provider_order_id: Option<String>,
+    pub provider_request_id: Option<String>,
+    pub provider_tr_id: Option<String>,
 }
 
 #[tauri::command]
@@ -4339,6 +4378,10 @@ pub async fn get_pending_orders(state: State<'_, AppState>) -> CmdResult<Vec<Pen
             remaining_quantity: p.record.quantity.saturating_sub(p.filled_quantity),
             timestamp: p.record.timestamp.clone(),
             signal_reason: p.signal_reason.clone(),
+            provider: p.record.provider.clone(),
+            provider_order_id: p.record.provider_order_id.clone(),
+            provider_request_id: p.record.provider_request_id.clone(),
+            provider_tr_id: p.record.provider_tr_id.clone(),
         })
         .collect();
     Ok(views)

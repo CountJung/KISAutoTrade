@@ -47,11 +47,56 @@ pub struct StrategyConfig {
     pub id: String,
     pub name: String,
     pub enabled: bool,
+    #[serde(default = "default_strategy_broker_id")]
+    pub broker_id: BrokerId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub broker_account_id: Option<String>,
     pub target_symbols: Vec<String>,
     /// 1회 주문 수량
     pub order_quantity: u64,
     // 전략별 파라미터
     pub params: serde_json::Value,
+}
+
+fn default_strategy_broker_id() -> BrokerId {
+    BrokerId::Kis
+}
+
+impl StrategyConfig {
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        enabled: bool,
+        target_symbols: Vec<String>,
+        order_quantity: u64,
+        params: serde_json::Value,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            enabled,
+            broker_id: BrokerId::Kis,
+            broker_account_id: None,
+            target_symbols,
+            order_quantity,
+            params,
+        }
+    }
+
+    pub fn with_scope(mut self, broker_id: BrokerId, broker_account_id: Option<String>) -> Self {
+        self.set_scope(broker_id, broker_account_id);
+        self
+    }
+
+    pub fn set_scope(&mut self, broker_id: BrokerId, broker_account_id: Option<String>) {
+        self.broker_id = broker_id;
+        self.broker_account_id = broker_account_id.filter(|v| !v.trim().is_empty());
+    }
+
+    pub fn matches_scope(&self, broker_id: BrokerId, broker_account_id: Option<&str>) -> bool {
+        self.broker_id == broker_id
+            && self.broker_account_id.as_deref() == broker_account_id.filter(|v| !v.is_empty())
+    }
 }
 
 /// 전략 초기화용 OHLC 캔들.
@@ -349,11 +394,21 @@ impl StrategyManager {
     /// 모든 전략을 기본값(비활성화, 종목 없음)으로 먼저 리셋한 뒤 저장된 설정을 덮어씀.
     /// 저장된 설정이 없는 프로필로 전환할 때 이전 프로필 종목이 잔류하는 버그를 방지함.
     pub fn apply_saved_configs(&mut self, saved: &[StrategyConfig]) {
+        self.apply_saved_configs_for_scope(saved, BrokerId::Kis, None);
+    }
+
+    pub fn apply_saved_configs_for_scope(
+        &mut self,
+        saved: &[StrategyConfig],
+        broker_id: BrokerId,
+        broker_account_id: Option<String>,
+    ) {
         // 1) 모든 전략 기본값으로 초기화 (프로필 전환 시 이전 상태 잔류 방지)
         for s in &mut self.strategies {
             let cfg = s.config_mut();
             cfg.enabled = false;
             cfg.target_symbols = Vec::new();
+            cfg.set_scope(broker_id, broker_account_id.clone());
         }
         // 2) 저장된 설정 적용
         for saved_cfg in saved {
@@ -362,6 +417,7 @@ impl StrategyManager {
                 cfg.target_symbols = saved_cfg.target_symbols.clone();
                 cfg.order_quantity = saved_cfg.order_quantity;
                 cfg.params = saved_cfg.params.clone();
+                cfg.set_scope(broker_id, broker_account_id.clone());
             }
         }
     }
@@ -3070,14 +3126,15 @@ mod tests {
                 is_overseas: true,
             }],
         };
-        let config = StrategyConfig {
-            id: "price_condition_test".into(),
-            name: "가격 조건".into(),
-            enabled: true,
-            target_symbols: vec!["AAPL".into()],
-            order_quantity: 1,
-            params: serde_json::to_value(params).unwrap(),
-        };
+        let config = StrategyConfig::new(
+            "price_condition_test",
+            "가격 조건",
+            true,
+            vec!["AAPL".into()],
+            1,
+            serde_json::to_value(params).unwrap(),
+        )
+        .with_scope(BrokerId::Toss, Some("acct-1".into()));
         let mut manager = StrategyManager::new();
         manager.add(Box::new(PriceConditionStrategy::new(config)));
 
@@ -3095,5 +3152,31 @@ mod tests {
             signals.is_empty(),
             "existing Toss holding should restore in-position state and block duplicate buy"
         );
+    }
+
+    #[test]
+    fn apply_saved_configs_for_scope_resets_previous_profile_and_stamps_scope() {
+        let mut manager = StrategyManager::new();
+        let config = StrategyConfig::new(
+            "ma_cross_default",
+            "이동평균 교차 전략",
+            true,
+            vec!["005930".into()],
+            3,
+            serde_json::to_value(MaCrossParams::default()).unwrap(),
+        )
+        .with_scope(BrokerId::Kis, Some("kis-1".into()));
+        manager.add(Box::new(MovingAverageCrossStrategy::new(config)));
+
+        manager.apply_saved_configs_for_scope(&[], BrokerId::Toss, Some("toss-1".into()));
+
+        let cfg = manager
+            .all_configs()
+            .into_iter()
+            .find(|cfg| cfg.id == "ma_cross_default")
+            .expect("strategy should exist");
+        assert!(!cfg.enabled);
+        assert!(cfg.target_symbols.is_empty());
+        assert!(cfg.matches_scope(BrokerId::Toss, Some("toss-1")));
     }
 }

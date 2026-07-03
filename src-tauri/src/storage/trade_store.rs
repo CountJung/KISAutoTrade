@@ -103,6 +103,18 @@ pub struct TradeRecord {
     /// 신호가 대비 슬리피지 비용(bps). 양수면 불리, 음수면 유리.
     #[serde(default)]
     pub slippage_bps: Option<i32>,
+    /// 원천 provider 식별자 (예: kis, toss)
+    #[serde(default)]
+    pub provider: Option<String>,
+    /// provider가 반환한 주문 ID (KIS odno, Toss order id 등)
+    #[serde(default)]
+    pub provider_order_id: Option<String>,
+    /// provider 원본 요청 추적 ID (Toss requestId, X-Request-Id 등)
+    #[serde(default)]
+    pub provider_request_id: Option<String>,
+    /// provider 요청 TR-ID (KIS TR-ID 등)
+    #[serde(default)]
+    pub provider_tr_id: Option<String>,
 }
 
 impl TradeRecord {
@@ -146,6 +158,10 @@ impl TradeRecord {
             order_price: None,
             slippage: None,
             slippage_bps: None,
+            provider: None,
+            provider_order_id: None,
+            provider_request_id: None,
+            provider_tr_id: None,
         }
     }
 
@@ -198,6 +214,10 @@ impl TradeRecord {
             order_price: None,
             slippage: None,
             slippage_bps: None,
+            provider: None,
+            provider_order_id: None,
+            provider_request_id: None,
+            provider_tr_id: None,
         }
     }
 
@@ -215,6 +235,20 @@ impl TradeRecord {
         } else {
             None
         };
+        self
+    }
+
+    pub fn with_provider_trace(
+        mut self,
+        provider: Option<String>,
+        order_id: Option<String>,
+        request_id: Option<String>,
+        tr_id: Option<String>,
+    ) -> Self {
+        self.provider = provider;
+        self.provider_order_id = order_id;
+        self.provider_request_id = request_id;
+        self.provider_tr_id = tr_id;
         self
     }
 }

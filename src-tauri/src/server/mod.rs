@@ -867,6 +867,8 @@ async fn strategies_handler(State(s): State<ServerState>) -> Json<serde_json::Va
             "id":                cfg.id,
             "name":              cfg.name,
             "enabled":           cfg.enabled,
+            "brokerId":          cfg.broker_id,
+            "brokerAccountId":   cfg.broker_account_id,
             "targetSymbols":     cfg.target_symbols,
             "targetSymbolNames": symbol_names,
             "orderQuantity":     cfg.order_quantity,
@@ -893,6 +895,15 @@ async fn update_strategy_handler(
     Path(id): Path<String>,
     Json(body): Json<UpdateStrategyBody>,
 ) -> Json<serde_json::Value> {
+    let active_scope = {
+        let cfg = s.config.read().await.clone();
+        let account_id = if cfg.broker_account_id.is_empty() {
+            None
+        } else {
+            Some(cfg.broker_account_id.clone())
+        };
+        (cfg.broker_id, account_id)
+    };
     let target_symbols_snapshot = {
         let mut mgr = s.strategy_manager.lock().await;
         let cfg = match mgr.get_config_mut(&id) {
@@ -915,6 +926,7 @@ async fn update_strategy_handler(
         if let Some(p) = body.params {
             cfg.params = p;
         }
+        cfg.set_scope(active_scope.0, active_scope.1.clone());
         cfg.target_symbols.clone()
     };
 
@@ -946,6 +958,8 @@ async fn update_strategy_handler(
             "id":              cfg.id,
             "name":            cfg.name,
             "enabled":         cfg.enabled,
+            "brokerId":        cfg.broker_id,
+            "brokerAccountId": cfg.broker_account_id,
             "targetSymbols":   cfg.target_symbols,
             "targetSymbolNames": symbol_names,
             "orderQuantity":   cfg.order_quantity,
@@ -1161,6 +1175,10 @@ async fn pending_orders_handler(State(s): State<ServerState>) -> Json<serde_json
                 "quantity":     p.record.quantity,
                 "timestamp":    p.record.timestamp,
                 "signalReason": p.signal_reason,
+                "provider":     p.record.provider.clone(),
+                "providerOrderId": p.record.provider_order_id.clone(),
+                "providerRequestId": p.record.provider_request_id.clone(),
+                "providerTrId":  p.record.provider_tr_id.clone(),
             })
         })
         .collect();

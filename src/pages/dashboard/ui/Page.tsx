@@ -61,6 +61,7 @@ import {
   KEYS,
 } from '../../../api/hooks'
 import type { BrokerMoneyView } from '../../../shared/api/types'
+import { BrokerScopeIndicator } from '../../../shared/ui'
 
 function fmt(n: number) {
   return n.toLocaleString('ko-KR')
@@ -813,7 +814,7 @@ export default function Dashboard() {
         </Alert>
       )}
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
         <Typography variant="h5" fontWeight={700}>
           Dashboard
         </Typography>
@@ -822,8 +823,9 @@ export default function Dashboard() {
           color={isRunning ? 'success' : 'default'}
           size="small"
         />
+        <BrokerScopeIndicator appConfig={appConfig} compact />
 
-        <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
+        <Box sx={{ ml: { sm: 'auto' }, display: 'flex', gap: 1 }}>
           {isRunning ? (
             <Button
               variant="outlined"

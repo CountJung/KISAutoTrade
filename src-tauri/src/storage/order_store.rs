@@ -38,6 +38,14 @@ pub struct OrderRecord {
     pub order_type: String,
     pub status: OrderStatus,
     pub kis_order_id: Option<String>,
+    #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub provider_order_id: Option<String>,
+    #[serde(default)]
+    pub provider_request_id: Option<String>,
+    #[serde(default)]
+    pub provider_tr_id: Option<String>,
     pub error_message: Option<String>,
 }
 
@@ -61,8 +69,26 @@ impl OrderRecord {
             order_type,
             status: OrderStatus::Pending,
             kis_order_id: None,
+            provider: None,
+            provider_order_id: None,
+            provider_request_id: None,
+            provider_tr_id: None,
             error_message: None,
         }
+    }
+
+    pub fn with_provider_trace(
+        mut self,
+        provider: impl Into<String>,
+        order_id: Option<String>,
+        request_id: Option<String>,
+        tr_id: Option<String>,
+    ) -> Self {
+        self.provider = Some(provider.into());
+        self.provider_order_id = order_id;
+        self.provider_request_id = request_id;
+        self.provider_tr_id = tr_id;
+        self
     }
 }
 

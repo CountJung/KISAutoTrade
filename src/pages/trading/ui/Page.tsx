@@ -63,6 +63,7 @@ import type {
   TossStockSafetyView,
 } from '../../../api/types'
 import { StockChart, OverseasStockChart } from '../../../widgets/stock-chart'
+import { BrokerScopeIndicator } from '../../../shared/ui'
 
 function fmt(n: number) {
   return n.toLocaleString('ko-KR')
@@ -883,7 +884,10 @@ export default function Trading() {
 
   return (
     <Box>
-      <Typography variant="h5" fontWeight={700} mb={2}>Trading</Typography>
+      <Stack direction="row" alignItems="center" gap={1.5} mb={2} flexWrap="wrap">
+        <Typography variant="h5" fontWeight={700}>Trading</Typography>
+        <BrokerScopeIndicator appConfig={appConfig} compact />
+      </Stack>
 
       {/* 1. 보유 종목 */}
       <Paper sx={{ p: { xs: 1.5, sm: 2.5 }, mb: 2 }}>

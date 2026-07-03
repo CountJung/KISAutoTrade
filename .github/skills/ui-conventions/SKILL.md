@@ -131,6 +131,19 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 />
 ```
 
+### Broker scope 표시
+
+- Dashboard, Trading, Strategy, History처럼 broker/account 혼동이 주문·기록 해석에 영향을 주는 화면은 제목 영역에 `src/shared/ui/BrokerScopeIndicator`를 배치한다.
+- 표시값은 `useAppConfig()`의 `active_broker_id`, `active_profile_name`, `active_broker_account_id`, `kis_is_paper_trading`을 사용한다.
+- 페이지별로 임의 Chip 조합을 새로 만들지 말고 공통 컴포넌트를 재사용해 broker/profile/account 표시 순서와 색상을 유지한다.
+- Strategy 카드처럼 저장 데이터 자체에 broker/account scope가 있는 경우 카드 header에 해당 scope chip을 표시하고, 현재 활성 scope와 다르면 `warning` 색상으로 표시한다.
+
+### Provider trace 표시
+
+- History/Log처럼 provider 문의·디버깅 식별자를 보여주는 화면은 `src/shared/ui/ProviderTraceChips`를 재사용한다.
+- KIS `tr_id`/`odno`, Toss `requestId`/order id는 짧은 chip으로 표시하고 full value는 tooltip에 둔다.
+- 토큰, app secret, 계좌 원문 등 민감 정보는 chip과 로그 메시지에 표시하지 않는다.
+
 ---
 
 ## 5. 차트 컴포넌트 — StockChart
@@ -507,7 +520,7 @@ const { data: stats } = useTodayStats({ refetchInterval: intervalMs })
 </Stack>
 ```
 
-> 마지막 업데이트: 2026-07-03T15:10:01
+> 마지막 업데이트: 2026-07-03T16:35:00+09:00
 
 ---
 
