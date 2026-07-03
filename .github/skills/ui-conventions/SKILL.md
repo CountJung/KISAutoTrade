@@ -404,14 +404,22 @@ useEffect(() => {
 
 ## 해외 잔고 통화 표시 패턴
 
-KIS TTTS3012R은 USD 기준 잔고를 반환한다. KRW 환산은 **하드코딩 상수 금지** — `useExchangeRate()` 훅으로 실시간 환율을 가져온다.
+KIS TTTS3012R은 USD 기준 잔고를 반환한다. KRW 환산은 **하드코딩 상수 금지** — `useExchangeRateStatus()` 또는 호환용 `useExchangeRate()` 훅으로 실시간 환율을 가져온다.
 
 ```tsx
 // ❌ 잘못된 패턴: KRW_RATE 상수 하드코딩
 const KRW_RATE = 1450  // ← 절대 사용 금지
 
-// ✅ 올바른 패턴: 동적 환율 (useExchangeRate 훅)
-const { data: exchangeRateKrw = 1450 } = useExchangeRate()
+// ✅ 올바른 패턴: 동적 환율 + 출처 표시
+const { data: exchangeRateKrwLegacy = 1450 } = useExchangeRate()
+const { data: exchangeRateStatus } = useExchangeRateStatus()
+const exchangeRateKrw = exchangeRateStatus?.rate ?? exchangeRateKrwLegacy
+
+<Chip
+  size="small"
+  label={`USD/KRW ${Math.round(exchangeRateKrw).toLocaleString('ko-KR')} · ${exchangeRateSourceLabel(exchangeRateStatus?.source)}`}
+  color={exchangeRateStatus?.fallbackUsed ? 'warning' : 'default'}
+/>
 
 // USD/KRW 토글 상태 — 상위 컴포넌트에서 관리
 const [overseasCurrency, setOverseasCurrency] = useState<'USD' | 'KRW'>('USD')
@@ -434,13 +442,13 @@ const fmtFx = (usdStr: string) => {
 ```
 
 ❌ **잘못된 패턴**: KRW 환산 시 환율 상수 하드코딩 또는 KRW_RATE 상수 사용  
-✅ **올바른 패턴**: `useExchangeRate()` 훅 → `exchangeRateKrw` (기본값 1450, open.er-api.com에서 REFRESH_INTERVAL_SEC마다 갱신)
+✅ **올바른 패턴**: `useExchangeRateStatus()` 훅 → Toss 활성 프로파일은 Toss `exchange-rate` 우선, 실패 시 open.er-api.com, 둘 다 실패하면 캐시/기본값 1450. 기존 숫자만 필요한 곳은 `useExchangeRate()` 호환 훅 사용 가능.
 
 ---
 
 ## 공통 갱신 주기 패턴 (REFRESH_INTERVAL_SEC)
 
-`REFRESH_INTERVAL_SEC` 환경변수(기본 30초, 최소 5초)로 가격/잔고/환율 전체 갱신 주기를 제어한다.
+`REFRESH_INTERVAL_SEC` 환경변수(기본 30초, 최소 5초)로 가격/잔고/환율 전체 갱신 주기를 제어한다. 환율은 숫자 이벤트 `exchange-rate-updated`와 출처/유효시간 이벤트 `exchange-rate-status-updated`를 함께 발행한다.
 
 ```tsx
 // Dashboard에서 동적 인터벌 사용
@@ -499,7 +507,7 @@ const { data: stats } = useTodayStats({ refetchInterval: intervalMs })
 </Stack>
 ```
 
-> 마지막 업데이트: 2026-04-09T15:00:00
+> 마지막 업데이트: 2026-07-03T15:10:01
 
 ---
 
@@ -527,5 +535,5 @@ UI 규칙:
 - 국내/해외 시장이 다른 선택 종목은 기존 세트에 추가하지 못하게 막는다.
 - `base_symbol_roles`는 `underlying` 또는 `proxy`만 저장한다.
 
-> 마지막 업데이트: 2026-07-02T13:05:00
+> 마지막 업데이트: 2026-07-03T15:10:01
 

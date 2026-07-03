@@ -55,6 +55,7 @@ import {
   useClearEmergencyStop,
   useActivateEmergencyStop,
   useExchangeRate,
+  useExchangeRateStatus,
   useRefreshInterval,
   useClearBuySuspension,
   KEYS,
@@ -81,6 +82,19 @@ function fmtBrokerMoney(money?: BrokerMoneyView | null) {
 
 function brokerMarketLabel(market: 'kr' | 'us') {
   return market === 'kr' ? '국내' : '미국'
+}
+
+function exchangeRateSourceLabel(source?: string) {
+  switch (source) {
+    case 'toss':
+      return 'Toss'
+    case 'externalPublic':
+      return '공개 환율'
+    case 'cachedFallback':
+      return '캐시'
+    default:
+      return '환율'
+  }
 }
 
 function todayStr() {
@@ -714,7 +728,9 @@ export default function Dashboard() {
 
   // ── 공통 갱신 주기 + 실시간 환율 ────────────────────────
   const { data: refreshIntervalSec = 30 } = useRefreshInterval()
-  const { data: exchangeRateKrw = 1450 } = useExchangeRate()
+  const { data: exchangeRateKrwLegacy = 1450 } = useExchangeRate()
+  const { data: exchangeRateStatus } = useExchangeRateStatus()
+  const exchangeRateKrw = exchangeRateStatus?.rate ?? exchangeRateKrwLegacy
   const intervalMs = refreshIntervalSec * 1000
 
   const { data: appConfig } = useAppConfig()
@@ -764,6 +780,7 @@ export default function Dashboard() {
     void qc.invalidateQueries({ queryKey: KEYS.brokerHoldings })
     void qc.invalidateQueries({ queryKey: KEYS.todayStats })
     void qc.invalidateQueries({ queryKey: KEYS.tradingStatus })
+    void qc.invalidateQueries({ queryKey: KEYS.exchangeRateStatus })
   }
 
   return (
@@ -949,6 +966,16 @@ export default function Dashboard() {
       <Paper sx={{ p: 2.5, mb: 2 }}>
         <Stack direction="row" alignItems="center" spacing={1} mb={1.5} flexWrap="wrap">
           <Typography variant="subtitle1" fontWeight={600}>해외 보유주식</Typography>
+          {exchangeRateStatus && (
+            <Tooltip title={exchangeRateStatus.message}>
+              <Chip
+                size="small"
+                label={`USD/KRW ${Math.round(exchangeRateKrw).toLocaleString('ko-KR')} · ${exchangeRateSourceLabel(exchangeRateStatus.source)}`}
+                color={exchangeRateStatus.fallbackUsed ? 'warning' : 'default'}
+                sx={{ height: 20, fontSize: '0.7rem' }}
+              />
+            </Tooltip>
+          )}
           {!overseasLoading && !overseasError && overseasBalance && (
             <Chip
               size="small"

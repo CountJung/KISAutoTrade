@@ -124,6 +124,17 @@ impl TossBrokerAdapter {
             .map_err(BrokerAdapterError::Provider)
     }
 
+    pub async fn get_exchange_rate(
+        &self,
+        base_currency: BrokerCurrency,
+        quote_currency: BrokerCurrency,
+    ) -> BrokerAdapterResult<TossExchangeRateResponse> {
+        self.client
+            .get_exchange_rate(base_currency, quote_currency, None)
+            .await
+            .map_err(BrokerAdapterError::Provider)
+    }
+
     pub async fn get_orderbook(
         &self,
         symbol: &BrokerSymbol,
@@ -489,6 +500,31 @@ impl TossOpenApiClient {
             .map(|response| response.result)
     }
 
+    pub async fn get_exchange_rate(
+        &self,
+        base_currency: BrokerCurrency,
+        quote_currency: BrokerCurrency,
+        date_time: Option<&str>,
+    ) -> anyhow::Result<TossExchangeRateResponse> {
+        if base_currency == quote_currency {
+            return Err(anyhow!(
+                "토스증권 exchange-rate는 기준 통화와 표시 통화가 달라야 합니다"
+            ));
+        }
+        let mut path = format!(
+            "/api/v1/exchange-rate?baseCurrency={}&quoteCurrency={}",
+            toss_currency_code(base_currency),
+            toss_currency_code(quote_currency)
+        );
+        if let Some(date_time) = date_time {
+            path.push_str("&dateTime=");
+            path.push_str(&url_encode(date_time));
+        }
+        self.get_json::<TossApiResponse<TossExchangeRateResponse>>(&path, None, None)
+            .await
+            .map(|response| response.result)
+    }
+
     pub async fn get_orderbook(
         &self,
         symbol: &BrokerSymbol,
@@ -840,6 +876,27 @@ impl TossPriceResponse {
             volume: None,
             raw: serde_json::to_value(self).unwrap_or(serde_json::Value::Null),
         })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossExchangeRateResponse {
+    pub base_currency: String,
+    pub quote_currency: String,
+    pub rate: String,
+    pub mid_rate: String,
+    pub basis_point: String,
+    pub rate_change_type: String,
+    pub valid_from: String,
+    pub valid_until: String,
+}
+
+impl TossExchangeRateResponse {
+    pub fn rate_as_f64(&self) -> anyhow::Result<f64> {
+        self.rate
+            .parse::<f64>()
+            .with_context(|| format!("토스증권 exchange-rate rate 파싱 실패: {}", self.rate))
     }
 }
 
@@ -1475,6 +1532,29 @@ mod tests {
         assert_eq!(orderbook.result.bids[0].volume, "12000");
         assert_eq!(trades.result[0].volume, "120");
         assert_eq!(limits.result.upper_limit_price.as_deref(), Some("93000"));
+    }
+
+    #[test]
+    fn deserializes_exchange_rate_response() {
+        let json = r#"{
+          "result": {
+            "baseCurrency": "USD",
+            "quoteCurrency": "KRW",
+            "rate": "1380.5",
+            "midRate": "1375",
+            "basisPoint": "40",
+            "rateChangeType": "UP",
+            "validFrom": "2026-03-25T09:30:00+09:00",
+            "validUntil": "2026-03-25T09:31:00+09:00"
+          }
+        }"#;
+
+        let rate: TossApiResponse<TossExchangeRateResponse> = serde_json::from_str(json).unwrap();
+
+        assert_eq!(rate.result.base_currency, "USD");
+        assert_eq!(rate.result.quote_currency, "KRW");
+        assert_eq!(rate.result.rate_as_f64().unwrap(), 1380.5);
+        assert_eq!(rate.result.valid_until, "2026-03-25T09:31:00+09:00");
     }
 
     #[test]

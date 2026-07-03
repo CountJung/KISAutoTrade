@@ -32,6 +32,7 @@
 | `get_price` | 종목 현재가 조회 |
 | `get_toss_market_snapshot` | 활성 Toss 프로파일로 현재가/호가/최근 체결/상하한가 read-only snapshot 조회 |
 | `get_toss_stock_safety` | 활성 Toss 프로파일로 종목 기본 정보와 매수 유의사항 조회 (`buyBlocked`, `buyBlockReason`) |
+| `check_toss_order_preflight` | 활성 Toss 프로파일로 주문 전 read-only 검증 (`buyingPower`, `sellableQuantity`, `commissionRate`, `canSubmit=false`) |
 | `get_toss_market_calendar` | 활성 Toss 프로파일로 KR/US 정규장 캘린더 조회 (`regularSession`, `isRegularOpen`) |
 | `get_toss_chart_data` | 활성 Toss 프로파일로 캔들 조회 (`1d`/`1m`, count 1~200, `ChartCandle[]`) |
 | `get_chart_data` | 국내주식 차트 데이터 (일봉) |
@@ -43,7 +44,8 @@
 | `get_today_overseas_executed` | 당일 해외주식 주문체결 내역 (KIS API) |
 | `get_kis_executed_by_range` | KIS API 날짜 범위 체결 조회 |
 | `get_overseas_executed_by_range` | KIS API 날짜 범위 해외주식 주문체결 조회 |
-| `get_exchange_rate` | USD/KRW 환율 조회 (캐시) |
+| `get_exchange_rate` | USD/KRW 환율 조회 (숫자 캐시, 기존 UI 호환) |
+| `get_exchange_rate_status` | USD/KRW 환율 조회 정책/출처 조회 (`source`, `fallbackUsed`, `validFrom`, `validUntil`) |
 | `search_stock` | 종목명/코드 검색 (캐시된 KRX 목록) |
 | `refresh_stock_list` | KRX 종목 목록 강제 갱신 |
 | `get_stock_list_stats` | 종목 목록 통계 |
@@ -110,7 +112,8 @@
 
 | 이벤트명 | 페이로드 | 발행 주체 |
 |---------|--------|---------|
-| `exchange-rate-updated` | `f64` (USD/KRW 환율) | 데몬 4 (환율 갱신) |
+| `exchange-rate-updated` | `f64` (USD/KRW 환율) | 데몬 4 (환율 갱신, 숫자 캐시 호환) |
+| `exchange-rate-status-updated` | `ExchangeRateView` | 데몬 4 (환율 출처/유효시간 갱신) |
 | `balance-updated` | `{ items, summary }` | 데몬 6 (잔고 갱신) |
 | `overseas-balance-updated` | `{ items, summary }` | 데몬 6 (잔고 갱신) |
 | `ws-status` | `WsStatusEvent` | `api/websocket.rs` |

@@ -223,6 +223,9 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
         url: `/api/toss-stock-safety/${encodeURIComponent(String(args.symbol ?? ''))}`,
       }
 
+    case 'check_toss_order_preflight':
+      return { method: 'POST', url: '/api/toss-order-preflight', body: args.input }
+
     case 'get_toss_market_calendar':
       return { method: 'GET', url: '/api/toss-market-calendar' }
 
@@ -255,6 +258,9 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
     // ─── 환율 / 갱신 주기 ────────────────────────────────────────────
     case 'get_exchange_rate':
       return { method: 'GET', url: '/api/exchange-rate' }
+
+    case 'get_exchange_rate_status':
+      return { method: 'GET', url: '/api/exchange-rate/status' }
 
     case 'get_refresh_interval':
       return { method: 'GET', url: '/api/refresh-interval' }

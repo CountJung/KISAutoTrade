@@ -7,6 +7,7 @@
 ///   GET  /api/broker-holdings                 → 활성 broker 보유 종목 JSON
 ///   GET  /api/toss-market-snapshot/:symbol    → Toss 현재가/호가/체결/상하한가 JSON
 ///   GET  /api/toss-stock-safety/:symbol        → Toss 종목 기본 정보/매수 유의사항 JSON
+///   POST /api/toss-order-preflight             → Toss 주문 전 read-only 검증 JSON
 ///   GET  /api/toss-market-calendar             → Toss KR/US 정규장 캘린더 JSON
 ///   GET  /api/toss-chart/:symbol              → Toss candles JSON (?interval=1d&count=200)
 ///   GET  /api/price/:symbol                   → 국내 현재가 JSON
@@ -37,6 +38,7 @@
 ///   GET  /api/check-update                    → 업데이트 확인 (웹 모드: 항상 최신)
 ///   POST /api/web-config/save                 → 웹 포트 저장 (.env WEB_PORT)
 ///   GET  /api/exchange-rate                   → USD/KRW 환율
+///   GET  /api/exchange-rate/status            → USD/KRW 환율 출처/유효시간
 ///   GET  /api/refresh-interval                → 갱신 주기(초)
 ///   POST /api/buy-suspension/clear            → 매수 정지 해제
 ///   POST /api/activate-emergency              → 비상 정지 수동 활성화
@@ -62,7 +64,7 @@ use crate::api::rest::{
     KisRestClient, OrderRequest, OrderSide, OrderType, OverseasOrderRequest, StockSearchItem,
 };
 use crate::broker::BrokerId;
-use crate::commands::{RefreshConfig, TradeArchiveConfig};
+use crate::commands::{ExchangeRateView, RefreshConfig, TradeArchiveConfig};
 use crate::config::{AccountProfile, AppConfig, ProfilesConfig};
 use crate::logging::LogConfig;
 use crate::market;
@@ -119,6 +121,8 @@ struct ServerState {
     discord: Option<Arc<DiscordNotifier>>,
     /// USD/KRW 환율 캐시 (AppState와 Arc 공유)
     exchange_rate_krw: Arc<RwLock<f64>>,
+    /// USD/KRW 환율 출처/유효시간 메타데이터
+    exchange_rate_status: Arc<RwLock<ExchangeRateView>>,
     /// 데이터 갱신 주기 설정 (AppState와 Arc 공유)
     refresh_config: Arc<RwLock<RefreshConfig>>,
 }
@@ -148,6 +152,7 @@ pub async fn start(
     discord: Option<Arc<DiscordNotifier>>,
     exchange_rate_krw: Arc<RwLock<f64>>,
     refresh_config: Arc<RwLock<RefreshConfig>>,
+    exchange_rate_status: Arc<RwLock<ExchangeRateView>>,
 ) {
     let dist_path = web_dist_path();
     let dist_found = dist_path.join("index.html").exists();
@@ -186,6 +191,7 @@ pub async fn start(
         profiles_path,
         discord,
         exchange_rate_krw,
+        exchange_rate_status,
         refresh_config,
     };
 
@@ -267,6 +273,10 @@ pub async fn start(
             "/api/profiles/:id/toss-diagnostic",
             post(toss_profile_diagnostic_handler),
         )
+        .route(
+            "/api/toss-order-preflight",
+            post(toss_order_preflight_handler),
+        )
         // ── 설정 진단 / 감지 ──
         .route("/api/check-config", get(check_config_handler))
         .route(
@@ -290,6 +300,10 @@ pub async fn start(
         .route("/api/web-config/save", post(save_web_config_handler))
         // ── 환율 / 갱신 주기 ──
         .route("/api/exchange-rate", get(exchange_rate_handler))
+        .route(
+            "/api/exchange-rate/status",
+            get(exchange_rate_status_handler),
+        )
         .route("/api/refresh-interval", get(refresh_interval_handler))
         // ── 매수 정지 / 비상 정지 ──
         .route(
@@ -511,6 +525,30 @@ async fn toss_stock_safety_handler(
 
     match crate::commands::get_toss_stock_safety_for_profile(symbol, profile).await {
         Ok(safety) => Json(serde_json::to_value(safety).unwrap_or_default()),
+        Err(e) => Json(serde_json::json!({
+            "code": e.code,
+            "error": e.message,
+        })),
+    }
+}
+
+async fn toss_order_preflight_handler(
+    State(s): State<ServerState>,
+    Json(input): Json<crate::commands::TossOrderPreflightInput>,
+) -> Json<serde_json::Value> {
+    let profile = {
+        let profiles = s.profiles.read().await;
+        profiles.get_active().cloned()
+    };
+    let Some(profile) = profile else {
+        return Json(serde_json::json!({
+            "code": "CONFIG_NOT_READY",
+            "error": "활성 프로파일이 없습니다.",
+        }));
+    };
+
+    match crate::commands::check_toss_order_preflight_for_profile(input, profile).await {
+        Ok(preflight) => Json(serde_json::to_value(preflight).unwrap_or_default()),
         Err(e) => Json(serde_json::json!({
             "code": e.code,
             "error": e.message,
@@ -1940,6 +1978,15 @@ async fn save_web_config_handler(
 /// GET /api/exchange-rate
 async fn exchange_rate_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
     Json(serde_json::json!(*s.exchange_rate_krw.read().await))
+}
+
+/// GET /api/exchange-rate/status
+async fn exchange_rate_status_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    Json(
+        serde_json::to_value(s.exchange_rate_status.read().await.clone()).unwrap_or_else(
+            |e| serde_json::json!({ "error": format!("환율 상태 직렬화 실패: {}", e) }),
+        ),
+    )
 }
 
 /// GET /api/refresh-interval

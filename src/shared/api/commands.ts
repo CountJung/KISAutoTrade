@@ -17,6 +17,7 @@ import type {
   ConfigDiagnostic,
   DailyStats,
   DetectTradingTypeResult,
+  ExchangeRateView,
   ExecutedOrder,
   FrontendLogInput,
   LogConfig,
@@ -40,6 +41,8 @@ import type {
   TossConnectionDiagnostic,
   TossMarketCalendarView,
   TossMarketSnapshotView,
+  TossOrderPreflightInput,
+  TossOrderPreflightView,
   TossStockSafetyView,
   TradingStatus,
   UpdateInfo,
@@ -222,6 +225,10 @@ export const getTossMarketSnapshot = (symbol: string): Promise<TossMarketSnapsho
 export const getTossStockSafety = (symbol: string): Promise<TossStockSafetyView> =>
   invoke('get_toss_stock_safety', { symbol })
 
+/** 활성 Toss 프로파일로 buying-power/sellable-quantity/commissions 기반 주문 전 검증 */
+export const checkTossOrderPreflight = (input: TossOrderPreflightInput): Promise<TossOrderPreflightView> =>
+  invoke('check_toss_order_preflight', { input })
+
 /** 활성 Toss 프로파일로 KR/US 정규장 캘린더 조회 */
 export const getTossMarketCalendar = (): Promise<TossMarketCalendarView> =>
   invoke('get_toss_market_calendar')
@@ -269,6 +276,10 @@ export const getPendingOrders = (): Promise<PendingOrderView[]> =>
 /** 현재 USD/KRW 환율 조회 (캐시, REFRESH_INTERVAL_SEC마다 갱신) */
 export const getExchangeRate = (): Promise<number> =>
   invoke('get_exchange_rate')
+
+/** 현재 USD/KRW 환율 조회 정책과 출처/유효시간 */
+export const getExchangeRateStatus = (): Promise<ExchangeRateView> =>
+  invoke('get_exchange_rate_status')
 
 /** 데이터 갱신 주기 조회 (초) — refresh_config.interval_sec */
 export const getRefreshInterval = (): Promise<number> =>

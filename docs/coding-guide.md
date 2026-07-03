@@ -762,29 +762,33 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 - 자동매매 시작 시 `trading_profile_id`, `trading_broker_id`, `trading_account_id`를 스냅샷으로 저장한다. 실행 중 프로파일 전환이 있어도 주문 경로가 섞이지 않게 하기 위한 값이다.
 - `start_trading()`은 같은 스냅샷으로 `OrderManager::set_execution_scope()`를 호출한다. 이후 `TradeGuard`, `RiskManager`, `PendingOrder`는 같은 `BrokerScope`를 공유한다.
 - 자동매매 주문 경로에서는 scope 없는 `TradeGuard::evaluate()`나 `RiskManager::daily_order_limit_reason()` 대신 `*_for_scope()` 메서드를 호출한다. scope 없는 메서드는 기존 테스트/호출부 하위 호환용이다.
-- 토스 자동매매는 실제 주문/체결 adapter가 준비되기 전까지 `BROKER_NOT_SUPPORTED`로 차단한다.
+- 토스 자동매매는 실제 주문/체결 adapter가 준비되기 전까지 `BROKER_NOT_SUPPORTED`로 차단한다. 단, `start_trading()`은 차단 전에 Toss holdings를 읽어 전략 내부 포지션 상태를 복원할 수 있다.
 
 ### 구현 순서
 
 1. read-only 기능부터 adapter에 붙인다: OpenAPI version 진단, token 발급 진단, accounts 조회, holdings 조회.
-2. 주문 전 검증 API(`buying-power`, `sellable-quantity`, `commissions`)를 `TradeGuard`/`RiskManager` 앞단에 연결한다.
+2. 주문 전 검증 API(`buying-power`, `sellable-quantity`, `commissions`)는 `trading/preflight.rs`의 공통 판정 함수와 `check_toss_order_preflight` IPC/REST로 연결한다. 실제 Toss 주문 adapter가 없으면 `orderAdapterSupported=false`, `canSubmit=false`를 유지한다.
 3. 실제 주문 생성은 `clientOrderId` 발급, rate-limit backoff, error envelope 파싱, 소액 검증 체크리스트가 모두 준비된 뒤 자동매매 경로에 연결한다.
 
 ### Toss read-only client 규칙
 
 - `POST /oauth2/token`은 `application/x-www-form-urlencoded`로 호출한다. refresh token은 없으므로 만료 또는 401 시 access token을 1회 재발급한다.
 - `/api/v1/accounts`에서 받은 `accountSeq` 문자열을 `BrokerAccountId`로 다루고, holdings 조회 시 `X-Tossinvest-Account` 헤더로 보낸다.
-- holdings 매핑은 `BrokerHolding`까지 허용한다. 주문/체결 adapter가 준비되기 전에는 자동매매와 수동 주문 IPC에 연결하지 않는다.
+- holdings 매핑은 `BrokerHolding`까지 허용한다. 주문/체결 adapter가 준비되기 전에는 수동 주문 IPC나 실제 자동매매 주문 실행에 연결하지 않는다. 자동매매 시작 전 전략 상태 복원에는 `BrokerPositionSnapshot`으로만 사용한다.
 - Dashboard/REST/IPC에 holdings를 노출할 때는 `BrokerHoldingView`처럼 `raw`를 제거한 view 타입을 사용한다. `BrokerMoney`/`BrokerQuantity` 문자열은 view에서도 보존하고, 화면 표시 시에만 locale 포맷을 적용한다.
 - market data는 `prices`, `orderbook`, `trades`, `price-limits`, `candles` read-only 메서드부터 붙인다. `prices`는 `BrokerPriceQuote`, `candles`는 `BrokerCandle`로 매핑하고, orderbook/trades/price-limits는 Toss 원본 문자열 decimal 타입을 보존한다.
 - stock info는 `stocks`, `stocks/{symbol}/warnings` read-only 메서드로 붙인다. warning code는 공식 스펙상 unknown code 허용이므로 enum으로 닫지 말고 문자열로 보존한다.
 - market-calendar는 `market-calendar/KR`, `market-calendar/US` read-only 메서드로 붙인다. KR의 `today.integrated.regularMarket`과 US의 `today.regularMarket`이 있으면 `MarketCalendarOverride`로 변환해 장 시간 판단에 우선 사용하고, calendar가 없거나 조회 실패하면 기존 KST 하드코딩 fallback을 유지한다.
+- exchange-rate는 `baseCurrency=USD`, `quoteCurrency=KRW`로 조회해 Toss 활성 프로파일의 USD/KRW 참고 환율로 우선 사용한다. 실패하면 기존 공개 환율 API(open.er-api.com), 그마저 실패하면 마지막 `AppState.exchange_rate_krw` 캐시/기본값을 유지한다.
+- Toss holdings 기반 포지션 복원은 `marketCountry`/`currency`로 국내와 해외 tracker를 분리한다. KRW 평균가는 원 단위, USD 평균가는 cents 단위로 변환하고, decimal 수량은 in-position 복원 목적상 양수면 최소 1 단위로 snapshot에 반영한다.
 - 공식 스펙 범위는 client에서 선검증한다: prices/stocks 최대 200 symbols, trades count 1~50, candles interval `1m`/`1d`, candles count 1~200.
 - Trading UI에 Toss 시세/종목 유의사항/장 운영 정보를 노출할 때는 활성 Toss 프로파일에서 `get_toss_market_snapshot`, `get_toss_stock_safety`, `get_toss_market_calendar`, `get_toss_chart_data`만 호출하고, KIS `get_price`, `get_overseas_price`, KIS 차트, 수동 주문 호출은 read-only 차단 상태로 둔다.
 - Toss warnings UI는 `get_toss_stock_safety`/`/api/toss-stock-safety/:symbol`/`useTossStockSafety()` 경로로 연결한다. `buyBlocked`와 `buyBlockReason`은 실제 주문 adapter 연결 전까지 read-only 주문 전 경고로만 사용한다.
+- Toss 주문 전 검증 UI는 `check_toss_order_preflight`/`/api/toss-order-preflight`/`useTossOrderPreflight()` 경로로 연결한다. 수량 입력 시 주문금액, 필요 현금, 매수가능금액/매도가능수량, 수수료율, 차단 사유를 표시하되 주문 버튼은 Toss 주문 adapter와 소액 검증 gate 전까지 비활성으로 둔다.
 - Toss candles UI는 기존 `ChartCandle[]`/`StockChart`를 재사용하되 `source="toss"`로 분기한다. 일봉은 `YYYYMMDD`, 1분봉은 provider timestamp를 lightweight-charts `Time`으로 변환한다.
 - `X-Request-Id`와 `Retry-After`는 에러 메시지 또는 진단 결과에 보존해 CS 문의와 rate-limit 대응에 사용할 수 있게 한다.
 - read-only 연결 진단은 `check_toss_profile_connection` IPC와 `/api/profiles/:id/toss-diagnostic` 웹 REST를 함께 추가한다. 프로파일 lock은 clone까지만 유지하고, OpenAPI/token/accounts/holdings/preflight 네트워크 호출은 lock 밖에서 실행한다.
 - `buying-power`는 KRW/USD를 각각 조회하고, `commissions`는 account 단위로 조회한다. `sellable-quantity`는 symbol이 필수이므로 holdings에 보유 종목이 있을 때 첫 종목으로 확인하고, holdings가 비어 있으면 성공 skip으로 기록한다.
+- `check_toss_order_preflight`는 buy이면 현재 통화의 `buying-power`, sell이면 해당 symbol의 `sellable-quantity`를 조회하고, `commissions.marketCountry`가 현재 market과 일치하는 수수료율을 우선 사용한다. Toss의 `commissionRate`는 percent 문자열로 보고, 추정 수수료 계산에만 사용한다.
 
-> 마지막 업데이트: 2026-07-03T14:54:52
+> 마지막 업데이트: 2026-07-03T15:41:19+09:00

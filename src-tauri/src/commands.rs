@@ -15,9 +15,9 @@ use tauri::State;
 use tokio::sync::{watch, Mutex, RwLock};
 
 use crate::broker::toss::{
-    TossKrMarketCalendarResponse, TossMarketSession, TossOrderbookEntry, TossOrderbookResponse,
-    TossPriceLimitResponse, TossStockInfo, TossStockWarning, TossTrade,
-    TossUsMarketCalendarResponse,
+    TossCommission, TossExchangeRateResponse, TossKrMarketCalendarResponse, TossMarketSession,
+    TossOrderbookEntry, TossOrderbookResponse, TossPriceLimitResponse, TossStockInfo,
+    TossStockWarning, TossTrade, TossUsMarketCalendarResponse,
 };
 use crate::{
     api::{
@@ -30,7 +30,8 @@ use crate::{
     },
     broker::{
         BrokerAccountId, BrokerAdapter, BrokerCurrency, BrokerHolding, BrokerId, BrokerMarket,
-        BrokerMoney, BrokerScope, BrokerSymbol, KisBrokerAdapter, TossBrokerAdapter,
+        BrokerMoney, BrokerOrderSide, BrokerQuantity, BrokerScope, BrokerSymbol, KisBrokerAdapter,
+        TossBrokerAdapter,
     },
     config::{AccountProfile, AppConfig, DiscordConfig, ProfilesConfig},
     logging::LogConfig,
@@ -49,16 +50,20 @@ use crate::{
     trading::{
         order::OrderManager,
         position::{OverseasPositionTracker, Position, PositionTracker},
+        preflight::{
+            evaluate_order_preflight, format_money_amount, parse_decimal_amount,
+            OrderPreflightConstraints, OrderPreflightInput,
+        },
         risk::RiskManager,
         strategy::{
-            ConsecutiveMoveParams, ConsecutiveMoveStrategy, DeviationParams, DeviationStrategy,
-            FailedBreakoutParams, FailedBreakoutStrategy, FiftyTwoWeekHighParams,
-            FiftyTwoWeekHighStrategy, LeveragedTrendHoldParams, LeveragedTrendHoldStrategy,
-            MaCrossParams, MeanReversionParams, MeanReversionStrategy, MomentumParams,
-            MomentumStrategy, MovingAverageCrossStrategy, OhlcCandle, PriceConditionParams,
-            PriceConditionStrategy, RsiParams, RsiStrategy, StrategyConfig, StrategyManager,
-            StrongCloseParams, StrongCloseStrategy, TrendFilterParams, TrendFilterStrategy,
-            VolatilityExpansionParams, VolatilityExpansionStrategy,
+            BrokerPositionSnapshot, ConsecutiveMoveParams, ConsecutiveMoveStrategy,
+            DeviationParams, DeviationStrategy, FailedBreakoutParams, FailedBreakoutStrategy,
+            FiftyTwoWeekHighParams, FiftyTwoWeekHighStrategy, LeveragedTrendHoldParams,
+            LeveragedTrendHoldStrategy, MaCrossParams, MeanReversionParams, MeanReversionStrategy,
+            MomentumParams, MomentumStrategy, MovingAverageCrossStrategy, OhlcCandle,
+            PriceConditionParams, PriceConditionStrategy, RsiParams, RsiStrategy, StrategyConfig,
+            StrategyManager, StrongCloseParams, StrongCloseStrategy, TrendFilterParams,
+            TrendFilterStrategy, VolatilityExpansionParams, VolatilityExpansionStrategy,
         },
     },
 };
@@ -136,6 +141,93 @@ impl RefreshConfig {
             .unwrap_or(env_fallback)
             .clamp(5, 3600);
         Self { interval_sec }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ExchangeRateSource {
+    Toss,
+    ExternalPublic,
+    CachedFallback,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExchangeRateView {
+    pub rate: f64,
+    pub source: ExchangeRateSource,
+    pub fallback_used: bool,
+    pub base_currency: String,
+    pub quote_currency: String,
+    pub rate_text: String,
+    pub mid_rate: Option<String>,
+    pub basis_point: Option<String>,
+    pub rate_change_type: Option<String>,
+    pub valid_from: Option<String>,
+    pub valid_until: Option<String>,
+    pub updated_at: String,
+    pub message: String,
+}
+
+impl ExchangeRateView {
+    fn default_krw() -> Self {
+        Self::cached_fallback(1450.0, "앱 기본 USD/KRW 환율 1450원을 사용합니다.".into())
+    }
+
+    fn cached_fallback(rate: f64, message: String) -> Self {
+        Self {
+            rate,
+            source: ExchangeRateSource::CachedFallback,
+            fallback_used: true,
+            base_currency: "USD".into(),
+            quote_currency: "KRW".into(),
+            rate_text: format!("{rate:.4}"),
+            mid_rate: None,
+            basis_point: None,
+            rate_change_type: None,
+            valid_from: None,
+            valid_until: None,
+            updated_at: chrono::Utc::now().to_rfc3339(),
+            message,
+        }
+    }
+
+    fn external_public(rate: f64) -> Self {
+        Self {
+            rate,
+            source: ExchangeRateSource::ExternalPublic,
+            fallback_used: false,
+            base_currency: "USD".into(),
+            quote_currency: "KRW".into(),
+            rate_text: format!("{rate:.4}"),
+            mid_rate: None,
+            basis_point: None,
+            rate_change_type: None,
+            valid_from: None,
+            valid_until: None,
+            updated_at: chrono::Utc::now().to_rfc3339(),
+            message: "공개 환율 API(open.er-api.com) USD/KRW 캐시입니다.".into(),
+        }
+    }
+
+    fn toss(value: TossExchangeRateResponse) -> anyhow::Result<Self> {
+        let rate = value.rate_as_f64()?;
+        Ok(Self {
+            rate,
+            source: ExchangeRateSource::Toss,
+            fallback_used: false,
+            base_currency: value.base_currency,
+            quote_currency: value.quote_currency,
+            rate_text: value.rate,
+            mid_rate: Some(value.mid_rate),
+            basis_point: Some(value.basis_point),
+            rate_change_type: Some(value.rate_change_type),
+            valid_from: Some(value.valid_from),
+            valid_until: Some(value.valid_until),
+            updated_at: chrono::Utc::now().to_rfc3339(),
+            message: "토스증권 exchange-rate USD/KRW 참고 환율입니다.".into(),
+        })
     }
 }
 
@@ -319,6 +411,8 @@ pub struct AppState {
     pub trading_account_id: Arc<RwLock<Option<String>>>,
     /// USD/KRW 환율 캐시 (refresh_interval_sec마다 백그라운드 갱신, 기본 1450원)
     pub exchange_rate_krw: Arc<RwLock<f64>>,
+    /// USD/KRW 환율 출처/유효시간 메타데이터
+    pub exchange_rate_status: Arc<RwLock<ExchangeRateView>>,
     /// 데이터 갱신 주기 설정 (UI에서 변경 가능, JSON 영구 저장)
     pub refresh_config: Arc<RwLock<RefreshConfig>>,
     /// 갱신 주기 변경을 백그라운드 데몬에 전달하는 채널 (설정 저장 시 즉시 적용)
@@ -354,6 +448,7 @@ impl AppState {
         let position_tracker = Arc::new(Mutex::new(PositionTracker::new()));
         let overseas_position_tracker = Arc::new(Mutex::new(OverseasPositionTracker::new()));
         let exchange_rate_krw = Arc::new(RwLock::new(1450.0_f64));
+        let exchange_rate_status = Arc::new(RwLock::new(ExchangeRateView::default_krw()));
 
         // rest_client를 RwLock으로 감싸서 OrderManager와 공유
         let rest_client_rw = Arc::new(RwLock::new(rest_client));
@@ -576,6 +671,7 @@ impl AppState {
             trading_broker_id: Arc::new(RwLock::new(None)),
             trading_account_id: Arc::new(RwLock::new(None)),
             exchange_rate_krw,
+            exchange_rate_status,
             refresh_config: Arc::new(RwLock::new(refresh_config)),
             refresh_interval_tx: Arc::new(refresh_interval_tx),
         }
@@ -602,6 +698,22 @@ fn usd_to_cents(value: &str) -> u64 {
         .parse::<f64>()
         .map(|v| (v * 100.0).round() as u64)
         .unwrap_or(0)
+}
+
+fn decimal_quantity_to_position_units(value: &str) -> u64 {
+    let parsed = parse_amount_f64(value);
+    if parsed <= 0.0 {
+        0
+    } else {
+        parsed.floor().max(1.0) as u64
+    }
+}
+
+fn broker_money_to_strategy_price_units(money: &BrokerMoney) -> u64 {
+    match money.currency {
+        BrokerCurrency::Krw => parse_amount_f64(&money.amount).round().max(0.0) as u64,
+        BrokerCurrency::Usd => usd_to_cents(&money.amount),
+    }
 }
 
 fn normalize_overseas_order_exchange(code: &str) -> String {
@@ -2170,6 +2282,237 @@ pub async fn get_toss_market_snapshot(
     get_toss_market_snapshot_for_profile(symbol, profile).await
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct TossOrderPreflightInput {
+    pub symbol: String,
+    pub side: String,
+    pub quantity: String,
+    pub price: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossOrderPreflightView {
+    pub broker_id: BrokerId,
+    pub account_seq: String,
+    pub symbol: String,
+    pub market: BrokerMarket,
+    pub side: BrokerOrderSide,
+    pub quantity: String,
+    pub price: BrokerMoneyView,
+    pub price_source: String,
+    pub buying_power: Option<BrokerMoneyView>,
+    pub sellable_quantity: Option<String>,
+    pub commission_rate: Option<String>,
+    pub gross_amount: BrokerMoneyView,
+    pub estimated_commission: Option<BrokerMoneyView>,
+    pub required_cash: Option<BrokerMoneyView>,
+    pub liquidity_ok: bool,
+    pub safety_ok: bool,
+    pub order_adapter_supported: bool,
+    pub can_submit: bool,
+    pub blocked_reasons: Vec<String>,
+    pub warnings: Vec<String>,
+}
+
+fn parse_toss_order_side(side: &str) -> CmdResult<BrokerOrderSide> {
+    match side.trim().to_ascii_lowercase().as_str() {
+        "buy" => Ok(BrokerOrderSide::Buy),
+        "sell" => Ok(BrokerOrderSide::Sell),
+        other => Err(CmdError {
+            code: "INVALID_SIDE".into(),
+            message: format!("알 수 없는 Toss 주문 방향: {other}"),
+        }),
+    }
+}
+
+fn toss_currency_from_view(money: &BrokerMoneyView) -> BrokerCurrency {
+    money.currency
+}
+
+fn toss_market_country(market: BrokerMarket) -> &'static str {
+    match market {
+        BrokerMarket::Kr => "KR",
+        BrokerMarket::Us => "US",
+    }
+}
+
+fn select_toss_commission<'a>(
+    commissions: &'a [TossCommission],
+    market: BrokerMarket,
+) -> Option<&'a TossCommission> {
+    let country = toss_market_country(market);
+    commissions
+        .iter()
+        .find(|commission| commission.market_country.eq_ignore_ascii_case(country))
+        .or_else(|| commissions.first())
+}
+
+pub async fn check_toss_order_preflight_for_profile(
+    input: TossOrderPreflightInput,
+    profile: AccountProfile,
+) -> CmdResult<TossOrderPreflightView> {
+    if profile.broker_id != BrokerId::Toss {
+        return Err(CmdError {
+            code: "BROKER_NOT_SUPPORTED".into(),
+            message: "Toss 주문 전 검증은 Toss 활성 프로파일에서만 사용할 수 있습니다.".into(),
+        });
+    }
+
+    let account_seq = profile.broker_account_id();
+    if account_seq.trim().is_empty() {
+        return Err(CmdError {
+            code: "CONFIG_NOT_READY".into(),
+            message: "토스증권 accountSeq가 설정되지 않았습니다.".into(),
+        });
+    }
+
+    let symbol = normalize_toss_symbol(input.symbol)?;
+    let side = parse_toss_order_side(&input.side)?;
+    let quantity = input.quantity.trim().replace(',', "");
+    if parse_decimal_amount(&quantity).unwrap_or(0.0) <= 0.0 {
+        return Err(CmdError {
+            code: "INVALID_QUANTITY".into(),
+            message: "Toss 주문 전 검증 수량은 0보다 커야 합니다.".into(),
+        });
+    }
+
+    let adapter = TossBrokerAdapter::with_credentials(
+        TossBrokerAdapter::DEFAULT_BASE_URL,
+        profile.app_key.clone(),
+        profile.app_secret.clone(),
+        Some(account_seq.clone()),
+    );
+
+    let snapshot = get_toss_market_snapshot_for_profile(symbol.clone(), profile.clone()).await?;
+    let safety = get_toss_stock_safety_for_profile(symbol.clone(), profile).await?;
+    let currency = toss_currency_from_view(&snapshot.price);
+    let input_price = input.price.as_deref().and_then(parse_decimal_amount);
+    let snapshot_price = parse_decimal_amount(&snapshot.price.amount).unwrap_or(0.0);
+    let (price_amount, price_source) = match input_price.filter(|value| *value > 0.0) {
+        Some(value) => (format_money_amount(value, currency), "input".to_string()),
+        None => (
+            format_money_amount(snapshot_price, currency),
+            "snapshot".to_string(),
+        ),
+    };
+    let price = BrokerMoney {
+        amount: price_amount,
+        currency,
+    };
+
+    let commissions = adapter
+        .list_commissions(Some(&account_seq))
+        .await
+        .map_err(|e| CmdError {
+            code: "TOSS_PREFLIGHT_COMMISSIONS_ERROR".into(),
+            message: e.to_string(),
+        })?;
+    let commission_rate = select_toss_commission(&commissions, snapshot.market)
+        .map(|commission| commission.commission_rate.clone());
+
+    let (buying_power, sellable_quantity) = match side {
+        BrokerOrderSide::Buy => {
+            let power = adapter
+                .get_buying_power(Some(&account_seq), currency)
+                .await
+                .map_err(|e| CmdError {
+                    code: "TOSS_PREFLIGHT_BUYING_POWER_ERROR".into(),
+                    message: e.to_string(),
+                })?
+                .money()
+                .map_err(|e| CmdError {
+                    code: "TOSS_PREFLIGHT_BUYING_POWER_MAPPING_ERROR".into(),
+                    message: e.to_string(),
+                })?;
+            (Some(power), None)
+        }
+        BrokerOrderSide::Sell => {
+            let qty = adapter
+                .get_sellable_quantity(Some(&account_seq), &BrokerSymbol(symbol.clone()))
+                .await
+                .map_err(|e| CmdError {
+                    code: "TOSS_PREFLIGHT_SELLABLE_ERROR".into(),
+                    message: e.to_string(),
+                })?
+                .quantity();
+            (None, Some(qty))
+        }
+    };
+
+    let decision = evaluate_order_preflight(
+        &OrderPreflightInput {
+            side,
+            quantity: BrokerQuantity(quantity.clone()),
+            price: price.clone(),
+        },
+        &OrderPreflightConstraints {
+            buying_power: buying_power.clone(),
+            sellable_quantity: sellable_quantity.clone(),
+            commission_rate_percent: commission_rate.clone(),
+        },
+    );
+
+    let mut blocked_reasons = decision.blocked_reasons;
+    if let Some(reason) = safety.buy_block_reason.as_ref() {
+        if side == BrokerOrderSide::Buy {
+            blocked_reasons.push(reason.clone());
+        }
+    }
+
+    let mut warnings = Vec::new();
+    if commission_rate.is_none() {
+        warnings
+            .push("시장과 일치하는 Toss 수수료 정책을 찾지 못해 수수료 0으로 추정했습니다.".into());
+    }
+    warnings.push("Toss 주문 생성 adapter는 아직 소액 검증 gate 전이라 제출이 차단됩니다.".into());
+
+    let safety_ok = !(side == BrokerOrderSide::Buy && safety.buy_blocked);
+    let order_adapter_supported = false;
+    let liquidity_ok = decision.liquidity_ok;
+    let can_submit = liquidity_ok && safety_ok && order_adapter_supported;
+
+    Ok(TossOrderPreflightView {
+        broker_id: BrokerId::Toss,
+        account_seq,
+        symbol,
+        market: snapshot.market,
+        side,
+        quantity,
+        price: price.into(),
+        price_source,
+        buying_power: buying_power.map(Into::into),
+        sellable_quantity: sellable_quantity.map(|quantity| quantity.0),
+        commission_rate,
+        gross_amount: decision.gross_amount.into(),
+        estimated_commission: decision.estimated_commission.map(Into::into),
+        required_cash: decision.required_cash.map(Into::into),
+        liquidity_ok,
+        safety_ok,
+        order_adapter_supported,
+        can_submit,
+        blocked_reasons,
+        warnings,
+    })
+}
+
+#[tauri::command]
+pub async fn check_toss_order_preflight(
+    input: TossOrderPreflightInput,
+    state: State<'_, AppState>,
+) -> CmdResult<TossOrderPreflightView> {
+    let profile = {
+        let profiles = state.profiles.read().await;
+        profiles.get_active().cloned()
+    }
+    .ok_or_else(|| CmdError {
+        code: "CONFIG_NOT_READY".into(),
+        message: "활성 프로파일이 없습니다.".into(),
+    })?;
+
+    check_toss_order_preflight_for_profile(input, profile).await
+}
+
 pub async fn get_toss_chart_data_for_profile(
     symbol: String,
     interval: String,
@@ -2631,20 +2974,202 @@ pub async fn get_trading_status(state: State<'_, AppState>) -> CmdResult<Trading
     })
 }
 
+async fn sync_strategy_positions_from_active_broker(
+    state: &AppState,
+    current_cfg: &AppConfig,
+) -> usize {
+    let active_profile = {
+        let profiles = state.profiles.read().await;
+        profiles.get_active().cloned()
+    };
+    match active_profile
+        .as_ref()
+        .map(|profile| profile.broker_id)
+        .unwrap_or(current_cfg.broker_id)
+    {
+        BrokerId::Kis => sync_kis_strategy_positions(state).await,
+        BrokerId::Toss => match active_profile {
+            Some(profile) => sync_toss_strategy_positions(state, profile).await,
+            None => {
+                tracing::warn!("Toss holdings 동기화 건너뜀: 활성 Toss 프로파일이 없습니다.");
+                0
+            }
+        },
+    }
+}
+
+async fn sync_kis_strategy_positions(state: &AppState) -> usize {
+    let rest = state.rest_client.read().await.clone();
+    let mut synced = 0usize;
+    match rest.get_balance().await {
+        Ok(resp) => {
+            state
+                .stock_store
+                .upsert_many(
+                    resp.items
+                        .iter()
+                        .map(|i| (i.pdno.clone(), i.prdt_name.clone())),
+                )
+                .await;
+            {
+                let mut tracker = state.position_tracker.lock().await;
+                tracker.load_if_empty(resp.items.iter().map(|i| {
+                    (
+                        i.pdno.clone(),
+                        i.prdt_name.clone(),
+                        i.hldg_qty.parse::<u64>().unwrap_or(0),
+                        i.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) as u64,
+                        i.prpr.parse::<u64>().unwrap_or(0),
+                    )
+                }));
+            }
+            {
+                let mut mgr = state.strategy_manager.lock().await;
+                for item in &resp.items {
+                    let qty = item.hldg_qty.parse::<u64>().unwrap_or(0);
+                    let avg = item.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) as u64;
+                    if qty > 0 {
+                        synced += 1;
+                    }
+                    mgr.sync_position_for_broker(&BrokerPositionSnapshot {
+                        broker_id: BrokerId::Kis,
+                        market: BrokerMarket::Kr,
+                        symbol: item.pdno.clone(),
+                        quantity: qty,
+                        avg_price: avg,
+                    });
+                }
+            }
+        }
+        Err(e) => tracing::warn!("자동매매 시작 전 국내 잔고 동기화 실패: {}", e),
+    }
+
+    match rest.get_overseas_balance().await {
+        Ok(resp) => {
+            {
+                let mut tracker = state.overseas_position_tracker.lock().await;
+                tracker.load_if_empty(resp.items.iter().map(|i| {
+                    (
+                        i.ovrs_pdno.clone(),
+                        i.ovrs_item_name.clone(),
+                        normalize_overseas_order_exchange(&i.ovrs_excg_cd),
+                        i.ovrs_cblc_qty.parse::<u64>().unwrap_or(0),
+                        usd_to_cents(&i.pchs_avg_pric),
+                        usd_to_cents(&i.now_pric2),
+                    )
+                }));
+            }
+            let mut mgr = state.strategy_manager.lock().await;
+            for item in &resp.items {
+                let qty = item.ovrs_cblc_qty.parse::<u64>().unwrap_or(0);
+                let avg = usd_to_cents(&item.pchs_avg_pric);
+                if qty > 0 {
+                    synced += 1;
+                }
+                mgr.sync_position_for_broker(&BrokerPositionSnapshot {
+                    broker_id: BrokerId::Kis,
+                    market: BrokerMarket::Us,
+                    symbol: item.ovrs_pdno.clone(),
+                    quantity: qty,
+                    avg_price: avg,
+                });
+            }
+        }
+        Err(e) => tracing::warn!("자동매매 시작 전 해외 잔고 동기화 실패: {}", e),
+    }
+
+    synced
+}
+
+async fn sync_toss_strategy_positions(state: &AppState, profile: AccountProfile) -> usize {
+    if !profile.is_configured() {
+        tracing::warn!("Toss holdings 동기화 건너뜀: 활성 Toss 프로파일 설정이 미완료입니다.");
+        return 0;
+    }
+
+    let account_id = BrokerAccountId(profile.broker_account_id());
+    let adapter = TossBrokerAdapter::with_credentials(
+        TossBrokerAdapter::DEFAULT_BASE_URL,
+        profile.app_key,
+        profile.app_secret,
+        Some(profile.account_no),
+    );
+    let holdings = match adapter.list_holdings(Some(&account_id)).await {
+        Ok(holdings) => holdings,
+        Err(e) => {
+            tracing::warn!("자동매매 시작 전 Toss holdings 동기화 실패: {}", e);
+            return 0;
+        }
+    };
+
+    state
+        .stock_store
+        .upsert_many(
+            holdings
+                .iter()
+                .map(|holding| (holding.symbol.0.clone(), holding.symbol_name.clone())),
+        )
+        .await;
+
+    {
+        let mut domestic_tracker = state.position_tracker.lock().await;
+        domestic_tracker.load_if_empty(holdings.iter().filter_map(|holding| {
+            (holding.market == BrokerMarket::Kr).then(|| {
+                (
+                    holding.symbol.0.clone(),
+                    holding.symbol_name.clone(),
+                    decimal_quantity_to_position_units(&holding.quantity.0),
+                    broker_money_to_strategy_price_units(&holding.average_price),
+                    broker_money_to_strategy_price_units(&holding.current_price),
+                )
+            })
+        }));
+    }
+    {
+        let mut overseas_tracker = state.overseas_position_tracker.lock().await;
+        overseas_tracker.load_if_empty(holdings.iter().filter_map(|holding| {
+            (holding.market == BrokerMarket::Us).then(|| {
+                (
+                    holding.symbol.0.clone(),
+                    holding.symbol_name.clone(),
+                    "TOSS_US".to_string(),
+                    decimal_quantity_to_position_units(&holding.quantity.0),
+                    broker_money_to_strategy_price_units(&holding.average_price),
+                    broker_money_to_strategy_price_units(&holding.current_price),
+                )
+            })
+        }));
+    }
+
+    let mut synced = 0usize;
+    let mut mgr = state.strategy_manager.lock().await;
+    for holding in &holdings {
+        let quantity = decimal_quantity_to_position_units(&holding.quantity.0);
+        if quantity > 0 {
+            synced += 1;
+        }
+        mgr.sync_position_for_broker(&BrokerPositionSnapshot {
+            broker_id: BrokerId::Toss,
+            market: holding.market,
+            symbol: holding.symbol.0.clone(),
+            quantity,
+            avg_price: broker_money_to_strategy_price_units(&holding.average_price),
+        });
+    }
+    tracing::info!(
+        "Toss holdings 기반 전략 포지션 동기화 완료: {}개 보유 종목",
+        synced
+    );
+    synced
+}
+
 #[tauri::command]
 pub async fn start_trading(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> CmdResult<TradingStatus> {
     let current_cfg = state.config.read().await.clone();
-    if current_cfg.broker_id != BrokerId::Kis {
-        return Err(CmdError {
-            code: "BROKER_NOT_SUPPORTED".into(),
-            message: "현재 자동매매 실행 경로는 KIS broker만 지원합니다. Toss broker는 read-only 진단과 adapter 구현 후 연결하세요."
-                .into(),
-        });
-    }
-    if !current_cfg.is_kis_configured() {
+    if current_cfg.broker_id == BrokerId::Kis && !current_cfg.is_kis_configured() {
         return Err(CmdError {
             code: "CONFIG_NOT_READY".into(),
             message: "KIS API 설정이 완료되지 않았습니다. Settings에서 API 키를 확인하세요.".into(),
@@ -2660,66 +3185,18 @@ pub async fn start_trading(
 
     // 자동매매 시작 전 실제 잔고를 전략 내부 포지션 상태와 동기화한다.
     // 재시작 직후 내부 in_position=false 상태로 같은 종목을 재매수하는 위험을 줄인다.
-    {
-        let rest = state.rest_client.read().await.clone();
-        match rest.get_balance().await {
-            Ok(resp) => {
-                state
-                    .stock_store
-                    .upsert_many(
-                        resp.items
-                            .iter()
-                            .map(|i| (i.pdno.clone(), i.prdt_name.clone())),
-                    )
-                    .await;
-                {
-                    let mut tracker = state.position_tracker.lock().await;
-                    tracker.load_if_empty(resp.items.iter().map(|i| {
-                        (
-                            i.pdno.clone(),
-                            i.prdt_name.clone(),
-                            i.hldg_qty.parse::<u64>().unwrap_or(0),
-                            i.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) as u64,
-                            i.prpr.parse::<u64>().unwrap_or(0),
-                        )
-                    }));
-                }
-                {
-                    let mut mgr = state.strategy_manager.lock().await;
-                    for item in &resp.items {
-                        let qty = item.hldg_qty.parse::<u64>().unwrap_or(0);
-                        let avg = item.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) as u64;
-                        mgr.sync_position(&item.pdno, qty, avg);
-                    }
-                }
-            }
-            Err(e) => tracing::warn!("자동매매 시작 전 국내 잔고 동기화 실패: {}", e),
-        }
+    let synced_positions = sync_strategy_positions_from_active_broker(&state, &current_cfg).await;
+    tracing::info!(
+        "자동매매 시작 전 broker-aware 포지션 동기화 완료: {}개",
+        synced_positions
+    );
 
-        match rest.get_overseas_balance().await {
-            Ok(resp) => {
-                {
-                    let mut tracker = state.overseas_position_tracker.lock().await;
-                    tracker.load_if_empty(resp.items.iter().map(|i| {
-                        (
-                            i.ovrs_pdno.clone(),
-                            i.ovrs_item_name.clone(),
-                            normalize_overseas_order_exchange(&i.ovrs_excg_cd),
-                            i.ovrs_cblc_qty.parse::<u64>().unwrap_or(0),
-                            usd_to_cents(&i.pchs_avg_pric),
-                            usd_to_cents(&i.now_pric2),
-                        )
-                    }));
-                }
-                let mut mgr = state.strategy_manager.lock().await;
-                for item in &resp.items {
-                    let qty = item.ovrs_cblc_qty.parse::<u64>().unwrap_or(0);
-                    let avg = usd_to_cents(&item.pchs_avg_pric);
-                    mgr.sync_position(&item.ovrs_pdno, qty, avg);
-                }
-            }
-            Err(e) => tracing::warn!("자동매매 시작 전 해외 잔고 동기화 실패: {}", e),
-        }
+    if current_cfg.broker_id != BrokerId::Kis {
+        return Err(CmdError {
+            code: "BROKER_NOT_SUPPORTED".into(),
+            message: "Toss holdings 기반 전략 포지션 동기화는 완료했지만, 현재 자동매매 주문 실행 경로는 KIS broker만 지원합니다. Toss 주문/체결 adapter와 소액 검증 gate 이후 연결하세요."
+                .into(),
+        });
     }
 
     let mut is_running = state.is_trading.lock().await;
@@ -3875,6 +4352,79 @@ pub async fn get_pending_orders(state: State<'_, AppState>) -> CmdResult<Vec<Pen
 #[tauri::command]
 pub async fn get_exchange_rate(state: State<'_, AppState>) -> CmdResult<f64> {
     Ok(*state.exchange_rate_krw.read().await)
+}
+
+/// 현재 USD/KRW 환율 조회 정책과 출처/유효시간 메타데이터
+#[tauri::command]
+pub async fn get_exchange_rate_status(state: State<'_, AppState>) -> CmdResult<ExchangeRateView> {
+    Ok(state.exchange_rate_status.read().await.clone())
+}
+
+pub async fn refresh_exchange_rate_status(
+    profiles: &Arc<RwLock<ProfilesConfig>>,
+    exchange_rate_krw: &Arc<RwLock<f64>>,
+    exchange_rate_status: &Arc<RwLock<ExchangeRateView>>,
+) -> ExchangeRateView {
+    let cached_rate = *exchange_rate_krw.read().await;
+    let view = resolve_exchange_rate_policy(profiles, cached_rate).await;
+    *exchange_rate_krw.write().await = view.rate;
+    *exchange_rate_status.write().await = view.clone();
+    view
+}
+
+async fn resolve_exchange_rate_policy(
+    profiles: &Arc<RwLock<ProfilesConfig>>,
+    cached_rate: f64,
+) -> ExchangeRateView {
+    let active_profile = {
+        let profiles = profiles.read().await;
+        profiles.get_active().cloned()
+    };
+
+    let mut toss_error: Option<String> = None;
+    if let Some(profile) = active_profile.as_ref() {
+        if profile.broker_id == BrokerId::Toss && profile.is_configured() {
+            let adapter = TossBrokerAdapter::with_credentials(
+                TossBrokerAdapter::DEFAULT_BASE_URL,
+                profile.app_key.clone(),
+                profile.app_secret.clone(),
+                Some(profile.account_no.clone()),
+            );
+            match adapter
+                .get_exchange_rate(BrokerCurrency::Usd, BrokerCurrency::Krw)
+                .await
+            {
+                Ok(rate) => match ExchangeRateView::toss(rate) {
+                    Ok(view) => return view,
+                    Err(e) => toss_error = Some(e.to_string()),
+                },
+                Err(e) => toss_error = Some(e.to_string()),
+            }
+        }
+    }
+
+    match crate::api::rest::fetch_usd_krw_rate().await {
+        Ok(rate) => {
+            let mut view = ExchangeRateView::external_public(rate);
+            if let Some(error) = toss_error {
+                view.fallback_used = true;
+                view.message =
+                    format!("Toss exchange-rate 조회 실패로 공개 환율 API를 사용합니다: {error}");
+            }
+            view
+        }
+        Err(external_error) => {
+            let message = match toss_error {
+                Some(toss_error) => format!(
+                    "Toss exchange-rate와 공개 환율 API가 모두 실패해 마지막 캐시를 유지합니다: Toss={toss_error}; external={external_error}"
+                ),
+                None => format!(
+                    "공개 환율 API 조회 실패로 마지막 캐시를 유지합니다: {external_error}"
+                ),
+            };
+            ExchangeRateView::cached_fallback(cached_rate, message)
+        }
+    }
 }
 
 /// 데이터 갱신 주기 조회 (초) — refresh_config.interval_sec

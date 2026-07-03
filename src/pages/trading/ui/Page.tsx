@@ -39,6 +39,7 @@ import {
   useStockSearch,
   useOverseasPrice,
   useTossMarketSnapshot,
+  useTossOrderPreflight,
   useTossStockSafety,
   useTossMarketCalendar,
   usePlaceOverseasOrder,
@@ -58,6 +59,7 @@ import type {
   OrderType,
   TossMarketCalendarView,
   TossMarketSnapshotView,
+  TossOrderPreflightView,
   TossStockSafetyView,
 } from '../../../api/types'
 import { StockChart, OverseasStockChart } from '../../../widgets/stock-chart'
@@ -569,6 +571,94 @@ function TossMarketCalendarStrip({
   )
 }
 
+function TossOrderPreflightPanel({
+  data,
+  isLoading,
+  isError,
+  error,
+}: {
+  data: TossOrderPreflightView | undefined
+  isLoading: boolean
+  isError: boolean
+  error: unknown
+}) {
+  if (isLoading) {
+    return (
+      <Box sx={{ mb: 1.5, p: 1.25, bgcolor: 'action.hover', borderRadius: 1 }}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <CircularProgress size={14} />
+          <Typography variant="caption" color="text.secondary">Toss 주문 전 검증 중</Typography>
+        </Stack>
+      </Box>
+    )
+  }
+  if (isError) {
+    return (
+      <Alert severity="warning" sx={{ mb: 1.5 }}>
+        Toss 주문 전 검증 실패: {(error as { message?: string } | null)?.message ?? '연결 진단을 확인하세요.'}
+      </Alert>
+    )
+  }
+  if (!data) return null
+
+  return (
+    <Box sx={{ mb: 1.5, p: 1.25, bgcolor: 'action.hover', borderRadius: 1 }}>
+      <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" mb={1}>
+        <Typography variant="subtitle2" fontWeight={700}>Toss 주문 전 검증</Typography>
+        <Chip
+          size="small"
+          label={data.liquidityOk ? '가능금액 확인' : '가능금액 부족'}
+          color={data.liquidityOk ? 'success' : 'warning'}
+          variant="outlined"
+          sx={{ height: 20, fontSize: '0.68rem' }}
+        />
+        <Chip
+          size="small"
+          label={data.orderAdapterSupported ? '주문 연결됨' : '주문 차단'}
+          color={data.orderAdapterSupported ? 'success' : 'default'}
+          variant="outlined"
+          sx={{ height: 20, fontSize: '0.68rem' }}
+        />
+      </Stack>
+      <Stack spacing={0.25}>
+        <Typography variant="caption" color="text.secondary">
+          주문금액 {fmtTossMoney(data.grossAmount.amount, data.grossAmount.currency)}
+          {data.requiredCash ? ` · 필요 ${fmtTossMoney(data.requiredCash.amount, data.requiredCash.currency)}` : ''}
+        </Typography>
+        {data.buyingPower && (
+          <Typography variant="caption" color="text.secondary">
+            매수가능금액 {fmtTossMoney(data.buyingPower.amount, data.buyingPower.currency)}
+          </Typography>
+        )}
+        {data.sellableQuantity && (
+          <Typography variant="caption" color="text.secondary">
+            매도가능수량 {fmtDecimal(data.sellableQuantity, 6)}
+          </Typography>
+        )}
+        {data.commissionRate && (
+          <Typography variant="caption" color="text.secondary">
+            수수료율 {data.commissionRate}% · 추정 수수료 {data.estimatedCommission ? fmtTossMoney(data.estimatedCommission.amount, data.estimatedCommission.currency) : '-'}
+          </Typography>
+        )}
+      </Stack>
+      {(data.blockedReasons.length > 0 || data.warnings.length > 0) && (
+        <Stack spacing={0.25} mt={0.75}>
+          {data.blockedReasons.map((reason) => (
+            <Typography key={reason} variant="caption" color="warning.main" display="block">
+              {reason}
+            </Typography>
+          ))}
+          {data.warnings.map((warning) => (
+            <Typography key={warning} variant="caption" color="text.secondary" display="block">
+              {warning}
+            </Typography>
+          ))}
+        </Stack>
+      )}
+    </Box>
+  )
+}
+
 // --- Trading 메인
 export default function Trading() {
   const [market, setMarket]           = useState<Market>('KR')
@@ -617,6 +707,16 @@ export default function Trading() {
   const { data: tossSnapshot }                                      = useTossMarketSnapshot(isTossActive && symbol ? symbol : '')
   const { data: tossSafety, isLoading: isTossSafetyLoading,
           isError: isTossSafetyError, error: tossSafetyError }      = useTossStockSafety(isTossActive && symbol ? symbol : '')
+  const { data: tossPreflight, isLoading: isTossPreflightLoading,
+          isError: isTossPreflightError, error: tossPreflightError } = useTossOrderPreflight(
+    {
+      symbol,
+      side,
+      quantity,
+      price: price || null,
+    },
+    { enabled: isTossActive && !!symbol && !!quantity },
+  )
   const { data: tossCalendar, isLoading: isTossCalendarLoading,
           isError: isTossCalendarError }                            = useTossMarketCalendar({ enabled: isTossActive })
   const { data: searchResults = [], isFetching: isFetchingSearch,
@@ -1121,6 +1221,15 @@ export default function Trading() {
               <Alert severity="warning" sx={{ mb: 1.5 }}>
                 {tossSafety.buyBlockReason}
               </Alert>
+            )}
+
+            {isTossActive && symbol && quantity && (
+              <TossOrderPreflightPanel
+                data={tossPreflight}
+                isLoading={isTossPreflightLoading}
+                isError={isTossPreflightError}
+                error={tossPreflightError}
+              />
             )}
 
             {(market === 'US' || orderType === 'Limit') && (

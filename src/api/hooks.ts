@@ -45,6 +45,7 @@ import type {
   UpdateStrategyInput,
   WebConfig,
   DetectTradingTypeResult,
+  ExchangeRateView,
   RiskConfigView,
   UpdateRiskConfigInput,
   PendingOrderView,
@@ -55,6 +56,8 @@ import type {
   TossConnectionDiagnostic,
   TossMarketCalendarView,
   TossMarketSnapshotView,
+  TossOrderPreflightInput,
+  TossOrderPreflightView,
   TossStockSafetyView,
   RefreshConfig,
 } from './types'
@@ -94,12 +97,15 @@ export const KEYS = {
   overseasChart: (exchange: string, symbol: string, presetKey: string) => ['overseasChart', exchange, symbol, presetKey] as const,
   tossMarketSnapshot: (symbol: string) => ['tossMarketSnapshot', symbol] as const,
   tossStockSafety: (symbol: string) => ['tossStockSafety', symbol] as const,
+  tossOrderPreflight: (input: TossOrderPreflightInput) =>
+    ['tossOrderPreflight', input.symbol, input.side, input.quantity, input.price ?? ''] as const,
   tossMarketCalendar: ['tossMarketCalendar'] as const,
   riskConfig: ['riskConfig'] as const,
   pendingOrders: ['pendingOrders'] as const,
   tradeArchiveConfig: ['tradeArchiveConfig'] as const,
   tradeArchiveStats: ['tradeArchiveStats'] as const,
   exchangeRate: ['exchangeRate'] as const,
+  exchangeRateStatus: ['exchangeRateStatus'] as const,
   refreshInterval: ['refreshInterval'] as const,
   refreshConfig: ['refreshConfig'] as const,
 }
@@ -786,6 +792,21 @@ export function useTossStockSafety(
   })
 }
 
+export function useTossOrderPreflight(
+  input: TossOrderPreflightInput,
+  options?: Partial<UseQueryOptions<TossOrderPreflightView>>
+) {
+  return useQuery({
+    queryKey: KEYS.tossOrderPreflight(input),
+    queryFn: () => cmd.checkTossOrderPreflight(input),
+    enabled: !!input.symbol && !!input.quantity,
+    staleTime: 5_000,
+    gcTime: 60_000,
+    retry: false,
+    ...options,
+  })
+}
+
 export function useTossMarketCalendar(
   options?: Partial<UseQueryOptions<TossMarketCalendarView>>
 ) {
@@ -931,6 +952,20 @@ export function useExchangeRate() {
 }
 
 /**
+ * USD/KRW 환율 출처와 fallback 상태 조회
+ */
+export function useExchangeRateStatus() {
+  const { data: cfg } = useRefreshConfig()
+  const intervalSec = cfg?.interval_sec ?? 30
+  return useQuery<ExchangeRateView>({
+    queryKey: KEYS.exchangeRateStatus,
+    queryFn: cmd.getExchangeRateStatus,
+    staleTime: intervalSec * 900,
+    refetchInterval: intervalSec * 1000,
+  })
+}
+
+/**
  * 백그라운드 데몬 이벤트 수신
  *
  * Rust 백그라운드에서 발행하는 이벤트를 리슬하여 TanStack Query 캐시를 직접 갱신합니다.
@@ -958,6 +993,12 @@ export function useBackendEvents() {
       unlisteners.push(
         listen<number>('exchange-rate-updated', (event) => {
           qc.setQueryData(KEYS.exchangeRate, event.payload)
+        })
+      )
+      unlisteners.push(
+        listen<ExchangeRateView>('exchange-rate-status-updated', (event) => {
+          qc.setQueryData(KEYS.exchangeRateStatus, event.payload)
+          qc.setQueryData(KEYS.exchangeRate, event.payload.rate)
         })
       )
 

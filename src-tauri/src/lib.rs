@@ -224,6 +224,7 @@ pub fn run() {
                 let profiles_path        = st.profiles_path.clone();
                 let discord              = st.discord.clone();
                 let exchange_rate_krw    = st.exchange_rate_krw.clone();
+                let exchange_rate_status = st.exchange_rate_status.clone();
                 let refresh_config       = st.refresh_config.clone();
                 tauri::async_runtime::spawn(async move {
                     server::start(
@@ -233,6 +234,7 @@ pub fn run() {
                         log_config, log_dir, trade_archive_config, data_dir,
                         risk_manager, order_manager, stock_store, strategy_store,
                         profiles_path, discord, exchange_rate_krw, refresh_config,
+                        exchange_rate_status,
                     ).await;
                 });
             }
@@ -241,31 +243,43 @@ pub fn run() {
             {
                 let st: tauri::State<AppState> = app.state();
                 let exchange_rate = st.exchange_rate_krw.clone();
+                let exchange_rate_status = st.exchange_rate_status.clone();
                 let interval_tx   = st.refresh_interval_tx.clone();
+                let profiles      = st.profiles.clone();
                 let app_handle    = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     let mut interval_rx = interval_tx.subscribe();
                     // 시작 시 즉시 1회 갱신
-                    match crate::api::rest::fetch_usd_krw_rate().await {
-                        Ok(rate) => {
-                            *exchange_rate.write().await = rate;
-                            let _ = app_handle.emit("exchange-rate-updated", rate);
-                            tracing::info!("USD/KRW 환율 초기값: {:.2}원", rate);
-                        }
-                        Err(e) => tracing::warn!("환율 초기 조회 실패 (기본값 1450원 사용): {}", e),
-                    }
+                    let view = crate::commands::refresh_exchange_rate_status(
+                        &profiles,
+                        &exchange_rate,
+                        &exchange_rate_status,
+                    ).await;
+                    let _ = app_handle.emit("exchange-rate-updated", view.rate);
+                    let _ = app_handle.emit("exchange-rate-status-updated", view.clone());
+                    tracing::info!(
+                        "USD/KRW 환율 초기값: {:.2}원 (source={:?}, fallback={})",
+                        view.rate,
+                        view.source,
+                        view.fallback_used
+                    );
                     let mut current_interval = *interval_rx.borrow_and_update();
                     loop {
                         tokio::select! {
                             _ = tokio::time::sleep(tokio::time::Duration::from_secs(current_interval)) => {
-                                match crate::api::rest::fetch_usd_krw_rate().await {
-                                    Ok(rate) => {
-                                        *exchange_rate.write().await = rate;
-                                        let _ = app_handle.emit("exchange-rate-updated", rate);
-                                        tracing::debug!("USD/KRW 환율 갱신: {:.2}원", rate);
-                                    }
-                                    Err(e) => tracing::warn!("환율 갱신 실패 (이전 값 유지): {}", e),
-                                }
+                                let view = crate::commands::refresh_exchange_rate_status(
+                                    &profiles,
+                                    &exchange_rate,
+                                    &exchange_rate_status,
+                                ).await;
+                                let _ = app_handle.emit("exchange-rate-updated", view.rate);
+                                let _ = app_handle.emit("exchange-rate-status-updated", view.clone());
+                                tracing::debug!(
+                                    "USD/KRW 환율 갱신: {:.2}원 (source={:?}, fallback={})",
+                                    view.rate,
+                                    view.source,
+                                    view.fallback_used
+                                );
                             }
                             _ = interval_rx.changed() => {
                                 current_interval = *interval_rx.borrow_and_update();
@@ -383,6 +397,7 @@ pub fn run() {
             commands::get_broker_holdings,
             commands::get_toss_market_snapshot,
             commands::get_toss_stock_safety,
+            commands::check_toss_order_preflight,
             commands::get_toss_market_calendar,
             commands::get_toss_chart_data,
             commands::get_chart_data,
@@ -431,6 +446,7 @@ pub fn run() {
             commands::activate_emergency_stop,
             commands::get_pending_orders,
             commands::get_exchange_rate,
+            commands::get_exchange_rate_status,
             commands::get_refresh_interval,
             commands::get_refresh_config,
             commands::set_refresh_config,

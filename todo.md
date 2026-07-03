@@ -110,10 +110,18 @@
   - 통화별 평가금액, 손익, 수량 precision을 공통 타입으로 정규화한다.
   - `TossOpenApiClient`/`TossBrokerAdapter`의 accounts 조회와 holdings → `BrokerHolding` 매핑을 `get_broker_holdings` IPC, `/api/broker-holdings` REST, `useBrokerHoldings()` 훅으로 연결했다.
   - Dashboard는 활성 broker가 Toss일 때 `BrokerHoldingView` 기반 보유 종목 섹션을 표시하며, 금액/수량은 문자열 precision을 보존한 뒤 화면 표시 시에만 포맷한다.
-- [ ] 자동매매 시작 시 토스 holdings 기반 전략 포지션 동기화
+- [x] 자동매매 시작 시 토스 holdings 기반 전략 포지션 동기화
   - 기존 `Strategy::sync_position()` 흐름에 broker 인자를 추가한다.
-- [ ] 환율 조회 소스 정책 정리
+  - `BrokerPositionSnapshot { brokerId, market, symbol, quantity, avgPrice }` 기반 `sync_position_for_broker()` 훅을 추가하고 기존 `sync_position()`은 하위 호환 래퍼로 유지했다.
+  - `start_trading`은 시작 전 활성 broker 기준으로 KIS 잔고 또는 Toss holdings를 읽어 `PositionTracker`/`OverseasPositionTracker`와 전략 내부 포지션 상태를 동기화한다.
+  - Toss holdings는 KRW 종목은 국내 tracker, USD 종목은 해외 tracker에 분리 복원하고 decimal 수량은 포지션 보유 여부가 사라지지 않도록 양수면 최소 1주 단위로 전략 snapshot에 반영한다.
+  - 현재 Toss 주문/체결 adapter 전까지 자동매매 실행은 계속 `BROKER_NOT_SUPPORTED`로 차단되며, 차단 전에 holdings 기반 전략 상태 복원만 수행한다.
+- [x] 환율 조회 소스 정책 정리
   - 토스 `exchange-rate`와 기존 외부 환율/KIS 환율 중 우선순위와 fallback을 명시한다.
+  - 활성 Toss 프로파일에서는 `GET /api/v1/exchange-rate?baseCurrency=USD&quoteCurrency=KRW`를 우선 사용한다.
+  - Toss 환율 조회가 실패하면 기존 공개 환율 API(open.er-api.com)로 fallback하고, 공개 환율도 실패하면 마지막 캐시/기본값 1450원을 유지한다.
+  - KIS 활성 프로파일은 별도 KIS 환율 endpoint가 연결되기 전까지 기존 공개 환율 캐시를 계속 사용한다.
+  - `get_exchange_rate_status` IPC와 `/api/exchange-rate/status` REST는 `source`, `fallbackUsed`, Toss `validFrom`/`validUntil`을 내려주며 Dashboard 해외 보유주식 섹션에 출처 chip을 표시한다.
 
 ## P2 — 주문/체결/수수료 연동
 
@@ -123,9 +131,11 @@
 - [ ] 정정/취소/주문 목록/주문 상세 조회 구현
   - pending order 상태를 토스 주문 상세 기준으로 갱신한다.
   - 이미 체결/취소/거부된 주문에 대한 409 계열 에러를 사용자 로그와 주문 이력에 분리 저장한다.
-- [ ] buying-power/sellable-quantity/commissions를 주문 전 검증에 연결
+- [x] buying-power/sellable-quantity/commissions를 주문 전 검증에 연결
   - 기존 잔고 부족 반복 주문 방지와 수수료 추정 로직을 토스 공식 수수료 조회로 보완한다.
-  - 현재 Toss adapter와 Settings 연결 진단에는 `buying-power`, `sellable-quantity`, `commissions` read-only 조회가 추가되어 있다. `TradeGuard`/`RiskManager` 주문 전 차단 경로 연결은 별도 진행한다.
+  - `trading/preflight.rs`에 브로커 공통 주문 전 판정 함수를 추가하고, `check_toss_order_preflight` IPC와 `/api/toss-order-preflight` REST에서 Toss 현재가/종목 유의사항/`buying-power`/`sellable-quantity`/`commissions`를 모아 검증한다.
+  - Trading 화면은 활성 Toss 프로파일에서 주문 버튼은 계속 차단하되, 수량 입력 시 주문 전 검증 패널에 주문금액, 필요 현금, 매수가능금액/매도가능수량, 수수료 추정, 차단 사유를 표시한다.
+  - Toss 주문 생성 adapter는 아직 `orderAdapterSupported=false`로 내려가며, 실제 주문/자동매매 실행은 소액 검증 gate 전까지 계속 차단된다.
 - [ ] 체결 확인 루프를 broker별 adapter로 분리
   - KIS 주문번호 기반 조회와 토스 order detail/list 조회를 같은 `confirm_pending_fills_from_broker()` 흐름에서 사용한다.
 
@@ -179,4 +189,4 @@
 - 토스증권 API는 KIS의 TR-ID 방식이 아니라 OAuth2 + REST endpoint + account header 중심으로 설계해야 한다.
 - 기존 KIS 전용 파일명과 타입명은 한 번에 모두 바꾸지 말고, adapter 경계부터 만든 뒤 UI와 저장 구조를 단계적으로 이전한다.
 
-*마지막 업데이트: 2026-07-03T14:54:52*
+*마지막 업데이트: 2026-07-03T15:25:46*

@@ -68,6 +68,24 @@ export interface DetectTradingTypeResult {
   message: string
 }
 
+export type ExchangeRateSource = 'toss' | 'externalPublic' | 'cachedFallback'
+
+export interface ExchangeRateView {
+  rate: number
+  source: ExchangeRateSource
+  fallbackUsed: boolean
+  baseCurrency: 'USD' | 'KRW' | string
+  quoteCurrency: 'USD' | 'KRW' | string
+  rateText: string
+  midRate: string | null
+  basisPoint: string | null
+  rateChangeType: string | null
+  validFrom: string | null
+  validUntil: string | null
+  updatedAt: string
+  message: string
+}
+
 // ─── 진단 모드 ────────────────────────────────────────────────
 export interface ConfigDiagnostic {
   broker_id: BrokerId
@@ -430,6 +448,36 @@ export interface TossStockSafetyView {
   hasBlockingWarning: boolean
   buyBlocked: boolean
   buyBlockReason: string | null
+}
+
+export interface TossOrderPreflightInput {
+  symbol: string
+  side: OrderSide
+  quantity: string
+  price?: string | null
+}
+
+export interface TossOrderPreflightView {
+  brokerId: 'toss'
+  accountSeq: string
+  symbol: string
+  market: 'kr' | 'us'
+  side: 'buy' | 'sell'
+  quantity: string
+  price: BrokerMoneyView
+  priceSource: 'input' | 'snapshot'
+  buyingPower: BrokerMoneyView | null
+  sellableQuantity: string | null
+  commissionRate: string | null
+  grossAmount: BrokerMoneyView
+  estimatedCommission: BrokerMoneyView | null
+  requiredCash: BrokerMoneyView | null
+  liquidityOk: boolean
+  safetyOk: boolean
+  orderAdapterSupported: boolean
+  canSubmit: boolean
+  blockedReasons: string[]
+  warnings: string[]
 }
 
 export interface TossMarketSessionView {

@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 
+use crate::broker::{BrokerId, BrokerMarket};
+
 /// 매매 신호
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Signal {
@@ -25,6 +27,18 @@ pub enum Signal {
 pub struct StrategySignal {
     pub strategy_id: String,
     pub signal: Signal,
+}
+
+/// Broker별 잔고에서 복원한 전략 포지션 스냅샷.
+///
+/// 가격 단위는 주문 경로와 동일하게 국내/KRW는 원, 해외/USD는 cents를 사용한다.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BrokerPositionSnapshot {
+    pub broker_id: BrokerId,
+    pub market: BrokerMarket,
+    pub symbol: String,
+    pub quantity: u64,
+    pub avg_price: u64,
 }
 
 /// 전략 설정 (JSON 직렬화 가능)
@@ -69,6 +83,10 @@ pub trait Strategy: Send + Sync {
     fn initialize_range_data(&mut self, _symbol: &str, _ranges: &[u64]) {}
     /// 자동매매 시작 시 실제 잔고 기반으로 전략 내부 포지션 플래그를 동기화한다.
     fn sync_position(&mut self, _symbol: &str, _quantity: u64, _avg_price: u64) {}
+    /// broker/account scope가 있는 실제 잔고 기반 포지션 동기화 훅.
+    fn sync_position_for_broker(&mut self, snapshot: &BrokerPositionSnapshot) {
+        self.sync_position(&snapshot.symbol, snapshot.quantity, snapshot.avg_price);
+    }
     /// 전략 상태 초기화 (일 초기화 등)
     fn reset(&mut self);
 }
@@ -305,8 +323,24 @@ impl StrategyManager {
 
     /// 실제 잔고를 전략별 내부 포지션 상태에 반영한다.
     pub fn sync_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
+        let market = if crate::market_hours::is_domestic_symbol(symbol) {
+            BrokerMarket::Kr
+        } else {
+            BrokerMarket::Us
+        };
+        self.sync_position_for_broker(&BrokerPositionSnapshot {
+            broker_id: BrokerId::Kis,
+            market,
+            symbol: symbol.to_string(),
+            quantity,
+            avg_price,
+        });
+    }
+
+    /// broker/account scope가 있는 실제 잔고를 전략별 내부 포지션 상태에 반영한다.
+    pub fn sync_position_for_broker(&mut self, snapshot: &BrokerPositionSnapshot) {
         for s in &mut self.strategies {
-            s.sync_position(symbol, quantity, avg_price);
+            s.sync_position_for_broker(snapshot);
         }
     }
 
@@ -3015,5 +3049,51 @@ impl Strategy for PriceConditionStrategy {
 
     fn reset(&mut self) {
         self.positions.clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn broker_position_snapshot_prevents_duplicate_price_condition_buy() {
+        let params = PriceConditionParams {
+            symbols: vec![PriceConditionSymbolConfig {
+                symbol: "AAPL".into(),
+                symbol_name: "Apple Inc.".into(),
+                quantity: 2,
+                buy_trigger_price: 200.0,
+                sell_trigger_price: 0.0,
+                take_profit_pct: 0.0,
+                stop_loss_pct: 0.0,
+                is_overseas: true,
+            }],
+        };
+        let config = StrategyConfig {
+            id: "price_condition_test".into(),
+            name: "가격 조건".into(),
+            enabled: true,
+            target_symbols: vec!["AAPL".into()],
+            order_quantity: 1,
+            params: serde_json::to_value(params).unwrap(),
+        };
+        let mut manager = StrategyManager::new();
+        manager.add(Box::new(PriceConditionStrategy::new(config)));
+
+        manager.sync_position_for_broker(&BrokerPositionSnapshot {
+            broker_id: BrokerId::Toss,
+            market: BrokerMarket::Us,
+            symbol: "AAPL".into(),
+            quantity: 1,
+            avg_price: 15_000,
+        });
+
+        let signals = manager.on_tick("AAPL", 18_000, 100);
+
+        assert!(
+            signals.is_empty(),
+            "existing Toss holding should restore in-position state and block duplicate buy"
+        );
     }
 }
