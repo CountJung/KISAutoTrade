@@ -144,6 +144,14 @@ tauri::Builder::default()
     ])
 ```
 
+### Tauri window state 저장
+
+앱 창의 크기, 위치, maximize 상태는 `tauri-plugin-window-state`에 맡긴다.
+
+- `src-tauri/src/lib.rs`에서 `tauri_plugin_window_state::Builder::default().build()`를 Builder plugin으로 등록한다.
+- `src-tauri/tauri.conf.json`의 main window는 `visible:false`로 두어 복원 전 기본 크기 창이 깜빡이지 않게 한다.
+- 내부 패널/다이얼로그 크기처럼 WebView 안의 레이아웃 상태는 window-state 대상이 아니므로 `src/shared/lib/persistentLayout.ts`의 localStorage helper를 사용한다.
+
 ### Step 5 — TypeScript 타입 및 훅 추가
 
 ```typescript
@@ -814,4 +822,4 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 - Toss 주문 API surface는 `create_order`, `list_orders`, `get_order`, `modify_order`, `cancel_order`로 나눈다. `TossOrderCreateRequest::with_generated_client_order_id()`가 36자 이하 idempotency key를 생성하고, request type은 `quantity`와 `orderAmount` 중 정확히 하나만 허용한다.
 - Toss 주문 목록/상세는 `toss:order_history`, 생성/정정/취소는 `toss:order` rate group으로 분리한다.
 
-> 마지막 업데이트: 2026-07-03T16:58:38+09:00
+> 마지막 업데이트: 2026-07-03T17:17:37+09:00

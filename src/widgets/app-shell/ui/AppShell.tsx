@@ -23,6 +23,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import { ThemeProvider } from '@mui/material/styles'
 import { Sidebar } from '../../sidebar'
 import { LayoutResizer } from '../../../shared/ui'
+import { clampNumber, readStoredNumber, writeStoredNumber } from '../../../shared/lib'
 import { createAppTheme, getResolvedMode, THEME_STORAGE_KEY } from '../../../shared/config/theme'
 import { useSettingsStore } from '../../../entities/settings'
 import { useUpdateCheck, useBackendEvents } from '../../../api/hooks'
@@ -42,13 +43,6 @@ const BOTTOM_NAV_ITEMS = [
   { label: 'Settings',  path: '/settings',  icon: <SettingsIcon /> },
 ]
 
-function readSidebarWidth(): number {
-  const raw = localStorage.getItem(SIDEBAR_KEY)
-  if (!raw) return SIDEBAR_DEFAULT
-  const n = Number(raw)
-  return Number.isFinite(n) ? Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, n)) : SIDEBAR_DEFAULT
-}
-
 export function AppShell() {
   // CSS 브레이크포인트 대신 JS window.matchMedia 기반 감지:
   // 브라우저/WebView/줌 레벨 무관하게 정확하게 동작하며, CSS 우선순위 문제 없음.
@@ -57,7 +51,9 @@ export function AppShell() {
 
   const theme = useSettingsStore((s) => s.theme)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth)
+  const [sidebarWidth, setSidebarWidth] = useState(() =>
+    readStoredNumber(SIDEBAR_KEY, SIDEBAR_DEFAULT, SIDEBAR_MIN, SIDEBAR_MAX)
+  )
   const [updateDismissed, setUpdateDismissed] = useState(false)
 
   const { data: updateInfo } = useUpdateCheck()
@@ -80,13 +76,11 @@ export function AppShell() {
   }, [theme])
 
   const handleSidebarResize = useCallback((delta: number) => {
-    setSidebarWidth((w) =>
-      Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, w + delta))
-    )
+    setSidebarWidth((w) => clampNumber(w + delta, SIDEBAR_MIN, SIDEBAR_MAX))
   }, [])
 
   const handleSidebarResizeEnd = useCallback(() => {
-    localStorage.setItem(SIDEBAR_KEY, String(sidebarWidthRef.current))
+    writeStoredNumber(SIDEBAR_KEY, sidebarWidthRef.current, SIDEBAR_MIN, SIDEBAR_MAX)
   }, [])
 
   return (

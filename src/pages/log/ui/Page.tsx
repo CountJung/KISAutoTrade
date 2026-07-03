@@ -12,9 +12,20 @@ import useMediaQuery from '@mui/material/useMediaQuery'
 
 import { useRecentLogs } from '../../../api/hooks'
 import type { AppLogEntry } from '../../../api/types'
-import { hasProviderTrace, parseProviderTraceText, ProviderTraceChips } from '../../../shared/ui'
+import {
+  hasProviderTrace,
+  LayoutResizer,
+  parseProviderTraceText,
+  ProviderTraceChips,
+} from '../../../shared/ui'
+import { clampNumber, readStoredNumber, writeStoredNumber } from '../../../shared/lib'
 
 type LogLevel = 'ALL' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'TRACE'
+
+const LOG_HEIGHT_KEY = 'act:panel:log:height'
+const LOG_HEIGHT_DEFAULT = 480
+const LOG_HEIGHT_MIN = 160
+const LOG_HEIGHT_MAX = 900
 
 const LEVEL_COLORS: Record<string, string> = {
   ALL:   '#888',
@@ -29,25 +40,20 @@ export default function Log() {
   const isMobile = useMediaQuery('(max-width:600px)')
   const [level, setLevel]   = useState<LogLevel>('ALL')
   const [search, setSearch] = useState('')
-  const [logHeight, setLogHeight] = useState(480)
+  const [logHeight, setLogHeight] = useState(() =>
+    readStoredNumber(LOG_HEIGHT_KEY, LOG_HEIGHT_DEFAULT, LOG_HEIGHT_MIN, LOG_HEIGHT_MAX)
+  )
   const bottomRef = useRef<HTMLDivElement>(null)
-  const dragStartRef = useRef<{ y: number; h: number } | null>(null)
+  const logHeightRef = useRef(logHeight)
+  logHeightRef.current = logHeight
 
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
-    dragStartRef.current = { y: e.clientY, h: logHeight }
-    const onMove = (mv: MouseEvent) => {
-      if (!dragStartRef.current) return
-      const delta = mv.clientY - dragStartRef.current.y
-      setLogHeight(Math.max(160, dragStartRef.current.h + delta))
-    }
-    const onUp = () => {
-      dragStartRef.current = null
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }, [logHeight])
+  const handleLogResize = useCallback((delta: number) => {
+    setLogHeight((height) => clampNumber(height + delta, LOG_HEIGHT_MIN, LOG_HEIGHT_MAX))
+  }, [])
+
+  const handleLogResizeEnd = useCallback(() => {
+    writeStoredNumber(LOG_HEIGHT_KEY, logHeightRef.current, LOG_HEIGHT_MIN, LOG_HEIGHT_MAX)
+  }, [])
 
   const { data: logs = [], isLoading } = useRecentLogs(300)
 
@@ -158,16 +164,10 @@ export default function Log() {
 
       {/* 높이 조절 핸들 — 데스크탑 전용 */}
       {!isMobile && (
-        <Box
-          onMouseDown={handleDragStart}
-          sx={{
-            height: 6,
-            cursor: 'ns-resize',
-            bgcolor: 'divider',
-            borderRadius: 1,
-            mt: 0.5,
-            '&:hover': { bgcolor: 'action.selected' },
-          }}
+        <LayoutResizer
+          direction="vertical"
+          onResize={handleLogResize}
+          onResizeEnd={handleLogResizeEnd}
         />
       )}
     </Box>

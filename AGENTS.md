@@ -67,8 +67,8 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-07-03 | 앱 창 상태와 내부 패널 크기 재시작 후 복원 구현 |
 | 2026-07-03 | 체결 확인 루프를 provider trace 기반 KIS/Toss adapter 경계로 분리 |
 | 2026-07-03 | Toss 주문 생성/목록/상세/정정/취소 client surface와 테스트 추가 |
 | 2026-07-03 | broker 공통 rate-limit scheduler 도입과 Toss/KIS 주문 경로 연결 |
 | 2026-07-03 | History/Log에 KIS TR-ID/odno 등 provider 원본 trace 표시 추가 |
-| 2026-07-03 | 전략 설정 저장 구조에 broker/account scope 추가 및 Strategy 카드 표시 |

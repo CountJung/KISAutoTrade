@@ -416,6 +416,8 @@ import { ResizableDialog } from '../components/ResizableDialog'
 
 **핵심 원칙**: 사용자가 조작한 크기/위치/패널 분할 상태는 `localStorage`에 저장하여 앱 재시작 후에도 유지합니다.
 
+Tauri 네이티브 창의 크기/위치는 Rust `tauri-plugin-window-state`가 담당한다. React에서는 WebView 내부 패널과 다이얼로그 상태만 저장한다.
+
 ### 저장 대상
 
 | 상태 종류 | 저장 키 패턴 | 저장 시점 |
@@ -433,18 +435,19 @@ const SIDEBAR_KEY = 'act:panel:sidebar:width'
 const DEFAULT_WIDTH = 240
 
 function AppLayout() {
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const saved = localStorage.getItem(SIDEBAR_KEY)
-    return saved ? Number(saved) : DEFAULT_WIDTH
-  })
+  const [sidebarWidth, setSidebarWidth] = useState(() =>
+    readStoredNumber(SIDEBAR_KEY, DEFAULT_WIDTH, 160, 480)
+  )
+  const sidebarWidthRef = useRef(sidebarWidth)
+  sidebarWidthRef.current = sidebarWidth
 
   return (
     <Box sx={{ display: 'flex', height: '100vh' }}>
       <Sidebar style={{ width: sidebarWidth }} />
       <LayoutResizer
         direction="horizontal"
-        onResize={(delta) => setSidebarWidth(w => Math.max(160, Math.min(480, w + delta)))}
-        onResizeEnd={() => localStorage.setItem(SIDEBAR_KEY, String(sidebarWidth))}
+        onResize={(delta) => setSidebarWidth(w => clampNumber(w + delta, 160, 480))}
+        onResizeEnd={() => writeStoredNumber(SIDEBAR_KEY, sidebarWidthRef.current, 160, 480)}
       />
       <MainContent sx={{ flex: 1 }} />
     </Box>
@@ -458,12 +461,7 @@ function AppLayout() {
 ### 패턴: localStorage 초기값 + 범위 제한
 
 ```typescript
-function readStoredSize(key: string, defaultVal: number, min: number, max: number): number {
-  const raw = localStorage.getItem(key)
-  if (!raw) return defaultVal
-  const n = Number(raw)
-  return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : defaultVal
-}
+import { clampNumber, readStoredNumber, writeStoredNumber } from '@/shared/lib'
 ```
 
 ### Zustand persist 연동
@@ -473,7 +471,7 @@ function readStoredSize(key: string, defaultVal: number, min: number, max: numbe
 
 ```typescript
 // 자주 변경 → localStorage 직접
-localStorage.setItem('act:panel:sidebar:width', String(width))
+writeStoredNumber('act:panel:sidebar:width', width, 160, 400)
 
 // 드물게 변경 → Zustand persist
 useSettingsStore.getState().setTheme('dark')
@@ -498,3 +496,5 @@ const savedGeometry = useMemo(() => {
 
 > ResizableDialog는 현재 SPA 세션 캐시만 지원합니다.  
 > localStorage 영속이 필요하면 `storageKey`를 기반으로 별도 save/restore 로직을 추가합니다.
+
+> 마지막 업데이트: 2026-07-03T17:17:37+09:00

@@ -52,6 +52,7 @@ AutoConditionTrade/                   ← 루트
 │   │   ├── api/                      ← Tauri IPC/Web REST 공통 wrapper + Rust 타입 미러
 │   │   ├── config/theme/             ← createAppTheme, getResolvedMode
 │   │   ├── config/scheduler/         ← 전역 폴링 주기 상수
+│   │   ├── lib/                      ← localStorage 기반 레이아웃 상태 헬퍼
 │   │   └── ui/LayoutResizer.tsx      ← 범용 리사이저 UI
 │   ├── entities/
 │   │   ├── account/model/            ← 계좌 상태 store
@@ -78,7 +79,7 @@ AutoConditionTrade/                   ← 루트
 └── src-tauri/                        ← Rust Backend
     ├── Cargo.toml                    ← Tauri v2 + reqwest + tokio + tracing
     ├── build.rs                      ← tauri_build::build()
-    ├── tauri.conf.json               ← 앱 설정 (1400x900, bundle icons)
+    ├── tauri.conf.json               ← 앱 설정 (1400x900, window-state 복원용 visible:false, bundle icons)
     └── src/
         ├── main.rs                   ← Tauri 진입점
         ├── lib.rs                    ← Builder 설정 + 백그라운드 데몬 6개 spawn
@@ -139,6 +140,7 @@ AutoConditionTrade/                   ← 루트
 | `router/` | TanStack Router 기반 라우팅 |
 | `shared/api/` | Tauri IPC/Web REST wrapper, Rust 타입 미러 (`BrokerHoldingView` 포함) |
 | `shared/ui/` | 공통 UI (`LayoutResizer`, `BrokerScopeIndicator` broker/profile/account scope 표시, `ProviderTraceChips` 원본 요청 trace 표시) |
+| `shared/lib/` | 공통 유틸 (`persistentLayout` localStorage 숫자 상태 저장/복원) |
 | `shared/config/theme/` | 앱 테마 생성과 theme mode 타입 |
 | `shared/config/scheduler/` | TanStack Query 공통 폴링 주기 |
 | `entities/*/model/` | Zustand 전역 상태 (계좌, 매매, 설정) |
@@ -156,7 +158,7 @@ AutoConditionTrade/                   ← 루트
 
 | 모듈 | 책임 |
 |------|------|
-| `lib.rs` | Tauri Builder + 6개 백그라운드 데몬 spawn + `on_window_event` (종료 안전 처리) |
+| `lib.rs` | Tauri Builder + window-state 플러그인 + 6개 백그라운드 데몬 spawn + `on_window_event` (종료 안전 처리) |
 | `commands.rs` | AppState + 모든 IPC 커맨드 핸들러 (`get_broker_holdings`, Toss read-only views, `get_exchange_rate_status` 환율 정책 view, 자동매매 시작 전 broker-aware 포지션 복원 포함) |
 | `api/detect.rs` | KIS 토큰 응답 기반 실전/모의 앱키 자동 감지 |
 | `broker/` | 다중 증권사 공통 타입(`BrokerScope` 포함), adapter trait, `RateLimitScheduler`. KIS 기존 REST 호출을 점진 래핑하고 Toss token/accounts/holdings/market-data/market-info/order client를 수용 |

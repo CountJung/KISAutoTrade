@@ -55,9 +55,15 @@ export default function MyPage() {
 
 ### 사이드바
 
-- 너비: localStorage `act:panel:sidebar:width` (기본 220px, 범위 160~400)
+- 너비: localStorage `act:panel:sidebar:width` (기본 220px, 범위 160~400). 읽기/쓰기는 `src/shared/lib/persistentLayout.ts` helper를 사용한다.
 - `LayoutResizer` 컴포넌트로 드래그 리사이즈 지원
 - 스크롤 방지: Drawer paper에 `overflowX: 'hidden'`
+
+### 조절 가능한 패널
+
+- Log 화면 높이처럼 사용자가 드래그로 조절하는 내부 패널은 `LayoutResizer`와 `persistentLayout` helper를 함께 사용한다.
+- 저장 키는 `act:panel:{panelName}:width|height` 형식을 유지한다. 예: `act:panel:log:height`.
+- Tauri 네이티브 창 위치/크기는 React localStorage가 아니라 `tauri-plugin-window-state`가 담당한다.
 
 ---
 
@@ -520,7 +526,7 @@ const { data: stats } = useTodayStats({ refetchInterval: intervalMs })
 </Stack>
 ```
 
-> 마지막 업데이트: 2026-07-03T16:35:00+09:00
+> 마지막 업데이트: 2026-07-03T17:17:37+09:00
 
 ---
 
