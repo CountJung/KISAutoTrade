@@ -7,6 +7,8 @@ export interface CmdError {
 }
 
 export type BrokerId = 'kis' | 'toss'
+export type BrokerMarket = 'kr' | 'us'
+export type BrokerCurrency = 'KRW' | 'USD'
 
 // ─── 앱 설정 뷰 ────────────────────────────────────────────────────
 export interface AppConfigView {
@@ -341,6 +343,113 @@ export interface PositionView {
   unrealizedPnlRate: number
 }
 
+export interface BrokerMoneyView {
+  amount: string
+  currency: BrokerCurrency
+}
+
+export interface BrokerHoldingView {
+  brokerId: BrokerId
+  accountId: string | null
+  market: BrokerMarket
+  symbol: string
+  symbolName: string
+  quantity: string
+  averagePrice: BrokerMoneyView
+  currentPrice: BrokerMoneyView
+  unrealizedPnl: BrokerMoneyView | null
+}
+
+export interface TossOrderbookEntryView {
+  price: string
+  volume: string
+}
+
+export interface TossOrderbookView {
+  timestamp: string | null
+  currency: string
+  asks: TossOrderbookEntryView[]
+  bids: TossOrderbookEntryView[]
+}
+
+export interface TossTradeView {
+  price: string
+  volume: string
+  timestamp: string
+  currency: string
+}
+
+export interface TossPriceLimitView {
+  timestamp: string
+  upperLimitPrice: string | null
+  lowerLimitPrice: string | null
+  currency: string
+}
+
+export interface TossMarketSnapshotView {
+  brokerId: 'toss'
+  market: BrokerMarket
+  symbol: string
+  timestamp: string | null
+  price: BrokerMoneyView
+  orderbook: TossOrderbookView
+  trades: TossTradeView[]
+  priceLimits: TossPriceLimitView
+}
+
+export interface TossStockInfoView {
+  symbol: string
+  name: string
+  englishName: string
+  isinCode: string
+  market: string
+  securityType: string
+  isCommonShare: boolean
+  status: string
+  currency: string
+  listDate: string | null
+  delistDate: string | null
+  sharesOutstanding: string
+  leverageFactor: string | null
+}
+
+export interface TossStockWarningView {
+  warningType: string
+  label: string
+  exchange: string | null
+  startDate: string | null
+  endDate: string | null
+  blockingForBuy: boolean
+}
+
+export interface TossStockSafetyView {
+  brokerId: 'toss'
+  symbol: string
+  stockInfo: TossStockInfoView | null
+  warnings: TossStockWarningView[]
+  hasBlockingWarning: boolean
+  buyBlocked: boolean
+  buyBlockReason: string | null
+}
+
+export interface TossMarketSessionView {
+  startTime: string
+  endTime: string
+}
+
+export interface TossMarketDayView {
+  date: string
+  regularSession: TossMarketSessionView | null
+  isRegularOpen: boolean
+}
+
+export interface TossMarketCalendarView {
+  brokerId: 'toss'
+  kr: TossMarketDayView
+  us: TossMarketDayView
+  summary: string
+}
+
 // ─── 가격 조건 매매 종목별 설정 ──────────────────────────────────────
 /** PriceConditionStrategy params.symbols 내 개별 종목 설정 (snake_case: Rust params JSON과 1:1) */
 export interface PriceConditionSymbolConfig {
@@ -434,7 +543,7 @@ export interface FrontendLogInput {
 // ─── 차트 ────────────────────────────────────────────────────────
 /// Rust ChartCandle 의 TypeScript 미러
 export interface ChartCandle {
-  date: string   // YYYYMMDD
+  date: string   // YYYYMMDD 또는 provider intraday timestamp
   open: string
   high: string
   low: string

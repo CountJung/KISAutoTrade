@@ -9,6 +9,7 @@ import type {
   AddProfileInput,
   AppConfigView,
   AppLogEntry,
+  BrokerHoldingView,
   BalanceResult,
   OverseasBalanceResult,
   ChartCandle,
@@ -37,6 +38,9 @@ import type {
   TradeArchiveStats,
   TradeRecord,
   TossConnectionDiagnostic,
+  TossMarketCalendarView,
+  TossMarketSnapshotView,
+  TossStockSafetyView,
   TradingStatus,
   UpdateInfo,
   UpdateProfileInput,
@@ -73,6 +77,9 @@ export const getBalance = (): Promise<BalanceResult> =>
 export const getOverseasBalance = (): Promise<OverseasBalanceResult> =>
   invoke('get_overseas_balance')
 
+export const getBrokerHoldings = (): Promise<BrokerHoldingView[]> =>
+  invoke('get_broker_holdings')
+
 // ─── 현재가 ────────────────────────────────────────────────────────
 export const getPrice = (symbol: string): Promise<PriceResponse> =>
   invoke('get_price', { symbol })
@@ -80,6 +87,13 @@ export const getPrice = (symbol: string): Promise<PriceResponse> =>
 // ─── 차트 ───────────────────────────────────────────────────────
 export const getChartData = (input: ChartDataInput): Promise<ChartCandle[]> =>
   invoke('get_chart_data', { input })
+
+export const getTossChartData = (
+  symbol: string,
+  interval: '1d' | '1m',
+  count = 200,
+): Promise<ChartCandle[]> =>
+  invoke('get_toss_chart_data', { symbol, interval, count })
 
 // ─── 주문 ──────────────────────────────────────────────────────────
 export const placeOrder = (input: PlaceOrderInput): Promise<OrderResponse> =>
@@ -199,6 +213,18 @@ export const detectProfileTradingType = (profileId: string): Promise<AccountProf
 /** 저장된 토스 프로파일로 OpenAPI/token/accounts/holdings 연결을 진단 */
 export const checkTossProfileConnection = (profileId: string): Promise<TossConnectionDiagnostic> =>
   invoke('check_toss_profile_connection', { profileId })
+
+/** 활성 Toss 프로파일로 현재가/호가/최근 체결/상하한가 read-only snapshot 조회 */
+export const getTossMarketSnapshot = (symbol: string): Promise<TossMarketSnapshotView> =>
+  invoke('get_toss_market_snapshot', { symbol })
+
+/** 활성 Toss 프로파일로 종목 기본 정보와 매수 유의사항 조회 */
+export const getTossStockSafety = (symbol: string): Promise<TossStockSafetyView> =>
+  invoke('get_toss_stock_safety', { symbol })
+
+/** 활성 Toss 프로파일로 KR/US 정규장 캘린더 조회 */
+export const getTossMarketCalendar = (): Promise<TossMarketCalendarView> =>
+  invoke('get_toss_market_calendar')
 
 // ─── 해외(미국) 주식 ───────────────────────────────────────────────
 /** 해외 현재가 조회 (NAS/NYS/AMS) */

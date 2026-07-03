@@ -136,31 +136,32 @@ AutoConditionTrade/                   ← 루트
 | 모듈 | 책임 |
 |------|------|
 | `router/` | TanStack Router 기반 라우팅 |
-| `shared/api/` | Tauri IPC/Web REST wrapper, Rust 타입 미러 |
+| `shared/api/` | Tauri IPC/Web REST wrapper, Rust 타입 미러 (`BrokerHoldingView` 포함) |
 | `shared/config/theme/` | 앱 테마 생성과 theme mode 타입 |
 | `shared/config/scheduler/` | TanStack Query 공통 폴링 주기 |
 | `entities/*/model/` | Zustand 전역 상태 (계좌, 매매, 설정) |
 | `api/hooks.ts` | TanStack Query 훅 + `useBackendEvents()` (Tauri 이벤트 → 캐시 갱신, 점진 이동 전 legacy entry) |
 | `widgets/app-shell/` | 전체 앱 레이아웃, ThemeProvider, responsive navigation |
-| `widgets/stock-chart/` | 국내/해외 캔들 차트 |
+| `widgets/stock-chart/` | 국내/해외/Toss 캔들 차트 |
 | `pages/settings/ui/Page.tsx` | 데이터 갱신 주기 슬라이더, 웹 포트, broker-aware 계좌 프로파일, Toss 연결 진단, 로그/리스크 설정 |
-| `pages/dashboard/ui/Page.tsx` | 잔고/수익 카드, 포지션, 미체결/체결, 리스크 |
+| `pages/dashboard/ui/Page.tsx` | KIS 국내/해외 잔고, 활성 Toss broker 보유 종목, 수익 카드, 미체결/체결, 리스크 |
+| `pages/trading/ui/Page.tsx` | KIS 국내/해외 수동 주문과 차트, 활성 Toss 프로파일의 read-only 시세 snapshot/차트/종목 유의사항/장 운영 상태 표시 |
 
 ### Backend (Rust)
 
 | 모듈 | 책임 |
 |------|------|
 | `lib.rs` | Tauri Builder + 6개 백그라운드 데몬 spawn + `on_window_event` (종료 안전 처리) |
-| `commands.rs` | AppState + 모든 IPC 커맨드 핸들러 |
+| `commands.rs` | AppState + 모든 IPC 커맨드 핸들러 (`get_broker_holdings`, `get_toss_market_snapshot`, `get_toss_stock_safety`, `get_toss_market_calendar`, `get_toss_chart_data` view 포함) |
 | `api/detect.rs` | KIS 토큰 응답 기반 실전/모의 앱키 자동 감지 |
-| `broker/` | 다중 증권사 공통 타입(`BrokerScope` 포함)과 adapter trait. KIS 기존 REST 호출을 점진 래핑하고 Toss token/accounts/holdings read-only client를 수용 |
+| `broker/` | 다중 증권사 공통 타입(`BrokerScope` 포함)과 adapter trait. KIS 기존 REST 호출을 점진 래핑하고 Toss token/accounts/holdings/market-data read-only client를 수용 |
 | `api/token.rs` | KIS Access Token 자동 갱신 |
 | `api/websocket.rs` | 실시간 시세 수신, 체결 콜백 |
 | `trading/mod.rs` | 전략 루프 실행, 장 시간 감지 |
 | `trading/order.rs` | submit_signal → 주문 → on_fill → 저장, `buy_suspended` 플래그 |
 | `trading/risk.rs` | 일일 손실 한도, 비상 정지, `record_pnl` |
 | `market_hours.rs` | 시장 개장 여부 (KRX 09:00-15:30 / US 22:00-07:00 KST) |
-| `server/mod.rs` | axum 웹 서버 (21개 REST 핸들러, ServeDir) |
+| `server/mod.rs` | axum 웹 서버 (`/api/broker-holdings`, `/api/toss-market-snapshot/:symbol`, `/api/toss-stock-safety/:symbol`, `/api/toss-market-calendar`, `/api/toss-chart/:symbol` 포함 REST 핸들러, ServeDir) |
 | `storage/trade_store.rs` | `data/trades/YYYY/MM/DD/trades.json` |
 | `storage/stats_store.rs` | `data/stats/YYYY/MM/daily_stats.json` |
 | `storage/strategy_store.rs` | `data/strategies/{profile_id}/strategies.json` |

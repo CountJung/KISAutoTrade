@@ -194,8 +194,9 @@ pub fn run() {
                 let risk_mgr     = st.risk_manager.clone();
                 let rest_arc     = st.rest_client.clone();
                 let stock_store  = st.stock_store.clone();
+                let profiles     = st.profiles.clone();
                 tauri::async_runtime::spawn(commands::run_trading_daemon(
-                    is_trading, strategy_mgr, order_mgr, risk_mgr, rest_arc, stock_store,
+                    is_trading, strategy_mgr, order_mgr, risk_mgr, rest_arc, stock_store, profiles,
                 ));
             }
 
@@ -379,6 +380,11 @@ pub fn run() {
             commands::set_active_profile,
             commands::get_balance,
             commands::get_overseas_balance,
+            commands::get_broker_holdings,
+            commands::get_toss_market_snapshot,
+            commands::get_toss_stock_safety,
+            commands::get_toss_market_calendar,
+            commands::get_toss_chart_data,
             commands::get_chart_data,
             commands::get_price,
             commands::place_order,

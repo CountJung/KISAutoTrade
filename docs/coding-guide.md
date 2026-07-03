@@ -775,8 +775,16 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 - `POST /oauth2/token`은 `application/x-www-form-urlencoded`로 호출한다. refresh token은 없으므로 만료 또는 401 시 access token을 1회 재발급한다.
 - `/api/v1/accounts`에서 받은 `accountSeq` 문자열을 `BrokerAccountId`로 다루고, holdings 조회 시 `X-Tossinvest-Account` 헤더로 보낸다.
 - holdings 매핑은 `BrokerHolding`까지 허용한다. 주문/체결 adapter가 준비되기 전에는 자동매매와 수동 주문 IPC에 연결하지 않는다.
+- Dashboard/REST/IPC에 holdings를 노출할 때는 `BrokerHoldingView`처럼 `raw`를 제거한 view 타입을 사용한다. `BrokerMoney`/`BrokerQuantity` 문자열은 view에서도 보존하고, 화면 표시 시에만 locale 포맷을 적용한다.
+- market data는 `prices`, `orderbook`, `trades`, `price-limits`, `candles` read-only 메서드부터 붙인다. `prices`는 `BrokerPriceQuote`, `candles`는 `BrokerCandle`로 매핑하고, orderbook/trades/price-limits는 Toss 원본 문자열 decimal 타입을 보존한다.
+- stock info는 `stocks`, `stocks/{symbol}/warnings` read-only 메서드로 붙인다. warning code는 공식 스펙상 unknown code 허용이므로 enum으로 닫지 말고 문자열로 보존한다.
+- market-calendar는 `market-calendar/KR`, `market-calendar/US` read-only 메서드로 붙인다. KR의 `today.integrated.regularMarket`과 US의 `today.regularMarket`이 있으면 `MarketCalendarOverride`로 변환해 장 시간 판단에 우선 사용하고, calendar가 없거나 조회 실패하면 기존 KST 하드코딩 fallback을 유지한다.
+- 공식 스펙 범위는 client에서 선검증한다: prices/stocks 최대 200 symbols, trades count 1~50, candles interval `1m`/`1d`, candles count 1~200.
+- Trading UI에 Toss 시세/종목 유의사항/장 운영 정보를 노출할 때는 활성 Toss 프로파일에서 `get_toss_market_snapshot`, `get_toss_stock_safety`, `get_toss_market_calendar`, `get_toss_chart_data`만 호출하고, KIS `get_price`, `get_overseas_price`, KIS 차트, 수동 주문 호출은 read-only 차단 상태로 둔다.
+- Toss warnings UI는 `get_toss_stock_safety`/`/api/toss-stock-safety/:symbol`/`useTossStockSafety()` 경로로 연결한다. `buyBlocked`와 `buyBlockReason`은 실제 주문 adapter 연결 전까지 read-only 주문 전 경고로만 사용한다.
+- Toss candles UI는 기존 `ChartCandle[]`/`StockChart`를 재사용하되 `source="toss"`로 분기한다. 일봉은 `YYYYMMDD`, 1분봉은 provider timestamp를 lightweight-charts `Time`으로 변환한다.
 - `X-Request-Id`와 `Retry-After`는 에러 메시지 또는 진단 결과에 보존해 CS 문의와 rate-limit 대응에 사용할 수 있게 한다.
 - read-only 연결 진단은 `check_toss_profile_connection` IPC와 `/api/profiles/:id/toss-diagnostic` 웹 REST를 함께 추가한다. 프로파일 lock은 clone까지만 유지하고, OpenAPI/token/accounts/holdings/preflight 네트워크 호출은 lock 밖에서 실행한다.
 - `buying-power`는 KRW/USD를 각각 조회하고, `commissions`는 account 단위로 조회한다. `sellable-quantity`는 symbol이 필수이므로 holdings에 보유 종목이 있을 때 첫 종목으로 확인하고, holdings가 비어 있으면 성공 skip으로 기록한다.
 
-> 마지막 업데이트: 2026-07-03T13:27:56
+> 마지막 업데이트: 2026-07-03T14:54:52

@@ -28,7 +28,12 @@
 |---------|------|
 | `get_balance` | 국내 잔고 조회 (BalanceSummary + items) |
 | `get_overseas_balance` | 해외 잔고 조회 (OverseasBalanceItem[] + summary) |
+| `get_broker_holdings` | 활성 broker 보유 종목 조회 (`BrokerHoldingView[]`, Toss/KIS 공통 decimal 문자열 보존) |
 | `get_price` | 종목 현재가 조회 |
+| `get_toss_market_snapshot` | 활성 Toss 프로파일로 현재가/호가/최근 체결/상하한가 read-only snapshot 조회 |
+| `get_toss_stock_safety` | 활성 Toss 프로파일로 종목 기본 정보와 매수 유의사항 조회 (`buyBlocked`, `buyBlockReason`) |
+| `get_toss_market_calendar` | 활성 Toss 프로파일로 KR/US 정규장 캘린더 조회 (`regularSession`, `isRegularOpen`) |
+| `get_toss_chart_data` | 활성 Toss 프로파일로 캔들 조회 (`1d`/`1m`, count 1~200, `ChartCandle[]`) |
 | `get_chart_data` | 국내주식 차트 데이터 (일봉) |
 | `get_overseas_price` | 해외주식 현재가 조회 |
 | `get_overseas_chart_data` | 해외주식 차트 데이터 (일/주/월봉) |

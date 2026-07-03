@@ -31,19 +31,22 @@ import FitScreenIcon from '@mui/icons-material/FitScreen'
 import CandlestickChartIcon from '@mui/icons-material/CandlestickChart'
 import ShowChartIcon from '@mui/icons-material/ShowChart'
 import { useTheme } from '@mui/material/styles'
-import { useChartData } from '../../../api/hooks'
+import { useChartData, useTossChartData } from '../../../api/hooks'
 import type { ChartCandle } from '../../../api/types'
 
 // ─── 프리셋 정의 ────────────────────────────────────────────────────
 
 type PeriodCode = 'D' | 'W' | 'M'
+type TossInterval = '1d' | '1m'
+type ChartSource = 'kis' | 'toss'
 
 interface ChartPreset {
   key: string
   label: string
-  periodCode: PeriodCode
+  periodCode?: PeriodCode
+  tossInterval?: TossInterval
   /** today 기준 몇 달 전 */
-  months: number
+  months?: number
 }
 
 export const CHART_PRESETS: ChartPreset[] = [
@@ -52,6 +55,11 @@ export const CHART_PRESETS: ChartPreset[] = [
   { key: '6M', label: '6월', periodCode: 'W', months: 6  }, // 6달치 주봉
   { key: '1Y', label: '년',  periodCode: 'W', months: 12 }, // 1년치 주봉
   { key: '5Y', label: '5년', periodCode: 'M', months: 60 }, // 5년치 월봉
+]
+
+export const TOSS_CHART_PRESETS: ChartPreset[] = [
+  { key: '1D', label: '일', tossInterval: '1d' },
+  { key: '1M', label: '1분', tossInterval: '1m' },
 ]
 
 // ─── 날짜 유틸 ─────────────────────────────────────────────────────
@@ -69,6 +77,37 @@ function monthsAgoYYYYMMDD(months: number): string {
 /** "20260403" → "2026-04-03" */
 function toISODate(yyyymmdd: string): string {
   return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`
+}
+
+function toChartTime(value: string): Time | null {
+  if (/^\d{8}$/.test(value)) {
+    return toISODate(value) as Time
+  }
+  if (/^\d{12,14}$/.test(value)) {
+    const year = value.slice(0, 4)
+    const month = value.slice(4, 6)
+    const day = value.slice(6, 8)
+    const hour = value.slice(8, 10)
+    const minute = value.slice(10, 12)
+    const second = value.slice(12, 14) || '00'
+    const parsed = Date.parse(`${year}-${month}-${day}T${hour}:${minute}:${second}+09:00`)
+    return Number.isFinite(parsed) ? Math.floor(parsed / 1000) as Time : null
+  }
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? Math.floor(parsed / 1000) as Time : null
+}
+
+function formatChartTime(value: Time): string {
+  if (typeof value === 'number') {
+    return new Date(value * 1000).toLocaleString('ko-KR', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+  if (typeof value === 'string') return value
+  return `${value.year}-${String(value.month).padStart(2, '0')}-${String(value.day).padStart(2, '0')}`
 }
 
 // ─── 데이터 변환 ────────────────────────────────────────────────────
@@ -98,8 +137,9 @@ function toChartPoints(candles: ChartCandle[]): { candleData: CandlePoint[]; vol
   const lineData: LinePoint[] = []
 
   for (const c of candles) {
-    if (!c.date || c.date.length !== 8) continue
-    const time = toISODate(c.date) as Time
+    if (!c.date) continue
+    const time = toChartTime(c.date)
+    if (!time) continue
     const open  = parseFloat(c.open)  || 0
     const high  = parseFloat(c.high)  || 0
     const low   = parseFloat(c.low)   || 0
@@ -124,7 +164,8 @@ function toChartPoints(candles: ChartCandle[]): { candleData: CandlePoint[]; vol
 function buildChartOptions(
   width: number,
   height: number,
-  isDark: boolean
+  isDark: boolean,
+  timeVisible = false
 ) {
   const bg      = isDark ? '#1e1e1e' : '#ffffff'
   const textClr = isDark ? '#c8c8c8' : '#333333'
@@ -147,7 +188,8 @@ function buildChartOptions(
     rightPriceScale: { borderColor: border },
     timeScale: {
       borderColor: border,
-      timeVisible: false,
+      timeVisible,
+      secondsVisible: false,
       fixLeftEdge: true,
       fixRightEdge: true,
     },
@@ -159,6 +201,7 @@ function buildChartOptions(
 interface StockChartProps {
   symbol: string
   stockName?: string
+  source?: ChartSource
 }
 
 // ─── 툴팁 데이터 타입 ───────────────────────────────────────────────
@@ -173,11 +216,11 @@ interface CrosshairData {
 
 type ChartType = 'candle' | 'line'
 
-export function StockChart({ symbol, stockName }: StockChartProps) {
+export function StockChart({ symbol, stockName, source = 'kis' }: StockChartProps) {
   const theme = useTheme()
   const isDark = theme.palette.mode === 'dark'
 
-  const [preset, setPreset] = useState<ChartPreset>(CHART_PRESETS[0])
+  const [presetKey, setPresetKey] = useState('1D')
   const [chartType, setChartType] = useState<ChartType>('candle')
   const [crosshair, setCrosshair] = useState<CrosshairData | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -186,16 +229,35 @@ export function StockChart({ symbol, stockName }: StockChartProps) {
   const lineRef      = useRef<ISeriesApi<'Line'> | null>(null)
   const volumeRef    = useRef<ISeriesApi<'Histogram'> | null>(null)
 
-  const startDate = monthsAgoYYYYMMDD(preset.months)
+  const presets = source === 'toss' ? TOSS_CHART_PRESETS : CHART_PRESETS
+  const preset = presets.find((item) => item.key === presetKey) ?? presets[0]
+  const startDate = monthsAgoYYYYMMDD(preset.months ?? 1)
   const endDate   = todayYYYYMMDD()
+  const kisPeriodCode = preset.periodCode ?? 'D'
+  const tossInterval = preset.tossInterval ?? '1d'
+  const hasValidSymbol = source === 'toss' ? !!symbol : symbol.length === 6
 
-  const { data: candles, isLoading, isError, error } = useChartData(
+  useEffect(() => {
+    if (!presets.some((item) => item.key === presetKey)) {
+      setPresetKey(presets[0].key)
+    }
+  }, [presetKey, presets])
+
+  const kisChart = useChartData(
     symbol,
-    preset.periodCode,
+    kisPeriodCode,
     startDate,
     endDate,
     preset.key,
+    { enabled: source === 'kis' && symbol.length === 6 },
   )
+  const tossChart = useTossChartData(
+    symbol,
+    tossInterval,
+    preset.key,
+    { enabled: source === 'toss' && !!symbol },
+  )
+  const { data: candles, isLoading, isError, error } = source === 'toss' ? tossChart : kisChart
 
   // ── 차트 초기화 (마운트 1회) ────────────────────────────────────
   useEffect(() => {
@@ -248,7 +310,7 @@ export function StockChart({ symbol, stockName }: StockChartProps) {
       const closeVal = c?.close ?? lp?.value ?? 0
       if (!c && !lp) { setCrosshair(null); return }
       setCrosshair({
-        time: param.time as string,
+        time: formatChartTime(param.time as Time),
         open: c?.open ?? closeVal,
         high: c?.high ?? closeVal,
         low: c?.low ?? closeVal,
@@ -291,6 +353,12 @@ export function StockChart({ symbol, stockName }: StockChartProps) {
     candleRef.current.setData(candleData)
     lineRef.current.setData(lineData)
     volumeRef.current.setData(volumeData)
+    chartRef.current?.applyOptions({
+      timeScale: {
+        timeVisible: candleData.some((point) => typeof point.time === 'number'),
+        secondsVisible: false,
+      },
+    })
     chartRef.current?.timeScale().fitContent()
   }, [candles])
 
@@ -343,12 +411,11 @@ export function StockChart({ symbol, stockName }: StockChartProps) {
           exclusive
           onChange={(_, v) => {
             if (!v) return
-            const p = CHART_PRESETS.find((x) => x.key === v)
-            if (p) setPreset(p)
+            if (presets.some((x) => x.key === v)) setPresetKey(v)
           }}
           size="small"
         >
-          {CHART_PRESETS.map((p) => (
+          {presets.map((p) => (
             <ToggleButton key={p.key} value={p.key} sx={{ px: 1.5, minWidth: 44 }}>
               {p.label}
             </ToggleButton>
@@ -437,7 +504,7 @@ export function StockChart({ symbol, stockName }: StockChartProps) {
       </Box>
 
       {/* 심볼 미입력 빈 상태 */}
-      {symbol.length !== 6 && !isLoading && !isError && (
+      {!hasValidSymbol && !isLoading && !isError && (
         <Box
           sx={{
             height: 380,

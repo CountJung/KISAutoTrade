@@ -201,10 +201,10 @@ pub struct OverseasBalanceResponse {
 // 차트 (기간별 시세)
 // ────────────────────────────────────────────────────────────────────
 
-/// 차트 캔들 1개 (일/주/월봉)
+/// 차트 캔들 1개 (일/주/월봉 또는 provider intraday timestamp)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChartCandle {
-    /// 영업일자 YYYYMMDD
+    /// 영업일자 YYYYMMDD 또는 provider intraday timestamp
     pub date: String,
     /// 시가
     pub open: String,

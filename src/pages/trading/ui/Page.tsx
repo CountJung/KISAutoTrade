@@ -38,6 +38,9 @@ import {
   usePrice,
   useStockSearch,
   useOverseasPrice,
+  useTossMarketSnapshot,
+  useTossStockSafety,
+  useTossMarketCalendar,
   usePlaceOverseasOrder,
   useRefreshStockList,
   useTradingStatus,
@@ -53,11 +56,39 @@ import type {
   OverseasOrderExchange,
   OrderSide,
   OrderType,
+  TossMarketCalendarView,
+  TossMarketSnapshotView,
+  TossStockSafetyView,
 } from '../../../api/types'
 import { StockChart, OverseasStockChart } from '../../../widgets/stock-chart'
 
 function fmt(n: number) {
   return n.toLocaleString('ko-KR')
+}
+
+function fmtDecimal(value: string, fractionDigits = 4) {
+  const parsed = Number(value.replace(/,/g, ''))
+  if (!Number.isFinite(parsed)) return value
+  return parsed.toLocaleString('ko-KR', { maximumFractionDigits: fractionDigits })
+}
+
+function fmtTossMoney(amount: string, currency: string) {
+  return currency === 'KRW'
+    ? `${fmtDecimal(amount, 0)}원`
+    : `$${fmtDecimal(amount, 4)}`
+}
+
+function tossMarketLabel(market: TossMarketSnapshotView['market']) {
+  return market === 'kr' ? '국내' : '미국'
+}
+
+function fmtTossSession(session: TossMarketCalendarView['kr']['regularSession']) {
+  if (!session) return '휴장'
+  const format = (value: string) => new Date(value).toLocaleTimeString('ko-KR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  return `${format(session.startTime)}~${format(session.endTime)}`
 }
 
 type Market = 'KR' | 'US'
@@ -338,6 +369,206 @@ function UsStockInfoCard({ symbol, exchange }: { symbol: string; exchange: Overs
   )
 }
 
+// --- Toss read-only 시세 카드
+function TossMarketSnapshotCard({ symbol }: { symbol: string }) {
+  const { data, isLoading, isError, error } = useTossMarketSnapshot(symbol)
+  if (!symbol) return null
+  if (isLoading) return (
+    <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+      <CircularProgress size={16} />
+      <Typography variant="body2" color="text.secondary">Toss 시세 조회 중</Typography>
+    </Box>
+  )
+  if (isError || !data) return (
+    <Box sx={{ px: 2, py: 1 }}>
+      <Typography variant="caption" color="error">
+        Toss 시세를 불러올 수 없습니다: {(error as { message?: string } | null)?.message ?? '연결 진단을 확인하세요.'}
+      </Typography>
+    </Box>
+  )
+
+  const bestAsk = data.orderbook.asks[0]
+  const bestBid = data.orderbook.bids[0]
+  const latestTrade = data.trades[0]
+
+  return (
+    <Box sx={{ px: { xs: 1.5, sm: 2.5 }, py: 1.5 }}>
+      <Stack direction="row" spacing={1.5} alignItems="baseline" flexWrap="wrap" mb={1}>
+        <Box>
+          <Stack direction="row" alignItems="center" spacing={0.75}>
+            <Typography variant="subtitle2" fontWeight={700}>{symbol}</Typography>
+            <Chip size="small" label={`Toss · ${tossMarketLabel(data.market)}`} sx={{ height: 18, fontSize: '0.65rem' }} />
+          </Stack>
+          {data.timestamp && (
+            <Typography variant="caption" color="text.secondary">{new Date(data.timestamp).toLocaleString('ko-KR')}</Typography>
+          )}
+        </Box>
+        <Typography variant="h5" fontWeight={700}>
+          {fmtTossMoney(data.price.amount, data.price.currency)}
+        </Typography>
+      </Stack>
+
+      <Grid container spacing={1.5}>
+        <Grid item xs={6} sm={3}>
+          <Typography variant="caption" color="text.secondary" display="block">매도 1호가</Typography>
+          <Typography variant="caption" fontWeight={600} color="error.main">
+            {bestAsk ? fmtTossMoney(bestAsk.price, data.orderbook.currency) : '-'}
+          </Typography>
+          {bestAsk && <Typography variant="caption" color="text.secondary" display="block">잔량 {fmtDecimal(bestAsk.volume, 4)}</Typography>}
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <Typography variant="caption" color="text.secondary" display="block">매수 1호가</Typography>
+          <Typography variant="caption" fontWeight={600} color="primary.main">
+            {bestBid ? fmtTossMoney(bestBid.price, data.orderbook.currency) : '-'}
+          </Typography>
+          {bestBid && <Typography variant="caption" color="text.secondary" display="block">잔량 {fmtDecimal(bestBid.volume, 4)}</Typography>}
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <Typography variant="caption" color="text.secondary" display="block">상한가</Typography>
+          <Typography variant="caption" fontWeight={600} color="error.main">
+            {data.priceLimits.upperLimitPrice ? fmtTossMoney(data.priceLimits.upperLimitPrice, data.priceLimits.currency) : '-'}
+          </Typography>
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <Typography variant="caption" color="text.secondary" display="block">하한가</Typography>
+          <Typography variant="caption" fontWeight={600} color="primary.main">
+            {data.priceLimits.lowerLimitPrice ? fmtTossMoney(data.priceLimits.lowerLimitPrice, data.priceLimits.currency) : '-'}
+          </Typography>
+        </Grid>
+      </Grid>
+
+      {latestTrade && (
+        <Box sx={{ mt: 1.25 }}>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>최근 체결</Typography>
+          <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+            {data.trades.slice(0, 3).map((trade) => (
+              <Typography key={`${trade.timestamp}:${trade.price}:${trade.volume}`} variant="caption">
+                {fmtTossMoney(trade.price, trade.currency)} · {fmtDecimal(trade.volume, 4)}
+              </Typography>
+            ))}
+          </Stack>
+        </Box>
+      )}
+    </Box>
+  )
+}
+
+function TossStockSafetyCard({
+  data,
+  isLoading,
+  isError,
+  error,
+}: {
+  data: TossStockSafetyView | undefined
+  isLoading: boolean
+  isError: boolean
+  error: unknown
+}) {
+  if (isLoading) return (
+    <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+      <CircularProgress size={14} />
+      <Typography variant="caption" color="text.secondary">Toss 종목 유의사항 조회 중</Typography>
+    </Box>
+  )
+  if (isError) return (
+    <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pb: 1.5 }}>
+      <Typography variant="caption" color="error">
+        Toss 종목 유의사항을 불러올 수 없습니다: {(error as { message?: string } | null)?.message ?? '연결 진단을 확인하세요.'}
+      </Typography>
+    </Box>
+  )
+  if (!data) return null
+
+  const info = data.stockInfo
+
+  return (
+    <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pb: 1.5 }}>
+      <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: data.warnings.length ? 1 : 0 }}>
+        {info && (
+          <>
+            <Chip size="small" label={info.name || info.symbol} variant="outlined" sx={{ height: 22, fontSize: '0.7rem' }} />
+            <Chip size="small" label={info.market} variant="outlined" sx={{ height: 22, fontSize: '0.7rem' }} />
+            <Chip
+              size="small"
+              label={info.status}
+              color={info.status === 'ACTIVE' ? 'success' : 'warning'}
+              variant="outlined"
+              sx={{ height: 22, fontSize: '0.7rem' }}
+            />
+            <Chip size="small" label={info.securityType} variant="outlined" sx={{ height: 22, fontSize: '0.7rem' }} />
+          </>
+        )}
+        {!info && (
+          <Chip size="small" label="종목 기본 정보 없음" color="warning" variant="outlined" sx={{ height: 22, fontSize: '0.7rem' }} />
+        )}
+      </Stack>
+
+      {data.warnings.length > 0 ? (
+        <Alert severity={data.buyBlocked ? 'warning' : 'info'} sx={{ py: 0.5 }}>
+          <Stack spacing={0.5}>
+            <Typography variant="caption" fontWeight={600}>
+              Toss 매수 유의사항 {data.warnings.length}건
+            </Typography>
+            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+              {data.warnings.map((warning) => (
+                <Chip
+                  key={`${warning.warningType}:${warning.exchange ?? ''}:${warning.startDate ?? ''}`}
+                  size="small"
+                  label={`${warning.label}${warning.exchange ? ` · ${warning.exchange}` : ''}`}
+                  color={warning.blockingForBuy ? 'warning' : 'default'}
+                  variant={warning.blockingForBuy ? 'filled' : 'outlined'}
+                  sx={{ height: 22, fontSize: '0.7rem' }}
+                />
+              ))}
+            </Stack>
+          </Stack>
+        </Alert>
+      ) : (
+        <Typography variant="caption" color="text.secondary">
+          Toss 매수 유의사항 없음
+        </Typography>
+      )}
+    </Box>
+  )
+}
+
+function TossMarketCalendarStrip({
+  data,
+  isLoading,
+  isError,
+}: {
+  data: TossMarketCalendarView | undefined
+  isLoading: boolean
+  isError: boolean
+}) {
+  if (isLoading) return (
+    <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+      <CircularProgress size={14} />
+      <Typography variant="caption" color="text.secondary">Toss 장 운영 정보 조회 중</Typography>
+    </Box>
+  )
+  if (isError || !data) return null
+
+  return (
+    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ px: { xs: 1.5, sm: 2.5 }, pt: 1.5 }}>
+      <Chip
+        size="small"
+        label={`KRX ${data.kr.isRegularOpen ? '정규장 개장' : '정규장 폐장'} · ${fmtTossSession(data.kr.regularSession)}`}
+        color={data.kr.isRegularOpen ? 'success' : 'default'}
+        variant="outlined"
+        sx={{ height: 22, fontSize: '0.7rem' }}
+      />
+      <Chip
+        size="small"
+        label={`US ${data.us.isRegularOpen ? '정규장 개장' : '정규장 폐장'} · ${fmtTossSession(data.us.regularSession)}`}
+        color={data.us.isRegularOpen ? 'success' : 'default'}
+        variant="outlined"
+        sx={{ height: 22, fontSize: '0.7rem' }}
+      />
+    </Stack>
+  )
+}
+
 // --- Trading 메인
 export default function Trading() {
   const [market, setMarket]           = useState<Market>('KR')
@@ -379,8 +610,15 @@ export default function Trading() {
 
   const { data: balance }                                           = useBalance()
   const { data: overseasBalance }                                   = useOverseasBalance()
-  const { data: krPrice }                                           = usePrice(market === 'KR' && symbol.length === 6 ? symbol : '')
-  const { data: usPrice }                                           = useOverseasPrice(market === 'US' ? symbol : '', market === 'US' ? usExchange : '')
+  const { data: appConfig }                                         = useAppConfig()
+  const isTossActive = appConfig?.active_broker_id === 'toss'
+  const { data: krPrice }                                           = usePrice(!isTossActive && market === 'KR' && symbol.length === 6 ? symbol : '')
+  const { data: usPrice }                                           = useOverseasPrice(!isTossActive && market === 'US' ? symbol : '', !isTossActive && market === 'US' ? usExchange : '')
+  const { data: tossSnapshot }                                      = useTossMarketSnapshot(isTossActive && symbol ? symbol : '')
+  const { data: tossSafety, isLoading: isTossSafetyLoading,
+          isError: isTossSafetyError, error: tossSafetyError }      = useTossStockSafety(isTossActive && symbol ? symbol : '')
+  const { data: tossCalendar, isLoading: isTossCalendarLoading,
+          isError: isTossCalendarError }                            = useTossMarketCalendar({ enabled: isTossActive })
   const { data: searchResults = [], isFetching: isFetchingSearch,
           isError: isSearchError, error: searchError }              = useStockSearch(searchQuery)
   const { mutate: placeOrder,         isPending: isPendingKr }     = usePlaceOrder()
@@ -388,16 +626,18 @@ export default function Trading() {
   const { mutate: doRefreshList,      isPending: isRefreshing }    = useRefreshStockList()
   const { data: tradingStatus }                                     = useTradingStatus()
   const { mutate: clearBuySuspension, isPending: clearingBuySusp } = useClearBuySuspension()
-  const { data: appConfig }                                         = useAppConfig()
   const isPending = isPendingKr || isPendingUs
 
   // STOCK_LIST_EMPTY 에러 감지: KRX 다운로드 미완료 or 실패
   const isStockListEmpty = isSearchError && (searchError as CmdError | null)?.code === 'STOCK_LIST_EMPTY'
 
   const availableCash  = parseInt(balance?.summary?.dnca_tot_amt ?? '0') || 0
+  const tossCurrentPrice = tossSnapshot ? Number(tossSnapshot.price.amount.replace(/,/g, '')) : null
   const krCurrentPrice = krPrice ? parseInt(krPrice.stck_prpr) : null
   const usCurrentPrice = usPrice ? parseFloat(usPrice.last) : null
-  const stockName      = market === 'KR' ? krPrice?.hts_kor_isnm : (usPrice?.name ?? symbol)
+  const stockName      = isTossActive
+    ? (inputValue || symbol)
+    : market === 'KR' ? krPrice?.hts_kor_isnm : (usPrice?.name ?? symbol)
   const isPaperTrading = appConfig?.kis_is_paper_trading ?? false
   const overseasOrderExchange = EXCHANGE_ORDER_MAP[usExchange]
   const normalizedUsSymbol = symbol.trim().toUpperCase()
@@ -430,6 +670,12 @@ export default function Trading() {
   const handleUsSearch = async () => {
     const ticker = inputValue.trim().toUpperCase()
     if (!ticker) return
+    if (isTossActive) {
+      setSymbol(ticker)
+      setResult(null)
+      setErrorMsg(null)
+      return
+    }
     setUsSearching(true)
     setErrorMsg(null)
     const exchanges: OverseasExchange[] = ['NAS', 'NYS', 'AMS']
@@ -453,6 +699,10 @@ export default function Trading() {
   }
 
   const handleFillMarketPrice = () => {
+    if (isTossActive && tossCurrentPrice && Number.isFinite(tossCurrentPrice)) {
+      setPrice(tossSnapshot?.price.currency === 'KRW' ? String(Math.round(tossCurrentPrice)) : tossCurrentPrice.toFixed(4))
+      return
+    }
     if (market === 'KR' && krCurrentPrice) setPrice(String(krCurrentPrice))
     if (market === 'US' && usCurrentPrice)  setPrice(usCurrentPrice.toFixed(2))
   }
@@ -463,6 +713,10 @@ export default function Trading() {
     const qty = parseInt(quantity)
     if (!symbol)          { setErrorMsg('종목을 선택하세요.'); return }
     if (!qty || qty <= 0) { setErrorMsg('수량을 입력하세요.'); return }
+    if (isTossActive) {
+      setErrorMsg('Toss 프로파일은 현재 read-only 시세/잔고 조회만 지원합니다. 주문 생성은 소액 검증 gate 이후 연결됩니다.')
+      return
+    }
 
     if (market === 'KR') {
       if (!/^[A-Z0-9]{6}$/i.test(symbol)) { setErrorMsg('국내 종목코드는 6자리 영숫자입니다 (예: 005930, 0005A0).'); return }
@@ -781,13 +1035,13 @@ export default function Trading() {
                   </InputAdornment>
                 ),
               }}
-              helperText="Enter 또는 검색 버튼 — 나스닥·뉴욕·AMEX 자동 감지"
+              helperText={isTossActive ? 'Enter 또는 검색 버튼 — Toss read-only 시세 조회' : 'Enter 또는 검색 버튼 — 나스닥·뉴욕·AMEX 자동 감지'}
             />
             {symbol && (
               <Chip
-                label={usExchange}
+                label={isTossActive ? 'Toss' : usExchange}
                 size="small"
-                color="info"
+                color={isTossActive ? 'secondary' : 'info'}
                 variant="outlined"
                 sx={{ mt: 1, flexShrink: 0 }}
               />
@@ -795,12 +1049,28 @@ export default function Trading() {
           </Stack>
         )}
 
-        {symbol && market === 'KR' && symbol.length === 6 && (
+        {symbol && isTossActive && (
+          <Box sx={{ mt: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+            <TossMarketCalendarStrip
+              data={tossCalendar}
+              isLoading={isTossCalendarLoading}
+              isError={isTossCalendarError}
+            />
+            <TossMarketSnapshotCard symbol={symbol} />
+            <TossStockSafetyCard
+              data={tossSafety}
+              isLoading={isTossSafetyLoading}
+              isError={isTossSafetyError}
+              error={tossSafetyError}
+            />
+          </Box>
+        )}
+        {symbol && !isTossActive && market === 'KR' && symbol.length === 6 && (
           <Box sx={{ mt: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
             <KrStockInfoCard symbol={symbol} />
           </Box>
         )}
-        {symbol && market === 'US' && (
+        {symbol && !isTossActive && market === 'US' && (
           <Box sx={{ mt: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
             <UsStockInfoCard symbol={symbol} exchange={usExchange} />
           </Box>
@@ -815,9 +1085,9 @@ export default function Trading() {
               <Typography variant="subtitle1" fontWeight={600}>수동 주문</Typography>
               {symbol && (
                 <Chip
-                  label={market === 'KR' ? symbol : symbol + ' (' + usExchange + ')'}
+                  label={isTossActive ? `${symbol} (Toss read-only)` : market === 'KR' ? symbol : symbol + ' (' + usExchange + ')'}
                   size="small"
-                  color={market === 'US' ? 'info' : 'default'}
+                  color={isTossActive ? 'secondary' : market === 'US' ? 'info' : 'default'}
                   variant="outlined"
                 />
               )}
@@ -841,6 +1111,18 @@ export default function Trading() {
               </ToggleButtonGroup>
             )}
 
+            {isTossActive && (
+              <Alert severity="info" sx={{ mb: 1.5 }}>
+                Toss 프로파일은 현재 read-only 시세와 잔고 조회만 지원합니다. 주문 생성은 소액 검증 gate 이후 연결됩니다.
+              </Alert>
+            )}
+
+            {isTossActive && tossSafety?.buyBlockReason && (
+              <Alert severity="warning" sx={{ mb: 1.5 }}>
+                {tossSafety.buyBlockReason}
+              </Alert>
+            )}
+
             {(market === 'US' || orderType === 'Limit') && (
               <TextField
                 label={market === 'US' ? '주문가격 (USD)' : '주문가격'}
@@ -855,7 +1137,7 @@ export default function Trading() {
                           <Button
                             size="small"
                             onClick={handleFillMarketPrice}
-                            disabled={!(market === 'KR' ? krCurrentPrice : usCurrentPrice)}
+                            disabled={isTossActive ? !(tossCurrentPrice && Number.isFinite(tossCurrentPrice)) : !(market === 'KR' ? krCurrentPrice : usCurrentPrice)}
                           >
                             현재가
                           </Button>
@@ -930,7 +1212,7 @@ export default function Trading() {
               color={side === 'Buy' ? 'primary' : 'error'}
               fullWidth
               onClick={handleSubmit}
-              disabled={isPending || !symbol || isPaperUnsupportedUsSell}
+              disabled={isPending || !symbol || isPaperUnsupportedUsSell || isTossActive}
               startIcon={isPending ? <CircularProgress size={16} color="inherit" /> : undefined}
               sx={{ py: 1.2 }}
             >
@@ -944,7 +1226,9 @@ export default function Trading() {
           <Paper sx={{ overflow: 'hidden' }}>
             {symbol && (market === 'KR' ? symbol.length === 6 : true) ? (
               <>
-                {market === 'KR'
+                {isTossActive
+                  ? <TossMarketSnapshotCard symbol={symbol} />
+                  : market === 'KR'
                   ? <KrStockInfoCard symbol={symbol} />
                   : <UsStockInfoCard symbol={symbol} exchange={usExchange} />}
                 <Divider />
@@ -956,7 +1240,11 @@ export default function Trading() {
                 </Typography>
               </Box>
             )}
-            {market === 'US' && symbol ? (
+            {isTossActive && symbol ? (
+              <Box sx={{ p: { xs: 1, sm: 2 } }}>
+                <StockChart symbol={symbol} stockName={stockName} source="toss" />
+              </Box>
+            ) : market === 'US' && symbol ? (
               <Box sx={{ p: { xs: 1, sm: 2 } }}>
                 <OverseasStockChart symbol={symbol} exchange={usExchange} stockName={stockName} />
               </Box>

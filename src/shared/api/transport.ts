@@ -34,6 +34,9 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
     case 'get_overseas_balance':
       return { method: 'GET', url: '/api/overseas-balance' }
 
+    case 'get_broker_holdings':
+      return { method: 'GET', url: '/api/broker-holdings' }
+
     // ─── 현재가 ──────────────────────────────────────────────
     case 'get_price':
       return { method: 'GET', url: `/api/price/${args.symbol}` }
@@ -68,6 +71,15 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
       return {
         method: 'GET',
         url: `/api/chart/${inp.symbol}?period=${period}&count=${count}`,
+      }
+    }
+
+    case 'get_toss_chart_data': {
+      const interval = String(args.interval ?? '1d')
+      const count = Number(args.count ?? 200)
+      return {
+        method: 'GET',
+        url: `/api/toss-chart/${encodeURIComponent(String(args.symbol ?? ''))}?interval=${encodeURIComponent(interval)}&count=${count}`,
       }
     }
 
@@ -198,6 +210,21 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
 
     case 'check_toss_profile_connection':
       return { method: 'POST', url: `/api/profiles/${args.profileId}/toss-diagnostic` }
+
+    case 'get_toss_market_snapshot':
+      return {
+        method: 'GET',
+        url: `/api/toss-market-snapshot/${encodeURIComponent(String(args.symbol ?? ''))}`,
+      }
+
+    case 'get_toss_stock_safety':
+      return {
+        method: 'GET',
+        url: `/api/toss-stock-safety/${encodeURIComponent(String(args.symbol ?? ''))}`,
+      }
+
+    case 'get_toss_market_calendar':
+      return { method: 'GET', url: '/api/toss-market-calendar' }
 
     // ─── 종목 목록 ───────────────────────────────────────────────────
     case 'get_stock_list_stats':

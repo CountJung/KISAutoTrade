@@ -81,21 +81,35 @@
 
 ## P1 — 시세/종목/캔들 연동
 
-- [ ] 토스 현재가/호가/최근 체결/상하한가 조회 구현
+- [x] 토스 현재가/호가/최근 체결/상하한가 조회 구현
   - KIS `get_price` 계열과 동일한 UI 표면을 유지하되 provider별 원본 필드는 보존한다.
-- [ ] 토스 candles를 기존 lightweight-charts 데이터 구조로 매핑
+  - `TossOpenApiClient`/`TossBrokerAdapter`에는 `prices`, `orderbook`, `trades`, `price-limits` read-only 조회와 `BrokerPriceQuote` 매핑 테스트가 있다.
+  - `get_toss_market_snapshot` IPC, `/api/toss-market-snapshot/:symbol` REST, `useTossMarketSnapshot()` 훅을 추가했고, Trading 화면은 활성 broker가 Toss일 때 현재가/호가/최근 체결/상하한가 snapshot을 표시한다.
+  - 활성 Toss 프로파일에서는 기존 KIS 가격/차트/수동 주문 호출을 막고 read-only 안내를 표시한다.
+- [x] 토스 candles를 기존 lightweight-charts 데이터 구조로 매핑
   - 1분봉/일봉 지원 범위와 query parameter는 공식 OpenAPI JSON으로 작업 시점 재확인.
-- [ ] 토스 종목 기본 정보와 warnings를 종목 검색/주문 전 검증에 연결
+  - 현재 Toss candles는 `1m`/`1d`, count 1~200, `before`, `adjusted` 쿼리를 지원하는 client 메서드와 `BrokerCandle` 매핑 테스트가 있다.
+  - `get_toss_chart_data` IPC, `/api/toss-chart/:symbol` REST, `useTossChartData()` 훅을 추가했고, Trading 화면은 활성 broker가 Toss일 때 기존 `StockChart`를 `source="toss"`로 재사용한다.
+  - Toss 차트 preset은 일봉/1분봉으로 제한하고, 일봉은 `YYYYMMDD`, 1분봉은 provider timestamp를 lightweight-charts `Time`으로 변환한다.
+- [x] 토스 종목 기본 정보와 warnings를 종목 검색/주문 전 검증에 연결
   - 거래 제한, 투자경고, VI, 정리매매 등은 주문 전 guard에서 차단 또는 확인 요구한다.
-- [ ] 토스 KR/US market-calendar를 장 시간 판단에 통합
+  - `TossOpenApiClient`/`TossBrokerAdapter`에 `stocks`, `stocks/{symbol}/warnings` read-only 조회를 추가했다. `warnings`의 unknown code는 문자열로 보존한다.
+  - `get_toss_stock_safety` IPC, `/api/toss-stock-safety/:symbol` REST, `useTossStockSafety()` 훅을 추가했고, Trading 화면은 활성 broker가 Toss일 때 종목 기본 정보와 매수 유의사항을 표시한다.
+  - `TossStockSafetyView.buyBlocked`/`buyBlockReason`은 상장 상태와 blocking warning을 주문 전 검증 후보로 내려준다. 실제 Toss 주문 생성 경로 연결은 주문 adapter와 소액 검증 gate 이후 진행한다.
+- [x] 토스 KR/US market-calendar를 장 시간 판단에 통합
   - 기존 `market_hours.rs`의 하드코딩 보완 후보로 사용한다.
+  - `TossOpenApiClient`/`TossBrokerAdapter`에 `market-calendar/KR`, `market-calendar/US` read-only 조회와 serde 매핑 테스트를 추가했다.
+  - `market_hours.rs`는 `MarketCalendarOverride`를 받으면 공식 regular session으로 개장 여부를 판단하고, calendar가 없으면 기존 KST 하드코딩 로직으로 fallback한다.
+  - `get_toss_market_calendar` IPC, `/api/toss-market-calendar` REST, `useTossMarketCalendar()` 훅을 추가했고, Trading 화면은 활성 broker가 Toss일 때 KR/US 정규장 상태를 표시한다.
+  - 자동매매 데몬의 장 시간 사전 체크와 종목별 tick skip 경로는 Toss 활성 프로파일 calendar override를 받을 수 있게 연결했다. 현재 Toss 자동매매 시작은 주문 adapter gate 전까지 계속 차단된다.
 
 ## P1 — 계좌/잔고/포지션 통합
 
-- [ ] 토스 accounts/holdings 조회 구현
+- [x] 토스 accounts/holdings 조회 구현
   - KIS 국내/해외 잔고와 동일한 Dashboard/Position UI에 표시한다.
   - 통화별 평가금액, 손익, 수량 precision을 공통 타입으로 정규화한다.
-  - 현재 `TossOpenApiClient`/`TossBrokerAdapter`에는 accounts 조회와 holdings → `BrokerHolding` 매핑이 구현되어 있다. IPC/Settings 진단과 Dashboard/Position UI 연결은 별도 진행한다.
+  - `TossOpenApiClient`/`TossBrokerAdapter`의 accounts 조회와 holdings → `BrokerHolding` 매핑을 `get_broker_holdings` IPC, `/api/broker-holdings` REST, `useBrokerHoldings()` 훅으로 연결했다.
+  - Dashboard는 활성 broker가 Toss일 때 `BrokerHoldingView` 기반 보유 종목 섹션을 표시하며, 금액/수량은 문자열 precision을 보존한 뒤 화면 표시 시에만 포맷한다.
 - [ ] 자동매매 시작 시 토스 holdings 기반 전략 포지션 동기화
   - 기존 `Strategy::sync_position()` 흐름에 broker 인자를 추가한다.
 - [ ] 환율 조회 소스 정책 정리
@@ -165,4 +179,4 @@
 - 토스증권 API는 KIS의 TR-ID 방식이 아니라 OAuth2 + REST endpoint + account header 중심으로 설계해야 한다.
 - 기존 KIS 전용 파일명과 타입명은 한 번에 모두 바꾸지 말고, adapter 경계부터 만든 뒤 UI와 저장 구조를 단계적으로 이전한다.
 
-*마지막 업데이트: 2026-07-03*
+*마지막 업데이트: 2026-07-03T14:54:52*

@@ -11,12 +11,71 @@
 //! | KRX (국내) | 월~금 09:00 ~ 15:30 | 한국 공휴일 제외(API 에러로 보완) |
 //! | NYSE/NASDAQ (해외) | 22:00 ~ 07:00 (야간) | 하계 22:30~05:00, 동계 23:30~06:00 기준 + 버퍼 |
 
-use chrono::{Datelike, Timelike, Weekday};
+use chrono::{DateTime, Datelike, FixedOffset, Timelike, Weekday};
 
 /// 시스템 타임존에 무관하게 현재 KST 시각 반환 (UTC+9 고정)
 fn now_kst() -> chrono::DateTime<chrono::FixedOffset> {
     let kst = chrono::FixedOffset::east_opt(9 * 3600).expect("KST FixedOffset 생성 실패");
     chrono::Utc::now().with_timezone(&kst)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MarketSessionWindow {
+    pub start_at: DateTime<FixedOffset>,
+    pub end_at: DateTime<FixedOffset>,
+}
+
+impl MarketSessionWindow {
+    pub fn parse(start_at: &str, end_at: &str) -> Option<Self> {
+        let start_at = DateTime::parse_from_rfc3339(start_at).ok()?;
+        let end_at = DateTime::parse_from_rfc3339(end_at).ok()?;
+        (start_at < end_at).then_some(Self { start_at, end_at })
+    }
+
+    pub fn contains(&self, now: DateTime<FixedOffset>) -> bool {
+        now >= self.start_at && now < self.end_at
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MarketDayCalendar {
+    pub regular_session: Option<MarketSessionWindow>,
+}
+
+impl MarketDayCalendar {
+    pub fn regular(start_at: &str, end_at: &str) -> Option<Self> {
+        Some(Self {
+            regular_session: Some(MarketSessionWindow::parse(start_at, end_at)?),
+        })
+    }
+
+    pub fn closed() -> Self {
+        Self {
+            regular_session: None,
+        }
+    }
+
+    pub fn is_open_at(&self, now: DateTime<FixedOffset>) -> bool {
+        self.regular_session
+            .as_ref()
+            .is_some_and(|session| session.contains(now))
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MarketCalendarOverride {
+    pub kr: Option<MarketDayCalendar>,
+    pub us: Option<MarketDayCalendar>,
+}
+
+impl MarketCalendarOverride {
+    pub fn is_kr_open_at(&self, now: DateTime<FixedOffset>) -> Option<bool> {
+        self.kr.as_ref().map(|day| day.is_open_at(now))
+    }
+
+    pub fn is_us_open_at(&self, now: DateTime<FixedOffset>) -> Option<bool> {
+        self.us.as_ref().map(|day| day.is_open_at(now))
+    }
 }
 
 /// 국내 주식 종목코드 판별
@@ -33,7 +92,10 @@ pub fn is_domestic_symbol(symbol: &str) -> bool {
 /// - 월~금, **09:00 ~ 15:30 KST**
 /// - 한국 공휴일은 미포함 → KIS API `장종료` 에러 응답으로 사후 보완
 pub fn is_krx_open() -> bool {
-    let now = now_kst();
+    is_krx_open_at(now_kst())
+}
+
+pub fn is_krx_open_at(now: DateTime<FixedOffset>) -> bool {
     if matches!(now.weekday(), Weekday::Sat | Weekday::Sun) {
         return false;
     }
@@ -59,7 +121,10 @@ pub fn is_krx_open() -> bool {
 ///
 /// 미국 공휴일(추수감사절·크리스마스 등)은 KIS API 에러로 보완
 pub fn is_us_open() -> bool {
-    let now = now_kst();
+    is_us_open_at(now_kst())
+}
+
+pub fn is_us_open_at(now: DateTime<FixedOffset>) -> bool {
     let weekday = now.weekday();
     let mins = now.hour() * 60 + now.minute();
 
@@ -92,6 +157,22 @@ pub fn is_market_open_for(symbol: &str) -> bool {
     }
 }
 
+pub fn is_market_open_for_with_calendar(
+    symbol: &str,
+    calendar: Option<&MarketCalendarOverride>,
+) -> bool {
+    let now = now_kst();
+    if is_domestic_symbol(symbol) {
+        calendar
+            .and_then(|override_calendar| override_calendar.is_kr_open_at(now))
+            .unwrap_or_else(|| is_krx_open_at(now))
+    } else {
+        calendar
+            .and_then(|override_calendar| override_calendar.is_us_open_at(now))
+            .unwrap_or_else(|| is_us_open_at(now))
+    }
+}
+
 /// 현재 개장 중인 시장 요약 문자열 (로그 출력용)
 pub fn open_markets_summary() -> &'static str {
     match (is_krx_open(), is_us_open()) {
@@ -100,6 +181,23 @@ pub fn open_markets_summary() -> &'static str {
         (false, true) => "KRX 폐장 / US 개장",
         (false, false) => "KRX 폐장 / US 폐장",
     }
+}
+
+pub fn open_markets_summary_with_calendar(calendar: Option<&MarketCalendarOverride>) -> String {
+    let now = now_kst();
+    let kr_open = calendar
+        .and_then(|override_calendar| override_calendar.is_kr_open_at(now))
+        .unwrap_or_else(|| is_krx_open_at(now));
+    let us_open = calendar
+        .and_then(|override_calendar| override_calendar.is_us_open_at(now))
+        .unwrap_or_else(|| is_us_open_at(now));
+    match (kr_open, us_open) {
+        (true, true) => "KRX 개장 / US 개장",
+        (true, false) => "KRX 개장 / US 폐장",
+        (false, true) => "KRX 폐장 / US 개장",
+        (false, false) => "KRX 폐장 / US 폐장",
+    }
+    .to_string()
 }
 
 #[cfg(test)]
@@ -115,5 +213,29 @@ mod tests {
         assert!(!is_domestic_symbol("QQQM")); // 해외
         assert!(!is_domestic_symbol("12345")); // 5자리 (잘못된 코드)
         assert!(!is_domestic_symbol("A05930")); // 첫 글자 알파벳
+    }
+
+    #[test]
+    fn calendar_session_window_checks_time_range() {
+        let session =
+            MarketSessionWindow::parse("2026-03-25T09:00:00+09:00", "2026-03-25T15:30:00+09:00")
+                .unwrap();
+        let open = DateTime::parse_from_rfc3339("2026-03-25T10:00:00+09:00").unwrap();
+        let closed = DateTime::parse_from_rfc3339("2026-03-25T16:00:00+09:00").unwrap();
+
+        assert!(session.contains(open));
+        assert!(!session.contains(closed));
+    }
+
+    #[test]
+    fn calendar_override_represents_holiday_without_fallback() {
+        let calendar = MarketCalendarOverride {
+            kr: Some(MarketDayCalendar::closed()),
+            us: None,
+        };
+        let open = DateTime::parse_from_rfc3339("2026-03-25T10:00:00+09:00").unwrap();
+
+        assert_eq!(calendar.is_kr_open_at(open), Some(false));
+        assert_eq!(calendar.is_us_open_at(open), None);
     }
 }

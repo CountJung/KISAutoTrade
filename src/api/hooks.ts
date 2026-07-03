@@ -19,6 +19,7 @@ import type {
   AccountProfileView,
   AddProfileInput,
   AppConfigView,
+  BrokerHoldingView,
   BalanceResult,
   OverseasBalanceResult,
   ChartCandle,
@@ -52,6 +53,9 @@ import type {
   SetTradeArchiveConfigInput,
   TradeArchiveStats,
   TossConnectionDiagnostic,
+  TossMarketCalendarView,
+  TossMarketSnapshotView,
+  TossStockSafetyView,
   RefreshConfig,
 } from './types'
 
@@ -66,6 +70,7 @@ export const KEYS = {
   profiles: ['profiles'] as const,
   tradingStatus: ['tradingStatus'] as const,
   positions: ['positions'] as const,
+  brokerHoldings: ['brokerHoldings'] as const,
   strategies: ['strategies'] as const,
   balance: ['balance'] as const,
   overseasBalance: ['overseasBalance'] as const,
@@ -78,6 +83,7 @@ export const KEYS = {
   statsRange: (from: string, to: string) => ['stats', from, to] as const,
   logConfig: ['logConfig'] as const,
   chartData: (symbol: string, presetKey: string) => ['chartData', symbol, presetKey] as const,
+  tossChartData: (symbol: string, interval: string, presetKey: string) => ['tossChartData', symbol, interval, presetKey] as const,
   stockSearch: (q: string) => ['stockSearch', q] as const,
   kisExecuted: (from: string, to: string) => ['kisExecuted', from, to] as const,
   overseasExecuted: (from: string, to: string) => ['overseasExecuted', from, to] as const,
@@ -86,6 +92,9 @@ export const KEYS = {
   webConfig: ['webConfig'] as const,
   overseasPrice: (exchange: string, symbol: string) => ['overseasPrice', exchange, symbol] as const,
   overseasChart: (exchange: string, symbol: string, presetKey: string) => ['overseasChart', exchange, symbol, presetKey] as const,
+  tossMarketSnapshot: (symbol: string) => ['tossMarketSnapshot', symbol] as const,
+  tossStockSafety: (symbol: string) => ['tossStockSafety', symbol] as const,
+  tossMarketCalendar: ['tossMarketCalendar'] as const,
   riskConfig: ['riskConfig'] as const,
   pendingOrders: ['pendingOrders'] as const,
   tradeArchiveConfig: ['tradeArchiveConfig'] as const,
@@ -132,6 +141,18 @@ export function useOverseasBalance(
   })
 }
 
+export function useBrokerHoldings(
+  options?: Partial<UseQueryOptions<BrokerHoldingView[]>>
+) {
+  return useQuery({
+    queryKey: KEYS.brokerHoldings,
+    queryFn: cmd.getBrokerHoldings,
+    staleTime: 30_000,
+    refetchInterval: POLL_INTERVALS.SLOW,
+    ...options,
+  })
+}
+
 // ─── 차트 데이터 ──────────────────────────────────────────────────────
 /** symbol 6자리 + 프리셋 키 보유 시 자동 페치 */
 export function useChartData(
@@ -154,6 +175,23 @@ export function useChartData(
     enabled: symbol.length === 6,
     staleTime: 60_000,
     gcTime: 5 * 60_000,
+    ...options,
+  })
+}
+
+export function useTossChartData(
+  symbol: string,
+  interval: '1d' | '1m',
+  presetKey: string,
+  options?: Partial<UseQueryOptions<ChartCandle[]>>
+) {
+  return useQuery({
+    queryKey: KEYS.tossChartData(symbol, interval, presetKey),
+    queryFn: () => cmd.getTossChartData(symbol, interval, 200),
+    enabled: !!symbol,
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    retry: false,
     ...options,
   })
 }
@@ -712,6 +750,50 @@ export function useOverseasPrice(
     enabled: !!symbol && !!exchange,
     staleTime: 10_000,
     refetchInterval: 15_000,
+    retry: false,
+    ...options,
+  })
+}
+
+// ─── Toss read-only 시세 snapshot ─────────────────────────────────
+export function useTossMarketSnapshot(
+  symbol: string,
+  options?: Partial<UseQueryOptions<TossMarketSnapshotView>>
+) {
+  return useQuery({
+    queryKey: KEYS.tossMarketSnapshot(symbol),
+    queryFn: () => cmd.getTossMarketSnapshot(symbol),
+    enabled: !!symbol,
+    staleTime: 5_000,
+    refetchInterval: POLL_INTERVALS.FAST,
+    retry: false,
+    ...options,
+  })
+}
+
+export function useTossStockSafety(
+  symbol: string,
+  options?: Partial<UseQueryOptions<TossStockSafetyView>>
+) {
+  return useQuery({
+    queryKey: KEYS.tossStockSafety(symbol),
+    queryFn: () => cmd.getTossStockSafety(symbol),
+    enabled: !!symbol,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    retry: false,
+    ...options,
+  })
+}
+
+export function useTossMarketCalendar(
+  options?: Partial<UseQueryOptions<TossMarketCalendarView>>
+) {
+  return useQuery({
+    queryKey: KEYS.tossMarketCalendar,
+    queryFn: cmd.getTossMarketCalendar,
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
     retry: false,
     ...options,
   })

@@ -4,6 +4,11 @@
 ///   GET  /                                    → React 앱(dist/) 또는 모바일 대시보드 HTML
 ///   GET  /api/info                            → 앱 정보 JSON
 ///   GET  /api/balance                         → 잔고 JSON
+///   GET  /api/broker-holdings                 → 활성 broker 보유 종목 JSON
+///   GET  /api/toss-market-snapshot/:symbol    → Toss 현재가/호가/체결/상하한가 JSON
+///   GET  /api/toss-stock-safety/:symbol        → Toss 종목 기본 정보/매수 유의사항 JSON
+///   GET  /api/toss-market-calendar             → Toss KR/US 정규장 캘린더 JSON
+///   GET  /api/toss-chart/:symbol              → Toss candles JSON (?interval=1d&count=200)
 ///   GET  /api/price/:symbol                   → 국내 현재가 JSON
 ///   GET  /api/overseas-price/:ex/:sym         → 해외 현재가 JSON (NAS/NYS/AMS)
 ///   GET  /api/executed                        → 당일 체결 JSON
@@ -190,6 +195,20 @@ pub async fn start(
         .route("/api/profiles", get(profiles_handler))
         .route("/api/balance", get(balance_handler))
         .route("/api/overseas-balance", get(overseas_balance_handler))
+        .route("/api/broker-holdings", get(broker_holdings_handler))
+        .route(
+            "/api/toss-market-snapshot/:symbol",
+            get(toss_market_snapshot_handler),
+        )
+        .route(
+            "/api/toss-stock-safety/:symbol",
+            get(toss_stock_safety_handler),
+        )
+        .route(
+            "/api/toss-market-calendar",
+            get(toss_market_calendar_handler),
+        )
+        .route("/api/toss-chart/:symbol", get(toss_chart_handler))
         .route("/api/positions", get(positions_handler))
         .route("/api/price/:symbol", get(price_handler))
         .route(
@@ -429,6 +448,128 @@ async fn overseas_balance_handler(State(s): State<ServerState>) -> Json<serde_js
     match client.get_overseas_balance().await {
         Ok(b) => Json(serde_json::to_value(b).unwrap_or_default()),
         Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+async fn broker_holdings_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let profile = {
+        let profiles = s.profiles.read().await;
+        profiles.get_active().cloned()
+    };
+    let Some(profile) = profile else {
+        return Json(serde_json::json!([]));
+    };
+
+    let rest_client = s.rest_client.read().await.clone();
+    match crate::commands::list_broker_holdings_for_profile(profile, rest_client).await {
+        Ok(holdings) => Json(serde_json::to_value(holdings).unwrap_or_default()),
+        Err(e) => Json(serde_json::json!({
+            "code": e.code,
+            "error": e.message,
+        })),
+    }
+}
+
+async fn toss_market_snapshot_handler(
+    State(s): State<ServerState>,
+    Path(symbol): Path<String>,
+) -> Json<serde_json::Value> {
+    let profile = {
+        let profiles = s.profiles.read().await;
+        profiles.get_active().cloned()
+    };
+    let Some(profile) = profile else {
+        return Json(serde_json::json!({
+            "code": "CONFIG_NOT_READY",
+            "error": "활성 프로파일이 없습니다.",
+        }));
+    };
+
+    match crate::commands::get_toss_market_snapshot_for_profile(symbol, profile).await {
+        Ok(snapshot) => Json(serde_json::to_value(snapshot).unwrap_or_default()),
+        Err(e) => Json(serde_json::json!({
+            "code": e.code,
+            "error": e.message,
+        })),
+    }
+}
+
+async fn toss_stock_safety_handler(
+    State(s): State<ServerState>,
+    Path(symbol): Path<String>,
+) -> Json<serde_json::Value> {
+    let profile = {
+        let profiles = s.profiles.read().await;
+        profiles.get_active().cloned()
+    };
+    let Some(profile) = profile else {
+        return Json(serde_json::json!({
+            "code": "CONFIG_NOT_READY",
+            "error": "활성 프로파일이 없습니다.",
+        }));
+    };
+
+    match crate::commands::get_toss_stock_safety_for_profile(symbol, profile).await {
+        Ok(safety) => Json(serde_json::to_value(safety).unwrap_or_default()),
+        Err(e) => Json(serde_json::json!({
+            "code": e.code,
+            "error": e.message,
+        })),
+    }
+}
+
+async fn toss_market_calendar_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let profile = {
+        let profiles = s.profiles.read().await;
+        profiles.get_active().cloned()
+    };
+    let Some(profile) = profile else {
+        return Json(serde_json::json!({
+            "code": "CONFIG_NOT_READY",
+            "error": "활성 프로파일이 없습니다.",
+        }));
+    };
+
+    match crate::commands::get_toss_market_calendar_for_profile(profile).await {
+        Ok(calendar) => Json(serde_json::to_value(calendar).unwrap_or_default()),
+        Err(e) => Json(serde_json::json!({
+            "code": e.code,
+            "error": e.message,
+        })),
+    }
+}
+
+#[derive(Deserialize)]
+struct TossChartQuery {
+    interval: Option<String>,
+    count: Option<u16>,
+}
+
+async fn toss_chart_handler(
+    State(s): State<ServerState>,
+    Path(symbol): Path<String>,
+    Query(params): Query<TossChartQuery>,
+) -> Json<serde_json::Value> {
+    let profile = {
+        let profiles = s.profiles.read().await;
+        profiles.get_active().cloned()
+    };
+    let Some(profile) = profile else {
+        return Json(serde_json::json!({
+            "code": "CONFIG_NOT_READY",
+            "error": "활성 프로파일이 없습니다.",
+        }));
+    };
+
+    let interval = params.interval.unwrap_or_else(|| "1d".to_string());
+    match crate::commands::get_toss_chart_data_for_profile(symbol, interval, params.count, profile)
+        .await
+    {
+        Ok(candles) => Json(serde_json::to_value(candles).unwrap_or_default()),
+        Err(e) => Json(serde_json::json!({
+            "code": e.code,
+            "error": e.message,
+        })),
     }
 }
 

@@ -74,6 +74,87 @@ impl TossBrokerAdapter {
             .map_err(BrokerAdapterError::Provider)
     }
 
+    pub async fn list_prices(
+        &self,
+        symbols: &[BrokerSymbol],
+    ) -> BrokerAdapterResult<Vec<TossPriceResponse>> {
+        self.client
+            .list_prices(symbols)
+            .await
+            .map_err(BrokerAdapterError::Provider)
+    }
+
+    pub async fn list_stocks(
+        &self,
+        symbols: &[BrokerSymbol],
+    ) -> BrokerAdapterResult<Vec<TossStockInfo>> {
+        self.client
+            .list_stocks(symbols)
+            .await
+            .map_err(BrokerAdapterError::Provider)
+    }
+
+    pub async fn list_warnings(
+        &self,
+        symbol: &BrokerSymbol,
+    ) -> BrokerAdapterResult<Vec<TossStockWarning>> {
+        self.client
+            .list_warnings(symbol)
+            .await
+            .map_err(BrokerAdapterError::Provider)
+    }
+
+    pub async fn get_kr_market_calendar(
+        &self,
+        date: Option<&str>,
+    ) -> BrokerAdapterResult<TossKrMarketCalendarResponse> {
+        self.client
+            .get_kr_market_calendar(date)
+            .await
+            .map_err(BrokerAdapterError::Provider)
+    }
+
+    pub async fn get_us_market_calendar(
+        &self,
+        date: Option<&str>,
+    ) -> BrokerAdapterResult<TossUsMarketCalendarResponse> {
+        self.client
+            .get_us_market_calendar(date)
+            .await
+            .map_err(BrokerAdapterError::Provider)
+    }
+
+    pub async fn get_orderbook(
+        &self,
+        symbol: &BrokerSymbol,
+    ) -> BrokerAdapterResult<TossOrderbookResponse> {
+        self.client
+            .get_orderbook(symbol)
+            .await
+            .map_err(BrokerAdapterError::Provider)
+    }
+
+    pub async fn list_trades(
+        &self,
+        symbol: &BrokerSymbol,
+        count: Option<u8>,
+    ) -> BrokerAdapterResult<Vec<TossTrade>> {
+        self.client
+            .list_trades(symbol, count)
+            .await
+            .map_err(BrokerAdapterError::Provider)
+    }
+
+    pub async fn get_price_limits(
+        &self,
+        symbol: &BrokerSymbol,
+    ) -> BrokerAdapterResult<TossPriceLimitResponse> {
+        self.client
+            .get_price_limits(symbol)
+            .await
+            .map_err(BrokerAdapterError::Provider)
+    }
+
     pub async fn get_buying_power(
         &self,
         account_seq: Option<&str>,
@@ -138,11 +219,52 @@ impl BrokerAdapter for TossBrokerAdapter {
         BrokerId::Toss
     }
 
-    async fn get_price(&self, _symbol: &BrokerSymbol) -> BrokerAdapterResult<BrokerPriceQuote> {
-        Err(BrokerAdapterError::Unsupported {
-            broker: BrokerId::Toss,
-            operation: "get_price",
-        })
+    async fn get_price(&self, symbol: &BrokerSymbol) -> BrokerAdapterResult<BrokerPriceQuote> {
+        let prices = self
+            .client
+            .list_prices(std::slice::from_ref(symbol))
+            .await
+            .map_err(BrokerAdapterError::Provider)?;
+        let price = prices
+            .into_iter()
+            .find(|item| item.symbol == symbol.0)
+            .ok_or_else(|| {
+                BrokerAdapterError::InvalidRequest(format!(
+                    "Toss price response did not include requested symbol: {}",
+                    symbol.0
+                ))
+            })?;
+
+        Ok(price.to_broker_price_quote()?)
+    }
+
+    async fn get_candles(
+        &self,
+        symbol: &BrokerSymbol,
+        period_code: &str,
+        _from: &str,
+        _to: &str,
+    ) -> BrokerAdapterResult<Vec<super::domain::BrokerCandle>> {
+        let interval = match period_code {
+            "1m" | "M1" | "m" => "1m",
+            "1d" | "D" | "d" => "1d",
+            other => {
+                return Err(BrokerAdapterError::InvalidRequest(format!(
+                    "Toss candles support only 1m or 1d interval: {other}"
+                )));
+            }
+        };
+        let page = self
+            .client
+            .get_candles(symbol, interval, Some(200), None, Some(true))
+            .await
+            .map_err(BrokerAdapterError::Provider)?;
+
+        page.candles
+            .iter()
+            .map(|candle| candle.to_broker_candle(symbol))
+            .collect::<anyhow::Result<Vec<_>>>()
+            .map_err(BrokerAdapterError::Provider)
     }
 
     async fn list_holdings(
@@ -265,6 +387,185 @@ impl TossOpenApiClient {
 
     pub async fn list_accounts(&self) -> anyhow::Result<Vec<TossAccount>> {
         self.get_json::<TossApiResponse<Vec<TossAccount>>>("/api/v1/accounts", None, None)
+            .await
+            .map(|response| response.result)
+    }
+
+    pub async fn list_prices(
+        &self,
+        symbols: &[BrokerSymbol],
+    ) -> anyhow::Result<Vec<TossPriceResponse>> {
+        if symbols.is_empty() {
+            return Err(anyhow!(
+                "토스증권 현재가 조회에는 symbol이 최소 1개 필요합니다"
+            ));
+        }
+        if symbols.len() > 200 {
+            return Err(anyhow!(
+                "토스증권 현재가 조회는 최대 200개 symbol만 지원합니다: {}",
+                symbols.len()
+            ));
+        }
+        let joined = symbols
+            .iter()
+            .map(|symbol| symbol.0.as_str())
+            .collect::<Vec<_>>()
+            .join(",");
+        let path = format!("/api/v1/prices?symbols={}", url_encode(&joined));
+        self.get_json::<TossApiResponse<Vec<TossPriceResponse>>>(&path, None, None)
+            .await
+            .map(|response| response.result)
+    }
+
+    pub async fn list_stocks(
+        &self,
+        symbols: &[BrokerSymbol],
+    ) -> anyhow::Result<Vec<TossStockInfo>> {
+        if symbols.is_empty() {
+            return Err(anyhow!(
+                "토스증권 종목 기본 정보 조회에는 symbol이 최소 1개 필요합니다"
+            ));
+        }
+        if symbols.len() > 200 {
+            return Err(anyhow!(
+                "토스증권 종목 기본 정보 조회는 최대 200개 symbol만 지원합니다: {}",
+                symbols.len()
+            ));
+        }
+        for symbol in symbols {
+            validate_toss_symbol(&symbol.0)?;
+        }
+        let joined = symbols
+            .iter()
+            .map(|symbol| symbol.0.as_str())
+            .collect::<Vec<_>>()
+            .join(",");
+        let path = format!("/api/v1/stocks?symbols={}", url_encode(&joined));
+        self.get_json::<TossApiResponse<Vec<TossStockInfo>>>(&path, None, None)
+            .await
+            .map(|response| response.result)
+    }
+
+    pub async fn list_warnings(
+        &self,
+        symbol: &BrokerSymbol,
+    ) -> anyhow::Result<Vec<TossStockWarning>> {
+        validate_toss_symbol(&symbol.0)?;
+        let path = format!("/api/v1/stocks/{}/warnings", url_encode(&symbol.0));
+        self.get_json::<TossApiResponse<Vec<TossStockWarning>>>(&path, None, None)
+            .await
+            .map(|response| response.result)
+    }
+
+    pub async fn get_kr_market_calendar(
+        &self,
+        date: Option<&str>,
+    ) -> anyhow::Result<TossKrMarketCalendarResponse> {
+        let path = match date {
+            Some(date) => {
+                validate_iso_date(date)?;
+                format!("/api/v1/market-calendar/KR?date={}", url_encode(date))
+            }
+            None => "/api/v1/market-calendar/KR".to_string(),
+        };
+        self.get_json::<TossApiResponse<TossKrMarketCalendarResponse>>(&path, None, None)
+            .await
+            .map(|response| response.result)
+    }
+
+    pub async fn get_us_market_calendar(
+        &self,
+        date: Option<&str>,
+    ) -> anyhow::Result<TossUsMarketCalendarResponse> {
+        let path = match date {
+            Some(date) => {
+                validate_iso_date(date)?;
+                format!("/api/v1/market-calendar/US?date={}", url_encode(date))
+            }
+            None => "/api/v1/market-calendar/US".to_string(),
+        };
+        self.get_json::<TossApiResponse<TossUsMarketCalendarResponse>>(&path, None, None)
+            .await
+            .map(|response| response.result)
+    }
+
+    pub async fn get_orderbook(
+        &self,
+        symbol: &BrokerSymbol,
+    ) -> anyhow::Result<TossOrderbookResponse> {
+        validate_toss_symbol(&symbol.0)?;
+        let path = format!("/api/v1/orderbook?symbol={}", url_encode(&symbol.0));
+        self.get_json::<TossApiResponse<TossOrderbookResponse>>(&path, None, None)
+            .await
+            .map(|response| response.result)
+    }
+
+    pub async fn list_trades(
+        &self,
+        symbol: &BrokerSymbol,
+        count: Option<u8>,
+    ) -> anyhow::Result<Vec<TossTrade>> {
+        let count = count.unwrap_or(50);
+        if !(1..=50).contains(&count) {
+            return Err(anyhow!(
+                "토스증권 최근 체결 조회 count는 1~50 범위여야 합니다: {count}"
+            ));
+        }
+        let path = format!(
+            "/api/v1/trades?symbol={}&count={}",
+            url_encode(&symbol.0),
+            count
+        );
+        self.get_json::<TossApiResponse<Vec<TossTrade>>>(&path, None, None)
+            .await
+            .map(|response| response.result)
+    }
+
+    pub async fn get_price_limits(
+        &self,
+        symbol: &BrokerSymbol,
+    ) -> anyhow::Result<TossPriceLimitResponse> {
+        validate_toss_symbol(&symbol.0)?;
+        let path = format!("/api/v1/price-limits?symbol={}", url_encode(&symbol.0));
+        self.get_json::<TossApiResponse<TossPriceLimitResponse>>(&path, None, None)
+            .await
+            .map(|response| response.result)
+    }
+
+    pub async fn get_candles(
+        &self,
+        symbol: &BrokerSymbol,
+        interval: &str,
+        count: Option<u16>,
+        before: Option<&str>,
+        adjusted: Option<bool>,
+    ) -> anyhow::Result<TossCandlePageResponse> {
+        if !matches!(interval, "1m" | "1d") {
+            return Err(anyhow!(
+                "토스증권 candle interval은 1m 또는 1d만 지원합니다: {interval}"
+            ));
+        }
+        let count = count.unwrap_or(100);
+        if !(1..=200).contains(&count) {
+            return Err(anyhow!(
+                "토스증권 candle count는 1~200 범위여야 합니다: {count}"
+            ));
+        }
+        let mut path = format!(
+            "/api/v1/candles?symbol={}&interval={}&count={}",
+            url_encode(&symbol.0),
+            interval,
+            count
+        );
+        if let Some(before) = before {
+            path.push_str("&before=");
+            path.push_str(&url_encode(before));
+        }
+        if let Some(adjusted) = adjusted {
+            path.push_str("&adjusted=");
+            path.push_str(if adjusted { "true" } else { "false" });
+        }
+        self.get_json::<TossApiResponse<TossCandlePageResponse>>(&path, None, None)
             .await
             .map(|response| response.result)
     }
@@ -518,6 +819,203 @@ pub struct TossAccount {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TossPriceResponse {
+    pub symbol: String,
+    pub timestamp: Option<String>,
+    pub last_price: String,
+    pub currency: String,
+}
+
+impl TossPriceResponse {
+    pub fn to_broker_price_quote(&self) -> BrokerAdapterResult<BrokerPriceQuote> {
+        let currency = toss_currency(&self.currency).map_err(BrokerAdapterError::Provider)?;
+        Ok(BrokerPriceQuote {
+            broker: BrokerId::Toss,
+            market: market_from_currency(currency),
+            symbol: BrokerSymbol(self.symbol.clone()),
+            last: BrokerMoney {
+                amount: self.last_price.clone(),
+                currency,
+            },
+            volume: None,
+            raw: serde_json::to_value(self).unwrap_or(serde_json::Value::Null),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossStockInfo {
+    pub symbol: String,
+    pub name: String,
+    pub english_name: String,
+    pub isin_code: String,
+    pub market: String,
+    pub security_type: String,
+    pub is_common_share: bool,
+    pub status: String,
+    pub currency: String,
+    pub list_date: Option<String>,
+    pub delist_date: Option<String>,
+    pub shares_outstanding: String,
+    pub leverage_factor: Option<String>,
+    pub korean_market_detail: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossStockWarning {
+    pub warning_type: String,
+    pub exchange: Option<String>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+}
+
+impl TossStockWarning {
+    pub fn is_blocking_for_buy(&self) -> bool {
+        matches!(
+            self.warning_type.as_str(),
+            "LIQUIDATION_TRADING" | "INVESTMENT_RISK" | "STOCK_WARRANTS"
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossMarketSession {
+    pub start_time: String,
+    pub end_time: String,
+    pub single_price_auction_start_time: Option<String>,
+    pub single_price_auction_end_time: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossKrIntegratedHour {
+    pub pre_market: Option<TossMarketSession>,
+    pub regular_market: Option<TossMarketSession>,
+    pub after_market: Option<TossMarketSession>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossKrMarketDay {
+    pub date: String,
+    pub integrated: Option<TossKrIntegratedHour>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossKrMarketCalendarResponse {
+    pub today: TossKrMarketDay,
+    pub previous_business_day: TossKrMarketDay,
+    pub next_business_day: TossKrMarketDay,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossUsMarketDay {
+    pub date: String,
+    pub day_market: Option<TossMarketSession>,
+    pub pre_market: Option<TossMarketSession>,
+    pub regular_market: Option<TossMarketSession>,
+    pub after_market: Option<TossMarketSession>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossUsMarketCalendarResponse {
+    pub today: TossUsMarketDay,
+    pub previous_business_day: TossUsMarketDay,
+    pub next_business_day: TossUsMarketDay,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossOrderbookEntry {
+    pub price: String,
+    pub volume: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossOrderbookResponse {
+    pub timestamp: Option<String>,
+    pub currency: String,
+    pub asks: Vec<TossOrderbookEntry>,
+    pub bids: Vec<TossOrderbookEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossTrade {
+    pub price: String,
+    pub volume: String,
+    pub timestamp: String,
+    pub currency: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossPriceLimitResponse {
+    pub timestamp: String,
+    pub upper_limit_price: Option<String>,
+    pub lower_limit_price: Option<String>,
+    pub currency: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossCandlePageResponse {
+    pub candles: Vec<TossCandle>,
+    pub next_before: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TossCandle {
+    pub timestamp: String,
+    pub open_price: String,
+    pub high_price: String,
+    pub low_price: String,
+    pub close_price: String,
+    pub volume: String,
+    pub currency: String,
+}
+
+impl TossCandle {
+    pub fn to_broker_candle(
+        &self,
+        symbol: &BrokerSymbol,
+    ) -> anyhow::Result<super::domain::BrokerCandle> {
+        let currency = toss_currency(&self.currency)?;
+        Ok(super::domain::BrokerCandle {
+            symbol: symbol.clone(),
+            market: market_from_currency(currency),
+            date: self.timestamp.clone(),
+            open: BrokerMoney {
+                amount: self.open_price.clone(),
+                currency,
+            },
+            high: BrokerMoney {
+                amount: self.high_price.clone(),
+                currency,
+            },
+            low: BrokerMoney {
+                amount: self.low_price.clone(),
+                currency,
+            },
+            close: BrokerMoney {
+                amount: self.close_price.clone(),
+                currency,
+            },
+            volume: BrokerQuantity(self.volume.clone()),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TossHoldingsOverview {
     pub total_purchase_amount: TossCurrencyAmount,
     pub market_value: TossOverviewMarketValue,
@@ -742,6 +1240,41 @@ fn toss_market(value: &str) -> anyhow::Result<BrokerMarket> {
     }
 }
 
+fn market_from_currency(currency: BrokerCurrency) -> BrokerMarket {
+    match currency {
+        BrokerCurrency::Krw => BrokerMarket::Kr,
+        BrokerCurrency::Usd => BrokerMarket::Us,
+    }
+}
+
+fn validate_toss_symbol(symbol: &str) -> anyhow::Result<()> {
+    if symbol.is_empty() || symbol.len() > 32 {
+        return Err(anyhow!("토스증권 symbol은 1~32자여야 합니다: {symbol}"));
+    }
+    if !symbol
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+    {
+        return Err(anyhow!(
+            "토스증권 symbol은 영문/숫자/./- 문자만 허용합니다: {symbol}"
+        ));
+    }
+    Ok(())
+}
+
+fn validate_iso_date(date: &str) -> anyhow::Result<()> {
+    let is_valid = date.len() == 10
+        && date.chars().enumerate().all(|(index, ch)| {
+            matches!(index, 4 | 7) && ch == '-' || !matches!(index, 4 | 7) && ch.is_ascii_digit()
+        });
+    if !is_valid {
+        return Err(anyhow!(
+            "토스증권 market-calendar date는 YYYY-MM-DD 형식이어야 합니다: {date}"
+        ));
+    }
+    Ok(())
+}
+
 fn trim_base_url(value: String) -> String {
     value.trim_end_matches('/').to_string()
 }
@@ -875,5 +1408,272 @@ mod tests {
         assert_eq!(sellable.result.quantity().0, "5.5");
         assert_eq!(commissions.result.len(), 2);
         assert_eq!(commissions.result[0].market_country, "KR");
+    }
+
+    #[test]
+    fn deserializes_market_data_responses() {
+        let prices_json = r#"{
+          "result": [
+            {
+              "symbol": "005930",
+              "timestamp": "2026-03-25T09:30:00.123+09:00",
+              "lastPrice": "72000",
+              "currency": "KRW"
+            },
+            {
+              "symbol": "AAPL",
+              "timestamp": null,
+              "lastPrice": "178.5",
+              "currency": "USD"
+            }
+          ]
+        }"#;
+        let orderbook_json = r#"{
+          "result": {
+            "timestamp": "2026-03-25T09:30:00.123+09:00",
+            "currency": "KRW",
+            "asks": [{ "price": "72100", "volume": "8500" }],
+            "bids": [{ "price": "72000", "volume": "12000" }]
+          }
+        }"#;
+        let trades_json = r#"{
+          "result": [
+            {
+              "price": "72000",
+              "volume": "120",
+              "timestamp": "2026-03-25T09:30:42.000+09:00",
+              "currency": "KRW"
+            }
+          ]
+        }"#;
+        let limits_json = r#"{
+          "result": {
+            "timestamp": "2026-03-25T09:30:00.123+09:00",
+            "upperLimitPrice": "93000",
+            "lowerLimitPrice": "50400",
+            "currency": "KRW"
+          }
+        }"#;
+
+        let prices: TossApiResponse<Vec<TossPriceResponse>> =
+            serde_json::from_str(prices_json).unwrap();
+        let orderbook: TossApiResponse<TossOrderbookResponse> =
+            serde_json::from_str(orderbook_json).unwrap();
+        let trades: TossApiResponse<Vec<TossTrade>> = serde_json::from_str(trades_json).unwrap();
+        let limits: TossApiResponse<TossPriceLimitResponse> =
+            serde_json::from_str(limits_json).unwrap();
+
+        let quote = prices.result[0].to_broker_price_quote().unwrap();
+        assert_eq!(quote.broker, BrokerId::Toss);
+        assert_eq!(quote.market, BrokerMarket::Kr);
+        assert_eq!(quote.last, BrokerMoney::krw("72000"));
+        assert_eq!(
+            prices.result[1].to_broker_price_quote().unwrap().market,
+            BrokerMarket::Us
+        );
+        assert_eq!(orderbook.result.asks[0].price, "72100");
+        assert_eq!(orderbook.result.bids[0].volume, "12000");
+        assert_eq!(trades.result[0].volume, "120");
+        assert_eq!(limits.result.upper_limit_price.as_deref(), Some("93000"));
+    }
+
+    #[test]
+    fn deserializes_stock_info_and_unknown_warning_codes() {
+        let stocks_json = r#"{
+          "result": [
+            {
+              "symbol": "005930",
+              "name": "삼성전자",
+              "englishName": "SamsungElec",
+              "isinCode": "KR7005930003",
+              "market": "KOSPI",
+              "securityType": "STOCK",
+              "isCommonShare": true,
+              "status": "ACTIVE",
+              "currency": "KRW",
+              "listDate": "1975-06-11",
+              "delistDate": null,
+              "sharesOutstanding": "5919637922",
+              "leverageFactor": null,
+              "koreanMarketDetail": { "sector": "전기전자" }
+            }
+          ]
+        }"#;
+        let warnings_json = r#"{
+          "result": [
+            {
+              "warningType": "INVESTMENT_RISK",
+              "exchange": "KRX",
+              "startDate": "2026-03-26",
+              "endDate": null
+            },
+            {
+              "warningType": "NEW_WARNING_CODE",
+              "exchange": null,
+              "startDate": null,
+              "endDate": null
+            }
+          ]
+        }"#;
+
+        let stocks: TossApiResponse<Vec<TossStockInfo>> =
+            serde_json::from_str(stocks_json).unwrap();
+        let warnings: TossApiResponse<Vec<TossStockWarning>> =
+            serde_json::from_str(warnings_json).unwrap();
+
+        assert_eq!(stocks.result[0].market, "KOSPI");
+        assert_eq!(stocks.result[0].shares_outstanding, "5919637922");
+        assert_eq!(warnings.result[0].warning_type, "INVESTMENT_RISK");
+        assert!(warnings.result[0].is_blocking_for_buy());
+        assert_eq!(warnings.result[1].warning_type, "NEW_WARNING_CODE");
+        assert!(!warnings.result[1].is_blocking_for_buy());
+    }
+
+    #[test]
+    fn deserializes_market_calendar_responses() {
+        let kr_json = r#"{
+          "result": {
+            "today": {
+              "date": "2026-03-25",
+              "integrated": {
+                "preMarket": null,
+                "regularMarket": {
+                  "startTime": "2026-03-25T09:00:00+09:00",
+                  "singlePriceAuctionStartTime": "2026-03-25T15:20:00+09:00",
+                  "endTime": "2026-03-25T15:30:00+09:00"
+                },
+                "afterMarket": null
+              }
+            },
+            "previousBusinessDay": { "date": "2026-03-24", "integrated": null },
+            "nextBusinessDay": { "date": "2026-03-26", "integrated": null }
+          }
+        }"#;
+        let us_json = r#"{
+          "result": {
+            "today": {
+              "date": "2026-03-25",
+              "dayMarket": null,
+              "preMarket": null,
+              "regularMarket": {
+                "startTime": "2026-03-25T22:30:00+09:00",
+                "endTime": "2026-03-26T05:00:00+09:00"
+              },
+              "afterMarket": null
+            },
+            "previousBusinessDay": {
+              "date": "2026-03-24",
+              "dayMarket": null,
+              "preMarket": null,
+              "regularMarket": null,
+              "afterMarket": null
+            },
+            "nextBusinessDay": {
+              "date": "2026-03-26",
+              "dayMarket": null,
+              "preMarket": null,
+              "regularMarket": null,
+              "afterMarket": null
+            }
+          }
+        }"#;
+
+        let kr: TossApiResponse<TossKrMarketCalendarResponse> =
+            serde_json::from_str(kr_json).unwrap();
+        let us: TossApiResponse<TossUsMarketCalendarResponse> =
+            serde_json::from_str(us_json).unwrap();
+
+        let kr_regular = kr.result.today.integrated.unwrap().regular_market.unwrap();
+        let us_regular = us.result.today.regular_market.unwrap();
+        assert_eq!(kr_regular.start_time, "2026-03-25T09:00:00+09:00");
+        assert_eq!(
+            kr_regular.single_price_auction_start_time.as_deref(),
+            Some("2026-03-25T15:20:00+09:00")
+        );
+        assert_eq!(us_regular.end_time, "2026-03-26T05:00:00+09:00");
+    }
+
+    #[test]
+    fn maps_toss_candle_to_broker_candle() {
+        let json = r#"{
+          "result": {
+            "candles": [
+              {
+                "timestamp": "2026-03-25T09:00:00+09:00",
+                "openPrice": "71600",
+                "highPrice": "72300",
+                "lowPrice": "71500",
+                "closePrice": "72000",
+                "volume": "3521000",
+                "currency": "KRW"
+              }
+            ],
+            "nextBefore": "2026-03-24T09:00:00+09:00"
+          }
+        }"#;
+        let response: TossApiResponse<TossCandlePageResponse> = serde_json::from_str(json).unwrap();
+
+        let candle = response.result.candles[0]
+            .to_broker_candle(&BrokerSymbol("005930".to_string()))
+            .unwrap();
+
+        assert_eq!(candle.market, BrokerMarket::Kr);
+        assert_eq!(candle.date, "2026-03-25T09:00:00+09:00");
+        assert_eq!(candle.open, BrokerMoney::krw("71600"));
+        assert_eq!(candle.close, BrokerMoney::krw("72000"));
+        assert_eq!(candle.volume, BrokerQuantity("3521000".to_string()));
+        assert_eq!(
+            response.result.next_before.as_deref(),
+            Some("2026-03-24T09:00:00+09:00")
+        );
+    }
+
+    #[tokio::test]
+    async fn validates_market_data_query_limits_before_request() {
+        let client = TossOpenApiClient::without_credentials("https://example.invalid");
+        let too_many = (0..201)
+            .map(|i| BrokerSymbol(format!("SYM{i}")))
+            .collect::<Vec<_>>();
+
+        assert!(client.list_prices(&[]).await.is_err());
+        assert!(client.list_prices(&too_many).await.is_err());
+        assert!(client.list_stocks(&[]).await.is_err());
+        assert!(client.list_stocks(&too_many).await.is_err());
+        assert!(client
+            .list_warnings(&BrokerSymbol("bad symbol".to_string()))
+            .await
+            .is_err());
+        assert!(client
+            .get_kr_market_calendar(Some("20260325"))
+            .await
+            .is_err());
+        assert!(client
+            .get_us_market_calendar(Some("2026/03/25"))
+            .await
+            .is_err());
+        assert!(client
+            .list_trades(&BrokerSymbol("AAPL".to_string()), Some(51))
+            .await
+            .is_err());
+        assert!(client
+            .get_candles(
+                &BrokerSymbol("AAPL".to_string()),
+                "1h",
+                Some(100),
+                None,
+                None
+            )
+            .await
+            .is_err());
+        assert!(client
+            .get_candles(
+                &BrokerSymbol("AAPL".to_string()),
+                "1d",
+                Some(201),
+                None,
+                None
+            )
+            .await
+            .is_err());
     }
 }

@@ -39,8 +39,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 
 import {
+  useAppConfig,
   useBalance,
   useOverseasBalance,
+  useBrokerHoldings,
   useTodayStats,
   useCheckConfig,
   useTradingStatus,
@@ -57,9 +59,28 @@ import {
   useClearBuySuspension,
   KEYS,
 } from '../../../api/hooks'
+import type { BrokerMoneyView } from '../../../shared/api/types'
 
 function fmt(n: number) {
   return n.toLocaleString('ko-KR')
+}
+
+function fmtDecimal(value: string, fractionDigits = 4) {
+  const parsed = Number(value.replace(/,/g, ''))
+  if (!Number.isFinite(parsed)) return value
+  return parsed.toLocaleString('ko-KR', { maximumFractionDigits: fractionDigits })
+}
+
+function fmtBrokerMoney(money?: BrokerMoneyView | null) {
+  if (!money) return '-'
+  if (money.currency === 'KRW') {
+    return `${fmtDecimal(money.amount, 0)}원`
+  }
+  return `$${fmtDecimal(money.amount, 4)}`
+}
+
+function brokerMarketLabel(market: 'kr' | 'us') {
+  return market === 'kr' ? '국내' : '미국'
 }
 
 function todayStr() {
@@ -404,9 +425,11 @@ function FilledOrdersPanel() {
             </Typography>
           )}
           <Tooltip title="수동 새로고침">
-            <IconButton size="small" onClick={() => void refetch()} disabled={isFetching}>
-              {isFetching ? <CircularProgress size={14} /> : <RefreshIcon fontSize="small" />}
-            </IconButton>
+            <span>
+              <IconButton size="small" onClick={() => void refetch()} disabled={isFetching}>
+                {isFetching ? <CircularProgress size={14} /> : <RefreshIcon fontSize="small" />}
+              </IconButton>
+            </span>
           </Tooltip>
         </Box>
       </Stack>
@@ -694,10 +717,18 @@ export default function Dashboard() {
   const { data: exchangeRateKrw = 1450 } = useExchangeRate()
   const intervalMs = refreshIntervalSec * 1000
 
+  const { data: appConfig } = useAppConfig()
   const { data: balance, isLoading: balanceLoading, isError: balanceError, error: balanceErrorDetail } = useBalance({ refetchInterval: intervalMs })
   const { data: overseasBalance, isLoading: overseasLoading, isError: overseasError } = useOverseasBalance({ refetchInterval: intervalMs })
-  const { data: stats, isLoading: statsLoading } = useTodayStats({ refetchInterval: intervalMs })
   const { data: diag } = useCheckConfig()
+  const activeBrokerId = appConfig?.active_broker_id ?? diag?.broker_id
+  const showBrokerHoldings = activeBrokerId === 'toss'
+  const {
+    data: brokerHoldings = [],
+    isLoading: brokerHoldingsLoading,
+    isError: brokerHoldingsError,
+  } = useBrokerHoldings({ enabled: showBrokerHoldings, refetchInterval: intervalMs })
+  const { data: stats, isLoading: statsLoading } = useTodayStats({ refetchInterval: intervalMs })
   const { data: tradingStatus } = useTradingStatus()
   const { mutate: startTrading, isPending: startPending } = useStartTrading()
   const { mutate: stopTrading, isPending: stopPending } = useStopTrading()
@@ -730,6 +761,7 @@ export default function Dashboard() {
   const handleRefresh = () => {
     void qc.invalidateQueries({ queryKey: KEYS.balance })
     void qc.invalidateQueries({ queryKey: KEYS.overseasBalance })
+    void qc.invalidateQueries({ queryKey: KEYS.brokerHoldings })
     void qc.invalidateQueries({ queryKey: KEYS.todayStats })
     void qc.invalidateQueries({ queryKey: KEYS.tradingStatus })
   }
@@ -1026,6 +1058,82 @@ export default function Dashboard() {
           </TableContainer>
         )}
       </Paper>
+
+      {showBrokerHoldings && (
+        <Paper sx={{ p: 2.5, mb: 2 }}>
+          <Stack direction="row" alignItems="center" spacing={1} mb={1.5} flexWrap="wrap">
+            <Typography variant="subtitle1" fontWeight={600}>Toss 보유종목</Typography>
+            <Chip
+              size="small"
+              label={`${brokerHoldings.length}종목`}
+              color={brokerHoldings.length > 0 ? 'primary' : 'default'}
+              sx={{ height: 20, fontSize: '0.7rem' }}
+            />
+            {appConfig?.active_broker_account_id && (
+              <Typography variant="caption" color="text.secondary">
+                {appConfig.active_broker_id.toUpperCase()} · {appConfig.active_broker_account_id}
+              </Typography>
+            )}
+          </Stack>
+          <Divider sx={{ mb: 1.5 }} />
+          {brokerHoldingsLoading ? (
+            <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}>
+              <CircularProgress size={20} />
+            </Box>
+          ) : brokerHoldingsError ? (
+            <Alert severity="warning" sx={{ py: 0.5 }}>
+              Toss 보유종목 조회 실패 — 프로파일의 Client ID, Client Secret, accountSeq를 확인하세요.
+            </Alert>
+          ) : brokerHoldings.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+              보유한 Toss 종목이 없습니다.
+            </Typography>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>종목명</TableCell>
+                    <TableCell align="right">수량</TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>평균단가</TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>현재가</TableCell>
+                    <TableCell align="right">평가손익</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {brokerHoldings.map((item) => {
+                    const pnl = Number(item.unrealizedPnl?.amount.replace(/,/g, '') ?? 0)
+                    const pnlPositive = Number.isFinite(pnl) ? pnl >= 0 : true
+                    return (
+                      <TableRow key={`${item.brokerId}:${item.market}:${item.symbol}`} hover>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={500}>{item.symbolName || item.symbol}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.symbol} · {brokerMarketLabel(item.market)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">{fmtDecimal(item.quantity, 6)}</TableCell>
+                        <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                          {fmtBrokerMoney(item.averagePrice)}
+                        </TableCell>
+                        <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                          {fmtBrokerMoney(item.currentPrice)}
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{ color: pnlPositive ? 'success.main' : 'error.main', fontWeight: 600 }}
+                        >
+                          {item.unrealizedPnl ? fmtBrokerMoney(item.unrealizedPnl) : '-'}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Paper>
+      )}
 
       {/* ── 요약 통계 카드 ──────────────────────────────────────── */}
       <Grid container spacing={2} mb={3}>
