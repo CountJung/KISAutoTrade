@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router'
 import Box from '@mui/material/Box'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -20,7 +20,7 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import HistoryIcon from '@mui/icons-material/History'
 import ArticleIcon from '@mui/icons-material/Article'
 import SettingsIcon from '@mui/icons-material/Settings'
-import { ThemeProvider } from '@mui/material/styles'
+import { alpha, ThemeProvider } from '@mui/material/styles'
 import { Sidebar } from '../../sidebar'
 import { LayoutResizer } from '../../../shared/ui'
 import { clampNumber, readStoredNumber, writeStoredNumber } from '../../../shared/lib'
@@ -32,6 +32,7 @@ const SIDEBAR_KEY = 'act:panel:sidebar:width'
 const SIDEBAR_DEFAULT = 220
 const SIDEBAR_MIN = 160
 const SIDEBAR_MAX = 400
+const SCROLL_THUMB_MIN_HEIGHT = 36
 
 /** 모바일 하단 내비게이션 항목 */
 const BOTTOM_NAV_ITEMS = [
@@ -55,6 +56,7 @@ export function AppShell() {
     readStoredNumber(SIDEBAR_KEY, SIDEBAR_DEFAULT, SIDEBAR_MIN, SIDEBAR_MAX)
   )
   const [updateDismissed, setUpdateDismissed] = useState(false)
+  const [mainScrollbar, setMainScrollbar] = useState({ visible: false, top: 0, height: 0 })
 
   const { data: updateInfo } = useUpdateCheck()
   // 백그라운드 데몬 이벤트 수신 (환율·잔고 push 갱신)
@@ -66,6 +68,7 @@ export function AppShell() {
 
   // onResizeEnd 클로저에서 최신 width를 읽기 위한 ref
   const sidebarWidthRef = useRef(sidebarWidth)
+  const mainScrollRef = useRef<HTMLElement | null>(null)
   sidebarWidthRef.current = sidebarWidth
 
   const muiTheme = useMemo(() => {
@@ -83,10 +86,38 @@ export function AppShell() {
     writeStoredNumber(SIDEBAR_KEY, sidebarWidthRef.current, SIDEBAR_MIN, SIDEBAR_MAX)
   }, [])
 
+  useEffect(() => {
+    const el = mainScrollRef.current
+    if (!el) return
+
+    const updateMainScrollbar = () => {
+      const scrollable = el.scrollHeight > el.clientHeight + 1
+      if (!scrollable) {
+        setMainScrollbar({ visible: false, top: 0, height: 0 })
+        return
+      }
+      const maxScroll = Math.max(1, el.scrollHeight - el.clientHeight)
+      const trackHeight = el.clientHeight
+      const thumbHeight = Math.max(SCROLL_THUMB_MIN_HEIGHT, (el.clientHeight / el.scrollHeight) * trackHeight)
+      const thumbTop = (el.scrollTop / maxScroll) * Math.max(0, trackHeight - thumbHeight)
+      setMainScrollbar({ visible: true, top: thumbTop, height: thumbHeight })
+    }
+
+    updateMainScrollbar()
+    el.addEventListener('scroll', updateMainScrollbar, { passive: true })
+    const observer = new ResizeObserver(updateMainScrollbar)
+    observer.observe(el)
+    if (el.firstElementChild) observer.observe(el.firstElementChild)
+    return () => {
+      el.removeEventListener('scroll', updateMainScrollbar)
+      observer.disconnect()
+    }
+  }, [location.pathname, showUpdateBanner, isDesktop])
+
   return (
     <ThemeProvider theme={muiTheme}>
       <CssBaseline />
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', minHeight: 0, overflow: 'hidden' }}>
 
         {/* 모바일 전용 상단 바 — JS 기반으로 isDesktop이 false일 때만 렌더링 */}
         {!isDesktop && (
@@ -143,7 +174,7 @@ export function AppShell() {
         )}
 
         {/* 사이드바 + 메인 컨텐츠 */}
-        <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <Box sx={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
           <Sidebar
             isDesktop={isDesktop}
             drawerWidth={sidebarWidth}
@@ -160,9 +191,15 @@ export function AppShell() {
           )}
           <Box
             component="main"
+            data-testid="app-main-scroll"
+            ref={mainScrollRef}
             sx={{
               flexGrow: 1,
-              overflow: 'auto',
+              minWidth: 0,
+              minHeight: 0,
+              overflowX: 'hidden',
+              overflowY: 'scroll',
+              scrollbarGutter: 'stable both-edges',
               bgcolor: 'background.default',
               p: 2,
               // 모바일 하단 내비게이션(60px) 높이만큼 여백 확보
@@ -171,6 +208,36 @@ export function AppShell() {
           >
             <Outlet />
           </Box>
+          {mainScrollbar.visible && (
+            <Box
+              aria-hidden
+              data-testid="app-main-scroll-rail"
+              sx={{
+                position: 'absolute',
+                top: 0,
+                right: 2,
+                bottom: 0,
+                width: 10,
+                pointerEvents: 'none',
+                zIndex: 1,
+                borderRadius: 1,
+                bgcolor: (theme) => alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.12 : 0.08),
+              }}
+            >
+              <Box
+                data-testid="app-main-scroll-thumb"
+                sx={{
+                  position: 'absolute',
+                  top: `${mainScrollbar.top}px`,
+                  right: 2,
+                  width: 6,
+                  height: `${mainScrollbar.height}px`,
+                  borderRadius: 1,
+                  bgcolor: (theme) => alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.58 : 0.42),
+                }}
+              />
+            </Box>
+          )}
         </Box>
 
         {/* 모바일 하단 내비게이션 — JS 기반으로 isDesktop이 false일 때만 렌더링 */}

@@ -815,33 +815,25 @@ pub trait Strategy: Send + Sync {
 
 ---
 
-## 13. 레버리지/역방향 레버리지 전략 매핑 패턴
+## 13. 레버리지 단일 티커 추세 전략 패턴
 
-기초 지수 ETF와 매매 대상 레버리지 ETF를 고정하지 말고 설정 데이터로 분리한다.
-기본 운용 모델은 단일 정방향 레버리지다. 기초/유사 기초 ETF의 상승 추세가 확인될 때만 정방향 레버리지를 모아가고, 상승 여력 훼손이나 추세 하락이 감지되면 즉시 청산한다. 역방향 레버리지는 괴리율, 추적 오차, 장중 수급 차이 때문에 정방향의 단순 반대편으로 취급하지 말고 별도 검증 전까지 선택/고급 옵션으로만 둔다.
+레버리지 전략은 롱/숏 방향을 별도 모델로 해석하지 않는다. 사용자가 선택한 ETF 자체가 상승 추세이면 매수하고, 해당 ETF 자체의 상승 추세가 훼손되면 청산한다. SOXL 같은 롱 레버리지와 SOXS 같은 숏 레버리지 모두 같은 규칙으로 처리한다.
 
 ```rust
 pub struct LeveragedTrendHoldEntry {
-    pub leveraged_symbol: String,          // 예: SOXL
-    pub inverse_leveraged_symbol: String,  // 예: SOXS, 비어 있으면 비활성
-    pub base_symbols: Vec<String>,         // 예: SOXX, SMH
-    pub base_symbol_roles: HashMap<String, String>, // "underlying" 또는 "proxy"
+    pub leveraged_symbol: String,          // 실행 대상 ticker. 예: SOXL 또는 SOXS
     pub quantity: u64,
-    pub inverse_quantity: u64,
+    // inverse_* / base_* 필드는 기존 저장 JSON 호환용 legacy 필드다.
 }
 ```
 
-- `target_symbols`에는 정방향, 역방향, 기초 종목을 모두 포함해야 폴링 루프가 필요한 시세를 수집한다.
-- 직접 기초지수 ETF가 애매한 레버리지 ETF는 유사 기초 ETF를 `proxy`로 저장한다. 예: TECL 세트의 추세 판단용으로 VGT를 추가.
-- 역방향 레버리지 ETF가 비어 있으면 하락 추세 진입은 비활성화하고, 정방향 진입/청산만 동작하게 둔다. 신규 기본값과 UI 안내는 이 롱 전용 모델을 기준으로 한다.
-- 숏 레버리지 자동 진입을 다시 열려면 별도 `mode`/feature gate를 두고, 정방향 포지션과 동시에 보유하지 않으며, 괴리율/추적오차/스프레드/거래량 필터와 독립 손절 기준을 먼저 추가한다.
-- 기초/유사 기초 ETF가 하나도 없는 세트는 저장하지 않는다. 기초 시세가 없으면 전략은 신호를 만들 수 없다.
-- `upward_sensitivity`, `downward_sensitivity`는 1.0~5.0 범위로 관리한다. 기본값 1.0은 기존 RSI 진입 기준을 유지하고, 값이 높을수록 롱/숏 진입 RSI 기준을 완화해 더 이른 신호를 허용한다.
-- 기초 상승 조건: 현재가 > EMA20, EMA20 > EMA60, RSI 상단 기준 이상, ADX 기준 이상, 최근 3봉 중 2개 이상 양봉.
-- 기초 하락 조건: 현재가 < EMA20, EMA20 < EMA60, RSI 하단 기준 이하, ADX 기준 이상, 최근 3봉 중 2개 이상 음봉.
-- 정방향/역방향 포지션은 같은 `positions: HashMap<String, ...>`에 실제 매매 종목 코드별로 독립 저장한다.
+- `target_symbols`에는 `leveraged_symbol`만 포함한다. 기존 저장 JSON에 `inverse_leveraged_symbol`이나 `base_symbols`가 있어도 폴링 대상에 넣지 않는다.
+- 진입 조건은 대상 ETF 자체의 OHLC로 판단한다. 현재가 > EMA20, EMA20 > EMA60, RSI 상단 기준 이상, ADX 기준 이상, 최근 3봉 중 2개 이상 양봉.
+- 청산 조건도 대상 ETF 자체의 OHLC로 판단한다. 고점 대비 trailing stop, 현재가 EMA20 하향 이탈, EMA20 < EMA60, RSI 약화, 장마감 청산.
+- `upward_sensitivity`는 1.0~5.0 범위로 관리한다. 기본값 1.0은 기존 RSI 진입 기준을 유지하고, 값이 높을수록 진입 RSI 기준을 완화해 더 이른 신호를 허용한다. `downward_sensitivity`는 legacy 저장값 호환 필드로 남기되 새 UI에는 노출하지 않는다.
+- 전략 상태는 `states: HashMap<String, ...>`와 `positions: HashMap<String, ...>`에 ticker별로 독립 저장한다.
 
-> 마지막 업데이트: 2026-07-04T19:23:54+09:00
+> 마지막 업데이트: 2026-07-04T20:06:27+09:00
 
 ---
 

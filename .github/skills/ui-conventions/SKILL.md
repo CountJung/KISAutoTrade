@@ -74,6 +74,7 @@ export default function MyPage() {
 - 앱 전역 색상은 `src/shared/config/theme/index.ts`의 MUI theme가 source of truth다. 페이지/컴포넌트는 가능하면 `bgcolor: 'background.default'`, `bgcolor: 'background.paper'`, `color: 'text.primary'`, `borderColor: 'divider'`처럼 palette token을 사용한다.
 - 다크 모드에서 `#000`, `black`, `#111` 같은 순수 검정 배경/스크롤바를 직접 지정하지 않는다. 필요하면 `alpha(theme.palette.text.primary, n)` 또는 `alpha(theme.palette.background.paper, n)`처럼 MUI palette 기반으로 만든다.
 - 스크롤바는 `MuiCssBaseline` 전역 styleOverrides에서 palette 기반 색상으로 관리한다. 개별 컴포넌트가 `::-webkit-scrollbar`를 직접 덮어써야 할 때도 thumb/track은 반드시 `theme.palette.text.primary`, `background.default`, `background.paper`, `divider`에서 파생한다.
+- 앱의 주 스크롤 컨테이너는 초기 렌더부터 스크롤바 영역이 잡히도록 `overflowY: 'scroll'`, `scrollbarGutter: 'stable both-edges'`, flex item `minHeight: 0`을 함께 둔다. macOS/Chromium overlay scrollbar처럼 native 폭이 0일 수 있는 환경에서는 AppShell의 palette 기반 scroll rail/thumb를 함께 표시하고, Playwright에서 overflow와 rail/thumb 가시성을 검증한다.
 - Alert, Chip, Button, ToggleButton, TextField, Paper, Table, Drawer 등 MUI 컴포넌트는 기본 variant/color를 우선 사용한다. 금융 상승/하락, 경고/성공/오류 외 색상은 semantic token으로 표현하고, 브랜드 장식용 임의 색상은 피한다.
 
 ### 상승/하락 색상
@@ -543,28 +544,17 @@ const { data: stats } = useTodayStats({ refetchInterval: intervalMs })
 
 ---
 
-## 레버리지 ETF 세트 편집 UI
+## 레버리지 ETF 단일 티커 편집 UI
 
-`LeveragedTrendHoldStrategy` 설정은 단일 종목 목록이 아니라 세트 단위로 보여준다.
-
-| 역할 | UI 라벨 | 동작 |
-|------|---------|------|
-| 정방향 레버리지 | 롱 레버리지 ETF | 상승 추세 진입 대상 |
-| 역방향 레버리지 | 숏 레버리지 ETF | 선택 값. 비어 있으면 하락 진입 비활성 |
-| 기초 ETF | 기초 | 직접 기초지수/섹터 ETF |
-| 유사 기초 ETF | 유사 | TECL → VGT처럼 직접 기초가 애매할 때 쓰는 proxy |
+`LeveragedTrendHoldStrategy` 설정은 단일 ticker 목록으로 보여준다. 롱/숏 레버리지 ETF 모두 해당 ETF 자체가 상승 추세이면 매수하고, 자체 추세가 훼손되면 청산한다.
 
 UI 규칙:
 
-- 레버리지 전략 섹션 안에 전용 ETF 검색기와 `새 세트 구성` 슬롯을 둔다. 사용자가 상단 공용 종목 선택 패널을 거치지 않고 같은 카드 안에서 기초지수, 롱 ETF, 숏 ETF(옵션)를 먼저 채운 뒤 한 번에 세트를 추가할 수 있어야 한다.
-- 검색한 ETF는 현재 선택된 슬롯(`기초지수`, `롱`, `숏(옵션)`)에 들어간다. 숏 슬롯은 비워도 세트 추가가 가능하다.
-- 기초지수 슬롯에는 `기초`와 `유사기초` 토글을 제공한다. TECL → VGT처럼 직접 기초가 애매하면 `유사기초`로 저장한다.
-- 국내 ETF 검색 결과와 미국 티커 조회, 국내 종목 목록 새로고침은 레버리지 섹션 안에서 자체 처리한다.
-- 세팅된 세트 테이블은 기초/유사 ETF를 맨 앞에 표시하고, 롱 ETF는 `primary`, 숏 ETF는 `secondary` 색상으로 구분한다. 다만 기본 운용 가이드는 롱 전용이며, 숏 ETF는 고급/실험 옵션으로만 표시한다.
-- 상승/하락 민감도는 레버리지 섹션 내부 파라미터로 노출한다. 기본 1.0, 범위 1.0~5.0, 높을수록 진입 신호가 더 민감해진다.
-- 기초/유사 기초 ETF가 없는 세트는 저장 버튼을 비활성화한다.
-- 숏 ETF가 없는 세트는 경고가 아니라 정보 메시지로 표시한다. 기본 권장 운용은 롱 전용 진입과 추세 훼손 시 청산이며, 숏 ETF는 별도 검증 전까지 필수 입력값으로 요구하지 않는다.
-- 국내/해외 시장이 다른 선택 종목은 기존 세트에 추가하지 못하게 막는다.
-- `base_symbol_roles`는 `underlying` 또는 `proxy`만 저장한다.
+- 레버리지 전략 섹션 안에 전용 ETF 검색기와 `대상 추가` 버튼을 둔다. 상단 공용 종목 선택 패널을 거치지 않고 국내 ETF 검색 또는 미국 티커 조회로 바로 대상 ticker를 추가한다.
+- `운용 모드`, `기초지수`, `롱`, `숏`, `숏 실험`, `유사기초` 슬롯은 표시하지 않는다. 방향성은 ticker 자체 가격 추세로만 판단한다.
+- 세팅된 대상 테이블은 시장, ticker, 종목명, 1회 수량만 표시한다.
+- 진입 민감도는 레버리지 섹션 내부 파라미터로 노출한다. 기본 1.0, 범위 1.0~5.0, 높을수록 상승 진입 신호가 더 민감해진다.
+- 저장 버튼은 대상 ticker가 하나 이상 있고 비어 있는 ticker가 없을 때만 활성화한다.
+- 기존 저장 JSON 호환 때문에 `inverse_*`, `base_*`, `base_symbol_roles` 필드는 타입에 남아 있을 수 있으나 새 UI에서는 노출하지 않는다.
 
-> 마지막 업데이트: 2026-07-04T19:23:54+09:00
+> 마지막 업데이트: 2026-07-04T20:12:08+09:00

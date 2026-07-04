@@ -539,11 +539,15 @@ export type LeveragedTrendHoldBaseRole = 'underlying' | 'proxy'
 export interface LeveragedTrendHoldEntry {
   leveraged_symbol: string
   leveraged_symbol_name: string
+  /** legacy compatibility: no longer used by the single-ticker strategy model */
   inverse_leveraged_symbol: string
+  /** legacy compatibility: no longer used by the single-ticker strategy model */
   inverse_leveraged_symbol_name: string
+  /** legacy compatibility: no longer used by the single-ticker strategy model */
   base_symbols: string[]
+  /** legacy compatibility: no longer used by the single-ticker strategy model */
   base_symbol_names: Record<string, string>
-  /** 기초 종목 역할. proxy는 TECL -> VGT처럼 실제 기초지수 대신 쓰는 유사 ETF */
+  /** legacy compatibility: no longer used by the single-ticker strategy model */
   base_symbol_roles?: Record<string, LeveragedTrendHoldBaseRole>
   quantity: number
   inverse_quantity: number

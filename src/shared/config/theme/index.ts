@@ -50,10 +50,20 @@ export function createAppTheme(resolvedMode: 'light' | 'dark'): Theme {
 
           return {
             html: {
+              height: '100%',
+              overflow: 'hidden',
               scrollbarColor: `${thumb} ${track}`,
+              scrollbarGutter: 'stable both-edges',
             },
             body: {
+              height: '100%',
+              overflow: 'hidden',
               scrollbarColor: `${thumb} ${track}`,
+              scrollbarGutter: 'stable both-edges',
+            },
+            '#root': {
+              height: '100%',
+              overflow: 'hidden',
             },
             '*': {
               scrollbarWidth: 'thin',

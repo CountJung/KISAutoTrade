@@ -185,15 +185,13 @@
 
 ## P2 — 자동매매 안전장치 확장
 
-- [ ] 레버리지 추세 보유 전략을 롱 전용 기본 모델로 단순화한다.
-  - 현재 구현은 `LeveragedTrendHoldEntry`에 롱 레버리지, 선택 숏 레버리지, 기초/유사기초 ETF를 한 세트로 두고, 상승 추세는 롱, 하락 추세는 숏 진입이 가능하다.
-  - 재검토 방향: 숏 레버리지는 기초지수의 단순 반대편으로 움직인다고 보기 어렵고 괴리율·추적오차·수급·스프레드가 별도 리스크가 되므로, 기본 자동매매는 단일 롱 레버리지 진입/청산으로 단순화한다.
-  - 1단계: 전략 파라미터에 `mode` 후보를 추가한다. 기본값은 `long_only`; 기존 저장값 호환을 위해 숏 ETF 필드는 유지하되 기본 진입 로직에서는 사용하지 않는다.
-  - 2단계: 진입 조건은 기초/유사기초 ETF의 상승 추세 확인으로만 둔다. 예: 현재가 > EMA short, EMA short > EMA long, RSI/ADX 기준 통과, 최근 양봉 수 확인, 갭/블랙아웃/진입 시간 필터 유지.
-  - 3단계: 청산 조건은 레버리지 자체 고점 대비 trailing stop, 기초 ETF EMA short 하향 이탈, RSI 약화, 장마감 청산, 필요 시 기초-레버리지 괴리/스프레드/거래량 이상 감지로 확장한다.
-  - 4단계: 역방향/숏 자동 진입은 `inverse_experimental` 같은 별도 모드와 feature gate 뒤에 둔다. 다시 열 경우 롱과 동시 보유 금지, 독립 손절, 괴리율/추적오차/유동성 필터, backtest/소액 검증을 선행한다.
-  - 5단계: Strategy UI는 숏 ETF를 필수가 아닌 고급 옵션으로 접고, 기본 설명을 “롱 레버리지 상승 추세 진입 + 상승여력 훼손 시 청산”으로 바꾼다.
-  - 6단계: `trading::strategy::leveraged_trend_hold` 단위 테스트를 추가해 롱 진입, 추세 훼손 청산, 숏 필드가 있어도 `long_only`에서는 숏 매수가 발생하지 않음을 검증한다.
+- [x] 레버리지 추세 보유 전략을 단일 티커 자체 추세 모델로 단순화한다.
+  - 재검토 방향: 롱/숏 레버리지 ETF를 별도 방향 모델로 분리하지 않고, 선택한 ETF 자체가 상승 추세이면 매수하고 하락/추세 훼손이면 청산한다.
+  - 구현: `LeveragedTrendHoldEntry.leveraged_symbol`만 실행 대상 ticker로 사용한다. 기존 저장값 호환을 위해 `inverse_*`, `base_*` 필드는 남기되 target symbol·신호·포지션 동기화에는 사용하지 않는다.
+  - 진입 조건: 대상 ETF 현재가 > EMA short, EMA short > EMA long, RSI/ADX 기준 통과, 최근 3봉 중 2봉 이상 양봉, 갭/블랙아웃/진입 시간 필터 유지.
+  - 청산 조건: 대상 ETF 자체 고점 대비 trailing stop, EMA short 하향 이탈, EMA short < EMA long, RSI 약화, 장마감 청산.
+  - Strategy UI는 기초/롱/숏 세트와 운용 모드를 제거하고, 단일 ticker 검색·추가·수량·진입 민감도만 제공한다.
+  - 검증: `trading::strategy::leveraged_trend_hold` 단위 테스트로 legacy inverse/base가 target에 포함되지 않음, 숏 ETF도 자체 상승 추세면 매수, 자체 추세 훼손 시 청산을 확인한다.
 
 - [x] `TradeGuard`와 `RiskManager`에 broker/account scope 추가
   - 전략/종목/방향/날짜뿐 아니라 broker/account 단위 주문 횟수와 손실 제한을 분리 집계한다.

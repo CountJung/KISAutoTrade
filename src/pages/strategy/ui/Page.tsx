@@ -137,7 +137,7 @@ const STRATEGY_DESCRIPTION: Record<string, string> = {
   volatility_expansion:  '당일 변동폭(고-저)이 최근 N거래일 평균 변동폭의 K배 이상이며 현재가 > 시가인 경우 매수. 장중 변동성 폭발 구간에 상승 방향으로 편승. 매수 후 지정 % 하락 시 손절.',
   mean_reversion:        '현재가가 볼린저 밴드 하단(mean - Nσ) 아래로 바운스하면 매수(과매도). 현재가 상단 밴드 돌파 시 익절 매도, 손절 기준 % 이상 하락 시 손절. 자동매매 시작 시 과거 N일 종가로 버퍼 적재.',
   trend_filter:          '장기 MA(기본 200일) 위에서 단기 MA(5일)가 중기 MA(20일)를 상회할 때만 매수(이중 추세 확인). 현재가가 장기 MA 아래로 하락하면 추세 반전으로 판단하여 청산. 자동매매 시작 시 과거 종가로 버퍼 적재.',
-  leveraged_trend_hold:  'SOXX/SMH 같은 기초 ETF의 상승 추세에서는 정방향 레버리지를, 하락 추세에서는 선택한 역방향 레버리지를 보유한다. 고점 대비 하락, 기초 추세 이탈, RSI 반전, 장마감 전에는 청산한다.',
+  leveraged_trend_hold:  '선택한 레버리지 ETF 자체의 상승 추세에서는 매수하고, 고점 대비 하락·EMA 이탈·RSI 약화·장마감 전에는 청산한다. 롱/숏 ETF 모두 같은 방식으로 다룬다.',
   price_condition:        '지정가 이하에서 자동 매수. 매수 후 지정가 또는 설정 % 이상 상승 시 익절 매도, 손절 % 이하 하락 시 손절. 가격/비율 조건을 각각 설정하거나 조합해서 사용 가능. 0은 해당 조건 비활성.',
 }
 
@@ -495,11 +495,7 @@ export default function Strategy() {
     const entries = lthEditMap[id] ?? initialEntries
     const nextParams = lthParamEditMap[id] ?? params
     if (hasInvalidLthEntries(entries)) return
-    const targetSymbols = Array.from(new Set(entries.flatMap((entry) => [
-      entry.leveraged_symbol,
-      entry.inverse_leveraged_symbol,
-      ...entry.base_symbols,
-    ]).filter(Boolean)))
+    const targetSymbols = Array.from(new Set(entries.map((entry) => entry.leveraged_symbol).filter(Boolean)))
     updateStrategy(
       {
         id,

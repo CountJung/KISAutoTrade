@@ -3,14 +3,6 @@ use std::collections::{HashMap, VecDeque};
 
 use super::{state::bounded_window_with_extra, OhlcCandle, Signal, Strategy, StrategyConfig};
 
-// ────────────────────────────────────────────────────────────────────
-// 11. 레버리지 추세 보유 전략 (LeveragedTrendHoldStrategy)
-// ────────────────────────────────────────────────────────────────────
-// 기초 ETF(SOXX/SMH 등)의 추세 조건이 좋을 때 레버리지 ETF(SOXL 등)를 매수하고,
-// 레버리지 가격의 고점 대비 하락 또는 기초 ETF 추세 훼손 시 청산한다.
-// target_symbols에는 기초 종목과 레버리지 종목이 모두 들어간다.
-// ────────────────────────────────────────────────────────────────────
-
 fn lth_default_qty() -> u64 {
     1
 }
@@ -38,12 +30,6 @@ fn lth_default_buy_adx() -> f64 {
 fn lth_default_no_trade_adx() -> f64 {
     18.0
 }
-fn lth_default_neutral_low() -> f64 {
-    45.0
-}
-fn lth_default_neutral_high() -> f64 {
-    55.0
-}
 fn lth_default_trailing_stop() -> f64 {
     1.5
 }
@@ -65,33 +51,23 @@ fn lth_default_sensitivity() -> f64 {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LeveragedTrendHoldEntry {
-    /// 매수/청산 대상 레버리지 종목 (예: SOXL)
     pub leveraged_symbol: String,
-    /// UI 표시용 종목명
     #[serde(default)]
     pub leveraged_symbol_name: String,
-    /// 하락 추세에서 매수할 역방향 레버리지 종목 (예: SOXS). 비어 있으면 비활성.
     #[serde(default)]
     pub inverse_leveraged_symbol: String,
-    /// 역방향 레버리지 종목명 (UI 표시용)
     #[serde(default)]
     pub inverse_leveraged_symbol_name: String,
-    /// 추세 판단에 사용할 기초 종목들 (예: SOXX, SMH). 하나라도 통과하면 진입 가능.
     #[serde(default)]
     pub base_symbols: Vec<String>,
-    /// 기초 종목명 캐시 (UI 표시용)
     #[serde(default)]
     pub base_symbol_names: HashMap<String, String>,
-    /// 기초 종목 역할. "underlying"은 직접 기초 ETF, "proxy"는 TECL -> VGT 같은 유사 기초 ETF.
     #[serde(default)]
     pub base_symbol_roles: HashMap<String, String>,
-    /// 1회 주문 수량
     #[serde(default = "lth_default_qty")]
     pub quantity: u64,
-    /// 역방향 레버리지 1회 주문 수량
     #[serde(default = "lth_default_qty")]
     pub inverse_quantity: u64,
-    /// 해외 주식 여부. true이면 가격 단위 = USD, on_tick 내부 가격은 cents.
     #[serde(default)]
     pub is_overseas: bool,
 }
@@ -110,10 +86,8 @@ pub struct LeveragedTrendHoldParams {
     pub adx_period: usize,
     #[serde(default = "lth_default_buy_rsi")]
     pub entry_rsi_min: f64,
-    /// 상승 추세 진입 민감도. 1.0은 기존 기준, 값이 높을수록 더 이른 상승 진입을 허용.
     #[serde(default = "lth_default_sensitivity")]
     pub upward_sensitivity: f64,
-    /// 하락 추세 진입 민감도. 1.0은 기존 기준, 값이 높을수록 더 이른 하락 진입을 허용.
     #[serde(default = "lth_default_sensitivity")]
     pub downward_sensitivity: f64,
     #[serde(default = "lth_default_sell_rsi")]
@@ -122,10 +96,6 @@ pub struct LeveragedTrendHoldParams {
     pub entry_adx_min: f64,
     #[serde(default = "lth_default_no_trade_adx")]
     pub no_trade_adx_below: f64,
-    #[serde(default = "lth_default_neutral_low")]
-    pub neutral_rsi_low: f64,
-    #[serde(default = "lth_default_neutral_high")]
-    pub neutral_rsi_high: f64,
     #[serde(default = "lth_default_trailing_stop")]
     pub trailing_stop_pct: f64,
     #[serde(default = "lth_default_entry_start")]
@@ -136,7 +106,6 @@ pub struct LeveragedTrendHoldParams {
     pub exit_before_close_min: i64,
     #[serde(default = "lth_default_gap_limit")]
     pub max_gap_pct: f64,
-    /// 주요 지표 발표 전후 등 수동 거래 금지 구간. 예: ["23:25-23:45", "02:55-03:10"]
     #[serde(default)]
     pub blackout_windows: Vec<String>,
 }
@@ -155,8 +124,6 @@ impl Default for LeveragedTrendHoldParams {
             exit_rsi_below: lth_default_sell_rsi(),
             entry_adx_min: lth_default_buy_adx(),
             no_trade_adx_below: lth_default_no_trade_adx(),
-            neutral_rsi_low: lth_default_neutral_low(),
-            neutral_rsi_high: lth_default_neutral_high(),
             trailing_stop_pct: lth_default_trailing_stop(),
             entry_window_start_min: lth_default_entry_start(),
             entry_window_end_min: lth_default_entry_end(),
@@ -184,32 +151,27 @@ struct LeveragedTrendSnapshot {
     rsi: f64,
     adx: f64,
     bullish_count_3: usize,
-    bearish_count_3: usize,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum LeveragedTrendDirection {
-    Long,
-    Inverse,
 }
 
 pub struct LeveragedTrendHoldStrategy {
     config: StrategyConfig,
     params: LeveragedTrendHoldParams,
-    base_states: HashMap<String, LeveragedTrendHoldMarketState>,
+    states: HashMap<String, LeveragedTrendHoldMarketState>,
     positions: HashMap<String, LeveragedTrendHoldPosition>,
     last_params: serde_json::Value,
 }
 
 impl LeveragedTrendHoldStrategy {
     pub fn new(config: StrategyConfig) -> Self {
+        let mut config = config;
         let params: LeveragedTrendHoldParams =
             serde_json::from_value(config.params.clone()).unwrap_or_default();
+        config.target_symbols = Self::target_symbols_for_params(&params);
         let last_params = config.params.clone();
         Self {
             config,
             params,
-            base_states: HashMap::new(),
+            states: HashMap::new(),
             positions: HashMap::new(),
             last_params,
         }
@@ -221,64 +183,54 @@ impl LeveragedTrendHoldStrategy {
         }
         self.params = serde_json::from_value(self.config.params.clone()).unwrap_or_default();
         self.last_params = self.config.params.clone();
-        let mut symbols = Vec::new();
-        for entry in &self.params.entries {
-            symbols.push(entry.leveraged_symbol.clone());
-            if !entry.inverse_leveraged_symbol.trim().is_empty() {
-                symbols.push(entry.inverse_leveraged_symbol.clone());
-            }
-            symbols.extend(entry.base_symbols.iter().cloned());
-        }
-        symbols.retain(|s| !s.trim().is_empty());
+        self.config.target_symbols = Self::target_symbols_for_params(&self.params);
+    }
+
+    fn target_symbols_for_params(params: &LeveragedTrendHoldParams) -> Vec<String> {
+        let mut symbols: Vec<String> = params
+            .entries
+            .iter()
+            .map(|entry| entry.leveraged_symbol.clone())
+            .filter(|symbol| !symbol.trim().is_empty())
+            .collect();
         symbols.sort_unstable();
         symbols.dedup();
-        self.config.target_symbols = symbols;
+        symbols
     }
 
-    fn entries_for_symbol(
-        &self,
-        symbol: &str,
-    ) -> Vec<(LeveragedTrendHoldEntry, LeveragedTrendDirection)> {
+    fn entry_for_symbol(&self, symbol: &str) -> Option<LeveragedTrendHoldEntry> {
         self.params
             .entries
             .iter()
-            .filter_map(|entry| {
-                if entry.base_symbols.is_empty() {
-                    return None;
-                }
-                if entry.leveraged_symbol == symbol {
-                    Some((entry.clone(), LeveragedTrendDirection::Long))
-                } else if entry.inverse_leveraged_symbol == symbol {
-                    Some((entry.clone(), LeveragedTrendDirection::Inverse))
-                } else {
-                    None
-                }
-            })
-            .collect()
+            .find(|entry| entry.leveraged_symbol == symbol)
+            .cloned()
     }
 
-    fn is_base_symbol(&self, symbol: &str) -> bool {
+    fn is_target_symbol(&self, symbol: &str) -> bool {
         self.params
             .entries
             .iter()
-            .any(|e| e.base_symbols.iter().any(|b| b == symbol))
+            .any(|entry| entry.leveraged_symbol == symbol)
     }
 
-    fn update_base_tick(&mut self, symbol: &str, price: u64) {
-        let cap = bounded_window_with_extra(
+    fn window_cap(&self) -> usize {
+        bounded_window_with_extra(
             self.params
                 .ema_long_period
                 .max(self.params.adx_period + 2)
                 .max(80),
             5,
-        );
-        let state = self
-            .base_states
-            .entry(symbol.to_string())
-            .or_insert_with(|| LeveragedTrendHoldMarketState {
+        )
+    }
+
+    fn update_target_tick(&mut self, symbol: &str, price: u64) {
+        let cap = self.window_cap();
+        let state = self.states.entry(symbol.to_string()).or_insert_with(|| {
+            LeveragedTrendHoldMarketState {
                 candles: VecDeque::with_capacity(cap),
                 live_candle_started: false,
-            });
+            }
+        });
 
         if !state.live_candle_started {
             state.candles.push_back(OhlcCandle {
@@ -391,15 +343,6 @@ impl LeveragedTrendHoldStrategy {
             .count()
     }
 
-    fn bearish_count(candles: &VecDeque<OhlcCandle>, count: usize) -> usize {
-        candles
-            .iter()
-            .rev()
-            .take(count)
-            .filter(|c| c.close < c.open)
-            .count()
-    }
-
     fn gap_pct(candles: &VecDeque<OhlcCandle>) -> Option<f64> {
         if candles.len() < 2 {
             return None;
@@ -412,8 +355,8 @@ impl LeveragedTrendHoldStrategy {
         Some((cur.open as f64 - prev.close as f64).abs() / prev.close as f64 * 100.0)
     }
 
-    fn snapshot_for(&self, base_symbol: &str) -> Option<LeveragedTrendSnapshot> {
-        let state = self.base_states.get(base_symbol)?;
+    fn snapshot_for(&self, symbol: &str) -> Option<LeveragedTrendSnapshot> {
+        let state = self.states.get(symbol)?;
         let closes = Self::closes(&state.candles);
         let ema_short = Self::ema(&closes, self.params.ema_short_period)?;
         let ema_long = Self::ema(&closes, self.params.ema_long_period)?;
@@ -425,7 +368,6 @@ impl LeveragedTrendHoldStrategy {
             rsi,
             adx,
             bullish_count_3: Self::bullish_count(&state.candles, 3),
-            bearish_count_3: Self::bearish_count(&state.candles, 3),
         })
     }
 
@@ -434,18 +376,9 @@ impl LeveragedTrendHoldStrategy {
         (self.params.entry_rsi_min - (sensitivity - 1.0) * 2.0).clamp(45.0, 70.0)
     }
 
-    fn downward_entry_rsi_max(&self) -> f64 {
-        let sensitivity = self.params.downward_sensitivity.clamp(1.0, 5.0);
-        (self.params.neutral_rsi_low + (sensitivity - 1.0) * 2.0).clamp(30.0, 55.0)
-    }
-
-    fn base_entry_ok(
-        &self,
-        base_symbol: &str,
-        direction: LeveragedTrendDirection,
-    ) -> Option<LeveragedTrendSnapshot> {
-        let state = self.base_states.get(base_symbol)?;
-        let snap = self.snapshot_for(base_symbol)?;
+    fn entry_ok(&self, symbol: &str) -> Option<LeveragedTrendSnapshot> {
+        let state = self.states.get(symbol)?;
+        let snap = self.snapshot_for(symbol)?;
         let close = state.candles.back()?.close as f64;
         let gap_ok = Self::gap_pct(&state.candles)
             .map(|g| g <= self.params.max_gap_pct)
@@ -454,66 +387,49 @@ impl LeveragedTrendHoldStrategy {
             return None;
         }
 
-        let trend_ok = match direction {
-            LeveragedTrendDirection::Long => {
-                close > snap.ema_short
-                    && snap.ema_short > snap.ema_long
-                    && snap.rsi >= self.upward_entry_rsi_min()
-                    && snap.bullish_count_3 >= 2
-            }
-            LeveragedTrendDirection::Inverse => {
-                close < snap.ema_short
-                    && snap.ema_short < snap.ema_long
-                    && snap.rsi <= self.downward_entry_rsi_max()
-                    && snap.bearish_count_3 >= 2
-            }
-        };
-
+        let trend_ok = close > snap.ema_short
+            && snap.ema_short > snap.ema_long
+            && snap.rsi >= self.upward_entry_rsi_min()
+            && snap.bullish_count_3 >= 2;
         if trend_ok && snap.adx >= self.params.entry_adx_min {
-            return Some(snap);
+            Some(snap)
+        } else {
+            None
         }
-
-        None
     }
 
-    fn base_exit_reason(
-        &self,
-        base_symbol: &str,
-        direction: LeveragedTrendDirection,
-    ) -> Option<String> {
-        let state = self.base_states.get(base_symbol)?;
-        let snap = self.snapshot_for(base_symbol)?;
+    fn exit_reason(&self, symbol: &str) -> Option<String> {
+        let state = self.states.get(symbol)?;
+        let snap = self.snapshot_for(symbol)?;
         let close = state.candles.back()?.close as f64;
 
-        match direction {
-            LeveragedTrendDirection::Long => {
-                if close < snap.ema_short {
-                    return Some(format!("{} EMA20 하향 이탈", base_symbol));
-                }
-                if snap.rsi < self.params.exit_rsi_below {
-                    return Some(format!(
-                        "{} RSI {:.1} < {:.1}",
-                        base_symbol, snap.rsi, self.params.exit_rsi_below
-                    ));
-                }
-            }
-            LeveragedTrendDirection::Inverse => {
-                if close > snap.ema_short {
-                    return Some(format!("{} EMA20 상향 회복", base_symbol));
-                }
-                let inverse_exit_rsi = 100.0 - self.params.exit_rsi_below;
-                if snap.rsi > inverse_exit_rsi {
-                    return Some(format!(
-                        "{} RSI {:.1} > {:.1}",
-                        base_symbol, snap.rsi, inverse_exit_rsi
-                    ));
-                }
-            }
+        if close < snap.ema_short {
+            return Some(format!(
+                "{} EMA{} 하향 이탈",
+                symbol, self.params.ema_short_period
+            ));
         }
-
+        if snap.ema_short < snap.ema_long {
+            return Some(format!(
+                "{} EMA{} < EMA{}",
+                symbol, self.params.ema_short_period, self.params.ema_long_period
+            ));
+        }
+        if snap.rsi < self.params.exit_rsi_below {
+            return Some(format!(
+                "{} RSI {:.1} < {:.1}",
+                symbol, snap.rsi, self.params.exit_rsi_below
+            ));
+        }
         None
     }
 
+    #[cfg(test)]
+    fn session_minutes(_is_overseas: bool) -> Option<(i64, i64)> {
+        Some((60, 10_000))
+    }
+
+    #[cfg(not(test))]
     fn session_minutes(is_overseas: bool) -> Option<(i64, i64)> {
         use chrono::Timelike;
         let now = chrono::Local::now();
@@ -560,13 +476,6 @@ impl LeveragedTrendHoldStrategy {
             }
         })
     }
-
-    fn base_role_label(entry: &LeveragedTrendHoldEntry, base_symbol: &str) -> &'static str {
-        match entry.base_symbol_roles.get(base_symbol).map(String::as_str) {
-            Some("proxy") => "유사기초",
-            _ => "기초",
-        }
-    }
 }
 
 fn parse_hhmm(value: &str) -> Option<i64> {
@@ -602,16 +511,10 @@ impl Strategy for LeveragedTrendHoldStrategy {
 
     fn initialize_ohlc(&mut self, symbol: &str, candles: &[OhlcCandle]) {
         self.sync_params();
-        if !self.is_base_symbol(symbol) {
+        if !self.is_target_symbol(symbol) {
             return;
         }
-        let cap = bounded_window_with_extra(
-            self.params
-                .ema_long_period
-                .max(self.params.adx_period + 2)
-                .max(80),
-            5,
-        );
+        let cap = self.window_cap();
         let mut state = LeveragedTrendHoldMarketState {
             candles: VecDeque::with_capacity(cap),
             live_candle_started: false,
@@ -620,9 +523,9 @@ impl Strategy for LeveragedTrendHoldStrategy {
         for candle in &candles[candles.len().saturating_sub(take)..] {
             state.candles.push_back(*candle);
         }
-        self.base_states.insert(symbol.to_string(), state);
+        self.states.insert(symbol.to_string(), state);
         tracing::info!(
-            "레버리지 추세 보유 초기화 [{}]: OHLC {}봉 로드",
+            "레버리지 단일 티커 추세 초기화 [{}]: OHLC {}봉 로드",
             symbol,
             take
         );
@@ -633,63 +536,26 @@ impl Strategy for LeveragedTrendHoldStrategy {
             return Signal::Hold;
         }
         self.sync_params();
-
-        if self.is_base_symbol(symbol) {
-            self.update_base_tick(symbol, price);
+        let Some(entry) = self.entry_for_symbol(symbol) else {
             return Signal::Hold;
-        }
+        };
+        self.update_target_tick(symbol, price);
 
-        let entries = self.entries_for_symbol(symbol);
-        if entries.is_empty() {
-            return Signal::Hold;
-        }
+        let quantity = entry.quantity.max(1);
+        let (in_position, high_water) = self
+            .positions
+            .get(symbol)
+            .map(|p| (p.in_position, p.high_water))
+            .unwrap_or((false, None));
 
-        for (entry, direction) in entries {
-            let quantity = match direction {
-                LeveragedTrendDirection::Long => entry.quantity,
-                LeveragedTrendDirection::Inverse => entry.inverse_quantity,
-            };
-            let direction_label = match direction {
-                LeveragedTrendDirection::Long => "정방향",
-                LeveragedTrendDirection::Inverse => "역방향",
-            };
-
-            let (in_position, high_water) = self
-                .positions
-                .get(symbol)
-                .map(|p| (p.in_position, p.high_water))
-                .unwrap_or((false, None));
-
-            if in_position {
-                let high = high_water.unwrap_or(price).max(price);
-                if let Some(pos) = self.positions.get_mut(symbol) {
-                    pos.high_water = Some(high);
-                }
-                if high > 0 {
-                    let drawdown = (high as f64 - price as f64) / high as f64 * 100.0;
-                    if drawdown >= self.params.trailing_stop_pct {
-                        if let Some(pos) = self.positions.get_mut(symbol) {
-                            pos.in_position = false;
-                            pos.entry_price = None;
-                            pos.high_water = None;
-                        }
-                        return Signal::Sell {
-                            symbol: symbol.to_string(),
-                            quantity,
-                            reason: format!(
-                                "LeveragedTrendHold {} 추적손절: 고점 대비 -{:.2}% (기준 {:.2}%)",
-                                direction_label, drawdown, self.params.trailing_stop_pct
-                            ),
-                        };
-                    }
-                }
-
-                let base_exit_reason = entry
-                    .base_symbols
-                    .iter()
-                    .filter_map(|base| self.base_exit_reason(base, direction))
-                    .next();
-                if let Some(reason) = base_exit_reason {
+        if in_position {
+            let high = high_water.unwrap_or(price).max(price);
+            if let Some(pos) = self.positions.get_mut(symbol) {
+                pos.high_water = Some(high);
+            }
+            if high > 0 {
+                let drawdown = (high as f64 - price as f64) / high as f64 * 100.0;
+                if drawdown >= self.params.trailing_stop_pct {
                     if let Some(pos) = self.positions.get_mut(symbol) {
                         pos.in_position = false;
                         pos.entry_price = None;
@@ -699,86 +565,79 @@ impl Strategy for LeveragedTrendHoldStrategy {
                         symbol: symbol.to_string(),
                         quantity,
                         reason: format!(
-                            "LeveragedTrendHold {} 추세 청산: {}",
-                            direction_label, reason
+                            "LeveragedTrendHold 추적손절: 고점 대비 -{:.2}% (기준 {:.2}%)",
+                            drawdown, self.params.trailing_stop_pct
                         ),
                     };
                 }
+            }
 
-                if let Some((_, minutes_to_close)) = Self::session_minutes(entry.is_overseas) {
-                    if minutes_to_close <= self.params.exit_before_close_min {
-                        if let Some(pos) = self.positions.get_mut(symbol) {
-                            pos.in_position = false;
-                            pos.entry_price = None;
-                            pos.high_water = None;
-                        }
-                        return Signal::Sell {
-                            symbol: symbol.to_string(),
-                            quantity,
-                            reason: format!(
-                                "LeveragedTrendHold {} 장마감 청산: 마감 {}분 전",
-                                direction_label, minutes_to_close
-                            ),
-                        };
-                    }
+            if let Some(reason) = self.exit_reason(symbol) {
+                if let Some(pos) = self.positions.get_mut(symbol) {
+                    pos.in_position = false;
+                    pos.entry_price = None;
+                    pos.high_water = None;
                 }
-
-                continue;
-            }
-
-            let Some((elapsed, _)) = Self::session_minutes(entry.is_overseas) else {
-                continue;
-            };
-            if elapsed < self.params.entry_window_start_min
-                || elapsed > self.params.entry_window_end_min
-                || Self::in_blackout_window(&self.params.blackout_windows)
-            {
-                continue;
-            }
-
-            let base_entry = entry
-                .base_symbols
-                .iter()
-                .filter_map(|base| self.base_entry_ok(base, direction).map(|snap| (base, snap)))
-                .next();
-
-            if let Some((base, snap)) = base_entry {
-                let base_role_label = Self::base_role_label(&entry, base);
-                self.positions.insert(
-                    symbol.to_string(),
-                    LeveragedTrendHoldPosition {
-                        in_position: true,
-                        entry_price: Some(price),
-                        high_water: Some(price),
-                    },
-                );
-                return Signal::Buy {
+                return Signal::Sell {
                     symbol: symbol.to_string(),
                     quantity,
-                    reason: match direction {
-                        LeveragedTrendDirection::Long => format!(
-                            "LeveragedTrendHold 정방향 진입: {} {} EMA{} > EMA{}, RSI {:.1}, ADX {:.1}, 최근 3봉 양봉 {}개",
-                            base_role_label,
-                            base,
-                            self.params.ema_short_period,
-                            self.params.ema_long_period,
-                            snap.rsi,
-                            snap.adx,
-                            snap.bullish_count_3
-                        ),
-                        LeveragedTrendDirection::Inverse => format!(
-                            "LeveragedTrendHold 역방향 진입: {} {} EMA{} < EMA{}, RSI {:.1}, ADX {:.1}, 최근 3봉 음봉 {}개",
-                            base_role_label,
-                            base,
-                            self.params.ema_short_period,
-                            self.params.ema_long_period,
-                            snap.rsi,
-                            snap.adx,
-                            snap.bearish_count_3
-                        ),
-                    },
+                    reason: format!("LeveragedTrendHold 추세 청산: {}", reason),
                 };
             }
+
+            if let Some((_, minutes_to_close)) = Self::session_minutes(entry.is_overseas) {
+                if minutes_to_close <= self.params.exit_before_close_min {
+                    if let Some(pos) = self.positions.get_mut(symbol) {
+                        pos.in_position = false;
+                        pos.entry_price = None;
+                        pos.high_water = None;
+                    }
+                    return Signal::Sell {
+                        symbol: symbol.to_string(),
+                        quantity,
+                        reason: format!(
+                            "LeveragedTrendHold 장마감 청산: 마감 {}분 전",
+                            minutes_to_close
+                        ),
+                    };
+                }
+            }
+
+            return Signal::Hold;
+        }
+
+        let Some((elapsed, _)) = Self::session_minutes(entry.is_overseas) else {
+            return Signal::Hold;
+        };
+        if elapsed < self.params.entry_window_start_min
+            || elapsed > self.params.entry_window_end_min
+            || Self::in_blackout_window(&self.params.blackout_windows)
+        {
+            return Signal::Hold;
+        }
+
+        if let Some(snap) = self.entry_ok(symbol) {
+            self.positions.insert(
+                symbol.to_string(),
+                LeveragedTrendHoldPosition {
+                    in_position: true,
+                    entry_price: Some(price),
+                    high_water: Some(price),
+                },
+            );
+            return Signal::Buy {
+                symbol: symbol.to_string(),
+                quantity,
+                reason: format!(
+                    "LeveragedTrendHold 상승 추세 진입: {} EMA{} > EMA{}, RSI {:.1}, ADX {:.1}, 최근 3봉 양봉 {}개",
+                    symbol,
+                    self.params.ema_short_period,
+                    self.params.ema_long_period,
+                    snap.rsi,
+                    snap.adx,
+                    snap.bullish_count_3
+                ),
+            };
         }
 
         Signal::Hold
@@ -786,13 +645,7 @@ impl Strategy for LeveragedTrendHoldStrategy {
 
     fn sync_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
         self.sync_params();
-        if quantity == 0
-            || !self
-                .params
-                .entries
-                .iter()
-                .any(|e| e.leveraged_symbol == symbol || e.inverse_leveraged_symbol == symbol)
-        {
+        if quantity == 0 || !self.is_target_symbol(symbol) {
             return;
         }
         self.positions.insert(
@@ -804,7 +657,7 @@ impl Strategy for LeveragedTrendHoldStrategy {
             },
         );
         tracing::info!(
-            "레버리지 추세 보유 포지션 동기화: {} {}주 @ {}",
+            "레버리지 단일 티커 추세 포지션 동기화: {} {}주 @ {}",
             symbol,
             quantity,
             avg_price
@@ -812,7 +665,7 @@ impl Strategy for LeveragedTrendHoldStrategy {
     }
 
     fn reset(&mut self) {
-        for state in self.base_states.values_mut() {
+        for state in self.states.values_mut() {
             state.live_candle_started = false;
         }
         for pos in self.positions.values_mut() {
@@ -820,5 +673,118 @@ impl Strategy for LeveragedTrendHoldStrategy {
             pos.entry_price = None;
             pos.high_water = None;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn upward_candles() -> Vec<OhlcCandle> {
+        (0..90)
+            .map(|i| {
+                let open = 100 + i;
+                OhlcCandle {
+                    open,
+                    high: open + 3,
+                    low: open.saturating_sub(1),
+                    close: open + 2,
+                }
+            })
+            .collect()
+    }
+
+    fn downward_candles() -> Vec<OhlcCandle> {
+        (0..90)
+            .map(|i| {
+                let open = 200_u64.saturating_sub(i);
+                OhlcCandle {
+                    open,
+                    high: open + 1,
+                    low: open.saturating_sub(3),
+                    close: open.saturating_sub(2),
+                }
+            })
+            .collect()
+    }
+
+    fn entry(symbol: &str) -> LeveragedTrendHoldEntry {
+        LeveragedTrendHoldEntry {
+            leveraged_symbol: symbol.into(),
+            leveraged_symbol_name: symbol.into(),
+            inverse_leveraged_symbol: "SOXS".into(),
+            inverse_leveraged_symbol_name: "Legacy inverse".into(),
+            base_symbols: vec!["SOXX".into()],
+            base_symbol_names: HashMap::new(),
+            base_symbol_roles: HashMap::new(),
+            quantity: 3,
+            inverse_quantity: 2,
+            is_overseas: true,
+        }
+    }
+
+    fn strategy_with_params(params: LeveragedTrendHoldParams) -> LeveragedTrendHoldStrategy {
+        let config = StrategyConfig::new(
+            "leveraged_trend_hold_test",
+            "레버리지 단일 티커 추세 테스트",
+            true,
+            Vec::new(),
+            1,
+            serde_json::to_value(params).unwrap(),
+        );
+        LeveragedTrendHoldStrategy::new(config)
+    }
+
+    #[test]
+    fn target_symbols_include_only_configured_tickers() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("SOXL")],
+            ..LeveragedTrendHoldParams::default()
+        };
+        let mut strategy = strategy_with_params(params);
+
+        assert_eq!(strategy.config.target_symbols, vec!["SOXL".to_string()]);
+        strategy.initialize_ohlc("SOXX", &upward_candles());
+        assert_eq!(strategy.on_tick("SOXX", 190, 100), Signal::Hold);
+        assert_eq!(strategy.on_tick("SOXS", 50, 100), Signal::Hold);
+    }
+
+    #[test]
+    fn buys_any_target_ticker_when_itself_trends_up() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("SOXS")],
+            entry_adx_min: 0.0,
+            no_trade_adx_below: 0.0,
+            entry_window_end_min: 120,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let mut strategy = strategy_with_params(params);
+        strategy.initialize_ohlc("SOXS", &upward_candles());
+
+        let signal = strategy.on_tick("SOXS", 192, 100);
+
+        assert!(
+            matches!(signal, Signal::Buy { symbol, quantity, .. } if symbol == "SOXS" && quantity == 3)
+        );
+    }
+
+    #[test]
+    fn sells_target_when_its_own_trend_breaks() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("SOXL")],
+            entry_adx_min: 0.0,
+            no_trade_adx_below: 0.0,
+            trailing_stop_pct: 99.0,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let mut strategy = strategy_with_params(params);
+        strategy.initialize_ohlc("SOXL", &downward_candles());
+        strategy.sync_position("SOXL", 3, 300);
+
+        let signal = strategy.on_tick("SOXL", 108, 100);
+
+        assert!(
+            matches!(signal, Signal::Sell { symbol, quantity, reason } if symbol == "SOXL" && quantity == 3 && reason.contains("추세 청산"))
+        );
     }
 }
