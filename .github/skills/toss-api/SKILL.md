@@ -42,9 +42,11 @@ npm run verify:toss-openapi
 ## Account Header
 
 - `/api/v1/accounts`에서 받은 `accountSeq`를 계좌 API의 `X-Tossinvest-Account` 헤더 값으로 사용한다.
+- `accountSeq`는 사용자가 임의로 고르는 단순 1/2 값이 아니라 `/api/v1/accounts` 응답에서 선택해야 하는 계좌 식별자다. 예시가 `1`이어도 저장 전 계좌 목록 조회 결과와 맞는지 확인한다.
 - holdings, orders, order detail, buying-power, sellable-quantity, commissions는 access token과 `X-Tossinvest-Account`가 모두 필요하다.
 - Settings 저장 구조에서는 KIS 계좌번호와 토스 `accountSeq`를 같은 문자열로 섞지 말고 `BrokerAccountId`와 broker id로 분리한다.
 - 기존 KIS 프로파일에는 `broker_id = "kis"` 기본값을 적용하고, 토스 프로파일은 별도 `broker_id = "toss"` scope로 저장한다.
+- Settings UI는 KIS/Toss 계좌 프로파일 섹션을 분리한다. Add 다이얼로그는 열린 섹션의 broker로 고정하고, Edit 다이얼로그는 기존 프로파일의 `broker_id`를 변경하지 않는다.
 
 ## Endpoint Groups
 
@@ -94,13 +96,15 @@ npm run verify:toss-openapi
 - access token은 만료 5분 전 갱신 대상으로 보고, 401 응답 시 캐시를 지운 뒤 1회 재발급/재시도한다.
 - holdings를 공통 `BrokerHolding`으로 매핑할 때 `marketCountry`는 `KR`/`US`, `currency`는 `KRW`/`USD`만 허용한다. unknown enum은 조용히 기본값으로 바꾸지 않는다.
 - holdings를 Dashboard/REST/IPC에 표시할 때는 원본 `raw`를 노출하지 않는 `BrokerHoldingView` 계열 view 타입을 만들고, `BrokerMoney`/`BrokerQuantity` 문자열 precision은 UI 표시 직전까지 보존한다.
+- Dashboard와 Trading은 활성 broker가 Toss이면 KIS 국내/해외 잔고 쿼리를 비활성화하고 `get_broker_holdings` 결과로 보유종목, 평가금액, 미실현손익, accountSeq를 표시한다. KIS 전용 `get_balance` 오류를 Toss 화면에 노출하지 않는다.
 - holdings는 자동매매 시작 전 전략 내부 포지션 복원에도 사용할 수 있다. `BrokerPositionSnapshot`은 `brokerId=Toss`, `market`, `symbol`, `quantity`, `avgPrice`를 들고, KRW 평균가는 원 단위, USD 평균가는 cents 단위로 전달한다. Toss decimal 수량은 in-position 복원 목적상 양수면 최소 1 단위로 반영하되, 실제 주문 수량으로 재사용하지 않는다.
 - read-only 진단 UI는 `check_toss_profile_connection` IPC와 `/api/profiles/:id/toss-diagnostic` 웹 REST를 통해 OpenAPI version 확인, token 발급, accounts 조회, holdings 조회, buying-power, commissions, 보유 종목 기반 sellable-quantity 순서로 구현한다.
+- Settings Toss Add/Edit 다이얼로그는 `list_toss_accounts` 또는 `list_toss_profile_accounts`로 `/api/v1/accounts`를 먼저 호출하고, 계좌번호를 마스킹한 드롭다운에서 `accountSeq`를 선택하게 한다. 전체 `accountNo`는 UI 응답에 노출하지 않는다.
 - Settings 프로파일 카드에서는 KIS 프로파일에 실전/모의 자동 감지 버튼을 유지하고, Toss 프로파일에는 `연결 진단` 버튼만 표시한다.
 - Settings Add/Edit 다이얼로그에서 broker가 Toss이면 입력 라벨을 `Client ID`, `Client Secret`, `accountSeq`로 바꾼다. `accountSeq`는 숫자 문자열이어야 한다.
 - Toss 실거래 동의 상태는 `AccountProfile.live_trading_consent`로 저장한다. 이 값은 명시 승인 기록이며, 주문/자동매매 연결은 별도 소액 검증 gate와 adapter 구현이 끝나기 전까지 계속 차단한다.
 - 실제 주문 생성은 별도 사용자 승인과 소액 검증 절차가 문서화되기 전까지 자동매매 경로에 연결하지 않는다.
 - 주문 구현을 시작하더라도 `docs/toss-readonly-small-order-checklist.md`의 명시 승인 gate를 통과하기 전에는 Trading/Strategy/Dashboard/자동매매 흐름에서 호출 가능하게 만들지 않는다.
-- 자동매매 실행 경로는 Toss 주문/체결 adapter가 구현되기 전까지 `BROKER_NOT_SUPPORTED`로 차단한다. `start_trading()`은 차단 전에 Toss holdings 기반 전략 포지션 복원을 수행할 수 있지만, 주문 생성/체결 확인으로 이어지면 안 된다. Settings/Sidebar에는 활성 broker/account와 실행 중 broker/account 스냅샷을 표시한다.
+- 자동매매 실행 경로는 Toss 주문/체결 adapter가 구현되기 전까지 `BROKER_NOT_SUPPORTED`로 차단한다. `start_trading()`은 차단 전에 Toss holdings 기반 전략 포지션 복원을 수행할 수 있지만, 주문 생성/체결 확인으로 이어지면 안 된다. Dashboard는 Toss 활성 시 시작 버튼을 비활성화하고, Strategy는 Toss read-only 자동매매 차단 안내를 표시한다. Settings/Sidebar에는 활성 broker/account와 실행 중 broker/account 스냅샷을 표시한다.
 
-> 마지막 업데이트: 2026-07-03T16:58:38+09:00
+> 마지막 업데이트: 2026-07-04T11:45:53+09:00

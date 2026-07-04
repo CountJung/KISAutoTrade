@@ -9,7 +9,7 @@
 
 | Command | 설명 |
 |---------|------|
-| `get_app_config` | 앱 설정 조회 (키 마스킹, 활성 broker/profile/account, 모드) |
+| `get_app_config` | 앱 설정 조회 (키 마스킹, 활성 broker/profile/account, 모드, `active_broker_configured`) |
 | `check_config` | API 설정 진단 (ConfigDiagnostic 반환) |
 | `list_profiles` | 멀티 계좌 프로파일 목록 조회 (`broker_id`, `broker_account_id`, `live_trading_consent` 포함) |
 | `add_profile` | 프로파일 추가 (`live_trading_consent`는 토스 실거래 명시 동의 저장 상태) |
@@ -20,6 +20,8 @@
 | `save_web_config` | 웹 서버 포트 저장 (`.env` WEB_PORT) |
 | `detect_trading_type` | 실전/모의투자 자동 감지 |
 | `detect_profile_trading_type` | 특정 프로파일 실전/모의 감지 |
+| `list_toss_accounts` | 입력한 토스증권 Client ID/Secret으로 `accountSeq` 후보 조회 |
+| `list_toss_profile_accounts` | 저장된 토스증권 프로파일 키로 `accountSeq` 후보 조회 |
 | `check_toss_profile_connection` | 토스증권 프로파일 연결 진단 (OpenAPI spec, token, accounts, holdings 단계 결과) |
 
 ## 시세 / 주문

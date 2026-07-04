@@ -33,6 +33,7 @@ import IconButton from '@mui/material/IconButton'
 
 import {
   useBalance,
+  useBrokerHoldings,
   useOverseasBalance,
   usePlaceOrder,
   usePrice,
@@ -51,6 +52,7 @@ import {
 import * as cmd from '../../../api/commands'
 import type {
   BalanceItem,
+  BrokerHoldingView,
   OverseasBalanceItem,
   CmdError,
   OverseasExchange,
@@ -79,6 +81,10 @@ function fmtTossMoney(amount: string, currency: string) {
   return currency === 'KRW'
     ? `${fmtDecimal(amount, 0)}원`
     : `$${fmtDecimal(amount, 4)}`
+}
+
+function fmtBrokerMoney(money?: { amount: string; currency: string } | null) {
+  return money ? fmtTossMoney(money.amount, money.currency) : '-'
 }
 
 function tossMarketLabel(market: TossMarketSnapshotView['market']) {
@@ -699,10 +705,14 @@ export default function Trading() {
     return () => clearTimeout(t)
   }, [inputValue, market, showResults])
 
-  const { data: balance }                                           = useBalance()
-  const { data: overseasBalance }                                   = useOverseasBalance()
   const { data: appConfig }                                         = useAppConfig()
   const isTossActive = appConfig?.active_broker_id === 'toss'
+  const isKisActive = appConfig?.active_broker_id === 'kis'
+  const { data: balance }                                           = useBalance({ enabled: isKisActive })
+  const { data: overseasBalance }                                   = useOverseasBalance({ enabled: isKisActive })
+  const { data: brokerHoldings = [],
+          isLoading: brokerHoldingsLoading,
+          isError: brokerHoldingsError }                            = useBrokerHoldings({ enabled: isTossActive })
   const { data: krPrice }                                           = usePrice(!isTossActive && market === 'KR' && symbol.length === 6 ? symbol : '')
   const { data: usPrice }                                           = useOverseasPrice(!isTossActive && market === 'US' ? symbol : '', !isTossActive && market === 'US' ? usExchange : '')
   const { data: tossSnapshot }                                      = useTossMarketSnapshot(isTossActive && symbol ? symbol : '')
@@ -763,6 +773,14 @@ export default function Trading() {
     // ovrs_excg_cd: KIS는 잔고 API에서 'NAS'/'NYS'/'AMS' 반환
     // 방어적으로 'NASD'/'NYSE'/'AMEX' 장포맷도 OverseasExchange로 정규화
     setUsExchange(normalizeExchange(item.ovrs_excg_cd))
+    setResult(null)
+    setErrorMsg(null)
+  }
+
+  const handleSelectBrokerHolding = (item: BrokerHoldingView) => {
+    setMarket(item.market === 'kr' ? 'KR' : 'US')
+    setSymbol(item.symbol)
+    setInputValue(item.symbolName || item.symbol)
     setResult(null)
     setErrorMsg(null)
   }
@@ -895,8 +913,20 @@ export default function Trading() {
           direction="row" alignItems="center" justifyContent="space-between"
           mb={1.5} flexWrap="wrap" gap={1}
         >
-          <Typography variant="subtitle1" fontWeight={600}>보유 종목</Typography>
-          {balance?.summary && (
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+            <Typography variant="subtitle1" fontWeight={600}>보유 종목</Typography>
+            {isTossActive && (
+              <Chip
+                size="small"
+                label={appConfig?.active_broker_account_id
+                  ? `Toss · accountSeq ${appConfig.active_broker_account_id}`
+                  : 'Toss'}
+                color="secondary"
+                variant="outlined"
+              />
+            )}
+          </Stack>
+          {!isTossActive && balance?.summary && (
             <Typography variant="caption" color="text.secondary" noWrap>
               예수금 {fmt(parseInt(balance.summary.dnca_tot_amt))}원
             </Typography>
@@ -904,22 +934,88 @@ export default function Trading() {
         </Stack>
         <Divider sx={{ mb: 1.5 }} />
 
-        {/* 국내 보유 */}
-        <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
-          🇰🇷 국내
-        </Typography>
-        <HoldingsTable items={balance?.items ?? []} onSelect={handleSelectHolding} />
+        {isTossActive ? (
+          brokerHoldingsLoading ? (
+            <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}>
+              <CircularProgress size={20} />
+            </Box>
+          ) : brokerHoldingsError ? (
+            <Alert severity="warning" sx={{ py: 0.5 }}>
+              Toss 보유종목 조회 실패 — Settings의 Toss Client ID, Client Secret, accountSeq를 확인하세요.
+            </Alert>
+          ) : brokerHoldings.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+              보유한 Toss 종목이 없습니다.
+            </Typography>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>종목명</TableCell>
+                    <TableCell align="right">수량</TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>평균단가</TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>현재가</TableCell>
+                    <TableCell align="right">평가손익</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {brokerHoldings.map((item) => {
+                    const pnl = Number(item.unrealizedPnl?.amount.replace(/,/g, '') ?? 0)
+                    const pnlPositive = Number.isFinite(pnl) ? pnl >= 0 : true
+                    return (
+                      <TableRow
+                        key={`${item.brokerId}:${item.market}:${item.symbol}`}
+                        hover
+                        sx={{ cursor: 'pointer' }}
+                        onClick={() => handleSelectBrokerHolding(item)}
+                      >
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={500}>{item.symbolName || item.symbol}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.symbol} · {tossMarketLabel(item.market)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">{fmtDecimal(item.quantity, 6)}</TableCell>
+                        <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                          {fmtBrokerMoney(item.averagePrice)}
+                        </TableCell>
+                        <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                          {fmtBrokerMoney(item.currentPrice)}
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{ color: pnlPositive ? 'success.main' : 'error.main', fontWeight: 600 }}
+                        >
+                          {item.unrealizedPnl ? fmtBrokerMoney(item.unrealizedPnl) : '-'}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )
+        ) : (
+          <>
+            {/* 국내 보유 */}
+            <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
+              🇰🇷 국내
+            </Typography>
+            <HoldingsTable items={balance?.items ?? []} onSelect={handleSelectHolding} />
 
-        {/* 해외 보유 */}
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
-            🇺🇸 해외 — 클릭하면 US 매도 폼 자동 완성
-          </Typography>
-          <OverseasHoldingsTable
-            items={overseasBalance?.items ?? []}
-            onSelect={handleSelectOverseasHolding}
-          />
-        </Box>
+            {/* 해외 보유 */}
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
+                🇺🇸 해외 — 클릭하면 US 매도 폼 자동 완성
+              </Typography>
+              <OverseasHoldingsTable
+                items={overseasBalance?.items ?? []}
+                onSelect={handleSelectOverseasHolding}
+              />
+            </Box>
+          </>
+        )}
       </Paper>
 
       {/* 2. 종목 검색 패널 */}

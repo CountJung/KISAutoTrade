@@ -143,6 +143,8 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 - 표시값은 `useAppConfig()`의 `active_broker_id`, `active_profile_name`, `active_broker_account_id`, `kis_is_paper_trading`을 사용한다.
 - 페이지별로 임의 Chip 조합을 새로 만들지 말고 공통 컴포넌트를 재사용해 broker/profile/account 표시 순서와 색상을 유지한다.
 - Strategy 카드처럼 저장 데이터 자체에 broker/account scope가 있는 경우 카드 header에 해당 scope chip을 표시하고, 현재 활성 scope와 다르면 `warning` 색상으로 표시한다.
+- Settings의 계좌 프로파일 관리는 KIS/Toss 섹션을 분리한다. KIS 계좌번호와 Toss `accountSeq`는 같은 문자열 필드에 저장되더라도 UI에서는 같은 목록·같은 broker 선택 폼으로 섞지 않는다.
+- 활성 broker가 Toss인 Dashboard/Trading/Strategy는 KIS 잔고·주문 흐름을 호출하지 않고 Toss read-only 보유종목/시세와 주문·자동매매 차단 상태를 명확히 표시한다.
 
 ### Provider trace 표시
 
@@ -555,4 +557,3 @@ UI 규칙:
 - `base_symbol_roles`는 `underlying` 또는 `proxy`만 저장한다.
 
 > 마지막 업데이트: 2026-07-03T15:10:01
-

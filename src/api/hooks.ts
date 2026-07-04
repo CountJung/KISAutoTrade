@@ -54,6 +54,8 @@ import type {
   SetTradeArchiveConfigInput,
   TradeArchiveStats,
   TossConnectionDiagnostic,
+  TossAccountLookupInput,
+  TossAccountOptionView,
   TossMarketCalendarView,
   TossMarketSnapshotView,
   TossOrderPreflightInput,
@@ -522,6 +524,20 @@ export function useDetectProfileTradingType() {
       void qc.invalidateQueries({ queryKey: KEYS.appConfig })
       void qc.invalidateQueries({ queryKey: KEYS.checkConfig })
     },
+  })
+}
+
+/** 입력한 토스증권 Client ID/Secret으로 accountSeq 목록을 조회합니다. */
+export function useListTossAccounts() {
+  return useMutation<TossAccountOptionView[], Error, TossAccountLookupInput>({
+    mutationFn: (input) => cmd.listTossAccounts(input),
+  })
+}
+
+/** 저장된 토스증권 프로파일로 accountSeq 목록을 조회합니다. */
+export function useListTossProfileAccounts() {
+  return useMutation<TossAccountOptionView[], Error, string>({
+    mutationFn: (profileId) => cmd.listTossProfileAccounts(profileId),
   })
 }
 

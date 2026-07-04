@@ -63,6 +63,8 @@ import {
   useSaveWebConfig,
   useDetectTradingType,
   useDetectProfileTradingType,
+  useListTossAccounts,
+  useListTossProfileAccounts,
   useCheckTossProfileConnection,
   useStockListStats,
   useSetStockUpdateInterval,
@@ -72,7 +74,7 @@ import {
   useRefreshConfig,
   useSetRefreshConfig,
 } from '../../../api/hooks'
-import type { AccountProfileView, AddProfileInput, BrokerId, TossConnectionDiagnostic, UpdateProfileInput, UpdateRiskConfigInput } from '../../../api/types'
+import type { AccountProfileView, AddProfileInput, BrokerId, TossAccountOptionView, TossConnectionDiagnostic, UpdateProfileInput, UpdateRiskConfigInput } from '../../../api/types'
 import type { ThemeMode } from '../../../shared/config/theme'
 
 const fmt = (n: number) => n.toLocaleString('ko-KR')
@@ -229,8 +231,8 @@ interface ProfileFormState {
 
 type DetectStatus = 'idle' | 'detecting' | 'detected' | 'failed'
 
-const emptyForm = (): ProfileFormState => ({
-  broker_id: 'kis',
+const emptyForm = (brokerId: BrokerId = 'kis'): ProfileFormState => ({
+  broker_id: brokerId,
   name: '',
   is_paper_trading: false,
   live_trading_consent: false,
@@ -239,24 +241,116 @@ const emptyForm = (): ProfileFormState => ({
   account_no: '',
 })
 
+function TossAccountSeqField({
+  idPrefix,
+  value,
+  onChange,
+  accounts,
+  loading,
+  onLookup,
+  lookupDisabled,
+  message,
+  helperText,
+}: {
+  idPrefix: string
+  value: string
+  onChange: (value: string) => void
+  accounts: TossAccountOptionView[]
+  loading: boolean
+  onLookup: () => void
+  lookupDisabled: boolean
+  message: string
+  helperText: string
+}) {
+  const selectedFromLookup = accounts.some((account) => account.account_seq === value)
+
+  return (
+    <Stack spacing={0.75}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+        {accounts.length > 0 ? (
+          <FormControl fullWidth size="small">
+            <InputLabel id={`${idPrefix}-toss-account-label`}>accountSeq</InputLabel>
+            <Select
+              labelId={`${idPrefix}-toss-account-label`}
+              label="accountSeq"
+              value={value}
+              onChange={(e) => onChange(String(e.target.value))}
+            >
+              {value && !selectedFromLookup && (
+                <MenuItem value={value}>현재 저장값: {value}</MenuItem>
+              )}
+              {accounts.map((account) => (
+                <MenuItem key={account.account_seq} value={account.account_seq}>
+                  {account.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        ) : (
+          <TextField
+            label="accountSeq"
+            placeholder="계좌 조회 후 선택 또는 숫자 입력"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            fullWidth
+            size="small"
+          />
+        )}
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={loading ? <CircularProgress size={14} color="inherit" /> : <SyncIcon />}
+          onClick={onLookup}
+          disabled={lookupDisabled || loading}
+          sx={{ minWidth: 112 }}
+        >
+          {loading ? '조회 중' : '계좌 조회'}
+        </Button>
+      </Stack>
+      <Typography variant="caption" color="text.secondary">
+        {message || helperText}
+      </Typography>
+    </Stack>
+  )
+}
+
 // ── 프로파일 추가 다이얼로그 ───────────────────────────────────────
 function AddProfileDialog({
   open,
+  brokerId,
   onClose,
 }: {
   open: boolean
+  brokerId: BrokerId
   onClose: () => void
 }) {
-  const [form, setForm] = useState<ProfileFormState>(emptyForm())
+  const [form, setForm] = useState<ProfileFormState>(() => emptyForm(brokerId))
   const [error, setError] = useState<string | null>(null)
   const [detectStatus, setDetectStatus] = useState<DetectStatus>('idle')
   const [detectMsg, setDetectMsg] = useState<string>('')
+  const [tossAccounts, setTossAccounts] = useState<TossAccountOptionView[]>([])
+  const [tossAccountMsg, setTossAccountMsg] = useState<string>('')
   const { mutate: addProfile, isPending } = useAddProfile()
   const { mutate: detectType, isPending: isDetecting } = useDetectTradingType()
+  const { mutate: listTossAccounts, isPending: isListingTossAccounts } = useListTossAccounts()
+
+  useEffect(() => {
+    if (!open) return
+    setForm(emptyForm(brokerId))
+    setError(null)
+    setDetectStatus('idle')
+    setDetectMsg('')
+    setTossAccounts([])
+    setTossAccountMsg('')
+  }, [open, brokerId])
 
   const labels = brokerProfileLabels(form.broker_id)
   const isKisProfile = form.broker_id === 'kis'
+  const isTossProfile = form.broker_id === 'toss'
   const canDetect = isKisProfile && form.app_key.trim().length > 0 && form.app_secret.trim().length > 0
+  const canLookupTossAccounts = isTossProfile
+    && form.app_key.trim().length > 0
+    && form.app_secret.trim().length > 0
 
   const handleDetect = () => {
     if (!canDetect) return
@@ -278,6 +372,42 @@ function AddProfileDialog({
     )
   }
 
+  const resetTossAccounts = () => {
+    setTossAccounts([])
+    setTossAccountMsg('')
+  }
+
+  const handleLookupTossAccounts = () => {
+    if (!canLookupTossAccounts) {
+      setError('토스증권 Client ID와 Client Secret을 먼저 입력하세요.')
+      return
+    }
+    setError(null)
+    listTossAccounts(
+      {
+        client_id: form.app_key.trim(),
+        client_secret: form.app_secret.trim(),
+      },
+      {
+        onSuccess: (accounts) => {
+          setTossAccounts(accounts)
+          setTossAccountMsg(
+            accounts.length > 0
+              ? `${accounts.length}개 계좌를 조회했습니다. 저장할 accountSeq를 선택하세요.`
+              : '조회된 토스증권 계좌가 없습니다.',
+          )
+          if (accounts.length === 1) {
+            setForm((f) => ({ ...f, account_no: accounts[0].account_seq }))
+          }
+        },
+        onError: (e) => {
+          resetTossAccounts()
+          setError(cmdErrMsg(e))
+        },
+      },
+    )
+  }
+
   const handleSubmit = () => {
     if (!form.name.trim()) { setError('프로파일 이름을 입력하세요.'); return }
     if (!form.app_key.trim()) { setError(`${labels.key}를 입력하세요.`); return }
@@ -291,44 +421,29 @@ function AddProfileDialog({
     const input: AddProfileInput = { ...form }
     addProfile(input, {
       onSuccess: () => {
-        setForm(emptyForm()); setError(null); setDetectStatus('idle'); setDetectMsg(''); onClose()
+        setForm(emptyForm(brokerId)); setError(null); setDetectStatus('idle'); setDetectMsg(''); resetTossAccounts(); onClose()
       },
       onError: (e) => setError(cmdErrMsg(e)),
     })
   }
 
   const handleClose = () => {
-    setForm(emptyForm()); setError(null); setDetectStatus('idle'); setDetectMsg(''); onClose()
+    setForm(emptyForm(brokerId)); setError(null); setDetectStatus('idle'); setDetectMsg(''); resetTossAccounts(); onClose()
   }
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>계좌 프로파일 추가</DialogTitle>
+      <DialogTitle>{brokerLabel(brokerId)} 계좌 프로파일 추가</DialogTitle>
       <DialogContent>
         <Stack spacing={2} mt={1}>
           {error && <Alert severity="error">{error}</Alert>}
-          <FormControl fullWidth size="small">
-            <InputLabel id="add-profile-broker-label">증권사</InputLabel>
-            <Select
-              labelId="add-profile-broker-label"
-              label="증권사"
-              value={form.broker_id}
-              onChange={(e) => {
-                const brokerId = e.target.value as BrokerId
-                setForm({
-                  ...form,
-                  broker_id: brokerId,
-                  is_paper_trading: false,
-                  live_trading_consent: false,
-                })
-                setDetectStatus('idle')
-                setDetectMsg('')
-              }}
-            >
-              <MenuItem value="kis">한국투자증권</MenuItem>
-              <MenuItem value="toss">토스증권</MenuItem>
-            </Select>
-          </FormControl>
+          <Chip
+            size="small"
+            label={brokerLabel(form.broker_id)}
+            color={form.broker_id === 'kis' ? 'info' : 'secondary'}
+            variant="outlined"
+            sx={{ alignSelf: 'flex-start' }}
+          />
           {form.broker_id === 'toss' && (
             <>
               <Alert severity="info" sx={{ py: 0.75 }}>
@@ -370,6 +485,7 @@ function AddProfileDialog({
             onChange={(e) => {
               setForm({ ...form, app_key: e.target.value })
               setDetectStatus('idle')
+              if (isTossProfile) resetTossAccounts()
             }}
             fullWidth size="small" autoComplete="off"
           />
@@ -379,6 +495,7 @@ function AddProfileDialog({
             onChange={(e) => {
               setForm({ ...form, app_secret: e.target.value })
               setDetectStatus('idle')
+              if (isTossProfile) resetTossAccounts()
             }}
             onBlur={() => { if (canDetect) handleDetect() }}
             type="password"
@@ -447,17 +564,33 @@ function AddProfileDialog({
             />
           )}
 
-          <TextField
-            label={labels.account}
-            placeholder={labels.accountPlaceholder}
-            value={form.account_no}
-            onChange={(e) => setForm({ ...form, account_no: e.target.value })}
-            fullWidth size="small"
-          />
-          {labels.accountHelp && (
-            <Typography variant="caption" color="text.secondary">
-              {labels.accountHelp}
-            </Typography>
+          {isTossProfile ? (
+            <TossAccountSeqField
+              idPrefix="add-profile"
+              value={form.account_no}
+              onChange={(accountNo) => setForm({ ...form, account_no: accountNo })}
+              accounts={tossAccounts}
+              loading={isListingTossAccounts}
+              onLookup={handleLookupTossAccounts}
+              lookupDisabled={!canLookupTossAccounts}
+              message={tossAccountMsg}
+              helperText={labels.accountHelp}
+            />
+          ) : (
+            <>
+              <TextField
+                label={labels.account}
+                placeholder={labels.accountPlaceholder}
+                value={form.account_no}
+                onChange={(e) => setForm({ ...form, account_no: e.target.value })}
+                fullWidth size="small"
+              />
+              {labels.accountHelp && (
+                <Typography variant="caption" color="text.secondary">
+                  {labels.accountHelp}
+                </Typography>
+              )}
+            </>
           )}
           {(()=>{
             if (!isKisProfile) return null
@@ -497,13 +630,22 @@ function EditProfileDialog({
   const [error, setError] = useState<string | null>(null)
   const [detectStatus, setDetectStatus] = useState<DetectStatus>('idle')
   const [detectMsg, setDetectMsg] = useState<string>('')
+  const [tossAccounts, setTossAccounts] = useState<TossAccountOptionView[]>([])
+  const [tossAccountMsg, setTossAccountMsg] = useState<string>('')
   const { mutate: updateProfile, isPending } = useUpdateProfile()
   const { mutate: detectType, isPending: isDetecting } = useDetectTradingType()
+  const { mutate: listTossAccounts, isPending: isListingTossAccounts } = useListTossAccounts()
+  const {
+    mutate: listTossProfileAccounts,
+    isPending: isListingSavedTossAccounts,
+  } = useListTossProfileAccounts()
 
   // profile 변경 시 form 동기화
   useEffect(() => {
     if (!profile) {
       setForm(emptyForm())
+      setTossAccounts([])
+      setTossAccountMsg('')
       return
     }
     setForm({
@@ -517,12 +659,20 @@ function EditProfileDialog({
     })
     setDetectStatus('idle')
     setDetectMsg('')
+    setTossAccounts([])
+    setTossAccountMsg('')
   }, [profile])
 
   // 새 키가 양쪽 모두 입력된 경우에만 감지 가능
   const labels = brokerProfileLabels(form.broker_id)
   const isKisProfile = form.broker_id === 'kis'
+  const isTossProfile = form.broker_id === 'toss'
   const canDetect = isKisProfile && form.app_key.trim().length > 0 && form.app_secret.trim().length > 0
+  const newTossCredentialsReady = isTossProfile
+    && form.app_key.trim().length > 0
+    && form.app_secret.trim().length > 0
+  const canLookupTossAccounts = isTossProfile && (!!profile || newTossCredentialsReady)
+  const isListingAnyTossAccounts = isListingTossAccounts || isListingSavedTossAccounts
 
   const handleDetect = () => {
     if (!canDetect) return
@@ -544,6 +694,58 @@ function EditProfileDialog({
     )
   }
 
+  const resetTossAccounts = () => {
+    setTossAccounts([])
+    setTossAccountMsg('')
+  }
+
+  const applyTossAccounts = (accounts: TossAccountOptionView[]) => {
+    setTossAccounts(accounts)
+    setTossAccountMsg(
+      accounts.length > 0
+        ? `${accounts.length}개 계좌를 조회했습니다. 저장할 accountSeq를 선택하세요.`
+        : '조회된 토스증권 계좌가 없습니다.',
+    )
+    setForm((f) => {
+      if (accounts.some((account) => account.account_seq === f.account_no)) return f
+      if (accounts.length === 1) return { ...f, account_no: accounts[0].account_seq }
+      return f
+    })
+  }
+
+  const handleLookupTossAccounts = () => {
+    if (!profile) return
+    if (!canLookupTossAccounts) {
+      setError('토스증권 Client ID와 Client Secret을 먼저 입력하세요.')
+      return
+    }
+    setError(null)
+    if (newTossCredentialsReady) {
+      listTossAccounts(
+        {
+          client_id: form.app_key.trim(),
+          client_secret: form.app_secret.trim(),
+        },
+        {
+          onSuccess: applyTossAccounts,
+          onError: (e) => {
+            resetTossAccounts()
+            setError(cmdErrMsg(e))
+          },
+        },
+      )
+      return
+    }
+
+    listTossProfileAccounts(profile.id, {
+      onSuccess: applyTossAccounts,
+      onError: (e) => {
+        resetTossAccounts()
+        setError(cmdErrMsg(e))
+      },
+    })
+  }
+
   const handleSubmit = () => {
     if (!profile) return
     if (!form.name.trim()) { setError('프로파일 이름을 입력하세요.'); return }
@@ -554,7 +756,7 @@ function EditProfileDialog({
 
     const input: UpdateProfileInput = {
       id: profile.id,
-      broker_id: form.broker_id,
+      broker_id: profile.broker_id,
       name: form.name,
       is_paper_trading: form.is_paper_trading,
       live_trading_consent: form.live_trading_consent,
@@ -568,7 +770,7 @@ function EditProfileDialog({
     })
   }
 
-  const handleClose = () => { setError(null); setDetectStatus('idle'); setDetectMsg(''); onClose() }
+  const handleClose = () => { setError(null); setDetectStatus('idle'); setDetectMsg(''); resetTossAccounts(); onClose() }
 
   return (
     <Dialog open={!!profile} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -576,28 +778,13 @@ function EditProfileDialog({
       <DialogContent>
         <Stack spacing={2} mt={1}>
           {error && <Alert severity="error">{error}</Alert>}
-          <FormControl fullWidth size="small">
-            <InputLabel id="edit-profile-broker-label">증권사</InputLabel>
-            <Select
-              labelId="edit-profile-broker-label"
-              label="증권사"
-              value={form.broker_id}
-              onChange={(e) => {
-                const brokerId = e.target.value as BrokerId
-                setForm({
-                  ...form,
-                  broker_id: brokerId,
-                  is_paper_trading: false,
-                  live_trading_consent: false,
-                })
-                setDetectStatus('idle')
-                setDetectMsg('')
-              }}
-            >
-              <MenuItem value="kis">한국투자증권</MenuItem>
-              <MenuItem value="toss">토스증권</MenuItem>
-            </Select>
-          </FormControl>
+          <Chip
+            size="small"
+            label={brokerLabel(form.broker_id)}
+            color={form.broker_id === 'kis' ? 'info' : 'secondary'}
+            variant="outlined"
+            sx={{ alignSelf: 'flex-start' }}
+          />
           {form.broker_id === 'toss' && (
             <>
               <Alert severity="info" sx={{ py: 0.75 }}>
@@ -638,6 +825,7 @@ function EditProfileDialog({
             onChange={(e) => {
               setForm({ ...form, app_key: e.target.value })
               setDetectStatus('idle')
+              if (isTossProfile) resetTossAccounts()
             }}
             placeholder={profile?.app_key_masked ?? ''}
             fullWidth size="small" autoComplete="off"
@@ -648,6 +836,7 @@ function EditProfileDialog({
             onChange={(e) => {
               setForm({ ...form, app_secret: e.target.value })
               setDetectStatus('idle')
+              if (isTossProfile) resetTossAccounts()
             }}
             onBlur={() => { if (canDetect) handleDetect() }}
             type="password"
@@ -717,17 +906,35 @@ function EditProfileDialog({
             />
           )}
 
-          <TextField
-            label={labels.account}
-            placeholder={labels.accountPlaceholder}
-            value={form.account_no}
-            onChange={(e) => setForm({ ...form, account_no: e.target.value })}
-            fullWidth size="small"
-          />
-          {labels.accountHelp && (
-            <Typography variant="caption" color="text.secondary">
-              {labels.accountHelp}
-            </Typography>
+          {isTossProfile ? (
+            <TossAccountSeqField
+              idPrefix="edit-profile"
+              value={form.account_no}
+              onChange={(accountNo) => setForm({ ...form, account_no: accountNo })}
+              accounts={tossAccounts}
+              loading={isListingAnyTossAccounts}
+              onLookup={handleLookupTossAccounts}
+              lookupDisabled={!canLookupTossAccounts}
+              message={tossAccountMsg}
+              helperText={newTossCredentialsReady
+                ? labels.accountHelp
+                : '저장된 토스증권 키로 계좌를 조회하거나, 새 Client ID/Secret을 입력한 뒤 조회합니다.'}
+            />
+          ) : (
+            <>
+              <TextField
+                label={labels.account}
+                placeholder={labels.accountPlaceholder}
+                value={form.account_no}
+                onChange={(e) => setForm({ ...form, account_no: e.target.value })}
+                fullWidth size="small"
+              />
+              {labels.accountHelp && (
+                <Typography variant="caption" color="text.secondary">
+                  {labels.accountHelp}
+                </Typography>
+              )}
+            </>
           )}
           {(()=>{
             if (!isKisProfile) return null
@@ -1315,6 +1522,11 @@ export default function Settings() {
   } = useSettingsStore()
 
   const { data: appConfig } = useAppConfig()
+  const activeBrokerConfigured = appConfig?.active_broker_configured ?? appConfig?.kis_configured ?? false
+  const activeBrokerIsKis = appConfig?.active_broker_id === 'kis'
+  const activeBrokerModeLabel = activeBrokerIsKis
+    ? appConfig?.kis_is_paper_trading ? '모의투자 모드' : '실전투자 모드'
+    : 'read-only 진단'
   const { data: diag, refetch: recheckConfig, isFetching: diagFetching } = useCheckConfig()
   const { mutate: sendTestDiscord, isPending: discordPending } = useSendTestDiscord()
   const [discordResult, setDiscordResult] = useState<{ ok: boolean; msg: string } | null>(null)
@@ -1353,9 +1565,11 @@ export default function Settings() {
   const { data: profiles = [], isLoading: profilesLoading } = useProfiles()
   const { mutate: setActive } = useSetActiveProfile()
   const { mutate: deleteProfile } = useDeleteProfile()
-  const [addOpen, setAddOpen] = useState(false)
+  const [addBroker, setAddBroker] = useState<BrokerId | null>(null)
   const [editProfile, setEditProfile] = useState<AccountProfileView | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<AccountProfileView | null>(null)
+  const kisProfiles = profiles.filter((profile) => profile.broker_id === 'kis')
+  const tossProfiles = profiles.filter((profile) => profile.broker_id === 'toss')
 
   // 웹 접속 설정
   const { data: webConfig } = useWebConfig()
@@ -1404,6 +1618,45 @@ export default function Settings() {
       onSuccess: () => setDeleteTarget(null),
     })
   }
+
+  const renderBrokerProfiles = (brokerId: BrokerId, brokerProfiles: AccountProfileView[]) => (
+    <Section title={`${brokerLabel(brokerId)} 계좌 프로파일`}>
+      <Stack spacing={2}>
+        {profilesLoading ? (
+          <CircularProgress size={24} />
+        ) : brokerProfiles.length === 0 ? (
+          <Alert severity="info">
+            등록된 {brokerLabel(brokerId)} 계좌 프로파일이 없습니다.
+          </Alert>
+        ) : (
+          <Stack spacing={1.5}>
+            {brokerProfiles.map((profile) => (
+              <ProfileCard
+                key={profile.id}
+                profile={profile}
+                onEdit={setEditProfile}
+                onDelete={setDeleteTarget}
+                onSetActive={(id) => setActive(id)}
+                isRunning={tradingStatus?.isRunning ?? false}
+                tradingProfileId={tradingStatus?.tradingProfileId ?? null}
+              />
+            ))}
+          </Stack>
+        )}
+
+        <Box>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setAddBroker(brokerId)}
+            size="small"
+          >
+            {brokerLabel(brokerId)} 계좌 추가
+          </Button>
+        </Box>
+      </Stack>
+    </Section>
+  )
 
   return (
     <Box>
@@ -1556,7 +1809,7 @@ export default function Settings() {
         </Section>
 
         {/* ── 계좌 프로파일 관리 ─────────────────────────────────── */}
-        <Section title="한국투자증권 계좌 프로파일">
+        <Section title="활성 증권사 프로파일">
           <Stack spacing={2}>
             {/* 현재 활성 상태 요약 */}
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
@@ -1570,14 +1823,17 @@ export default function Settings() {
                   />
                   <Chip
                     size="small"
-                    label={appConfig.kis_is_paper_trading ? '모의투자 모드' : '실전투자 모드'}
-                    color={appConfig.kis_is_paper_trading ? 'warning' : 'primary'}
+                    label={activeBrokerModeLabel}
+                    color={activeBrokerIsKis
+                      ? appConfig.kis_is_paper_trading ? 'warning' : 'primary'
+                      : 'secondary'}
+                    variant={activeBrokerIsKis ? 'filled' : 'outlined'}
                   />
                   <Chip
                     size="small"
-                    icon={appConfig.kis_configured ? <CheckCircleIcon /> : <ErrorIcon />}
-                    label={appConfig.kis_configured ? 'API 키 설정됨' : 'API 키 미설정'}
-                    color={appConfig.kis_configured ? 'success' : 'error'}
+                    icon={activeBrokerConfigured ? <CheckCircleIcon /> : <ErrorIcon />}
+                    label={activeBrokerConfigured ? 'API 키 설정됨' : 'API 키 미설정'}
+                    color={activeBrokerConfigured ? 'success' : 'error'}
                     variant="outlined"
                   />
                   {appConfig.active_profile_name && (
@@ -1630,45 +1886,13 @@ export default function Settings() {
               </Alert>
             )}
 
-            {/* 프로파일 목록 */}
-            {profilesLoading ? (
-              <CircularProgress size={24} />
-            ) : profiles.length === 0 ? (
-              <Alert severity="info">
-                등록된 계좌 프로파일이 없습니다. 아래 버튼으로 추가하세요.
-              </Alert>
-            ) : (
-              <Stack spacing={1.5}>
-                {profiles.map((p) => (
-                  <ProfileCard
-                    key={p.id}
-                    profile={p}
-                    onEdit={setEditProfile}
-                    onDelete={setDeleteTarget}
-                    onSetActive={(id) => setActive(id)}
-                    isRunning={tradingStatus?.isRunning ?? false}
-                    tradingProfileId={tradingStatus?.tradingProfileId ?? null}
-                  />
-                ))}
-              </Stack>
-            )}
-
             <Box>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setAddOpen(true)}
-                size="small"
-              >
-                계좌 추가
-              </Button>
               <Button
                 size="small"
                 variant="outlined"
                 onClick={() => recheckConfig()}
                 disabled={diagFetching}
                 startIcon={diagFetching ? <CircularProgress size={16} /> : undefined}
-                sx={{ ml: 1 }}
               >
                 설정 재점검
               </Button>
@@ -1682,6 +1906,9 @@ export default function Settings() {
             </Alert>
           </Stack>
         </Section>
+
+        {renderBrokerProfiles('kis', kisProfiles)}
+        {renderBrokerProfiles('toss', tossProfiles)}
 
         {/* ── 웹 접속 설정 ──────────────────────────────────────── */}
         <Section title="웹 접속 설정">
@@ -1878,7 +2105,11 @@ export default function Settings() {
       </Stack>
 
       {/* ── 다이얼로그 ─────────────────────────────────────────── */}
-      <AddProfileDialog open={addOpen} onClose={() => setAddOpen(false)} />
+      <AddProfileDialog
+        open={addBroker !== null}
+        brokerId={addBroker ?? 'kis'}
+        onClose={() => setAddBroker(null)}
+      />
       <EditProfileDialog profile={editProfile} onClose={() => setEditProfile(null)} />
 
       {/* 삭제 확인 다이얼로그 */}

@@ -18,6 +18,7 @@ export interface AppConfigView {
   kis_account_no: string
   kis_is_paper_trading: boolean
   kis_configured: boolean
+  active_broker_configured: boolean
   discord_enabled: boolean
   notification_levels: string[]
   active_profile_id: string | null
@@ -105,6 +106,18 @@ export interface TossConnectionStep {
   label: string
   ok: boolean
   message: string
+}
+
+export interface TossAccountLookupInput {
+  client_id: string
+  client_secret: string
+}
+
+export interface TossAccountOptionView {
+  account_seq: string
+  account_no_masked: string
+  account_type: string
+  label: string
 }
 
 export interface TossConnectionDiagnostic {

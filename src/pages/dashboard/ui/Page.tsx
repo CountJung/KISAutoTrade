@@ -73,6 +73,12 @@ function fmtDecimal(value: string, fractionDigits = 4) {
   return parsed.toLocaleString('ko-KR', { maximumFractionDigits: fractionDigits })
 }
 
+function parseDecimal(value: string | null | undefined) {
+  if (!value) return 0
+  const parsed = Number(value.replace(/,/g, ''))
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 function fmtBrokerMoney(money?: BrokerMoneyView | null) {
   if (!money) return '-'
   if (money.currency === 'KRW') {
@@ -735,16 +741,23 @@ export default function Dashboard() {
   const intervalMs = refreshIntervalSec * 1000
 
   const { data: appConfig } = useAppConfig()
-  const { data: balance, isLoading: balanceLoading, isError: balanceError, error: balanceErrorDetail } = useBalance({ refetchInterval: intervalMs })
-  const { data: overseasBalance, isLoading: overseasLoading, isError: overseasError } = useOverseasBalance({ refetchInterval: intervalMs })
   const { data: diag } = useCheckConfig()
   const activeBrokerId = appConfig?.active_broker_id ?? diag?.broker_id
-  const showBrokerHoldings = activeBrokerId === 'toss'
+  const isTossActive = activeBrokerId === 'toss'
+  const isKisActive = activeBrokerId === 'kis'
+  const { data: balance, isLoading: balanceLoading, isError: balanceError, error: balanceErrorDetail } = useBalance({
+    enabled: isKisActive,
+    refetchInterval: isKisActive ? intervalMs : false,
+  })
+  const { data: overseasBalance, isLoading: overseasLoading, isError: overseasError } = useOverseasBalance({
+    enabled: isKisActive,
+    refetchInterval: isKisActive ? intervalMs : false,
+  })
   const {
     data: brokerHoldings = [],
     isLoading: brokerHoldingsLoading,
     isError: brokerHoldingsError,
-  } = useBrokerHoldings({ enabled: showBrokerHoldings, refetchInterval: intervalMs })
+  } = useBrokerHoldings({ enabled: isTossActive, refetchInterval: isTossActive ? intervalMs : false })
   const { data: stats, isLoading: statsLoading } = useTodayStats({ refetchInterval: intervalMs })
   const { data: tradingStatus } = useTradingStatus()
   const { mutate: startTrading, isPending: startPending } = useStartTrading()
@@ -761,6 +774,7 @@ export default function Dashboard() {
   const profitPositive = netProfit >= 0
   const isRunning = tradingStatus?.isRunning ?? false
   const configReady = diag?.is_ready ?? true  // 데이터 없으면 배너 숨김
+  const autoTradingBlockedByBroker = isTossActive
 
   // ── 국내/해외 합산 계산 ────────────────────────────────────────
   const domesticItems = balance?.items ?? []
@@ -774,6 +788,32 @@ export default function Dashboard() {
   })()
   const overseasTotalKrw = Math.round(overseasTotalUsd * exchangeRateKrw)
   const combinedTotalKrw = totalBalance + overseasTotalKrw
+  const tossTotal = brokerHoldings.reduce(
+    (acc, item) => {
+      const quantity = parseDecimal(item.quantity)
+      const marketValue = parseDecimal(item.currentPrice.amount) * quantity
+      const pnl = parseDecimal(item.unrealizedPnl?.amount)
+      if (item.currentPrice.currency === 'USD') {
+        acc.usd += marketValue
+      } else {
+        acc.krw += marketValue
+      }
+      if (item.unrealizedPnl?.currency === 'USD') {
+        acc.pnlUsd += pnl
+      } else if (item.unrealizedPnl) {
+        acc.pnlKrw += pnl
+      }
+      return acc
+    },
+    { krw: 0, usd: 0, pnlKrw: 0, pnlUsd: 0 },
+  )
+  const tossTotalKrw = Math.round(tossTotal.krw + tossTotal.usd * exchangeRateKrw)
+  const tossUnrealizedPnlKrw = Math.round(tossTotal.pnlKrw + tossTotal.pnlUsd * exchangeRateKrw)
+  const tossTotalSub = tossTotal.usd > 0 && tossTotal.krw > 0
+    ? `국내 ${fmt(Math.round(tossTotal.krw))}원 + 미국 $${tossTotal.usd.toFixed(2)}`
+    : tossTotal.usd > 0
+      ? `미국 $${tossTotal.usd.toFixed(2)}`
+      : 'Toss 보유종목 평가'
 
   const handleRefresh = () => {
     void qc.invalidateQueries({ queryKey: KEYS.balance })
@@ -787,7 +827,7 @@ export default function Dashboard() {
   return (
     <Box>
       {/* 잔고 조회 실패 배너 */}
-      {balanceError && (
+      {!isTossActive && balanceError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           <strong>잔고 조회 실패</strong> —{' '}
           {(balanceErrorDetail as { message?: string } | null)?.message ?? '알 수 없는 오류. Log 페이지에서 상세 내용을 확인하세요.'}
@@ -843,10 +883,12 @@ export default function Dashboard() {
               color="primary"
               size="small"
               startIcon={startPending ? <CircularProgress size={16} /> : <PlayArrowIcon />}
-              onClick={() => startTrading()}
-              disabled={startPending || !configReady}
+              onClick={() => {
+                if (!autoTradingBlockedByBroker) startTrading()
+              }}
+              disabled={startPending || !configReady || autoTradingBlockedByBroker}
             >
-              자동매매 시작
+              {autoTradingBlockedByBroker ? 'Toss 자동매매 준비 중' : '자동매매 시작'}
             </Button>
           )}
           <Tooltip title="새로고침">
@@ -856,6 +898,12 @@ export default function Dashboard() {
           </Tooltip>
         </Box>
       </Box>
+
+      {autoTradingBlockedByBroker && !isRunning && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Toss 프로파일은 현재 보유종목·시세 read-only 조회만 연결되어 있습니다. 자동매매 주문 경로는 소액 검증 gate 이후 열립니다.
+        </Alert>
+      )}
 
       {/* ── 잔고 부족 매수 정지 경고 ──────────────────────────────── */}
       {tradingStatus?.buySuspended && (
@@ -880,6 +928,7 @@ export default function Dashboard() {
       )}
 
       {/* ── 국내 보유주식 (잔고 API 직접) ───────────────────────── */}
+      {!isTossActive && (
       <Paper sx={{ p: 2.5, mb: 2 }}>
         <Stack direction="row" alignItems="center" spacing={1} mb={1.5} flexWrap="wrap">
           <Typography variant="subtitle1" fontWeight={600}>국내 보유주식</Typography>
@@ -963,8 +1012,10 @@ export default function Dashboard() {
           </TableContainer>
         )}
       </Paper>
+      )}
 
       {/* ── 해외 보유주식 ──────────────────────────────────────────── */}
+      {!isTossActive && (
       <Paper sx={{ p: 2.5, mb: 2 }}>
         <Stack direction="row" alignItems="center" spacing={1} mb={1.5} flexWrap="wrap">
           <Typography variant="subtitle1" fontWeight={600}>해외 보유주식</Typography>
@@ -1087,8 +1138,9 @@ export default function Dashboard() {
           </TableContainer>
         )}
       </Paper>
+      )}
 
-      {showBrokerHoldings && (
+      {isTossActive && (
         <Paper sx={{ p: 2.5, mb: 2 }}>
           <Stack direction="row" alignItems="center" spacing={1} mb={1.5} flexWrap="wrap">
             <Typography variant="subtitle1" fontWeight={600}>Toss 보유종목</Typography>
@@ -1100,7 +1152,7 @@ export default function Dashboard() {
             />
             {appConfig?.active_broker_account_id && (
               <Typography variant="caption" color="text.secondary">
-                {appConfig.active_broker_id.toUpperCase()} · {appConfig.active_broker_account_id}
+                Toss · accountSeq {appConfig.active_broker_account_id}
               </Typography>
             )}
           </Stack>
@@ -1168,19 +1220,25 @@ export default function Dashboard() {
       <Grid container spacing={2} mb={3}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            label="총 평가금액 (합산)"
-            value={fmt(combinedTotalKrw) + '원'}
-            sub={overseasItems.length > 0
+            label={isTossActive ? 'Toss 평가금액' : '총 평가금액 (합산)'}
+            value={fmt(isTossActive ? tossTotalKrw : combinedTotalKrw) + '원'}
+            sub={isTossActive
+              ? tossTotalSub
+              : overseasItems.length > 0
               ? `국내 ${fmt(totalBalance)}원 + 해외 ${fmt(overseasTotalKrw)}원`
               : '예수금 + 국내주식 평가'}
-            loading={balanceLoading || overseasLoading}
+            loading={isTossActive ? brokerHoldingsLoading : balanceLoading || overseasLoading}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            label="예수금"
-            value={fmt(availableCash) + '원'}
-            sub={
+            label={isTossActive ? 'Toss 계좌' : '예수금'}
+            value={isTossActive
+              ? appConfig?.active_broker_account_id ? `accountSeq ${appConfig.active_broker_account_id}` : '미설정'
+              : fmt(availableCash) + '원'}
+            sub={isTossActive
+              ? '보유종목 read-only 조회'
+              :
               d2Cash !== 0
                 ? `D+2 정산기준 · D+0 ${fmt(d0Cash)}원`
                 : d1Cash !== 0
@@ -1190,7 +1248,7 @@ export default function Dashboard() {
                     : '매매 가능 현금'
             }
             positive={availableCash >= 0}
-            loading={balanceLoading}
+            loading={isTossActive ? false : balanceLoading}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -1205,11 +1263,17 @@ export default function Dashboard() {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             label="미실현 손익"
-            value={(tradingStatus?.totalUnrealizedPnl ?? 0) >= 0
-              ? '+' + fmt(tradingStatus?.totalUnrealizedPnl ?? 0) + '원'
-              : fmt(tradingStatus?.totalUnrealizedPnl ?? 0) + '원'}
-            sub={`국내 ${domesticItems.length}종목 · 해외 ${overseasItems.length}종목`}
-            positive={(tradingStatus?.totalUnrealizedPnl ?? 0) >= 0}
+            value={isTossActive
+              ? `${tossUnrealizedPnlKrw >= 0 ? '+' : ''}${fmt(tossUnrealizedPnlKrw)}원`
+              : (tradingStatus?.totalUnrealizedPnl ?? 0) >= 0
+                ? '+' + fmt(tradingStatus?.totalUnrealizedPnl ?? 0) + '원'
+                : fmt(tradingStatus?.totalUnrealizedPnl ?? 0) + '원'}
+            sub={isTossActive
+              ? `Toss ${brokerHoldings.length}종목`
+              : `국내 ${domesticItems.length}종목 · 해외 ${overseasItems.length}종목`}
+            positive={isTossActive
+              ? tossUnrealizedPnlKrw >= 0
+              : (tradingStatus?.totalUnrealizedPnl ?? 0) >= 0}
           />
         </Grid>
       </Grid>
@@ -1243,5 +1307,3 @@ export default function Dashboard() {
     </Box>
   )
 }
-
-

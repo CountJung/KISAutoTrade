@@ -437,6 +437,8 @@ pub fn run() {
             commands::save_web_config,
             commands::detect_trading_type,
             commands::detect_profile_trading_type,
+            commands::list_toss_accounts,
+            commands::list_toss_profile_accounts,
             commands::check_toss_profile_connection,
             commands::get_overseas_price,
             commands::get_overseas_chart_data,

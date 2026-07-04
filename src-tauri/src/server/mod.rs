@@ -29,6 +29,8 @@
 ///   POST /api/profiles/delete                 → 프로파일 삭제
 ///   POST /api/profiles/:id/set-active         → 활성 프로파일 변경
 ///   POST /api/profiles/:id/detect             → 실전/모의 자동 감지 + 저장
+///   POST /api/toss-accounts                   → 입력한 토스 키로 accountSeq 목록 조회
+///   POST /api/profiles/:id/toss-accounts      → 저장된 토스 프로파일 accountSeq 목록 조회
 ///   POST /api/detect-trading-type             → 입력 키로 실전/모의 자동 감지
 ///   GET  /api/stock-list-stats                → 종목 목록 통계
 ///   POST /api/stock-update-interval           → 종목 목록 갱신 주기 변경
@@ -269,6 +271,11 @@ pub async fn start(
             post(set_active_profile_handler),
         )
         .route("/api/profiles/:id/detect", post(detect_profile_handler))
+        .route("/api/toss-accounts", post(toss_accounts_handler))
+        .route(
+            "/api/profiles/:id/toss-accounts",
+            post(toss_profile_accounts_handler),
+        )
         .route(
             "/api/profiles/:id/toss-diagnostic",
             post(toss_profile_diagnostic_handler),
@@ -1000,7 +1007,9 @@ async fn app_config_handler(State(s): State<ServerState>) -> Json<serde_json::Va
         "kis_account_no":       cfg.kis_account_no,
         "kis_is_paper_trading": cfg.kis_is_paper_trading,
         "kis_configured":       cfg.is_kis_configured(),
+        "active_broker_configured": cfg.is_active_broker_configured(),
         "discord_enabled":      cfg.discord_bot_token.is_some(),
+        "notification_levels":  cfg.notification_levels,
         "active_profile_id":    active_id,
         "active_profile_name":  active_name,
     }))
@@ -1473,14 +1482,29 @@ async fn web_config_handler(State(s): State<ServerState>) -> Json<serde_json::Va
 async fn check_config_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
     let cfg = s.config.read().await.clone();
     let mut issues: Vec<String> = Vec::new();
-    if cfg.kis_app_key.is_empty() {
-        issues.push("KIS APP KEY가 설정되지 않았습니다.".into());
-    }
-    if cfg.kis_app_secret.is_empty() {
-        issues.push("KIS APP SECRET이 설정되지 않았습니다.".into());
-    }
-    if cfg.kis_account_no.is_empty() {
-        issues.push("KIS 계좌번호가 설정되지 않았습니다.".into());
+    match cfg.broker_id {
+        BrokerId::Kis => {
+            if cfg.kis_app_key.is_empty() {
+                issues.push("KIS APP KEY가 설정되지 않았습니다.".into());
+            }
+            if cfg.kis_app_secret.is_empty() {
+                issues.push("KIS APP SECRET이 설정되지 않았습니다.".into());
+            }
+            if cfg.kis_account_no.is_empty() {
+                issues.push("KIS 계좌번호가 설정되지 않았습니다.".into());
+            }
+        }
+        BrokerId::Toss => {
+            if cfg.kis_app_key.is_empty() {
+                issues.push("토스증권 Client ID가 설정되지 않았습니다.".into());
+            }
+            if cfg.kis_app_secret.is_empty() {
+                issues.push("토스증권 Client Secret이 설정되지 않았습니다.".into());
+            }
+            if cfg.broker_account_id.is_empty() {
+                issues.push("토스증권 accountSeq가 설정되지 않았습니다.".into());
+            }
+        }
     }
     let paper_available = {
         let p = s.profiles.read().await;
@@ -1494,8 +1518,12 @@ async fn check_config_handler(State(s): State<ServerState>) -> Json<serde_json::
         "real_key_set":       !cfg.kis_app_key.is_empty(),
         "real_account_set":   !cfg.kis_account_no.is_empty(),
         "paper_key_set":      paper_available,
-        "active_mode":        if cfg.kis_is_paper_trading { "모의투자" } else { "실전투자" },
-        "is_ready":           cfg.is_kis_configured(),
+        "active_mode":        match cfg.broker_id {
+            BrokerId::Kis if cfg.kis_is_paper_trading => "모의투자",
+            BrokerId::Kis => "실전투자",
+            BrokerId::Toss => "read-only",
+        },
+        "is_ready":           cfg.is_active_broker_configured(),
         "discord_configured": cfg.discord_bot_token.is_some(),
         "base_url":           cfg.kis_base_url(),
         "issues":             issues,
@@ -1738,6 +1766,14 @@ struct DetectTradingTypeBody {
     app_secret: String,
 }
 
+#[derive(Deserialize)]
+struct TossAccountsBody {
+    #[serde(alias = "clientId", alias = "appKey")]
+    client_id: String,
+    #[serde(alias = "clientSecret", alias = "appSecret")]
+    client_secret: String,
+}
+
 /// POST /api/detect-trading-type
 async fn detect_trading_type_handler(
     State(_s): State<ServerState>,
@@ -1820,6 +1856,53 @@ async fn detect_profile_handler(
     }
     save_profiles_server(&s).await;
     Json(view)
+}
+
+/// POST /api/toss-accounts
+async fn toss_accounts_handler(
+    State(_s): State<ServerState>,
+    Json(body): Json<TossAccountsBody>,
+) -> Json<serde_json::Value> {
+    match crate::commands::lookup_toss_accounts_with_credentials(body.client_id, body.client_secret)
+        .await
+    {
+        Ok(accounts) => Json(serde_json::to_value(accounts).unwrap_or_default()),
+        Err(e) => Json(serde_json::json!({ "error": e.message })),
+    }
+}
+
+/// POST /api/profiles/:id/toss-accounts
+async fn toss_profile_accounts_handler(
+    State(s): State<ServerState>,
+    Path(id): Path<String>,
+) -> Json<serde_json::Value> {
+    let profile = {
+        let profiles = s.profiles.read().await;
+        match profiles.profiles.iter().find(|p| p.id == id) {
+            Some(p) => p.clone(),
+            None => {
+                return Json(
+                    serde_json::json!({ "error": format!("프로파일을 찾을 수 없습니다: {}", id) }),
+                )
+            }
+        }
+    };
+
+    if profile.broker_id != BrokerId::Toss {
+        return Json(
+            serde_json::json!({ "error": "토스증권 프로파일만 accountSeq 목록을 조회할 수 있습니다." }),
+        );
+    }
+
+    match crate::commands::lookup_toss_accounts_with_credentials(
+        profile.app_key,
+        profile.app_secret,
+    )
+    .await
+    {
+        Ok(accounts) => Json(serde_json::to_value(accounts).unwrap_or_default()),
+        Err(e) => Json(serde_json::json!({ "error": e.message })),
+    }
 }
 
 /// POST /api/profiles/:id/toss-diagnostic

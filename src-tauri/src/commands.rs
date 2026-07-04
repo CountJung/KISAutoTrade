@@ -839,6 +839,7 @@ pub struct AppConfigView {
     pub kis_account_no: String,
     pub kis_is_paper_trading: bool,
     pub kis_configured: bool,
+    pub active_broker_configured: bool,
     pub discord_enabled: bool,
     pub notification_levels: Vec<String>,
     pub active_profile_id: Option<String>,
@@ -876,6 +877,7 @@ pub async fn get_app_config(state: State<'_, AppState>) -> CmdResult<AppConfigVi
         kis_account_no: cfg.kis_account_no.clone(),
         kis_is_paper_trading: cfg.kis_is_paper_trading,
         kis_configured: cfg.is_kis_configured(),
+        active_broker_configured: cfg.is_active_broker_configured(),
         discord_enabled: cfg.discord_bot_token.is_some(),
         notification_levels: cfg.notification_levels.clone(),
         active_profile_id: active_id,
@@ -906,16 +908,32 @@ pub async fn check_config(state: State<'_, AppState>) -> CmdResult<ConfigDiagnos
     let cfg = state.config.read().await.clone();
     let mut issues = Vec::new();
 
-    if cfg.kis_app_key.is_empty() {
-        issues.push(
-            "KIS APP KEY가 설정되지 않았습니다. Settings에서 계좌 프로파일을 추가하세요.".into(),
-        );
-    }
-    if cfg.kis_app_secret.is_empty() {
-        issues.push("KIS APP SECRET이 설정되지 않았습니다.".into());
-    }
-    if cfg.kis_account_no.is_empty() {
-        issues.push("KIS 계좌번호가 설정되지 않았습니다.".into());
+    match cfg.broker_id {
+        BrokerId::Kis => {
+            if cfg.kis_app_key.is_empty() {
+                issues.push(
+                    "KIS APP KEY가 설정되지 않았습니다. Settings에서 계좌 프로파일을 추가하세요."
+                        .into(),
+                );
+            }
+            if cfg.kis_app_secret.is_empty() {
+                issues.push("KIS APP SECRET이 설정되지 않았습니다.".into());
+            }
+            if cfg.kis_account_no.is_empty() {
+                issues.push("KIS 계좌번호가 설정되지 않았습니다.".into());
+            }
+        }
+        BrokerId::Toss => {
+            if cfg.kis_app_key.is_empty() {
+                issues.push("토스증권 Client ID가 설정되지 않았습니다.".into());
+            }
+            if cfg.kis_app_secret.is_empty() {
+                issues.push("토스증권 Client Secret이 설정되지 않았습니다.".into());
+            }
+            if cfg.broker_account_id.is_empty() {
+                issues.push("토스증권 accountSeq가 설정되지 않았습니다.".into());
+            }
+        }
     }
 
     let profiles = state.profiles.read().await;
@@ -931,12 +949,12 @@ pub async fn check_config(state: State<'_, AppState>) -> CmdResult<ConfigDiagnos
         real_key_set: !cfg.kis_app_key.is_empty(),
         real_account_set: !cfg.kis_account_no.is_empty(),
         paper_key_set: paper_available,
-        active_mode: if cfg.kis_is_paper_trading {
-            "모의투자".into()
-        } else {
-            "실전투자".into()
+        active_mode: match cfg.broker_id {
+            BrokerId::Kis if cfg.kis_is_paper_trading => "모의투자".into(),
+            BrokerId::Kis => "실전투자".into(),
+            BrokerId::Toss => "read-only".into(),
         },
-        is_ready: cfg.is_kis_configured(),
+        is_ready: cfg.is_active_broker_configured(),
         discord_configured: cfg.discord_bot_token.is_some(),
         base_url: cfg.kis_base_url().to_string(),
         issues,
@@ -949,6 +967,20 @@ pub struct TossConnectionStep {
     pub label: String,
     pub ok: bool,
     pub message: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TossAccountOptionView {
+    pub account_seq: String,
+    pub account_no_masked: String,
+    pub account_type: String,
+    pub label: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TossAccountLookupInput {
+    pub client_id: String,
+    pub client_secret: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -988,6 +1020,101 @@ fn toss_diag_step(
         ok,
         message: message.into(),
     }
+}
+
+fn mask_toss_account_no(account_no: &str) -> String {
+    let suffix: String = account_no
+        .chars()
+        .rev()
+        .take(4)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+    if suffix.is_empty() {
+        "(계좌번호 없음)".to_string()
+    } else {
+        format!("****{suffix}")
+    }
+}
+
+fn toss_account_option(account: crate::broker::toss::TossAccount) -> TossAccountOptionView {
+    let account_seq = account.account_seq.to_string();
+    let account_no_masked = mask_toss_account_no(&account.account_no);
+    let label = format!(
+        "accountSeq {} · {} · {}",
+        account_seq, account_no_masked, account.account_type
+    );
+    TossAccountOptionView {
+        account_seq,
+        account_no_masked,
+        account_type: account.account_type,
+        label,
+    }
+}
+
+pub(crate) async fn lookup_toss_accounts_with_credentials(
+    client_id: String,
+    client_secret: String,
+) -> CmdResult<Vec<TossAccountOptionView>> {
+    let client_id = client_id.trim();
+    let client_secret = client_secret.trim();
+    if client_id.is_empty() || client_secret.is_empty() {
+        return Err(CmdError {
+            code: "MISSING_CREDENTIALS".into(),
+            message: "토스증권 Client ID와 Client Secret을 모두 입력하세요.".into(),
+        });
+    }
+
+    let adapter = TossBrokerAdapter::with_credentials(
+        TossBrokerAdapter::DEFAULT_BASE_URL,
+        client_id.to_string(),
+        client_secret.to_string(),
+        None::<String>,
+    );
+    adapter
+        .list_accounts()
+        .await
+        .map(|accounts| accounts.into_iter().map(toss_account_option).collect())
+        .map_err(|e| CmdError {
+            code: "TOSS_ACCOUNTS_ERROR".into(),
+            message: e.to_string(),
+        })
+}
+
+#[tauri::command]
+pub async fn list_toss_accounts(
+    input: TossAccountLookupInput,
+) -> CmdResult<Vec<TossAccountOptionView>> {
+    lookup_toss_accounts_with_credentials(input.client_id, input.client_secret).await
+}
+
+#[tauri::command]
+pub async fn list_toss_profile_accounts(
+    profile_id: String,
+    state: State<'_, AppState>,
+) -> CmdResult<Vec<TossAccountOptionView>> {
+    let profile = {
+        let profiles = state.profiles.read().await;
+        profiles
+            .profiles
+            .iter()
+            .find(|p| p.id == profile_id)
+            .cloned()
+            .ok_or_else(|| CmdError {
+                code: "NOT_FOUND".into(),
+                message: format!("프로파일을 찾을 수 없습니다: {profile_id}"),
+            })?
+    };
+
+    if profile.broker_id != BrokerId::Toss {
+        return Err(CmdError {
+            code: "BROKER_MISMATCH".into(),
+            message: "토스증권 프로파일만 accountSeq 목록을 조회할 수 있습니다.".into(),
+        });
+    }
+
+    lookup_toss_accounts_with_credentials(profile.app_key, profile.app_secret).await
 }
 
 pub(crate) async fn run_toss_connection_diagnostic(

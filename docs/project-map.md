@@ -69,7 +69,7 @@ AutoConditionTrade/                   ← 루트
 │   │   ├── strategy/ui/Page.tsx      ← 전략 ON/OFF + 파라미터 설정 (12개 전략)
 │   │   ├── history/ui/Page.tsx       ← 날짜 범위 조회, 자동매매 체결 기록
 │   │   ├── log/ui/Page.tsx           ← 레벨 필터, 검색, 색상 구분 로그 뷰어
-│   │   └── settings/ui/Page.tsx      ← API 키, 테마, 멀티 계좌, 웹 포트, 리스크 설정
+│   │   └── settings/ui/Page.tsx      ← API 키, 테마, 증권사별 계좌 프로파일, 웹 포트, 리스크 설정
 │   ├── api/                          ← shared/api 호환 re-export + TanStack Query hooks
 │   ├── components/                   ← widgets/shared 호환 re-export
 │   ├── store/                        ← entities 호환 re-export
@@ -147,10 +147,10 @@ AutoConditionTrade/                   ← 루트
 | `api/hooks.ts` | TanStack Query 훅 + `useBackendEvents()` (Tauri 이벤트 → 환율/잔고 캐시 갱신, 점진 이동 전 legacy entry) |
 | `widgets/app-shell/` | 전체 앱 레이아웃, ThemeProvider, responsive navigation |
 | `widgets/stock-chart/` | 국내/해외/Toss 캔들 차트 |
-| `pages/settings/ui/Page.tsx` | 데이터 갱신 주기 슬라이더, 웹 포트, broker-aware 계좌 프로파일, Toss 연결 진단, 로그/리스크 설정 |
-| `pages/dashboard/ui/Page.tsx` | 활성 broker scope, KIS 국내/해외 잔고, 활성 Toss broker 보유 종목, USD/KRW 환율 출처 chip, 수익 카드, 미체결/체결, 리스크 |
-| `pages/trading/ui/Page.tsx` | 활성 broker scope, KIS 국내/해외 수동 주문과 차트, 활성 Toss 프로파일의 read-only 시세 snapshot/차트/종목 유의사항/장 운영 상태 표시 |
-| `pages/strategy/ui/Page.tsx` | 활성 broker scope, 전략별 저장 broker/account scope 표시, 전략 활성화/파라미터/대상 종목 관리 |
+| `pages/settings/ui/Page.tsx` | 데이터 갱신 주기 슬라이더, 웹 포트, KIS/Toss 분리 계좌 프로파일, Toss accountSeq 조회/연결 진단, 로그/리스크 설정 |
+| `pages/dashboard/ui/Page.tsx` | 활성 broker scope, KIS 국내/해외 잔고, 활성 Toss broker 보유 종목/평가 요약, Toss 자동매매 read-only 차단 안내, USD/KRW 환율 출처 chip, 수익 카드, 미체결/체결, 리스크 |
+| `pages/trading/ui/Page.tsx` | 활성 broker scope, KIS 국내/해외 수동 주문과 차트, 활성 Toss 프로파일의 holdings/시세 snapshot/차트/종목 유의사항/장 운영 상태 read-only 표시 |
+| `pages/strategy/ui/Page.tsx` | 활성 broker scope, 전략별 저장 broker/account scope 표시, Toss read-only 자동매매 차단 안내, 전략 활성화/파라미터/대상 종목 관리 |
 | `pages/history/ui/Page.tsx` | 활성 broker scope, 자동매매 체결 기록과 기간별 통계 조회, provider 원본 trace 표시 |
 | `pages/log/ui/Page.tsx` | 로그 레벨/검색 필터, provider trace 토큰 chip 표시 |
 

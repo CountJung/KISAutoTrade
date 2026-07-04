@@ -39,6 +39,8 @@ import type {
   TradeArchiveStats,
   TradeRecord,
   TossConnectionDiagnostic,
+  TossAccountLookupInput,
+  TossAccountOptionView,
   TossMarketCalendarView,
   TossMarketSnapshotView,
   TossOrderPreflightInput,
@@ -212,6 +214,14 @@ export const detectTradingType = (appKey: string, appSecret: string): Promise<De
 /** 저장된 프로파일의 키로 직접 감지 후 is_paper_trading 자동 업데이트 */
 export const detectProfileTradingType = (profileId: string): Promise<AccountProfileView> =>
   invoke('detect_profile_trading_type', { profileId })
+
+/** 입력한 토스증권 Client ID/Secret으로 accountSeq 목록 조회 */
+export const listTossAccounts = (input: TossAccountLookupInput): Promise<TossAccountOptionView[]> =>
+  invoke('list_toss_accounts', { input })
+
+/** 저장된 토스증권 프로파일로 accountSeq 목록 조회 */
+export const listTossProfileAccounts = (profileId: string): Promise<TossAccountOptionView[]> =>
+  invoke('list_toss_profile_accounts', { profileId })
 
 /** 저장된 토스 프로파일로 OpenAPI/token/accounts/holdings 연결을 진단 */
 export const checkTossProfileConnection = (profileId: string): Promise<TossConnectionDiagnostic> =>

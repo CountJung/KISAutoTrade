@@ -1211,6 +1211,7 @@ export default function Strategy() {
 
   const activeCount = strategies?.filter(s => s.enabled).length ?? 0
   const isRunning = tradingStatus?.isRunning ?? false
+  const activeBrokerIsToss = appConfig?.active_broker_id === 'toss'
 
   if (isLoading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', pt: 8 }}><CircularProgress /></Box>
@@ -1230,6 +1231,12 @@ export default function Strategy() {
         )}
         <BrokerScopeIndicator appConfig={appConfig} compact />
       </Box>
+
+      {activeBrokerIsToss && !isRunning && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Toss 프로파일은 현재 read-only 조회만 지원합니다. 전략 scope는 저장되지만 자동매매 주문 실행은 소액 검증 gate 이후 연결됩니다.
+        </Alert>
+      )}
 
       {/* ── 0. 종목 선택 패널 ─────────────────────────────────────── */}
       <Paper sx={{ p: { xs: 1.5, sm: 2.5 }, mb: 2 }}>

@@ -208,6 +208,12 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
     case 'detect_profile_trading_type':
       return { method: 'POST', url: `/api/profiles/${args.profileId}/detect` }
 
+    case 'list_toss_accounts':
+      return { method: 'POST', url: '/api/toss-accounts', body: args.input }
+
+    case 'list_toss_profile_accounts':
+      return { method: 'POST', url: `/api/profiles/${args.profileId}/toss-accounts` }
+
     case 'check_toss_profile_connection':
       return { method: 'POST', url: `/api/profiles/${args.profileId}/toss-diagnostic` }
 
