@@ -30,7 +30,7 @@ import ZoomOutIcon from '@mui/icons-material/ZoomOut'
 import FitScreenIcon from '@mui/icons-material/FitScreen'
 import CandlestickChartIcon from '@mui/icons-material/CandlestickChart'
 import ShowChartIcon from '@mui/icons-material/ShowChart'
-import { useTheme } from '@mui/material/styles'
+import { alpha, useTheme, type Theme } from '@mui/material/styles'
 import { useChartData, useTossChartData } from '../../../api/hooks'
 import type { ChartCandle } from '../../../api/types'
 
@@ -164,13 +164,13 @@ function toChartPoints(candles: ChartCandle[]): { candleData: CandlePoint[]; vol
 function buildChartOptions(
   width: number,
   height: number,
-  isDark: boolean,
+  theme: Theme,
   timeVisible = false
 ) {
-  const bg      = isDark ? '#1e1e1e' : '#ffffff'
-  const textClr = isDark ? '#c8c8c8' : '#333333'
-  const grid    = isDark ? '#2a2a2a' : '#eeeeee'
-  const border  = isDark ? '#333333' : '#dddddd'
+  const bg      = theme.palette.background.paper
+  const textClr = theme.palette.text.primary
+  const grid    = alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.14 : 0.1)
+  const border  = theme.palette.divider
 
   return {
     width,
@@ -218,7 +218,6 @@ type ChartType = 'candle' | 'line'
 
 export function StockChart({ symbol, stockName, source = 'kis' }: StockChartProps) {
   const theme = useTheme()
-  const isDark = theme.palette.mode === 'dark'
 
   const [presetKey, setPresetKey] = useState('1D')
   const [chartType, setChartType] = useState<ChartType>('candle')
@@ -265,7 +264,7 @@ export function StockChart({ symbol, stockName, source = 'kis' }: StockChartProp
     if (!container) return
 
     const height = 380
-    const chart = createChart(container, buildChartOptions(container.clientWidth, height, isDark))
+    const chart = createChart(container, buildChartOptions(container.clientWidth, height, theme))
 
     // 캔들 시리즈
     const cs = chart.addSeries(CandlestickSeries, {
@@ -278,7 +277,7 @@ export function StockChart({ symbol, stockName, source = 'kis' }: StockChartProp
 
     // 라인 시리즈 (초기 숨김)
     const ls = chart.addSeries(LineSeries, {
-      color: '#2196f3',
+      color: theme.palette.primary.main,
       lineWidth: 2,
       visible: false,
     })
@@ -342,9 +341,10 @@ export function StockChart({ symbol, stockName, source = 'kis' }: StockChartProp
     const container = containerRef.current
     if (!chartRef.current || !container) return
     chartRef.current.applyOptions(
-      buildChartOptions(container.clientWidth, 380, isDark)
+      buildChartOptions(container.clientWidth, 380, theme)
     )
-  }, [isDark])
+    lineRef.current?.applyOptions({ color: theme.palette.primary.main })
+  }, [theme])
 
   // ── 데이터 업데이트 ─────────────────────────────────────────────
   useEffect(() => {

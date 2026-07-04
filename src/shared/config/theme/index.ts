@@ -1,4 +1,4 @@
-import { createTheme, Theme } from '@mui/material/styles'
+import { alpha, createTheme, Theme } from '@mui/material/styles'
 
 export type ThemeMode = 'light' | 'dark' | 'system'
 
@@ -41,6 +41,46 @@ export function createAppTheme(resolvedMode: 'light' | 'dark'): Theme {
       borderRadius: 8,
     },
     components: {
+      MuiCssBaseline: {
+        styleOverrides: (theme) => {
+          const track = theme.palette.background.default
+          const thumb = alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.42 : 0.32)
+          const thumbHover = alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.58 : 0.46)
+          const border = theme.palette.background.paper
+
+          return {
+            html: {
+              scrollbarColor: `${thumb} ${track}`,
+            },
+            body: {
+              scrollbarColor: `${thumb} ${track}`,
+            },
+            '*': {
+              scrollbarWidth: 'thin',
+              scrollbarColor: `${thumb} ${track}`,
+            },
+            '*::-webkit-scrollbar': {
+              width: 10,
+              height: 10,
+            },
+            '*::-webkit-scrollbar-track': {
+              backgroundColor: track,
+            },
+            '*::-webkit-scrollbar-thumb': {
+              backgroundColor: thumb,
+              borderRadius: 8,
+              border: `2px solid ${border}`,
+              backgroundClip: 'padding-box',
+            },
+            '*::-webkit-scrollbar-thumb:hover': {
+              backgroundColor: thumbHover,
+            },
+            '*::-webkit-scrollbar-corner': {
+              backgroundColor: track,
+            },
+          }
+        },
+      },
       MuiDrawer: {
         styleOverrides: {
           paper: {

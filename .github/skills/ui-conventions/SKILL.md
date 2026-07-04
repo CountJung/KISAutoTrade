@@ -14,7 +14,7 @@ description: "AutoConditionTrade 프로젝트 UI 컨벤션. MUI v6 컴포넌트 
 |------|------|
 | 컴포넌트 임포트 | MUI 아이콘은 **직접 경로** 사용 (`@mui/icons-material/TrendingUp`) |
 | 스타일링 | MUI `sx` prop 우선, `styled()` 사용 금지 (인라인 sx로 충분) |
-| 색상 참조 | 하드코딩 금지 → 항상 `theme.palette.*` 또는 `'primary.main'` 등 semantic 색상 사용 |
+| 색상 참조 | 하드코딩 금지 → 항상 `theme.palette.*` 또는 `'primary.main'`, `'background.paper'`, `'text.secondary'` 등 MUI semantic 색상 사용 |
 | 폰트 | `"Noto Sans KR"` (한글), `"Roboto"` (영문) — `theme.typography` 자동 적용 |
 | 다크/라이트 | `useTheme()` 훅으로 `theme.palette.mode` 감지, CSS 변수 사용 금지 |
 
@@ -69,6 +69,13 @@ export default function MyPage() {
 
 ## 3. 색상 시스템 (금융 UI)
 
+### 기본 컴포넌트 색상
+
+- 앱 전역 색상은 `src/shared/config/theme/index.ts`의 MUI theme가 source of truth다. 페이지/컴포넌트는 가능하면 `bgcolor: 'background.default'`, `bgcolor: 'background.paper'`, `color: 'text.primary'`, `borderColor: 'divider'`처럼 palette token을 사용한다.
+- 다크 모드에서 `#000`, `black`, `#111` 같은 순수 검정 배경/스크롤바를 직접 지정하지 않는다. 필요하면 `alpha(theme.palette.text.primary, n)` 또는 `alpha(theme.palette.background.paper, n)`처럼 MUI palette 기반으로 만든다.
+- 스크롤바는 `MuiCssBaseline` 전역 styleOverrides에서 palette 기반 색상으로 관리한다. 개별 컴포넌트가 `::-webkit-scrollbar`를 직접 덮어써야 할 때도 thumb/track은 반드시 `theme.palette.text.primary`, `background.default`, `background.paper`, `divider`에서 파생한다.
+- Alert, Chip, Button, ToggleButton, TextField, Paper, Table, Drawer 등 MUI 컴포넌트는 기본 variant/color를 우선 사용한다. 금융 상승/하락, 경고/성공/오류 외 색상은 semantic token으로 표현하고, 브랜드 장식용 임의 색상은 피한다.
+
 ### 상승/하락 색상
 
 ```tsx
@@ -86,13 +93,16 @@ const DOWN_VOL   = 'rgba(239,83,80,0.45)'
 
 ### 배경 색상 (다크/라이트)
 
-| 용도 | 라이트 | 다크 |
-|------|--------|------|
-| Paper | `#ffffff` | `#1e1e1e` |
-| 기본 배경 | `#f5f5f5` | `#121212` |
-| 차트 배경 | `#ffffff` | `#1e1e1e` |
-| 차트 그리드 | `#eeeeee` | `#2a2a2a` |
-| 텍스트 | `#333333` | `#c8c8c8` |
+| 용도 | MUI token |
+|------|-----------|
+| Paper | `theme.palette.background.paper` |
+| 기본 배경 | `theme.palette.background.default` |
+| 차트 배경 | `theme.palette.background.paper` |
+| 차트 그리드 | `alpha(theme.palette.text.primary, 0.10~0.14)` |
+| 구분선/차트 축 | `theme.palette.divider` |
+| 텍스트 | `theme.palette.text.primary` / `theme.palette.text.secondary` |
+
+`src/widgets/stock-chart`처럼 MUI 컴포넌트가 아닌 라이브러리에 색상을 직접 전달해야 하는 경우도 `useTheme()`로 palette token을 읽어 전달한다. 상승/하락 캔들 색상처럼 금융 차트 표준색이 필요한 경우만 예외적으로 고정 색상을 허용한다.
 
 ---
 
@@ -233,8 +243,8 @@ candleSeries.setData([
 // 다크/라이트 동기화
 chart.applyOptions({
   layout: {
-    background: { type: ColorType.Solid, color: isDark ? '#1e1e1e' : '#ffffff' },
-    textColor: isDark ? '#c8c8c8' : '#333333',
+    background: { type: ColorType.Solid, color: theme.palette.background.paper },
+    textColor: theme.palette.text.primary,
   },
 })
 
@@ -255,7 +265,7 @@ chart.remove()
 ### 주의사항
 
 - `useEffect`에서 차트를 생성할 때 의존성 배열은 `[]` (1회만 생성)
-- 다크/라이트 전환은 별도 `useEffect([isDark])`로 `applyOptions` 호출
+- 다크/라이트 전환은 별도 `useEffect([theme])`에서 palette 기반 `applyOptions`를 호출
 - 데이터 업데이트는 `setData()`. `update()`는 단일 캔들 업데이트용
 - KIS API 응답은 최신순(내림차순) → `candles.reverse()` 필수 (Rust side에서 처리)
 - `containerRef.current`에 `ResizeObserver` 연결, 언마운트 시 `disconnect()`
@@ -550,11 +560,11 @@ UI 규칙:
 - 검색한 ETF는 현재 선택된 슬롯(`기초지수`, `롱`, `숏(옵션)`)에 들어간다. 숏 슬롯은 비워도 세트 추가가 가능하다.
 - 기초지수 슬롯에는 `기초`와 `유사기초` 토글을 제공한다. TECL → VGT처럼 직접 기초가 애매하면 `유사기초`로 저장한다.
 - 국내 ETF 검색 결과와 미국 티커 조회, 국내 종목 목록 새로고침은 레버리지 섹션 안에서 자체 처리한다.
-- 세팅된 세트 테이블은 기초/유사 ETF를 맨 앞에 표시하고, 롱 ETF는 `primary`, 숏 ETF는 `secondary` 색상으로 구분한다.
+- 세팅된 세트 테이블은 기초/유사 ETF를 맨 앞에 표시하고, 롱 ETF는 `primary`, 숏 ETF는 `secondary` 색상으로 구분한다. 다만 기본 운용 가이드는 롱 전용이며, 숏 ETF는 고급/실험 옵션으로만 표시한다.
 - 상승/하락 민감도는 레버리지 섹션 내부 파라미터로 노출한다. 기본 1.0, 범위 1.0~5.0, 높을수록 진입 신호가 더 민감해진다.
 - 기초/유사 기초 ETF가 없는 세트는 저장 버튼을 비활성화한다.
-- 숏 ETF가 없는 세트는 경고가 아니라 정보 메시지로 표시한다. 이는 의도적인 롱 전용 운용일 수 있다.
+- 숏 ETF가 없는 세트는 경고가 아니라 정보 메시지로 표시한다. 기본 권장 운용은 롱 전용 진입과 추세 훼손 시 청산이며, 숏 ETF는 별도 검증 전까지 필수 입력값으로 요구하지 않는다.
 - 국내/해외 시장이 다른 선택 종목은 기존 세트에 추가하지 못하게 막는다.
 - `base_symbol_roles`는 `underlying` 또는 `proxy`만 저장한다.
 
-> 마지막 업데이트: 2026-07-03T15:10:01
+> 마지막 업데이트: 2026-07-04T19:23:54+09:00

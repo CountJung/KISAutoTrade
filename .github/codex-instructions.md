@@ -169,6 +169,7 @@ npx vite build
 
 - TypeScript 컴파일 경고(unused variable, implicit any 등)도 **반드시 해소**한다. `// @ts-ignore`, `as any` 캐스트는 최후 수단으로만 사용하며, 사용 시 이유를 주석으로 명시한다
 - MUI 아이콘: **직접 경로** import 필수 (`@mui/icons-material/PlayArrow`)
+- UI 색상은 MUI theme palette를 source of truth로 삼는다. 컴포넌트는 `background.default`, `background.paper`, `text.primary`, `text.secondary`, `divider`, `primary.main`, `success.main`, `warning.main`, `error.main` 같은 semantic token을 우선 사용하고, 다크 모드에서 순수 검정/임의 hex로 스크롤바·배경·텍스트를 직접 지정하지 않는다. 스크롤바 색상은 전역 `MuiCssBaseline`에서 palette 기반으로 관리한다.
 - TanStack Query 훅은 `src/api/hooks.ts`에 집중 관리, `KEYS` 상수 사용
 - 새 Tauri invoke 래퍼는 `src/api/commands.ts`에 추가
 - Zustand store는 `src/store/` 하위 파일별 분리 유지

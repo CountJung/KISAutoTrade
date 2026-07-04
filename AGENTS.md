@@ -67,8 +67,8 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-07-04 | 다크 모드 스크롤바 대비 개선과 레버리지 전략 롱 전용 재설계 계획 추가 |
 | 2026-07-04 | 자동매매 주문 제출 경로를 lock-short shared submission으로 분리 |
 | 2026-07-04 | broker/toss.rs를 client·adapter·orders·types 등 하위 모듈로 분리 |
 | 2026-07-04 | strategy.rs facade 분리와 전략 버퍼 상한/target helper 적용 |
 | 2026-07-04 | commands.rs facade 1000라인 이하 분리와 전략 config 갱신 재빌드 적용 |
-| 2026-07-04 | commands 자동매매·전략·리스크 IPC 추가 분리와 Toss 응답 body streaming cap 적용 |
