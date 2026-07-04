@@ -89,6 +89,7 @@ npm run verify:toss-openapi
 - 환율 source/fallback/유효시간 UI는 `get_exchange_rate_status` IPC, `/api/exchange-rate/status`, `useExchangeRateStatus()`로 연결한다. 기존 `get_exchange_rate`는 숫자 캐시 호환 경로로 유지한다.
 - Toss candles UI는 `get_toss_chart_data` IPC, `/api/toss-chart/:symbol`, `useTossChartData()`를 통해 기존 `ChartCandle[]`와 `StockChart source="toss"` 경로로 연결한다. 일봉은 `YYYYMMDD`, 1분봉은 provider timestamp를 lightweight-charts `Time`으로 변환한다.
 - 같은 read-only client는 주문 전 검증 후보인 `buying-power`, `sellable-quantity`, `commissions`도 문자열 정밀도를 유지해 조회한다. `check_toss_order_preflight` IPC, `/api/toss-order-preflight`, `useTossOrderPreflight()`는 현재가 snapshot과 종목 유의사항까지 함께 평가해 `liquidityOk`/`safetyOk`/차단 사유를 내려주지만, 주문 adapter 연결 전까지 `orderAdapterSupported=false`, `canSubmit=false`를 유지한다.
+- Trading 화면의 `Toss 소액 수동매매 검증` UI는 활성 Toss `accountSeq`, 종목/지정가/수량/가격, `live_trading_consent`, read-only 사전검증, 주문 adapter 상태를 표시한다. `TossOrderPreflightView.canSubmit=true`가 되면 이 gate UI는 숨김 처리한다.
 - 주문 adapter를 연결할 때는 provider 호출 전 로컬 pending scan으로 같은 scope/symbol의 같은 방향 중복 주문과 반대 방향 미체결 주문을 먼저 차단한다. provider가 `opposite-pending-order-exists`를 반환하면 로컬 pending conflict와 같은 계열로 주문 이력/로그에 남긴다.
 - 주문 API client surface는 `TossOpenApiClient::{create_order,list_orders,get_order,modify_order,cancel_order}`로 둔다. `TossOrderCreateRequest::with_generated_client_order_id()`는 공식 idempotency key 제약(36자 이하, 영숫자/`-`/`_`)을 만족하는 `clientOrderId`를 만든다.
 - 주문 생성 request는 `quantity` 또는 `orderAmount` 중 정확히 하나만 허용한다. 시장별 세부 제한은 provider error envelope를 보존해 처리한다.
@@ -107,4 +108,4 @@ npm run verify:toss-openapi
 - 주문 구현을 시작하더라도 `docs/toss-readonly-small-order-checklist.md`의 명시 승인 gate를 통과하기 전에는 Trading/Strategy/Dashboard/자동매매 흐름에서 호출 가능하게 만들지 않는다.
 - 자동매매 실행 경로는 Toss 주문/체결 adapter가 구현되기 전까지 `BROKER_NOT_SUPPORTED`로 차단한다. `start_trading()`은 차단 전에 Toss holdings 기반 전략 포지션 복원을 수행할 수 있지만, 주문 생성/체결 확인으로 이어지면 안 된다. Dashboard는 Toss 활성 시 시작 버튼을 비활성화하고, Strategy는 Toss read-only 자동매매 차단 안내를 표시한다. Settings/Sidebar에는 활성 broker/account와 실행 중 broker/account 스냅샷을 표시한다.
 
-> 마지막 업데이트: 2026-07-04T11:45:53+09:00
+> 마지막 업데이트: 2026-07-04T11:57:39+09:00

@@ -67,8 +67,8 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-07-04 | Trading Toss 소액 수동매매 검증 UI와 실거래 동의 저장 gate 추가 |
 | 2026-07-04 | Settings 계좌 프로파일을 KIS/Toss 섹션으로 분리하고 Toss read-only 화면 연계 보강 |
 | 2026-07-04 | Dashboard Toss 활성 시 KIS 잔고 조회 차단과 Toss holdings 요약 표시 수정 |
 | 2026-07-04 | Toss accountSeq 계좌 조회 드롭다운과 프로파일 계좌 목록 IPC 추가 |
 | 2026-07-04 | Toss 활성 프로파일 API 키 설정 상태 표시를 broker-aware로 수정 |
-| 2026-07-03 | 앱 창 상태와 내부 패널 크기 재시작 후 복원 구현 |

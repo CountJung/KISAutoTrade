@@ -145,6 +145,7 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 - Strategy 카드처럼 저장 데이터 자체에 broker/account scope가 있는 경우 카드 header에 해당 scope chip을 표시하고, 현재 활성 scope와 다르면 `warning` 색상으로 표시한다.
 - Settings의 계좌 프로파일 관리는 KIS/Toss 섹션을 분리한다. KIS 계좌번호와 Toss `accountSeq`는 같은 문자열 필드에 저장되더라도 UI에서는 같은 목록·같은 broker 선택 폼으로 섞지 않는다.
 - 활성 broker가 Toss인 Dashboard/Trading/Strategy는 KIS 잔고·주문 흐름을 호출하지 않고 Toss read-only 보유종목/시세와 주문·자동매매 차단 상태를 명확히 표시한다.
+- Trading의 Toss 소액 수동매매 검증 gate는 `canSubmit=false`일 때만 표시하고, `canSubmit=true`로 거래 가능한 상태가 되면 화면에서 숨긴다.
 
 ### Provider trace 표시
 
