@@ -5,6 +5,9 @@ use chrono::{DateTime, Duration, Local, NaiveDate};
 use crate::broker::BrokerScope;
 use crate::trading::strategy::Signal;
 
+type ScopedSymbol = (BrokerScope, String);
+type RecentSideHistory = VecDeque<(DateTime<Local>, GuardSide)>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GuardSide {
     Buy,
@@ -49,9 +52,9 @@ impl Default for TradeGuardConfig {
 pub struct TradeGuard {
     config: TradeGuardConfig,
     last_order_at: HashMap<(BrokerScope, String, GuardSide), DateTime<Local>>,
-    recent_sides: HashMap<(BrokerScope, String), VecDeque<(DateTime<Local>, GuardSide)>>,
-    cooldown_until: HashMap<(BrokerScope, String), DateTime<Local>>,
-    stop_loss_block_date: HashMap<(BrokerScope, String), NaiveDate>,
+    recent_sides: HashMap<ScopedSymbol, RecentSideHistory>,
+    cooldown_until: HashMap<ScopedSymbol, DateTime<Local>>,
+    stop_loss_block_date: HashMap<ScopedSymbol, NaiveDate>,
 }
 
 impl TradeGuard {

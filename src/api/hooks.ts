@@ -11,10 +11,10 @@ import {
   useQueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query'
-import { useEffect } from 'react'
 
 import { POLL_INTERVALS, ORDER_REFETCH_DELAY_MS } from '../scheduler'
 import * as cmd from './commands'
+import { KEYS } from './queryKeys'
 import type {
   AccountProfileView,
   AddProfileInput,
@@ -64,53 +64,8 @@ import type {
   RefreshConfig,
 } from './types'
 
-function canUseTauriEvents(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-}
-
-// ─── Query Keys ────────────────────────────────────────────────────
-export const KEYS = {
-  appConfig: ['appConfig'] as const,
-  checkConfig: ['checkConfig'] as const,
-  profiles: ['profiles'] as const,
-  tradingStatus: ['tradingStatus'] as const,
-  positions: ['positions'] as const,
-  brokerHoldings: ['brokerHoldings'] as const,
-  strategies: ['strategies'] as const,
-  balance: ['balance'] as const,
-  overseasBalance: ['overseasBalance'] as const,
-  price: (symbol: string) => ['price', symbol] as const,
-  todayExecuted: ['todayExecuted'] as const,
-  todayOverseasExecuted: ['todayOverseasExecuted'] as const,
-  todayTrades: ['todayTrades'] as const,
-  tradeRange: (from: string, to: string) => ['trades', from, to] as const,
-  todayStats: ['todayStats'] as const,
-  statsRange: (from: string, to: string) => ['stats', from, to] as const,
-  logConfig: ['logConfig'] as const,
-  chartData: (symbol: string, presetKey: string) => ['chartData', symbol, presetKey] as const,
-  tossChartData: (symbol: string, interval: string, presetKey: string) => ['tossChartData', symbol, interval, presetKey] as const,
-  stockSearch: (q: string) => ['stockSearch', q] as const,
-  kisExecuted: (from: string, to: string) => ['kisExecuted', from, to] as const,
-  overseasExecuted: (from: string, to: string) => ['overseasExecuted', from, to] as const,
-  recentLogs: ['recentLogs'] as const,
-  updateCheck: ['updateCheck'] as const,
-  webConfig: ['webConfig'] as const,
-  overseasPrice: (exchange: string, symbol: string) => ['overseasPrice', exchange, symbol] as const,
-  overseasChart: (exchange: string, symbol: string, presetKey: string) => ['overseasChart', exchange, symbol, presetKey] as const,
-  tossMarketSnapshot: (symbol: string) => ['tossMarketSnapshot', symbol] as const,
-  tossStockSafety: (symbol: string) => ['tossStockSafety', symbol] as const,
-  tossOrderPreflight: (input: TossOrderPreflightInput) =>
-    ['tossOrderPreflight', input.symbol, input.side, input.quantity, input.price ?? ''] as const,
-  tossMarketCalendar: ['tossMarketCalendar'] as const,
-  riskConfig: ['riskConfig'] as const,
-  pendingOrders: ['pendingOrders'] as const,
-  tradeArchiveConfig: ['tradeArchiveConfig'] as const,
-  tradeArchiveStats: ['tradeArchiveStats'] as const,
-  exchangeRate: ['exchangeRate'] as const,
-  exchangeRateStatus: ['exchangeRateStatus'] as const,
-  refreshInterval: ['refreshInterval'] as const,
-  refreshConfig: ['refreshConfig'] as const,
-}
+export { KEYS } from './queryKeys'
+export { useBackendEvents } from './backendEvents'
 
 // ─── 앱 설정 ───────────────────────────────────────────────────────
 export function useAppConfig(
@@ -663,9 +618,9 @@ export function useOverseasExecutedByRange(
 // ─── 최근 앱 로그 (파일 기반) ─────────────────────────────────────
 export function useRecentLogs(count = 200) {
   return useQuery<AppLogEntry[]>({
-    queryKey: KEYS.recentLogs,
+    queryKey: KEYS.recentLogs(count),
     queryFn: () => cmd.getRecentLogs(count),
-    refetchInterval: 3_000,
+    refetchInterval: POLL_INTERVALS.LOG,
     staleTime: 0,
     placeholderData: [],
   })
@@ -979,65 +934,6 @@ export function useExchangeRateStatus() {
     staleTime: intervalSec * 900,
     refetchInterval: intervalSec * 1000,
   })
-}
-
-/**
- * 백그라운드 데몬 이벤트 수신
- *
- * Rust 백그라운드에서 발행하는 이벤트를 리슬하여 TanStack Query 캐시를 직접 갱신합니다.
- * 프론트엔드 폴링없이 데이터를 즈시 수신하여 UI를 업데이트합니다.
- * App 컴포넌트 루트에서 1회 호출하세요:
- *   function App() { useBackendEvents(); ... }
- */
-export function useBackendEvents() {
-  const qc = useQueryClient()
-
-  useEffect(() => {
-    if (!canUseTauriEvents()) {
-      return
-    }
-
-    let active = true
-    const unlisteners: Promise<() => void>[] = []
-
-    void import('@tauri-apps/api/event').then(({ listen }) => {
-      if (!active) {
-        return
-      }
-
-      // 환율 갱신 이벤트
-      unlisteners.push(
-        listen<number>('exchange-rate-updated', (event) => {
-          qc.setQueryData(KEYS.exchangeRate, event.payload)
-        })
-      )
-      unlisteners.push(
-        listen<ExchangeRateView>('exchange-rate-status-updated', (event) => {
-          qc.setQueryData(KEYS.exchangeRateStatus, event.payload)
-          qc.setQueryData(KEYS.exchangeRate, event.payload.rate)
-        })
-      )
-
-      // 국내 잔고 갱신 이벤트
-      unlisteners.push(
-        listen<BalanceResult>('balance-updated', (event) => {
-          qc.setQueryData(KEYS.balance, event.payload)
-        })
-      )
-
-      // 해외 잔고 갱신 이벤트
-      unlisteners.push(
-        listen<OverseasBalanceResult>('overseas-balance-updated', (event) => {
-          qc.setQueryData(KEYS.overseasBalance, event.payload)
-        })
-      )
-    })
-
-    return () => {
-      active = false
-      unlisteners.forEach((p) => p.then((fn) => fn()))
-    }
-  }, [qc])
 }
 
 export function usePendingOrders(options?: Partial<UseQueryOptions<PendingOrderView[]>>) {

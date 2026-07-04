@@ -44,6 +44,8 @@ export default function Log() {
     readStoredNumber(LOG_HEIGHT_KEY, LOG_HEIGHT_DEFAULT, LOG_HEIGHT_MIN, LOG_HEIGHT_MAX)
   )
   const bottomRef = useRef<HTMLDivElement>(null)
+  const logPanelRef = useRef<HTMLDivElement>(null)
+  const shouldStickToBottomRef = useRef(true)
   const logHeightRef = useRef(logHeight)
   logHeightRef.current = logHeight
 
@@ -57,9 +59,18 @@ export default function Log() {
 
   const { data: logs = [], isLoading } = useRecentLogs(300)
 
-  // 새 로그가 올 때 스크롤 하단 이동
+  const handleLogScroll = useCallback(() => {
+    const el = logPanelRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    shouldStickToBottomRef.current = distanceFromBottom < 48
+  }, [])
+
+  // 새 로그가 올 때 사용자가 하단 근처에 있는 경우에만 하단 유지
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (shouldStickToBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ block: 'end' })
+    }
   }, [logs])
 
   const filtered = logs.filter((log: AppLogEntry) => {
@@ -101,6 +112,8 @@ export default function Log() {
 
       {/* 로그 뷰어 */}
       <Paper
+        ref={logPanelRef}
+        onScroll={handleLogScroll}
         sx={{
           p: 1,
           overflow: 'auto',
@@ -173,4 +186,3 @@ export default function Log() {
     </Box>
   )
 }
-

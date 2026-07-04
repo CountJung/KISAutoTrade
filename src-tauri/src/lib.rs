@@ -14,6 +14,7 @@ pub mod updater;
 use std::path::PathBuf;
 use tauri::{Emitter, Manager};
 
+use broker::domain::BrokerId;
 use commands::{AppState, RefreshConfig};
 use config::{AppConfig, DiscordConfig, ProfilesConfig};
 use logging::LogConfig;
@@ -196,8 +197,10 @@ pub fn run() {
                 let rest_arc     = st.rest_client.clone();
                 let stock_store  = st.stock_store.clone();
                 let profiles     = st.profiles.clone();
+                let exchange_rate_krw = st.exchange_rate_krw.clone();
                 tauri::async_runtime::spawn(commands::run_trading_daemon(
                     is_trading, strategy_mgr, order_mgr, risk_mgr, rest_arc, stock_store, profiles,
+                    exchange_rate_krw,
                 ));
             }
 
@@ -323,6 +326,8 @@ pub fn run() {
             {
                 let st: tauri::State<AppState> = app.state();
                 let rest_arc         = st.rest_client.clone();
+                let config_arc       = st.config.clone();
+                let profiles_arc     = st.profiles.clone();
                 let interval_tx      = st.refresh_interval_tx.clone();
                 let stock_store_arc  = st.stock_store.clone();
                 let position_tracker = st.position_tracker.clone();
@@ -333,6 +338,29 @@ pub fn run() {
                     tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
                     let mut current_interval = *interval_rx.borrow_and_update();
                     loop {
+                        let active_profile_broker = {
+                            let profiles = profiles_arc.read().await;
+                            profiles.get_active().map(|profile| profile.broker_id)
+                        };
+                        let active_broker = match active_profile_broker {
+                            Some(broker_id) => broker_id,
+                            None => {
+                                let cfg = config_arc.read().await;
+                                cfg.broker_id
+                            }
+                        };
+
+                        if active_broker != BrokerId::Kis {
+                            tokio::select! {
+                                _ = tokio::time::sleep(tokio::time::Duration::from_secs(current_interval)) => {}
+                                _ = interval_rx.changed() => {
+                                    current_interval = *interval_rx.borrow_and_update();
+                                    tracing::info!("잔고 갱신 주기 변경: {}초", current_interval);
+                                }
+                            }
+                            continue;
+                        }
+
                         let client = rest_arc.read().await.clone();
                         if !client.app_key().is_empty() {
                             // 국내 잔고

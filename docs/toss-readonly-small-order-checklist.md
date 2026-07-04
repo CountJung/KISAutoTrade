@@ -47,7 +47,7 @@ Before enabling any order submission UI or adapter method, verify that the read-
 
 These checks must be called before `TradeGuard` allows a Toss order. Cache nothing that can change intraday unless the official response headers and rate-limit policy make that safe.
 
-Trading 화면의 `Toss 소액 수동매매 검증` UI는 이 단계의 진행 상태를 보여준다. 이 UI는 활성 Toss `accountSeq`, 종목, 지정가, 수량, 가격, 실거래 동의 저장 상태, read-only 사전검증 결과를 표시하며, `TossOrderPreflightView.canSubmit=true`가 되면 숨김 처리된다. 현재 주문 adapter가 gate 뒤에 있으면 실제 주문 버튼은 계속 차단되어야 한다.
+Trading 화면과 Strategy 가격조건 전략의 `Toss 소액 수동매매 검증` UI는 이 단계의 진행 상태를 보여준다. 이 UI는 활성 Toss `accountSeq`, 종목, 지정가, 수량, 가격, 실거래 동의 저장 상태, read-only 사전검증 결과를 표시하며, `TossOrderPreflightView.canSubmit=true`가 되면 숨김 처리된다. 현재 주문 adapter가 gate 뒤에 있으면 실제 주문 버튼은 계속 차단되어야 한다.
 
 ## 3. Small Live-Order Approval Gate
 

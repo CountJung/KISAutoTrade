@@ -136,6 +136,22 @@ npx vite build
 
 ---
 
+## 코드 리뷰·위임 트리거
+
+> 장기 운영 앱이므로 대형 파일, 중복 헬퍼, polling/cache/log reader 변경은 기능 완료와 별개로 적극 정리한다.
+
+- 소스 파일이 1000라인을 초과하면 신규 기능을 더 얹기 전에 페이지/route/helper/domain 단위로 분리한다. 즉시 분리가 어렵다면 `todo.md`에 구체 파일과 분리 축을 기록한다.
+- 숫자/금액/decimal 표시, provider trace, broker scope, 프로파일 view처럼 두 곳 이상 반복되는 helper는 `shared/lib`, `shared/ui`, backend view builder 등 공용 위치로 승격한다.
+- 로그 조회, 이벤트 listener, background daemon, TanStack Query polling, cache, per-symbol map을 추가하거나 수정할 때는 OOM·jank·quota 낭비 가능성을 점검한다.
+- 사용자가 서브 에이전트 위임을 허용했거나 대형 리팩터링/성능 점검 목표가 활성화된 경우 다음 조건에서 서브 에이전트를 사용한다.
+  - 코드 리뷰 전용 에이전트 요청: 즉시 별도 explorer/worker를 생성해 1000라인 초과 파일, 중복 helper, OOM/jank 위험, 문서/스킬 drift를 감사시킨다. 사용자가 read-only를 명시하면 메인 에이전트도 구현/문서 수정을 하지 않고 감사 결과만 보고한다. subagent 도구가 없으면 메인 에이전트가 같은 체크리스트를 직접 수행하고, 도구 부재를 결과에 적는다.
+  - Rust backend: `commands.rs`, `server/mod.rs`, `lib.rs`, broker adapter, trading daemon/risk/order 로직이 2개 파일 이상에 걸칠 때
+  - React/FSD: 1000라인 초과 페이지 분리, `pages`→`widgets/features/shared` 이동, shared hook/component 추출이 필요할 때
+  - Performance: polling, log reader, event listener, cache, unbounded Vec/HashMap, long-running task를 새로 만들거나 변경할 때
+  - Broker/API: KIS/Toss 인증, account scope, rate limit, request cadence, official response mapping을 바꿀 때
+
+---
+
 ## 핵심 규칙
 
 ### Rust

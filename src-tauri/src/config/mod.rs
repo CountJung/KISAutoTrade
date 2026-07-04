@@ -118,6 +118,7 @@ impl ProfilesConfig {
     }
 
     /// 프로파일 수정 (빈 문자열은 기존 값 유지)
+    #[allow(clippy::too_many_arguments)]
     pub fn update(
         &mut self,
         id: &str,
@@ -320,14 +321,12 @@ async fn load_secure_config(app_data_dir: &Path) -> SecureConfig {
         ),
     ];
 
-    for path_opt in &candidates {
-        if let Some(path) = path_opt {
-            if path.exists() {
-                if let Ok(content) = fs::read_to_string(path).await {
-                    if let Ok(cfg) = serde_json::from_str::<SecureConfig>(&content) {
-                        tracing::info!("secure_config.json(Discord) 로드: {:?}", path);
-                        return cfg;
-                    }
+    for path in candidates.iter().flatten() {
+        if path.exists() {
+            if let Ok(content) = fs::read_to_string(path).await {
+                if let Ok(cfg) = serde_json::from_str::<SecureConfig>(&content) {
+                    tracing::info!("secure_config.json(Discord) 로드: {:?}", path);
+                    return cfg;
                 }
             }
         }

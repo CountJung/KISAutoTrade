@@ -1,0 +1,47 @@
+import type { TossOrderPreflightInput } from './types'
+
+// ─── Query Keys ────────────────────────────────────────────────────
+export const KEYS = {
+  appConfig: ['appConfig'] as const,
+  checkConfig: ['checkConfig'] as const,
+  profiles: ['profiles'] as const,
+  tradingStatus: ['tradingStatus'] as const,
+  positions: ['positions'] as const,
+  brokerHoldings: ['brokerHoldings'] as const,
+  strategies: ['strategies'] as const,
+  balance: ['balance'] as const,
+  overseasBalance: ['overseasBalance'] as const,
+  price: (symbol: string) => ['price', symbol] as const,
+  todayExecuted: ['todayExecuted'] as const,
+  todayOverseasExecuted: ['todayOverseasExecuted'] as const,
+  todayTrades: ['todayTrades'] as const,
+  tradeRange: (from: string, to: string) => ['trades', from, to] as const,
+  todayStats: ['todayStats'] as const,
+  statsRange: (from: string, to: string) => ['stats', from, to] as const,
+  logConfig: ['logConfig'] as const,
+  chartData: (symbol: string, presetKey: string) => ['chartData', symbol, presetKey] as const,
+  tossChartData: (symbol: string, interval: string, presetKey: string) =>
+    ['tossChartData', symbol, interval, presetKey] as const,
+  stockSearch: (q: string) => ['stockSearch', q] as const,
+  kisExecuted: (from: string, to: string) => ['kisExecuted', from, to] as const,
+  overseasExecuted: (from: string, to: string) => ['overseasExecuted', from, to] as const,
+  recentLogs: (count: number) => ['recentLogs', count] as const,
+  updateCheck: ['updateCheck'] as const,
+  webConfig: ['webConfig'] as const,
+  overseasPrice: (exchange: string, symbol: string) => ['overseasPrice', exchange, symbol] as const,
+  overseasChart: (exchange: string, symbol: string, presetKey: string) =>
+    ['overseasChart', exchange, symbol, presetKey] as const,
+  tossMarketSnapshot: (symbol: string) => ['tossMarketSnapshot', symbol] as const,
+  tossStockSafety: (symbol: string) => ['tossStockSafety', symbol] as const,
+  tossOrderPreflight: (input: TossOrderPreflightInput) =>
+    ['tossOrderPreflight', input.symbol, input.side, input.quantity, input.price ?? ''] as const,
+  tossMarketCalendar: ['tossMarketCalendar'] as const,
+  riskConfig: ['riskConfig'] as const,
+  pendingOrders: ['pendingOrders'] as const,
+  tradeArchiveConfig: ['tradeArchiveConfig'] as const,
+  tradeArchiveStats: ['tradeArchiveStats'] as const,
+  exchangeRate: ['exchangeRate'] as const,
+  exchangeRateStatus: ['exchangeRateStatus'] as const,
+  refreshInterval: ['refreshInterval'] as const,
+  refreshConfig: ['refreshConfig'] as const,
+}

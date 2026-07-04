@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration as StdDuration};
 use tokio::sync::Mutex;
 
 use crate::config::AppConfig;
@@ -34,31 +34,41 @@ pub struct TokenManager {
     client: Client,
     config: Arc<AppConfig>,
     current_token: Mutex<Option<AccessToken>>,
+    token_refresh: Mutex<()>,
 }
 
 impl TokenManager {
     pub fn new(config: Arc<AppConfig>) -> Self {
         Self {
-            client: Client::new(),
+            client: Client::builder()
+                .timeout(StdDuration::from_secs(15))
+                .build()
+                .expect("KIS reqwest client with timeout should build"),
             config,
             current_token: Mutex::new(None),
+            token_refresh: Mutex::new(()),
         }
     }
 
     /// 유효한 토큰 반환 (만료 시 자동 갱신)
     pub async fn get_token(&self) -> Result<String> {
-        let mut token_guard = self.current_token.lock().await;
-
-        if let Some(token) = &*token_guard {
+        if let Some(token) = self.current_token.lock().await.as_ref().cloned() {
             if !token.is_expired() {
-                return Ok(token.token.clone());
+                return Ok(token.token);
+            }
+        }
+
+        let _refresh_guard = self.token_refresh.lock().await;
+        if let Some(token) = self.current_token.lock().await.as_ref().cloned() {
+            if !token.is_expired() {
+                return Ok(token.token);
             }
         }
 
         // 토큰 갱신
         let new_token = self.issue_token().await?;
         let token_str = new_token.token.clone();
-        *token_guard = Some(new_token);
+        *self.current_token.lock().await = Some(new_token);
 
         tracing::info!("KIS 액세스 토큰 갱신 완료");
         Ok(token_str)

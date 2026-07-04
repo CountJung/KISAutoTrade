@@ -532,11 +532,13 @@ mod tests {
 
     #[test]
     fn volatility_sizing_uses_risk_amount_and_position_cap_for_domestic() {
-        let mut risk = RiskManager::default();
-        risk.volatility_sizing_enabled = true;
-        risk.risk_per_trade_bps = 100;
-        risk.atr_stop_multiplier = 2.0;
-        risk.max_position_ratio = 0.20;
+        let mut risk = RiskManager {
+            volatility_sizing_enabled: true,
+            risk_per_trade_bps: 100,
+            atr_stop_multiplier: 2.0,
+            max_position_ratio: 0.20,
+            ..RiskManager::default()
+        };
         risk.set_symbol_atr("005930", 100);
 
         let qty = risk.volatility_adjusted_quantity("005930", 1, 10_000, 1_000_000, false, 1.0);
@@ -546,11 +548,13 @@ mod tests {
 
     #[test]
     fn volatility_sizing_converts_overseas_cents_to_krw() {
-        let mut risk = RiskManager::default();
-        risk.volatility_sizing_enabled = true;
-        risk.risk_per_trade_bps = 100;
-        risk.atr_stop_multiplier = 2.0;
-        risk.max_position_ratio = 0.20;
+        let mut risk = RiskManager {
+            volatility_sizing_enabled: true,
+            risk_per_trade_bps: 100,
+            atr_stop_multiplier: 2.0,
+            max_position_ratio: 0.20,
+            ..RiskManager::default()
+        };
         risk.set_symbol_atr("VOO", 100);
 
         let qty = risk.volatility_adjusted_quantity("VOO", 1, 10_000, 1_000_000, true, 1_000.0);
@@ -605,8 +609,10 @@ mod tests {
 
     #[test]
     fn consecutive_loss_block_only_clears_after_profit() {
-        let mut risk = RiskManager::default();
-        risk.max_consecutive_losses_per_strategy_symbol = 2;
+        let mut risk = RiskManager {
+            max_consecutive_losses_per_strategy_symbol: 2,
+            ..RiskManager::default()
+        };
 
         risk.record_strategy_symbol_pnl("strategy", "005930", -1_000);
         assert!(risk
@@ -626,8 +632,10 @@ mod tests {
 
     #[test]
     fn consecutive_loss_blocks_are_isolated_by_broker_account_scope() {
-        let mut risk = RiskManager::default();
-        risk.max_consecutive_losses_per_strategy_symbol = 1;
+        let mut risk = RiskManager {
+            max_consecutive_losses_per_strategy_symbol: 1,
+            ..RiskManager::default()
+        };
         let account_a = scope("11111111-01");
         let account_b = scope("22222222-01");
 

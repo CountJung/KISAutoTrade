@@ -118,6 +118,7 @@ pub struct TradeRecord {
 }
 
 impl TradeRecord {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         symbol: String,
         symbol_name: String,
@@ -165,6 +166,7 @@ impl TradeRecord {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new_overseas(
         symbol: String,
         symbol_name: String,

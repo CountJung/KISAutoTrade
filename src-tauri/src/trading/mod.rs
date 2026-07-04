@@ -4,6 +4,7 @@ pub mod position;
 pub mod preflight;
 pub mod risk;
 pub mod strategy;
+pub mod views;
 
 pub use guard::{GuardDecision, TradeGuard};
 pub use order::{OrderManager, PendingOrder};
@@ -15,3 +16,4 @@ pub use strategy::{
     PriceConditionParams, PriceConditionStrategy, PriceConditionSymbolConfig, Signal, Strategy,
     StrategyConfig, StrategyManager,
 };
+pub use views::{build_strategy_view, StrategyView};

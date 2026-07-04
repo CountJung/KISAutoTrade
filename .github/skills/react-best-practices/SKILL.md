@@ -69,7 +69,7 @@ const results = useQueries({
 같은 `queryKey`를 사용하면 여러 컴포넌트에서 단 한 번만 fetch됩니다.
 
 ```typescript
-// ✅ src/api/hooks.ts — queryKey를 KEYS 상수로 관리
+// ✅ src/api/queryKeys.ts — queryKey를 KEYS 상수로 관리
 export const KEYS = {
   balance: ['balance'] as const,
   price: (symbol: string) => ['price', symbol] as const,
@@ -81,7 +81,10 @@ export const useBalance = () =>
   useQuery({ queryKey: KEYS.balance, queryFn: getBalance, refetchInterval: 60_000 });
 ```
 
-새 훅은 반드시 `src/api/hooks.ts`에 추가하고 `KEYS`에 키를 등록합니다.
+새 훅은 반드시 `src/api/hooks.ts`에 추가하고, query key는 `src/api/queryKeys.ts`의 `KEYS`에 등록합니다. 기존 소비자는 `src/api/hooks.ts`에서 `KEYS`를 re-export하므로 import 호환을 유지합니다.
+
+파라미터가 결과를 바꾸는 query는 반드시 queryKey에도 그 파라미터를 포함한다.
+예: 최근 로그 조회는 `recentLogs(count)`처럼 `count`별 key를 사용한다.
 
 ### TanStack Query `enabled` 조건 — 검색 필터 주의사항
 
@@ -115,6 +118,16 @@ useEffect(() => {
 // ✅ 올바른 방법 — render 중 계산
 const totalPnl = trades.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
 ```
+
+---
+
+## 4-1. 1000라인 초과 페이지 분리 (MEDIUM-HIGH)
+
+라우트 페이지가 1000라인을 넘으면 신규 기능을 계속 붙이지 말고 page-local panel/component 파일 또는 FSD 하위 slice로 분리한다.
+
+- `src/pages/{route}/ui/Page.tsx`는 라우트 조립, 상위 상태, command orchestration 중심으로 둔다.
+- 보유 테이블, broker별 카드, 진단/gate 패널처럼 독립 UI 덩어리는 같은 `ui/` 폴더의 별도 파일로 먼저 분리한다.
+- 두 페이지 이상에서 쓰는 숫자/금액/decimal 포맷은 `src/shared/lib/formatters.ts`를 사용한다.
 
 ---
 
@@ -199,7 +212,7 @@ if (error) return <Alert severity="error">{(error as CmdError).message}</Alert>;
 ## 8-1. Tauri Event 구독은 Tauri 컨텍스트에서만 실행
 
 웹 브라우저/Vite 단독 모드에서는 `@tauri-apps/api/event.listen()`이 내부 `transformCallback`을 찾지 못해 콘솔 에러가 발생한다.
-`useBackendEvents()`처럼 앱 루트에서 항상 실행되는 훅은 이벤트 구독 전에 Tauri 컨텍스트를 확인하고, Tauri event 모듈도 해당 컨텍스트 안에서 동적으로 로드한다.
+`src/api/backendEvents.ts`의 `useBackendEvents()`처럼 앱 루트에서 항상 실행되는 훅은 이벤트 구독 전에 Tauri 컨텍스트를 확인하고, Tauri event 모듈도 해당 컨텍스트 안에서 동적으로 로드한다.
 
 ```typescript
 function canUseTauriEvents(): boolean {
@@ -233,7 +246,7 @@ export function useBackendEvents() {
 }
 ```
 
-> 마지막 업데이트: 2026-07-03T00:00:00
+> 마지막 업데이트: 2026-07-04T12:25:10
 
 ---
 

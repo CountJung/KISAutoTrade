@@ -58,6 +58,14 @@ description: "Rust 코딩 범용 스킬. 데이터 구조 설계, trait 구현, 
    - API를 작고 표현적으로 유지하고 내부 타입 노출을 피합니다.
    - 기능과 일치하는 의미 있는 파일 및 모듈 이름을 사용합니다.
 
+8. **장기 실행/OOM 방지**
+   - polling API, 로그 reader, daemon, cache, per-symbol map은 데이터 크기 상한을 명시합니다.
+   - 최근 로그 조회처럼 주기적으로 호출되는 파일 reader는 `read_to_string()`으로 전체 파일을 읽지 말고 bounded tail reader 또는 ring buffer를 사용합니다.
+   - async lock은 네트워크 await 전에 해제합니다. fallback 값이 필요하면 필요한 필드만 복사한 뒤 lock guard를 drop합니다.
+   - 활성 broker가 KIS가 아닌 경우 KIS balance/order polling을 실행하지 않는 등 provider scope를 daemon에서도 확인합니다.
+   - 외부 HTTP client는 명시 timeout을 설정하고, response body는 `Content-Length`와 실제 bytes 길이 상한을 모두 검사합니다.
+   - 토큰 cache mutex는 cache 확인/저장에만 사용하고, 네트워크 token 발급은 별도 refresh mutex로 직렬화합니다.
+
 ---
 
 ## 패턴 예시
@@ -675,7 +683,7 @@ if matches!(decision, GuardDecision::Allow) {
 | 역할 | 위치 |
 |------|------|
 | guard 상태/판단 | `src-tauri/src/trading/guard.rs` |
-| 주문 전 평가 | `src-tauri/src/trading/order.rs::submit_signal()` |
+| 주문 전 평가 | `src-tauri/src/trading/order.rs::submit_signal()`, `src-tauri/src/trading/order/submission.rs::OrderManager::submit_signal_shared()` |
 | 실행 scope 고정 | `src-tauri/src/trading/order.rs::OrderManager::set_execution_scope()` |
 | 일별 초기화 | `OrderManager::reset_day()` |
 
@@ -918,7 +926,7 @@ pub fn new_overseas(
 
 ## 16. 주문번호 기반 부분체결 상태 패턴
 
-KIS 체결 조회 API로 주문번호를 확인할 때 `tot_ccld_qty`는 주문의 누적 체결 수량으로 취급한다. `OrderManager::on_fill()`은 누적 수량과 `PendingOrder.filled_quantity`의 차이만 포지션, 수수료, 거래 기록에 반영해야 한다.
+KIS 체결 조회 API로 주문번호를 확인할 때 `tot_ccld_qty`는 주문의 누적 체결 수량으로 취급한다. `src-tauri/src/trading/order/fills.rs`의 `OrderManager::on_fill()`은 누적 수량과 `PendingOrder.filled_quantity`의 차이만 포지션, 수수료, 거래 기록에 반영해야 한다.
 
 ```rust
 let cumulative_filled = filled_qty.min(pending.record.quantity);
@@ -940,9 +948,9 @@ let is_complete = cumulative_filled >= pending.record.quantity;
 
 Dashboard 미체결 주문 IPC(`PendingOrderView`)는 `status`, `filled_quantity`, `remaining_quantity`를 camelCase로 내려 UI가 부분체결과 잔여 수량을 표시할 수 있게 한다.
 
-주문 제출 전에는 `OrderManager`가 현재 실행 `BrokerScope` + symbol 기준으로 로컬 pending을 scan한다. 같은 방향 pending은 중복 주문으로, 반대 방향 pending은 반대 미체결 충돌로 분리해 차단 사유를 남긴다. Toss 주문 adapter를 연결할 때 provider의 `opposite-pending-order-exists` 응답도 같은 conflict 계열로 매핑한다.
+주문 제출 전에는 `OrderManager`가 현재 실행 `BrokerScope` + symbol 기준으로 로컬 pending을 scan한다. 같은 방향 pending은 중복 주문으로, 반대 방향 pending은 반대 미체결 충돌로 분리해 차단 사유를 남긴다. 로컬 pending 충돌 helper는 `src-tauri/src/trading/order/conflicts.rs`에 둔다. Toss 주문 adapter를 연결할 때 provider의 `opposite-pending-order-exists` 응답도 같은 conflict 계열로 매핑한다.
 
-> 마지막 업데이트: 2026-07-03T16:00:31+09:00
+> 마지막 업데이트: 2026-07-04T13:13:49+09:00
 
 ---
 
@@ -1015,15 +1023,36 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 |------|------|
 | 공통 broker 타입 | `src-tauri/src/broker/domain.rs` |
 | broker adapter trait | `src-tauri/src/broker/adapter.rs` |
-| Toss read-only client/adapter | `src-tauri/src/broker/toss.rs` |
+| Toss read-only client/adapter | `src-tauri/src/broker/toss/{mod,adapter,client,http,error,support,types,orders}.rs` |
 | 프로파일 저장 broker scope | `src-tauri/src/config/mod.rs::AccountProfile` |
 | 활성 broker/account IPC 표시 | `src-tauri/src/commands.rs::AppConfigView`, `ProfileView` |
-| 자동매매 실행 scope 고정 | `src-tauri/src/commands.rs::TradingStatus` |
-| 전략 설정 저장 scope | `src-tauri/src/trading/strategy.rs::StrategyConfig` |
-| 시작 전 broker-aware 포지션 복원 | `src-tauri/src/commands.rs::sync_strategy_positions_from_active_broker()` |
+| 프로파일/잔고 IPC | `src-tauri/src/commands/accounts.rs` |
+| 설정/환율 IPC | `src-tauri/src/commands/settings.rs` |
+| KIS 시세/차트/종목검색 IPC | `src-tauri/src/commands/market.rs` |
+| 수동 주문 IPC | `src-tauri/src/commands/orders.rs` |
+| 체결/통계/로그 IPC | `src-tauri/src/commands/records.rs` |
+| trade archive IPC | `src-tauri/src/commands/archive.rs` |
+| Toss 진단/preflight IPC | `src-tauri/src/commands/toss.rs` |
+| Toss read-only 시세/장운영 IPC | `src-tauri/src/commands/toss_market.rs` |
+| KIS market/order REST 핸들러 | `src-tauri/src/server/market.rs` |
+| 기록/로그/보관 REST 핸들러 | `src-tauri/src/server/records.rs` |
+| 프로파일 REST 핸들러 | `src-tauri/src/server/profiles.rs` |
+| Toss read-only REST 핸들러 | `src-tauri/src/server/toss.rs` |
+| 자동매매/전략 REST 핸들러 | `src-tauri/src/server/trading.rs` |
+| 자동매매 실행 scope 고정 | `src-tauri/src/commands/trading.rs::TradingStatus` |
+| 자동매매 daemon/status/sync IPC | `src-tauri/src/commands/trading.rs` |
+| 자동매매 시작 히스토리/ATR 초기화 | `src-tauri/src/commands/trading/history.rs` |
+| 포지션/전략 IPC | `src-tauri/src/commands/strategy.rs` |
+| 리스크/pending 주문 IPC | `src-tauri/src/commands/risk.rs` |
+| 전략 facade | `src-tauri/src/trading/strategy.rs` |
+| 전략 core/manager/state | `src-tauri/src/trading/strategy/{core,manager,state}.rs` |
+| 개별 전략 구현 | `src-tauri/src/trading/strategy/{classic,breakout,mean_trend,leveraged_trend_hold,price_condition}.rs` |
+| 전략 설정 저장 scope | `src-tauri/src/trading/strategy/core.rs::StrategyConfig` |
+| 전략 view builder | `src-tauri/src/trading/views.rs::build_strategy_view()` |
+| 시작 전 broker-aware 포지션 복원 | `src-tauri/src/commands/trading.rs::sync_strategy_positions_from_active_broker()` |
 | 주문 전 broker read-only 검증 | `src-tauri/src/trading/preflight.rs`, `src-tauri/src/commands.rs::check_toss_order_preflight()` |
 | 자동매매 주문 scope | `src-tauri/src/trading/order.rs::OrderManager::execution_scope` |
-| 로컬 pending 충돌 차단 | `src-tauri/src/trading/order.rs::pending_conflict_reason_for_scope()` |
+| 로컬 pending 충돌 차단 | `src-tauri/src/trading/order/conflicts.rs::pending_conflict_reason_for_scope()` |
 | 주문 방어 scope | `src-tauri/src/trading/guard.rs`, `src-tauri/src/trading/risk.rs` |
 
 규칙:
@@ -1031,17 +1060,29 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 기존 `profiles.json` 하위 호환을 위해 `AccountProfile.broker_id`에는 `#[serde(default = "default_broker_id")]`를 둔다.
 - 자동매매 시작 시점에 `trading_profile_id`, `trading_broker_id`, `trading_account_id`를 모두 저장한다.
 - `StrategyConfig`에는 `broker_id`와 `broker_account_id`를 저장하고, `StrategyManager::apply_saved_configs_for_scope()`와 `update_strategy` 경로에서 현재 활성 broker/account scope로 stamp한다.
+- 전략 파라미터 또는 대상 종목이 바뀌면 `StrategyManager::update_config()`로 config를 수정하고 `build_strategy()`로 인스턴스를 재빌드한다. 개별 전략은 생성자에서 params를 파싱하므로 config map만 수정하면 런타임 전략이 낡은 값을 계속 사용할 수 있다.
+- `StrategyManager::apply_saved_configs_for_scope()`는 저장 config를 적용한 뒤 전략 인스턴스를 재빌드한다. 프로파일/account scope 전환 시 이전 종목의 per-symbol state가 잔류하지 않게 하기 위해서다.
+- tick hot path에서 대상 종목 여부를 확인할 때 `target_symbols.contains(&symbol.to_string())`처럼 매번 할당하지 말고 `StrategyConfig::targets_symbol(symbol)`을 사용한다.
+- user-param이 직접 `VecDeque` capacity 또는 per-symbol buffer 길이가 되지 않게 `src-tauri/src/trading/strategy/state.rs`의 bounded helper를 사용한다. 비정상 저장 JSON이 있어도 전략별 버퍼가 상한 없이 커지면 안 된다.
+- IPC/REST 전략 목록 응답은 `src-tauri/src/trading/views.rs::build_strategy_view()`를 사용한다. `StrategyManager` lock은 config clone까지만 잡고, 종목명 조회 같은 async lookup은 lock 밖에서 수행한다.
+- IPC/REST 프로파일 목록 응답은 `src-tauri/src/commands/accounts.rs::profile_to_view()`를 사용해 masking과 broker/account view drift를 막는다.
+- IPC/REST risk view, pending order view, archive stats는 `src-tauri/src/commands/{risk,archive}.rs`의 shared builder/service를 재사용한다. REST handler에서 같은 JSON shape를 직접 hand-build하지 않는다.
 - 프로파일 전환 시 저장 전략이 없더라도 `apply_saved_configs_for_scope(&[], ...)`를 호출해 이전 프로파일의 활성 전략/종목이 잔류하지 않게 reset한다.
 - 자동매매 실행 중 활성 프로파일을 전환해도 실행 중 주문 경로는 시작 시점 scope를 유지한다.
 - `OrderManager::set_execution_scope(BrokerScope)`는 `start_trading()`에서만 설정하고, 주문 전 `TradeGuard`/`RiskManager`/`PendingOrder`에 같은 scope를 전달한다.
 - `BrokerScope`는 `broker_id`와 `Option<BrokerAccountId>`를 함께 들고, KIS 계좌번호와 Toss `accountSeq`가 같은 키 공간을 공유하지 않게 한다.
 - 아직 실제 주문/체결 adapter가 없는 broker는 자동매매 시작 시 `BROKER_NOT_SUPPORTED`로 차단한다.
-- Toss read-only client는 token 발급/401 1회 재시도/accounts/holdings/buying-power/sellable-quantity/commissions 조회를 제공한다. holdings는 `BrokerHolding`으로 매핑하며 자동매매 시작 전 전략 포지션 복원에는 사용할 수 있다. `check_toss_order_preflight`는 주문 전 read-only 검증까지만 수행하고, 실제 주문 IPC와 자동매매 주문 실행은 주문 adapter/소액 검증 gate 전까지 계속 차단한다.
+- 웹 REST `/api/trading/start`도 IPC `start_trading`과 같은 broker gate를 유지해야 한다. `is_trading`만 true로 바꾸지 말고 KIS 설정 검증, 미지원 broker 차단, `OrderManager::set_execution_scope()` 설정, 시작 전 KIS 잔고 기반 전략 포지션 복원을 수행한다.
+- 웹 REST `/api/archive-config` 변경도 IPC `set_trade_archive_config`와 같이 파일 저장 후 `purge_old_trade_files()`를 즉시 예약한다. IPC/REST 관리 경로가 다른 보관 정책을 가지면 장기 운영 중 디스크 사용량 예측이 어긋난다.
+- KIS REST client는 주문뿐 아니라 read API도 `RateLimitScheduler`를 거친다. 계좌/잔고는 `kis:account`, 체결 조회는 `kis:execution`, 시세/차트는 `kis:quote`, 주문은 `kis:order` group을 사용하고 응답 rate-limit header를 group별로 반영한다.
+- Toss read-only client는 token 발급/401 1회 재시도/accounts/holdings/buying-power/sellable-quantity/commissions 조회를 제공한다. HTTP timeout과 response body 상한을 두고, `Content-Length`가 없거나 부정확한 응답도 chunk 누적 중 상한 초과 전에 중단한다. 파싱/에러 메시지에는 전체 body를 싣지 말고 snippet만 포함한다. token cache mutex를 잡은 채 네트워크 token 발급을 기다리지 않는다. holdings는 `BrokerHolding`으로 매핑하며 자동매매 시작 전 전략 포지션 복원에는 사용할 수 있다. `check_toss_order_preflight`는 주문 전 read-only 검증까지만 수행하고, 실제 주문 IPC와 자동매매 주문 실행은 주문 adapter/소액 검증 gate 전까지 계속 차단한다.
 - Toss 주문 client surface는 `create_order`, `list_orders`, `get_order`, `modify_order`, `cancel_order`로 둔다. `TossOrderCreateRequest::with_generated_client_order_id()`는 공식 idempotency key 제약을 만족하는 `clientOrderId`를 생성하지만, UI/자동매매 연결은 소액 검증 gate 전까지 열지 않는다.
-- `confirm_pending_fills_from_broker()`는 pending `OrderRecord.provider` trace로 provider를 판정한다. KIS 주문번호 조회는 `confirm_kis_pending_fills()`에 격리하고, Toss pending은 주문 상세/목록 adapter 연결 전까지 명시 skip 로그로 남긴다.
+- Toss 모듈을 분리할 때 내부 DTO/validation/helper는 `pub(super)`로 제한하고, 외부에서 필요한 client/adapter와 공식 응답 타입만 `broker/toss/mod.rs`에서 re-export한다.
+- `src-tauri/src/trading/order/fills.rs::confirm_pending_fills_from_broker()`는 pending `OrderRecord.provider` trace로 provider를 판정한다. 자동매매 daemon은 `OrderManager::confirm_pending_fills_from_broker_shared()`를 호출해 KIS 체결 조회 네트워크 await를 `order_manager` mutex 밖에서 수행한다. Toss pending은 주문 상세/목록 adapter 연결 전까지 명시 skip 로그로 남긴다.
+- 자동매매 daemon의 전략 신호 주문 제출은 `src-tauri/src/trading/order/submission.rs`의 `OrderManager::submit_signal_shared()`를 사용한다. 이 경로는 `order_manager` mutex를 짧게 잡아 guard/pending/submitting 예약만 수행하고, provider 주문 API와 order store append는 mutex 밖에서 await한다. provider 호출 중 같은 broker scope/symbol의 중복/반대 주문은 `submitting` 예약 맵으로 차단한다.
 - 주문 전 금액/수량 판정은 `trading/preflight.rs`의 공통 함수에 모은다. Toss `commissionRate`는 percent 문자열로 해석하고, `BrokerMoney`/`BrokerQuantity` 문자열 precision은 응답 view까지 보존한다.
 - 실제 주문 제출 전에는 로컬 pending scan을 먼저 수행해 같은 scope/symbol의 같은 방향 중복 주문과 반대 방향 미체결 주문을 모두 차단한다.
 - Toss 연결 진단은 `check_toss_profile_connection` IPC에서 프로파일 lock을 짧게 잡아 clone한 뒤 실행한다. 진단 단계는 OpenAPI spec, token, accounts, holdings, order preflight read-only 순서이며 토큰 문자열은 응답에 포함하지 않는다.
 - Tauri IPC와 axum 웹 REST 응답 필드는 같이 갱신한다. 웹 핸들러에서 내부 struct를 그대로 직렬화하지 말고 `serde_json::json!`으로 camel/snake 응답 키를 명시한다.
 
-> 마지막 업데이트: 2026-07-03T16:58:38+09:00
+> 마지막 업데이트: 2026-07-04T14:39:28+09:00

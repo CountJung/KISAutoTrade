@@ -16,10 +16,11 @@ import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
 import Divider from '@mui/material/Divider'
 import { useAppConfig, useStatsByRange, useTradesByRange } from '../../../api/hooks'
+import { fmtNumber } from '../../../shared/lib'
 import { BrokerScopeIndicator, ProviderTraceChips } from '../../../shared/ui'
 
 function fmt(n: number) {
-  return n.toLocaleString('ko-KR')
+  return fmtNumber(n)
 }
 
 function fmtUsd(n: number) {

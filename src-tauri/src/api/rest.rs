@@ -1,5 +1,5 @@
 use anyhow::Result;
-use reqwest::Client;
+use reqwest::{Client, RequestBuilder, Response};
 use serde::{Deserialize, Serialize};
 use std::{
     sync::{
@@ -13,6 +13,19 @@ use tokio::sync::RwLock;
 use crate::broker::RateLimitScheduler;
 
 use super::token::TokenManager;
+
+const KIS_RATE_GROUP_ACCOUNT: &str = "kis:account";
+const KIS_RATE_GROUP_EXECUTION: &str = "kis:execution";
+const KIS_RATE_GROUP_ORDER: &str = "kis:order";
+const KIS_RATE_GROUP_QUOTE: &str = "kis:quote";
+
+fn kis_read_min_interval(is_paper: bool) -> Duration {
+    if is_paper {
+        Duration::from_millis(500)
+    } else {
+        Duration::from_millis(50)
+    }
+}
 
 /// 한국투자증권 REST API 클라이언트
 pub struct KisRestClient {
@@ -28,494 +41,10 @@ pub struct KisRestClient {
     rate_limiter: RateLimitScheduler,
 }
 
-// ────────────────────────────────────────────────────────────────────
-// 공통 응답
-// ────────────────────────────────────────────────────────────────────
-
-/// KIS 공통 응답 코드 "0" = 성공
-#[derive(Debug, Deserialize)]
-pub struct KisOutput1<T> {
-    pub rt_cd: String,
-    pub msg_cd: String,
-    pub msg1: String,
-    pub output1: Option<T>,
-    pub output2: Option<serde_json::Value>,
-}
-
-impl<T> KisOutput1<T> {
-    pub fn ok(&self) -> bool {
-        self.rt_cd == "0"
-    }
-}
-
-// ────────────────────────────────────────────────────────────────────
-// 잔고 조회
-// ────────────────────────────────────────────────────────────────────
-
-/// 잔고 응답 (1건)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct BalanceItem {
-    /// 종목코드
-    pub pdno: String,
-    /// 종목명
-    pub prdt_name: String,
-    /// 보유수량
-    pub hldg_qty: String,
-    /// 매입평균가격
-    pub pchs_avg_pric: String,
-    /// 현재가
-    pub prpr: String,
-    /// 평가손익금액
-    pub evlu_pfls_amt: String,
-    /// 평가손익율
-    pub evlu_pfls_rt: String,
-}
-
-impl Default for BalanceItem {
-    fn default() -> Self {
-        Self {
-            pdno: String::new(),
-            prdt_name: String::new(),
-            hldg_qty: String::from("0"),
-            pchs_avg_pric: String::from("0"),
-            prpr: String::from("0"),
-            evlu_pfls_amt: String::from("0"),
-            evlu_pfls_rt: String::from("0"),
-        }
-    }
-}
-
-/// 잔고 요약 (output2)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct BalanceSummary {
-    /// 예수금총금액 (D+0, 매수 당일 결제 전 음수 가능)
-    pub dnca_tot_amt: String,
-    /// 익일정산금액 (D+1 예수금)
-    pub nxdy_excc_amt: String,
-    /// 가수도정산금액 (D+2 예수금, 실제 인출·매매 가능 현금)
-    pub prvs_rcdl_excc_amt: String,
-    /// 총평가금액
-    pub tot_evlu_amt: String,
-    /// 순자산금액
-    pub nass_amt: String,
-    /// 총수익율
-    pub tot_evlu_pfls_rt: String,
-}
-
-impl Default for BalanceSummary {
-    fn default() -> Self {
-        Self {
-            dnca_tot_amt: String::from("0"),
-            nxdy_excc_amt: String::from("0"),
-            prvs_rcdl_excc_amt: String::from("0"),
-            tot_evlu_amt: String::from("0"),
-            nass_amt: String::from("0"),
-            tot_evlu_pfls_rt: String::from("0"),
-        }
-    }
-}
-
-/// 잔고 전체 응답
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BalanceResponse {
-    pub items: Vec<BalanceItem>,
-    pub summary: Option<BalanceSummary>,
-}
-
-// ────────────────────────────────────────────────────────────────────
-// 해외 잔고 조회
-// ────────────────────────────────────────────────────────────────────
-
-/// 해외 잔고 응답 (1건, TTTS3012R output1)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct OverseasBalanceItem {
-    /// 종목코드 (티커)
-    pub ovrs_pdno: String,
-    /// 종목명
-    pub ovrs_item_name: String,
-    /// 해외잔고수량
-    pub ovrs_cblc_qty: String,
-    /// 매입평균가격 (USD)
-    pub pchs_avg_pric: String,
-    /// 현재가 (USD)
-    pub now_pric2: String,
-    /// 해외주식평가금액 (USD)
-    pub ovrs_stck_evlu_amt: String,
-    /// 외화평가손익금액 (USD)
-    pub frcr_evlu_pfls_amt: String,
-    /// 평가손익율 (%)
-    pub evlu_pfls_rt: String,
-    /// 거래소코드 (NAS/NYS/AMS 등)
-    pub ovrs_excg_cd: String,
-    /// 시장명
-    pub tr_mket_name: String,
-}
-
-impl Default for OverseasBalanceItem {
-    fn default() -> Self {
-        Self {
-            ovrs_pdno: String::new(),
-            ovrs_item_name: String::new(),
-            ovrs_cblc_qty: String::from("0"),
-            pchs_avg_pric: String::from("0"),
-            now_pric2: String::from("0"),
-            ovrs_stck_evlu_amt: String::from("0"),
-            frcr_evlu_pfls_amt: String::from("0"),
-            evlu_pfls_rt: String::from("0"),
-            ovrs_excg_cd: String::new(),
-            tr_mket_name: String::new(),
-        }
-    }
-}
-
-/// 해외 잔고 요약 (TTTS3012R output2)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct OverseasBalanceSummary {
-    /// 외화매입금액합계 (USD)
-    pub frcr_pchs_amt1: String,
-    /// 해외총손익 (USD)
-    pub ovrs_tot_pfls: String,
-    /// 외화평가금액합계 (USD)
-    pub frcr_evlu_tota: String,
-    /// 총수익률 (%)
-    pub tot_pftrt: String,
-}
-
-impl Default for OverseasBalanceSummary {
-    fn default() -> Self {
-        Self {
-            frcr_pchs_amt1: String::from("0"),
-            ovrs_tot_pfls: String::from("0"),
-            frcr_evlu_tota: String::from("0"),
-            tot_pftrt: String::from("0"),
-        }
-    }
-}
-
-/// 해외 잔고 전체 응답
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OverseasBalanceResponse {
-    pub items: Vec<OverseasBalanceItem>,
-    pub summary: Option<OverseasBalanceSummary>,
-}
-
-// ────────────────────────────────────────────────────────────────────
-// 차트 (기간별 시세)
-// ────────────────────────────────────────────────────────────────────
-
-/// 차트 캔들 1개 (일/주/월봉 또는 provider intraday timestamp)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChartCandle {
-    /// 영업일자 YYYYMMDD 또는 provider intraday timestamp
-    pub date: String,
-    /// 시가
-    pub open: String,
-    /// 고가
-    pub high: String,
-    /// 저가
-    pub low: String,
-    /// 종가
-    pub close: String,
-    /// 누적거래량
-    pub volume: String,
-}
-
-// ────────────────────────────────────────────────────────────────────
-// 주문
-// ────────────────────────────────────────────────────────────────────
-
-/// 주문 방향
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum OrderSide {
-    Buy,
-    Sell,
-}
-
-/// 주문 유형
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum OrderType {
-    /// 지정가
-    Limit,
-    /// 시장가
-    Market,
-}
-
-impl OrderType {
-    fn code(&self) -> &'static str {
-        match self {
-            OrderType::Limit => "00",
-            OrderType::Market => "01",
-        }
-    }
-}
-
-/// 주문 요청
-#[derive(Debug, Serialize)]
-pub struct OrderRequest {
-    /// 종목코드 (6자리)
-    pub symbol: String,
-    pub side: OrderSide,
-    pub order_type: OrderType,
-    pub quantity: u64,
-    /// 지정가 (시장가일 때 0)
-    pub price: u64,
-}
-
-/// 주문 응답
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrderResponse {
-    /// 주문번호
-    pub odno: String,
-    /// 주문시각
-    pub ord_tmd: String,
-    /// 주문 요청에 사용한 provider TR-ID
-    pub tr_id: String,
-    pub rt_cd: String,
-    pub msg1: String,
-}
-
-// ────────────────────────────────────────────────────────────────────
-// 체결 내역 조회
-// ────────────────────────────────────────────────────────────────────
-
-/// 체결 내역 1건
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(default)]
-pub struct ExecutedOrder {
-    /// 종목코드
-    pub pdno: String,
-    /// 종목명
-    pub prdt_name: String,
-    /// 매도매수구분코드 "01"=매도, "02"=매수
-    pub sll_buy_dvsn_cd: String,
-    /// 주문수량
-    pub ord_qty: String,
-    /// 주문단가
-    pub ord_unpr: String,
-    /// 체결수량
-    pub tot_ccld_qty: String,
-    /// 체결금액
-    pub tot_ccld_amt: String,
-    /// 주문번호
-    pub odno: String,
-    /// 주문일자
-    pub ord_dt: String,
-    /// 주문시각
-    pub ord_tmd: String,
-}
-
-/// 해외 주문체결 내역 1건 (TTTS3035R / VTTS3035R output)
-///
-/// KIS 해외 체결 응답은 필드가 상품/환경별로 일부 비어 있을 수 있어 문자열 기본값으로
-/// 넓게 수용한다. 자동 체결 확인에는 `odno`, 체결수량, 체결단가/체결금액만 사용한다.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(default)]
-pub struct OverseasExecutedOrder {
-    /// 상품번호 / 티커
-    pub pdno: String,
-    /// 상품명
-    pub prdt_name: String,
-    /// 해외거래소코드
-    pub ovrs_excg_cd: String,
-    /// 매도매수구분
-    pub sll_buy_dvsn: String,
-    /// 체결/미체결 구분
-    pub ccld_nccs_dvsn: String,
-    /// 주문수량
-    pub ft_ord_qty: String,
-    /// 해외주문단가
-    pub ft_ord_unpr3: String,
-    /// 체결수량
-    pub ft_ccld_qty: String,
-    /// 체결단가
-    pub ft_ccld_unpr3: String,
-    /// 체결금액
-    pub ft_ccld_amt3: String,
-    /// 주문번호
-    pub odno: String,
-    /// 주문일자
-    pub ord_dt: String,
-    /// 주문시각
-    pub ord_tmd: String,
-    /// 주문채번지점번호
-    pub ord_gno_brno: String,
-}
-
-impl OverseasExecutedOrder {
-    pub fn filled_qty(&self) -> u64 {
-        first_positive_u64(&[&self.ft_ccld_qty])
-    }
-
-    pub fn avg_price_cents(&self) -> u64 {
-        let qty = self.filled_qty();
-        let amount_cents = parse_decimal_cents(&self.ft_ccld_amt3);
-        if qty > 0 && amount_cents > 0 {
-            return amount_cents / qty;
-        }
-        parse_decimal_cents(&self.ft_ccld_unpr3).max(parse_decimal_cents(&self.ft_ord_unpr3))
-    }
-}
-
-// ────────────────────────────────────────────────────────────────────
-// 현재가 조회
-// ────────────────────────────────────────────────────────────────────
-
-/// 현재가 응답
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(default)]
-pub struct PriceResponse {
-    /// 현재가
-    pub stck_prpr: String,
-    /// 전일대비
-    pub prdy_vrss: String,
-    /// 전일대비율
-    pub prdy_ctrt: String,
-    /// 거래량
-    pub acml_vol: String,
-    /// 종목명
-    pub hts_kor_isnm: String,
-    /// 시가
-    pub stck_oprc: String,
-    /// 고가
-    pub stck_hgpr: String,
-    /// 저가
-    pub stck_lwpr: String,
-    /// 상한가
-    pub stck_mxpr: String,
-    /// 하한가
-    pub stck_llam: String,
-    /// 52주 최고가
-    pub w52_hgpr: String,
-    /// 52주 최저가
-    pub w52_lwpr: String,
-}
-
-// ────────────────────────────────────────────────────────────────────
-// 종목 검색
-// ────────────────────────────────────────────────────────────────────
-
-/// 종목 검색 결과 1건
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(default)]
-pub struct StockSearchItem {
-    /// 종목코드
-    pub pdno: String,
-    /// 종목명 (prdt_abrv_name 필드도 수용)
-    #[serde(alias = "prdt_abrv_name")]
-    pub prdt_name: String,
-    /// 시장구분: "KOSPI" | "KOSDAQ" | "KONEX" | "US" (없으면 None)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub market: Option<String>,
-}
-
-// ────────────────────────────────────────────────────────────────────
-// 해외 현재가
-// ────────────────────────────────────────────────────────────────────
-
-/// 해외 현재가 응답 (KIS HHDFS76200200)
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(default)]
-pub struct OverseasPriceResponse {
-    /// 현지 현재가 (USD 등)
-    pub last: String,
-    /// 전일대비
-    pub diff: String,
-    /// 등락률 (%)
-    pub rate: String,
-    /// 거래량
-    pub tvol: String,
-    /// 종목명
-    pub name: String,
-    /// 시가
-    pub open: String,
-    /// 고가
-    pub high: String,
-    /// 저가
-    pub low: String,
-    /// 52주 최고
-    pub h52p: String,
-    /// 52주 최저
-    pub l52p: String,
-    /// 거래소 심볼 (rsym)
-    pub rsym: String,
-}
-
-// ────────────────────────────────────────────────────────────────────
-// 해외 주문
-// ────────────────────────────────────────────────────────────────────
-
-/// 해외 주문 요청
-#[derive(Debug, Serialize)]
-pub struct OverseasOrderRequest {
-    /// 티커 (AAPL 등)
-    pub symbol: String,
-    /// KIS 거래소 코드 (NASD / NYSE / AMEX)
-    pub exchange: String,
-    pub side: OrderSide,
-    pub quantity: u64,
-    /// USD 가격 (해외는 지정가만 지원)
-    pub price: f64,
-}
-
-const PAPER_UNSUPPORTED_SELL_SYMBOLS: &[&str] = &["VOO", "SPY", "QQQM"];
-
-fn validate_overseas_order(req: &OverseasOrderRequest, is_paper: bool) -> Result<()> {
-    let symbol = req.symbol.trim().to_uppercase();
-    let exchange = req.exchange.trim().to_uppercase();
-
-    if symbol.is_empty() {
-        anyhow::bail!("해외 주문 사전 검증 실패: 종목코드가 비어 있습니다.");
-    }
-    if !matches!(exchange.as_str(), "NASD" | "NYSE" | "AMEX") {
-        anyhow::bail!(
-            "해외 주문 사전 검증 실패: 지원하지 않는 거래소 코드입니다: {}",
-            req.exchange
-        );
-    }
-    if req.quantity == 0 {
-        anyhow::bail!("해외 주문 사전 검증 실패: 주문 수량은 1 이상이어야 합니다.");
-    }
-    if !req.price.is_finite() || req.price <= 0.0 {
-        anyhow::bail!("해외 주문 사전 검증 실패: 해외 주문은 0보다 큰 USD 지정가가 필요합니다.");
-    }
-
-    let paper_sell_limited = is_paper
-        && matches!(req.side, OrderSide::Sell)
-        && (exchange == "AMEX" || PAPER_UNSUPPORTED_SELL_SYMBOLS.contains(&symbol.as_str()));
-    if paper_sell_limited {
-        anyhow::bail!(
-            "PAPER_OVERSEAS_UNSUPPORTED: 모의투자 미지원 사전 검증 - {} ({}) 매도 주문은 KIS 모의투자 해외 주문 universe에서 제한됩니다. 해당업무가 제공되지 않습니다. 실전투자로 전환하거나 NASD/NYSE 지원 종목으로 검증하세요.",
-            symbol,
-            exchange
-        );
-    }
-
-    Ok(())
-}
-
-fn parse_decimal_cents(value: &str) -> u64 {
-    let clean = value.trim().replace(',', "");
-    if clean.is_empty() {
-        return 0;
-    }
-    clean
-        .parse::<f64>()
-        .ok()
-        .map(|v| (v * 100.0).round() as u64)
-        .unwrap_or(0)
-}
-
-fn first_positive_u64(values: &[&str]) -> u64 {
-    values
-        .iter()
-        .filter_map(|v| v.trim().replace(',', "").parse::<u64>().ok())
-        .find(|v| *v > 0)
-        .unwrap_or(0)
-}
+mod exchange;
+mod types;
+pub use exchange::fetch_usd_krw_rate;
+pub use types::*;
 
 // ────────────────────────────────────────────────────────────────────
 // 클라이언트 구현
@@ -539,10 +68,12 @@ impl KisRestClient {
             is_paper,
             token_manager,
             api_debug: Arc::new(AtomicBool::new(false)),
-            rate_limiter: RateLimitScheduler::with_min_intervals([(
-                "kis:order",
-                Duration::from_secs(1),
-            )]),
+            rate_limiter: RateLimitScheduler::with_min_intervals([
+                (KIS_RATE_GROUP_ACCOUNT, kis_read_min_interval(is_paper)),
+                (KIS_RATE_GROUP_EXECUTION, kis_read_min_interval(is_paper)),
+                (KIS_RATE_GROUP_QUOTE, kis_read_min_interval(is_paper)),
+                (KIS_RATE_GROUP_ORDER, Duration::from_secs(1)),
+            ]),
         }
     }
 
@@ -585,6 +116,20 @@ impl KisRestClient {
         Ok(headers)
     }
 
+    async fn send_with_rate_limit(
+        &self,
+        group: &'static str,
+        request: RequestBuilder,
+    ) -> Result<Response> {
+        self.rate_limiter.wait(group).await;
+        let resp = request.send().await?;
+        let headers = resp.headers().clone();
+        self.rate_limiter
+            .apply_response_headers(group, &headers)
+            .await;
+        Ok(resp)
+    }
+
     /// 계좌번호 분리 (CANO 8자리 + ACNT_PRDT_CD 2자리)
     fn split_account(&self) -> (&str, &str) {
         if self.account_no.len() >= 10 {
@@ -613,23 +158,22 @@ impl KisRestClient {
         let headers = self.auth_headers(tr_id).await?;
 
         let resp = self
-            .client
-            .get(&url)
-            .headers(headers)
-            .query(&[
-                ("CANO", cano),
-                ("ACNT_PRDT_CD", acnt_prdt_cd),
-                ("AFHR_FLPR_YN", "N"),
-                ("OFL_YN", ""),
-                ("INQR_DVSN", "02"),
-                ("UNPR_DVSN", "01"),
-                ("FUND_STTL_ICLD_YN", "N"),
-                ("FNCG_AMT_AUTO_RDPT_YN", "N"),
-                ("PRCS_DVSN", "01"),
-                ("CTX_AREA_FK100", ""),
-                ("CTX_AREA_NK100", ""),
-            ])
-            .send()
+            .send_with_rate_limit(
+                KIS_RATE_GROUP_ACCOUNT,
+                self.client.get(&url).headers(headers).query(&[
+                    ("CANO", cano),
+                    ("ACNT_PRDT_CD", acnt_prdt_cd),
+                    ("AFHR_FLPR_YN", "N"),
+                    ("OFL_YN", ""),
+                    ("INQR_DVSN", "02"),
+                    ("UNPR_DVSN", "01"),
+                    ("FUND_STTL_ICLD_YN", "N"),
+                    ("FNCG_AMT_AUTO_RDPT_YN", "N"),
+                    ("PRCS_DVSN", "01"),
+                    ("CTX_AREA_FK100", ""),
+                    ("CTX_AREA_NK100", ""),
+                ]),
+            )
             .await?;
 
         let status = resp.status();
@@ -687,18 +231,17 @@ impl KisRestClient {
         let headers = self.auth_headers(tr_id).await?;
 
         let resp = self
-            .client
-            .get(&url)
-            .headers(headers)
-            .query(&[
-                ("CANO", cano),
-                ("ACNT_PRDT_CD", acnt_prdt_cd),
-                ("OVRS_EXCG_CD", ""),  // 빈 문자열 = 전체 거래소
-                ("TR_CRCY_CD", "USD"), // 달러 기준
-                ("CTX_AREA_FK200", ""),
-                ("CTX_AREA_NK200", ""),
-            ])
-            .send()
+            .send_with_rate_limit(
+                KIS_RATE_GROUP_ACCOUNT,
+                self.client.get(&url).headers(headers).query(&[
+                    ("CANO", cano),
+                    ("ACNT_PRDT_CD", acnt_prdt_cd),
+                    ("OVRS_EXCG_CD", ""),  // 빈 문자열 = 전체 거래소
+                    ("TR_CRCY_CD", "USD"), // 달러 기준
+                    ("CTX_AREA_FK200", ""),
+                    ("CTX_AREA_NK200", ""),
+                ]),
+            )
             .await?;
 
         let status = resp.status();
@@ -782,13 +325,11 @@ impl KisRestClient {
             ord_unpr: req.price.to_string(),
         };
 
-        self.rate_limiter.wait("kis:order").await;
         let resp = self
-            .client
-            .post(&url)
-            .headers(headers)
-            .json(&body)
-            .send()
+            .send_with_rate_limit(
+                KIS_RATE_GROUP_ORDER,
+                self.client.post(&url).headers(headers).json(&body),
+            )
             .await?;
 
         let status = resp.status();
@@ -856,26 +397,25 @@ impl KisRestClient {
         let headers = self.auth_headers(tr_id).await?;
 
         let resp = self
-            .client
-            .get(&url)
-            .headers(headers)
-            .query(&[
-                ("CANO", cano),
-                ("ACNT_PRDT_CD", acnt_prdt_cd),
-                ("INQR_STRT_DT", from),
-                ("INQR_END_DT", to),
-                ("SLL_BUY_DVSN_CD", "00"),
-                ("INQR_DVSN", "00"),
-                ("PDNO", ""),
-                ("CCLD_DVSN", "01"), // 01=체결만 (00=전체 포함 미체결)
-                ("ORD_GNO_BRNO", ""),
-                ("ODNO", ""),
-                ("INQR_DVSN_3", "00"),
-                ("INQR_DVSN_1", ""),
-                ("CTX_AREA_FK100", ""),
-                ("CTX_AREA_NK100", ""),
-            ])
-            .send()
+            .send_with_rate_limit(
+                KIS_RATE_GROUP_EXECUTION,
+                self.client.get(&url).headers(headers).query(&[
+                    ("CANO", cano),
+                    ("ACNT_PRDT_CD", acnt_prdt_cd),
+                    ("INQR_STRT_DT", from),
+                    ("INQR_END_DT", to),
+                    ("SLL_BUY_DVSN_CD", "00"),
+                    ("INQR_DVSN", "00"),
+                    ("PDNO", ""),
+                    ("CCLD_DVSN", "01"), // 01=체결만 (00=전체 포함 미체결)
+                    ("ORD_GNO_BRNO", ""),
+                    ("ODNO", ""),
+                    ("INQR_DVSN_3", "00"),
+                    ("INQR_DVSN_1", ""),
+                    ("CTX_AREA_FK100", ""),
+                    ("CTX_AREA_NK100", ""),
+                ]),
+            )
             .await?;
 
         let status = resp.status();
@@ -966,26 +506,25 @@ impl KisRestClient {
             let sort_sqn = if self.is_paper { "" } else { "DS" };
 
             let resp = self
-                .client
-                .get(&url)
-                .headers(headers)
-                .query(&[
-                    ("CANO", cano),
-                    ("ACNT_PRDT_CD", acnt_prdt_cd),
-                    ("PDNO", pdno),
-                    ("ORD_STRT_DT", from),
-                    ("ORD_END_DT", to),
-                    ("SLL_BUY_DVSN", sll_buy_dvsn),
-                    ("CCLD_NCCS_DVSN", ccld_nccs_dvsn),
-                    ("OVRS_EXCG_CD", ovrs_excg_cd),
-                    ("SORT_SQN", sort_sqn),
-                    ("ORD_DT", ""),
-                    ("ORD_GNO_BRNO", ""),
-                    ("ODNO", ""),
-                    ("CTX_AREA_FK200", &ctx_fk200),
-                    ("CTX_AREA_NK200", &ctx_nk200),
-                ])
-                .send()
+                .send_with_rate_limit(
+                    KIS_RATE_GROUP_EXECUTION,
+                    self.client.get(&url).headers(headers).query(&[
+                        ("CANO", cano),
+                        ("ACNT_PRDT_CD", acnt_prdt_cd),
+                        ("PDNO", pdno),
+                        ("ORD_STRT_DT", from),
+                        ("ORD_END_DT", to),
+                        ("SLL_BUY_DVSN", sll_buy_dvsn),
+                        ("CCLD_NCCS_DVSN", ccld_nccs_dvsn),
+                        ("OVRS_EXCG_CD", ovrs_excg_cd),
+                        ("SORT_SQN", sort_sqn),
+                        ("ORD_DT", ""),
+                        ("ORD_GNO_BRNO", ""),
+                        ("ODNO", ""),
+                        ("CTX_AREA_FK200", &ctx_fk200),
+                        ("CTX_AREA_NK200", &ctx_nk200),
+                    ]),
+                )
                 .await?;
 
             let status = resp.status();
@@ -1084,18 +623,17 @@ impl KisRestClient {
         let headers = self.auth_headers("FHKST03010100").await?;
 
         let resp = self
-            .client
-            .get(&url)
-            .headers(headers)
-            .query(&[
-                ("FID_COND_MRKT_DIV_CODE", "J"),
-                ("FID_INPUT_ISCD", symbol),
-                ("FID_INPUT_DATE_1", start_date),
-                ("FID_INPUT_DATE_2", end_date),
-                ("FID_PERIOD_DIV_CODE", period_code),
-                ("FID_ORG_ADJ_PRC", "0"),
-            ])
-            .send()
+            .send_with_rate_limit(
+                KIS_RATE_GROUP_QUOTE,
+                self.client.get(&url).headers(headers).query(&[
+                    ("FID_COND_MRKT_DIV_CODE", "J"),
+                    ("FID_INPUT_ISCD", symbol),
+                    ("FID_INPUT_DATE_1", start_date),
+                    ("FID_INPUT_DATE_2", end_date),
+                    ("FID_PERIOD_DIV_CODE", period_code),
+                    ("FID_ORG_ADJ_PRC", "0"),
+                ]),
+            )
             .await?;
 
         let status = resp.status();
@@ -1177,11 +715,14 @@ impl KisRestClient {
         let headers = self.auth_headers("HHDFS76200200").await?;
 
         let resp = self
-            .client
-            .get(&url)
-            .headers(headers)
-            .query(&[("AUTH", ""), ("EXCD", exchange), ("SYMB", symbol)])
-            .send()
+            .send_with_rate_limit(
+                KIS_RATE_GROUP_QUOTE,
+                self.client.get(&url).headers(headers).query(&[
+                    ("AUTH", ""),
+                    ("EXCD", exchange),
+                    ("SYMB", symbol),
+                ]),
+            )
             .await?;
 
         let status = resp.status();
@@ -1260,13 +801,11 @@ impl KisRestClient {
             ord_svr_dvsn_cd: "0",
         };
 
-        self.rate_limiter.wait("kis:order").await;
         let resp = self
-            .client
-            .post(&url)
-            .headers(headers)
-            .json(&body)
-            .send()
+            .send_with_rate_limit(
+                KIS_RATE_GROUP_ORDER,
+                self.client.post(&url).headers(headers).json(&body),
+            )
             .await?;
 
         let status = resp.status();
@@ -1333,18 +872,17 @@ impl KisRestClient {
         };
 
         let resp = self
-            .client
-            .get(&url)
-            .headers(headers)
-            .query(&[
-                ("AUTH", ""),
-                ("EXCD", exchange),
-                ("SYMB", symbol),
-                ("GUBN", gubn),
-                ("BYMD", base_date),
-                ("MODP", "1"),
-            ])
-            .send()
+            .send_with_rate_limit(
+                KIS_RATE_GROUP_QUOTE,
+                self.client.get(&url).headers(headers).query(&[
+                    ("AUTH", ""),
+                    ("EXCD", exchange),
+                    ("SYMB", symbol),
+                    ("GUBN", gubn),
+                    ("BYMD", base_date),
+                    ("MODP", "1"),
+                ]),
+            )
             .await?;
 
         let status = resp.status();
@@ -1424,11 +962,13 @@ impl KisRestClient {
         let headers = self.auth_headers("FHKST01010100").await?;
 
         let resp = self
-            .client
-            .get(&url)
-            .headers(headers)
-            .query(&[("fid_cond_mrkt_div_code", "J"), ("fid_input_iscd", symbol)])
-            .send()
+            .send_with_rate_limit(
+                KIS_RATE_GROUP_QUOTE,
+                self.client
+                    .get(&url)
+                    .headers(headers)
+                    .query(&[("fid_cond_mrkt_div_code", "J"), ("fid_input_iscd", symbol)]),
+            )
             .await?;
 
         let status = resp.status();
@@ -1452,46 +992,4 @@ impl KisRestClient {
         raw.output
             .ok_or_else(|| anyhow::anyhow!("현재가 응답 없음"))
     }
-}
-
-// ────────────────────────────────────────────────────────────────────
-// 환율 조회 (KIS 외부 — 인증 불필요)
-// open.er-api.com 무료 공개 API, API 키 없이 사용 가능
-// 반환값은 AppState.exchange_rate_krw에 캐시되어
-// REFRESH_INTERVAL_SEC마다 백그라운드 갱신됩니다.
-// ────────────────────────────────────────────────────────────────────
-
-/// USD/KRW 현재 환율 조회
-///
-/// `open.er-api.com` 무료 API (API 키 불필요, 1일 1회 업데이트)를 사용합니다.
-/// 네트워크 오류 발생 시 Err를 반환하며, 호출부에서 캐시 값을 유지합니다.
-pub async fn fetch_usd_krw_rate() -> Result<f64> {
-    use std::collections::HashMap;
-
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .user_agent("KISAutoTrade/1.0")
-        .build()?;
-
-    #[derive(Deserialize)]
-    struct RateResp {
-        result: String,
-        rates: HashMap<String, f64>,
-    }
-
-    let resp: RateResp = client
-        .get("https://open.er-api.com/v6/latest/USD")
-        .send()
-        .await?
-        .json()
-        .await?;
-
-    if resp.result != "success" {
-        anyhow::bail!("환율 API 오류: result = {}", resp.result);
-    }
-
-    resp.rates
-        .get("KRW")
-        .copied()
-        .ok_or_else(|| anyhow::anyhow!("환율 응답에 KRW 없음"))
 }

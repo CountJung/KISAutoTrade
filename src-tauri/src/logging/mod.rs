@@ -1,4 +1,5 @@
 use anyhow::Result;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use tracing_appender::{non_blocking, rolling};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
@@ -28,6 +29,9 @@ pub struct LogEntry {
     pub target: String,
     pub message: String,
 }
+
+/// UI/REST에서 한 번에 요청할 수 있는 최근 로그 최대 라인 수.
+pub const MAX_RECENT_LOG_COUNT: usize = 1_000;
 
 /// tracing 포맷 한 줄 파싱
 /// 형식: "YYYY-MM-DDTHH:MM:SS.nnnnnZ  LEVEL target: message"
@@ -86,7 +90,43 @@ pub fn read_recent_entries(log_dir: &Path, count: usize) -> Vec<LogEntry> {
 
 /// 단일 log 파일에서 최근 `count`줄 파싱 (파일 없으면 None, 비어있으면 Some(vec![]))
 fn read_log_file(path: &std::path::Path, count: usize) -> Option<Vec<LogEntry>> {
-    let content = std::fs::read_to_string(path).ok()?;
+    const MIN_TAIL_BYTES: u64 = 64 * 1024;
+    const MAX_TAIL_BYTES: u64 = 1024 * 1024;
+
+    let count = count.clamp(1, MAX_RECENT_LOG_COUNT);
+    let mut file = std::fs::File::open(path).ok()?;
+    let file_len = file.metadata().ok()?.len();
+    if file_len == 0 {
+        return Some(vec![]);
+    }
+
+    let mut tail_bytes = ((count as u64).saturating_mul(512))
+        .clamp(MIN_TAIL_BYTES, MAX_TAIL_BYTES)
+        .min(file_len);
+
+    let content = loop {
+        let start = file_len.saturating_sub(tail_bytes);
+        let mut buf = vec![0_u8; tail_bytes as usize];
+        file.seek(SeekFrom::Start(start)).ok()?;
+        file.read_exact(&mut buf).ok()?;
+
+        let mut content = String::from_utf8_lossy(&buf).into_owned();
+        if start > 0 {
+            if let Some((_, rest)) = content.split_once('\n') {
+                content = rest.to_string();
+            }
+        }
+
+        let available_lines = content.lines().count();
+        if available_lines >= count || tail_bytes == file_len || tail_bytes == MAX_TAIL_BYTES {
+            break content;
+        }
+
+        tail_bytes = (tail_bytes.saturating_mul(2))
+            .min(MAX_TAIL_BYTES)
+            .min(file_len);
+    };
+
     if content.is_empty() {
         return Some(vec![]);
     }
@@ -116,7 +156,7 @@ fn find_most_recent_log_file(log_dir: &Path) -> Option<std::path::PathBuf> {
         })
         .collect();
     // 수정 시간 내림차순(최신 먼저)
-    files.sort_by(|a, b| b.1.cmp(&a.1));
+    files.sort_by_key(|(_, modified)| std::cmp::Reverse(*modified));
     files.into_iter().map(|(p, _)| p).next()
 }
 

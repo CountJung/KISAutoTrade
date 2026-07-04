@@ -84,7 +84,7 @@ impl MarketCalendarOverride {
 /// - 일반 주식: `005930` (숫자 6자리)
 /// - ETF 등:   `0005A0` (숫자+알파벳 혼합)
 pub fn is_domestic_symbol(symbol: &str) -> bool {
-    symbol.len() == 6 && symbol.chars().next().map_or(false, |c| c.is_ascii_digit())
+    symbol.len() == 6 && symbol.chars().next().is_some_and(|c| c.is_ascii_digit())
 }
 
 /// KRX 정규 세션 개장 여부 (KST 기준)
@@ -101,7 +101,7 @@ pub fn is_krx_open_at(now: DateTime<FixedOffset>) -> bool {
     }
     let mins = now.hour() * 60 + now.minute();
     // 09:00 = 540분, 15:30 = 930분
-    mins >= 540 && mins < 930
+    (540..930).contains(&mins)
 }
 
 /// 미국 주식 시장(NYSE/NASDAQ) 세션 개장 여부 (KST 기준 야간)

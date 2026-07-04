@@ -36,6 +36,44 @@
 
 ---
 
+## P0 — 운영 안정성 / 대형 파일 분리
+
+- [x] 1000라인 초과 소스 파일을 책임 단위로 분리한다.
+  - Rust: `commands.rs`의 프로파일/잔고/Toss read-only/preflight, 자동매매 runtime, 전략/리스크, 설정/시세/주문/로그/보관 surface는 `src-tauri/src/commands/{accounts,toss,toss_market,trading,trading/history,strategy,risk,settings,market,orders,records,archive}.rs`로 분리했다. `server/mod.rs`의 market/records/profiles/Toss/trading REST surface는 `src-tauri/src/server/{market,records,profiles,toss,trading}.rs`로 분리했다. `trading/strategy.rs`는 facade로 낮추고 `trading/strategy/{core,manager,state,classic,breakout,mean_trend,leveraged_trend_hold,price_condition,tests}.rs`로 분리했다. `broker/toss.rs`는 `broker/toss/{mod,adapter,client,http,error,support,types,orders,tests}.rs`로 분리했다.
+  - 현재 점검 기준 source 파일은 모두 1000라인 아래다. 이후 신규/변경 파일도 가능한 한 1000라인 아래로 유지하고, 불가피한 예외는 분리 축과 후속 작업을 문서화한다.
+- [x] `src-tauri/src/api/rest.rs`에서 KIS REST 타입과 공개 환율 fetcher를 `api/rest/types.rs`, `api/rest/exchange.rs`로 분리해 facade 파일을 1000라인 아래로 유지한다.
+- [x] `src-tauri/src/trading/order.rs`에서 체결 처리, pending 충돌 helper, lock-short 주문 제출을 `trading/order/fills.rs`, `trading/order/conflicts.rs`, `trading/order/submission.rs`로 분리해 OrderManager facade를 1000라인 아래로 유지한다.
+- [x] `src-tauri/src/commands.rs`에서 프로파일/잔고/Toss read-only/preflight IPC surface를 `commands/accounts.rs`, `commands/toss.rs`, `commands/toss_market.rs`로 분리하고 새 파일을 1000라인 아래로 유지한다.
+- [x] `src-tauri/src/commands.rs`에서 자동매매 status/start/stop/daemon/sync를 `commands/trading.rs`, 히스토리/ATR 초기화를 `commands/trading/history.rs`, 포지션/전략 IPC를 `commands/strategy.rs`, 리스크/pending IPC를 `commands/risk.rs`로 분리하고 새 파일을 1000라인 아래로 유지한다.
+- [x] `src-tauri/src/commands.rs`에서 app 설정/refresh/log/web/환율, 시세/차트/종목검색/해외 주문 사전검증, 수동 주문, 체결/통계/로그, trade archive IPC를 `commands/{settings,market,orders,records,archive}.rs`로 분리하고 facade와 새 파일을 1000라인 아래로 유지한다.
+- [x] `src-tauri/src/server/mod.rs`에서 market/records/profiles/Toss/trading REST surface를 `server/{market,records,profiles,toss,trading}.rs`로 분리해 server facade와 새 파일을 모두 1000라인 아래로 유지한다.
+- [x] `src-tauri/src/trading/strategy.rs`에서 Strategy core/manager/state/helper와 전략군을 `trading/strategy/*` 하위 모듈로 분리해 facade와 새 파일을 모두 1000라인 아래로 유지한다.
+- [ ] Rust 중복 view/helper와 장기 운영 리스크를 정리한다.
+  - [x] `commands.rs`/`server/mod.rs`의 strategy view를 `src-tauri/src/trading/views.rs` 공용 builder로 승격한다.
+  - [x] risk view, pending order view, archive stats builder 중복을 공유 builder/service로 승격한다.
+  - [x] IPC/REST 프로파일 view/masking은 `commands/accounts.rs::profile_to_view()`로 공용화한다.
+  - [x] `get_strategies`는 `strategy_manager` lock을 잡은 채 stock name lookup을 await하지 않도록 clone-then-await 패턴으로 바꾼다.
+  - [x] IPC/REST recent logs count는 reader clamp와 별도로 handler 레벨에서도 상한을 둔다.
+  - [x] Toss HTTP client에 명시 timeout과 응답 크기 guard를 두고, token refresh가 token mutex를 잡은 채 네트워크 요청을 기다리지 않도록 분리한다. 응답 body는 `Content-Length` 사전 검사뿐 아니라 chunk 누적 중에도 상한 초과 전에 중단하고, 파싱/에러 메시지에는 전체 body 대신 snippet만 포함한다.
+  - [x] KIS token client에 명시 timeout을 두고, token refresh가 token mutex를 잡은 채 네트워크 요청을 기다리지 않도록 분리한다.
+  - [x] 자동매매 daemon의 환율 조회가 `order_manager` mutex를 잡고 내부 RwLock await를 다시 호출하지 않도록 `exchange_rate_krw`를 직접 참조한다.
+  - [x] 웹 REST `/api/trading/start`가 Toss 등 미지원 broker에서 `is_trading`만 켜지 않도록 KIS-only gate, KIS 설정 검증, `OrderManager` 실행 scope 설정, 시작 전 KIS 잔고 기반 전략 포지션 복원을 수행한다.
+  - [x] 웹 REST `/api/archive-config` 변경도 IPC `set_trade_archive_config`처럼 저장 후 old trade purge를 즉시 예약한다.
+  - [x] KIS read API에 `kis:account`, `kis:execution`, `kis:quote` rate-limit group을 적용하고 응답 rate-limit header를 scheduler에 반영한다.
+  - [x] 전략 설정 업데이트와 프로파일 scope 적용 시 전략 인스턴스를 재빌드해 파라미터/대상 종목 변경이 즉시 반영되고 이전 종목 state가 잔류하지 않게 한다.
+  - [x] 전략 대상 종목 판정은 `StrategyConfig::targets_symbol()`로 공용화해 tick마다 `String`을 할당하지 않고, user-param 기반 `VecDeque`는 `trading/strategy/state.rs` bounded helper로 상한을 둔다.
+  - [x] KIS/Toss 주문 daemon의 `order_manager` lock-held-await를 분리한다.
+    - [x] 주문번호 기반 KIS 체결 조회 네트워크 호출은 `OrderManager::confirm_pending_fills_from_broker_shared()`로 `order_manager` mutex 밖에서 수행한다.
+    - [x] 전략 신호 주문 제출 경로는 `OrderManager::submit_signal_shared()`에서 lock-short guard/예약, lock-free provider 주문 API/저장, lock-short 상태 반영으로 분리하고, provider 호출 중 중복/반대 주문은 `submitting` 예약 맵으로 차단한다.
+- [x] `src/pages/settings/ui/Page.tsx`에서 계좌 프로파일 섬을 `accountProfiles.tsx`, `profileDialogs.tsx`, `profileUtils.ts`, `section.tsx`로 분리해 Settings route와 새 파일을 모두 1000라인 아래로 유지한다.
+- [x] `src/pages/strategy/ui/Page.tsx`에서 레버리지 추세 보유 편집 패널을 `leveragedTrendHoldEditorPanel.tsx`로 분리해 Strategy route 파일을 1000라인 아래로 유지한다.
+- [x] `src/pages/dashboard/ui/Page.tsx`에서 미체결/체결 주문 패널을 `orderPanels.tsx`로 분리해 Dashboard route 파일을 1000라인 아래로 유지한다.
+- [x] `src/api/hooks.ts`에서 `queryKeys.ts`와 `backendEvents.ts`를 분리해 query key/event bridge 책임을 낮추고 파일을 1000라인 아래로 유지한다.
+- [x] Log 페이지 최근 로그 조회를 bounded tail reader + count별 query key로 변경해 큰 로그 파일에서 OOM/jank 위험을 낮춘다.
+- [x] 백그라운드 KIS 잔고 갱신 daemon은 활성 broker가 KIS일 때만 KIS API를 호출한다.
+
+---
+
 ## P0 — 토스증권 공식 API 조사/스킬화
 
 - [x] 토스증권 OpenAPI JSON을 기준으로 endpoint inventory 작성
@@ -210,4 +248,4 @@
 - rate limit은 `RateLimitScheduler` group key로 관리한다. Toss는 auth/account/market, KIS는 주문 제출부터 `kis:order`로 점진 이전한다.
 - Toss 주문 API client surface는 준비됐지만 UI/자동매매 연결은 소액 검증 gate와 체결 확인 adapter가 준비되기 전까지 열지 않는다.
 
-*마지막 업데이트: 2026-07-03T16:35:00+09:00*
+*마지막 업데이트: 2026-07-04T14:39:28+09:00*

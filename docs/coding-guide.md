@@ -767,7 +767,7 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 | 공통 타입 | `src-tauri/src/broker/domain.rs` |
 | adapter trait / 공통 에러 | `src-tauri/src/broker/adapter.rs` |
 | 기존 KIS 래퍼 | `src-tauri/src/broker/kis.rs` |
-| Toss read-only client/adapter | `src-tauri/src/broker/toss.rs` |
+| Toss read-only client/adapter | `src-tauri/src/broker/toss/{mod,adapter,client,http,error,support,types,orders}.rs` |
 
 ### 공통 타입 규칙
 
