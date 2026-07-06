@@ -35,6 +35,74 @@ async fn fetch_account_risk_balance_krw(
     domestic_total.saturating_add(overseas_total.max(0))
 }
 
+/// Toss 활성 프로파일 기준 리스크 총잔고(KRW 환산) 조회
+///
+/// KIS의 `fetch_account_risk_balance_krw`에 대응하는 Toss 경로.
+/// 매수가능금액(KRW/USD 현금)과 보유 종목 평가금액(KR/US)을 모두 합산해 KRW로 환산한다.
+async fn fetch_toss_risk_balance_krw(profile: &AccountProfile, exchange_rate_krw: f64) -> i64 {
+    let adapter = TossBrokerAdapter::with_credentials(
+        TossBrokerAdapter::DEFAULT_BASE_URL,
+        profile.app_key.clone(),
+        profile.app_secret.clone(),
+        Some(profile.account_no.clone()),
+    );
+    let account_seq = profile.account_no.as_str();
+
+    let mut total_krw = 0.0f64;
+
+    for currency in [BrokerCurrency::Krw, BrokerCurrency::Usd] {
+        match adapter.get_buying_power(Some(account_seq), currency).await {
+            Ok(power) => {
+                let amount = power
+                    .cash_buying_power
+                    .trim()
+                    .replace(',', "")
+                    .parse::<f64>()
+                    .unwrap_or(0.0);
+                total_krw += if currency == BrokerCurrency::Usd {
+                    amount * exchange_rate_krw
+                } else {
+                    amount
+                };
+            }
+            Err(e) => {
+                tracing::warn!("리스크 총잔고 조회 실패(Toss 매수가능금액 {:?}): {}", currency, e);
+            }
+        }
+    }
+
+    let account_id = BrokerAccountId(profile.broker_account_id());
+    match adapter.list_holdings(Some(&account_id)).await {
+        Ok(holdings) => {
+            for holding in &holdings {
+                let qty = holding
+                    .quantity
+                    .0
+                    .trim()
+                    .replace(',', "")
+                    .parse::<f64>()
+                    .unwrap_or(0.0);
+                let price = holding
+                    .current_price
+                    .amount
+                    .trim()
+                    .replace(',', "")
+                    .parse::<f64>()
+                    .unwrap_or(0.0);
+                let value = qty * price;
+                total_krw += if holding.current_price.currency == BrokerCurrency::Usd {
+                    value * exchange_rate_krw
+                } else {
+                    value
+                };
+            }
+        }
+        Err(e) => tracing::warn!("리스크 총잔고 조회 실패(Toss 보유종목): {}", e),
+    }
+
+    total_krw.round() as i64
+}
+
 fn calculate_atr(candles: &[OhlcCandle], period: usize) -> Option<u64> {
     if candles.len() < 2 || period == 0 {
         return None;
@@ -571,6 +639,68 @@ enum TickCycleResult {
     Stopped,
 }
 
+/// 자동매매 실행 scope(`OrderManager::execution_scope`)에 해당하는 계정 프로파일을 조회한다.
+///
+/// `account_id`가 scope에 있으면 broker_id+account_id로 매칭하고, 없으면 활성 프로파일로 폴백한다.
+/// (order/submission.rs의 `SubmissionDeps.active_profile` 조회 로직과 동일한 매칭 규칙 — 시세 조회와
+/// 주문 제출이 서로 다른 프로파일을 바라보지 않도록 일치시킨다.)
+async fn resolve_scoped_profile(
+    profiles: &Arc<RwLock<ProfilesConfig>>,
+    scope: &BrokerScope,
+) -> Option<AccountProfile> {
+    let profiles = profiles.read().await;
+    let account_id = scope.account_id.as_ref().map(|id| id.0.as_str());
+    profiles
+        .profiles
+        .iter()
+        .find(|profile| {
+            profile.broker_id == scope.broker_id
+                && account_id
+                    .map(|id| profile.broker_account_id() == id)
+                    .unwrap_or_else(|| {
+                        profiles.get_active().map(|p| p.id.as_str()) == Some(profile.id.as_str())
+                    })
+        })
+        .cloned()
+}
+
+/// 자동매매 시세 폴링에 사용할 broker 소스.
+///
+/// 실행 scope가 Toss면 해당 프로파일 자격증명으로 Toss 시세를 조회하고,
+/// 그 외(KIS)에는 기존 `KisRestClient` 경로를 그대로 사용한다.
+enum PriceSource {
+    Kis,
+    Toss(AccountProfile),
+}
+
+/// Toss 종목 현재가 조회 → (가격, 거래량) 튜플로 변환
+///
+/// 가격 단위는 KIS 경로와 동일하게 맞춘다: KRW는 원 단위 정수, USD는 센트(×100) 정수.
+/// Toss `/api/v1/prices`는 거래량을 제공하지 않아 volume은 항상 0으로 반환한다
+/// (leveraged_trend_hold 등 volume을 사용하지 않는 전략에는 영향 없음).
+async fn fetch_toss_tick(profile: &AccountProfile, symbol: &str) -> anyhow::Result<(u64, u64)> {
+    let adapter = TossBrokerAdapter::with_credentials(
+        TossBrokerAdapter::DEFAULT_BASE_URL,
+        profile.app_key.clone(),
+        profile.app_secret.clone(),
+        Some(profile.account_no.clone()),
+    );
+    let quote = adapter
+        .get_price(&BrokerSymbol(symbol.to_string()))
+        .await
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    let amount = quote.last.amount.trim().replace(',', "");
+    let price = match quote.last.currency {
+        BrokerCurrency::Krw => amount.parse::<u64>().unwrap_or(0),
+        BrokerCurrency::Usd => (amount.parse::<f64>().unwrap_or(0.0) * 100.0).round() as u64,
+    };
+    let volume = quote
+        .volume
+        .and_then(|q| q.0.parse::<u64>().ok())
+        .unwrap_or(0);
+    Ok((price, volume))
+}
+
 /// 종목 목록을 순차적으로 순회하여 현재가 조회 + 전략 신호 처리
 ///
 /// `break 'label` / `continue 'label` 없이 `return`으로 조기 탈출한다.
@@ -584,6 +714,7 @@ async fn poll_symbols_tick(
     order_mgr: &Arc<Mutex<crate::trading::order::OrderManager>>,
     stock_store: &Arc<crate::storage::stock_store::StockStore>,
     rest: &Arc<KisRestClient>,
+    price_source: &PriceSource,
     delay_ms: u64,
     total_balance_krw: i64,
     fills_pending: &mut Vec<(String, u64)>,
@@ -609,9 +740,17 @@ async fn poll_symbols_tick(
             continue;
         }
 
-        // 현재가 조회 + 해외 주문용 거래소 코드 캡처
-        let (tick, exchange_opt): (Result<(u64, u64), String>, Option<String>) =
-            if is_domestic_symbol(symbol) {
+        // 현재가 조회 + 해외 주문용 거래소 코드 캡처 (활성 broker 프로파일에 맞는 소스로 조회)
+        let (tick, exchange_opt): (Result<(u64, u64), String>, Option<String>) = match price_source
+        {
+            PriceSource::Toss(profile) => match fetch_toss_tick(profile, symbol).await {
+                Ok((price, volume)) => {
+                    let exch = (!is_domestic_symbol(symbol)).then(|| "TOSS_US".to_string());
+                    (Ok((price, volume)), exch)
+                }
+                Err(e) => (Err(e.to_string()), None),
+            },
+            PriceSource::Kis if is_domestic_symbol(symbol) => {
                 let t = rest
                     .get_price(symbol)
                     .await
@@ -622,12 +761,12 @@ async fn poll_symbols_tick(
                     })
                     .map_err(|e| e.to_string());
                 (t, None)
-            } else {
-                match fetch_overseas_tick(rest, symbol).await {
-                    Ok((price, volume, exch)) => (Ok((price, volume)), Some(exch)),
-                    Err(e) => (Err(e.to_string()), None),
-                }
-            };
+            }
+            PriceSource::Kis => match fetch_overseas_tick(rest, symbol).await {
+                Ok((price, volume, exch)) => (Ok((price, volume)), Some(exch)),
+                Err(e) => (Err(e.to_string()), None),
+            },
+        };
 
         // 틱 처리: 현재가 기반 전략 신호 생성 → 주문
         match tick {
@@ -785,6 +924,23 @@ pub async fn run_trading_daemon(
             continue;
         }
 
+        // 자동매매 실행 scope에 맞는 시세/잔고 소스 결정 (Toss 활성 시 KIS REST 폴백 금지)
+        let execution_scope = order_mgr.lock().await.execution_scope().clone();
+        let price_source = if execution_scope.broker_id == BrokerId::Toss {
+            match resolve_scoped_profile(&profiles, &execution_scope).await {
+                Some(profile) => PriceSource::Toss(profile),
+                None => {
+                    tracing::warn!(
+                        "자동매매 실행 scope가 Toss이지만 일치하는 프로파일을 찾지 못해 이번 틱을 건너뜁니다."
+                    );
+                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+                    continue;
+                }
+            }
+        } else {
+            PriceSource::Kis
+        };
+
         let rest = rest_arc.read().await.clone();
         let delay_ms: u64 = if rest.is_paper() { 700 } else { 150 };
 
@@ -809,12 +965,19 @@ pub async fn run_trading_daemon(
         );
 
         let exchange_rate = *exchange_rate_krw.read().await;
-        let total_balance_krw = fetch_account_risk_balance_krw(
-            &rest,
-            symbols.iter().any(|s| !is_domestic_symbol(s)),
-            exchange_rate,
-        )
-        .await;
+        let total_balance_krw = match &price_source {
+            PriceSource::Toss(profile) => {
+                fetch_toss_risk_balance_krw(profile, exchange_rate).await
+            }
+            PriceSource::Kis => {
+                fetch_account_risk_balance_krw(
+                    &rest,
+                    symbols.iter().any(|s| !is_domestic_symbol(s)),
+                    exchange_rate,
+                )
+                .await
+            }
+        };
         if total_balance_krw <= 0 {
             tracing::warn!(
                 "리스크 총잔고가 0원으로 조회되어 ATR 수량 산정과 포지션 비중 검사를 건너뜁니다."
@@ -830,6 +993,7 @@ pub async fn run_trading_daemon(
             &order_mgr,
             &stock_store,
             &rest,
+            &price_source,
             delay_ms,
             total_balance_krw,
             &mut fills_pending,
