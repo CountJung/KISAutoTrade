@@ -383,12 +383,30 @@ export default function Strategy() {
     // 6자 미만이면 대기, 그 외(6자 초과 등)는 무시
     setSearchQuery('')
   }, [searchInput, showSearch])
-  /** 해외(미국) 거래소 자동 감지: NAS → NYS → AMS 순서로 조회 */
+  /** 해외(미국) 거래소 자동 감지: NAS → NYS → AMS 순서로 조회 (활성 프로파일이 Toss면 Toss 종목 정보로 검증) */
   const handleUsSearch = async () => {
     const ticker = searchInput.trim().toUpperCase()
     if (!ticker) return
     setUsSearching(true)
     setUsSearchError(null)
+
+    if (appConfig?.active_broker_id === 'toss') {
+      try {
+        const safety = await cmd.getTossStockSafety(ticker)
+        if (safety.stockInfo) {
+          const item: StockSearchItem = { pdno: ticker, prdt_name: safety.stockInfo.name || ticker }
+          setSelectedStock(item)
+          setSearchInput(safety.stockInfo.name || ticker)
+          setSymbolNames(prev => ({ ...prev, [ticker]: safety.stockInfo!.name || ticker }))
+          setUsSearching(false)
+          return
+        }
+      } catch { /* fallback 메시지로 처리 */ }
+      setUsSearchError(`Toss 종목 정보에서 "${ticker}"을 찾을 수 없습니다.`)
+      setUsSearching(false)
+      return
+    }
+
     for (const exc of EXCHANGE_SEARCH_ORDER) {
       try {
         const res = await cmd.getOverseasPrice(ticker, exc)

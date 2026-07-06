@@ -21,7 +21,9 @@
 | UI 컨벤션 스킬 | `.github/skills/ui-conventions/SKILL.md` |
 | Codex 상세 지침 | `.github/codex-instructions.md` |
 | Copilot 호환 지침 | `.github/copilot-instructions.md` |
+| Claude Code 지침 (AGENTS.md import) | `CLAUDE.md` |
 | Codex 프로젝트 브리지 스킬 | `.codex/skills/kisautotrade-*` |
+| Claude Code 프로젝트 브리지 스킬 | `.claude/skills/kisautotrade-*` |
 
 ---
 

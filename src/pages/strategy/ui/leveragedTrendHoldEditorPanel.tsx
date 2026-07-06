@@ -28,7 +28,7 @@ import PublicIcon from '@mui/icons-material/Public'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import SearchIcon from '@mui/icons-material/Search'
 
-import { useRefreshStockList, useStockSearch } from '../../../api/hooks'
+import { useAppConfig, useRefreshStockList, useStockSearch } from '../../../api/hooks'
 import * as cmd from '../../../api/commands'
 import type {
   CmdError,
@@ -91,6 +91,8 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
   const [pickerError, setPickerError] = useState<string | null>(null)
   const [draftQuantity, setDraftQuantity] = useState(1)
   const entrySensitivity = typeof params.upward_sensitivity === 'number' ? params.upward_sensitivity : 1
+  const { data: appConfig } = useAppConfig()
+  const isTossActive = appConfig?.active_broker_id === 'toss'
   const { mutate: doPickerRefreshList, isPending: pickerRefreshing } = useRefreshStockList()
   const {
     data: pickerResults = [],
@@ -136,6 +138,25 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
     }
     setPickerSearching(true)
     setPickerError(null)
+
+    if (isTossActive) {
+      try {
+        const safety = await cmd.getTossStockSafety(ticker)
+        if (safety.stockInfo) {
+          handlePickerSelect({ pdno: ticker, prdt_name: safety.stockInfo.name || ticker })
+          setPickerSearching(false)
+          return
+        }
+      } catch {
+        // 아래 fallback으로 직접 선택 처리
+      }
+      setPickerSelection({ stock: { pdno: ticker, prdt_name: ticker }, market: 'US' })
+      setPickerInput(ticker)
+      setPickerError(`Toss 종목 정보로 "${ticker}" 검증은 실패했지만 티커 형식이 유효해 직접 선택했습니다. 저장 후 시세/주문 연결 상태를 확인하세요.`)
+      setPickerSearching(false)
+      return
+    }
+
     for (const exc of EXCHANGE_SEARCH_ORDER) {
       try {
         const res = await cmd.getOverseasPrice(ticker, exc)
