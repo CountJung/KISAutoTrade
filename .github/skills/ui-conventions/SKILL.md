@@ -74,7 +74,7 @@ export default function MyPage() {
 - 앱 전역 색상은 `src/shared/config/theme/index.ts`의 MUI theme가 source of truth다. 페이지/컴포넌트는 가능하면 `bgcolor: 'background.default'`, `bgcolor: 'background.paper'`, `color: 'text.primary'`, `borderColor: 'divider'`처럼 palette token을 사용한다.
 - 다크 모드에서 `#000`, `black`, `#111` 같은 순수 검정 배경/스크롤바를 직접 지정하지 않는다. 필요하면 `alpha(theme.palette.text.primary, n)` 또는 `alpha(theme.palette.background.paper, n)`처럼 MUI palette 기반으로 만든다.
 - 스크롤바는 `MuiCssBaseline` 전역 styleOverrides에서 palette 기반 색상으로 관리한다. 개별 컴포넌트가 `::-webkit-scrollbar`를 직접 덮어써야 할 때도 thumb/track은 반드시 `theme.palette.text.primary`, `background.default`, `background.paper`, `divider`에서 파생한다.
-- 앱의 주 스크롤 컨테이너는 초기 렌더부터 스크롤바 영역이 잡히도록 `overflowY: 'scroll'`, `scrollbarGutter: 'stable both-edges'`, flex item `minHeight: 0`을 함께 둔다. macOS/Chromium overlay scrollbar처럼 native 폭이 0일 수 있는 환경에서는 AppShell의 palette 기반 scroll rail/thumb를 함께 표시하고, Playwright에서 overflow와 rail/thumb 가시성을 검증한다.
+- 앱의 주 스크롤 컨테이너는 초기 렌더부터 스크롤바 영역이 잡히도록 `overflowY: 'scroll'`, `scrollbarGutter: 'stable both-edges'`, flex item `minHeight: 0`을 함께 둔다. macOS/Chromium overlay scrollbar처럼 native 폭이 0일 수 있는 환경에서는 AppShell의 palette 기반 scroll rail/thumb를 함께 표시한다. 보이는 custom rail/thumb는 장식으로만 두지 말고 pointer drag와 rail click으로 실제 `scrollTop`을 제어할 수 있어야 하며, Playwright에서 overflow, rail/thumb 가시성, thumb 드래그 후 `scrollTop` 증가를 함께 검증한다.
 - Alert, Chip, Button, ToggleButton, TextField, Paper, Table, Drawer 등 MUI 컴포넌트는 기본 variant/color를 우선 사용한다. 금융 상승/하락, 경고/성공/오류 외 색상은 semantic token으로 표현하고, 브랜드 장식용 임의 색상은 피한다.
 
 ### 상승/하락 색상
@@ -557,4 +557,4 @@ UI 규칙:
 - 저장 버튼은 대상 ticker가 하나 이상 있고 비어 있는 ticker가 없을 때만 활성화한다.
 - 기존 저장 JSON 호환 때문에 `inverse_*`, `base_*`, `base_symbol_roles` 필드는 타입에 남아 있을 수 있으나 새 UI에서는 노출하지 않는다.
 
-> 마지막 업데이트: 2026-07-06T15:06:26+09:00
+> 마지막 업데이트: 2026-07-06T15:28:38+09:00

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router'
 import Box from '@mui/material/Box'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -33,6 +34,14 @@ const SIDEBAR_DEFAULT = 220
 const SIDEBAR_MIN = 160
 const SIDEBAR_MAX = 400
 const SCROLL_THUMB_MIN_HEIGHT = 36
+
+type MainScrollbarDrag = {
+  pointerId: number
+  startY: number
+  startScrollTop: number
+  maxScroll: number
+  maxThumbTop: number
+}
 
 /** 모바일 하단 내비게이션 항목 */
 const BOTTOM_NAV_ITEMS = [
@@ -69,6 +78,7 @@ export function AppShell() {
   // onResizeEnd 클로저에서 최신 width를 읽기 위한 ref
   const sidebarWidthRef = useRef(sidebarWidth)
   const mainScrollRef = useRef<HTMLElement | null>(null)
+  const mainScrollbarDragRef = useRef<MainScrollbarDrag | null>(null)
   sidebarWidthRef.current = sidebarWidth
 
   const muiTheme = useMemo(() => {
@@ -85,6 +95,64 @@ export function AppShell() {
   const handleSidebarResizeEnd = useCallback(() => {
     writeStoredNumber(SIDEBAR_KEY, sidebarWidthRef.current, SIDEBAR_MIN, SIDEBAR_MAX)
   }, [])
+
+  const startMainScrollbarDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    const el = mainScrollRef.current
+    if (!el) return
+    const maxScroll = el.scrollHeight - el.clientHeight
+    const maxThumbTop = el.clientHeight - mainScrollbar.height
+    if (maxScroll <= 0 || maxThumbTop <= 0) return
+
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    mainScrollbarDragRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startScrollTop: el.scrollTop,
+      maxScroll,
+      maxThumbTop,
+    }
+  }, [mainScrollbar.height])
+
+  const handleMainScrollbarDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    const drag = mainScrollbarDragRef.current
+    const el = mainScrollRef.current
+    if (!drag || !el || drag.pointerId !== event.pointerId) return
+
+    event.preventDefault()
+    const nextScrollTop =
+      drag.startScrollTop + ((event.clientY - drag.startY) / drag.maxThumbTop) * drag.maxScroll
+    el.scrollTop = clampNumber(nextScrollTop, 0, drag.maxScroll)
+  }, [])
+
+  const stopMainScrollbarDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    const drag = mainScrollbarDragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    mainScrollbarDragRef.current = null
+  }, [])
+
+  const handleMainScrollbarRailPointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (event.target !== event.currentTarget) return
+    const el = mainScrollRef.current
+    if (!el) return
+    const maxScroll = el.scrollHeight - el.clientHeight
+    const maxThumbTop = el.clientHeight - mainScrollbar.height
+    if (maxScroll <= 0 || maxThumbTop <= 0) return
+
+    event.preventDefault()
+    const railTop = event.currentTarget.getBoundingClientRect().top
+    const nextThumbTop = clampNumber(
+      event.clientY - railTop - mainScrollbar.height / 2,
+      0,
+      maxThumbTop,
+    )
+    el.scrollTop = (nextThumbTop / maxThumbTop) * maxScroll
+  }, [mainScrollbar.height])
 
   useEffect(() => {
     const el = mainScrollRef.current
@@ -212,20 +280,26 @@ export function AppShell() {
             <Box
               aria-hidden
               data-testid="app-main-scroll-rail"
+              onPointerDown={handleMainScrollbarRailPointerDown}
               sx={{
                 position: 'absolute',
                 top: 0,
                 right: 2,
                 bottom: 0,
                 width: 10,
-                pointerEvents: 'none',
+                pointerEvents: 'auto',
                 zIndex: 1,
                 borderRadius: 1,
                 bgcolor: (theme) => alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.12 : 0.08),
+                cursor: 'pointer',
               }}
             >
               <Box
                 data-testid="app-main-scroll-thumb"
+                onPointerDown={startMainScrollbarDrag}
+                onPointerMove={handleMainScrollbarDrag}
+                onPointerUp={stopMainScrollbarDrag}
+                onPointerCancel={stopMainScrollbarDrag}
                 sx={{
                   position: 'absolute',
                   top: `${mainScrollbar.top}px`,
@@ -234,6 +308,12 @@ export function AppShell() {
                   height: `${mainScrollbar.height}px`,
                   borderRadius: 1,
                   bgcolor: (theme) => alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.58 : 0.42),
+                  cursor: 'grab',
+                  touchAction: 'none',
+                  userSelect: 'none',
+                  '&:active': {
+                    cursor: 'grabbing',
+                  },
                 }}
               />
             </Box>

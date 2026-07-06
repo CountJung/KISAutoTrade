@@ -129,6 +129,30 @@ test('Strategy initial viewport keeps visible main scrollbar gutter', async ({ p
   expect(thumbHeight).toBeGreaterThan(0)
 })
 
+test('main scrollbar thumb can be dragged with a pointer', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/strategy')
+
+  const main = page.getByTestId('app-main-scroll')
+  const thumb = page.getByTestId('app-main-scroll-thumb')
+  await expect(main).toBeVisible()
+  await expect(thumb).toBeVisible()
+
+  const before = await main.evaluate((el) => el.scrollTop)
+  const box = await thumb.boundingBox()
+  expect(box).not.toBeNull()
+  if (!box) return
+
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 160, { steps: 8 })
+  await page.mouse.up()
+
+  await expect
+    .poll(() => main.evaluate((el) => el.scrollTop))
+    .toBeGreaterThan(before + 20)
+})
+
 test('Leveraged strategy editor uses single target ticker model', async ({ page }) => {
   await mockApi(page)
   await page.goto('/strategy')
