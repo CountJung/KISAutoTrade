@@ -8,6 +8,8 @@
 ///   GET  /api/toss-market-snapshot/:symbol    → Toss 현재가/호가/체결/상하한가 JSON
 ///   GET  /api/toss-stock-safety/:symbol        → Toss 종목 기본 정보/매수 유의사항 JSON
 ///   POST /api/toss-order-preflight             → Toss 주문 전 read-only 검증 JSON
+///   POST /api/toss-open-orders                 → Toss OPEN 주문 목록 JSON
+///   POST /api/toss-order-modify                → Toss 접수 주문 정정
 ///   POST /api/toss-small-buy-verification      → Toss 소액매매 검증 1주 시장가 매수 실행
 ///   GET  /api/toss-market-calendar             → Toss KR/US 정규장 캘린더 JSON
 ///   GET  /api/toss-chart/:symbol              → Toss candles JSON (?interval=1d&count=200)
@@ -297,6 +299,8 @@ pub async fn start(
             "/api/toss-order-preflight",
             post(toss_order_preflight_handler),
         )
+        .route("/api/toss-open-orders", post(toss_open_orders_handler))
+        .route("/api/toss-order-modify", post(toss_modify_order_handler))
         .route(
             "/api/toss-small-buy-verification",
             post(toss_small_buy_verification_handler),

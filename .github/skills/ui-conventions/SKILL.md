@@ -157,6 +157,7 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 - Settings의 계좌 프로파일 관리는 KIS/Toss 섹션을 분리한다. KIS 계좌번호와 Toss `accountSeq`는 같은 문자열 필드에 저장되더라도 UI에서는 같은 목록·같은 broker 선택 폼으로 섞지 않는다.
 - 활성 broker가 Toss인 Dashboard/Trading/Strategy는 KIS 잔고·시세·주문 흐름을 호출하지 않고 Toss 보유종목/시세, 주문 전 검증, 실거래 동의 상태를 명확히 표시한다.
 - Dashboard의 Toss 소액 수동매매 검증 gate는 `src/features/manual-order`의 공유 컴포넌트를 사용한다. Dashboard는 검색 종목 1주 시장가 매수 조건을 사전검증하고, 실거래 동의·최종 확인 checkbox·최대 허용금액을 같은 화면에서 보여준 뒤 Dashboard 전용 버튼으로만 실제 소액매매 검증을 제출한다. Trading은 일반 주문 패널에서 `TossOrderPreflightPanel`을 표시하고 `canSubmit=true`일 때 수동 주문 버튼을 활성화한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
+- Trading의 Toss 수동 주문창은 접수 주문 목록을 같은 패널 안에서 보여준다. 현재 검색 종목 주문을 먼저 배치하고, 정정 UI는 펼침 행으로 제공해 주문 입력 폼과 충돌하지 않게 한다. 접수 주문 정정 성공/실패는 Alert로 표시하고, 토큰·secret·계좌 원문은 노출하지 않는다.
 
 ### Provider trace 표시
 

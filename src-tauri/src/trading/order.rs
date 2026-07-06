@@ -334,6 +334,30 @@ impl OrderManager {
         self.pending.insert(key, pending);
     }
 
+    /// provider 정정 성공 후 로컬 pending snapshot을 갱신한다.
+    pub fn update_pending_order_snapshot(
+        &mut self,
+        order_id: &str,
+        quantity: Option<u64>,
+        price: Option<u64>,
+        order_type: Option<String>,
+    ) -> bool {
+        let Some(pending) = self.pending.get_mut(order_id) else {
+            return false;
+        };
+        if let Some(quantity) = quantity {
+            pending.record.quantity = quantity;
+        }
+        if let Some(price) = price {
+            pending.record.price = price;
+            pending.order_price = price;
+        }
+        if let Some(order_type) = order_type {
+            pending.record.order_type = order_type;
+        }
+        true
+    }
+
     pub async fn current_exchange_rate_krw(&self) -> f64 {
         *self.exchange_rate_krw.read().await
     }

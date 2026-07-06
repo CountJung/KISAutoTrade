@@ -22,7 +22,7 @@ npm run verify:toss-openapi
 
 검증 스크립트는 공식 OpenAPI JSON을 내려받아 `info.title`, `info.version`, base URL, endpoint inventory, `X-Tossinvest-Account` 헤더 참조, rate-limit 헤더 존재 여부를 확인한다. 스펙이 바뀌면 코드 생성·수동 adapter 작업 전에 이 문서를 먼저 갱신한다.
 
-실제 주문 또는 자동매매 연결 전에는 `docs/toss-readonly-small-order-checklist.md`의 read-only/소액 검증 절차를 먼저 통과한다. Dashboard 소액매매 검증은 자동매매 unlock으로 해석하지 않는다.
+실제 주문 또는 자동매매 연결 전에는 `docs/toss-readonly-small-order-checklist.md`의 read-only/소액 검증 절차를 먼저 통과한다. Dashboard 소액매매 검증은 자동매매 unlock으로 해석하지 않는다. 공식 스펙 v1.1.5 기준 접수 주문 정정은 `POST /api/v1/orders/{orderId}/modify`로 제공되며, 앱은 수동 주문창에서 `GET /api/v1/orders?status=OPEN` 결과를 표시하고 접수 주문에 한해 정정 요청을 보낸다.
 
 ## Endpoint Inventory
 
@@ -52,6 +52,8 @@ npm run verify:toss-openapi
 ## 구현 메모
 
 - 토큰 엔드포인트는 BFF 공통 envelope이 아니라 OAuth2 응답 형식을 따른다.
+- 공식 스펙 v1.1.5의 `/oauth2/token` 설명 기준 refresh token은 없고, 응답 `expires_in` 예시는 `86400`초다. 만료 시 같은 endpoint로 재발급하되, client당 유효한 access token은 1개이며 재발급 시 이전 token은 즉시 무효화된다.
+- 앱은 Toss token을 `base_url + client_id` 단위 프로세스 공유 캐시에 저장한다. 새 `TossBrokerAdapter`를 만들더라도 같은 client는 기존 token을 재사용하고, 만료 5분 전 또는 401 응답에서만 1회 재발급한다. 요청별 adapter 생성이 요청별 토큰 발급으로 이어지면 병렬 호출이 서로의 token을 무효화할 수 있으므로 금지한다.
 - 계좌·자산·주문·주문 정보 API는 `Authorization: Bearer {access_token}` 외에 `X-Tossinvest-Account` 헤더가 필요하다.
 - `accountSeq`는 임의 순번 입력값이 아니라 `GET /api/v1/accounts` 응답에서 받은 계좌 식별자다. Settings는 KIS/Toss 계좌 프로파일 섹션을 분리하고, Toss 섹션의 Add/Edit 다이얼로그에서 `list_toss_accounts`/`list_toss_profile_accounts`로 계좌 목록을 조회해 마스킹된 드롭다운에서 `accountSeq`를 선택하게 한다.
 - 공식 태그 설명 기준 WebSocket은 아직 지원 대상이 아니며 REST 중심으로 설계한다.
@@ -63,7 +65,7 @@ npm run verify:toss-openapi
 
 - `src-tauri/src/broker/toss/` 하위에 read-only `TossOpenApiClient`와 `TossBrokerAdapter`가 있다. 공개 surface는 `mod.rs`에서 re-export하고, 구현은 `adapter.rs`, `client.rs`, `http.rs`, `error.rs`, `support.rs`, `types.rs`, `orders.rs`, `tests.rs`로 나눈다.
 - 구현된 범위: `POST /oauth2/token`, `GET /api/v1/accounts`, `GET /api/v1/holdings`, `GET /api/v1/prices`, `GET /api/v1/orderbook`, `GET /api/v1/trades`, `GET /api/v1/price-limits`, `GET /api/v1/candles`, `GET /api/v1/stocks`, `GET /api/v1/stocks/{symbol}/warnings`, `GET /api/v1/market-calendar/KR`, `GET /api/v1/market-calendar/US`.
-- access token은 만료 5분 전 갱신 대상으로 보고, 401 응답 시 캐시를 지운 뒤 1회 재발급/재시도한다.
+- access token은 `base_url + client_id` 단위 공유 캐시에서 재사용하고, 만료 5분 전 갱신 대상으로 본다. 401 응답 시에는 해당 요청이 사용한 token이 아직 캐시에 남아 있을 때만 캐시를 지우고 1회 재발급/재시도한다. 다른 병렬 요청이 이미 token을 갱신했다면 그 token을 재사용한다.
 - holdings 응답은 `BrokerHolding`으로 매핑한다. `marketCountry`는 `KR`/`US`, `currency`는 `KRW`/`USD`만 공통 타입으로 변환한다. Dashboard 표시와 자동매매 시작 전 전략 포지션 복원에 사용하되, 자동매매 주문 수량 산정에는 재사용하지 않는다.
 - prices 응답은 `BrokerPriceQuote`로, candles 응답은 `BrokerCandle`로 매핑한다. `prices`는 최대 200개 symbols, `trades`는 count 1~50, `candles`는 interval `1m`/`1d`와 count 1~200 범위를 client에서 선검증한다.
 - stocks 응답은 `TossStockInfo`, warnings 응답은 `TossStockWarning`으로 보존한다. 공식 스펙이 unknown warning code 허용을 요구하므로 `warningType`은 enum이 아니라 문자열로 유지한다.
@@ -80,6 +82,8 @@ npm run verify:toss-openapi
 - `submit_toss_small_buy_verification` IPC와 `/api/toss-small-buy-verification` 웹 REST는 Dashboard 전용 소액 실주문 gate다. 활성 Toss 프로파일, `live_trading_consent`, 최종 확인 checkbox, 화면 `accountSeq` 일치, 사용자가 입력한 최대 허용 주문금액, 직전 preflight 재실행, 같은 symbol 미체결 주문 scan을 모두 통과해야 검색 종목 1주 `MARKET` `BUY` 주문을 제출한다. 시장가 주문은 공식 스펙대로 `quantity="1"`만 보내고 `price`/`orderAmount`는 보내지 않는다.
 - Dashboard 소액 실주문은 `TossOrderCreateRequest::with_generated_client_order_id()`로 `clientOrderId`를 만들고, `POST /api/v1/orders` 응답의 `orderId`를 받은 뒤 `GET /api/v1/orders/{orderId}`를 짧게 polling한다. 주문 접수 결과는 `OrderStore`에 provider `toss`, `orderId`, `clientOrderId` trace로 저장하고, 즉시 체결 또는 부분체결이 확인되면 `TradeStore`에도 provider trace와 함께 저장한다.
 - Trading 수동 주문은 활성 Toss 프로파일의 `live_trading_consent`, 직전 preflight, 로컬 pending scan, provider open-order scan을 통과한 뒤 기존 `place_order` IPC에서 `POST /api/v1/orders`로 제출한다. 접수된 주문은 `OrderManager` pending으로 편입되어 이후 주문번호 기반 체결 확인 루프가 `GET /api/v1/orders/{orderId}`로 체결을 반영한다.
+- Trading 수동 주문창은 `list_toss_open_orders` IPC와 `/api/toss-open-orders` 웹 REST로 활성 Toss 프로파일의 `status=OPEN` 주문 목록을 표시한다. 현재 검색 종목 주문을 상단에 정렬하되, 같은 계좌의 다른 접수 주문도 함께 보여 주문 충돌을 확인할 수 있게 한다.
+- 접수 주문 정정은 `modify_toss_order` IPC와 `/api/toss-order-modify` 웹 REST가 담당한다. 공식 `POST /api/v1/orders/{orderId}/modify` 스키마에 맞춰 `orderType`, 선택 `quantity`, 선택 `price`, `confirmHighValueOrder`를 전달하고, 성공 후 주문 상세를 재조회해 로컬 pending 주문의 수량/가격/type snapshot을 갱신한다.
 - 자동매매 주문 제출 전 로컬 pending scan은 같은 scope/symbol의 같은 방향 중복 주문과 반대 방향 미체결 주문을 모두 차단한다. Toss 자동매매 주문도 실행 scope의 `accountSeq`와 일치하는 profile credential을 찾아 `TossOrderCreateRequest`로 제출하고 provider의 `opposite-pending-order-exists` 오류는 같은 pending conflict 계열로 저장/표시한다.
 - `get_toss_market_calendar` IPC와 `/api/toss-market-calendar` 웹 REST는 활성 Toss 프로파일 기준 KR/US 정규장 세션과 현재 개장 여부를 `TossMarketCalendarView`로 내려준다. 자동매매 데몬의 시장 폐장 사전 체크는 Toss 활성 프로파일 calendar override를 받을 수 있다.
 - `get_toss_chart_data` IPC와 `/api/toss-chart/:symbol` 웹 REST는 활성 Toss 프로파일 기준 `1d`/`1m` candles를 기존 `ChartCandle[]`로 내려준다. Trading 화면은 `StockChart source="toss"`로 lightweight-charts를 재사용한다.
@@ -87,4 +91,4 @@ npm run verify:toss-openapi
 - Settings 프로파일 카드의 `연결 진단` 버튼은 토스 프로파일에만 표시한다. 진단 결과는 `steps[]`, `issues[]`, OpenAPI version, accounts/holdings count, KRW/USD buying power, commissions count로 요약한다. Add 다이얼로그는 열린 섹션의 broker로 고정하고, Edit 다이얼로그는 저장된 `broker_id`를 바꾸지 않는다.
 - 자동매매 주문 실행 경로는 Toss 프로파일에서도 활성화된다. `start_trading()`은 Toss holdings 기반 `BrokerPositionSnapshot`으로 전략 내부 포지션 상태를 복원한 뒤, 활성 Toss 프로파일 설정과 `live_trading_consent`를 확인하고 실행 scope를 `BrokerScope { brokerId: Toss, accountSeq }`로 고정한다. Dashboard는 자동매매 시작 버튼을 활성화하고 검색 종목 1주 시장가 소액매매 검증 패널은 별도 최종 점검용으로 유지한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
 
-> 마지막 업데이트: 2026-07-06T22:10:00+09:00
+> 마지막 업데이트: 2026-07-06T23:05:00+09:00

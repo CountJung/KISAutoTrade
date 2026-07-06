@@ -58,6 +58,8 @@ import type {
   TossAccountOptionView,
   TossMarketCalendarView,
   TossMarketSnapshotView,
+  TossModifyOrderInput,
+  TossOpenOrderView,
   TossOrderPreflightInput,
   TossOrderPreflightView,
   TossSmallBuyVerificationInput,
@@ -186,6 +188,8 @@ export function usePlaceOrder() {
       // 잔고·로컬 체결 기록은 즉시 무효화
       void qc.invalidateQueries({ queryKey: KEYS.balance })
       void qc.invalidateQueries({ queryKey: KEYS.todayTrades })
+      void qc.invalidateQueries({ queryKey: ['tossOpenOrders'] })
+      void qc.invalidateQueries({ queryKey: KEYS.pendingOrders })
       // KIS 서버 처리 딜레이 후 체결 내역 갱신 (즉시 재조회 시 미반영 가능)
       setTimeout(
         () => void qc.invalidateQueries({ queryKey: KEYS.todayExecuted }),
@@ -777,6 +781,32 @@ export function useTossOrderPreflight(
     gcTime: 60_000,
     retry: false,
     ...options,
+  })
+}
+
+export function useTossOpenOrders(
+  symbol?: string | null,
+  options?: Partial<UseQueryOptions<TossOpenOrderView[]>>
+) {
+  return useQuery({
+    queryKey: KEYS.tossOpenOrders(symbol),
+    queryFn: () => cmd.listTossOpenOrders({ symbol: symbol || null }),
+    staleTime: 5_000,
+    refetchInterval: POLL_INTERVALS.NORMAL,
+    retry: false,
+    ...options,
+  })
+}
+
+export function useModifyTossOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: TossModifyOrderInput) => cmd.modifyTossOrder(input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tossOpenOrders'] })
+      void qc.invalidateQueries({ queryKey: KEYS.pendingOrders })
+      void qc.invalidateQueries({ queryKey: KEYS.todayTrades })
+    },
   })
 }
 

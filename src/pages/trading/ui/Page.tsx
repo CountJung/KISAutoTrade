@@ -70,6 +70,7 @@ import {
 import {
   TossMarketCalendarStrip,
   TossMarketSnapshotCard,
+  TossOpenOrdersPanel,
   TossOrderPreflightPanel,
   TossStockSafetyCard,
 } from './tossPanels'
@@ -891,6 +892,8 @@ export default function Trading() {
               {side === 'Buy' ? '매수 주문' : '매도 주문'}
               {market === 'US' && ' (USD 지정가)'}
             </Button>
+
+            {isTossActive && <TossOpenOrdersPanel symbol={symbol} />}
           </Paper>
         </Grid>
 

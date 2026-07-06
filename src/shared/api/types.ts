@@ -501,6 +501,45 @@ export interface TossOrderPreflightView {
   warnings: string[]
 }
 
+export interface TossOpenOrdersInput {
+  symbol?: string | null
+}
+
+export interface TossOpenOrderView {
+  brokerId: 'toss'
+  accountSeq: string
+  orderId: string
+  symbol: string
+  side: 'BUY' | 'SELL' | string
+  orderType: 'MARKET' | 'LIMIT' | string
+  status: string
+  price: string | null
+  quantity: string
+  currency: BrokerCurrency | string
+  orderedAt: string
+  canceledAt: string | null
+  filledQuantity: string
+  averageFilledPrice: string | null
+  filledAmount: string | null
+  commission: string | null
+  tax: string | null
+}
+
+export interface TossModifyOrderInput {
+  orderId: string
+  orderType: 'MARKET' | 'LIMIT' | string
+  quantity?: string | null
+  price?: string | null
+  confirmHighValueOrder?: boolean | null
+}
+
+export interface TossOrderOperationView {
+  brokerId: 'toss'
+  accountSeq: string
+  orderId: string
+  message: string
+}
+
 export interface TossSmallBuyVerificationInput {
   symbol: string
   symbolName?: string | null

@@ -43,6 +43,10 @@ import type {
   TossAccountOptionView,
   TossMarketCalendarView,
   TossMarketSnapshotView,
+  TossModifyOrderInput,
+  TossOpenOrdersInput,
+  TossOpenOrderView,
+  TossOrderOperationView,
   TossOrderPreflightInput,
   TossOrderPreflightView,
   TossSmallBuyVerificationInput,
@@ -240,6 +244,14 @@ export const getTossStockSafety = (symbol: string): Promise<TossStockSafetyView>
 /** 활성 Toss 프로파일로 buying-power/sellable-quantity/commissions 기반 주문 전 검증 */
 export const checkTossOrderPreflight = (input: TossOrderPreflightInput): Promise<TossOrderPreflightView> =>
   invoke('check_toss_order_preflight', { input })
+
+/** 활성 Toss 프로파일로 현재 접수/미체결 주문 목록 조회 */
+export const listTossOpenOrders = (input: TossOpenOrdersInput): Promise<TossOpenOrderView[]> =>
+  invoke('list_toss_open_orders', { input })
+
+/** 활성 Toss 프로파일로 접수 주문 정정 */
+export const modifyTossOrder = (input: TossModifyOrderInput): Promise<TossOrderOperationView> =>
+  invoke('modify_toss_order', { input })
 
 /** 활성 Toss 프로파일로 소액매매 검증용 1주 시장가 매수를 실제 제출 */
 export const submitTossSmallBuyVerification = (

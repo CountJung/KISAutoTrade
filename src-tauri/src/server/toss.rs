@@ -74,6 +74,44 @@ pub(super) async fn toss_order_preflight_handler(
     }
 }
 
+pub(super) async fn toss_open_orders_handler(
+    State(s): State<ServerState>,
+    Json(input): Json<crate::commands::TossOpenOrdersInput>,
+) -> Json<serde_json::Value> {
+    let profile = match active_profile(&s).await {
+        Ok(profile) => profile,
+        Err(response) => return response,
+    };
+
+    match crate::commands::list_toss_open_orders_for_profile(input, profile).await {
+        Ok(orders) => Json(serde_json::to_value(orders).unwrap_or_default()),
+        Err(e) => Json(serde_json::json!({
+            "code": e.code,
+            "error": e.message,
+        })),
+    }
+}
+
+pub(super) async fn toss_modify_order_handler(
+    State(s): State<ServerState>,
+    Json(input): Json<crate::commands::TossModifyOrderInput>,
+) -> Json<serde_json::Value> {
+    let profile = match active_profile(&s).await {
+        Ok(profile) => profile,
+        Err(response) => return response,
+    };
+
+    match crate::commands::modify_toss_order_for_profile(input, profile, Some(&s.order_manager))
+        .await
+    {
+        Ok(result) => Json(serde_json::to_value(result).unwrap_or_default()),
+        Err(e) => Json(serde_json::json!({
+            "code": e.code,
+            "error": e.message,
+        })),
+    }
+}
+
 pub(super) async fn toss_small_buy_verification_handler(
     State(s): State<ServerState>,
     Json(input): Json<crate::commands::TossSmallBuyVerificationInput>,

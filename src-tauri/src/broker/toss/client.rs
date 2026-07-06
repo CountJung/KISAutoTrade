@@ -1,8 +1,13 @@
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex as StdMutex, OnceLock},
+};
+
 use anyhow::{anyhow, Context};
 use chrono::{Duration, Utc};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
-use tokio::sync::Mutex;
+use tokio::sync::Mutex as AsyncMutex;
 
 use super::{
     error::format_toss_error,
@@ -33,9 +38,39 @@ pub struct TossOpenApiClient {
     http: Client,
     base_url: String,
     credentials: Option<TossCredentials>,
-    current_token: Mutex<Option<TossAccessToken>>,
-    token_refresh: Mutex<()>,
+    token_state: Arc<TossTokenState>,
     rate_limiter: RateLimitScheduler,
+}
+
+struct TossTokenState {
+    current_token: AsyncMutex<Option<TossAccessToken>>,
+    token_refresh: AsyncMutex<()>,
+}
+
+impl TossTokenState {
+    fn new() -> Self {
+        Self {
+            current_token: AsyncMutex::new(None),
+            token_refresh: AsyncMutex::new(()),
+        }
+    }
+}
+
+static TOSS_TOKEN_STATES: OnceLock<StdMutex<HashMap<String, Arc<TossTokenState>>>> =
+    OnceLock::new();
+
+fn toss_token_state_key(base_url: &str, client_id: &str) -> String {
+    format!("{base_url}|{client_id}")
+}
+
+fn shared_toss_token_state(base_url: &str, client_id: &str) -> Arc<TossTokenState> {
+    let key = toss_token_state_key(base_url, client_id);
+    let states = TOSS_TOKEN_STATES.get_or_init(|| StdMutex::new(HashMap::new()));
+    let mut states = states.lock().expect("Toss token cache mutex poisoned");
+    states
+        .entry(key)
+        .or_insert_with(|| Arc::new(TossTokenState::new()))
+        .clone()
 }
 
 impl TossOpenApiClient {
@@ -44,8 +79,7 @@ impl TossOpenApiClient {
             http: toss_http_client(),
             base_url: trim_base_url(base_url.into()),
             credentials: None,
-            current_token: Mutex::new(None),
-            token_refresh: Mutex::new(()),
+            token_state: Arc::new(TossTokenState::new()),
             rate_limiter: toss_rate_limiter(),
         }
     }
@@ -56,16 +90,19 @@ impl TossOpenApiClient {
         client_secret: impl Into<String>,
         account_seq: Option<impl Into<String>>,
     ) -> Self {
+        let base_url = trim_base_url(base_url.into());
+        let client_id = client_id.into();
+        let client_secret = client_secret.into();
+        let token_state = shared_toss_token_state(&base_url, &client_id);
         Self {
             http: toss_http_client(),
-            base_url: trim_base_url(base_url.into()),
+            base_url,
             credentials: Some(TossCredentials {
-                client_id: client_id.into(),
-                client_secret: client_secret.into(),
+                client_id,
+                client_secret,
                 account_seq: account_seq.map(Into::into),
             }),
-            current_token: Mutex::new(None),
-            token_refresh: Mutex::new(()),
+            token_state,
             rate_limiter: toss_rate_limiter(),
         }
     }
@@ -85,25 +122,46 @@ impl TossOpenApiClient {
     }
 
     pub async fn get_access_token(&self) -> anyhow::Result<TossAccessToken> {
-        if let Some(token) = self.current_token.lock().await.as_ref().cloned() {
+        if let Some(token) = self
+            .token_state
+            .current_token
+            .lock()
+            .await
+            .as_ref()
+            .cloned()
+        {
             if !token.is_expired() {
                 return Ok(token);
             }
         }
 
-        let _refresh_guard = self.token_refresh.lock().await;
-        if let Some(token) = self.current_token.lock().await.as_ref().cloned() {
+        let _refresh_guard = self.token_state.token_refresh.lock().await;
+        if let Some(token) = self
+            .token_state
+            .current_token
+            .lock()
+            .await
+            .as_ref()
+            .cloned()
+        {
             if !token.is_expired() {
                 return Ok(token);
             }
         }
 
-        let token = self.issue_token().await?;
-        *self.current_token.lock().await = Some(token.clone());
+        let token = self.request_new_token().await?;
+        *self.token_state.current_token.lock().await = Some(token.clone());
         Ok(token)
     }
 
     pub async fn issue_token(&self) -> anyhow::Result<TossAccessToken> {
+        let _refresh_guard = self.token_state.token_refresh.lock().await;
+        let token = self.request_new_token().await?;
+        *self.token_state.current_token.lock().await = Some(token.clone());
+        Ok(token)
+    }
+
+    async fn request_new_token(&self) -> anyhow::Result<TossAccessToken> {
         let credentials = self.credentials()?;
         let url = format!("{}/oauth2/token", self.base_url);
         let rate_group = "toss:auth";
@@ -140,6 +198,19 @@ impl TossOpenApiClient {
             token_type: body.token_type,
             expires_at: Utc::now() + Duration::seconds(body.expires_in),
         })
+    }
+
+    async fn refresh_after_unauthorized(&self, rejected_token: &str) -> anyhow::Result<String> {
+        {
+            let mut current = self.token_state.current_token.lock().await;
+            if current
+                .as_ref()
+                .is_some_and(|token| token.access_token == rejected_token)
+            {
+                *current = None;
+            }
+        }
+        self.get_token().await
     }
 
     pub async fn list_accounts(&self) -> anyhow::Result<Vec<TossAccount>> {
@@ -569,7 +640,7 @@ impl TossOpenApiClient {
         };
         let url = format!("{}{}", self.base_url, path);
         let rate_group = toss_rate_limit_group("GET", path);
-        let mut request = self.http.get(url).bearer_auth(token);
+        let mut request = self.http.get(url).bearer_auth(&token);
         if let Some(account_seq) = account_seq {
             request = request.header("X-Tossinvest-Account", account_seq);
         }
@@ -584,8 +655,7 @@ impl TossOpenApiClient {
         let text = read_toss_response_text(resp).await?;
 
         if status == StatusCode::UNAUTHORIZED && !had_retry_token {
-            *self.current_token.lock().await = None;
-            let new_token = self.get_token().await?;
+            let new_token = self.refresh_after_unauthorized(&token).await?;
             return Box::pin(self.get_json(path, account_seq, Some(new_token))).await;
         }
 
@@ -624,7 +694,7 @@ impl TossOpenApiClient {
         };
         let url = format!("{}{}", self.base_url, path);
         let rate_group = toss_rate_limit_group("POST", path);
-        let mut request = self.http.post(url).bearer_auth(token).json(body);
+        let mut request = self.http.post(url).bearer_auth(&token).json(body);
         if let Some(account_seq) = account_seq {
             request = request.header("X-Tossinvest-Account", account_seq);
         }
@@ -639,8 +709,7 @@ impl TossOpenApiClient {
         let text = read_toss_response_text(resp).await?;
 
         if status == StatusCode::UNAUTHORIZED && !had_retry_token {
-            *self.current_token.lock().await = None;
-            let new_token = self.get_token().await?;
+            let new_token = self.refresh_after_unauthorized(&token).await?;
             return Box::pin(self.post_json(path, account_seq, body, Some(new_token))).await;
         }
 

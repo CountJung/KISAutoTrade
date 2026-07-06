@@ -35,6 +35,8 @@
 | `get_toss_market_snapshot` | 활성 Toss 프로파일로 현재가/호가/최근 체결/상하한가 read-only snapshot 조회 |
 | `get_toss_stock_safety` | 활성 Toss 프로파일로 종목 기본 정보와 매수 유의사항 조회 (`buyBlocked`, `buyBlockReason`) |
 | `check_toss_order_preflight` | 활성 Toss 프로파일로 주문 전 검증 (`buyingPower`, `sellableQuantity`, `commissionRate`, `canSubmit`) |
+| `list_toss_open_orders` | 활성 Toss 프로파일의 접수/미체결 주문 목록 조회 (`status=OPEN`, 수동 주문창 표시용) |
+| `modify_toss_order` | 활성 Toss 프로파일의 접수 주문 정정 요청 (`orderId`, `orderType`, `quantity`, `price`) |
 | `submit_toss_small_buy_verification` | Dashboard 전용 Toss 소액매매 검증. 실거래 동의/최종 확인/최대 허용금액/accountSeq 일치/사전검증/미체결 scan 후 검색 종목 1주 시장가 매수를 제출하고 주문·체결 기록을 저장 |
 | `get_toss_market_calendar` | 활성 Toss 프로파일로 KR/US 정규장 캘린더 조회 (`regularSession`, `isRegularOpen`) |
 | `get_toss_chart_data` | 활성 Toss 프로파일로 캔들 조회 (`1d`/`1m`, count 1~200, `ChartCandle[]`) |

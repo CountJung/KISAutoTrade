@@ -35,6 +35,7 @@ export const KEYS = {
   tossStockSafety: (symbol: string) => ['tossStockSafety', symbol] as const,
   tossOrderPreflight: (input: TossOrderPreflightInput) =>
     ['tossOrderPreflight', input.symbol, input.side, input.quantity, input.price ?? ''] as const,
+  tossOpenOrders: (symbol?: string | null) => ['tossOpenOrders', symbol ?? 'all'] as const,
   tossMarketCalendar: ['tossMarketCalendar'] as const,
   riskConfig: ['riskConfig'] as const,
   pendingOrders: ['pendingOrders'] as const,

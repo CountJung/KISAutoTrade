@@ -428,6 +428,8 @@ pub fn run() {
             commands::get_toss_market_snapshot,
             commands::get_toss_stock_safety,
             commands::check_toss_order_preflight,
+            commands::list_toss_open_orders,
+            commands::modify_toss_order,
             commands::submit_toss_small_buy_verification,
             commands::get_toss_market_calendar,
             commands::get_toss_chart_data,
