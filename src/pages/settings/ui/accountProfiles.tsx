@@ -148,7 +148,7 @@ function ProfileCard({
               />
             ) : (
               <>
-                <Chip size="small" label="read-only 진단" color="secondary" variant="outlined" />
+                <Chip size="small" label="주문 검증 연결" color="secondary" variant="outlined" />
                 <Chip
                   size="small"
                   label={profile.live_trading_consent ? '실거래 동의 저장' : '실거래 동의 없음'}
@@ -341,7 +341,7 @@ export function AccountProfilesSection() {
   const activeBrokerIsKis = appConfig?.active_broker_id === 'kis'
   const activeBrokerModeLabel = activeBrokerIsKis
     ? appConfig?.kis_is_paper_trading ? '모의투자 모드' : '실전투자 모드'
-    : 'read-only 진단'
+    : 'Toss 실거래 모드'
   const { data: diag, refetch: recheckConfig, isFetching: diagFetching } = useCheckConfig()
   const { data: tradingStatus } = useTradingStatus()
   const { data: profiles = [], isLoading: profilesLoading } = useProfiles()

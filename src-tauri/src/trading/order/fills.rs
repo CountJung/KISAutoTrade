@@ -5,7 +5,8 @@ use tokio::sync::Mutex;
 
 use crate::{
     api::rest::KisRestClient,
-    broker::BrokerId,
+    broker::{BrokerId, TossBrokerAdapter},
+    config::AccountProfile,
     market_hours::is_domestic_symbol,
     notifications::types::NotificationEvent,
     storage::{
@@ -343,8 +344,14 @@ impl OrderManager {
 
         let client = self.rest_client.read().await.clone();
         let fills = collect_kis_pending_fills(client, &kis_pending_from(&pending)).await?;
+        let toss_fills = collect_toss_pending_fills(
+            self.active_toss_profile().await,
+            &toss_pending_from(&pending),
+        )
+        .await?;
+        let mut fills = fills;
+        fills.extend(toss_fills);
         self.apply_pending_fills(fills).await?;
-        log_toss_pending_skip(toss_pending_count(&pending));
 
         Ok(())
     }
@@ -353,7 +360,7 @@ impl OrderManager {
     pub async fn confirm_pending_fills_from_broker_shared(
         order_manager: &Arc<Mutex<OrderManager>>,
     ) -> Result<()> {
-        let (pending, rest_client) = {
+        let (pending, rest_client, active_toss_profile) = {
             let manager = order_manager.lock().await;
             if manager.pending.is_empty() {
                 return Ok(());
@@ -361,19 +368,44 @@ impl OrderManager {
             (
                 manager.pending_fill_candidates(),
                 Arc::clone(&manager.rest_client),
+                manager.active_toss_profile().await,
             )
         };
 
         let client = rest_client.read().await.clone();
-        let fills = collect_kis_pending_fills(client, &kis_pending_from(&pending)).await?;
+        let mut fills = collect_kis_pending_fills(client, &kis_pending_from(&pending)).await?;
+        fills.extend(
+            collect_toss_pending_fills(active_toss_profile, &toss_pending_from(&pending)).await?,
+        );
 
         if !fills.is_empty() {
             let mut manager = order_manager.lock().await;
             manager.apply_pending_fills(fills).await?;
         }
-        log_toss_pending_skip(toss_pending_count(&pending));
 
         Ok(())
+    }
+
+    async fn active_toss_profile(&self) -> Option<AccountProfile> {
+        let profiles = self.profiles.read().await;
+        let account_id = self
+            .execution_scope
+            .account_id
+            .as_ref()
+            .map(|id| id.0.as_str());
+        profiles
+            .profiles
+            .iter()
+            .find(|profile| {
+                profile.broker_id == BrokerId::Toss
+                    && account_id
+                        .map(|id| profile.broker_account_id() == id)
+                        .unwrap_or_else(|| {
+                            profiles.get_active().map(|p| p.id.as_str())
+                                == Some(profile.id.as_str())
+                        })
+            })
+            .cloned()
     }
 
     fn pending_fill_candidates(&self) -> Vec<(BrokerId, String, String)> {
@@ -406,20 +438,12 @@ fn kis_pending_from(pending: &[(BrokerId, String, String)]) -> Vec<(String, Stri
         .collect()
 }
 
-fn toss_pending_count(pending: &[(BrokerId, String, String)]) -> usize {
+fn toss_pending_from(pending: &[(BrokerId, String, String)]) -> Vec<(String, String)> {
     pending
         .iter()
         .filter(|(broker_id, _, _)| *broker_id == BrokerId::Toss)
-        .count()
-}
-
-fn log_toss_pending_skip(toss_pending: usize) {
-    if toss_pending > 0 {
-        tracing::warn!(
-            "Toss pending 체결 확인 adapter 미연결 — {}건 스킵 (order detail/list adapter 연결 필요)",
-            toss_pending
-        );
-    }
+        .map(|(_, order_id, symbol)| (order_id.clone(), symbol.clone()))
+        .collect()
 }
 
 async fn collect_kis_pending_fills(
@@ -501,6 +525,100 @@ async fn collect_kis_pending_fills(
     }
 
     Ok(fills)
+}
+
+async fn collect_toss_pending_fills(
+    profile: Option<AccountProfile>,
+    pending: &[(String, String)],
+) -> Result<Vec<PendingFill>> {
+    if pending.is_empty() {
+        return Ok(Vec::new());
+    }
+    let Some(profile) = profile else {
+        tracing::warn!(
+            "Toss pending 체결 확인 스킵 — 활성 Toss 프로파일이 없습니다: {}건",
+            pending.len()
+        );
+        return Ok(Vec::new());
+    };
+    let account_seq = profile.broker_account_id();
+    if account_seq.trim().is_empty() {
+        tracing::warn!(
+            "Toss pending 체결 확인 스킵 — accountSeq가 비어 있습니다: {}건",
+            pending.len()
+        );
+        return Ok(Vec::new());
+    }
+
+    let adapter = TossBrokerAdapter::with_credentials(
+        TossBrokerAdapter::DEFAULT_BASE_URL,
+        profile.app_key,
+        profile.app_secret,
+        Some(account_seq.clone()),
+    );
+    let mut fills = Vec::new();
+    for (order_id, symbol) in pending {
+        let order = match adapter.get_order(Some(&account_seq), order_id).await {
+            Ok(order) => order,
+            Err(e) => {
+                tracing::warn!(
+                    "Toss 주문번호 기반 체결 확인 실패: order_id={} symbol={} error={}",
+                    order_id,
+                    symbol,
+                    e
+                );
+                continue;
+            }
+        };
+        let qty = storage_quantity_units(&order.execution.filled_quantity);
+        if qty == 0 {
+            continue;
+        }
+        let Some(avg_price) = order.execution.average_filled_price.as_deref() else {
+            continue;
+        };
+        let avg_units = storage_money_units(avg_price, &order.currency);
+        if avg_units == 0 {
+            continue;
+        }
+        tracing::info!(
+            "Toss 주문번호 기반 체결 확인: order_id={} symbol={} status={} qty={} avg={}",
+            order_id,
+            symbol,
+            order.status,
+            qty,
+            avg_units
+        );
+        fills.push(PendingFill {
+            odno: order_id.clone(),
+            filled_qty: qty,
+            avg_price: avg_units,
+        });
+    }
+    Ok(fills)
+}
+
+fn storage_quantity_units(value: &str) -> u64 {
+    value
+        .trim()
+        .replace(',', "")
+        .parse::<f64>()
+        .map(|v| v.max(0.0).floor() as u64)
+        .unwrap_or(0)
+}
+
+fn storage_money_units(value: &str, currency: &str) -> u64 {
+    let parsed = value
+        .trim()
+        .replace(',', "")
+        .parse::<f64>()
+        .unwrap_or(0.0)
+        .max(0.0);
+    if currency.eq_ignore_ascii_case("USD") {
+        (parsed * 100.0).round() as u64
+    } else {
+        parsed.round() as u64
+    }
 }
 
 /// 국내주식 매매 수수료 추정

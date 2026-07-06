@@ -3,7 +3,7 @@
 > Source of truth: `https://openapi.tossinvest.com/openapi-docs/latest/openapi.json`  
 > Last verified: 2026-07-06, OpenAPI version `1.1.5`
 
-This checklist prevents accidental live trading while adding Toss Securities support. Only the Dashboard small-order verification gate may submit a live Toss order after every read-only step passes and the user gives explicit approval for a 1-share market buy. Trading, Strategy, and auto-trading order flows remain blocked until the auto-trading unlock criteria are complete.
+This checklist prevents accidental live trading while operating Toss Securities support. Dashboard small-order verification, Trading manual orders, and auto-trading may submit live Toss orders only after profile diagnostics, order preflight, local/provider pending checks, and explicit `live_trading_consent` are in place.
 
 ## 0. Preconditions
 
@@ -11,7 +11,7 @@ This checklist prevents accidental live trading while adding Toss Securities sup
 - Run `npm run verify:toss-openapi` and confirm the expected title, version, base URL, endpoint count, account header refs, and error schemas.
 - Confirm the active profile is `broker_id = "toss"` and the account identifier is Toss `accountSeq`, not a KIS account number.
 - Confirm Settings shows the profile as Toss and exposes the `연결 진단` action.
-- Confirm `start_trading` still rejects Toss profiles with `BROKER_NOT_SUPPORTED`.
+- Confirm `start_trading` rejects Toss profiles without `live_trading_consent` and allows configured Toss profiles with consent.
 
 ## 1. Read-Only Connection
 
@@ -35,9 +35,9 @@ Failure handling:
 - Fix profile configuration before retrying if token or accountSeq checks fail.
 - Do not proceed to order validation if any read-only step fails.
 
-## 2. Order-Preflight Read-Only Checks
+## 2. Order-Preflight Checks
 
-Before enabling any order submission UI or adapter method, verify that the read-only adapter methods and Settings diagnostic cover:
+Before any order submission UI or adapter method calls the provider, verify that the preflight adapter methods and Settings diagnostic cover:
 
 | Purpose | Endpoint | Required Evidence |
 |---------|----------|-------------------|
@@ -45,9 +45,9 @@ Before enabling any order submission UI or adapter method, verify that the read-
 | Sellable quantity | `GET /api/v1/sellable-quantity` | sell quantity is available for owned symbol |
 | Commissions | `GET /api/v1/commissions` | expected commission/tax data is available for market and order shape |
 
-These checks must be called before `TradeGuard` allows a Toss order. Cache nothing that can change intraday unless the official response headers and rate-limit policy make that safe.
+These checks must be called before a Toss manual or automatic order is submitted. Cache nothing that can change intraday unless the official response headers and rate-limit policy make that safe.
 
-Dashboard, Trading 화면과 Strategy 가격조건 전략의 `Toss 소액 수동매매 검증` UI는 이 단계의 진행 상태를 보여준다. Dashboard는 검색 종목 1주 시장가 매수 조건으로 현재가 snapshot 기반 사전검증을 표시하고, 별도 `submit_toss_small_buy_verification` gate에서만 실제 매수를 허용한다. Trading/Strategy는 사용자가 입력한 주문 조건과 read-only 사전검증 결과를 표시하지만 실제 주문 버튼은 계속 차단한다.
+Dashboard의 `Toss 소액 수동매매 검증` UI는 검색 종목 1주 시장가 매수 조건으로 현재가 snapshot 기반 사전검증과 최종 확인을 표시한다. Trading은 사용자가 입력한 주문 조건으로 preflight를 표시하고 `canSubmit=true`일 때 일반 주문 버튼을 활성화한다. Strategy/자동매매 화면에는 별도 소액매매 검증 UI를 두지 않는다.
 
 ## 3. Small Live-Order Approval Gate
 
@@ -63,7 +63,7 @@ Live order testing requires a separate user approval that states:
 - maximum notional amount
 - confirmation that the order may execute in a real account
 
-Without that approval, order code may be implemented behind tests, but it must not be reachable from Settings, Trading, Strategy, Dashboard, or auto-trading flows. The current approved exception is Dashboard `submit_toss_small_buy_verification`, which is limited to a confirmed 1-share market buy for the searched symbol.
+Without that approval or stored `live_trading_consent`, order code must fail before provider submission. Dashboard `submit_toss_small_buy_verification` remains limited to a confirmed 1-share market buy for the searched symbol; Trading and auto-trading use their own preflight and pending-conflict gates.
 
 ## 4. First Small Order
 
@@ -78,9 +78,9 @@ When approval exists:
 7. Poll `GET /api/v1/orders/{orderId}` until the order is filled, rejected, canceled, or clearly pending.
 8. If the provider reports filled or partially filled quantity, record the execution in trade history before enabling any broader UI path.
 
-## 5. Auto-Trading Unlock Criteria
+## 5. Auto-Trading Runtime Criteria
 
-Do not remove `BROKER_NOT_SUPPORTED` for Toss until all of these are true:
+Keep Toss auto-trading enabled only while all of these remain true:
 
 - read-only diagnostic passes from Settings
 - buying-power, sellable-quantity, and commissions are integrated into order preflight
@@ -90,4 +90,4 @@ Do not remove `BROKER_NOT_SUPPORTED` for Toss until all of these are true:
 - `TradeGuard` and `RiskManager` aggregate limits by broker/account scope
 - History/Log can show Toss `requestId`, `orderId`, and `clientOrderId`
 
-> Last updated: 2026-07-06T15:06:26+09:00
+> Last updated: 2026-07-06T22:10:00+09:00

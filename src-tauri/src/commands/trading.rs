@@ -319,6 +319,32 @@ pub async fn start_trading(
             message: "KIS API 설정이 완료되지 않았습니다. Settings에서 API 키를 확인하세요.".into(),
         });
     }
+    if current_cfg.broker_id == BrokerId::Toss {
+        let active_profile = {
+            let profiles = state.profiles.read().await;
+            profiles.get_active().cloned()
+        };
+        let Some(profile) = active_profile.filter(|profile| profile.broker_id == BrokerId::Toss)
+        else {
+            return Err(CmdError {
+                code: "CONFIG_NOT_READY".into(),
+                message: "활성 Toss 프로파일이 없습니다.".into(),
+            });
+        };
+        if !profile.is_configured() {
+            return Err(CmdError {
+                code: "CONFIG_NOT_READY".into(),
+                message: "토스증권 Client ID/Secret/accountSeq 설정이 완료되지 않았습니다.".into(),
+            });
+        }
+        if !profile.live_trading_consent {
+            return Err(CmdError {
+                code: "LIVE_TRADING_CONSENT_REQUIRED".into(),
+                message: "Toss 실거래 동의를 저장해야 자동매매 주문 실행을 시작할 수 있습니다."
+                    .into(),
+            });
+        }
+    }
 
     if *state.is_trading.lock().await {
         return Err(CmdError {
@@ -334,14 +360,6 @@ pub async fn start_trading(
         "자동매매 시작 전 broker-aware 포지션 동기화 완료: {}개",
         synced_positions
     );
-
-    if current_cfg.broker_id != BrokerId::Kis {
-        return Err(CmdError {
-            code: "BROKER_NOT_SUPPORTED".into(),
-            message: "Toss holdings 기반 전략 포지션 동기화는 완료했지만, 현재 자동매매 주문 실행 경로는 KIS broker만 지원합니다. Toss 주문/체결 adapter와 소액 검증 gate 이후 연결하세요."
-                .into(),
-        });
-    }
 
     let mut is_running = state.is_trading.lock().await;
     if *is_running {
@@ -397,8 +415,8 @@ pub async fn start_trading(
 
     initialize_active_strategy_history(&state).await;
 
-    // WebSocket 연결 시작 (보조 — 실패해도 폴링 루프가 독립 동작)
-    {
+    // WebSocket 연결 시작 (KIS 전용 보조 — 실패해도 폴링 루프가 독립 동작)
+    if current_cfg.broker_id == BrokerId::Kis {
         let rest = state.rest_client.read().await.clone();
         let ws_client = crate::api::KisWebSocketClient::new(
             rest.is_paper(),
@@ -417,6 +435,10 @@ pub async fn start_trading(
                 tracing::error!("WebSocket 연결 실패: {}", e);
             }
         });
+    } else {
+        tracing::info!(
+            "Toss 자동매매는 현재 polling 기반으로 실행하며 KIS WebSocket 구독을 생략합니다."
+        );
     }
 
     // ── 폴링 기반 자동매매 루프 ──────────────────────────────────

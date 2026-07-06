@@ -155,8 +155,8 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 - 페이지별로 임의 Chip 조합을 새로 만들지 말고 공통 컴포넌트를 재사용해 broker/profile/account 표시 순서와 색상을 유지한다.
 - Strategy 카드처럼 저장 데이터 자체에 broker/account scope가 있는 경우 카드 header에 해당 scope chip을 표시하고, 현재 활성 scope와 다르면 `warning` 색상으로 표시한다.
 - Settings의 계좌 프로파일 관리는 KIS/Toss 섹션을 분리한다. KIS 계좌번호와 Toss `accountSeq`는 같은 문자열 필드에 저장되더라도 UI에서는 같은 목록·같은 broker 선택 폼으로 섞지 않는다.
-- 활성 broker가 Toss인 Dashboard/Trading/Strategy는 KIS 잔고·주문 흐름을 호출하지 않고 Toss 보유종목/시세와 주문·자동매매 차단 또는 Dashboard 소액 검증 상태를 명확히 표시한다.
-- Dashboard, Trading과 Strategy 가격조건 전략의 Toss 소액 수동매매 검증 gate는 `src/features/manual-order`의 공유 컴포넌트를 사용한다. Dashboard는 검색 종목 1주 시장가 매수 조건을 사전검증하고, 실거래 동의·최종 확인 checkbox·최대 허용금액을 같은 화면에서 보여준 뒤 Dashboard 전용 버튼으로만 실제 소액매매 검증을 제출한다. Trading/Strategy는 read-only 사전검증만 표시한다. `canSubmit=false`일 때만 표시하고, `canSubmit=true`로 거래 가능한 상태가 되면 화면에서 숨긴다.
+- 활성 broker가 Toss인 Dashboard/Trading/Strategy는 KIS 잔고·시세·주문 흐름을 호출하지 않고 Toss 보유종목/시세, 주문 전 검증, 실거래 동의 상태를 명확히 표시한다.
+- Dashboard의 Toss 소액 수동매매 검증 gate는 `src/features/manual-order`의 공유 컴포넌트를 사용한다. Dashboard는 검색 종목 1주 시장가 매수 조건을 사전검증하고, 실거래 동의·최종 확인 checkbox·최대 허용금액을 같은 화면에서 보여준 뒤 Dashboard 전용 버튼으로만 실제 소액매매 검증을 제출한다. Trading은 일반 주문 패널에서 `TossOrderPreflightPanel`을 표시하고 `canSubmit=true`일 때 수동 주문 버튼을 활성화한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
 
 ### Provider trace 표시
 
@@ -557,4 +557,4 @@ UI 규칙:
 - 저장 버튼은 대상 ticker가 하나 이상 있고 비어 있는 ticker가 없을 때만 활성화한다.
 - 기존 저장 JSON 호환 때문에 `inverse_*`, `base_*`, `base_symbol_roles` 필드는 타입에 남아 있을 수 있으나 새 UI에서는 노출하지 않는다.
 
-> 마지막 업데이트: 2026-07-06T15:28:38+09:00
+> 마지막 업데이트: 2026-07-06T22:10:00+09:00

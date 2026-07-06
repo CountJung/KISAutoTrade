@@ -374,7 +374,6 @@ export default function Dashboard() {
   const profitPositive = netProfit >= 0
   const isRunning = tradingStatus?.isRunning ?? false
   const configReady = diag?.is_ready ?? true  // 데이터 없으면 배너 숨김
-  const autoTradingBlockedByBroker = isTossActive
 
   // ── 국내/해외 합산 계산 ────────────────────────────────────────
   const domesticItems = balance?.items ?? []
@@ -483,12 +482,10 @@ export default function Dashboard() {
               color="primary"
               size="small"
               startIcon={startPending ? <CircularProgress size={16} /> : <PlayArrowIcon />}
-              onClick={() => {
-                if (!autoTradingBlockedByBroker) startTrading()
-              }}
-              disabled={startPending || !configReady || autoTradingBlockedByBroker}
+              onClick={() => startTrading()}
+              disabled={startPending || !configReady}
             >
-              {autoTradingBlockedByBroker ? 'Toss 자동매매 준비 중' : '자동매매 시작'}
+              자동매매 시작
             </Button>
           )}
           <Tooltip title="새로고침">
@@ -499,9 +496,9 @@ export default function Dashboard() {
         </Box>
       </Box>
 
-      {autoTradingBlockedByBroker && !isRunning && (
+      {isTossActive && !isRunning && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Toss 프로파일은 현재 보유종목·시세 read-only 조회만 연결되어 있습니다. 자동매매 주문 경로는 소액 검증 gate 이후 열립니다.
+          Toss 프로파일은 실거래 동의가 저장된 경우 수동 주문과 자동매매 주문을 실행할 수 있습니다. Dashboard 소액매매 검증은 1주 시장가 매수 최종 점검용으로 유지됩니다.
         </Alert>
       )}
 

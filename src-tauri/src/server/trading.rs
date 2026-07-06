@@ -5,7 +5,10 @@ use axum::{
 use serde::Deserialize;
 
 use super::ServerState;
-use crate::broker::{BrokerAccountId, BrokerId, BrokerMarket, BrokerScope};
+use crate::broker::{
+    BrokerAccountId, BrokerAdapter, BrokerId, BrokerMarket, BrokerScope, TossBrokerAdapter,
+};
+use crate::config::AccountProfile;
 use crate::trading::strategy::BrokerPositionSnapshot;
 
 /// GET /api/trading/status
@@ -79,28 +82,147 @@ async fn sync_kis_strategy_positions(s: &ServerState) -> usize {
     synced
 }
 
+async fn sync_toss_strategy_positions(s: &ServerState, profile: AccountProfile) -> usize {
+    if !profile.is_configured() {
+        tracing::warn!("웹 자동매매 Toss holdings 동기화 건너뜀: 설정이 미완료입니다.");
+        return 0;
+    }
+    let account_seq = profile.broker_account_id();
+    let adapter = TossBrokerAdapter::with_credentials(
+        TossBrokerAdapter::DEFAULT_BASE_URL,
+        profile.app_key,
+        profile.app_secret,
+        Some(account_seq.clone()),
+    );
+    let account_id = BrokerAccountId(account_seq);
+    let holdings = match adapter.list_holdings(Some(&account_id)).await {
+        Ok(holdings) => holdings,
+        Err(e) => {
+            tracing::warn!("웹 자동매매 시작 전 Toss holdings 동기화 실패: {}", e);
+            return 0;
+        }
+    };
+    s.stock_store
+        .upsert_many(
+            holdings
+                .iter()
+                .map(|holding| (holding.symbol.0.clone(), holding.symbol_name.clone())),
+        )
+        .await;
+    {
+        let mut tracker = s.position_tracker.lock().await;
+        tracker.load_if_empty(
+            holdings
+                .iter()
+                .filter(|holding| holding.market == BrokerMarket::Kr)
+                .map(|holding| {
+                    (
+                        holding.symbol.0.clone(),
+                        holding.symbol_name.clone(),
+                        decimal_quantity_units(&holding.quantity.0),
+                        money_units(
+                            &holding.average_price.amount,
+                            &holding.average_price.currency,
+                        ),
+                        money_units(
+                            &holding.current_price.amount,
+                            &holding.current_price.currency,
+                        ),
+                    )
+                }),
+        );
+    }
+    let mut synced = 0usize;
+    let mut mgr = s.strategy_manager.lock().await;
+    for holding in &holdings {
+        let quantity = decimal_quantity_units(&holding.quantity.0);
+        if quantity > 0 {
+            synced += 1;
+        }
+        mgr.sync_position_for_broker(&BrokerPositionSnapshot {
+            broker_id: BrokerId::Toss,
+            market: holding.market,
+            symbol: holding.symbol.0.clone(),
+            quantity,
+            avg_price: money_units(
+                &holding.average_price.amount,
+                &holding.average_price.currency,
+            ),
+        });
+    }
+    synced
+}
+
+fn decimal_quantity_units(value: &str) -> u64 {
+    let parsed = value.trim().replace(',', "").parse::<f64>().unwrap_or(0.0);
+    if parsed <= 0.0 {
+        0
+    } else {
+        parsed.floor().max(1.0) as u64
+    }
+}
+
+fn money_units(value: &str, currency: &crate::broker::BrokerCurrency) -> u64 {
+    let parsed = value.trim().replace(',', "").parse::<f64>().unwrap_or(0.0);
+    match currency {
+        crate::broker::BrokerCurrency::Krw => parsed.round().max(0.0) as u64,
+        crate::broker::BrokerCurrency::Usd => (parsed.max(0.0) * 100.0).round() as u64,
+    }
+}
+
 /// POST /api/trading/start — is_trading = true (폴링 데몬이 자동으로 재개)
 pub(super) async fn trading_start_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
     let current_cfg = s.config.read().await.clone();
-    if current_cfg.broker_id != BrokerId::Kis {
-        return Json(serde_json::json!({
-            "ok": false,
-            "code": "BROKER_NOT_SUPPORTED",
-            "message": "웹 자동매매 시작은 현재 KIS broker만 지원합니다. Toss는 주문/체결 adapter와 소액 검증 gate 이후 연결하세요.",
-        }));
-    }
-    if !current_cfg.is_kis_configured() {
+    if current_cfg.broker_id == BrokerId::Kis && !current_cfg.is_kis_configured() {
         return Json(serde_json::json!({
             "ok": false,
             "code": "CONFIG_NOT_READY",
             "message": "KIS API 설정이 완료되지 않았습니다. Settings에서 API 키를 확인하세요.",
         }));
     }
+    let active_profile = {
+        let profiles = s.profiles.read().await;
+        profiles.get_active().cloned()
+    };
+    if current_cfg.broker_id == BrokerId::Toss {
+        let Some(profile) = active_profile
+            .as_ref()
+            .filter(|profile| profile.broker_id == BrokerId::Toss)
+        else {
+            return Json(serde_json::json!({
+                "ok": false,
+                "code": "CONFIG_NOT_READY",
+                "message": "활성 Toss 프로파일이 없습니다.",
+            }));
+        };
+        if !profile.is_configured() {
+            return Json(serde_json::json!({
+                "ok": false,
+                "code": "CONFIG_NOT_READY",
+                "message": "토스증권 Client ID/Secret/accountSeq 설정이 완료되지 않았습니다.",
+            }));
+        }
+        if !profile.live_trading_consent {
+            return Json(serde_json::json!({
+                "ok": false,
+                "code": "LIVE_TRADING_CONSENT_REQUIRED",
+                "message": "Toss 실거래 동의를 저장해야 자동매매 주문 실행을 시작할 수 있습니다.",
+            }));
+        }
+    }
     if *s.is_trading.lock().await {
         return Json(serde_json::json!({ "ok": false, "message": "이미 실행 중입니다." }));
     }
 
-    let synced_positions = sync_kis_strategy_positions(&s).await;
+    let synced_positions = match current_cfg.broker_id {
+        BrokerId::Kis => sync_kis_strategy_positions(&s).await,
+        BrokerId::Toss => {
+            let profile = active_profile
+                .clone()
+                .expect("Toss profile was validated before sync");
+            sync_toss_strategy_positions(&s, profile).await
+        }
+    };
     let (active_id, broker_id, account_id) = {
         let profiles = s.profiles.read().await;
         match profiles.get_active() {

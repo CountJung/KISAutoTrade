@@ -188,12 +188,15 @@ impl AppState {
         let overseas_position_tracker = Arc::new(Mutex::new(OverseasPositionTracker::new()));
         let exchange_rate_krw = Arc::new(RwLock::new(1450.0_f64));
         let exchange_rate_status = Arc::new(RwLock::new(ExchangeRateView::default_krw()));
+        let initial_active_profile_id = profiles.active_id.clone();
+        let profiles = Arc::new(RwLock::new(profiles));
 
         // rest_client를 RwLock으로 감싸서 OrderManager와 공유
         let rest_client_rw = Arc::new(RwLock::new(rest_client));
 
         let order_manager = Arc::new(Mutex::new(OrderManager::new(
             Arc::clone(&rest_client_rw),
+            Arc::clone(&profiles),
             Arc::clone(&order_store),
             Arc::clone(&trade_store),
             Arc::clone(&position_tracker),
@@ -374,7 +377,7 @@ impl AppState {
         let strategy_store = Arc::new(StrategyStore::new(&data_dir));
 
         // 저장된 전략 설정 로드 (프로파일별, 프로그램 재시작 후 복원)
-        if let Some(profile_id) = profiles.active_id.as_deref() {
+        if let Some(profile_id) = initial_active_profile_id.as_deref() {
             let saved = strategy_store.load_sync(profile_id);
             strategy_manager.apply_saved_configs_for_scope(
                 &saved,
@@ -393,7 +396,7 @@ impl AppState {
             rest_client: rest_client_rw,
             discord,
             discord_config,
-            profiles: Arc::new(RwLock::new(profiles)),
+            profiles,
             profiles_path,
             trade_store,
             stats_store,

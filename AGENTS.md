@@ -67,8 +67,8 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-07-06 | Toss 수동/자동 주문 제출과 주문번호 기반 체결 확인 연결 |
+| 2026-07-06 | Strategy 자동매매 화면의 Toss 소액매매 검증 gate 제거 |
 | 2026-07-06 | AppShell custom scrollbar 포인터 드래그 동작 복구 |
 | 2026-07-06 | Dashboard Toss 소액매매 1주 시장가 실주문 검증 경로 추가 |
 | 2026-07-04 | Playwright 검증 추가와 레버리지 전략 단일 티커 추세 모델 구현 |
-| 2026-07-04 | 자동매매 주문 제출 경로를 lock-short shared submission으로 분리 |
-| 2026-07-04 | broker/toss.rs를 client·adapter·orders·types 등 하위 모듈로 분리 |

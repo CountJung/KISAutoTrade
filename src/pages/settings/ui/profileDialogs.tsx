@@ -284,7 +284,7 @@ export function AddProfileDialog({
           {form.broker_id === 'toss' && (
             <>
               <Alert severity="info" sx={{ py: 0.75 }}>
-                토스증권 프로파일은 read-only 연결 진단부터 지원합니다. 실제 주문과 자동매매는 아직 차단됩니다.
+                토스증권 프로파일은 연결 진단과 주문 전 검증을 거친 뒤 실거래 동의가 저장된 경우 실제 주문과 자동매매를 실행할 수 있습니다.
               </Alert>
               <FormControlLabel
                 control={
@@ -625,7 +625,7 @@ export function EditProfileDialog({
           {form.broker_id === 'toss' && (
             <>
               <Alert severity="info" sx={{ py: 0.75 }}>
-                토스증권 프로파일은 read-only 연결 진단부터 지원합니다. 실제 주문과 자동매매는 아직 차단됩니다.
+                토스증권 프로파일은 연결 진단과 주문 전 검증을 거친 뒤 실거래 동의가 저장된 경우 실제 주문과 자동매매를 실행할 수 있습니다.
               </Alert>
               <FormControlLabel
                 control={

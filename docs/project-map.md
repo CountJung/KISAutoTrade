@@ -70,10 +70,9 @@ AutoConditionTrade/                   ← 루트
 │   │   ├── dashboard/ui/tossVerificationPanel.tsx ← Dashboard Toss 소액매매 1주 시장가 실주문 검증 패널
 │   │   ├── trading/ui/Page.tsx       ← 수동 매수/매도 + 종목 검색 + 체결 내역
 │   │   ├── trading/ui/kisPanels.tsx  ← KIS 보유/시세 패널
-│   │   ├── trading/ui/tossPanels.tsx ← Toss read-only 시세/안전/장운영/주문 전 검증 패널
+│   │   ├── trading/ui/tossPanels.tsx ← Toss 시세/안전/장운영/주문 전 검증 패널
 │   │   ├── strategy/ui/Page.tsx      ← 전략 ON/OFF + 파라미터 설정 route 조립
 │   │   ├── strategy/ui/leveragedTrendHoldEditorPanel.tsx ← 레버리지 추세 보유 전략 편집 패널
-│   │   ├── strategy/ui/tossManualVerification.tsx ← 가격조건 전략용 Toss 소액 수동매매 검증 gate wrapper
 │   │   ├── history/ui/Page.tsx       ← 날짜 범위 조회, 자동매매 체결 기록
 │   │   ├── log/ui/Page.tsx           ← 레벨 필터, 검색, 색상 구분 로그 뷰어
 │   │   ├── settings/ui/Page.tsx      ← 테마/갱신/로그/웹/종목/리스크/Discord 설정 route 조립
@@ -189,7 +188,7 @@ AutoConditionTrade/                   ← 루트
 | `api/hooks.ts` | TanStack Query 훅 legacy entry (`KEYS`, `useBackendEvents` re-export 유지) |
 | `api/queryKeys.ts` | TanStack Query `KEYS` 단일 원천 (`hooks.ts`에서 하위 호환 re-export) |
 | `api/backendEvents.ts` | Tauri backend event 구독 → 환율/잔고 Query 캐시 갱신 |
-| `features/manual-order/ui/TossManualTradeVerificationPanel.tsx` | Trading/Strategy/Dashboard에서 공유하는 Toss 소액 수동매매 검증 gate. `canSubmit=true`면 렌더링하지 않음 |
+| `features/manual-order/ui/TossManualTradeVerificationPanel.tsx` | Trading/Dashboard에서 공유하는 Toss 소액 수동매매 검증 gate. `canSubmit=true`면 렌더링하지 않음 |
 | `widgets/app-shell/` | 전체 앱 레이아웃, ThemeProvider, responsive navigation |
 | `widgets/stock-chart/` | 국내/해외/Toss 캔들 차트 |
 | `pages/settings/ui/Page.tsx` | 테마, 데이터 갱신 주기, 로그/체결 보관, 웹 포트, 종목 목록, 리스크, Discord 설정 route 조립 |
@@ -197,15 +196,14 @@ AutoConditionTrade/                   ← 루트
 | `pages/settings/ui/profileDialogs.tsx` | KIS/Toss 프로파일 추가/편집, 실전/모의 감지, Toss accountSeq 조회. secret 입력 상태는 이 파일 안에만 보관 |
 | `pages/settings/ui/profileUtils.ts` | 프로파일 에러 메시지와 broker label 공통 유틸 |
 | `pages/settings/ui/section.tsx` | Settings page-local `Section` 래퍼 |
-| `pages/dashboard/ui/Page.tsx` | 활성 broker scope, KIS 국내/해외 잔고, 활성 Toss broker 보유 종목/평가 요약, Toss 자동매매 read-only 차단 안내, USD/KRW 환율 출처 chip, 수익 카드, 리스크, Dashboard 라우트 조립 |
+| `pages/dashboard/ui/Page.tsx` | 활성 broker scope, KIS 국내/해외 잔고, 활성 Toss broker 보유 종목/평가 요약, Toss 자동매매 시작, Dashboard 소액매매 검증, USD/KRW 환율 출처 chip, 수익 카드, 리스크, Dashboard 라우트 조립 |
 | `pages/dashboard/ui/orderPanels.tsx` | Dashboard 미체결 주문과 체결 내역 필터/정렬/페이지네이션 패널 |
 | `pages/dashboard/ui/tossVerificationPanel.tsx` | Dashboard에서 종목 검색 후 Toss 1주 시장가 매수 조건으로 사전검증, 최대 허용금액, 실거래 확인을 거쳐 실제 소액매매 검증을 실행하는 패널 |
 | `pages/trading/ui/Page.tsx` | 활성 broker scope, KIS 국내/해외 수동 주문과 차트, Trading 라우트 조립 (`kisPanels.tsx`, `tossPanels.tsx`로 세부 패널 분리) |
 | `pages/trading/ui/kisPanels.tsx` | KIS 국내/해외 보유 테이블과 KIS 현재가 카드 |
-| `pages/trading/ui/tossPanels.tsx` | 활성 Toss 프로파일의 holdings/시세 snapshot/차트/종목 유의사항/장 운영 상태 read-only 표시와 주문 전 검증 |
-| `pages/strategy/ui/Page.tsx` | 활성 broker scope, 전략별 저장 broker/account scope 표시, Toss read-only 자동매매 차단 안내, 전략 활성화/파라미터/대상 종목 route 조립 |
+| `pages/trading/ui/tossPanels.tsx` | 활성 Toss 프로파일의 holdings/시세 snapshot/차트/종목 유의사항/장 운영 상태 표시와 주문 전 검증 |
+| `pages/strategy/ui/Page.tsx` | 활성 broker scope, 전략별 저장 broker/account scope 표시, Toss 자동매매 주문/체결 연결 안내, 전략 활성화/파라미터/대상 종목 route 조립 |
 | `pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx` | 레버리지 추세 보유 전략의 ETF 세트 검색/편집, 민감도 파라미터, 유효성 검사 |
-| `pages/strategy/ui/tossManualVerification.tsx` | 활성 Toss scope의 가격조건 전략 첫 매수 후보를 `useTossOrderPreflight()`와 공유 gate에 연결 |
 | `pages/history/ui/Page.tsx` | 활성 broker scope, 자동매매 체결 기록과 기간별 통계 조회, provider 원본 trace 표시 |
 | `pages/log/ui/Page.tsx` | 로그 레벨/검색 필터, provider trace 토큰 chip 표시 |
 
@@ -221,7 +219,7 @@ AutoConditionTrade/                   ← 루트
 | `commands/orders.rs` | 수동 주문 제출 IPC |
 | `commands/records.rs` | 체결/거래/통계 조회, Discord config 저장, frontend log 저장 IPC |
 | `commands/settings.rs` | app config/check_config, refresh interval, log/web 설정, USD/KRW 환율 IPC |
-| `commands/toss.rs` | Toss accountSeq 조회, 연결 진단, 주문 전 read-only preflight view facade |
+| `commands/toss.rs` | Toss accountSeq 조회, 연결 진단, 주문 전 preflight view facade |
 | `commands/toss/small_order.rs` | Dashboard 전용 Toss 소액매매 검증. 실거래 동의/최종 확인/최대 허용금액/preflight/open-order scan 후 1주 시장가 매수 제출과 주문·체결 기록 저장 |
 | `commands/toss_market.rs` | Toss 시세 snapshot, 종목 유의사항, market-calendar override, candles chart command |
 | `commands/trading.rs` | 자동매매 상태/시작/정지, broker-aware 포지션 동기화, polling daemon. 히스토리 초기화는 `commands/trading/history.rs`로 분리 |
@@ -252,7 +250,7 @@ AutoConditionTrade/                   ← 루트
 | `trading/views.rs` | `StrategyConfig` → camelCase `StrategyView` 공용 builder. IPC/REST가 같은 view를 사용하며 종목명 조회 전 manager lock을 해제 |
 | `trading/order.rs` | `buy_suspended` 플래그, provider trace 캡처, OrderManager facade |
 | `trading/order/submission.rs` | `submit_signal_shared()` lock-short 주문 제출, provider 호출 중 `submitting` 예약, 실패 주문 기록 보존 |
-| `trading/order/fills.rs` | `OrderManager::on_fill()`, KIS pending 체결 확인, Toss pending skip 로그, 체결/수수료/통계/TradeStore 저장. daemon은 shared helper로 KIS 체결 조회 네트워크 호출을 `order_manager` mutex 밖에서 수행 |
+| `trading/order/fills.rs` | `OrderManager::on_fill()`, KIS/Toss pending 체결 확인, 체결/수수료/통계/TradeStore 저장. daemon은 shared helper로 provider 체결 조회 네트워크 호출을 `order_manager` mutex 밖에서 수행 |
 | `trading/order/conflicts.rs` | 실행 `BrokerScope` 기준 같은 방향/반대 방향 pending 주문 충돌 판정과 provider trace 기반 pending provider 판정 |
 | `trading/risk.rs` | 일일 손실 한도, 비상 정지, `record_pnl` |
 | `market_hours.rs` | 시장 개장 여부 (KRX 09:00-15:30 / US 22:00-07:00 KST) |
@@ -261,7 +259,7 @@ AutoConditionTrade/                   ← 루트
 | `server/records.rs` | 웹 REST 포지션, 통계/체결 조회, pending 주문, 로그 설정/최근 로그, 체결 보관 설정/통계, 프론트엔드 로그. REST 보관 설정 변경도 IPC와 같이 즉시 purge를 예약 |
 | `server/profiles.rs` | 웹 REST 프로파일 CRUD/활성 전환/실전·모의 감지/Toss accountSeq·diagnostic. 프로파일 view는 IPC `profile_to_view()`를 재사용 |
 | `server/toss.rs` | 웹 REST Toss 시세 snapshot, 종목 유의사항, 주문 전 preflight, Dashboard 소액매매 검증, market-calendar, candles |
-| `server/trading.rs` | 웹 REST 자동매매 상태/시작/정지, 전략 목록/수정. 웹 start는 KIS 설정 검증, Toss 차단, 실행 scope 설정, KIS 잔고 기반 전략 포지션 복원을 수행 |
+| `server/trading.rs` | 웹 REST 자동매매 상태/시작/정지, 전략 목록/수정. 웹 start는 broker별 설정 검증, 실행 scope 설정, KIS/Toss 잔고 기반 전략 포지션 복원을 수행 |
 | `storage/trade_store.rs` | `data/trades/YYYY/MM/DD/trades.json` (`provider_*` 원본 요청 trace 포함) |
 | `storage/order_store.rs` | `data/orders/YYYY/MM/DD/orders.json` (`provider_*` 원본 주문 trace 포함) |
 | `storage/stats_store.rs` | `data/stats/YYYY/MM/daily_stats.json` |

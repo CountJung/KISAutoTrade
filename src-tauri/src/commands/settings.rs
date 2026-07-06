@@ -246,7 +246,7 @@ pub async fn check_config(state: State<'_, AppState>) -> CmdResult<ConfigDiagnos
         active_mode: match cfg.broker_id {
             BrokerId::Kis if cfg.kis_is_paper_trading => "모의투자".into(),
             BrokerId::Kis => "실전투자".into(),
-            BrokerId::Toss => "read-only".into(),
+            BrokerId::Toss => "실전투자".into(),
         },
         is_ready: cfg.is_active_broker_configured(),
         discord_configured: cfg.discord_bot_token.is_some(),

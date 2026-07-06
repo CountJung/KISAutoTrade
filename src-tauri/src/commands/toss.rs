@@ -533,7 +533,7 @@ fn parse_toss_order_side(side: &str) -> CmdResult<BrokerOrderSide> {
     }
 }
 
-fn toss_currency_from_view(money: &BrokerMoneyView) -> BrokerCurrency {
+pub(crate) fn toss_currency_from_view(money: &BrokerMoneyView) -> BrokerCurrency {
     money.currency
 }
 
@@ -592,7 +592,7 @@ pub async fn check_toss_order_preflight_for_profile(
     );
 
     let snapshot = get_toss_market_snapshot_for_profile(symbol.clone(), profile.clone()).await?;
-    let safety = get_toss_stock_safety_for_profile(symbol.clone(), profile).await?;
+    let safety = get_toss_stock_safety_for_profile(symbol.clone(), profile.clone()).await?;
     let currency = toss_currency_from_view(&snapshot.price);
     let input_price = input.price.as_deref().and_then(parse_decimal_amount);
     let snapshot_price = parse_decimal_amount(&snapshot.price.amount).unwrap_or(0.0);
@@ -672,12 +672,15 @@ pub async fn check_toss_order_preflight_for_profile(
         warnings
             .push("시장과 일치하는 Toss 수수료 정책을 찾지 못해 수수료 0으로 추정했습니다.".into());
     }
-    warnings.push("Toss 주문 생성 adapter는 아직 소액 검증 gate 전이라 제출이 차단됩니다.".into());
+    if !profile.live_trading_consent {
+        warnings.push("Toss 실거래 동의가 저장되지 않아 주문 제출은 차단됩니다.".into());
+    }
 
     let safety_ok = !(side == BrokerOrderSide::Buy && safety.buy_blocked);
-    let order_adapter_supported = false;
+    let order_adapter_supported = true;
     let liquidity_ok = decision.liquidity_ok;
-    let can_submit = liquidity_ok && safety_ok && order_adapter_supported;
+    let can_submit =
+        liquidity_ok && safety_ok && order_adapter_supported && profile.live_trading_consent;
 
     Ok(TossOrderPreflightView {
         broker_id: BrokerId::Toss,

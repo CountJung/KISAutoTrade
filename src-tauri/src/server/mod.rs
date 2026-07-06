@@ -643,7 +643,7 @@ async fn check_config_handler(State(s): State<ServerState>) -> Json<serde_json::
         "active_mode":        match cfg.broker_id {
             BrokerId::Kis if cfg.kis_is_paper_trading => "모의투자",
             BrokerId::Kis => "실전투자",
-            BrokerId::Toss => "read-only",
+            BrokerId::Toss => "실전투자",
         },
         "is_ready":           cfg.is_active_broker_configured(),
         "discord_configured": cfg.discord_bot_token.is_some(),

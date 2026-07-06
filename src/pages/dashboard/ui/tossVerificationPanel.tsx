@@ -221,7 +221,7 @@ export function DashboardTossVerificationPanel({
               </Tooltip>
             ),
           }}
-          helperText={symbol ? `선택됨: ${selectedLabel} (${symbol})` : '검색 후 종목을 선택하면 1주 시장가 기준으로 Toss read-only 사전검증을 실행합니다.'}
+          helperText={symbol ? `선택됨: ${selectedLabel} (${symbol})` : '검색 후 종목을 선택하면 1주 시장가 기준으로 Toss 주문 전 검증을 실행합니다.'}
         />
 
         {showResults && (searchResults.length > 0 || isFetchingSearch) && (

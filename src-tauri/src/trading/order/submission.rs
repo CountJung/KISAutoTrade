@@ -1,5 +1,10 @@
 use super::*;
 
+use crate::{
+    broker::{toss::TossOrderCreateRequest, BrokerId, TossBrokerAdapter},
+    config::AccountProfile,
+};
+
 #[derive(Debug, Clone)]
 struct SubmissionReservation {
     broker_scope: BrokerScope,
@@ -34,11 +39,21 @@ struct PreparedOrderSubmission {
 enum ProviderOrderRequest {
     Domestic(OrderRequest),
     Overseas(OverseasOrderRequest),
+    Toss(TossOrderCreateRequest),
+}
+
+enum ProviderOrderResponse {
+    Kis(OrderResponse),
+    Toss {
+        order_id: String,
+        client_order_id: Option<String>,
+    },
 }
 
 struct SubmissionDeps {
     broker_scope: BrokerScope,
     rest_client: Arc<RwLock<Arc<KisRestClient>>>,
+    active_profile: Option<AccountProfile>,
     order_store: Arc<OrderStore>,
     position_tracker: Arc<Mutex<PositionTracker>>,
     overseas_position_tracker: Arc<Mutex<OverseasPositionTracker>>,
@@ -152,6 +167,27 @@ impl OrderManager {
             SubmissionDeps {
                 broker_scope: manager.execution_scope.clone(),
                 rest_client: Arc::clone(&manager.rest_client),
+                active_profile: {
+                    let profiles = manager.profiles.read().await;
+                    let account_id = manager
+                        .execution_scope
+                        .account_id
+                        .as_ref()
+                        .map(|id| id.0.as_str());
+                    profiles
+                        .profiles
+                        .iter()
+                        .find(|profile| {
+                            profile.broker_id == manager.execution_scope.broker_id
+                                && account_id
+                                    .map(|id| profile.broker_account_id() == id)
+                                    .unwrap_or_else(|| {
+                                        profiles.get_active().map(|p| p.id.as_str())
+                                            == Some(profile.id.as_str())
+                                    })
+                        })
+                        .cloned()
+                },
                 order_store: Arc::clone(&manager.order_store),
                 position_tracker: Arc::clone(&manager.position_tracker),
                 overseas_position_tracker: Arc::clone(&manager.overseas_position_tracker),
@@ -180,7 +216,7 @@ impl OrderManager {
             }
         };
 
-        let order_result = place_prepared_order(&deps.rest_client, &prepared).await;
+        let order_result = place_prepared_order(&deps, &prepared).await;
         match order_result {
             Ok(response) => {
                 let pending = build_pending_order(&prepared, response);
@@ -508,6 +544,31 @@ fn build_provider_request(
     submission: &OrderSubmission,
     quantity: u64,
 ) -> (ProviderOrderRequest, &'static str, u64, Option<String>) {
+    if submission.broker_scope.broker_id == BrokerId::Toss {
+        let is_limit = submission.exchange.is_some();
+        let req = TossOrderCreateRequest {
+            client_order_id: None,
+            symbol: submission.symbol.clone(),
+            side: toss_order_side(&submission.side).to_string(),
+            order_type: if is_limit { "LIMIT" } else { "MARKET" }.to_string(),
+            time_in_force: Some("DAY".to_string()),
+            quantity: Some(quantity.to_string()),
+            price: is_limit.then(|| toss_price_string(submission.tick_price, true)),
+            order_amount: None,
+            confirm_high_value_order: Some(false),
+        }
+        .with_generated_client_order_id();
+        return (
+            ProviderOrderRequest::Toss(req),
+            if is_limit { "Limit" } else { "Market" },
+            if is_limit { submission.tick_price } else { 0 },
+            submission.exchange.clone().or_else(|| {
+                (!crate::market_hours::is_domestic_symbol(&submission.symbol))
+                    .then(|| "TOSS_US".to_string())
+            }),
+        );
+    }
+
     if let Some(exchange) = &submission.exchange {
         let order_exch = order_exchange_code(exchange).to_string();
         let usd_price = submission.tick_price as f64 / 100.0;
@@ -536,6 +597,21 @@ fn build_provider_request(
     }
 }
 
+fn toss_order_side(side: &OrderSide) -> &'static str {
+    match side {
+        OrderSide::Buy => "BUY",
+        OrderSide::Sell => "SELL",
+    }
+}
+
+fn toss_price_string(price_units: u64, is_us: bool) -> String {
+    if is_us {
+        format!("{:.4}", price_units as f64 / 100.0)
+    } else {
+        price_units.to_string()
+    }
+}
+
 fn rest_order_side(side: &OrderSide) -> RestOrderSide {
     match side {
         OrderSide::Buy => RestOrderSide::Buy,
@@ -544,9 +620,9 @@ fn rest_order_side(side: &OrderSide) -> RestOrderSide {
 }
 
 async fn place_prepared_order(
-    rest_client: &Arc<RwLock<Arc<KisRestClient>>>,
+    deps: &SubmissionDeps,
     prepared: &PreparedOrderSubmission,
-) -> Result<OrderResponse> {
+) -> Result<ProviderOrderResponse> {
     match &prepared.provider_request {
         ProviderOrderRequest::Domestic(req) => {
             tracing::info!(
@@ -556,7 +632,9 @@ async fn place_prepared_order(
                 prepared.quantity,
                 prepared.submission.reason
             );
-            place_with_retry_shared(rest_client, req).await
+            place_with_retry_shared(&deps.rest_client, req)
+                .await
+                .map(ProviderOrderResponse::Kis)
         }
         ProviderOrderRequest::Overseas(req) => {
             tracing::info!(
@@ -568,12 +646,70 @@ async fn place_prepared_order(
                 req.exchange,
                 prepared.submission.reason
             );
-            place_overseas_with_retry_shared(rest_client, req).await
+            place_overseas_with_retry_shared(&deps.rest_client, req)
+                .await
+                .map(ProviderOrderResponse::Kis)
+        }
+        ProviderOrderRequest::Toss(req) => {
+            let profile = deps.active_profile.as_ref().ok_or_else(|| {
+                anyhow::anyhow!("활성 Toss 프로파일이 없어 주문을 제출할 수 없습니다.")
+            })?;
+            if profile.broker_id != BrokerId::Toss {
+                return Err(anyhow::anyhow!(
+                    "자동매매 실행 scope는 Toss지만 활성 프로파일은 Toss가 아닙니다."
+                ));
+            }
+            if !profile.live_trading_consent {
+                return Err(anyhow::anyhow!(
+                    "Toss 실거래 동의가 저장되지 않아 자동매매 주문을 차단했습니다."
+                ));
+            }
+            let account_seq = profile.broker_account_id();
+            if account_seq.trim().is_empty() {
+                return Err(anyhow::anyhow!("Toss accountSeq가 설정되지 않았습니다."));
+            }
+            tracing::info!(
+                "Toss {} 주문 시도: {} {}주 {} — {}",
+                order_side_label(&prepared.submission.side),
+                prepared.submission.symbol,
+                prepared.quantity,
+                req.order_type,
+                prepared.submission.reason
+            );
+            let adapter = TossBrokerAdapter::with_credentials(
+                TossBrokerAdapter::DEFAULT_BASE_URL,
+                profile.app_key.clone(),
+                profile.app_secret.clone(),
+                Some(account_seq.clone()),
+            );
+            let response = adapter
+                .create_order(Some(&account_seq), req)
+                .await
+                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+            Ok(ProviderOrderResponse::Toss {
+                order_id: response.order_id,
+                client_order_id: response
+                    .client_order_id
+                    .or_else(|| req.client_order_id.clone()),
+            })
         }
     }
 }
 
 fn build_pending_order(
+    prepared: &PreparedOrderSubmission,
+    response: ProviderOrderResponse,
+) -> PendingOrder {
+    match response {
+        ProviderOrderResponse::Kis(response) => build_kis_pending_order(prepared, response),
+        ProviderOrderResponse::Toss {
+            order_id,
+            client_order_id,
+        } => build_toss_pending_order(prepared, order_id, client_order_id),
+    }
+}
+
+fn build_kis_pending_order(
     prepared: &PreparedOrderSubmission,
     response: OrderResponse,
 ) -> PendingOrder {
@@ -615,6 +751,44 @@ fn build_pending_order(
         record.provider_tr_id.as_deref().unwrap_or("-"),
         record.provider_order_id.as_deref().unwrap_or("-")
     );
+
+    PendingOrder {
+        record,
+        signal_reason: prepared.submission.reason.clone(),
+        exchange: prepared.order_exchange.clone(),
+        filled_quantity: 0,
+        strategy_id: prepared.submission.strategy_id.clone(),
+        signal_price: prepared.submission.tick_price,
+        order_price: prepared.order_price,
+        broker_scope: prepared.submission.broker_scope.clone(),
+    }
+}
+
+fn build_toss_pending_order(
+    prepared: &PreparedOrderSubmission,
+    order_id: String,
+    client_order_id: Option<String>,
+) -> PendingOrder {
+    tracing::info!(
+        "Toss {} 주문 접수: {} {}주 — {} (order_id={})",
+        order_side_label(&prepared.submission.side),
+        prepared.submission.symbol,
+        prepared.quantity,
+        prepared.submission.reason,
+        order_id
+    );
+
+    let mut record = OrderRecord::new(
+        prepared.submission.symbol.clone(),
+        prepared.submission.symbol_name.clone(),
+        prepared.submission.side.clone(),
+        prepared.quantity,
+        prepared.order_price,
+        format!("TOSS_{}", prepared.order_type.to_uppercase()),
+    )
+    .with_provider_trace("toss", Some(order_id.clone()), client_order_id, None);
+    record.kis_order_id = Some(order_id.clone());
+    record.provider_order_id = Some(order_id.clone());
 
     PendingOrder {
         record,

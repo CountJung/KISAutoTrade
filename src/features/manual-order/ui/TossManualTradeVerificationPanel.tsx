@@ -126,12 +126,12 @@ export function TossManualTradeVerificationPanel({
           </Typography>
           <Typography variant="caption" color="text.secondary" display="block">
             {orderType === 'Market'
-              ? '시장가 1주 조건은 현재 read-only 사전검증만 수행합니다. 실제 제출은 별도 승인, 주문 ID 저장, 체결/취소 확인 gate가 끝난 뒤 열립니다.'
-              : '소액 검증은 지정가 주문, 즉시 사전검증, 주문 ID 저장, 미체결 시 취소 확인까지 끝난 뒤 수동 주문 제한을 해제합니다.'}
+              ? '시장가 1주 조건은 현재가 snapshot과 가능금액으로 주문 전 검증합니다. Dashboard 전용 버튼은 최종 확인 후 실제 제출합니다.'
+              : '지정가/일반 주문은 주문 전 검증, 실거래 동의, 미체결 충돌 확인을 통과해야 제출됩니다.'}
           </Typography>
           {orderType === 'Market' && (
             <Typography variant="caption" color="warning.main" display="block">
-              시장가 실주문은 체결 가격이 확정되지 않으므로 현재 안전 정책상 제출 버튼은 계속 차단됩니다.
+              시장가 실주문은 체결 가격이 확정되지 않으므로 최대 허용 주문금액과 최종 확인을 함께 확인하세요.
             </Typography>
           )}
         </Box>

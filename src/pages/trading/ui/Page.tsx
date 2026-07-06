@@ -42,7 +42,6 @@ import {
   useTossStockSafety,
   useTossMarketCalendar,
   usePlaceOverseasOrder,
-  useProfiles,
   useRefreshStockList,
   useTradingStatus,
   useClearBuySuspension,
@@ -60,7 +59,6 @@ import type {
   OrderType,
 } from '../../../api/types'
 import { StockChart, OverseasStockChart } from '../../../widgets/stock-chart'
-import { TossManualTradeVerificationPanel } from '../../../features/manual-order'
 import { fmtBrokerMoney, fmtDecimalString, fmtNumber } from '../../../shared/lib'
 import { BrokerScopeIndicator } from '../../../shared/ui'
 import {
@@ -147,7 +145,6 @@ export default function Trading() {
   }, [inputValue, market, showResults])
 
   const { data: appConfig }                                         = useAppConfig()
-  const { data: profiles = [] }                                     = useProfiles()
   const isTossActive = appConfig?.active_broker_id === 'toss'
   const isKisActive = appConfig?.active_broker_id === 'kis'
   const { data: balance }                                           = useBalance({ enabled: isKisActive })
@@ -180,7 +177,6 @@ export default function Trading() {
   const { data: tradingStatus }                                     = useTradingStatus()
   const { mutate: clearBuySuspension, isPending: clearingBuySusp } = useClearBuySuspension()
   const isPending = isPendingKr || isPendingUs
-  const activeProfile = profiles.find((profile) => profile.id === appConfig?.active_profile_id) ?? null
 
   // STOCK_LIST_EMPTY 에러 감지: KRX 다운로드 미완료 or 실패
   const isStockListEmpty = isSearchError && (searchError as CmdError | null)?.code === 'STOCK_LIST_EMPTY'
@@ -277,11 +273,30 @@ export default function Trading() {
     if (!symbol)          { setErrorMsg('종목을 선택하세요.'); return }
     if (!qty || qty <= 0) { setErrorMsg('수량을 입력하세요.'); return }
     if (isTossActive && !tossManualOrderReady) {
-      setErrorMsg('Toss 수동 주문은 소액 검증 gate 통과 전까지 차단됩니다.')
+      setErrorMsg(tossPreflight?.blockedReasons?.[0] ?? 'Toss 주문 전 사전검증을 통과해야 수동 주문을 제출할 수 있습니다.')
       return
     }
     if (isTossActive) {
-      setErrorMsg('Toss 주문 제출 IPC는 아직 수동 주문 버튼에 연결되지 않았습니다. 소액 검증 주문 command 연결 후 제출됩니다.')
+      const prc = parseFloat(price || '0')
+      if (orderType === 'Limit' && (!prc || prc <= 0)) {
+        setErrorMsg('Toss 지정가 주문은 가격을 입력해야 합니다.')
+        return
+      }
+      placeOrder(
+        { symbol, side, order_type: orderType, quantity: qty, price: orderType === 'Market' ? 0 : prc },
+        {
+          onSuccess: (d) => {
+            const odno = d.odno || '(접수됨)'
+            setResult('Toss 주문 완료 — 주문번호: ' + odno)
+            setQuantity('')
+            setPrice('')
+          },
+          onError: (e) => {
+            const err = e as { message?: string } | Error | null
+            setErrorMsg(err instanceof Error ? err.message : (err as { message?: string })?.message ?? String(e))
+          },
+        },
+      )
       return
     }
 
@@ -683,7 +698,7 @@ export default function Trading() {
                   </InputAdornment>
                 ),
               }}
-              helperText={isTossActive ? 'Enter 또는 검색 버튼 — Toss read-only 시세 조회' : 'Enter 또는 검색 버튼 — 나스닥·뉴욕·AMEX 자동 감지'}
+              helperText={isTossActive ? 'Enter 또는 검색 버튼 — Toss 시세와 주문 전 검증 조회' : 'Enter 또는 검색 버튼 — 나스닥·뉴욕·AMEX 자동 감지'}
             />
             {symbol && (
               <Chip
@@ -733,7 +748,7 @@ export default function Trading() {
               <Typography variant="subtitle1" fontWeight={600}>수동 주문</Typography>
               {symbol && (
                 <Chip
-                  label={isTossActive ? `${symbol} (Toss read-only)` : market === 'KR' ? symbol : symbol + ' (' + usExchange + ')'}
+                  label={isTossActive ? `${symbol} (Toss)` : market === 'KR' ? symbol : symbol + ' (' + usExchange + ')'}
                   size="small"
                   color={isTossActive ? 'secondary' : market === 'US' ? 'info' : 'default'}
                   variant="outlined"
@@ -761,7 +776,7 @@ export default function Trading() {
 
             {isTossActive && !tossManualOrderReady && (
               <Alert severity="info" sx={{ mb: 1.5 }}>
-                Toss 프로파일은 현재 read-only 시세와 잔고 조회만 지원합니다. 주문 생성은 소액 검증 gate 이후 연결됩니다.
+                Toss 수동 주문은 실거래 동의와 주문 전 검증을 통과하면 제출됩니다. 시장가 주문은 가격 없이 수량 기준으로 전송됩니다.
               </Alert>
             )}
 
@@ -828,22 +843,6 @@ export default function Trading() {
                 isLoading={isTossPreflightLoading}
                 isError={isTossPreflightError}
                 error={tossPreflightError}
-              />
-            )}
-
-            {isTossActive && (
-              <TossManualTradeVerificationPanel
-                appConfig={appConfig}
-                activeProfile={activeProfile}
-                symbol={symbol}
-                market={market}
-                side={side}
-                orderType={orderType}
-                quantity={quantity}
-                price={price}
-                preflight={tossPreflight}
-                preflightLoading={isTossPreflightLoading}
-                preflightError={isTossPreflightError}
               />
             )}
 

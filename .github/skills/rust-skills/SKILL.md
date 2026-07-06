@@ -809,7 +809,7 @@ pub trait Strategy: Send + Sync {
 - 해외 또는 USD 평균단가/현재가는 USD × 100(cents)로 변환해서 전략에 전달한다.
 - 해외 잔고와 체결은 국내 `PositionTracker`에 혼입하지 않는다.
 - Toss decimal 수량은 전략의 in-position 복원 목적상 양수면 최소 1 단위로 snapshot에 반영한다. 실제 주문 수량으로 쓰기 전에는 Toss 주문 adapter에서 decimal 지원 여부를 별도 검증해야 한다.
-- Toss 자동매매 실행은 주문/체결 adapter가 준비될 때까지 계속 `BROKER_NOT_SUPPORTED`로 차단하되, `start_trading()`은 차단 전에 holdings 기반 전략 상태 복원을 수행할 수 있다.
+- Toss 자동매매 실행은 주문/체결 adapter가 연결되어 있으므로, `start_trading()`에서 활성 Toss 프로파일 설정과 `live_trading_consent`를 확인한 뒤 holdings 기반 전략 상태 복원을 수행한다.
 
 > 마지막 업데이트: 2026-07-03T15:25:46
 
@@ -1064,18 +1064,18 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 자동매매 실행 중 활성 프로파일을 전환해도 실행 중 주문 경로는 시작 시점 scope를 유지한다.
 - `OrderManager::set_execution_scope(BrokerScope)`는 `start_trading()`에서만 설정하고, 주문 전 `TradeGuard`/`RiskManager`/`PendingOrder`에 같은 scope를 전달한다.
 - `BrokerScope`는 `broker_id`와 `Option<BrokerAccountId>`를 함께 들고, KIS 계좌번호와 Toss `accountSeq`가 같은 키 공간을 공유하지 않게 한다.
-- 아직 실제 주문/체결 adapter가 없는 broker는 자동매매 시작 시 `BROKER_NOT_SUPPORTED`로 차단한다.
+- 아직 실제 주문/체결 adapter가 없는 broker는 자동매매 시작 시 `BROKER_NOT_SUPPORTED`로 차단한다. 현재 Toss는 주문/체결 adapter가 연결되어 있으므로 `live_trading_consent`와 accountSeq 설정을 통과하면 `start_trading()`을 허용한다.
 - 웹 REST `/api/trading/start`도 IPC `start_trading`과 같은 broker gate를 유지해야 한다. `is_trading`만 true로 바꾸지 말고 KIS 설정 검증, 미지원 broker 차단, `OrderManager::set_execution_scope()` 설정, 시작 전 KIS 잔고 기반 전략 포지션 복원을 수행한다.
 - 웹 REST `/api/archive-config` 변경도 IPC `set_trade_archive_config`와 같이 파일 저장 후 `purge_old_trade_files()`를 즉시 예약한다. IPC/REST 관리 경로가 다른 보관 정책을 가지면 장기 운영 중 디스크 사용량 예측이 어긋난다.
 - KIS REST client는 주문뿐 아니라 read API도 `RateLimitScheduler`를 거친다. 계좌/잔고는 `kis:account`, 체결 조회는 `kis:execution`, 시세/차트는 `kis:quote`, 주문은 `kis:order` group을 사용하고 응답 rate-limit header를 group별로 반영한다.
-- Toss read-only client는 token 발급/401 1회 재시도/accounts/holdings/buying-power/sellable-quantity/commissions 조회를 제공한다. HTTP timeout과 response body 상한을 두고, `Content-Length`가 없거나 부정확한 응답도 chunk 누적 중 상한 초과 전에 중단한다. 파싱/에러 메시지에는 전체 body를 싣지 말고 snippet만 포함한다. token cache mutex를 잡은 채 네트워크 token 발급을 기다리지 않는다. holdings는 `BrokerHolding`으로 매핑하며 자동매매 시작 전 전략 포지션 복원에는 사용할 수 있다. `check_toss_order_preflight`는 주문 전 read-only 검증까지만 수행하고, Dashboard의 실제 제출은 별도 `submit_toss_small_buy_verification` 경로에서만 허용한다. 자동매매 주문 실행은 계속 `BROKER_NOT_SUPPORTED`로 차단한다.
-- Toss 주문 client surface는 `create_order`, `list_orders`, `get_order`, `modify_order`, `cancel_order`로 둔다. `TossOrderCreateRequest::with_generated_client_order_id()`는 공식 idempotency key 제약을 만족하는 `clientOrderId`를 생성한다. Dashboard 소액 검증은 실거래 동의, 최종 확인, 최대 허용 주문금액, 직전 preflight, open-order scan 후 1주 시장가 매수만 제출하고, Trading/Strategy/자동매매 연결은 열지 않는다.
+- Toss client는 token 발급/401 1회 재시도/accounts/holdings/buying-power/sellable-quantity/commissions 및 주문 생성/조회 API를 제공한다. HTTP timeout과 response body 상한을 두고, `Content-Length`가 없거나 부정확한 응답도 chunk 누적 중 상한 초과 전에 중단한다. 파싱/에러 메시지에는 전체 body를 싣지 말고 snippet만 포함한다. token cache mutex를 잡은 채 네트워크 token 발급을 기다리지 않는다. holdings는 `BrokerHolding`으로 매핑하며 자동매매 시작 전 전략 포지션 복원에 사용한다.
+- Toss 주문 client surface는 `create_order`, `list_orders`, `get_order`, `modify_order`, `cancel_order`로 둔다. `TossOrderCreateRequest::with_generated_client_order_id()`는 공식 idempotency key 제약을 만족하는 `clientOrderId`를 생성한다. Dashboard 소액 검증은 실거래 동의, 최종 확인, 최대 허용 주문금액, 직전 preflight, open-order scan 후 1주 시장가 매수만 제출한다. Trading 수동 주문은 `place_order`에서 활성 Toss 프로파일이면 live consent/preflight/local pending/provider open-order scan 후 Toss order API로 분기한다. 자동매매 주문은 `OrderManager::submit_signal_shared()`에서 시작 시점 `BrokerScope`와 일치하는 Toss profile credential을 찾아 제출하고, `confirm_pending_fills_from_broker_shared()`는 Toss `get_order` detail의 누적 체결수량/평균가를 `on_fill()`로 반영한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
 - Toss 모듈을 분리할 때 내부 DTO/validation/helper는 `pub(super)`로 제한하고, 외부에서 필요한 client/adapter와 공식 응답 타입만 `broker/toss/mod.rs`에서 re-export한다.
-- `src-tauri/src/trading/order/fills.rs::confirm_pending_fills_from_broker()`는 pending `OrderRecord.provider` trace로 provider를 판정한다. 자동매매 daemon은 `OrderManager::confirm_pending_fills_from_broker_shared()`를 호출해 KIS 체결 조회 네트워크 await를 `order_manager` mutex 밖에서 수행한다. Toss pending은 주문 상세/목록 adapter 연결 전까지 명시 skip 로그로 남긴다.
+- `src-tauri/src/trading/order/fills.rs::confirm_pending_fills_from_broker()`는 pending `OrderRecord.provider` trace로 provider를 판정한다. 자동매매 daemon은 `OrderManager::confirm_pending_fills_from_broker_shared()`를 호출해 KIS/Toss 체결 조회 네트워크 await를 `order_manager` mutex 밖에서 수행한다.
 - 자동매매 daemon의 전략 신호 주문 제출은 `src-tauri/src/trading/order/submission.rs`의 `OrderManager::submit_signal_shared()`를 사용한다. 이 경로는 `order_manager` mutex를 짧게 잡아 guard/pending/submitting 예약만 수행하고, provider 주문 API와 order store append는 mutex 밖에서 await한다. provider 호출 중 같은 broker scope/symbol의 중복/반대 주문은 `submitting` 예약 맵으로 차단한다.
 - 주문 전 금액/수량 판정은 `trading/preflight.rs`의 공통 함수에 모은다. Toss `commissionRate`는 percent 문자열로 해석하고, `BrokerMoney`/`BrokerQuantity` 문자열 precision은 응답 view까지 보존한다.
 - 실제 주문 제출 전에는 로컬 pending scan을 먼저 수행해 같은 scope/symbol의 같은 방향 중복 주문과 반대 방향 미체결 주문을 모두 차단한다.
 - Toss 연결 진단은 `check_toss_profile_connection` IPC에서 프로파일 lock을 짧게 잡아 clone한 뒤 실행한다. 진단 단계는 OpenAPI spec, token, accounts, holdings, order preflight read-only 순서이며 토큰 문자열은 응답에 포함하지 않는다.
 - Tauri IPC와 axum 웹 REST 응답 필드는 같이 갱신한다. 웹 핸들러에서 내부 struct를 그대로 직렬화하지 말고 `serde_json::json!`으로 camel/snake 응답 키를 명시한다.
 
-> 마지막 업데이트: 2026-07-06T15:06:26+09:00
+> 마지막 업데이트: 2026-07-06T22:10:00+09:00

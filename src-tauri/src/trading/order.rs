@@ -24,6 +24,7 @@ use crate::{
         OverseasOrderRequest,
     },
     broker::BrokerScope,
+    config::ProfilesConfig,
     notifications::discord::DiscordNotifier,
     storage::{
         order_store::{OrderRecord, OrderSide, OrderStatus},
@@ -93,6 +94,7 @@ pub struct OrderManager {
     // ── 공유 의존성 (Arc) ───────────────────────────────────────────
     /// KIS REST 클라이언트 (프로파일 전환 시 내부 Arc만 교체됨)
     rest_client: Arc<RwLock<Arc<KisRestClient>>>,
+    profiles: Arc<RwLock<ProfilesConfig>>,
     order_store: Arc<OrderStore>,
     trade_store: Arc<TradeStore>,
     position_tracker: Arc<Mutex<PositionTracker>>,
@@ -112,6 +114,7 @@ impl OrderManager {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         rest_client: Arc<RwLock<Arc<KisRestClient>>>,
+        profiles: Arc<RwLock<ProfilesConfig>>,
         order_store: Arc<OrderStore>,
         trade_store: Arc<TradeStore>,
         position_tracker: Arc<Mutex<PositionTracker>>,
@@ -128,6 +131,7 @@ impl OrderManager {
             buy_suspended: false,
             buy_suspended_reason: None,
             rest_client,
+            profiles,
             order_store,
             trade_store,
             position_tracker,
@@ -323,6 +327,13 @@ impl OrderManager {
         self.pending.values().collect()
     }
 
+    /// 외부 주문 경로(수동 주문 등)에서 받은 provider 주문을 미체결 풀에 편입한다.
+    pub fn track_pending_order(&mut self, key: String, pending: PendingOrder) {
+        self.symbol_to_odno
+            .insert(pending.record.symbol.clone(), key.clone());
+        self.pending.insert(key, pending);
+    }
+
     pub async fn current_exchange_rate_krw(&self) -> f64 {
         *self.exchange_rate_krw.read().await
     }
@@ -342,7 +353,7 @@ impl OrderManager {
         }
     }
 
-    fn pending_conflict_reason_for_scope(
+    pub(crate) fn pending_conflict_reason_for_scope(
         &self,
         broker_scope: &BrokerScope,
         symbol: &str,

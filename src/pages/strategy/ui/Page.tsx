@@ -36,7 +36,6 @@ import {
   LeveragedTrendHoldEditorPanel,
   hasInvalidLthEntries,
 } from './leveragedTrendHoldEditorPanel'
-import { TossPriceConditionVerificationGate } from './tossManualVerification'
 import {
   useAppConfig,
   useStrategies,
@@ -536,7 +535,7 @@ export default function Strategy() {
 
       {activeBrokerIsToss && !isRunning && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Toss 프로파일은 현재 read-only 조회만 지원합니다. 전략 scope는 저장되지만 자동매매 주문 실행은 소액 검증 gate 이후 연결됩니다.
+          Toss 프로파일은 실거래 동의가 저장된 경우 자동매매 주문/체결 확인 경로를 사용합니다. 시작 전 Dashboard 또는 Trading에서 소액 주문 검증을 먼저 확인하세요.
         </Alert>
       )}
 
@@ -728,7 +727,6 @@ export default function Strategy() {
           const paramMetas = STRATEGY_PARAM_META[sType] ?? []
           const stratDesc = STRATEGY_DESCRIPTION[sType]
           const pcInitialSymbols = (s.params['symbols'] as PriceConditionSymbolConfig[] | undefined) ?? []
-          const pcSymbols = pcEditMap[s.id] ?? pcInitialSymbols
           const lthInitialEntries = (s.params['entries'] as LeveragedTrendHoldEntry[] | undefined) ?? []
           const lthParams = lthParamEditMap[s.id] ?? s.params
           const scopeMatchesActive = isActiveStrategyScope(s, appConfig)
@@ -764,23 +762,14 @@ export default function Strategy() {
               <Stack spacing={2}>
                   {/* price_condition: 커스텀 편집 UI */}
                   {sType === 'price_condition' ? (
-                    <>
-                      <PriceConditionEditorPanel
-                        stratEnabled={s.enabled}
-                        initialSymbols={pcInitialSymbols}
-                        editedSymbols={pcEditMap[s.id]}
-                        selectedStock={selectedStock}
-                        market={market}
-                        onUpdate={(syms) => setPcEditMap((prev) => ({ ...prev, [s.id]: syms }))}
-                      />
-                      {activeBrokerIsToss && (
-                        <TossPriceConditionVerificationGate
-                          appConfig={appConfig}
-                          symbols={pcSymbols}
-                          scopeMatchesActive={scopeMatchesActive}
-                        />
-                      )}
-                    </>
+                    <PriceConditionEditorPanel
+                      stratEnabled={s.enabled}
+                      initialSymbols={pcInitialSymbols}
+                      editedSymbols={pcEditMap[s.id]}
+                      selectedStock={selectedStock}
+                      market={market}
+                      onUpdate={(syms) => setPcEditMap((prev) => ({ ...prev, [s.id]: syms }))}
+                    />
                   ) : sType === 'leveraged_trend_hold' ? (
                     <LeveragedTrendHoldEditorPanel
                       stratEnabled={s.enabled}
