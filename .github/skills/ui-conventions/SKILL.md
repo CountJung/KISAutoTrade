@@ -64,6 +64,9 @@ export default function MyPage() {
 - Log 화면 높이처럼 사용자가 드래그로 조절하는 내부 패널은 `LayoutResizer`와 `persistentLayout` helper를 함께 사용한다.
 - 저장 키는 `act:panel:{panelName}:width|height` 형식을 유지한다. 예: `act:panel:log:height`.
 - Tauri 네이티브 창 위치/크기는 React localStorage가 아니라 `tauri-plugin-window-state`가 담당한다.
+- 주문/전략/설정처럼 카드 안의 컨트롤을 사용자가 조작해야 하는 영역은 기본 레이아웃에서 버튼, 입력값, 상태, 핵심 금액/수량이 모두 보여야 한다. 리사이저는 가려진 UI를 보정하는 보조 수단이지 기본 가시성의 대체재가 아니다.
+- 좌측 주문 패널, 접수 주문 카드, 전략 편집 카드처럼 화면 폭·높이에 따라 내용이 눌릴 수 있는 카드/패널은 `LayoutResizer` 적용을 먼저 검토한다. 사용자가 카드 영역을 직접 넓히거나 높일 수 있게 할 때는 `persistentLayout`으로 `act:panel:{scope}:{name}:width|height` 키를 저장하고, min/max 범위를 정해 다른 주요 화면을 밀어내지 않게 한다.
+- 좁은 영역에서 다열 테이블, 긴 주문번호, 긴 종목명, 여러 버튼이 동시에 필요한 경우는 카드형 세로 레이아웃, 줄임표+tooltip, full-width primary action을 먼저 적용한다. 그래도 운영상 더 많은 정보를 한 번에 확인해야 하는 영역은 리사이저와 내부 스크롤을 함께 제공한다.
 
 ---
 
@@ -157,7 +160,7 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 - Settings의 계좌 프로파일 관리는 KIS/Toss 섹션을 분리한다. KIS 계좌번호와 Toss `accountSeq`는 같은 문자열 필드에 저장되더라도 UI에서는 같은 목록·같은 broker 선택 폼으로 섞지 않는다.
 - 활성 broker가 Toss인 Dashboard/Trading/Strategy는 KIS 잔고·시세·주문 흐름을 호출하지 않고 Toss 보유종목/시세, 주문 전 검증, 실거래 동의 상태를 명확히 표시한다.
 - Dashboard의 Toss 소액 수동매매 검증 gate는 `src/features/manual-order`의 공유 컴포넌트를 사용한다. Dashboard는 검색 종목 1주 시장가 매수 조건을 사전검증하고, 실거래 동의·최종 확인 checkbox·최대 허용금액을 같은 화면에서 보여준 뒤 Dashboard 전용 버튼으로만 실제 소액매매 검증을 제출한다. Trading은 일반 주문 패널에서 `TossOrderPreflightPanel`을 표시하고 `canSubmit=true`일 때 수동 주문 버튼을 활성화한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
-- Trading의 Toss 수동 주문창은 접수 주문 목록을 같은 패널 안에서 보여준다. 현재 검색 종목 주문을 먼저 배치하고, 정정 UI는 펼침 행으로 제공해 주문 입력 폼과 충돌하지 않게 한다. 접수 주문 정정 성공/실패는 Alert로 표시하고, 토큰·secret·계좌 원문은 노출하지 않는다.
+- Trading의 Toss 수동 주문창은 접수 주문 목록을 같은 패널 안에서 보여준다. 좁은 좌측 주문 패널에서는 다열 테이블을 쓰지 말고 주문별 카드로 종목, 매수/매도, 주문가, 수량, 체결수량, 상태를 표시한다. 가격 정정 UI는 카드 안의 전체 폭 입력 폼으로 제공해 주문 ID나 컬럼 폭 때문에 가격/정정 버튼이 가려지지 않게 한다. 접수 주문 정정 성공/실패는 Alert로 표시하고, 토큰·secret·계좌 원문은 노출하지 않는다.
 
 ### Provider trace 표시
 
@@ -552,10 +555,11 @@ const { data: stats } = useTodayStats({ refetchInterval: intervalMs })
 UI 규칙:
 
 - 레버리지 전략 섹션 안에 전용 ETF 검색기와 `대상 추가` 버튼을 둔다. 상단 공용 종목 선택 패널을 거치지 않고 국내 ETF 검색 또는 미국 티커 조회로 바로 대상 ticker를 추가한다.
+- 미국 티커 조회는 KIS 해외 현재가로 이름/가격을 우선 검증하되, 현재가 API 실패가 대상 등록을 막지 않게 한다. 영문으로 시작하고 영문/숫자/`.`/`-` 형식을 통과하면 직접 선택 fallback을 제공하고 warning으로 검증 실패를 알린다.
 - `운용 모드`, `기초지수`, `롱`, `숏`, `숏 실험`, `유사기초` 슬롯은 표시하지 않는다. 방향성은 ticker 자체 가격 추세로만 판단한다.
 - 세팅된 대상 테이블은 시장, ticker, 종목명, 1회 수량만 표시한다.
 - 진입 민감도는 레버리지 섹션 내부 파라미터로 노출한다. 기본 1.0, 범위 1.0~5.0, 높을수록 상승 진입 신호가 더 민감해진다.
 - 저장 버튼은 대상 ticker가 하나 이상 있고 비어 있는 ticker가 없을 때만 활성화한다.
 - 기존 저장 JSON 호환 때문에 `inverse_*`, `base_*`, `base_symbol_roles` 필드는 타입에 남아 있을 수 있으나 새 UI에서는 노출하지 않는다.
 
-> 마지막 업데이트: 2026-07-06T22:10:00+09:00
+> 마지막 업데이트: 2026-07-06T22:19:32+09:00

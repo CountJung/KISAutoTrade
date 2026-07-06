@@ -96,6 +96,8 @@ npm run verify:toss-openapi
 - 주문 API client surface는 `TossOpenApiClient::{create_order,list_orders,get_order,modify_order,cancel_order}`로 둔다. `TossOrderCreateRequest::with_generated_client_order_id()`는 공식 idempotency key 제약(36자 이하, 영숫자/`-`/`_`)을 만족하는 `clientOrderId`를 만든다. Dashboard 소액 시장가 매수는 공식 스펙대로 `quantity="1"`만 보내고 `price`/`orderAmount`는 보내지 않는다.
 - 수동 주문창의 Toss 접수 주문 목록은 `TossOrderListQuery::open()`으로 `GET /api/v1/orders?status=OPEN`을 조회해 표시한다. `list_toss_open_orders` IPC, `/api/toss-open-orders`, `useTossOpenOrders()` 경로를 함께 갱신하고, 현재 검색 종목 주문을 먼저 정렬하되 활성 `accountSeq`의 다른 접수 주문도 보여준다.
 - 공식 스펙 v1.1.5 기준 접수 주문 정정은 `POST /api/v1/orders/{orderId}/modify`가 제공한다. `modify_toss_order` IPC, `/api/toss-order-modify`, `useModifyTossOrder()`로 연결하고, 성공 후 `get_order`를 다시 호출해 로컬 pending 주문의 `quantity`/`price`/`order_type` snapshot을 갱신한다.
+- 주문 정정 request는 시장별 제약을 분기한다. KR 주식 정정은 `quantity` 필수, US 주식 정정은 가격 변경만 지원하며 `quantity` 제공 시 `400 us-modify-quantity-not-supported`가 반환된다. US 주문에서 기존 수량과 같은 값을 UI가 들고 있어도 request body에는 `quantity`를 보내지 않는다.
+- 정정 성공 응답의 `orderId`는 원 주문번호와 다르다. 정정 후 새 `orderId` 상세를 조회하고 `OrderManager` pending key/provider trace를 새 주문번호로 갱신해야 주문번호 기반 체결 확인이 이어진다.
 - 주문 생성 request는 `quantity` 또는 `orderAmount` 중 정확히 하나만 허용한다. 시장별 세부 제한은 provider error envelope를 보존해 처리한다.
 - 자동매매 체결 확인 루프는 pending `OrderRecord.provider` trace로 provider를 판정한다. Dashboard 소액 주문은 `create_order` 뒤 `get_order`를 짧게 polling해 `OrderStore`와, 즉시 체결/부분체결이면 `TradeStore`에 provider trace를 저장한다. Trading/자동매매 Toss pending은 `get_order` detail의 누적 체결수량과 평균체결가를 읽어 `OrderManager::on_fill()`로 반영한다.
 - access token은 만료 5분 전 갱신 대상으로 보고, 401 응답 시 1회 재발급/재시도한다. 401 처리에서는 요청에 사용한 token이 아직 공유 캐시에 남아 있을 때만 캐시를 지우고, 다른 병렬 요청이 이미 갱신한 token이 있으면 그 token을 재사용한다.
@@ -112,4 +114,4 @@ npm run verify:toss-openapi
 - 자동매매 실행 경로는 Toss 주문/체결 adapter가 구현되어 있으므로 `live_trading_consent`가 저장된 Toss 프로파일에서 허용한다. `start_trading()`은 Toss holdings 기반 전략 포지션 복원을 수행하고 실행 scope를 시작 시점 broker/account로 고정한다. Settings/Sidebar에는 활성 broker/account와 실행 중 broker/account 스냅샷을 표시한다.
 - Toss 모듈 내부 DTO/validation/helper는 외부 API가 아니면 `pub(super)`로 열고, 앱 외부에서 필요한 타입과 client/adapter만 `mod.rs`에서 re-export한다.
 
-> 마지막 업데이트: 2026-07-06T23:05:00+09:00
+> 마지막 업데이트: 2026-07-06T23:35:00+09:00

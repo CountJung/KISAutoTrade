@@ -334,15 +334,16 @@ impl OrderManager {
         self.pending.insert(key, pending);
     }
 
-    /// provider 정정 성공 후 로컬 pending snapshot을 갱신한다.
+    /// provider 정정 성공 후 로컬 pending snapshot과 주문번호 key를 갱신한다.
     pub fn update_pending_order_snapshot(
         &mut self,
         order_id: &str,
+        new_order_id: Option<&str>,
         quantity: Option<u64>,
         price: Option<u64>,
         order_type: Option<String>,
     ) -> bool {
-        let Some(pending) = self.pending.get_mut(order_id) else {
+        let Some(mut pending) = self.pending.remove(order_id) else {
             return false;
         };
         if let Some(quantity) = quantity {
@@ -355,6 +356,15 @@ impl OrderManager {
         if let Some(order_type) = order_type {
             pending.record.order_type = order_type;
         }
+        let key = new_order_id
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or(order_id)
+            .to_string();
+        pending.record.kis_order_id = Some(key.clone());
+        pending.record.provider_order_id = Some(key.clone());
+        self.symbol_to_odno
+            .insert(pending.record.symbol.clone(), key.clone());
+        self.pending.insert(key, pending);
         true
     }
 

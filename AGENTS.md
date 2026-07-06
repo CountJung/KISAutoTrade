@@ -67,8 +67,8 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-07-06 | 레버리지 전략 미국 ETF 검색의 현재가 검증 실패 fallback 추가 |
+| 2026-07-06 | Toss US 주문 정정 시 quantity 제외와 새 orderId pending rekey 처리 |
+| 2026-07-06 | 카드/패널 컨트롤 가시성과 LayoutResizer 적용 UI 지침 추가 |
+| 2026-07-06 | Toss 수동 주문창 접수 주문 정정 UI를 카드형 가격 수정 폼으로 개선 |
 | 2026-07-06 | Toss OAuth token을 client 단위 공유 캐시로 전환해 중복 발급/무효화 완화 |
-| 2026-07-06 | Toss 수동 주문창 접수 주문 목록 조회와 접수 주문 정정 연결 |
-| 2026-07-06 | Toss 수동/자동 주문 제출과 주문번호 기반 체결 확인 연결 |
-| 2026-07-06 | Strategy 자동매매 화면의 Toss 소액매매 검증 gate 제거 |
-| 2026-07-06 | AppShell custom scrollbar 포인터 드래그 동작 복구 |

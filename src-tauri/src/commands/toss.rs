@@ -619,6 +619,13 @@ fn toss_decimal_to_storage_units(value: &str, currency: &str) -> u64 {
     }
 }
 
+fn toss_decimal_equals(left: &str, right: &str) -> bool {
+    match (parse_decimal_amount(left), parse_decimal_amount(right)) {
+        (Some(left), Some(right)) => (left - right).abs() < 0.000_000_001,
+        _ => left.trim() == right.trim(),
+    }
+}
+
 fn parse_toss_order_side(side: &str) -> CmdResult<BrokerOrderSide> {
     match side.trim().to_ascii_lowercase().as_str() {
         "buy" => Ok(BrokerOrderSide::Buy),
@@ -910,19 +917,43 @@ pub async fn modify_toss_order_for_profile(
         .filter(|value| !value.is_empty())
         .map(ToString::to_string);
 
-    let request = TossOrderModifyRequest {
-        order_type: order_type.clone(),
-        quantity: quantity.clone(),
-        price: price.clone(),
-        confirm_high_value_order: input.confirm_high_value_order,
-    };
-
     let adapter = TossBrokerAdapter::with_credentials(
         TossBrokerAdapter::DEFAULT_BASE_URL,
         profile.app_key.clone(),
         profile.app_secret.clone(),
         Some(account_seq.clone()),
     );
+    let original_order = adapter
+        .get_order(Some(&account_seq), &order_id)
+        .await
+        .map_err(|e| CmdError {
+            code: "TOSS_ORDER_DETAIL_ERROR".into(),
+            message: e.to_string(),
+        })?;
+    let request_quantity = if original_order.currency.eq_ignore_ascii_case("USD") {
+        if quantity
+            .as_deref()
+            .is_some_and(|value| !toss_decimal_equals(value, &original_order.quantity))
+        {
+            return Err(CmdError {
+                code: "TOSS_US_MODIFY_PRICE_ONLY".into(),
+                message:
+                    "미국 주식 주문 정정은 가격만 지원합니다. 수량 변경 없이 가격만 정정해 주세요."
+                        .into(),
+            });
+        }
+        None
+    } else {
+        Some(quantity.unwrap_or_else(|| original_order.quantity.clone()))
+    };
+
+    let request = TossOrderModifyRequest {
+        order_type: order_type.clone(),
+        quantity: request_quantity,
+        price: price.clone(),
+        confirm_high_value_order: input.confirm_high_value_order,
+    };
+
     let response = adapter
         .modify_order(Some(&account_seq), &order_id, &request)
         .await
@@ -932,7 +963,10 @@ pub async fn modify_toss_order_for_profile(
         })?;
 
     if let Some(order_manager) = order_manager {
-        match adapter.get_order(Some(&account_seq), &order_id).await {
+        match adapter
+            .get_order(Some(&account_seq), &response.order_id)
+            .await
+        {
             Ok(detail) => {
                 let quantity_units = parse_decimal_amount(&detail.quantity)
                     .map(|value| value.max(0.0).floor() as u64);
@@ -942,6 +976,7 @@ pub async fn modify_toss_order_for_profile(
                     .map(|price| toss_decimal_to_storage_units(price, &detail.currency));
                 order_manager.lock().await.update_pending_order_snapshot(
                     &order_id,
+                    Some(&response.order_id),
                     quantity_units,
                     price_units,
                     Some(format!("TOSS_{}", detail.order_type)),
@@ -949,9 +984,23 @@ pub async fn modify_toss_order_for_profile(
             }
             Err(e) => {
                 tracing::warn!(
-                    "Toss 정정 후 주문 상세 조회 실패: orderId={} {}",
+                    "Toss 정정 후 주문 상세 조회 실패: orderId={} newOrderId={} {}",
                     order_id,
+                    response.order_id,
                     e
+                );
+                let quantity_units = parse_decimal_amount(&original_order.quantity)
+                    .map(|value| value.max(0.0).floor() as u64);
+                let price_units = price
+                    .as_deref()
+                    .or(original_order.price.as_deref())
+                    .map(|price| toss_decimal_to_storage_units(price, &original_order.currency));
+                order_manager.lock().await.update_pending_order_snapshot(
+                    &order_id,
+                    Some(&response.order_id),
+                    quantity_units,
+                    price_units,
+                    Some(format!("TOSS_{}", request.order_type)),
                 );
             }
         }

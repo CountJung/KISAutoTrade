@@ -7,11 +7,6 @@ import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
 import Grid from '@mui/material/Grid'
 import Stack from '@mui/material/Stack'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableHead from '@mui/material/TableHead'
-import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
@@ -50,6 +45,11 @@ function tossStatusColor(status: string): 'default' | 'success' | 'warning' | 'e
   if (status === 'PARTIAL_FILLED') return 'warning'
   if (status.includes('REJECTED') || status === 'CANCELED') return 'error'
   return 'default'
+}
+
+function shortTossOrderId(orderId: string) {
+  if (orderId.length <= 18) return orderId
+  return `${orderId.slice(0, 8)}...${orderId.slice(-6)}`
 }
 
 function fmtTossSession(session: TossMarketCalendarView['kr']['regularSession']) {
@@ -375,13 +375,15 @@ export function TossOpenOrdersPanel({ symbol }: { symbol?: string }) {
 
   const submitEdit = () => {
     if (!editingId) return
+    const editingOrder = orders.find((order) => order.orderId === editingId)
+    const isUsOrder = editingOrder?.currency === 'USD'
     setMessage(null)
     setMessageSeverity('success')
     modifyOrder(
       {
         orderId: editingId,
         orderType: editOrderType,
-        quantity: editQuantity.trim() || null,
+        quantity: isUsOrder ? null : editQuantity.trim() || null,
         price: editOrderType === 'LIMIT' ? editPrice.trim() || null : null,
         confirmHighValueOrder: false,
       },
@@ -430,101 +432,144 @@ export function TossOpenOrdersPanel({ symbol }: { symbol?: string }) {
       )}
 
       {sortedOrders.length > 0 && (
-        <Box sx={{ overflowX: 'auto', border: 1, borderColor: 'divider', borderRadius: 1 }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>종목</TableCell>
-                <TableCell>구분</TableCell>
-                <TableCell>유형</TableCell>
-                <TableCell align="right">수량</TableCell>
-                <TableCell align="right">가격</TableCell>
-                <TableCell align="right">체결</TableCell>
-                <TableCell>상태</TableCell>
-                <TableCell align="right">작업</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {sortedOrders.map((order) => {
-                const editing = editingId === order.orderId
-                return (
-                  <TableRow key={order.orderId} sx={order.symbol === currentSymbol ? { bgcolor: 'action.hover' } : undefined}>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={700}>{order.symbol}</Typography>
-                      <Typography variant="caption" color="text.secondary">{order.orderId}</Typography>
-                    </TableCell>
-                    <TableCell>{tossSideLabel(order.side)}</TableCell>
-                    <TableCell>
-                      {editing ? (
-                        <ToggleButtonGroup
-                          value={editOrderType}
-                          exclusive
+        <Stack spacing={1}>
+          {sortedOrders.map((order) => {
+            const editing = editingId === order.orderId
+            const isCurrentSymbol = order.symbol === currentSymbol
+            const isUsOrder = order.currency === 'USD'
+            return (
+              <Box
+                key={order.orderId}
+                sx={{
+                  p: 1.25,
+                  border: 1,
+                  borderColor: isCurrentSymbol ? 'primary.main' : 'divider',
+                  borderRadius: 1,
+                  bgcolor: isCurrentSymbol ? 'action.hover' : 'transparent',
+                }}
+              >
+                <Stack spacing={1}>
+                  <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Stack direction="row" alignItems="center" spacing={0.75} flexWrap="wrap" useFlexGap>
+                        <Typography variant="body2" fontWeight={700}>
+                          {order.symbol}
+                        </Typography>
+                        <Chip
                           size="small"
-                          onChange={(_, value) => value && setEditOrderType(value)}
-                        >
-                          <ToggleButton value="LIMIT">지정가</ToggleButton>
-                          <ToggleButton value="MARKET">시장가</ToggleButton>
-                        </ToggleButtonGroup>
-                      ) : tossOrderTypeLabel(order.orderType)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {editing ? (
-                        <TextField
-                          value={editQuantity}
-                          onChange={(e) => setEditQuantity(e.target.value.replace(/[^0-9.]/g, ''))}
-                          size="small"
-                          sx={{ width: 88 }}
+                          label={tossSideLabel(order.side)}
+                          color={order.side === 'BUY' ? 'primary' : 'error'}
+                          variant="outlined"
+                          sx={{ height: 20, fontSize: '0.68rem' }}
                         />
-                      ) : fmtDecimalString(order.quantity, 6)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {editing ? (
-                        <TextField
-                          value={editPrice}
-                          onChange={(e) => setEditPrice(e.target.value.replace(/[^0-9.]/g, ''))}
+                        <Chip
                           size="small"
-                          disabled={editOrderType === 'MARKET'}
-                          sx={{ width: 112 }}
+                          label={tossOrderTypeLabel(order.orderType)}
+                          variant="outlined"
+                          sx={{ height: 20, fontSize: '0.68rem' }}
                         />
-                      ) : order.price ? fmtTossMoney(order.price, order.currency) : '-'}
-                    </TableCell>
-                    <TableCell align="right">{fmtDecimalString(order.filledQuantity, 6)}</TableCell>
-                    <TableCell>
-                      <Chip
+                      </Stack>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        title={order.orderId}
+                        sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 230 }}
+                      >
+                        주문번호 {shortTossOrderId(order.orderId)}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      size="small"
+                      label={order.status}
+                      color={tossStatusColor(order.status)}
+                      variant="outlined"
+                      sx={{ height: 20, fontSize: '0.68rem', flexShrink: 0 }}
+                    />
+                  </Stack>
+
+                  <Grid container spacing={0.75}>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary" display="block">주문가</Typography>
+                      <Typography variant="body2" fontWeight={700}>
+                        {order.price ? fmtTossMoney(order.price, order.currency) : '-'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary" display="block">주문수량</Typography>
+                      <Typography variant="body2">{fmtDecimalString(order.quantity, 6)}</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary" display="block">체결수량</Typography>
+                      <Typography variant="body2">{fmtDecimalString(order.filledQuantity, 6)}</Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary" display="block">평균체결가</Typography>
+                      <Typography variant="body2">
+                        {order.averageFilledPrice ? fmtTossMoney(order.averageFilledPrice, order.currency) : '-'}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+
+                  {editing ? (
+                    <Stack spacing={1}>
+                      <ToggleButtonGroup
+                        value={editOrderType}
+                        exclusive
+                        fullWidth
                         size="small"
-                        label={order.status}
-                        color={tossStatusColor(order.status)}
-                        variant="outlined"
-                        sx={{ height: 20, fontSize: '0.68rem' }}
+                        onChange={(_, value) => value && setEditOrderType(value)}
+                      >
+                        <ToggleButton value="LIMIT">지정가로 정정</ToggleButton>
+                        <ToggleButton value="MARKET">시장가로 정정</ToggleButton>
+                      </ToggleButtonGroup>
+                      <TextField
+                        label={`정정 가격 (${order.currency})`}
+                        value={editPrice}
+                        onChange={(e) => setEditPrice(e.target.value.replace(/[^0-9.]/g, ''))}
+                        size="small"
+                        fullWidth
+                        disabled={editOrderType === 'MARKET'}
+                        helperText={editOrderType === 'MARKET' ? '시장가 정정은 가격 없이 요청합니다.' : '접수 주문의 새 지정가를 입력합니다.'}
                       />
-                    </TableCell>
-                    <TableCell align="right">
-                      {editing ? (
-                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                          <Button size="small" onClick={() => setEditingId(null)} disabled={modifying}>
-                            취소
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={submitEdit}
-                            disabled={modifying || !editQuantity || (editOrderType === 'LIMIT' && !editPrice)}
-                          >
-                            정정
-                          </Button>
-                        </Stack>
-                      ) : (
-                        <Button size="small" variant="outlined" onClick={() => startEdit(order)}>
-                          수정
+                      <TextField
+                        label="정정 수량"
+                        value={editQuantity}
+                        onChange={(e) => setEditQuantity(e.target.value.replace(/[^0-9.]/g, ''))}
+                        size="small"
+                        fullWidth
+                        disabled={isUsOrder}
+                        helperText={
+                          isUsOrder
+                            ? '미국 주식 주문 정정은 가격만 지원되어 수량은 보내지 않습니다.'
+                            : '국내 주식 정정은 토스 API 요구사항에 따라 수량을 함께 보냅니다.'
+                        }
+                      />
+                      <Stack direction="row" spacing={1}>
+                        <Button fullWidth size="small" onClick={() => setEditingId(null)} disabled={modifying}>
+                          취소
                         </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </Box>
+                        <Button
+                          fullWidth
+                          size="small"
+                          variant="contained"
+                          onClick={submitEdit}
+                          disabled={modifying || (!isUsOrder && !editQuantity) || (editOrderType === 'LIMIT' && !editPrice)}
+                          startIcon={modifying ? <CircularProgress size={14} color="inherit" /> : undefined}
+                        >
+                          가격 정정
+                        </Button>
+                      </Stack>
+                    </Stack>
+                  ) : (
+                    <Button size="small" variant="outlined" fullWidth onClick={() => startEdit(order)}>
+                      가격 수정
+                    </Button>
+                  )}
+                </Stack>
+              </Box>
+            )
+          })}
+        </Stack>
       )}
 
       {message && (

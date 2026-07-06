@@ -822,7 +822,8 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 - Toss 주문 API surface는 `create_order`, `list_orders`, `get_order`, `modify_order`, `cancel_order`로 나눈다. `TossOrderCreateRequest::with_generated_client_order_id()`가 36자 이하 idempotency key를 생성하고, request type은 `quantity`와 `orderAmount` 중 정확히 하나만 허용한다.
 - 수동 주문창의 Toss 접수 주문 목록은 `list_toss_open_orders` IPC, `/api/toss-open-orders`, `useTossOpenOrders()`로 연결한다. provider 조회는 `TossOrderListQuery::open()`을 사용하고, 화면은 현재 검색 종목을 먼저 보여주되 같은 활성 `accountSeq`의 다른 접수 주문도 함께 표시한다.
 - 접수 주문 정정은 공식 `POST /api/v1/orders/{orderId}/modify` 기준으로 `modify_toss_order` IPC, `/api/toss-order-modify`, `useModifyTossOrder()`에 연결한다. 정정 성공 후에는 `get_order`로 provider 상세를 다시 읽고, 로컬 pending 주문의 `quantity`/`price`/`order_type` snapshot을 갱신한 뒤 `tossOpenOrders`, `pendingOrders`, `todayTrades` query를 무효화한다.
+- Toss 정정 request는 KR/US 제약이 다르다. KR은 `quantity` 필수, US는 가격만 정정 가능하므로 `quantity`를 보내면 안 된다. 또한 정정 성공 응답의 `orderId`는 새 주문번호이므로 `OrderManager` pending key/provider trace를 새 주문번호로 rekey한다.
 - Toss 주문 목록/상세는 `toss:order_history`, 생성/정정/취소는 `toss:order` rate group으로 분리한다.
 - Toss OAuth token은 공식 정책상 client당 유효 token이 1개뿐이다. `TossBrokerAdapter::with_credentials()`를 호출하는 UI/daemon 경로가 많아도 token은 `base_url + client_id` 공유 캐시에서 재사용해야 하며, 요청별 adapter 생성이 요청별 token 발급으로 이어지면 안 된다.
 
-> 마지막 업데이트: 2026-07-06T23:05:00+09:00
+> 마지막 업데이트: 2026-07-06T23:35:00+09:00

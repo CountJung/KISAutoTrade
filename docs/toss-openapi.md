@@ -84,6 +84,8 @@ npm run verify:toss-openapi
 - Trading 수동 주문은 활성 Toss 프로파일의 `live_trading_consent`, 직전 preflight, 로컬 pending scan, provider open-order scan을 통과한 뒤 기존 `place_order` IPC에서 `POST /api/v1/orders`로 제출한다. 접수된 주문은 `OrderManager` pending으로 편입되어 이후 주문번호 기반 체결 확인 루프가 `GET /api/v1/orders/{orderId}`로 체결을 반영한다.
 - Trading 수동 주문창은 `list_toss_open_orders` IPC와 `/api/toss-open-orders` 웹 REST로 활성 Toss 프로파일의 `status=OPEN` 주문 목록을 표시한다. 현재 검색 종목 주문을 상단에 정렬하되, 같은 계좌의 다른 접수 주문도 함께 보여 주문 충돌을 확인할 수 있게 한다.
 - 접수 주문 정정은 `modify_toss_order` IPC와 `/api/toss-order-modify` 웹 REST가 담당한다. 공식 `POST /api/v1/orders/{orderId}/modify` 스키마에 맞춰 `orderType`, 선택 `quantity`, 선택 `price`, `confirmHighValueOrder`를 전달하고, 성공 후 주문 상세를 재조회해 로컬 pending 주문의 수량/가격/type snapshot을 갱신한다.
+- 주문 정정 request는 시장별 제약을 반드시 분기한다. 공식 스펙 v1.1.5 기준 KR 주식 정정은 `quantity`가 필수이고 양의 정수만 허용되며, US 주식 정정은 가격 변경만 지원하므로 `quantity`를 보내면 `400 us-modify-quantity-not-supported`가 반환된다. 같은 수량이라도 US 정정 요청에는 `quantity` 필드를 직렬화하지 않는다.
+- Toss 정정 성공 응답의 `orderId`는 원 주문번호가 아니라 새로 발급된 주문 식별자다. 앱은 정정 성공 후 새 `orderId` 상세를 조회하고 로컬 pending key와 provider trace를 새 주문번호로 갱신해 이후 체결 확인이 계속 이어지게 한다.
 - 자동매매 주문 제출 전 로컬 pending scan은 같은 scope/symbol의 같은 방향 중복 주문과 반대 방향 미체결 주문을 모두 차단한다. Toss 자동매매 주문도 실행 scope의 `accountSeq`와 일치하는 profile credential을 찾아 `TossOrderCreateRequest`로 제출하고 provider의 `opposite-pending-order-exists` 오류는 같은 pending conflict 계열로 저장/표시한다.
 - `get_toss_market_calendar` IPC와 `/api/toss-market-calendar` 웹 REST는 활성 Toss 프로파일 기준 KR/US 정규장 세션과 현재 개장 여부를 `TossMarketCalendarView`로 내려준다. 자동매매 데몬의 시장 폐장 사전 체크는 Toss 활성 프로파일 calendar override를 받을 수 있다.
 - `get_toss_chart_data` IPC와 `/api/toss-chart/:symbol` 웹 REST는 활성 Toss 프로파일 기준 `1d`/`1m` candles를 기존 `ChartCandle[]`로 내려준다. Trading 화면은 `StockChart source="toss"`로 lightweight-charts를 재사용한다.
@@ -91,4 +93,4 @@ npm run verify:toss-openapi
 - Settings 프로파일 카드의 `연결 진단` 버튼은 토스 프로파일에만 표시한다. 진단 결과는 `steps[]`, `issues[]`, OpenAPI version, accounts/holdings count, KRW/USD buying power, commissions count로 요약한다. Add 다이얼로그는 열린 섹션의 broker로 고정하고, Edit 다이얼로그는 저장된 `broker_id`를 바꾸지 않는다.
 - 자동매매 주문 실행 경로는 Toss 프로파일에서도 활성화된다. `start_trading()`은 Toss holdings 기반 `BrokerPositionSnapshot`으로 전략 내부 포지션 상태를 복원한 뒤, 활성 Toss 프로파일 설정과 `live_trading_consent`를 확인하고 실행 scope를 `BrokerScope { brokerId: Toss, accountSeq }`로 고정한다. Dashboard는 자동매매 시작 버튼을 활성화하고 검색 종목 1주 시장가 소액매매 검증 패널은 별도 최종 점검용으로 유지한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
 
-> 마지막 업데이트: 2026-07-06T23:05:00+09:00
+> 마지막 업데이트: 2026-07-06T23:35:00+09:00

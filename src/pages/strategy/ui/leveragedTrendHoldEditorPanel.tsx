@@ -53,6 +53,11 @@ type LeveragedTrendHoldEditorPanelProps = {
 }
 
 const EXCHANGE_SEARCH_ORDER: OverseasExchange[] = ['NAS', 'NYS', 'AMS']
+const US_TICKER_PATTERN = /^[A-Z][A-Z0-9.-]{0,9}$/
+
+function normalizeUsTicker(value: string) {
+  return value.trim().toUpperCase()
+}
 
 export function hasInvalidLthEntries(entries: LeveragedTrendHoldEntry[]): boolean {
   return entries.some((entry) => !entry.leveraged_symbol)
@@ -122,8 +127,13 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
   }
 
   const handlePickerUsSearch = async () => {
-    const ticker = pickerInput.trim().toUpperCase()
+    const ticker = normalizeUsTicker(pickerInput)
     if (!ticker) return
+    if (!US_TICKER_PATTERN.test(ticker)) {
+      setPickerError('미국 ETF 티커는 영문으로 시작하고 영문/숫자/./-만 입력할 수 있습니다.')
+      setPickerSelection(null)
+      return
+    }
     setPickerSearching(true)
     setPickerError(null)
     for (const exc of EXCHANGE_SEARCH_ORDER) {
@@ -140,8 +150,9 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
         // 다음 거래소 시도
       }
     }
-    setPickerError(`"${ticker}"을 NAS·NYS·AMEX에서 찾을 수 없습니다.`)
-    setPickerSelection(null)
+    setPickerSelection({ stock: { pdno: ticker, prdt_name: ticker }, market: 'US' })
+    setPickerInput(ticker)
+    setPickerError(`KIS 해외 현재가로 "${ticker}" 검증은 실패했지만 티커 형식이 유효해 직접 선택했습니다. 저장 후 시세/주문 연결 상태를 확인하세요.`)
     setPickerSearching(false)
   }
 
@@ -150,6 +161,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
     onUpdate([...entries, newTargetEntry(pickerSelection, draftQuantity)])
     setPickerSelection(null)
     setPickerInput('')
+    setPickerError(null)
     setDraftQuantity(1)
   }
 
@@ -331,6 +343,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                 onDelete={stratEnabled ? undefined : () => {
                   setPickerSelection(null)
                   setPickerInput('')
+                  setPickerError(null)
                 }}
                 sx={{ maxWidth: '100%', '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
               />
