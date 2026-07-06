@@ -232,6 +232,9 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
     case 'check_toss_order_preflight':
       return { method: 'POST', url: '/api/toss-order-preflight', body: args.input }
 
+    case 'submit_toss_small_buy_verification':
+      return { method: 'POST', url: '/api/toss-small-buy-verification', body: args.input }
+
     case 'get_toss_market_calendar':
       return { method: 'GET', url: '/api/toss-market-calendar' }
 

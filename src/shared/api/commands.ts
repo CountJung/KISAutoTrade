@@ -45,6 +45,8 @@ import type {
   TossMarketSnapshotView,
   TossOrderPreflightInput,
   TossOrderPreflightView,
+  TossSmallBuyVerificationInput,
+  TossSmallBuyVerificationView,
   TossStockSafetyView,
   TradingStatus,
   UpdateInfo,
@@ -238,6 +240,12 @@ export const getTossStockSafety = (symbol: string): Promise<TossStockSafetyView>
 /** 활성 Toss 프로파일로 buying-power/sellable-quantity/commissions 기반 주문 전 검증 */
 export const checkTossOrderPreflight = (input: TossOrderPreflightInput): Promise<TossOrderPreflightView> =>
   invoke('check_toss_order_preflight', { input })
+
+/** 활성 Toss 프로파일로 소액매매 검증용 1주 시장가 매수를 실제 제출 */
+export const submitTossSmallBuyVerification = (
+  input: TossSmallBuyVerificationInput,
+): Promise<TossSmallBuyVerificationView> =>
+  invoke('submit_toss_small_buy_verification', { input })
 
 /** 활성 Toss 프로파일로 KR/US 정규장 캘린더 조회 */
 export const getTossMarketCalendar = (): Promise<TossMarketCalendarView> =>

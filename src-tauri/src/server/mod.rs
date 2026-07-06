@@ -8,6 +8,7 @@
 ///   GET  /api/toss-market-snapshot/:symbol    → Toss 현재가/호가/체결/상하한가 JSON
 ///   GET  /api/toss-stock-safety/:symbol        → Toss 종목 기본 정보/매수 유의사항 JSON
 ///   POST /api/toss-order-preflight             → Toss 주문 전 read-only 검증 JSON
+///   POST /api/toss-small-buy-verification      → Toss 소액매매 검증 1주 시장가 매수 실행
 ///   GET  /api/toss-market-calendar             → Toss KR/US 정규장 캘린더 JSON
 ///   GET  /api/toss-chart/:symbol              → Toss candles JSON (?interval=1d&count=200)
 ///   GET  /api/price/:symbol                   → 국내 현재가 JSON
@@ -69,8 +70,8 @@ use crate::config::{AppConfig, ProfilesConfig};
 use crate::logging::LogConfig;
 use crate::notifications::discord::DiscordNotifier;
 use crate::storage::{
-    stats_store::StatsStore, stock_store::StockStore, strategy_store::StrategyStore,
-    trade_store::TradeStore,
+    order_store::OrderStore, stats_store::StatsStore, stock_store::StockStore,
+    strategy_store::StrategyStore, trade_store::TradeStore,
 };
 use crate::trading::{
     order::OrderManager, position::PositionTracker, risk::RiskManager, strategy::StrategyManager,
@@ -107,6 +108,8 @@ struct ServerState {
     profiles: Arc<RwLock<ProfilesConfig>>,
     /// 체결 기록 저장소
     trade_store: Arc<TradeStore>,
+    /// 주문 이력 저장소
+    order_store: Arc<OrderStore>,
     /// 일별 통계 저장소
     stats_store: Arc<StatsStore>,
     /// 로그 설정 (AppState 와 Arc 공유)
@@ -148,6 +151,7 @@ pub async fn start(
     position_tracker: Arc<Mutex<PositionTracker>>,
     config: Arc<RwLock<Arc<AppConfig>>>,
     profiles: Arc<RwLock<ProfilesConfig>>,
+    order_store: Arc<OrderStore>,
     trade_store: Arc<TradeStore>,
     stats_store: Arc<StatsStore>,
     log_config: Arc<RwLock<LogConfig>>,
@@ -188,6 +192,7 @@ pub async fn start(
         position_tracker,
         config,
         profiles,
+        order_store,
         trade_store,
         stats_store,
         log_config,
@@ -291,6 +296,10 @@ pub async fn start(
         .route(
             "/api/toss-order-preflight",
             post(toss_order_preflight_handler),
+        )
+        .route(
+            "/api/toss-small-buy-verification",
+            post(toss_small_buy_verification_handler),
         )
         // ── 설정 진단 / 감지 ──
         .route("/api/check-config", get(check_config_handler))

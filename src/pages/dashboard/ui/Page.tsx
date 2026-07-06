@@ -32,6 +32,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 
 import { FilledOrdersPanel, PendingOrdersPanel } from './orderPanels'
+import { DashboardTossVerificationPanel } from './tossVerificationPanel'
 import {
   useAppConfig,
   useBalance,
@@ -813,6 +814,10 @@ export default function Dashboard() {
             </TableContainer>
           )}
         </Paper>
+      )}
+
+      {isTossActive && (
+        <DashboardTossVerificationPanel appConfig={appConfig} />
       )}
 
       {/* ── 요약 통계 카드 ──────────────────────────────────────── */}

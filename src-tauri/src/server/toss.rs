@@ -74,6 +74,33 @@ pub(super) async fn toss_order_preflight_handler(
     }
 }
 
+pub(super) async fn toss_small_buy_verification_handler(
+    State(s): State<ServerState>,
+    Json(input): Json<crate::commands::TossSmallBuyVerificationInput>,
+) -> Json<serde_json::Value> {
+    let profile = match active_profile(&s).await {
+        Ok(profile) => profile,
+        Err(response) => return response,
+    };
+    let exchange_rate_krw = *s.exchange_rate_krw.read().await;
+
+    match crate::commands::submit_toss_small_buy_verification_for_profile(
+        input,
+        profile,
+        &s.order_store,
+        &s.trade_store,
+        exchange_rate_krw,
+    )
+    .await
+    {
+        Ok(result) => Json(serde_json::to_value(result).unwrap_or_default()),
+        Err(e) => Json(serde_json::json!({
+            "code": e.code,
+            "error": e.message,
+        })),
+    }
+}
+
 pub(super) async fn toss_market_calendar_handler(
     State(s): State<ServerState>,
 ) -> Json<serde_json::Value> {

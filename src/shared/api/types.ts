@@ -501,6 +501,36 @@ export interface TossOrderPreflightView {
   warnings: string[]
 }
 
+export interface TossSmallBuyVerificationInput {
+  symbol: string
+  symbolName?: string | null
+  expectedAccountSeq: string
+  maxNotionalAmount: string
+  confirmed: boolean
+}
+
+export interface TossSmallBuyVerificationView {
+  brokerId: 'toss'
+  accountSeq: string
+  symbol: string
+  symbolName: string
+  market: 'kr' | 'us'
+  side: 'buy'
+  orderType: 'MARKET' | string
+  quantity: string
+  estimatedGrossAmount: BrokerMoneyView
+  requiredCash: BrokerMoneyView | null
+  orderId: string
+  clientOrderId: string | null
+  status: string
+  filledQuantity: string
+  averageFilledPrice: BrokerMoneyView | null
+  filledAmount: BrokerMoneyView | null
+  orderRecordId: string
+  tradeRecorded: boolean
+  message: string
+}
+
 export interface TossMarketSessionView {
   startTime: string
   endTime: string

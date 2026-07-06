@@ -215,6 +215,7 @@ pub fn run() {
                 let position_tracker     = st.position_tracker.clone();
                 let config               = st.config.clone();
                 let profiles             = st.profiles.clone();
+                let order_store          = st.order_store.clone();
                 let trade_store          = st.trade_store.clone();
                 let stats_store          = st.stats_store.clone();
                 let log_config           = st.log_config.clone();
@@ -234,7 +235,7 @@ pub fn run() {
                     server::start(
                         rest_client, stock_list, port,
                         is_trading, strategy_manager, position_tracker,
-                        config, profiles, trade_store, stats_store,
+                        config, profiles, order_store, trade_store, stats_store,
                         log_config, log_dir, trade_archive_config, data_dir,
                         risk_manager, order_manager, stock_store, strategy_store,
                         profiles_path, discord, exchange_rate_krw, refresh_config,
@@ -427,6 +428,7 @@ pub fn run() {
             commands::get_toss_market_snapshot,
             commands::get_toss_stock_safety,
             commands::check_toss_order_preflight,
+            commands::submit_toss_small_buy_verification,
             commands::get_toss_market_calendar,
             commands::get_toss_chart_data,
             commands::get_chart_data,

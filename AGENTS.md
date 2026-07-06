@@ -67,8 +67,8 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-07-06 | Dashboard Toss 소액매매 1주 시장가 실주문 검증 경로 추가 |
 | 2026-07-04 | Playwright 검증 추가와 레버리지 전략 단일 티커 추세 모델 구현 |
 | 2026-07-04 | 자동매매 주문 제출 경로를 lock-short shared submission으로 분리 |
 | 2026-07-04 | broker/toss.rs를 client·adapter·orders·types 등 하위 모듈로 분리 |
 | 2026-07-04 | strategy.rs facade 분리와 전략 버퍼 상한/target helper 적용 |
-| 2026-07-04 | commands.rs facade 1000라인 이하 분리와 전략 config 갱신 재빌드 적용 |

@@ -2,7 +2,7 @@
 
 > Source of truth: `https://openapi.tossinvest.com/openapi-docs/latest/openapi.json`
 
-마지막 확인: 2026-07-03
+마지막 확인: 2026-07-06
 
 ## 공식 스펙 스냅샷
 
@@ -64,7 +64,7 @@ npm run verify:toss-openapi
 - `src-tauri/src/broker/toss/` 하위에 read-only `TossOpenApiClient`와 `TossBrokerAdapter`가 있다. 공개 surface는 `mod.rs`에서 re-export하고, 구현은 `adapter.rs`, `client.rs`, `http.rs`, `error.rs`, `support.rs`, `types.rs`, `orders.rs`, `tests.rs`로 나눈다.
 - 구현된 범위: `POST /oauth2/token`, `GET /api/v1/accounts`, `GET /api/v1/holdings`, `GET /api/v1/prices`, `GET /api/v1/orderbook`, `GET /api/v1/trades`, `GET /api/v1/price-limits`, `GET /api/v1/candles`, `GET /api/v1/stocks`, `GET /api/v1/stocks/{symbol}/warnings`, `GET /api/v1/market-calendar/KR`, `GET /api/v1/market-calendar/US`.
 - access token은 만료 5분 전 갱신 대상으로 보고, 401 응답 시 캐시를 지운 뒤 1회 재발급/재시도한다.
-- holdings 응답은 `BrokerHolding`으로 매핑한다. `marketCountry`는 `KR`/`US`, `currency`는 `KRW`/`USD`만 공통 타입으로 변환한다. Dashboard 표시와 자동매매 시작 전 전략 포지션 복원에 사용하되, 실제 주문 실행에는 연결하지 않는다.
+- holdings 응답은 `BrokerHolding`으로 매핑한다. `marketCountry`는 `KR`/`US`, `currency`는 `KRW`/`USD`만 공통 타입으로 변환한다. Dashboard 표시와 자동매매 시작 전 전략 포지션 복원에 사용하되, 자동매매 주문 수량 산정에는 재사용하지 않는다.
 - prices 응답은 `BrokerPriceQuote`로, candles 응답은 `BrokerCandle`로 매핑한다. `prices`는 최대 200개 symbols, `trades`는 count 1~50, `candles`는 interval `1m`/`1d`와 count 1~200 범위를 client에서 선검증한다.
 - stocks 응답은 `TossStockInfo`, warnings 응답은 `TossStockWarning`으로 보존한다. 공식 스펙이 unknown warning code 허용을 요구하므로 `warningType`은 enum이 아니라 문자열로 유지한다.
 - market-calendar 응답은 KR의 `today.integrated.regularMarket`과 US의 `today.regularMarket`을 `MarketCalendarOverride`로 변환해 장 시간 판단에 사용한다. 공식 calendar가 있으면 우선 사용하고, 없거나 조회 실패하면 기존 KST 하드코딩 fallback을 유지한다.
@@ -76,12 +76,14 @@ npm run verify:toss-openapi
 - `get_broker_holdings` IPC와 `/api/broker-holdings` 웹 REST는 활성 프로파일 기준 holdings를 `BrokerHoldingView[]`로 내려준다. Dashboard와 Trading은 활성 broker가 Toss일 때 KIS 국내/해외 잔고 조회를 실행하지 않고 이 view로 Toss 보유종목, 평가금액, 미실현손익, accountSeq를 표시한다.
 - `get_toss_market_snapshot` IPC와 `/api/toss-market-snapshot/:symbol` 웹 REST는 활성 Toss 프로파일 기준 현재가, 호가, 최근 체결 10건, 상하한가를 `TossMarketSnapshotView`로 내려준다. Trading 화면은 활성 broker가 Toss일 때 이 snapshot과 Toss chart를 표시하고 KIS 가격/차트/수동 주문 호출을 막는다.
 - `get_toss_stock_safety` IPC와 `/api/toss-stock-safety/:symbol` 웹 REST는 활성 Toss 프로파일 기준 종목 기본 정보와 매수 유의사항을 `TossStockSafetyView`로 내려준다. `buyBlocked`/`buyBlockReason`은 상장 상태와 blocking warning을 주문 전 검증 후보로 표현한다.
-- `check_toss_order_preflight` IPC와 `/api/toss-order-preflight` 웹 REST는 활성 Toss 프로파일 기준 현재가 snapshot, 종목 유의사항, `buying-power`, `sellable-quantity`, `commissions`를 모아 `TossOrderPreflightView`로 내려준다. `liquidityOk`/`safetyOk`는 read-only 검증 결과이고, `orderAdapterSupported=false`와 `canSubmit=false`를 유지해 실제 주문 제출은 차단한다. Trading 화면과 Strategy 가격조건 전략의 Toss 소액 수동매매 검증 UI는 `canSubmit=true`가 되면 자동으로 숨긴다.
+- `check_toss_order_preflight` IPC와 `/api/toss-order-preflight` 웹 REST는 활성 Toss 프로파일 기준 현재가 snapshot, 종목 유의사항, `buying-power`, `sellable-quantity`, `commissions`를 모아 `TossOrderPreflightView`로 내려준다. `liquidityOk`/`safetyOk`는 read-only 검증 결과이고, Trading/Strategy의 광범위 주문 버튼에서는 `orderAdapterSupported=false`와 `canSubmit=false`를 유지해 실제 주문 제출을 차단한다. Dashboard는 이 preflight를 검색 종목 1주 시장가 매수 조건으로 재사용한다.
+- `submit_toss_small_buy_verification` IPC와 `/api/toss-small-buy-verification` 웹 REST는 Dashboard 전용 소액 실주문 gate다. 활성 Toss 프로파일, `live_trading_consent`, 최종 확인 checkbox, 화면 `accountSeq` 일치, 사용자가 입력한 최대 허용 주문금액, 직전 preflight 재실행, 같은 symbol 미체결 주문 scan을 모두 통과해야 검색 종목 1주 `MARKET` `BUY` 주문을 제출한다. 시장가 주문은 공식 스펙대로 `quantity="1"`만 보내고 `price`/`orderAmount`는 보내지 않는다.
+- Dashboard 소액 실주문은 `TossOrderCreateRequest::with_generated_client_order_id()`로 `clientOrderId`를 만들고, `POST /api/v1/orders` 응답의 `orderId`를 받은 뒤 `GET /api/v1/orders/{orderId}`를 짧게 polling한다. 주문 접수 결과는 `OrderStore`에 provider `toss`, `orderId`, `clientOrderId` trace로 저장하고, 즉시 체결 또는 부분체결이 확인되면 `TradeStore`에도 provider trace와 함께 저장한다.
 - 자동매매 주문 제출 전 로컬 pending scan은 같은 scope/symbol의 같은 방향 중복 주문과 반대 방향 미체결 주문을 모두 차단한다. 향후 Toss 주문 adapter가 provider의 `opposite-pending-order-exists` 오류를 받으면 같은 pending conflict 계열로 저장/표시한다.
 - `get_toss_market_calendar` IPC와 `/api/toss-market-calendar` 웹 REST는 활성 Toss 프로파일 기준 KR/US 정규장 세션과 현재 개장 여부를 `TossMarketCalendarView`로 내려준다. 자동매매 데몬의 시장 폐장 사전 체크는 Toss 활성 프로파일 calendar override를 받을 수 있다.
 - `get_toss_chart_data` IPC와 `/api/toss-chart/:symbol` 웹 REST는 활성 Toss 프로파일 기준 `1d`/`1m` candles를 기존 `ChartCandle[]`로 내려준다. Trading 화면은 `StockChart source="toss"`로 lightweight-charts를 재사용한다.
 - `get_exchange_rate_status` IPC와 `/api/exchange-rate/status` 웹 REST는 환율 source/fallback/유효시간을 `ExchangeRateView`로 내려준다. 기존 `get_exchange_rate`와 `/api/exchange-rate`는 숫자 캐시 호환 경로로 유지한다.
 - Settings 프로파일 카드의 `연결 진단` 버튼은 토스 프로파일에만 표시한다. 진단 결과는 `steps[]`, `issues[]`, OpenAPI version, accounts/holdings count, KRW/USD buying power, commissions count로 요약한다. Add 다이얼로그는 열린 섹션의 broker로 고정하고, Edit 다이얼로그는 저장된 `broker_id`를 바꾸지 않는다.
-- 실제 주문과 자동매매 주문 실행 경로는 계속 `BROKER_NOT_SUPPORTED`로 차단한다. Trading과 Strategy 가격조건 전략의 Toss 소액 수동매매 검증 UI는 활성 프로파일의 `live_trading_consent` 저장, 종목/지정가/수량/가격, accountSeq, 사전검증 상태를 표시하지만 주문 제출 adapter를 열지 않는다. `start_trading()`은 차단 전에 Toss holdings 기반 `BrokerPositionSnapshot`으로 전략 내부 포지션 상태를 복원할 수 있다. Dashboard는 Toss 활성 시 자동매매 시작 버튼을 비활성화하고, Strategy는 Toss read-only 자동매매 차단 안내와 가격조건 전략 검증 gate를 표시한다.
+- 자동매매 주문 실행 경로는 계속 `BROKER_NOT_SUPPORTED`로 차단한다. Dashboard만 별도 소액 검증 gate를 통해 검색 종목 1주 시장가 매수를 제출할 수 있고, Trading/Strategy의 범용 Toss 주문 UI와 `start_trading()`은 여전히 실제 주문으로 이어지지 않는다. `start_trading()`은 차단 전에 Toss holdings 기반 `BrokerPositionSnapshot`으로 전략 내부 포지션 상태를 복원할 수 있다. Dashboard는 Toss 활성 시 자동매매 시작 버튼을 비활성화하고 검색 종목 1주 시장가 소액매매 검증 패널을 표시하며, Strategy는 Toss read-only 자동매매 차단 안내와 가격조건 전략 검증 gate를 표시한다.
 
-> 마지막 업데이트: 2026-07-04T14:27:42+09:00
+> 마지막 업데이트: 2026-07-06T15:06:26+09:00

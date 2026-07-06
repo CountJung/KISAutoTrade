@@ -60,6 +60,8 @@ import type {
   TossMarketSnapshotView,
   TossOrderPreflightInput,
   TossOrderPreflightView,
+  TossSmallBuyVerificationInput,
+  TossSmallBuyVerificationView,
   TossStockSafetyView,
   RefreshConfig,
 } from './types'
@@ -775,6 +777,18 @@ export function useTossOrderPreflight(
     gcTime: 60_000,
     retry: false,
     ...options,
+  })
+}
+
+export function useSubmitTossSmallBuyVerification() {
+  const qc = useQueryClient()
+  return useMutation<TossSmallBuyVerificationView, CmdError, TossSmallBuyVerificationInput>({
+    mutationFn: (input) => cmd.submitTossSmallBuyVerification(input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: KEYS.brokerHoldings })
+      void qc.invalidateQueries({ queryKey: KEYS.pendingOrders })
+      void qc.invalidateQueries({ queryKey: KEYS.todayTrades })
+    },
   })
 }
 
