@@ -646,7 +646,24 @@ impl TossOpenApiClient {
         }
 
         self.rate_limiter.wait(rate_group).await;
-        let resp = request.send().await.context("토스증권 OpenAPI 요청 실패")?;
+        let retry_request = request.try_clone();
+        let resp = match request.send().await {
+            Ok(resp) => resp,
+            Err(first_error) => {
+                if let Some(retry_request) = retry_request {
+                    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                    retry_request.send().await.map_err(|retry_error| {
+                        anyhow!(
+                            "토스증권 OpenAPI 요청 실패: path={path}; first={first_error}; retry={retry_error}"
+                        )
+                    })?
+                } else {
+                    return Err(anyhow!(
+                        "토스증권 OpenAPI 요청 실패: path={path}; {first_error}"
+                    ));
+                }
+            }
+        };
         let status = resp.status();
         let headers = resp.headers().clone();
         self.rate_limiter
@@ -700,7 +717,10 @@ impl TossOpenApiClient {
         }
 
         self.rate_limiter.wait(rate_group).await;
-        let resp = request.send().await.context("토스증권 OpenAPI 요청 실패")?;
+        let resp = request
+            .send()
+            .await
+            .with_context(|| format!("토스증권 OpenAPI 요청 실패: path={path}"))?;
         let status = resp.status();
         let headers = resp.headers().clone();
         self.rate_limiter

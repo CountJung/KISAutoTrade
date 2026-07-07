@@ -68,7 +68,7 @@ npm run verify:toss-openapi
 - 429는 `Retry-After`, `X-RateLimit-*` 헤더를 읽어 broker 공통 throttler/backoff로 전달한다.
 - 현재 구현은 `src-tauri/src/broker/rate_limit.rs`의 `RateLimitScheduler`를 사용한다. Toss group은 `toss:auth`, `toss:account`, `toss:market`으로 분리하고, 공식 응답 헤더의 남은 횟수/재시도 시각을 pause로 반영한다.
 - Toss HTTP 응답 body는 `Content-Length` 사전 검사와 실제 chunk 누적 상한 검사를 모두 수행한다. `Content-Length`가 없거나 부정확해도 `TOSS_MAX_RESPONSE_BYTES`를 넘기기 전에 읽기를 중단해야 한다.
-- 파싱 실패와 provider error 메시지는 전체 body를 `anyhow`/IPC/로그로 전달하지 말고 snippet만 포함한다. 보존해야 하는 값은 HTTP status, Toss error code/message snippet, provider request id, `X-Request-Id`, `Retry-After`다.
+- 파싱 실패와 provider error 메시지는 전체 body를 `anyhow`/IPC/로그로 전달하지 말고 snippet만 포함한다. 보존해야 하는 값은 HTTP status, Toss error code/message snippet, provider request id, `X-Request-Id`, `Retry-After`다. GET market-data 전송 단계에서 실패하면 1회 짧게 재시도하고, 그래도 실패하면 `OpenAPI 요청 실패`만 남기지 말고 path와 transport error chain을 함께 남긴다.
 - 일반 실패 응답은 `ErrorResponse { error: ApiError }` envelope를 기준으로 파싱한다.
 - OAuth2 실패 응답은 `OAuth2ErrorResponse` 형태로 별도 파싱한다.
 - 주문 전 검증은 official error code에 맞춘다. 특히 고액 주문 확인, 주문 가능 시간, 호가 유형, 시장별 지원 여부, 반대 미체결 주문 관련 오류는 로컬 guard와 함께 처리한다.
@@ -107,11 +107,11 @@ npm run verify:toss-openapi
 - holdings는 자동매매 시작 전 전략 내부 포지션 복원에도 사용할 수 있다. `BrokerPositionSnapshot`은 `brokerId=Toss`, `market`, `symbol`, `quantity`, `avgPrice`를 들고, KRW 평균가는 원 단위, USD 평균가는 cents 단위로 전달한다. Toss decimal 수량은 in-position 복원 목적상 양수면 최소 1 단위로 반영하되, 실제 주문 수량으로 재사용하지 않는다.
 - read-only 진단 UI는 `check_toss_profile_connection` IPC와 `/api/profiles/:id/toss-diagnostic` 웹 REST를 통해 OpenAPI version 확인, token 발급, accounts 조회, holdings 조회, buying-power, commissions, 보유 종목 기반 sellable-quantity 순서로 구현한다.
 - Settings Toss Add/Edit 다이얼로그는 `list_toss_accounts` 또는 `list_toss_profile_accounts`로 `/api/v1/accounts`를 먼저 호출하고, 계좌번호를 마스킹한 드롭다운에서 `accountSeq`를 선택하게 한다. 전체 `accountNo`는 UI 응답에 노출하지 않는다.
-- Settings 프로파일 카드에서는 KIS 프로파일에 실전/모의 자동 감지 버튼을 유지하고, Toss 프로파일에는 `연결 진단` 버튼만 표시한다.
+- Settings 프로파일 카드에서는 KIS 프로파일에 실전/모의 자동 감지 버튼을 유지하고, Toss 프로파일에는 `연결 진단` 버튼만 표시한다. KIS 자동감지(`detect_trading_type`, `/api/profiles/:id/detect`)는 KIS `/oauth2/tokenP`를 호출하므로 Toss Client ID/Secret을 넣으면 provider가 `앱키/appkey` 오류로 응답할 수 있다. 백엔드도 Toss 프로파일에 대해 이 경로를 거부하고, Toss 검증은 항상 `check_toss_profile_connection` 또는 accountSeq 조회 경로를 사용한다.
 - Settings Add/Edit 다이얼로그에서 broker가 Toss이면 입력 라벨을 `Client ID`, `Client Secret`, `accountSeq`로 바꾼다. `accountSeq`는 숫자 문자열이어야 한다.
 - Toss 실거래 동의 상태는 `AccountProfile.live_trading_consent`로 저장한다. 이 값은 Dashboard 소액 실주문 gate, Trading 수동 주문, 자동매매 시작 gate의 필수 조건이다.
 - 실제 주문 생성은 Dashboard `submit_toss_small_buy_verification`, Trading `place_order` Toss 분기, 자동매매 `OrderManager::submit_signal_shared()` Toss 분기에 연결한다. 모든 경로는 provider 호출 전 local pending scan과 provider open-order/order detail 확인을 사용해 같은 scope/symbol의 충돌을 줄인다.
-- 자동매매 실행 경로는 Toss 주문/체결 adapter가 구현되어 있으므로 `live_trading_consent`가 저장된 Toss 프로파일에서 허용한다. `start_trading()`은 Toss holdings 기반 전략 포지션 복원을 수행하고 실행 scope를 시작 시점 broker/account로 고정한다. 데몬은 실행 scope가 Toss이면 KIS 해외 현재가로 폴백하지 않고 Toss `/api/v1/prices`를 사용하며, 저장 ticker와 응답 symbol casing 차이로 현재가 조회가 실패하지 않도록 대소문자 무시 매칭을 유지한다. Settings/Sidebar에는 활성 broker/account와 실행 중 broker/account 스냅샷을 표시한다.
+- 자동매매 실행 경로는 Toss 주문/체결 adapter가 구현되어 있으므로 `live_trading_consent`가 저장된 Toss 프로파일에서 허용한다. `start_trading()`은 Toss holdings 기반 전략 포지션 복원을 수행하고 실행 scope를 시작 시점 broker/account로 고정한다. 데몬은 실행 scope가 Toss이면 KIS 해외 현재가로 폴백하지 않고 Toss `/api/v1/prices`를 사용하며, 저장 ticker와 응답 symbol casing 차이로 현재가 조회가 실패하지 않도록 대소문자 무시 매칭을 유지한다. 전략 히스토리 초기화도 Toss 실행 scope에서는 KIS chart/overseas chart가 아니라 Toss `/api/v1/candles`를 사용해야 한다. KIS chart를 호출하면 Toss 키가 정상이어도 KIS tokenP에서 `유효하지 않은 AppKey`가 발생한다. Settings/Sidebar에는 활성 broker/account와 실행 중 broker/account 스냅샷을 표시한다.
 - Toss 모듈 내부 DTO/validation/helper는 외부 API가 아니면 `pub(super)`로 열고, 앱 외부에서 필요한 타입과 client/adapter만 `mod.rs`에서 re-export한다.
 
-> 마지막 업데이트: 2026-07-07T14:26:44+09:00
+> 마지막 업데이트: 2026-07-07T14:53:11+09:00

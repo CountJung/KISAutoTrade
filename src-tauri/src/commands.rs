@@ -52,9 +52,9 @@ use crate::{
         token::TokenManager,
     },
     broker::{
-        BrokerAccountId, BrokerAdapter, BrokerCurrency, BrokerHolding, BrokerId, BrokerMarket,
-        BrokerMoney, BrokerOrderSide, BrokerQuantity, BrokerScope, BrokerSymbol, KisBrokerAdapter,
-        TossBrokerAdapter,
+        BrokerAccountId, BrokerAdapter, BrokerCandle, BrokerCurrency, BrokerHolding, BrokerId,
+        BrokerMarket, BrokerMoney, BrokerOrderSide, BrokerQuantity, BrokerScope, BrokerSymbol,
+        KisBrokerAdapter, TossBrokerAdapter,
     },
     config::{AccountProfile, AppConfig, DiscordConfig, ProfilesConfig},
     logging::LogConfig,

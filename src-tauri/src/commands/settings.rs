@@ -593,6 +593,12 @@ pub async fn detect_profile_trading_type(
                 code: "PROFILE_NOT_FOUND".into(),
                 message: format!("프로파일을 찾을 수 없습니다: {}", profile_id),
             })?;
+        if p.broker_id != BrokerId::Kis {
+            return Err(CmdError {
+                code: "BROKER_NOT_SUPPORTED".into(),
+                message: "실전/모의 자동 감지는 KIS 프로파일에서만 사용할 수 있습니다. Toss 프로파일은 연결 진단을 사용하세요.".into(),
+            });
+        }
         if p.app_key.is_empty() || p.app_secret.is_empty() {
             return Err(CmdError {
                 code: "KEY_NOT_SET".into(),

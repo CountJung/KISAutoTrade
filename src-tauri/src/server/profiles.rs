@@ -280,6 +280,11 @@ pub(super) async fn detect_profile_handler(
     let (app_key, app_secret) = {
         let profiles = s.profiles.read().await;
         match profiles.profiles.iter().find(|p| p.id == id) {
+            Some(p) if p.broker_id != BrokerId::Kis => {
+                return Json(
+                    serde_json::json!({ "error": "실전/모의 자동 감지는 KIS 프로파일에서만 사용할 수 있습니다. Toss 프로파일은 연결 진단을 사용하세요." }),
+                )
+            }
             Some(p) if !p.app_key.is_empty() && !p.app_secret.is_empty() => {
                 (p.app_key.clone(), p.app_secret.clone())
             }
