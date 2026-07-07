@@ -839,8 +839,9 @@ pub struct LeveragedTrendHoldEntry {
 - 청산 조건도 대상 ETF 자체의 OHLC로 판단한다. 고점 대비 trailing stop, 현재가 EMA20 하향 이탈, EMA20 < EMA60, RSI 약화, 장마감 청산.
 - `upward_sensitivity`는 1.0~5.0 범위로 관리한다. 기본값 1.0은 기존 RSI 진입 기준을 유지하고, 값이 높을수록 진입 RSI 기준을 완화해 더 이른 신호를 허용한다. `downward_sensitivity`는 legacy 저장값 호환 필드로 남기되 새 UI에는 노출하지 않는다.
 - 전략 상태는 `states: HashMap<String, ...>`와 `positions: HashMap<String, ...>`에 ticker별로 독립 저장한다.
+- 설정창 미리보기는 `LeveragedTrendHoldStrategy::preview_signals()`를 사용한다. 활성 Toss 프로파일의 `1m` candles를 과거 시각 기준으로 리플레이하며, 실제 주문·포지션 변경 없이 현재 편집 파라미터 기준 매수/청산 신호만 반환한다.
 
-> 마지막 업데이트: 2026-07-04T20:06:27+09:00
+> 마지막 업데이트: 2026-07-07T17:35:00+09:00
 
 ---
 

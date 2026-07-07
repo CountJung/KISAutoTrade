@@ -40,6 +40,7 @@
 | `submit_toss_small_buy_verification` | Dashboard 전용 Toss 소액매매 검증. 실거래 동의/최종 확인/최대 허용금액/accountSeq 일치/사전검증/미체결 scan 후 검색 종목 1주 시장가 매수를 제출하고 주문·체결 기록을 저장 |
 | `get_toss_market_calendar` | 활성 Toss 프로파일로 KR/US 정규장 캘린더 조회 (`regularSession`, `isRegularOpen`) |
 | `get_toss_chart_data` | 활성 Toss 프로파일로 캔들 조회 (`1d`/`1m`, count 1~200, `ChartCandle[]`) |
+| `preview_leveraged_trend_hold` | 활성 Toss 프로파일의 `1m` 캔들로 레버리지 추세 보유 전략을 읽기 전용 리플레이해 매수/청산 신호와 차트 캔들을 반환 |
 | `get_chart_data` | 국내주식 차트 데이터 (일봉) |
 | `get_overseas_price` | 해외주식 현재가 조회 |
 | `get_overseas_chart_data` | 해외주식 차트 데이터 (일/주/월봉) |

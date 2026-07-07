@@ -46,6 +46,7 @@
 ```powershell
 cd src-tauri; cargo check            # Rust 빠른 검증
 cd ..; npx tsc --noEmit              # TypeScript 타입 체크
+# UI 시각/상호작용 위험 변경: npm run test:e2e 또는 focused Playwright spec 실행
 ```
 
 **경고 0개** 달성 후 완료 보고.
@@ -60,6 +61,7 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 - 새 IPC 커맨드는 Rust command, `lib.rs` 등록, TypeScript 타입/래퍼/훅, 문서를 함께 갱신한다.
 - 반복 매매·손실 방지 관련 변경은 `todo.md`와 관련 스킬 문서에 남긴다.
 - Copilot 호환 지침과 `.github/skills/**`의 원본 스킬은 프로젝트 브리지 스킬(`.codex/skills/kisautotrade-*`)을 통해 재사용한다. Codex 런타임이 계정 스킬만 읽는 경우 `scripts/sync-codex-skills.ps1`로 동기화한다. 원본은 저장소의 `.github/skills/**/SKILL.md`로 유지한다.
+- 코드 리뷰 또는 문서 업데이트 조건이 충족되면 `.github/codex-instructions.md`의 위임 게이트를 따른다. subagent 도구가 있으면 review/documentation pass를 위임하고, 도구가 없으면 같은 체크리스트를 직접 수행한 뒤 다음 턴용 위임 프롬프트를 최종 보고에 남긴다.
 
 ---
 
@@ -69,8 +71,8 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-07-07 | UI 위험 변경 시 Playwright 검증 지침 보강과 레버리지 미리보기 ticker 선택 추가 |
+| 2026-07-07 | 코드 리뷰·문서 업데이트 조건 충족 시 subagent 위임 게이트와 대체 핸드오프 규칙 보강 |
+| 2026-07-07 | 레버리지 전략 설정창에 Toss 1분봉 기반 매수/청산 신호 미리보기 차트 추가 |
 | 2026-07-07 | 레버리지 전략에 시간창 없는 장중 매수세 반동 진입과 Toss auto/1m 초기화 추가 |
 | 2026-07-07 | Toss API 스킬에 tossinvest-cli 비공식 참고 구현과 WTS 사용 주의사항 추가 |
-| 2026-07-07 | Toss 미국 자동매매 전략 세션 선택과 전략별 day/pre/regular/after/auto gate 및 레버리지 전략 내부 세션 시간 적용 |
-| 2026-07-07 | Toss 미국 수동 주문 세션 선택과 정규장 외 local gate 구현 |
-| 2026-07-07 | Toss 자동매매 히스토리 초기화를 Toss candles로 전환하고 현재가 GET 재시도/원인 로그 보강 |

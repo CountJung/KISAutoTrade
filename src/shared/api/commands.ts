@@ -21,6 +21,8 @@ import type {
   ExecutedOrder,
   FrontendLogInput,
   LogConfig,
+  LeveragedTrendHoldPreviewInput,
+  LeveragedTrendHoldPreviewView,
   OrderResponse,
   OverseasExecutedOrder,
   OverseasPriceResponse,
@@ -191,6 +193,11 @@ export const getStrategies = (): Promise<StrategyView[]> =>
 
 export const updateStrategy = (input: UpdateStrategyInput): Promise<StrategyView> =>
   invoke('update_strategy', { input })
+
+export const previewLeveragedTrendHold = (
+  input: LeveragedTrendHoldPreviewInput,
+): Promise<LeveragedTrendHoldPreviewView> =>
+  invoke('preview_leveraged_trend_hold', { input })
 
 // ─── 로그 설정 ────────────────────────────────────────────────────
 export const getLogConfig = (): Promise<LogConfig> =>

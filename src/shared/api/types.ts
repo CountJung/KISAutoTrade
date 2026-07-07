@@ -633,6 +633,32 @@ export interface LeveragedTrendHoldEntry {
   is_overseas: boolean
 }
 
+export interface LeveragedTrendHoldPreviewInput {
+  symbol: string
+  params: Record<string, unknown>
+  count?: number
+}
+
+export interface LeveragedTrendHoldPreviewSignal {
+  time: string
+  side: 'buy' | 'sell'
+  price: number
+  quantity: number
+  reason: string
+  emaShort?: number | null
+  emaLong?: number | null
+  rsi?: number | null
+  adx?: number | null
+}
+
+export interface LeveragedTrendHoldPreviewView {
+  symbol: string
+  candles: ChartCandle[]
+  signals: LeveragedTrendHoldPreviewSignal[]
+  generatedAt: string
+  message: string
+}
+
 // ─── 전략 ──────────────────────────────────────────────────────────
 export interface StrategyView {
   id: string

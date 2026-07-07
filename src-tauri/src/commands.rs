@@ -18,6 +18,8 @@ mod toss_market;
 pub use toss_market::*;
 mod trading;
 pub use trading::*;
+mod strategy_preview;
+pub use strategy_preview::*;
 mod strategy;
 pub use strategy::*;
 mod risk;

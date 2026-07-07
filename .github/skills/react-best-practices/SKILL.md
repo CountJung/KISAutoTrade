@@ -128,6 +128,7 @@ const totalPnl = trades.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
 - `src/pages/{route}/ui/Page.tsx`는 라우트 조립, 상위 상태, command orchestration 중심으로 둔다.
 - 보유 테이블, broker별 카드, 진단/gate 패널처럼 독립 UI 덩어리는 같은 `ui/` 폴더의 별도 파일로 먼저 분리한다.
 - 두 페이지 이상에서 쓰는 숫자/금액/decimal 포맷은 `src/shared/lib/formatters.ts`를 사용한다.
+- 페이지 분리, lazy/Suspense, polling-driven UI, event listener, localStorage 초기 레이아웃 값이 사용자 visible state를 바꾸면 `npx tsc --noEmit` 외에 해당 route의 Playwright/browser 검증을 수행한다.
 
 ---
 
@@ -510,4 +511,4 @@ const savedGeometry = useMemo(() => {
 > ResizableDialog는 현재 SPA 세션 캐시만 지원합니다.  
 > localStorage 영속이 필요하면 `storageKey`를 기반으로 별도 save/restore 로직을 추가합니다.
 
-> 마지막 업데이트: 2026-07-03T17:17:37+09:00
+> 마지막 업데이트: 2026-07-07T18:10:00+09:00

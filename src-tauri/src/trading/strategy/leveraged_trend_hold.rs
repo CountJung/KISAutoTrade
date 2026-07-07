@@ -203,6 +203,26 @@ struct LeveragedReboundSnapshot {
     rebound_from_low_pct: f64,
 }
 
+#[derive(Debug, Clone)]
+pub struct LeveragedTrendHoldTimedCandle {
+    pub time: String,
+    pub candle: OhlcCandle,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LeveragedTrendHoldPreviewSignal {
+    pub time: String,
+    pub side: String,
+    pub price_units: u64,
+    pub quantity: u64,
+    pub reason: String,
+    pub ema_short: Option<f64>,
+    pub ema_long: Option<f64>,
+    pub rsi: Option<f64>,
+    pub adx: Option<f64>,
+}
+
 pub struct LeveragedTrendHoldStrategy {
     config: StrategyConfig,
     params: LeveragedTrendHoldParams,
@@ -589,6 +609,10 @@ impl LeveragedTrendHoldStrategy {
         use chrono::Timelike;
         let now = chrono::Local::now();
         let mins = now.hour() as i64 * 60 + now.minute() as i64;
+        Self::is_blackout_minute(mins, windows)
+    }
+
+    fn is_blackout_minute(mins: i64, windows: &[String]) -> bool {
         windows.iter().any(|w| {
             let Some((start, end)) = w.split_once('-') else {
                 return false;
@@ -605,6 +629,306 @@ impl LeveragedTrendHoldStrategy {
                 mins >= s || mins <= e
             }
         })
+    }
+
+    fn preview_session_minutes(
+        minute_of_day: i64,
+        is_overseas: bool,
+        toss_us_session: &str,
+    ) -> Option<(i64, i64)> {
+        let contains = |open: i64, close: i64| -> Option<(i64, i64)> {
+            if open <= close {
+                (minute_of_day >= open && minute_of_day < close)
+                    .then_some((minute_of_day - open, close - minute_of_day))
+            } else if minute_of_day >= open {
+                Some((minute_of_day - open, (24 * 60 - minute_of_day) + close))
+            } else if minute_of_day < close {
+                Some(((24 * 60 - open) + minute_of_day, close - minute_of_day))
+            } else {
+                None
+            }
+        };
+        if is_overseas {
+            let day = (9 * 60, 16 * 60 + 50);
+            let pre = (17 * 60, 22 * 60 + 30);
+            let regular = (22 * 60 + 30, 5 * 60);
+            let after = (5 * 60, 7 * 60);
+            match crate::market_hours::UsTradingSessionPolicy::parse(Some(toss_us_session)) {
+                crate::market_hours::UsTradingSessionPolicy::Auto => [day, pre, regular, after]
+                    .into_iter()
+                    .find_map(|(open, close)| contains(open, close)),
+                crate::market_hours::UsTradingSessionPolicy::Day => contains(day.0, day.1),
+                crate::market_hours::UsTradingSessionPolicy::Pre => contains(pre.0, pre.1),
+                crate::market_hours::UsTradingSessionPolicy::Regular => {
+                    contains(regular.0, regular.1)
+                }
+                crate::market_hours::UsTradingSessionPolicy::After => contains(after.0, after.1),
+            }
+        } else {
+            contains(9 * 60, 15 * 60 + 30)
+        }
+    }
+
+    fn minute_of_day_from_time(value: &str) -> Option<i64> {
+        if let Some(idx) = value.find('T') {
+            let time = &value[idx + 1..];
+            let mut parts = time.split(':');
+            let h = parts.next()?.parse::<i64>().ok()?;
+            let m = parts.next()?.parse::<i64>().ok()?;
+            if (0..24).contains(&h) && (0..60).contains(&m) {
+                return Some(h * 60 + m);
+            }
+        }
+        let digits: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
+        if digits.len() >= 12 {
+            let h = digits[8..10].parse::<i64>().ok()?;
+            let m = digits[10..12].parse::<i64>().ok()?;
+            if (0..24).contains(&h) && (0..60).contains(&m) {
+                return Some(h * 60 + m);
+            }
+        }
+        None
+    }
+
+    fn preview_snapshot(
+        &self,
+        symbol: &str,
+    ) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>) {
+        let Some(state) = self.states.get(symbol) else {
+            return (None, None, None, None);
+        };
+        let closes = Self::closes(&state.candles);
+        (
+            Self::ema(&closes, self.params.ema_short_period),
+            Self::ema(&closes, self.params.ema_long_period),
+            Self::rsi(&closes, self.params.rsi_period),
+            Self::adx(&state.candles, self.params.adx_period),
+        )
+    }
+
+    fn preview_signal(
+        &self,
+        time: &str,
+        side: &str,
+        symbol: &str,
+        price: u64,
+        quantity: u64,
+        reason: String,
+    ) -> LeveragedTrendHoldPreviewSignal {
+        let (ema_short, ema_long, rsi, adx) = self.preview_snapshot(symbol);
+        LeveragedTrendHoldPreviewSignal {
+            time: time.to_string(),
+            side: side.to_string(),
+            price_units: price,
+            quantity,
+            reason,
+            ema_short,
+            ema_long,
+            rsi,
+            adx,
+        }
+    }
+
+    pub fn preview_signals(
+        symbol: &str,
+        params: LeveragedTrendHoldParams,
+        daily_candles: &[OhlcCandle],
+        intraday_candles: &[LeveragedTrendHoldTimedCandle],
+    ) -> Vec<LeveragedTrendHoldPreviewSignal> {
+        let normalized_symbol = symbol.trim().to_uppercase();
+        if normalized_symbol.is_empty() || intraday_candles.is_empty() {
+            return Vec::new();
+        }
+
+        let mut params = params;
+        if !params.entries.iter().any(|entry| {
+            entry
+                .leveraged_symbol
+                .eq_ignore_ascii_case(&normalized_symbol)
+        }) {
+            params.entries.push(LeveragedTrendHoldEntry {
+                leveraged_symbol: normalized_symbol.clone(),
+                leveraged_symbol_name: normalized_symbol.clone(),
+                inverse_leveraged_symbol: String::new(),
+                inverse_leveraged_symbol_name: String::new(),
+                base_symbols: Vec::new(),
+                base_symbol_names: HashMap::new(),
+                base_symbol_roles: HashMap::new(),
+                quantity: lth_default_qty(),
+                inverse_quantity: lth_default_qty(),
+                is_overseas: true,
+            });
+        }
+
+        let config = StrategyConfig::new(
+            "leveraged_trend_hold_preview",
+            "레버리지 단일 티커 추세 미리보기",
+            true,
+            vec![normalized_symbol.clone()],
+            1,
+            serde_json::to_value(&params).unwrap_or_default(),
+        );
+        let mut strategy = Self::new(config);
+        strategy.params = params;
+        strategy.config.target_symbols = Self::target_symbols_for_params(&strategy.params);
+        let Some(entry) = strategy.entry_for_symbol(&normalized_symbol) else {
+            return Vec::new();
+        };
+        let quantity = entry.quantity.max(1);
+        let cap = strategy.window_cap();
+        let rebound_cap = strategy.rebound_price_cap();
+        let mut state = LeveragedTrendHoldMarketState {
+            candles: VecDeque::with_capacity(cap),
+            rebound_prices: VecDeque::with_capacity(rebound_cap),
+            live_candle_started: false,
+        };
+        let take = daily_candles.len().min(cap);
+        for candle in &daily_candles[daily_candles.len().saturating_sub(take)..] {
+            state.candles.push_back(*candle);
+        }
+        strategy.states.insert(normalized_symbol.clone(), state);
+
+        let mut signals = Vec::new();
+        let mut in_position = false;
+        let mut high_water: Option<u64> = None;
+
+        for timed in intraday_candles {
+            let price = timed.candle.close;
+            if price == 0 {
+                continue;
+            }
+            let Some(state) = strategy.states.get_mut(&normalized_symbol) else {
+                continue;
+            };
+            state.candles.push_back(timed.candle);
+            while state.candles.len() > cap {
+                state.candles.pop_front();
+            }
+            state.rebound_prices.push_back(price);
+            while state.rebound_prices.len() > rebound_cap {
+                state.rebound_prices.pop_front();
+            }
+
+            if in_position {
+                let high = high_water.unwrap_or(price).max(price);
+                high_water = Some(high);
+                if high > 0 {
+                    let drawdown = (high as f64 - price as f64) / high as f64 * 100.0;
+                    if drawdown >= strategy.params.trailing_stop_pct {
+                        signals.push(strategy.preview_signal(
+                            &timed.time,
+                            "sell",
+                            &normalized_symbol,
+                            price,
+                            quantity,
+                            format!(
+                                "LeveragedTrendHold 추적손절: 고점 대비 -{drawdown:.2}% (기준 {:.2}%)",
+                                strategy.params.trailing_stop_pct
+                            ),
+                        ));
+                        in_position = false;
+                        high_water = None;
+                        continue;
+                    }
+                }
+                if let Some(reason) = strategy.exit_reason(&normalized_symbol) {
+                    signals.push(strategy.preview_signal(
+                        &timed.time,
+                        "sell",
+                        &normalized_symbol,
+                        price,
+                        quantity,
+                        format!("LeveragedTrendHold 추세 청산: {reason}"),
+                    ));
+                    in_position = false;
+                    high_water = None;
+                    continue;
+                }
+                if let Some(mins) = Self::minute_of_day_from_time(&timed.time) {
+                    if let Some((_, minutes_to_close)) = Self::preview_session_minutes(
+                        mins,
+                        entry.is_overseas,
+                        &strategy.params.toss_us_session,
+                    ) {
+                        if minutes_to_close <= strategy.params.exit_before_close_min {
+                            signals.push(strategy.preview_signal(
+                                &timed.time,
+                                "sell",
+                                &normalized_symbol,
+                                price,
+                                quantity,
+                                format!(
+                                    "LeveragedTrendHold 장마감 청산: 마감 {minutes_to_close}분 전"
+                                ),
+                            ));
+                            in_position = false;
+                            high_water = None;
+                        }
+                    }
+                }
+                continue;
+            }
+
+            let session = Self::minute_of_day_from_time(&timed.time).and_then(|mins| {
+                Self::preview_session_minutes(
+                    mins,
+                    entry.is_overseas,
+                    &strategy.params.toss_us_session,
+                )
+                .filter(|_| !Self::is_blackout_minute(mins, &strategy.params.blackout_windows))
+            });
+            let Some((elapsed, _)) = session else {
+                continue;
+            };
+
+            let in_trend_window = elapsed >= strategy.params.entry_window_start_min
+                && elapsed <= strategy.params.entry_window_end_min;
+            if in_trend_window {
+                if let Some(snap) = strategy.entry_ok(&normalized_symbol) {
+                    signals.push(strategy.preview_signal(
+                        &timed.time,
+                        "buy",
+                        &normalized_symbol,
+                        price,
+                        quantity,
+                        format!(
+                            "LeveragedTrendHold 상승 추세 진입: {} EMA{} > EMA{}, RSI {:.1}, ADX {:.1}, 최근 3봉 양봉 {}개",
+                            normalized_symbol,
+                            strategy.params.ema_short_period,
+                            strategy.params.ema_long_period,
+                            snap.rsi,
+                            snap.adx,
+                            snap.bullish_count_3
+                        ),
+                    ));
+                    in_position = true;
+                    high_water = Some(price);
+                    continue;
+                }
+            }
+
+            if let Some(snap) = strategy.rebound_entry_ok(&normalized_symbol) {
+                signals.push(strategy.preview_signal(
+                    &timed.time,
+                    "buy",
+                    &normalized_symbol,
+                    price,
+                    quantity,
+                    format!(
+                        "LeveragedTrendHold 장중 매수세 반동 진입: 확인 구간 +{:.2}% (기준 구간 하락 {:.2}%, 저점 대비 +{:.2}%), RSI {:.1}, ADX {:.1}",
+                        snap.buy_pressure_pct,
+                        snap.pullback_pct,
+                        snap.rebound_from_low_pct,
+                        snap.trend.rsi,
+                        snap.trend.adx
+                    ),
+                ));
+                in_position = true;
+                high_water = Some(price);
+            }
+        }
+
+        signals
     }
 }
 
@@ -1023,5 +1347,44 @@ mod tests {
         assert_eq!(strategy.on_tick("KORU", 180, 100), Signal::Hold);
         assert_eq!(strategy.on_tick("KORU", 181, 100), Signal::Hold);
         assert_eq!(strategy.on_tick("KORU", 186, 100), Signal::Hold);
+    }
+
+    #[test]
+    fn preview_signals_marks_intraday_rebound_without_order_state() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("KORU")],
+            intraday_rebound_enabled: true,
+            rebound_baseline_ticks: 2,
+            rebound_confirm_ticks: 2,
+            rebound_pullback_pct: 4.0,
+            rebound_buy_pressure_pct: 2.0,
+            rebound_rsi_min: 20.0,
+            no_trade_adx_below: 0.0,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let intraday = [190, 180, 181, 186]
+            .into_iter()
+            .enumerate()
+            .map(|(idx, price)| LeveragedTrendHoldTimedCandle {
+                time: format!("20260707090{}00", idx + 1),
+                candle: OhlcCandle {
+                    open: price,
+                    high: price,
+                    low: price,
+                    close: price,
+                },
+            })
+            .collect::<Vec<_>>();
+
+        let signals = LeveragedTrendHoldStrategy::preview_signals(
+            "KORU",
+            params,
+            &upward_candles(),
+            &intraday,
+        );
+
+        assert!(
+            matches!(signals.first(), Some(signal) if signal.side == "buy" && signal.reason.contains("매수세 반동 진입"))
+        );
     }
 }

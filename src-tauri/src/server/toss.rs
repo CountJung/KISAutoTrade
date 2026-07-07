@@ -183,3 +183,21 @@ pub(super) async fn toss_chart_handler(
         })),
     }
 }
+
+pub(super) async fn leveraged_trend_hold_preview_handler(
+    State(s): State<ServerState>,
+    Json(input): Json<crate::commands::LeveragedTrendHoldPreviewInput>,
+) -> Json<serde_json::Value> {
+    let profile = match active_profile(&s).await {
+        Ok(profile) => profile,
+        Err(response) => return response,
+    };
+
+    match crate::commands::preview_leveraged_trend_hold_for_profile(input, profile).await {
+        Ok(preview) => Json(serde_json::to_value(preview).unwrap_or_default()),
+        Err(e) => Json(serde_json::json!({
+            "code": e.code,
+            "error": e.message,
+        })),
+    }
+}

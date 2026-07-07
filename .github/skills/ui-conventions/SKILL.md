@@ -22,6 +22,18 @@ description: "AutoConditionTrade 프로젝트 UI 컨벤션. MUI v6 컴포넌트 
 
 ## 2. 레이아웃 시스템
 
+### Playwright/browser 검증 트리거
+
+다음 UI 작업은 Playwright 또는 실제 브라우저 확인 대상이다.
+
+- 앱 shell, sidebar, main scroll container, panel width/height, overflow, sticky/header/footer 레이아웃 변경
+- Dialog, Drawer, ResizableDialog, LayoutResizer, drag/resize/rail click/pointer interaction 변경
+- 차트, canvas, lightweight-charts, ResizeObserver, theme 전환 시각 상태 변경
+- 주문·전략·설정처럼 사용자가 버튼/입력/상태를 한 화면에서 판단해야 하는 workflow 변경
+- loading/error/empty 상태, disabled/enabled gate, broker/account scope, live-trading consent 표시 변경
+
+검증은 `npm run test:e2e`를 기본으로 하고, 기존 spec이 없으면 route와 상호작용을 mock API로 고정한 focused spec을 `tests/e2e/`에 추가한다. 실행할 수 없으면 최종 보고에 미실행 사유와 남은 UI 리스크를 적는다.
+
 ### 페이지 기본 구조
 
 ```tsx
@@ -562,4 +574,4 @@ UI 규칙:
 - 저장 버튼은 대상 ticker가 하나 이상 있고 비어 있는 ticker가 없을 때만 활성화한다.
 - 기존 저장 JSON 호환 때문에 `inverse_*`, `base_*`, `base_symbol_roles` 필드는 타입에 남아 있을 수 있으나 새 UI에서는 노출하지 않는다.
 
-> 마지막 업데이트: 2026-07-06T22:19:32+09:00
+> 마지막 업데이트: 2026-07-07T18:10:00+09:00

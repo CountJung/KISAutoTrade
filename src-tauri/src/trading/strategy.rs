@@ -20,7 +20,8 @@ pub use core::{
     BrokerPositionSnapshot, OhlcCandle, Signal, Strategy, StrategyConfig, StrategySignal,
 };
 pub use leveraged_trend_hold::{
-    LeveragedTrendHoldEntry, LeveragedTrendHoldParams, LeveragedTrendHoldStrategy,
+    LeveragedTrendHoldEntry, LeveragedTrendHoldParams, LeveragedTrendHoldPreviewSignal,
+    LeveragedTrendHoldStrategy, LeveragedTrendHoldTimedCandle,
 };
 pub use ma_cross::{MaCrossParams, MovingAverageCrossStrategy};
 pub use manager::{build_strategy, StrategyManager};

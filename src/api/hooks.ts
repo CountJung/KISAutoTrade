@@ -28,6 +28,8 @@ import type {
   ExecutedOrder,
   FrontendLogInput,
   LogConfig,
+  LeveragedTrendHoldPreviewInput,
+  LeveragedTrendHoldPreviewView,
   OverseasExecutedOrder,
   OverseasPriceResponse,
   PlaceOrderInput,
@@ -369,6 +371,12 @@ export function useUpdateStrategy() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEYS.strategies })
     },
+  })
+}
+
+export function usePreviewLeveragedTrendHold() {
+  return useMutation<LeveragedTrendHoldPreviewView, CmdError, LeveragedTrendHoldPreviewInput>({
+    mutationFn: cmd.previewLeveragedTrendHold,
   })
 }
 

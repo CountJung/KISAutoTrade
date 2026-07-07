@@ -83,6 +83,13 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
       }
     }
 
+    case 'preview_leveraged_trend_hold':
+      return {
+        method: 'POST',
+        url: '/api/strategy/leveraged-trend-hold/preview',
+        body: args.input,
+      }
+
     // ─── 해외 현재가 ──────────────────────────────────────────
     case 'get_overseas_price':
       return {

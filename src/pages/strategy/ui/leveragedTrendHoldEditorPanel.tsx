@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -9,6 +9,7 @@ import CircularProgress from '@mui/material/CircularProgress'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
+import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Table from '@mui/material/Table'
@@ -30,7 +31,12 @@ import PublicIcon from '@mui/icons-material/Public'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import SearchIcon from '@mui/icons-material/Search'
 
-import { useAppConfig, useRefreshStockList, useStockSearch } from '../../../api/hooks'
+import {
+  useAppConfig,
+  usePreviewLeveragedTrendHold,
+  useRefreshStockList,
+  useStockSearch,
+} from '../../../api/hooks'
 import * as cmd from '../../../api/commands'
 import type {
   CmdError,
@@ -38,6 +44,7 @@ import type {
   OverseasExchange,
   StockSearchItem,
 } from '../../../api/types'
+import { LeveragedTrendHoldPreviewChart } from './leveragedTrendHoldPreviewChart'
 
 type Market = 'KR' | 'US'
 type TargetDraftSelection = {
@@ -102,6 +109,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
   const [pickerSearching, setPickerSearching] = useState(false)
   const [pickerError, setPickerError] = useState<string | null>(null)
   const [draftQuantity, setDraftQuantity] = useState(1)
+  const [previewSymbol, setPreviewSymbol] = useState('')
   const entrySensitivity = numericParam(params, 'upward_sensitivity', 1)
   const reboundEnabled = boolParam(params, 'intraday_rebound_enabled', false)
   const reboundBaselineTicks = numericParam(params, 'rebound_baseline_ticks', 8)
@@ -111,6 +119,30 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
   const reboundRsiMin = numericParam(params, 'rebound_rsi_min', 30)
   const { data: appConfig } = useAppConfig()
   const isTossActive = appConfig?.active_broker_id === 'toss'
+  const previewMutation = usePreviewLeveragedTrendHold()
+  const previewOptions = useMemo(
+    () => entries.filter((entry) => !!entry.leveraged_symbol),
+    [entries],
+  )
+  const previewSymbolsKey = useMemo(
+    () => previewOptions.map((entry) => entry.leveraged_symbol).join('|'),
+    [previewOptions],
+  )
+  const defaultPreviewSymbol = useMemo(
+    () => (
+      previewOptions.find((entry) => entry.is_overseas)?.leveraged_symbol
+      ?? previewOptions[0]?.leveraged_symbol
+      ?? ''
+    ),
+    [previewOptions],
+  )
+  const previewEntry = useMemo(
+    () => previewOptions.find((entry) => entry.leveraged_symbol === previewSymbol) ?? null,
+    [previewOptions, previewSymbol],
+  )
+  const currentPreview = previewMutation.data?.symbol === previewEntry?.leveraged_symbol
+    ? previewMutation.data
+    : null
   const { mutate: doPickerRefreshList, isPending: pickerRefreshing } = useRefreshStockList()
   const {
     data: pickerResults = [],
@@ -137,6 +169,17 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
     setPickerSelection(null)
     setPickerError(null)
   }, [pickerMarket])
+
+  useEffect(() => {
+    if (!defaultPreviewSymbol) {
+      setPreviewSymbol('')
+      return
+    }
+    const previewSymbols = previewSymbolsKey ? previewSymbolsKey.split('|') : []
+    if (!previewSymbols.includes(previewSymbol)) {
+      setPreviewSymbol(defaultPreviewSymbol)
+    }
+  }, [defaultPreviewSymbol, previewSymbol, previewSymbolsKey])
 
   const handlePickerSelect = (stock: StockSearchItem) => {
     setPickerSelection({ stock, market: pickerMarket })
@@ -224,6 +267,15 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
   const updateNumericParam = (key: string, value: number, min: number, max: number) => {
     const nextValue = Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : min
     props.onParamsUpdate({ ...params, [key]: nextValue })
+  }
+
+  const handlePreview = () => {
+    if (!previewEntry) return
+    previewMutation.mutate({
+      symbol: previewEntry.leveraged_symbol,
+      params: { ...params, entries },
+      count: 200,
+    })
   }
 
   return (
@@ -516,6 +568,95 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
           )}
         </Stack>
       </Box>
+
+      {entries.length > 0 && (
+        <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.25 }}>
+          <Stack spacing={1}>
+            <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between" gap={1}>
+              <Stack spacing={0.25}>
+                <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap">
+                  <Typography variant="caption" color="text.secondary" fontWeight={700}>
+                    전략 미리보기
+                  </Typography>
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label="Toss 1분봉"
+                    sx={{ height: 22, fontSize: '0.65rem' }}
+                  />
+                </Stack>
+                <Typography variant="caption" color="text.secondary">
+                  현재 편집 중인 파라미터를 기준으로 매수/청산 신호를 읽기 전용으로 재계산합니다.
+                </Typography>
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                <TextField
+                  select
+                  label="시뮬레이션 티커"
+                  size="small"
+                  value={previewSymbol}
+                  disabled={previewOptions.length === 0 || previewMutation.isPending}
+                  onChange={(e) => {
+                    setPreviewSymbol(e.target.value)
+                    previewMutation.reset()
+                  }}
+                  sx={{ minWidth: { xs: '100%', sm: 180 } }}
+                >
+                  {previewOptions.map((entry) => (
+                    <MenuItem key={entry.leveraged_symbol} value={entry.leveraged_symbol}>
+                      {entry.leveraged_symbol} · {entry.leveraged_symbol_name || (entry.is_overseas ? '미국 ETF' : '국내 ETF')}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={handlePreview}
+                  disabled={!isTossActive || !previewEntry || previewMutation.isPending}
+                  startIcon={previewMutation.isPending ? <CircularProgress size={14} /> : <RefreshIcon fontSize="small" />}
+                  sx={{ alignSelf: { xs: 'stretch', sm: 'center' }, whiteSpace: 'nowrap' }}
+                >
+                  {previewMutation.isPending ? '계산 중...' : '미리보기 계산'}
+                </Button>
+              </Stack>
+            </Stack>
+
+            {!isTossActive && (
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                <Typography variant="caption">
+                  Toss 활성 프로파일에서 Toss 1분봉 기반 미리보기를 사용할 수 있습니다.
+                </Typography>
+              </Alert>
+            )}
+
+            {previewMutation.isError && (
+              <Alert severity="warning" sx={{ py: 0.5 }}>
+                <Typography variant="caption">
+                  {(previewMutation.error as CmdError | null)?.message ?? '전략 미리보기 계산에 실패했습니다.'}
+                </Typography>
+              </Alert>
+            )}
+
+            {currentPreview ? (
+              <Stack spacing={1}>
+                <Alert severity={currentPreview.signals.length > 0 ? 'success' : 'info'} sx={{ py: 0.5 }}>
+                  <Typography variant="caption">{currentPreview.message}</Typography>
+                </Alert>
+                <LeveragedTrendHoldPreviewChart
+                  candles={currentPreview.candles}
+                  signals={currentPreview.signals}
+                />
+              </Stack>
+            ) : (
+              <Box sx={{ minHeight: 160, display: 'grid', placeItems: 'center', border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' }}>
+                <Typography variant="caption" color="text.secondary">
+                  미리보기 계산을 실행하면 이곳에 1분봉 차트와 매수/매도 신호가 표시됩니다.
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        </Box>
+      )}
 
       {entries.length === 0 ? (
         <Typography variant="caption" color="text.disabled" sx={{ pl: 0.5 }}>

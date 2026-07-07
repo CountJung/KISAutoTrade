@@ -13,6 +13,7 @@
 ///   POST /api/toss-small-buy-verification      → Toss 소액매매 검증 1주 시장가 매수 실행
 ///   GET  /api/toss-market-calendar             → Toss KR/US 정규장 캘린더 JSON
 ///   GET  /api/toss-chart/:symbol              → Toss candles JSON (?interval=1d&count=200)
+///   POST /api/strategy/leveraged-trend-hold/preview → Toss 1분봉 기반 레버리지 전략 미리보기
 ///   GET  /api/price/:symbol                   → 국내 현재가 JSON
 ///   GET  /api/overseas-price/:ex/:sym         → 해외 현재가 JSON (NAS/NYS/AMS)
 ///   GET  /api/executed                        → 당일 체결 JSON
@@ -232,6 +233,10 @@ pub async fn start(
             get(toss_market_calendar_handler),
         )
         .route("/api/toss-chart/:symbol", get(toss_chart_handler))
+        .route(
+            "/api/strategy/leveraged-trend-hold/preview",
+            post(leveraged_trend_hold_preview_handler),
+        )
         .route("/api/positions", get(positions_handler))
         .route("/api/price/:symbol", get(price_handler))
         .route(
