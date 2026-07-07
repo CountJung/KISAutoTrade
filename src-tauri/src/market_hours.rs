@@ -73,12 +73,7 @@ pub enum UsTradingSessionPolicy {
 
 impl UsTradingSessionPolicy {
     pub fn parse(value: Option<&str>) -> Self {
-        match value
-            .unwrap_or("regular")
-            .trim()
-            .to_ascii_lowercase()
-            .as_str()
-        {
+        match value.unwrap_or("auto").trim().to_ascii_lowercase().as_str() {
             "auto" => Self::Auto,
             "day" | "daymarket" | "day_market" => Self::Day,
             "pre" | "premarket" | "pre_market" => Self::Pre,

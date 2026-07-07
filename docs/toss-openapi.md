@@ -69,7 +69,7 @@ npm run verify:toss-openapi
 - 공통 성공 응답은 `ApiResponse` + `result`, 실패 응답은 `ErrorResponse { error: ApiError }` envelope를 기준으로 처리한다.
 - 429 응답은 `Retry-After`, `X-RateLimit-*` 헤더를 읽어 broker 공통 throttler로 넘긴다.
 - 주문 생성은 `clientOrderId`를 발급해 중복 주문과 `request-in-progress`류 응답을 추적한다.
-- 미국 시장 캘린더는 공식 스펙 v1.2.2 기준 `dayMarket`, `preMarket`, `regularMarket`, `afterMarket` 4개 세션을 제공한다. 다만 주문 생성 request에는 별도 세션 선택 필드가 없고 `timeInForce`만 `DAY`/`CLS`를 허용한다. Trading 수동 주문창은 Toss 미국 종목에서 `자동`/`데이`/`프리`/`정규`/`애프터` 세션 선택을 제공하고, 명시 세션 선택 시 현재 시간이 해당 세션 안인지 local gate로 검증한 뒤 기존처럼 `timeInForce=DAY` 주문을 제출한다. Strategy 자동매매 화면도 Toss 미국 대상 전략에 같은 세션 선택을 제공하며 `params.toss_us_session`에 저장한다. 데몬은 Toss 실행 scope에서 전략별 세션 gate를 적용하고, `auto`는 US 4개 세션 중 하나라도 열려 있으면 틱 처리와 주문 제출을 허용한다. 기본값은 기존 동작 보존을 위해 `regular`다.
+- 미국 시장 캘린더는 공식 스펙 v1.2.2 기준 `dayMarket`, `preMarket`, `regularMarket`, `afterMarket` 4개 세션을 제공한다. 다만 주문 생성 request에는 별도 세션 선택 필드가 없고 `timeInForce`만 `DAY`/`CLS`를 허용한다. Trading 수동 주문창은 Toss 미국 종목에서 `자동`/`데이`/`프리`/`정규`/`애프터` 세션 선택을 제공하고, 명시 세션 선택 시 현재 시간이 해당 세션 안인지 local gate로 검증한 뒤 기존처럼 `timeInForce=DAY` 주문을 제출한다. Strategy 자동매매 화면도 Toss 미국 대상 전략에 같은 세션 선택을 제공하며 `params.toss_us_session`에 저장한다. 데몬은 Toss 실행 scope에서 전략별 세션 gate를 적용하고, 레버리지 전략 내부의 진입/마감 전 청산 시간 계산도 같은 세션 정책을 사용한다. `auto`는 US 4개 세션 중 하나라도 열려 있으면 틱 처리와 주문 제출을 허용한다. 저장값이 없으면 `auto`를 기본값으로 사용한다.
 
 ## 현재 구현 상태
 
@@ -102,6 +102,6 @@ npm run verify:toss-openapi
 - `get_toss_chart_data` IPC와 `/api/toss-chart/:symbol` 웹 REST는 활성 Toss 프로파일 기준 `1d`/`1m` candles를 기존 `ChartCandle[]`로 내려준다. Trading 화면은 `StockChart source="toss"`로 lightweight-charts를 재사용한다.
 - `get_exchange_rate_status` IPC와 `/api/exchange-rate/status` 웹 REST는 환율 source/fallback/유효시간을 `ExchangeRateView`로 내려준다. 기존 `get_exchange_rate`와 `/api/exchange-rate`는 숫자 캐시 호환 경로로 유지한다.
 - Settings 프로파일 카드의 `연결 진단` 버튼은 토스 프로파일에만 표시한다. 진단 결과는 `steps[]`, `issues[]`, OpenAPI version, accounts/holdings count, KRW/USD buying power, commissions count로 요약한다. Add 다이얼로그는 열린 섹션의 broker로 고정하고, Edit 다이얼로그는 저장된 `broker_id`를 바꾸지 않는다.
-- 자동매매 주문 실행 경로는 Toss 프로파일에서도 활성화된다. `start_trading()`은 Toss holdings 기반 `BrokerPositionSnapshot`으로 전략 내부 포지션 상태를 복원한 뒤, 활성 Toss 프로파일 설정과 `live_trading_consent`를 확인하고 실행 scope를 `BrokerScope { brokerId: Toss, accountSeq }`로 고정한다. 실행 scope가 Toss이면 자동매매 데몬은 KIS 해외 현재가로 폴백하지 않고 Toss `/api/v1/prices`를 사용한다. 전략 히스토리 초기화도 Toss 실행 scope에서는 KIS chart API가 아니라 Toss `/api/v1/candles`를 사용한다. Dashboard는 자동매매 시작 버튼을 활성화하고 검색 종목 1주 시장가 소액매매 검증 패널은 별도 최종 점검용으로 유지한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
+- 자동매매 주문 실행 경로는 Toss 프로파일에서도 활성화된다. `start_trading()`은 Toss holdings 기반 `BrokerPositionSnapshot`으로 전략 내부 포지션 상태를 복원한 뒤, 활성 Toss 프로파일 설정과 `live_trading_consent`를 확인하고 실행 scope를 `BrokerScope { brokerId: Toss, accountSeq }`로 고정한다. 실행 scope가 Toss이면 자동매매 데몬은 KIS 해외 현재가로 폴백하지 않고 Toss `/api/v1/prices`를 사용한다. 전략 히스토리 초기화도 Toss 실행 scope에서는 KIS chart API가 아니라 Toss `/api/v1/candles`를 사용하며, `1d` candles는 일봉 지표에, `1m` candles 종가는 장중 반동 관측 버퍼에 사용한다. Dashboard는 자동매매 시작 버튼을 활성화하고 검색 종목 1주 시장가 소액매매 검증 패널은 별도 최종 점검용으로 유지한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
 
 > 마지막 업데이트: 2026-07-07T16:08:00+09:00

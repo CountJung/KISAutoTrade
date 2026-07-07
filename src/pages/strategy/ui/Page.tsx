@@ -64,10 +64,10 @@ type Market = 'KR' | 'US'
 
 const EXCHANGE_SEARCH_ORDER: OverseasExchange[] = ['NAS', 'NYS', 'AMS']
 const TOSS_US_SESSION_OPTIONS: Array<{ value: TossManualSession; label: string }> = [
-  { value: 'regular', label: '정규' },
   { value: 'auto', label: '자동' },
   { value: 'day', label: '데이' },
   { value: 'pre', label: '프리' },
+  { value: 'regular', label: '정규' },
   { value: 'after', label: '애프터' },
 ]
 
@@ -528,7 +528,7 @@ export default function Strategy() {
   }
 
   const getSavedTossSession = (params: Record<string, unknown>): TossManualSession => {
-    return isTossManualSession(params.toss_us_session) ? params.toss_us_session : 'regular'
+    return isTossManualSession(params.toss_us_session) ? params.toss_us_session : 'auto'
   }
 
   const getTossSession = (id: string, params: Record<string, unknown>): TossManualSession => {

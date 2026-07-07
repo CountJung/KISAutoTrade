@@ -152,6 +152,15 @@ impl StrategyManager {
         }
     }
 
+    /// 특정 종목을 타겟으로 하는 모든 전략에 장중 가격 데이터 전달 (반동/매수세 판단)
+    pub fn initialize_intraday_prices(&mut self, symbol: &str, prices: &[u64]) {
+        for s in &mut self.strategies {
+            if s.config().targets_symbol(symbol) {
+                s.initialize_intraday_prices(symbol, prices);
+            }
+        }
+    }
+
     /// 특정 종목을 타겟으로 하는 모든 전략에 일봉 변동 범위(고가-저가) 데이터 전달 (변동성 확장 전략)
     pub fn initialize_range_data(&mut self, symbol: &str, ranges: &[u64]) {
         for s in &mut self.strategies {

@@ -127,6 +127,8 @@ pub trait Strategy: Send + Sync {
     fn initialize_candles(&mut self, _symbol: &str, _candles: &[(u64, u64)]) {}
     /// 전략 시작 시 일봉 OHLC 배열로 초기화. ADX/갭/양봉 판단이 필요한 전략에서 재정의.
     fn initialize_ohlc(&mut self, _symbol: &str, _candles: &[OhlcCandle]) {}
+    /// 전략 시작 시 장중 가격 배열로 초기화. 실시간 틱 기반 반동/매수세 판단이 필요한 전략에서 재정의.
+    fn initialize_intraday_prices(&mut self, _symbol: &str, _prices: &[u64]) {}
     /// 전략 시작 시 일봉 변동 범위(고가-저가) 배열로 초기화. 변동성 확장 전략에서 사용.
     fn initialize_range_data(&mut self, _symbol: &str, _ranges: &[u64]) {}
     /// 자동매매 시작 시 실제 잔고 기반으로 전략 내부 포지션 플래그를 동기화한다.

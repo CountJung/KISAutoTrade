@@ -48,6 +48,27 @@ fn lth_default_gap_limit() -> f64 {
 fn lth_default_sensitivity() -> f64 {
     1.0
 }
+fn lth_default_toss_us_session() -> String {
+    "auto".to_string()
+}
+fn lth_default_rebound_enabled() -> bool {
+    false
+}
+fn lth_default_rebound_baseline_ticks() -> usize {
+    8
+}
+fn lth_default_rebound_confirm_ticks() -> usize {
+    3
+}
+fn lth_default_rebound_pullback() -> f64 {
+    4.0
+}
+fn lth_default_rebound_buy_pressure() -> f64 {
+    1.5
+}
+fn lth_default_rebound_rsi() -> f64 {
+    30.0
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LeveragedTrendHoldEntry {
@@ -108,6 +129,20 @@ pub struct LeveragedTrendHoldParams {
     pub max_gap_pct: f64,
     #[serde(default)]
     pub blackout_windows: Vec<String>,
+    #[serde(default = "lth_default_toss_us_session")]
+    pub toss_us_session: String,
+    #[serde(default = "lth_default_rebound_enabled")]
+    pub intraday_rebound_enabled: bool,
+    #[serde(default = "lth_default_rebound_baseline_ticks")]
+    pub rebound_baseline_ticks: usize,
+    #[serde(default = "lth_default_rebound_confirm_ticks")]
+    pub rebound_confirm_ticks: usize,
+    #[serde(default = "lth_default_rebound_pullback")]
+    pub rebound_pullback_pct: f64,
+    #[serde(default = "lth_default_rebound_buy_pressure")]
+    pub rebound_buy_pressure_pct: f64,
+    #[serde(default = "lth_default_rebound_rsi")]
+    pub rebound_rsi_min: f64,
 }
 
 impl Default for LeveragedTrendHoldParams {
@@ -130,12 +165,20 @@ impl Default for LeveragedTrendHoldParams {
             exit_before_close_min: lth_default_exit_before_close(),
             max_gap_pct: lth_default_gap_limit(),
             blackout_windows: Vec::new(),
+            toss_us_session: lth_default_toss_us_session(),
+            intraday_rebound_enabled: lth_default_rebound_enabled(),
+            rebound_baseline_ticks: lth_default_rebound_baseline_ticks(),
+            rebound_confirm_ticks: lth_default_rebound_confirm_ticks(),
+            rebound_pullback_pct: lth_default_rebound_pullback(),
+            rebound_buy_pressure_pct: lth_default_rebound_buy_pressure(),
+            rebound_rsi_min: lth_default_rebound_rsi(),
         }
     }
 }
 
 struct LeveragedTrendHoldMarketState {
     candles: VecDeque<OhlcCandle>,
+    rebound_prices: VecDeque<u64>,
     live_candle_started: bool,
 }
 
@@ -151,6 +194,13 @@ struct LeveragedTrendSnapshot {
     rsi: f64,
     adx: f64,
     bullish_count_3: usize,
+}
+
+struct LeveragedReboundSnapshot {
+    trend: LeveragedTrendSnapshot,
+    pullback_pct: f64,
+    buy_pressure_pct: f64,
+    rebound_from_low_pct: f64,
 }
 
 pub struct LeveragedTrendHoldStrategy {
@@ -223,11 +273,23 @@ impl LeveragedTrendHoldStrategy {
         )
     }
 
+    fn rebound_price_cap(&self) -> usize {
+        bounded_window_with_extra(
+            self.params
+                .rebound_baseline_ticks
+                .saturating_add(self.params.rebound_confirm_ticks)
+                .max(4),
+            2,
+        )
+    }
+
     fn update_target_tick(&mut self, symbol: &str, price: u64) {
         let cap = self.window_cap();
+        let rebound_cap = self.rebound_price_cap();
         let state = self.states.entry(symbol.to_string()).or_insert_with(|| {
             LeveragedTrendHoldMarketState {
                 candles: VecDeque::with_capacity(cap),
+                rebound_prices: VecDeque::with_capacity(rebound_cap),
                 live_candle_started: false,
             }
         });
@@ -248,6 +310,10 @@ impl LeveragedTrendHoldStrategy {
 
         while state.candles.len() > cap {
             state.candles.pop_front();
+        }
+        state.rebound_prices.push_back(price);
+        while state.rebound_prices.len() > rebound_cap {
+            state.rebound_prices.pop_front();
         }
     }
 
@@ -398,6 +464,57 @@ impl LeveragedTrendHoldStrategy {
         }
     }
 
+    fn rebound_entry_ok(&self, symbol: &str) -> Option<LeveragedReboundSnapshot> {
+        if !self.params.intraday_rebound_enabled {
+            return None;
+        }
+        let state = self.states.get(symbol)?;
+        let baseline_len = self.params.rebound_baseline_ticks.clamp(2, 120);
+        let confirm_len = self.params.rebound_confirm_ticks.clamp(2, 60);
+        let required_len = baseline_len.saturating_add(confirm_len);
+        if state.rebound_prices.len() < required_len {
+            return None;
+        }
+        let snap = self.snapshot_for(symbol)?;
+        if snap.adx < self.params.no_trade_adx_below || snap.rsi < self.params.rebound_rsi_min {
+            return None;
+        }
+
+        let prices: Vec<u64> = state.rebound_prices.iter().copied().collect();
+        let start = prices.len().saturating_sub(required_len);
+        let window = &prices[start..];
+        let (baseline, confirm) = window.split_at(baseline_len);
+        let baseline_high = *baseline.iter().max()?;
+        let baseline_low = *baseline.iter().min()?;
+        let baseline_last = *baseline.last()?;
+        let confirm_first = *confirm.first()?;
+        let confirm_last = *confirm.last()?;
+        if baseline_high == 0 || baseline_low == 0 || confirm_first == 0 {
+            return None;
+        }
+
+        let pullback_pct =
+            (baseline_high.saturating_sub(baseline_low) as f64 / baseline_high as f64) * 100.0;
+        let buy_pressure_pct =
+            (confirm_last.saturating_sub(confirm_first) as f64 / confirm_first as f64) * 100.0;
+        let rebound_from_low_pct =
+            (confirm_last.saturating_sub(baseline_low) as f64 / baseline_low as f64) * 100.0;
+
+        if pullback_pct >= self.params.rebound_pullback_pct
+            && buy_pressure_pct >= self.params.rebound_buy_pressure_pct
+            && confirm_last > baseline_last
+        {
+            Some(LeveragedReboundSnapshot {
+                trend: snap,
+                pullback_pct,
+                buy_pressure_pct,
+                rebound_from_low_pct,
+            })
+        } else {
+            None
+        }
+    }
+
     fn exit_reason(&self, symbol: &str) -> Option<String> {
         let state = self.states.get(symbol)?;
         let snap = self.snapshot_for(symbol)?;
@@ -425,33 +542,46 @@ impl LeveragedTrendHoldStrategy {
     }
 
     #[cfg(test)]
-    fn session_minutes(_is_overseas: bool) -> Option<(i64, i64)> {
+    fn session_minutes(_is_overseas: bool, _toss_us_session: &str) -> Option<(i64, i64)> {
         Some((60, 10_000))
     }
 
     #[cfg(not(test))]
-    fn session_minutes(is_overseas: bool) -> Option<(i64, i64)> {
+    fn session_minutes(is_overseas: bool, toss_us_session: &str) -> Option<(i64, i64)> {
         use chrono::Timelike;
         let now = chrono::Local::now();
         let mins = now.hour() as i64 * 60 + now.minute() as i64;
-        if is_overseas {
-            let open = 22 * 60 + 30;
-            let close = 5 * 60;
-            if mins >= open {
+        let contains = |open: i64, close: i64| -> Option<(i64, i64)> {
+            if open <= close {
+                (mins >= open && mins < close).then_some((mins - open, close - mins))
+            } else if mins >= open {
                 Some((mins - open, (24 * 60 - mins) + close))
             } else if mins < close {
                 Some(((24 * 60 - open) + mins, close - mins))
             } else {
                 None
             }
+        };
+        if is_overseas {
+            let day = (9 * 60, 16 * 60 + 50);
+            let pre = (17 * 60, 22 * 60 + 30);
+            let regular = (22 * 60 + 30, 5 * 60);
+            let after = (5 * 60, 7 * 60);
+            match crate::market_hours::UsTradingSessionPolicy::parse(Some(toss_us_session)) {
+                crate::market_hours::UsTradingSessionPolicy::Auto => [day, pre, regular, after]
+                    .into_iter()
+                    .find_map(|(open, close)| contains(open, close)),
+                crate::market_hours::UsTradingSessionPolicy::Day => contains(day.0, day.1),
+                crate::market_hours::UsTradingSessionPolicy::Pre => contains(pre.0, pre.1),
+                crate::market_hours::UsTradingSessionPolicy::Regular => {
+                    contains(regular.0, regular.1)
+                }
+                crate::market_hours::UsTradingSessionPolicy::After => contains(after.0, after.1),
+            }
         } else {
             let open = 9 * 60;
             let close = 15 * 60 + 30;
-            if mins >= open && mins < close {
-                Some((mins - open, close - mins))
-            } else {
-                None
-            }
+            contains(open, close)
         }
     }
 
@@ -515,8 +645,10 @@ impl Strategy for LeveragedTrendHoldStrategy {
             return;
         }
         let cap = self.window_cap();
+        let rebound_cap = self.rebound_price_cap();
         let mut state = LeveragedTrendHoldMarketState {
             candles: VecDeque::with_capacity(cap),
+            rebound_prices: VecDeque::with_capacity(rebound_cap),
             live_candle_started: false,
         };
         let take = candles.len().min(cap);
@@ -528,6 +660,36 @@ impl Strategy for LeveragedTrendHoldStrategy {
             "레버리지 단일 티커 추세 초기화 [{}]: OHLC {}봉 로드",
             symbol,
             take
+        );
+    }
+
+    fn initialize_intraday_prices(&mut self, symbol: &str, prices: &[u64]) {
+        self.sync_params();
+        if !self.is_target_symbol(symbol) {
+            return;
+        }
+        let cap = self.rebound_price_cap();
+        let window_cap = self.window_cap();
+        let state = self.states.entry(symbol.to_string()).or_insert_with(|| {
+            LeveragedTrendHoldMarketState {
+                candles: VecDeque::with_capacity(window_cap),
+                rebound_prices: VecDeque::with_capacity(cap),
+                live_candle_started: false,
+            }
+        });
+        state.rebound_prices.clear();
+        let take = prices.len().min(cap);
+        for price in prices[prices.len().saturating_sub(take)..]
+            .iter()
+            .copied()
+            .filter(|price| *price > 0)
+        {
+            state.rebound_prices.push_back(price);
+        }
+        tracing::info!(
+            "레버리지 단일 티커 장중 반동 초기화 [{}]: 가격 {}개 로드",
+            symbol,
+            state.rebound_prices.len()
         );
     }
 
@@ -585,7 +747,9 @@ impl Strategy for LeveragedTrendHoldStrategy {
                 };
             }
 
-            if let Some((_, minutes_to_close)) = Self::session_minutes(entry.is_overseas) {
+            if let Some((_, minutes_to_close)) =
+                Self::session_minutes(entry.is_overseas, &self.params.toss_us_session)
+            {
                 if minutes_to_close <= self.params.exit_before_close_min {
                     if let Some(pos) = self.positions.get_mut(symbol) {
                         pos.in_position = false;
@@ -606,38 +770,66 @@ impl Strategy for LeveragedTrendHoldStrategy {
             return Signal::Hold;
         }
 
-        let Some((elapsed, _)) = Self::session_minutes(entry.is_overseas) else {
+        let Some((elapsed, _)) =
+            Self::session_minutes(entry.is_overseas, &self.params.toss_us_session)
+        else {
             return Signal::Hold;
         };
-        if elapsed < self.params.entry_window_start_min
-            || elapsed > self.params.entry_window_end_min
-            || Self::in_blackout_window(&self.params.blackout_windows)
-        {
-            return Signal::Hold;
+        let in_blackout = Self::in_blackout_window(&self.params.blackout_windows);
+        let in_trend_window = elapsed >= self.params.entry_window_start_min
+            && elapsed <= self.params.entry_window_end_min
+            && !in_blackout;
+        let can_check_rebound = self.params.intraday_rebound_enabled && !in_blackout;
+
+        if in_trend_window {
+            if let Some(snap) = self.entry_ok(symbol) {
+                self.positions.insert(
+                    symbol.to_string(),
+                    LeveragedTrendHoldPosition {
+                        in_position: true,
+                        entry_price: Some(price),
+                        high_water: Some(price),
+                    },
+                );
+                return Signal::Buy {
+                    symbol: symbol.to_string(),
+                    quantity,
+                    reason: format!(
+                        "LeveragedTrendHold 상승 추세 진입: {} EMA{} > EMA{}, RSI {:.1}, ADX {:.1}, 최근 3봉 양봉 {}개",
+                        symbol,
+                        self.params.ema_short_period,
+                        self.params.ema_long_period,
+                        snap.rsi,
+                        snap.adx,
+                        snap.bullish_count_3
+                    ),
+                };
+            }
         }
 
-        if let Some(snap) = self.entry_ok(symbol) {
-            self.positions.insert(
-                symbol.to_string(),
-                LeveragedTrendHoldPosition {
-                    in_position: true,
-                    entry_price: Some(price),
-                    high_water: Some(price),
-                },
-            );
-            return Signal::Buy {
-                symbol: symbol.to_string(),
-                quantity,
-                reason: format!(
-                    "LeveragedTrendHold 상승 추세 진입: {} EMA{} > EMA{}, RSI {:.1}, ADX {:.1}, 최근 3봉 양봉 {}개",
-                    symbol,
-                    self.params.ema_short_period,
-                    self.params.ema_long_period,
-                    snap.rsi,
-                    snap.adx,
-                    snap.bullish_count_3
-                ),
-            };
+        if can_check_rebound {
+            if let Some(snap) = self.rebound_entry_ok(symbol) {
+                self.positions.insert(
+                    symbol.to_string(),
+                    LeveragedTrendHoldPosition {
+                        in_position: true,
+                        entry_price: Some(price),
+                        high_water: Some(price),
+                    },
+                );
+                return Signal::Buy {
+                    symbol: symbol.to_string(),
+                    quantity,
+                    reason: format!(
+                        "LeveragedTrendHold 장중 매수세 반동 진입: 확인 구간 +{:.2}% (기준 구간 하락 {:.2}%, 저점 대비 +{:.2}%), RSI {:.1}, ADX {:.1}",
+                        snap.buy_pressure_pct,
+                        snap.pullback_pct,
+                        snap.rebound_from_low_pct,
+                        snap.trend.rsi,
+                        snap.trend.adx
+                    ),
+                };
+            }
         }
 
         Signal::Hold
@@ -667,6 +859,7 @@ impl Strategy for LeveragedTrendHoldStrategy {
     fn reset(&mut self) {
         for state in self.states.values_mut() {
             state.live_candle_started = false;
+            state.rebound_prices.clear();
         }
         for pos in self.positions.values_mut() {
             pos.in_position = false;
@@ -786,5 +979,49 @@ mod tests {
         assert!(
             matches!(signal, Signal::Sell { symbol, quantity, reason } if symbol == "SOXL" && quantity == 3 && reason.contains("추세 청산"))
         );
+    }
+
+    #[test]
+    fn buys_intraday_rebound_when_next_window_shows_buy_pressure() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("KORU")],
+            intraday_rebound_enabled: true,
+            rebound_baseline_ticks: 2,
+            rebound_confirm_ticks: 2,
+            rebound_pullback_pct: 4.0,
+            rebound_buy_pressure_pct: 2.0,
+            rebound_rsi_min: 20.0,
+            no_trade_adx_below: 0.0,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let mut strategy = strategy_with_params(params);
+        strategy.initialize_ohlc("KORU", &upward_candles());
+
+        assert_eq!(strategy.on_tick("KORU", 190, 100), Signal::Hold);
+        assert_eq!(strategy.on_tick("KORU", 180, 100), Signal::Hold);
+        assert_eq!(strategy.on_tick("KORU", 181, 100), Signal::Hold);
+        let signal = strategy.on_tick("KORU", 186, 100);
+
+        assert!(
+            matches!(signal, Signal::Buy { symbol, quantity, reason } if symbol == "KORU" && quantity == 3 && reason.contains("매수세 반동 진입"))
+        );
+    }
+
+    #[test]
+    fn ignores_intraday_rebound_by_default() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("KORU")],
+            rebound_baseline_ticks: 2,
+            rebound_confirm_ticks: 2,
+            no_trade_adx_below: 0.0,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let mut strategy = strategy_with_params(params);
+        strategy.initialize_ohlc("KORU", &upward_candles());
+
+        assert_eq!(strategy.on_tick("KORU", 190, 100), Signal::Hold);
+        assert_eq!(strategy.on_tick("KORU", 180, 100), Signal::Hold);
+        assert_eq!(strategy.on_tick("KORU", 181, 100), Signal::Hold);
+        assert_eq!(strategy.on_tick("KORU", 186, 100), Signal::Hold);
     }
 }

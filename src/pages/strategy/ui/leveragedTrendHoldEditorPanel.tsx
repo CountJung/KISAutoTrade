@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Checkbox from '@mui/material/Checkbox'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
 import Paper from '@mui/material/Paper'
@@ -59,6 +61,16 @@ function normalizeUsTicker(value: string) {
   return value.trim().toUpperCase()
 }
 
+function numericParam(params: Record<string, unknown>, key: string, fallback: number) {
+  const value = params[key]
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function boolParam(params: Record<string, unknown>, key: string, fallback: boolean) {
+  const value = params[key]
+  return typeof value === 'boolean' ? value : fallback
+}
+
 export function hasInvalidLthEntries(entries: LeveragedTrendHoldEntry[]): boolean {
   return entries.some((entry) => !entry.leveraged_symbol)
 }
@@ -90,7 +102,13 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
   const [pickerSearching, setPickerSearching] = useState(false)
   const [pickerError, setPickerError] = useState<string | null>(null)
   const [draftQuantity, setDraftQuantity] = useState(1)
-  const entrySensitivity = typeof params.upward_sensitivity === 'number' ? params.upward_sensitivity : 1
+  const entrySensitivity = numericParam(params, 'upward_sensitivity', 1)
+  const reboundEnabled = boolParam(params, 'intraday_rebound_enabled', false)
+  const reboundBaselineTicks = numericParam(params, 'rebound_baseline_ticks', 8)
+  const reboundConfirmTicks = numericParam(params, 'rebound_confirm_ticks', 3)
+  const reboundPullback = numericParam(params, 'rebound_pullback_pct', 4)
+  const reboundBuyPressure = numericParam(params, 'rebound_buy_pressure_pct', 1.5)
+  const reboundRsiMin = numericParam(params, 'rebound_rsi_min', 30)
   const { data: appConfig } = useAppConfig()
   const isTossActive = appConfig?.active_broker_id === 'toss'
   const { mutate: doPickerRefreshList, isPending: pickerRefreshing } = useRefreshStockList()
@@ -201,6 +219,11 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
   const handleSensitivityChange = (value: number) => {
     const nextValue = Number.isFinite(value) ? Math.max(1, Math.min(5, value)) : 1
     props.onParamsUpdate({ ...params, upward_sensitivity: nextValue })
+  }
+
+  const updateNumericParam = (key: string, value: number, min: number, max: number) => {
+    const nextValue = Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : min
+    props.onParamsUpdate({ ...params, [key]: nextValue })
   }
 
   return (
@@ -386,6 +409,84 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
               1은 기본값, 값이 높을수록 상승 진입 RSI 기준을 완화합니다.
             </Typography>
           </Stack>
+
+          <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 1 }}>
+            <Stack spacing={1}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={reboundEnabled}
+                    disabled={stratEnabled}
+                    onChange={(e) => props.onParamsUpdate({
+                      ...params,
+                      intraday_rebound_enabled: e.target.checked,
+                    })}
+                    size="small"
+                  />
+                }
+                label={
+                  <Typography variant="caption" fontWeight={600}>
+                    장중 반동 진입 사용
+                  </Typography>
+                }
+              />
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
+                <TextField
+                  label="기준 관측치"
+                  type="number"
+                  value={reboundBaselineTicks}
+                  disabled={stratEnabled || !reboundEnabled}
+                  size="small"
+                  onChange={(e) => updateNumericParam('rebound_baseline_ticks', Number(e.target.value), 2, 120)}
+                  inputProps={{ min: 2, max: 120, step: 1 }}
+                  sx={{ width: { xs: '100%', md: 130 } }}
+                />
+                <TextField
+                  label="확인 관측치"
+                  type="number"
+                  value={reboundConfirmTicks}
+                  disabled={stratEnabled || !reboundEnabled}
+                  size="small"
+                  onChange={(e) => updateNumericParam('rebound_confirm_ticks', Number(e.target.value), 2, 60)}
+                  inputProps={{ min: 2, max: 60, step: 1 }}
+                  sx={{ width: { xs: '100%', md: 130 } }}
+                />
+                <TextField
+                  label="선행 하락(%)"
+                  type="number"
+                  value={reboundPullback}
+                  disabled={stratEnabled || !reboundEnabled}
+                  size="small"
+                  onChange={(e) => updateNumericParam('rebound_pullback_pct', Number(e.target.value), 0.5, 30)}
+                  inputProps={{ min: 0.5, max: 30, step: 0.5 }}
+                  sx={{ width: { xs: '100%', md: 130 } }}
+                />
+                <TextField
+                  label="매수세 상승(%)"
+                  type="number"
+                  value={reboundBuyPressure}
+                  disabled={stratEnabled || !reboundEnabled}
+                  size="small"
+                  onChange={(e) => updateNumericParam('rebound_buy_pressure_pct', Number(e.target.value), 0.5, 30)}
+                  inputProps={{ min: 0.5, max: 30, step: 0.5 }}
+                  sx={{ width: { xs: '100%', md: 130 } }}
+                />
+                <TextField
+                  label="반동 RSI 하한"
+                  type="number"
+                  value={reboundRsiMin}
+                  disabled={stratEnabled || !reboundEnabled}
+                  size="small"
+                  onChange={(e) => updateNumericParam('rebound_rsi_min', Number(e.target.value), 0, 70)}
+                  inputProps={{ min: 0, max: 70, step: 1 }}
+                  sx={{ width: { xs: '100%', md: 140 } }}
+                />
+              </Stack>
+              <Typography variant="caption" color="text.secondary">
+                특정 시각이 아니라 기준 관측 구간에서 충분히 밀린 뒤, 바로 다음 확인 구간에서 강한 가격 회복이 나올 때 매수세 반동으로 판단합니다.
+              </Typography>
+            </Stack>
+          </Box>
 
           {pickerError && (
             <Alert severity="warning" sx={{ py: 0.5 }}>

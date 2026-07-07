@@ -263,6 +263,13 @@ fn validate_symbol(symbol: &str) -> Result<(), CmdError> {
 }
 ```
 
+## 프로젝트 전략 구현 메모
+
+- 레버리지 단일 티커 추세 전략(`LeveragedTrendHoldStrategy`)은 기본적으로 장 시작 후 `entry_window_start_min`~`entry_window_end_min` 사이의 추세추종 진입만 수행한다.
+- 장중 급락 후 반등을 실험할 때는 기본값으로 꺼진 `intraday_rebound_enabled`를 켜고, `rebound_baseline_ticks`, `rebound_confirm_ticks`, `rebound_pullback_pct`, `rebound_buy_pressure_pct`, `rebound_rsi_min`을 함께 저장한다.
+- 장중 반동 진입은 절대 시각을 파라미터로 받지 않는다. 자동매매가 켜진 뒤 누적한 가격 관측치를 기준 구간과 바로 다음 확인 구간으로 나누고, 기준 구간 하락 후 확인 구간의 가격 회복이 충분히 강할 때 매수세 반동으로 본다.
+- Toss 실행 scope에서 자동매매를 시작하면 Toss `1d` candles로 일봉 OHLC를 초기화하고, Toss `1m` candles 종가로 장중 반동 가격 버퍼를 초기화한다. 공개 데이터와 Toss 데이터가 섞이지 않게 strategy preview/진단도 가능하면 Toss candles 경로를 우선 사용한다.
+
 ### Strategy trait 패턴 (이 프로젝트)
 
 ```rust

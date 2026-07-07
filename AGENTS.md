@@ -69,8 +69,8 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-07-07 | 레버리지 전략에 시간창 없는 장중 매수세 반동 진입과 Toss auto/1m 초기화 추가 |
 | 2026-07-07 | Toss API 스킬에 tossinvest-cli 비공식 참고 구현과 WTS 사용 주의사항 추가 |
-| 2026-07-07 | Toss 미국 자동매매 전략 세션 선택과 전략별 day/pre/regular/after/auto gate 구현 |
+| 2026-07-07 | Toss 미국 자동매매 전략 세션 선택과 전략별 day/pre/regular/after/auto gate 및 레버리지 전략 내부 세션 시간 적용 |
 | 2026-07-07 | Toss 미국 수동 주문 세션 선택과 정규장 외 local gate 구현 |
 | 2026-07-07 | Toss 자동매매 히스토리 초기화를 Toss candles로 전환하고 현재가 GET 재시도/원인 로그 보강 |
-| 2026-07-07 | Toss 프로파일의 KIS 실전/모의 자동감지 우회 호출 차단 |
