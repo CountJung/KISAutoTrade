@@ -327,6 +327,25 @@ fn toss_market_day_calendar(session: Option<&TossMarketSession>) -> CmdResult<Ma
     }
 }
 
+fn toss_market_session_window(
+    session: Option<&TossMarketSession>,
+) -> CmdResult<Option<MarketSessionWindow>> {
+    let Some(session) = session else {
+        return Ok(None);
+    };
+    let window =
+        MarketSessionWindow::parse(&session.start_time, &session.end_time).ok_or_else(|| {
+            CmdError {
+                code: "TOSS_MARKET_CALENDAR_MAPPING_ERROR".into(),
+                message: format!(
+                    "Toss market-calendar 세션 시간을 해석할 수 없습니다: {} ~ {}",
+                    session.start_time, session.end_time
+                ),
+            }
+        })?;
+    Ok(Some(window))
+}
+
 fn toss_calendar_override(
     kr: &TossKrMarketCalendarResponse,
     us: &TossUsMarketCalendarResponse,
@@ -340,6 +359,12 @@ fn toss_calendar_override(
     Ok(MarketCalendarOverride {
         kr: Some(toss_market_day_calendar(kr_regular)?),
         us: Some(toss_market_day_calendar(us_regular)?),
+        us_sessions: Some(UsMarketSessionCalendar {
+            day_session: toss_market_session_window(us.today.day_market.as_ref())?,
+            pre_session: toss_market_session_window(us.today.pre_market.as_ref())?,
+            regular_session: toss_market_session_window(us.today.regular_market.as_ref())?,
+            after_session: toss_market_session_window(us.today.after_market.as_ref())?,
+        }),
     })
 }
 

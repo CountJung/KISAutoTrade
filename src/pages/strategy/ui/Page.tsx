@@ -43,6 +43,7 @@ import {
   useTradingStatus,
   useStockSearch,
   useRefreshStockList,
+  useTossMarketCalendar,
 } from '../../../api/hooks'
 import * as cmd from '../../../api/commands'
 import type {
@@ -53,6 +54,8 @@ import type {
   OverseasExchange,
   PriceConditionSymbolConfig,
   StockSearchItem,
+  TossManualSession,
+  TossMarketCalendarView,
   UpdateStrategyInput,
 } from '../../../api/types'
 import { BrokerScopeIndicator } from '../../../shared/ui'
@@ -60,6 +63,62 @@ import { BrokerScopeIndicator } from '../../../shared/ui'
 type Market = 'KR' | 'US'
 
 const EXCHANGE_SEARCH_ORDER: OverseasExchange[] = ['NAS', 'NYS', 'AMS']
+const TOSS_US_SESSION_OPTIONS: Array<{ value: TossManualSession; label: string }> = [
+  { value: 'regular', label: '정규' },
+  { value: 'auto', label: '자동' },
+  { value: 'day', label: '데이' },
+  { value: 'pre', label: '프리' },
+  { value: 'after', label: '애프터' },
+]
+
+function isDomesticSymbol(symbol: string) {
+  return symbol.length === 6 && /^[0-9]/.test(symbol)
+}
+
+function isTossManualSession(value: unknown): value is TossManualSession {
+  return value === 'auto' || value === 'day' || value === 'pre' || value === 'regular' || value === 'after'
+}
+
+function tossSessionLabel(session: TossManualSession) {
+  return TOSS_US_SESSION_OPTIONS.find((option) => option.value === session)?.label ?? session
+}
+
+function fmtTossSessionWindow(session: TossMarketCalendarView['us']['regularSession']) {
+  if (!session) return '오늘 세션 없음'
+  const format = (value: string) => new Date(value).toLocaleTimeString('ko-KR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  return `${format(session.startTime)}~${format(session.endTime)}`
+}
+
+function tossUsSessionWindow(
+  calendar: TossMarketCalendarView | undefined,
+  session: TossManualSession,
+) {
+  if (!calendar) return null
+  if (session === 'day') return calendar.us.daySession
+  if (session === 'pre') return calendar.us.preSession
+  if (session === 'regular') return calendar.us.regularSession
+  if (session === 'after') return calendar.us.afterSession
+  return null
+}
+
+function isTossUsSessionOpen(
+  calendar: TossMarketCalendarView | undefined,
+  session: TossManualSession,
+) {
+  if (!calendar) return false
+  if (session === 'day') return calendar.us.isDayOpen
+  if (session === 'pre') return calendar.us.isPreOpen
+  if (session === 'regular') return calendar.us.isRegularOpen
+  if (session === 'after') return calendar.us.isAfterOpen
+  return calendar.us.isDayOpen || calendar.us.isPreOpen || calendar.us.isRegularOpen || calendar.us.isAfterOpen
+}
+
+function withTossUsSessionParam(params: Record<string, unknown>, session: TossManualSession) {
+  return { ...params, toss_us_session: session }
+}
 
 // ─── 전략 타입별 파라미터 메타 ────────────────────────────────────
 interface ParamMeta {
@@ -355,6 +414,7 @@ export default function Strategy() {
   // 레버리지 추세 보유 전략 전용: 레버리지/기초 매핑 배열
   const [lthEditMap, setLthEditMap] = useState<Record<string, LeveragedTrendHoldEntry[]>>({})
   const [lthParamEditMap, setLthParamEditMap] = useState<Record<string, Record<string, unknown>>>({})
+  const [tossSessionEditMap, setTossSessionEditMap] = useState<Record<string, TossManualSession>>({})
 
   // ── 상단 종목 검색 상태 ─────────────────────────────────────────
   const [market, setMarket]                   = useState<Market>('KR')
@@ -371,6 +431,7 @@ export default function Strategy() {
   const { data: searchResults = [], isFetching: isFetchingSearch,
           isError: isSearchError, error: searchError }  = useStockSearch(searchQuery)
   const { mutate: doRefreshList, isPending: isRefreshing } = useRefreshStockList()
+  const { data: tossCalendar } = useTossMarketCalendar({ enabled: appConfig?.active_broker_id === 'toss' })
   const isStockListEmpty = isSearchError && (searchError as CmdError | null)?.code === 'STOCK_LIST_EMPTY'
 
   // 검색어 디바운스 — 6자리 영숫자 코드만 검색 허용 (0005A0, 0089C0 등 ETF 포함)
@@ -466,6 +527,42 @@ export default function Strategy() {
     setEditMap(prev => ({ ...prev, [id]: { ...cur, params: { ...cur.params, [key]: val } } }))
   }
 
+  const getSavedTossSession = (params: Record<string, unknown>): TossManualSession => {
+    return isTossManualSession(params.toss_us_session) ? params.toss_us_session : 'regular'
+  }
+
+  const getTossSession = (id: string, params: Record<string, unknown>): TossManualSession => {
+    return tossSessionEditMap[id] ?? getSavedTossSession(params)
+  }
+
+  const setTossSession = (id: string, params: Record<string, unknown>, session: TossManualSession) => {
+    const saved = getSavedTossSession(params)
+    setTossSessionEditMap((prev) => {
+      const next = { ...prev }
+      if (session === saved) {
+        delete next[id]
+      } else {
+        next[id] = session
+      }
+      return next
+    })
+  }
+
+  const hasTossSessionEdit = (id: string, params: Record<string, unknown>) => {
+    return tossSessionEditMap[id] !== undefined && tossSessionEditMap[id] !== getSavedTossSession(params)
+  }
+
+  const strategyHasUsTargets = (
+    type: string,
+    strategy: { targetSymbols: string[]; params: Record<string, unknown> },
+    pcSymbols: PriceConditionSymbolConfig[],
+    lthEntries: LeveragedTrendHoldEntry[],
+  ) => {
+    if (type === 'price_condition') return pcSymbols.some((symbol) => symbol.is_overseas)
+    if (type === 'leveraged_trend_hold') return lthEntries.some((entry) => entry.is_overseas)
+    return strategy.targetSymbols.some((symbol) => !isDomesticSymbol(symbol))
+  }
+
   const addSymbol = (stratId: string, s: { targetSymbols: string[]; orderQuantity: number; params: Record<string, unknown> }, stock: StockSearchItem) => {
     const cur = getEdit(stratId, s)
     if (cur.symbols.includes(stock.pdno)) return
@@ -482,29 +579,46 @@ export default function Strategy() {
     updateStrategy({ id, enabled } satisfies UpdateStrategyInput)
   }
 
-  const handleSave = (id: string) => {
+  const handleSave = (id: string, strategy: { params: Record<string, unknown> }) => {
     const edit = editMap[id]
-    if (!edit) return
+    const session = getTossSession(id, strategy.params)
+    const mergedParams = edit
+      ? { ...strategy.params, ...edit.params }
+      : { ...strategy.params }
     updateStrategy(
       {
         id,
-        targetSymbols: edit.symbols,
-        orderQuantity: edit.quantity,
-        params: edit.params,
+        ...(edit ? { targetSymbols: edit.symbols, orderQuantity: edit.quantity } : {}),
+        params: withTossUsSessionParam(mergedParams, session),
       } satisfies UpdateStrategyInput,
-      { onSuccess: () => setEditMap(prev => { const n = { ...prev }; delete n[id]; return n }) },
+      {
+        onSuccess: () => {
+          setEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
+          setTossSessionEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
+        },
+      },
     )
   }
 
-  const handleSavePc = (id: string) => {
-    const pcSymbols = pcEditMap[id] ?? []
+  const handleSavePc = (
+    id: string,
+    params: Record<string, unknown>,
+    initialSymbols: PriceConditionSymbolConfig[],
+  ) => {
+    const pcSymbols = pcEditMap[id] ?? initialSymbols
+    const session = getTossSession(id, params)
     updateStrategy(
       {
         id,
         targetSymbols: pcSymbols.map((s) => s.symbol),
-        params: { symbols: pcSymbols },
+        params: withTossUsSessionParam({ ...params, symbols: pcSymbols }, session),
       } satisfies UpdateStrategyInput,
-      { onSuccess: () => setPcEditMap(prev => { const n = { ...prev }; delete n[id]; return n }) },
+      {
+        onSuccess: () => {
+          setPcEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
+          setTossSessionEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
+        },
+      },
     )
   }
 
@@ -517,12 +631,16 @@ export default function Strategy() {
       {
         id,
         targetSymbols,
-        params: { ...nextParams, entries },
+        params: withTossUsSessionParam(
+          { ...nextParams, entries },
+          getTossSession(id, nextParams),
+        ),
       } satisfies UpdateStrategyInput,
       {
         onSuccess: () => {
           setLthEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
           setLthParamEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
+          setTossSessionEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
         },
       },
     )
@@ -740,13 +858,21 @@ export default function Strategy() {
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {(strategies ?? []).map((s) => {
           const edit = getEdit(s.id, s)
-          const isDirty = !!editMap[s.id]
           const sType = getStrategyType(s.id)
           const paramMetas = STRATEGY_PARAM_META[sType] ?? []
           const stratDesc = STRATEGY_DESCRIPTION[sType]
           const pcInitialSymbols = (s.params['symbols'] as PriceConditionSymbolConfig[] | undefined) ?? []
           const lthInitialEntries = (s.params['entries'] as LeveragedTrendHoldEntry[] | undefined) ?? []
           const lthParams = lthParamEditMap[s.id] ?? s.params
+          const pcSessionSymbols = pcEditMap[s.id] ?? pcInitialSymbols
+          const lthSessionEntries = lthEditMap[s.id] ?? lthInitialEntries
+          const sessionParams = sType === 'leveraged_trend_hold' ? lthParams : s.params
+          const tossSession = getTossSession(s.id, sessionParams)
+          const showTossSession = activeBrokerIsToss && strategyHasUsTargets(sType, s, pcSessionSymbols, lthSessionEntries)
+          const selectedTossSessionWindow = tossUsSessionWindow(tossCalendar, tossSession)
+          const selectedTossSessionOpen = isTossUsSessionOpen(tossCalendar, tossSession)
+          const sessionDirty = hasTossSessionEdit(s.id, sessionParams)
+          const isDirty = !!editMap[s.id] || sessionDirty
           const scopeMatchesActive = isActiveStrategyScope(s, appConfig)
           return (
             <Grid item xs={12} md={sType === 'price_condition' || sType === 'leveraged_trend_hold' ? 12 : 6} key={s.id}>
@@ -778,6 +904,52 @@ export default function Strategy() {
                 <Divider sx={{ mb: 2 }} />
 
               <Stack spacing={2}>
+                  {showTossSession && (
+                    <Box
+                      sx={{
+                        p: 1.25,
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        bgcolor: 'action.hover',
+                      }}
+                    >
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
+                        <Typography variant="caption" fontWeight={700}>
+                          Toss 미국 자동매매 세션
+                        </Typography>
+                        <Chip
+                          size="small"
+                          label={selectedTossSessionOpen ? '현재 가능' : '현재 아님'}
+                          color={selectedTossSessionOpen ? 'success' : 'default'}
+                          variant="outlined"
+                          sx={{ height: 20, fontSize: '0.68rem' }}
+                        />
+                      </Stack>
+                      <ToggleButtonGroup
+                        value={tossSession}
+                        exclusive
+                        onChange={(_, v: TossManualSession | null) => v && setTossSession(s.id, sessionParams, v)}
+                        fullWidth
+                        size="small"
+                        disabled={s.enabled || saving}
+                        sx={{ mb: 0.75 }}
+                      >
+                        {TOSS_US_SESSION_OPTIONS.map((option) => (
+                          <ToggleButton key={option.value} value={option.value}>
+                            {option.label}
+                          </ToggleButton>
+                        ))}
+                      </ToggleButtonGroup>
+                      <Typography variant="caption" color="text.secondary">
+                        {tossSession === 'auto'
+                          ? 'Toss US 데이/프리/정규/애프터 중 열려 있는 세션에서 전략 틱과 주문을 허용합니다.'
+                          : `${tossSessionLabel(tossSession)} ${fmtTossSessionWindow(selectedTossSessionWindow)} · ` +
+                            (selectedTossSessionOpen ? '선택 세션이 열려 있습니다.' : '선택 세션 시간이 아닙니다.')}
+                      </Typography>
+                    </Box>
+                  )}
+
                   {/* price_condition: 커스텀 편집 UI */}
                   {sType === 'price_condition' ? (
                     <PriceConditionEditorPanel
@@ -898,13 +1070,13 @@ export default function Strategy() {
                 )}
 
                 {sType === 'price_condition' ? (
-                  pcEditMap[s.id] !== undefined && !s.enabled && (
+                  (pcEditMap[s.id] !== undefined || sessionDirty) && !s.enabled && (
                     <Box sx={{ mt: 1.5 }}>
                       <Button
                         size="small"
                         variant="outlined"
                         startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
-                        onClick={() => handleSavePc(s.id)}
+                        onClick={() => handleSavePc(s.id, s.params, pcInitialSymbols)}
                         disabled={saving}
                       >
                         변경사항 저장
@@ -912,7 +1084,7 @@ export default function Strategy() {
                     </Box>
                   )
                 ) : sType === 'leveraged_trend_hold' ? (
-                  (lthEditMap[s.id] !== undefined || lthParamEditMap[s.id] !== undefined) && !s.enabled && (
+                  (lthEditMap[s.id] !== undefined || lthParamEditMap[s.id] !== undefined || sessionDirty) && !s.enabled && (
                     <Box sx={{ mt: 1.5 }}>
                       <Button
                         size="small"
@@ -932,7 +1104,7 @@ export default function Strategy() {
                         size="small"
                         variant="outlined"
                         startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
-                        onClick={() => handleSave(s.id)}
+                        onClick={() => handleSave(s.id, s)}
                         disabled={saving}
                       >
                         변경사항 저장

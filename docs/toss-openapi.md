@@ -9,7 +9,7 @@
 | 항목 | 값 |
 |------|----|
 | OpenAPI title | `토스증권 Open API` |
-| version | `1.2.1` |
+| version | `1.2.2` |
 | base URL | `https://openapi.tossinvest.com` |
 | paths | 27 |
 | 인증 | OAuth2 Client Credentials Grant |
@@ -23,6 +23,8 @@ npm run verify:toss-openapi
 검증 스크립트는 공식 OpenAPI JSON을 내려받아 `info.title`, `info.version`, base URL, endpoint inventory, `X-Tossinvest-Account` 헤더 참조, rate-limit 헤더 존재 여부를 확인한다. 스펙이 바뀌면 코드 생성·수동 adapter 작업 전에 이 문서를 먼저 갱신한다.
 
 실제 주문 또는 자동매매 연결 전에는 `docs/toss-readonly-small-order-checklist.md`의 read-only/소액 검증 절차를 먼저 통과한다. Dashboard 소액매매 검증은 자동매매 unlock으로 해석하지 않는다. 공식 스펙 v1.1.5 기준 접수 주문 정정은 `POST /api/v1/orders/{orderId}/modify`로 제공되며, 앱은 수동 주문창에서 `GET /api/v1/orders?status=OPEN` 결과를 표시하고 접수 주문에 한해 정정 요청을 보낸다.
+
+비공식 참고 구현으로 `JungHoonGhae/tossinvest-cli`를 볼 수 있다. 이 저장소는 공식 OpenAPI 범위와 WTS 기반 비공식 기능을 함께 다루므로, 공식 스펙에 없는 기능 후보를 조사할 때만 보조 자료로 사용한다. 공식 OpenAPI로 가능한 기능은 항상 공식 JSON을 source of truth로 삼고, WTS/web session/internal API 기반 기능은 사용자에게 위험을 명시적으로 알린 뒤 별도 요청이 있을 때만 검토한다.
 
 ## Endpoint Inventory
 
@@ -67,7 +69,7 @@ npm run verify:toss-openapi
 - 공통 성공 응답은 `ApiResponse` + `result`, 실패 응답은 `ErrorResponse { error: ApiError }` envelope를 기준으로 처리한다.
 - 429 응답은 `Retry-After`, `X-RateLimit-*` 헤더를 읽어 broker 공통 throttler로 넘긴다.
 - 주문 생성은 `clientOrderId`를 발급해 중복 주문과 `request-in-progress`류 응답을 추적한다.
-- 미국 시장 캘린더는 공식 스펙 v1.2.1 기준 `dayMarket`, `preMarket`, `regularMarket`, `afterMarket` 4개 세션을 제공한다. 다만 주문 생성 request에는 별도 세션 선택 필드가 없고 `timeInForce`만 `DAY`/`CLS`를 허용한다. Trading 수동 주문창은 Toss 미국 종목에서 `자동`/`데이`/`프리`/`정규`/`애프터` 세션 선택을 제공하고, 명시 세션 선택 시 현재 시간이 해당 세션 안인지 local gate로 검증한 뒤 기존처럼 `timeInForce=DAY` 주문을 제출한다. 자동매매 장 시간 gate는 아직 US `regularMarket`만 사용한다. 자동매매 정규장 외 주문을 열려면 주문 종류별 provider 거부 코드(`order-hours-closed`, `amount-order-outside-regular-hours`, `fractional-quantity-outside-regular-hours`, `order-type-not-allowed`)와 사용자의 명시적 session 정책을 분리해 구현해야 한다.
+- 미국 시장 캘린더는 공식 스펙 v1.2.2 기준 `dayMarket`, `preMarket`, `regularMarket`, `afterMarket` 4개 세션을 제공한다. 다만 주문 생성 request에는 별도 세션 선택 필드가 없고 `timeInForce`만 `DAY`/`CLS`를 허용한다. Trading 수동 주문창은 Toss 미국 종목에서 `자동`/`데이`/`프리`/`정규`/`애프터` 세션 선택을 제공하고, 명시 세션 선택 시 현재 시간이 해당 세션 안인지 local gate로 검증한 뒤 기존처럼 `timeInForce=DAY` 주문을 제출한다. Strategy 자동매매 화면도 Toss 미국 대상 전략에 같은 세션 선택을 제공하며 `params.toss_us_session`에 저장한다. 데몬은 Toss 실행 scope에서 전략별 세션 gate를 적용하고, `auto`는 US 4개 세션 중 하나라도 열려 있으면 틱 처리와 주문 제출을 허용한다. 기본값은 기존 동작 보존을 위해 `regular`다.
 
 ## 현재 구현 상태
 
@@ -75,9 +77,9 @@ npm run verify:toss-openapi
 - 구현된 범위: `POST /oauth2/token`, `GET /api/v1/accounts`, `GET /api/v1/holdings`, `GET /api/v1/prices`, `GET /api/v1/orderbook`, `GET /api/v1/trades`, `GET /api/v1/price-limits`, `GET /api/v1/candles`, `GET /api/v1/stocks`, `GET /api/v1/stocks/{symbol}/warnings`, `GET /api/v1/market-calendar/KR`, `GET /api/v1/market-calendar/US`.
 - access token은 `base_url + client_id` 단위 공유 캐시에서 재사용하고, 만료 5분 전 갱신 대상으로 본다. 401 응답 시에는 해당 요청이 사용한 token이 아직 캐시에 남아 있을 때만 캐시를 지우고 1회 재발급/재시도한다. 다른 병렬 요청이 이미 token을 갱신했다면 그 token을 재사용한다.
 - holdings 응답은 `BrokerHolding`으로 매핑한다. `marketCountry`는 `KR`/`US`, `currency`는 `KRW`/`USD`만 공통 타입으로 변환한다. Dashboard 표시와 자동매매 시작 전 전략 포지션 복원에 사용하되, 자동매매 주문 수량 산정에는 재사용하지 않는다.
-- prices 응답은 `BrokerPriceQuote`로, candles 응답은 `BrokerCandle`로 매핑한다. `prices`는 최대 200개 symbols, `trades`는 count 1~50, `candles`는 interval `1m`/`1d`와 count 1~200 범위를 client에서 선검증한다. 공식 스펙 v1.2.1 기준 `prices` symbols는 영문 대/소문자, 숫자, `.`, `-`를 허용하고 응답 symbol은 canonical casing으로 올 수 있으므로 adapter/자동매매는 응답 symbol을 대소문자 무시로 매칭한다.
+- prices 응답은 `BrokerPriceQuote`로, candles 응답은 `BrokerCandle`로 매핑한다. `prices`는 최대 200개 symbols, `trades`는 count 1~50, `candles`는 interval `1m`/`1d`와 count 1~200 범위를 client에서 선검증한다. 공식 스펙 v1.2.2 기준 `prices` symbols는 영문 대/소문자, 숫자, `.`, `-`를 허용하고 응답 symbol은 canonical casing으로 올 수 있으므로 adapter/자동매매는 응답 symbol을 대소문자 무시로 매칭한다.
 - stocks 응답은 `TossStockInfo`, warnings 응답은 `TossStockWarning`으로 보존한다. 공식 스펙이 unknown warning code 허용을 요구하므로 `warningType`은 enum이 아니라 문자열로 유지한다.
-- market-calendar 응답은 KR의 `today.integrated.regularMarket`과 US의 `today.regularMarket`을 `MarketCalendarOverride`로 변환해 장 시간 판단에 사용한다. 공식 US calendar에는 `dayMarket`/`preMarket`/`afterMarket`도 있지만 현재 자동매매 gate에는 포함하지 않는다. 공식 calendar가 있으면 우선 사용하고, 없거나 조회 실패하면 기존 KST 하드코딩 fallback을 유지한다.
+- market-calendar 응답은 KR의 `today.integrated.regularMarket`과 US의 `today.regularMarket`을 `MarketCalendarOverride`로 변환해 장 시간 판단에 사용한다. 공식 US calendar의 `dayMarket`/`preMarket`/`afterMarket`도 함께 보존해 Toss 미국 수동 주문과 자동매매 세션 gate에 사용한다. 공식 calendar가 있으면 우선 사용하고, 없거나 조회 실패하면 기존 KST 하드코딩 fallback을 유지한다.
 - exchange-rate 응답은 `baseCurrency`, `quoteCurrency`, 문자열 decimal `rate`, `midRate`, `basisPoint`, `rateChangeType`, `validFrom`, `validUntil`을 보존한다. 앱 정책은 활성 Toss 프로파일에서 `USD`→`KRW` Toss 환율을 우선 사용하고, 실패하면 기존 공개 환율 API(open.er-api.com), 그마저 실패하면 마지막 캐시를 유지한다.
 - orderbook, trades, price-limits 원본 응답은 토스 문자열 decimal 정밀도를 보존하는 read-only 타입으로 유지한다.
 - 실패 응답은 `ErrorResponse { error }` envelope와 `X-Request-Id`, `Retry-After` 헤더를 함께 에러 메시지에 보존한다.
@@ -102,4 +104,4 @@ npm run verify:toss-openapi
 - Settings 프로파일 카드의 `연결 진단` 버튼은 토스 프로파일에만 표시한다. 진단 결과는 `steps[]`, `issues[]`, OpenAPI version, accounts/holdings count, KRW/USD buying power, commissions count로 요약한다. Add 다이얼로그는 열린 섹션의 broker로 고정하고, Edit 다이얼로그는 저장된 `broker_id`를 바꾸지 않는다.
 - 자동매매 주문 실행 경로는 Toss 프로파일에서도 활성화된다. `start_trading()`은 Toss holdings 기반 `BrokerPositionSnapshot`으로 전략 내부 포지션 상태를 복원한 뒤, 활성 Toss 프로파일 설정과 `live_trading_consent`를 확인하고 실행 scope를 `BrokerScope { brokerId: Toss, accountSeq }`로 고정한다. 실행 scope가 Toss이면 자동매매 데몬은 KIS 해외 현재가로 폴백하지 않고 Toss `/api/v1/prices`를 사용한다. 전략 히스토리 초기화도 Toss 실행 scope에서는 KIS chart API가 아니라 Toss `/api/v1/candles`를 사용한다. Dashboard는 자동매매 시작 버튼을 활성화하고 검색 종목 1주 시장가 소액매매 검증 패널은 별도 최종 점검용으로 유지한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
 
-> 마지막 업데이트: 2026-07-07T15:22:00+09:00
+> 마지막 업데이트: 2026-07-07T16:08:00+09:00

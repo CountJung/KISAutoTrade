@@ -59,8 +59,10 @@ use crate::{
     config::{AccountProfile, AppConfig, DiscordConfig, ProfilesConfig},
     logging::LogConfig,
     market_hours::{
-        is_domestic_symbol, is_market_open_for_with_calendar, open_markets_summary_with_calendar,
-        MarketCalendarOverride, MarketDayCalendar, MarketSessionWindow,
+        is_domestic_symbol, is_market_open_for_with_calendar,
+        is_market_open_for_with_calendar_policy, open_markets_summary_with_calendar,
+        MarketCalendarOverride, MarketDayCalendar, MarketSessionWindow, UsMarketSessionCalendar,
+        UsTradingSessionPolicy,
     },
     notifications::{discord::DiscordNotifier, types::NotificationEvent},
     storage::{

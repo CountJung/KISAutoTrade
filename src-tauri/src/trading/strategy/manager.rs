@@ -60,8 +60,22 @@ impl StrategyManager {
     }
 
     pub fn on_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Vec<StrategySignal> {
+        self.on_tick_filtered(symbol, price, volume, |_| true)
+    }
+
+    pub fn on_tick_filtered<F>(
+        &mut self,
+        symbol: &str,
+        price: u64,
+        volume: u64,
+        mut allow: F,
+    ) -> Vec<StrategySignal>
+    where
+        F: FnMut(&StrategyConfig) -> bool,
+    {
         self.strategies
             .iter_mut()
+            .filter(|s| allow(s.config()))
             .filter_map(|s| {
                 let signal = s.on_tick(symbol, price, volume);
                 if signal == Signal::Hold {
@@ -74,6 +88,16 @@ impl StrategyManager {
                 }
             })
             .collect()
+    }
+
+    pub fn any_active_config_for_symbol<F>(&self, symbol: &str, mut predicate: F) -> bool
+    where
+        F: FnMut(&StrategyConfig) -> bool,
+    {
+        self.strategies.iter().any(|strategy| {
+            let config = strategy.config();
+            strategy.is_enabled() && config.targets_symbol(symbol) && predicate(config)
+        })
     }
 
     pub fn reset_all(&mut self) {

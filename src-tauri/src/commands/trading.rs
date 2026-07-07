@@ -677,6 +677,31 @@ enum PriceSource {
     Toss(AccountProfile),
 }
 
+fn toss_us_session_policy_from_params(params: &serde_json::Value) -> UsTradingSessionPolicy {
+    let value = params
+        .get("toss_us_session")
+        .or_else(|| params.get("tossUsSession"))
+        .and_then(|value| value.as_str());
+    UsTradingSessionPolicy::parse(value)
+}
+
+fn strategy_market_open_for_symbol(
+    config: &crate::trading::strategy::StrategyConfig,
+    symbol: &str,
+    price_source: &PriceSource,
+    market_calendar: Option<&MarketCalendarOverride>,
+) -> bool {
+    if matches!(price_source, PriceSource::Toss(_)) && !is_domestic_symbol(symbol) {
+        is_market_open_for_with_calendar_policy(
+            symbol,
+            market_calendar,
+            toss_us_session_policy_from_params(&config.params),
+        )
+    } else {
+        is_market_open_for_with_calendar(symbol, market_calendar)
+    }
+}
+
 /// Toss 종목 현재가 조회 → (가격, 거래량) 튜플로 변환
 ///
 /// 가격 단위는 KIS 경로와 동일하게 맞춘다: KRW는 원 단위 정수, USD는 센트(×100) 정수.
@@ -740,8 +765,15 @@ async fn poll_symbols_tick(
             return TickCycleResult::Stopped;
         }
 
-        // 해당 종목 시장 개장 여부 확인 (폐장이면 건너뜀)
-        if !is_market_open_for_with_calendar(symbol, market_calendar) {
+        // 해당 종목을 사용하는 활성 전략 중 현재 허용된 세션이 있는지 확인한다.
+        // Toss 미국 전략은 params.toss_us_session에 따라 day/pre/regular/after/auto gate를 적용한다.
+        let symbol_has_open_strategy = strategy_mgr
+            .lock()
+            .await
+            .any_active_config_for_symbol(symbol, |config| {
+                strategy_market_open_for_symbol(config, symbol, price_source, market_calendar)
+            });
+        if !symbol_has_open_strategy {
             tracing::debug!(
                 "시장 폐장 — 건너뜀: {} ({})",
                 symbol,
@@ -785,7 +817,18 @@ async fn poll_symbols_tick(
         // 틱 처리: 현재가 기반 전략 신호 생성 → 주문
         match tick {
             Ok((price, volume)) if price > 0 => {
-                let signals = strategy_mgr.lock().await.on_tick(symbol, price, volume);
+                let signals =
+                    strategy_mgr
+                        .lock()
+                        .await
+                        .on_tick_filtered(symbol, price, volume, |config| {
+                            strategy_market_open_for_symbol(
+                                config,
+                                symbol,
+                                price_source,
+                                market_calendar,
+                            )
+                        });
                 for strategy_signal in signals {
                     let symbol_name = stock_store
                         .get_name(symbol)
@@ -961,10 +1004,21 @@ pub async fn run_trading_daemon(
         // ── Phase 7: 전체 시장 폐장 여부 사전 체크 ─────────────────
         let market_calendar = get_active_toss_calendar_override(&profiles).await;
 
-        if symbols
-            .iter()
-            .all(|s| !is_market_open_for_with_calendar(s, market_calendar.as_ref()))
-        {
+        let all_markets_closed = {
+            let mgr = strategy_mgr.lock().await;
+            symbols.iter().all(|symbol| {
+                !mgr.any_active_config_for_symbol(symbol, |config| {
+                    strategy_market_open_for_symbol(
+                        config,
+                        symbol,
+                        &price_source,
+                        market_calendar.as_ref(),
+                    )
+                })
+            })
+        };
+
+        if all_markets_closed {
             tracing::info!(
                 "모든 시장 폐장 ({}) — 5분 대기 후 재확인",
                 open_markets_summary_with_calendar(market_calendar.as_ref())

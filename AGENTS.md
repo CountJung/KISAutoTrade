@@ -69,8 +69,8 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-07-07 | Toss API 스킬에 tossinvest-cli 비공식 참고 구현과 WTS 사용 주의사항 추가 |
+| 2026-07-07 | Toss 미국 자동매매 전략 세션 선택과 전략별 day/pre/regular/after/auto gate 구현 |
 | 2026-07-07 | Toss 미국 수동 주문 세션 선택과 정규장 외 local gate 구현 |
 | 2026-07-07 | Toss 자동매매 히스토리 초기화를 Toss candles로 전환하고 현재가 GET 재시도/원인 로그 보강 |
 | 2026-07-07 | Toss 프로파일의 KIS 실전/모의 자동감지 우회 호출 차단 |
-| 2026-07-07 | Toss 자동매매 현재가 symbol 매칭과 AppShell 동적 스크롤바 재측정 보강 |
-| 2026-07-06 | 자동매매 폴링 데몬이 Toss 실행 scope에서도 시세/리스크 잔고를 KIS REST로 조회하던 버그 수정 (broker-aware PriceSource 분기 추가) |

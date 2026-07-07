@@ -62,10 +62,65 @@ impl MarketDayCalendar {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UsTradingSessionPolicy {
+    Auto,
+    Day,
+    Pre,
+    Regular,
+    After,
+}
+
+impl UsTradingSessionPolicy {
+    pub fn parse(value: Option<&str>) -> Self {
+        match value
+            .unwrap_or("regular")
+            .trim()
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "auto" => Self::Auto,
+            "day" | "daymarket" | "day_market" => Self::Day,
+            "pre" | "premarket" | "pre_market" => Self::Pre,
+            "after" | "aftermarket" | "after_market" => Self::After,
+            _ => Self::Regular,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct UsMarketSessionCalendar {
+    pub day_session: Option<MarketSessionWindow>,
+    pub pre_session: Option<MarketSessionWindow>,
+    pub regular_session: Option<MarketSessionWindow>,
+    pub after_session: Option<MarketSessionWindow>,
+}
+
+impl UsMarketSessionCalendar {
+    pub fn is_open_at(&self, policy: UsTradingSessionPolicy, now: DateTime<FixedOffset>) -> bool {
+        let contains = |session: &Option<MarketSessionWindow>| {
+            session.as_ref().is_some_and(|s| s.contains(now))
+        };
+        match policy {
+            UsTradingSessionPolicy::Auto => {
+                contains(&self.day_session)
+                    || contains(&self.pre_session)
+                    || contains(&self.regular_session)
+                    || contains(&self.after_session)
+            }
+            UsTradingSessionPolicy::Day => contains(&self.day_session),
+            UsTradingSessionPolicy::Pre => contains(&self.pre_session),
+            UsTradingSessionPolicy::Regular => contains(&self.regular_session),
+            UsTradingSessionPolicy::After => contains(&self.after_session),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MarketCalendarOverride {
     pub kr: Option<MarketDayCalendar>,
     pub us: Option<MarketDayCalendar>,
+    pub us_sessions: Option<UsMarketSessionCalendar>,
 }
 
 impl MarketCalendarOverride {
@@ -75,6 +130,17 @@ impl MarketCalendarOverride {
 
     pub fn is_us_open_at(&self, now: DateTime<FixedOffset>) -> Option<bool> {
         self.us.as_ref().map(|day| day.is_open_at(now))
+    }
+
+    pub fn is_us_open_at_with_policy(
+        &self,
+        now: DateTime<FixedOffset>,
+        policy: UsTradingSessionPolicy,
+    ) -> Option<bool> {
+        self.us_sessions
+            .as_ref()
+            .map(|sessions| sessions.is_open_at(policy, now))
+            .or_else(|| self.is_us_open_at(now))
     }
 }
 
@@ -173,6 +239,25 @@ pub fn is_market_open_for_with_calendar(
     }
 }
 
+pub fn is_market_open_for_with_calendar_policy(
+    symbol: &str,
+    calendar: Option<&MarketCalendarOverride>,
+    us_policy: UsTradingSessionPolicy,
+) -> bool {
+    let now = now_kst();
+    if is_domestic_symbol(symbol) {
+        calendar
+            .and_then(|override_calendar| override_calendar.is_kr_open_at(now))
+            .unwrap_or_else(|| is_krx_open_at(now))
+    } else {
+        calendar
+            .and_then(|override_calendar| {
+                override_calendar.is_us_open_at_with_policy(now, us_policy)
+            })
+            .unwrap_or_else(|| is_us_open_at(now))
+    }
+}
+
 /// 현재 개장 중인 시장 요약 문자열 (로그 출력용)
 pub fn open_markets_summary() -> &'static str {
     match (is_krx_open(), is_us_open()) {
@@ -232,10 +317,54 @@ mod tests {
         let calendar = MarketCalendarOverride {
             kr: Some(MarketDayCalendar::closed()),
             us: None,
+            us_sessions: None,
         };
         let open = DateTime::parse_from_rfc3339("2026-03-25T10:00:00+09:00").unwrap();
 
         assert_eq!(calendar.is_kr_open_at(open), Some(false));
         assert_eq!(calendar.is_us_open_at(open), None);
+    }
+
+    #[test]
+    fn us_session_policy_checks_extended_sessions() {
+        let calendar = MarketCalendarOverride {
+            kr: None,
+            us: None,
+            us_sessions: Some(UsMarketSessionCalendar {
+                day_session: MarketSessionWindow::parse(
+                    "2026-03-25T09:00:00+09:00",
+                    "2026-03-25T16:50:00+09:00",
+                ),
+                pre_session: None,
+                regular_session: MarketSessionWindow::parse(
+                    "2026-03-25T22:30:00+09:00",
+                    "2026-03-26T05:00:00+09:00",
+                ),
+                after_session: MarketSessionWindow::parse(
+                    "2026-03-26T05:00:00+09:00",
+                    "2026-03-26T07:00:00+09:00",
+                ),
+            }),
+        };
+        let day = DateTime::parse_from_rfc3339("2026-03-25T10:00:00+09:00").unwrap();
+        let regular = DateTime::parse_from_rfc3339("2026-03-25T23:00:00+09:00").unwrap();
+        let after = DateTime::parse_from_rfc3339("2026-03-26T06:00:00+09:00").unwrap();
+
+        assert_eq!(
+            calendar.is_us_open_at_with_policy(day, UsTradingSessionPolicy::Day),
+            Some(true)
+        );
+        assert_eq!(
+            calendar.is_us_open_at_with_policy(day, UsTradingSessionPolicy::Regular),
+            Some(false)
+        );
+        assert_eq!(
+            calendar.is_us_open_at_with_policy(regular, UsTradingSessionPolicy::Auto),
+            Some(true)
+        );
+        assert_eq!(
+            calendar.is_us_open_at_with_policy(after, UsTradingSessionPolicy::After),
+            Some(true)
+        );
     }
 }
