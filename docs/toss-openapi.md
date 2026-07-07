@@ -2,16 +2,16 @@
 
 > Source of truth: `https://openapi.tossinvest.com/openapi-docs/latest/openapi.json`
 
-마지막 확인: 2026-07-06
+마지막 확인: 2026-07-07
 
 ## 공식 스펙 스냅샷
 
 | 항목 | 값 |
 |------|----|
 | OpenAPI title | `토스증권 Open API` |
-| version | `1.1.5` |
+| version | `1.2.1` |
 | base URL | `https://openapi.tossinvest.com` |
-| paths | 20 |
+| paths | 27 |
 | 인증 | OAuth2 Client Credentials Grant |
 
 ## 구현 전 검증
@@ -39,12 +39,19 @@ npm run verify:toss-openapi
 | Market Info | GET | `/api/v1/exchange-rate` | KRW/USD 참고 환율 |
 | Market Info | GET | `/api/v1/market-calendar/KR` | 국내 시장 캘린더 |
 | Market Info | GET | `/api/v1/market-calendar/US` | 미국 시장 캘린더 |
+| Market Data | GET | `/api/v1/rankings` | 랭킹 |
+| Market Indicator | GET | `/api/v1/market-indicators/prices` | 시장 지표 현재가 |
+| Market Indicator | GET | `/api/v1/market-indicators/{symbol}/candles` | 시장 지표 캔들 |
+| Market Indicator | GET | `/api/v1/market-indicators/{symbol}/investor-trading` | 시장 지표 투자자 매매 |
 | Account | GET | `/api/v1/accounts` | accountSeq 조회 진입점 |
 | Asset | GET | `/api/v1/holdings` | `X-Tossinvest-Account` 필요 |
 | Order | GET, POST | `/api/v1/orders` | 주문 목록/생성, `clientOrderId` 지원 |
 | Order History | GET | `/api/v1/orders/{orderId}` | 주문 상세 |
 | Order | POST | `/api/v1/orders/{orderId}/modify` | 정정 |
 | Order | POST | `/api/v1/orders/{orderId}/cancel` | 취소 |
+| Conditional Order | POST, GET | `/api/v1/conditional-orders` | 조건 주문 |
+| Conditional Order | GET, DELETE | `/api/v1/conditional-orders/{conditionalOrderId}` | 조건 주문 상세/삭제 |
+| Conditional Order | POST | `/api/v1/conditional-orders/{conditionalOrderId}/modify` | 조건 주문 수정 |
 | Order Info | GET | `/api/v1/buying-power` | 주문 전 매수 가능 금액 |
 | Order Info | GET | `/api/v1/sellable-quantity` | 주문 전 매도 가능 수량 |
 | Order Info | GET | `/api/v1/commissions` | 시장별 수수료 |
@@ -67,7 +74,7 @@ npm run verify:toss-openapi
 - 구현된 범위: `POST /oauth2/token`, `GET /api/v1/accounts`, `GET /api/v1/holdings`, `GET /api/v1/prices`, `GET /api/v1/orderbook`, `GET /api/v1/trades`, `GET /api/v1/price-limits`, `GET /api/v1/candles`, `GET /api/v1/stocks`, `GET /api/v1/stocks/{symbol}/warnings`, `GET /api/v1/market-calendar/KR`, `GET /api/v1/market-calendar/US`.
 - access token은 `base_url + client_id` 단위 공유 캐시에서 재사용하고, 만료 5분 전 갱신 대상으로 본다. 401 응답 시에는 해당 요청이 사용한 token이 아직 캐시에 남아 있을 때만 캐시를 지우고 1회 재발급/재시도한다. 다른 병렬 요청이 이미 token을 갱신했다면 그 token을 재사용한다.
 - holdings 응답은 `BrokerHolding`으로 매핑한다. `marketCountry`는 `KR`/`US`, `currency`는 `KRW`/`USD`만 공통 타입으로 변환한다. Dashboard 표시와 자동매매 시작 전 전략 포지션 복원에 사용하되, 자동매매 주문 수량 산정에는 재사용하지 않는다.
-- prices 응답은 `BrokerPriceQuote`로, candles 응답은 `BrokerCandle`로 매핑한다. `prices`는 최대 200개 symbols, `trades`는 count 1~50, `candles`는 interval `1m`/`1d`와 count 1~200 범위를 client에서 선검증한다.
+- prices 응답은 `BrokerPriceQuote`로, candles 응답은 `BrokerCandle`로 매핑한다. `prices`는 최대 200개 symbols, `trades`는 count 1~50, `candles`는 interval `1m`/`1d`와 count 1~200 범위를 client에서 선검증한다. 공식 스펙 v1.2.1 기준 `prices` symbols는 영문 대/소문자, 숫자, `.`, `-`를 허용하고 응답 symbol은 canonical casing으로 올 수 있으므로 adapter/자동매매는 응답 symbol을 대소문자 무시로 매칭한다.
 - stocks 응답은 `TossStockInfo`, warnings 응답은 `TossStockWarning`으로 보존한다. 공식 스펙이 unknown warning code 허용을 요구하므로 `warningType`은 enum이 아니라 문자열로 유지한다.
 - market-calendar 응답은 KR의 `today.integrated.regularMarket`과 US의 `today.regularMarket`을 `MarketCalendarOverride`로 변환해 장 시간 판단에 사용한다. 공식 calendar가 있으면 우선 사용하고, 없거나 조회 실패하면 기존 KST 하드코딩 fallback을 유지한다.
 - exchange-rate 응답은 `baseCurrency`, `quoteCurrency`, 문자열 decimal `rate`, `midRate`, `basisPoint`, `rateChangeType`, `validFrom`, `validUntil`을 보존한다. 앱 정책은 활성 Toss 프로파일에서 `USD`→`KRW` Toss 환율을 우선 사용하고, 실패하면 기존 공개 환율 API(open.er-api.com), 그마저 실패하면 마지막 캐시를 유지한다.
@@ -91,6 +98,6 @@ npm run verify:toss-openapi
 - `get_toss_chart_data` IPC와 `/api/toss-chart/:symbol` 웹 REST는 활성 Toss 프로파일 기준 `1d`/`1m` candles를 기존 `ChartCandle[]`로 내려준다. Trading 화면은 `StockChart source="toss"`로 lightweight-charts를 재사용한다.
 - `get_exchange_rate_status` IPC와 `/api/exchange-rate/status` 웹 REST는 환율 source/fallback/유효시간을 `ExchangeRateView`로 내려준다. 기존 `get_exchange_rate`와 `/api/exchange-rate`는 숫자 캐시 호환 경로로 유지한다.
 - Settings 프로파일 카드의 `연결 진단` 버튼은 토스 프로파일에만 표시한다. 진단 결과는 `steps[]`, `issues[]`, OpenAPI version, accounts/holdings count, KRW/USD buying power, commissions count로 요약한다. Add 다이얼로그는 열린 섹션의 broker로 고정하고, Edit 다이얼로그는 저장된 `broker_id`를 바꾸지 않는다.
-- 자동매매 주문 실행 경로는 Toss 프로파일에서도 활성화된다. `start_trading()`은 Toss holdings 기반 `BrokerPositionSnapshot`으로 전략 내부 포지션 상태를 복원한 뒤, 활성 Toss 프로파일 설정과 `live_trading_consent`를 확인하고 실행 scope를 `BrokerScope { brokerId: Toss, accountSeq }`로 고정한다. Dashboard는 자동매매 시작 버튼을 활성화하고 검색 종목 1주 시장가 소액매매 검증 패널은 별도 최종 점검용으로 유지한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
+- 자동매매 주문 실행 경로는 Toss 프로파일에서도 활성화된다. `start_trading()`은 Toss holdings 기반 `BrokerPositionSnapshot`으로 전략 내부 포지션 상태를 복원한 뒤, 활성 Toss 프로파일 설정과 `live_trading_consent`를 확인하고 실행 scope를 `BrokerScope { brokerId: Toss, accountSeq }`로 고정한다. 실행 scope가 Toss이면 자동매매 데몬은 KIS 해외 현재가로 폴백하지 않고 Toss `/api/v1/prices`를 사용한다. Dashboard는 자동매매 시작 버튼을 활성화하고 검색 종목 1주 시장가 소액매매 검증 패널은 별도 최종 점검용으로 유지한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
 
-> 마지막 업데이트: 2026-07-06T23:35:00+09:00
+> 마지막 업데이트: 2026-07-07T14:26:44+09:00

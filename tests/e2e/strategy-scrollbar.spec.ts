@@ -32,7 +32,7 @@ function strategy(id: string, name: string, index: number) {
   }
 }
 
-async function mockApi(page: import('@playwright/test').Page) {
+async function mockApi(page: import('@playwright/test').Page, options: { strategyDelayMs?: number } = {}) {
   const strategies = [
     strategy('leveraged_trend_hold_default', 'LeveragedTrendHoldStrategy', 1),
     strategy('ma_cross_default', 'MovingAverageCrossStrategy', 2),
@@ -95,6 +95,9 @@ async function mockApi(page: import('@playwright/test').Page) {
       return
     }
     if (url.pathname === '/api/strategies') {
+      if (options.strategyDelayMs) {
+        await new Promise((resolve) => setTimeout(resolve, options.strategyDelayMs))
+      }
       await route.fulfill({ json: strategies })
       return
     }
@@ -127,6 +130,21 @@ test('Strategy initial viewport keeps visible main scrollbar gutter', async ({ p
   expect(metrics.scrollbarGutter).toContain('stable')
   expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight)
   expect(thumbHeight).toBeGreaterThan(0)
+})
+
+test('Strategy scrollbar appears after delayed strategy content loads', async ({ page }) => {
+  await mockApi(page, { strategyDelayMs: 250 })
+  await page.goto('/strategy')
+
+  const main = page.getByTestId('app-main-scroll')
+  await expect(main).toBeVisible()
+  await expect(page.getByText('레버리지 대상 ETF')).toBeVisible()
+  await expect(page.getByTestId('app-main-scroll-rail')).toBeVisible()
+  await expect(page.getByTestId('app-main-scroll-thumb')).toBeVisible()
+
+  await expect
+    .poll(() => main.evaluate((el) => el.scrollHeight > el.clientHeight))
+    .toBe(true)
 })
 
 test('main scrollbar thumb can be dragged with a pointer', async ({ page }) => {

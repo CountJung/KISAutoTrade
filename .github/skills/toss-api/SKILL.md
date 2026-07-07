@@ -22,14 +22,14 @@ description: "토스증권 Open API 전용 스킬. Toss OpenAPI JSON, OAuth2 Cli
 npm run verify:toss-openapi
 ```
 
-2026-07-06 확인 기준:
+2026-07-07 확인 기준:
 
 | 항목 | 값 |
 |------|----|
 | title | `토스증권 Open API` |
-| version | `1.1.5` |
+| version | `1.2.1` |
 | base URL | `https://openapi.tossinvest.com` |
-| paths | 20 |
+| paths | 27 |
 
 ## Authentication
 
@@ -55,9 +55,9 @@ npm run verify:toss-openapi
 | Auth | `POST /oauth2/token` |
 | Market Data | `GET /api/v1/orderbook`, `prices`, `trades`, `price-limits`, `candles` |
 | Stock Info | `GET /api/v1/stocks`, `GET /api/v1/stocks/{symbol}/warnings` |
-| Market Info | `GET /api/v1/exchange-rate`, `GET /api/v1/market-calendar/KR`, `GET /api/v1/market-calendar/US` |
+| Market Info | `GET /api/v1/exchange-rate`, `GET /api/v1/market-calendar/KR`, `GET /api/v1/market-calendar/US`, rankings, market-indicators |
 | Account/Asset | `GET /api/v1/accounts`, `GET /api/v1/holdings` |
-| Order | `GET/POST /api/v1/orders`, order detail, modify, cancel |
+| Order | `GET/POST /api/v1/orders`, order detail, modify, cancel, conditional-orders |
 | Order Info | `GET /api/v1/buying-power`, `sellable-quantity`, `commissions` |
 
 자세한 inventory는 `docs/toss-openapi.md`를 먼저 읽는다.
@@ -84,7 +84,7 @@ npm run verify:toss-openapi
 - 같은 read-only client는 market info 후보인 `market-calendar/KR`, `market-calendar/US`도 담당한다. KR의 `today.integrated.regularMarket`과 US의 `today.regularMarket`이 있으면 `MarketCalendarOverride`로 변환해 장 시간 판단에 우선 사용하고, 조회 실패 또는 미연결 상태에서는 기존 KST 하드코딩 fallback을 유지한다.
 - 같은 read-only client는 market info 후보인 `exchange-rate`도 담당한다. 공식 스펙상 `baseCurrency`, `quoteCurrency`, `rate`, `midRate`, `basisPoint`, `rateChangeType`, `validFrom`, `validUntil`을 반환하며 decimal 값은 문자열로 보존한다.
 - USD/KRW 환율 정책은 활성 Toss 프로파일이면 Toss `GET /api/v1/exchange-rate?baseCurrency=USD&quoteCurrency=KRW`를 우선 사용하고, 실패하면 기존 공개 환율 API(open.er-api.com), 그마저 실패하면 마지막 캐시/기본값을 유지한다. KIS 활성 프로파일은 별도 KIS 환율 endpoint가 연결되기 전까지 기존 공개 환율 캐시를 사용한다.
-- 공식 스펙 기준 `prices`/`stocks`는 최대 200개 symbols, `trades` count는 1~50, `candles` interval은 `1m`/`1d`, count는 1~200만 허용한다. 네트워크 호출 전 client에서 범위를 선검증한다.
+- 공식 스펙 기준 `prices`/`stocks`는 최대 200개 symbols, `trades` count는 1~50, `candles` interval은 `1m`/`1d`, count는 1~200만 허용한다. `prices` symbols는 영문 대/소문자, 숫자, `.`, `-`를 허용하고 응답 symbol은 canonical casing으로 올 수 있으므로 자동매매/adapter의 응답 매칭은 대소문자를 무시한다. 네트워크 호출 전 client에서 범위를 선검증한다.
 - Trading/Dashboard 등 UI에 Toss 시세를 붙일 때는 `get_toss_market_snapshot`처럼 현재가/호가/최근 체결/상하한가를 read-only view로 묶고, 활성 Toss 프로파일에서는 기존 KIS 가격/차트/주문 호출이 섞이지 않게 한다.
 - Toss 종목 유의사항 UI는 `get_toss_stock_safety` IPC, `/api/toss-stock-safety/:symbol`, `useTossStockSafety()`로 연결한다. `buyBlocked`와 `buyBlockReason`은 상장 상태와 blocking warning을 주문 전 검증 후보로 표현하되, 실제 주문 adapter 연결 전까지 read-only 경고로만 사용한다.
 - Toss 장 운영 UI는 `get_toss_market_calendar` IPC, `/api/toss-market-calendar`, `useTossMarketCalendar()`로 연결한다. Trading 화면에는 KR/US 정규장 개장 여부와 정규장 시간을 간단한 status chip으로 표시한다.
@@ -111,7 +111,7 @@ npm run verify:toss-openapi
 - Settings Add/Edit 다이얼로그에서 broker가 Toss이면 입력 라벨을 `Client ID`, `Client Secret`, `accountSeq`로 바꾼다. `accountSeq`는 숫자 문자열이어야 한다.
 - Toss 실거래 동의 상태는 `AccountProfile.live_trading_consent`로 저장한다. 이 값은 Dashboard 소액 실주문 gate, Trading 수동 주문, 자동매매 시작 gate의 필수 조건이다.
 - 실제 주문 생성은 Dashboard `submit_toss_small_buy_verification`, Trading `place_order` Toss 분기, 자동매매 `OrderManager::submit_signal_shared()` Toss 분기에 연결한다. 모든 경로는 provider 호출 전 local pending scan과 provider open-order/order detail 확인을 사용해 같은 scope/symbol의 충돌을 줄인다.
-- 자동매매 실행 경로는 Toss 주문/체결 adapter가 구현되어 있으므로 `live_trading_consent`가 저장된 Toss 프로파일에서 허용한다. `start_trading()`은 Toss holdings 기반 전략 포지션 복원을 수행하고 실행 scope를 시작 시점 broker/account로 고정한다. Settings/Sidebar에는 활성 broker/account와 실행 중 broker/account 스냅샷을 표시한다.
+- 자동매매 실행 경로는 Toss 주문/체결 adapter가 구현되어 있으므로 `live_trading_consent`가 저장된 Toss 프로파일에서 허용한다. `start_trading()`은 Toss holdings 기반 전략 포지션 복원을 수행하고 실행 scope를 시작 시점 broker/account로 고정한다. 데몬은 실행 scope가 Toss이면 KIS 해외 현재가로 폴백하지 않고 Toss `/api/v1/prices`를 사용하며, 저장 ticker와 응답 symbol casing 차이로 현재가 조회가 실패하지 않도록 대소문자 무시 매칭을 유지한다. Settings/Sidebar에는 활성 broker/account와 실행 중 broker/account 스냅샷을 표시한다.
 - Toss 모듈 내부 DTO/validation/helper는 외부 API가 아니면 `pub(super)`로 열고, 앱 외부에서 필요한 타입과 client/adapter만 `mod.rs`에서 re-export한다.
 
-> 마지막 업데이트: 2026-07-06T23:35:00+09:00
+> 마지막 업데이트: 2026-07-07T14:26:44+09:00

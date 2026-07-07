@@ -21,6 +21,15 @@ use crate::broker::{
     },
 };
 
+pub(super) fn select_price_response(
+    prices: Vec<TossPriceResponse>,
+    symbol: &BrokerSymbol,
+) -> Option<TossPriceResponse> {
+    prices
+        .into_iter()
+        .find(|item| item.symbol.eq_ignore_ascii_case(symbol.0.as_str()))
+}
+
 /// Toss Open API adapter.
 ///
 /// Read-only methods are implemented first. Order paths stay unsupported until idempotency,
@@ -300,15 +309,12 @@ impl BrokerAdapter for TossBrokerAdapter {
             .list_prices(std::slice::from_ref(symbol))
             .await
             .map_err(BrokerAdapterError::Provider)?;
-        let price = prices
-            .into_iter()
-            .find(|item| item.symbol == symbol.0)
-            .ok_or_else(|| {
-                BrokerAdapterError::InvalidRequest(format!(
-                    "Toss price response did not include requested symbol: {}",
-                    symbol.0
-                ))
-            })?;
+        let price = select_price_response(prices, symbol).ok_or_else(|| {
+            BrokerAdapterError::InvalidRequest(format!(
+                "Toss price response did not include requested symbol: {}",
+                symbol.0
+            ))
+        })?;
 
         Ok(price.to_broker_price_quote()?)
     }

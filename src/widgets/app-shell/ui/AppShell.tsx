@@ -158,6 +158,9 @@ export function AppShell() {
     const el = mainScrollRef.current
     if (!el) return
 
+    let animationFrame: number | null = null
+    let delayedUpdate: number | null = null
+
     const updateMainScrollbar = () => {
       const scrollable = el.scrollHeight > el.clientHeight + 1
       if (!scrollable) {
@@ -171,14 +174,35 @@ export function AppShell() {
       setMainScrollbar({ visible: true, top: thumbTop, height: thumbHeight })
     }
 
-    updateMainScrollbar()
+    const scheduleMainScrollbarUpdate = () => {
+      if (animationFrame !== null) cancelAnimationFrame(animationFrame)
+      animationFrame = requestAnimationFrame(() => {
+        animationFrame = null
+        updateMainScrollbar()
+      })
+      if (delayedUpdate !== null) window.clearTimeout(delayedUpdate)
+      delayedUpdate = window.setTimeout(updateMainScrollbar, 120)
+    }
+
+    const observer = new ResizeObserver(scheduleMainScrollbarUpdate)
+    const observeMainScrollContent = () => {
+      observer.disconnect()
+      observer.observe(el)
+      Array.from(el.children).forEach((child) => observer.observe(child))
+      scheduleMainScrollbarUpdate()
+    }
+    const mutationObserver = new MutationObserver(observeMainScrollContent)
+
+    observeMainScrollContent()
     el.addEventListener('scroll', updateMainScrollbar, { passive: true })
-    const observer = new ResizeObserver(updateMainScrollbar)
-    observer.observe(el)
-    if (el.firstElementChild) observer.observe(el.firstElementChild)
+    mutationObserver.observe(el, { childList: true })
+
     return () => {
       el.removeEventListener('scroll', updateMainScrollbar)
+      if (animationFrame !== null) cancelAnimationFrame(animationFrame)
+      if (delayedUpdate !== null) window.clearTimeout(delayedUpdate)
       observer.disconnect()
+      mutationObserver.disconnect()
     }
   }, [location.pathname, showUpdateBanner, isDesktop])
 

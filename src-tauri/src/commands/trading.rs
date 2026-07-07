@@ -66,7 +66,11 @@ async fn fetch_toss_risk_balance_krw(profile: &AccountProfile, exchange_rate_krw
                 };
             }
             Err(e) => {
-                tracing::warn!("리스크 총잔고 조회 실패(Toss 매수가능금액 {:?}): {}", currency, e);
+                tracing::warn!(
+                    "리스크 총잔고 조회 실패(Toss 매수가능금액 {:?}): {}",
+                    currency,
+                    e
+                );
             }
         }
     }
@@ -679,6 +683,10 @@ enum PriceSource {
 /// Toss `/api/v1/prices`는 거래량을 제공하지 않아 volume은 항상 0으로 반환한다
 /// (leveraged_trend_hold 등 volume을 사용하지 않는 전략에는 영향 없음).
 async fn fetch_toss_tick(profile: &AccountProfile, symbol: &str) -> anyhow::Result<(u64, u64)> {
+    let normalized_symbol = symbol.trim().to_uppercase();
+    if normalized_symbol.is_empty() {
+        anyhow::bail!("Toss 현재가 조회 symbol이 비어 있습니다.");
+    }
     let adapter = TossBrokerAdapter::with_credentials(
         TossBrokerAdapter::DEFAULT_BASE_URL,
         profile.app_key.clone(),
@@ -686,17 +694,23 @@ async fn fetch_toss_tick(profile: &AccountProfile, symbol: &str) -> anyhow::Resu
         Some(profile.account_no.clone()),
     );
     let quote = adapter
-        .get_price(&BrokerSymbol(symbol.to_string()))
+        .get_price(&BrokerSymbol(normalized_symbol.clone()))
         .await
         .map_err(|e| anyhow::anyhow!(e.to_string()))?;
     let amount = quote.last.amount.trim().replace(',', "");
+    let price_amount = amount.parse::<f64>().map_err(|e| {
+        anyhow::anyhow!("Toss 현재가 파싱 실패({normalized_symbol}): {amount} ({e})")
+    })?;
+    if price_amount <= 0.0 {
+        anyhow::bail!("Toss 현재가가 0 이하입니다: {normalized_symbol}={amount}");
+    }
     let price = match quote.last.currency {
-        BrokerCurrency::Krw => amount.parse::<u64>().unwrap_or(0),
-        BrokerCurrency::Usd => (amount.parse::<f64>().unwrap_or(0.0) * 100.0).round() as u64,
+        BrokerCurrency::Krw => price_amount.round() as u64,
+        BrokerCurrency::Usd => (price_amount * 100.0).round() as u64,
     };
     let volume = quote
         .volume
-        .and_then(|q| q.0.parse::<u64>().ok())
+        .and_then(|q| q.0.trim().replace(',', "").parse::<u64>().ok())
         .unwrap_or(0);
     Ok((price, volume))
 }
@@ -966,9 +980,7 @@ pub async fn run_trading_daemon(
 
         let exchange_rate = *exchange_rate_krw.read().await;
         let total_balance_krw = match &price_source {
-            PriceSource::Toss(profile) => {
-                fetch_toss_risk_balance_krw(profile, exchange_rate).await
-            }
+            PriceSource::Toss(profile) => fetch_toss_risk_balance_krw(profile, exchange_rate).await,
             PriceSource::Kis => {
                 fetch_account_risk_balance_krw(
                     &rest,

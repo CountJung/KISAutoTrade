@@ -321,6 +321,21 @@ fn deserializes_market_data_responses() {
 }
 
 #[test]
+fn selects_price_response_case_insensitively() {
+    let prices = vec![TossPriceResponse {
+        symbol: "SOXL".to_string(),
+        timestamp: None,
+        last_price: "42.15".to_string(),
+        currency: "USD".to_string(),
+    }];
+
+    let selected = super::adapter::select_price_response(prices, &BrokerSymbol("soxl".to_string()))
+        .expect("canonical Toss response symbol should match stored lowercase ticker");
+
+    assert_eq!(selected.symbol, "SOXL");
+}
+
+#[test]
 fn deserializes_exchange_rate_response() {
     let json = r#"{
           "result": {
