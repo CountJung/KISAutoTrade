@@ -287,8 +287,14 @@ impl From<&TossMarketSession> for TossMarketSessionView {
 #[serde(rename_all = "camelCase")]
 pub struct TossMarketDayView {
     pub date: String,
+    pub day_session: Option<TossMarketSessionView>,
+    pub pre_session: Option<TossMarketSessionView>,
     pub regular_session: Option<TossMarketSessionView>,
+    pub after_session: Option<TossMarketSessionView>,
+    pub is_day_open: bool,
+    pub is_pre_open: bool,
     pub is_regular_open: bool,
+    pub is_after_open: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -349,25 +355,55 @@ fn toss_calendar_view(
         .integrated
         .as_ref()
         .and_then(|integrated| integrated.regular_market.as_ref());
+    let kr_pre = kr
+        .today
+        .integrated
+        .as_ref()
+        .and_then(|integrated| integrated.pre_market.as_ref());
+    let kr_after = kr
+        .today
+        .integrated
+        .as_ref()
+        .and_then(|integrated| integrated.after_market.as_ref());
+    let us_day = us.today.day_market.as_ref();
+    let us_pre = us.today.pre_market.as_ref();
     let us_regular = us.today.regular_market.as_ref();
+    let us_after = us.today.after_market.as_ref();
+    let is_open = |session: Option<&TossMarketSession>| {
+        session
+            .and_then(|session| MarketSessionWindow::parse(&session.start_time, &session.end_time))
+            .is_some_and(|session| session.contains(now))
+    };
 
     Ok(TossMarketCalendarView {
         broker_id: BrokerId::Toss,
         kr: TossMarketDayView {
             date: kr.today.date,
+            day_session: None,
+            pre_session: kr_pre.map(TossMarketSessionView::from),
             regular_session: kr_regular.map(TossMarketSessionView::from),
+            after_session: kr_after.map(TossMarketSessionView::from),
+            is_day_open: false,
+            is_pre_open: is_open(kr_pre),
             is_regular_open: override_calendar
                 .kr
                 .as_ref()
                 .is_some_and(|day| day.is_open_at(now)),
+            is_after_open: is_open(kr_after),
         },
         us: TossMarketDayView {
             date: us.today.date,
+            day_session: us_day.map(TossMarketSessionView::from),
+            pre_session: us_pre.map(TossMarketSessionView::from),
             regular_session: us_regular.map(TossMarketSessionView::from),
+            after_session: us_after.map(TossMarketSessionView::from),
+            is_day_open: is_open(us_day),
+            is_pre_open: is_open(us_pre),
             is_regular_open: override_calendar
                 .us
                 .as_ref()
                 .is_some_and(|day| day.is_open_at(now)),
+            is_after_open: is_open(us_after),
         },
         summary: open_markets_summary_with_calendar(Some(&override_calendar)),
     })

@@ -17,6 +17,7 @@ pub struct PlaceOrderInput {
     pub order_type: String,
     pub quantity: u64,
     pub price: f64,
+    pub toss_session: Option<String>,
 }
 
 #[tauri::command]
@@ -139,6 +140,8 @@ async fn place_toss_order(
         profile.app_secret.clone(),
         Some(account_seq.clone()),
     );
+    ensure_toss_manual_session_open(input.toss_session.as_deref(), &symbol, &adapter).await?;
+
     let mut open_query = TossOrderListQuery::open();
     open_query.symbol = Some(symbol.clone());
     let open_orders = adapter
@@ -240,6 +243,103 @@ async fn place_toss_order(
         tr_id: "TOSS".to_string(),
         rt_cd: "0".to_string(),
         msg1: "Toss 주문 접수".to_string(),
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TossManualSession {
+    Auto,
+    Day,
+    Pre,
+    Regular,
+    After,
+}
+
+impl TossManualSession {
+    fn parse(value: Option<&str>) -> CmdResult<Self> {
+        match value.unwrap_or("auto").trim().to_ascii_lowercase().as_str() {
+            "" | "auto" => Ok(Self::Auto),
+            "day" | "daymarket" | "day_market" => Ok(Self::Day),
+            "pre" | "premarket" | "pre_market" => Ok(Self::Pre),
+            "regular" | "regularmarket" | "regular_market" => Ok(Self::Regular),
+            "after" | "aftermarket" | "after_market" => Ok(Self::After),
+            other => Err(CmdError {
+                code: "INVALID_TOSS_SESSION".into(),
+                message: format!("알 수 없는 Toss 미국 주문 세션입니다: {}", other),
+            }),
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Auto => "자동",
+            Self::Day => "데이마켓",
+            Self::Pre => "프리마켓",
+            Self::Regular => "정규장",
+            Self::After => "애프터마켓",
+        }
+    }
+
+    fn select<'a>(self, day: &'a TossUsMarketCalendarResponse) -> Option<&'a TossMarketSession> {
+        match self {
+            Self::Auto => None,
+            Self::Day => day.today.day_market.as_ref(),
+            Self::Pre => day.today.pre_market.as_ref(),
+            Self::Regular => day.today.regular_market.as_ref(),
+            Self::After => day.today.after_market.as_ref(),
+        }
+    }
+}
+
+async fn ensure_toss_manual_session_open(
+    session: Option<&str>,
+    symbol: &str,
+    adapter: &TossBrokerAdapter,
+) -> CmdResult<()> {
+    let session = TossManualSession::parse(session)?;
+    if session == TossManualSession::Auto {
+        return Ok(());
+    }
+    if is_domestic_symbol(symbol) {
+        return Err(CmdError {
+            code: "TOSS_SESSION_UNSUPPORTED".into(),
+            message: "Toss 거래 세션 선택은 미국 주식 수동 주문에서만 사용할 수 있습니다.".into(),
+        });
+    }
+
+    let calendar = adapter
+        .get_us_market_calendar(None)
+        .await
+        .map_err(|e| CmdError {
+            code: "TOSS_MARKET_CALENDAR_ERROR".into(),
+            message: e.to_string(),
+        })?;
+    let Some(window) = session
+        .select(&calendar)
+        .and_then(|session| MarketSessionWindow::parse(&session.start_time, &session.end_time))
+    else {
+        return Err(CmdError {
+            code: "TOSS_SESSION_CLOSED".into(),
+            message: format!(
+                "오늘은 Toss 미국 {} 세션이 없어 주문을 제출하지 않았습니다.",
+                session.label()
+            ),
+        });
+    };
+    let kst = chrono::FixedOffset::east_opt(9 * 3600).expect("KST FixedOffset 생성 실패");
+    let now = chrono::Utc::now().with_timezone(&kst);
+    if window.contains(now) {
+        return Ok(());
+    }
+
+    Err(CmdError {
+        code: "TOSS_SESSION_CLOSED".into(),
+        message: format!(
+            "현재 시간은 선택한 Toss 미국 {} 세션이 아닙니다. 세션 시간: {} ~ {}",
+            session.label(),
+            window.start_at.format("%Y-%m-%d %H:%M"),
+            window.end_at.format("%Y-%m-%d %H:%M")
+        ),
     })
 }
 

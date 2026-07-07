@@ -82,6 +82,7 @@ npm run verify:toss-openapi
 - 같은 read-only client는 market data 후보인 `prices`, `orderbook`, `trades`, `price-limits`, `candles`도 담당한다. `prices`는 `BrokerPriceQuote`, `candles`는 `BrokerCandle`로 매핑하고, orderbook/trades/price-limits는 문자열 decimal 정밀도를 보존하는 Toss 원본 타입으로 유지한다.
 - 같은 read-only client는 stock info 후보인 `stocks`, `stocks/{symbol}/warnings`도 담당한다. 공식 스펙이 unknown warning code 허용을 요구하므로 `warningType`은 enum으로 닫지 말고 문자열로 보존한다.
 - 같은 read-only client는 market info 후보인 `market-calendar/KR`, `market-calendar/US`도 담당한다. KR의 `today.integrated.regularMarket`과 US의 `today.regularMarket`이 있으면 `MarketCalendarOverride`로 변환해 장 시간 판단에 우선 사용하고, 조회 실패 또는 미연결 상태에서는 기존 KST 하드코딩 fallback을 유지한다.
+- 공식 스펙 v1.2.1 기준 US market-calendar는 `dayMarket`, `preMarket`, `regularMarket`, `afterMarket` 4개 세션을 제공한다. 주문 생성 request에는 별도 세션 선택 필드가 없고 `timeInForce`는 `DAY`/`CLS`만 허용된다. Trading 수동 주문창은 Toss 미국 종목에서 `자동`/`데이`/`프리`/`정규`/`애프터` 세션 선택을 제공하고, 명시 세션 선택 시 현재 시간이 해당 세션 안인지 local gate로 검증한 뒤 기존처럼 `DAY` 주문을 제출한다. 자동매매 gate는 아직 US `regularMarket`만 사용한다. 자동매매 정규장 외 주문을 구현할 때는 `order-hours-closed`, `amount-order-outside-regular-hours`, `fractional-quantity-outside-regular-hours`, `order-type-not-allowed`를 provider 정책으로 보존하고, 사용자 설정/전략 정책에서 어떤 세션을 허용할지 별도 gate를 둔다.
 - 같은 read-only client는 market info 후보인 `exchange-rate`도 담당한다. 공식 스펙상 `baseCurrency`, `quoteCurrency`, `rate`, `midRate`, `basisPoint`, `rateChangeType`, `validFrom`, `validUntil`을 반환하며 decimal 값은 문자열로 보존한다.
 - USD/KRW 환율 정책은 활성 Toss 프로파일이면 Toss `GET /api/v1/exchange-rate?baseCurrency=USD&quoteCurrency=KRW`를 우선 사용하고, 실패하면 기존 공개 환율 API(open.er-api.com), 그마저 실패하면 마지막 캐시/기본값을 유지한다. KIS 활성 프로파일은 별도 KIS 환율 endpoint가 연결되기 전까지 기존 공개 환율 캐시를 사용한다.
 - 공식 스펙 기준 `prices`/`stocks`는 최대 200개 symbols, `trades` count는 1~50, `candles` interval은 `1m`/`1d`, count는 1~200만 허용한다. `prices` symbols는 영문 대/소문자, 숫자, `.`, `-`를 허용하고 응답 symbol은 canonical casing으로 올 수 있으므로 자동매매/adapter의 응답 매칭은 대소문자를 무시한다. 네트워크 호출 전 client에서 범위를 선검증한다.
@@ -114,4 +115,4 @@ npm run verify:toss-openapi
 - 자동매매 실행 경로는 Toss 주문/체결 adapter가 구현되어 있으므로 `live_trading_consent`가 저장된 Toss 프로파일에서 허용한다. `start_trading()`은 Toss holdings 기반 전략 포지션 복원을 수행하고 실행 scope를 시작 시점 broker/account로 고정한다. 데몬은 실행 scope가 Toss이면 KIS 해외 현재가로 폴백하지 않고 Toss `/api/v1/prices`를 사용하며, 저장 ticker와 응답 symbol casing 차이로 현재가 조회가 실패하지 않도록 대소문자 무시 매칭을 유지한다. 전략 히스토리 초기화도 Toss 실행 scope에서는 KIS chart/overseas chart가 아니라 Toss `/api/v1/candles`를 사용해야 한다. KIS chart를 호출하면 Toss 키가 정상이어도 KIS tokenP에서 `유효하지 않은 AppKey`가 발생한다. Settings/Sidebar에는 활성 broker/account와 실행 중 broker/account 스냅샷을 표시한다.
 - Toss 모듈 내부 DTO/validation/helper는 외부 API가 아니면 `pub(super)`로 열고, 앱 외부에서 필요한 타입과 client/adapter만 `mod.rs`에서 re-export한다.
 
-> 마지막 업데이트: 2026-07-07T14:53:11+09:00
+> 마지막 업데이트: 2026-07-07T15:22:00+09:00

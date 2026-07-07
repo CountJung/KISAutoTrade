@@ -254,6 +254,7 @@ export interface PlaceOrderInput {
   order_type: OrderType
   quantity: number
   price: number
+  toss_session?: TossManualSession | null
 }
 
 export interface OrderResponse {
@@ -575,10 +576,18 @@ export interface TossMarketSessionView {
   endTime: string
 }
 
+export type TossManualSession = 'auto' | 'day' | 'pre' | 'regular' | 'after'
+
 export interface TossMarketDayView {
   date: string
+  daySession: TossMarketSessionView | null
+  preSession: TossMarketSessionView | null
   regularSession: TossMarketSessionView | null
+  afterSession: TossMarketSessionView | null
+  isDayOpen: boolean
+  isPreOpen: boolean
   isRegularOpen: boolean
+  isAfterOpen: boolean
 }
 
 export interface TossMarketCalendarView {

@@ -57,6 +57,8 @@ import type {
   OverseasOrderExchange,
   OrderSide,
   OrderType,
+  TossManualSession,
+  TossMarketCalendarView,
 } from '../../../api/types'
 import { StockChart, OverseasStockChart } from '../../../widgets/stock-chart'
 import { fmtBrokerMoney, fmtDecimalString, fmtNumber } from '../../../shared/lib'
@@ -93,6 +95,51 @@ const EXCHANGE_ORDER_MAP: Record<OverseasExchange, OverseasOrderExchange> = {
 
 const PAPER_UNSUPPORTED_US_SELL_SYMBOLS = ['VOO', 'SPY', 'QQQM']
 
+const TOSS_US_SESSION_OPTIONS: Array<{ value: TossManualSession; label: string }> = [
+  { value: 'auto', label: '자동' },
+  { value: 'day', label: '데이' },
+  { value: 'pre', label: '프리' },
+  { value: 'regular', label: '정규' },
+  { value: 'after', label: '애프터' },
+]
+
+function tossSessionLabel(session: TossManualSession) {
+  return TOSS_US_SESSION_OPTIONS.find((option) => option.value === session)?.label ?? session
+}
+
+function fmtTossSessionWindow(session: TossMarketCalendarView['us']['regularSession']) {
+  if (!session) return '오늘 세션 없음'
+  const format = (value: string) => new Date(value).toLocaleTimeString('ko-KR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  return `${format(session.startTime)}~${format(session.endTime)}`
+}
+
+function tossUsSessionWindow(
+  calendar: TossMarketCalendarView | undefined,
+  session: TossManualSession,
+) {
+  if (!calendar) return null
+  if (session === 'day') return calendar.us.daySession
+  if (session === 'pre') return calendar.us.preSession
+  if (session === 'regular') return calendar.us.regularSession
+  if (session === 'after') return calendar.us.afterSession
+  return null
+}
+
+function isTossUsSessionOpen(
+  calendar: TossMarketCalendarView | undefined,
+  session: TossManualSession,
+) {
+  if (!calendar) return false
+  if (session === 'day') return calendar.us.isDayOpen
+  if (session === 'pre') return calendar.us.isPreOpen
+  if (session === 'regular') return calendar.us.isRegularOpen
+  if (session === 'after') return calendar.us.isAfterOpen
+  return true
+}
+
 /**
  * KIS 잔고 API의 ovrs_excg_cd (NAS/NYS/AMS 또는 NASD/NYSE/AMEX 모두 처리)
  * → 프론트엔드 OverseasExchange ('NAS' | 'NYS' | 'AMS') 로 정규화
@@ -117,6 +164,7 @@ export default function Trading() {
   const [usSearching, setUsSearching] = useState(false)
   const [side, setSide]               = useState<OrderSide>('Buy')
   const [orderType, setOrderType]     = useState<OrderType>('Limit')
+  const [tossSession, setTossSession] = useState<TossManualSession>('auto')
   const [quantity, setQuantity]       = useState('')
   const [price, setPrice]             = useState('')
   const [result, setResult]           = useState<string | null>(null)
@@ -134,6 +182,7 @@ export default function Trading() {
     setResult(null)
     setErrorMsg(null)
     setUsSearching(false)
+    setTossSession('auto')
   }, [market])
 
   useEffect(() => {
@@ -198,6 +247,9 @@ export default function Trading() {
     side === 'Sell' &&
     (overseasOrderExchange === 'AMEX' || PAPER_UNSUPPORTED_US_SELL_SYMBOLS.includes(normalizedUsSymbol))
   const tossManualOrderReady = tossPreflight?.canSubmit ?? false
+  const showTossUsSessionSelector = isTossActive && market === 'US'
+  const selectedTossSessionWindow = tossUsSessionWindow(tossCalendar, tossSession)
+  const selectedTossSessionOpen = isTossUsSessionOpen(tossCalendar, tossSession)
 
   const handleSelectHolding = (item: BalanceItem) => {
     setSymbol(item.pdno)
@@ -283,8 +335,28 @@ export default function Trading() {
         setErrorMsg('Toss 지정가 주문은 가격을 입력해야 합니다.')
         return
       }
+      if (market === 'US' && tossSession !== 'auto') {
+        if (!tossCalendar) {
+          setErrorMsg('Toss 미국 세션 정보를 확인한 뒤 주문을 제출할 수 있습니다.')
+          return
+        }
+        if (!selectedTossSessionOpen) {
+          setErrorMsg(
+            `현재 시간은 선택한 Toss 미국 ${tossSessionLabel(tossSession)} 세션이 아닙니다. ` +
+            `세션 시간: ${fmtTossSessionWindow(selectedTossSessionWindow)}`
+          )
+          return
+        }
+      }
       placeOrder(
-        { symbol, side, order_type: orderType, quantity: qty, price: orderType === 'Market' ? 0 : prc },
+        {
+          symbol,
+          side,
+          order_type: orderType,
+          quantity: qty,
+          price: orderType === 'Market' ? 0 : prc,
+          toss_session: market === 'US' ? tossSession : null,
+        },
         {
           onSuccess: (d) => {
             const odno = d.odno || '(접수됨)'
@@ -773,6 +845,54 @@ export default function Trading() {
                 <ToggleButton value="Limit">지정가</ToggleButton>
                 <ToggleButton value="Market">시장가</ToggleButton>
               </ToggleButtonGroup>
+            )}
+
+            {showTossUsSessionSelector && (
+              <Box
+                sx={{
+                  mb: 1.5,
+                  p: 1.25,
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  bgcolor: 'action.hover',
+                }}
+              >
+                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
+                  <Typography variant="caption" fontWeight={700}>
+                    Toss 미국 거래 세션
+                  </Typography>
+                  {tossSession !== 'auto' && (
+                    <Chip
+                      size="small"
+                      label={selectedTossSessionOpen ? '현재 가능' : '현재 아님'}
+                      color={selectedTossSessionOpen ? 'success' : 'default'}
+                      variant="outlined"
+                      sx={{ height: 20, fontSize: '0.68rem' }}
+                    />
+                  )}
+                </Stack>
+                <ToggleButtonGroup
+                  value={tossSession}
+                  exclusive
+                  onChange={(_, v: TossManualSession | null) => v && setTossSession(v)}
+                  fullWidth
+                  size="small"
+                  sx={{ mb: 0.75 }}
+                >
+                  {TOSS_US_SESSION_OPTIONS.map((option) => (
+                    <ToggleButton key={option.value} value={option.value}>
+                      {option.label}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+                <Typography variant="caption" color="text.secondary">
+                  {tossSession === 'auto'
+                    ? '세션을 지정하지 않고 Toss 주문 접수 가능 여부를 provider 응답에 맡깁니다.'
+                    : `${tossSessionLabel(tossSession)} ${fmtTossSessionWindow(selectedTossSessionWindow)} · ` +
+                      (selectedTossSessionOpen ? '선택 세션이 열려 있습니다.' : '선택 세션 시간이 아닙니다.')}
+                </Typography>
+              </Box>
             )}
 
             {isTossActive && !tossManualOrderReady && (

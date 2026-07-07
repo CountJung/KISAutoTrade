@@ -61,6 +61,22 @@ function fmtTossSession(session: TossMarketCalendarView['kr']['regularSession'])
   return `${format(session.startTime)}~${format(session.endTime)}`
 }
 
+function tossSessionChip(
+  label: string,
+  session: TossMarketCalendarView['kr']['regularSession'],
+  isOpen: boolean,
+) {
+  return (
+    <Chip
+      size="small"
+      label={`${label} ${isOpen ? '개장' : '폐장'} · ${fmtTossSession(session)}`}
+      color={isOpen ? 'success' : 'default'}
+      variant="outlined"
+      sx={{ height: 22, fontSize: '0.7rem' }}
+    />
+  )
+}
+
 export function TossMarketSnapshotCard({ symbol }: { symbol: string }) {
   const { data, isLoading, isError, error } = useTossMarketSnapshot(symbol)
   if (!symbol) return null
@@ -242,20 +258,11 @@ export function TossMarketCalendarStrip({
 
   return (
     <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ px: { xs: 1.5, sm: 2.5 }, pt: 1.5 }}>
-      <Chip
-        size="small"
-        label={`KRX ${data.kr.isRegularOpen ? '정규장 개장' : '정규장 폐장'} · ${fmtTossSession(data.kr.regularSession)}`}
-        color={data.kr.isRegularOpen ? 'success' : 'default'}
-        variant="outlined"
-        sx={{ height: 22, fontSize: '0.7rem' }}
-      />
-      <Chip
-        size="small"
-        label={`US ${data.us.isRegularOpen ? '정규장 개장' : '정규장 폐장'} · ${fmtTossSession(data.us.regularSession)}`}
-        color={data.us.isRegularOpen ? 'success' : 'default'}
-        variant="outlined"
-        sx={{ height: 22, fontSize: '0.7rem' }}
-      />
+      {tossSessionChip('KRX 정규장', data.kr.regularSession, data.kr.isRegularOpen)}
+      {tossSessionChip('US 데이', data.us.daySession, data.us.isDayOpen)}
+      {tossSessionChip('US 프리', data.us.preSession, data.us.isPreOpen)}
+      {tossSessionChip('US 정규장', data.us.regularSession, data.us.isRegularOpen)}
+      {tossSessionChip('US 애프터', data.us.afterSession, data.us.isAfterOpen)}
     </Stack>
   )
 }
