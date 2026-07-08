@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import Stack from '@mui/material/Stack'
+import Switch from '@mui/material/Switch'
 import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
 
@@ -11,10 +13,12 @@ import {
   ColorType,
   createChart,
   createSeriesMarkers,
+  LineSeries,
   type CandlestickData,
   type IChartApi,
   type ISeriesApi,
   type ISeriesMarkersPluginApi,
+  type LineData,
   type SeriesMarker,
   type Time,
   type UTCTimestamp,
@@ -99,7 +103,9 @@ export function LeveragedTrendHoldPreviewChart({ candles, signals }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const candleRef = useRef<ISeriesApi<'Candlestick', Time> | null>(null)
+  const closeLineRef = useRef<ISeriesApi<'Line', Time> | null>(null)
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null)
+  const [showCloseLine, setShowCloseLine] = useState(true)
 
   const chartData = useMemo<CandlestickData<Time>[]>(
     () => candles
@@ -112,6 +118,14 @@ export function LeveragedTrendHoldPreviewChart({ candles, signals }: Props) {
       }))
       .filter((candle) => candle.open > 0 && candle.high > 0 && candle.low > 0 && candle.close > 0),
     [candles],
+  )
+
+  const closeLineData = useMemo<LineData<Time>[]>(
+    () => chartData.map((candle) => ({
+      time: candle.time,
+      value: candle.close,
+    })),
+    [chartData],
   )
 
   const markers = useMemo<SeriesMarker<Time>[]>(
@@ -164,10 +178,18 @@ export function LeveragedTrendHoldPreviewChart({ candles, signals }: Props) {
       wickUpColor: theme.palette.success.main,
       wickDownColor: theme.palette.error.main,
     })
+    const closeLineSeries = chart.addSeries(LineSeries, {
+      color: theme.palette.info.main,
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: true,
+    })
     const markerApi = createSeriesMarkers(candleSeries, [])
 
     chartRef.current = chart
     candleRef.current = candleSeries
+    closeLineRef.current = closeLineSeries
     markersRef.current = markerApi
 
     const ro = new ResizeObserver(() => {
@@ -180,15 +202,17 @@ export function LeveragedTrendHoldPreviewChart({ candles, signals }: Props) {
       chart.remove()
       chartRef.current = null
       candleRef.current = null
+      closeLineRef.current = null
       markersRef.current = null
     }
   }, [theme])
 
   useEffect(() => {
     candleRef.current?.setData(chartData)
+    closeLineRef.current?.setData(showCloseLine ? closeLineData : [])
     markersRef.current?.setMarkers(markers)
     chartRef.current?.timeScale().fitContent()
-  }, [chartData, markers])
+  }, [chartData, closeLineData, markers, showCloseLine])
 
   if (candles.length === 0) {
     return (
@@ -202,6 +226,27 @@ export function LeveragedTrendHoldPreviewChart({ candles, signals }: Props) {
 
   return (
     <Stack spacing={1}>
+      <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
+        <Chip size="small" variant="outlined" label="Toss 1분봉 캔들" />
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={showCloseLine}
+              onChange={(event) => setShowCloseLine(event.target.checked)}
+              inputProps={{ 'aria-label': '종가 선 그래프 표시' }}
+            />
+          }
+          label="종가 선 그래프"
+          sx={{
+            ml: 0,
+            '& .MuiFormControlLabel-label': {
+              fontSize: '0.75rem',
+              color: 'text.secondary',
+            },
+          }}
+        />
+      </Stack>
       <Box ref={containerRef} data-testid="lth-preview-chart" sx={{ width: '100%', minHeight: 300 }} />
       <Stack direction="row" gap={0.75} flexWrap="wrap">
         <Chip size="small" variant="outlined" label="시간축 KST" />

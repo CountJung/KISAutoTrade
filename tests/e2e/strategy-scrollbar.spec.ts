@@ -347,6 +347,8 @@ test('Leveraged strategy preview runs selected ticker and renders signal chart',
   await expect(page.getByText('mock preview signals')).toBeVisible()
   await expect(page.getByTestId('lth-preview-chart')).toBeVisible()
   await expect(page.getByTestId('lth-preview-chart').locator('canvas').first()).toBeVisible()
+  await expect(page.getByRole('checkbox', { name: '종가 선 그래프 표시' })).toBeChecked()
+  await expect(page.getByText('종가 선 그래프')).toBeVisible()
   await expect(page.getByText(/매수 07\/07 17:02/)).toBeVisible()
   await expect(page.getByText(/매도 07\/07 17:03/)).toBeVisible()
   expect(previewRequests).toHaveLength(1)
