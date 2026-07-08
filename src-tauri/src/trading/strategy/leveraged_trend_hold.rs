@@ -197,7 +197,8 @@ struct LeveragedTrendSnapshot {
 }
 
 struct LeveragedReboundSnapshot {
-    trend: LeveragedTrendSnapshot,
+    rsi: Option<f64>,
+    adx: Option<f64>,
     pullback_pct: f64,
     buy_pressure_pct: f64,
     rebound_from_low_pct: f64,
@@ -495,10 +496,6 @@ impl LeveragedTrendHoldStrategy {
         if state.rebound_prices.len() < required_len {
             return None;
         }
-        let snap = self.snapshot_for(symbol)?;
-        if snap.adx < self.params.no_trade_adx_below || snap.rsi < self.params.rebound_rsi_min {
-            return None;
-        }
 
         let prices: Vec<u64> = state.rebound_prices.iter().copied().collect();
         let start = prices.len().saturating_sub(required_len);
@@ -520,12 +517,23 @@ impl LeveragedTrendHoldStrategy {
         let rebound_from_low_pct =
             (confirm_last.saturating_sub(baseline_low) as f64 / baseline_low as f64) * 100.0;
 
+        let closes = Self::closes(&state.candles);
+        let rsi = Self::rsi(&closes, self.params.rsi_period);
+        if rsi
+            .map(|value| value < self.params.rebound_rsi_min)
+            .unwrap_or(false)
+        {
+            return None;
+        }
+        let adx = Self::adx(&state.candles, self.params.adx_period);
+
         if pullback_pct >= self.params.rebound_pullback_pct
             && buy_pressure_pct >= self.params.rebound_buy_pressure_pct
             && confirm_last > baseline_last
         {
             Some(LeveragedReboundSnapshot {
-                trend: snap,
+                rsi,
+                adx,
                 pullback_pct,
                 buy_pressure_pct,
                 rebound_from_low_pct,
@@ -729,6 +737,15 @@ impl LeveragedTrendHoldStrategy {
         }
     }
 
+    fn rebound_indicator_label(snap: &LeveragedReboundSnapshot) -> String {
+        match (snap.rsi, snap.adx) {
+            (Some(rsi), Some(adx)) => format!(", RSI {:.1}, ADX {:.1}", rsi, adx),
+            (Some(rsi), None) => format!(", RSI {:.1}, ADX 준비 전", rsi),
+            (None, Some(adx)) => format!(", RSI 준비 전, ADX {:.1}", adx),
+            (None, None) => ", RSI/ADX 준비 전".to_string(),
+        }
+    }
+
     pub fn preview_signals(
         symbol: &str,
         params: LeveragedTrendHoldParams,
@@ -915,12 +932,11 @@ impl LeveragedTrendHoldStrategy {
                     price,
                     quantity,
                     format!(
-                        "LeveragedTrendHold 장중 매수세 반동 진입: 확인 구간 +{:.2}% (기준 구간 하락 {:.2}%, 저점 대비 +{:.2}%), RSI {:.1}, ADX {:.1}",
+                        "LeveragedTrendHold 장중 매수세 반동 진입: 확인 구간 +{:.2}% (기준 구간 하락 {:.2}%, 저점 대비 +{:.2}%{})",
                         snap.buy_pressure_pct,
                         snap.pullback_pct,
                         snap.rebound_from_low_pct,
-                        snap.trend.rsi,
-                        snap.trend.adx
+                        Self::rebound_indicator_label(&snap)
                     ),
                 ));
                 in_position = true;
@@ -1145,12 +1161,11 @@ impl Strategy for LeveragedTrendHoldStrategy {
                     symbol: symbol.to_string(),
                     quantity,
                     reason: format!(
-                        "LeveragedTrendHold 장중 매수세 반동 진입: 확인 구간 +{:.2}% (기준 구간 하락 {:.2}%, 저점 대비 +{:.2}%), RSI {:.1}, ADX {:.1}",
+                        "LeveragedTrendHold 장중 매수세 반동 진입: 확인 구간 +{:.2}% (기준 구간 하락 {:.2}%, 저점 대비 +{:.2}%{})",
                         snap.buy_pressure_pct,
                         snap.pullback_pct,
                         snap.rebound_from_low_pct,
-                        snap.trend.rsi,
-                        snap.trend.adx
+                        Self::rebound_indicator_label(&snap)
                     ),
                 };
             }
@@ -1385,6 +1400,40 @@ mod tests {
 
         assert!(
             matches!(signals.first(), Some(signal) if signal.side == "buy" && signal.reason.contains("매수세 반동 진입"))
+        );
+    }
+
+    #[test]
+    fn preview_rebound_does_not_require_trend_snapshot() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("KORU")],
+            intraday_rebound_enabled: true,
+            rebound_baseline_ticks: 2,
+            rebound_confirm_ticks: 2,
+            rebound_pullback_pct: 4.0,
+            rebound_buy_pressure_pct: 2.0,
+            rebound_rsi_min: 20.0,
+            no_trade_adx_below: 90.0,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let intraday = [190, 180, 181, 186]
+            .into_iter()
+            .enumerate()
+            .map(|(idx, price)| LeveragedTrendHoldTimedCandle {
+                time: format!("20260707130{}00", idx + 1),
+                candle: OhlcCandle {
+                    open: price,
+                    high: price,
+                    low: price,
+                    close: price,
+                },
+            })
+            .collect::<Vec<_>>();
+
+        let signals = LeveragedTrendHoldStrategy::preview_signals("KORU", params, &[], &intraday);
+
+        assert!(
+            matches!(signals.first(), Some(signal) if signal.side == "buy" && signal.reason.contains("RSI/ADX 준비 전"))
         );
     }
 }

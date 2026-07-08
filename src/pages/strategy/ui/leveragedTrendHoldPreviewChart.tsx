@@ -30,12 +30,14 @@ type Props = {
   signals: LeveragedTrendHoldPreviewSignal[]
 }
 
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000
+
 function toNumber(value: string) {
   const parsed = Number(value.replace(/,/g, ''))
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-function toChartTime(value: string, fallbackIndex = 0): Time {
+function parseTimeMs(value: string, fallbackIndex = 0): number {
   const digits = value.replace(/\D/g, '')
   if (digits.length >= 12) {
     const year = Number(digits.slice(0, 4))
@@ -44,20 +46,52 @@ function toChartTime(value: string, fallbackIndex = 0): Time {
     const hour = Number(digits.slice(8, 10))
     const minute = Number(digits.slice(10, 12))
     const second = digits.length >= 14 ? Number(digits.slice(12, 14)) : 0
-    const ms = new Date(year, month, day, hour, minute, second).getTime()
-    if (Number.isFinite(ms)) return Math.floor(ms / 1000) as UTCTimestamp
+    const ms = Date.UTC(year, month, day, hour, minute, second) - KST_OFFSET_MS
+    if (Number.isFinite(ms)) return ms
   }
   const parsed = Date.parse(value)
-  if (Number.isFinite(parsed)) return Math.floor(parsed / 1000) as UTCTimestamp
+  if (Number.isFinite(parsed)) return parsed
+  return (fallbackIndex + 1) * 1000
+}
+
+function toChartTime(value: string, fallbackIndex = 0): Time {
+  const ms = parseTimeMs(value, fallbackIndex)
+  if (Number.isFinite(ms)) return Math.floor(ms / 1000) as UTCTimestamp
   return (fallbackIndex + 1) as UTCTimestamp
 }
 
-function toLabel(time: string) {
-  const digits = time.replace(/\D/g, '')
-  if (digits.length >= 12) {
-    return `${digits.slice(4, 6)}/${digits.slice(6, 8)} ${digits.slice(8, 10)}:${digits.slice(10, 12)}`
+function chartTimeToMs(time: Time): number | null {
+  if (typeof time === 'number') return time * 1000
+  if (typeof time === 'string') {
+    const parsed = Date.parse(time)
+    return Number.isFinite(parsed) ? parsed : null
   }
-  return time
+  if (typeof time === 'object' && time !== null && 'year' in time && 'month' in time && 'day' in time) {
+    return Date.UTC(time.year, time.month - 1, time.day) - KST_OFFSET_MS
+  }
+  return null
+}
+
+function pad2(value: number) {
+  return String(value).padStart(2, '0')
+}
+
+function formatKstMs(ms: number, includeDate: boolean) {
+  const kst = new Date(ms + KST_OFFSET_MS)
+  const month = pad2(kst.getUTCMonth() + 1)
+  const day = pad2(kst.getUTCDate())
+  const hour = pad2(kst.getUTCHours())
+  const minute = pad2(kst.getUTCMinutes())
+  return includeDate ? `${month}/${day} ${hour}:${minute}` : `${hour}:${minute}`
+}
+
+function formatChartTimeKst(time: Time, includeDate = false) {
+  const ms = chartTimeToMs(time)
+  return ms === null ? String(time) : formatKstMs(ms, includeDate)
+}
+
+function toLabel(time: string) {
+  return formatKstMs(parseTimeMs(time), true)
 }
 
 export function LeveragedTrendHoldPreviewChart({ candles, signals }: Props) {
@@ -109,7 +143,15 @@ export function LeveragedTrendHoldPreviewChart({ candles, signals }: Props) {
         horzLines: { color: theme.palette.divider },
       },
       rightPriceScale: { borderVisible: false },
-      timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
+      localization: {
+        timeFormatter: (time: Time) => formatChartTimeKst(time, true),
+      },
+      timeScale: {
+        borderVisible: false,
+        timeVisible: true,
+        secondsVisible: false,
+        tickMarkFormatter: (time: Time) => formatChartTimeKst(time, false),
+      },
       crosshair: {
         vertLine: { color: theme.palette.text.disabled },
         horzLine: { color: theme.palette.text.disabled },
@@ -162,6 +204,7 @@ export function LeveragedTrendHoldPreviewChart({ candles, signals }: Props) {
     <Stack spacing={1}>
       <Box ref={containerRef} data-testid="lth-preview-chart" sx={{ width: '100%', minHeight: 300 }} />
       <Stack direction="row" gap={0.75} flexWrap="wrap">
+        <Chip size="small" variant="outlined" label="시간축 KST" />
         {signals.length === 0 ? (
           <Chip size="small" variant="outlined" label="신호 없음" />
         ) : signals.map((signal) => (

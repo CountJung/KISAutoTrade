@@ -874,6 +874,43 @@ export default function Strategy() {
           const sessionDirty = hasTossSessionEdit(s.id, sessionParams)
           const isDirty = !!editMap[s.id] || sessionDirty
           const scopeMatchesActive = isActiveStrategyScope(s, appConfig)
+          const saveAction = sType === 'price_condition' ? (
+            (pcEditMap[s.id] !== undefined || sessionDirty) && !s.enabled ? (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
+                onClick={() => handleSavePc(s.id, s.params, pcInitialSymbols)}
+                disabled={saving}
+              >
+                변경사항 저장
+              </Button>
+            ) : null
+          ) : sType === 'leveraged_trend_hold' ? (
+            (lthEditMap[s.id] !== undefined || lthParamEditMap[s.id] !== undefined || sessionDirty) && !s.enabled ? (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
+                onClick={() => handleSaveLth(s.id, s.params, lthInitialEntries)}
+                disabled={saving || hasInvalidLthEntries(lthEditMap[s.id] ?? lthInitialEntries)}
+              >
+                변경사항 저장
+              </Button>
+            ) : null
+          ) : (
+            isDirty && !s.enabled ? (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
+                onClick={() => handleSave(s.id, s)}
+                disabled={saving}
+              >
+                변경사항 저장
+              </Button>
+            ) : null
+          )
           return (
             <Grid item xs={12} md={sType === 'price_condition' || sType === 'leveraged_trend_hold' ? 12 : 6} key={s.id}>
               <Paper sx={{ p: 3 }}>
@@ -888,18 +925,27 @@ export default function Strategy() {
                       sx={{ maxWidth: '100%', '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
                     />
                   </Stack>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={s.enabled}
-                        onChange={(e) => handleToggle(s.id, e.target.checked)}
-                        color="success"
-                        disabled={saving}
-                      />
-                    }
-                    label={s.enabled ? '실행 중' : '정지'}
-                    labelPlacement="start"
-                  />
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    alignItems={{ xs: 'flex-end', sm: 'center' }}
+                    spacing={1}
+                    sx={{ flexShrink: 0 }}
+                  >
+                    {saveAction}
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={s.enabled}
+                          onChange={(e) => handleToggle(s.id, e.target.checked)}
+                          color="success"
+                          disabled={saving}
+                        />
+                      }
+                      label={s.enabled ? '실행 중' : '정지'}
+                      labelPlacement="start"
+                      sx={{ m: 0 }}
+                    />
+                  </Stack>
                 </Box>
                 <Divider sx={{ mb: 2 }} />
 
@@ -1069,49 +1115,6 @@ export default function Strategy() {
                   </Tooltip>
                 )}
 
-                {sType === 'price_condition' ? (
-                  (pcEditMap[s.id] !== undefined || sessionDirty) && !s.enabled && (
-                    <Box sx={{ mt: 1.5 }}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
-                        onClick={() => handleSavePc(s.id, s.params, pcInitialSymbols)}
-                        disabled={saving}
-                      >
-                        변경사항 저장
-                      </Button>
-                    </Box>
-                  )
-                ) : sType === 'leveraged_trend_hold' ? (
-                  (lthEditMap[s.id] !== undefined || lthParamEditMap[s.id] !== undefined || sessionDirty) && !s.enabled && (
-                    <Box sx={{ mt: 1.5 }}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
-                        onClick={() => handleSaveLth(s.id, s.params, lthInitialEntries)}
-                        disabled={saving || hasInvalidLthEntries(lthEditMap[s.id] ?? lthInitialEntries)}
-                      >
-                        변경사항 저장
-                      </Button>
-                    </Box>
-                  )
-                ) : (
-                  isDirty && !s.enabled && (
-                    <Box sx={{ mt: 1.5 }}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
-                        onClick={() => handleSave(s.id, s)}
-                        disabled={saving}
-                      >
-                        변경사항 저장
-                      </Button>
-                    </Box>
-                  )
-                )}
               </Paper>
             </Grid>
           )
