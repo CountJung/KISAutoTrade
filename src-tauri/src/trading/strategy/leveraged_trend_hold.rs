@@ -645,6 +645,11 @@ impl LeveragedTrendHoldStrategy {
         self.params.entry_failure_observations.clamp(1, 120)
     }
 
+    fn failed_rebound_observations(&self) -> usize {
+        self.entry_failure_observations()
+            .max(self.min_hold_observations())
+    }
+
     fn profit_pct(entry_price: u64, price: u64) -> Option<f64> {
         if entry_price == 0 {
             return None;
@@ -670,7 +675,7 @@ impl LeveragedTrendHoldStrategy {
 
         let activation_profit = self.params.trailing_activation_profit_pct.clamp(0.1, 100.0);
         let high_profit = Self::profit_pct(entry_price, high_water)?;
-        if held_observations >= self.entry_failure_observations()
+        if held_observations >= self.failed_rebound_observations()
             && high_profit < activation_profit
             && current_profit < 0.0
         {
@@ -1635,6 +1640,35 @@ mod tests {
         assert!(
             matches!(signal, Signal::Sell { symbol, reason, .. } if symbol == "SOXL" && reason.contains("반등 실패 손절"))
         );
+    }
+
+    #[test]
+    fn holds_failed_rebound_until_min_hold_observations_elapsed() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("SOXL")],
+            entry_adx_min: 0.0,
+            no_trade_adx_below: 0.0,
+            initial_stop_loss_pct: 5.0,
+            trailing_activation_profit_pct: 2.0,
+            min_hold_observations: 5,
+            entry_failure_observations: 3,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let mut strategy = strategy_with_params(params);
+        strategy.initialize_ohlc("SOXL", &downward_candles());
+        strategy.positions.insert(
+            "SOXL".to_string(),
+            LeveragedTrendHoldPosition {
+                in_position: true,
+                entry_price: Some(100),
+                high_water: Some(101),
+                held_observations: 3,
+            },
+        );
+
+        let signal = strategy.on_tick("SOXL", 99, 100);
+
+        assert_eq!(signal, Signal::Hold);
     }
 
     #[test]

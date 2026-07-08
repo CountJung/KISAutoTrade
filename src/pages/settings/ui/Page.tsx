@@ -152,7 +152,6 @@ function RiskSection() {
 
   const [lossLimit, setLossLimit] = useState<number>(0)
   const [posRatio, setPosRatio]   = useState<number>(0)
-  const [buyLimit, setBuyLimit]   = useState<number>(1)
   const [sellLimit, setSellLimit] = useState<number>(1)
   const [lossBlockLimit, setLossBlockLimit] = useState<number>(3)
   const [volatilitySizing, setVolatilitySizing] = useState<boolean>(false)
@@ -165,7 +164,6 @@ function RiskSection() {
     if (risk && !dirty) {
       setLossLimit(risk.dailyLossLimit)
       setPosRatio(Math.round(risk.maxPositionRatio * 100))
-      setBuyLimit(risk.maxDailyBuyOrdersPerSymbol)
       setSellLimit(risk.maxDailySellOrdersPerSymbol)
       setLossBlockLimit(risk.maxConsecutiveLossesPerStrategySymbol)
       setVolatilitySizing(risk.volatilitySizingEnabled)
@@ -182,7 +180,7 @@ function RiskSection() {
     const input: UpdateRiskConfigInput = {
       dailyLossLimit: lossLimit,
       maxPositionRatio: posRatio / 100,
-      maxDailyBuyOrdersPerSymbol: buyLimit,
+      maxDailyBuyOrdersPerSymbol: 0,
       maxDailySellOrdersPerSymbol: sellLimit,
       maxConsecutiveLossesPerStrategySymbol: lossBlockLimit,
       volatilitySizingEnabled: volatilitySizing,
@@ -317,17 +315,9 @@ function RiskSection() {
                   onChange={(v) => { setPosRatio(v); setDirty(true) }}
                   onChangeCommitted={(v) => { setPosRatio(v); setDirty(true) }}
                 />
-                <SliderWithInput
-                  label="전략/종목별 일일 매수 제한"
-                  value={buyLimit}
-                  min={0}
-                  max={10}
-                  step={1}
-                  unit="회"
-                  disabled={saving}
-                  onChange={(v) => { setBuyLimit(v); setDirty(true) }}
-                  onChangeCommitted={(v) => { setBuyLimit(v); setDirty(true) }}
-                />
+                <Alert severity="info" sx={{ py: 0.5 }}>
+                  전략/종목별 일일 매수 제한은 해제되어 있습니다. 재진입은 연속 손실 차단, 비상정지, 포지션 비중, ATR 수량 산정으로 관리합니다.
+                </Alert>
                 <SliderWithInput
                   label="전략/종목별 일일 매도 제한"
                   value={sellLimit}

@@ -270,7 +270,8 @@ fn validate_symbol(symbol: &str) -> Result<(), CmdError> {
 - 장중 반동 진입은 절대 시각을 파라미터로 받지 않는다. 자동매매가 켜진 뒤 누적한 가격 관측치를 기준 구간과 바로 다음 확인 구간으로 나누고, 기준 구간 하락 후 확인 구간의 가격 회복이 충분히 강할 때 매수세 반동으로 본다.
 - 장중 반동 진입은 추세 진입용 `snapshot_for()` 전체 조건(EMA short/long, ADX no-trade gate)을 요구하지 않는다. 가격 반등 조건을 먼저 판단하고, RSI는 계산 가능할 때만 `rebound_rsi_min` 필터로 사용한다. 이렇게 해야 Toss 1분봉 미리보기처럼 장중 데이터가 짧거나 EMA60/ADX가 준비되지 않은 구간에서도 강한 반등 후보를 확인할 수 있다.
 - Toss 실행 scope에서 자동매매를 시작하면 Toss `1d` candles로 일봉 OHLC를 초기화하고, Toss `1m` candles의 OHLC를 레버리지 전략 장중 상태에도 주입한다. 실시간 현재가 polling은 같은 분 안에서는 마지막 1분봉과 반동 관측값을 갱신하고, 분이 바뀔 때만 새 관측치를 추가한다. 공개 데이터와 Toss 데이터가 섞이지 않게 strategy preview/진단도 가능하면 Toss candles 경로를 우선 사용한다.
-- 레버리지 전략 청산은 초기 실패 손절과 수익 보호 청산을 분리한다. `initial_stop_loss_pct`는 보호 활성 전에도 진입가 대비 손실을 제한하고, `entry_failure_observations` 동안 고점 수익률이 `trailing_activation_profit_pct`에 닿지 못한 채 진입가 아래면 반등 실패 손절로 본다. 이후 `min_hold_observations`가 지나고 고점 수익률이 `trailing_activation_profit_pct` 이상일 때만 본전 보호/추적손절/추세 이탈 청산을 검사한다. 보호 활성 후 `breakeven_buffer_pct` 이하로 내려오면 본전 보호 청산, 고점 대비 `trailing_stop_pct` 이상 밀리면 수익 보호 추적손절, EMA/RSI 추세 이탈은 현재 수익률이 버퍼보다 높을 때만 청산한다. 미리보기와 실시간 `on_tick()`은 같은 초기 손절/보호 청산 helper를 사용해야 한다.
+- 레버리지 전략 청산은 초기 손절, 반등 실패 손절, 수익 보호 청산을 분리한다. `initial_stop_loss_pct`는 보호 활성 전에도 진입가 대비 손실을 즉시 제한한다. 반등 실패 손절은 `entry_failure_observations`와 `min_hold_observations`를 모두 지난 뒤에도 고점 수익률이 `trailing_activation_profit_pct`에 닿지 못한 채 진입가 아래일 때만 발생한다. 이렇게 해야 매수 직후 작은 음수 흔들림이 “실패”로 과도하게 해석되지 않는다. 이후 고점 수익률이 `trailing_activation_profit_pct` 이상일 때만 본전 보호/추적손절/추세 이탈 청산을 검사한다. 보호 활성 후 `breakeven_buffer_pct` 이하로 내려오면 본전 보호 청산, 고점 대비 `trailing_stop_pct` 이상 밀리면 수익 보호 추적손절, EMA/RSI 추세 이탈은 현재 수익률이 버퍼보다 높을 때만 청산한다. 미리보기와 실시간 `on_tick()`은 같은 초기 손절/보호 청산 helper를 사용해야 한다.
+- `RiskManager`의 전략/종목별 일일 매수 제한은 재진입 전략을 막을 수 있어 차단 조건으로 사용하지 않는다. 하위 호환 필드는 남기되 view/update 경로는 0으로 노출·저장하고, 매도 일일 제한과 연속 손실 차단은 별도 방어로 유지한다.
 
 ### Strategy trait 패턴 (이 프로젝트)
 
@@ -1088,4 +1089,4 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - Toss 연결 진단은 `check_toss_profile_connection` IPC에서 프로파일 lock을 짧게 잡아 clone한 뒤 실행한다. 진단 단계는 OpenAPI spec, token, accounts, holdings, order preflight read-only 순서이며 토큰 문자열은 응답에 포함하지 않는다.
 - Tauri IPC와 axum 웹 REST 응답 필드는 같이 갱신한다. 웹 핸들러에서 내부 struct를 그대로 직렬화하지 말고 `serde_json::json!`으로 camel/snake 응답 키를 명시한다.
 
-> 마지막 업데이트: 2026-07-08T13:53:50+09:00
+> 마지막 업데이트: 2026-07-08T15:13:38+09:00

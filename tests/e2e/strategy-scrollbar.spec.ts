@@ -137,6 +137,10 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
       await route.fulfill({ json: tradingStatus() })
       return
     }
+    if (url.pathname === '/api/recent-logs') {
+      await route.fulfill({ json: [] })
+      return
+    }
     if (url.pathname === '/api/strategies') {
       if (options.strategyDelayMs) {
         await new Promise((resolve) => setTimeout(resolve, options.strategyDelayMs))
@@ -275,6 +279,30 @@ test('main scrollbar thumb can be dragged with a pointer', async ({ page }) => {
   await expect
     .poll(() => main.evaluate((el) => el.scrollTop))
     .toBeGreaterThan(before + 20)
+})
+
+test('main scroll position is restored after visiting a short page', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/strategy')
+
+  const main = page.getByTestId('app-main-scroll')
+  await expect(page.getByText('레버리지 대상 ETF')).toBeVisible()
+  const savedTop = await main.evaluate((el) => {
+    el.scrollTop = 420
+    el.dispatchEvent(new Event('scroll'))
+    return el.scrollTop
+  })
+  expect(savedTop).toBeGreaterThan(100)
+
+  await page.getByRole('button', { name: 'Log' }).click()
+  await expect(page.getByRole('heading', { name: 'Log' })).toBeVisible()
+  await expect.poll(() => main.evaluate((el) => el.scrollTop)).toBe(0)
+
+  await page.getByRole('button', { name: 'Strategy' }).click()
+  await expect(page.getByText('레버리지 대상 ETF')).toBeVisible()
+  await expect
+    .poll(() => main.evaluate((el) => el.scrollTop))
+    .toBeGreaterThan(savedTop - 24)
 })
 
 test('Leveraged strategy editor uses single target ticker model', async ({ page }) => {

@@ -805,7 +805,7 @@ export interface RiskConfigView {
   dailyLossLimit: number
   /** 단일 종목 최대 비중 (0.0~1.0) */
   maxPositionRatio: number
-  /** 전략/종목별 일일 매수 주문 제한. 0이면 제한 없음. */
+  /** 전략/종목별 일일 매수 주문 제한은 해제되어 항상 0으로 내려온다. */
   maxDailyBuyOrdersPerSymbol: number
   /** 전략/종목별 일일 매도 주문 제한. 0이면 제한 없음. */
   maxDailySellOrdersPerSymbol: number
@@ -841,7 +841,7 @@ export interface UpdateRiskConfigInput {
   dailyLossLimit?: number
   /** 0.01 ~ 1.0 */
   maxPositionRatio?: number
-  /** 전략/종목별 일일 매수 주문 제한. 0이면 제한 없음. */
+  /** 하위 호환 입력. 매수 제한은 저장 시 0으로 고정된다. */
   maxDailyBuyOrdersPerSymbol?: number
   /** 전략/종목별 일일 매도 주문 제한. 0이면 제한 없음. */
   maxDailySellOrdersPerSymbol?: number

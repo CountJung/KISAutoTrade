@@ -22,7 +22,7 @@ pub struct RiskManager {
     pub daily_loss_limit: i64,
     /// 단일 종목 최대 투자 비중 (0.0 ~ 1.0)
     pub max_position_ratio: f64,
-    /// 전략/종목별 일일 매수 주문 제한. 0이면 제한 없음.
+    /// 전략/종목별 일일 매수 주문 제한. 하위 호환 필드이며 매수 방향은 차단 조건으로 사용하지 않는다.
     #[serde(default = "default_daily_buy_order_limit")]
     pub max_daily_buy_orders_per_symbol: u32,
     /// 전략/종목별 일일 매도 주문 제한. 0이면 제한 없음.
@@ -77,7 +77,7 @@ fn default_true() -> bool {
 }
 
 fn default_daily_buy_order_limit() -> u32 {
-    1
+    0
 }
 
 fn default_daily_sell_order_limit() -> u32 {
@@ -304,8 +304,11 @@ impl RiskManager {
         side: DailyOrderSide,
     ) -> Option<String> {
         self.reset_if_new_day();
+        if matches!(side, DailyOrderSide::Buy) {
+            return None;
+        }
         let limit = match side {
-            DailyOrderSide::Buy => self.max_daily_buy_orders_per_symbol,
+            DailyOrderSide::Buy => 0,
             DailyOrderSide::Sell => self.max_daily_sell_orders_per_symbol,
         };
         if limit == 0 {
@@ -563,16 +566,31 @@ mod tests {
     }
 
     #[test]
-    fn daily_order_limit_blocks_after_submission_count_reaches_limit() {
+    fn daily_buy_order_limit_is_disabled_even_after_submission_count_increases() {
         let mut risk = RiskManager::default();
         assert!(risk
             .daily_order_limit_reason("strategy", "005930", DailyOrderSide::Buy)
             .is_none());
 
         risk.record_order_submitted("strategy", "005930", DailyOrderSide::Buy);
+        risk.record_order_submitted("strategy", "005930", DailyOrderSide::Buy);
 
         assert!(risk
             .daily_order_limit_reason("strategy", "005930", DailyOrderSide::Buy)
+            .is_none());
+    }
+
+    #[test]
+    fn daily_sell_order_limit_blocks_after_submission_count_reaches_limit() {
+        let mut risk = RiskManager::default();
+        assert!(risk
+            .daily_order_limit_reason("strategy", "005930", DailyOrderSide::Sell)
+            .is_none());
+
+        risk.record_order_submitted("strategy", "005930", DailyOrderSide::Sell);
+
+        assert!(risk
+            .daily_order_limit_reason("strategy", "005930", DailyOrderSide::Sell)
             .is_some());
     }
 
@@ -586,7 +604,7 @@ mod tests {
             &account_a,
             "strategy",
             "005930",
-            DailyOrderSide::Buy,
+            DailyOrderSide::Sell,
         );
 
         assert!(risk
@@ -594,7 +612,7 @@ mod tests {
                 &account_a,
                 "strategy",
                 "005930",
-                DailyOrderSide::Buy,
+                DailyOrderSide::Sell,
             )
             .is_some());
         assert!(risk
@@ -602,7 +620,7 @@ mod tests {
                 &account_b,
                 "strategy",
                 "005930",
-                DailyOrderSide::Buy,
+                DailyOrderSide::Sell,
             )
             .is_none());
     }

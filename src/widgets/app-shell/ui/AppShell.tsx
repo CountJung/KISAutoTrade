@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router'
 import Box from '@mui/material/Box'
@@ -34,6 +34,7 @@ const SIDEBAR_DEFAULT = 220
 const SIDEBAR_MIN = 160
 const SIDEBAR_MAX = 400
 const SCROLL_THUMB_MIN_HEIGHT = 36
+const MAIN_SCROLL_RESTORE_TIMEOUT_MS = 1_200
 
 type MainScrollbarDrag = {
   pointerId: number
@@ -41,6 +42,12 @@ type MainScrollbarDrag = {
   startScrollTop: number
   maxScroll: number
   maxThumbTop: number
+}
+
+type PendingMainScrollRestore = {
+  routeKey: string
+  top: number
+  startedAt: number
 }
 
 /** 모바일 하단 내비게이션 항목 */
@@ -79,6 +86,9 @@ export function AppShell() {
   const sidebarWidthRef = useRef(sidebarWidth)
   const mainScrollRef = useRef<HTMLElement | null>(null)
   const mainScrollbarDragRef = useRef<MainScrollbarDrag | null>(null)
+  const mainScrollRouteRef = useRef(location.pathname)
+  const mainScrollPositionsRef = useRef<Record<string, number>>({})
+  const pendingMainScrollRestoreRef = useRef<PendingMainScrollRestore | null>(null)
   sidebarWidthRef.current = sidebarWidth
 
   const muiTheme = useMemo(() => {
@@ -154,6 +164,38 @@ export function AppShell() {
     el.scrollTop = (nextThumbTop / maxThumbTop) * maxScroll
   }, [mainScrollbar.height])
 
+  const restorePendingMainScroll = useCallback(() => {
+    const el = mainScrollRef.current
+    const pending = pendingMainScrollRestoreRef.current
+    if (!el || !pending || pending.routeKey !== mainScrollRouteRef.current) return
+
+    const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
+    const nextScrollTop = clampNumber(pending.top, 0, maxScroll)
+    if (Math.abs(el.scrollTop - nextScrollTop) > 1) {
+      el.scrollTop = nextScrollTop
+    }
+
+    if (
+      pending.top <= 0 ||
+      maxScroll >= pending.top ||
+      Date.now() - pending.startedAt > MAIN_SCROLL_RESTORE_TIMEOUT_MS
+    ) {
+      pendingMainScrollRestoreRef.current = null
+      mainScrollPositionsRef.current[pending.routeKey] = el.scrollTop
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    const routeKey = location.pathname
+    mainScrollRouteRef.current = routeKey
+    pendingMainScrollRestoreRef.current = {
+      routeKey,
+      top: mainScrollPositionsRef.current[routeKey] ?? 0,
+      startedAt: Date.now(),
+    }
+    restorePendingMainScroll()
+  }, [location.pathname, restorePendingMainScroll])
+
   useEffect(() => {
     const el = mainScrollRef.current
     if (!el) return
@@ -162,6 +204,7 @@ export function AppShell() {
     let delayedUpdate: number | null = null
 
     const updateMainScrollbar = () => {
+      restorePendingMainScroll()
       const scrollable = el.scrollHeight > el.clientHeight + 1
       if (!scrollable) {
         setMainScrollbar({ visible: false, top: 0, height: 0 })
@@ -194,17 +237,26 @@ export function AppShell() {
     const mutationObserver = new MutationObserver(observeMainScrollContent)
 
     observeMainScrollContent()
-    el.addEventListener('scroll', updateMainScrollbar, { passive: true })
+    const handleMainScroll = () => {
+      const routeKey = mainScrollRouteRef.current
+      const pending = pendingMainScrollRestoreRef.current
+      if (!pending || pending.routeKey !== routeKey) {
+        mainScrollPositionsRef.current[routeKey] = el.scrollTop
+      }
+      updateMainScrollbar()
+    }
+
+    el.addEventListener('scroll', handleMainScroll, { passive: true })
     mutationObserver.observe(el, { childList: true })
 
     return () => {
-      el.removeEventListener('scroll', updateMainScrollbar)
+      el.removeEventListener('scroll', handleMainScroll)
       if (animationFrame !== null) cancelAnimationFrame(animationFrame)
       if (delayedUpdate !== null) window.clearTimeout(delayedUpdate)
       observer.disconnect()
       mutationObserver.disconnect()
     }
-  }, [location.pathname, showUpdateBanner, isDesktop])
+  }, [location.pathname, showUpdateBanner, isDesktop, restorePendingMainScroll])
 
   return (
     <ThemeProvider theme={muiTheme}>

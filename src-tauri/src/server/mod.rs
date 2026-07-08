@@ -563,8 +563,8 @@ async fn update_risk_config_handler(
             risk.max_position_ratio = ratio;
         }
     }
-    if let Some(limit) = body.max_daily_buy_orders_per_symbol {
-        risk.max_daily_buy_orders_per_symbol = limit;
+    if body.max_daily_buy_orders_per_symbol.is_some() {
+        risk.max_daily_buy_orders_per_symbol = 0;
     }
     if let Some(limit) = body.max_daily_sell_orders_per_symbol {
         risk.max_daily_sell_orders_per_symbol = limit;

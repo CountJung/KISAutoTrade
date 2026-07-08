@@ -91,6 +91,7 @@ export default function MyPage() {
 - 다크 모드에서 `#000`, `black`, `#111` 같은 순수 검정 배경/스크롤바를 직접 지정하지 않는다. 필요하면 `alpha(theme.palette.text.primary, n)` 또는 `alpha(theme.palette.background.paper, n)`처럼 MUI palette 기반으로 만든다.
 - 스크롤바는 `MuiCssBaseline` 전역 styleOverrides에서 palette 기반 색상으로 관리한다. 개별 컴포넌트가 `::-webkit-scrollbar`를 직접 덮어써야 할 때도 thumb/track은 반드시 `theme.palette.text.primary`, `background.default`, `background.paper`, `divider`에서 파생한다.
 - 앱의 주 스크롤 컨테이너는 초기 렌더부터 스크롤바 영역이 잡히도록 `overflowY: 'scroll'`, `scrollbarGutter: 'stable both-edges'`, flex item `minHeight: 0`을 함께 둔다. macOS/Chromium overlay scrollbar처럼 native 폭이 0일 수 있는 환경에서는 AppShell의 palette 기반 scroll rail/thumb를 함께 표시한다. 보이는 custom rail/thumb는 장식으로만 두지 말고 pointer drag와 rail click으로 실제 `scrollTop`을 제어할 수 있어야 하며, Playwright에서 overflow, rail/thumb 가시성, thumb 드래그 후 `scrollTop` 증가를 함께 검증한다.
+- AppShell의 주 스크롤 컨테이너는 route별 `scrollTop`을 기억하고 복원한다. 짧은 페이지로 이동하며 같은 컨테이너가 0으로 clamp되어도 긴 페이지로 돌아오면 이전 위치가 복원되어야 한다. 비동기 콘텐츠로 높이가 늦게 늘어나는 페이지는 ResizeObserver 갱신 중 pending restore를 재시도하고, Playwright에서 긴 페이지 → 짧은 페이지 → 긴 페이지 복귀 시나리오를 검증한다.
 - Alert, Chip, Button, ToggleButton, TextField, Paper, Table, Drawer 등 MUI 컴포넌트는 기본 variant/color를 우선 사용한다. 금융 상승/하락, 경고/성공/오류 외 색상은 semantic token으로 표현하고, 브랜드 장식용 임의 색상은 피한다.
 
 ### 상승/하락 색상
@@ -579,4 +580,4 @@ UI 규칙:
 - 기존 저장 JSON 호환 때문에 `inverse_*`, `base_*`, `base_symbol_roles` 필드는 타입에 남아 있을 수 있으나 새 UI에서는 노출하지 않는다.
 - 전략 미리보기 차트에서 Toss `YYYYMMDDHHmmss` 형태의 1분봉 시간은 한국시간(KST)으로 명시 파싱하고, lightweight-charts `timeFormatter`/`tickMarkFormatter`도 KST 표시로 고정한다. 브라우저 로컬 타임존이나 UTC 기본 formatter에 맡기면 데이마켓/프리마켓 시간표가 사용자가 보는 Toss 앱 시간과 어긋날 수 있다.
 
-> 마지막 업데이트: 2026-07-08T14:31:48+09:00
+> 마지막 업데이트: 2026-07-08T14:56:20+09:00

@@ -13,7 +13,7 @@ pub struct RiskConfigView {
     pub daily_loss_limit: i64,
     /// 단일 종목 최대 비중 (0.0~1.0)
     pub max_position_ratio: f64,
-    /// 전략/종목별 일일 매수 주문 제한. 0이면 제한 없음.
+    /// 전략/종목별 일일 매수 주문 제한. 매수 제한은 더 이상 차단 조건으로 사용하지 않으며 항상 0으로 노출한다.
     pub max_daily_buy_orders_per_symbol: u32,
     /// 전략/종목별 일일 매도 주문 제한. 0이면 제한 없음.
     pub max_daily_sell_orders_per_symbol: u32,
@@ -48,7 +48,7 @@ pub(crate) fn build_risk_view(risk: &crate::trading::risk::RiskManager) -> RiskC
         enabled: risk.is_enabled(),
         daily_loss_limit: risk.daily_loss_limit,
         max_position_ratio: risk.max_position_ratio,
-        max_daily_buy_orders_per_symbol: risk.max_daily_buy_orders_per_symbol,
+        max_daily_buy_orders_per_symbol: 0,
         max_daily_sell_orders_per_symbol: risk.max_daily_sell_orders_per_symbol,
         max_consecutive_losses_per_strategy_symbol: risk.max_consecutive_losses_per_strategy_symbol,
         volatility_sizing_enabled: risk.volatility_sizing_enabled,
@@ -81,7 +81,7 @@ pub struct UpdateRiskConfigInput {
     pub daily_loss_limit: Option<i64>,
     /// 0.01 ~ 1.0 (1% ~ 100%)
     pub max_position_ratio: Option<f64>,
-    /// 전략/종목별 일일 매수 주문 제한. 0이면 제한 없음.
+    /// 전략/종목별 일일 매수 주문 제한. 하위 호환 입력이며 저장 시 0으로 고정한다.
     pub max_daily_buy_orders_per_symbol: Option<u32>,
     /// 전략/종목별 일일 매도 주문 제한. 0이면 제한 없음.
     pub max_daily_sell_orders_per_symbol: Option<u32>,
@@ -122,8 +122,8 @@ pub async fn update_risk_config(
         }
         risk.max_position_ratio = ratio;
     }
-    if let Some(limit) = input.max_daily_buy_orders_per_symbol {
-        risk.max_daily_buy_orders_per_symbol = limit;
+    if input.max_daily_buy_orders_per_symbol.is_some() {
+        risk.max_daily_buy_orders_per_symbol = 0;
     }
     if let Some(limit) = input.max_daily_sell_orders_per_symbol {
         risk.max_daily_sell_orders_per_symbol = limit;
@@ -153,11 +153,10 @@ pub async fn update_risk_config(
         risk.atr_stop_multiplier = multiplier;
     }
     tracing::info!(
-        "리스크 설정 변경: 활성={}, 일일손실한도={}원, 종목비중={:.0}%, 일일주문제한(매수/매도)={}/{}, 연속손실차단={}회, ATR수량산정={}, 거래당위험={}bps, ATR배수={:.2}",
+        "리스크 설정 변경: 활성={}, 일일손실한도={}원, 종목비중={:.0}%, 일일주문제한(매수해제/매도)=0/{}, 연속손실차단={}회, ATR수량산정={}, 거래당위험={}bps, ATR배수={:.2}",
         risk.is_enabled(),
         risk.daily_loss_limit,
         risk.max_position_ratio * 100.0,
-        risk.max_daily_buy_orders_per_symbol,
         risk.max_daily_sell_orders_per_symbol,
         risk.max_consecutive_losses_per_strategy_symbol,
         risk.volatility_sizing_enabled,
