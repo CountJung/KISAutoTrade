@@ -54,6 +54,11 @@ function strategy(id: string, name: string, index: number) {
         min_hold_observations: 2,
         initial_stop_loss_pct: 1,
         entry_failure_observations: 3,
+        rapid_rebound_enabled: false,
+        rapid_rebound_lookback_ticks: 8,
+        rapid_rebound_drop_pct: 2,
+        rapid_rebound_recovery_pct: 1.2,
+        rapid_rebound_max_low_age_ticks: 3,
       }
       : {},
   }
@@ -360,6 +365,11 @@ test('Leveraged strategy editor uses single target ticker model', async ({ page 
   await expect(page.getByLabel('추적 활성 수익(%)')).toBeVisible()
   await expect(page.getByLabel('본전 보호 버퍼(%)')).toBeVisible()
   await expect(page.getByLabel('최소 보유 관측치')).toBeVisible()
+  await expect(page.getByText('급반등 단독 진입 사용')).toBeVisible()
+  await expect(page.getByLabel('최근 관측치')).toBeVisible()
+  await expect(page.getByLabel('선행 급락(%)')).toBeVisible()
+  await expect(page.getByLabel('저점 회복(%)')).toBeVisible()
+  await expect(page.getByLabel('저점 후 허용 관측치')).toBeVisible()
   await expect(page.getByRole('button', { name: '대상 추가' }).first()).toBeVisible()
   await expect(page.getByText('운용 모드')).toHaveCount(0)
   await expect(page.getByText('기초지수')).toHaveCount(0)

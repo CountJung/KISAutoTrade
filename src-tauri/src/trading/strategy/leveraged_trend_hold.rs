@@ -84,6 +84,21 @@ fn lth_default_rebound_buy_pressure() -> f64 {
 fn lth_default_rebound_rsi() -> f64 {
     30.0
 }
+fn lth_default_rapid_rebound_enabled() -> bool {
+    false
+}
+fn lth_default_rapid_rebound_lookback_ticks() -> usize {
+    8
+}
+fn lth_default_rapid_rebound_drop() -> f64 {
+    2.0
+}
+fn lth_default_rapid_rebound_recovery() -> f64 {
+    1.2
+}
+fn lth_default_rapid_rebound_max_low_age_ticks() -> usize {
+    3
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LeveragedTrendHoldEntry {
@@ -168,6 +183,16 @@ pub struct LeveragedTrendHoldParams {
     pub rebound_buy_pressure_pct: f64,
     #[serde(default = "lth_default_rebound_rsi")]
     pub rebound_rsi_min: f64,
+    #[serde(default = "lth_default_rapid_rebound_enabled")]
+    pub rapid_rebound_enabled: bool,
+    #[serde(default = "lth_default_rapid_rebound_lookback_ticks")]
+    pub rapid_rebound_lookback_ticks: usize,
+    #[serde(default = "lth_default_rapid_rebound_drop")]
+    pub rapid_rebound_drop_pct: f64,
+    #[serde(default = "lth_default_rapid_rebound_recovery")]
+    pub rapid_rebound_recovery_pct: f64,
+    #[serde(default = "lth_default_rapid_rebound_max_low_age_ticks")]
+    pub rapid_rebound_max_low_age_ticks: usize,
 }
 
 impl Default for LeveragedTrendHoldParams {
@@ -202,6 +227,11 @@ impl Default for LeveragedTrendHoldParams {
             rebound_pullback_pct: lth_default_rebound_pullback(),
             rebound_buy_pressure_pct: lth_default_rebound_buy_pressure(),
             rebound_rsi_min: lth_default_rebound_rsi(),
+            rapid_rebound_enabled: lth_default_rapid_rebound_enabled(),
+            rapid_rebound_lookback_ticks: lth_default_rapid_rebound_lookback_ticks(),
+            rapid_rebound_drop_pct: lth_default_rapid_rebound_drop(),
+            rapid_rebound_recovery_pct: lth_default_rapid_rebound_recovery(),
+            rapid_rebound_max_low_age_ticks: lth_default_rapid_rebound_max_low_age_ticks(),
         }
     }
 }
@@ -233,6 +263,14 @@ struct LeveragedReboundSnapshot {
     pullback_pct: f64,
     buy_pressure_pct: f64,
     rebound_from_low_pct: f64,
+}
+
+struct LeveragedRapidReboundSnapshot {
+    rsi: Option<f64>,
+    adx: Option<f64>,
+    drop_pct: f64,
+    recovery_pct: f64,
+    low_age_ticks: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -326,13 +364,12 @@ impl LeveragedTrendHoldStrategy {
     }
 
     fn rebound_price_cap(&self) -> usize {
-        bounded_window_with_extra(
-            self.params
-                .rebound_baseline_ticks
-                .saturating_add(self.params.rebound_confirm_ticks)
-                .max(4),
-            2,
-        )
+        let staged_rebound = self
+            .params
+            .rebound_baseline_ticks
+            .saturating_add(self.params.rebound_confirm_ticks);
+        let rapid_rebound = self.params.rapid_rebound_lookback_ticks;
+        bounded_window_with_extra(staged_rebound.max(rapid_rebound).max(4), 2)
     }
 
     #[cfg(test)]
@@ -600,6 +637,58 @@ impl LeveragedTrendHoldStrategy {
         } else {
             None
         }
+    }
+
+    fn rapid_rebound_entry_ok(&self, symbol: &str) -> Option<LeveragedRapidReboundSnapshot> {
+        if !self.params.rapid_rebound_enabled {
+            return None;
+        }
+        let state = self.states.get(symbol)?;
+        let lookback = self.params.rapid_rebound_lookback_ticks.clamp(3, 120);
+        if state.rebound_prices.len() < lookback {
+            return None;
+        }
+
+        let prices: Vec<u64> = state.rebound_prices.iter().copied().collect();
+        let start = prices.len().saturating_sub(lookback);
+        let window = &prices[start..];
+        let current = *window.last()?;
+        if current == 0 {
+            return None;
+        }
+
+        let (low_idx, &low) = window.iter().enumerate().min_by_key(|(_, price)| **price)?;
+        if low_idx == 0 || low == 0 || low_idx + 1 >= window.len() {
+            return None;
+        }
+        let prior_high = *window[..low_idx].iter().max()?;
+        let previous = window[window.len().saturating_sub(2)];
+        if prior_high == 0 || previous == 0 || current <= previous {
+            return None;
+        }
+
+        let low_age_ticks = window.len().saturating_sub(1).saturating_sub(low_idx);
+        let max_low_age = self.params.rapid_rebound_max_low_age_ticks.clamp(1, 30);
+        if low_age_ticks == 0 || low_age_ticks > max_low_age {
+            return None;
+        }
+
+        let drop_pct = (prior_high.saturating_sub(low) as f64 / prior_high as f64) * 100.0;
+        let recovery_pct = (current.saturating_sub(low) as f64 / low as f64) * 100.0;
+        if drop_pct < self.params.rapid_rebound_drop_pct
+            || recovery_pct < self.params.rapid_rebound_recovery_pct
+        {
+            return None;
+        }
+
+        let closes = Self::closes(&state.candles);
+        Some(LeveragedRapidReboundSnapshot {
+            rsi: Self::rsi(&closes, self.params.rsi_period),
+            adx: Self::adx(&state.candles, self.params.adx_period),
+            drop_pct,
+            recovery_pct,
+            low_age_ticks,
+        })
     }
 
     fn exit_reason(&self, symbol: &str) -> Option<String> {
@@ -911,6 +1000,15 @@ impl LeveragedTrendHoldStrategy {
         }
     }
 
+    fn rapid_rebound_indicator_label(snap: &LeveragedRapidReboundSnapshot) -> String {
+        match (snap.rsi, snap.adx) {
+            (Some(rsi), Some(adx)) => format!(", RSI {:.1}, ADX {:.1}", rsi, adx),
+            (Some(rsi), None) => format!(", RSI {:.1}, ADX 준비 전", rsi),
+            (None, Some(adx)) => format!(", RSI 준비 전, ADX {:.1}", adx),
+            (None, None) => ", RSI/ADX 준비 전".to_string(),
+        }
+    }
+
     pub fn preview_signals(
         symbol: &str,
         params: LeveragedTrendHoldParams,
@@ -1078,6 +1176,28 @@ impl LeveragedTrendHoldStrategy {
 
             let in_trend_window = elapsed >= strategy.params.entry_window_start_min
                 && elapsed <= strategy.params.entry_window_end_min;
+            if let Some(snap) = strategy.rapid_rebound_entry_ok(&normalized_symbol) {
+                signals.push(strategy.preview_signal(
+                    &timed.time,
+                    "buy",
+                    &normalized_symbol,
+                    price,
+                    quantity,
+                    format!(
+                        "LeveragedTrendHold 급반등 단독 진입: 선행 급락 {:.2}%, 저점 대비 +{:.2}% (저점 후 {}관측치{})",
+                        snap.drop_pct,
+                        snap.recovery_pct,
+                        snap.low_age_ticks,
+                        Self::rapid_rebound_indicator_label(&snap)
+                    ),
+                ));
+                in_position = true;
+                entry_price = Some(price);
+                high_water = Some(price);
+                held_observations = 0;
+                continue;
+            }
+
             if in_trend_window {
                 if let Some(snap) = strategy.entry_ok(&normalized_symbol) {
                     signals.push(strategy.preview_signal(
@@ -1343,6 +1463,32 @@ impl Strategy for LeveragedTrendHoldStrategy {
             && elapsed <= self.params.entry_window_end_min
             && !in_blackout;
         let can_check_rebound = self.params.intraday_rebound_enabled && !in_blackout;
+        let can_check_rapid_rebound = self.params.rapid_rebound_enabled && !in_blackout;
+
+        if can_check_rapid_rebound {
+            if let Some(snap) = self.rapid_rebound_entry_ok(symbol) {
+                self.positions.insert(
+                    symbol.to_string(),
+                    LeveragedTrendHoldPosition {
+                        in_position: true,
+                        entry_price: Some(price),
+                        high_water: Some(price),
+                        held_observations: 0,
+                    },
+                );
+                return Signal::Buy {
+                    symbol: symbol.to_string(),
+                    quantity,
+                    reason: format!(
+                        "LeveragedTrendHold 급반등 단독 진입: 선행 급락 {:.2}%, 저점 대비 +{:.2}% (저점 후 {}관측치{})",
+                        snap.drop_pct,
+                        snap.recovery_pct,
+                        snap.low_age_ticks,
+                        Self::rapid_rebound_indicator_label(&snap)
+                    ),
+                };
+            }
+        }
 
         if in_trend_window {
             if let Some(snap) = self.entry_ok(symbol) {
@@ -1778,6 +1924,50 @@ mod tests {
     }
 
     #[test]
+    fn buys_rapid_rebound_without_trend_snapshot_when_enabled() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("KORU")],
+            rapid_rebound_enabled: true,
+            rapid_rebound_lookback_ticks: 4,
+            rapid_rebound_drop_pct: 3.0,
+            rapid_rebound_recovery_pct: 1.5,
+            rapid_rebound_max_low_age_ticks: 3,
+            no_trade_adx_below: 90.0,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let mut strategy = strategy_with_params(params);
+        strategy.initialize_ohlc("KORU", &upward_candles());
+
+        assert_eq!(strategy.on_tick("KORU", 100, 100), Signal::Hold);
+        assert_eq!(strategy.on_tick("KORU", 96, 100), Signal::Hold);
+        assert_eq!(strategy.on_tick("KORU", 97, 100), Signal::Hold);
+        let signal = strategy.on_tick("KORU", 98, 100);
+
+        assert!(
+            matches!(signal, Signal::Buy { symbol, quantity, reason } if symbol == "KORU" && quantity == 3 && reason.contains("급반등 단독 진입"))
+        );
+    }
+
+    #[test]
+    fn ignores_rapid_rebound_by_default() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("KORU")],
+            rapid_rebound_lookback_ticks: 4,
+            rapid_rebound_drop_pct: 3.0,
+            rapid_rebound_recovery_pct: 1.5,
+            no_trade_adx_below: 0.0,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let mut strategy = strategy_with_params(params);
+        strategy.initialize_ohlc("KORU", &upward_candles());
+
+        assert_eq!(strategy.on_tick("KORU", 100, 100), Signal::Hold);
+        assert_eq!(strategy.on_tick("KORU", 96, 100), Signal::Hold);
+        assert_eq!(strategy.on_tick("KORU", 97, 100), Signal::Hold);
+        assert_eq!(strategy.on_tick("KORU", 98, 100), Signal::Hold);
+    }
+
+    #[test]
     fn preview_signals_marks_intraday_rebound_without_order_state() {
         let params = LeveragedTrendHoldParams {
             entries: vec![entry("KORU")],
@@ -1813,6 +2003,39 @@ mod tests {
 
         assert!(
             matches!(signals.first(), Some(signal) if signal.side == "buy" && signal.reason.contains("매수세 반동 진입"))
+        );
+    }
+
+    #[test]
+    fn preview_signals_marks_rapid_rebound_without_trend_snapshot() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("KORU")],
+            rapid_rebound_enabled: true,
+            rapid_rebound_lookback_ticks: 4,
+            rapid_rebound_drop_pct: 3.0,
+            rapid_rebound_recovery_pct: 1.5,
+            rapid_rebound_max_low_age_ticks: 3,
+            no_trade_adx_below: 90.0,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let intraday = [100, 96, 97, 98]
+            .into_iter()
+            .enumerate()
+            .map(|(idx, price)| LeveragedTrendHoldTimedCandle {
+                time: format!("20260707131{}00", idx + 1),
+                candle: OhlcCandle {
+                    open: price,
+                    high: price,
+                    low: price,
+                    close: price,
+                },
+            })
+            .collect::<Vec<_>>();
+
+        let signals = LeveragedTrendHoldStrategy::preview_signals("KORU", params, &[], &intraday);
+
+        assert!(
+            matches!(signals.first(), Some(signal) if signal.side == "buy" && signal.reason.contains("급반등 단독 진입"))
         );
     }
 

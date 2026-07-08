@@ -254,7 +254,9 @@ fn default_warmup_count(strategy_id: &str, candle_len: usize) -> usize {
     if !uses_startup_history(strategy_id) || candle_len < 3 {
         return 0;
     }
-    (candle_len / 2).clamp(1, candle_len.saturating_sub(1)).min(120)
+    (candle_len / 2)
+        .clamp(1, candle_len.saturating_sub(1))
+        .min(120)
 }
 
 pub fn preview_strategy_from_candles(
@@ -299,7 +301,11 @@ pub fn preview_strategy_from_candles(
         if let Some(symbols) = config.params.get("symbols").and_then(|v| v.as_array()) {
             config.target_symbols = symbols
                 .iter()
-                .filter_map(|item| item.get("symbol").and_then(|v| v.as_str()).map(str::to_string))
+                .filter_map(|item| {
+                    item.get("symbol")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string)
+                })
                 .collect();
         }
     }
@@ -312,7 +318,10 @@ pub fn preview_strategy_from_candles(
 
     if warmup_count > 0 {
         let warmup = &replay_rows[..warmup_count];
-        let closes = warmup.iter().map(|(_, ohlc, _)| ohlc.close).collect::<Vec<_>>();
+        let closes = warmup
+            .iter()
+            .map(|(_, ohlc, _)| ohlc.close)
+            .collect::<Vec<_>>();
         let high_close = warmup
             .iter()
             .map(|(_, ohlc, _)| (ohlc.high, ohlc.close))

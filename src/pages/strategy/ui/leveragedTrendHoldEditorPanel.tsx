@@ -117,6 +117,11 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
   const reboundPullback = numericParam(params, 'rebound_pullback_pct', 4)
   const reboundBuyPressure = numericParam(params, 'rebound_buy_pressure_pct', 1.5)
   const reboundRsiMin = numericParam(params, 'rebound_rsi_min', 30)
+  const rapidReboundEnabled = boolParam(params, 'rapid_rebound_enabled', false)
+  const rapidReboundLookbackTicks = numericParam(params, 'rapid_rebound_lookback_ticks', 8)
+  const rapidReboundDrop = numericParam(params, 'rapid_rebound_drop_pct', 2)
+  const rapidReboundRecovery = numericParam(params, 'rapid_rebound_recovery_pct', 1.2)
+  const rapidReboundMaxLowAgeTicks = numericParam(params, 'rapid_rebound_max_low_age_ticks', 3)
   const trailingStopPct = numericParam(params, 'trailing_stop_pct', 1.5)
   const trailingActivationProfit = numericParam(params, 'trailing_activation_profit_pct', 1)
   const breakevenBuffer = numericParam(params, 'breakeven_buffer_pct', 0.2)
@@ -539,6 +544,74 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
               </Stack>
               <Typography variant="caption" color="text.secondary">
                 반등이 틀리면 초기 손절/실패 판정으로 먼저 빠지고, 고점 수익률이 활성 기준을 넘긴 뒤에는 본전 보호와 추적손절로 수익을 지킵니다.
+              </Typography>
+            </Stack>
+          </Box>
+
+          <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 1 }}>
+            <Stack spacing={1}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={rapidReboundEnabled}
+                    disabled={stratEnabled}
+                    onChange={(e) => props.onParamsUpdate({
+                      ...params,
+                      rapid_rebound_enabled: e.target.checked,
+                    })}
+                    size="small"
+                  />
+                }
+                label={
+                  <Typography variant="caption" fontWeight={600}>
+                    급반등 단독 진입 사용
+                  </Typography>
+                }
+              />
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
+                <TextField
+                  label="최근 관측치"
+                  type="number"
+                  value={rapidReboundLookbackTicks}
+                  disabled={stratEnabled || !rapidReboundEnabled}
+                  size="small"
+                  onChange={(e) => updateIntegerParam('rapid_rebound_lookback_ticks', Number(e.target.value), 3, 120)}
+                  inputProps={{ min: 3, max: 120, step: 1 }}
+                  sx={{ width: { xs: '100%', md: 130 } }}
+                />
+                <TextField
+                  label="선행 급락(%)"
+                  type="number"
+                  value={rapidReboundDrop}
+                  disabled={stratEnabled || !rapidReboundEnabled}
+                  size="small"
+                  onChange={(e) => updateNumericParam('rapid_rebound_drop_pct', Number(e.target.value), 0.5, 30)}
+                  inputProps={{ min: 0.5, max: 30, step: 0.1 }}
+                  sx={{ width: { xs: '100%', md: 130 } }}
+                />
+                <TextField
+                  label="저점 회복(%)"
+                  type="number"
+                  value={rapidReboundRecovery}
+                  disabled={stratEnabled || !rapidReboundEnabled}
+                  size="small"
+                  onChange={(e) => updateNumericParam('rapid_rebound_recovery_pct', Number(e.target.value), 0.5, 30)}
+                  inputProps={{ min: 0.5, max: 30, step: 0.1 }}
+                  sx={{ width: { xs: '100%', md: 130 } }}
+                />
+                <TextField
+                  label="저점 후 허용 관측치"
+                  type="number"
+                  value={rapidReboundMaxLowAgeTicks}
+                  disabled={stratEnabled || !rapidReboundEnabled}
+                  size="small"
+                  onChange={(e) => updateIntegerParam('rapid_rebound_max_low_age_ticks', Number(e.target.value), 1, 30)}
+                  inputProps={{ min: 1, max: 30, step: 1 }}
+                  sx={{ width: { xs: '100%', md: 170 } }}
+                />
+              </Stack>
+              <Typography variant="caption" color="text.secondary">
+                최근 관측 구간 안에서 먼저 급락이 발생하고, 저점 이후 지정 관측치 안에 강하게 되돌리면 추세/ADX 조건 없이 급반등만으로 진입합니다.
               </Typography>
             </Stack>
           </Box>
