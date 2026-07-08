@@ -39,6 +39,8 @@ import type {
   SetLogConfigInput,
   StockSearchItem,
   AppLogEntry,
+  StrategyPreviewInput,
+  StrategyPreviewView,
   StrategyView,
   TradeRecord,
   TradingStatus,
@@ -377,6 +379,12 @@ export function useUpdateStrategy() {
 export function usePreviewLeveragedTrendHold() {
   return useMutation<LeveragedTrendHoldPreviewView, CmdError, LeveragedTrendHoldPreviewInput>({
     mutationFn: cmd.previewLeveragedTrendHold,
+  })
+}
+
+export function usePreviewStrategy() {
+  return useMutation<StrategyPreviewView, CmdError, StrategyPreviewInput>({
+    mutationFn: cmd.previewStrategy,
   })
 }
 

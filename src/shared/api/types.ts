@@ -659,6 +659,34 @@ export interface LeveragedTrendHoldPreviewView {
   message: string
 }
 
+export interface StrategyPreviewInput {
+  strategyId: string
+  strategyName: string
+  symbol: string
+  isOverseas: boolean
+  orderQuantity: number
+  params: Record<string, unknown>
+  candles: ChartCandle[]
+  warmupCount?: number
+}
+
+export interface StrategyPreviewSignal {
+  time: string
+  side: 'buy' | 'sell'
+  price: number
+  quantity: number
+  reason: string
+}
+
+export interface StrategyPreviewView {
+  strategyId: string
+  symbol: string
+  candles: ChartCandle[]
+  signals: StrategyPreviewSignal[]
+  generatedAt: string
+  message: string
+}
+
 // ─── 전략 ──────────────────────────────────────────────────────────
 export interface StrategyView {
   id: string

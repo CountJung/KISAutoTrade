@@ -434,6 +434,7 @@ pub fn run() {
             commands::get_toss_market_calendar,
             commands::get_toss_chart_data,
             commands::preview_leveraged_trend_hold,
+            commands::preview_strategy,
             commands::get_chart_data,
             commands::get_price,
             commands::place_order,

@@ -27,11 +27,18 @@ import {
 import type {
   ChartCandle,
   LeveragedTrendHoldPreviewSignal,
+  StrategyPreviewSignal,
 } from '../../../api/types'
+
+export type StrategyPreviewChartSignal =
+  | LeveragedTrendHoldPreviewSignal
+  | StrategyPreviewSignal
 
 type Props = {
   candles: ChartCandle[]
-  signals: LeveragedTrendHoldPreviewSignal[]
+  signals: StrategyPreviewChartSignal[]
+  sourceLabel?: string
+  emptyLabel?: string
 }
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000
@@ -43,6 +50,13 @@ function toNumber(value: string) {
 
 function parseTimeMs(value: string, fallbackIndex = 0): number {
   const digits = value.replace(/\D/g, '')
+  if (digits.length === 8) {
+    const year = Number(digits.slice(0, 4))
+    const month = Number(digits.slice(4, 6)) - 1
+    const day = Number(digits.slice(6, 8))
+    const ms = Date.UTC(year, month, day) - KST_OFFSET_MS
+    if (Number.isFinite(ms)) return ms
+  }
   if (digits.length >= 12) {
     const year = Number(digits.slice(0, 4))
     const month = Number(digits.slice(4, 6)) - 1
@@ -98,7 +112,12 @@ function toLabel(time: string) {
   return formatKstMs(parseTimeMs(time), true)
 }
 
-export function LeveragedTrendHoldPreviewChart({ candles, signals }: Props) {
+export function StrategyPreviewChart({
+  candles,
+  signals,
+  sourceLabel = 'Toss 1분봉 캔들',
+  emptyLabel = '차트 데이터가 아직 없습니다.',
+}: Props) {
   const theme = useTheme()
   const containerRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -218,7 +237,7 @@ export function LeveragedTrendHoldPreviewChart({ candles, signals }: Props) {
     return (
       <Box sx={{ minHeight: 180, display: 'grid', placeItems: 'center', border: 1, borderColor: 'divider', borderRadius: 1 }}>
         <Typography variant="caption" color="text.secondary">
-          Toss 1분봉 데이터가 아직 없습니다.
+          {emptyLabel}
         </Typography>
       </Box>
     )
@@ -227,7 +246,7 @@ export function LeveragedTrendHoldPreviewChart({ candles, signals }: Props) {
   return (
     <Stack spacing={1}>
       <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-        <Chip size="small" variant="outlined" label="Toss 1분봉 캔들" />
+        <Chip size="small" variant="outlined" label={sourceLabel} />
         <FormControlLabel
           control={
             <Switch
@@ -265,3 +284,5 @@ export function LeveragedTrendHoldPreviewChart({ candles, signals }: Props) {
     </Stack>
   )
 }
+
+export const LeveragedTrendHoldPreviewChart = StrategyPreviewChart

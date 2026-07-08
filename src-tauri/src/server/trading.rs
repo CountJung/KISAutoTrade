@@ -362,3 +362,16 @@ pub(super) async fn update_strategy_handler(
         "params":          updated_config.params,
     }))
 }
+
+/// POST /api/strategy/preview — 프론트가 제공한 차트 캔들로 전략 신호 미리보기
+pub(super) async fn strategy_preview_handler(
+    Json(input): Json<crate::commands::StrategyPreviewInput>,
+) -> Json<serde_json::Value> {
+    match crate::commands::preview_strategy_from_candles(input) {
+        Ok(preview) => Json(serde_json::to_value(preview).unwrap_or_default()),
+        Err(e) => Json(serde_json::json!({
+            "code": e.code,
+            "error": e.message,
+        })),
+    }
+}

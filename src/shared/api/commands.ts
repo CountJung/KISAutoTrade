@@ -36,6 +36,8 @@ import type {
   SetTradeArchiveConfigInput,
   StockListStats,
   StockSearchItem,
+  StrategyPreviewInput,
+  StrategyPreviewView,
   StrategyView,
   TradeArchiveConfig,
   TradeArchiveStats,
@@ -198,6 +200,11 @@ export const previewLeveragedTrendHold = (
   input: LeveragedTrendHoldPreviewInput,
 ): Promise<LeveragedTrendHoldPreviewView> =>
   invoke('preview_leveraged_trend_hold', { input })
+
+export const previewStrategy = (
+  input: StrategyPreviewInput,
+): Promise<StrategyPreviewView> =>
+  invoke('preview_strategy', { input })
 
 // ─── 로그 설정 ────────────────────────────────────────────────────
 export const getLogConfig = (): Promise<LogConfig> =>

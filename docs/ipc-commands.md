@@ -41,6 +41,7 @@
 | `get_toss_market_calendar` | 활성 Toss 프로파일로 KR/US 정규장 캘린더 조회 (`regularSession`, `isRegularOpen`) |
 | `get_toss_chart_data` | 활성 Toss 프로파일로 캔들 조회 (`1d`/`1m`, count 1~200, `ChartCandle[]`) |
 | `preview_leveraged_trend_hold` | 활성 Toss 프로파일의 `1m` 캔들로 레버리지 추세 보유 전략을 읽기 전용 리플레이해 매수/청산 신호와 차트 캔들을 반환 |
+| `preview_strategy` | 프론트가 제공한 `ChartCandle[]`로 일반 전략을 읽기 전용 리플레이해 매수/청산 신호와 차트 캔들을 반환 |
 | `get_chart_data` | 국내주식 차트 데이터 (일봉) |
 | `get_overseas_price` | 해외주식 현재가 조회 |
 | `get_overseas_chart_data` | 해외주식 차트 데이터 (일/주/월봉) |

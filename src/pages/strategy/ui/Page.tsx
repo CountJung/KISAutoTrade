@@ -36,6 +36,7 @@ import {
   LeveragedTrendHoldEditorPanel,
   hasInvalidLthEntries,
 } from './leveragedTrendHoldEditorPanel'
+import { StrategyPreviewPanel } from './strategyPreviewPanel'
 import {
   useAppConfig,
   useStrategies,
@@ -867,6 +868,7 @@ export default function Strategy() {
           const pcSessionSymbols = pcEditMap[s.id] ?? pcInitialSymbols
           const lthSessionEntries = lthEditMap[s.id] ?? lthInitialEntries
           const sessionParams = sType === 'leveraged_trend_hold' ? lthParams : s.params
+          const previewSymbolNames = { ...s.targetSymbolNames, ...symbolNames }
           const tossSession = getTossSession(s.id, sessionParams)
           const showTossSession = activeBrokerIsToss && strategyHasUsTargets(sType, s, pcSessionSymbols, lthSessionEntries)
           const selectedTossSessionWindow = tossUsSessionWindow(tossCalendar, tossSession)
@@ -998,14 +1000,28 @@ export default function Strategy() {
 
                   {/* price_condition: 커스텀 편집 UI */}
                   {sType === 'price_condition' ? (
-                    <PriceConditionEditorPanel
-                      stratEnabled={s.enabled}
-                      initialSymbols={pcInitialSymbols}
-                      editedSymbols={pcEditMap[s.id]}
-                      selectedStock={selectedStock}
-                      market={market}
-                      onUpdate={(syms) => setPcEditMap((prev) => ({ ...prev, [s.id]: syms }))}
-                    />
+                    <>
+                      <PriceConditionEditorPanel
+                        stratEnabled={s.enabled}
+                        initialSymbols={pcInitialSymbols}
+                        editedSymbols={pcEditMap[s.id]}
+                        selectedStock={selectedStock}
+                        market={market}
+                        onUpdate={(syms) => setPcEditMap((prev) => ({ ...prev, [s.id]: syms }))}
+                      />
+                      <StrategyPreviewPanel
+                        strategyId={s.id}
+                        strategyName={s.name}
+                        brokerId={s.brokerId}
+                        symbols={pcSessionSymbols.map((symbol) => symbol.symbol)}
+                        symbolNames={{
+                          ...previewSymbolNames,
+                          ...Object.fromEntries(pcSessionSymbols.map((symbol) => [symbol.symbol, symbol.symbol_name])),
+                        }}
+                        orderQuantity={s.orderQuantity}
+                        params={withTossUsSessionParam({ ...s.params, symbols: pcSessionSymbols }, tossSession)}
+                      />
+                    </>
                   ) : sType === 'leveraged_trend_hold' ? (
                     <LeveragedTrendHoldEditorPanel
                       stratEnabled={s.enabled}
@@ -1102,6 +1118,15 @@ export default function Strategy() {
                       </Grid>
                     ))}
                   </Grid>
+                  <StrategyPreviewPanel
+                    strategyId={s.id}
+                    strategyName={s.name}
+                    brokerId={s.brokerId}
+                    symbols={edit.symbols}
+                    symbolNames={previewSymbolNames}
+                    orderQuantity={edit.quantity}
+                    params={withTossUsSessionParam({ ...s.params, ...edit.params }, tossSession)}
+                  />
                     </>
                   )}
                 </Stack>

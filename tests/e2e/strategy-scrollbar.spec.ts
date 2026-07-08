@@ -29,19 +29,20 @@ const strategyEntries = [
 
 function strategy(id: string, name: string, index: number) {
   const isLeveraged = id === 'leveraged_trend_hold_default'
+  const symbol = String(index).padStart(6, '0')
   return {
     id,
     name,
     enabled: false,
     brokerId: 'kis',
     brokerAccountId: '12345678-01',
-    targetSymbols: isLeveraged ? ['SOXL', 'KORU'] : [`0000${index}`],
+    targetSymbols: isLeveraged ? ['SOXL', 'KORU'] : [symbol],
     targetSymbolNames: isLeveraged
       ? {
         SOXL: 'Direxion Daily Semiconductor Bull 3X',
         KORU: 'Direxion Daily South Korea Bull 3X',
       }
-      : {},
+      : { [symbol]: `Mock Strategy ${index}` },
     orderQuantity: 1,
     params: isLeveraged
       ? {
@@ -62,6 +63,7 @@ type MockOptions = {
   strategyDelayMs?: number
   activeBroker?: 'kis' | 'toss'
   previewRequests?: unknown[]
+  genericPreviewRequests?: unknown[]
 }
 
 async function mockApi(page: import('@playwright/test').Page, options: MockOptions = {}) {
@@ -166,6 +168,47 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
           kr: { ...day, preSession: null, afterSession: null },
           us: day,
           summary: 'mock toss calendar',
+        },
+      })
+      return
+    }
+    if (url.pathname.startsWith('/api/chart/')) {
+      await route.fulfill({
+        json: [
+          { date: '20260701', open: '100', high: '102', low: '99', close: '100', volume: '1000' },
+          { date: '20260702', open: '100', high: '105', low: '100', close: '104', volume: '1500' },
+          { date: '20260703', open: '104', high: '108', low: '103', close: '107', volume: '1800' },
+          { date: '20260704', open: '107', high: '109', low: '105', close: '106', volume: '1200' },
+        ],
+      })
+      return
+    }
+    if (url.pathname === '/api/strategy/preview') {
+      const body = route.request().postDataJSON()
+      options.genericPreviewRequests?.push(body)
+      await route.fulfill({
+        json: {
+          strategyId: body.strategyId,
+          symbol: body.symbol,
+          candles: body.candles,
+          signals: [
+            {
+              time: '20260702',
+              side: 'buy',
+              price: 104,
+              quantity: 1,
+              reason: 'mock generic buy',
+            },
+            {
+              time: '20260704',
+              side: 'sell',
+              price: 106,
+              quantity: 1,
+              reason: 'mock generic sell',
+            },
+          ],
+          generatedAt: '2026-07-04T15:30:00+09:00',
+          message: 'mock generic preview signals',
         },
       })
       return
@@ -327,8 +370,9 @@ test('Leveraged strategy preview can switch between configured tickers', async (
   await mockApi(page)
   await page.goto('/strategy')
 
-  await expect(page.getByText('전략 미리보기')).toBeVisible()
-  const tickerSelect = page.getByRole('combobox', { name: '시뮬레이션 티커' })
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'LeveragedTrendHoldStrategy' }).first()
+  await expect(card.getByText('전략 미리보기')).toBeVisible()
+  const tickerSelect = card.getByRole('combobox', { name: '시뮬레이션 티커' })
   await expect(tickerSelect).toContainText('SOXL')
 
   await tickerSelect.click()
@@ -342,17 +386,40 @@ test('Leveraged strategy preview runs selected ticker and renders signal chart',
   await mockApi(page, { activeBroker: 'toss', previewRequests })
   await page.goto('/strategy')
 
-  await page.getByRole('button', { name: '미리보기 계산' }).click()
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'LeveragedTrendHoldStrategy' }).first()
+  await card.getByRole('button', { name: '미리보기 계산' }).click()
 
-  await expect(page.getByText('mock preview signals')).toBeVisible()
-  await expect(page.getByTestId('lth-preview-chart')).toBeVisible()
-  await expect(page.getByTestId('lth-preview-chart').locator('canvas').first()).toBeVisible()
-  await expect(page.getByRole('checkbox', { name: '종가 선 그래프 표시' })).toBeChecked()
-  await expect(page.getByText('종가 선 그래프')).toBeVisible()
-  await expect(page.getByText(/매수 07\/07 17:02/)).toBeVisible()
-  await expect(page.getByText(/매도 07\/07 17:03/)).toBeVisible()
+  await expect(card.getByText('mock preview signals')).toBeVisible()
+  await expect(card.getByTestId('lth-preview-chart')).toBeVisible()
+  await expect(card.getByTestId('lth-preview-chart').locator('canvas').first()).toBeVisible()
+  await expect(card.getByRole('checkbox', { name: '종가 선 그래프 표시' })).toBeChecked()
+  await expect(card.getByText('종가 선 그래프')).toBeVisible()
+  await expect(card.getByText(/매수 07\/07 17:02/)).toBeVisible()
+  await expect(card.getByText(/매도 07\/07 17:03/)).toBeVisible()
   expect(previewRequests).toHaveLength(1)
   expect(previewRequests[0]).toMatchObject({ symbol: 'SOXL' })
+})
+
+test('Generic strategy card preview runs with edited card settings', async ({ page }) => {
+  const genericPreviewRequests: unknown[] = []
+  await mockApi(page, { genericPreviewRequests })
+  await page.goto('/strategy')
+
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'MovingAverageCrossStrategy' }).first()
+  await expect(card.getByText('전략 미리보기')).toBeVisible()
+  await card.getByRole('button', { name: '미리보기 계산' }).click()
+
+  await expect(card.getByText('mock generic preview signals')).toBeVisible()
+  await expect(card.getByText(/KIS 일봉 캔들/)).toBeVisible()
+  await expect(card.getByText(/매수 07\/02 00:00/)).toBeVisible()
+  await expect(card.getByText(/매도 07\/04 00:00/)).toBeVisible()
+  await expect(card.getByTestId('lth-preview-chart').locator('canvas').first()).toBeVisible()
+  expect(genericPreviewRequests).toHaveLength(1)
+  expect(genericPreviewRequests[0]).toMatchObject({
+    strategyId: 'ma_cross_default',
+    symbol: '000002',
+    orderQuantity: 1,
+  })
 })
 
 test('Sidebar trading action toggles auto trading from strategy page', async ({ page }) => {

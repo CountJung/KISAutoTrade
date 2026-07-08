@@ -14,6 +14,7 @@
 ///   GET  /api/toss-market-calendar             → Toss KR/US 정규장 캘린더 JSON
 ///   GET  /api/toss-chart/:symbol              → Toss candles JSON (?interval=1d&count=200)
 ///   POST /api/strategy/leveraged-trend-hold/preview → Toss 1분봉 기반 레버리지 전략 미리보기
+///   POST /api/strategy/preview            → 제공된 캔들 기반 범용 전략 미리보기
 ///   GET  /api/price/:symbol                   → 국내 현재가 JSON
 ///   GET  /api/overseas-price/:ex/:sym         → 해외 현재가 JSON (NAS/NYS/AMS)
 ///   GET  /api/executed                        → 당일 체결 JSON
@@ -282,6 +283,7 @@ pub async fn start(
         .route("/api/trading/stop", post(trading_stop_handler))
         .route("/api/strategies", get(strategies_handler))
         .route("/api/strategies/:id", post(update_strategy_handler))
+        .route("/api/strategy/preview", post(strategy_preview_handler))
         // ── 프로파일 관리 ──
         .route("/api/profiles/add", post(add_profile_handler))
         .route("/api/profiles/update", post(update_profile_handler))
