@@ -28,16 +28,6 @@ fn broker_candles_to_ohlc(candles: &[BrokerCandle]) -> Vec<OhlcCandle> {
         .collect()
 }
 
-fn broker_candles_to_close_prices(candles: &[BrokerCandle]) -> Vec<u64> {
-    let mut candles = candles.to_vec();
-    candles.sort_by(|a, b| a.date.cmp(&b.date));
-    candles
-        .iter()
-        .filter_map(|c| broker_money_to_strategy_units(&c.close))
-        .filter(|price| *price > 0)
-        .collect()
-}
-
 async fn apply_ohlc_history(state: &AppState, symbol: &str, ohlc: Vec<OhlcCandle>, source: &str) {
     if ohlc.is_empty() {
         return;
@@ -96,20 +86,20 @@ async fn apply_ohlc_history(state: &AppState, symbol: &str, ohlc: Vec<OhlcCandle
     }
 }
 
-async fn apply_intraday_prices(state: &AppState, symbol: &str, prices: Vec<u64>, source: &str) {
-    if prices.is_empty() {
+async fn apply_intraday_ohlc(state: &AppState, symbol: &str, ohlc: Vec<OhlcCandle>, source: &str) {
+    if ohlc.is_empty() {
         return;
     }
     state
         .strategy_manager
         .lock()
         .await
-        .initialize_intraday_prices(symbol, &prices);
+        .initialize_intraday_ohlc(symbol, &ohlc);
     tracing::info!(
-        "전략 장중 가격 초기화 완료: {} @ {} ({}개)",
+        "전략 장중 OHLC 초기화 완료: {} @ {} ({}봉)",
         symbol,
         source,
-        prices.len()
+        ohlc.len()
     );
 }
 
@@ -162,8 +152,8 @@ pub(super) async fn initialize_active_strategy_history(state: &AppState) {
                 }
                 match adapter.get_candles(&broker_symbol, "1m", "", "").await {
                     Ok(candles) if !candles.is_empty() => {
-                        let prices = broker_candles_to_close_prices(&candles);
-                        apply_intraday_prices(state, symbol, prices, "Toss 1m candles").await;
+                        let ohlc = broker_candles_to_ohlc(&candles);
+                        apply_intraday_ohlc(state, symbol, ohlc, "Toss 1m candles").await;
                     }
                     Ok(_) => tracing::debug!(
                         "Toss 1분봉 데이터 없음 (장중 반동 초기화 건너뜀): {}",

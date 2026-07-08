@@ -179,7 +179,7 @@ impl Default for LeveragedTrendHoldParams {
 struct LeveragedTrendHoldMarketState {
     candles: VecDeque<OhlcCandle>,
     rebound_prices: VecDeque<u64>,
-    live_candle_started: bool,
+    live_candle_minute: Option<i64>,
 }
 
 struct LeveragedTrendHoldPosition {
@@ -304,6 +304,22 @@ impl LeveragedTrendHoldStrategy {
         )
     }
 
+    #[cfg(test)]
+    fn current_live_minute_key() -> i64 {
+        use std::sync::atomic::{AtomicI64, Ordering};
+        static NEXT_MINUTE: AtomicI64 = AtomicI64::new(0);
+        NEXT_MINUTE.fetch_add(1, Ordering::Relaxed)
+    }
+
+    #[cfg(not(test))]
+    fn current_live_minute_key() -> i64 {
+        use chrono::{Datelike, Timelike};
+        let now = chrono::Local::now();
+        now.date_naive().num_days_from_ce() as i64 * 24 * 60
+            + now.hour() as i64 * 60
+            + now.minute() as i64
+    }
+
     fn update_target_tick(&mut self, symbol: &str, price: u64) {
         let cap = self.window_cap();
         let rebound_cap = self.rebound_price_cap();
@@ -311,28 +327,36 @@ impl LeveragedTrendHoldStrategy {
             LeveragedTrendHoldMarketState {
                 candles: VecDeque::with_capacity(cap),
                 rebound_prices: VecDeque::with_capacity(rebound_cap),
-                live_candle_started: false,
+                live_candle_minute: None,
             }
         });
 
-        if !state.live_candle_started {
+        let live_minute = Self::current_live_minute_key();
+        let same_minute = state.live_candle_minute == Some(live_minute);
+
+        if !same_minute {
             state.candles.push_back(OhlcCandle {
                 open: price,
                 high: price,
                 low: price,
                 close: price,
             });
-            state.live_candle_started = true;
+            state.live_candle_minute = Some(live_minute);
+            state.rebound_prices.push_back(price);
         } else if let Some(last) = state.candles.back_mut() {
             last.high = last.high.max(price);
             last.low = last.low.min(price);
             last.close = price;
+            if let Some(rebound_last) = state.rebound_prices.back_mut() {
+                *rebound_last = price;
+            } else {
+                state.rebound_prices.push_back(price);
+            }
         }
 
         while state.candles.len() > cap {
             state.candles.pop_front();
         }
-        state.rebound_prices.push_back(price);
         while state.rebound_prices.len() > rebound_cap {
             state.rebound_prices.pop_front();
         }
@@ -797,7 +821,7 @@ impl LeveragedTrendHoldStrategy {
         let mut state = LeveragedTrendHoldMarketState {
             candles: VecDeque::with_capacity(cap),
             rebound_prices: VecDeque::with_capacity(rebound_cap),
-            live_candle_started: false,
+            live_candle_minute: None,
         };
         let take = daily_candles.len().min(cap);
         for candle in &daily_candles[daily_candles.len().saturating_sub(take)..] {
@@ -989,7 +1013,7 @@ impl Strategy for LeveragedTrendHoldStrategy {
         let mut state = LeveragedTrendHoldMarketState {
             candles: VecDeque::with_capacity(cap),
             rebound_prices: VecDeque::with_capacity(rebound_cap),
-            live_candle_started: false,
+            live_candle_minute: None,
         };
         let take = candles.len().min(cap);
         for candle in &candles[candles.len().saturating_sub(take)..] {
@@ -1014,7 +1038,7 @@ impl Strategy for LeveragedTrendHoldStrategy {
             LeveragedTrendHoldMarketState {
                 candles: VecDeque::with_capacity(window_cap),
                 rebound_prices: VecDeque::with_capacity(cap),
-                live_candle_started: false,
+                live_candle_minute: None,
             }
         });
         state.rebound_prices.clear();
@@ -1029,6 +1053,45 @@ impl Strategy for LeveragedTrendHoldStrategy {
         tracing::info!(
             "레버리지 단일 티커 장중 반동 초기화 [{}]: 가격 {}개 로드",
             symbol,
+            state.rebound_prices.len()
+        );
+    }
+
+    fn initialize_intraday_ohlc(&mut self, symbol: &str, candles: &[OhlcCandle]) {
+        self.sync_params();
+        if !self.is_target_symbol(symbol) || candles.is_empty() {
+            return;
+        }
+        let cap = self.window_cap();
+        let rebound_cap = self.rebound_price_cap();
+        let state = self.states.entry(symbol.to_string()).or_insert_with(|| {
+            LeveragedTrendHoldMarketState {
+                candles: VecDeque::with_capacity(cap),
+                rebound_prices: VecDeque::with_capacity(rebound_cap),
+                live_candle_minute: None,
+            }
+        });
+
+        let take = candles.len().min(cap);
+        for candle in &candles[candles.len().saturating_sub(take)..] {
+            state.candles.push_back(*candle);
+            while state.candles.len() > cap {
+                state.candles.pop_front();
+            }
+        }
+
+        state.rebound_prices.clear();
+        let rebound_take = candles.len().min(rebound_cap);
+        for candle in &candles[candles.len().saturating_sub(rebound_take)..] {
+            if candle.close > 0 {
+                state.rebound_prices.push_back(candle.close);
+            }
+        }
+        state.live_candle_minute = None;
+        tracing::info!(
+            "레버리지 단일 티커 장중 OHLC 초기화 [{}]: 1분봉 {}개 로드, 반동 가격 {}개 로드",
+            symbol,
+            take,
             state.rebound_prices.len()
         );
     }
@@ -1197,7 +1260,7 @@ impl Strategy for LeveragedTrendHoldStrategy {
 
     fn reset(&mut self) {
         for state in self.states.values_mut() {
-            state.live_candle_started = false;
+            state.live_candle_minute = None;
             state.rebound_prices.clear();
         }
         for pos in self.positions.values_mut() {
@@ -1435,5 +1498,35 @@ mod tests {
         assert!(
             matches!(signals.first(), Some(signal) if signal.side == "buy" && signal.reason.contains("RSI/ADX 준비 전"))
         );
+    }
+
+    #[test]
+    fn intraday_ohlc_initialization_matches_rebound_preview_window() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("KORU")],
+            intraday_rebound_enabled: true,
+            rebound_baseline_ticks: 2,
+            rebound_confirm_ticks: 2,
+            rebound_pullback_pct: 4.0,
+            rebound_buy_pressure_pct: 2.0,
+            rebound_rsi_min: 20.0,
+            no_trade_adx_below: 90.0,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let mut strategy = strategy_with_params(params);
+        strategy.initialize_ohlc("KORU", &upward_candles());
+        let intraday = [190, 180, 181, 186]
+            .into_iter()
+            .map(|price| OhlcCandle {
+                open: price,
+                high: price,
+                low: price,
+                close: price,
+            })
+            .collect::<Vec<_>>();
+
+        strategy.initialize_intraday_ohlc("KORU", &intraday);
+
+        assert!(strategy.rebound_entry_ok("KORU").is_some());
     }
 }

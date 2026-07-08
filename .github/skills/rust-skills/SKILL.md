@@ -269,7 +269,7 @@ fn validate_symbol(symbol: &str) -> Result<(), CmdError> {
 - 장중 급락 후 반등을 실험할 때는 기본값으로 꺼진 `intraday_rebound_enabled`를 켜고, `rebound_baseline_ticks`, `rebound_confirm_ticks`, `rebound_pullback_pct`, `rebound_buy_pressure_pct`, `rebound_rsi_min`을 함께 저장한다.
 - 장중 반동 진입은 절대 시각을 파라미터로 받지 않는다. 자동매매가 켜진 뒤 누적한 가격 관측치를 기준 구간과 바로 다음 확인 구간으로 나누고, 기준 구간 하락 후 확인 구간의 가격 회복이 충분히 강할 때 매수세 반동으로 본다.
 - 장중 반동 진입은 추세 진입용 `snapshot_for()` 전체 조건(EMA short/long, ADX no-trade gate)을 요구하지 않는다. 가격 반등 조건을 먼저 판단하고, RSI는 계산 가능할 때만 `rebound_rsi_min` 필터로 사용한다. 이렇게 해야 Toss 1분봉 미리보기처럼 장중 데이터가 짧거나 EMA60/ADX가 준비되지 않은 구간에서도 강한 반등 후보를 확인할 수 있다.
-- Toss 실행 scope에서 자동매매를 시작하면 Toss `1d` candles로 일봉 OHLC를 초기화하고, Toss `1m` candles 종가로 장중 반동 가격 버퍼를 초기화한다. 공개 데이터와 Toss 데이터가 섞이지 않게 strategy preview/진단도 가능하면 Toss candles 경로를 우선 사용한다.
+- Toss 실행 scope에서 자동매매를 시작하면 Toss `1d` candles로 일봉 OHLC를 초기화하고, Toss `1m` candles의 OHLC를 레버리지 전략 장중 상태에도 주입한다. 실시간 현재가 polling은 같은 분 안에서는 마지막 1분봉과 반동 관측값을 갱신하고, 분이 바뀔 때만 새 관측치를 추가한다. 공개 데이터와 Toss 데이터가 섞이지 않게 strategy preview/진단도 가능하면 Toss candles 경로를 우선 사용한다.
 
 ### Strategy trait 패턴 (이 프로젝트)
 
@@ -1087,4 +1087,4 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - Toss 연결 진단은 `check_toss_profile_connection` IPC에서 프로파일 lock을 짧게 잡아 clone한 뒤 실행한다. 진단 단계는 OpenAPI spec, token, accounts, holdings, order preflight read-only 순서이며 토큰 문자열은 응답에 포함하지 않는다.
 - Tauri IPC와 axum 웹 REST 응답 필드는 같이 갱신한다. 웹 핸들러에서 내부 struct를 그대로 직렬화하지 말고 `serde_json::json!`으로 camel/snake 응답 키를 명시한다.
 
-> 마지막 업데이트: 2026-07-08T02:50:00+09:00
+> 마지막 업데이트: 2026-07-08T03:20:00+09:00
