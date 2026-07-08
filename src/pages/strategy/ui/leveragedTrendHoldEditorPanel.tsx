@@ -117,6 +117,12 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
   const reboundPullback = numericParam(params, 'rebound_pullback_pct', 4)
   const reboundBuyPressure = numericParam(params, 'rebound_buy_pressure_pct', 1.5)
   const reboundRsiMin = numericParam(params, 'rebound_rsi_min', 30)
+  const trailingStopPct = numericParam(params, 'trailing_stop_pct', 1.5)
+  const trailingActivationProfit = numericParam(params, 'trailing_activation_profit_pct', 1)
+  const breakevenBuffer = numericParam(params, 'breakeven_buffer_pct', 0.2)
+  const minHoldObservations = numericParam(params, 'min_hold_observations', 2)
+  const initialStopLoss = numericParam(params, 'initial_stop_loss_pct', 1)
+  const entryFailureObservations = numericParam(params, 'entry_failure_observations', 3)
   const { data: appConfig } = useAppConfig()
   const isTossActive = appConfig?.active_broker_id === 'toss'
   const previewMutation = usePreviewLeveragedTrendHold()
@@ -266,6 +272,11 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
 
   const updateNumericParam = (key: string, value: number, min: number, max: number) => {
     const nextValue = Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : min
+    props.onParamsUpdate({ ...params, [key]: nextValue })
+  }
+
+  const updateIntegerParam = (key: string, value: number, min: number, max: number) => {
+    const nextValue = Number.isFinite(value) ? Math.max(min, Math.min(max, Math.round(value))) : min
     props.onParamsUpdate({ ...params, [key]: nextValue })
   }
 
@@ -464,6 +475,76 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
 
           <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 1 }}>
             <Stack spacing={1}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ flexWrap: 'wrap' }}>
+                <TextField
+                  label="초기 손절(%)"
+                  type="number"
+                  value={initialStopLoss}
+                  disabled={stratEnabled}
+                  size="small"
+                  onChange={(e) => updateNumericParam('initial_stop_loss_pct', Number(e.target.value), 0.1, 20)}
+                  inputProps={{ min: 0.1, max: 20, step: 0.1 }}
+                  sx={{ width: { xs: '100%', md: 140 } }}
+                />
+                <TextField
+                  label="실패 판정 관측치"
+                  type="number"
+                  value={entryFailureObservations}
+                  disabled={stratEnabled}
+                  size="small"
+                  onChange={(e) => updateIntegerParam('entry_failure_observations', Number(e.target.value), 1, 60)}
+                  inputProps={{ min: 1, max: 60, step: 1 }}
+                  sx={{ width: { xs: '100%', md: 160 } }}
+                />
+                <TextField
+                  label="추적손절(%)"
+                  type="number"
+                  value={trailingStopPct}
+                  disabled={stratEnabled}
+                  size="small"
+                  onChange={(e) => updateNumericParam('trailing_stop_pct', Number(e.target.value), 0.5, 20)}
+                  inputProps={{ min: 0.5, max: 20, step: 0.1 }}
+                  sx={{ width: { xs: '100%', md: 140 } }}
+                />
+                <TextField
+                  label="추적 활성 수익(%)"
+                  type="number"
+                  value={trailingActivationProfit}
+                  disabled={stratEnabled}
+                  size="small"
+                  onChange={(e) => updateNumericParam('trailing_activation_profit_pct', Number(e.target.value), 0.1, 20)}
+                  inputProps={{ min: 0.1, max: 20, step: 0.1 }}
+                  sx={{ width: { xs: '100%', md: 160 } }}
+                />
+                <TextField
+                  label="본전 보호 버퍼(%)"
+                  type="number"
+                  value={breakevenBuffer}
+                  disabled={stratEnabled}
+                  size="small"
+                  onChange={(e) => updateNumericParam('breakeven_buffer_pct', Number(e.target.value), 0, 10)}
+                  inputProps={{ min: 0, max: 10, step: 0.1 }}
+                  sx={{ width: { xs: '100%', md: 160 } }}
+                />
+                <TextField
+                  label="최소 보유 관측치"
+                  type="number"
+                  value={minHoldObservations}
+                  disabled={stratEnabled}
+                  size="small"
+                  onChange={(e) => updateIntegerParam('min_hold_observations', Number(e.target.value), 0, 60)}
+                  inputProps={{ min: 0, max: 60, step: 1 }}
+                  sx={{ width: { xs: '100%', md: 150 } }}
+                />
+              </Stack>
+              <Typography variant="caption" color="text.secondary">
+                반등이 틀리면 초기 손절/실패 판정으로 먼저 빠지고, 고점 수익률이 활성 기준을 넘긴 뒤에는 본전 보호와 추적손절로 수익을 지킵니다.
+              </Typography>
+            </Stack>
+          </Box>
+
+          <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 1 }}>
+            <Stack spacing={1}>
               <FormControlLabel
                 control={
                   <Checkbox
@@ -489,7 +570,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   value={reboundBaselineTicks}
                   disabled={stratEnabled || !reboundEnabled}
                   size="small"
-                  onChange={(e) => updateNumericParam('rebound_baseline_ticks', Number(e.target.value), 2, 120)}
+                  onChange={(e) => updateIntegerParam('rebound_baseline_ticks', Number(e.target.value), 2, 120)}
                   inputProps={{ min: 2, max: 120, step: 1 }}
                   sx={{ width: { xs: '100%', md: 130 } }}
                 />
@@ -499,7 +580,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   value={reboundConfirmTicks}
                   disabled={stratEnabled || !reboundEnabled}
                   size="small"
-                  onChange={(e) => updateNumericParam('rebound_confirm_ticks', Number(e.target.value), 2, 60)}
+                  onChange={(e) => updateIntegerParam('rebound_confirm_ticks', Number(e.target.value), 2, 60)}
                   inputProps={{ min: 2, max: 60, step: 1 }}
                   sx={{ width: { xs: '100%', md: 130 } }}
                 />

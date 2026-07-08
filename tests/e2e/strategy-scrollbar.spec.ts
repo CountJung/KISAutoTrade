@@ -44,7 +44,16 @@ function strategy(id: string, name: string, index: number) {
       : {},
     orderQuantity: 1,
     params: isLeveraged
-      ? { entries: strategyEntries, upward_sensitivity: 1 }
+      ? {
+        entries: strategyEntries,
+        upward_sensitivity: 1,
+        trailing_stop_pct: 1.5,
+        trailing_activation_profit_pct: 1,
+        breakeven_buffer_pct: 0.2,
+        min_hold_observations: 2,
+        initial_stop_loss_pct: 1,
+        entry_failure_observations: 3,
+      }
       : {},
   }
 }
@@ -264,6 +273,12 @@ test('Leveraged strategy editor uses single target ticker model', async ({ page 
 
   await expect(page.getByText('레버리지 대상 ETF')).toBeVisible()
   await expect(page.getByText('SOXL', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('초기 손절(%)')).toBeVisible()
+  await expect(page.getByLabel('실패 판정 관측치')).toBeVisible()
+  await expect(page.getByLabel('추적손절(%)')).toBeVisible()
+  await expect(page.getByLabel('추적 활성 수익(%)')).toBeVisible()
+  await expect(page.getByLabel('본전 보호 버퍼(%)')).toBeVisible()
+  await expect(page.getByLabel('최소 보유 관측치')).toBeVisible()
   await expect(page.getByRole('button', { name: '대상 추가' }).first()).toBeVisible()
   await expect(page.getByText('운용 모드')).toHaveCount(0)
   await expect(page.getByText('기초지수')).toHaveCount(0)

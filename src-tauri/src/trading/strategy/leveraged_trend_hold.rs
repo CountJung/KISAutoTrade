@@ -33,6 +33,21 @@ fn lth_default_no_trade_adx() -> f64 {
 fn lth_default_trailing_stop() -> f64 {
     1.5
 }
+fn lth_default_trailing_activation_profit() -> f64 {
+    1.0
+}
+fn lth_default_breakeven_buffer() -> f64 {
+    0.2
+}
+fn lth_default_min_hold_observations() -> usize {
+    2
+}
+fn lth_default_initial_stop_loss() -> f64 {
+    1.0
+}
+fn lth_default_entry_failure_observations() -> usize {
+    3
+}
 fn lth_default_entry_start() -> i64 {
     15
 }
@@ -119,6 +134,16 @@ pub struct LeveragedTrendHoldParams {
     pub no_trade_adx_below: f64,
     #[serde(default = "lth_default_trailing_stop")]
     pub trailing_stop_pct: f64,
+    #[serde(default = "lth_default_trailing_activation_profit")]
+    pub trailing_activation_profit_pct: f64,
+    #[serde(default = "lth_default_breakeven_buffer")]
+    pub breakeven_buffer_pct: f64,
+    #[serde(default = "lth_default_min_hold_observations")]
+    pub min_hold_observations: usize,
+    #[serde(default = "lth_default_initial_stop_loss")]
+    pub initial_stop_loss_pct: f64,
+    #[serde(default = "lth_default_entry_failure_observations")]
+    pub entry_failure_observations: usize,
     #[serde(default = "lth_default_entry_start")]
     pub entry_window_start_min: i64,
     #[serde(default = "lth_default_entry_end")]
@@ -160,6 +185,11 @@ impl Default for LeveragedTrendHoldParams {
             entry_adx_min: lth_default_buy_adx(),
             no_trade_adx_below: lth_default_no_trade_adx(),
             trailing_stop_pct: lth_default_trailing_stop(),
+            trailing_activation_profit_pct: lth_default_trailing_activation_profit(),
+            breakeven_buffer_pct: lth_default_breakeven_buffer(),
+            min_hold_observations: lth_default_min_hold_observations(),
+            initial_stop_loss_pct: lth_default_initial_stop_loss(),
+            entry_failure_observations: lth_default_entry_failure_observations(),
             entry_window_start_min: lth_default_entry_start(),
             entry_window_end_min: lth_default_entry_end(),
             exit_before_close_min: lth_default_exit_before_close(),
@@ -186,6 +216,7 @@ struct LeveragedTrendHoldPosition {
     in_position: bool,
     entry_price: Option<u64>,
     high_water: Option<u64>,
+    held_observations: usize,
 }
 
 struct LeveragedTrendSnapshot {
@@ -320,7 +351,7 @@ impl LeveragedTrendHoldStrategy {
             + now.minute() as i64
     }
 
-    fn update_target_tick(&mut self, symbol: &str, price: u64) {
+    fn update_target_tick(&mut self, symbol: &str, price: u64) -> bool {
         let cap = self.window_cap();
         let rebound_cap = self.rebound_price_cap();
         let state = self.states.entry(symbol.to_string()).or_insert_with(|| {
@@ -333,8 +364,9 @@ impl LeveragedTrendHoldStrategy {
 
         let live_minute = Self::current_live_minute_key();
         let same_minute = state.live_candle_minute == Some(live_minute);
+        let mut new_observation = false;
 
-        if !same_minute {
+        if !same_minute || state.candles.back().is_none() {
             state.candles.push_back(OhlcCandle {
                 open: price,
                 high: price,
@@ -343,6 +375,7 @@ impl LeveragedTrendHoldStrategy {
             });
             state.live_candle_minute = Some(live_minute);
             state.rebound_prices.push_back(price);
+            new_observation = true;
         } else if let Some(last) = state.candles.back_mut() {
             last.high = last.high.max(price);
             last.low = last.low.min(price);
@@ -360,6 +393,8 @@ impl LeveragedTrendHoldStrategy {
         while state.rebound_prices.len() > rebound_cap {
             state.rebound_prices.pop_front();
         }
+
+        new_observation
     }
 
     fn closes(candles: &VecDeque<OhlcCandle>) -> Vec<f64> {
@@ -590,6 +625,107 @@ impl LeveragedTrendHoldStrategy {
                 symbol, snap.rsi, self.params.exit_rsi_below
             ));
         }
+        None
+    }
+
+    fn clear_position(&mut self, symbol: &str) {
+        if let Some(pos) = self.positions.get_mut(symbol) {
+            pos.in_position = false;
+            pos.entry_price = None;
+            pos.high_water = None;
+            pos.held_observations = 0;
+        }
+    }
+
+    fn min_hold_observations(&self) -> usize {
+        self.params.min_hold_observations.min(120)
+    }
+
+    fn entry_failure_observations(&self) -> usize {
+        self.params.entry_failure_observations.clamp(1, 120)
+    }
+
+    fn profit_pct(entry_price: u64, price: u64) -> Option<f64> {
+        if entry_price == 0 {
+            return None;
+        }
+        Some((price as f64 - entry_price as f64) / entry_price as f64 * 100.0)
+    }
+
+    fn initial_risk_exit_reason(
+        &self,
+        price: u64,
+        entry_price: u64,
+        high_water: u64,
+        held_observations: usize,
+    ) -> Option<String> {
+        let current_profit = Self::profit_pct(entry_price, price)?;
+        let initial_stop = self.params.initial_stop_loss_pct.clamp(0.1, 20.0);
+        if current_profit <= -initial_stop {
+            return Some(format!(
+                "LeveragedTrendHold 초기 손절: 현재 수익률 {:.2}% <= -{:.2}%",
+                current_profit, initial_stop
+            ));
+        }
+
+        let activation_profit = self.params.trailing_activation_profit_pct.clamp(0.1, 100.0);
+        let high_profit = Self::profit_pct(entry_price, high_water)?;
+        if held_observations >= self.entry_failure_observations()
+            && high_profit < activation_profit
+            && current_profit < 0.0
+        {
+            return Some(format!(
+                "LeveragedTrendHold 반등 실패 손절: {}관측치 동안 활성 수익 {:.2}% 미도달, 현재 수익률 {:.2}%",
+                held_observations, activation_profit, current_profit
+            ));
+        }
+
+        None
+    }
+
+    fn protection_exit_reason(
+        &self,
+        symbol: &str,
+        price: u64,
+        entry_price: u64,
+        high_water: u64,
+        held_observations: usize,
+    ) -> Option<String> {
+        if held_observations < self.min_hold_observations() || high_water == 0 {
+            return None;
+        }
+
+        let activation_profit = self.params.trailing_activation_profit_pct.clamp(0.1, 100.0);
+        let high_profit = Self::profit_pct(entry_price, high_water)?;
+        if high_profit < activation_profit {
+            return None;
+        }
+
+        let buffer = self.params.breakeven_buffer_pct.clamp(0.0, 20.0);
+        let current_profit = Self::profit_pct(entry_price, price)?;
+        if current_profit <= buffer {
+            return Some(format!(
+                "LeveragedTrendHold 본전 보호 청산: 고점 수익률 {:.2}% 활성 후 현재 수익률 {:.2}% <= 보호 버퍼 {:.2}%",
+                high_profit, current_profit, buffer
+            ));
+        }
+
+        let trailing_stop = self.params.trailing_stop_pct.clamp(0.1, 100.0);
+        let drawdown = (high_water as f64 - price as f64) / high_water as f64 * 100.0;
+        if drawdown >= trailing_stop {
+            return Some(format!(
+                "LeveragedTrendHold 수익 보호 추적손절: 고점 대비 -{:.2}% (기준 {:.2}%, 고점 수익률 {:.2}%)",
+                drawdown, trailing_stop, high_profit
+            ));
+        }
+
+        if let Some(reason) = self.exit_reason(symbol) {
+            return Some(format!(
+                "LeveragedTrendHold 수익 보호 추세 청산: {} (현재 수익률 {:.2}%, 보호 버퍼 {:.2}%)",
+                reason, current_profit, buffer
+            ));
+        }
+
         None
     }
 
@@ -831,7 +967,9 @@ impl LeveragedTrendHoldStrategy {
 
         let mut signals = Vec::new();
         let mut in_position = false;
+        let mut entry_price: Option<u64> = None;
         let mut high_water: Option<u64> = None;
+        let mut held_observations = 0usize;
 
         for timed in intraday_candles {
             let price = timed.candle.close;
@@ -853,36 +991,45 @@ impl LeveragedTrendHoldStrategy {
             if in_position {
                 let high = high_water.unwrap_or(price).max(price);
                 high_water = Some(high);
-                if high > 0 {
-                    let drawdown = (high as f64 - price as f64) / high as f64 * 100.0;
-                    if drawdown >= strategy.params.trailing_stop_pct {
-                        signals.push(strategy.preview_signal(
-                            &timed.time,
-                            "sell",
-                            &normalized_symbol,
-                            price,
-                            quantity,
-                            format!(
-                                "LeveragedTrendHold 추적손절: 고점 대비 -{drawdown:.2}% (기준 {:.2}%)",
-                                strategy.params.trailing_stop_pct
-                            ),
-                        ));
-                        in_position = false;
-                        high_water = None;
-                        continue;
-                    }
-                }
-                if let Some(reason) = strategy.exit_reason(&normalized_symbol) {
+                held_observations = held_observations.saturating_add(1);
+                if let Some(reason) = entry_price.and_then(|entry| {
+                    strategy.initial_risk_exit_reason(price, entry, high, held_observations)
+                }) {
                     signals.push(strategy.preview_signal(
                         &timed.time,
                         "sell",
                         &normalized_symbol,
                         price,
                         quantity,
-                        format!("LeveragedTrendHold 추세 청산: {reason}"),
+                        reason,
                     ));
                     in_position = false;
+                    entry_price = None;
                     high_water = None;
+                    held_observations = 0;
+                    continue;
+                }
+                if let Some(reason) = entry_price.and_then(|entry| {
+                    strategy.protection_exit_reason(
+                        &normalized_symbol,
+                        price,
+                        entry,
+                        high,
+                        held_observations,
+                    )
+                }) {
+                    signals.push(strategy.preview_signal(
+                        &timed.time,
+                        "sell",
+                        &normalized_symbol,
+                        price,
+                        quantity,
+                        reason,
+                    ));
+                    in_position = false;
+                    entry_price = None;
+                    high_water = None;
+                    held_observations = 0;
                     continue;
                 }
                 if let Some(mins) = Self::minute_of_day_from_time(&timed.time) {
@@ -903,7 +1050,9 @@ impl LeveragedTrendHoldStrategy {
                                 ),
                             ));
                             in_position = false;
+                            entry_price = None;
                             high_water = None;
+                            held_observations = 0;
                         }
                     }
                 }
@@ -943,7 +1092,9 @@ impl LeveragedTrendHoldStrategy {
                         ),
                     ));
                     in_position = true;
+                    entry_price = Some(price);
                     high_water = Some(price);
+                    held_observations = 0;
                     continue;
                 }
             }
@@ -964,7 +1115,9 @@ impl LeveragedTrendHoldStrategy {
                     ),
                 ));
                 in_position = true;
+                entry_price = Some(price);
                 high_water = Some(price);
+                held_observations = 0;
             }
         }
 
@@ -1104,49 +1257,55 @@ impl Strategy for LeveragedTrendHoldStrategy {
         let Some(entry) = self.entry_for_symbol(symbol) else {
             return Signal::Hold;
         };
-        self.update_target_tick(symbol, price);
+        let new_observation = self.update_target_tick(symbol, price);
 
         let quantity = entry.quantity.max(1);
-        let (in_position, high_water) = self
+        let (in_position, entry_price, high_water, held_observations) = self
             .positions
             .get(symbol)
-            .map(|p| (p.in_position, p.high_water))
-            .unwrap_or((false, None));
+            .map(|p| {
+                (
+                    p.in_position,
+                    p.entry_price,
+                    p.high_water,
+                    p.held_observations,
+                )
+            })
+            .unwrap_or((false, None, None, 0));
 
         if in_position {
+            let entry_price = entry_price.unwrap_or(price);
             let high = high_water.unwrap_or(price).max(price);
+            let held_observations = if new_observation {
+                held_observations.saturating_add(1)
+            } else {
+                held_observations
+            };
             if let Some(pos) = self.positions.get_mut(symbol) {
+                pos.entry_price = Some(entry_price);
                 pos.high_water = Some(high);
-            }
-            if high > 0 {
-                let drawdown = (high as f64 - price as f64) / high as f64 * 100.0;
-                if drawdown >= self.params.trailing_stop_pct {
-                    if let Some(pos) = self.positions.get_mut(symbol) {
-                        pos.in_position = false;
-                        pos.entry_price = None;
-                        pos.high_water = None;
-                    }
-                    return Signal::Sell {
-                        symbol: symbol.to_string(),
-                        quantity,
-                        reason: format!(
-                            "LeveragedTrendHold 추적손절: 고점 대비 -{:.2}% (기준 {:.2}%)",
-                            drawdown, self.params.trailing_stop_pct
-                        ),
-                    };
-                }
+                pos.held_observations = held_observations;
             }
 
-            if let Some(reason) = self.exit_reason(symbol) {
-                if let Some(pos) = self.positions.get_mut(symbol) {
-                    pos.in_position = false;
-                    pos.entry_price = None;
-                    pos.high_water = None;
-                }
+            if let Some(reason) =
+                self.initial_risk_exit_reason(price, entry_price, high, held_observations)
+            {
+                self.clear_position(symbol);
                 return Signal::Sell {
                     symbol: symbol.to_string(),
                     quantity,
-                    reason: format!("LeveragedTrendHold 추세 청산: {}", reason),
+                    reason,
+                };
+            }
+
+            if let Some(reason) =
+                self.protection_exit_reason(symbol, price, entry_price, high, held_observations)
+            {
+                self.clear_position(symbol);
+                return Signal::Sell {
+                    symbol: symbol.to_string(),
+                    quantity,
+                    reason,
                 };
             }
 
@@ -1154,11 +1313,7 @@ impl Strategy for LeveragedTrendHoldStrategy {
                 Self::session_minutes(entry.is_overseas, &self.params.toss_us_session)
             {
                 if minutes_to_close <= self.params.exit_before_close_min {
-                    if let Some(pos) = self.positions.get_mut(symbol) {
-                        pos.in_position = false;
-                        pos.entry_price = None;
-                        pos.high_water = None;
-                    }
+                    self.clear_position(symbol);
                     return Signal::Sell {
                         symbol: symbol.to_string(),
                         quantity,
@@ -1192,6 +1347,7 @@ impl Strategy for LeveragedTrendHoldStrategy {
                         in_position: true,
                         entry_price: Some(price),
                         high_water: Some(price),
+                        held_observations: 0,
                     },
                 );
                 return Signal::Buy {
@@ -1218,6 +1374,7 @@ impl Strategy for LeveragedTrendHoldStrategy {
                         in_position: true,
                         entry_price: Some(price),
                         high_water: Some(price),
+                        held_observations: 0,
                     },
                 );
                 return Signal::Buy {
@@ -1248,6 +1405,7 @@ impl Strategy for LeveragedTrendHoldStrategy {
                 in_position: true,
                 entry_price: Some(avg_price),
                 high_water: Some(avg_price),
+                held_observations: self.min_hold_observations(),
             },
         );
         tracing::info!(
@@ -1267,6 +1425,7 @@ impl Strategy for LeveragedTrendHoldStrategy {
             pos.in_position = false;
             pos.entry_price = None;
             pos.high_water = None;
+            pos.held_observations = 0;
         }
     }
 }
@@ -1375,11 +1534,168 @@ mod tests {
         let mut strategy = strategy_with_params(params);
         strategy.initialize_ohlc("SOXL", &downward_candles());
         strategy.sync_position("SOXL", 3, 300);
+        if let Some(pos) = strategy.positions.get_mut("SOXL") {
+            pos.high_water = Some(330);
+            pos.held_observations = 3;
+        }
 
-        let signal = strategy.on_tick("SOXL", 108, 100);
+        let signal = strategy.on_tick("SOXL", 320, 100);
 
         assert!(
-            matches!(signal, Signal::Sell { symbol, quantity, reason } if symbol == "SOXL" && quantity == 3 && reason.contains("추세 청산"))
+            matches!(signal, Signal::Sell { symbol, quantity, reason } if symbol == "SOXL" && quantity == 3 && reason.contains("수익 보호 추세 청산"))
+        );
+    }
+
+    #[test]
+    fn holds_when_protection_profit_has_not_activated() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("SOXL")],
+            entry_adx_min: 0.0,
+            no_trade_adx_below: 0.0,
+            trailing_stop_pct: 1.0,
+            trailing_activation_profit_pct: 2.0,
+            breakeven_buffer_pct: 0.2,
+            min_hold_observations: 1,
+            initial_stop_loss_pct: 99.0,
+            entry_failure_observations: 120,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let mut strategy = strategy_with_params(params);
+        strategy.initialize_ohlc("SOXL", &downward_candles());
+        strategy.positions.insert(
+            "SOXL".to_string(),
+            LeveragedTrendHoldPosition {
+                in_position: true,
+                entry_price: Some(100),
+                high_water: Some(101),
+                held_observations: 1,
+            },
+        );
+
+        let signal = strategy.on_tick("SOXL", 98, 100);
+
+        assert_eq!(signal, Signal::Hold);
+    }
+
+    #[test]
+    fn sells_initial_stop_loss_before_profit_protection_activates() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("SOXL")],
+            entry_adx_min: 0.0,
+            no_trade_adx_below: 0.0,
+            initial_stop_loss_pct: 1.0,
+            trailing_activation_profit_pct: 2.0,
+            entry_failure_observations: 120,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let mut strategy = strategy_with_params(params);
+        strategy.initialize_ohlc("SOXL", &downward_candles());
+        strategy.positions.insert(
+            "SOXL".to_string(),
+            LeveragedTrendHoldPosition {
+                in_position: true,
+                entry_price: Some(100),
+                high_water: Some(101),
+                held_observations: 1,
+            },
+        );
+
+        let signal = strategy.on_tick("SOXL", 98, 100);
+
+        assert!(
+            matches!(signal, Signal::Sell { symbol, reason, .. } if symbol == "SOXL" && reason.contains("초기 손절"))
+        );
+    }
+
+    #[test]
+    fn sells_failed_rebound_when_activation_profit_never_appears() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("SOXL")],
+            entry_adx_min: 0.0,
+            no_trade_adx_below: 0.0,
+            initial_stop_loss_pct: 5.0,
+            trailing_activation_profit_pct: 2.0,
+            entry_failure_observations: 3,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let mut strategy = strategy_with_params(params);
+        strategy.initialize_ohlc("SOXL", &downward_candles());
+        strategy.positions.insert(
+            "SOXL".to_string(),
+            LeveragedTrendHoldPosition {
+                in_position: true,
+                entry_price: Some(100),
+                high_water: Some(101),
+                held_observations: 3,
+            },
+        );
+
+        let signal = strategy.on_tick("SOXL", 99, 100);
+
+        assert!(
+            matches!(signal, Signal::Sell { symbol, reason, .. } if symbol == "SOXL" && reason.contains("반등 실패 손절"))
+        );
+    }
+
+    #[test]
+    fn sells_at_breakeven_buffer_after_protection_profit_activates() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("SOXL")],
+            entry_adx_min: 0.0,
+            no_trade_adx_below: 0.0,
+            trailing_stop_pct: 5.0,
+            trailing_activation_profit_pct: 1.0,
+            breakeven_buffer_pct: 0.2,
+            min_hold_observations: 1,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let mut strategy = strategy_with_params(params);
+        strategy.initialize_ohlc("SOXL", &upward_candles());
+        strategy.positions.insert(
+            "SOXL".to_string(),
+            LeveragedTrendHoldPosition {
+                in_position: true,
+                entry_price: Some(100),
+                high_water: Some(103),
+                held_observations: 1,
+            },
+        );
+
+        let signal = strategy.on_tick("SOXL", 100, 100);
+
+        assert!(
+            matches!(signal, Signal::Sell { symbol, reason, .. } if symbol == "SOXL" && reason.contains("본전 보호 청산"))
+        );
+    }
+
+    #[test]
+    fn sells_by_trailing_stop_only_after_protection_profit_activates() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("SOXL")],
+            entry_adx_min: 0.0,
+            no_trade_adx_below: 0.0,
+            trailing_stop_pct: 1.5,
+            trailing_activation_profit_pct: 1.0,
+            breakeven_buffer_pct: 0.2,
+            min_hold_observations: 1,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let mut strategy = strategy_with_params(params);
+        strategy.initialize_ohlc("SOXL", &upward_candles());
+        strategy.positions.insert(
+            "SOXL".to_string(),
+            LeveragedTrendHoldPosition {
+                in_position: true,
+                entry_price: Some(100),
+                high_water: Some(104),
+                held_observations: 1,
+            },
+        );
+
+        let signal = strategy.on_tick("SOXL", 102, 100);
+
+        assert!(
+            matches!(signal, Signal::Sell { symbol, reason, .. } if symbol == "SOXL" && reason.contains("수익 보호 추적손절"))
         );
     }
 

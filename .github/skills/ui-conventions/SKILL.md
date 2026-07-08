@@ -571,8 +571,10 @@ UI 규칙:
 - `운용 모드`, `기초지수`, `롱`, `숏`, `숏 실험`, `유사기초` 슬롯은 표시하지 않는다. 방향성은 ticker 자체 가격 추세로만 판단한다.
 - 세팅된 대상 테이블은 시장, ticker, 종목명, 1회 수량만 표시한다.
 - 진입 민감도는 레버리지 섹션 내부 파라미터로 노출한다. 기본 1.0, 범위 1.0~5.0, 높을수록 상승 진입 신호가 더 민감해진다.
+- 청산 파라미터는 같은 영역에 모아 노출한다. `initial_stop_loss_pct`/`entry_failure_observations`는 반등 실패 시 작게 손절하는 초기 방어이고, `trailing_activation_profit_pct`/`breakeven_buffer_pct`/`trailing_stop_pct`/`min_hold_observations`는 반등 성공 후 수익 보호 방어다.
+- 청산 도움말은 “반등이 틀리면 초기 손절/실패 판정으로 먼저 빠지고, 활성 수익을 넘긴 뒤에는 본전 보호와 추적손절로 수익을 지킨다”는 순서를 설명한다.
 - 저장 버튼은 대상 ticker가 하나 이상 있고 비어 있는 ticker가 없을 때만 활성화한다.
 - 기존 저장 JSON 호환 때문에 `inverse_*`, `base_*`, `base_symbol_roles` 필드는 타입에 남아 있을 수 있으나 새 UI에서는 노출하지 않는다.
 - 전략 미리보기 차트에서 Toss `YYYYMMDDHHmmss` 형태의 1분봉 시간은 한국시간(KST)으로 명시 파싱하고, lightweight-charts `timeFormatter`/`tickMarkFormatter`도 KST 표시로 고정한다. 브라우저 로컬 타임존이나 UTC 기본 formatter에 맡기면 데이마켓/프리마켓 시간표가 사용자가 보는 Toss 앱 시간과 어긋날 수 있다.
 
-> 마지막 업데이트: 2026-07-08T02:50:00+09:00
+> 마지막 업데이트: 2026-07-08T13:53:50+09:00

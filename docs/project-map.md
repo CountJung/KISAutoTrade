@@ -36,6 +36,7 @@ AutoConditionTrade/                   ← 루트
 │   ├── coding-guide.md               ← 설정 추가·AppState·IPC·데몬·제어흐름 실전 가이드
 │   ├── toss-openapi.md               ← 토스증권 OpenAPI endpoint inventory + 검증 절차
 │   ├── toss-readonly-small-order-checklist.md ← 토스 read-only/소액 실거래 검증 안전 절차
+│   ├── leveraged-trend-hold-parameter-guide.md ← 레버리지 추세 보유 1분봉 파라미터 튜닝 가이드
 │   ├── mock-trading-e2e-checklist.md ← 모의투자 국내/해외/E2E 검증 체크리스트
 │   ├── MasterPlan.md                 ← 전체 설계 문서 (아카이브, 읽기 전용)
 │   ├── discord-setup-guide.md        ← Discord 봇 설정 가이드
@@ -204,7 +205,7 @@ AutoConditionTrade/                   ← 루트
 | `pages/trading/ui/kisPanels.tsx` | KIS 국내/해외 보유 테이블과 KIS 현재가 카드 |
 | `pages/trading/ui/tossPanels.tsx` | 활성 Toss 프로파일의 holdings/시세 snapshot/차트/종목 유의사항/장 운영 상태, 주문 전 검증, 접수 주문 목록과 정정 UI |
 | `pages/strategy/ui/Page.tsx` | 활성 broker scope, 전략별 저장 broker/account scope 표시, Toss 자동매매 주문/체결 연결 안내, 전략 활성화/파라미터/대상 종목 route 조립 |
-| `pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx` | 레버리지 추세 보유 전략의 ETF 세트 검색/편집, 민감도 파라미터, 유효성 검사 |
+| `pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx` | 레버리지 추세 보유 전략의 ETF 세트 검색/편집, 진입·반등·초기 손절·수익 보호 청산 파라미터, 유효성 검사 |
 | `pages/strategy/ui/leveragedTrendHoldPreviewChart.tsx` | 레버리지 전략 미리보기의 Toss 1분봉 차트와 매수/청산 signal marker 표시 |
 | `pages/history/ui/Page.tsx` | 활성 broker scope, 자동매매 체결 기록과 기간별 통계 조회, provider 원본 trace 표시 |
 | `pages/log/ui/Page.tsx` | 로그 레벨/검색 필터, provider trace 토큰 chip 표시 |
