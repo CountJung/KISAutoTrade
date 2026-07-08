@@ -142,16 +142,16 @@ const STRATEGY_PARAM_META: Record<string, ParamMeta[]> = {
   ],
   momentum: [
     { key: 'lookback_period', label: '비교 기간',    min: 5,  max: 60, description: 'N기간 전 가격 대비 변화율 계산 기간 (기본 20)' },
-    { key: 'threshold_pct',   label: '임계값 (%)', min: 1,  max: 20, step: 0.5, description: '매매 발동 최소 변화율 % (기본 5.0)' },
+    { key: 'threshold_pct',   label: '임계값 (%)', min: 1,  max: 20, step: 0.1, description: '매매 발동 최소 변화율 % (기본 5.0)' },
   ],
   deviation: [
     { key: 'ma_period',          label: 'MA 기간',       min: 5,   max: 120, description: '이격도 기준 이동평균 기간 (기본 20)' },
-    { key: 'buy_threshold_pct',  label: '매수 이격 (%)', min: -20, max: -1,  step: 0.5, description: '현재가가 MA 대비 이 % 이하이면 매수 (기본 -5.0, 음수)' },
-    { key: 'sell_threshold_pct', label: '매도 이격 (%)', min: 1,   max: 20,  step: 0.5, description: '현재가가 MA 대비 이 % 이상이면 매도 (기본 5.0)' },
+    { key: 'buy_threshold_pct',  label: '매수 이격 (%)', min: -20, max: -1,  step: 0.1, description: '현재가가 MA 대비 이 % 이하이면 매수 (기본 -5.0, 음수)' },
+    { key: 'sell_threshold_pct', label: '매도 이격 (%)', min: 1,   max: 20,  step: 0.1, description: '현재가가 MA 대비 이 % 이상이면 매도 (기본 5.0)' },
   ],
   fifty_two_week_high: [
     { key: 'lookback_days', label: '조회 기간 (거래일)', min: 60, max: 504, step: 1, description: '52주 신고가 계산을 위한 과거 거래일 수 (기본 252 ≈ 1년)' },
-    { key: 'stop_loss_pct', label: '손절 기준 (%)',      min: 1,  max: 15,  step: 0.5, description: '매수가 대비 이 % 이상 하락 시 손절 매도 (기본 3.0)' },
+    { key: 'stop_loss_pct', label: '손절 기준 (%)',      min: 1,  max: 15,  step: 0.1, description: '매수가 대비 이 % 이상 하락 시 손절 매도 (기본 3.0)' },
   ],
   consecutive_move: [
     { key: 'buy_days',  label: '연속 상승 횟수', min: 2, max: 10, step: 1, description: 'N일 연속 종가 상승 시 매수 (기본 3)' },
@@ -162,18 +162,18 @@ const STRATEGY_PARAM_META: Record<string, ParamMeta[]> = {
     { key: 'buffer_pct',    label: '돌파 버퍼 (%)', min: 0.1, max: 5.0, step: 0.1, description: '전고점 대비 돌파로 인정하는 추가 % (기본 0.5)' },
   ],
   strong_close: [
-    { key: 'threshold_pct', label: '강한 종가 기준 (%)', min: 0.5, max: 10.0, step: 0.5, description: '종가가 고가 대비 이 % 이내이면 실개로 강한 종가로 판단 (기본 3.0)' },
-    { key: 'stop_loss_pct', label: '손절 기준 (%)', min: 1.0, max: 10.0, step: 0.5, description: '매수가 대비 이 % 이상 하락 시 손절 (기본 3.0)' },
+    { key: 'threshold_pct', label: '강한 종가 기준 (%)', min: 0.5, max: 10.0, step: 0.1, description: '종가가 고가 대비 이 % 이내이면 실개로 강한 종가로 판단 (기본 3.0)' },
+    { key: 'stop_loss_pct', label: '손절 기준 (%)', min: 1.0, max: 10.0, step: 0.1, description: '매수가 대비 이 % 이상 하락 시 손절 (기본 3.0)' },
   ],
   volatility_expansion: [
     { key: 'lookback_days',     label: '평균 기간 (거래일)', min: 3, max: 60,  step: 1,   description: '평균 변동폭 계산에 사용할 과거 거래일 수 (기본 10)' },
     { key: 'expansion_factor',  label: '확장 배율',          min: 1.1, max: 5.0, step: 0.1, description: '당일 변동폭이 평균의 이 배 이상이면 매수 (기본 2.0)' },
-    { key: 'stop_loss_pct',     label: '손절 기준 (%)',       min: 1.0, max: 10.0, step: 0.5, description: '매수가 대비 이 % 이상 하락 시 손절 (기본 3.0)' },
+    { key: 'stop_loss_pct',     label: '손절 기준 (%)',       min: 1.0, max: 10.0, step: 0.1, description: '매수가 대비 이 % 이상 하락 시 손절 (기본 3.0)' },
   ],
   mean_reversion: [
     { key: 'period',        label: '볼린저 밴드 기간', min: 5,   max: 120, step: 1,   description: '이동평균과 표준편차 계산 기간 (기본 20)' },
-    { key: 'std_dev',       label: '표준편차 배율',       min: 0.5, max: 4.0, step: 0.5, description: '상/하단 밴드 너비 조정 (기본 2.0 = ±2시그마)' },
-    { key: 'stop_loss_pct', label: '손절 기준 (%)',             min: 1.0, max: 15.0, step: 0.5, description: '매수가 대비 이 % 이상 하락 시 손절 (기본 5.0)' },
+    { key: 'std_dev',       label: '표준편차 배율',       min: 0.5, max: 4.0, step: 0.1, description: '상/하단 밴드 너비 조정 (기본 2.0 = ±2시그마)' },
+    { key: 'stop_loss_pct', label: '손절 기준 (%)',             min: 1.0, max: 15.0, step: 0.1, description: '매수가 대비 이 % 이상 하락 시 손절 (기본 5.0)' },
   ],
   trend_filter: [
     { key: 'long_period',  label: '장기 MA 기간',  min: 50,  max: 500, step: 1, description: '장기 추세 판단 기준 이동평균 기간 (기본 200일)' },

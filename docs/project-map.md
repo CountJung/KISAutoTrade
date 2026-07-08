@@ -191,7 +191,7 @@ AutoConditionTrade/                   ← 루트
 | `api/queryKeys.ts` | TanStack Query `KEYS` 단일 원천 (`hooks.ts`에서 하위 호환 re-export) |
 | `api/backendEvents.ts` | Tauri backend event 구독 → 환율/잔고 Query 캐시 갱신 |
 | `features/manual-order/ui/TossManualTradeVerificationPanel.tsx` | Trading/Dashboard에서 공유하는 Toss 소액 수동매매 검증 gate. `canSubmit=true`면 렌더링하지 않음 |
-| `widgets/app-shell/` | 전체 앱 레이아웃, ThemeProvider, responsive navigation |
+| `widgets/app-shell/` | 전체 앱 레이아웃, ThemeProvider, responsive navigation, 좌측 사이드바 자동매매 시작/정지 전역 조작 |
 | `widgets/stock-chart/` | 국내/해외/Toss 캔들 차트 |
 | `pages/settings/ui/Page.tsx` | 테마, 데이터 갱신 주기, 로그/체결 보관, 웹 포트, 종목 목록, 리스크, Discord 설정 route 조립 |
 | `pages/settings/ui/accountProfiles.tsx` | 활성 broker/profile 요약, KIS/Toss 프로파일 목록, 연결 진단, 프로파일 삭제 확인 |

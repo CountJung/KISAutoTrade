@@ -465,7 +465,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
               disabled={stratEnabled}
               size="small"
               onChange={(e) => handleSensitivityChange(Number(e.target.value))}
-              inputProps={{ min: 1, max: 5, step: 0.5 }}
+              inputProps={{ min: 1, max: 5, step: 0.1 }}
               sx={{ width: { xs: '100%', md: 140 } }}
             />
             <Typography variant="caption" color="text.secondary">
@@ -591,7 +591,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled || !reboundEnabled}
                   size="small"
                   onChange={(e) => updateNumericParam('rebound_pullback_pct', Number(e.target.value), 0.5, 30)}
-                  inputProps={{ min: 0.5, max: 30, step: 0.5 }}
+                  inputProps={{ min: 0.5, max: 30, step: 0.1 }}
                   sx={{ width: { xs: '100%', md: 130 } }}
                 />
                 <TextField
@@ -601,7 +601,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled || !reboundEnabled}
                   size="small"
                   onChange={(e) => updateNumericParam('rebound_buy_pressure_pct', Number(e.target.value), 0.5, 30)}
-                  inputProps={{ min: 0.5, max: 30, step: 0.5 }}
+                  inputProps={{ min: 0.5, max: 30, step: 0.1 }}
                   sx={{ width: { xs: '100%', md: 130 } }}
                 />
                 <TextField

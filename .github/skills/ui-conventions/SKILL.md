@@ -70,6 +70,7 @@ export default function MyPage() {
 - 너비: localStorage `act:panel:sidebar:width` (기본 220px, 범위 160~400). 읽기/쓰기는 `src/shared/lib/persistentLayout.ts` helper를 사용한다.
 - `LayoutResizer` 컴포넌트로 드래그 리사이즈 지원
 - 스크롤 방지: Drawer paper에 `overflowX: 'hidden'`
+- 자동매매 시작/정지처럼 앱 어디서든 즉시 접근해야 하는 전역 동작은 좌측 사이드바의 실행 상태 chip 옆에 icon button으로 둔다. 버튼은 `useTradingStatus`와 같은 Query cache를 갱신하는 `useStartTrading`/`useStopTrading` 훅을 사용하고, pending 상태에서는 spinner와 disabled 상태를 표시한다.
 
 ### 조절 가능한 패널
 
@@ -571,10 +572,11 @@ UI 규칙:
 - `운용 모드`, `기초지수`, `롱`, `숏`, `숏 실험`, `유사기초` 슬롯은 표시하지 않는다. 방향성은 ticker 자체 가격 추세로만 판단한다.
 - 세팅된 대상 테이블은 시장, ticker, 종목명, 1회 수량만 표시한다.
 - 진입 민감도는 레버리지 섹션 내부 파라미터로 노출한다. 기본 1.0, 범위 1.0~5.0, 높을수록 상승 진입 신호가 더 민감해진다.
+- 전략 파라미터 중 퍼센트/배율/민감도처럼 소수 조정이 필요한 숫자 입력은 spinner 화살표 `step`을 0.1로 둔다. 기간, 관측치, 수량처럼 정수 의미가 있는 입력만 `step: 1`을 사용한다.
 - 청산 파라미터는 같은 영역에 모아 노출한다. `initial_stop_loss_pct`/`entry_failure_observations`는 반등 실패 시 작게 손절하는 초기 방어이고, `trailing_activation_profit_pct`/`breakeven_buffer_pct`/`trailing_stop_pct`/`min_hold_observations`는 반등 성공 후 수익 보호 방어다.
 - 청산 도움말은 “반등이 틀리면 초기 손절/실패 판정으로 먼저 빠지고, 활성 수익을 넘긴 뒤에는 본전 보호와 추적손절로 수익을 지킨다”는 순서를 설명한다.
 - 저장 버튼은 대상 ticker가 하나 이상 있고 비어 있는 ticker가 없을 때만 활성화한다.
 - 기존 저장 JSON 호환 때문에 `inverse_*`, `base_*`, `base_symbol_roles` 필드는 타입에 남아 있을 수 있으나 새 UI에서는 노출하지 않는다.
 - 전략 미리보기 차트에서 Toss `YYYYMMDDHHmmss` 형태의 1분봉 시간은 한국시간(KST)으로 명시 파싱하고, lightweight-charts `timeFormatter`/`tickMarkFormatter`도 KST 표시로 고정한다. 브라우저 로컬 타임존이나 UTC 기본 formatter에 맡기면 데이마켓/프리마켓 시간표가 사용자가 보는 Toss 앱 시간과 어긋날 수 있다.
 
-> 마지막 업데이트: 2026-07-08T13:53:50+09:00
+> 마지막 업데이트: 2026-07-08T14:31:48+09:00

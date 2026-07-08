@@ -66,6 +66,19 @@ type MockOptions = {
 
 async function mockApi(page: import('@playwright/test').Page, options: MockOptions = {}) {
   const activeBroker = options.activeBroker ?? 'kis'
+  let tradingRunning = false
+  const tradingStatus = () => ({
+    isRunning: tradingRunning,
+    activeStrategies: tradingRunning ? ['leveraged_trend_hold_default'] : [],
+    positionCount: 0,
+    totalUnrealizedPnl: 0,
+    wsConnected: tradingRunning,
+    tradingProfileId: tradingRunning ? (activeBroker === 'toss' ? 'toss-live' : 'paper') : null,
+    tradingBrokerId: tradingRunning ? activeBroker : null,
+    tradingAccountId: tradingRunning ? (activeBroker === 'toss' ? '1' : '12345678-01') : null,
+    buySuspended: false,
+    buySuspendedReason: null,
+  })
   const strategies = [
     strategy('leveraged_trend_hold_default', 'LeveragedTrendHoldStrategy', 1),
     strategy('ma_cross_default', 'MovingAverageCrossStrategy', 2),
@@ -111,20 +124,17 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
       return
     }
     if (url.pathname === '/api/trading/status') {
-      await route.fulfill({
-        json: {
-          isRunning: false,
-          activeStrategies: [],
-          positionCount: 0,
-          totalUnrealizedPnl: 0,
-          wsConnected: false,
-          tradingProfileId: null,
-          tradingBrokerId: null,
-          tradingAccountId: null,
-          buySuspended: false,
-          buySuspendedReason: null,
-        },
-      })
+      await route.fulfill({ json: tradingStatus() })
+      return
+    }
+    if (url.pathname === '/api/trading/start') {
+      tradingRunning = true
+      await route.fulfill({ json: tradingStatus() })
+      return
+    }
+    if (url.pathname === '/api/trading/stop') {
+      tradingRunning = false
+      await route.fulfill({ json: tradingStatus() })
       return
     }
     if (url.pathname === '/api/strategies') {
@@ -313,4 +323,23 @@ test('Leveraged strategy preview runs selected ticker and renders signal chart',
   await expect(page.getByText(/매도 07\/07 17:03/)).toBeVisible()
   expect(previewRequests).toHaveLength(1)
   expect(previewRequests[0]).toMatchObject({ symbol: 'SOXL' })
+})
+
+test('Sidebar trading action toggles auto trading from strategy page', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/strategy')
+
+  await expect(page.getByText('레버리지 대상 ETF')).toBeVisible()
+  const sidebar = page.getByRole('navigation')
+  const startButton = sidebar.getByRole('button', { name: '자동매매 시작' })
+  await expect(startButton).toBeVisible()
+
+  await startButton.click()
+  await expect(sidebar.getByText('자동매매 실행 중')).toBeVisible()
+  const stopButton = sidebar.getByRole('button', { name: '자동매매 정지' })
+  await expect(stopButton).toBeVisible()
+
+  await stopButton.click()
+  await expect(sidebar.getByText('대기 중')).toBeVisible()
+  await expect(sidebar.getByRole('button', { name: '자동매매 시작' })).toBeVisible()
 })

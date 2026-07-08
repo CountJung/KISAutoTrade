@@ -10,6 +10,8 @@ import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import Chip from '@mui/material/Chip'
 import Tooltip from '@mui/material/Tooltip'
+import IconButton from '@mui/material/IconButton'
+import CircularProgress from '@mui/material/CircularProgress'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
@@ -17,8 +19,10 @@ import HistoryIcon from '@mui/icons-material/History'
 import ArticleIcon from '@mui/icons-material/Article'
 import SettingsIcon from '@mui/icons-material/Settings'
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import StopIcon from '@mui/icons-material/Stop'
 import { useNavigate, useLocation } from '@tanstack/react-router'
-import { useAppConfig, useTradingStatus } from '../../../api/hooks'
+import { useAppConfig, useStartTrading, useStopTrading, useTradingStatus } from '../../../api/hooks'
 import type { BrokerId } from '../../../api/types'
 
 interface NavItem {
@@ -51,7 +55,18 @@ function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; on
   const location = useLocation()
   const { data: appConfig } = useAppConfig()
   const { data: tradingStatus } = useTradingStatus()
+  const { mutate: startTrading, isPending: startPending } = useStartTrading()
+  const { mutate: stopTrading, isPending: stopPending } = useStopTrading()
   const isRunning = tradingStatus?.isRunning ?? false
+  const tradingActionPending = startPending || stopPending
+  const tradingActionLabel = isRunning ? '자동매매 정지' : '자동매매 시작'
+  const handleTradingAction = () => {
+    if (isRunning) {
+      stopTrading()
+      return
+    }
+    startTrading()
+  }
 
   return (
     <Box sx={{ width: drawerWidth, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -85,7 +100,7 @@ function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; on
           </Typography>
         )}
         {/* 자동매매 실행 상태 */}
-        <Box sx={{ mt: 0.75 }}>
+        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.75, minWidth: 0 }}>
           <Chip
             icon={
               <FiberManualRecordIcon
@@ -104,9 +119,35 @@ function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; on
             size="small"
             color={isRunning ? 'success' : 'default'}
             variant={isRunning ? 'filled' : 'outlined'}
-            sx={{ height: 20, fontSize: '0.68rem', fontWeight: isRunning ? 700 : 400 }}
+            sx={{ height: 20, fontSize: '0.68rem', fontWeight: isRunning ? 700 : 400, minWidth: 0 }}
           />
-        </Box>
+          <Tooltip title={tradingActionLabel} placement="right" arrow>
+            <span>
+              <IconButton
+                size="small"
+                color={isRunning ? 'error' : 'primary'}
+                aria-label={tradingActionLabel}
+                onClick={handleTradingAction}
+                disabled={tradingActionPending}
+                sx={{
+                  width: 24,
+                  height: 24,
+                  border: '1px solid',
+                  borderColor: isRunning ? 'error.main' : 'primary.main',
+                  flexShrink: 0,
+                }}
+              >
+                {tradingActionPending ? (
+                  <CircularProgress size={13} color="inherit" />
+                ) : isRunning ? (
+                  <StopIcon sx={{ fontSize: 16 }} />
+                ) : (
+                  <PlayArrowIcon sx={{ fontSize: 16 }} />
+                )}
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Stack>
       </Box>
       <Divider />
 
