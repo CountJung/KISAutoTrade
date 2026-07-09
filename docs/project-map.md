@@ -43,6 +43,7 @@ AutoConditionTrade/                   ← 루트
 │   └── user-guide.md                 ← 사용 가이드 (개요·전략 세팅)
 │
 ├── scripts/check-fsd-imports.mjs     ← FSD 레이어 역방향 import 검증
+├── scripts/release-version.mjs       ← 버전 파일 동기화 + release commit/tag/push 자동화 (`npm run release -- x.y.z`)
 ├── scripts/verify-toss-openapi.mjs   ← 공식 토스증권 OpenAPI JSON 버전/경로/헤더 검증
 ├── scripts/sync-codex-skills.ps1     ← 프로젝트 Codex 브리지 스킬을 계정 Codex 홈으로 동기화 (`npm run sync:codex-skills`)
 │

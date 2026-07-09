@@ -176,45 +176,69 @@ GitHub Actions가 릴리즈를 생성하려면 별도의 Secrets 설정이 **필
 
 ### 4-2. 릴리즈 절차
 
-#### ① 버전 번호 결정
+릴리즈는 루트 `package.json`의 npm 스크립트로 처리합니다. 버전은 `x.y.z` 형식으로 입력하며, 스크립트가 `v` 접두사가 붙은 Git 태그를 자동 생성합니다.
 
-버전은 `src-tauri/Cargo.toml`과 `src-tauri/tauri.conf.json` 두 파일에 정의되어 있습니다.  
-두 파일의 버전을 일치시킨 후 커밋합니다.
+#### ① 릴리즈 전 확인
 
-```toml
-# src-tauri/Cargo.toml
-[package]
-version = "0.2.0"   # ← 여기 변경
-```
-
-```json
-// src-tauri/tauri.conf.json
-{
-  "version": "0.2.0"   // ← 여기도 동일하게 변경
-}
-```
+실제 릴리즈 명령은 작업 트리가 깨끗해야 실행됩니다. 진행 중인 변경을 먼저 커밋하거나 stash한 뒤 실행하세요.
 
 ```bash
-git add src-tauri/Cargo.toml src-tauri/tauri.conf.json
-git commit -m "chore: bump version to 0.2.0"
-git push origin main
+git status --short
+npm run release:dry -- 0.2.1
 ```
 
-#### ② Git 태그 생성 및 push
+`release:dry`는 파일을 수정하거나 Git 명령을 실행하지 않고, 어떤 파일을 바꾸고 어떤 태그를 만들지 미리 출력합니다.
+
+#### ② 버전 파일만 동기화
+
+릴리즈는 하지 않고 버전 파일만 맞추려면 다음 명령을 사용합니다.
 
 ```bash
-# 태그 생성 (v 접두사 + Semantic Versioning)
-git tag v0.2.0
-
-# 태그 push → GitHub Actions 자동 트리거
-git push origin v0.2.0
-# 통합 커맨드 - cargo.toml, tauri.conf.json 파일 버전 맞춤
-git tag v0.1.2 && git push origin v0.1.2
+npm run version:set -- 0.2.1
 ```
 
-> 방금 실행한 `git push origin v0.1.0`처럼 단일 명령으로 push할 수 있습니다.
+동기화 대상:
 
-#### ③ GitHub Actions 진행 확인
+| 파일 | 역할 |
+|------|------|
+| `package.json` | npm 패키지 버전 |
+| `package-lock.json` | npm lockfile 루트 버전 |
+| `src-tauri/tauri.conf.json` | Tauri 앱/번들 버전 |
+| `src-tauri/Cargo.toml` | Rust crate 버전 |
+| `Cargo.lock` | workspace lockfile의 앱 패키지 버전 |
+
+#### ③ 커밋·태그·푸시까지 한 번에 실행
+
+```bash
+npm run release -- 0.2.1
+```
+
+이 명령은 다음 작업을 순서대로 수행합니다.
+
+1. 버전 파일을 `0.2.1`로 동기화
+2. `chore: release v0.2.1` 커밋 생성
+3. `v0.2.1` annotated tag 생성
+4. 현재 브랜치와 `v0.2.1` 태그를 `origin`에 push
+
+태그 push가 완료되면 `.github/workflows/release.yml`의 `Release` 워크플로가 자동으로 실행됩니다.
+
+#### ④ 선택 옵션
+
+```bash
+npm run release -- 0.2.1 --no-push
+npm run release -- 0.2.1 --remote upstream
+npm run release -- 0.2.1 --allow-dirty
+```
+
+| 옵션 | 설명 |
+|------|------|
+| `--no-push` | 버전 커밋과 태그는 만들지만 원격 push는 하지 않음 |
+| `--remote <name>` | `origin`이 아닌 다른 remote로 push |
+| `--allow-dirty` | 작업 트리에 기존 변경이 있어도 릴리즈 진행 |
+
+`--allow-dirty`는 의도하지 않은 파일이 릴리즈 커밋에 섞일 수 있으므로, 특별한 경우가 아니면 사용하지 않는 것을 권장합니다.
+
+#### ⑤ GitHub Actions 진행 확인
 
 1. GitHub 저장소 → **Actions** 탭 클릭
 2. `Release` 워크플로 실행 중 확인 (노란 원 = 빌드 중)
@@ -223,14 +247,14 @@ git tag v0.1.2 && git push origin v0.1.2
 
 빌드 실패 시 해당 Job 클릭 → 오류 로그 확인 가능합니다.
 
-#### ④ 릴리즈 게시
+#### ⑥ 릴리즈 게시
 
 1. GitHub 저장소 → **Releases** 탭
 2. **Draft** 상태의 릴리즈 클릭
 3. 릴리즈 노트 내용 수정 (주요 변경사항 기재)
 4. **Publish release** 클릭 → 공개 릴리즈로 전환
 
-#### ⑤ 릴리즈 결과물 (Artifacts)
+#### ⑦ 릴리즈 결과물 (Artifacts)
 
 | 파일 | 플랫폼 | 설명 |
 |------|--------|------|

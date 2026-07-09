@@ -1,7 +1,7 @@
 {
   "name": "kis-auto-trade",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.2.0",
   "type": "module",
   "engines": {
     "node": ">=20.0.0",
@@ -15,6 +15,9 @@
     "tauri": "tauri",
     "build:app": "tauri build",
     "build:app:debug": "tauri build --debug",
+    "version:set": "node scripts/release-version.mjs --no-git",
+    "release": "node scripts/release-version.mjs",
+    "release:dry": "node scripts/release-version.mjs --dry-run",
     "check:fsd": "node scripts/check-fsd-imports.mjs",
     "test:e2e": "playwright test",
     "verify:toss-openapi": "node scripts/verify-toss-openapi.mjs",

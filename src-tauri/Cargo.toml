@@ -1,6 +1,6 @@
 [package]
 name = "kis-auto-trade"
-version = "0.1.3"
+version = "0.2.0"
 description = "KISAutoTrade - Personal Stock Auto Trading System"
 authors = []
 license = "MIT"
