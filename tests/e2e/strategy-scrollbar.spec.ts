@@ -66,6 +66,7 @@ function strategy(id: string, name: string, index: number) {
 
 type MockOptions = {
   strategyDelayMs?: number
+  genericPreviewDelayMs?: number
   activeBroker?: 'kis' | 'toss'
   previewRequests?: unknown[]
   genericPreviewRequests?: unknown[]
@@ -191,6 +192,9 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
     if (url.pathname === '/api/strategy/preview') {
       const body = route.request().postDataJSON()
       options.genericPreviewRequests?.push(body)
+      if (options.genericPreviewDelayMs) {
+        await new Promise((resolve) => setTimeout(resolve, options.genericPreviewDelayMs))
+      }
       await route.fulfill({
         json: {
           strategyId: body.strategyId,
@@ -303,6 +307,52 @@ test('Strategy scrollbar appears after delayed strategy content loads', async ({
   await expect
     .poll(() => main.evaluate((el) => el.scrollHeight > el.clientHeight))
     .toBe(true)
+})
+
+test('All strategy cards use the full content width', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await mockApi(page)
+  await page.goto('/strategy')
+
+  const cards = page.getByTestId('strategy-card-grid')
+  await expect(cards).toHaveCount(13)
+  const containerBox = await cards.first().locator('..').boundingBox()
+  const cardBoxes = await cards.evaluateAll((elements) => elements.map((element) => {
+    const rect = element.getBoundingClientRect()
+    return { x: rect.x, width: rect.width }
+  }))
+
+  expect(containerBox).not.toBeNull()
+  expect(cardBoxes).toHaveLength(13)
+  for (const box of cardBoxes) {
+    expect(box.x).toBeCloseTo(cardBoxes[0].x, 0)
+    expect(box.width).toBeCloseTo(cardBoxes[0].width, 0)
+    expect(box.width).toBeGreaterThan((containerBox?.width ?? 0) * 0.95)
+  }
+})
+
+test('Strategy simulation controls stack without overflow on a narrow viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await mockApi(page)
+  await page.goto('/strategy')
+
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'MovingAverageCrossStrategy' }).first()
+  const quantity = card.getByLabel('1회 수량')
+  const tickerSelect = card.getByRole('combobox', { name: '시뮬레이션 티커' })
+  const previewButton = card.getByRole('button', { name: '미리보기 계산' })
+  await card.scrollIntoViewIfNeeded()
+  await expect(quantity).toBeVisible()
+  await expect(tickerSelect).toBeVisible()
+  await expect(previewButton).toBeVisible()
+
+  const cardBox = await card.boundingBox()
+  const quantityBox = await quantity.boundingBox()
+  const selectBox = await tickerSelect.boundingBox()
+  const buttonBox = await previewButton.boundingBox()
+  expect(cardBox).not.toBeNull()
+  expect(quantityBox?.width ?? 0).toBeGreaterThan((cardBox?.width ?? 0) * 0.75)
+  expect(buttonBox?.y ?? 0).toBeGreaterThan(selectBox?.y ?? 0)
+  expect((buttonBox?.x ?? 0) + (buttonBox?.width ?? 0)).toBeLessThanOrEqual((cardBox?.x ?? 0) + (cardBox?.width ?? 0))
 })
 
 test('main scrollbar thumb can be dragged with a pointer', async ({ page }) => {
@@ -430,6 +480,26 @@ test('Generic strategy card preview runs with edited card settings', async ({ pa
     symbol: '000002',
     orderQuantity: 1,
   })
+})
+
+test('Generic strategy preview discards an in-flight result after parameters change', async ({ page }) => {
+  const genericPreviewRequests: Array<{ params?: Record<string, unknown> }> = []
+  await mockApi(page, { genericPreviewRequests, genericPreviewDelayMs: 300 })
+  await page.goto('/strategy')
+
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'MovingAverageCrossStrategy' }).first()
+  const previewButton = card.getByRole('button', { name: '미리보기 계산' })
+  await previewButton.click()
+  await expect.poll(() => genericPreviewRequests.length).toBe(1)
+
+  await card.getByRole('spinbutton', { name: '단기 MA', exact: true }).fill('7')
+  await page.waitForTimeout(400)
+  await expect(card.getByText('mock generic preview signals')).toHaveCount(0)
+
+  await previewButton.click()
+  await expect(card.getByText('mock generic preview signals')).toBeVisible()
+  expect(genericPreviewRequests).toHaveLength(2)
+  expect(genericPreviewRequests[1]?.params).toMatchObject({ short_period: 7 })
 })
 
 test('Sidebar trading action toggles auto trading from strategy page', async ({ page }) => {

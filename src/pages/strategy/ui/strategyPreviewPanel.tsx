@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -99,6 +99,22 @@ export function StrategyPreviewPanel({
   const [preview, setPreview] = useState<StrategyPreviewView | null>(null)
   const [sourceLabel, setSourceLabel] = useState('일봉 캔들')
   const [localError, setLocalError] = useState<string | null>(null)
+  const previewGeneration = useRef(0)
+  const previewInputKey = JSON.stringify({
+    strategyId,
+    brokerId,
+    symbols,
+    selectedSymbol,
+    orderQuantity,
+    params,
+  })
+
+  useEffect(() => {
+    previewGeneration.current += 1
+    setPreview(null)
+    setLocalError(null)
+    previewMutation.reset()
+  }, [previewInputKey]) // eslint-disable-line react-hooks/exhaustive-deps -- serialized preview input is the invalidation boundary
 
   useEffect(() => {
     if (!symbols.includes(selectedSymbol)) {
@@ -117,6 +133,7 @@ export function StrategyPreviewPanel({
 
   const handlePreview = async () => {
     if (!selectedSymbol) return
+    const requestGeneration = previewGeneration.current
     setLocalError(null)
     try {
       const loaded = await loadPreviewCandles(selectedSymbol, brokerId)
@@ -130,8 +147,10 @@ export function StrategyPreviewPanel({
         params,
         candles: loaded.candles,
       })
+      if (requestGeneration !== previewGeneration.current) return
       setPreview(result)
     } catch (caught) {
+      if (requestGeneration !== previewGeneration.current) return
       setPreview(null)
       setLocalError(caught instanceof Error ? caught.message : '미리보기 차트 데이터를 가져오지 못했습니다.')
     }
@@ -154,7 +173,11 @@ export function StrategyPreviewPanel({
             저장 전 편집값과 일봉 차트로 매수/청산 신호를 재계산합니다.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1}
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+        >
           <TextField
             select
             size="small"
@@ -166,7 +189,8 @@ export function StrategyPreviewPanel({
               setLocalError(null)
             }}
             disabled={symbols.length === 0 || previewMutation.isPending}
-            sx={{ minWidth: { xs: '100%', sm: 220 } }}
+            fullWidth
+            sx={{ minWidth: { sm: 220 } }}
           >
             {symbols.map((symbol) => (
               <MenuItem key={symbol} value={symbol}>
@@ -180,7 +204,7 @@ export function StrategyPreviewPanel({
             startIcon={previewMutation.isPending ? <CircularProgress size={14} /> : <RefreshIcon />}
             onClick={handlePreview}
             disabled={!selectedSymbol || previewMutation.isPending}
-            sx={{ whiteSpace: 'nowrap' }}
+            sx={{ width: { xs: '100%', sm: 'auto' }, whiteSpace: 'nowrap' }}
           >
             미리보기 계산
           </Button>

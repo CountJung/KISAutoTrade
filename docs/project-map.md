@@ -74,6 +74,8 @@ AutoConditionTrade/                   ← 루트
 │   │   ├── trading/ui/kisPanels.tsx  ← KIS 보유/시세 패널
 │   │   ├── trading/ui/tossPanels.tsx ← Toss 시세/안전/장운영/주문 전 검증/접수 주문 목록·정정 패널
 │   │   ├── strategy/ui/Page.tsx      ← 전략 ON/OFF + 파라미터 설정 route 조립
+│   │   ├── strategy/ui/priceConditionEditorPanel.tsx ← 가격조건 전략 종목별 편집 패널
+│   │   ├── strategy/ui/strategyMetadata.ts ← 전략 파라미터 메타·설명·타입 판별
 │   │   ├── strategy/ui/leveragedTrendHoldEditorPanel.tsx ← 레버리지 추세 보유 전략 편집 패널
 │   │   ├── strategy/ui/strategyPreviewPanel.tsx ← 전략 카드별 차트 캔들 조회 + 범용 신호 preview panel
 │   │   ├── strategy/ui/leveragedTrendHoldPreviewChart.tsx ← 캔들/종가선/매수·청산 신호 preview chart
@@ -206,9 +208,11 @@ AutoConditionTrade/                   ← 루트
 | `pages/trading/ui/Page.tsx` | 활성 broker scope, KIS 국내/해외 수동 주문과 차트, Trading 라우트 조립 (`kisPanels.tsx`, `tossPanels.tsx`로 세부 패널 분리) |
 | `pages/trading/ui/kisPanels.tsx` | KIS 국내/해외 보유 테이블과 KIS 현재가 카드 |
 | `pages/trading/ui/tossPanels.tsx` | 활성 Toss 프로파일의 holdings/시세 snapshot/차트/종목 유의사항/장 운영 상태, 주문 전 검증, 접수 주문 목록과 정정 UI |
-| `pages/strategy/ui/Page.tsx` | 활성 broker scope, 전략별 저장 broker/account scope 표시, Toss 자동매매 주문/체결 연결 안내, 전략 활성화/파라미터/대상 종목/카드별 미리보기 route 조립 |
+| `pages/strategy/ui/Page.tsx` | 활성 broker scope, 전략별 저장 broker/account scope 표시, 전략 활성화/대상 종목/전체 너비 카드/카드별 미리보기 route 조립 |
+| `pages/strategy/ui/priceConditionEditorPanel.tsx` | 가격조건 전략의 종목별 수량·매수가·익절가·익절률·손절률 편집 테이블 |
+| `pages/strategy/ui/strategyMetadata.ts` | 일반 전략 파라미터 입력 메타, 전략 설명, strategy id 기반 타입 판별 |
 | `pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx` | 레버리지 추세 보유 전략의 ETF 세트 검색/편집, 진입·반등·초기 손절·수익 보호 청산 파라미터, 유효성 검사 |
-| `pages/strategy/ui/strategyPreviewPanel.tsx` | 일반/가격조건 전략 카드 하단에서 저장 전 파라미터로 국내·해외 일봉 캔들을 조회하고 `preview_strategy` 신호를 표시 |
+| `pages/strategy/ui/strategyPreviewPanel.tsx` | 일반/가격조건 전략 카드 하단에서 저장 전 파라미터로 국내·해외 일봉 캔들을 조회하고 `preview_strategy` 신호를 표시. 편집값·티커·broker 변경 시 이전 결과와 진행 중 응답을 무효화 |
 | `pages/strategy/ui/leveragedTrendHoldPreviewChart.tsx` | 레버리지/일반 전략 미리보기의 캔들 차트, 종가 선 그래프, 매수/청산 signal marker 표시 |
 | `pages/history/ui/Page.tsx` | 활성 broker scope, 자동매매 체결 기록과 기간별 통계 조회, provider 원본 trace 표시 |
 | `pages/log/ui/Page.tsx` | 로그 레벨/검색 필터, provider trace 토큰 chip 표시 |

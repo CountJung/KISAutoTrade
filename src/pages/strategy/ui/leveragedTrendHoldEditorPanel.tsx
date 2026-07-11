@@ -370,6 +370,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                       {(pickerFetching || pickerSearching) && <CircularProgress size={14} color="inherit" sx={{ mr: 0.5 }} />}
                       <IconButton
                         size="small"
+                        aria-label="레버리지 대상 검색"
                         disabled={stratEnabled || !pickerInput.trim() || (pickerMarket === 'KR' && pickerInput.trim().length < 2)}
                         onClick={() => {
                           if (pickerMarket === 'US') {
@@ -857,12 +858,22 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                       disabled={stratEnabled}
                       size="small"
                       onChange={(e) => handleQuantity(entry.leveraged_symbol, Number(e.target.value))}
-                      inputProps={{ min: 1, step: 1, style: { padding: '4px 4px', fontSize: '0.75rem', textAlign: 'right' } }}
+                      inputProps={{
+                        'aria-label': `${entry.leveraged_symbol} 수량`,
+                        min: 1,
+                        step: 1,
+                        style: { padding: '4px 4px', fontSize: '0.75rem', textAlign: 'right' },
+                      }}
                       sx={{ width: 80, '& .MuiInputBase-root': { fontSize: '0.75rem' } }}
                     />
                   </TableCell>
                   <TableCell sx={{ py: 0.5 }}>
-                    <IconButton size="small" disabled={stratEnabled} onClick={() => handleRemoveTarget(entry.leveraged_symbol)}>
+                    <IconButton
+                      size="small"
+                      disabled={stratEnabled}
+                      aria-label={`${entry.leveraged_symbol} 삭제`}
+                      onClick={() => handleRemoveTarget(entry.leveraged_symbol)}
+                    >
                       <DeleteIcon sx={{ fontSize: 14 }} />
                     </IconButton>
                   </TableCell>
