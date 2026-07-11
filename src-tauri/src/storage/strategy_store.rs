@@ -3,7 +3,10 @@
 /// 저장 경로: `{data_dir}/strategies/{profile_id}/strategies.json`
 use std::path::{Path, PathBuf};
 
-use crate::trading::strategy::StrategyConfig;
+use crate::{
+    storage::{read_json_or_default, write_json},
+    trading::strategy::StrategyConfig,
+};
 
 pub struct StrategyStore {
     data_dir: PathBuf,
@@ -23,31 +26,16 @@ impl StrategyStore {
             .join("strategies.json")
     }
 
-    /// 앱 초기화 시 동기적으로 전략 설정 로드 (없으면 빈 벡터 반환)
-    pub fn load_sync(&self, profile_id: &str) -> Vec<StrategyConfig> {
+    /// 전략 설정 로드. 활성 storage backend(JSON 또는 DB)를 따른다.
+    pub async fn load(&self, profile_id: &str) -> anyhow::Result<Vec<StrategyConfig>> {
         let path = self.config_path(profile_id);
-        if !path.exists() {
-            return vec![];
-        }
-        match std::fs::read_to_string(&path) {
-            Ok(content) => {
-                serde_json::from_str::<Vec<StrategyConfig>>(&content).unwrap_or_default()
-            }
-            Err(e) => {
-                tracing::warn!("전략 설정 로드 실패 — {:?}: {} (기본값 사용)", path, e);
-                vec![]
-            }
-        }
+        read_json_or_default(&path).await
     }
 
     /// 전략 설정을 비동기적으로 저장
     pub async fn save(&self, profile_id: &str, configs: &[StrategyConfig]) -> anyhow::Result<()> {
         let path = self.config_path(profile_id);
-        if let Some(parent) = path.parent() {
-            tokio::fs::create_dir_all(parent).await?;
-        }
-        let content = serde_json::to_string_pretty(configs)?;
-        tokio::fs::write(&path, content).await?;
+        write_json(&path, &configs).await?;
         tracing::debug!(
             "전략 설정 저장 완료 — 프로파일: {}, 전략 수: {}",
             profile_id,

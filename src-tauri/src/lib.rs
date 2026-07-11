@@ -11,6 +11,7 @@ pub mod storage;
 pub mod trading;
 pub mod updater;
 
+use anyhow::Context;
 use std::path::PathBuf;
 use tauri::{Emitter, Manager};
 
@@ -18,6 +19,7 @@ use broker::domain::BrokerId;
 use commands::{AppState, RefreshConfig};
 use config::{AppConfig, DiscordConfig, ProfilesConfig};
 use logging::LogConfig;
+use storage::database::{install_database_manager, DatabaseManager};
 
 /// 디렉토리 재귀 복사 (cross-filesystem 이전 시 rename 대신 사용)
 /// macOS ._* 리소스 포크 파일은 건너뜀
@@ -155,8 +157,32 @@ pub fn run() {
                 web_port, refresh_config.interval_sec
             );
 
+            // DB 연결 정보는 app-data에 별도 저장하고, data/의 JSON/DB backend를 런타임 공유한다.
+            let database_manager = std::sync::Arc::new(DatabaseManager::load_sync(
+                app_data_dir.join("database_config.json"),
+                data_dir.clone(),
+            )?);
+            let database_config = tauri::async_runtime::block_on(database_manager.config_view());
+            if database_config.active_backend == crate::storage::database::StorageBackend::Database {
+                tauri::async_runtime::block_on(database_manager.status())
+                    .context("활성 DB 저장소 초기 연결/스키마 검증 실패")?;
+            }
+            install_database_manager(std::sync::Arc::clone(&database_manager))?;
+
             // AppState 초기화 및 등록
-            let state = AppState::new(config, discord_config, profiles, profiles_path, data_dir.clone(), log_dir.clone(), log_cfg, web_port, refresh_config, interval_tx);
+            let state = tauri::async_runtime::block_on(AppState::new(
+                config,
+                discord_config,
+                profiles,
+                profiles_path,
+                data_dir.clone(),
+                log_dir.clone(),
+                log_cfg,
+                web_port,
+                refresh_config,
+                interval_tx,
+                database_manager,
+            ));
             app.manage(state);
 
             // 시작 시 체결 기록 즉시 정리 (로그와 동일하게 시작 시 1회 실행)
@@ -211,7 +237,10 @@ pub fn run() {
                 let stock_list           = st.stock_list.clone();
                 let port                 = st.web_port;
                 let is_trading           = st.is_trading.clone();
+                let storage_maintenance  = st.storage_maintenance.clone();
+                let database_manager     = st.database_manager.clone();
                 let strategy_manager     = st.strategy_manager.clone();
+                let strategy_update_lock = st.strategy_update_lock.clone();
                 let position_tracker     = st.position_tracker.clone();
                 let config               = st.config.clone();
                 let profiles             = st.profiles.clone();
@@ -234,7 +263,7 @@ pub fn run() {
                 tauri::async_runtime::spawn(async move {
                     server::start(
                         rest_client, stock_list, port,
-                        is_trading, strategy_manager, position_tracker,
+                        is_trading, storage_maintenance, database_manager, strategy_manager, strategy_update_lock, position_tracker,
                         config, profiles, order_store, trade_store, stats_store,
                         log_config, log_dir, trade_archive_config, data_dir,
                         risk_manager, order_manager, stock_store, strategy_store,
@@ -488,6 +517,16 @@ pub fn run() {
             commands::get_refresh_config,
             commands::set_refresh_config,
             commands::clear_buy_suspension,
+            commands::get_database_config,
+            commands::save_database_config,
+            commands::test_database_connection,
+            commands::create_database_tables,
+            commands::clear_database_tables,
+            commands::drop_database_tables,
+            commands::inspect_json_storage,
+            commands::import_json_to_database,
+            commands::export_database_to_json,
+            commands::set_storage_backend,
         ])
         .on_window_event(|window, event| {
             // 앱 종료 요청 시 자동매매 정지 신호 전송 (트레이딩 데몬 루프 안전 종료)

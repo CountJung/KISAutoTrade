@@ -219,8 +219,10 @@ pub(super) async fn set_archive_config_handler(
         retention_days: body.retention_days.clamp(1, 3650),
         max_size_mb: body.max_size_mb.clamp(50, 102400),
     };
+    if let Err(error) = new_cfg.save(&s.data_dir).await {
+        return Json(serde_json::json!({ "error": error }));
+    }
     *s.trade_archive_config.write().await = new_cfg.clone();
-    new_cfg.save_sync(&s.data_dir).ok();
     let data_dir = s.data_dir.clone();
     let cfg_clone = new_cfg.clone();
     tokio::task::spawn_blocking(move || {

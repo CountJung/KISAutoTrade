@@ -1,4 +1,7 @@
 pub mod balance_store;
+pub mod database;
+mod database_io;
+mod database_types;
 pub mod order_store;
 pub mod stats_store;
 pub mod stock_store;
@@ -54,10 +57,9 @@ pub async fn read_json_or_default<T>(path: &Path) -> Result<T>
 where
     T: serde::de::DeserializeOwned + Default,
 {
-    if !path.exists() {
+    let Some(content) = database::read_managed_json(path).await? else {
         return Ok(T::default());
-    }
-    let content = fs::read_to_string(path).await?;
+    };
     let value = serde_json::from_str(&content)?;
     Ok(value)
 }
@@ -67,9 +69,8 @@ pub async fn write_json<T>(path: &Path, value: &T) -> Result<()>
 where
     T: serde::Serialize,
 {
-    ensure_dir(path).await?;
     let content = serde_json::to_string_pretty(value)?;
-    fs::write(path, content).await?;
+    database::write_managed_json(path, &content).await?;
     Ok(())
 }
 

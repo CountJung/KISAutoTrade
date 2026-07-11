@@ -590,4 +590,12 @@ UI 규칙:
 - 티커·파라미터·수량·broker가 바뀌면 이전 미리보기 결과를 무효화한다. 진행 중 요청의 결과도 generation/key가 현재 입력과 일치할 때만 표시해 stale chart를 막는다.
 - Playwright에서 모든 전략 카드의 x/width가 동일한지와 좁은 viewport에서 입력/Select/버튼이 카드 밖으로 넘치지 않는지 검증한다.
 
-> 마지막 업데이트: 2026-07-11T00:23:44+09:00
+## DB 관리 Settings UI
+
+- PostgreSQL/MariaDB만 provider 선택지로 제공하고, 연결 설정 저장 전에는 연결 테스트·테이블·이관 action을 비활성화한다. password는 조회값으로 채우지 않고 비워 두면 기존 값을 유지한다.
+- 연결/서버 버전/latency/schema/table 행 수, 현재 JSON/DB backend, JSON 파일 수·크기, 마지막 이관 checksum/경로를 같은 섹션에서 확인할 수 있게 한다.
+- table clear/drop은 자동매매 중이거나 DB backend가 활성일 때 금지한다. 별도 Dialog에서 정확한 확인 문구 입력과 복구 불가 확인 checkbox를 모두 요구한다.
+- backend 전환은 자동매매 정지와 schema/import 검증을 통과한 경우만 허용하며, stale 연결 설정으로 작업하지 않도록 form dirty 상태도 action을 잠근다.
+- DB password와 파괴적 관리는 Tauri desktop Settings에서만 렌더링한다. 웹 모드에는 보안 안내만 보여주고 관리 form/control을 노출하지 않는다.
+
+> 마지막 업데이트: 2026-07-11T00:00:00+09:00

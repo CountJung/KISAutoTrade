@@ -219,12 +219,12 @@ pub async fn refresh_stock_list(state: State<'_, AppState>) -> CmdResult<usize> 
 
     // 캐시 파일 갱신
     let cache_path = state.data_dir.join("stock_list.json");
-    if let Some(dir) = cache_path.parent() {
-        let _ = std::fs::create_dir_all(dir);
-    }
-    if let Ok(json) = serde_json::to_string_pretty(&items) {
-        let _ = std::fs::write(&cache_path, json);
-    }
+    crate::storage::write_json(&cache_path, &items)
+        .await
+        .map_err(|error| CmdError {
+            code: "PERSISTENCE_ERROR".into(),
+            message: format!("종목 목록 캐시 저장 실패: {error}"),
+        })?;
 
     tracing::info!("종목 목록 수동 갱신 완료: {}개", count);
     Ok(count)

@@ -1,5 +1,6 @@
 use axum::{
     extract::{Path, State},
+    http::StatusCode,
     Json,
 };
 use serde::Deserialize;
@@ -172,6 +173,18 @@ fn money_units(value: &str, currency: &crate::broker::BrokerCurrency) -> u64 {
 
 /// POST /api/trading/start — is_trading = true (폴링 데몬이 자동으로 재개)
 pub(super) async fn trading_start_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
+    let _storage_maintenance = s.storage_maintenance.lock().await;
+    if s.database_manager.config_view().await.active_backend
+        == crate::storage::database::StorageBackend::Database
+    {
+        if let Err(error) = s.database_manager.status().await {
+            return Json(serde_json::json!({
+                "ok": false,
+                "code": "STORAGE_UNAVAILABLE",
+                "message": format!("DB 저장소를 확인할 수 없어 자동매매를 시작하지 않습니다: {error}")
+            }));
+        }
+    }
     let current_cfg = s.config.read().await.clone();
     if current_cfg.broker_id == BrokerId::Kis && !current_cfg.is_kis_configured() {
         return Json(serde_json::json!({
@@ -293,7 +306,8 @@ pub(super) async fn update_strategy_handler(
     State(s): State<ServerState>,
     Path(id): Path<String>,
     Json(body): Json<UpdateStrategyBody>,
-) -> Json<serde_json::Value> {
+) -> (StatusCode, Json<serde_json::Value>) {
+    let _strategy_update = s.strategy_update_lock.lock().await;
     let active_scope = {
         let cfg = s.config.read().await.clone();
         let account_id = if cfg.broker_account_id.is_empty() {
@@ -302,6 +316,10 @@ pub(super) async fn update_strategy_handler(
             Some(cfg.broker_account_id.clone())
         };
         (cfg.broker_id, account_id)
+    };
+    let previous_configs: Vec<crate::trading::strategy::StrategyConfig> = {
+        let mgr = s.strategy_manager.lock().await;
+        mgr.all_configs().into_iter().cloned().collect()
     };
     let updated_config = {
         let mut mgr = s.strategy_manager.lock().await;
@@ -322,8 +340,11 @@ pub(super) async fn update_strategy_handler(
         }) {
             Some(config) => config,
             None => {
-                return Json(
-                    serde_json::json!({ "error": format!("전략을 찾을 수 없습니다: {}", id) }),
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(
+                        serde_json::json!({ "error": format!("전략을 찾을 수 없습니다: {}", id) }),
+                    ),
                 )
             }
         }
@@ -345,22 +366,38 @@ pub(super) async fn update_strategy_handler(
             let mgr = s.strategy_manager.lock().await;
             mgr.all_configs().into_iter().cloned().collect()
         };
-        if let Err(e) = s.strategy_store.save(pid, &all_configs).await {
-            tracing::warn!("전략 설정 저장 실패: {}", e);
+        if let Err(error) = s.strategy_store.save(pid, &all_configs).await {
+            s.strategy_manager
+                .lock()
+                .await
+                .apply_saved_configs_for_scope(
+                    &previous_configs,
+                    active_scope.0,
+                    active_scope.1.clone(),
+                );
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": format!("전략 설정을 저장하지 못했습니다: {error}")
+                })),
+            );
         }
     }
 
-    Json(serde_json::json!({
-        "id":              updated_config.id,
-        "name":            updated_config.name,
-        "enabled":         updated_config.enabled,
-        "brokerId":        updated_config.broker_id,
-        "brokerAccountId": updated_config.broker_account_id,
-        "targetSymbols":   updated_config.target_symbols,
-        "targetSymbolNames": symbol_names,
-        "orderQuantity":   updated_config.order_quantity,
-        "params":          updated_config.params,
-    }))
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "id":              updated_config.id,
+            "name":            updated_config.name,
+            "enabled":         updated_config.enabled,
+            "brokerId":        updated_config.broker_id,
+            "brokerAccountId": updated_config.broker_account_id,
+            "targetSymbols":   updated_config.target_symbols,
+            "targetSymbolNames": symbol_names,
+            "orderQuantity":   updated_config.order_quantity,
+            "params":          updated_config.params,
+        })),
+    )
 }
 
 /// POST /api/strategy/preview — 프론트가 제공한 차트 캔들로 전략 신호 미리보기

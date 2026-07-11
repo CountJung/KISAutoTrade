@@ -34,6 +34,8 @@ mod settings;
 pub use settings::*;
 mod archive;
 pub use archive::*;
+mod database;
+pub use database::*;
 
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -68,6 +70,7 @@ use crate::{
     },
     notifications::{discord::DiscordNotifier, types::NotificationEvent},
     storage::{
+        database::DatabaseManager,
         stats_store::DailyStats,
         stock_store::{StockListStats, StockStore},
         strategy_store::StrategyStore,
@@ -115,8 +118,12 @@ pub struct AppState {
     pub stats_store: Arc<StatsStore>,
     /// 자동 매매 실행 여부
     pub is_trading: Arc<Mutex<bool>>,
+    /// 저장 backend 관리와 자동매매 시작을 직렬화해 전환 중 신규 거래를 막는다.
+    pub storage_maintenance: Arc<Mutex<()>>,
     /// 전략 관리자
     pub strategy_manager: Arc<Mutex<StrategyManager>>,
+    /// 전략 메모리 변경과 전체 설정 문서 저장을 IPC/REST 사이에서 직렬화한다.
+    pub strategy_update_lock: Arc<Mutex<()>>,
     /// 포지션 트래커
     pub position_tracker: Arc<Mutex<PositionTracker>>,
     /// 해외 포지션 트래커 (USD cents, 거래소 코드 보존)
@@ -159,11 +166,13 @@ pub struct AppState {
     pub refresh_config: Arc<RwLock<RefreshConfig>>,
     /// 갱신 주기 변경을 백그라운드 데몬에 전달하는 채널 (설정 저장 시 즉시 적용)
     pub refresh_interval_tx: Arc<watch::Sender<u64>>,
+    /// JSON/PostgreSQL/MariaDB 저장 backend와 관리 작업을 공유한다.
+    pub database_manager: Arc<DatabaseManager>,
 }
 
 impl AppState {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub async fn new(
         config: Arc<AppConfig>,
         discord_config: Arc<DiscordConfig>,
         profiles: ProfilesConfig,
@@ -174,6 +183,7 @@ impl AppState {
         web_port: u16,
         refresh_config: RefreshConfig,
         refresh_interval_tx: watch::Sender<u64>,
+        database_manager: Arc<DatabaseManager>,
     ) -> Self {
         let rest_client = make_rest_client(&config);
 
@@ -382,7 +392,13 @@ impl AppState {
 
         // 저장된 전략 설정 로드 (프로파일별, 프로그램 재시작 후 복원)
         if let Some(profile_id) = initial_active_profile_id.as_deref() {
-            let saved = strategy_store.load_sync(profile_id);
+            let saved = strategy_store
+                .load(profile_id)
+                .await
+                .unwrap_or_else(|error| {
+                    tracing::error!("전략 설정 복원 실패 (프로파일 {}): {}", profile_id, error);
+                    Vec::new()
+                });
             strategy_manager.apply_saved_configs_for_scope(
                 &saved,
                 strategy_broker_id,
@@ -406,19 +422,21 @@ impl AppState {
             stats_store,
             order_store,
             is_trading: Arc::new(Mutex::new(false)),
+            storage_maintenance: Arc::new(Mutex::new(())),
             strategy_manager: Arc::new(Mutex::new(strategy_manager)),
+            strategy_update_lock: Arc::new(Mutex::new(())),
             position_tracker,
             overseas_position_tracker,
             order_manager,
             risk_manager,
             log_dir,
             log_config: Arc::new(RwLock::new(log_config)),
-            trade_archive_config: Arc::new(RwLock::new(TradeArchiveConfig::load_or_default(
-                &data_dir,
-            ))),
+            trade_archive_config: Arc::new(RwLock::new(
+                TradeArchiveConfig::load_or_default(&data_dir).await,
+            )),
             data_dir: data_dir.clone(),
             stock_list: Arc::new(RwLock::new(vec![])),
-            stock_store: Arc::new(StockStore::new(&data_dir)),
+            stock_store: Arc::new(StockStore::new(&data_dir).await),
             strategy_store,
             web_port,
             ws_connected: Arc::new(AtomicBool::new(false)),
@@ -429,6 +447,7 @@ impl AppState {
             exchange_rate_status,
             refresh_config: Arc::new(RwLock::new(refresh_config)),
             refresh_interval_tx: Arc::new(refresh_interval_tx),
+            database_manager,
         }
     }
 }

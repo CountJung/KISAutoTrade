@@ -185,6 +185,8 @@ impl OrderManager {
                 stats.recalculate();
                 if let Err(e) = self.stats_store.upsert(stats).await {
                     tracing::error!("통계 저장 실패: {}", e);
+                    self.buy_suspended = true;
+                    self.buy_suspended_reason = Some(format!("체결 통계 영속화 실패: {e}"));
                 }
             }
         } else {
@@ -194,6 +196,8 @@ impl OrderManager {
                 stats.recalculate();
                 if let Err(e) = self.stats_store.upsert(stats).await {
                     tracing::error!("통계 저장 실패 (매수 수수료): {}", e);
+                    self.buy_suspended = true;
+                    self.buy_suspended_reason = Some(format!("체결 통계 영속화 실패: {e}"));
                 }
             }
         }
@@ -208,6 +212,8 @@ impl OrderManager {
         filled_record.quantity = delta_qty;
         if let Err(e) = self.order_store.append(filled_record).await {
             tracing::error!("주문 기록 저장 실패 (체결): {}", e);
+            self.buy_suspended = true;
+            self.buy_suspended_reason = Some(format!("체결 주문 영속화 실패: {e}"));
         }
 
         let trade_side = match &pending.record.side {
@@ -274,6 +280,8 @@ impl OrderManager {
         );
         if let Err(e) = self.trade_store.append(trade_record).await {
             tracing::error!("TradeStore 저장 실패: {}", e);
+            self.buy_suspended = true;
+            self.buy_suspended_reason = Some(format!("체결 기록 영속화 실패: {e}"));
         }
 
         if let Some(discord) = &self.discord {

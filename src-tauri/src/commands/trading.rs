@@ -384,6 +384,21 @@ pub async fn start_trading(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> CmdResult<TradingStatus> {
+    let _storage_maintenance = state.storage_maintenance.lock().await;
+    if state.database_manager.config_view().await.active_backend
+        == crate::storage::database::StorageBackend::Database
+    {
+        state
+            .database_manager
+            .status()
+            .await
+            .map_err(|error| CmdError {
+                code: "STORAGE_UNAVAILABLE".into(),
+                message: format!(
+                    "DB 저장소를 확인할 수 없어 자동매매를 시작하지 않습니다: {error}"
+                ),
+            })?;
+    }
     let current_cfg = state.config.read().await.clone();
     if current_cfg.broker_id == BrokerId::Kis && !current_cfg.is_kis_configured() {
         return Err(CmdError {

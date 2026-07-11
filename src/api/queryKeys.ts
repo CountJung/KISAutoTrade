@@ -45,4 +45,7 @@ export const KEYS = {
   exchangeRateStatus: ['exchangeRateStatus'] as const,
   refreshInterval: ['refreshInterval'] as const,
   refreshConfig: ['refreshConfig'] as const,
+  databaseConfig: ['databaseConfig'] as const,
+  databaseStatus: ['databaseStatus'] as const,
+  jsonStorageInventory: ['jsonStorageInventory'] as const,
 }

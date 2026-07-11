@@ -53,6 +53,7 @@ import { fmtNumber } from '../../../shared/lib'
 
 import { AccountProfilesSection } from './accountProfiles'
 import { Section } from './section'
+import { DatabaseManagementSection } from './databaseManagementSection'
 
 const fmt = (n: number) => fmtNumber(n)
 
@@ -626,8 +627,13 @@ export default function Settings() {
               <br />
               설정 저장 시 보관 기간 초과 데이터는 자동 정리됩니다.
             </Typography>
+            <Alert severity="info">
+              이 보관 정리는 JSON 파일 backend에만 적용됩니다. DB backend의 문서 보관 정책은 아직 자동 적용되지 않습니다.
+            </Alert>
           </Stack>
         </Section>
+
+        <DatabaseManagementSection />
 
         <AccountProfilesSection />
 

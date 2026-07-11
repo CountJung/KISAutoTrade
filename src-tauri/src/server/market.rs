@@ -274,11 +274,10 @@ pub(super) async fn refresh_stock_list_handler(
     let count = items.len();
     *s.stock_list.write().await = items.clone();
     let cache_path = s.data_dir.join("stock_list.json");
-    if let Some(dir) = cache_path.parent() {
-        let _ = tokio::fs::create_dir_all(dir).await;
-    }
-    if let Ok(json) = serde_json::to_string_pretty(&items) {
-        let _ = tokio::fs::write(&cache_path, json).await;
+    if let Err(error) = crate::storage::write_json(&cache_path, &items).await {
+        return Json(serde_json::json!({
+            "error": format!("종목 목록 캐시 저장 실패: {error}")
+        }));
     }
     s.stock_store
         .upsert_many(items.iter().map(|i| (i.pdno.clone(), i.prdt_name.clone())))

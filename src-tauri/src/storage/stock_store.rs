@@ -12,7 +12,10 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
-use crate::api::rest::StockSearchItem;
+use crate::{
+    api::rest::StockSearchItem,
+    storage::{read_json_or_default, write_json},
+};
 
 const STOCKLIST_DIR: &str = "stocklist";
 const STOCKLIST_FILE: &str = "stocklist.json";
@@ -50,9 +53,15 @@ pub struct StockStore {
 
 impl StockStore {
     /// data_dir: AppState.data_dir 경로
-    pub fn new(data_dir: &Path) -> Self {
+    pub async fn new(data_dir: &Path) -> Self {
         let path = data_dir.join(STOCKLIST_DIR).join(STOCKLIST_FILE);
-        let data = load_from_file(&path);
+        let data = match read_json_or_default(&path).await {
+            Ok(data) => data,
+            Err(error) => {
+                tracing::warn!("stocklist 저장 데이터 로드 실패: {}", error);
+                HashMap::new()
+            }
+        };
         tracing::info!("StockStore 초기화: {}개 종목 로드 ({:?})", data.len(), path);
         Self {
             path,
@@ -123,9 +132,12 @@ impl StockStore {
             name: name.to_string(),
             updated_at: now,
         };
-        let mut data = self.data.write().await;
-        data.insert(code.to_string(), entry);
-        self.persist(&data);
+        let snapshot = {
+            let mut data = self.data.write().await;
+            data.insert(code.to_string(), entry);
+            data.clone()
+        };
+        self.persist(&snapshot).await;
     }
 
     /// 여러 건 일괄 upsert (KIS 잔고·체결 등 배치 처리용)
@@ -136,25 +148,28 @@ impl StockStore {
         S2: AsRef<str>,
     {
         let now = chrono::Utc::now().to_rfc3339();
-        let mut data = self.data.write().await;
-        let mut changed = false;
-        for (code, name) in items {
-            let c = code.as_ref();
-            let n = name.as_ref();
-            if c.is_empty() || n.is_empty() {
-                continue;
+        let snapshot = {
+            let mut data = self.data.write().await;
+            let mut changed = false;
+            for (code, name) in items {
+                let c = code.as_ref();
+                let n = name.as_ref();
+                if c.is_empty() || n.is_empty() {
+                    continue;
+                }
+                data.insert(
+                    c.to_string(),
+                    StockEntry {
+                        name: n.to_string(),
+                        updated_at: now.clone(),
+                    },
+                );
+                changed = true;
             }
-            data.insert(
-                c.to_string(),
-                StockEntry {
-                    name: n.to_string(),
-                    updated_at: now.clone(),
-                },
-            );
-            changed = true;
-        }
-        if changed {
-            self.persist(&data);
+            changed.then(|| data.clone())
+        };
+        if let Some(snapshot) = snapshot {
+            self.persist(&snapshot).await;
         }
     }
 
@@ -166,28 +181,9 @@ impl StockStore {
 
     // ── 내부 유틸 ─────────────────────────────────────────────────
 
-    fn persist(&self, data: &HashMap<String, StockEntry>) {
-        let path = self.path.clone();
-        if let Some(dir) = path.parent() {
-            let _ = std::fs::create_dir_all(dir);
+    async fn persist(&self, data: &HashMap<String, StockEntry>) {
+        if let Err(error) = write_json(&self.path, data).await {
+            tracing::warn!("StockStore 저장 실패: {}", error);
         }
-        match serde_json::to_string_pretty(data) {
-            Ok(json) => {
-                if let Err(e) = std::fs::write(&path, json) {
-                    tracing::warn!("StockStore 저장 실패: {}", e);
-                }
-            }
-            Err(e) => tracing::warn!("StockStore 직렬화 실패: {}", e),
-        }
-    }
-}
-
-fn load_from_file(path: &PathBuf) -> HashMap<String, StockEntry> {
-    match std::fs::read_to_string(path) {
-        Ok(text) => serde_json::from_str(&text).unwrap_or_else(|e| {
-            tracing::warn!("stocklist.json 파싱 실패 (초기화): {}", e);
-            HashMap::new()
-        }),
-        Err(_) => HashMap::new(),
     }
 }

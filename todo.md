@@ -41,6 +41,22 @@
   - 손상 파일 백업/복구 정책과 마지막 정상 snapshot을 둔다.
   - 병렬 주문/체결 append에서 레코드 유실이 없는 테스트와 저장 중 강제 종료 복구 테스트를 추가한다.
 
+## P1 — PostgreSQL/MariaDB 운영 완성도
+
+- [ ] 실제 PostgreSQL/MariaDB 지원 버전을 컨테이너 contract test로 검증한다.
+  - table create/status/import/export/clear/drop과 JSON↔DB backend 왕복을 두 provider에서 같은 fixture로 실행한다.
+  - TLS disable/require, 잘못된 자격증명, 연결 단절, transaction rollback과 재접속을 검증한다.
+  - CI service container에서 migration/schema version 호환성을 release gate로 둔다.
+
+- [ ] DB 자격증명을 OS keychain/credential vault로 이전한다.
+  - 현재 권한 제한된 `database_config.json`의 password를 keychain reference로 교체하고 기존 설정을 1회 migration한다.
+  - password 조회·로그·logical export 제외가 유지되는지 회귀 테스트를 둔다.
+
+- [ ] DB backend 전용 보관·복구 schema를 추가한다.
+  - v1 JSON document 호환 계층 위에 broker/account scoped order, fill, position, risk runtime 정규화 테이블을 schema version migration으로 추가한다.
+  - DB backend에서도 trade retention을 transaction으로 실행하고 Settings 보관 통계와 실제 row가 일치하게 한다.
+  - 앱 재시작 시 미체결/부분체결과 리스크 runtime 상태를 DB에서 복원하는 contract test를 추가한다.
+
 ## P1 — 주문·리스크 정확성과 운영 가시성
 
 - [ ] provider-neutral 주문 상태 머신을 완성한다.

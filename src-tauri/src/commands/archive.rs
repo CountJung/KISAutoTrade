@@ -21,24 +21,23 @@ impl Default for TradeArchiveConfig {
 }
 
 impl TradeArchiveConfig {
-    /// 저장 파일에서 로드, 없으면 기본값
-    pub fn load_or_default(data_dir: &Path) -> Self {
+    /// 활성 storage backend에서 로드, 없으면 기본값
+    pub async fn load_or_default(data_dir: &Path) -> Self {
         let path = data_dir.join("trade_archive_config.json");
-        std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default()
+        crate::storage::read_json_or_default(&path)
+            .await
+            .unwrap_or_else(|error| {
+                tracing::warn!("체결 기록 보관 설정 로드 실패: {}", error);
+                Self::default()
+            })
     }
 
-    /// 파일에 동기 저장
-    pub fn save_sync(&self, data_dir: &Path) -> std::result::Result<(), String> {
-        if let Some(parent) = data_dir.parent() {
-            std::fs::create_dir_all(parent).ok();
-        }
-        std::fs::create_dir_all(data_dir).map_err(|e| e.to_string())?;
+    /// 활성 storage backend에 저장
+    pub async fn save(&self, data_dir: &Path) -> std::result::Result<(), String> {
         let path = data_dir.join("trade_archive_config.json");
-        let content = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
-        std::fs::write(&path, content).map_err(|e| e.to_string())
+        crate::storage::write_json(&path, self)
+            .await
+            .map_err(|error| error.to_string())
     }
 }
 
@@ -218,11 +217,11 @@ pub async fn set_trade_archive_config(
         max_size_mb: input.max_size_mb.clamp(50, 102400),
     };
 
-    *state.trade_archive_config.write().await = new_cfg.clone();
-    new_cfg.save_sync(&state.data_dir).map_err(|e| CmdError {
+    new_cfg.save(&state.data_dir).await.map_err(|e| CmdError {
         code: "SAVE_ERR".into(),
         message: e,
     })?;
+    *state.trade_archive_config.write().await = new_cfg.clone();
 
     // 즉시 정리 실행
     let data_dir = state.data_dir.clone();

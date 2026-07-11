@@ -2,6 +2,7 @@ use anyhow::Result;
 use chrono::{Datelike, Local, NaiveDate};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use tokio::sync::Mutex;
 
 use super::{build_monthly_path, read_json_or_default, write_json};
 
@@ -52,11 +53,15 @@ impl DailyStats {
 /// 저장 경로: {data_dir}/stats/{YYYY}/{MM}/daily_stats.json
 pub struct StatsStore {
     data_dir: PathBuf,
+    write_lock: Mutex<()>,
 }
 
 impl StatsStore {
     pub fn new(data_dir: PathBuf) -> Self {
-        Self { data_dir }
+        Self {
+            data_dir,
+            write_lock: Mutex::new(()),
+        }
     }
 
     fn month_path(&self, year: i32, month: u32) -> PathBuf {
@@ -65,6 +70,7 @@ impl StatsStore {
 
     /// 특정 날짜 통계 업데이트
     pub async fn upsert(&self, stats: DailyStats) -> Result<()> {
+        let _write = self.write_lock.lock().await;
         let date = NaiveDate::parse_from_str(&stats.date, "%Y-%m-%d")?;
         let path = self.month_path(date.year(), date.month());
 

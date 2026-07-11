@@ -2,6 +2,7 @@ use anyhow::Result;
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use super::{build_daily_path, read_json_or_default, write_json};
@@ -95,11 +96,15 @@ impl OrderRecord {
 /// 주문 이력 저장소
 pub struct OrderStore {
     data_dir: PathBuf,
+    write_lock: Mutex<()>,
 }
 
 impl OrderStore {
     pub fn new(data_dir: PathBuf) -> Self {
-        Self { data_dir }
+        Self {
+            data_dir,
+            write_lock: Mutex::new(()),
+        }
     }
 
     fn today_path(&self) -> PathBuf {
@@ -112,6 +117,7 @@ impl OrderStore {
     }
 
     pub async fn append(&self, record: OrderRecord) -> Result<()> {
+        let _write = self.write_lock.lock().await;
         let path = self.today_path();
         let mut records: Vec<OrderRecord> = read_json_or_default(&path).await?;
         records.push(record);

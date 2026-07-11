@@ -24,6 +24,23 @@
 | `list_toss_profile_accounts` | 저장된 토스증권 프로파일 키로 `accountSeq` 후보 조회 |
 | `check_toss_profile_connection` | 토스증권 프로파일 연결 진단 (OpenAPI spec, token, accounts, holdings 단계 결과) |
 
+## 데이터베이스 관리 (Tauri 데스크톱 전용)
+
+> DB 자격증명과 파괴적 작업은 인증되지 않은 axum/LAN REST에 노출하지 않는다.
+
+| Command | 설명 |
+|---------|------|
+| `get_database_config` | PostgreSQL/MariaDB 연결 설정 조회 (password 미반환, 설정 여부만 반환) |
+| `save_database_config` | 연결 설정 저장. 대상 변경 시 backend를 JSON으로 되돌림 |
+| `test_database_connection` | 연결, 서버 버전, latency, schema/table 상태 조회 |
+| `create_database_tables` | 고정된 KISAutoTrade 문서/metadata 테이블 생성 또는 schema 확인 |
+| `clear_database_tables` | 앱 문서 데이터 전체 삭제 (자동매매 정지 + 확인 문구 필요) |
+| `drop_database_tables` | KISAutoTrade 관리 테이블만 삭제 (자동매매 정지 + 확인 문구 필요) |
+| `inspect_json_storage` | `data/` JSON 파일 수·크기·category 조회 |
+| `import_json_to_database` | JSON 문서를 한 transaction으로 DB에 upsert |
+| `export_database_to_json` | DB 문서를 timestamped export 디렉토리에 원래 상대경로로 반출하고 SHA-256 manifest 생성 |
+| `set_storage_backend` | JSON/DB 저장 backend 전환. DB 전환은 현재 JSON key가 모두 import된 경우만 허용 |
+
 ## 시세 / 주문
 
 | Command | 설명 |

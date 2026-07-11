@@ -2,6 +2,7 @@ use anyhow::Result;
 use chrono::{Local, NaiveDate};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use super::{build_daily_path, read_json_or_default, write_json};
@@ -258,11 +259,15 @@ impl TradeRecord {
 /// 체결 기록 저장소
 pub struct TradeStore {
     data_dir: PathBuf,
+    write_lock: Mutex<()>,
 }
 
 impl TradeStore {
     pub fn new(data_dir: PathBuf) -> Self {
-        Self { data_dir }
+        Self {
+            data_dir,
+            write_lock: Mutex::new(()),
+        }
     }
 
     /// 오늘의 체결 기록 파일 경로
@@ -277,6 +282,7 @@ impl TradeStore {
 
     /// 체결 기록 저장
     pub async fn append(&self, record: TradeRecord) -> Result<()> {
+        let _write = self.write_lock.lock().await;
         let path = self.today_path();
         let mut records: Vec<TradeRecord> = read_json_or_default(&path).await?;
         records.push(record);

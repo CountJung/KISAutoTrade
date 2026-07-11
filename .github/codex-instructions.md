@@ -219,7 +219,11 @@ Use the repository at <repo>. Compare the current diff against AGENTS.md, docs/i
 
 ### 데이터 저장
 
-- DB 없음 — JSON 파일만 사용
+- 기본은 JSON 파일이며 Settings에서 PostgreSQL 또는 MariaDB document backend로 명시 전환할 수 있다.
+- store는 `storage::read_json_or_default()` / `write_json()` 경계를 사용하고 DB 오류를 JSON fallback으로 숨기지 않는다.
+- DB 관리·자격증명 IPC는 Tauri 데스크톱 전용으로 유지하며 인증되지 않은 LAN REST에 노출하지 않는다. 임의 SQL도 받지 않는다.
+- JSON↔DB 전환은 자동매매 정지, schema 검증, transaction import 또는 JSON 복구를 먼저 완료한다.
+- `profiles.json`, `secure_config.json`, `.env`, 로그와 DB password는 DB document/import/export 대상에서 제외한다.
 - 경로 패턴: `{app_data_dir}/data/{category}/{YYYY}/{MM}/{DD}/{file}.json`
 - `data/`, `log/`, `.env`, `secure_config.json`은 `.gitignore`에 포함되어야 한다
 - `.cargo/config.toml`은 gitignore에 포함 — macOS 외장 드라이브(exFAT) 사용 시 `scripts/setup-local.sh` 실행으로 자동 생성

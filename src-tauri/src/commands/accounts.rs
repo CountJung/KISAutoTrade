@@ -233,7 +233,11 @@ pub(super) async fn apply_active_profile(state: &AppState) -> CmdResult<()> {
         (cfg.broker_id, account_id)
     };
     if let Some(pid) = &active_id {
-        let saved = state.strategy_store.load_sync(pid);
+        let saved = state
+            .strategy_store
+            .load(pid)
+            .await
+            .map_err(CmdError::from)?;
         let mut mgr = state.strategy_manager.lock().await;
         mgr.apply_saved_configs_for_scope(&saved, active_scope.0, active_scope.1.clone());
         tracing::info!(

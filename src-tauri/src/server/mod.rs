@@ -74,8 +74,8 @@ use crate::config::{AppConfig, ProfilesConfig};
 use crate::logging::LogConfig;
 use crate::notifications::discord::DiscordNotifier;
 use crate::storage::{
-    order_store::OrderStore, stats_store::StatsStore, stock_store::StockStore,
-    strategy_store::StrategyStore, trade_store::TradeStore,
+    database::DatabaseManager, order_store::OrderStore, stats_store::StatsStore,
+    stock_store::StockStore, strategy_store::StrategyStore, trade_store::TradeStore,
 };
 use crate::trading::{
     order::OrderManager, position::PositionTracker, risk::RiskManager, strategy::StrategyManager,
@@ -102,8 +102,12 @@ struct ServerState {
     dist_found: bool,
     /// 자동매매 활성 여부 (commands.rs AppState 와 Arc 공유)
     is_trading: Arc<Mutex<bool>>,
+    /// DB backend 관리와 자동매매 시작을 직렬화한다.
+    storage_maintenance: Arc<Mutex<()>>,
+    database_manager: Arc<DatabaseManager>,
     /// 전략 관리자
     strategy_manager: Arc<Mutex<StrategyManager>>,
+    strategy_update_lock: Arc<Mutex<()>>,
     /// 포지션 트래커
     position_tracker: Arc<Mutex<PositionTracker>>,
     /// 활성 프로파일 설정 (AppConfig)
@@ -151,7 +155,10 @@ pub async fn start(
     stock_list: Arc<RwLock<Vec<StockSearchItem>>>,
     port: u16,
     is_trading: Arc<Mutex<bool>>,
+    storage_maintenance: Arc<Mutex<()>>,
+    database_manager: Arc<DatabaseManager>,
     strategy_manager: Arc<Mutex<StrategyManager>>,
+    strategy_update_lock: Arc<Mutex<()>>,
     position_tracker: Arc<Mutex<PositionTracker>>,
     config: Arc<RwLock<Arc<AppConfig>>>,
     profiles: Arc<RwLock<ProfilesConfig>>,
@@ -192,7 +199,10 @@ pub async fn start(
         dist_path,
         dist_found,
         is_trading,
+        storage_maintenance,
+        database_manager,
         strategy_manager,
+        strategy_update_lock,
         position_tracker,
         config,
         profiles,

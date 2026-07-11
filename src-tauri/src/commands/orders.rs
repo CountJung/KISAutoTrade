@@ -280,7 +280,7 @@ impl TossManualSession {
         }
     }
 
-    fn select<'a>(self, day: &'a TossUsMarketCalendarResponse) -> Option<&'a TossMarketSession> {
+    fn select(self, day: &TossUsMarketCalendarResponse) -> Option<&TossMarketSession> {
         match self {
             Self::Auto => None,
             Self::Day => day.today.day_market.as_ref(),

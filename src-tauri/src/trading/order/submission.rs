@@ -228,6 +228,10 @@ impl OrderManager {
                 }
                 if let Err(e) = deps.order_store.append(record.clone()).await {
                     tracing::error!("주문 기록 저장 실패 (Pending): {}", e);
+                    let reason = format!("주문 영속화 실패로 신규 매수를 중단했습니다: {e}");
+                    let mut manager = order_manager.lock().await;
+                    manager.buy_suspended = true;
+                    manager.buy_suspended_reason = Some(reason);
                 }
                 deps.risk_manager
                     .lock()

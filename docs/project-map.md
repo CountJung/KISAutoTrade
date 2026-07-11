@@ -51,7 +51,7 @@ AutoConditionTrade/                   ← 루트
 │   ├── main.tsx                      ← React 진입점 (QueryClient, RouterProvider)
 │   ├── router/index.ts               ← TanStack Router 코드 기반 라우팅 ✅
 │   ├── shared/
-│   │   ├── api/                      ← Tauri IPC/Web REST 공통 wrapper + Rust 타입 미러
+│   │   ├── api/                      ← Tauri IPC/Web REST 공통 wrapper + Rust 타입 미러 (`databaseCommands/types` 포함)
 │   │   ├── config/theme/             ← createAppTheme, getResolvedMode
 │   │   ├── config/scheduler/         ← 전역 폴링 주기 상수
 │   │   ├── lib/                      ← localStorage 기반 레이아웃 상태 헬퍼
@@ -82,6 +82,7 @@ AutoConditionTrade/                   ← 루트
 │   │   ├── history/ui/Page.tsx       ← 날짜 범위 조회, 자동매매 체결 기록
 │   │   ├── log/ui/Page.tsx           ← 레벨 필터, 검색, 색상 구분 로그 뷰어
 │   │   ├── settings/ui/Page.tsx      ← 테마/갱신/로그/웹/종목/리스크/Discord 설정 route 조립
+│   │   ├── settings/ui/databaseManagementSection.tsx ← PostgreSQL/MariaDB 연결·테이블·이관 UI
 │   │   ├── settings/ui/accountProfiles.tsx ← 활성 broker/profile 요약과 KIS/Toss 프로파일 카드
 │   │   ├── settings/ui/profileDialogs.tsx ← KIS/Toss 프로파일 추가/편집 다이얼로그와 accountSeq 조회
 │   │   ├── settings/ui/profileUtils.ts ← Settings 프로파일 공통 표시/에러 유틸
@@ -103,6 +104,7 @@ AutoConditionTrade/                   ← 루트
         ├── commands/
         │   ├── accounts.rs           ← 프로파일 관리, KIS/Toss holdings view, KIS 잔고 IPC
         │   ├── archive.rs            ← trade archive config/stats/purge IPC
+        │   ├── database.rs           ← Tauri 전용 DB 연결·테이블·JSON 이관 IPC
         │   ├── market.rs             ← KIS 시세/차트/종목 검색/해외 주문 IPC
         │   ├── orders.rs             ← 수동 주문 제출 IPC
         │   ├── records.rs            ← 체결/거래/통계/로그/Discord 저장 IPC
@@ -149,7 +151,10 @@ AutoConditionTrade/                   ← 루트
         │   ├── position.rs           ← PositionTracker (잔고 API 복원 지원)
         │   └── risk.rs               ← RiskManager (enabled on/off, 비상정지, 순손실, broker/account scope별 주문/손실 제한)
         ├── storage/
-        │   ├── mod.rs                ← build_daily_path, read_json_or_default, write_json
+        │   ├── mod.rs                ← build_daily_path, backend-aware read_json_or_default/write_json
+        │   ├── database.rs           ← PostgreSQL/MariaDB document backend·schema·import/export
+        │   ├── database_io.rs        ← atomic JSON write와 권한 제한 DB 설정 write
+        │   ├── database_types.rs     ← DB config/status/transfer camelCase DTO
         │   ├── trade_store.rs        ← TradeRecord, TradeStore
         │   ├── order_store.rs        ← OrderRecord, OrderStore
         │   ├── stats_store.rs        ← DailyStats, StatsStore
@@ -171,6 +176,8 @@ AutoConditionTrade/                   ← 루트
 | 데이터 종류 | 위치 |
 |-----------|------|
 | `profiles.json` | `~/Library/Application Support/com.countjung.kisautotrade/` (macOS) |
+| `database_config.json` | 앱 데이터 폴더 (DB password 포함, IPC에서는 미반환) |
+| `database_exports/` | 앱 데이터 폴더 (DB logical JSON snapshot + manifest) |
 | `data/` (거래기록 등) | CWD 기준 `./data/` (레거시: app_data_dir, 자동 이전) |
 | `logs/` | CWD 기준 `./logs/` |
 | `secure_config.json` | 프로젝트 루트 (CWD) |
@@ -194,10 +201,12 @@ AutoConditionTrade/                   ← 루트
 | `api/hooks.ts` | TanStack Query 훅 legacy entry (`KEYS`, `useBackendEvents` re-export 유지) |
 | `api/queryKeys.ts` | TanStack Query `KEYS` 단일 원천 (`hooks.ts`에서 하위 호환 re-export) |
 | `api/backendEvents.ts` | Tauri backend event 구독 → 환율/잔고 Query 캐시 갱신 |
+| `api/databaseHooks.ts` | DB 설정/상태/이관 Tauri-only TanStack Query hooks |
 | `features/manual-order/ui/TossManualTradeVerificationPanel.tsx` | Trading/Dashboard에서 공유하는 Toss 소액 수동매매 검증 gate. `canSubmit=true`면 렌더링하지 않음 |
 | `widgets/app-shell/` | 전체 앱 레이아웃, ThemeProvider, responsive navigation, 좌측 사이드바 자동매매 시작/정지 전역 조작 |
 | `widgets/stock-chart/` | 국내/해외/Toss 캔들 차트 |
 | `pages/settings/ui/Page.tsx` | 테마, 데이터 갱신 주기, 로그/체결 보관, 웹 포트, 종목 목록, 리스크, Discord 설정 route 조립 |
+| `pages/settings/ui/databaseManagementSection.tsx` | PostgreSQL/MariaDB 연결, 고정 앱 테이블 관리, JSON↔DB 이관, backend 전환. 웹 모드에서는 보안 안내만 표시 |
 | `pages/settings/ui/accountProfiles.tsx` | 활성 broker/profile 요약, KIS/Toss 프로파일 목록, 연결 진단, 프로파일 삭제 확인 |
 | `pages/settings/ui/profileDialogs.tsx` | KIS/Toss 프로파일 추가/편집, 실전/모의 감지, Toss accountSeq 조회. secret 입력 상태는 이 파일 안에만 보관 |
 | `pages/settings/ui/profileUtils.ts` | 프로파일 에러 메시지와 broker label 공통 유틸 |
@@ -225,6 +234,7 @@ AutoConditionTrade/                   ← 루트
 | `commands.rs` | AppState + IPC command facade, 공통 helper |
 | `commands/accounts.rs` | 계좌 프로파일 CRUD/활성화, KIS 국내·해외 잔고, broker holdings view. 프로파일 전환 시 strategy scope reset 포함 |
 | `commands/archive.rs` | 거래 파일 보관 설정, 보관 통계, 오래된 trade/log 파일 purge IPC |
+| `commands/database.rs` | 인증 없는 REST에는 노출하지 않는 Tauri-only DB 관리/이관 IPC |
 | `commands/market.rs` | KIS 국내/해외 시세, 차트, 종목 검색, 해외 주문 사전 검증 IPC |
 | `commands/orders.rs` | 수동 주문 제출 IPC |
 | `commands/records.rs` | 체결/거래/통계 조회, Discord config 저장, frontend log 저장 IPC |
@@ -275,6 +285,7 @@ AutoConditionTrade/                   ← 루트
 | `storage/order_store.rs` | `data/orders/YYYY/MM/DD/orders.json` (`provider_*` 원본 주문 trace 포함) |
 | `storage/stats_store.rs` | `data/stats/YYYY/MM/daily_stats.json` |
 | `storage/strategy_store.rs` | `data/strategies/{profile_id}/strategies.json` (`StrategyConfig`에 broker/account scope 저장) |
+| `storage/database.rs` | PostgreSQL/MariaDB `kisautotrade_documents`/`kisautotrade_metadata`, transaction import, JSON export, fail-closed backend 전환 |
 | `notifications/discord.rs` | Discord Bot 알림 |
 | `config/mod.rs` | `secure_config.json` + `.env` 로드 |
 
@@ -302,7 +313,7 @@ WebSocket 수신 (체결 이벤트)
     ↓
 trading/order.rs — 체결 확인
     ↓
-storage/trade_store.rs — JSON 저장 (data/trades/YYYY/MM/DD/, provider/order/request/TR trace 포함)
+storage/trade_store.rs — 공통 저장 경계 (JSON 또는 DB document, provider/order/request/TR trace 포함)
     ↓
 storage/stats_store.rs — 통계 집계 갱신
     ↓

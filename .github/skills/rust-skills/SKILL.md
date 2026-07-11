@@ -1091,4 +1091,14 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - Toss 연결 진단은 `check_toss_profile_connection` IPC에서 프로파일 lock을 짧게 잡아 clone한 뒤 실행한다. 진단 단계는 OpenAPI spec, token, accounts, holdings, order preflight read-only 순서이며 토큰 문자열은 응답에 포함하지 않는다.
 - Tauri IPC와 axum 웹 REST 응답 필드는 같이 갱신한다. 웹 핸들러에서 내부 struct를 그대로 직렬화하지 말고 `serde_json::json!`으로 camel/snake 응답 키를 명시한다.
 
-> 마지막 업데이트: 2026-07-08T22:35:00+09:00
+## PostgreSQL/MariaDB 문서 저장 backend
+
+- 거래·주문·통계·전략처럼 DB 전환 대상인 store는 `storage::read_json_or_default()`와 `storage::write_json()`만 사용한다. backend가 DB인데 실패하면 JSON fallback/dual-write로 성공을 가장하지 않고 오류를 반환한다.
+- JSON 상대경로가 DB document key의 단일 원천이다. key는 `data_dir` 밖 경로, `..`, 절대경로, Windows prefix를 거부하고 import/export의 파일 수·개별 크기·전체 크기에 상한을 둔다.
+- PostgreSQL/MariaDB 차이는 `storage/database.rs`의 pool/query 경계에서만 처리한다. 사용자 입력 table name이나 임의 SQL은 실행하지 않으며 앱 소유 allowlist 테이블만 관리한다.
+- JSON → DB import는 한 transaction에서 전체 upsert한다. DB backend 활성화 전 현재 JSON key가 모두 존재하는지 검증하고, JSON backend 복귀 전 DB 문서를 live JSON 경로에 atomic restore한다.
+- DB 설정 변경, schema mutation, import, backend 전환은 자동매매 중 거부한다. clear/drop은 별도 확인 문구를 요구하고 DB backend 활성 중에는 실행하지 않는다.
+- DB password는 IPC view와 logical export에 포함하지 않는다. DB 관리 명령은 인증되지 않은 axum REST에 추가하지 않고 Tauri desktop command로만 제공한다.
+- v1 schema는 기존 JSON 복원성을 위한 document store다. 주문/체결 복구·검색·retention을 위한 정규화 schema는 명시적인 schema version migration과 PostgreSQL/MariaDB contract test를 함께 추가한다.
+
+> 마지막 업데이트: 2026-07-11T00:00:00+09:00

@@ -346,3 +346,5 @@ export const setTradeArchiveConfig = (input: SetTradeArchiveConfigInput): Promis
 
 export const getTradeArchiveStats = (): Promise<TradeArchiveStats> =>
   invoke('get_trade_archive_stats')
+
+export * from './databaseCommands'

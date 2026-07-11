@@ -12,7 +12,7 @@
 3. [전역 AppState 값 추가 및 관리](#3-전역-appstate-값-추가-및-관리)
 4. [IPC 커맨드 추가 (Rust → React 연결)](#4-ipc-커맨드-추가-rust--react-연결)
 5. [UI에서 버튼 → 백그라운드 작업 → 결과 표시 패턴](#5-ui에서-버튼--백그라운드-작업--결과-표시-패턴)
-6. [데이터 저장 (JSON 파일)](#6-데이터-저장-json-파일)
+6. [데이터 저장 (JSON 또는 DB)](#6-데이터-저장-json-또는-db)
 7. [백그라운드 데몬 작성 원칙](#7-백그라운드-데몬-작성-원칙)
 8. [Rust 제어 흐름 원칙 (goto 유사 패턴 금지)](#8-rust-제어-흐름-원칙-goto-유사-패턴-금지)
 9. [에러 처리 패턴](#9-에러-처리-패턴)
@@ -398,7 +398,19 @@ useEffect(() => {
 
 ---
 
-## 6. 데이터 저장 (JSON 파일)
+## 6. 데이터 저장 (JSON 또는 DB)
+
+`storage::read_json_or_default()`와 `storage::write_json()`이 저장 backend 경계다. 도메인 store에서 `tokio::fs::read/write`를 직접 호출하면 DB 활성화 시 데이터가 갈라지므로 새 저장 경로는 반드시 이 공통 함수에 연결한다.
+
+- JSON backend: 기존 `data/` 상대경로를 atomic temp-file/rename 방식으로 읽고 쓴다.
+- Database backend: 같은 상대경로를 `kisautotrade_documents.document_key`로 사용하고 PostgreSQL 또는 MariaDB에 읽고 쓴다. DB 오류 시 JSON으로 몰래 fallback하지 않고 실패를 호출자에게 반환한다.
+- 연결 변경은 JSON backend로 fail-safe 전환한다. JSON → DB import가 끝나고 모든 현재 key가 확인되어야 DB backend를 활성화할 수 있다.
+- DB → JSON backend 전환은 DB 문서를 live `data/` 경로에 먼저 복구한 뒤 설정을 바꾼다.
+- import는 전체 transaction에서 기존 document set을 정확히 교체하고, 파일당 16 MiB·총 512 MiB·10,000개 상한을 적용한다. export는 앱 데이터의 `database_exports/` 아래 고유 디렉토리에 만들고 SHA-256 manifest를 남긴다.
+- DB 관리 IPC는 Tauri 전용이다. 임의 SQL은 받지 않고 `kisautotrade_documents`, `kisautotrade_metadata`만 생성·비우기·삭제한다.
+- `profiles.json`, `secure_config.json`, `.env`, 로그와 DB password는 document import/export 대상이 아니다.
+
+DB v1은 기존 JSON 호환성과 복구성을 위한 문서 저장 계층이다. 주문/체결 복구용 정규화 테이블과 retention query는 별도 schema migration으로 확장한다.
 
 ### 저장 경로 규칙
 
@@ -416,17 +428,15 @@ useEffect(() => {
 macOS ~/Library/Application Support/... 는 사용하지 않는다.
 ```
 
-### 비동기 저장 패턴
+### backend 공통 비동기 저장 패턴
 
 ```rust
 // src-tauri/src/storage/trade_store.rs 패턴
 pub async fn append(&self, record: TradeRecord) -> anyhow::Result<()> {
     let path = self.path_for_date(record.date);
-    tokio::fs::create_dir_all(path.parent().unwrap()).await?;
     let mut records = self.get_by_date(record.date).await.unwrap_or_default();
     records.push(record);
-    let json = serde_json::to_string_pretty(&records)?;
-    tokio::fs::write(&path, json).await?;
+    crate::storage::write_json(&path, &records).await?;
     Ok(())
 }
 ```

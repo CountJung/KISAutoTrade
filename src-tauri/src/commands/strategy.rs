@@ -74,6 +74,7 @@ pub async fn update_strategy(
     input: UpdateStrategyInput,
     state: State<'_, AppState>,
 ) -> CmdResult<StrategyView> {
+    let _strategy_update = state.strategy_update_lock.lock().await;
     let active_scope = {
         let cfg = state.config.read().await.clone();
         let account_id = if cfg.broker_account_id.is_empty() {
@@ -82,6 +83,10 @@ pub async fn update_strategy(
             Some(cfg.broker_account_id.clone())
         };
         (cfg.broker_id, account_id)
+    };
+    let previous_configs: Vec<crate::trading::strategy::StrategyConfig> = {
+        let mgr = state.strategy_manager.lock().await;
+        mgr.all_configs().into_iter().cloned().collect()
     };
     let updated_config = {
         let mut mgr = state.strategy_manager.lock().await;
@@ -114,8 +119,20 @@ pub async fn update_strategy(
             let mgr = state.strategy_manager.lock().await;
             mgr.all_configs().into_iter().cloned().collect()
         };
-        if let Err(e) = state.strategy_store.save(pid, &all_configs).await {
-            tracing::warn!("전략 설정 저장 실패 (프로파일 {}): {}", pid, e);
+        if let Err(error) = state.strategy_store.save(pid, &all_configs).await {
+            state
+                .strategy_manager
+                .lock()
+                .await
+                .apply_saved_configs_for_scope(
+                    &previous_configs,
+                    active_scope.0,
+                    active_scope.1.clone(),
+                );
+            return Err(CmdError {
+                code: "PERSISTENCE_ERROR".into(),
+                message: format!("전략 설정을 저장하지 못했습니다: {error}"),
+            });
         }
     }
 

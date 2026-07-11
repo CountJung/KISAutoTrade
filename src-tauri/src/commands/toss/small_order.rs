@@ -131,17 +131,30 @@ async fn poll_toss_order_detail(
     last
 }
 
+struct TossSmallBuyRecordContext<'a> {
+    exchange_rate_krw: f64,
+    symbol: &'a str,
+    symbol_name: &'a str,
+    preflight: &'a TossOrderPreflightView,
+    order_id: &'a str,
+    client_order_id: Option<String>,
+    order_detail: Option<&'a TossOrder>,
+}
+
 async fn append_toss_small_buy_records(
     order_store: &OrderStore,
     trade_store: &TradeStore,
-    exchange_rate_krw: f64,
-    symbol: &str,
-    symbol_name: &str,
-    preflight: &TossOrderPreflightView,
-    order_id: &str,
-    client_order_id: Option<String>,
-    order_detail: Option<&TossOrder>,
+    context: TossSmallBuyRecordContext<'_>,
 ) -> CmdResult<(String, bool)> {
+    let TossSmallBuyRecordContext {
+        exchange_rate_krw,
+        symbol,
+        symbol_name,
+        preflight,
+        order_id,
+        client_order_id,
+        order_detail,
+    } = context;
     let currency = toss_currency_from_view(&preflight.price);
     let status = order_detail
         .map(|order| order.status.as_str())
@@ -399,13 +412,15 @@ pub async fn submit_toss_small_buy_verification_for_profile(
     let (order_record_id, trade_recorded) = append_toss_small_buy_records(
         order_store,
         trade_store,
-        exchange_rate_krw,
-        &symbol,
-        &symbol_name,
-        &preflight,
-        &receipt.order_id,
-        client_order_id.clone().or(receipt.client_order_id.clone()),
-        order_detail.as_ref(),
+        TossSmallBuyRecordContext {
+            exchange_rate_krw,
+            symbol: &symbol,
+            symbol_name: &symbol_name,
+            preflight: &preflight,
+            order_id: &receipt.order_id,
+            client_order_id: client_order_id.clone().or(receipt.client_order_id.clone()),
+            order_detail: order_detail.as_ref(),
+        },
     )
     .await?;
 
