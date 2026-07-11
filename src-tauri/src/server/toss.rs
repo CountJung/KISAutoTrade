@@ -125,8 +125,7 @@ pub(super) async fn toss_small_buy_verification_handler(
     match crate::commands::submit_toss_small_buy_verification_for_profile(
         input,
         profile,
-        &s.order_store,
-        &s.trade_store,
+        &s.order_manager,
         exchange_rate_krw,
     )
     .await

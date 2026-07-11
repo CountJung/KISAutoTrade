@@ -343,7 +343,7 @@ pub async fn place_overseas_order(
     input: OverseasOrderInput,
     state: State<'_, AppState>,
 ) -> CmdResult<OrderResponse> {
-    use crate::api::rest::{OrderSide, OverseasOrderRequest};
+    use crate::api::rest::{OrderSide, OrderType};
 
     tracing::info!(
         "해외 주문 요청: {} {} {} 수량={} 가격={}",
@@ -354,41 +354,63 @@ pub async fn place_overseas_order(
         input.price
     );
 
-    let side = match input.side.as_str() {
-        "Buy" => OrderSide::Buy,
-        _ => OrderSide::Sell,
-    };
-
-    let req = OverseasOrderRequest {
-        symbol: input.symbol.clone(),
-        exchange: input.exchange.clone(),
-        side,
-        quantity: input.quantity,
-        price: input.price,
+    let side = match input.side.trim().to_ascii_lowercase().as_str() {
+        "buy" => OrderSide::Buy,
+        "sell" => OrderSide::Sell,
+        other => {
+            return Err(CmdError {
+                code: "INVALID_SIDE".into(),
+                message: format!("알 수 없는 주문 방향: {other}"),
+            })
+        }
     };
 
     let client = state.rest_client.read().await.clone();
-    match client.place_overseas_order(&req).await {
-        Ok(resp) => {
-            tracing::info!(
-                "해외 주문 완료: {} {} — 주문번호={}, 시각={}",
-                input.exchange,
-                input.symbol,
-                resp.odno,
-                resp.ord_tmd
-            );
-            Ok(resp)
-        }
-        Err(e) => {
-            tracing::error!(
-                "해외 주문 실패: {} {} 수량={} 가격={} — {}",
-                input.exchange,
-                input.symbol,
-                input.quantity,
-                input.price,
-                e
-            );
-            Err(CmdError::from(e))
-        }
+    let quote = client
+        .get_overseas_price(&input.symbol, &input.exchange)
+        .await
+        .map_err(CmdError::from)?;
+    let quote_price = usd_to_cents(&quote.last);
+    if quote_price == 0 {
+        return Err(CmdError {
+            code: "INVALID_QUOTE".into(),
+            message: "해외 현재가 응답을 숫자로 해석할 수 없습니다.".into(),
+        });
     }
+    let exchange_rate = *state.exchange_rate_krw.read().await;
+    let total_balance =
+        super::trading::fetch_account_risk_balance_krw(&client, true, exchange_rate)
+            .await
+            .map_err(|message| CmdError {
+                code: "ACCOUNT_SYNC_FAILED".into(),
+                message,
+            })?;
+    let profile = state.profiles.read().await.get_active().cloned();
+    let config_account_id = state.config.read().await.broker_account_id.clone();
+    let account_id = profile
+        .as_ref()
+        .map(|value| value.broker_account_id())
+        .or_else(|| (!config_account_id.is_empty()).then_some(config_account_id));
+    let scope = BrokerScope::new(BrokerId::Kis, account_id.map(BrokerAccountId));
+    let symbol_name = if quote.name.trim().is_empty() {
+        input.symbol.clone()
+    } else {
+        quote.name
+    };
+    let outcome = OrderManager::submit_manual_order_shared(
+        &state.order_manager,
+        input.symbol,
+        symbol_name,
+        side,
+        OrderType::Limit,
+        input.quantity,
+        (input.price.max(0.0) * 100.0).round() as u64,
+        quote_price,
+        total_balance,
+        Some(input.exchange),
+        scope,
+    )
+    .await
+    .map_err(CmdError::from)?;
+    super::orders::manual_submission_response(outcome, "KIS")
 }

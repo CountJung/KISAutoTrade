@@ -2,6 +2,7 @@
 ///
 /// 저장 경로: `{data_dir}/strategies/{profile_id}/strategies.json`
 use std::path::{Path, PathBuf};
+use tokio::sync::Mutex;
 
 use crate::{
     storage::{read_json_or_default, write_json},
@@ -10,12 +11,14 @@ use crate::{
 
 pub struct StrategyStore {
     data_dir: PathBuf,
+    write_lock: Mutex<()>,
 }
 
 impl StrategyStore {
     pub fn new(data_dir: &Path) -> Self {
         Self {
             data_dir: data_dir.to_path_buf(),
+            write_lock: Mutex::new(()),
         }
     }
 
@@ -34,6 +37,7 @@ impl StrategyStore {
 
     /// 전략 설정을 비동기적으로 저장
     pub async fn save(&self, profile_id: &str, configs: &[StrategyConfig]) -> anyhow::Result<()> {
+        let _write = self.write_lock.lock().await;
         let path = self.config_path(profile_id);
         write_json(&path, &configs).await?;
         tracing::debug!(

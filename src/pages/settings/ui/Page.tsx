@@ -50,6 +50,7 @@ import {
 import type { UpdateRiskConfigInput } from '../../../api/types'
 import type { ThemeMode } from '../../../shared/config/theme'
 import { fmtNumber } from '../../../shared/lib'
+import { getWebApiToken, setWebApiToken } from '../../../shared/api/transport'
 
 import { AccountProfilesSection } from './accountProfiles'
 import { Section } from './section'
@@ -444,12 +445,17 @@ export default function Settings() {
   const { mutate: saveWebConfig, isPending: webSaving } = useSaveWebConfig()
   const [webPortInput, setWebPortInput] = useState<string>('')
   const [distPathInput, setDistPathInput] = useState<string>('')
+  const [webAllowLan, setWebAllowLan] = useState(false)
+  const [webApiTokenInput, setWebApiTokenInput] = useState('')
+  const [webSessionToken, setWebSessionToken] = useState(() => getWebApiToken())
   const [webSaveResult, setWebSaveResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const isDesktop = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
   // webConfig가 로드되면 입력칸 동기화
   const prevWebConfigRef = useState<typeof webConfig>(undefined)
   if (webConfig && webConfig !== prevWebConfigRef[0]) {
     prevWebConfigRef[1](webConfig)
     setWebPortInput(String(webConfig.runningPort))
+    setWebAllowLan(webConfig.lanEnabled)
     // distPath는 사용자가 직접 입력한 경우에만 동기화
     if (!distPathInput && webConfig.distPath) {
       setDistPathInput(webConfig.distPath)
@@ -641,10 +647,69 @@ export default function Settings() {
         <Section title="웹 접속 설정">
           <Stack spacing={2}>
             <Typography variant="body2" color="text.secondary">
-              같은 네트워크의 다른 기기(모바일, 태블릿 등)에서 브라우저로 접속할 수 있습니다.
+              기본은 이 컴퓨터에서만 접속할 수 있습니다. LAN 공개는 명시적으로 켜고 API token 인증을 설정해야 합니다.
               <br />
               접속 URL: <code>{webConfig?.accessUrl ?? `http://localhost:7474`}</code>
             </Typography>
+
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Chip
+                size="small"
+                label={webConfig?.lanEnabled ? 'LAN 공개 예정' : 'localhost 전용'}
+                color={webConfig?.lanEnabled ? 'warning' : 'success'}
+              />
+              <Chip
+                size="small"
+                label={webConfig?.apiTokenConfigured ? '변경 API token 설정됨' : '변경 API 잠김'}
+                color={webConfig?.apiTokenConfigured ? 'success' : 'warning'}
+              />
+            </Stack>
+
+            {isDesktop ? (
+              <Stack spacing={1.5}>
+                <FormControlLabel
+                  control={<Switch checked={webAllowLan} onChange={(event) => setWebAllowLan(event.target.checked)} />}
+                  label="LAN 공개 허용 (재시작 후 적용)"
+                />
+                <TextField
+                  label="새 웹 API token"
+                  type="password"
+                  value={webApiTokenInput}
+                  onChange={(event) => setWebApiTokenInput(event.target.value)}
+                  placeholder={webConfig?.apiTokenConfigured ? '비워두면 기존 token 유지' : '32자 이상 입력'}
+                  helperText="웹 변경 API의 Bearer token입니다. 조회 응답과 로그에는 표시되지 않습니다."
+                  autoComplete="new-password"
+                  fullWidth
+                  size="small"
+                />
+              </Stack>
+            ) : (
+              <Box>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+                  <TextField
+                    label="현재 웹 API token"
+                    type="password"
+                    value={webSessionToken}
+                    onChange={(event) => setWebSessionToken(event.target.value)}
+                    autoComplete="current-password"
+                    size="small"
+                    fullWidth
+                  />
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      setWebApiToken(webSessionToken)
+                      setWebSaveResult({ ok: true, msg: '이 브라우저 세션에 API token을 적용했습니다.' })
+                    }}
+                  >
+                    세션에 적용
+                  </Button>
+                </Stack>
+                <Typography variant="caption" color="text.secondary">
+                  token은 sessionStorage에만 보관되며 브라우저를 닫으면 제거됩니다.
+                </Typography>
+              </Box>
+            )}
 
             {/* dist/ 빌드 파일 상태 */}
             {webConfig && (
@@ -686,9 +751,17 @@ export default function Settings() {
                     if (isNaN(port)) return
                     setWebSaveResult(null)
                     saveWebConfig(
-                      { newPort: port, distPath: distPathInput.trim() || undefined },
                       {
-                        onSuccess: (msg) => setWebSaveResult({ ok: true, msg }),
+                        newPort: port,
+                        distPath: distPathInput.trim() || undefined,
+                        allowLan: webAllowLan,
+                        apiToken: webApiTokenInput.trim() || undefined,
+                      },
+                      {
+                        onSuccess: (msg) => {
+                          setWebApiTokenInput('')
+                          setWebSaveResult({ ok: true, msg })
+                        },
                         onError: (err) => setWebSaveResult({ ok: false, msg: String(err) }),
                       },
                     )

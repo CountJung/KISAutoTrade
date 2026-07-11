@@ -48,6 +48,7 @@ import type {
   UpdateProfileInput,
   UpdateStrategyInput,
   WebConfig,
+  SaveWebConfigInput,
   DetectTradingTypeResult,
   ExchangeRateView,
   RiskConfigView,
@@ -696,8 +697,8 @@ export function useWebConfig() {
 
 export function useSaveWebConfig() {
   const qc = useQueryClient()
-  return useMutation<string, Error, { newPort: number; distPath?: string }>({
-    mutationFn: ({ newPort, distPath }) => cmd.saveWebConfig(newPort, distPath),
+  return useMutation<string, Error, SaveWebConfigInput>({
+    mutationFn: cmd.saveWebConfig,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEYS.webConfig })
     },

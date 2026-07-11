@@ -62,6 +62,7 @@ import type {
   UpdateRiskConfigInput,
   UpdateStrategyInput,
   WebConfig,
+  SaveWebConfigInput,
   RefreshConfig,
 } from './types'
 
@@ -224,8 +225,8 @@ export const checkForUpdate = (): Promise<UpdateInfo> =>
 export const getWebConfig = (): Promise<WebConfig> =>
   invoke('get_web_config')
 
-export const saveWebConfig = (newPort: number, distPath?: string): Promise<string> =>
-  invoke('save_web_config', { newPort, distPath })
+export const saveWebConfig = (input: SaveWebConfigInput): Promise<string> =>
+  invoke('save_web_config', { ...input })
 
 // ─── 실전/모의투자 자동 감지 ──────────────────────────────────────
 export const detectTradingType = (appKey: string, appSecret: string): Promise<DetectTradingTypeResult> =>

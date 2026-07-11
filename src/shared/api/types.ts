@@ -823,6 +823,16 @@ export interface WebConfig {
   distPath?: string
   /** dist/index.html 존재 여부 */
   distFound?: boolean
+  lanEnabled: boolean
+  apiTokenConfigured: boolean
+}
+
+export interface SaveWebConfigInput {
+  newPort: number
+  distPath?: string
+  allowLan?: boolean
+  /** 비워 두면 서버에 저장된 token을 유지합니다. */
+  apiToken?: string
 }
 
 // ─── 리스크 관리 ───────────────────────────────────────────────────

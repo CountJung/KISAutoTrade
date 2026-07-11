@@ -48,6 +48,8 @@ pub struct OrderRecord {
     #[serde(default)]
     pub provider_tr_id: Option<String>,
     pub error_message: Option<String>,
+    #[serde(default)]
+    pub execution_date: Option<String>,
 }
 
 impl OrderRecord {
@@ -75,6 +77,7 @@ impl OrderRecord {
             provider_request_id: None,
             provider_tr_id: None,
             error_message: None,
+            execution_date: None,
         }
     }
 
@@ -107,21 +110,63 @@ impl OrderStore {
         }
     }
 
-    fn today_path(&self) -> PathBuf {
-        build_daily_path(
-            &self.data_dir,
-            "orders",
-            Local::now().date_naive(),
-            "orders.json",
-        )
+    fn path_for(&self, date: chrono::NaiveDate) -> PathBuf {
+        build_daily_path(&self.data_dir, "orders", date, "orders.json")
     }
 
     pub async fn append(&self, record: OrderRecord) -> Result<()> {
+        self.append_on(Local::now().date_naive(), record).await
+    }
+
+    pub async fn append_on(&self, date: chrono::NaiveDate, record: OrderRecord) -> Result<()> {
         let _write = self.write_lock.lock().await;
-        let path = self.today_path();
+        let path = self.path_for(date);
         let mut records: Vec<OrderRecord> = read_json_or_default(&path).await?;
+        if records.iter().any(|existing| existing.id == record.id) {
+            return Ok(());
+        }
         records.push(record);
         write_json(&path, &records).await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn parallel_appends_do_not_lose_order_records() {
+        let data_dir =
+            std::env::temp_dir().join(format!("kis-order-store-{}", uuid::Uuid::new_v4()));
+        let store = Arc::new(OrderStore::new(data_dir.clone()));
+        let mut tasks = Vec::new();
+        for index in 0..32_u64 {
+            let store = Arc::clone(&store);
+            tasks.push(tokio::spawn(async move {
+                store
+                    .append(OrderRecord::new(
+                        format!("SYM{index}"),
+                        format!("종목 {index}"),
+                        OrderSide::Buy,
+                        1,
+                        1_000 + index,
+                        "Limit".to_string(),
+                    ))
+                    .await
+            }));
+        }
+        for task in tasks {
+            task.await.expect("append task").expect("append succeeds");
+        }
+
+        let records: Vec<OrderRecord> =
+            read_json_or_default(&store.path_for(Local::now().date_naive()))
+                .await
+                .expect("read records");
+        assert_eq!(records.len(), 32);
+        let _ = tokio::fs::remove_dir_all(data_dir).await;
     }
 }

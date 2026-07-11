@@ -1,7 +1,10 @@
 use super::*;
 
 use crate::{
-    broker::{toss::TossOrderCreateRequest, BrokerId, TossBrokerAdapter},
+    broker::{
+        toss::TossOrderCreateRequest, BrokerAdapter, BrokerCurrency, BrokerId, BrokerMarket,
+        TossBrokerAdapter,
+    },
     config::AccountProfile,
 };
 
@@ -25,6 +28,9 @@ struct OrderSubmission {
     exchange: Option<String>,
     tick_price: u64,
     broker_scope: BrokerScope,
+    is_manual: bool,
+    requested_order_type: Option<OrderType>,
+    requested_price: Option<u64>,
 }
 
 struct PreparedOrderSubmission {
@@ -63,12 +69,18 @@ struct SubmissionDeps {
 
 enum PrepareDecision {
     Submit(Box<PreparedOrderSubmission>),
-    Skip,
+    Skip(String),
 }
 
 enum ReservationDecision {
     Reserved(SubmissionReservation),
-    Skip,
+    Skip(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SubmissionOutcome {
+    Submitted { provider_order_id: String },
+    Skipped { reason: String },
 }
 
 impl PendingOrder {
@@ -114,6 +126,9 @@ impl OrderSubmission {
                 exchange,
                 tick_price,
                 broker_scope: BrokerScope::kis_legacy(),
+                is_manual: false,
+                requested_order_type: None,
+                requested_price: None,
             }),
             Signal::Sell {
                 symbol,
@@ -131,6 +146,9 @@ impl OrderSubmission {
                 exchange,
                 tick_price,
                 broker_scope: BrokerScope::kis_legacy(),
+                is_manual: false,
+                requested_order_type: None,
+                requested_price: None,
             }),
             Signal::Hold => None,
         }
@@ -138,6 +156,47 @@ impl OrderSubmission {
 }
 
 impl OrderManager {
+    #[allow(clippy::too_many_arguments)]
+    pub async fn submit_manual_order_shared(
+        order_manager: &Arc<Mutex<Self>>,
+        symbol: String,
+        symbol_name: String,
+        side: RestOrderSide,
+        order_type: OrderType,
+        quantity: u64,
+        requested_price: u64,
+        quote_price: u64,
+        total_balance: i64,
+        exchange: Option<String>,
+        broker_scope: BrokerScope,
+    ) -> Result<SubmissionOutcome> {
+        let signal = match side {
+            RestOrderSide::Buy => Signal::Buy {
+                symbol: symbol.clone(),
+                quantity,
+                reason: "수동 주문".to_string(),
+            },
+            RestOrderSide::Sell => Signal::Sell {
+                symbol: symbol.clone(),
+                quantity,
+                reason: "수동 주문".to_string(),
+            },
+        };
+        let mut submission = OrderSubmission::from_signal(
+            None,
+            signal,
+            symbol_name,
+            total_balance,
+            exchange,
+            quote_price,
+        )
+        .expect("manual buy/sell always creates a submission");
+        submission.is_manual = true;
+        submission.requested_order_type = Some(order_type);
+        submission.requested_price = (order_type == OrderType::Limit).then_some(requested_price);
+        Self::submit_order_shared(order_manager, submission, Some(broker_scope)).await
+    }
+
     /// 전략 신호 처리 → 주문 실행.
     ///
     /// `OrderManager` mutex를 잡은 채 provider 주문 API와 파일 저장 await를 수행하지 않는 shared 경로다.
@@ -150,8 +209,8 @@ impl OrderManager {
         total_balance: i64,
         exchange: Option<String>,
         tick_price: u64,
-    ) -> Result<()> {
-        let Some(mut submission) = OrderSubmission::from_signal(
+    ) -> Result<SubmissionOutcome> {
+        let Some(submission) = OrderSubmission::from_signal(
             strategy_id,
             signal,
             symbol_name,
@@ -159,26 +218,35 @@ impl OrderManager {
             exchange,
             tick_price,
         ) else {
-            return Ok(());
+            return Ok(SubmissionOutcome::Skipped {
+                reason: "hold signal".to_string(),
+            });
         };
 
+        Self::submit_order_shared(order_manager, submission, None).await
+    }
+
+    async fn submit_order_shared(
+        order_manager: &Arc<Mutex<Self>>,
+        mut submission: OrderSubmission,
+        scope_override: Option<BrokerScope>,
+    ) -> Result<SubmissionOutcome> {
         let deps = {
             let manager = order_manager.lock().await;
+            let broker_scope = scope_override
+                .clone()
+                .unwrap_or_else(|| manager.execution_scope.clone());
             SubmissionDeps {
-                broker_scope: manager.execution_scope.clone(),
+                broker_scope: broker_scope.clone(),
                 rest_client: Arc::clone(&manager.rest_client),
                 active_profile: {
                     let profiles = manager.profiles.read().await;
-                    let account_id = manager
-                        .execution_scope
-                        .account_id
-                        .as_ref()
-                        .map(|id| id.0.as_str());
+                    let account_id = broker_scope.account_id.as_ref().map(|id| id.0.as_str());
                     profiles
                         .profiles
                         .iter()
                         .find(|profile| {
-                            profile.broker_id == manager.execution_scope.broker_id
+                            profile.broker_id == broker_scope.broker_id
                                 && account_id
                                     .map(|id| profile.broker_account_id() == id)
                                     .unwrap_or_else(|| {
@@ -197,6 +265,10 @@ impl OrderManager {
         };
         submission.broker_scope = deps.broker_scope.clone();
 
+        if submission.is_manual {
+            refresh_manual_positions(&submission, &deps).await?;
+        }
+
         let (held_quantity, avg_price) = current_position_snapshot(
             &submission,
             &deps.position_tracker,
@@ -205,14 +277,16 @@ impl OrderManager {
         .await;
         let prepared = match prepare_order_submission(&submission, held_quantity, &deps).await {
             PrepareDecision::Submit(prepared) => *prepared,
-            PrepareDecision::Skip => return Ok(()),
+            PrepareDecision::Skip(reason) => return Ok(SubmissionOutcome::Skipped { reason }),
         };
 
         let reservation = {
             let mut manager = order_manager.lock().await;
             match manager.reserve_submission(&prepared.submission, held_quantity, avg_price) {
                 ReservationDecision::Reserved(reservation) => reservation,
-                ReservationDecision::Skip => return Ok(()),
+                ReservationDecision::Skip(reason) => {
+                    return Ok(SubmissionOutcome::Skipped { reason })
+                }
             }
         };
 
@@ -221,17 +295,36 @@ impl OrderManager {
             Ok(response) => {
                 let pending = build_pending_order(&prepared, response);
                 let record = pending.record.clone();
+                let provider_order_id = record
+                    .provider_order_id
+                    .clone()
+                    .or(record.kis_order_id.clone())
+                    .unwrap_or_default();
                 let guard_signal = pending.signal();
                 {
                     let mut manager = order_manager.lock().await;
                     manager.finish_submission_success(reservation, pending, &guard_signal);
+                    if let Err(e) = manager.persist_pending_orders().await {
+                        tracing::error!("미체결 주문 스냅샷 저장 실패: {}", e);
+                        manager.persistence_blocked = true;
+                        manager.buy_suspended = true;
+                        manager.buy_suspended_reason =
+                            Some(format!("미체결 주문 영속화 실패: {e}"));
+                        return Err(anyhow::anyhow!(
+                            "provider 주문 {provider_order_id} 접수 후 미체결 스냅샷 저장 실패: {e}. 모든 신규 주문을 차단했습니다."
+                        ));
+                    }
                 }
                 if let Err(e) = deps.order_store.append(record.clone()).await {
                     tracing::error!("주문 기록 저장 실패 (Pending): {}", e);
-                    let reason = format!("주문 영속화 실패로 신규 매수를 중단했습니다: {e}");
+                    let reason = format!("주문 영속화 실패로 모든 신규 주문을 중단했습니다: {e}");
                     let mut manager = order_manager.lock().await;
+                    manager.persistence_blocked = true;
                     manager.buy_suspended = true;
                     manager.buy_suspended_reason = Some(reason);
+                    return Err(anyhow::anyhow!(
+                        "provider 주문 {provider_order_id} 접수 후 주문 기록 저장 실패: {e}. 모든 신규 주문을 차단했습니다."
+                    ));
                 }
                 deps.risk_manager
                     .lock()
@@ -249,7 +342,7 @@ impl OrderManager {
                             OrderSide::Sell => DailyOrderSide::Sell,
                         },
                     );
-                Ok(())
+                Ok(SubmissionOutcome::Submitted { provider_order_id })
             }
             Err(e) => {
                 let msg = e.to_string();
@@ -277,7 +370,7 @@ impl OrderManager {
                         prepared.submission.symbol,
                         msg
                     );
-                    Ok(())
+                    Ok(SubmissionOutcome::Skipped { reason: msg })
                 } else if paper_unsupported {
                     tracing::warn!(
                         "모의투자 매도 미지원 — 스킵: {} ({}) | {}",
@@ -285,7 +378,7 @@ impl OrderManager {
                         prepared.order_exchange.as_deref().unwrap_or("-"),
                         msg
                     );
-                    Ok(())
+                    Ok(SubmissionOutcome::Skipped { reason: msg })
                 } else {
                     Err(e)
                 }
@@ -310,13 +403,24 @@ impl OrderManager {
         held_quantity: u64,
         avg_price: Option<u64>,
     ) -> ReservationDecision {
+        if self.persistence_blocked {
+            return ReservationDecision::Skip(
+                self.buy_suspended_reason.clone().unwrap_or_else(|| {
+                    "주문 영속화 장애로 모든 신규 주문이 차단되었습니다.".into()
+                }),
+            );
+        }
         if matches!(submission.side, OrderSide::Buy) && self.buy_suspended {
             tracing::debug!(
                 "매수 스킵 — 잔고 부족 정지 중: {} (사유: {})",
                 submission.symbol,
                 self.buy_suspended_reason.as_deref().unwrap_or("알 수 없음")
             );
-            return ReservationDecision::Skip;
+            return ReservationDecision::Skip(
+                self.buy_suspended_reason
+                    .clone()
+                    .unwrap_or_else(|| "신규 매수 정지 중".to_string()),
+            );
         }
 
         match self.trade_guard.evaluate_for_scope(
@@ -330,7 +434,7 @@ impl OrderManager {
             GuardDecision::Allow => {}
             GuardDecision::Block { reason } => {
                 tracing::info!("TradeGuard 차단 — {}", reason);
-                return ReservationDecision::Skip;
+                return ReservationDecision::Skip(reason);
             }
         }
 
@@ -340,7 +444,7 @@ impl OrderManager {
             &submission.side,
         ) {
             tracing::info!("주문 스킵 — {}", reason);
-            return ReservationDecision::Skip;
+            return ReservationDecision::Skip(reason);
         }
         if let Some(reason) = self.submitting_conflict_reason_for_scope(
             &submission.broker_scope,
@@ -348,7 +452,7 @@ impl OrderManager {
             &submission.side,
         ) {
             tracing::info!("주문 스킵 — {}", reason);
-            return ReservationDecision::Skip;
+            return ReservationDecision::Skip(reason);
         }
 
         let reservation = SubmissionReservation {
@@ -394,6 +498,143 @@ impl OrderManager {
     }
 }
 
+async fn refresh_manual_positions(
+    submission: &OrderSubmission,
+    deps: &SubmissionDeps,
+) -> Result<()> {
+    if submission.broker_scope.broker_id == BrokerId::Toss {
+        let profile = deps
+            .active_profile
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("활성 Toss 프로파일이 없습니다."))?;
+        let account_seq = profile.broker_account_id();
+        let adapter = TossBrokerAdapter::with_credentials(
+            TossBrokerAdapter::DEFAULT_BASE_URL,
+            profile.app_key.clone(),
+            profile.app_secret.clone(),
+            Some(account_seq.clone()),
+        );
+        let holdings = adapter
+            .list_holdings(submission.broker_scope.account_id.as_ref())
+            .await
+            .map_err(|error| anyhow::anyhow!("Toss 수동 주문 전 holdings 조회 실패: {error}"))?;
+        let mut domestic = Vec::new();
+        let mut overseas = Vec::new();
+        for holding in holdings {
+            let quantity = holding
+                .quantity
+                .0
+                .trim()
+                .replace(',', "")
+                .parse::<f64>()
+                .map_err(|_| anyhow::anyhow!("{} Toss 보유수량 형식 오류", holding.symbol.0))?;
+            let quantity = if quantity <= 0.0 {
+                0
+            } else {
+                quantity.floor().max(1.0) as u64
+            };
+            let money_units = |amount: &str, currency: BrokerCurrency| -> Result<u64> {
+                let value = amount
+                    .trim()
+                    .replace(',', "")
+                    .parse::<f64>()
+                    .map_err(|_| anyhow::anyhow!("{} Toss 가격 형식 오류", holding.symbol.0))?;
+                Ok(match currency {
+                    BrokerCurrency::Krw => value.max(0.0).round() as u64,
+                    BrokerCurrency::Usd => (value.max(0.0) * 100.0).round() as u64,
+                })
+            };
+            let avg = money_units(
+                &holding.average_price.amount,
+                holding.average_price.currency,
+            )?;
+            let current = money_units(
+                &holding.current_price.amount,
+                holding.current_price.currency,
+            )?;
+            match holding.market {
+                BrokerMarket::Kr => domestic.push((
+                    holding.symbol.0,
+                    holding.symbol_name,
+                    quantity,
+                    avg,
+                    current,
+                )),
+                BrokerMarket::Us => overseas.push((
+                    holding.symbol.0,
+                    holding.symbol_name,
+                    "TOSS_US".to_string(),
+                    quantity,
+                    avg,
+                    current,
+                )),
+            }
+        }
+        deps.position_tracker.lock().await.replace(domestic);
+        deps.overseas_position_tracker
+            .lock()
+            .await
+            .replace(overseas);
+        return Ok(());
+    }
+
+    let client = deps.rest_client.read().await.clone();
+    if submission.exchange.is_some() {
+        let balance = client.get_overseas_balance().await.map_err(|error| {
+            anyhow::anyhow!("KIS 해외 수동 주문 전 holdings 조회 실패: {error}")
+        })?;
+        let mut positions = Vec::new();
+        for item in balance.items {
+            let quantity = item
+                .ovrs_cblc_qty
+                .trim()
+                .replace(',', "")
+                .parse::<u64>()
+                .map_err(|_| anyhow::anyhow!("{} 해외 보유수량 형식 오류", item.ovrs_pdno))?;
+            let parse_cents = |value: &str| -> Result<u64> {
+                value
+                    .trim()
+                    .replace(',', "")
+                    .parse::<f64>()
+                    .map(|price| (price.max(0.0) * 100.0).round() as u64)
+                    .map_err(Into::into)
+            };
+            positions.push((
+                item.ovrs_pdno,
+                item.ovrs_item_name,
+                order_exchange_code(&item.ovrs_excg_cd).to_string(),
+                quantity,
+                parse_cents(&item.pchs_avg_pric)?,
+                parse_cents(&item.now_pric2)?,
+            ));
+        }
+        deps.overseas_position_tracker
+            .lock()
+            .await
+            .replace(positions);
+    } else {
+        let balance = client
+            .get_balance()
+            .await
+            .map_err(|error| anyhow::anyhow!("KIS 수동 주문 전 holdings 조회 실패: {error}"))?;
+        let mut positions = Vec::new();
+        for item in balance.items {
+            let quantity = item.hldg_qty.trim().replace(',', "").parse::<u64>()?;
+            let avg = item
+                .pchs_avg_pric
+                .trim()
+                .replace(',', "")
+                .parse::<f64>()?
+                .max(0.0)
+                .round() as u64;
+            let current = item.prpr.trim().replace(',', "").parse::<u64>()?;
+            positions.push((item.pdno, item.prdt_name, quantity, avg, current));
+        }
+        deps.position_tracker.lock().await.replace(positions);
+    }
+    Ok(())
+}
+
 async fn current_position_snapshot(
     submission: &OrderSubmission,
     position_tracker: &Arc<Mutex<PositionTracker>>,
@@ -432,7 +673,7 @@ async fn prepare_order_submission(
             );
         if let Some(reason) = limit_reason {
             tracing::info!("리스크 주문 횟수 제한 — {} ({})", symbol, reason);
-            return PrepareDecision::Skip;
+            return PrepareDecision::Skip(reason);
         }
     }
 
@@ -457,7 +698,13 @@ async fn prepare_buy_submission(
         )
     {
         tracing::info!("연속 손실 진입 차단 — {} ({})", submission.symbol, reason);
-        return PrepareDecision::Skip;
+        return PrepareDecision::Skip(reason);
+    }
+
+    if submission.total_balance <= 0 {
+        let reason = "총 잔고 동기화 값이 0 이하라 신규 매수를 거부합니다.".to_string();
+        tracing::warn!("{} — {}", reason, submission.symbol);
+        return PrepareDecision::Skip(reason);
     }
 
     let is_overseas = submission.exchange.is_some();
@@ -473,35 +720,37 @@ async fn prepare_buy_submission(
                 "리스크 한도 초과 — 매수 거부: {} (비상정지 or 손실한도)",
                 submission.symbol
             );
-            return PrepareDecision::Skip;
+            return PrepareDecision::Skip("리스크 한도 또는 비상정지".to_string());
         }
-        let adjusted_quantity = risk.volatility_adjusted_quantity(
-            &submission.symbol,
-            submission.quantity,
+        let adjusted_quantity = if submission.is_manual {
+            submission.quantity
+        } else {
+            risk.volatility_adjusted_quantity(
+                &submission.symbol,
+                submission.quantity,
+                submission.tick_price,
+                submission.total_balance,
+                is_overseas,
+                exchange_rate,
+            )
+        };
+        if adjusted_quantity == 0 {
+            return PrepareDecision::Skip("변동성 수량 산정 결과가 0주".to_string());
+        }
+        let est_amount = estimate_order_amount_krw(
             submission.tick_price,
-            submission.total_balance,
+            adjusted_quantity,
             is_overseas,
             exchange_rate,
         );
-        if adjusted_quantity == 0 {
-            return PrepareDecision::Skip;
-        }
-        if submission.total_balance > 0 {
-            let est_amount = estimate_order_amount_krw(
-                submission.tick_price,
-                adjusted_quantity,
-                is_overseas,
-                exchange_rate,
+        if !risk.check_position_size(est_amount, submission.total_balance) {
+            tracing::warn!(
+                "포지션 비중 초과 — 매수 거부: {} (추정 {}원 / 총잔고 {}원)",
+                submission.symbol,
+                est_amount,
+                submission.total_balance
             );
-            if !risk.check_position_size(est_amount, submission.total_balance) {
-                tracing::warn!(
-                    "포지션 비중 초과 — 매수 거부: {} (추정 {}원 / 총잔고 {}원)",
-                    submission.symbol,
-                    est_amount,
-                    submission.total_balance
-                );
-                return PrepareDecision::Skip;
-            }
+            return PrepareDecision::Skip("단일 종목 최대 비중 초과".to_string());
         }
         adjusted_quantity
     };
@@ -525,11 +774,11 @@ async fn prepare_sell_submission(
 ) -> PrepareDecision {
     if held_quantity == 0 {
         tracing::debug!("매도 스킵 — {} 보유 포지션 없음", submission.symbol);
-        return PrepareDecision::Skip;
+        return PrepareDecision::Skip("보유 포지션 없음".to_string());
     }
     if deps.risk_manager.lock().await.is_emergency_stop() {
         tracing::warn!("비상정지 상태 — 매도 거부: {}", submission.symbol);
-        return PrepareDecision::Skip;
+        return PrepareDecision::Skip("비상정지 상태".to_string());
     }
     let quantity = submission.quantity.min(held_quantity);
     let (provider_request, order_type, order_price, order_exchange) =
@@ -549,7 +798,13 @@ fn build_provider_request(
     quantity: u64,
 ) -> (ProviderOrderRequest, &'static str, u64, Option<String>) {
     if submission.broker_scope.broker_id == BrokerId::Toss {
-        let is_limit = submission.exchange.is_some();
+        let is_limit = submission
+            .requested_order_type
+            .map(|value| value == OrderType::Limit)
+            .unwrap_or_else(|| submission.exchange.is_some());
+        let price = submission.requested_price.unwrap_or(submission.tick_price);
+        let is_us = submission.exchange.is_some()
+            || !crate::market_hours::is_domestic_symbol(&submission.symbol);
         let req = TossOrderCreateRequest {
             client_order_id: None,
             symbol: submission.symbol.clone(),
@@ -557,7 +812,7 @@ fn build_provider_request(
             order_type: if is_limit { "LIMIT" } else { "MARKET" }.to_string(),
             time_in_force: Some("DAY".to_string()),
             quantity: Some(quantity.to_string()),
-            price: is_limit.then(|| toss_price_string(submission.tick_price, true)),
+            price: is_limit.then(|| toss_price_string(price, is_us)),
             order_amount: None,
             confirm_high_value_order: Some(false),
         }
@@ -565,7 +820,7 @@ fn build_provider_request(
         return (
             ProviderOrderRequest::Toss(req),
             if is_limit { "Limit" } else { "Market" },
-            if is_limit { submission.tick_price } else { 0 },
+            if is_limit { price } else { 0 },
             submission.exchange.clone().or_else(|| {
                 (!crate::market_hours::is_domestic_symbol(&submission.symbol))
                     .then(|| "TOSS_US".to_string())
@@ -575,7 +830,8 @@ fn build_provider_request(
 
     if let Some(exchange) = &submission.exchange {
         let order_exch = order_exchange_code(exchange).to_string();
-        let usd_price = submission.tick_price as f64 / 100.0;
+        let price = submission.requested_price.unwrap_or(submission.tick_price);
+        let usd_price = price as f64 / 100.0;
         let req = OverseasOrderRequest {
             symbol: submission.symbol.clone(),
             exchange: order_exch.clone(),
@@ -586,18 +842,33 @@ fn build_provider_request(
         (
             ProviderOrderRequest::Overseas(req),
             "Limit",
-            submission.tick_price,
+            price,
             Some(order_exch),
         )
     } else {
+        let order_type = submission.requested_order_type.unwrap_or(OrderType::Market);
+        let price = if order_type == OrderType::Limit {
+            submission.requested_price.unwrap_or(submission.tick_price)
+        } else {
+            0
+        };
         let req = OrderRequest {
             symbol: submission.symbol.clone(),
             side: rest_order_side(&submission.side),
-            order_type: OrderType::Market,
+            order_type,
             quantity,
-            price: 0,
+            price,
         };
-        (ProviderOrderRequest::Domestic(req), "Market", 0, None)
+        (
+            ProviderOrderRequest::Domestic(req),
+            if order_type == OrderType::Limit {
+                "Limit"
+            } else {
+                "Market"
+            },
+            price,
+            None,
+        )
     }
 }
 
@@ -761,10 +1032,17 @@ fn build_kis_pending_order(
         signal_reason: prepared.submission.reason.clone(),
         exchange: prepared.order_exchange.clone(),
         filled_quantity: 0,
+        filled_notional: 0,
+        confirmed_filled_quantity: 0,
+        confirmed_avg_price: 0,
+        application_started: false,
+        application_pnl: None,
         strategy_id: prepared.submission.strategy_id.clone(),
         signal_price: prepared.submission.tick_price,
         order_price: prepared.order_price,
         broker_scope: prepared.submission.broker_scope.clone(),
+        client_order_id: None,
+        provider_status: Some("pending".to_string()),
     }
 }
 
@@ -782,6 +1060,7 @@ fn build_toss_pending_order(
         order_id
     );
 
+    let client_order_id_for_snapshot = client_order_id.clone();
     let mut record = OrderRecord::new(
         prepared.submission.symbol.clone(),
         prepared.submission.symbol_name.clone(),
@@ -799,10 +1078,17 @@ fn build_toss_pending_order(
         signal_reason: prepared.submission.reason.clone(),
         exchange: prepared.order_exchange.clone(),
         filled_quantity: 0,
+        filled_notional: 0,
+        confirmed_filled_quantity: 0,
+        confirmed_avg_price: 0,
+        application_started: false,
+        application_pnl: None,
         strategy_id: prepared.submission.strategy_id.clone(),
         signal_price: prepared.submission.tick_price,
         order_price: prepared.order_price,
         broker_scope: prepared.submission.broker_scope.clone(),
+        client_order_id: client_order_id_for_snapshot,
+        provider_status: Some("pending".to_string()),
     }
 }
 
@@ -957,6 +1243,9 @@ mod tests {
                 exchange: None,
                 tick_price: 72000,
                 broker_scope: BrokerScope::kis_legacy(),
+                is_manual: false,
+                requested_order_type: None,
+                requested_price: None,
             },
             quantity: 1,
             order_type: "Market",

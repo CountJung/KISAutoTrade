@@ -974,13 +974,21 @@ pub async fn modify_toss_order_for_profile(
                     .price
                     .as_deref()
                     .map(|price| toss_decimal_to_storage_units(price, &detail.currency));
-                order_manager.lock().await.update_pending_order_snapshot(
+                let mut manager = order_manager.lock().await;
+                manager.update_pending_order_snapshot(
                     &order_id,
                     Some(&response.order_id),
                     quantity_units,
                     price_units,
                     Some(format!("TOSS_{}", detail.order_type)),
                 );
+                manager
+                    .persist_pending_orders()
+                    .await
+                    .map_err(|e| CmdError {
+                        code: "PENDING_ORDER_WRITE_ERROR".into(),
+                        message: format!("정정 주문의 미체결 스냅샷 저장 실패: {e}"),
+                    })?;
             }
             Err(e) => {
                 tracing::warn!(
@@ -995,13 +1003,21 @@ pub async fn modify_toss_order_for_profile(
                     .as_deref()
                     .or(original_order.price.as_deref())
                     .map(|price| toss_decimal_to_storage_units(price, &original_order.currency));
-                order_manager.lock().await.update_pending_order_snapshot(
+                let mut manager = order_manager.lock().await;
+                manager.update_pending_order_snapshot(
                     &order_id,
                     Some(&response.order_id),
                     quantity_units,
                     price_units,
                     Some(format!("TOSS_{}", request.order_type)),
                 );
+                manager
+                    .persist_pending_orders()
+                    .await
+                    .map_err(|e| CmdError {
+                        code: "PENDING_ORDER_WRITE_ERROR".into(),
+                        message: format!("정정 주문의 미체결 스냅샷 저장 실패: {e}"),
+                    })?;
             }
         }
     }

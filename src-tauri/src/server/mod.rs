@@ -59,13 +59,13 @@ use std::sync::Arc;
 use axum::{
     extract::State,
     http::{header, Uri},
+    middleware,
     response::{Html, IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
 use serde::Deserialize;
 use tokio::sync::{Mutex, RwLock};
-use tower_http::cors::CorsLayer;
 
 use crate::api::rest::{KisRestClient, StockSearchItem};
 use crate::broker::BrokerId;
@@ -74,8 +74,8 @@ use crate::config::{AppConfig, ProfilesConfig};
 use crate::logging::LogConfig;
 use crate::notifications::discord::DiscordNotifier;
 use crate::storage::{
-    database::DatabaseManager, order_store::OrderStore, stats_store::StatsStore,
-    stock_store::StockStore, strategy_store::StrategyStore, trade_store::TradeStore,
+    database::DatabaseManager, stats_store::StatsStore, stock_store::StockStore,
+    strategy_store::StrategyStore, trade_store::TradeStore,
 };
 use crate::trading::{
     order::OrderManager, position::PositionTracker, risk::RiskManager, strategy::StrategyManager,
@@ -84,11 +84,13 @@ use crate::trading::{
 mod market;
 mod profiles;
 mod records;
+mod security;
 mod toss;
 mod trading;
 use market::*;
 use profiles::*;
 use records::*;
+use security::{require_web_security, WebSecurity};
 use toss::*;
 use trading::*;
 
@@ -116,8 +118,6 @@ struct ServerState {
     profiles: Arc<RwLock<ProfilesConfig>>,
     /// 체결 기록 저장소
     trade_store: Arc<TradeStore>,
-    /// 주문 이력 저장소
-    order_store: Arc<OrderStore>,
     /// 일별 통계 저장소
     stats_store: Arc<StatsStore>,
     /// 로그 설정 (AppState 와 Arc 공유)
@@ -146,6 +146,7 @@ struct ServerState {
     exchange_rate_status: Arc<RwLock<ExchangeRateView>>,
     /// 데이터 갱신 주기 설정 (AppState와 Arc 공유)
     refresh_config: Arc<RwLock<RefreshConfig>>,
+    web_security: WebSecurity,
 }
 
 /// 서버 시작 (포트 바인드 실패 시 경고만 내고 종료)
@@ -162,7 +163,6 @@ pub async fn start(
     position_tracker: Arc<Mutex<PositionTracker>>,
     config: Arc<RwLock<Arc<AppConfig>>>,
     profiles: Arc<RwLock<ProfilesConfig>>,
-    order_store: Arc<OrderStore>,
     trade_store: Arc<TradeStore>,
     stats_store: Arc<StatsStore>,
     log_config: Arc<RwLock<LogConfig>>,
@@ -181,6 +181,7 @@ pub async fn start(
 ) {
     let dist_path = web_dist_path();
     let dist_found = dist_path.join("index.html").exists();
+    let web_security = WebSecurity::from_environment();
 
     if dist_found {
         tracing::info!("웹 모드: React 앱을 {:?} 에서 서비스합니다", dist_path);
@@ -206,7 +207,6 @@ pub async fn start(
         position_tracker,
         config,
         profiles,
-        order_store,
         trade_store,
         stats_store,
         log_config,
@@ -222,6 +222,7 @@ pub async fn start(
         exchange_rate_krw,
         exchange_rate_status,
         refresh_config,
+        web_security: web_security.clone(),
     };
 
     let app = Router::new()
@@ -362,15 +363,26 @@ pub async fn start(
         // ── 프론트엔드 로그 ──
         .route("/api/frontend-log", post(frontend_log_handler))
         .fallback(get(spa_handler))
-        .layer(CorsLayer::permissive())
+        .layer(middleware::from_fn_with_state(
+            web_security.clone(),
+            require_web_security,
+        ))
         .with_state(state);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    let bind_ip = if web_security.allow_lan {
+        [0, 0, 0, 0]
+    } else {
+        [127, 0, 0, 1]
+    };
+    let addr = SocketAddr::from((bind_ip, port));
     match tokio::net::TcpListener::bind(addr).await {
         Ok(listener) => {
             tracing::info!(
-                "웹 서버 시작: http://0.0.0.0:{} (같은 네트워크에서 접속 가능)",
-                port
+                "웹 서버 시작: http://{}:{} (LAN 공개={}, 변경 API token={})",
+                addr.ip(),
+                port,
+                web_security.allow_lan,
+                web_security.token_configured(),
             );
             if let Err(e) = axum::serve(listener, app).await {
                 tracing::error!("웹 서버 종료: {}", e);
@@ -616,6 +628,8 @@ async fn web_config_handler(State(s): State<ServerState>) -> Json<serde_json::Va
         "accessUrl":   format!("http://localhost:{}", s.web_port),
         "distPath":    s.dist_path.to_string_lossy(),
         "distFound":   s.dist_found,
+        "lanEnabled":  s.web_security.allow_lan,
+        "apiTokenConfigured": s.web_security.token_configured(),
     }))
 }
 
@@ -715,32 +729,27 @@ struct SaveWebConfigBody {
     new_port: u16,
     /// DIST_PATH 환경 변수에 저장할 dist/ 경로 (비어있으면 수정 안 함)
     dist_path: Option<String>,
+    allow_lan: Option<bool>,
+    api_token: Option<String>,
 }
 
 /// POST /api/web-config/save — .env WEB_PORT (및 선택적 DIST_PATH) 저장 (재시작 후 반영)
 async fn save_web_config_handler(
     State(_s): State<ServerState>,
     Json(body): Json<SaveWebConfigBody>,
-) -> Json<serde_json::Value> {
-    use std::io::Write;
-    let env_path = std::env::current_dir().unwrap_or_default().join(".env");
-    let mut content = format!("WEB_PORT={}\n", body.new_port);
-    if let Some(ref dp) = body.dist_path {
-        if !dp.is_empty() {
-            content.push_str(&format!("DIST_PATH={}\n", dp));
-        }
-    }
-    match std::fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(&env_path)
-        .and_then(|mut f| f.write_all(content.as_bytes()))
-    {
-        Ok(_) => Json(
-            serde_json::json!({ "ok": true, "message": format!(".env 저장 완료: WEB_PORT={}", body.new_port) }),
-        ),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
+) -> Response {
+    match crate::commands::persist_web_config(
+        body.new_port,
+        body.dist_path.as_deref(),
+        body.allow_lan,
+        body.api_token.as_deref(),
+    ) {
+        Ok(message) => Json(serde_json::json!({ "ok": true, "message": message })).into_response(),
+        Err(error) => (
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "code": error.code, "message": error.message })),
+        )
+            .into_response(),
     }
 }
 

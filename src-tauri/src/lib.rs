@@ -12,6 +12,7 @@ pub mod trading;
 pub mod updater;
 
 use anyhow::Context;
+use fs2::FileExt;
 use std::path::PathBuf;
 use tauri::{Emitter, Manager};
 
@@ -136,6 +137,15 @@ pub fn run() {
                 // 신규 설치 — 실행 위치에 새로 생성
                 preferred_data_dir
             };
+            std::fs::create_dir_all(&data_dir)?;
+            let data_lock = std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .open(data_dir.join(".kisautotrade.lock"))?;
+            data_lock.try_lock_exclusive().context(
+                "같은 data 디렉토리를 사용하는 KISAutoTrade가 이미 실행 중입니다.",
+            )?;
 
             // 웹 서버 포트 (WEB_PORT 환경변수, 기본 7474)
             let web_port: u16 = std::env::var("WEB_PORT")
@@ -182,6 +192,7 @@ pub fn run() {
                 refresh_config,
                 interval_tx,
                 database_manager,
+                data_lock,
             ));
             app.manage(state);
 
@@ -244,7 +255,6 @@ pub fn run() {
                 let position_tracker     = st.position_tracker.clone();
                 let config               = st.config.clone();
                 let profiles             = st.profiles.clone();
-                let order_store          = st.order_store.clone();
                 let trade_store          = st.trade_store.clone();
                 let stats_store          = st.stats_store.clone();
                 let log_config           = st.log_config.clone();
@@ -264,7 +274,7 @@ pub fn run() {
                     server::start(
                         rest_client, stock_list, port,
                         is_trading, storage_maintenance, database_manager, strategy_manager, strategy_update_lock, position_tracker,
-                        config, profiles, order_store, trade_store, stats_store,
+                        config, profiles, trade_store, stats_store,
                         log_config, log_dir, trade_archive_config, data_dir,
                         risk_manager, order_manager, stock_store, strategy_store,
                         profiles_path, discord, exchange_rate_krw, refresh_config,
@@ -361,6 +371,7 @@ pub fn run() {
                 let interval_tx      = st.refresh_interval_tx.clone();
                 let stock_store_arc  = st.stock_store.clone();
                 let position_tracker = st.position_tracker.clone();
+                let overseas_position_tracker = st.overseas_position_tracker.clone();
                 let app_handle       = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     let mut interval_rx = interval_tx.subscribe();
@@ -399,17 +410,25 @@ pub fn run() {
                                     stock_store_arc.upsert_many(
                                         resp.items.iter().map(|i| (i.pdno.clone(), i.prdt_name.clone()))
                                     ).await;
-                                    {
+                                    let parsed_positions: Result<Vec<_>, String> = resp
+                                        .items
+                                        .iter()
+                                        .map(|item| {
+                                            let quantity = item.hldg_qty.trim().replace(',', "").parse::<u64>()
+                                                .map_err(|_| format!("{} 보유수량 형식 오류", item.pdno))?;
+                                            let avg = item.pchs_avg_pric.trim().replace(',', "").parse::<f64>()
+                                                .map_err(|_| format!("{} 평균매입가 형식 오류", item.pdno))?
+                                                .max(0.0).round() as u64;
+                                            let current = item.prpr.trim().replace(',', "").parse::<u64>()
+                                                .map_err(|_| format!("{} 현재가 형식 오류", item.pdno))?;
+                                            Ok((item.pdno.clone(), item.prdt_name.clone(), quantity, avg, current))
+                                        })
+                                        .collect();
+                                    if let Ok(parsed_positions) = parsed_positions {
                                         let mut tracker = position_tracker.lock().await;
-                                        tracker.load_if_empty(
-                                            resp.items.iter().map(|i| (
-                                                i.pdno.clone(),
-                                                i.prdt_name.clone(),
-                                                i.hldg_qty.parse::<u64>().unwrap_or(0),
-                                                i.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) as u64,
-                                                i.prpr.parse::<u64>().unwrap_or(0),
-                                            ))
-                                        );
+                                        tracker.replace(parsed_positions);
+                                    } else if let Err(error) = parsed_positions {
+                                        tracing::error!("국내 holdings 형식 오류로 포지션 갱신 차단: {}", error);
                                     }
                                     let payload = serde_json::json!({
                                         "items": resp.items,
@@ -422,6 +441,30 @@ pub fn run() {
                             // 해외 잔고
                             match client.get_overseas_balance().await {
                                 Ok(resp) => {
+                                    let parsed_positions: Result<Vec<_>, String> = resp
+                                        .items
+                                        .iter()
+                                        .map(|item| {
+                                            let quantity = item.ovrs_cblc_qty.trim().replace(',', "").parse::<u64>()
+                                                .map_err(|_| format!("{} 해외 보유수량 형식 오류", item.ovrs_pdno))?;
+                                            let parse_cents = |value: &str| value.trim().replace(',', "").parse::<f64>()
+                                                .map(|price| (price.max(0.0) * 100.0).round() as u64)
+                                                .map_err(|_| format!("{} 해외 가격 형식 오류", item.ovrs_pdno));
+                                            Ok((
+                                                item.ovrs_pdno.clone(),
+                                                item.ovrs_item_name.clone(),
+                                                item.ovrs_excg_cd.clone(),
+                                                quantity,
+                                                parse_cents(&item.pchs_avg_pric)?,
+                                                parse_cents(&item.now_pric2)?,
+                                            ))
+                                        })
+                                        .collect();
+                                    if let Ok(parsed_positions) = parsed_positions {
+                                        overseas_position_tracker.lock().await.replace(parsed_positions);
+                                    } else if let Err(error) = parsed_positions {
+                                        tracing::error!("해외 holdings 형식 오류로 포지션 갱신 차단: {}", error);
+                                    }
                                     let payload = serde_json::json!({
                                         "items": resp.items,
                                         "summary": resp.summary,

@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
@@ -25,10 +26,10 @@ use crate::{
     },
     broker::BrokerScope,
     config::ProfilesConfig,
-    notifications::discord::DiscordNotifier,
+    notifications::{discord::DiscordNotifier, types::NotificationEvent},
     storage::{
         order_store::{OrderRecord, OrderSide, OrderStatus},
-        OrderStore, StatsStore, TradeStore,
+        OrderStore, PendingOrderStore, StatsStore, TradeStore,
     },
     trading::{
         guard::{GuardDecision, TradeGuard},
@@ -43,13 +44,15 @@ mod fills;
 mod submission;
 
 use conflicts::pending_conflict_reason_for_scope;
+pub use submission::SubmissionOutcome;
 
 // ────────────────────────────────────────────────────────────────────
 // PendingOrder — 미체결 주문 항목
 // ────────────────────────────────────────────────────────────────────
 
 /// 미체결(Pending) 상태 주문 항목
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PendingOrder {
     /// 원본 주문 기록 (OrderStore에 Pending 상태로 기록됨)
     pub record: OrderRecord,
@@ -67,6 +70,26 @@ pub struct PendingOrder {
     pub broker_scope: BrokerScope,
     /// 주문번호 기반 조회로 이미 반영한 누적 체결 수량
     pub filled_quantity: u64,
+    /// 이미 반영한 체결금액 합계(가격 내부단위 × 수량)
+    #[serde(default)]
+    pub filled_notional: u128,
+    /// provider가 마지막으로 확인한 누적 체결수량/평균가
+    #[serde(default)]
+    pub confirmed_filled_quantity: u64,
+    #[serde(default)]
+    pub confirmed_avg_price: u64,
+    /// 체결 event의 durable side effect 적용을 시작했는지 여부
+    #[serde(default)]
+    pub application_started: bool,
+    /// 적용 intent에 고정한 delta 체결 손익(국내 KRW, 해외 cents).
+    #[serde(default)]
+    pub application_pnl: Option<i64>,
+    /// broker에 전달한 client 주문 ID (지원하는 broker만 저장)
+    #[serde(default)]
+    pub client_order_id: Option<String>,
+    /// 마지막으로 확인한 provider 주문 상태
+    #[serde(default)]
+    pub provider_status: Option<String>,
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -90,12 +113,15 @@ pub struct OrderManager {
     pub buy_suspended: bool,
     /// 매수 정지 사유 (KIS 응답 msg1)
     pub buy_suspended_reason: Option<String>,
+    /// 주문 상태 영속화 실패 시 매수/매도 모두 차단한다.
+    persistence_blocked: bool,
 
     // ── 공유 의존성 (Arc) ───────────────────────────────────────────
     /// KIS REST 클라이언트 (프로파일 전환 시 내부 Arc만 교체됨)
     rest_client: Arc<RwLock<Arc<KisRestClient>>>,
     profiles: Arc<RwLock<ProfilesConfig>>,
     order_store: Arc<OrderStore>,
+    pending_order_store: Arc<PendingOrderStore>,
     trade_store: Arc<TradeStore>,
     position_tracker: Arc<Mutex<PositionTracker>>,
     overseas_position_tracker: Arc<Mutex<OverseasPositionTracker>>,
@@ -116,6 +142,7 @@ impl OrderManager {
         rest_client: Arc<RwLock<Arc<KisRestClient>>>,
         profiles: Arc<RwLock<ProfilesConfig>>,
         order_store: Arc<OrderStore>,
+        pending_order_store: Arc<PendingOrderStore>,
         trade_store: Arc<TradeStore>,
         position_tracker: Arc<Mutex<PositionTracker>>,
         overseas_position_tracker: Arc<Mutex<OverseasPositionTracker>>,
@@ -130,9 +157,11 @@ impl OrderManager {
             submitting: HashMap::new(),
             buy_suspended: false,
             buy_suspended_reason: None,
+            persistence_blocked: false,
             rest_client,
             profiles,
             order_store,
+            pending_order_store,
             trade_store,
             position_tracker,
             overseas_position_tracker,
@@ -288,6 +317,11 @@ impl OrderManager {
 
         self.symbol_to_odno.remove(&pending.record.symbol);
 
+        if let Err(error) = self.persist_pending_orders().await {
+            self.track_pending_order(odno.to_string(), pending.clone());
+            return Err(error);
+        }
+
         let mut record = pending.record;
         record.status = OrderStatus::Cancelled;
         if let Err(e) = self.order_store.append(record.clone()).await {
@@ -305,10 +339,51 @@ impl OrderManager {
 
     /// 잔고 부족 매수 정지 수동 해제 (예: 입금 후 사용자 요청)
     pub fn clear_buy_suspension(&mut self) {
+        if self.persistence_blocked {
+            tracing::warn!("영속화 장애 차단은 수동 매수 정지 해제로 해제할 수 없습니다.");
+            return;
+        }
         if self.buy_suspended {
             self.buy_suspended = false;
             self.buy_suspended_reason = None;
             tracing::info!("잔고 부족 매수 정지 해제 (수동)");
+        }
+    }
+
+    pub fn block_for_persistence_failure(&mut self, reason: String) {
+        self.persistence_blocked = true;
+        self.buy_suspended = true;
+        self.buy_suspended_reason = Some(reason);
+    }
+
+    pub async fn suspend_buying_for_account_sync(&mut self, detail: String) {
+        let reason = format!("계좌 동기화 실패: {detail}");
+        let should_notify = self.buy_suspended_reason.as_deref() != Some(reason.as_str());
+        self.buy_suspended = true;
+        self.buy_suspended_reason = Some(reason.clone());
+        if should_notify {
+            if let Some(discord) = &self.discord {
+                let _ = discord
+                    .send(NotificationEvent::error(
+                        "자동매매 신규 매수 중단",
+                        format!(
+                            "{reason} 계좌 조회가 정상화될 때까지 신규 매수를 제출하지 않습니다."
+                        ),
+                    ))
+                    .await;
+            }
+        }
+    }
+
+    pub fn clear_account_sync_suspension(&mut self) {
+        if self
+            .buy_suspended_reason
+            .as_deref()
+            .is_some_and(|reason| reason.starts_with("계좌 동기화 실패:"))
+        {
+            self.buy_suspended = false;
+            self.buy_suspended_reason = None;
+            tracing::info!("계좌 동기화 정상화 — 신규 매수 차단 해제");
         }
     }
 
@@ -325,6 +400,32 @@ impl OrderManager {
     /// 미체결 주문 목록 (UI 표시용)
     pub fn pending_orders(&self) -> Vec<&PendingOrder> {
         self.pending.values().collect()
+    }
+
+    pub fn restore_pending_orders(&mut self, orders: Vec<PendingOrder>) {
+        self.pending.clear();
+        self.symbol_to_odno.clear();
+        for pending in orders {
+            let Some(key) = pending
+                .record
+                .provider_order_id
+                .clone()
+                .or_else(|| pending.record.kis_order_id.clone())
+                .filter(|value| !value.trim().is_empty())
+            else {
+                tracing::error!(
+                    "미체결 주문 복원 제외: provider 주문번호 없음 ({})",
+                    pending.record.id
+                );
+                continue;
+            };
+            self.track_pending_order(key, pending);
+        }
+    }
+
+    pub async fn persist_pending_orders(&self) -> Result<()> {
+        let snapshot: Vec<PendingOrder> = self.pending.values().cloned().collect();
+        self.pending_order_store.replace(&snapshot).await
     }
 
     /// 외부 주문 경로(수동 주문 등)에서 받은 provider 주문을 미체결 풀에 편입한다.
@@ -374,16 +475,15 @@ impl OrderManager {
 
     /// 일 초기화 — 자동매매 시작 시 또는 자정 리셋 시 호출
     pub fn reset_day(&mut self) {
-        let n = self.pending.len();
-        self.pending.clear();
-        self.symbol_to_odno.clear();
         self.submitting.clear();
         self.trade_guard.reset_day();
-        // 전일 잔고부족 정지도 초기화
-        self.buy_suspended = false;
-        self.buy_suspended_reason = None;
-        if n > 0 {
-            tracing::warn!("일 초기화: 미처리 미체결 주문 {}건 폐기", n);
+        // 매수 중단 사유는 자정만으로 해소되지 않는다. 계좌 재동기화, 매도 체결,
+        // 영속화 복구 또는 사용자의 명시적 해제에서만 상태를 바꾼다.
+        if !self.pending.is_empty() {
+            tracing::info!(
+                "일 초기화: 미체결 주문 {}건은 provider reconciliation을 위해 유지",
+                self.pending.len()
+            );
         }
     }
 
@@ -847,10 +947,17 @@ impl OrderManager {
                 signal_reason: reason,
                 exchange,
                 filled_quantity: 0,
+                filled_notional: 0,
+                confirmed_filled_quantity: 0,
+                confirmed_avg_price: 0,
+                application_started: false,
+                application_pnl: None,
                 strategy_id,
                 signal_price,
                 order_price,
                 broker_scope,
+                client_order_id: None,
+                provider_status: Some("pending".to_string()),
             },
         );
 

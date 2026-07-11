@@ -21,6 +21,9 @@ pub struct DailyStats {
     pub profit_factor: f64,
     pub starting_balance: i64,
     pub ending_balance: i64,
+    /// 재시도 가능한 체결 적용의 통계 중복 방지 event ID.
+    #[serde(default)]
+    pub processed_fill_ids: Vec<String>,
 }
 
 impl DailyStats {

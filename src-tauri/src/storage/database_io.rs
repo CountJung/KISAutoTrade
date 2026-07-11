@@ -1,65 +1,66 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use tokio::fs;
 
 pub(super) async fn atomic_write(path: &Path, content: &str) -> Result<()> {
+    let path = path.to_path_buf();
+    let content = content.to_string();
+    tokio::task::spawn_blocking(move || durable_atomic_write(&path, &content, false))
+        .await
+        .context("JSON 원자 저장 task 실패")?
+}
+
+pub(super) async fn atomic_write_private(path: &Path, content: &str) -> Result<()> {
+    #[cfg(unix)]
+    {
+        let path = path.to_path_buf();
+        let content = content.to_string();
+        tokio::task::spawn_blocking(move || durable_atomic_write(&path, &content, true))
+            .await
+            .context("민감 설정 저장 task 실패")??;
+        Ok(())
+    }
+
+    #[cfg(not(unix))]
+    atomic_write(path, content).await
+}
+
+fn durable_atomic_write(path: &Path, content: &str, private: bool) -> Result<()> {
+    use std::io::Write;
+
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).await?;
+        std::fs::create_dir_all(parent)?;
     }
     let file_name = path
         .file_name()
         .and_then(|value| value.to_str())
         .unwrap_or("document.json");
     let temp = path.with_file_name(format!(".{file_name}.{}.tmp", uuid::Uuid::new_v4()));
-    fs::write(&temp, content).await?;
-    fs::rename(&temp, path).await.inspect_err(|_| {
-        let _ = std::fs::remove_file(&temp);
-    })?;
-    Ok(())
-}
+    let backup = path.with_file_name(format!("{file_name}.bak"));
+    let result = (|| -> Result<()> {
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        if private {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options.open(&temp)?;
+        file.write_all(content.as_bytes())?;
+        file.sync_all()?;
 
-pub(super) async fn atomic_write_private(path: &Path, content: &str) -> Result<()> {
-    #[cfg(unix)]
-    {
-        use std::io::Write;
-        use std::os::unix::fs::OpenOptionsExt;
-
-        let path = path.to_path_buf();
-        let content = content.to_string();
-        tokio::task::spawn_blocking(move || -> Result<()> {
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
-            let file_name = path
-                .file_name()
-                .and_then(|value| value.to_str())
-                .unwrap_or("private.json");
-            let temp = path.with_file_name(format!(".{file_name}.{}.tmp", uuid::Uuid::new_v4()));
-            let result = (|| -> Result<()> {
-                let mut file = std::fs::OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .mode(0o600)
-                    .open(&temp)?;
-                file.write_all(content.as_bytes())?;
-                file.sync_all()?;
-                std::fs::rename(&temp, &path)?;
-                if let Some(parent) = path.parent() {
-                    std::fs::File::open(parent)?.sync_all()?;
-                }
-                Ok(())
-            })();
-            if result.is_err() {
-                let _ = std::fs::remove_file(&temp);
-            }
-            result
-        })
-        .await
-        .context("민감 설정 저장 task 실패")??;
+        if path.exists() {
+            std::fs::copy(path, &backup)?;
+            std::fs::File::open(&backup)?.sync_all()?;
+        }
+        std::fs::rename(&temp, path)?;
+        if let Some(parent) = path.parent() {
+            std::fs::File::open(parent)?.sync_all()?;
+        }
         Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temp);
     }
-
-    #[cfg(not(unix))]
-    atomic_write(path, content).await
+    result
 }

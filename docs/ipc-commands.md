@@ -16,8 +16,8 @@
 | `update_profile` | 프로파일 수정 (`live_trading_consent` 갱신 가능) |
 | `delete_profile` | 프로파일 삭제 |
 | `set_active_profile` | 활성 프로파일 전환 |
-| `get_web_config` | 웹 서버 포트 설정 조회 |
-| `save_web_config` | 웹 서버 포트 저장 (`.env` WEB_PORT) |
+| `get_web_config` | 웹 서버 포트, LAN 공개, API token 설정 여부 조회 (token 원문 미반환) |
+| `save_web_config` | `WEB_PORT`, `WEB_ALLOW_LAN`, 32자 이상 `WEB_API_TOKEN` 저장. LAN 공개는 token 필수 |
 | `detect_trading_type` | 실전/모의투자 자동 감지 |
 | `detect_profile_trading_type` | 특정 프로파일 실전/모의 감지 |
 | `list_toss_accounts` | 입력한 토스증권 Client ID/Secret으로 `accountSeq` 후보 조회 |
@@ -62,8 +62,8 @@
 | `get_chart_data` | 국내주식 차트 데이터 (일봉) |
 | `get_overseas_price` | 해외주식 현재가 조회 |
 | `get_overseas_chart_data` | 해외주식 차트 데이터 (일/주/월봉) |
-| `place_order` | 국내 수동 주문 (매수/매도) |
-| `place_overseas_order` | 해외 수동 주문 |
+| `place_order` | 국내 수동 주문. 자동주문과 같은 scoped preflight/risk/pending/영속화 서비스 사용 |
+| `place_overseas_order` | 해외 수동 지정가 주문. 자동주문과 같은 scoped order service 사용 |
 | `get_today_executed` | 당일 체결 내역 (KIS API) |
 | `get_today_overseas_executed` | 당일 해외주식 주문체결 내역 (KIS API) |
 | `get_kis_executed_by_range` | KIS API 날짜 범위 체결 조회 |
@@ -94,7 +94,7 @@
 | Command | 설명 |
 |---------|------|
 | `get_trading_status` | 자동 매매 상태 조회 (wsConnected, buySuspended, 실행 broker/profile/account 스냅샷 포함) |
-| `start_trading` | 자동 매매 시작 (is_trading=true + WebSocket 연결) |
+| `start_trading` | 활성 broker/account 잔고·holdings 및 복원 pending 대조 성공 후에만 자동 매매 시작 |
 | `stop_trading` | 자동 매매 정지 |
 | `clear_buy_suspension` | 잔고 부족 매수 정지 수동 해제 |
 | `get_positions` | 포지션 목록 조회 |

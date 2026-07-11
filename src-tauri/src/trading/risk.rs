@@ -173,6 +173,21 @@ impl RiskManager {
         }
     }
 
+    /// 오늘의 durable 체결 ledger에서 손익 한도를 재구축한다.
+    pub fn restore_daily_pnl<I>(&mut self, pnl_entries: I)
+    where
+        I: IntoIterator<Item = i64>,
+    {
+        let preserve_emergency_stop = self.emergency_stop;
+        self.current_loss = 0;
+        self.daily_profit = 0;
+        self.emergency_stop = preserve_emergency_stop;
+        self.last_reset_date = Some(chrono::Local::now().date_naive());
+        for pnl in pnl_entries {
+            self.record_pnl(pnl);
+        }
+    }
+
     /// 하위 호환 alias
     pub fn record_loss(&mut self, amount: i64) {
         self.record_pnl(-amount.abs());
@@ -665,5 +680,16 @@ mod tests {
         assert!(risk
             .consecutive_loss_block_reason_for_scope(&account_b, "strategy", "005930")
             .is_none());
+    }
+
+    #[test]
+    fn restores_daily_loss_limit_from_durable_fill_ledger() {
+        let mut risk = RiskManager::new(10_000, 0.2);
+        risk.restore_daily_pnl([-7_000, 1_000, -5_000]);
+
+        assert_eq!(risk.current_loss(), -12_000);
+        assert_eq!(risk.daily_profit(), 1_000);
+        assert_eq!(risk.net_loss(), 11_000);
+        assert!(!risk.can_trade());
     }
 }

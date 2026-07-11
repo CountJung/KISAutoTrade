@@ -279,6 +279,11 @@ pub struct ExecutedOrder {
     pub ord_dt: String,
     /// 주문시각
     pub ord_tmd: String,
+    /// 취소여부 / 취소확인수량 / 잔여수량 / 거부수량
+    pub cncl_yn: String,
+    pub cnc_cfrm_qty: String,
+    pub rmn_qty: String,
+    pub rjct_qty: String,
 }
 
 /// 해외 주문체결 내역 1건 (TTTS3035R / VTTS3035R output)
@@ -316,6 +321,12 @@ pub struct OverseasExecutedOrder {
     pub ord_tmd: String,
     /// 주문채번지점번호
     pub ord_gno_brno: String,
+    /// 미체결수량
+    pub nccs_qty: String,
+    /// 처리상태명
+    pub prcs_stat_name: String,
+    /// 거부사유
+    pub rjct_rson: String,
 }
 
 impl OverseasExecutedOrder {
@@ -330,6 +341,29 @@ impl OverseasExecutedOrder {
             return amount_cents / qty;
         }
         parse_decimal_cents(&self.ft_ccld_unpr3).max(parse_decimal_cents(&self.ft_ord_unpr3))
+    }
+
+    pub fn is_terminal(&self) -> bool {
+        let ordered = first_positive_u64(&[&self.ft_ord_qty]);
+        let filled = self.filled_qty();
+        let remaining = first_positive_u64(&[&self.nccs_qty]);
+        let status = self.prcs_stat_name.trim().to_ascii_lowercase();
+        let explicit_terminal = matches!(
+            status.as_str(),
+            "체결완료"
+                | "취소완료"
+                | "주문취소"
+                | "주문거부"
+                | "거부"
+                | "filled"
+                | "canceled"
+                | "cancelled"
+                | "rejected"
+                | "expired"
+        );
+        (ordered > 0 && filled >= ordered)
+            || (remaining == 0
+                && (explicit_terminal || filled > 0 || !self.rjct_rson.trim().is_empty()))
     }
 }
 

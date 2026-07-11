@@ -7,7 +7,8 @@ use serde::Deserialize;
 
 use super::ServerState;
 use crate::broker::{
-    BrokerAccountId, BrokerAdapter, BrokerId, BrokerMarket, BrokerScope, TossBrokerAdapter,
+    BrokerAccountId, BrokerAdapter, BrokerCurrency, BrokerId, BrokerMarket, BrokerScope,
+    TossBrokerAdapter,
 };
 use crate::config::AccountProfile;
 use crate::trading::strategy::BrokerPositionSnapshot;
@@ -38,55 +39,164 @@ pub(super) async fn trading_status_handler(
     }))
 }
 
-async fn sync_kis_strategy_positions(s: &ServerState) -> usize {
+async fn sync_kis_strategy_positions(s: &ServerState) -> Result<usize, String> {
     let rest = s.rest_client.read().await.clone();
     let mut synced = 0usize;
-    match rest.get_balance().await {
-        Ok(resp) => {
-            s.stock_store
-                .upsert_many(
-                    resp.items
-                        .iter()
-                        .map(|i| (i.pdno.clone(), i.prdt_name.clone())),
+    let domestic = rest
+        .get_balance()
+        .await
+        .map_err(|e| format!("KIS 국내 잔고 조회 실패: {e}"))?;
+    let overseas = rest
+        .get_overseas_balance()
+        .await
+        .map_err(|e| format!("KIS 해외 잔고 조회 실패: {e}"))?;
+    for item in &domestic.items {
+        item.hldg_qty
+            .trim()
+            .replace(',', "")
+            .parse::<u64>()
+            .map_err(|_| format!("{} KIS 보유수량 응답 형식 오류", item.pdno))?;
+        item.pchs_avg_pric
+            .trim()
+            .replace(',', "")
+            .parse::<f64>()
+            .map_err(|_| format!("{} KIS 평균매입가 응답 형식 오류", item.pdno))?;
+        item.prpr
+            .trim()
+            .replace(',', "")
+            .parse::<u64>()
+            .map_err(|_| format!("{} KIS 현재가 응답 형식 오류", item.pdno))?;
+    }
+    for item in &overseas.items {
+        item.ovrs_cblc_qty
+            .trim()
+            .replace(',', "")
+            .parse::<u64>()
+            .map_err(|_| format!("{} KIS 해외 보유수량 응답 형식 오류", item.ovrs_pdno))?;
+        item.pchs_avg_pric
+            .trim()
+            .replace(',', "")
+            .parse::<f64>()
+            .map_err(|_| format!("{} KIS 해외 평균매입가 응답 형식 오류", item.ovrs_pdno))?;
+        item.now_pric2
+            .trim()
+            .replace(',', "")
+            .parse::<f64>()
+            .map_err(|_| format!("{} KIS 해외 현재가 응답 형식 오류", item.ovrs_pdno))?;
+    }
+    let domestic_total = domestic
+        .summary
+        .as_ref()
+        .and_then(|summary| {
+            summary
+                .tot_evlu_amt
+                .trim()
+                .replace(',', "")
+                .parse::<i64>()
+                .ok()
+        })
+        .unwrap_or(0);
+    let exchange_rate = *s.exchange_rate_krw.read().await;
+    let overseas_total = overseas
+        .summary
+        .as_ref()
+        .and_then(|summary| {
+            summary
+                .frcr_evlu_tota
+                .trim()
+                .replace(',', "")
+                .parse::<f64>()
+                .ok()
+        })
+        .map(|value| (value * exchange_rate).round() as i64)
+        .unwrap_or(0);
+    {
+        let resp = domestic;
+        s.stock_store
+            .upsert_many(
+                resp.items
+                    .iter()
+                    .map(|i| (i.pdno.clone(), i.prdt_name.clone())),
+            )
+            .await;
+        {
+            let mut tracker = s.position_tracker.lock().await;
+            tracker.replace(resp.items.iter().map(|i| {
+                (
+                    i.pdno.clone(),
+                    i.prdt_name.clone(),
+                    normalized_u64(&i.hldg_qty),
+                    normalized_f64(&i.pchs_avg_pric).round() as u64,
+                    normalized_u64(&i.prpr),
                 )
-                .await;
-            {
-                let mut tracker = s.position_tracker.lock().await;
-                tracker.load_if_empty(resp.items.iter().map(|i| {
-                    (
-                        i.pdno.clone(),
-                        i.prdt_name.clone(),
-                        i.hldg_qty.parse::<u64>().unwrap_or(0),
-                        i.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) as u64,
-                        i.prpr.parse::<u64>().unwrap_or(0),
-                    )
-                }));
-            }
-            let mut mgr = s.strategy_manager.lock().await;
-            for item in &resp.items {
-                let qty = item.hldg_qty.parse::<u64>().unwrap_or(0);
-                let avg = item.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) as u64;
-                if qty > 0 {
-                    synced += 1;
-                }
+            }));
+        }
+        let mut mgr = s.strategy_manager.lock().await;
+        for symbol in mgr.active_symbols() {
+            if crate::market_hours::is_domestic_symbol(&symbol) {
                 mgr.sync_position_for_broker(&BrokerPositionSnapshot {
                     broker_id: BrokerId::Kis,
                     market: BrokerMarket::Kr,
-                    symbol: item.pdno.clone(),
-                    quantity: qty,
-                    avg_price: avg,
+                    symbol,
+                    quantity: 0,
+                    avg_price: 0,
                 });
             }
         }
-        Err(e) => tracing::warn!("웹 자동매매 시작 전 국내 잔고 동기화 실패: {}", e),
+        for item in &resp.items {
+            let qty = normalized_u64(&item.hldg_qty);
+            let avg = normalized_f64(&item.pchs_avg_pric).round() as u64;
+            if qty > 0 {
+                synced += 1;
+            }
+            mgr.sync_position_for_broker(&BrokerPositionSnapshot {
+                broker_id: BrokerId::Kis,
+                market: BrokerMarket::Kr,
+                symbol: item.pdno.clone(),
+                quantity: qty,
+                avg_price: avg,
+            });
+        }
     }
-    synced
+    {
+        let mut mgr = s.strategy_manager.lock().await;
+        for symbol in mgr.active_symbols() {
+            if !crate::market_hours::is_domestic_symbol(&symbol) {
+                mgr.sync_position_for_broker(&BrokerPositionSnapshot {
+                    broker_id: BrokerId::Kis,
+                    market: BrokerMarket::Us,
+                    symbol,
+                    quantity: 0,
+                    avg_price: 0,
+                });
+            }
+        }
+        for item in &overseas.items {
+            let quantity = normalized_u64(&item.ovrs_cblc_qty);
+            if quantity > 0 {
+                synced += 1;
+            }
+            mgr.sync_position_for_broker(&BrokerPositionSnapshot {
+                broker_id: BrokerId::Kis,
+                market: BrokerMarket::Us,
+                symbol: item.ovrs_pdno.clone(),
+                quantity,
+                avg_price: money_units(&item.pchs_avg_pric, &BrokerCurrency::Usd),
+            });
+        }
+    }
+    if domestic_total.saturating_add(overseas_total) <= 0 {
+        return Err("KIS 계좌 총평가액이 0원 이하입니다.".into());
+    }
+    Ok(synced)
 }
 
-async fn sync_toss_strategy_positions(s: &ServerState, profile: AccountProfile) -> usize {
+async fn sync_toss_strategy_positions(
+    s: &ServerState,
+    profile: AccountProfile,
+) -> Result<usize, String> {
     if !profile.is_configured() {
-        tracing::warn!("웹 자동매매 Toss holdings 동기화 건너뜀: 설정이 미완료입니다.");
-        return 0;
+        return Err("활성 Toss 프로파일 설정이 미완료입니다.".into());
     }
     let account_seq = profile.broker_account_id();
     let adapter = TossBrokerAdapter::with_credentials(
@@ -96,13 +206,52 @@ async fn sync_toss_strategy_positions(s: &ServerState, profile: AccountProfile) 
         Some(account_seq.clone()),
     );
     let account_id = BrokerAccountId(account_seq);
-    let holdings = match adapter.list_holdings(Some(&account_id)).await {
-        Ok(holdings) => holdings,
-        Err(e) => {
-            tracing::warn!("웹 자동매매 시작 전 Toss holdings 동기화 실패: {}", e);
-            return 0;
-        }
-    };
+    let holdings = adapter
+        .list_holdings(Some(&account_id))
+        .await
+        .map_err(|e| format!("Toss 보유종목 조회 실패: {e}"))?;
+    for holding in &holdings {
+        holding
+            .quantity
+            .0
+            .trim()
+            .replace(',', "")
+            .parse::<f64>()
+            .map_err(|_| format!("{} Toss 보유수량 응답 형식 오류", holding.symbol.0))?;
+        holding
+            .average_price
+            .amount
+            .trim()
+            .replace(',', "")
+            .parse::<f64>()
+            .map_err(|_| format!("{} Toss 평균매입가 응답 형식 오류", holding.symbol.0))?;
+        holding
+            .current_price
+            .amount
+            .trim()
+            .replace(',', "")
+            .parse::<f64>()
+            .map_err(|_| format!("{} Toss 현재가 응답 형식 오류", holding.symbol.0))?;
+    }
+    let exchange_rate = *s.exchange_rate_krw.read().await;
+    let mut total_krw = 0.0;
+    for currency in [BrokerCurrency::Krw, BrokerCurrency::Usd] {
+        let power = adapter
+            .get_buying_power(Some(&account_id.0), currency)
+            .await
+            .map_err(|e| format!("Toss {currency:?} 매수가능금액 조회 실패: {e}"))?;
+        let value = power
+            .cash_buying_power
+            .trim()
+            .replace(',', "")
+            .parse::<f64>()
+            .map_err(|_| format!("Toss {currency:?} 매수가능금액 형식 오류"))?;
+        total_krw += if currency == BrokerCurrency::Usd {
+            value * exchange_rate
+        } else {
+            value
+        };
+    }
     s.stock_store
         .upsert_many(
             holdings
@@ -112,7 +261,7 @@ async fn sync_toss_strategy_positions(s: &ServerState, profile: AccountProfile) 
         .await;
     {
         let mut tracker = s.position_tracker.lock().await;
-        tracker.load_if_empty(
+        tracker.replace(
             holdings
                 .iter()
                 .filter(|holding| holding.market == BrokerMarket::Kr)
@@ -135,11 +284,37 @@ async fn sync_toss_strategy_positions(s: &ServerState, profile: AccountProfile) 
     }
     let mut synced = 0usize;
     let mut mgr = s.strategy_manager.lock().await;
+    for symbol in mgr.active_symbols() {
+        mgr.sync_position_for_broker(&BrokerPositionSnapshot {
+            broker_id: BrokerId::Toss,
+            market: if crate::market_hours::is_domestic_symbol(&symbol) {
+                BrokerMarket::Kr
+            } else {
+                BrokerMarket::Us
+            },
+            symbol,
+            quantity: 0,
+            avg_price: 0,
+        });
+    }
     for holding in &holdings {
         let quantity = decimal_quantity_units(&holding.quantity.0);
         if quantity > 0 {
             synced += 1;
         }
+        let holding_value = quantity as f64
+            * holding
+                .current_price
+                .amount
+                .trim()
+                .replace(',', "")
+                .parse::<f64>()
+                .map_err(|_| format!("Toss {} 현재가 형식 오류", holding.symbol.0))?;
+        total_krw += if holding.current_price.currency == BrokerCurrency::Usd {
+            holding_value * exchange_rate
+        } else {
+            holding_value
+        };
         mgr.sync_position_for_broker(&BrokerPositionSnapshot {
             broker_id: BrokerId::Toss,
             market: holding.market,
@@ -151,11 +326,14 @@ async fn sync_toss_strategy_positions(s: &ServerState, profile: AccountProfile) 
             ),
         });
     }
-    synced
+    if total_krw <= 0.0 {
+        return Err("Toss 계좌 총평가액이 0원 이하입니다.".into());
+    }
+    Ok(synced)
 }
 
 fn decimal_quantity_units(value: &str) -> u64 {
-    let parsed = value.trim().replace(',', "").parse::<f64>().unwrap_or(0.0);
+    let parsed = normalized_f64(value);
     if parsed <= 0.0 {
         0
     } else {
@@ -164,11 +342,19 @@ fn decimal_quantity_units(value: &str) -> u64 {
 }
 
 fn money_units(value: &str, currency: &crate::broker::BrokerCurrency) -> u64 {
-    let parsed = value.trim().replace(',', "").parse::<f64>().unwrap_or(0.0);
+    let parsed = normalized_f64(value);
     match currency {
         crate::broker::BrokerCurrency::Krw => parsed.round().max(0.0) as u64,
         crate::broker::BrokerCurrency::Usd => (parsed.max(0.0) * 100.0).round() as u64,
     }
+}
+
+fn normalized_u64(value: &str) -> u64 {
+    value.trim().replace(',', "").parse::<u64>().unwrap_or(0)
+}
+
+fn normalized_f64(value: &str) -> f64 {
+    value.trim().replace(',', "").parse::<f64>().unwrap_or(0.0)
 }
 
 /// POST /api/trading/start — is_trading = true (폴링 데몬이 자동으로 재개)
@@ -236,6 +422,54 @@ pub(super) async fn trading_start_handler(State(s): State<ServerState>) -> Json<
             sync_toss_strategy_positions(&s, profile).await
         }
     };
+    let synced_positions = match synced_positions {
+        Ok(count) => count,
+        Err(message) => {
+            return Json(serde_json::json!({
+                "ok": false,
+                "code": "ACCOUNT_SYNC_FAILED",
+                "message": format!("자동매매 시작 전 계좌 동기화 실패: {message}")
+            }));
+        }
+    };
+    let reconciliation_account_id = active_profile
+        .as_ref()
+        .map(|profile| profile.broker_account_id())
+        .or_else(|| {
+            (!current_cfg.broker_account_id.is_empty())
+                .then(|| current_cfg.broker_account_id.clone())
+        });
+    s.order_manager
+        .lock()
+        .await
+        .set_execution_scope(BrokerScope::new(
+            active_profile
+                .as_ref()
+                .map(|profile| profile.broker_id)
+                .unwrap_or(current_cfg.broker_id),
+            reconciliation_account_id.map(BrokerAccountId),
+        ));
+    if let Err(error) =
+        crate::trading::order::OrderManager::confirm_pending_fills_from_broker_shared(
+            &s.order_manager,
+        )
+        .await
+    {
+        return Json(serde_json::json!({
+            "ok": false,
+            "code": "PENDING_RECONCILIATION_FAILED",
+            "message": format!("복원된 미체결 주문을 broker와 대조하지 못했습니다: {error}")
+        }));
+    }
+    if let Err(error) =
+        crate::commands::restore_risk_from_today_trades(&s.trade_store, &s.risk_manager).await
+    {
+        return Json(serde_json::json!({
+            "ok": false,
+            "code": error.code,
+            "message": error.message
+        }));
+    }
     let (active_id, broker_id, account_id) = {
         let profiles = s.profiles.read().await;
         match profiles.get_active() {

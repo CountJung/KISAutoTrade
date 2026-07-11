@@ -1,11 +1,20 @@
 use axum::{
     extract::{Path, Query, State},
+    http::StatusCode,
+    response::{IntoResponse, Response},
     Json,
 };
 use serde::Deserialize;
 
 use super::ServerState;
-use crate::api::rest::{OrderRequest, OrderSide, OrderType, OverseasOrderRequest};
+use crate::{
+    api::rest::{OrderSide, OrderType},
+    broker::{
+        BrokerAccountId, BrokerAdapter, BrokerCurrency, BrokerId, BrokerMarket, BrokerScope,
+        BrokerSymbol, TossBrokerAdapter,
+    },
+    trading::order::{OrderManager, SubmissionOutcome},
+};
 
 pub(super) async fn balance_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
     let client = s.rest_client.read().await.clone();
@@ -106,29 +115,150 @@ pub(super) struct OrderBody {
 pub(super) async fn order_handler(
     State(s): State<ServerState>,
     Json(body): Json<OrderBody>,
-) -> Json<serde_json::Value> {
-    let side = if body.side == "Buy" {
-        OrderSide::Buy
-    } else {
-        OrderSide::Sell
+) -> Response {
+    let side = match parse_order_side(&body.side) {
+        Some(side) => side,
+        None => return invalid_order_input("INVALID_SIDE", "side는 Buy 또는 Sell이어야 합니다."),
     };
-    let order_type = if body.order_type == "Limit" {
-        OrderType::Limit
-    } else {
-        OrderType::Market
+    let order_type = match parse_order_type(&body.order_type) {
+        Some(order_type) => order_type,
+        None => {
+            return invalid_order_input(
+                "INVALID_ORDER_TYPE",
+                "orderType은 Limit 또는 Market이어야 합니다.",
+            )
+        }
     };
 
-    let req = OrderRequest {
-        symbol: body.symbol,
+    let active_profile = s.profiles.read().await.get_active().cloned();
+    if let Some(profile) = active_profile
+        .as_ref()
+        .filter(|profile| profile.broker_id == BrokerId::Toss)
+    {
+        if !profile.is_configured() || !profile.live_trading_consent {
+            return invalid_order_input(
+                "CONFIG_NOT_READY",
+                "Toss 설정과 실거래 동의를 확인하세요.",
+            );
+        }
+        if let Err(response) = validate_toss_web_order(
+            profile,
+            &body.symbol,
+            side,
+            order_type,
+            body.quantity,
+            body.price.to_string(),
+        )
+        .await
+        {
+            return response;
+        }
+        let account_id = profile.broker_account_id();
+        let adapter = TossBrokerAdapter::with_credentials(
+            TossBrokerAdapter::DEFAULT_BASE_URL,
+            profile.app_key.clone(),
+            profile.app_secret.clone(),
+            Some(account_id.clone()),
+        );
+        let quote = match adapter.get_price(&BrokerSymbol(body.symbol.clone())).await {
+            Ok(quote) if quote.market == BrokerMarket::Kr => quote,
+            Ok(_) => {
+                return invalid_order_input(
+                    "INVALID_MARKET",
+                    "국내 주문 endpoint에는 한국 종목만 허용됩니다.",
+                )
+            }
+            Err(error) => return provider_error(error.to_string()),
+        };
+        let quote_value = quote
+            .last
+            .amount
+            .trim()
+            .replace(',', "")
+            .parse::<f64>()
+            .unwrap_or(0.0);
+        let quote_price = match quote.last.currency {
+            BrokerCurrency::Krw => quote_value.round() as u64,
+            BrokerCurrency::Usd => (quote_value * 100.0).round() as u64,
+        };
+        if quote_price == 0 {
+            return invalid_order_input("INVALID_QUOTE", "현재가 응답이 올바르지 않습니다.");
+        }
+        let exchange_rate = *s.exchange_rate_krw.read().await;
+        let total_balance =
+            match crate::commands::fetch_toss_risk_balance_krw(profile, exchange_rate).await {
+                Ok(total) => total,
+                Err(error) => return account_sync_error(error),
+            };
+        let symbol_name = s
+            .stock_store
+            .get_name(&body.symbol)
+            .await
+            .unwrap_or_else(|| body.symbol.clone());
+        let scope = BrokerScope::new(BrokerId::Toss, Some(BrokerAccountId(account_id)));
+        return match OrderManager::submit_manual_order_shared(
+            &s.order_manager,
+            body.symbol,
+            symbol_name,
+            side,
+            order_type,
+            body.quantity,
+            body.price,
+            quote_price,
+            total_balance,
+            None,
+            scope,
+        )
+        .await
+        {
+            Ok(outcome) => submission_response(outcome),
+            Err(error) => provider_error(error.to_string()),
+        };
+    }
+
+    let client = s.rest_client.read().await.clone();
+    let quote = match client.get_price(&body.symbol).await {
+        Ok(quote) => quote,
+        Err(error) => return provider_error(error.to_string()),
+    };
+    let quote_price = match quote.stck_prpr.trim().replace(',', "").parse::<u64>() {
+        Ok(price) if price > 0 => price,
+        _ => return invalid_order_input("INVALID_QUOTE", "현재가 응답이 올바르지 않습니다."),
+    };
+    let total_balance =
+        match crate::commands::fetch_account_risk_balance_krw(&client, false, 1.0).await {
+            Ok(total) => total,
+            Err(error) => return account_sync_error(error),
+        };
+    let profile = s.profiles.read().await.get_active().cloned();
+    let config_account_id = s.config.read().await.broker_account_id.clone();
+    let account_id = profile
+        .as_ref()
+        .map(|value| value.broker_account_id())
+        .or_else(|| (!config_account_id.is_empty()).then_some(config_account_id));
+    let scope = BrokerScope::new(BrokerId::Kis, account_id.map(BrokerAccountId));
+    let symbol_name = if quote.hts_kor_isnm.trim().is_empty() {
+        body.symbol.clone()
+    } else {
+        quote.hts_kor_isnm
+    };
+    match OrderManager::submit_manual_order_shared(
+        &s.order_manager,
+        body.symbol,
+        symbol_name,
         side,
         order_type,
-        quantity: body.quantity,
-        price: body.price,
-    };
-    let client = s.rest_client.read().await.clone();
-    match client.place_order(&req).await {
-        Ok(r) => Json(serde_json::to_value(r).unwrap_or_default()),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
+        body.quantity,
+        body.price,
+        quote_price,
+        total_balance,
+        None,
+        scope,
+    )
+    .await
+    {
+        Ok(outcome) => submission_response(outcome),
+        Err(error) => provider_error(error.to_string()),
     }
 }
 
@@ -145,23 +275,272 @@ pub(super) struct OverseasOrderBody {
 pub(super) async fn overseas_order_handler(
     State(s): State<ServerState>,
     Json(body): Json<OverseasOrderBody>,
-) -> Json<serde_json::Value> {
-    let side = if body.side == "Buy" {
-        OrderSide::Buy
-    } else {
-        OrderSide::Sell
+) -> Response {
+    let side = match parse_order_side(&body.side) {
+        Some(side) => side,
+        None => return invalid_order_input("INVALID_SIDE", "side는 Buy 또는 Sell이어야 합니다."),
     };
-    let req = OverseasOrderRequest {
-        symbol: body.symbol,
-        exchange: body.exchange,
-        side,
-        quantity: body.quantity,
-        price: body.price,
-    };
+    let active_profile = s.profiles.read().await.get_active().cloned();
+    if let Some(profile) = active_profile
+        .as_ref()
+        .filter(|profile| profile.broker_id == BrokerId::Toss)
+    {
+        if !profile.is_configured() || !profile.live_trading_consent {
+            return invalid_order_input(
+                "CONFIG_NOT_READY",
+                "Toss 설정과 실거래 동의를 확인하세요.",
+            );
+        }
+        if let Err(response) = validate_toss_web_order(
+            profile,
+            &body.symbol,
+            side,
+            OrderType::Limit,
+            body.quantity,
+            body.price.to_string(),
+        )
+        .await
+        {
+            return response;
+        }
+        let account_id = profile.broker_account_id();
+        let adapter = TossBrokerAdapter::with_credentials(
+            TossBrokerAdapter::DEFAULT_BASE_URL,
+            profile.app_key.clone(),
+            profile.app_secret.clone(),
+            Some(account_id.clone()),
+        );
+        let quote = match adapter.get_price(&BrokerSymbol(body.symbol.clone())).await {
+            Ok(quote) if quote.market == BrokerMarket::Us => quote,
+            Ok(_) => {
+                return invalid_order_input(
+                    "INVALID_MARKET",
+                    "해외 주문 endpoint에는 미국 종목만 허용됩니다.",
+                )
+            }
+            Err(error) => return provider_error(error.to_string()),
+        };
+        let quote_price = (quote
+            .last
+            .amount
+            .trim()
+            .replace(',', "")
+            .parse::<f64>()
+            .unwrap_or(0.0)
+            * 100.0)
+            .round() as u64;
+        if quote_price == 0 {
+            return invalid_order_input("INVALID_QUOTE", "현재가 응답이 올바르지 않습니다.");
+        }
+        let exchange_rate = *s.exchange_rate_krw.read().await;
+        let total_balance =
+            match crate::commands::fetch_toss_risk_balance_krw(profile, exchange_rate).await {
+                Ok(total) => total,
+                Err(error) => return account_sync_error(error),
+            };
+        let symbol_name = s
+            .stock_store
+            .get_name(&body.symbol)
+            .await
+            .unwrap_or_else(|| body.symbol.clone());
+        let scope = BrokerScope::new(BrokerId::Toss, Some(BrokerAccountId(account_id)));
+        return match OrderManager::submit_manual_order_shared(
+            &s.order_manager,
+            body.symbol,
+            symbol_name,
+            side,
+            OrderType::Limit,
+            body.quantity,
+            (body.price.max(0.0) * 100.0).round() as u64,
+            quote_price,
+            total_balance,
+            Some("TOSS_US".to_string()),
+            scope,
+        )
+        .await
+        {
+            Ok(outcome) => submission_response(outcome),
+            Err(error) => provider_error(error.to_string()),
+        };
+    }
     let client = s.rest_client.read().await.clone();
-    match client.place_overseas_order(&req).await {
-        Ok(r) => Json(serde_json::to_value(r).unwrap_or_default()),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
+    let quote = match client
+        .get_overseas_price(&body.symbol, &body.exchange)
+        .await
+    {
+        Ok(quote) => quote,
+        Err(error) => return provider_error(error.to_string()),
+    };
+    let quote_price = (quote
+        .last
+        .trim()
+        .replace(',', "")
+        .parse::<f64>()
+        .unwrap_or(0.0)
+        * 100.0)
+        .round() as u64;
+    if quote_price == 0 {
+        return invalid_order_input("INVALID_QUOTE", "해외 현재가 응답이 올바르지 않습니다.");
+    }
+    let exchange_rate = *s.exchange_rate_krw.read().await;
+    let total_balance =
+        match crate::commands::fetch_account_risk_balance_krw(&client, true, exchange_rate).await {
+            Ok(total) => total,
+            Err(error) => return account_sync_error(error),
+        };
+    let profile = s.profiles.read().await.get_active().cloned();
+    let config_account_id = s.config.read().await.broker_account_id.clone();
+    let account_id = profile
+        .as_ref()
+        .map(|value| value.broker_account_id())
+        .or_else(|| (!config_account_id.is_empty()).then_some(config_account_id));
+    let scope = BrokerScope::new(BrokerId::Kis, account_id.map(BrokerAccountId));
+    let symbol_name = if quote.name.trim().is_empty() {
+        body.symbol.clone()
+    } else {
+        quote.name
+    };
+    match OrderManager::submit_manual_order_shared(
+        &s.order_manager,
+        body.symbol,
+        symbol_name,
+        side,
+        OrderType::Limit,
+        body.quantity,
+        (body.price.max(0.0) * 100.0).round() as u64,
+        quote_price,
+        total_balance,
+        Some(body.exchange),
+        scope,
+    )
+    .await
+    {
+        Ok(outcome) => submission_response(outcome),
+        Err(error) => provider_error(error.to_string()),
+    }
+}
+
+fn submission_response(outcome: SubmissionOutcome) -> Response {
+    match outcome {
+        SubmissionOutcome::Submitted { provider_order_id } => Json(serde_json::json!({
+            "odno": provider_order_id,
+            "ord_tmd": chrono::Local::now().format("%H%M%S").to_string(),
+            "tr_id": "SCOPED_ORDER_SERVICE",
+            "rt_cd": "0",
+            "msg1": "주문 접수"
+        }))
+        .into_response(),
+        SubmissionOutcome::Skipped { reason } => (
+            StatusCode::CONFLICT,
+            Json(serde_json::json!({ "code": "ORDER_PREFLIGHT_BLOCKED", "message": reason })),
+        )
+            .into_response(),
+    }
+}
+
+fn provider_error(message: String) -> Response {
+    (
+        StatusCode::BAD_GATEWAY,
+        Json(serde_json::json!({ "code": "PROVIDER_ERROR", "message": message })),
+    )
+        .into_response()
+}
+
+fn account_sync_error(message: String) -> Response {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(serde_json::json!({ "code": "ACCOUNT_SYNC_FAILED", "message": message })),
+    )
+        .into_response()
+}
+
+async fn validate_toss_web_order(
+    profile: &crate::config::AccountProfile,
+    symbol: &str,
+    side: OrderSide,
+    order_type: OrderType,
+    quantity: u64,
+    price: String,
+) -> Result<(), Response> {
+    let preflight = crate::commands::check_toss_order_preflight_for_profile(
+        crate::commands::TossOrderPreflightInput {
+            symbol: symbol.to_string(),
+            side: if side == OrderSide::Buy {
+                "Buy"
+            } else {
+                "Sell"
+            }
+            .to_string(),
+            quantity: quantity.to_string(),
+            price: (order_type == OrderType::Limit).then_some(price),
+        },
+        profile.clone(),
+    )
+    .await
+    .map_err(|error| invalid_order_input(&error.code, &error.message))?;
+    if !preflight.can_submit {
+        return Err(invalid_order_input(
+            "TOSS_PREFLIGHT_BLOCKED",
+            preflight
+                .blocked_reasons
+                .first()
+                .map(String::as_str)
+                .unwrap_or("Toss 주문 사전검증을 통과하지 못했습니다."),
+        ));
+    }
+    let open_orders = crate::commands::list_toss_open_orders_for_profile(
+        crate::commands::TossOpenOrdersInput {
+            symbol: Some(symbol.to_string()),
+        },
+        profile.clone(),
+    )
+    .await
+    .map_err(|error| provider_error(error.message))?;
+    if let Some(order) = open_orders.first() {
+        return Err(invalid_order_input(
+            "TOSS_PENDING_ORDER_EXISTS",
+            &format!("provider 미체결 주문이 있습니다: {}", order.order_id),
+        ));
+    }
+    Ok(())
+}
+
+fn invalid_order_input(code: &str, message: &str) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(serde_json::json!({ "code": code, "message": message })),
+    )
+        .into_response()
+}
+
+fn parse_order_side(value: &str) -> Option<OrderSide> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "buy" => Some(OrderSide::Buy),
+        "sell" => Some(OrderSide::Sell),
+        _ => None,
+    }
+}
+
+fn parse_order_type(value: &str) -> Option<OrderType> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "limit" => Some(OrderType::Limit),
+        "market" => Some(OrderType::Market),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_order_enums_never_fall_back_to_sell_or_market() {
+        assert!(parse_order_side("hold").is_none());
+        assert!(parse_order_side("").is_none());
+        assert!(parse_order_type("best").is_none());
+        assert!(parse_order_type("").is_none());
+        assert_eq!(parse_order_side("BUY"), Some(OrderSide::Buy));
+        assert_eq!(parse_order_type("LIMIT"), Some(OrderType::Limit));
     }
 }
 

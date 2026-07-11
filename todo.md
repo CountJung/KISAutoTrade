@@ -1,45 +1,9 @@
 # KISAutoTrade — Todo
 
 > 완료 이력은 `git log`와 릴리스 노트에서 관리한다. 이 문서에는 아직 끝나지 않은, 검증 가능한 작업만 둔다.
-> 우선순위는 `P0 운영 차단 → P1 정확성/신뢰성 → P2 전략 연구 UX → P3 유지보수` 순이다.
+> 우선순위는 `P1 정확성/신뢰성 → P2 전략 연구 UX → P3 유지보수` 순이다.
 
 *마지막 비판적 점검: 2026-07-11*
-
-## P0 — 무인 실전매매 전 반드시 해결
-
-- [ ] 웹 서버의 모든 변경 API를 인증·인가한다.
-  - 기본 bind를 localhost로 제한하고 LAN 공개는 명시 설정으로만 허용한다.
-  - `/api/order`, 자동매매 start/stop, 전략/프로필/리스크 변경에 세션 또는 API token 검증을 적용한다.
-  - `CorsLayer::permissive()`를 제거하고 허용 origin·method·header를 제한한다.
-  - 잘못된 `side`/주문 유형을 매도·시장가로 fallback하지 말고 `400`으로 거부한다.
-  - 검증: 인증 없는 변경 요청, 교차 origin 요청, 잘못된 enum 요청이 모두 실패하는 통합 테스트를 둔다.
-
-- [ ] 브로커가 확인한 체결만 포지션·손익·리스크에 반영한다.
-  - `submit_signal_shared()` 결과를 `Submitted { order_id } | Skipped { reason }`처럼 명시해 guard skip을 주문 성공과 구분한다.
-  - production 경로의 tick 가격 기반 `confirm_fill_by_symbol()` 자동 체결을 제거한다.
-  - 주문 상세/체결 조회의 주문번호, 누적 체결수량, 평균 체결가를 확인한 뒤에만 `on_fill()`을 호출한다.
-  - 중복 조회가 같은 체결을 두 번 반영하지 않는 idempotency 테스트를 추가한다.
-
-- [ ] 잔고·보유종목·계좌 scope 동기화 실패 시 자동매매를 fail-closed 한다.
-  - 시작 전 활성 broker/account 잔고와 holdings를 모두 확인하지 못하면 자동매매를 켜지 않는다.
-  - 운용 중 마지막 정상 동기화가 만료되면 신규 매수를 중단하고 UI/Discord에 사유를 표시한다.
-  - `total_balance <= 0`일 때 요청 수량으로 fallback하거나 비중 검사를 생략하지 않는다.
-  - 전략 포지션과 실제 보유수량 불일치 시 중복 매수보다 reconciliation을 우선한다.
-
-- [ ] 미체결 주문 상태를 영속화하고 앱 재시작·자동매매 정지 중에도 복구한다.
-  - broker/account scope, provider order id, client order id, 누적 체결수량, 마지막 provider 상태를 저장한다.
-  - 시작 시 provider의 open/detail/history와 로컬 상태를 대조한 뒤 신규 주문을 허용한다.
-  - 미체결 reconciliation을 자동매매 daemon의 fill queue 유무와 분리해 항상 동작하게 한다.
-  - 자정, stop/start, crash/restart, 부분체결 후 재시작 시나리오를 테스트한다.
-
-- [ ] 수동·자동, Tauri IPC·웹 REST의 모든 주문을 하나의 scoped order service로 통합한다.
-  - KIS 수동 주문도 공통 preflight, 리스크, pending 충돌, 영속화, provider reconciliation을 거치게 한다.
-  - Toss/KIS와 국내/해외에 같은 상태 전이 규칙을 적용하고 provider 차이는 adapter 내부에 둔다.
-
-- [ ] 거래·주문·전략 JSON 저장을 crash-safe하고 동시성 안전하게 만든다.
-  - store별 read-modify-write lock을 두고 임시 파일 → flush/fsync → atomic rename 순서로 저장한다.
-  - 손상 파일 백업/복구 정책과 마지막 정상 snapshot을 둔다.
-  - 병렬 주문/체결 append에서 레코드 유실이 없는 테스트와 저장 중 강제 종료 복구 테스트를 추가한다.
 
 ## P1 — PostgreSQL/MariaDB 운영 완성도
 

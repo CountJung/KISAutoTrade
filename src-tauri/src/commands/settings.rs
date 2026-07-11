@@ -465,6 +465,8 @@ pub async fn check_for_update() -> CmdResult<crate::updater::UpdateInfo> {
 pub struct WebConfig {
     pub running_port: u16,
     pub access_url: String,
+    pub lan_enabled: bool,
+    pub api_token_configured: bool,
 }
 
 #[tauri::command]
@@ -473,12 +475,47 @@ pub async fn get_web_config(state: State<'_, AppState>) -> CmdResult<WebConfig> 
     Ok(WebConfig {
         running_port: port,
         access_url: format!("http://localhost:{}", port),
+        lan_enabled: web_lan_enabled(),
+        api_token_configured: web_api_token_configured(),
     })
 }
 
 #[tauri::command]
-pub async fn save_web_config(new_port: u16) -> CmdResult<String> {
-    use std::io::Write;
+pub async fn save_web_config(
+    new_port: u16,
+    dist_path: Option<String>,
+    allow_lan: Option<bool>,
+    api_token: Option<String>,
+) -> CmdResult<String> {
+    persist_web_config(
+        new_port,
+        dist_path.as_deref(),
+        allow_lan,
+        api_token.as_deref(),
+    )
+}
+
+pub(crate) fn web_lan_enabled() -> bool {
+    std::env::var("WEB_ALLOW_LAN").ok().is_some_and(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    })
+}
+
+pub(crate) fn web_api_token_configured() -> bool {
+    std::env::var("WEB_API_TOKEN")
+        .ok()
+        .is_some_and(|value| value.len() >= 32)
+}
+
+pub(crate) fn persist_web_config(
+    new_port: u16,
+    dist_path: Option<&str>,
+    allow_lan: Option<bool>,
+    api_token: Option<&str>,
+) -> CmdResult<String> {
     if !(1024..=65535).contains(&new_port) {
         return Err(CmdError {
             code: "INVALID_PORT".into(),
@@ -488,27 +525,100 @@ pub async fn save_web_config(new_port: u16) -> CmdResult<String> {
     let env_path = std::env::current_dir()
         .unwrap_or_else(|_| std::path::PathBuf::from("."))
         .join(".env");
-    // 기존 .env 읽어서 WEB_PORT 줄만 교체
+    let supplied_token = api_token.map(str::trim).filter(|value| !value.is_empty());
+    if supplied_token.is_some_and(|value| value.len() < 32) {
+        return Err(CmdError {
+            code: "WEAK_WEB_API_TOKEN".into(),
+            message: "웹 API token은 32자 이상이어야 합니다.".into(),
+        });
+    }
+
     let existing = std::fs::read_to_string(&env_path).unwrap_or_default();
+    let existing_file_token = existing
+        .lines()
+        .find_map(|line| line.strip_prefix("WEB_API_TOKEN="))
+        .unwrap_or_default();
+    let effective_token_len = supplied_token
+        .map(str::len)
+        .or_else(|| std::env::var("WEB_API_TOKEN").ok().map(|value| value.len()))
+        .unwrap_or(existing_file_token.len());
+    let lan_enabled = allow_lan.unwrap_or_else(web_lan_enabled);
+    if lan_enabled && effective_token_len < 32 {
+        return Err(CmdError {
+            code: "WEB_API_TOKEN_REQUIRED".into(),
+            message: "LAN 공개에는 32자 이상의 웹 API token이 필요합니다.".into(),
+        });
+    }
+
     let mut lines: Vec<String> = existing
         .lines()
-        .filter(|l| !l.starts_with("WEB_PORT="))
+        .filter(|line| {
+            !line.starts_with("WEB_PORT=")
+                && !line.starts_with("WEB_ALLOW_LAN=")
+                && !(dist_path.is_some() && line.starts_with("DIST_PATH="))
+                && !(supplied_token.is_some() && line.starts_with("WEB_API_TOKEN="))
+        })
         .map(String::from)
         .collect();
     lines.push(format!("WEB_PORT={}", new_port));
+    lines.push(format!("WEB_ALLOW_LAN={lan_enabled}"));
+    if let Some(path) = dist_path.map(str::trim).filter(|value| !value.is_empty()) {
+        lines.push(format!("DIST_PATH={path}"));
+    }
+    if let Some(token) = supplied_token {
+        lines.push(format!("WEB_API_TOKEN={token}"));
+    }
     let content = lines.join("\n");
-    std::fs::OpenOptions::new()
+    write_private_file(&env_path, &content).map_err(|error| CmdError {
+        code: "SAVE_FAILED".into(),
+        message: error.to_string(),
+    })?;
+    tracing::info!(
+        ".env 웹 설정 저장 완료 — WEB_PORT={}, WEB_ALLOW_LAN={}, token_configured={}",
+        new_port,
+        lan_enabled,
+        effective_token_len >= 32
+    );
+    Ok(format!(
+        "웹 설정 저장 완료: WEB_PORT={}, LAN 공개={} (재시작 후 적용)",
+        new_port, lan_enabled
+    ))
+}
+
+fn write_private_file(path: &std::path::Path, content: &str) -> std::io::Result<()> {
+    use std::io::Write;
+
+    let temp = path.with_file_name(format!(
+        ".{}.{}.tmp",
+        path.file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("env"),
+        uuid::Uuid::new_v4()
+    ));
+    #[cfg(unix)]
+    let mut file = {
+        use std::os::unix::fs::OpenOptionsExt;
+        std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&temp)?
+    };
+    #[cfg(not(unix))]
+    let mut file = std::fs::OpenOptions::new()
         .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&env_path)
-        .and_then(|mut f| f.write_all(content.as_bytes()))
-        .map_err(|e| CmdError {
-            code: "SAVE_FAILED".into(),
-            message: e.to_string(),
-        })?;
-    tracing::info!(".env 저장 완료 — WEB_PORT={}", new_port);
-    Ok(format!(".env 저장 완료: WEB_PORT={}", new_port))
+        .create_new(true)
+        .open(&temp)?;
+    let result = (|| {
+        file.write_all(content.as_bytes())?;
+        file.sync_all()?;
+        std::fs::rename(&temp, path)?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(temp);
+    }
+    result
 }
 
 // ────────────────────────────────────────────────────────────────────

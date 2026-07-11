@@ -825,6 +825,45 @@ pub async fn write_managed_json(path: &Path, content: &str) -> Result<()> {
     }
 }
 
+pub async fn read_managed_json_backup(path: &Path) -> Result<Option<String>> {
+    if let Some(manager) = DATABASE_MANAGER.get() {
+        if manager.config.read().await.active_backend == StorageBackend::Database {
+            return Ok(None);
+        }
+    }
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("document.json");
+    let backup = path.with_file_name(format!("{file_name}.bak"));
+    match fs::read_to_string(backup).await {
+        Ok(content) => Ok(Some(content)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error.into()),
+    }
+}
+
+pub async fn quarantine_corrupt_managed_json(path: &Path) -> Result<()> {
+    if let Some(manager) = DATABASE_MANAGER.get() {
+        if manager.config.read().await.active_backend == StorageBackend::Database {
+            return Ok(());
+        }
+    }
+    if !fs::try_exists(path).await? {
+        return Ok(());
+    }
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("document.json");
+    let quarantine = path.with_file_name(format!(
+        "{file_name}.corrupt-{}",
+        chrono::Utc::now().format("%Y%m%dT%H%M%S%.3fZ")
+    ));
+    fs::rename(path, quarantine).await?;
+    Ok(())
+}
+
 fn document_key(data_dir: &Path, path: &Path) -> Result<String> {
     let relative = path.strip_prefix(data_dir).with_context(|| {
         format!("관리 데이터 경로 밖의 JSON은 DB에 저장할 수 없습니다: {path:?}")

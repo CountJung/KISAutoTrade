@@ -49,9 +49,9 @@ use crate::broker::toss::{
 use crate::{
     api::{
         rest::{
-            BalanceItem, BalanceSummary, ChartCandle, ExecutedOrder, KisRestClient, OrderRequest,
-            OrderResponse, OverseasBalanceItem, OverseasBalanceSummary, OverseasExecutedOrder,
-            PriceResponse, StockSearchItem,
+            BalanceItem, BalanceSummary, ChartCandle, ExecutedOrder, KisRestClient, OrderResponse,
+            OverseasBalanceItem, OverseasBalanceSummary, OverseasExecutedOrder, PriceResponse,
+            StockSearchItem,
         },
         token::TokenManager,
     },
@@ -104,6 +104,8 @@ use crate::{
 // ────────────────────────────────────────────────────────────────────
 
 pub struct AppState {
+    /// 동일 data 디렉토리를 여러 프로세스가 동시에 수정하지 못하게 유지하는 OS file lock.
+    pub _data_lock: std::fs::File,
     /// 현재 활성 설정 (프로파일 전환 시 Arc 교체)
     pub config: Arc<RwLock<Arc<AppConfig>>>,
     /// KIS REST 클라이언트 (프로파일 전환 시 Arc 교체)
@@ -184,6 +186,7 @@ impl AppState {
         refresh_config: RefreshConfig,
         refresh_interval_tx: watch::Sender<u64>,
         database_manager: Arc<DatabaseManager>,
+        data_lock: std::fs::File,
     ) -> Self {
         let rest_client = make_rest_client(&config);
 
@@ -197,6 +200,16 @@ impl AppState {
         let trade_store = Arc::new(TradeStore::new(data_dir.clone()));
         let stats_store = Arc::new(StatsStore::new(data_dir.clone()));
         let order_store = Arc::new(OrderStore::new(data_dir.clone()));
+        let pending_order_store =
+            Arc::new(crate::storage::PendingOrderStore::new(data_dir.clone()));
+        let (restored_pending_orders, pending_restore_error) =
+            match pending_order_store.load().await {
+                Ok(orders) => (orders, None),
+                Err(error) => {
+                    tracing::error!("미체결 주문 스냅샷 로드 실패: {error}");
+                    (Vec::new(), Some(error.to_string()))
+                }
+            };
         let risk_manager = Arc::new(Mutex::new(RiskManager::default()));
         let position_tracker = Arc::new(Mutex::new(PositionTracker::new()));
         let overseas_position_tracker = Arc::new(Mutex::new(OverseasPositionTracker::new()));
@@ -212,6 +225,7 @@ impl AppState {
             Arc::clone(&rest_client_rw),
             Arc::clone(&profiles),
             Arc::clone(&order_store),
+            Arc::clone(&pending_order_store),
             Arc::clone(&trade_store),
             Arc::clone(&position_tracker),
             Arc::clone(&overseas_position_tracker),
@@ -220,6 +234,15 @@ impl AppState {
             Arc::clone(&risk_manager),
             discord.clone(),
         )));
+        {
+            let mut manager = order_manager.lock().await;
+            manager.restore_pending_orders(restored_pending_orders);
+            if let Some(error) = pending_restore_error {
+                manager.block_for_persistence_failure(format!(
+                    "미체결 주문 복구 실패로 신규 주문을 차단했습니다: {error}"
+                ));
+            }
+        }
 
         // 기본 MA 크로스 전략 등록
         let mut strategy_manager = StrategyManager::new();
@@ -412,6 +435,7 @@ impl AppState {
         }
 
         Self {
+            _data_lock: data_lock,
             config: Arc::new(RwLock::new(config)),
             rest_client: rest_client_rw,
             discord,
@@ -472,22 +496,6 @@ fn usd_to_cents(value: &str) -> u64 {
         .parse::<f64>()
         .map(|v| (v * 100.0).round() as u64)
         .unwrap_or(0)
-}
-
-fn decimal_quantity_to_position_units(value: &str) -> u64 {
-    let parsed = parse_amount_f64(value);
-    if parsed <= 0.0 {
-        0
-    } else {
-        parsed.floor().max(1.0) as u64
-    }
-}
-
-fn broker_money_to_strategy_price_units(money: &BrokerMoney) -> u64 {
-    match money.currency {
-        BrokerCurrency::Krw => parse_amount_f64(&money.amount).round().max(0.0) as u64,
-        BrokerCurrency::Usd => usd_to_cents(&money.amount),
-    }
 }
 
 fn normalize_overseas_order_exchange(code: &str) -> String {

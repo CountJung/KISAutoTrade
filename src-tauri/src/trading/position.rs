@@ -98,21 +98,16 @@ impl PositionTracker {
         self.positions.get(symbol)
     }
 
-    /// 잔고 API 응답으로부터 포지션 초기화 (비어있을 때만 적용)
-    ///
-    /// 앱 재시작 시 in-memory tracker가 비어있을 때 KIS 잔고 응답으로 복원한다.
-    /// 이미 포지션이 있으면 세션 상태를 보존하기 위해 아무것도 하지 않는다.
+    /// 신뢰할 수 있는 브로커 잔고 스냅샷으로 전체 포지션을 교체한다.
     ///
     /// 입력: `(symbol, name, qty, avg_price, current_price)` 이터레이터
     /// - 국내: avg_price/current_price = KRW 정수
     /// - 해외: avg_price/current_price = USD × 100 (센트 정수화)
-    pub fn load_if_empty<I>(&mut self, entries: I)
+    pub fn replace<I>(&mut self, entries: I)
     where
         I: IntoIterator<Item = (String, String, u64, u64, u64)>,
     {
-        if !self.positions.is_empty() {
-            return; // 이미 포지션이 있으면 세션 상태 유지
-        }
+        self.positions.clear();
         for (symbol, name, qty, avg_price, current_price) in entries {
             if qty == 0 {
                 continue;
@@ -243,16 +238,14 @@ impl OverseasPositionTracker {
         self.positions.get(symbol)
     }
 
-    /// 해외 잔고 API 응답으로부터 포지션 초기화 (비어있을 때만 적용).
+    /// 신뢰할 수 있는 해외 브로커 잔고 스냅샷으로 전체 포지션을 교체한다.
     ///
     /// 입력: `(symbol, name, exchange, qty, avg_price_cents, current_price_cents)` 이터레이터
-    pub fn load_if_empty<I>(&mut self, entries: I)
+    pub fn replace<I>(&mut self, entries: I)
     where
         I: IntoIterator<Item = (String, String, String, u64, u64, u64)>,
     {
-        if !self.positions.is_empty() {
-            return;
-        }
+        self.positions.clear();
         for (symbol, name, exchange, qty, avg_price_cents, current_price_cents) in entries {
             if qty == 0 {
                 continue;

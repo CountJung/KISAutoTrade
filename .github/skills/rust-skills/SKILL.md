@@ -1088,6 +1088,10 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 자동매매 daemon의 전략 신호 주문 제출은 `src-tauri/src/trading/order/submission.rs`의 `OrderManager::submit_signal_shared()`를 사용한다. 이 경로는 `order_manager` mutex를 짧게 잡아 guard/pending/submitting 예약만 수행하고, provider 주문 API와 order store append는 mutex 밖에서 await한다. provider 호출 중 같은 broker scope/symbol의 중복/반대 주문은 `submitting` 예약 맵으로 차단한다.
 - 주문 전 금액/수량 판정은 `trading/preflight.rs`의 공통 함수에 모은다. Toss `commissionRate`는 percent 문자열로 해석하고, `BrokerMoney`/`BrokerQuantity` 문자열 precision은 응답 view까지 보존한다.
 - 실제 주문 제출 전에는 로컬 pending scan을 먼저 수행해 같은 scope/symbol의 같은 방향 중복 주문과 반대 방향 미체결 주문을 모두 차단한다.
+- 수동/자동 및 IPC/REST 주문은 `OrderManager::{submit_manual_order_shared,submit_signal_shared}`가 공유하는 scoped order service를 거친다. provider 응답을 받은 뒤 pending snapshot 저장에 실패하면 신규 매수를 중단한다.
+- pending 주문은 `storage::PendingOrderStore`에 broker/account scope, provider/client order ID, 누적 체결 watermark, provider 상태와 함께 저장한다. 자정/stop에서 지우지 않고 앱 시작 및 자동매매 시작 장벽에서 broker 체결/detail과 대조한다.
+- 체결 적용은 scope가 포함된 deterministic fill event ID로 OrderStore/TradeStore/StatsStore를 idempotent하게 갱신한다. provider 누적 평균가는 이전 체결 notional을 빼 delta 체결가로 변환한다. 자동매매 시작 장벽은 오늘 TradeStore의 `realized_pnl_krw`를 RiskManager에 재생해 crash 중간 지점과 무관하게 손실 한도를 복원한다.
+- 계좌 잔고·holdings 조회는 fail-closed다. 시작 전 하나라도 실패하거나 총평가액이 0 이하이면 시작하지 않고, 운용 중 갱신 실패는 `buy_suspended_reason`과 Discord에 노출한 뒤 신규 매수를 막는다.
 - Toss 연결 진단은 `check_toss_profile_connection` IPC에서 프로파일 lock을 짧게 잡아 clone한 뒤 실행한다. 진단 단계는 OpenAPI spec, token, accounts, holdings, order preflight read-only 순서이며 토큰 문자열은 응답에 포함하지 않는다.
 - Tauri IPC와 axum 웹 REST 응답 필드는 같이 갱신한다. 웹 핸들러에서 내부 struct를 그대로 직렬화하지 말고 `serde_json::json!`으로 camel/snake 응답 키를 명시한다.
 
@@ -1100,5 +1104,6 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - DB 설정 변경, schema mutation, import, backend 전환은 자동매매 중 거부한다. clear/drop은 별도 확인 문구를 요구하고 DB backend 활성 중에는 실행하지 않는다.
 - DB password는 IPC view와 logical export에 포함하지 않는다. DB 관리 명령은 인증되지 않은 axum REST에 추가하지 않고 Tauri desktop command로만 제공한다.
 - v1 schema는 기존 JSON 복원성을 위한 document store다. 주문/체결 복구·검색·retention을 위한 정규화 schema는 명시적인 schema version migration과 PostgreSQL/MariaDB contract test를 함께 추가한다.
+- JSON 파일 저장은 경로별 lock과 store별 read-modify-write lock을 사용하고, temp write → file fsync → 정상본 `.bak` → atomic rename → parent directory fsync 순서를 지킨다. 역직렬화 실패 시 손상본을 격리하고 마지막 정상 백업으로 복구한다.
 
 > 마지막 업데이트: 2026-07-11T00:00:00+09:00

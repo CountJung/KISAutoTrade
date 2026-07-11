@@ -116,6 +116,9 @@ pub struct TradeRecord {
     /// provider 요청 TR-ID (KIS TR-ID 등)
     #[serde(default)]
     pub provider_tr_id: Option<String>,
+    /// provider 체결일(YYYY-MM-DD). 재시작 복구가 자정을 넘겨도 원 거래일에 귀속한다.
+    #[serde(default)]
+    pub execution_date: Option<String>,
 }
 
 impl TradeRecord {
@@ -164,6 +167,7 @@ impl TradeRecord {
             provider_order_id: None,
             provider_request_id: None,
             provider_tr_id: None,
+            execution_date: None,
         }
     }
 
@@ -221,6 +225,7 @@ impl TradeRecord {
             provider_order_id: None,
             provider_request_id: None,
             provider_tr_id: None,
+            execution_date: None,
         }
     }
 
@@ -271,20 +276,22 @@ impl TradeStore {
     }
 
     /// 오늘의 체결 기록 파일 경로
-    fn today_path(&self) -> PathBuf {
-        build_daily_path(
-            &self.data_dir,
-            "trades",
-            Local::now().date_naive(),
-            "trades.json",
-        )
+    fn path_for(&self, date: NaiveDate) -> PathBuf {
+        build_daily_path(&self.data_dir, "trades", date, "trades.json")
     }
 
     /// 체결 기록 저장
     pub async fn append(&self, record: TradeRecord) -> Result<()> {
+        self.append_on(Local::now().date_naive(), record).await
+    }
+
+    pub async fn append_on(&self, date: NaiveDate, record: TradeRecord) -> Result<()> {
         let _write = self.write_lock.lock().await;
-        let path = self.today_path();
+        let path = self.path_for(date);
         let mut records: Vec<TradeRecord> = read_json_or_default(&path).await?;
+        if records.iter().any(|existing| existing.id == record.id) {
+            return Ok(());
+        }
         records.push(record);
         write_json(&path, &records).await?;
         Ok(())

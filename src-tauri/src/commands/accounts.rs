@@ -298,7 +298,7 @@ pub async fn get_balance(state: State<'_, AppState>) -> CmdResult<BalanceResult>
             // 앱 재시작 후 position_tracker가 비어있으면 잔고 응답으로 복원
             {
                 let mut tracker = state.position_tracker.lock().await;
-                tracker.load_if_empty(resp.items.iter().map(|i| {
+                tracker.replace(resp.items.iter().map(|i| {
                     (
                         i.pdno.clone(),
                         i.prdt_name.clone(),
@@ -339,7 +339,7 @@ pub async fn get_overseas_balance(state: State<'_, AppState>) -> CmdResult<Overs
             // 해외 잔고는 국내 position_tracker에 혼입하지 않고 별도 tracker에만 복원한다.
             {
                 let mut tracker = state.overseas_position_tracker.lock().await;
-                tracker.load_if_empty(resp.items.iter().map(|i| {
+                tracker.replace(resp.items.iter().map(|i| {
                     (
                         i.ovrs_pdno.clone(),
                         i.ovrs_item_name.clone(),

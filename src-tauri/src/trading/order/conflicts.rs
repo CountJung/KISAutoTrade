@@ -91,6 +91,13 @@ mod tests {
             exchange: None,
             broker_scope,
             filled_quantity: 0,
+            filled_notional: 0,
+            confirmed_filled_quantity: 0,
+            confirmed_avg_price: 0,
+            application_started: false,
+            application_pnl: None,
+            client_order_id: None,
+            provider_status: Some("pending".to_string()),
         }
     }
 

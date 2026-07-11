@@ -9,6 +9,20 @@
  */
 type Args = Record<string, unknown>
 
+const WEB_API_TOKEN_SESSION_KEY = 'kisautotrade:web-api-token'
+
+export function getWebApiToken(): string {
+  if (typeof window === 'undefined') return ''
+  return window.sessionStorage.getItem(WEB_API_TOKEN_SESSION_KEY) ?? ''
+}
+
+export function setWebApiToken(token: string): void {
+  if (typeof window === 'undefined') return
+  const normalized = token.trim()
+  if (normalized) window.sessionStorage.setItem(WEB_API_TOKEN_SESSION_KEY, normalized)
+  else window.sessionStorage.removeItem(WEB_API_TOKEN_SESSION_KEY)
+}
+
 /** Tauri 컨텍스트 여부 감지 */
 function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
@@ -282,7 +296,16 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
 
     // ─── 웹 설정 저장 ────────────────────────────────────────────────
     case 'save_web_config':
-      return { method: 'POST', url: '/api/web-config/save', body: { newPort: args.newPort, distPath: args.distPath } }
+      return {
+        method: 'POST',
+        url: '/api/web-config/save',
+        body: {
+          newPort: args.newPort,
+          distPath: args.distPath,
+          allowLan: args.allowLan,
+          apiToken: args.apiToken,
+        },
+      }
 
     // ─── 환율 / 갱신 주기 ────────────────────────────────────────────
     case 'get_exchange_rate':
@@ -321,9 +344,13 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
 
 async function restInvoke<T>(command: string, args: Args = {}): Promise<T> {
   const req = resolveRest(command, args)
+  const token = getWebApiToken()
+  const headers: Record<string, string> = {}
+  if (req.body) headers['Content-Type'] = 'application/json'
+  if (token) headers.Authorization = `Bearer ${token}`
   const res = await fetch(req.url, {
     method: req.method,
-    headers: req.body ? { 'Content-Type': 'application/json' } : {},
+    headers,
     body: req.body ? JSON.stringify(req.body) : undefined,
   })
 

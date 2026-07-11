@@ -1,10 +1,6 @@
 use super::*;
 
-use crate::{
-    broker::toss::{TossOrderCreateRequest, TossOrderListQuery},
-    storage::order_store::{OrderRecord, OrderSide as StoredOrderSide},
-    trading::order::PendingOrder,
-};
+use crate::{broker::toss::TossOrderListQuery, storage::order_store::OrderSide as StoredOrderSide};
 
 // ────────────────────────────────────────────────────────────────────
 // 주문
@@ -57,15 +53,74 @@ pub async fn place_order(
         return place_toss_order(input, side, order_type, profile.unwrap(), &state).await;
     }
 
-    let req = OrderRequest {
-        symbol: input.symbol,
+    let client = state.rest_client.read().await.clone();
+    let quote = client
+        .get_price(&input.symbol)
+        .await
+        .map_err(CmdError::from)?;
+    let quote_price = quote
+        .stck_prpr
+        .trim()
+        .replace(',', "")
+        .parse::<u64>()
+        .map_err(|_| CmdError {
+            code: "INVALID_QUOTE".into(),
+            message: "KIS 현재가 응답을 숫자로 해석할 수 없습니다.".into(),
+        })?;
+    let total_balance = super::trading::fetch_account_risk_balance_krw(&client, false, 1.0)
+        .await
+        .map_err(|message| CmdError {
+            code: "ACCOUNT_SYNC_FAILED".into(),
+            message,
+        })?;
+    let config_account_id = state.config.read().await.broker_account_id.clone();
+    let account_id = profile
+        .as_ref()
+        .map(|value| value.broker_account_id())
+        .or_else(|| (!config_account_id.is_empty()).then_some(config_account_id));
+    let scope = BrokerScope::new(BrokerId::Kis, account_id.map(BrokerAccountId));
+    let symbol_name = if quote.hts_kor_isnm.trim().is_empty() {
+        input.symbol.clone()
+    } else {
+        quote.hts_kor_isnm
+    };
+    let outcome = OrderManager::submit_manual_order_shared(
+        &state.order_manager,
+        input.symbol,
+        symbol_name,
         side,
         order_type,
-        quantity: input.quantity,
-        price: input.price.round().max(0.0) as u64,
-    };
-    let client = state.rest_client.read().await.clone();
-    client.place_order(&req).await.map_err(CmdError::from)
+        input.quantity,
+        input.price.round().max(0.0) as u64,
+        quote_price,
+        total_balance,
+        None,
+        scope,
+    )
+    .await
+    .map_err(CmdError::from)?;
+    manual_submission_response(outcome, "KIS")
+}
+
+pub(super) fn manual_submission_response(
+    outcome: crate::trading::order::SubmissionOutcome,
+    provider: &str,
+) -> CmdResult<OrderResponse> {
+    match outcome {
+        crate::trading::order::SubmissionOutcome::Submitted { provider_order_id } => {
+            Ok(OrderResponse {
+                odno: provider_order_id,
+                ord_tmd: chrono::Local::now().format("%H%M%S").to_string(),
+                tr_id: provider.to_string(),
+                rt_cd: "0".to_string(),
+                msg1: format!("{provider} 주문 접수"),
+            })
+        }
+        crate::trading::order::SubmissionOutcome::Skipped { reason } => Err(CmdError {
+            code: "ORDER_PREFLIGHT_BLOCKED".into(),
+            message: reason,
+        }),
+    }
 }
 
 async fn place_toss_order(
@@ -162,88 +217,36 @@ async fn place_toss_order(
     }
 
     let currency = toss_currency_from_view(&preflight.price);
-    let order_price = if is_market {
-        0
-    } else {
-        storage_money_units(&input.price.to_string(), currency)
-    };
-    let request = TossOrderCreateRequest {
-        client_order_id: None,
-        symbol: symbol.clone(),
-        side: match side {
-            crate::api::rest::OrderSide::Buy => "BUY",
-            crate::api::rest::OrderSide::Sell => "SELL",
-        }
-        .to_string(),
-        order_type: if is_market { "MARKET" } else { "LIMIT" }.to_string(),
-        time_in_force: Some("DAY".to_string()),
-        quantity: Some(input.quantity.to_string()),
-        price: (!is_market).then(|| format_toss_price(input.price, currency)),
-        order_amount: None,
-        confirm_high_value_order: Some(false),
-    }
-    .with_generated_client_order_id();
-    let client_order_id = request.client_order_id.clone();
-    let receipt = adapter
-        .create_order(Some(&account_seq), &request)
+    let quote_price = storage_money_units(&preflight.price.amount, currency);
+    let requested_price = storage_money_units(&input.price.to_string(), currency);
+    let exchange_rate = *state.exchange_rate_krw.read().await;
+    let total_balance = super::trading::fetch_toss_risk_balance_krw(&profile, exchange_rate)
         .await
-        .map_err(|e| CmdError {
-            code: "TOSS_ORDER_ERROR".into(),
-            message: e.to_string(),
+        .map_err(|message| CmdError {
+            code: "ACCOUNT_SYNC_FAILED".into(),
+            message,
         })?;
-
     let symbol_name = state
         .stock_store
         .get_name(&symbol)
         .await
         .unwrap_or_else(|| symbol.clone());
-    let mut record = OrderRecord::new(
-        symbol.clone(),
-        symbol_name.clone(),
-        stored_side,
+    let outcome = OrderManager::submit_manual_order_shared(
+        &state.order_manager,
+        symbol,
+        symbol_name,
+        side,
+        order_type,
         input.quantity,
-        order_price,
-        format!("TOSS_{}", request.order_type),
-    )
-    .with_provider_trace(
-        "toss",
-        Some(receipt.order_id.clone()),
-        receipt.client_order_id.clone().or(client_order_id),
-        None,
-    );
-    record.kis_order_id = Some(receipt.order_id.clone());
-
-    let pending = PendingOrder {
-        record: record.clone(),
-        signal_reason: "Toss 수동 주문".to_string(),
-        strategy_id: None,
-        signal_price: storage_money_units(&preflight.price.amount, currency),
-        order_price,
-        exchange: (currency == BrokerCurrency::Usd).then(|| "TOSS_US".to_string()),
+        requested_price,
+        quote_price,
+        total_balance,
+        (currency == BrokerCurrency::Usd).then(|| "TOSS_US".to_string()),
         broker_scope,
-        filled_quantity: 0,
-    };
-    state
-        .order_manager
-        .lock()
-        .await
-        .track_pending_order(receipt.order_id.clone(), pending);
-    state
-        .order_store
-        .append(record)
-        .await
-        .map_err(|e| CmdError {
-            code: "ORDER_RECORD_WRITE_ERROR".into(),
-            message: e.to_string(),
-        })?;
-
-    Ok(OrderResponse {
-        odno: receipt.order_id,
-        ord_tmd: chrono::Local::now().format("%H%M%S").to_string(),
-        tr_id: "TOSS".to_string(),
-        rt_cd: "0".to_string(),
-        msg1: "Toss 주문 접수".to_string(),
-    })
+    )
+    .await
+    .map_err(CmdError::from)?;
+    manual_submission_response(outcome, "TOSS")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -348,12 +351,5 @@ fn storage_money_units(value: &str, currency: BrokerCurrency) -> u64 {
     match currency {
         BrokerCurrency::Krw => parsed.round() as u64,
         BrokerCurrency::Usd => (parsed * 100.0).round() as u64,
-    }
-}
-
-fn format_toss_price(price: f64, currency: BrokerCurrency) -> String {
-    match currency {
-        BrokerCurrency::Krw => format!("{:.0}", price.round().max(0.0)),
-        BrokerCurrency::Usd => format!("{:.4}", price.max(0.0)),
     }
 }

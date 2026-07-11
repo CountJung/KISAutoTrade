@@ -1075,13 +1075,14 @@ self.pending.insert(ondo, PendingOrder { ... });
 
 ## 13. 시장가 주문 체결 확인 패턴
 
-KIS 시장가 주문은 접수 즉시 체결이 일어난다. WebSocket 체결 이벤트가 없는 상황에서  
-폴링 루프에서 `on_fill()`을 호출하려면 "다음 틱 자동 확인" 패턴을 사용한다.
+KIS 시장가 주문도 접수 응답만으로 체결을 확정하지 않는다. WebSocket 체결 이벤트가
+없으면 주문번호 기반 체결 조회 결과로만 `on_fill()`을 호출한다.
 
-### 우선 패턴: 주문번호 기반 확인 후 fallback
+### 필수 패턴: 주문번호 기반 확인
 
-국내/해외 주문은 다음 틱 가격으로 바로 체결 가정하기 전에 브로커 체결 내역에서
-주문번호(`odno`)를 먼저 찾아 실제 체결수량/체결금액을 반영한다.
+국내/해외 주문은 브로커 체결 내역에서 주문번호(`odno`)를 찾아 실제 누적 체결수량과
+평균 체결가를 확인한 경우에만 반영한다. production 경로에서 다음 틱 가격으로 체결을
+가정하거나 `confirm_fill_by_symbol()`을 fallback으로 사용하지 않는다.
 
 | 구분 | API | TR-ID |
 |------|-----|-------|
@@ -1098,9 +1099,9 @@ if let Some(order) = executed.iter().find(|o| o.odno == odno) {
 }
 ```
 
-폴링 루프에서는:
-1. `confirm_pending_fills_from_broker()`로 국내/해외 주문번호 기반 확인
-2. 확인 실패 또는 KIS 반영 지연 시 기존 `confirm_fill_by_symbol(symbol, tick_price)` fallback
+폴링 루프와 자동매매 정지 상태 모두에서
+`confirm_pending_fills_from_broker_shared()`로 국내/해외 주문번호를 확인한다. 조회 실패나
+KIS 반영 지연은 pending 유지 및 신규 충돌 차단으로 처리한다.
 
 해외 체결가는 자동매매 내부 단위와 맞추기 위해 USD × 100(cents)로 변환한다.
 
@@ -1119,37 +1120,15 @@ KIS 체결 조회의 체결 수량은 주문번호 기준 누적 체결량으로
 
 ✅ **올바른 패턴**: `delta_qty = cumulative_filled - filled_quantity`만 반영하고 완전체결 전까지 pending 상태를 유지한다.
 
-```rust
-// 폴링 루프 시작 전 선언
-let mut fills_pending: Vec<(String, u64)> = Vec::new(); // (symbol, 접수 당시 가격)
+`on_fill()`은 저장된 누적 체결 watermark보다 증가한 수량만 반영한다. confirmed/applying
+intent를 먼저 저장하고 deterministic event ID로 기록·통계를 적용한 뒤 watermark를
+전진시킨다. 같은 체결 응답을 반복 조회해도 포지션·손익이 중복 반영되면 안 된다.
 
-'main_loop: loop {
-    // ① 이전 틱에서 접수된 주문의 체결 확인 (10초 뒤 → 시장가 주문 체결 충분)
-    if !fills_pending.is_empty() {
-        let fills = std::mem::take(&mut fills_pending);
-        for (sym, fill_price) in fills {
-            let _ = order_mgr.lock().await
-                .confirm_fill_by_symbol(&sym, fill_price).await;
-        }
-    }
-
-    'symbol_loop: for symbol in &symbols {
-        let (price, volume) = fetch_tick(...);
-        let signals = strategy.on_tick(symbol, price, volume);
-        for signal in signals {
-            match order_mgr.submit_signal(signal, ...).await {
-                Ok(()) => {
-                    fills_pending.push((symbol.clone(), price)); // ② 다음 틱에 체결 확인 예약
-                    tokio::time::sleep(delay_ms).await;           // ③ rate-limit 방지
-                }
-                Err(e) => { /* 오류 처리 */ }
-            }
-        }
-        tokio::time::sleep(delay_ms).await; // 가격 조회 후 delay
-    }
-    // ④ 다음 틱까지 10초 대기
-}
-```
+재시작 reconciliation은 pending 주문의 원 주문일(`OrderRecord.timestamp`)부터 오늘까지
+조회한다. 국내 조회는 `CCLD_DVSN=00`으로 체결/미체결을 함께 받고 공식 output의
+`cncl_yn`, `cnc_cfrm_qty`, `rmn_qty`, `rjct_qty`로 terminal을 판정한다. 해외 조회는
+`nccs_qty`, `prcs_stat_name`, `rjct_rson`과 주문/체결수량을 함께 사용한다. 당일 체결만
+조회하면 자정 전 주문과 0체결 취소를 영구 pending으로 남기게 된다.
 
 ### EGW00201 rate-limit 재시도
 
@@ -1746,4 +1725,3 @@ UI에서 해외 종목 추가 시 `is_overseas: market === 'US'` 자동 설정 (
 - 다음 틱에서 `in_position = true` → 매수 신호 스킵 → **중복 매수 방지**
 - 매도 신호 발생 → `in_position = false`, `entry_price = None` 즉시
 - on_tick은 동기 함수 내에서 flag 설정하므로 race condition 없음
-
