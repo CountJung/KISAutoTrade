@@ -574,7 +574,10 @@ pub(super) async fn chart_handler(
         .get_chart_data(&symbol, period, &start_date, &end_date)
         .await
     {
-        Ok(candles) => Json(serde_json::to_value(candles).unwrap_or_default()),
+        Ok(candles) => {
+            let start = candles.len().saturating_sub(count as usize);
+            Json(serde_json::to_value(&candles[start..]).unwrap_or_default())
+        }
         Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
@@ -588,20 +591,15 @@ pub(super) async fn overseas_chart_handler(
     let period = params.period.as_deref().unwrap_or("D");
     let count = params.count.unwrap_or(100).clamp(1, 500);
 
-    let factor: i64 = match period {
-        "W" => 7,
-        "M" => 31,
-        _ => 2,
-    };
-    let base_day = chrono::Local::now().date_naive() - chrono::Duration::days(count * factor);
-    let base_date = base_day.format("%Y%m%d").to_string();
-
     let client = s.rest_client.read().await.clone();
     match client
-        .get_overseas_chart_data(&symbol, &exchange, period, &base_date)
+        .get_overseas_chart_data(&symbol, &exchange, period, "")
         .await
     {
-        Ok(candles) => Json(serde_json::to_value(candles).unwrap_or_default()),
+        Ok(candles) => {
+            let start = candles.len().saturating_sub(count as usize);
+            Json(serde_json::to_value(&candles[start..]).unwrap_or_default())
+        }
         Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }

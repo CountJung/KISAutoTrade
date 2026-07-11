@@ -21,25 +21,50 @@ import type {
 import { StrategyPreviewChart } from './leveragedTrendHoldPreviewChart'
 
 const OVERSEAS_EXCHANGES = ['NAS', 'NYS', 'AMS'] as const
+type PreviewInterval = '1m' | 'D' | 'W' | 'M'
+type PreviewCount = 50 | 100 | 200
+
+const KIS_INTERVALS: Array<{ value: PreviewInterval; label: string }> = [
+  { value: 'D', label: '일봉' },
+  { value: 'W', label: '주봉' },
+  { value: 'M', label: '월봉' },
+]
+const TOSS_INTERVALS: Array<{ value: PreviewInterval; label: string }> = [
+  { value: '1m', label: '1분봉' },
+  { value: 'D', label: '일봉' },
+]
+const PREVIEW_COUNTS: PreviewCount[] = [50, 100, 200]
+
+function previewRangeLabel(actual: number, requested: PreviewCount) {
+  return actual === requested ? `최근 ${requested}봉` : `실제 ${actual}봉 / 요청 ${requested}봉`
+}
 
 function isDomesticSymbol(symbol: string) {
   return symbol.length === 6 && /^[0-9]/.test(symbol)
 }
 
 function toYmd(date: Date) {
-  return date.toISOString().slice(0, 10).replace(/-/g, '')
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}${month}${day}`
 }
 
 async function loadPreviewCandles(
   symbol: string,
   brokerId: BrokerId,
+  interval: PreviewInterval,
+  count: PreviewCount,
 ): Promise<{ candles: ChartCandle[]; sourceLabel: string; isOverseas: boolean }> {
   const isOverseas = !isDomesticSymbol(symbol)
+  const intervalLabel = interval === '1m' ? '1분봉' : interval === 'D' ? '일봉' : interval === 'W' ? '주봉' : '월봉'
 
   if (brokerId === 'toss') {
+    const tossInterval = interval === '1m' ? '1m' : '1d'
+    const candles = await cmd.getTossChartData(symbol, tossInterval, count)
     return {
-      candles: await cmd.getTossChartData(symbol, '1d', 200),
-      sourceLabel: 'Toss 일봉 캔들',
+      candles,
+      sourceLabel: `Toss ${intervalLabel} · ${previewRangeLabel(candles.length, count)}`,
       isOverseas,
     }
   }
@@ -47,15 +72,18 @@ async function loadPreviewCandles(
   if (!isOverseas) {
     const end = new Date()
     const start = new Date(end)
-    start.setFullYear(start.getFullYear() - 1)
+    const calendarDaysPerCandle = interval === 'D' ? 2 : interval === 'W' ? 8 : 32
+    start.setDate(start.getDate() - count * calendarDaysPerCandle)
+    const candles = await cmd.getChartData({
+      symbol,
+      period_code: interval,
+      start_date: toYmd(start),
+      end_date: toYmd(end),
+      count,
+    })
     return {
-      candles: await cmd.getChartData({
-        symbol,
-        period_code: 'D',
-        start_date: toYmd(start),
-        end_date: toYmd(end),
-      }),
-      sourceLabel: 'KIS 일봉 캔들',
+      candles: candles.slice(-count),
+      sourceLabel: `KIS ${intervalLabel} · ${previewRangeLabel(Math.min(candles.length, count), count)}`,
       isOverseas: false,
     }
   }
@@ -63,9 +91,10 @@ async function loadPreviewCandles(
   let lastError: unknown = null
   for (const exchange of OVERSEAS_EXCHANGES) {
     try {
+      const candles = await cmd.getOverseasChartData(symbol, exchange, interval, '', count)
       return {
-        candles: await cmd.getOverseasChartData(symbol, exchange, 'D', ''),
-        sourceLabel: `KIS ${exchange} 일봉 캔들`,
+        candles: candles.slice(-count),
+        sourceLabel: `KIS ${exchange} ${intervalLabel} · ${previewRangeLabel(Math.min(candles.length, count), count)}`,
         isOverseas: true,
       }
     } catch (error) {
@@ -96,6 +125,8 @@ export function StrategyPreviewPanel({
 }: Props) {
   const previewMutation = usePreviewStrategy()
   const [selectedSymbol, setSelectedSymbol] = useState(symbols[0] ?? '')
+  const [previewInterval, setPreviewInterval] = useState<PreviewInterval>('D')
+  const [previewCount, setPreviewCount] = useState<PreviewCount>(50)
   const [preview, setPreview] = useState<StrategyPreviewView | null>(null)
   const [sourceLabel, setSourceLabel] = useState('일봉 캔들')
   const [localError, setLocalError] = useState<string | null>(null)
@@ -105,6 +136,8 @@ export function StrategyPreviewPanel({
     brokerId,
     symbols,
     selectedSymbol,
+    previewInterval,
+    previewCount,
     orderQuantity,
     params,
   })
@@ -123,6 +156,14 @@ export function StrategyPreviewPanel({
     }
   }, [selectedSymbol, symbols])
 
+  useEffect(() => {
+    if (brokerId === 'toss' && (previewInterval === 'W' || previewInterval === 'M')) {
+      setPreviewInterval('D')
+    } else if (brokerId !== 'toss' && previewInterval === '1m') {
+      setPreviewInterval('D')
+    }
+  }, [brokerId, previewInterval])
+
   const selectedLabel = useMemo(() => {
     if (!selectedSymbol) return ''
     const name = symbolNames[selectedSymbol]
@@ -136,7 +177,7 @@ export function StrategyPreviewPanel({
     const requestGeneration = previewGeneration.current
     setLocalError(null)
     try {
-      const loaded = await loadPreviewCandles(selectedSymbol, brokerId)
+      const loaded = await loadPreviewCandles(selectedSymbol, brokerId, previewInterval, previewCount)
       setSourceLabel(loaded.sourceLabel)
       const result = await previewMutation.mutateAsync({
         strategyId,
@@ -170,7 +211,7 @@ export function StrategyPreviewPanel({
             전략 미리보기
           </Typography>
           <Typography variant="caption" color="text.secondary" display="block">
-            저장 전 편집값과 일봉 차트로 매수/청산 신호를 재계산합니다.
+            저장 전 편집값으로 선택한 봉 단위와 분석 구간의 매수/청산 신호를 재계산합니다.
           </Typography>
         </Box>
         <Stack
@@ -196,6 +237,42 @@ export function StrategyPreviewPanel({
               <MenuItem key={symbol} value={symbol}>
                 {symbolNames[symbol] ? `${symbol} · ${symbolNames[symbol]}` : symbol}
               </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            size="small"
+            label="봉 단위"
+            value={previewInterval}
+            onChange={(event) => {
+              setPreviewInterval(event.target.value as PreviewInterval)
+              setPreview(null)
+              setLocalError(null)
+            }}
+            disabled={previewMutation.isPending}
+            fullWidth
+            sx={{ minWidth: { sm: 110 } }}
+          >
+            {(brokerId === 'toss' ? TOSS_INTERVALS : KIS_INTERVALS).map((option) => (
+              <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            size="small"
+            label="분석 구간"
+            value={previewCount}
+            onChange={(event) => {
+              setPreviewCount(Number(event.target.value) as PreviewCount)
+              setPreview(null)
+              setLocalError(null)
+            }}
+            disabled={previewMutation.isPending}
+            fullWidth
+            sx={{ minWidth: { sm: 120 } }}
+          >
+            {PREVIEW_COUNTS.map((count) => (
+              <MenuItem key={count} value={count}>최근 {count}봉</MenuItem>
             ))}
           </TextField>
           <Button

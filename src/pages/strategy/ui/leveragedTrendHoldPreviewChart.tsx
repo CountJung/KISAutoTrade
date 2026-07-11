@@ -3,10 +3,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import FormControlLabel from '@mui/material/FormControlLabel'
+import IconButton from '@mui/material/IconButton'
 import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
+import ZoomInIcon from '@mui/icons-material/ZoomIn'
+import ZoomOutIcon from '@mui/icons-material/ZoomOut'
 
 import {
   CandlestickSeries,
@@ -149,7 +154,7 @@ export function StrategyPreviewChart({
 
   const markers = useMemo<SeriesMarker<Time>[]>(
     () => signals.map((signal, index) => ({
-      time: toChartTime(signal.time, index),
+      time: toChartTime(signal.chartTime ?? signal.time, index),
       position: signal.side === 'buy' ? 'belowBar' : 'aboveBar',
       color: signal.side === 'buy' ? theme.palette.success.main : theme.palette.error.main,
       shape: signal.side === 'buy' ? 'arrowUp' : 'arrowDown',
@@ -188,6 +193,17 @@ export function StrategyPreviewChart({
       crosshair: {
         vertLine: { color: theme.palette.text.disabled },
         horzLine: { color: theme.palette.text.disabled },
+      },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: false,
+      },
+      handleScale: {
+        axisPressedMouseMove: true,
+        mouseWheel: true,
+        pinch: true,
       },
     })
     const candleSeries = chart.addSeries(CandlestickSeries, {
@@ -233,6 +249,15 @@ export function StrategyPreviewChart({
     chartRef.current?.timeScale().fitContent()
   }, [chartData, closeLineData, markers, showCloseLine])
 
+  const zoomChart = (scale: number) => {
+    const timeScale = chartRef.current?.timeScale()
+    const range = timeScale?.getVisibleLogicalRange()
+    if (!timeScale || !range) return
+    const center = (range.from + range.to) / 2
+    const half = ((range.to - range.from) / 2) * scale
+    timeScale.setVisibleLogicalRange({ from: center - half, to: center + half })
+  }
+
   if (candles.length === 0) {
     return (
       <Box sx={{ minHeight: 180, display: 'grid', placeItems: 'center', border: 1, borderColor: 'divider', borderRadius: 1 }}>
@@ -265,10 +290,38 @@ export function StrategyPreviewChart({
             },
           }}
         />
+        <Stack direction="row" spacing={0.25} sx={{ ml: { sm: 'auto' } }}>
+          <Tooltip title="차트 확대">
+            <IconButton size="small" aria-label="차트 확대" onClick={() => zoomChart(0.7)}>
+              <ZoomInIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="차트 축소">
+            <IconButton size="small" aria-label="차트 축소" onClick={() => zoomChart(1.4)}>
+              <ZoomOutIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="전체 구간 맞춤">
+            <IconButton size="small" aria-label="전체 구간 맞춤" onClick={() => chartRef.current?.timeScale().fitContent()}>
+              <CenterFocusStrongIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
       </Stack>
-      <Box ref={containerRef} data-testid="lth-preview-chart" sx={{ width: '100%', minHeight: 300 }} />
+      <Box
+        ref={containerRef}
+        data-testid="lth-preview-chart"
+        data-touch-gestures="horizontal-pan-pinch-zoom"
+        sx={{
+          width: '100%',
+          minHeight: 300,
+          touchAction: 'pan-y',
+          overscrollBehavior: 'contain',
+        }}
+      />
       <Stack direction="row" gap={0.75} flexWrap="wrap">
         <Chip size="small" variant="outlined" label="시간축 KST" />
+        <Chip size="small" variant="outlined" label="한 손가락 좌우 이동 · 두 손가락 확대/축소" />
         {signals.length === 0 ? (
           <Chip size="small" variant="outlined" label="신호 없음" />
         ) : signals.map((signal) => (

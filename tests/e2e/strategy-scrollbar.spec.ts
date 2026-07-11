@@ -67,9 +67,11 @@ function strategy(id: string, name: string, index: number) {
 type MockOptions = {
   strategyDelayMs?: number
   genericPreviewDelayMs?: number
+  leveragedPreviewDelayMs?: number
   activeBroker?: 'kis' | 'toss'
   previewRequests?: unknown[]
   genericPreviewRequests?: unknown[]
+  chartRequests?: string[]
 }
 
 async function mockApi(page: import('@playwright/test').Page, options: MockOptions = {}) {
@@ -101,7 +103,11 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
     strategy('mean_reversion_default', 'MeanReversionStrategy', 11),
     strategy('trend_filter_default', 'TrendFilterStrategy', 12),
     strategy('price_condition_default', 'PriceConditionStrategy', 13),
-  ]
+  ].map((item) => ({
+    ...item,
+    brokerId: activeBroker,
+    brokerAccountId: activeBroker === 'toss' ? '1' : '12345678-01',
+  }))
 
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url())
@@ -178,7 +184,8 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
       })
       return
     }
-    if (url.pathname.startsWith('/api/chart/')) {
+    if (url.pathname.startsWith('/api/chart/') || url.pathname.startsWith('/api/toss-chart/')) {
+      options.chartRequests?.push(url.toString())
       await route.fulfill({
         json: [
           { date: '20260701', open: '100', high: '102', low: '99', close: '100', volume: '1000' },
@@ -225,9 +232,14 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
     if (url.pathname === '/api/strategy/leveraged-trend-hold/preview') {
       const body = route.request().postDataJSON()
       options.previewRequests?.push(body)
+      if (options.leveragedPreviewDelayMs) {
+        await new Promise((resolve) => setTimeout(resolve, options.leveragedPreviewDelayMs))
+      }
       await route.fulfill({
         json: {
           symbol: body.symbol,
+          interval: body.interval ?? '1m',
+          candleCount: 3,
           candles: [
             { date: '20260707170100', open: '100', high: '101', low: '99', close: '100', volume: '1200' },
             { date: '20260707170200', open: '100', high: '104', low: '100', close: '103', volume: '1500' },
@@ -235,7 +247,8 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
           ],
           signals: [
             {
-              time: '20260707170200',
+              time: body.interval === '1d' ? '20260707223500' : '20260707170200',
+              chartTime: body.interval === '1d' ? '20260707' : undefined,
               side: 'buy',
               price: 103,
               quantity: 1,
@@ -246,7 +259,8 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
               adx: 25,
             },
             {
-              time: '20260707170300',
+              time: body.interval === '1d' ? '20260708050000' : '20260707170300',
+              chartTime: body.interval === '1d' ? '20260707' : undefined,
               side: 'sell',
               price: 105,
               quantity: 1,
@@ -340,18 +354,26 @@ test('Strategy simulation controls stack without overflow on a narrow viewport',
   const quantity = card.getByLabel('1회 수량')
   const tickerSelect = card.getByRole('combobox', { name: '시뮬레이션 티커' })
   const previewButton = card.getByRole('button', { name: '미리보기 계산' })
+  const intervalSelect = card.getByRole('combobox', { name: '봉 단위' })
+  const rangeSelect = card.getByRole('combobox', { name: '분석 구간' })
   await card.scrollIntoViewIfNeeded()
   await expect(quantity).toBeVisible()
   await expect(tickerSelect).toBeVisible()
   await expect(previewButton).toBeVisible()
+  await expect(intervalSelect).toBeVisible()
+  await expect(rangeSelect).toBeVisible()
 
   const cardBox = await card.boundingBox()
   const quantityBox = await quantity.boundingBox()
   const selectBox = await tickerSelect.boundingBox()
   const buttonBox = await previewButton.boundingBox()
+  const intervalBox = await intervalSelect.boundingBox()
+  const rangeBox = await rangeSelect.boundingBox()
   expect(cardBox).not.toBeNull()
   expect(quantityBox?.width ?? 0).toBeGreaterThan((cardBox?.width ?? 0) * 0.75)
   expect(buttonBox?.y ?? 0).toBeGreaterThan(selectBox?.y ?? 0)
+  expect(intervalBox?.y ?? 0).toBeGreaterThan(selectBox?.y ?? 0)
+  expect(rangeBox?.y ?? 0).toBeGreaterThan(intervalBox?.y ?? 0)
   expect((buttonBox?.x ?? 0) + (buttonBox?.width ?? 0)).toBeLessThanOrEqual((cardBox?.x ?? 0) + (cardBox?.width ?? 0))
 })
 
@@ -447,6 +469,10 @@ test('Leveraged strategy preview runs selected ticker and renders signal chart',
   await page.goto('/strategy')
 
   const card = page.locator('.MuiPaper-root').filter({ hasText: 'LeveragedTrendHoldStrategy' }).first()
+  await card.getByRole('combobox', { name: '봉 단위' }).click()
+  await page.getByRole('option', { name: '일봉', exact: true }).click()
+  await card.getByRole('combobox', { name: '분석 구간' }).click()
+  await page.getByRole('option', { name: '최근 50봉', exact: true }).click()
   await card.getByRole('button', { name: '미리보기 계산' }).click()
 
   await expect(card.getByText('mock preview signals')).toBeVisible()
@@ -454,26 +480,39 @@ test('Leveraged strategy preview runs selected ticker and renders signal chart',
   await expect(card.getByTestId('lth-preview-chart').locator('canvas').first()).toBeVisible()
   await expect(card.getByRole('checkbox', { name: '종가 선 그래프 표시' })).toBeChecked()
   await expect(card.getByText('종가 선 그래프')).toBeVisible()
-  await expect(card.getByText(/매수 07\/07 17:02/)).toBeVisible()
-  await expect(card.getByText(/매도 07\/07 17:03/)).toBeVisible()
+  await expect(card.getByText('한 손가락 좌우 이동 · 두 손가락 확대/축소')).toBeVisible()
+  await expect(card.getByRole('button', { name: '차트 확대' })).toBeVisible()
+  await expect(card.getByRole('button', { name: '차트 축소' })).toBeVisible()
+  await expect(card.getByText(/매수 07\/07 22:35/)).toBeVisible()
+  await expect(card.getByText(/매도 07\/08 05:00/)).toBeVisible()
   expect(previewRequests).toHaveLength(1)
-  expect(previewRequests[0]).toMatchObject({ symbol: 'SOXL' })
+  expect(previewRequests[0]).toMatchObject({ symbol: 'SOXL', interval: '1d', count: 50 })
 })
 
 test('Generic strategy card preview runs with edited card settings', async ({ page }) => {
   const genericPreviewRequests: unknown[] = []
-  await mockApi(page, { genericPreviewRequests })
+  const chartRequests: string[] = []
+  await mockApi(page, { genericPreviewRequests, chartRequests })
   await page.goto('/strategy')
 
   const card = page.locator('.MuiPaper-root').filter({ hasText: 'MovingAverageCrossStrategy' }).first()
   await expect(card.getByText('전략 미리보기')).toBeVisible()
+  await card.getByRole('combobox', { name: '봉 단위' }).click()
+  await page.getByRole('option', { name: '주봉', exact: true }).click()
+  await card.getByRole('combobox', { name: '분석 구간' }).click()
+  await page.getByRole('option', { name: '최근 100봉', exact: true }).click()
   await card.getByRole('button', { name: '미리보기 계산' }).click()
 
   await expect(card.getByText('mock generic preview signals')).toBeVisible()
-  await expect(card.getByText(/KIS 일봉 캔들/)).toBeVisible()
+  await expect(card.getByText(/KIS 주봉 · 실제 4봉 \/ 요청 100봉/)).toBeVisible()
   await expect(card.getByText(/매수 07\/02 00:00/)).toBeVisible()
   await expect(card.getByText(/매도 07\/04 00:00/)).toBeVisible()
   await expect(card.getByTestId('lth-preview-chart').locator('canvas').first()).toBeVisible()
+  await expect(card.getByText('한 손가락 좌우 이동 · 두 손가락 확대/축소')).toBeVisible()
+  expect(await card.getByTestId('lth-preview-chart').evaluate((element) => getComputedStyle(element).touchAction)).toBe('pan-y')
+  expect(chartRequests).toHaveLength(1)
+  expect(chartRequests[0]).toContain('period=W')
+  expect(chartRequests[0]).toContain('count=100')
   expect(genericPreviewRequests).toHaveLength(1)
   expect(genericPreviewRequests[0]).toMatchObject({
     strategyId: 'ma_cross_default',
@@ -500,6 +539,46 @@ test('Generic strategy preview discards an in-flight result after parameters cha
   await expect(card.getByText('mock generic preview signals')).toBeVisible()
   expect(genericPreviewRequests).toHaveLength(2)
   expect(genericPreviewRequests[1]?.params).toMatchObject({ short_period: 7 })
+})
+
+test('Generic Toss strategy preview uses the selected one-minute interval and range', async ({ page }) => {
+  const chartRequests: string[] = []
+  const genericPreviewRequests: unknown[] = []
+  await mockApi(page, { activeBroker: 'toss', chartRequests, genericPreviewRequests })
+  await page.goto('/strategy')
+
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'MovingAverageCrossStrategy' }).first()
+  const intervalSelect = card.getByRole('combobox', { name: '봉 단위' })
+  await intervalSelect.click()
+  await expect(page.getByRole('option', { name: '1분봉', exact: true })).toBeVisible()
+  await expect(page.getByRole('option', { name: '일봉', exact: true })).toBeVisible()
+  await expect(page.getByRole('option', { name: '주봉', exact: true })).toHaveCount(0)
+  await page.getByRole('option', { name: '1분봉', exact: true }).click()
+
+  await card.getByRole('combobox', { name: '분석 구간' }).click()
+  await page.getByRole('option', { name: '최근 200봉', exact: true }).click()
+  await card.getByRole('button', { name: '미리보기 계산' }).click()
+
+  await expect(card.getByText(/Toss 1분봉 · 실제 4봉 \/ 요청 200봉/)).toBeVisible()
+  expect(chartRequests).toHaveLength(1)
+  expect(chartRequests[0]).toContain('interval=1m')
+  expect(chartRequests[0]).toContain('count=200')
+  expect(genericPreviewRequests).toHaveLength(1)
+})
+
+test('Leveraged strategy preview discards an in-flight result after parameters change', async ({ page }) => {
+  const previewRequests: unknown[] = []
+  await mockApi(page, { activeBroker: 'toss', previewRequests, leveragedPreviewDelayMs: 300 })
+  await page.goto('/strategy')
+
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'LeveragedTrendHoldStrategy' }).first()
+  const previewButton = card.getByRole('button', { name: '미리보기 계산' })
+  await previewButton.click()
+  await expect.poll(() => previewRequests.length).toBe(1)
+
+  await card.getByRole('spinbutton', { name: '진입 민감도' }).fill('2')
+  await page.waitForTimeout(400)
+  await expect(card.getByText('mock preview signals')).toHaveCount(0)
 })
 
 test('Sidebar trading action toggles auto trading from strategy page', async ({ page }) => {

@@ -41,12 +41,15 @@ import * as cmd from '../../../api/commands'
 import type {
   CmdError,
   LeveragedTrendHoldEntry,
+  LeveragedTrendHoldPreviewView,
   OverseasExchange,
   StockSearchItem,
 } from '../../../api/types'
 import { LeveragedTrendHoldPreviewChart } from './leveragedTrendHoldPreviewChart'
 
 type Market = 'KR' | 'US'
+type PreviewInterval = '1m' | '1d'
+type PreviewCount = 50 | 100 | 200
 type TargetDraftSelection = {
   stock: StockSearchItem
   market: Market
@@ -110,6 +113,10 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
   const [pickerError, setPickerError] = useState<string | null>(null)
   const [draftQuantity, setDraftQuantity] = useState(1)
   const [previewSymbol, setPreviewSymbol] = useState('')
+  const [previewInterval, setPreviewInterval] = useState<PreviewInterval>('1m')
+  const [previewCount, setPreviewCount] = useState<PreviewCount>(200)
+  const [preview, setPreview] = useState<LeveragedTrendHoldPreviewView | null>(null)
+  const previewGeneration = useRef(0)
   const entrySensitivity = numericParam(params, 'upward_sensitivity', 1)
   const reboundEnabled = boolParam(params, 'intraday_rebound_enabled', false)
   const reboundBaselineTicks = numericParam(params, 'rebound_baseline_ticks', 8)
@@ -151,9 +158,18 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
     () => previewOptions.find((entry) => entry.leveraged_symbol === previewSymbol) ?? null,
     [previewOptions, previewSymbol],
   )
-  const currentPreview = previewMutation.data?.symbol === previewEntry?.leveraged_symbol
-    ? previewMutation.data
+  const currentPreview = preview
+    && preview.symbol === previewEntry?.leveraged_symbol
+    && preview.interval === previewInterval
+    ? preview
     : null
+  const previewInputKey = JSON.stringify({
+    symbol: previewEntry?.leveraged_symbol ?? '',
+    interval: previewInterval,
+    count: previewCount,
+    params,
+    entries,
+  })
   const { mutate: doPickerRefreshList, isPending: pickerRefreshing } = useRefreshStockList()
   const {
     data: pickerResults = [],
@@ -191,6 +207,12 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
       setPreviewSymbol(defaultPreviewSymbol)
     }
   }, [defaultPreviewSymbol, previewSymbol, previewSymbolsKey])
+
+  useEffect(() => {
+    previewGeneration.current += 1
+    setPreview(null)
+    previewMutation.reset()
+  }, [previewInputKey]) // eslint-disable-line react-hooks/exhaustive-deps -- serialized preview input is the invalidation boundary
 
   const handlePickerSelect = (stock: StockSearchItem) => {
     setPickerSelection({ stock, market: pickerMarket })
@@ -285,13 +307,22 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
     props.onParamsUpdate({ ...params, [key]: nextValue })
   }
 
-  const handlePreview = () => {
+  const handlePreview = async () => {
     if (!previewEntry) return
-    previewMutation.mutate({
-      symbol: previewEntry.leveraged_symbol,
-      params: { ...params, entries },
-      count: 200,
-    })
+    const requestGeneration = previewGeneration.current
+    try {
+      const result = await previewMutation.mutateAsync({
+        symbol: previewEntry.leveraged_symbol,
+        params: { ...params, entries },
+        interval: previewInterval,
+        count: previewCount,
+      })
+      if (requestGeneration !== previewGeneration.current) return
+      setPreview(result)
+    } catch {
+      if (requestGeneration !== previewGeneration.current) return
+      setPreview(null)
+    }
   }
 
   return (
@@ -736,7 +767,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   <Chip
                     size="small"
                     variant="outlined"
-                    label="Toss 1분봉"
+                    label={`Toss ${previewInterval === '1m' ? '1분봉' : '일봉'} · 최근 ${previewCount}봉`}
                     sx={{ height: 22, fontSize: '0.65rem' }}
                   />
                 </Stack>
@@ -762,6 +793,31 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                       {entry.leveraged_symbol} · {entry.leveraged_symbol_name || (entry.is_overseas ? '미국 ETF' : '국내 ETF')}
                     </MenuItem>
                   ))}
+                </TextField>
+                <TextField
+                  select
+                  label="봉 단위"
+                  size="small"
+                  value={previewInterval}
+                  disabled={previewMutation.isPending}
+                  onChange={(event) => setPreviewInterval(event.target.value as PreviewInterval)}
+                  sx={{ minWidth: { xs: '100%', sm: 110 } }}
+                >
+                  <MenuItem value="1m">1분봉</MenuItem>
+                  <MenuItem value="1d">일봉</MenuItem>
+                </TextField>
+                <TextField
+                  select
+                  label="분석 구간"
+                  size="small"
+                  value={previewCount}
+                  disabled={previewMutation.isPending}
+                  onChange={(event) => setPreviewCount(Number(event.target.value) as PreviewCount)}
+                  sx={{ minWidth: { xs: '100%', sm: 120 } }}
+                >
+                  <MenuItem value={50}>최근 50봉</MenuItem>
+                  <MenuItem value={100}>최근 100봉</MenuItem>
+                  <MenuItem value={200}>최근 200봉</MenuItem>
                 </TextField>
                 <Button
                   size="small"
@@ -800,12 +856,13 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                 <LeveragedTrendHoldPreviewChart
                   candles={currentPreview.candles}
                   signals={currentPreview.signals}
+                  sourceLabel={`Toss ${currentPreview.interval === '1m' ? '1분봉' : '일봉'} · ${currentPreview.candleCount}봉`}
                 />
               </Stack>
             ) : (
               <Box sx={{ minHeight: 160, display: 'grid', placeItems: 'center', border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' }}>
                 <Typography variant="caption" color="text.secondary">
-                  미리보기 계산을 실행하면 이곳에 1분봉 차트와 매수/매도 신호가 표시됩니다.
+                  봉 단위와 분석 구간을 선택한 뒤 계산하면 매수/매도 신호가 표시됩니다.
                 </Typography>
               </Box>
             )}

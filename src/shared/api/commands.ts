@@ -289,8 +289,9 @@ export const getOverseasChartData = (
   exchange: string,
   periodCode: string,
   baseDate: string,
+  count = 100,
 ): Promise<ChartCandle[]> =>
-  invoke('get_overseas_chart_data', { symbol, exchange, periodCode, baseDate })
+  invoke('get_overseas_chart_data', { symbol, exchange, periodCode, baseDate, count })
 
 /** 해외 주식 주문 (지정가 한정) */
 export const placeOverseasOrder = (input: PlaceOverseasOrderInput): Promise<OrderResponse> =>

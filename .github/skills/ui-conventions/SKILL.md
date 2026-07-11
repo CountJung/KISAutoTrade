@@ -587,7 +587,9 @@ UI 규칙:
 - Strategy 페이지의 모든 전략 카드는 데스크톱에서도 `Grid item xs={12}` 전체 너비를 사용한다. 일반 전략만 `md={6}`으로 줄이면 파라미터와 미리보기 차트를 동시에 읽기 어렵다.
 - 일반 전략 파라미터는 `xs={12} sm={6} md={4}`로 배치하고 TextField에 `fullWidth`를 적용한다.
 - 미리보기 티커 Select와 계산 버튼은 좁은 화면에서 세로로 쌓고, 데스크톱에서만 가로로 배치한다.
-- 티커·파라미터·수량·broker가 바뀌면 이전 미리보기 결과를 무효화한다. 진행 중 요청의 결과도 generation/key가 현재 입력과 일치할 때만 표시해 stale chart를 막는다.
+- 일반 미리보기는 KIS 일/주/월봉, Toss 1분/일봉을 제공하고 분석 구간은 최근 50/100/200봉으로 분리한다. `봉 단위`와 `분석 구간`을 한 프리셋 이름으로 합쳐 사용자가 일봉과 1년 범위를 혼동하게 하지 않는다.
+- 티커·봉 단위·분석 구간·파라미터·수량·broker가 바뀌면 이전 미리보기 결과를 무효화한다. 진행 중 요청의 결과도 generation/key가 현재 입력과 일치할 때만 표시해 stale chart를 막는다.
+- lightweight-charts 미리보기는 `horzTouchDrag: true`, `vertTouchDrag: false`, `pinch: true`로 설정하고 컨테이너 `touchAction: pan-y`를 유지한다. 모바일에서 세로 한 손가락 이동은 페이지 스크롤, 가로 이동은 차트 패닝, 두 손가락은 확대/축소로 분리하며 확대·축소·전체 맞춤 버튼도 제공한다.
 - Playwright에서 모든 전략 카드의 x/width가 동일한지와 좁은 viewport에서 입력/Select/버튼이 카드 밖으로 넘치지 않는지 검증한다.
 
 ## DB 관리 Settings UI
@@ -598,4 +600,4 @@ UI 규칙:
 - backend 전환은 자동매매 정지와 schema/import 검증을 통과한 경우만 허용하며, stale 연결 설정으로 작업하지 않도록 form dirty 상태도 action을 잠근다.
 - DB password와 파괴적 관리는 Tauri desktop Settings에서만 렌더링한다. 웹 모드에는 보안 안내만 보여주고 관리 form/control을 노출하지 않는다.
 
-> 마지막 업데이트: 2026-07-11T00:00:00+09:00
+> 마지막 업데이트: 2026-07-11T23:27:54+09:00

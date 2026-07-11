@@ -220,9 +220,9 @@ AutoConditionTrade/                   ← 루트
 | `pages/strategy/ui/Page.tsx` | 활성 broker scope, 전략별 저장 broker/account scope 표시, 전략 활성화/대상 종목/전체 너비 카드/카드별 미리보기 route 조립 |
 | `pages/strategy/ui/priceConditionEditorPanel.tsx` | 가격조건 전략의 종목별 수량·매수가·익절가·익절률·손절률 편집 테이블 |
 | `pages/strategy/ui/strategyMetadata.ts` | 일반 전략 파라미터 입력 메타, 전략 설명, strategy id 기반 타입 판별 |
-| `pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx` | 레버리지 추세 보유 전략의 ETF 세트 검색/편집, 진입·반등·초기 손절·수익 보호 청산 파라미터, 유효성 검사 |
-| `pages/strategy/ui/strategyPreviewPanel.tsx` | 일반/가격조건 전략 카드 하단에서 저장 전 파라미터로 국내·해외 일봉 캔들을 조회하고 `preview_strategy` 신호를 표시. 편집값·티커·broker 변경 시 이전 결과와 진행 중 응답을 무효화 |
-| `pages/strategy/ui/leveragedTrendHoldPreviewChart.tsx` | 레버리지/일반 전략 미리보기의 캔들 차트, 종가 선 그래프, 매수/청산 signal marker 표시 |
+| `pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx` | 레버리지 추세 보유 전략의 ETF 세트 검색/편집, 진입·반등·초기 손절·수익 보호 청산 파라미터, Toss 1분/일봉·50/100/200봉 미리보기 선택과 stale 응답 차단 |
+| `pages/strategy/ui/strategyPreviewPanel.tsx` | 일반/가격조건 전략 카드에서 KIS 일/주/월봉 또는 Toss 1분/일봉과 50/100/200봉 구간을 조회해 `preview_strategy` 신호를 표시. 입력 변경 시 이전 결과와 진행 중 응답을 무효화 |
+| `pages/strategy/ui/leveragedTrendHoldPreviewChart.tsx` | 레버리지/일반 전략 미리보기의 캔들·종가선·signal marker, 모바일 가로 패닝·핀치 확대/축소와 버튼식 줌 표시 |
 | `pages/history/ui/Page.tsx` | 활성 broker scope, 자동매매 체결 기록과 기간별 통계 조회, provider 원본 trace 표시 |
 | `pages/log/ui/Page.tsx` | 로그 레벨/검색 필터, provider trace 토큰 chip 표시 |
 
@@ -239,7 +239,7 @@ AutoConditionTrade/                   ← 루트
 | `commands/orders.rs` | 수동 주문 제출 IPC |
 | `commands/records.rs` | 체결/거래/통계 조회, Discord config 저장, frontend log 저장 IPC |
 | `commands/settings.rs` | app config/check_config, refresh interval, log/web 설정, USD/KRW 환율 IPC |
-| `commands/strategy_preview.rs` | 활성 Toss 프로파일의 1분봉 레버리지 preview와 프론트 제공 `ChartCandle[]` 기반 범용 전략 preview IPC |
+| `commands/strategy_preview.rs` | 활성 Toss 프로파일의 1분/일봉 레버리지 preview(일봉 open/EOD 분리로 look-ahead 방지)와 프론트 제공 `ChartCandle[]` 기반 범용 전략 preview IPC |
 | `commands/toss.rs` | Toss accountSeq 조회, 연결 진단, 주문 전 preflight view facade, 접수 주문 목록 조회와 정정 command |
 | `commands/toss/small_order.rs` | Dashboard 전용 Toss 소액매매 검증. 실거래 동의/최종 확인/최대 허용금액/preflight/open-order scan 후 1주 시장가 매수 제출과 주문·체결 기록 저장 |
 | `commands/toss_market.rs` | Toss 시세 snapshot, 종목 유의사항, market-calendar override, candles chart command |

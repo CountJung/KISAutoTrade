@@ -636,11 +636,13 @@ export interface LeveragedTrendHoldEntry {
 export interface LeveragedTrendHoldPreviewInput {
   symbol: string
   params: Record<string, unknown>
+  interval?: '1m' | '1d'
   count?: number
 }
 
 export interface LeveragedTrendHoldPreviewSignal {
   time: string
+  chartTime?: string
   side: 'buy' | 'sell'
   price: number
   quantity: number
@@ -653,6 +655,8 @@ export interface LeveragedTrendHoldPreviewSignal {
 
 export interface LeveragedTrendHoldPreviewView {
   symbol: string
+  interval: '1m' | '1d'
+  candleCount: number
   candles: ChartCandle[]
   signals: LeveragedTrendHoldPreviewSignal[]
   generatedAt: string
@@ -672,6 +676,7 @@ export interface StrategyPreviewInput {
 
 export interface StrategyPreviewSignal {
   time: string
+  chartTime?: string
   side: 'buy' | 'sell'
   price: number
   quantity: number
@@ -763,6 +768,7 @@ export interface ChartDataInput {
   period_code: string   // 'D' | 'W' | 'M'
   start_date: string    // YYYYMMDD
   end_date: string      // YYYYMMDD
+  count?: number        // 웹 REST 조회 범위와 결과 상한
 }
 
 // ─── 업데이트 정보 ────────────────────────────────────────────────

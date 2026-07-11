@@ -77,11 +77,10 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
         period_code?: string
         start_date?: string
         end_date?: string
+        count?: number
       }
       const period = inp.period_code ?? 'D'
-      // 서버 측에서 start/end를 period+count로 계산합니다
-      const countMap: Record<string, number> = { D: 100, W: 78, M: 60 }
-      const count = countMap[period] ?? 100
+      const count = Math.max(1, Math.min(500, Number(inp.count ?? 100)))
       return {
         method: 'GET',
         url: `/api/chart/${inp.symbol}?period=${period}&count=${count}`,
@@ -121,8 +120,7 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
     // ─── 해외 차트 ────────────────────────────────────────────
     case 'get_overseas_chart_data': {
       const period = (args.periodCode as string) ?? 'D'
-      const countMap: Record<string, number> = { D: 100, W: 78, M: 60 }
-      const count = countMap[period] ?? 100
+      const count = Math.max(1, Math.min(500, Number(args.count ?? 100)))
       return {
         method: 'GET',
         url: `/api/overseas-chart/${args.exchange}/${args.symbol}?period=${period}&count=${count}`,

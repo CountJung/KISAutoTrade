@@ -57,11 +57,11 @@
 | `submit_toss_small_buy_verification` | Dashboard 전용 Toss 소액매매 검증. 실거래 동의/최종 확인/최대 허용금액/accountSeq 일치/사전검증/미체결 scan 후 검색 종목 1주 시장가 매수를 제출하고 주문·체결 기록을 저장 |
 | `get_toss_market_calendar` | 활성 Toss 프로파일로 KR/US 정규장 캘린더 조회 (`regularSession`, `isRegularOpen`) |
 | `get_toss_chart_data` | 활성 Toss 프로파일로 캔들 조회 (`1d`/`1m`, count 1~200, `ChartCandle[]`) |
-| `preview_leveraged_trend_hold` | 활성 Toss 프로파일의 `1m` 캔들로 레버리지 추세 보유 전략을 읽기 전용 리플레이해 매수/청산 신호와 차트 캔들을 반환 |
+| `preview_leveraged_trend_hold` | 활성 Toss 프로파일에서 선택한 `1m`/`1d`와 최근 20~200봉으로 레버리지 추세 보유 전략을 읽기 전용 리플레이해 매수/청산 신호와 차트 캔들을 반환 |
 | `preview_strategy` | 프론트가 제공한 `ChartCandle[]`로 일반 전략을 읽기 전용 리플레이해 매수/청산 신호와 차트 캔들을 반환 |
-| `get_chart_data` | 국내주식 차트 데이터 (일봉) |
+| `get_chart_data` | 국내주식 차트 데이터 (일/주/월봉, 날짜 범위와 선택적 count) |
 | `get_overseas_price` | 해외주식 현재가 조회 |
-| `get_overseas_chart_data` | 해외주식 차트 데이터 (일/주/월봉) |
+| `get_overseas_chart_data` | 해외주식 최신 차트 데이터 (일/주/월봉, 선택적 count 상한) |
 | `place_order` | 국내 수동 주문. 자동주문과 같은 scoped preflight/risk/pending/영속화 서비스 사용 |
 | `place_overseas_order` | 해외 수동 지정가 주문. 자동주문과 같은 scoped order service 사용 |
 | `get_today_executed` | 당일 체결 내역 (KIS API) |

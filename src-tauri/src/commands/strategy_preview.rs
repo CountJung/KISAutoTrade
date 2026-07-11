@@ -6,6 +6,7 @@ use crate::trading::strategy::{build_strategy, LeveragedTrendHoldTimedCandle, Si
 pub struct LeveragedTrendHoldPreviewInput {
     pub symbol: String,
     pub params: serde_json::Value,
+    pub interval: Option<String>,
     pub count: Option<u16>,
 }
 
@@ -13,6 +14,8 @@ pub struct LeveragedTrendHoldPreviewInput {
 #[serde(rename_all = "camelCase")]
 pub struct LeveragedTrendHoldPreviewSignalView {
     pub time: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chart_time: Option<String>,
     pub side: String,
     pub price: f64,
     pub quantity: u64,
@@ -27,6 +30,8 @@ pub struct LeveragedTrendHoldPreviewSignalView {
 #[serde(rename_all = "camelCase")]
 pub struct LeveragedTrendHoldPreviewView {
     pub symbol: String,
+    pub interval: String,
+    pub candle_count: usize,
     pub candles: Vec<ChartCandle>,
     pub signals: Vec<LeveragedTrendHoldPreviewSignalView>,
     pub generated_at: String,
@@ -128,26 +133,129 @@ fn broker_candles_to_ohlc(candles: &[BrokerCandle]) -> Vec<OhlcCandle> {
         .collect()
 }
 
-fn broker_candles_to_timed_ohlc(candles: &[BrokerCandle]) -> Vec<LeveragedTrendHoldTimedCandle> {
+fn broker_candles_to_timed_ohlc(
+    candles: &[BrokerCandle],
+    count: u16,
+    interval: &str,
+    daily_open_minute: i64,
+    daily_close_minute: i64,
+    daily_close_day_offset: i64,
+) -> Vec<LeveragedTrendHoldTimedCandle> {
     let mut candles = candles.to_vec();
     candles.sort_by(|a, b| a.date.cmp(&b.date));
-    candles
-        .iter()
-        .filter_map(|c| {
-            Some(LeveragedTrendHoldTimedCandle {
-                time: normalize_preview_chart_time(&c.date, "1m"),
-                candle: OhlcCandle {
-                    open: broker_money_to_strategy_units(&c.open)?,
-                    high: broker_money_to_strategy_units(&c.high)?,
-                    low: broker_money_to_strategy_units(&c.low)?,
-                    close: broker_money_to_strategy_units(&c.close)?,
-                },
+    let start = candles.len().saturating_sub(count as usize);
+    let mut timed =
+        Vec::with_capacity((candles.len() - start) * if interval == "1d" { 2 } else { 1 });
+    for source in candles.iter().skip(start) {
+        let Some(candle) = (|| {
+            Some(OhlcCandle {
+                open: broker_money_to_strategy_units(&source.open)?,
+                high: broker_money_to_strategy_units(&source.high)?,
+                low: broker_money_to_strategy_units(&source.low)?,
+                close: broker_money_to_strategy_units(&source.close)?,
             })
-        })
-        .filter(|c| {
-            c.candle.open > 0 && c.candle.high > 0 && c.candle.low > 0 && c.candle.close > 0
-        })
-        .collect()
+        })() else {
+            continue;
+        };
+        if candle.open == 0 || candle.high == 0 || candle.low == 0 || candle.close == 0 {
+            continue;
+        }
+        if interval == "1d" {
+            let Some(open_time) = daily_preview_time(&source.date, daily_open_minute, 0) else {
+                continue;
+            };
+            let Some(close_time) =
+                daily_preview_time(&source.date, daily_close_minute, daily_close_day_offset)
+            else {
+                continue;
+            };
+            timed.push(LeveragedTrendHoldTimedCandle {
+                time: open_time,
+                candle: OhlcCandle {
+                    open: candle.open,
+                    high: candle.open,
+                    low: candle.open,
+                    close: candle.open,
+                },
+            });
+            timed.push(LeveragedTrendHoldTimedCandle {
+                time: close_time,
+                candle,
+            });
+        } else {
+            timed.push(LeveragedTrendHoldTimedCandle {
+                time: normalize_preview_chart_time(&source.date, "1m"),
+                candle,
+            });
+        }
+    }
+    timed
+}
+
+fn daily_preview_time(value: &str, minute_of_day: i64, day_offset: i64) -> Option<String> {
+    let date: String = value
+        .chars()
+        .filter(|c| c.is_ascii_digit())
+        .take(8)
+        .collect();
+    if date.len() != 8 {
+        return None;
+    }
+    let date = chrono::NaiveDate::parse_from_str(&date, "%Y%m%d").ok()?
+        + chrono::Duration::days(day_offset);
+    let minute = minute_of_day.rem_euclid(24 * 60);
+    Some(format!(
+        "{}{:02}{:02}00",
+        date.format("%Y%m%d"),
+        minute / 60,
+        minute % 60
+    ))
+}
+
+fn daily_chart_time(value: &str, close_day_offset: i64) -> String {
+    let normalized = normalize_preview_chart_time(value, "1d");
+    if close_day_offset == 0 {
+        return normalized;
+    }
+    let digits: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
+    let minute = digits
+        .get(8..12)
+        .and_then(|hhmm| hhmm.parse::<i64>().ok())
+        .map(|hhmm| (hhmm / 100) * 60 + hhmm % 100);
+    if minute.is_some_and(|minute| minute < 12 * 60) {
+        return chrono::NaiveDate::parse_from_str(&normalized, "%Y%m%d")
+            .ok()
+            .map(|date| {
+                (date - chrono::Duration::days(1))
+                    .format("%Y%m%d")
+                    .to_string()
+            })
+            .unwrap_or(normalized);
+    }
+    normalized
+}
+
+fn preview_session_bounds(
+    is_overseas: bool,
+    toss_us_session: &str,
+    entry_window_start_min: i64,
+) -> (i64, i64, i64) {
+    let (open, close, close_day_offset) = if !is_overseas {
+        (9 * 60, 15 * 60 + 30, 0)
+    } else {
+        match crate::market_hours::UsTradingSessionPolicy::parse(Some(toss_us_session)) {
+            crate::market_hours::UsTradingSessionPolicy::Auto
+            | crate::market_hours::UsTradingSessionPolicy::Day => (9 * 60, 16 * 60 + 50, 0),
+            crate::market_hours::UsTradingSessionPolicy::Pre => (17 * 60, 22 * 60 + 30, 0),
+            crate::market_hours::UsTradingSessionPolicy::Regular => (22 * 60 + 30, 5 * 60, 1),
+            crate::market_hours::UsTradingSessionPolicy::After => (5 * 60, 7 * 60, 0),
+        }
+    };
+    (
+        open + entry_window_start_min.max(0),
+        close,
+        close_day_offset,
+    )
 }
 
 fn broker_candles_to_chart(candles: &[BrokerCandle], count: u16) -> Vec<ChartCandle> {
@@ -386,6 +494,16 @@ pub async fn preview_leveraged_trend_hold_for_profile(
     }
 
     let symbol = normalize_preview_symbol(input.symbol)?;
+    let interval = match input.interval.as_deref().unwrap_or("1m") {
+        "1m" | "M1" | "m" => "1m",
+        "1d" | "D" | "d" => "1d",
+        other => {
+            return Err(CmdError {
+                code: "INVALID_INTERVAL".into(),
+                message: format!("레버리지 미리보기 봉 단위는 1m 또는 1d만 지원합니다: {other}"),
+            });
+        }
+    };
     let count = input.count.unwrap_or(200).clamp(20, 200);
     let params: LeveragedTrendHoldParams =
         serde_json::from_value(input.params).map_err(|e| CmdError {
@@ -401,38 +519,68 @@ pub async fn preview_leveraged_trend_hold_for_profile(
     );
     let broker_symbol = BrokerSymbol(symbol.clone());
 
-    let daily_candles = adapter
+    let mut daily_candles = adapter
         .get_candles(&broker_symbol, "D", "", "")
         .await
         .map_err(|e| CmdError {
             code: "TOSS_CANDLES_ERROR".into(),
             message: format!("Toss 일봉 조회 실패: {e}"),
         })?;
-    let intraday_candles = adapter
-        .get_candles(&broker_symbol, "1m", "", "")
-        .await
-        .map_err(|e| CmdError {
-            code: "TOSS_CANDLES_ERROR".into(),
-            message: format!("Toss 1분봉 조회 실패: {e}"),
-        })?;
+    daily_candles.sort_by(|a, b| a.date.cmp(&b.date));
+    let simulation_candles = if interval == "1m" {
+        adapter
+            .get_candles(&broker_symbol, "1m", "", "")
+            .await
+            .map_err(|e| CmdError {
+                code: "TOSS_CANDLES_ERROR".into(),
+                message: format!("Toss 1분봉 조회 실패: {e}"),
+            })?
+    } else {
+        daily_candles.clone()
+    };
 
-    if intraday_candles.is_empty() {
+    if simulation_candles.is_empty() {
         return Err(CmdError {
             code: "NO_CANDLES".into(),
-            message: format!("{symbol} Toss 1분봉 데이터가 비어 있습니다."),
+            message: format!("{symbol} Toss {interval} 데이터가 비어 있습니다."),
         });
     }
 
-    let currency = intraday_candles
+    let currency = simulation_candles
         .iter()
         .find_map(|candle| broker_money_amount(&candle.close).map(|_| candle.close.currency))
         .unwrap_or(BrokerCurrency::Usd);
-    let chart_candles = broker_candles_to_chart(&intraday_candles, count);
-    let ohlc = broker_candles_to_ohlc(&daily_candles);
-    let timed = broker_candles_to_timed_ohlc(&intraday_candles);
+    let chart_candles = broker_candles_to_chart(&simulation_candles, count);
+    let replay_start = daily_candles.len().saturating_sub(count as usize);
+    let ohlc = if interval == "1d" {
+        broker_candles_to_ohlc(&daily_candles[..replay_start])
+    } else {
+        broker_candles_to_ohlc(&daily_candles)
+    };
+    let entry_is_overseas = params
+        .entries
+        .iter()
+        .find(|entry| entry.leveraged_symbol.eq_ignore_ascii_case(&symbol))
+        .map(|entry| entry.is_overseas)
+        .unwrap_or(true);
+    let (daily_open_minute, daily_close_minute, daily_close_day_offset) = preview_session_bounds(
+        entry_is_overseas,
+        &params.toss_us_session,
+        params.entry_window_start_min,
+    );
+    let timed = broker_candles_to_timed_ohlc(
+        &simulation_candles,
+        count,
+        interval,
+        daily_open_minute,
+        daily_close_minute,
+        daily_close_day_offset,
+    );
     let signal_views = LeveragedTrendHoldStrategy::preview_signals(&symbol, params, &ohlc, &timed)
         .into_iter()
         .map(|signal| LeveragedTrendHoldPreviewSignalView {
+            chart_time: (interval == "1d")
+                .then(|| daily_chart_time(&signal.time, daily_close_day_offset)),
             time: signal.time,
             side: signal.side,
             price: strategy_units_to_price(signal.price_units, currency),
@@ -449,17 +597,28 @@ pub async fn preview_leveraged_trend_hold_for_profile(
         })
         .collect::<Vec<_>>();
 
+    let interval_label = if interval == "1m" {
+        "1분봉"
+    } else {
+        "일봉"
+    };
     let message = if signal_views.is_empty() {
-        "현재 파라미터와 Toss 1분봉 기준으로 매수/청산 신호가 없습니다.".to_string()
+        format!(
+            "현재 파라미터와 Toss {interval_label} 실제 {}봉 기준으로 매수/청산 신호가 없습니다.",
+            chart_candles.len()
+        )
     } else {
         format!(
-            "현재 파라미터와 Toss 1분봉 기준으로 {}개 신호를 찾았습니다.",
+            "현재 파라미터와 Toss {interval_label} 실제 {}봉 기준으로 {}개 신호를 찾았습니다.",
+            chart_candles.len(),
             signal_views.len()
         )
     };
 
     Ok(LeveragedTrendHoldPreviewView {
         symbol,
+        interval: interval.to_string(),
+        candle_count: chart_candles.len(),
         candles: chart_candles,
         signals: signal_views,
         generated_at: chrono::Local::now().to_rfc3339(),
@@ -482,4 +641,69 @@ pub async fn preview_leveraged_trend_hold(
     })?;
 
     preview_leveraged_trend_hold_for_profile(input, profile).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        broker_candles_to_timed_ohlc, daily_chart_time, daily_preview_time, preview_session_bounds,
+    };
+    use crate::broker::{BrokerCandle, BrokerMarket, BrokerMoney, BrokerQuantity, BrokerSymbol};
+
+    #[test]
+    fn daily_preview_time_keeps_provider_date_and_selected_session_minute() {
+        assert_eq!(
+            daily_preview_time("2026-07-11", 22 * 60 + 35, 0).as_deref(),
+            Some("20260711223500")
+        );
+        assert_eq!(
+            daily_preview_time("2026-07-11", 5 * 60, 1).as_deref(),
+            Some("20260712050000")
+        );
+        assert_eq!(daily_preview_time("invalid", 9 * 60, 0), None);
+        assert_eq!(daily_chart_time("20260712050000", 1), "20260711");
+        assert_eq!(daily_chart_time("20260711224000", 1), "20260711");
+    }
+
+    #[test]
+    fn daily_preview_uses_selected_market_session_entry_window() {
+        assert_eq!(
+            preview_session_bounds(false, "auto", 5),
+            (9 * 60 + 5, 15 * 60 + 30, 0)
+        );
+        assert_eq!(
+            preview_session_bounds(true, "regular", 10),
+            (22 * 60 + 40, 5 * 60, 1)
+        );
+        assert_eq!(
+            preview_session_bounds(true, "after", 0),
+            (5 * 60, 7 * 60, 0)
+        );
+    }
+
+    #[test]
+    fn daily_preview_reveals_only_open_at_session_start_then_completed_ohlc_at_close() {
+        let source = BrokerCandle {
+            symbol: BrokerSymbol("SOXL".into()),
+            market: BrokerMarket::Us,
+            date: "20260711".into(),
+            open: BrokerMoney::usd("100"),
+            high: BrokerMoney::usd("120"),
+            low: BrokerMoney::usd("90"),
+            close: BrokerMoney::usd("110"),
+            volume: BrokerQuantity("1000".into()),
+        };
+        let timed = broker_candles_to_timed_ohlc(&[source], 1, "1d", 9 * 60 + 5, 16 * 60 + 50, 0);
+
+        assert_eq!(timed.len(), 2);
+        assert_eq!(timed[0].time, "20260711090500");
+        assert_eq!(timed[0].candle.open, 10_000);
+        assert_eq!(timed[0].candle.high, 10_000);
+        assert_eq!(timed[0].candle.low, 10_000);
+        assert_eq!(timed[0].candle.close, 10_000);
+        assert_eq!(timed[1].time, "20260711165000");
+        assert_eq!(timed[1].candle.high, 12_000);
+        assert_eq!(timed[1].candle.low, 9_000);
+        assert_eq!(timed[1].candle.close, 11_000);
+    }
 }

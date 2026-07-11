@@ -272,6 +272,7 @@ fn validate_symbol(symbol: &str) -> Result<(), CmdError> {
 - 급반등 단독 진입(`rapid_rebound_enabled`)은 기존 장중 반동과 별도 옵션이다. 최근 `rapid_rebound_lookback_ticks` 관측치 안에서 선행 고점 대비 저점 하락률(`rapid_rebound_drop_pct`)과 저점 대비 현재가 회복률(`rapid_rebound_recovery_pct`)을 보고, 저점 후 `rapid_rebound_max_low_age_ticks` 안에 회복했을 때만 진입한다. 이 경로도 EMA/ADX 추세 조건을 요구하지 않으며, 실시간 `on_tick()`과 `preview_signals()`가 같은 `rapid_rebound_entry_ok()` helper를 사용해야 한다.
 - 장중 반동/급반등 관측 버퍼는 `rebound_price_cap()`에서 두 옵션의 필요 길이 중 큰 값을 `bounded_window_with_extra()`로 감싼다. user-param을 그대로 `VecDeque` capacity로 쓰지 않는다.
 - Toss 실행 scope에서 자동매매를 시작하면 Toss `1d` candles로 일봉 OHLC를 초기화하고, Toss `1m` candles의 OHLC를 레버리지 전략 장중 상태에도 주입한다. 실시간 현재가 polling은 같은 분 안에서는 마지막 1분봉과 반동 관측값을 갱신하고, 분이 바뀔 때만 새 관측치를 추가한다. 공개 데이터와 Toss 데이터가 섞이지 않게 strategy preview/진단도 가능하면 Toss candles 경로를 우선 사용한다.
+- 레버리지 미리보기 입력은 `interval=1m|1d`와 `count=20..200`을 검증한다. 1분봉은 일봉 전체를 지표 warmup으로 사용하고 선택한 최근 분봉만 리플레이한다. 일봉은 표시 구간 이전 일봉만 warmup에 사용하며, 각 표시 일자는 세션 진입 시각의 시가-only 관측과 장 종료 시각의 완성 OHLC 관측으로 나눠 당일 고가·저가·종가 look-ahead를 막는다. 미국 정규장처럼 자정을 넘는 세션의 종료 시각은 다음 KST 날짜로 기록하고, signal 원본 시각은 상세 표시용으로 보존하되 별도 `chartTime` 거래일 키로 일봉 marker를 정렬한다.
 - 레버리지 전략 청산은 초기 손절, 반등 실패 손절, 수익 보호 청산을 분리한다. `initial_stop_loss_pct`는 보호 활성 전에도 진입가 대비 손실을 즉시 제한한다. 반등 실패 손절은 `entry_failure_observations`와 `min_hold_observations`를 모두 지난 뒤에도 고점 수익률이 `trailing_activation_profit_pct`에 닿지 못한 채 진입가 아래일 때만 발생한다. 이렇게 해야 매수 직후 작은 음수 흔들림이 “실패”로 과도하게 해석되지 않는다. 이후 고점 수익률이 `trailing_activation_profit_pct` 이상일 때만 본전 보호/추적손절/추세 이탈 청산을 검사한다. 보호 활성 후 `breakeven_buffer_pct` 이하로 내려오면 본전 보호 청산, 고점 대비 `trailing_stop_pct` 이상 밀리면 수익 보호 추적손절, EMA/RSI 추세 이탈은 현재 수익률이 버퍼보다 높을 때만 청산한다. 미리보기와 실시간 `on_tick()`은 같은 초기 손절/보호 청산 helper를 사용해야 한다.
 - `RiskManager`의 전략/종목별 일일 매수 제한은 재진입 전략을 막을 수 있어 차단 조건으로 사용하지 않는다. 하위 호환 필드는 남기되 view/update 경로는 0으로 노출·저장하고, 매도 일일 제한과 연속 손실 차단은 별도 방어로 유지한다.
 
@@ -1106,4 +1107,4 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - v1 schema는 기존 JSON 복원성을 위한 document store다. 주문/체결 복구·검색·retention을 위한 정규화 schema는 명시적인 schema version migration과 PostgreSQL/MariaDB contract test를 함께 추가한다.
 - JSON 파일 저장은 경로별 lock과 store별 read-modify-write lock을 사용하고, temp write → file fsync → 정상본 `.bak` → atomic rename → parent directory fsync 순서를 지킨다. 역직렬화 실패 시 손상본을 격리하고 마지막 정상 백업으로 복구한다.
 
-> 마지막 업데이트: 2026-07-11T00:00:00+09:00
+> 마지막 업데이트: 2026-07-11T23:27:54+09:00

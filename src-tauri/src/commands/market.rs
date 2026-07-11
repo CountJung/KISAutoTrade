@@ -11,6 +11,8 @@ pub struct ChartDataInput {
     pub period_code: String,
     pub start_date: String, // YYYYMMDD
     pub end_date: String,   // YYYYMMDD
+    #[serde(default)]
+    pub count: Option<u16>, // 웹 REST에서는 조회 범위로 사용, IPC는 날짜 범위가 원천
 }
 
 #[tauri::command]
@@ -19,7 +21,7 @@ pub async fn get_chart_data(
     state: State<'_, AppState>,
 ) -> CmdResult<Vec<ChartCandle>> {
     let client = state.rest_client.read().await.clone();
-    client
+    let candles = client
         .get_chart_data(
             &input.symbol,
             &input.period_code,
@@ -27,7 +29,10 @@ pub async fn get_chart_data(
             &input.end_date,
         )
         .await
-        .map_err(CmdError::from)
+        .map_err(CmdError::from)?;
+    let count = input.count.unwrap_or(100).clamp(1, 500) as usize;
+    let start = candles.len().saturating_sub(count);
+    Ok(candles[start..].to_vec())
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -301,13 +306,17 @@ pub async fn get_overseas_chart_data(
     exchange: String,
     period_code: String, // "D", "W", "M"
     base_date: String,   // YYYYMMDD — 비워두면 당일 기준
+    count: Option<u16>,  // 웹 REST transport 조회 범위와 IPC shape 일치용
     state: State<'_, AppState>,
 ) -> CmdResult<Vec<ChartCandle>> {
     let client = state.rest_client.read().await.clone();
-    client
+    let candles = client
         .get_overseas_chart_data(&symbol, &exchange, &period_code, &base_date)
         .await
-        .map_err(CmdError::from)
+        .map_err(CmdError::from)?;
+    let count = count.unwrap_or(100).clamp(1, 500) as usize;
+    let start = candles.len().saturating_sub(count);
+    Ok(candles[start..].to_vec())
 }
 
 #[tauri::command]
