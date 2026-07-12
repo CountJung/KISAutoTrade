@@ -96,6 +96,25 @@ pub struct PendingOrder {
 // OrderManager
 // ────────────────────────────────────────────────────────────────────
 
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TradingHealthStatus {
+    pub last_holdings_sync_at: Option<String>,
+    pub last_holdings_sync_attempt_at: Option<String>,
+    pub last_holdings_sync_error: Option<String>,
+    pub last_reconciliation_at: Option<String>,
+    pub last_reconciliation_attempt_at: Option<String>,
+    pub last_reconciliation_error: Option<String>,
+    pub holdings_consecutive_failures: u32,
+    pub reconciliation_consecutive_failures: u32,
+    pub oldest_pending_at: Option<String>,
+    pub pending_order_count: usize,
+    pub persistence_blocked: bool,
+    pub persistence_error: Option<String>,
+    pub daemon_consecutive_failures: u32,
+    pub daemon_last_error: Option<String>,
+}
+
 pub struct OrderManager {
     // ── ② 미체결 주문 풀 ────────────────────────────────────────────
     /// KIS odno → PendingOrder
@@ -106,6 +125,7 @@ pub struct OrderManager {
     symbol_to_odno: HashMap<String, String>,
     /// provider 주문 접수 전 local in-flight 예약. 느린 broker 호출 중 중복/반대 주문을 막는다.
     submitting: HashMap<(BrokerScope, String), OrderSide>,
+    modifying: std::collections::HashSet<String>,
 
     // ── ⑪ 잔고 부족 매수 정지 ────────────────────────────────────
     /// true = KIS 잔고부족 응답 수신 후 매수 일시 정지.
@@ -115,6 +135,7 @@ pub struct OrderManager {
     pub buy_suspended_reason: Option<String>,
     /// 주문 상태 영속화 실패 시 매수/매도 모두 차단한다.
     persistence_blocked: bool,
+    health: TradingHealthStatus,
 
     // ── 공유 의존성 (Arc) ───────────────────────────────────────────
     /// KIS REST 클라이언트 (프로파일 전환 시 내부 Arc만 교체됨)
@@ -158,9 +179,11 @@ impl OrderManager {
             pending: HashMap::new(),
             symbol_to_odno: HashMap::new(),
             submitting: HashMap::new(),
+            modifying: std::collections::HashSet::new(),
             buy_suspended: false,
             buy_suspended_reason: None,
             persistence_blocked: false,
+            health: TradingHealthStatus::default(),
             rest_client,
             profiles,
             order_store,
@@ -188,6 +211,93 @@ impl OrderManager {
 
     pub fn execution_scope(&self) -> &BrokerScope {
         &self.execution_scope
+    }
+
+    pub fn order_store_handle(&self) -> Arc<OrderStore> {
+        Arc::clone(&self.order_store)
+    }
+
+    pub fn health_status(&self) -> TradingHealthStatus {
+        let mut status = self.health.clone();
+        status.pending_order_count = self.pending.len();
+        status.oldest_pending_at = self
+            .pending
+            .values()
+            .map(|pending| pending.record.timestamp.as_str())
+            .min()
+            .map(str::to_string);
+        status.persistence_blocked = self.persistence_blocked;
+        status
+    }
+
+    pub fn mark_holdings_sync(&mut self, error: Option<String>) {
+        let now = chrono::Local::now().to_rfc3339();
+        self.health.last_holdings_sync_attempt_at = Some(now.clone());
+        self.health.last_holdings_sync_error = error.clone();
+        if let Some(error) = error {
+            self.health.holdings_consecutive_failures = self
+                .health
+                .holdings_consecutive_failures
+                .saturating_add(1);
+            self.health.daemon_last_error = Some(error);
+        } else {
+            self.health.last_holdings_sync_at = Some(now);
+            self.health.holdings_consecutive_failures = 0;
+        }
+        self.refresh_daemon_failure_summary();
+    }
+
+    pub(super) fn mark_reconciliation(&mut self, error: Option<String>) {
+        let now = chrono::Local::now().to_rfc3339();
+        let previous_failures = self.health.reconciliation_consecutive_failures;
+        self.health.last_reconciliation_attempt_at = Some(now.clone());
+        self.health.last_reconciliation_error = error.clone();
+        if let Some(error) = error {
+            self.health.reconciliation_consecutive_failures = self
+                .health
+                .reconciliation_consecutive_failures
+                .saturating_add(1);
+            self.health.daemon_last_error = Some(error);
+            if self.health.reconciliation_consecutive_failures == 3 {
+                if let Some(discord) = self.discord.clone() {
+                    let detail = self.health.last_reconciliation_error.clone().unwrap_or_default();
+                    tokio::spawn(async move {
+                        let _ = discord
+                            .send(NotificationEvent::error(
+                                "자동매매 체결 대조 장애",
+                                format!("{detail} broker 연결과 계좌 인증을 확인하세요. 미체결 주문의 신규 제출은 신중히 판단해야 합니다."),
+                            ))
+                            .await;
+                    });
+                }
+            }
+        } else {
+            self.health.last_reconciliation_at = Some(now);
+            self.health.reconciliation_consecutive_failures = 0;
+            if previous_failures >= 3 {
+                if let Some(discord) = self.discord.clone() {
+                    tokio::spawn(async move {
+                        let _ = discord
+                            .send(NotificationEvent::info(
+                                "자동매매 체결 대조 복구",
+                                "broker 미체결 주문 대조가 정상화되었습니다.",
+                            ))
+                            .await;
+                    });
+                }
+            }
+        }
+        self.refresh_daemon_failure_summary();
+    }
+
+    fn refresh_daemon_failure_summary(&mut self) {
+        self.health.daemon_consecutive_failures = self
+            .health
+            .holdings_consecutive_failures
+            .max(self.health.reconciliation_consecutive_failures);
+        if self.health.daemon_consecutive_failures == 0 {
+            self.health.daemon_last_error = None;
+        }
     }
 
     /// ① 전략 신호 처리 → 주문 실행
@@ -315,6 +425,17 @@ impl OrderManager {
 
     /// 주문 취소 이벤트 처리
     pub async fn on_cancel(&mut self, odno: &str) -> Result<()> {
+        self.finalize_pending_order(odno, OrderStatus::Cancelled, "cancelled", None)
+            .await
+    }
+
+    pub(super) async fn finalize_pending_order(
+        &mut self,
+        odno: &str,
+        status: OrderStatus,
+        provider_status: &str,
+        error_message: Option<String>,
+    ) -> Result<()> {
         let Some(pending) = self.pending.remove(odno) else {
             return Ok(());
         };
@@ -326,13 +447,35 @@ impl OrderManager {
             return Err(error);
         }
 
+        let pending_for_restore = pending.clone();
         let mut record = pending.record;
-        record.status = OrderStatus::Cancelled;
-        if let Err(e) = self.order_store.append(record.clone()).await {
-            tracing::error!("주문 기록 저장 실패 (Cancelled): {}", e);
+        record.status = status;
+        record.error_message = error_message.or_else(|| {
+            matches!(
+                status,
+                OrderStatus::Rejected | OrderStatus::Expired | OrderStatus::Failed
+            )
+            .then(|| format!("provider status: {provider_status}"))
+        });
+        let order_date = chrono::DateTime::parse_from_rfc3339(&record.timestamp)
+            .map(|timestamp| timestamp.date_naive())
+            .unwrap_or_else(|_| chrono::Local::now().date_naive());
+        if let Err(e) = self.order_store.upsert_on(order_date, record.clone()).await {
+            tracing::error!("주문 terminal 기록 저장 실패 ({provider_status}): {e}");
+            self.track_pending_order(odno.to_string(), pending_for_restore);
+            let _ = self.persist_pending_orders().await;
+            self.block_for_persistence_failure(format!(
+                "주문 terminal 상태 영속화 실패 ({provider_status}): {e}"
+            ));
+            return Err(e);
         }
 
-        tracing::info!("주문 취소 처리: {} (odno: {})", record.symbol, odno);
+        tracing::info!(
+            "주문 terminal 처리: {} (odno: {}, status: {})",
+            record.symbol,
+            odno,
+            provider_status
+        );
         Ok(())
     }
 
@@ -355,9 +498,24 @@ impl OrderManager {
     }
 
     pub fn block_for_persistence_failure(&mut self, reason: String) {
+        let should_notify = !self.persistence_blocked;
         self.persistence_blocked = true;
         self.buy_suspended = true;
         self.buy_suspended_reason = Some(reason);
+        self.health.persistence_error = self.buy_suspended_reason.clone();
+        if should_notify {
+            if let Some(discord) = self.discord.clone() {
+                let detail = self.buy_suspended_reason.clone().unwrap_or_default();
+                tokio::spawn(async move {
+                    let _ = discord
+                        .send(NotificationEvent::error(
+                            "자동매매 영속화 장애",
+                            format!("{detail} 데이터 저장소를 복구하고 앱을 재시작할 때까지 모든 신규 주문을 차단합니다."),
+                        ))
+                        .await;
+                });
+            }
+        }
     }
 
     /// 리스크 runtime 스냅샷을 저장한다.
@@ -481,6 +639,20 @@ impl OrderManager {
             .insert(pending.record.symbol.clone(), key.clone());
         self.pending.insert(key, pending);
         true
+    }
+
+    pub fn begin_pending_modification(&mut self, order_id: &str) -> Result<bool> {
+        if !self.pending.contains_key(order_id) {
+            return Ok(false);
+        }
+        if !self.modifying.insert(order_id.to_string()) {
+            anyhow::bail!("이미 정정 또는 취소 처리 중인 주문입니다: {order_id}");
+        }
+        Ok(true)
+    }
+
+    pub fn finish_pending_modification(&mut self, order_id: &str) {
+        self.modifying.remove(order_id);
     }
 
     pub async fn current_exchange_rate_krw(&self) -> f64 {
@@ -901,6 +1073,7 @@ impl OrderManager {
             }
             .to_string(),
         )
+        .with_strategy_id(strategy_id.clone())
         .with_provider_trace(
             "kis",
             Some(response.odno.clone()),

@@ -446,6 +446,9 @@ export function PendingOrdersPanel() {
                   <Typography variant="caption" color="text.secondary">
                     {o.symbol}
                   </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" noWrap>
+                    {o.brokerId.toUpperCase()}{o.brokerAccountId ? ` · ${o.brokerAccountId}` : ''}
+                  </Typography>
                 </TableCell>
                 <TableCell>
                   <Chip

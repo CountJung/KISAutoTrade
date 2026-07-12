@@ -389,6 +389,24 @@ export interface TradingStatus {
   buySuspended: boolean
   /** 매수 정지 사유 (KIS msg1, 없으면 null) */
   buySuspendedReason?: string | null
+  health: TradingHealthStatus
+}
+
+export interface TradingHealthStatus {
+  lastHoldingsSyncAt: string | null
+  lastHoldingsSyncAttemptAt: string | null
+  lastHoldingsSyncError: string | null
+  lastReconciliationAt: string | null
+  lastReconciliationAttemptAt: string | null
+  lastReconciliationError: string | null
+  holdingsConsecutiveFailures: number
+  reconciliationConsecutiveFailures: number
+  oldestPendingAt: string | null
+  pendingOrderCount: number
+  persistenceBlocked: boolean
+  persistenceError: string | null
+  daemonConsecutiveFailures: number
+  daemonLastError: string | null
 }
 
 // ─── WebSocket 연결 상태 이벤트 (Tauri 'ws-status' 이벤트 페이로드) ──
@@ -733,6 +751,9 @@ export interface StrategyView {
 
 export interface UpdateStrategyInput {
   id: string
+  expectedProfileId: string
+  expectedBrokerId: BrokerId
+  expectedBrokerAccountId: string | null
   enabled?: boolean
   targetSymbols?: string[]
   orderQuantity?: number
@@ -931,7 +952,7 @@ export interface PendingOrderView {
   symbolName: string
   /** "buy" | "sell" */
   side: string
-  status: 'pending' | 'partially_filled' | 'filled' | 'cancelled' | 'failed'
+  status: 'pending' | 'partially_filled' | 'filled' | 'cancelled' | 'rejected' | 'expired' | 'failed'
   quantity: number
   filledQuantity: number
   remainingQuantity: number
@@ -941,6 +962,8 @@ export interface PendingOrderView {
   providerOrderId?: string | null
   providerRequestId?: string | null
   providerTrId?: string | null
+  brokerId: BrokerId
+  brokerAccountId?: string | null
 }
 
 // ─── 종목 목록 통계 ──────────────────────────────────────────────

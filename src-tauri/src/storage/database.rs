@@ -22,7 +22,7 @@ use tokio::{fs, sync::Mutex};
 
 const DOCUMENTS_TABLE: &str = "kisautotrade_documents";
 const METADATA_TABLE: &str = "kisautotrade_metadata";
-const SCHEMA_VERSION: i32 = 1;
+use super::database_schema::{NORMALIZED_TABLES, SCHEMA_VERSION};
 const MAX_JSON_FILE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_IMPORT_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_IMPORT_FILES: usize = 10_000;
@@ -38,7 +38,7 @@ pub use super::database_types::{
 };
 
 #[derive(Clone)]
-enum DatabasePool {
+pub(super) enum DatabasePool {
     Postgresql(PgPool),
     Mariadb(MySqlPool),
 }
@@ -165,7 +165,26 @@ impl DatabaseManager {
         } else {
             0
         };
-        let ready = documents_exists && metadata_exists && schema_version == Some(SCHEMA_VERSION);
+        let mut normalized_status = Vec::new();
+        let mut normalized_ready = true;
+        for (table, purpose) in NORMALIZED_TABLES {
+            let exists = self.table_exists(&pool, table).await?;
+            normalized_ready &= exists;
+            normalized_status.push(DatabaseTableStatus {
+                name: table.to_string(),
+                purpose: purpose.to_string(),
+                exists,
+                row_count: if exists {
+                    self.row_count(&pool, table).await?
+                } else {
+                    0
+                },
+            });
+        }
+        let ready = documents_exists
+            && metadata_exists
+            && normalized_ready
+            && schema_version == Some(SCHEMA_VERSION);
         Ok(DatabaseStatusView {
             connected: true,
             provider: config.provider,
@@ -180,26 +199,39 @@ impl DatabaseManager {
             } else {
                 "DB 연결은 정상이지만 앱 테이블 생성 또는 업그레이드가 필요합니다.".to_string()
             },
-            tables: vec![
-                DatabaseTableStatus {
-                    name: DOCUMENTS_TABLE.to_string(),
-                    purpose: "JSON 데이터 문서".to_string(),
-                    exists: documents_exists,
-                    row_count: documents_count,
-                },
-                DatabaseTableStatus {
-                    name: METADATA_TABLE.to_string(),
-                    purpose: "스키마 버전과 관리 메타데이터".to_string(),
-                    exists: metadata_exists,
-                    row_count: metadata_count,
-                },
-            ],
+            tables: {
+                let mut tables = vec![
+                    DatabaseTableStatus {
+                        name: DOCUMENTS_TABLE.to_string(),
+                        purpose: "JSON 데이터 문서".to_string(),
+                        exists: documents_exists,
+                        row_count: documents_count,
+                    },
+                    DatabaseTableStatus {
+                        name: METADATA_TABLE.to_string(),
+                        purpose: "스키마 버전과 관리 메타데이터".to_string(),
+                        exists: metadata_exists,
+                        row_count: metadata_count,
+                    },
+                ];
+                tables.extend(normalized_status);
+                tables
+            },
         })
     }
 
     pub async fn create_tables(&self) -> Result<DatabaseStatusView> {
         let _operation = self.operation_lock.lock().await;
         let pool = self.pool().await?;
+        if self.table_exists(&pool, METADATA_TABLE).await? {
+            if let Some(version) = self.schema_version(&pool).await? {
+                if version > SCHEMA_VERSION {
+                    bail!(
+                        "DB schema version {version}은 이 앱이 지원하는 v{SCHEMA_VERSION}보다 새 버전입니다. 앱을 업그레이드하세요."
+                    );
+                }
+            }
+        }
         match &pool {
             DatabasePool::Postgresql(pool) => {
                 sqlx::query(&format!(
@@ -232,6 +264,13 @@ impl DatabaseManager {
                 .await?;
             }
         }
+        super::database_schema::create(&pool).await?;
+        let documents = self.fetch_documents(&pool).await?;
+        let projection_documents: Vec<_> = documents
+            .iter()
+            .map(|document| (document.key.as_str(), document.payload.as_str()))
+            .collect();
+        super::database_projection::rebuild(&pool, &projection_documents).await?;
         self.upsert_metadata(&pool, "schema_version", &SCHEMA_VERSION.to_string())
             .await?;
         drop(_operation);
@@ -245,18 +284,30 @@ impl DatabaseManager {
         let _operation = self.operation_lock.lock().await;
         self.ensure_json_backend().await?;
         let pool = self.pool().await?;
-        if self.table_exists(&pool, DOCUMENTS_TABLE).await? {
-            match &pool {
-                DatabasePool::Postgresql(pool) => {
-                    sqlx::query(&format!("DELETE FROM {DOCUMENTS_TABLE}"))
-                        .execute(pool)
+        match &pool {
+            DatabasePool::Postgresql(pool) => {
+                let mut transaction = pool.begin().await?;
+                for (table, _) in NORMALIZED_TABLES.iter().rev() {
+                    sqlx::query(&format!("DELETE FROM {table}"))
+                        .execute(&mut *transaction)
                         .await?;
                 }
-                DatabasePool::Mariadb(pool) => {
-                    sqlx::query(&format!("DELETE FROM {DOCUMENTS_TABLE}"))
-                        .execute(pool)
+                sqlx::query(&format!("DELETE FROM {DOCUMENTS_TABLE}"))
+                    .execute(&mut *transaction)
+                    .await?;
+                transaction.commit().await?;
+            }
+            DatabasePool::Mariadb(pool) => {
+                let mut transaction = pool.begin().await?;
+                for (table, _) in NORMALIZED_TABLES.iter().rev() {
+                    sqlx::query(&format!("DELETE FROM {table}"))
+                        .execute(&mut *transaction)
                         .await?;
                 }
+                sqlx::query(&format!("DELETE FROM {DOCUMENTS_TABLE}"))
+                    .execute(&mut *transaction)
+                    .await?;
+                transaction.commit().await?;
             }
         }
         drop(_operation);
@@ -270,6 +321,7 @@ impl DatabaseManager {
         let _operation = self.operation_lock.lock().await;
         self.ensure_json_backend().await?;
         let pool = self.pool().await?;
+        super::database_schema::drop(&pool).await?;
         match &pool {
             DatabasePool::Postgresql(pool) => {
                 sqlx::query(&format!("DROP TABLE IF EXISTS {DOCUMENTS_TABLE}"))
@@ -406,6 +458,18 @@ impl DatabaseManager {
             let pool = self.pool().await?;
             self.validate_document_set_size(&pool).await?;
             let documents = self.fetch_documents(&pool).await?;
+            let database_keys: std::collections::HashSet<_> =
+                documents.iter().map(|document| document.key.as_str()).collect();
+            for local in scan_json_documents(self.data_dir.clone()).await? {
+                if !database_keys.contains(local.key.as_str()) {
+                    let path = safe_export_path(&self.data_dir, &local.key)?;
+                    match fs::remove_file(&path).await {
+                        Ok(()) => {}
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                        Err(error) => return Err(error).context("DB에 없는 local JSON 제거 실패"),
+                    }
+                }
+            }
             for document in &documents {
                 let path = safe_export_path(&self.data_dir, &document.key)?;
                 atomic_write(&path, &document.payload).await?;
@@ -513,7 +577,7 @@ impl DatabaseManager {
         Ok(())
     }
 
-    async fn pool(&self) -> Result<DatabasePool> {
+    pub(super) async fn pool(&self) -> Result<DatabasePool> {
         let config = self.config.read().await.clone();
         config.validate()?;
         let fingerprint = config.fingerprint();
@@ -525,6 +589,18 @@ impl DatabaseManager {
         let pool = connect_pool(&config).await?;
         *self.pool.lock().await = Some((fingerprint, pool.clone()));
         Ok(pool)
+    }
+
+    pub async fn database_archive_stats(
+        &self,
+    ) -> Result<super::database_archive::DatabaseArchiveStats> {
+        let _operation = self.operation_lock.lock().await;
+        super::database_archive::stats(&self.pool().await?).await
+    }
+
+    pub async fn purge_database_trades(&self, retention_days: u32, max_size_mb: u64) -> Result<()> {
+        let _operation = self.operation_lock.lock().await;
+        super::database_archive::purge(&self.pool().await?, retention_days, max_size_mb).await
     }
 
     async fn server_version(&self, pool: &DatabasePool) -> Result<String> {
@@ -563,7 +639,12 @@ impl DatabaseManager {
     }
 
     async fn row_count(&self, pool: &DatabasePool, table: &str) -> Result<u64> {
-        if table != DOCUMENTS_TABLE && table != METADATA_TABLE {
+        if table != DOCUMENTS_TABLE
+            && table != METADATA_TABLE
+            && !NORMALIZED_TABLES
+                .iter()
+                .any(|(allowed, _)| *allowed == table)
+        {
             bail!("허용되지 않은 DB 테이블입니다.");
         }
         let sql = format!("SELECT COUNT(*) FROM {table}");
@@ -633,6 +714,7 @@ impl DatabaseManager {
         let now = chrono::Utc::now().to_rfc3339();
         match pool {
             DatabasePool::Postgresql(pool) => {
+                let mut transaction = pool.begin().await?;
                 sqlx::query(&format!(
                     "INSERT INTO {DOCUMENTS_TABLE} (document_key, category, payload, size_bytes, updated_at) \
                      VALUES ($1, $2, $3, $4, $5) ON CONFLICT (document_key) DO UPDATE SET \
@@ -644,10 +726,18 @@ impl DatabaseManager {
                 .bind(&document.payload)
                 .bind(document.size_bytes as i64)
                 .bind(now)
-                .execute(pool)
+                .execute(&mut *transaction)
                 .await?;
+                super::database_projection::project_postgres(
+                    &mut transaction,
+                    &document.key,
+                    &document.payload,
+                )
+                .await?;
+                transaction.commit().await?;
             }
             DatabasePool::Mariadb(pool) => {
+                let mut transaction = pool.begin().await?;
                 sqlx::query(&format!(
                     "INSERT INTO {DOCUMENTS_TABLE} (document_key, category, payload, size_bytes, updated_at) \
                      VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE category = VALUES(category), \
@@ -658,8 +748,15 @@ impl DatabaseManager {
                 .bind(&document.payload)
                 .bind(document.size_bytes as i64)
                 .bind(now)
-                .execute(pool)
+                .execute(&mut *transaction)
                 .await?;
+                super::database_projection::project_mariadb(
+                    &mut transaction,
+                    &document.key,
+                    &document.payload,
+                )
+                .await?;
+                transaction.commit().await?;
             }
         }
         Ok(())
@@ -691,6 +788,15 @@ impl DatabaseManager {
                     .execute(&mut *transaction)
                     .await?;
                 }
+                let projection_documents: Vec<_> = documents
+                    .iter()
+                    .map(|document| (document.key.as_str(), document.payload.as_str()))
+                    .collect();
+                super::database_projection::rebuild_postgres(
+                    &mut transaction,
+                    &projection_documents,
+                )
+                .await?;
                 transaction.commit().await?;
             }
             DatabasePool::Mariadb(pool) => {
@@ -712,6 +818,15 @@ impl DatabaseManager {
                     .execute(&mut *transaction)
                     .await?;
                 }
+                let projection_documents: Vec<_> = documents
+                    .iter()
+                    .map(|document| (document.key.as_str(), document.payload.as_str()))
+                    .collect();
+                super::database_projection::rebuild_mariadb(
+                    &mut transaction,
+                    &projection_documents,
+                )
+                .await?;
                 transaction.commit().await?;
             }
         }
@@ -1206,8 +1321,7 @@ mod tests {
     }
 
     fn keychain_test_dirs() -> (PathBuf, PathBuf) {
-        let base =
-            std::env::temp_dir().join(format!("kisat-db-keychain-{}", uuid::Uuid::new_v4()));
+        let base = std::env::temp_dir().join(format!("kisat-db-keychain-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(base.join("data")).expect("data dir");
         (base.join("database_config.json"), base.join("data"))
     }
@@ -1267,7 +1381,10 @@ mod tests {
 
         let manager = DatabaseManager::load_sync(config_path.clone(), data_dir).expect("load");
         let view = manager.config_view().await;
-        assert!(view.password_configured, "이전 후에도 password는 유효해야 한다");
+        assert!(
+            view.password_configured,
+            "이전 후에도 password는 유효해야 한다"
+        );
 
         let file_content = std::fs::read_to_string(&config_path).expect("config file");
         assert!(

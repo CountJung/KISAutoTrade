@@ -21,7 +21,8 @@ struct PendingFill {
     odno: String,
     filled_qty: u64,
     avg_price: u64,
-    terminal: bool,
+    terminal_status: Option<OrderStatus>,
+    provider_status: String,
     execution_date: chrono::NaiveDate,
 }
 
@@ -336,6 +337,24 @@ impl OrderManager {
             current.application_started = false;
             current.application_pnl = None;
         }
+        let mut lifecycle_record = pending.record.clone();
+        lifecycle_record.status = if is_complete {
+            OrderStatus::Filled
+        } else {
+            OrderStatus::PartiallyFilled
+        };
+        lifecycle_record.price = confirmed_avg_price;
+        let lifecycle_date = chrono::DateTime::parse_from_rfc3339(&lifecycle_record.timestamp)
+            .map(|timestamp| timestamp.date_naive())
+            .unwrap_or(execution_date);
+        if let Err(error) = self
+            .order_store
+            .upsert_on(lifecycle_date, lifecycle_record)
+            .await
+        {
+            self.block_for_persistence_failure(format!("주문 상태 전이 영속화 실패: {error}"));
+            return Err(error);
+        }
         if let Err(error) = self.persist_pending_orders().await {
             self.block_for_persistence_failure(format!("체결 watermark 영속화 실패: {error}"));
             return Err(error);
@@ -437,6 +456,15 @@ impl OrderManager {
     pub async fn confirm_pending_fills_from_broker_shared(
         order_manager: &Arc<Mutex<OrderManager>>,
     ) -> Result<()> {
+        let result = Self::confirm_pending_fills_from_broker_shared_inner(order_manager).await;
+        let error = result.as_ref().err().map(ToString::to_string);
+        order_manager.lock().await.mark_reconciliation(error);
+        result
+    }
+
+    async fn confirm_pending_fills_from_broker_shared_inner(
+        order_manager: &Arc<Mutex<OrderManager>>,
+    ) -> Result<()> {
         let (pending, rest_client, active_toss_profile) = {
             let manager = order_manager.lock().await;
             if manager.pending.is_empty() {
@@ -488,7 +516,9 @@ impl OrderManager {
     fn pending_fill_candidates(&self) -> Vec<(BrokerId, String, String, String)> {
         self.pending
             .iter()
-            .filter(|(_, order)| order.broker_scope == self.execution_scope)
+            .filter(|(odno, order)| {
+                order.broker_scope == self.execution_scope && !self.modifying.contains(*odno)
+            })
             .map(|(odno, order)| {
                 let is_overseas =
                     order.exchange.is_some() || !is_domestic_symbol(&order.record.symbol);
@@ -524,8 +554,9 @@ impl OrderManager {
                 )
                 .await?;
             }
-            if fill.terminal {
-                self.on_cancel(&fill.odno).await?;
+            if let Some(status) = fill.terminal_status {
+                self.finalize_pending_order(&fill.odno, status, &fill.provider_status, None)
+                    .await?;
             }
         }
         Ok(())
@@ -608,8 +639,8 @@ async fn collect_kis_pending_fills(
                 continue;
             };
             let qty = normalized_execution_u64(&order.tot_ccld_qty);
-            let terminal = domestic_order_is_terminal(order);
-            if qty == 0 && !terminal {
+            let terminal_status = domestic_order_terminal_status(order);
+            if qty == 0 && terminal_status.is_none() {
                 continue;
             }
             let amount = normalized_execution_u64(&order.tot_ccld_amt);
@@ -637,7 +668,8 @@ async fn collect_kis_pending_fills(
                 odno: odno.clone(),
                 filled_qty: qty,
                 avg_price,
-                terminal,
+                terminal_status,
+                provider_status: domestic_provider_status(order),
                 execution_date,
             });
         }
@@ -662,8 +694,8 @@ async fn collect_kis_pending_fills(
                 continue;
             };
             let qty = order.filled_qty();
-            let terminal = order.is_terminal();
-            if qty == 0 && !terminal {
+            let terminal_status = overseas_order_terminal_status(order);
+            if qty == 0 && terminal_status.is_none() {
                 continue;
             }
             let avg_price_cents = order.avg_price_cents();
@@ -684,7 +716,8 @@ async fn collect_kis_pending_fills(
                 odno: odno.clone(),
                 filled_qty: qty,
                 avg_price: avg_price_cents,
-                terminal,
+                terminal_status,
+                provider_status: order.prcs_stat_name.clone(),
                 execution_date,
             });
         }
@@ -731,17 +764,14 @@ async fn collect_toss_pending_fills(
                 )
             })?;
         let qty = storage_quantity_units(&order.execution.filled_quantity);
-        let terminal = matches!(
-            order.status.as_str(),
-            "FILLED" | "CANCELED" | "CANCELLED" | "REJECTED" | "EXPIRED"
-        );
+        let terminal_status = provider_terminal_status(order.status.as_str());
         let avg_units = order
             .execution
             .average_filled_price
             .as_deref()
             .map(|price| storage_money_units(price, &order.currency))
             .unwrap_or(0);
-        if qty == 0 && !terminal {
+        if qty == 0 && terminal_status.is_none() {
             continue;
         }
         if qty > 0 && avg_units == 0 {
@@ -770,7 +800,8 @@ async fn collect_toss_pending_fills(
             odno: order_id.clone(),
             filled_qty: qty,
             avg_price: avg_units,
-            terminal,
+            terminal_status,
+            provider_status: order.status.clone(),
             execution_date,
         });
     }
@@ -790,6 +821,17 @@ fn normalized_execution_u64(value: &str) -> u64 {
     value.trim().replace(',', "").parse::<u64>().unwrap_or(0)
 }
 
+fn provider_terminal_status(status: &str) -> Option<OrderStatus> {
+    match status.trim().to_ascii_uppercase().as_str() {
+        "FILLED" => Some(OrderStatus::Filled),
+        "CANCELED" | "CANCELLED" => Some(OrderStatus::Cancelled),
+        "REJECTED" => Some(OrderStatus::Rejected),
+        "EXPIRED" => Some(OrderStatus::Expired),
+        "FAILED" => Some(OrderStatus::Failed),
+        _ => None,
+    }
+}
+
 fn parse_provider_execution_date(value: &str) -> Option<chrono::NaiveDate> {
     chrono::NaiveDate::parse_from_str(value.trim(), "%Y%m%d")
         .ok()
@@ -801,7 +843,12 @@ fn parse_provider_execution_date(value: &str) -> Option<chrono::NaiveDate> {
         .or_else(|| chrono::NaiveDate::parse_from_str(value.trim(), "%Y-%m-%d").ok())
 }
 
+#[cfg(test)]
 fn domestic_order_is_terminal(order: &crate::api::rest::ExecutedOrder) -> bool {
+    domestic_order_terminal_status(order).is_some()
+}
+
+fn domestic_order_terminal_status(order: &crate::api::rest::ExecutedOrder) -> Option<OrderStatus> {
     let ordered = normalized_execution_u64(&order.ord_qty);
     let filled = normalized_execution_u64(&order.tot_ccld_qty);
     let canceled = normalized_execution_u64(&order.cnc_cfrm_qty);
@@ -811,16 +858,68 @@ fn domestic_order_is_terminal(order: &crate::api::rest::ExecutedOrder) -> bool {
     } else {
         normalized_execution_u64(&order.rmn_qty)
     };
-    (ordered > 0 && filled >= ordered)
-        || (ordered > 0
-            && remaining == 0
-            && (order.cncl_yn.trim().eq_ignore_ascii_case("Y")
-                || filled.saturating_add(canceled).saturating_add(rejected) >= ordered))
+    if ordered > 0 && filled >= ordered {
+        Some(OrderStatus::Filled)
+    } else if ordered > 0 && remaining == 0 && rejected > 0 {
+        Some(OrderStatus::Rejected)
+    } else if ordered > 0
+        && remaining == 0
+        && (order.cncl_yn.trim().eq_ignore_ascii_case("Y") || canceled > 0)
+    {
+        Some(OrderStatus::Cancelled)
+    } else if ordered > 0
+        && remaining == 0
+        && filled.saturating_add(canceled).saturating_add(rejected) >= ordered
+    {
+        Some(OrderStatus::Failed)
+    } else {
+        None
+    }
+}
+
+fn domestic_provider_status(order: &crate::api::rest::ExecutedOrder) -> String {
+    match domestic_order_terminal_status(order) {
+        Some(OrderStatus::Filled) => "FILLED",
+        Some(OrderStatus::Cancelled) => "CANCELLED",
+        Some(OrderStatus::Rejected) => "REJECTED",
+        Some(OrderStatus::Failed) => "FAILED",
+        _ => "PENDING",
+    }
+    .to_string()
+}
+
+fn overseas_order_terminal_status(
+    order: &crate::api::rest::OverseasExecutedOrder,
+) -> Option<OrderStatus> {
+    if !order.is_terminal() {
+        return None;
+    }
+    let status = order.prcs_stat_name.trim().to_ascii_lowercase();
+    if !order.rjct_rson.trim().is_empty()
+        || matches!(status.as_str(), "주문거부" | "거부" | "rejected")
+    {
+        Some(OrderStatus::Rejected)
+    } else if status == "expired" {
+        Some(OrderStatus::Expired)
+    } else if matches!(
+        status.as_str(),
+        "취소완료" | "주문취소" | "canceled" | "cancelled"
+    ) {
+        Some(OrderStatus::Cancelled)
+    } else if order.filled_qty() > 0 {
+        Some(OrderStatus::Filled)
+    } else {
+        Some(OrderStatus::Failed)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{cumulative_fill_delta, cumulative_fill_delta_price, domestic_order_is_terminal};
+    use super::{
+        cumulative_fill_delta, cumulative_fill_delta_price, domestic_order_is_terminal,
+        domestic_order_terminal_status, provider_terminal_status,
+    };
+    use crate::storage::order_store::OrderStatus;
 
     #[test]
     fn repeated_cumulative_fill_is_idempotent() {
@@ -847,6 +946,10 @@ mod tests {
             ..Default::default()
         };
         assert!(domestic_order_is_terminal(&order));
+        assert_eq!(
+            domestic_order_terminal_status(&order),
+            Some(OrderStatus::Cancelled)
+        );
     }
 
     #[test]
@@ -872,6 +975,23 @@ mod tests {
             ..Default::default()
         };
         assert!(!order.is_terminal());
+    }
+
+    #[test]
+    fn provider_terminal_status_preserves_rejection_and_expiration() {
+        assert_eq!(
+            provider_terminal_status("REJECTED"),
+            Some(OrderStatus::Rejected)
+        );
+        assert_eq!(
+            provider_terminal_status("expired"),
+            Some(OrderStatus::Expired)
+        );
+        assert_eq!(
+            provider_terminal_status("CANCELLED"),
+            Some(OrderStatus::Cancelled)
+        );
+        assert_eq!(provider_terminal_status("PENDING"), None);
     }
 }
 

@@ -122,7 +122,7 @@ async fn postgresql_full_roundtrip_contract() {
         .expect("data dir");
 
     let manager =
-        DatabaseManager::load_sync(config_path, data_dir.clone()).expect("manager load");
+        DatabaseManager::load_sync(config_path.clone(), data_dir.clone()).expect("manager load");
     manager
         .save_config(save_input(&env, &database))
         .await
@@ -153,6 +153,24 @@ async fn postgresql_full_roundtrip_contract() {
         .find(|table| table.name == "kisautotrade_documents")
         .expect("documents table");
     assert_eq!(documents_table.row_count, 2);
+    assert_eq!(
+        status
+            .tables
+            .iter()
+            .find(|table| table.name == "kisautotrade_positions")
+            .expect("positions projection")
+            .row_count,
+        1
+    );
+    assert_eq!(
+        status
+            .tables
+            .iter()
+            .find(|table| table.name == "kisautotrade_fills")
+            .expect("fills projection")
+            .row_count,
+        1
+    );
 
     // ④ DB → JSON 스냅샷 반출: 원본 payload와 checksum 왕복 일치
     let export = manager.export_json().await.expect("export json");
@@ -181,11 +199,117 @@ async fn postgresql_full_roundtrip_contract() {
         .expect("read through db backend");
     assert_eq!(read_back.as_deref(), Some(updated));
 
+    let order_path = data_dir.join("orders/2026/07/12/orders.json");
+    let order_payload = r#"[{"id":"order-1","broker_id":"kis","broker_account_id":"12345678-01","provider_order_id":"provider-1","symbol":"005930","status":"partially_filled"}]"#;
+    manager
+        .write_document(&order_path, order_payload)
+        .await
+        .expect("normalized order projection");
+    let status = manager.status().await.expect("projection status");
+    assert_eq!(
+        status
+            .tables
+            .iter()
+            .find(|table| table.name == "kisautotrade_orders")
+            .unwrap()
+            .row_count,
+        1
+    );
+
+    // document upsert와 projection은 같은 transaction이다. projection constraint 실패 시 문서도 없어야 한다.
+    let invalid_path = data_dir.join("orders/2026/07/12/invalid-orders.json");
+    let invalid_payload = format!(
+        r#"[{{"id":"{}","symbol":"005930","status":"pending"}}]"#,
+        "x".repeat(256)
+    );
+    assert!(manager
+        .write_document(&invalid_path, &invalid_payload)
+        .await
+        .is_err());
+    assert!(manager
+        .read_document(&invalid_path)
+        .await
+        .expect("rollback read")
+        .is_none());
+
+    let old_trade_path = data_dir.join("trades/2020/01/01/trades.json");
+    let old_trade_payload = r#"[{"id":"old-fill","broker_id":"kis","broker_account_id":"12345678-01","provider_order_id":"old-order","symbol":"005930","execution_date":"2020-01-01"}]"#;
+    manager
+        .write_document(&old_trade_path, old_trade_payload)
+        .await
+        .expect("old trade projection");
+    assert!(
+        manager
+            .database_archive_stats()
+            .await
+            .expect("archive stats")
+            .total_files
+            >= 2
+    );
+    manager
+        .purge_database_trades(90, 500)
+        .await
+        .expect("database retention");
+    assert!(manager
+        .read_document(&old_trade_path)
+        .await
+        .expect("purged trade read")
+        .is_none());
+    let status = manager.status().await.expect("retention projection status");
+    assert_eq!(
+        status
+            .tables
+            .iter()
+            .find(|table| table.name == "kisautotrade_fills")
+            .unwrap()
+            .row_count,
+        1
+    );
+    write_test_document(
+        &data_dir,
+        "trades/2020/01/01/trades.json",
+        old_trade_payload,
+    )
+    .await;
+
+    // DB backend 활성 상태로 manager를 재생성해 pending/partial/risk 문서 복원을 검증한다.
+    let pending_path = data_dir.join("orders/pending.json");
+    let risk_path = data_dir.join("risk/runtime.json");
+    let pending_payload = r#"[{"providerStatus":"partially_filled","filledQuantity":2}]"#;
+    let risk_payload = r#"{"date":"2026-07-12","emergencyStop":true}"#;
+    manager
+        .write_document(&pending_path, pending_payload)
+        .await
+        .expect("pending write");
+    manager
+        .write_document(&risk_path, risk_payload)
+        .await
+        .expect("risk write");
+    let reloaded =
+        DatabaseManager::load_sync(config_path, data_dir.clone()).expect("manager reload");
+    assert_eq!(
+        reloaded
+            .read_document(&pending_path)
+            .await
+            .expect("pending reload")
+            .as_deref(),
+        Some(pending_payload)
+    );
+    assert_eq!(
+        reloaded
+            .read_document(&risk_path)
+            .await
+            .expect("risk reload")
+            .as_deref(),
+        Some(risk_payload)
+    );
+
     // ⑥ JSON backend 복귀 시 DB 문서가 로컬 파일로 복원
     manager
         .set_backend(StorageBackend::Json)
         .await
         .expect("switch back to json backend");
+    assert!(!old_trade_path.exists(), "DB에서 purge된 local trade가 부활하면 안 된다");
     let restored = tokio::fs::read_to_string(&doc_path)
         .await
         .expect("restored local doc");
@@ -224,8 +348,7 @@ async fn postgresql_rejects_invalid_credentials() {
     tokio::fs::create_dir_all(&data_dir)
         .await
         .expect("data dir");
-    let manager =
-        DatabaseManager::load_sync(config_path, data_dir.clone()).expect("manager load");
+    let manager = DatabaseManager::load_sync(config_path, data_dir.clone()).expect("manager load");
     let mut input = save_input(&env, "kisautotrade_ct_badcred");
     input.password = Some("invalid-password-for-contract-test".to_string());
     manager.save_config(input).await.expect("save config");
@@ -253,8 +376,7 @@ async fn postgresql_destructive_operations_require_exact_confirmation() {
     tokio::fs::create_dir_all(&data_dir)
         .await
         .expect("data dir");
-    let manager =
-        DatabaseManager::load_sync(config_path, data_dir.clone()).expect("manager load");
+    let manager = DatabaseManager::load_sync(config_path, data_dir.clone()).expect("manager load");
     manager
         .save_config(save_input(&env, "kisautotrade_ct_confirm"))
         .await

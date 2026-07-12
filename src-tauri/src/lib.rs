@@ -191,7 +191,7 @@ pub fn run() {
                 web_port,
                 refresh_config,
                 interval_tx,
-                database_manager,
+                std::sync::Arc::clone(&database_manager),
                 data_lock,
             ));
             app.manage(state);
@@ -199,14 +199,14 @@ pub fn run() {
             // 시작 시 체결 기록 즉시 정리 (로그와 동일하게 시작 시 1회 실행)
             {
                 let st: tauri::State<AppState> = app.state();
-                // setup 클로저는 동기 컨텍스트이므로 blocking_read() + std::thread::spawn 사용
-                // tokio::task::spawn_blocking은 runtime handle이 없으면 패닉하므로 사용 불가
                 let trade_cfg  = st.trade_archive_config.blocking_read().clone();
-                let data_dir_c = st.data_dir.clone();
-                std::thread::spawn(move || {
-                    commands::purge_old_trade_files(&data_dir_c, &trade_cfg);
-                    tracing::info!("시작 시 체결 기록 정리 완료 (보관 {}일)", trade_cfg.retention_days);
-                });
+                tauri::async_runtime::block_on(commands::purge_trade_archive_active(
+                    &st.database_manager,
+                    &st.data_dir,
+                    &trade_cfg,
+                ))
+                .map_err(|error| anyhow::anyhow!(error.message))?;
+                tracing::info!("시작 시 체결 기록 정리 완료 (보관 {}일)", trade_cfg.retention_days);
             }
 
             // ── 비동기 백그라운드 작업 ──────────────────────────
@@ -341,6 +341,7 @@ pub fn run() {
                 let st: tauri::State<AppState> = app.state();
                 let log_config_arc           = st.log_config.clone();
                 let trade_archive_config_arc = st.trade_archive_config.clone();
+                let database_manager_d = st.database_manager.clone();
                 let log_dir_d  = st.log_dir.clone();
                 let data_dir_d = st.data_dir.clone();
                 tauri::async_runtime::spawn(async move {
@@ -353,11 +354,15 @@ pub fn run() {
                         tracing::info!("일일 로그 정리 완료 (보관 {}일)", log_cfg.retention_days);
 
                         let trade_cfg  = trade_archive_config_arc.read().await.clone();
-                        let data_dir_c = data_dir_d.clone();
-                        tokio::task::spawn_blocking(move || {
-                            commands::purge_old_trade_files(&data_dir_c, &trade_cfg);
+                        if let Err(error) = commands::purge_trade_archive_active(
+                            &database_manager_d,
+                            &data_dir_d,
+                            &trade_cfg,
+                        ).await {
+                            tracing::warn!("일일 체결 기록 정리 실패: {}", error.message);
+                        } else {
                             tracing::info!("일일 체결 기록 정리 완료 (보관 {}일)", trade_cfg.retention_days);
-                        });
+                        }
                     }
                 });
             }

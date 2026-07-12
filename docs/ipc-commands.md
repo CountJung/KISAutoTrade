@@ -34,11 +34,11 @@
 | `get_database_config` | PostgreSQL/MariaDB 연결 설정 조회 (password 미반환, 설정 여부만 반환) |
 | `save_database_config` | 연결 설정 저장. 대상 변경 시 backend를 JSON으로 되돌림 |
 | `test_database_connection` | 연결, 서버 버전, latency, schema/table 상태 조회 |
-| `create_database_tables` | 고정된 KISAutoTrade 문서/metadata 테이블 생성 또는 schema 확인 |
+| `create_database_tables` | 문서 호환 계층과 scope별 주문·체결·포지션·risk projection 테이블을 schema v2로 migration |
 | `clear_database_tables` | 앱 문서 데이터 전체 삭제 (자동매매 정지 + 확인 문구 필요) |
 | `drop_database_tables` | KISAutoTrade 관리 테이블만 삭제 (자동매매 정지 + 확인 문구 필요) |
 | `inspect_json_storage` | `data/` JSON 파일 수·크기·category 조회 |
-| `import_json_to_database` | JSON 문서를 한 transaction으로 DB에 upsert |
+| `import_json_to_database` | JSON 문서와 정규화 projection을 한 transaction으로 backfill/upsert |
 | `export_database_to_json` | DB 문서를 timestamped export 디렉토리에 원래 상대경로로 반출하고 SHA-256 manifest 생성 |
 | `set_storage_backend` | JSON/DB 저장 backend 전환. DB 전환은 현재 JSON key가 모두 import된 경우만 허용 |
 
@@ -94,14 +94,14 @@
 
 | Command | 설명 |
 |---------|------|
-| `get_trading_status` | 자동 매매 상태 조회 (wsConnected, buySuspended, 실행 broker/profile/account 스냅샷 포함) |
+| `get_trading_status` | 자동 매매 상태와 건강 정보 조회 (holdings sync/reconciliation/pending/persistence/daemon 실패, 실행 scope 포함) |
 | `start_trading` | 활성 broker/account 잔고·holdings 및 복원 pending 대조 성공 후에만 자동 매매 시작 |
 | `stop_trading` | 자동 매매 정지 |
 | `clear_buy_suspension` | 잔고 부족 매수 정지 수동 해제 |
 | `get_positions` | 포지션 목록 조회 |
 | `get_pending_orders` | 미체결 주문 조회 (`status`, `filledQuantity`, `remainingQuantity`, provider trace 포함) |
 | `get_strategies` | 전략 목록 조회 (`brokerId`, `brokerAccountId`, 대상 종목, params 포함) |
-| `update_strategy` | 전략 파라미터 업데이트 + 현재 활성 broker/account scope로 저장 |
+| `update_strategy` | 전략 파라미터 업데이트. 요청의 expected profile/broker/account가 현재 scope와 다르면 `SCOPE_MISMATCH`로 거부 |
 | `get_risk_config` | 리스크 설정 조회 (손실/비중/일일 주문 제한/연속 손실/ATR 수량 산정) |
 | `update_risk_config` | 리스크 설정 변경 (손실/비중/일일 주문 제한/연속 손실/ATR 수량 산정) |
 | `clear_emergency_stop` | 비상정지 수동 해제 |

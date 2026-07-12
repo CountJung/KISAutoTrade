@@ -17,7 +17,41 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
+  database-contract:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: kisautotrade
+          POSTGRES_PASSWORD: contract-password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kisautotrade -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      KISAT_PG_HOST: 127.0.0.1
+      KISAT_PG_PORT: 5432
+      KISAT_PG_USER: kisautotrade
+      KISAT_PG_PASSWORD: contract-password
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+      - name: PostgreSQL 16 storage contract
+        run: cargo test --manifest-path src-tauri/Cargo.toml --lib storage::database_contract_tests -- --nocapture
+
   build-tauri:
+    needs: database-contract
     permissions:
       contents: write   # 릴리즈 업로드에 필요
     strategy:

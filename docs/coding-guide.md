@@ -407,10 +407,10 @@ useEffect(() => {
 - 연결 변경은 JSON backend로 fail-safe 전환한다. JSON → DB import가 끝나고 모든 현재 key가 확인되어야 DB backend를 활성화할 수 있다.
 - DB → JSON backend 전환은 DB 문서를 live `data/` 경로에 먼저 복구한 뒤 설정을 바꾼다.
 - import는 전체 transaction에서 기존 document set을 정확히 교체하고, 파일당 16 MiB·총 512 MiB·10,000개 상한을 적용한다. export는 앱 데이터의 `database_exports/` 아래 고유 디렉토리에 만들고 SHA-256 manifest를 남긴다.
-- DB 관리 IPC는 Tauri 전용이다. 임의 SQL은 받지 않고 `kisautotrade_documents`, `kisautotrade_metadata`만 생성·비우기·삭제한다.
+- DB 관리 IPC는 Tauri 전용이다. 임의 SQL은 받지 않고 문서/metadata와 schema v2 정규화 projection 테이블만 생성·비우기·삭제한다.
 - `profiles.json`, `secure_config.json`, `.env`, 로그와 DB password는 document import/export 대상이 아니다.
 
-DB v1은 기존 JSON 호환성과 복구성을 위한 문서 저장 계층이다. 주문/체결 복구용 정규화 테이블과 retention query는 별도 schema migration으로 확장한다.
+DB v2는 기존 JSON 호환 문서와 scope별 주문·체결·포지션·risk projection을 같은 transaction에서 갱신한다. import는 projection backfill을 수행하며 DB retention은 document/fill 행을 함께 삭제한다.
 
 ### 저장 경로 규칙
 

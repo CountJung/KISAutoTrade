@@ -8,7 +8,7 @@ export const KEYS = {
   tradingStatus: ['tradingStatus'] as const,
   positions: ['positions'] as const,
   brokerHoldings: ['brokerHoldings'] as const,
-  strategies: ['strategies'] as const,
+  strategies: (scopeKey?: string | null) => ['strategies', scopeKey ?? 'unscoped'] as const,
   balance: ['balance'] as const,
   overseasBalance: ['overseasBalance'] as const,
   price: (symbol: string) => ['price', symbol] as const,

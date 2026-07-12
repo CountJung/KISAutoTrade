@@ -72,6 +72,7 @@ pub async fn add_profile(
     input: AddProfileInput,
     state: State<'_, AppState>,
 ) -> CmdResult<ProfileView> {
+    let _strategy_update = state.strategy_update_lock.lock().await;
     let profile = AccountProfile::new(
         input.name,
         input.is_paper_trading,
@@ -121,6 +122,14 @@ pub async fn update_profile(
     input: UpdateProfileInput,
     state: State<'_, AppState>,
 ) -> CmdResult<ProfileView> {
+    let _strategy_update = state.strategy_update_lock.lock().await;
+    let is_active = state.profiles.read().await.active_id.as_deref() == Some(input.id.as_str());
+    if is_active && *state.is_trading.lock().await {
+        return Err(CmdError {
+            code: "TRADING_RUNNING".into(),
+            message: "자동매매 실행 중에는 활성 프로파일을 수정할 수 없습니다.".into(),
+        });
+    }
     let view = {
         let mut profiles = state.profiles.write().await;
         let updated = profiles
@@ -156,6 +165,14 @@ pub async fn update_profile(
 
 #[tauri::command]
 pub async fn delete_profile(id: String, state: State<'_, AppState>) -> CmdResult<()> {
+    let _strategy_update = state.strategy_update_lock.lock().await;
+    let is_active = state.profiles.read().await.active_id.as_deref() == Some(id.as_str());
+    if is_active && *state.is_trading.lock().await {
+        return Err(CmdError {
+            code: "TRADING_RUNNING".into(),
+            message: "자동매매 실행 중에는 활성 프로파일을 삭제할 수 없습니다.".into(),
+        });
+    }
     let deleted = {
         let mut profiles = state.profiles.write().await;
         profiles.delete(&id)
@@ -178,6 +195,13 @@ pub async fn set_active_profile(
     id: String,
     state: State<'_, AppState>,
 ) -> CmdResult<AppConfigView> {
+    let _strategy_update = state.strategy_update_lock.lock().await;
+    if *state.is_trading.lock().await {
+        return Err(CmdError {
+            code: "TRADING_RUNNING".into(),
+            message: "자동매매 실행 중에는 활성 프로파일을 전환할 수 없습니다.".into(),
+        });
+    }
     let ok = {
         let mut profiles = state.profiles.write().await;
         profiles.set_active(&id)
@@ -190,19 +214,9 @@ pub async fn set_active_profile(
         });
     }
 
-    // 자동매매 실행 중에는 REST 클라이언트/config 교체를 하지 않는다.
-    // active_id만 변경(UI 반영용)하여 진행 중 주문·포지션에 영향이 없도록 한다.
-    if *state.is_trading.lock().await {
-        tracing::warn!(
-            "자동매매 실행 중 프로파일 전환 요청 (id={}): UI active_id만 변경, REST 클라이언트 유지",
-            id
-        );
-        save_profiles(&state).await?;
-        return get_app_config(state).await;
-    }
-
     apply_active_profile(&state).await?;
     save_profiles(&state).await?;
+    drop(_strategy_update);
     get_app_config(state).await
 }
 
@@ -237,6 +251,14 @@ pub(super) async fn apply_active_profile(state: &AppState) -> CmdResult<()> {
         };
         (cfg.broker_id, account_id)
     };
+    state
+        .order_manager
+        .lock()
+        .await
+        .set_execution_scope(BrokerScope::new(
+            active_scope.0,
+            active_scope.1.clone().map(BrokerAccountId),
+        ));
     if let Some(pid) = &active_id {
         let saved = state
             .strategy_store

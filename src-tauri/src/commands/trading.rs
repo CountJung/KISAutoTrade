@@ -1,29 +1,95 @@
 use super::*;
 
 mod history;
+#[cfg(test)]
+mod risk_restore_tests;
 use history::initialize_active_strategy_history;
 
 pub(crate) async fn restore_risk_from_today_trades(
+    order_store: &Arc<OrderStore>,
     trade_store: &Arc<TradeStore>,
     risk_manager: &Arc<Mutex<RiskManager>>,
     risk_store: &Arc<crate::storage::RiskStore>,
     execution_scope: &BrokerScope,
 ) -> CmdResult<()> {
-    let trades = trade_store
-        .get_by_date(chrono::Local::now().date_naive())
+    let today = chrono::Local::now().date_naive();
+    let mut trades = trade_store
+        .get_by_date(today)
         .await
         .map_err(|error| CmdError {
             code: "RISK_RESTORE_FAILED".into(),
             message: format!("오늘 체결 ledger를 읽지 못했습니다: {error}"),
         })?;
+    let orders = order_store
+        .get_by_date(today)
+        .await
+        .map_err(|error| CmdError {
+            code: "RISK_RESTORE_FAILED".into(),
+            message: format!("오늘 주문 ledger를 읽지 못했습니다: {error}"),
+        })?;
+    trades.sort_by(|left, right| left.timestamp.cmp(&right.timestamp));
+    let scoped_trades: Vec<_> = trades
+        .into_iter()
+        .filter(|trade| trade.matches_scope(execution_scope))
+        .collect();
     let mut risk = risk_manager.lock().await;
+    risk.reset_daily();
     // 다른 broker/계좌의 당일 체결이 이 scope의 손실 한도에 섞이지 않게 격리한다.
     risk.restore_daily_pnl(
-        trades
-            .into_iter()
-            .filter(|trade| trade.matches_scope(execution_scope))
+        scoped_trades
+            .iter()
             .filter_map(|trade| trade.realized_pnl_krw),
     );
+    let mut submitted_order_ids = std::collections::HashSet::new();
+    for order in orders
+        .into_iter()
+        .filter(|order| order.matches_scope(execution_scope))
+    {
+        if matches!(
+            order.status,
+            crate::storage::order_store::OrderStatus::Failed
+        ) {
+            continue;
+        }
+        let Some(strategy_id) = order.strategy_id.as_deref() else {
+            continue;
+        };
+        let Some(provider_order_id) = order
+            .provider_order_id
+            .as_deref()
+            .or(order.kis_order_id.as_deref())
+        else {
+            continue;
+        };
+        if !submitted_order_ids.insert(provider_order_id.to_string()) {
+            continue;
+        }
+        risk.record_order_submitted_for_scope(
+            execution_scope,
+            strategy_id,
+            &order.symbol,
+            match order.side {
+                crate::storage::order_store::OrderSide::Buy => {
+                    crate::trading::risk::DailyOrderSide::Buy
+                }
+                crate::storage::order_store::OrderSide::Sell => {
+                    crate::trading::risk::DailyOrderSide::Sell
+                }
+            },
+        );
+    }
+    for trade in &scoped_trades {
+        if let (Some(strategy_id), Some(pnl)) =
+            (trade.strategy_id.as_deref(), trade.realized_pnl_krw)
+        {
+            risk.record_strategy_symbol_pnl_for_scope(
+                execution_scope,
+                strategy_id,
+                &trade.symbol,
+                pnl,
+            );
+        }
+    }
     risk_store
         .save_runtime(&risk.runtime_state())
         .await
@@ -174,6 +240,7 @@ pub struct TradingStatus {
     /// 매수 정지 사유 (KIS 응답 msg1)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub buy_suspended_reason: Option<String>,
+    pub health: crate::trading::order::TradingHealthStatus,
 }
 
 #[tauri::command]
@@ -188,9 +255,13 @@ pub async fn get_trading_status(state: State<'_, AppState>) -> CmdResult<Trading
     let trading_profile_id = state.trading_profile_id.read().await.clone();
     let trading_broker_id = *state.trading_broker_id.read().await;
     let trading_account_id = state.trading_account_id.read().await.clone();
-    let (buy_suspended, buy_suspended_reason) = {
+    let (buy_suspended, buy_suspended_reason, health) = {
         let om = state.order_manager.lock().await;
-        (om.buy_suspended, om.buy_suspended_reason.clone())
+        (
+            om.buy_suspended,
+            om.buy_suspended_reason.clone(),
+            om.health_status(),
+        )
     };
     Ok(TradingStatus {
         is_running,
@@ -203,6 +274,7 @@ pub async fn get_trading_status(state: State<'_, AppState>) -> CmdResult<Trading
         trading_account_id,
         buy_suspended,
         buy_suspended_reason,
+        health,
     })
 }
 
@@ -597,7 +669,21 @@ pub async fn start_trading(
 
     // 자동매매 시작 전 실제 잔고를 전략 내부 포지션 상태와 동기화한다.
     // 재시작 직후 내부 in_position=false 상태로 같은 종목을 재매수하는 위험을 줄인다.
-    let synced_positions = sync_strategy_positions_from_active_broker(&state, &current_cfg).await?;
+    let synced_positions =
+        match sync_strategy_positions_from_active_broker(&state, &current_cfg).await {
+            Ok(count) => {
+                state.order_manager.lock().await.mark_holdings_sync(None);
+                count
+            }
+            Err(error) => {
+                state
+                    .order_manager
+                    .lock()
+                    .await
+                    .mark_holdings_sync(Some(error.message.clone()));
+                return Err(error);
+            }
+        };
     let active_profile = {
         let profiles = state.profiles.read().await;
         profiles.get_active().cloned()
@@ -647,10 +733,8 @@ pub async fn start_trading(
             (!current_cfg.broker_account_id.is_empty())
                 .then(|| current_cfg.broker_account_id.clone())
         });
-    let execution_scope = BrokerScope::new(
-        broker_id,
-        reconciliation_account_id.map(BrokerAccountId),
-    );
+    let execution_scope =
+        BrokerScope::new(broker_id, reconciliation_account_id.map(BrokerAccountId));
     state
         .order_manager
         .lock()
@@ -666,6 +750,7 @@ pub async fn start_trading(
             ),
         })?;
     restore_risk_from_today_trades(
+        &state.order_store,
         &state.trade_store,
         &state.risk_manager,
         &state.risk_store,
@@ -767,9 +852,13 @@ pub async fn start_trading(
     let trading_profile_id = state.trading_profile_id.read().await.clone();
     let trading_broker_id = *state.trading_broker_id.read().await;
     let trading_account_id = state.trading_account_id.read().await.clone();
-    let (buy_suspended, buy_suspended_reason) = {
+    let (buy_suspended, buy_suspended_reason, health) = {
         let om = state.order_manager.lock().await;
-        (om.buy_suspended, om.buy_suspended_reason.clone())
+        (
+            om.buy_suspended,
+            om.buy_suspended_reason.clone(),
+            om.health_status(),
+        )
     };
     Ok(TradingStatus {
         is_running: true,
@@ -782,6 +871,7 @@ pub async fn start_trading(
         trading_account_id,
         buy_suspended,
         buy_suspended_reason,
+        health,
     })
 }
 
@@ -812,6 +902,14 @@ pub async fn stop_trading(state: State<'_, AppState>) -> CmdResult<TradingStatus
         (tracker.count(), tracker.total_pnl())
     };
     let ws_connected = state.ws_connected.load(Ordering::Relaxed);
+    let (buy_suspended, buy_suspended_reason, health) = {
+        let manager = state.order_manager.lock().await;
+        (
+            manager.buy_suspended,
+            manager.buy_suspended_reason.clone(),
+            manager.health_status(),
+        )
+    };
     Ok(TradingStatus {
         is_running: false,
         active_strategies: strategies,
@@ -821,8 +919,9 @@ pub async fn stop_trading(state: State<'_, AppState>) -> CmdResult<TradingStatus
         trading_profile_id: None,
         trading_broker_id: None,
         trading_account_id: None,
-        buy_suspended: false,
-        buy_suspended_reason: None,
+        buy_suspended,
+        buy_suspended_reason,
+        health,
     })
 }
 
@@ -842,6 +941,14 @@ pub async fn clear_buy_suspension(state: State<'_, AppState>) -> CmdResult<Tradi
     let trading_profile_id = state.trading_profile_id.read().await.clone();
     let trading_broker_id = *state.trading_broker_id.read().await;
     let trading_account_id = state.trading_account_id.read().await.clone();
+    let (buy_suspended, buy_suspended_reason, health) = {
+        let manager = state.order_manager.lock().await;
+        (
+            manager.buy_suspended,
+            manager.buy_suspended_reason.clone(),
+            manager.health_status(),
+        )
+    };
     Ok(TradingStatus {
         is_running,
         active_strategies: strategies,
@@ -851,8 +958,9 @@ pub async fn clear_buy_suspension(state: State<'_, AppState>) -> CmdResult<Tradi
         trading_profile_id,
         trading_broker_id,
         trading_account_id,
-        buy_suspended: false,
-        buy_suspended_reason: None,
+        buy_suspended,
+        buy_suspended_reason,
+        health,
     })
 }
 
@@ -1280,16 +1388,17 @@ pub async fn run_trading_daemon(
         };
         let total_balance_krw = match total_balance_result {
             Ok(total) if total > 0 => {
-                order_mgr.lock().await.clear_account_sync_suspension();
+                let mut manager = order_mgr.lock().await;
+                manager.clear_account_sync_suspension();
+                manager.mark_holdings_sync(None);
                 total
             }
             Ok(_) => {
                 tracing::error!("계좌 총평가액이 0원 이하이므로 이번 자동주문 주기를 차단합니다.");
-                order_mgr
-                    .lock()
-                    .await
-                    .suspend_buying_for_account_sync("총평가액이 0원 이하입니다.".into())
-                    .await;
+                let mut manager = order_mgr.lock().await;
+                let error = "총평가액이 0원 이하입니다.".to_string();
+                manager.mark_holdings_sync(Some(error.clone()));
+                manager.suspend_buying_for_account_sync(error).await;
                 continue;
             }
             Err(error) => {
@@ -1297,11 +1406,9 @@ pub async fn run_trading_daemon(
                     "계좌 스냅샷 갱신 실패로 이번 자동주문 주기를 차단합니다: {}",
                     error
                 );
-                order_mgr
-                    .lock()
-                    .await
-                    .suspend_buying_for_account_sync(error)
-                    .await;
+                let mut manager = order_mgr.lock().await;
+                manager.mark_holdings_sync(Some(error.clone()));
+                manager.suspend_buying_for_account_sync(error).await;
                 continue;
             }
         };

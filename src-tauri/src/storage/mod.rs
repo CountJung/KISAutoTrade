@@ -1,9 +1,12 @@
 pub mod balance_store;
 pub mod database;
+mod database_archive;
 #[cfg(test)]
 mod database_contract_tests;
 mod database_io;
 mod database_keychain;
+mod database_projection;
+mod database_schema;
 mod database_types;
 pub mod order_store;
 pub mod pending_order_store;

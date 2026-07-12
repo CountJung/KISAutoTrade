@@ -23,9 +23,13 @@ pub(super) async fn trading_status_handler(
         let tracker = s.position_tracker.lock().await;
         (tracker.count(), tracker.total_pnl())
     };
-    let (buy_suspended, buy_suspended_reason) = {
+    let (buy_suspended, buy_suspended_reason, health) = {
         let om = s.order_manager.lock().await;
-        (om.buy_suspended, om.buy_suspended_reason.clone())
+        (
+            om.buy_suspended,
+            om.buy_suspended_reason.clone(),
+            om.health_status(),
+        )
     };
     Json(serde_json::json!({
         "isRunning":           is_running,
@@ -36,6 +40,7 @@ pub(super) async fn trading_status_handler(
         "tradingProfileId":    null,
         "buySuspended":        buy_suspended,
         "buySuspendedReason":  buy_suspended_reason,
+        "health":              health,
     }))
 }
 
@@ -462,7 +467,9 @@ pub(super) async fn trading_start_handler(State(s): State<ServerState>) -> Json<
             "message": format!("복원된 미체결 주문을 broker와 대조하지 못했습니다: {error}")
         }));
     }
+    let order_store = s.order_manager.lock().await.order_store_handle();
     if let Err(error) = crate::commands::restore_risk_from_today_trades(
+        &order_store,
         &s.trade_store,
         &s.risk_manager,
         &s.risk_store,
@@ -535,6 +542,9 @@ pub(super) async fn strategies_handler(State(s): State<ServerState>) -> Json<ser
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct UpdateStrategyBody {
+    expected_profile_id: String,
+    expected_broker_id: crate::broker::BrokerId,
+    expected_broker_account_id: Option<String>,
     enabled: Option<bool>,
     target_symbols: Option<Vec<String>>,
     order_quantity: Option<u64>,
@@ -548,15 +558,28 @@ pub(super) async fn update_strategy_handler(
     Json(body): Json<UpdateStrategyBody>,
 ) -> (StatusCode, Json<serde_json::Value>) {
     let _strategy_update = s.strategy_update_lock.lock().await;
-    let active_scope = {
+    let (active_profile_id, active_scope) = {
         let cfg = s.config.read().await.clone();
         let account_id = if cfg.broker_account_id.is_empty() {
             None
         } else {
             Some(cfg.broker_account_id.clone())
         };
-        (cfg.broker_id, account_id)
+        let profile_id = s.profiles.read().await.active_id.clone();
+        (profile_id, (cfg.broker_id, account_id))
     };
+    if active_profile_id.as_deref() != Some(body.expected_profile_id.as_str())
+        || active_scope.0 != body.expected_broker_id
+        || active_scope.1 != body.expected_broker_account_id
+    {
+        return (
+            StatusCode::CONFLICT,
+            Json(serde_json::json!({
+                "code": "SCOPE_MISMATCH",
+                "error": "활성 계좌가 변경되었습니다. 전략을 다시 불러온 뒤 수정하세요."
+            })),
+        );
+    }
     let previous_configs: Vec<crate::trading::strategy::StrategyConfig> = {
         let mgr = s.strategy_manager.lock().await;
         mgr.all_configs().into_iter().cloned().collect()
@@ -600,7 +623,7 @@ pub(super) async fn update_strategy_handler(
         symbol_names.insert(code.clone(), name);
     }
 
-    let profile_id = s.profiles.read().await.active_id.clone();
+    let profile_id = active_profile_id;
     if let Some(pid) = &profile_id {
         let all_configs: Vec<crate::trading::strategy::StrategyConfig> = {
             let mgr = s.strategy_manager.lock().await;

@@ -89,6 +89,7 @@ AutoConditionTrade/                   ← 루트
 │   │   └── settings/ui/section.tsx   ← Settings page-local 섹션 래퍼
 │   ├── api/                          ← shared/api 호환 re-export + TanStack Query hooks/query keys/event bridge
 │   ├── components/                   ← widgets/shared 호환 re-export
+│   ├── shared/ui/TradingHealthPanel.tsx ← holdings/reconciliation/pending/persistence 건강 상태와 복구 안내
 │   ├── store/                        ← entities 호환 re-export
 │   ├── theme/                        ← shared/config/theme 호환 re-export
 │   └── scheduler/                    ← shared/config/scheduler 호환 re-export
@@ -153,6 +154,9 @@ AutoConditionTrade/                   ← 루트
         ├── storage/
         │   ├── mod.rs                ← build_daily_path, backend-aware read_json_or_default/write_json
         │   ├── database.rs           ← PostgreSQL/MariaDB document backend·schema·import/export
+        │   ├── database_schema.rs    ← schema v2 정규화 테이블 DDL/migration
+        │   ├── database_projection.rs ← document↔주문·체결·포지션·risk transaction projection
+        │   ├── database_archive.rs   ← DB backend trade retention/stat transaction
         │   ├── database_io.rs        ← atomic JSON write와 권한 제한 DB 설정 write
         │   ├── database_types.rs     ← DB config/status/transfer camelCase DTO
         │   ├── trade_store.rs        ← TradeRecord, TradeStore
@@ -285,7 +289,7 @@ AutoConditionTrade/                   ← 루트
 | `storage/order_store.rs` | `data/orders/YYYY/MM/DD/orders.json` (`provider_*` 원본 주문 trace 포함) |
 | `storage/stats_store.rs` | `data/stats/YYYY/MM/daily_stats.json` |
 | `storage/strategy_store.rs` | `data/strategies/{profile_id}/strategies.json` (`StrategyConfig`에 broker/account scope 저장) |
-| `storage/database.rs` | PostgreSQL/MariaDB `kisautotrade_documents`/`kisautotrade_metadata`, transaction import, JSON export, fail-closed backend 전환 |
+| `storage/database.rs` | PostgreSQL/MariaDB 문서 호환 계층, schema v2 정규화 projection, transaction import/retention, JSON export, fail-closed backend 전환 |
 | `notifications/discord.rs` | Discord Bot 알림 |
 | `config/mod.rs` | `secure_config.json` + `.env` 로드 |
 

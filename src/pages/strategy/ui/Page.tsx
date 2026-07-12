@@ -65,7 +65,7 @@ import type {
   TossMarketCalendarView,
   UpdateStrategyInput,
 } from '../../../api/types'
-import { BrokerScopeIndicator } from '../../../shared/ui'
+import { BrokerScopeIndicator, tradingHealthProblem } from '../../../shared/ui'
 
 type Market = 'KR' | 'US'
 
@@ -146,9 +146,23 @@ type EditState = { symbols: string[]; quantity: number; params: Record<string, n
 // ─── Strategy 메인 ────────────────────────────────────────────────
 export default function Strategy() {
   const { data: appConfig } = useAppConfig()
-  const { data: strategies, isLoading } = useStrategies()
+  const activeScopeKey = appConfig?.active_profile_id
+    ? `${appConfig.active_profile_id}:${appConfig.active_broker_id}:${appConfig.active_broker_account_id ?? ''}`
+    : null
+  const {
+    data: strategies,
+    isLoading,
+    isError: isStrategiesError,
+    error: strategiesError,
+    refetch: refetchStrategies,
+  } = useStrategies(activeScopeKey)
   const { data: tradingStatus } = useTradingStatus()
-  const { mutate: updateStrategy, isPending: saving } = useUpdateStrategy()
+  const {
+    mutate: updateStrategy,
+    isPending: saving,
+    error: updateError,
+    reset: resetUpdateError,
+  } = useUpdateStrategy()
 
   const [editMap, setEditMap] = useState<Record<string, EditState>>({})
   // 가격 조건 매매 전략 전용: 종목별 설정 배열
@@ -157,6 +171,28 @@ export default function Strategy() {
   const [lthEditMap, setLthEditMap] = useState<Record<string, LeveragedTrendHoldEntry[]>>({})
   const [lthParamEditMap, setLthParamEditMap] = useState<Record<string, Record<string, unknown>>>({})
   const [tossSessionEditMap, setTossSessionEditMap] = useState<Record<string, TossManualSession>>({})
+
+  useEffect(() => {
+    setEditMap({})
+    setPcEditMap({})
+    setLthEditMap({})
+    setLthParamEditMap({})
+    setTossSessionEditMap({})
+    setSelectedStock(null)
+    setSearchInput('')
+    setSearchQuery('')
+    setShowSearch(false)
+    setSymbolNames({})
+    resetUpdateError()
+  }, [activeScopeKey, resetUpdateError])
+
+  const expectedScope = appConfig?.active_profile_id
+    ? {
+        expectedProfileId: appConfig.active_profile_id,
+        expectedBrokerId: appConfig.active_broker_id,
+        expectedBrokerAccountId: appConfig.active_broker_account_id,
+      }
+    : null
 
   // ── 상단 종목 검색 상태 ─────────────────────────────────────────
   const [market, setMarket]                   = useState<Market>('KR')
@@ -318,10 +354,12 @@ export default function Strategy() {
   }
 
   const handleToggle = (id: string, enabled: boolean) => {
-    updateStrategy({ id, enabled } satisfies UpdateStrategyInput)
+    if (!expectedScope) return
+    updateStrategy({ id, enabled, ...expectedScope } satisfies UpdateStrategyInput)
   }
 
   const handleSave = (id: string, strategy: { params: Record<string, unknown> }) => {
+    if (!expectedScope) return
     const edit = editMap[id]
     const session = getTossSession(id, strategy.params)
     const mergedParams = edit
@@ -330,6 +368,7 @@ export default function Strategy() {
     updateStrategy(
       {
         id,
+        ...expectedScope,
         ...(edit ? { targetSymbols: edit.symbols, orderQuantity: edit.quantity } : {}),
         params: withTossUsSessionParam(mergedParams, session),
       } satisfies UpdateStrategyInput,
@@ -347,11 +386,13 @@ export default function Strategy() {
     params: Record<string, unknown>,
     initialSymbols: PriceConditionSymbolConfig[],
   ) => {
+    if (!expectedScope) return
     const pcSymbols = pcEditMap[id] ?? initialSymbols
     const session = getTossSession(id, params)
     updateStrategy(
       {
         id,
+        ...expectedScope,
         targetSymbols: pcSymbols.map((s) => s.symbol),
         params: withTossUsSessionParam({ ...params, symbols: pcSymbols }, session),
       } satisfies UpdateStrategyInput,
@@ -365,6 +406,7 @@ export default function Strategy() {
   }
 
   const handleSaveLth = (id: string, params: Record<string, unknown>, initialEntries: LeveragedTrendHoldEntry[]) => {
+    if (!expectedScope) return
     const entries = lthEditMap[id] ?? initialEntries
     const nextParams = lthParamEditMap[id] ?? params
     if (hasInvalidLthEntries(entries)) return
@@ -372,6 +414,7 @@ export default function Strategy() {
     updateStrategy(
       {
         id,
+        ...expectedScope,
         targetSymbols,
         params: withTossUsSessionParam(
           { ...nextParams, entries },
@@ -396,8 +439,28 @@ export default function Strategy() {
     return <Box sx={{ display: 'flex', justifyContent: 'center', pt: 8 }}><CircularProgress /></Box>
   }
 
+  if (isStrategiesError) {
+    const message = (strategiesError as { message?: string } | null)?.message ?? '전략 목록을 불러오지 못했습니다.'
+    return (
+      <Alert
+        severity="error"
+        action={<Button color="inherit" size="small" onClick={() => void refetchStrategies()}>다시 시도</Button>}
+      >
+        {message}
+      </Alert>
+    )
+  }
+
   return (
     <Box>
+      {updateError && (
+        <Alert severity="error" onClose={resetUpdateError} sx={{ mb: 2 }}>
+          {(updateError as { message?: string }).message ?? '전략 변경사항을 저장하지 못했습니다.'}
+        </Alert>
+      )}
+      {(strategies?.length ?? 0) === 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>현재 계좌 범위에 등록된 전략이 없습니다.</Alert>
+      )}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
         <Typography variant="h5" fontWeight={700}>Strategy</Typography>
         <Chip
@@ -410,6 +473,12 @@ export default function Strategy() {
         )}
         <BrokerScopeIndicator appConfig={appConfig} compact />
       </Box>
+
+      {tradingHealthProblem(tradingStatus?.health) && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          자동매매 상태 확인 필요: {tradingHealthProblem(tradingStatus?.health)}
+        </Alert>
+      )}
 
       {activeBrokerIsToss && !isRunning && (
         <Alert severity="info" sx={{ mb: 2 }}>
@@ -624,7 +693,7 @@ export default function Strategy() {
                 variant="outlined"
                 startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
                 onClick={() => handleSavePc(s.id, s.params, pcInitialSymbols)}
-                disabled={saving}
+                disabled={saving || !scopeMatchesActive}
               >
                 변경사항 저장
               </Button>
@@ -636,7 +705,7 @@ export default function Strategy() {
                 variant="outlined"
                 startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
                 onClick={() => handleSaveLth(s.id, s.params, lthInitialEntries)}
-                disabled={saving || hasInvalidLthEntries(lthEditMap[s.id] ?? lthInitialEntries)}
+                disabled={saving || !scopeMatchesActive || hasInvalidLthEntries(lthEditMap[s.id] ?? lthInitialEntries)}
               >
                 변경사항 저장
               </Button>
@@ -648,14 +717,14 @@ export default function Strategy() {
                 variant="outlined"
                 startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
                 onClick={() => handleSave(s.id, s)}
-                disabled={saving}
+                disabled={saving || !scopeMatchesActive}
               >
                 변경사항 저장
               </Button>
             ) : null
           )
           return (
-            <Grid item xs={12} key={s.id} data-testid="strategy-card-grid">
+            <Grid item xs={12} key={`${activeScopeKey}:${s.id}`} data-testid="strategy-card-grid">
               <Paper sx={{ p: { xs: 2, sm: 3 } }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1, gap: 1.5 }}>
                   <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap">
@@ -681,7 +750,7 @@ export default function Strategy() {
                           checked={s.enabled}
                           onChange={(e) => handleToggle(s.id, e.target.checked)}
                           color="success"
-                          disabled={saving}
+                          disabled={saving || !scopeMatchesActive}
                         />
                       }
                       label={s.enabled ? '실행 중' : '정지'}

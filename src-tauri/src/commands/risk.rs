@@ -236,6 +236,8 @@ pub struct PendingOrderView {
     pub provider_order_id: Option<String>,
     pub provider_request_id: Option<String>,
     pub provider_tr_id: Option<String>,
+    pub broker_id: crate::broker::BrokerId,
+    pub broker_account_id: Option<String>,
 }
 
 pub(crate) fn pending_order_to_view(p: &crate::trading::order::PendingOrder) -> PendingOrderView {
@@ -252,6 +254,8 @@ pub(crate) fn pending_order_to_view(p: &crate::trading::order::PendingOrder) -> 
             crate::storage::order_store::OrderStatus::Filled => "filled".into(),
             crate::storage::order_store::OrderStatus::PartiallyFilled => "partially_filled".into(),
             crate::storage::order_store::OrderStatus::Cancelled => "cancelled".into(),
+            crate::storage::order_store::OrderStatus::Rejected => "rejected".into(),
+            crate::storage::order_store::OrderStatus::Expired => "expired".into(),
             crate::storage::order_store::OrderStatus::Failed => "failed".into(),
         },
         quantity: p.record.quantity,
@@ -263,6 +267,8 @@ pub(crate) fn pending_order_to_view(p: &crate::trading::order::PendingOrder) -> 
         provider_order_id: p.record.provider_order_id.clone(),
         provider_request_id: p.record.provider_request_id.clone(),
         provider_tr_id: p.record.provider_tr_id.clone(),
+        broker_id: p.broker_scope.broker_id,
+        broker_account_id: p.broker_scope.account_id.as_ref().map(|id| id.0.clone()),
     }
 }
 

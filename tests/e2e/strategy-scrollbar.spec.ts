@@ -72,11 +72,15 @@ type MockOptions = {
   previewRequests?: unknown[]
   genericPreviewRequests?: unknown[]
   chartRequests?: string[]
+  updateRequests?: unknown[]
+  scopeController?: { current: 'A' | 'B' }
 }
 
 async function mockApi(page: import('@playwright/test').Page, options: MockOptions = {}) {
   const activeBroker = options.activeBroker ?? 'kis'
   let tradingRunning = false
+  const activeProfileId = () => options.scopeController?.current === 'B' ? 'profile-b' : (activeBroker === 'toss' ? 'toss-live' : 'paper')
+  const activeAccountId = () => options.scopeController?.current === 'B' ? '87654321-01' : (activeBroker === 'toss' ? '1' : '12345678-01')
   const tradingStatus = () => ({
     isRunning: tradingRunning,
     activeStrategies: tradingRunning ? ['leveraged_trend_hold_default'] : [],
@@ -88,6 +92,22 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
     tradingAccountId: tradingRunning ? (activeBroker === 'toss' ? '1' : '12345678-01') : null,
     buySuspended: false,
     buySuspendedReason: null,
+    health: {
+      lastHoldingsSyncAt: null,
+      lastHoldingsSyncAttemptAt: null,
+      lastHoldingsSyncError: null,
+      lastReconciliationAt: null,
+      lastReconciliationAttemptAt: null,
+      lastReconciliationError: null,
+      oldestPendingAt: null,
+      pendingOrderCount: 0,
+      holdingsConsecutiveFailures: 0,
+      reconciliationConsecutiveFailures: 0,
+      persistenceBlocked: false,
+      persistenceError: null,
+      daemonConsecutiveFailures: 0,
+      daemonLastError: null,
+    },
   })
   const strategies = [
     strategy('leveraged_trend_hold_default', 'LeveragedTrendHoldStrategy', 1),
@@ -123,7 +143,7 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
       await route.fulfill({
         json: {
           active_broker_id: activeBroker,
-          active_broker_account_id: activeBroker === 'toss' ? '1' : '12345678-01',
+          active_broker_account_id: activeAccountId(),
           kis_app_key_masked: '***',
           kis_account_no: '12345678-01',
           kis_is_paper_trading: true,
@@ -131,10 +151,16 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
           active_broker_configured: true,
           discord_enabled: false,
           notification_levels: [],
-          active_profile_id: activeBroker === 'toss' ? 'toss-live' : 'paper',
-          active_profile_name: activeBroker === 'toss' ? 'Toss 실전' : '모의',
+          active_profile_id: activeProfileId(),
+          active_profile_name: options.scopeController?.current === 'B' ? '계좌 B' : (activeBroker === 'toss' ? 'Toss 실전' : '모의'),
         },
       })
+      return
+    }
+    if (url.pathname === '/api/check-config') {
+      await route.fulfill({ json: {
+        broker_id: 'kis', broker_account_id: activeAccountId(), real_key_set: true, real_account_set: true, paper_key_set: true, active_mode: '모의투자', is_ready: true, discord_configured: false, base_url: 'mock', issues: [],
+      } })
       return
     }
     if (url.pathname === '/api/trading/status') {
@@ -155,11 +181,50 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
       await route.fulfill({ json: [] })
       return
     }
+    if (url.pathname === '/api/broker-rate-limit-status') {
+      await route.fulfill({ json: [] })
+      return
+    }
+    const settingsPayloads: Record<string, unknown> = {
+      '/api/log-config': { retention_days: 5, max_size_mb: 100, api_debug: false },
+      '/api/archive-config': { retention_days: 90, max_size_mb: 500 },
+      '/api/archive-stats': { total_files: 0, size_bytes: 0, oldest_date: null, newest_date: null },
+      '/api/web-config': { runningPort: 7474, accessUrl: 'http://localhost:7474', distPath: '', distFound: true },
+      '/api/stock-list-stats': { count: 0, lastUpdatedAt: null, filePath: 'mock', updateIntervalHours: 24 },
+      '/api/risk-config': { enabled: true, dailyLossLimit: 500000, maxPositionRatio: 0.2, maxDailyBuyOrdersPerSymbol: 0, maxDailySellOrdersPerSymbol: 1, maxConsecutiveLossesPerStrategySymbol: 3, volatilitySizingEnabled: false, riskPerTradeBps: 100, atrStopMultiplier: 2, currentLoss: 0, dailyProfit: 0, netLoss: 0, emergencyStop: false, canTrade: true, lossRatio: 0, blockedStrategySymbolCount: 0, atrReadySymbolCount: 0 },
+    }
+    if (url.pathname in settingsPayloads) {
+      await route.fulfill({ json: settingsPayloads[url.pathname] })
+      return
+    }
     if (url.pathname === '/api/strategies') {
       if (options.strategyDelayMs) {
         await new Promise((resolve) => setTimeout(resolve, options.strategyDelayMs))
       }
-      await route.fulfill({ json: strategies })
+      await route.fulfill({ json: strategies.map((item) => ({
+        ...item,
+        brokerAccountId: activeAccountId(),
+        orderQuantity: options.scopeController?.current === 'B' ? 9 : item.orderQuantity,
+      })) })
+      return
+    }
+    if (url.pathname === '/api/profiles' && route.request().method() === 'GET' && options.scopeController) {
+      await route.fulfill({ json: [
+        { id: 'paper', broker_id: 'kis', broker_account_id: '12345678-01', name: '계좌 A', is_paper_trading: true, live_trading_consent: false, app_key_masked: '***', account_no: '12345678-01', is_active: options.scopeController.current === 'A', is_configured: true },
+        { id: 'profile-b', broker_id: 'kis', broker_account_id: '87654321-01', name: '계좌 B', is_paper_trading: true, live_trading_consent: false, app_key_masked: '***', account_no: '87654321-01', is_active: options.scopeController.current === 'B', is_configured: true },
+      ] })
+      return
+    }
+    if (url.pathname === '/api/profiles/profile-b/set-active' && options.scopeController) {
+      options.scopeController.current = 'B'
+      await route.fulfill({ json: {
+        active_broker_id: 'kis', active_broker_account_id: '87654321-01', kis_app_key_masked: '***', kis_account_no: '87654321-01', kis_is_paper_trading: true, kis_configured: true, active_broker_configured: true, discord_enabled: false, notification_levels: [], active_profile_id: 'profile-b', active_profile_name: '계좌 B',
+      } })
+      return
+    }
+    if (url.pathname.startsWith('/api/strategies/') && route.request().method() === 'POST') {
+      options.updateRequests?.push(route.request().postDataJSON())
+      await route.fulfill({ json: strategies.find((item) => url.pathname.endsWith(item.id)) ?? strategies[0] })
       return
     }
     if (url.pathname === '/api/toss-market-calendar') {
@@ -343,6 +408,45 @@ test('All strategy cards use the full content width', async ({ page }) => {
     expect(box.width).toBeCloseTo(cardBoxes[0].width, 0)
     expect(box.width).toBeGreaterThan((containerBox?.width ?? 0) * 0.95)
   }
+})
+
+test('Strategy saves with the profile and broker scope that produced the edit', async ({ page }) => {
+  const updateRequests: unknown[] = []
+  await mockApi(page, { updateRequests })
+  await page.goto('/strategy')
+
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'MovingAverageCrossStrategy' }).first()
+  await card.getByLabel('1회 수량').fill('2')
+  await card.getByRole('button', { name: '변경사항 저장' }).click()
+
+  await expect.poll(() => updateRequests.length).toBe(1)
+  expect(updateRequests[0]).toMatchObject({
+    id: 'ma_cross_default',
+    expectedProfileId: 'paper',
+    expectedBrokerId: 'kis',
+    expectedBrokerAccountId: '12345678-01',
+    orderQuantity: 2,
+  })
+})
+
+test('Strategy discards unsaved edits when the active account scope changes', async ({ page }) => {
+  const scopeController: { current: 'A' | 'B' } = { current: 'A' }
+  const updateRequests: unknown[] = []
+  await mockApi(page, { scopeController, updateRequests })
+  await page.goto('/strategy')
+
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'MovingAverageCrossStrategy' }).first()
+  await card.getByLabel('1회 수량').fill('2')
+  await page.getByRole('button', { name: 'Settings' }).click()
+  const profileB = page.getByText('계좌 B', { exact: true })
+    .locator('xpath=ancestor::*[contains(@class,"MuiPaper-root")][1]')
+  await profileB.getByRole('button').first().click()
+  await expect(page.getByText('활성: 계좌 B')).toBeVisible()
+  await page.getByRole('button', { name: 'Strategy' }).click()
+
+  const refreshedCard = page.locator('.MuiPaper-root').filter({ hasText: 'MovingAverageCrossStrategy' }).first()
+  await expect(refreshedCard.getByLabel('1회 수량')).toHaveValue('9')
+  expect(updateRequests).toHaveLength(0)
 })
 
 test('Strategy simulation controls stack without overflow on a narrow viewport', async ({ page }) => {

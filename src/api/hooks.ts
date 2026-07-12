@@ -359,11 +359,13 @@ export function usePositions(
 
 // ─── 전략 ──────────────────────────────────────────────────────────
 export function useStrategies(
+  scopeKey?: string | null,
   options?: Partial<UseQueryOptions<StrategyView[]>>
 ) {
   return useQuery({
-    queryKey: KEYS.strategies,
+    queryKey: KEYS.strategies(scopeKey),
     queryFn: cmd.getStrategies,
+    enabled: Boolean(scopeKey),
     staleTime: Infinity,
     ...options,
   })
@@ -374,7 +376,7 @@ export function useUpdateStrategy() {
   return useMutation({
     mutationFn: (input: UpdateStrategyInput) => cmd.updateStrategy(input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: KEYS.strategies })
+      qc.invalidateQueries({ queryKey: ['strategies'] })
     },
   })
 }
@@ -411,6 +413,7 @@ export function useAddProfile() {
       void qc.invalidateQueries({ queryKey: KEYS.profiles })
       void qc.invalidateQueries({ queryKey: KEYS.appConfig })
       void qc.invalidateQueries({ queryKey: KEYS.checkConfig })
+      void qc.invalidateQueries({ queryKey: ['strategies'] })
     },
   })
 }
@@ -440,6 +443,7 @@ export function useUpdateProfile() {
       void qc.invalidateQueries({ queryKey: KEYS.profiles })
       void qc.invalidateQueries({ queryKey: KEYS.appConfig })
       void qc.invalidateQueries({ queryKey: KEYS.checkConfig })
+      void qc.invalidateQueries({ queryKey: ['strategies'] })
     },
   })
 }
@@ -452,6 +456,7 @@ export function useDeleteProfile() {
       void qc.invalidateQueries({ queryKey: KEYS.profiles })
       void qc.invalidateQueries({ queryKey: KEYS.appConfig })
       void qc.invalidateQueries({ queryKey: KEYS.checkConfig })
+      void qc.invalidateQueries({ queryKey: ['strategies'] })
     },
   })
 }
@@ -464,6 +469,7 @@ export function useSetActiveProfile() {
       qc.setQueryData(KEYS.appConfig, newConfig)
       void qc.invalidateQueries({ queryKey: KEYS.profiles })
       void qc.invalidateQueries({ queryKey: KEYS.checkConfig })
+      void qc.invalidateQueries({ queryKey: ['strategies'] })
       // 프로파일 전환 시 잔고 캠시 무효화
       void qc.invalidateQueries({ queryKey: KEYS.balance })
     },

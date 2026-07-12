@@ -5,7 +5,7 @@ use axum::{
 use serde::Deserialize;
 
 use super::ServerState;
-use crate::commands::{collect_trade_archive_stats, pending_order_to_view, TradeArchiveConfig};
+use crate::commands::{pending_order_to_view, TradeArchiveConfig};
 use crate::logging::LogConfig;
 
 /// GET /api/positions
@@ -223,11 +223,12 @@ pub(super) async fn set_archive_config_handler(
         return Json(serde_json::json!({ "error": error }));
     }
     *s.trade_archive_config.write().await = new_cfg.clone();
-    let data_dir = s.data_dir.clone();
-    let cfg_clone = new_cfg.clone();
-    tokio::task::spawn_blocking(move || {
-        crate::commands::purge_old_trade_files(&data_dir, &cfg_clone)
-    });
+    if let Err(error) =
+        crate::commands::purge_trade_archive_active(&s.database_manager, &s.data_dir, &new_cfg)
+            .await
+    {
+        return Json(serde_json::json!({ "error": error.message }));
+    }
     tracing::info!(
         "체결 기록 보관 설정 변경 (웹 API): 보관 {}일, 최대 {}MB",
         new_cfg.retention_days,
@@ -238,11 +239,11 @@ pub(super) async fn set_archive_config_handler(
 
 /// GET /api/archive-stats
 pub(super) async fn archive_stats_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
-    let data_dir = s.data_dir.clone();
-    let result = tokio::task::spawn_blocking(move || collect_trade_archive_stats(&data_dir)).await;
-    match result {
+    match crate::commands::collect_trade_archive_stats_active(&s.database_manager, &s.data_dir)
+        .await
+    {
         Ok(stats) => Json(serde_json::to_value(stats).unwrap_or_default()),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
+        Err(error) => Json(serde_json::json!({ "error": error.message })),
     }
 }
 

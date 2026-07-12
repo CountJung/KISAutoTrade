@@ -63,6 +63,9 @@ pub async fn get_strategies(state: State<'_, AppState>) -> CmdResult<Vec<Strateg
 #[serde(rename_all = "camelCase")]
 pub struct UpdateStrategyInput {
     pub id: String,
+    pub expected_profile_id: String,
+    pub expected_broker_id: crate::broker::BrokerId,
+    pub expected_broker_account_id: Option<String>,
     pub enabled: Option<bool>,
     pub target_symbols: Option<Vec<String>>,
     pub order_quantity: Option<u64>,
@@ -75,15 +78,25 @@ pub async fn update_strategy(
     state: State<'_, AppState>,
 ) -> CmdResult<StrategyView> {
     let _strategy_update = state.strategy_update_lock.lock().await;
-    let active_scope = {
+    let (active_profile_id, active_scope) = {
         let cfg = state.config.read().await.clone();
         let account_id = if cfg.broker_account_id.is_empty() {
             None
         } else {
             Some(cfg.broker_account_id.clone())
         };
-        (cfg.broker_id, account_id)
+        let profile_id = state.profiles.read().await.active_id.clone();
+        (profile_id, (cfg.broker_id, account_id))
     };
+    if active_profile_id.as_deref() != Some(input.expected_profile_id.as_str())
+        || active_scope.0 != input.expected_broker_id
+        || active_scope.1 != input.expected_broker_account_id
+    {
+        return Err(CmdError {
+            code: "SCOPE_MISMATCH".into(),
+            message: "활성 계좌가 변경되었습니다. 전략을 다시 불러온 뒤 수정하세요.".into(),
+        });
+    }
     let previous_configs: Vec<crate::trading::strategy::StrategyConfig> = {
         let mgr = state.strategy_manager.lock().await;
         mgr.all_configs().into_iter().cloned().collect()
@@ -113,7 +126,7 @@ pub async fn update_strategy(
     let view = build_strategy_view(&updated_config, &state.stock_store).await;
 
     // 변경된 전략 설정을 디스크에 영구 저장 (프로파일별)
-    let profile_id = state.profiles.read().await.active_id.clone();
+    let profile_id = active_profile_id;
     if let Some(pid) = &profile_id {
         let all_configs: Vec<crate::trading::strategy::StrategyConfig> = {
             let mgr = state.strategy_manager.lock().await;

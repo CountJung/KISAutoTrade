@@ -54,7 +54,7 @@ import {
   KEYS,
 } from '../../../api/hooks'
 import { fmtBrokerMoney, fmtDecimalString, fmtNumber, parseDecimalString } from '../../../shared/lib'
-import { BrokerScopeIndicator } from '../../../shared/ui'
+import { BrokerScopeIndicator, TradingHealthPanel } from '../../../shared/ui'
 
 function fmt(n: number) {
   return fmtNumber(n)
@@ -507,7 +507,7 @@ export default function Dashboard() {
         <Alert
           severity="warning"
           sx={{ mb: 2 }}
-          action={
+          action={!tradingStatus.health.persistenceBlocked ? (
             <Button
               size="small"
               color="inherit"
@@ -517,11 +517,15 @@ export default function Dashboard() {
             >
               매수 재개
             </Button>
-          }
+          ) : undefined}
         >
-          <strong>잔고 부족 — 매수 정지 중</strong>{' '}
-          매도 체결 시 자동 재개됩니다. 입금 후 수동으로 재개할 수도 있습니다.
+          <strong>매수 정지 중</strong>{' '}
+          {tradingStatus.buySuspendedReason ?? '계좌 또는 영속화 상태를 확인하세요.'}
         </Alert>
+      )}
+
+      {tradingStatus?.health && (
+        <Box sx={{ mb: 2 }}><TradingHealthPanel health={tradingStatus.health} /></Box>
       )}
 
       {/* ── 국내 보유주식 (잔고 API 직접) ───────────────────────── */}

@@ -348,9 +348,12 @@ impl OrderManager {
                     let snapshot = deps.risk_manager.lock().await.runtime_state();
                     if let Err(e) = deps.risk_store.save_runtime(&snapshot).await {
                         tracing::error!("리스크 runtime 상태 저장 실패: {}", e);
-                        order_manager.lock().await.block_for_persistence_failure(
-                            format!("리스크 runtime 상태 저장 실패: {e}"),
-                        );
+                        order_manager
+                            .lock()
+                            .await
+                            .block_for_persistence_failure(format!(
+                                "리스크 runtime 상태 저장 실패: {e}"
+                            ));
                     }
                 }
                 Ok(SubmissionOutcome::Submitted { provider_order_id })
@@ -1017,6 +1020,7 @@ fn build_kis_pending_order(
         prepared.order_price,
         prepared.order_type.to_string(),
     )
+    .with_strategy_id(prepared.submission.strategy_id.clone())
     .with_provider_trace(
         "kis",
         Some(response.odno.clone()),
@@ -1081,6 +1085,7 @@ fn build_toss_pending_order(
         prepared.order_price,
         format!("TOSS_{}", prepared.order_type.to_uppercase()),
     )
+    .with_strategy_id(prepared.submission.strategy_id.clone())
     .with_provider_trace("toss", Some(order_id.clone()), client_order_id, None)
     .with_broker_scope(&prepared.submission.broker_scope);
     record.kis_order_id = Some(order_id.clone());
@@ -1121,6 +1126,7 @@ async fn append_failed_order(
         price,
         order_type.to_string(),
     )
+    .with_strategy_id(submission.strategy_id.clone())
     .with_broker_scope(&submission.broker_scope);
     record.status = OrderStatus::Failed;
     record.error_message = Some(error_message);

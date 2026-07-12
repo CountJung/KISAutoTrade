@@ -78,6 +78,51 @@ pub fn collect_trade_archive_stats(data_dir: &Path) -> TradeArchiveStats {
     }
 }
 
+pub async fn collect_trade_archive_stats_active(
+    database_manager: &crate::storage::database::DatabaseManager,
+    data_dir: &Path,
+) -> CmdResult<TradeArchiveStats> {
+    if database_manager.config_view().await.active_backend
+        == crate::storage::database::StorageBackend::Database
+    {
+        let stats = database_manager
+            .database_archive_stats()
+            .await
+            .map_err(|error| CmdError {
+                code: "DB_ARCHIVE_STATS_ERROR".into(),
+                message: error.to_string(),
+            })?;
+        return Ok(TradeArchiveStats {
+            total_files: stats.total_files,
+            size_bytes: stats.size_bytes,
+            oldest_date: stats.oldest_date,
+            newest_date: stats.newest_date,
+        });
+    }
+    Ok(collect_trade_archive_stats(data_dir))
+}
+
+pub async fn purge_trade_archive_active(
+    database_manager: &crate::storage::database::DatabaseManager,
+    data_dir: &Path,
+    cfg: &TradeArchiveConfig,
+) -> CmdResult<()> {
+    if database_manager.config_view().await.active_backend
+        == crate::storage::database::StorageBackend::Database
+    {
+        database_manager
+            .purge_database_trades(cfg.retention_days, cfg.max_size_mb)
+            .await
+            .map_err(|error| CmdError {
+                code: "DB_ARCHIVE_PURGE_ERROR".into(),
+                message: error.to_string(),
+            })
+    } else {
+        purge_old_trade_files(data_dir, cfg);
+        Ok(())
+    }
+}
+
 /// 날짜별 trades 디렉토리 목록 수집 (trades/YYYY/MM/DD/)
 fn collect_trade_day_dirs(data_dir: &Path) -> Vec<(chrono::NaiveDate, PathBuf)> {
     let trades_dir = data_dir.join("trades");
@@ -224,9 +269,7 @@ pub async fn set_trade_archive_config(
     *state.trade_archive_config.write().await = new_cfg.clone();
 
     // 즉시 정리 실행
-    let data_dir = state.data_dir.clone();
-    let cfg_clone = new_cfg.clone();
-    tokio::task::spawn_blocking(move || purge_old_trade_files(&data_dir, &cfg_clone));
+    purge_trade_archive_active(&state.database_manager, &state.data_dir, &new_cfg).await?;
 
     tracing::info!(
         "체결 기록 보관 설정 변경: 보관 {}일, 최대 {}MB",
@@ -239,13 +282,5 @@ pub async fn set_trade_archive_config(
 
 #[tauri::command]
 pub async fn get_trade_archive_stats(state: State<'_, AppState>) -> CmdResult<TradeArchiveStats> {
-    let data_dir = state.data_dir.clone();
-    let stats = tokio::task::spawn_blocking(move || collect_trade_archive_stats(&data_dir))
-        .await
-        .map_err(|e| CmdError {
-            code: "TASK_ERR".into(),
-            message: e.to_string(),
-        })?;
-
-    Ok(stats)
+    collect_trade_archive_stats_active(&state.database_manager, &state.data_dir).await
 }

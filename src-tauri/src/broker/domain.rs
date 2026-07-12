@@ -136,6 +136,8 @@ pub enum BrokerOrderStatus {
     Filled,
     Canceled,
     Rejected,
+    Expired,
+    Failed,
     Replaced,
     Unknown(String),
 }

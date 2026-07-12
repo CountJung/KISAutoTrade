@@ -9,7 +9,7 @@ use super::{build_daily_path, read_json_or_default, write_json};
 use crate::broker::{BrokerId, BrokerScope};
 
 /// 주문 방향
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OrderSide {
     Buy,
@@ -17,13 +17,15 @@ pub enum OrderSide {
 }
 
 /// 주문 상태
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OrderStatus {
     Pending,
     Filled,
     PartiallyFilled,
     Cancelled,
+    Rejected,
+    Expired,
     Failed,
 }
 
@@ -49,6 +51,8 @@ pub struct OrderRecord {
     #[serde(default)]
     pub provider_tr_id: Option<String>,
     pub error_message: Option<String>,
+    #[serde(default)]
+    pub strategy_id: Option<String>,
     #[serde(default)]
     pub execution_date: Option<String>,
     /// 주문이 발생한 broker. 기존 레코드는 None(scope 도입 전 KIS)으로 간주한다.
@@ -84,6 +88,7 @@ impl OrderRecord {
             provider_request_id: None,
             provider_tr_id: None,
             error_message: None,
+            strategy_id: None,
             execution_date: None,
             broker_id: None,
             broker_account_id: None,
@@ -109,6 +114,19 @@ impl OrderRecord {
         self.broker_id = Some(scope.broker_id);
         self.broker_account_id = scope.account_id.as_ref().map(|account| account.0.clone());
         self
+    }
+
+    pub fn with_strategy_id(mut self, strategy_id: Option<String>) -> Self {
+        self.strategy_id = strategy_id;
+        self
+    }
+
+    pub fn matches_scope(&self, scope: &BrokerScope) -> bool {
+        self.broker_id.unwrap_or(BrokerId::Kis) == scope.broker_id
+            && scope
+                .account_id
+                .as_ref()
+                .is_none_or(|account| self.broker_account_id.as_deref() == Some(account.0.as_str()))
     }
 }
 
@@ -144,6 +162,22 @@ impl OrderStore {
         records.push(record);
         write_json(&path, &records).await?;
         Ok(())
+    }
+
+    pub async fn get_by_date(&self, date: chrono::NaiveDate) -> Result<Vec<OrderRecord>> {
+        read_json_or_default(&self.path_for(date)).await
+    }
+
+    pub async fn upsert_on(&self, date: chrono::NaiveDate, record: OrderRecord) -> Result<()> {
+        let _write = self.write_lock.lock().await;
+        let path = self.path_for(date);
+        let mut records: Vec<OrderRecord> = read_json_or_default(&path).await?;
+        if let Some(existing) = records.iter_mut().find(|existing| existing.id == record.id) {
+            *existing = record;
+        } else {
+            records.push(record);
+        }
+        write_json(&path, &records).await
     }
 }
 

@@ -903,131 +903,176 @@ pub async fn modify_toss_order_for_profile(
         });
     }
 
-    let order_type = input.order_type.trim().to_ascii_uppercase();
-    let quantity = input
-        .quantity
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToString::to_string);
-    let price = input
-        .price
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToString::to_string);
+    let modification_reserved = if let Some(manager) = order_manager {
+        manager
+            .lock()
+            .await
+            .begin_pending_modification(&order_id)
+            .map_err(|error| CmdError {
+                code: "ORDER_OPERATION_IN_PROGRESS".into(),
+                message: error.to_string(),
+            })?
+    } else {
+        false
+    };
 
-    let adapter = TossBrokerAdapter::with_credentials(
-        TossBrokerAdapter::DEFAULT_BASE_URL,
-        profile.app_key.clone(),
-        profile.app_secret.clone(),
-        Some(account_seq.clone()),
-    );
-    let original_order = adapter
-        .get_order(Some(&account_seq), &order_id)
-        .await
-        .map_err(|e| CmdError {
-            code: "TOSS_ORDER_DETAIL_ERROR".into(),
-            message: e.to_string(),
-        })?;
-    let request_quantity = if original_order.currency.eq_ignore_ascii_case("USD") {
-        if quantity
+    let result = async {
+        let order_type = input.order_type.trim().to_ascii_uppercase();
+        let quantity = input
+            .quantity
             .as_deref()
-            .is_some_and(|value| !toss_decimal_equals(value, &original_order.quantity))
-        {
-            return Err(CmdError {
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToString::to_string);
+        let price = input
+            .price
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToString::to_string);
+
+        let adapter = TossBrokerAdapter::with_credentials(
+            TossBrokerAdapter::DEFAULT_BASE_URL,
+            profile.app_key.clone(),
+            profile.app_secret.clone(),
+            Some(account_seq.clone()),
+        );
+        let original_order = adapter
+            .get_order(Some(&account_seq), &order_id)
+            .await
+            .map_err(|e| CmdError {
+                code: "TOSS_ORDER_DETAIL_ERROR".into(),
+                message: e.to_string(),
+            })?;
+        let request_quantity = if original_order.currency.eq_ignore_ascii_case("USD") {
+            if quantity
+                .as_deref()
+                .is_some_and(|value| !toss_decimal_equals(value, &original_order.quantity))
+            {
+                return Err(CmdError {
                 code: "TOSS_US_MODIFY_PRICE_ONLY".into(),
                 message:
                     "미국 주식 주문 정정은 가격만 지원합니다. 수량 변경 없이 가격만 정정해 주세요."
                         .into(),
             });
-        }
-        None
-    } else {
-        Some(quantity.unwrap_or_else(|| original_order.quantity.clone()))
-    };
+            }
+            None
+        } else {
+            Some(quantity.unwrap_or_else(|| original_order.quantity.clone()))
+        };
 
-    let request = TossOrderModifyRequest {
-        order_type: order_type.clone(),
-        quantity: request_quantity,
-        price: price.clone(),
-        confirm_high_value_order: input.confirm_high_value_order,
-    };
+        let request = TossOrderModifyRequest {
+            order_type: order_type.clone(),
+            quantity: request_quantity,
+            price: price.clone(),
+            confirm_high_value_order: input.confirm_high_value_order,
+        };
 
-    let response = adapter
-        .modify_order(Some(&account_seq), &order_id, &request)
-        .await
-        .map_err(|e| CmdError {
-            code: "TOSS_MODIFY_ORDER_ERROR".into(),
-            message: e.to_string(),
-        })?;
-
-    if let Some(order_manager) = order_manager {
-        match adapter
-            .get_order(Some(&account_seq), &response.order_id)
+        let response = adapter
+            .modify_order(Some(&account_seq), &order_id, &request)
             .await
-        {
-            Ok(detail) => {
-                let quantity_units = parse_decimal_amount(&detail.quantity)
-                    .map(|value| value.max(0.0).floor() as u64);
-                let price_units = detail
-                    .price
-                    .as_deref()
-                    .map(|price| toss_decimal_to_storage_units(price, &detail.currency));
-                let mut manager = order_manager.lock().await;
-                manager.update_pending_order_snapshot(
-                    &order_id,
-                    Some(&response.order_id),
-                    quantity_units,
-                    price_units,
-                    Some(format!("TOSS_{}", detail.order_type)),
-                );
-                manager
-                    .persist_pending_orders()
-                    .await
-                    .map_err(|e| CmdError {
+            .map_err(|e| CmdError {
+                code: "TOSS_MODIFY_ORDER_ERROR".into(),
+                message: e.to_string(),
+            })?;
+
+    if modification_reserved {
+        let order_manager = order_manager.expect("reserved modification has manager");
+            match adapter
+                .get_order(Some(&account_seq), &response.order_id)
+                .await
+            {
+                Ok(detail) => {
+                    let quantity_units = parse_decimal_amount(&detail.quantity)
+                        .map(|value| value.max(0.0).floor() as u64);
+                    let price_units = detail
+                        .price
+                        .as_deref()
+                        .map(|price| toss_decimal_to_storage_units(price, &detail.currency));
+                    let mut manager = order_manager.lock().await;
+                    if !manager.update_pending_order_snapshot(
+                        &order_id,
+                        Some(&response.order_id),
+                        quantity_units,
+                        price_units,
+                        Some(format!("TOSS_{}", detail.order_type)),
+                    ) {
+                        return Err(CmdError {
+                            code: "ORDER_STATE_CHANGED".into(),
+                            message:
+                                "정정 중 주문 상태가 변경되었습니다. 접수 주문을 다시 조회하세요."
+                                    .into(),
+                        });
+                    }
+                if let Err(error) = manager.persist_pending_orders().await {
+                    manager.block_for_persistence_failure(format!(
+                        "정정 주문의 미체결 스냅샷 저장 실패: {error}"
+                    ));
+                    return Err(CmdError {
                         code: "PENDING_ORDER_WRITE_ERROR".into(),
-                        message: format!("정정 주문의 미체결 스냅샷 저장 실패: {e}"),
-                    })?;
-            }
-            Err(e) => {
-                tracing::warn!(
-                    "Toss 정정 후 주문 상세 조회 실패: orderId={} newOrderId={} {}",
-                    order_id,
-                    response.order_id,
-                    e
-                );
-                let quantity_units = parse_decimal_amount(&original_order.quantity)
-                    .map(|value| value.max(0.0).floor() as u64);
-                let price_units = price
-                    .as_deref()
-                    .or(original_order.price.as_deref())
-                    .map(|price| toss_decimal_to_storage_units(price, &original_order.currency));
-                let mut manager = order_manager.lock().await;
-                manager.update_pending_order_snapshot(
-                    &order_id,
-                    Some(&response.order_id),
-                    quantity_units,
-                    price_units,
-                    Some(format!("TOSS_{}", request.order_type)),
-                );
-                manager
-                    .persist_pending_orders()
-                    .await
-                    .map_err(|e| CmdError {
+                        message: format!("정정 주문의 미체결 스냅샷 저장 실패: {error}"),
+                    });
+                }
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "Toss 정정 후 주문 상세 조회 실패: orderId={} newOrderId={} {}",
+                        order_id,
+                        response.order_id,
+                        e
+                    );
+                    let quantity_units = parse_decimal_amount(&original_order.quantity)
+                        .map(|value| value.max(0.0).floor() as u64);
+                    let price_units =
+                        price
+                            .as_deref()
+                            .or(original_order.price.as_deref())
+                            .map(|price| {
+                                toss_decimal_to_storage_units(price, &original_order.currency)
+                            });
+                    let mut manager = order_manager.lock().await;
+                    if !manager.update_pending_order_snapshot(
+                        &order_id,
+                        Some(&response.order_id),
+                        quantity_units,
+                        price_units,
+                        Some(format!("TOSS_{}", request.order_type)),
+                    ) {
+                        return Err(CmdError {
+                            code: "ORDER_STATE_CHANGED".into(),
+                            message:
+                                "정정 중 주문 상태가 변경되었습니다. 접수 주문을 다시 조회하세요."
+                                    .into(),
+                        });
+                    }
+                if let Err(error) = manager.persist_pending_orders().await {
+                    manager.block_for_persistence_failure(format!(
+                        "정정 주문의 미체결 스냅샷 저장 실패: {error}"
+                    ));
+                    return Err(CmdError {
                         code: "PENDING_ORDER_WRITE_ERROR".into(),
-                        message: format!("정정 주문의 미체결 스냅샷 저장 실패: {e}"),
-                    })?;
+                        message: format!("정정 주문의 미체결 스냅샷 저장 실패: {error}"),
+                    });
+                }
+                }
             }
+        }
+
+        Ok(TossOrderOperationView {
+            broker_id: BrokerId::Toss,
+            account_seq,
+            order_id: response.order_id,
+            message: "Toss 접수 주문 정정 요청이 완료되었습니다.".to_string(),
+        })
+    }
+    .await;
+
+    if modification_reserved {
+        if let Some(manager) = order_manager {
+            manager.lock().await.finish_pending_modification(&order_id);
         }
     }
-
-    Ok(TossOrderOperationView {
-        broker_id: BrokerId::Toss,
-        account_seq,
-        order_id: response.order_id,
-        message: "Toss 접수 주문 정정 요청이 완료되었습니다.".to_string(),
-    })
+    result
 }
 
 #[tauri::command]
