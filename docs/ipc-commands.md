@@ -20,6 +20,7 @@
 | `save_web_config` | `WEB_PORT`, `WEB_ALLOW_LAN`, 32자 이상 `WEB_API_TOKEN` 저장. LAN 공개는 token 필수 |
 | `detect_trading_type` | 실전/모의투자 자동 감지 |
 | `detect_profile_trading_type` | 특정 프로파일 실전/모의 감지 |
+| `get_broker_rate_limit_status` | broker rate limiter 운영 상태 (scope/그룹별 pause 잔여, rate limit 누적, 마지막 성공/실패, 연속 실패; credential 마스킹) |
 | `list_toss_accounts` | 입력한 토스증권 Client ID/Secret으로 `accountSeq` 후보 조회 |
 | `list_toss_profile_accounts` | 저장된 토스증권 프로파일 키로 `accountSeq` 후보 조회 |
 | `check_toss_profile_connection` | 토스증권 프로파일 연결 진단 (OpenAPI spec, token, accounts, holdings 단계 결과) |

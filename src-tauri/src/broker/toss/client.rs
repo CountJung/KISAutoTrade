@@ -75,12 +75,14 @@ fn shared_toss_token_state(base_url: &str, client_id: &str) -> Arc<TossTokenStat
 
 impl TossOpenApiClient {
     pub fn without_credentials(base_url: impl Into<String>) -> Self {
+        let base_url = trim_base_url(base_url.into());
+        let rate_limiter = toss_rate_limiter(&base_url, None);
         Self {
             http: toss_http_client(),
-            base_url: trim_base_url(base_url.into()),
+            base_url,
             credentials: None,
             token_state: Arc::new(TossTokenState::new()),
-            rate_limiter: toss_rate_limiter(),
+            rate_limiter,
         }
     }
 
@@ -94,6 +96,7 @@ impl TossOpenApiClient {
         let client_id = client_id.into();
         let client_secret = client_secret.into();
         let token_state = shared_toss_token_state(&base_url, &client_id);
+        let rate_limiter = toss_rate_limiter(&base_url, Some(&client_id));
         Self {
             http: toss_http_client(),
             base_url,
@@ -103,7 +106,7 @@ impl TossOpenApiClient {
                 account_seq: account_seq.map(Into::into),
             }),
             token_state,
-            rate_limiter: toss_rate_limiter(),
+            rate_limiter,
         }
     }
 
@@ -172,18 +175,21 @@ impl TossOpenApiClient {
         };
 
         self.rate_limiter.wait(rate_group).await;
-        let resp = self
-            .http
-            .post(url)
-            .form(&body)
-            .send()
-            .await
-            .context("토스증권 토큰 발급 요청 실패")?;
+        let resp = match self.http.post(url).form(&body).send().await {
+            Ok(resp) => resp,
+            Err(error) => {
+                self.rate_limiter.record_outcome(rate_group, false).await;
+                return Err(error).context("토스증권 토큰 발급 요청 실패");
+            }
+        };
 
         let status = resp.status();
         let headers = resp.headers().clone();
         self.rate_limiter
             .apply_response_headers(rate_group, &headers)
+            .await;
+        self.rate_limiter
+            .record_outcome(rate_group, status.is_success())
             .await;
         let text = read_toss_response_text(resp).await?;
         if !status.is_success() {
@@ -652,12 +658,17 @@ impl TossOpenApiClient {
             Err(first_error) => {
                 if let Some(retry_request) = retry_request {
                     tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-                    retry_request.send().await.map_err(|retry_error| {
-                        anyhow!(
-                            "토스증권 OpenAPI 요청 실패: path={path}; first={first_error}; retry={retry_error}"
-                        )
-                    })?
+                    match retry_request.send().await {
+                        Ok(resp) => resp,
+                        Err(retry_error) => {
+                            self.rate_limiter.record_outcome(rate_group, false).await;
+                            return Err(anyhow!(
+                                "토스증권 OpenAPI 요청 실패: path={path}; first={first_error}; retry={retry_error}"
+                            ));
+                        }
+                    }
                 } else {
+                    self.rate_limiter.record_outcome(rate_group, false).await;
                     return Err(anyhow!(
                         "토스증권 OpenAPI 요청 실패: path={path}; {first_error}"
                     ));
@@ -668,6 +679,9 @@ impl TossOpenApiClient {
         let headers = resp.headers().clone();
         self.rate_limiter
             .apply_response_headers(rate_group, &headers)
+            .await;
+        self.rate_limiter
+            .record_outcome(rate_group, status.is_success())
             .await;
         let text = read_toss_response_text(resp).await?;
 
@@ -717,14 +731,21 @@ impl TossOpenApiClient {
         }
 
         self.rate_limiter.wait(rate_group).await;
-        let resp = request
-            .send()
-            .await
-            .with_context(|| format!("토스증권 OpenAPI 요청 실패: path={path}"))?;
+        let resp = match request.send().await {
+            Ok(resp) => resp,
+            Err(error) => {
+                self.rate_limiter.record_outcome(rate_group, false).await;
+                return Err(error)
+                    .with_context(|| format!("토스증권 OpenAPI 요청 실패: path={path}"));
+            }
+        };
         let status = resp.status();
         let headers = resp.headers().clone();
         self.rate_limiter
             .apply_response_headers(rate_group, &headers)
+            .await;
+        self.rate_limiter
+            .record_outcome(rate_group, status.is_success())
             .await;
         let text = read_toss_response_text(resp).await?;
 

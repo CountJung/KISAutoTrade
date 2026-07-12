@@ -544,6 +544,7 @@ pub fn run() {
             commands::save_web_config,
             commands::detect_trading_type,
             commands::detect_profile_trading_type,
+            commands::get_broker_rate_limit_status,
             commands::list_toss_accounts,
             commands::list_toss_profile_accounts,
             commands::check_toss_profile_connection,

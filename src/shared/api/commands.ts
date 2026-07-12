@@ -10,6 +10,7 @@ import type {
   AppConfigView,
   AppLogEntry,
   BrokerHoldingView,
+  BrokerRateLimitScopeView,
   BalanceResult,
   OverseasBalanceResult,
   ChartCandle,
@@ -348,5 +349,10 @@ export const setTradeArchiveConfig = (input: SetTradeArchiveConfigInput): Promis
 
 export const getTradeArchiveStats = (): Promise<TradeArchiveStats> =>
   invoke('get_trade_archive_stats')
+
+// ─── broker rate limit 운영 상태 ──────────────────────────────────
+/** process-wide 공유 broker rate limiter의 scope/그룹별 운영 상태 조회 */
+export const getBrokerRateLimitStatus = (): Promise<BrokerRateLimitScopeView[]> =>
+  invoke('get_broker_rate_limit_status')
 
 export * from './databaseCommands'

@@ -777,3 +777,55 @@ pub async fn detect_profile_trading_type(
     );
     Ok(view)
 }
+
+// ────────────────────────────────────────────────────────────────────
+// broker rate limit 운영 상태
+// ────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrokerRateLimitScopeView {
+    /// credential 식별자가 마스킹된 scope 레이블 (예: kis|https://…|Ab12…Z9|paper=false)
+    pub scope: String,
+    pub groups: Vec<crate::broker::rate_limit::RateLimitGroupStatus>,
+}
+
+fn masked_scope_label(scope: &str) -> String {
+    scope
+        .split('|')
+        .map(|part| {
+            let is_plain = part.contains("://")
+                || part.contains('=')
+                || matches!(part, "kis" | "toss" | "anonymous");
+            if is_plain || part.chars().count() <= 8 {
+                part.to_string()
+            } else {
+                let head: String = part.chars().take(4).collect();
+                let tail: String = part
+                    .chars()
+                    .rev()
+                    .take(2)
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                    .collect();
+                format!("{head}…{tail}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("|")
+}
+
+/// process-wide 공유 rate limiter의 scope/그룹별 운영 상태를 조회한다.
+/// 429 pause 잔여 시간, 누적 rate limit 횟수, 마지막 성공/실패, 연속 실패를 포함한다.
+#[tauri::command]
+pub async fn get_broker_rate_limit_status() -> CmdResult<Vec<BrokerRateLimitScopeView>> {
+    let mut views = Vec::new();
+    for (scope, scheduler) in crate::broker::rate_limit::shared_scheduler_scopes() {
+        views.push(BrokerRateLimitScopeView {
+            scope: masked_scope_label(&scope),
+            groups: scheduler.status_snapshot().await,
+        });
+    }
+    Ok(views)
+}

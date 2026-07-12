@@ -19,12 +19,44 @@ const KIS_RATE_GROUP_EXECUTION: &str = "kis:execution";
 const KIS_RATE_GROUP_ORDER: &str = "kis:order";
 const KIS_RATE_GROUP_QUOTE: &str = "kis:quote";
 
+const KIS_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const KIS_HTTP_TIMEOUT: Duration = Duration::from_secs(30);
+const KIS_MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
+
 fn kis_read_min_interval(is_paper: bool) -> Duration {
     if is_paper {
         Duration::from_millis(500)
     } else {
         Duration::from_millis(50)
     }
+}
+
+fn kis_http_client() -> Client {
+    Client::builder()
+        .connect_timeout(KIS_CONNECT_TIMEOUT)
+        .timeout(KIS_HTTP_TIMEOUT)
+        .build()
+        .expect("KIS reqwest client with timeout should build")
+}
+
+/// KIS 응답 본문을 크기 상한과 함께 읽는다.
+async fn read_kis_response_text(mut resp: Response) -> Result<String> {
+    use anyhow::{anyhow, Context};
+    if resp.content_length().unwrap_or(0) > KIS_MAX_RESPONSE_BYTES as u64 {
+        return Err(anyhow!(
+            "KIS 응답 본문이 {KIS_MAX_RESPONSE_BYTES} bytes 상한을 초과했습니다"
+        ));
+    }
+    let mut body = Vec::new();
+    while let Some(chunk) = resp.chunk().await.context("KIS 응답 본문 읽기 실패")? {
+        if body.len().saturating_add(chunk.len()) > KIS_MAX_RESPONSE_BYTES {
+            return Err(anyhow!(
+                "KIS 응답 본문이 {KIS_MAX_RESPONSE_BYTES} bytes 상한을 초과했습니다"
+            ));
+        }
+        body.extend_from_slice(&chunk);
+    }
+    String::from_utf8(body).context("KIS 응답 본문 UTF-8 파싱 실패")
 }
 
 /// 한국투자증권 REST API 클라이언트
@@ -59,8 +91,19 @@ impl KisRestClient {
         is_paper: bool,
         token_manager: Arc<RwLock<TokenManager>>,
     ) -> Self {
+        // 프로파일 전환 등으로 client가 재생성돼도 같은 credential scope의
+        // pacing/pause/운영 상태를 process-wide로 공유한다.
+        let scope = format!("kis|{base_url}|{app_key}|paper={is_paper}");
+        let rate_limiter = crate::broker::rate_limit::shared_scheduler(&scope, || {
+            RateLimitScheduler::with_min_intervals([
+                (KIS_RATE_GROUP_ACCOUNT, kis_read_min_interval(is_paper)),
+                (KIS_RATE_GROUP_EXECUTION, kis_read_min_interval(is_paper)),
+                (KIS_RATE_GROUP_QUOTE, kis_read_min_interval(is_paper)),
+                (KIS_RATE_GROUP_ORDER, Duration::from_secs(1)),
+            ])
+        });
         Self {
-            client: Client::new(),
+            client: kis_http_client(),
             base_url,
             app_key,
             app_secret,
@@ -68,12 +111,7 @@ impl KisRestClient {
             is_paper,
             token_manager,
             api_debug: Arc::new(AtomicBool::new(false)),
-            rate_limiter: RateLimitScheduler::with_min_intervals([
-                (KIS_RATE_GROUP_ACCOUNT, kis_read_min_interval(is_paper)),
-                (KIS_RATE_GROUP_EXECUTION, kis_read_min_interval(is_paper)),
-                (KIS_RATE_GROUP_QUOTE, kis_read_min_interval(is_paper)),
-                (KIS_RATE_GROUP_ORDER, Duration::from_secs(1)),
-            ]),
+            rate_limiter,
         }
     }
 
@@ -122,10 +160,19 @@ impl KisRestClient {
         request: RequestBuilder,
     ) -> Result<Response> {
         self.rate_limiter.wait(group).await;
-        let resp = request.send().await?;
+        let resp = match request.send().await {
+            Ok(resp) => resp,
+            Err(error) => {
+                self.rate_limiter.record_outcome(group, false).await;
+                return Err(error.into());
+            }
+        };
         let headers = resp.headers().clone();
         self.rate_limiter
             .apply_response_headers(group, &headers)
+            .await;
+        self.rate_limiter
+            .record_outcome(group, resp.status().is_success())
             .await;
         Ok(resp)
     }
@@ -177,7 +224,7 @@ impl KisRestClient {
             .await?;
 
         let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
+        let body = read_kis_response_text(resp).await.unwrap_or_default();
 
         if !status.is_success() {
             anyhow::bail!("잔고 조회 실패 HTTP {}: {}", status, body);
@@ -245,7 +292,7 @@ impl KisRestClient {
             .await?;
 
         let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
+        let body = read_kis_response_text(resp).await.unwrap_or_default();
 
         if !status.is_success() {
             anyhow::bail!("해외 잔고 조회 실패 HTTP {}: {}", status, body);
@@ -334,7 +381,7 @@ impl KisRestClient {
 
         let status = resp.status();
         if !status.is_success() {
-            let text = resp.text().await.unwrap_or_default();
+            let text = read_kis_response_text(resp).await.unwrap_or_default();
             anyhow::bail!("주문 실패 HTTP {}: {}", status, text);
         }
 
@@ -350,7 +397,7 @@ impl KisRestClient {
             ord_tmd: Option<String>,
         }
 
-        let raw: Raw = resp.json().await?;
+        let raw: Raw = serde_json::from_str(&read_kis_response_text(resp).await?)?;
         if raw.rt_cd != "0" {
             anyhow::bail!("주문 오류: {}", raw.msg1);
         }
@@ -420,7 +467,7 @@ impl KisRestClient {
 
         let status = resp.status();
         if !status.is_success() {
-            let text = resp.text().await.unwrap_or_default();
+            let text = read_kis_response_text(resp).await.unwrap_or_default();
             anyhow::bail!("체결 내역 조회 실패 HTTP {}: {}", status, text);
         }
 
@@ -431,7 +478,7 @@ impl KisRestClient {
             output1: Option<Vec<ExecutedOrder>>,
         }
 
-        let body = resp.text().await?;
+        let body = read_kis_response_text(resp).await?;
         if self.api_debug.load(Ordering::Relaxed) {
             tracing::info!(
                 "[KIS-DEBUG][{}] 체결내역 조회 params CANO={} FROM={} TO={} 모의={}",
@@ -534,7 +581,7 @@ impl KisRestClient {
                 .and_then(|v| v.to_str().ok())
                 .unwrap_or("")
                 .to_string();
-            let body = resp.text().await.unwrap_or_default();
+            let body = read_kis_response_text(resp).await.unwrap_or_default();
             if !status.is_success() {
                 anyhow::bail!("해외 체결 내역 조회 실패 HTTP {}: {}", status, body);
             }
@@ -637,7 +684,7 @@ impl KisRestClient {
             .await?;
 
         let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
+        let body = read_kis_response_text(resp).await.unwrap_or_default();
 
         if !status.is_success() {
             anyhow::bail!("차트 조회 HTTP {}: {}", status, body);
@@ -726,7 +773,7 @@ impl KisRestClient {
             .await?;
 
         let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
+        let body = read_kis_response_text(resp).await.unwrap_or_default();
 
         if !status.is_success() {
             anyhow::bail!("해외 현재가 조회 실패 HTTP {}: {}", status, body);
@@ -810,7 +857,7 @@ impl KisRestClient {
 
         let status = resp.status();
         if !status.is_success() {
-            let text = resp.text().await.unwrap_or_default();
+            let text = read_kis_response_text(resp).await.unwrap_or_default();
             anyhow::bail!("해외 주문 실패 HTTP {}: {}", status, text);
         }
 
@@ -826,7 +873,7 @@ impl KisRestClient {
             ord_tmd: Option<String>,
         }
 
-        let raw: Raw = resp.json().await?;
+        let raw: Raw = serde_json::from_str(&read_kis_response_text(resp).await?)?;
         if raw.rt_cd != "0" {
             anyhow::bail!("해외 주문 오류: {}", raw.msg1);
         }
@@ -886,7 +933,7 @@ impl KisRestClient {
             .await?;
 
         let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
+        let body = read_kis_response_text(resp).await.unwrap_or_default();
 
         if !status.is_success() {
             anyhow::bail!("해외 차트 조회 HTTP {}: {}", status, body);
@@ -973,7 +1020,7 @@ impl KisRestClient {
 
         let status = resp.status();
         if !status.is_success() {
-            let text = resp.text().await.unwrap_or_default();
+            let text = read_kis_response_text(resp).await.unwrap_or_default();
             anyhow::bail!("현재가 조회 실패 HTTP {}: {}", status, text);
         }
 
@@ -984,7 +1031,7 @@ impl KisRestClient {
             output: Option<PriceResponse>,
         }
 
-        let raw: Raw = resp.json().await?;
+        let raw: Raw = serde_json::from_str(&read_kis_response_text(resp).await?)?;
         if raw.rt_cd != "0" {
             anyhow::bail!("현재가 조회 오류: {}", raw.msg1);
         }

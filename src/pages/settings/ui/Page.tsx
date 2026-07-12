@@ -55,6 +55,7 @@ import { getWebApiToken, setWebApiToken } from '../../../shared/api/transport'
 import { AccountProfilesSection } from './accountProfiles'
 import { Section } from './section'
 import { DatabaseManagementSection } from './databaseManagementSection'
+import { BrokerRateLimitSection } from './brokerRateLimitSection'
 
 const fmt = (n: number) => fmtNumber(n)
 
@@ -640,6 +641,8 @@ export default function Settings() {
         </Section>
 
         <DatabaseManagementSection />
+
+        <BrokerRateLimitSection />
 
         <AccountProfilesSection />
 

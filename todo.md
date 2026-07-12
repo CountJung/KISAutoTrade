@@ -43,10 +43,10 @@
   - [x] `OrderRecord`/`TradeRecord`에 broker/account를 저장하고(`with_broker_scope`), 리스크 복원(`restore_risk_from_today_trades`)을 실행 scope 체결로 격리한다 (2026-07-12, `matches_scope` 테스트 4종).
   - [ ] 잔여: 여러 scope 포지션을 동시에 보관하려면 broker/account/market/symbol key로 전환한다 (현재는 단일 scope 불변식으로 충분).
 
-- [ ] broker별 rate limit과 timeout을 process-wide 정책으로 통합한다.
-  - Toss limiter/backoff를 짧게 생성되는 client마다 만들지 말고 credential/account scope별로 공유한다.
-  - KIS/Toss 모든 요청에 connect/request/body timeout과 응답 크기 상한을 적용한다.
-  - 429 횟수, 현재 pause, 마지막 성공 요청, 연속 실패를 운영 상태로 노출한다.
+- [x] broker별 rate limit과 timeout을 process-wide 정책으로 통합한다 (2026-07-12).
+  - Toss/KIS limiter를 `rate_limit::shared_scheduler`로 credential scope(`toss|url|client_id`, `kis|url|app_key|paper`)별 process-wide 공유 — 짧게 생성되는 client와 프로파일 전환에도 pacing/429 pause 유지.
+  - KIS client에 connect 10s/전체 30s timeout과 8MB 응답 상한(`read_kis_response_text`) 적용. Toss(15s/4MB), token(15s), detect(10s), exchange(10s)는 기존 확인.
+  - `get_broker_rate_limit_status` IPC + Settings "Broker 요청 상태" 섹션으로 pause 잔여·rate limit 누적·마지막 성공/실패·연속 실패 노출 (credential 마스킹).
 
 - [ ] 자동매매 건강 상태 패널을 추가한다.
   - 마지막 정상 holdings sync, 마지막 체결 reconciliation, 가장 오래된 pending, persistence 실패, daemon 연속 실패를 표시한다.

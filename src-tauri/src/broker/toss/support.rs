@@ -6,14 +6,19 @@ use crate::broker::{
 };
 use anyhow::anyhow;
 
-pub(super) fn toss_rate_limiter() -> RateLimitScheduler {
-    RateLimitScheduler::with_min_intervals([
-        ("toss:auth", StdDuration::from_millis(500)),
-        ("toss:account", StdDuration::from_millis(200)),
-        ("toss:order", StdDuration::from_millis(500)),
-        ("toss:order_history", StdDuration::from_millis(200)),
-        ("toss:market", StdDuration::from_millis(100)),
-    ])
+/// credential scope별 process-wide 공유 limiter.
+/// Toss client는 짧게 생성되므로 인스턴스별 limiter로는 pacing/429 pause가 유지되지 않는다.
+pub(super) fn toss_rate_limiter(base_url: &str, client_id: Option<&str>) -> RateLimitScheduler {
+    let scope = format!("toss|{base_url}|{}", client_id.unwrap_or("anonymous"));
+    crate::broker::rate_limit::shared_scheduler(&scope, || {
+        RateLimitScheduler::with_min_intervals([
+            ("toss:auth", StdDuration::from_millis(500)),
+            ("toss:account", StdDuration::from_millis(200)),
+            ("toss:order", StdDuration::from_millis(500)),
+            ("toss:order_history", StdDuration::from_millis(200)),
+            ("toss:market", StdDuration::from_millis(100)),
+        ])
+    })
 }
 
 pub(super) fn toss_rate_limit_group(method: &str, path: &str) -> &'static str {

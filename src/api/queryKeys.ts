@@ -48,4 +48,5 @@ export const KEYS = {
   databaseConfig: ['databaseConfig'] as const,
   databaseStatus: ['databaseStatus'] as const,
   jsonStorageInventory: ['jsonStorageInventory'] as const,
+  brokerRateLimitStatus: ['brokerRateLimitStatus'] as const,
 }

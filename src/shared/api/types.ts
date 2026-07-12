@@ -295,6 +295,25 @@ export interface OverseasExecutedOrder {
   ord_gno_brno: string
 }
 
+// ─── broker rate limit 운영 상태 ───────────────────────────────────
+export interface BrokerRateLimitGroupStatus {
+  group: string
+  minIntervalMs: number
+  /** 서버 rate limit pause 잔여 ms (없으면 0) */
+  pausedRemainingMs: number
+  /** Retry-After 등으로 pause가 적용된 누적 횟수 */
+  rateLimitedCount: number
+  lastSuccessEpochMs: number | null
+  lastFailureEpochMs: number | null
+  consecutiveFailures: number
+}
+
+export interface BrokerRateLimitScopeView {
+  /** credential이 마스킹된 scope 레이블 */
+  scope: string
+  groups: BrokerRateLimitGroupStatus[]
+}
+
 // ─── 로컬 체결 기록 ────────────────────────────────────────────────
 export type TradeSide = 'buy' | 'sell'
 export type TradeStatus = 'filled' | 'partially_filled' | 'cancelled'

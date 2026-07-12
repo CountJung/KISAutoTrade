@@ -1096,6 +1096,8 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 리스크 설정과 일별 runtime 상태는 `storage::RiskStore`가 `risk/config.json`(설정)과 `risk/runtime.json`(날짜·손익·비상정지·주문 횟수·연속 손실 차단)으로 분리 저장한다. 주문 접수·체결 반영·비상정지 변경·일별 초기화 시점마다 스냅샷을 저장하고, OrderManager 경로의 저장 실패는 fail-closed로 신규 주문을 차단한다. 시작 시 복원은 스냅샷 날짜가 오늘일 때만 카운터를 적용하고 비상정지는 날짜와 무관하게 유지한다(수동 해제 대상). runtime 파일을 읽지 못하면 비상정지 상태로 시작한다.
 - 계좌 잔고·holdings 조회는 fail-closed다. 시작 전 하나라도 실패하거나 총평가액이 0 이하이면 시작하지 않고, 운용 중 갱신 실패는 `buy_suspended_reason`과 Discord에 노출한 뒤 신규 매수를 막는다.
 - Toss 연결 진단은 `check_toss_profile_connection` IPC에서 프로파일 lock을 짧게 잡아 clone한 뒤 실행한다. 진단 단계는 OpenAPI spec, token, accounts, holdings, order preflight read-only 순서이며 토큰 문자열은 응답에 포함하지 않는다.
+- broker rate limiter는 `broker/rate_limit.rs`의 `shared_scheduler(scope, init)`로 credential scope별 process-wide 공유한다 (Toss `toss|base_url|client_id`, KIS `kis|base_url|app_key|paper=...`). 짧게 생성되는 client나 프로파일 전환에도 pacing/429 pause/운영 상태가 유지된다. 요청 결과는 `record_outcome`으로 기록하고, `get_broker_rate_limit_status` IPC와 Settings "Broker 요청 상태" 섹션이 scope/그룹별 pause 잔여·rate limit 누적·마지막 성공/실패·연속 실패를 노출한다(scope 레이블의 credential은 마스킹).
+- 모든 broker HTTP 경로에 timeout과 응답 크기 상한을 둔다: KIS connect 10s/전체 30s/8MB(`read_kis_response_text`), Toss 15s/4MB, KIS token 15s, detect/exchange 10s. 새 HTTP 호출을 추가할 때 `Client::new()`를 그대로 쓰지 않는다.
 - Tauri IPC와 axum 웹 REST 응답 필드는 같이 갱신한다. 웹 핸들러에서 내부 struct를 그대로 직렬화하지 말고 `serde_json::json!`으로 camel/snake 응답 키를 명시한다.
 
 ## PostgreSQL/MariaDB 문서 저장 backend

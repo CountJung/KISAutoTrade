@@ -20,6 +20,7 @@ import type {
   AddProfileInput,
   AppConfigView,
   BrokerHoldingView,
+  BrokerRateLimitScopeView,
   BalanceResult,
   OverseasBalanceResult,
   ChartCandle,
@@ -1039,6 +1040,19 @@ export function useTradeArchiveStats(
     queryKey: KEYS.tradeArchiveStats,
     queryFn: cmd.getTradeArchiveStats,
     staleTime: 30_000,
+    ...options,
+  })
+}
+
+/** broker rate limit 운영 상태 (429 pause, 마지막 성공/실패, 연속 실패) */
+export function useBrokerRateLimitStatus(
+  options?: Partial<UseQueryOptions<BrokerRateLimitScopeView[]>>
+) {
+  return useQuery<BrokerRateLimitScopeView[]>({
+    queryKey: KEYS.brokerRateLimitStatus,
+    queryFn: cmd.getBrokerRateLimitStatus,
+    refetchInterval: 10_000,
+    staleTime: 5_000,
     ...options,
   })
 }
