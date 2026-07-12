@@ -262,6 +262,7 @@ pub fn run() {
                 let trade_archive_config = st.trade_archive_config.clone();
                 let data_dir             = st.data_dir.clone();
                 let risk_manager         = st.risk_manager.clone();
+                let risk_store           = st.risk_store.clone();
                 let order_manager        = st.order_manager.clone();
                 let stock_store          = st.stock_store.clone();
                 let strategy_store       = st.strategy_store.clone();
@@ -276,7 +277,7 @@ pub fn run() {
                         is_trading, storage_maintenance, database_manager, strategy_manager, strategy_update_lock, position_tracker,
                         config, profiles, trade_store, stats_store,
                         log_config, log_dir, trade_archive_config, data_dir,
-                        risk_manager, order_manager, stock_store, strategy_store,
+                        risk_manager, risk_store, order_manager, stock_store, strategy_store,
                         profiles_path, discord, exchange_rate_krw, refresh_config,
                         exchange_rate_status,
                     ).await;

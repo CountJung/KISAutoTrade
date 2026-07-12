@@ -6,6 +6,7 @@ use history::initialize_active_strategy_history;
 pub(crate) async fn restore_risk_from_today_trades(
     trade_store: &Arc<TradeStore>,
     risk_manager: &Arc<Mutex<RiskManager>>,
+    risk_store: &Arc<crate::storage::RiskStore>,
 ) -> CmdResult<()> {
     let trades = trade_store
         .get_by_date(chrono::Local::now().date_naive())
@@ -14,11 +15,19 @@ pub(crate) async fn restore_risk_from_today_trades(
             code: "RISK_RESTORE_FAILED".into(),
             message: format!("오늘 체결 ledger를 읽지 못했습니다: {error}"),
         })?;
-    risk_manager.lock().await.restore_daily_pnl(
+    let mut risk = risk_manager.lock().await;
+    risk.restore_daily_pnl(
         trades
             .into_iter()
             .filter_map(|trade| trade.realized_pnl_krw),
     );
+    risk_store
+        .save_runtime(&risk.runtime_state())
+        .await
+        .map_err(|error| CmdError {
+            code: "RISK_PERSIST_FAILED".into(),
+            message: format!("리스크 runtime 상태를 저장하지 못했습니다: {error}"),
+        })?;
     Ok(())
 }
 
@@ -652,7 +661,8 @@ pub async fn start_trading(
                 "복원된 미체결 주문을 broker와 대조하지 못해 자동매매를 시작하지 않습니다: {error}"
             ),
         })?;
-    restore_risk_from_today_trades(&state.trade_store, &state.risk_manager).await?;
+    restore_risk_from_today_trades(&state.trade_store, &state.risk_manager, &state.risk_store)
+        .await?;
 
     let mut is_running = state.is_trading.lock().await;
     if *is_running {
@@ -1179,8 +1189,13 @@ pub async fn run_trading_daemon(
         let today = chrono::Local::now().date_naive();
         if today != last_reset_date {
             last_reset_date = today;
-            risk_mgr.lock().await.reset_if_new_day();
-            order_mgr.lock().await.reset_day();
+            let reset = risk_mgr.lock().await.reset_if_new_day();
+            let mut order_mgr_guard = order_mgr.lock().await;
+            order_mgr_guard.reset_day();
+            if reset {
+                order_mgr_guard.persist_risk_runtime().await;
+            }
+            drop(order_mgr_guard);
             tracing::info!("자동매매 일별 초기화 완료 ({})", today);
         }
 

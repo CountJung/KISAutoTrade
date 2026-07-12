@@ -29,7 +29,7 @@ use crate::{
     notifications::{discord::DiscordNotifier, types::NotificationEvent},
     storage::{
         order_store::{OrderRecord, OrderSide, OrderStatus},
-        OrderStore, PendingOrderStore, StatsStore, TradeStore,
+        OrderStore, PendingOrderStore, RiskStore, StatsStore, TradeStore,
     },
     trading::{
         guard::{GuardDecision, TradeGuard},
@@ -129,6 +129,8 @@ pub struct OrderManager {
     exchange_rate_krw: Arc<RwLock<f64>>,
     /// 리스크 관리자 — AppState에서 Arc 공유
     pub risk_manager: Arc<Mutex<RiskManager>>,
+    /// 리스크 runtime 상태 저장소 — 주문/체결 반영 직후 스냅샷을 영속화한다
+    risk_store: Arc<RiskStore>,
     /// 전략 신호와 주문 실행 사이의 반복매매/휩소 방어 계층
     trade_guard: TradeGuard,
     /// 자동매매 시작 시점의 broker/account scope. 실행 중 프로파일 전환과 분리한다.
@@ -149,6 +151,7 @@ impl OrderManager {
         stats_store: Arc<StatsStore>,
         exchange_rate_krw: Arc<RwLock<f64>>,
         risk_manager: Arc<Mutex<RiskManager>>,
+        risk_store: Arc<RiskStore>,
         discord: Option<Arc<DiscordNotifier>>,
     ) -> Self {
         Self {
@@ -168,6 +171,7 @@ impl OrderManager {
             stats_store,
             exchange_rate_krw,
             risk_manager,
+            risk_store,
             trade_guard: TradeGuard::default(),
             execution_scope: BrokerScope::kis_legacy(),
             discord,
@@ -354,6 +358,16 @@ impl OrderManager {
         self.persistence_blocked = true;
         self.buy_suspended = true;
         self.buy_suspended_reason = Some(reason);
+    }
+
+    /// 리스크 runtime 스냅샷을 저장한다.
+    /// 저장 실패 시 재시작으로 한도·차단 상태를 우회할 수 있으므로 fail-closed로 신규 주문을 차단한다.
+    pub async fn persist_risk_runtime(&mut self) {
+        let snapshot = self.risk_manager.lock().await.runtime_state();
+        if let Err(error) = self.risk_store.save_runtime(&snapshot).await {
+            tracing::error!("리스크 runtime 상태 저장 실패: {error}");
+            self.block_for_persistence_failure(format!("리스크 runtime 상태 저장 실패: {error}"));
+        }
     }
 
     pub async fn suspend_buying_for_account_sync(&mut self, detail: String) {
@@ -940,6 +954,7 @@ impl OrderManager {
                     OrderSide::Sell => DailyOrderSide::Sell,
                 },
             );
+        self.persist_risk_runtime().await;
         self.pending.insert(
             odno,
             PendingOrder {

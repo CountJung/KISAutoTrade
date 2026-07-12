@@ -316,7 +316,15 @@ export function DatabaseManagementSection() {
                 <TextField label="최대 연결" type="number" size="small" fullWidth value={form.maxConnections} disabled={busy || tradingRunning} inputProps={{ min: 1, max: 20 }} onChange={(event) => setForm((current) => ({ ...current, maxConnections: Number(event.target.value) }))} />
               </Grid>
               <Grid item xs={12} sm={6} md={4}>
-                <TextField label="Database" size="small" fullWidth value={form.database} disabled={busy || tradingRunning} onChange={(event) => setForm((current) => ({ ...current, database: event.target.value }))} />
+                <TextField
+                  label="Database"
+                  size="small"
+                  fullWidth
+                  value={form.database}
+                  disabled={busy || tradingRunning}
+                  helperText="입력한 사용자/암호로 접속은 되지만 DB가 없으면 연결 테스트 시 자동 생성합니다."
+                  onChange={(event) => setForm((current) => ({ ...current, database: event.target.value }))}
+                />
               </Grid>
               <Grid item xs={12} sm={6} md={4}>
                 <TextField label="Username" size="small" fullWidth value={form.username} disabled={busy || tradingRunning} autoComplete="username" onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))} />

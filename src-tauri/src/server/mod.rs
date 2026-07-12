@@ -74,8 +74,8 @@ use crate::config::{AppConfig, ProfilesConfig};
 use crate::logging::LogConfig;
 use crate::notifications::discord::DiscordNotifier;
 use crate::storage::{
-    database::DatabaseManager, stats_store::StatsStore, stock_store::StockStore,
-    strategy_store::StrategyStore, trade_store::TradeStore,
+    database::DatabaseManager, risk_store::RiskStore, stats_store::StatsStore,
+    stock_store::StockStore, strategy_store::StrategyStore, trade_store::TradeStore,
 };
 use crate::trading::{
     order::OrderManager, position::PositionTracker, risk::RiskManager, strategy::StrategyManager,
@@ -130,6 +130,8 @@ struct ServerState {
     data_dir: PathBuf,
     /// 리스크 관리자
     risk_manager: Arc<Mutex<RiskManager>>,
+    /// 리스크 설정·runtime 상태 저장소 (재시작 복원용)
+    risk_store: Arc<RiskStore>,
     /// 주문 관리자 (미체결 주문 조회용)
     order_manager: Arc<Mutex<OrderManager>>,
     /// 영구 종목목록 캐시 (전략 업데이트 시 종목명 조회용)
@@ -170,6 +172,7 @@ pub async fn start(
     trade_archive_config: Arc<RwLock<TradeArchiveConfig>>,
     data_dir: PathBuf,
     risk_manager: Arc<Mutex<RiskManager>>,
+    risk_store: Arc<RiskStore>,
     order_manager: Arc<Mutex<OrderManager>>,
     stock_store: Arc<StockStore>,
     strategy_store: Arc<StrategyStore>,
@@ -214,6 +217,7 @@ pub async fn start(
         trade_archive_config,
         data_dir,
         risk_manager,
+        risk_store,
         order_manager,
         stock_store,
         strategy_store,
@@ -547,10 +551,19 @@ async fn app_config_handler(State(s): State<ServerState>) -> Json<serde_json::Va
 
 // ── 리스크 관리 ───────────────────────────────────────────────────
 
+/// 리스크 runtime 스냅샷을 저장한다. 실패해도 응답은 반환하고 오류만 기록한다.
+async fn persist_risk_runtime_state(s: &ServerState, risk: &RiskManager) {
+    if let Err(error) = s.risk_store.save_runtime(&risk.runtime_state()).await {
+        tracing::error!("리스크 runtime 상태 저장 실패 (web API): {error}");
+    }
+}
+
 /// GET /api/risk-config
 async fn risk_config_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
     let mut risk = s.risk_manager.lock().await;
-    risk.reset_if_new_day();
+    if risk.reset_if_new_day() {
+        persist_risk_runtime_state(&s, &risk).await;
+    }
     Json(serde_json::to_value(build_risk_view(&risk)).unwrap_or_default())
 }
 
@@ -609,6 +622,9 @@ async fn update_risk_config_handler(
             risk.atr_stop_multiplier = multiplier;
         }
     }
+    if let Err(error) = s.risk_store.save_config(&risk.config_state()).await {
+        tracing::error!("리스크 설정 저장 실패 (web API): {error}");
+    }
     Json(serde_json::to_value(build_risk_view(&risk)).unwrap_or_default())
 }
 
@@ -616,6 +632,7 @@ async fn update_risk_config_handler(
 async fn clear_emergency_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
     let mut risk = s.risk_manager.lock().await;
     risk.clear_emergency_stop();
+    persist_risk_runtime_state(&s, &risk).await;
     Json(serde_json::to_value(build_risk_view(&risk)).unwrap_or_default())
 }
 
@@ -790,6 +807,7 @@ async fn activate_emergency_handler(State(s): State<ServerState>) -> Json<serde_
     let mut risk = s.risk_manager.lock().await;
     risk.trigger_emergency_stop();
     tracing::warn!("비상 정지 수동 활성화 (웹 API)");
+    persist_risk_runtime_state(&s, &risk).await;
     Json(serde_json::to_value(build_risk_view(&risk)).unwrap_or_default())
 }
 

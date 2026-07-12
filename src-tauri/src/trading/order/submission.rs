@@ -64,6 +64,7 @@ struct SubmissionDeps {
     position_tracker: Arc<Mutex<PositionTracker>>,
     overseas_position_tracker: Arc<Mutex<OverseasPositionTracker>>,
     risk_manager: Arc<Mutex<RiskManager>>,
+    risk_store: Arc<RiskStore>,
     exchange_rate_krw: Arc<RwLock<f64>>,
 }
 
@@ -260,6 +261,7 @@ impl OrderManager {
                 position_tracker: Arc::clone(&manager.position_tracker),
                 overseas_position_tracker: Arc::clone(&manager.overseas_position_tracker),
                 risk_manager: Arc::clone(&manager.risk_manager),
+                risk_store: Arc::clone(&manager.risk_store),
                 exchange_rate_krw: Arc::clone(&manager.exchange_rate_krw),
             }
         };
@@ -342,6 +344,15 @@ impl OrderManager {
                             OrderSide::Sell => DailyOrderSide::Sell,
                         },
                     );
+                {
+                    let snapshot = deps.risk_manager.lock().await.runtime_state();
+                    if let Err(e) = deps.risk_store.save_runtime(&snapshot).await {
+                        tracing::error!("리스크 runtime 상태 저장 실패: {}", e);
+                        order_manager.lock().await.block_for_persistence_failure(
+                            format!("리스크 runtime 상태 저장 실패: {e}"),
+                        );
+                    }
+                }
                 Ok(SubmissionOutcome::Submitted { provider_order_id })
             }
             Err(e) => {

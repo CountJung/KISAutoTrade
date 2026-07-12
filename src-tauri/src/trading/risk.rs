@@ -3,10 +3,60 @@ use std::collections::HashMap;
 
 use crate::broker::BrokerScope;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum DailyOrderSide {
     Buy,
     Sell,
+}
+
+/// 재시작 후 복원되는 리스크 설정값. 일별 runtime 상태와 분리 저장한다.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RiskConfigState {
+    pub enabled: bool,
+    pub daily_loss_limit: i64,
+    pub max_position_ratio: f64,
+    pub max_daily_buy_orders_per_symbol: u32,
+    pub max_daily_sell_orders_per_symbol: u32,
+    pub max_consecutive_losses_per_strategy_symbol: u32,
+    pub volatility_sizing_enabled: bool,
+    pub risk_per_trade_bps: u32,
+    pub atr_stop_multiplier: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DailyOrderCountEntry {
+    pub date: chrono::NaiveDate,
+    pub scope: BrokerScope,
+    pub strategy_id: String,
+    pub symbol: String,
+    pub side: DailyOrderSide,
+    pub count: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategySymbolCountEntry {
+    pub scope: BrokerScope,
+    pub strategy_id: String,
+    pub symbol: String,
+    pub count: u32,
+}
+
+/// 재시작 후 복원되는 일별 리스크 runtime 상태.
+/// 손익 한도·비상정지·주문 횟수·연속 손실 차단이 앱 재시작으로 우회되지 않게 한다.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RiskRuntimeState {
+    pub date: chrono::NaiveDate,
+    pub current_loss: i64,
+    pub daily_profit: i64,
+    pub emergency_stop: bool,
+    pub daily_order_counts: Vec<DailyOrderCountEntry>,
+    pub consecutive_loss_counts: Vec<StrategySymbolCountEntry>,
+    pub blocked_strategy_symbols: Vec<StrategySymbolCountEntry>,
 }
 
 /// 리스크 관리자
@@ -506,8 +556,8 @@ impl RiskManager {
         // 비상 정지는 수동 해제 필요
     }
 
-    /// 날짜가 바뀌었으면 자동으로 일별 손익 초기화
-    pub fn reset_if_new_day(&mut self) {
+    /// 날짜가 바뀌었으면 자동으로 일별 손익 초기화. 초기화가 실행되면 true를 반환한다.
+    pub fn reset_if_new_day(&mut self) -> bool {
         let today = chrono::Local::now().date_naive();
         if self.last_reset_date != Some(today) {
             self.current_loss = 0;
@@ -518,7 +568,139 @@ impl RiskManager {
             self.atr_by_symbol.clear();
             self.last_reset_date = Some(today);
             tracing::info!("리스크 관리자 일별 초기화 완료 (날짜: {})", today);
+            return true;
         }
+        false
+    }
+
+    /// 재시작 후 복원용 설정 스냅샷.
+    pub fn config_state(&self) -> RiskConfigState {
+        RiskConfigState {
+            enabled: self.enabled,
+            daily_loss_limit: self.daily_loss_limit,
+            max_position_ratio: self.max_position_ratio,
+            max_daily_buy_orders_per_symbol: self.max_daily_buy_orders_per_symbol,
+            max_daily_sell_orders_per_symbol: self.max_daily_sell_orders_per_symbol,
+            max_consecutive_losses_per_strategy_symbol: self
+                .max_consecutive_losses_per_strategy_symbol,
+            volatility_sizing_enabled: self.volatility_sizing_enabled,
+            risk_per_trade_bps: self.risk_per_trade_bps,
+            atr_stop_multiplier: self.atr_stop_multiplier,
+        }
+    }
+
+    /// 저장된 설정 스냅샷을 적용한다.
+    pub fn apply_config_state(&mut self, state: &RiskConfigState) {
+        self.enabled = state.enabled;
+        self.daily_loss_limit = state.daily_loss_limit;
+        self.max_position_ratio = state.max_position_ratio;
+        self.max_daily_buy_orders_per_symbol = state.max_daily_buy_orders_per_symbol;
+        self.max_daily_sell_orders_per_symbol = state.max_daily_sell_orders_per_symbol;
+        self.max_consecutive_losses_per_strategy_symbol =
+            state.max_consecutive_losses_per_strategy_symbol;
+        self.volatility_sizing_enabled = state.volatility_sizing_enabled;
+        self.risk_per_trade_bps = state.risk_per_trade_bps;
+        self.atr_stop_multiplier = state.atr_stop_multiplier;
+    }
+
+    /// 재시작 후 복원용 일별 runtime 스냅샷. ATR 캐시는 시세에서 재구축되므로 제외한다.
+    pub fn runtime_state(&self) -> RiskRuntimeState {
+        RiskRuntimeState {
+            date: self
+                .last_reset_date
+                .unwrap_or_else(|| chrono::Local::now().date_naive()),
+            current_loss: self.current_loss,
+            daily_profit: self.daily_profit,
+            emergency_stop: self.emergency_stop,
+            daily_order_counts: self
+                .daily_order_counts
+                .iter()
+                .map(
+                    |((date, scope, strategy_id, symbol, side), count)| DailyOrderCountEntry {
+                        date: *date,
+                        scope: scope.clone(),
+                        strategy_id: strategy_id.clone(),
+                        symbol: symbol.clone(),
+                        side: *side,
+                        count: *count,
+                    },
+                )
+                .collect(),
+            consecutive_loss_counts: self
+                .consecutive_loss_counts
+                .iter()
+                .map(|((scope, strategy_id, symbol), count)| StrategySymbolCountEntry {
+                    scope: scope.clone(),
+                    strategy_id: strategy_id.clone(),
+                    symbol: symbol.clone(),
+                    count: *count,
+                })
+                .collect(),
+            blocked_strategy_symbols: self
+                .blocked_strategy_symbols
+                .iter()
+                .map(|((scope, strategy_id, symbol), count)| StrategySymbolCountEntry {
+                    scope: scope.clone(),
+                    strategy_id: strategy_id.clone(),
+                    symbol: symbol.clone(),
+                    count: *count,
+                })
+                .collect(),
+        }
+    }
+
+    /// 저장된 일별 runtime 스냅샷을 적용한다.
+    ///
+    /// - 비상정지는 수동 해제 대상이므로 날짜와 무관하게 복원한다.
+    /// - 손익·주문 횟수·연속 손실 상태는 스냅샷 날짜가 오늘일 때만 복원한다.
+    pub fn apply_runtime_state(&mut self, state: RiskRuntimeState) {
+        self.emergency_stop = state.emergency_stop;
+        let today = chrono::Local::now().date_naive();
+        if state.date != today {
+            tracing::info!(
+                "리스크 runtime 스냅샷이 이전 날짜({})라 비상정지 상태만 복원했습니다.",
+                state.date
+            );
+            self.last_reset_date = Some(today);
+            return;
+        }
+        self.current_loss = state.current_loss;
+        self.daily_profit = state.daily_profit;
+        self.last_reset_date = Some(state.date);
+        self.daily_order_counts = state
+            .daily_order_counts
+            .into_iter()
+            .filter(|entry| entry.date == today)
+            .map(|entry| {
+                (
+                    (
+                        entry.date,
+                        entry.scope,
+                        entry.strategy_id,
+                        entry.symbol,
+                        entry.side,
+                    ),
+                    entry.count,
+                )
+            })
+            .collect();
+        self.consecutive_loss_counts = state
+            .consecutive_loss_counts
+            .into_iter()
+            .map(|entry| ((entry.scope, entry.strategy_id, entry.symbol), entry.count))
+            .collect();
+        self.blocked_strategy_symbols = state
+            .blocked_strategy_symbols
+            .into_iter()
+            .map(|entry| ((entry.scope, entry.strategy_id, entry.symbol), entry.count))
+            .collect();
+        tracing::info!(
+            "리스크 runtime 복원 완료 — 순손실 {}원, 주문횟수 {}건, 연속손실 차단 {}건, 비상정지 {}",
+            self.net_loss(),
+            self.daily_order_counts.len(),
+            self.blocked_strategy_symbols.len(),
+            self.emergency_stop
+        );
     }
 
     /// 오늘 누적 총 손실 (음수)
@@ -691,5 +873,78 @@ mod tests {
         assert_eq!(risk.daily_profit(), 1_000);
         assert_eq!(risk.net_loss(), 11_000);
         assert!(!risk.can_trade());
+    }
+
+    #[test]
+    fn runtime_state_roundtrip_preserves_daily_counters_and_blocks() {
+        let account = scope("11111111-01");
+        let mut risk = RiskManager {
+            max_consecutive_losses_per_strategy_symbol: 1,
+            ..RiskManager::default()
+        };
+        risk.record_order_submitted_for_scope(&account, "strategy", "005930", DailyOrderSide::Sell);
+        risk.record_strategy_symbol_pnl_for_scope(&account, "strategy", "005930", -1_000);
+        risk.record_pnl(-3_000);
+        risk.trigger_emergency_stop();
+
+        // JSON 직렬화 경로(파일 저장과 동일)를 거쳐 새 인스턴스에 복원한다.
+        let json = serde_json::to_string(&risk.runtime_state()).expect("serialize runtime");
+        let state: RiskRuntimeState = serde_json::from_str(&json).expect("deserialize runtime");
+        let mut restored = RiskManager::default();
+        restored.apply_runtime_state(state);
+
+        assert_eq!(restored.current_loss(), -3_000);
+        assert!(restored.is_emergency_stop());
+        assert!(restored
+            .daily_order_limit_reason_for_scope(&account, "strategy", "005930", DailyOrderSide::Sell)
+            .is_some());
+        assert!(restored
+            .consecutive_loss_block_reason_for_scope(&account, "strategy", "005930")
+            .is_some());
+    }
+
+    #[test]
+    fn stale_runtime_state_restores_only_emergency_stop() {
+        let account = scope("11111111-01");
+        let mut risk = RiskManager {
+            max_consecutive_losses_per_strategy_symbol: 1,
+            ..RiskManager::default()
+        };
+        risk.record_order_submitted_for_scope(&account, "strategy", "005930", DailyOrderSide::Sell);
+        risk.record_strategy_symbol_pnl_for_scope(&account, "strategy", "005930", -1_000);
+        risk.record_pnl(-3_000);
+        risk.trigger_emergency_stop();
+
+        let mut state = risk.runtime_state();
+        state.date = state.date.pred_opt().expect("previous day");
+        let mut restored = RiskManager::default();
+        restored.apply_runtime_state(state);
+
+        assert!(restored.is_emergency_stop());
+        assert_eq!(restored.current_loss(), 0);
+        assert!(restored
+            .daily_order_limit_reason_for_scope(&account, "strategy", "005930", DailyOrderSide::Sell)
+            .is_none());
+        assert!(restored
+            .consecutive_loss_block_reason_for_scope(&account, "strategy", "005930")
+            .is_none());
+    }
+
+    #[test]
+    fn config_state_roundtrip_restores_all_settings() {
+        let mut risk = RiskManager::new(777_000, 0.35);
+        risk.enabled = false;
+        risk.max_daily_sell_orders_per_symbol = 4;
+        risk.max_consecutive_losses_per_strategy_symbol = 7;
+        risk.volatility_sizing_enabled = true;
+        risk.risk_per_trade_bps = 250;
+        risk.atr_stop_multiplier = 3.5;
+
+        let json = serde_json::to_string(&risk.config_state()).expect("serialize config");
+        let state: RiskConfigState = serde_json::from_str(&json).expect("deserialize config");
+        let mut restored = RiskManager::default();
+        restored.apply_config_state(&state);
+
+        assert_eq!(restored.config_state(), risk.config_state());
     }
 }

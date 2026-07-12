@@ -75,7 +75,7 @@ use crate::{
         stock_store::{StockListStats, StockStore},
         strategy_store::StrategyStore,
         trade_store::TradeRecord,
-        OrderStore, StatsStore, TradeStore,
+        OrderStore, RiskStore, StatsStore, TradeStore,
     },
     trading::{
         order::OrderManager,
@@ -136,6 +136,8 @@ pub struct AppState {
     pub order_store: Arc<OrderStore>,
     /// 리스크 관리자
     pub risk_manager: Arc<Mutex<RiskManager>>,
+    /// 리스크 설정·일별 runtime 상태 저장소 (재시작 복원용)
+    pub risk_store: Arc<RiskStore>,
     /// 로그 디렉토리 경로
     pub log_dir: PathBuf,
     /// 로그 설정 (보관 기간, 최대 용량)
@@ -210,7 +212,26 @@ impl AppState {
                     (Vec::new(), Some(error.to_string()))
                 }
             };
-        let risk_manager = Arc::new(Mutex::new(RiskManager::default()));
+        let risk_store = Arc::new(RiskStore::new(data_dir.clone()));
+        let mut restored_risk = RiskManager::default();
+        match risk_store.load_config().await {
+            Ok(Some(config_state)) => restored_risk.apply_config_state(&config_state),
+            Ok(None) => {}
+            Err(error) => {
+                tracing::error!("리스크 설정 복원 실패 — 기본값으로 시작합니다: {error}");
+            }
+        }
+        match risk_store.load_runtime().await {
+            Ok(Some(runtime_state)) => restored_risk.apply_runtime_state(runtime_state),
+            Ok(None) => {}
+            Err(error) => {
+                // runtime을 읽지 못하면 당일 한도·차단 상태를 신뢰할 수 없으므로 fail-closed.
+                tracing::error!("리스크 runtime 복원 실패 — 비상정지로 시작합니다: {error}");
+                restored_risk.trigger_emergency_stop();
+            }
+        }
+        restored_risk.reset_if_new_day();
+        let risk_manager = Arc::new(Mutex::new(restored_risk));
         let position_tracker = Arc::new(Mutex::new(PositionTracker::new()));
         let overseas_position_tracker = Arc::new(Mutex::new(OverseasPositionTracker::new()));
         let exchange_rate_krw = Arc::new(RwLock::new(1450.0_f64));
@@ -232,6 +253,7 @@ impl AppState {
             Arc::clone(&stats_store),
             Arc::clone(&exchange_rate_krw),
             Arc::clone(&risk_manager),
+            Arc::clone(&risk_store),
             discord.clone(),
         )));
         {
@@ -453,6 +475,7 @@ impl AppState {
             overseas_position_tracker,
             order_manager,
             risk_manager,
+            risk_store,
             log_dir,
             log_config: Arc::new(RwLock::new(log_config)),
             trade_archive_config: Arc::new(RwLock::new(

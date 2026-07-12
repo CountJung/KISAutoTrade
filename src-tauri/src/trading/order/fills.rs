@@ -170,14 +170,17 @@ impl OrderManager {
                 );
             }
             if first_application {
-                let mut risk = self.risk_manager.lock().await;
-                risk.record_pnl(pnl_krw);
-                risk.record_strategy_symbol_pnl_for_scope(
-                    &pending.broker_scope,
-                    pending.strategy_id.as_deref().unwrap_or("unknown"),
-                    &symbol,
-                    pnl_krw,
-                );
+                {
+                    let mut risk = self.risk_manager.lock().await;
+                    risk.record_pnl(pnl_krw);
+                    risk.record_strategy_symbol_pnl_for_scope(
+                        &pending.broker_scope,
+                        pending.strategy_id.as_deref().unwrap_or("unknown"),
+                        &symbol,
+                        pnl_krw,
+                    );
+                }
+                self.persist_risk_runtime().await;
             }
 
             let mut stats = match self.stats_store.get_by_date(execution_date).await {

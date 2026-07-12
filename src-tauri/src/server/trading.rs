@@ -461,8 +461,12 @@ pub(super) async fn trading_start_handler(State(s): State<ServerState>) -> Json<
             "message": format!("복원된 미체결 주문을 broker와 대조하지 못했습니다: {error}")
         }));
     }
-    if let Err(error) =
-        crate::commands::restore_risk_from_today_trades(&s.trade_store, &s.risk_manager).await
+    if let Err(error) = crate::commands::restore_risk_from_today_trades(
+        &s.trade_store,
+        &s.risk_manager,
+        &s.risk_store,
+    )
+    .await
     {
         return Json(serde_json::json!({
             "ok": false,

@@ -498,7 +498,7 @@ export default function Dashboard() {
 
       {isTossActive && !isRunning && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Toss 프로파일은 실거래 동의가 저장된 경우 수동 주문과 자동매매 주문을 실행할 수 있습니다. Dashboard 소액매매 검증은 1주 시장가 매수 최종 점검용으로 유지됩니다.
+          Toss 프로파일은 실거래 동의가 저장된 경우 수동 주문과 자동매매 주문을 실행할 수 있습니다. 소액매매 검증(1주 시장가 매수 최종 점검)은 수동거래 페이지에서 진행하세요.
         </Alert>
       )}
 

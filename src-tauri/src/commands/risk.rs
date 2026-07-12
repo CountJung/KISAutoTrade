@@ -65,11 +65,30 @@ pub(crate) fn build_risk_view(risk: &crate::trading::risk::RiskManager) -> RiskC
     }
 }
 
+/// 리스크 runtime 스냅샷을 저장한다. 실패 시 사용자에게 알릴 수 있게 CmdError를 반환한다.
+async fn persist_risk_runtime(
+    state: &State<'_, AppState>,
+    risk: &crate::trading::risk::RiskManager,
+) -> CmdResult<()> {
+    state
+        .risk_store
+        .save_runtime(&risk.runtime_state())
+        .await
+        .map_err(|error| CmdError {
+            code: "RISK_PERSIST_FAILED".into(),
+            message: format!(
+                "리스크 상태가 적용되었지만 저장에 실패해 재시작 시 복원되지 않습니다: {error}"
+            ),
+        })
+}
+
 #[tauri::command]
 pub async fn get_risk_config(state: State<'_, AppState>) -> CmdResult<RiskConfigView> {
     let mut risk = state.risk_manager.lock().await;
     // 날짜가 바뀌면 자동으로 당일 손익 초기화
-    risk.reset_if_new_day();
+    if risk.reset_if_new_day() {
+        persist_risk_runtime(&state, &risk).await?;
+    }
     Ok(build_risk_view(&risk))
 }
 
@@ -163,6 +182,16 @@ pub async fn update_risk_config(
         risk.risk_per_trade_bps,
         risk.atr_stop_multiplier
     );
+    state
+        .risk_store
+        .save_config(&risk.config_state())
+        .await
+        .map_err(|error| CmdError {
+            code: "RISK_PERSIST_FAILED".into(),
+            message: format!(
+                "리스크 설정이 적용되었지만 저장에 실패해 재시작 시 복원되지 않습니다: {error}"
+            ),
+        })?;
     Ok(build_risk_view(&risk))
 }
 
@@ -171,6 +200,7 @@ pub async fn update_risk_config(
 pub async fn clear_emergency_stop(state: State<'_, AppState>) -> CmdResult<RiskConfigView> {
     let mut risk = state.risk_manager.lock().await;
     risk.clear_emergency_stop();
+    persist_risk_runtime(&state, &risk).await?;
     Ok(build_risk_view(&risk))
 }
 
@@ -179,6 +209,7 @@ pub async fn clear_emergency_stop(state: State<'_, AppState>) -> CmdResult<RiskC
 pub async fn activate_emergency_stop(state: State<'_, AppState>) -> CmdResult<RiskConfigView> {
     let mut risk = state.risk_manager.lock().await;
     risk.trigger_emergency_stop();
+    persist_risk_runtime(&state, &risk).await?;
     Ok(build_risk_view(&risk))
 }
 

@@ -765,14 +765,28 @@ async fn connect_pool(config: &DatabaseConfig) -> Result<DatabasePool> {
                 .username(&config.username)
                 .password(&config.password)
                 .ssl_mode(ssl_mode);
-            Ok(DatabasePool::Postgresql(
-                PgPoolOptions::new()
-                    .max_connections(config.max_connections)
-                    .acquire_timeout(timeout)
-                    .connect_with(options)
-                    .await
-                    .context("PostgreSQL 연결 실패")?,
-            ))
+            match PgPoolOptions::new()
+                .max_connections(config.max_connections)
+                .acquire_timeout(timeout)
+                .connect_with(options.clone())
+                .await
+            {
+                Ok(pool) => Ok(DatabasePool::Postgresql(pool)),
+                // 3D000 = invalid_catalog_name: 자격증명은 유효하지만 대상 DB가 없는 경우이므로
+                // 관리자 DB(postgres)로 접속해 대상 DB를 생성한 뒤 다시 시도한다.
+                Err(error) if is_missing_database_error(&error, "3D000") => {
+                    create_missing_postgres_database(config, ssl_mode, timeout).await?;
+                    Ok(DatabasePool::Postgresql(
+                        PgPoolOptions::new()
+                            .max_connections(config.max_connections)
+                            .acquire_timeout(timeout)
+                            .connect_with(options)
+                            .await
+                            .context("PostgreSQL 연결 실패")?,
+                    ))
+                }
+                Err(error) => Err(error).context("PostgreSQL 연결 실패"),
+            }
         }
         DatabaseProvider::Mariadb => {
             let ssl_mode = match config.tls_mode {
@@ -787,16 +801,122 @@ async fn connect_pool(config: &DatabaseConfig) -> Result<DatabasePool> {
                 .username(&config.username)
                 .password(&config.password)
                 .ssl_mode(ssl_mode);
-            Ok(DatabasePool::Mariadb(
-                MySqlPoolOptions::new()
-                    .max_connections(config.max_connections)
-                    .acquire_timeout(timeout)
-                    .connect_with(options)
-                    .await
-                    .context("MariaDB 연결 실패")?,
-            ))
+            match MySqlPoolOptions::new()
+                .max_connections(config.max_connections)
+                .acquire_timeout(timeout)
+                .connect_with(options.clone())
+                .await
+            {
+                Ok(pool) => Ok(DatabasePool::Mariadb(pool)),
+                // 1049 = ER_BAD_DB_ERROR: 자격증명은 유효하지만 대상 DB가 없는 경우이므로
+                // DB를 지정하지 않고 접속해 대상 DB를 생성한 뒤 다시 시도한다.
+                Err(error) if is_missing_database_error(&error, "1049") => {
+                    create_missing_mariadb_database(config, ssl_mode, timeout).await?;
+                    Ok(DatabasePool::Mariadb(
+                        MySqlPoolOptions::new()
+                            .max_connections(config.max_connections)
+                            .acquire_timeout(timeout)
+                            .connect_with(options)
+                            .await
+                            .context("MariaDB 연결 실패")?,
+                    ))
+                }
+                Err(error) => Err(error).context("MariaDB 연결 실패"),
+            }
         }
     }
+}
+
+fn is_missing_database_error(error: &sqlx::Error, code: &str) -> bool {
+    matches!(error, sqlx::Error::Database(db_error) if db_error.code().as_deref() == Some(code))
+}
+
+/// 자동 생성 시 SQL 구문에 그대로 삽입되므로 영문/숫자/밑줄만 허용해 인젝션을 방지한다.
+fn validate_database_identifier(name: &str) -> Result<()> {
+    let valid = !name.is_empty()
+        && name.len() <= 63
+        && name
+            .chars()
+            .next()
+            .is_some_and(|first| first.is_ascii_alphabetic() || first == '_')
+        && name
+            .chars()
+            .all(|value| value.is_ascii_alphanumeric() || value == '_');
+    if !valid {
+        bail!(
+            "자동 생성하려는 DB 이름 '{name}'을(를) 사용할 수 없습니다. \
+             영문/숫자/밑줄만 사용하고 첫 글자는 영문 또는 밑줄이어야 하며 63자 이하여야 합니다."
+        );
+    }
+    Ok(())
+}
+
+async fn create_missing_postgres_database(
+    config: &DatabaseConfig,
+    ssl_mode: PgSslMode,
+    timeout: Duration,
+) -> Result<()> {
+    validate_database_identifier(&config.database)?;
+    let admin_options = PgConnectOptions::new()
+        .host(&config.host)
+        .port(config.port)
+        .database("postgres")
+        .username(&config.username)
+        .password(&config.password)
+        .ssl_mode(ssl_mode);
+    let admin_pool = PgPoolOptions::new()
+        .max_connections(1)
+        .acquire_timeout(timeout)
+        .connect_with(admin_options)
+        .await
+        .context(
+            "지정한 DB가 없어 자동 생성을 시도했지만 관리자 DB(postgres)에 연결하지 못했습니다. \
+             DB 관리자에게 요청해 데이터베이스를 미리 만들어주세요.",
+        )?;
+    sqlx::query(&format!("CREATE DATABASE \"{}\"", config.database))
+        .execute(&admin_pool)
+        .await
+        .context(
+            "지정한 DB가 없어 자동 생성을 시도했지만 실패했습니다. \
+             DB 사용자에게 CREATEDB 권한이 있는지 확인하세요.",
+        )?;
+    admin_pool.close().await;
+    Ok(())
+}
+
+async fn create_missing_mariadb_database(
+    config: &DatabaseConfig,
+    ssl_mode: MySqlSslMode,
+    timeout: Duration,
+) -> Result<()> {
+    validate_database_identifier(&config.database)?;
+    let admin_options = MySqlConnectOptions::new()
+        .host(&config.host)
+        .port(config.port)
+        .username(&config.username)
+        .password(&config.password)
+        .ssl_mode(ssl_mode);
+    let admin_pool = MySqlPoolOptions::new()
+        .max_connections(1)
+        .acquire_timeout(timeout)
+        .connect_with(admin_options)
+        .await
+        .context(
+            "지정한 DB가 없어 자동 생성을 시도했지만 MariaDB 서버에 연결하지 못했습니다. \
+             DB 관리자에게 요청해 데이터베이스를 미리 만들어주세요.",
+        )?;
+    sqlx::query(&format!(
+        "CREATE DATABASE IF NOT EXISTS `{}` CHARACTER SET utf8mb4 COLLATE utf8mb4_bin",
+        config.database
+    ))
+    .execute(&admin_pool)
+    .await
+    .context(
+        "지정한 DB가 없어 자동 생성을 시도했지만 실패했습니다. \
+         DB 사용자에게 CREATE 권한이 있는지 확인하세요.",
+    )?;
+    admin_pool.close().await;
+    Ok(())
 }
 
 pub fn install_database_manager(manager: Arc<DatabaseManager>) -> Result<()> {
