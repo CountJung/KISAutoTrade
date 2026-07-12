@@ -439,16 +439,17 @@ pub(super) async fn trading_start_handler(State(s): State<ServerState>) -> Json<
             (!current_cfg.broker_account_id.is_empty())
                 .then(|| current_cfg.broker_account_id.clone())
         });
+    let execution_scope = BrokerScope::new(
+        active_profile
+            .as_ref()
+            .map(|profile| profile.broker_id)
+            .unwrap_or(current_cfg.broker_id),
+        reconciliation_account_id.map(BrokerAccountId),
+    );
     s.order_manager
         .lock()
         .await
-        .set_execution_scope(BrokerScope::new(
-            active_profile
-                .as_ref()
-                .map(|profile| profile.broker_id)
-                .unwrap_or(current_cfg.broker_id),
-            reconciliation_account_id.map(BrokerAccountId),
-        ));
+        .set_execution_scope(execution_scope.clone());
     if let Err(error) =
         crate::trading::order::OrderManager::confirm_pending_fills_from_broker_shared(
             &s.order_manager,
@@ -465,6 +466,7 @@ pub(super) async fn trading_start_handler(State(s): State<ServerState>) -> Json<
         &s.trade_store,
         &s.risk_manager,
         &s.risk_store,
+        &execution_scope,
     )
     .await
     {

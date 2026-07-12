@@ -222,6 +222,11 @@ pub(super) async fn apply_active_profile(state: &AppState) -> CmdResult<()> {
     *state.config.write().await = new_config;
     *state.rest_client.write().await = new_client;
 
+    // 이전 프로파일의 보유 포지션이 새 broker/account scope로 새어들지 않게 초기화한다.
+    // 다음 잔고 동기화(replace)와 수동 주문 직전 refresh에서 새 계좌 스냅샷으로 채워진다.
+    state.position_tracker.lock().await.clear();
+    state.overseas_position_tracker.lock().await.clear();
+
     // 프로파일 전환 시 해당 프로파일의 전략 설정 로드 (재시작 없이도 반영)
     let active_scope = {
         let cfg = state.config.read().await.clone();

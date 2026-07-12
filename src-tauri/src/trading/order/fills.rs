@@ -302,6 +302,7 @@ impl OrderManager {
                 pending.record.provider_tr_id.clone(),
             )
         };
+        trade_record = trade_record.with_broker_scope(&pending.broker_scope);
         trade_record.id = format!("trade-{fill_event_id}");
         trade_record.execution_date = Some(execution_date.to_string());
         if !is_overseas {

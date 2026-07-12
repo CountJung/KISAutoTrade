@@ -10,6 +10,11 @@ pub(super) async fn atomic_write(path: &Path, content: &str) -> Result<()> {
         .context("JSON 원자 저장 task 실패")?
 }
 
+/// 동기 컨텍스트(앱 시작 migration)용 민감 설정 저장.
+pub(super) fn atomic_write_private_sync(path: &Path, content: &str) -> Result<()> {
+    durable_atomic_write(path, content, true)
+}
+
 pub(super) async fn atomic_write_private(path: &Path, content: &str) -> Result<()> {
     #[cfg(unix)]
     {

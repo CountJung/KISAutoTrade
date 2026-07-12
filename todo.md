@@ -3,18 +3,19 @@
 > 완료 이력은 `git log`와 릴리스 노트에서 관리한다. 이 문서에는 아직 끝나지 않은, 검증 가능한 작업만 둔다.
 > 우선순위는 `P1 정확성/신뢰성 → P2 전략 연구 UX → P3 유지보수` 순이다.
 
-*마지막 비판적 점검: 2026-07-11*
+## *마지막 비판적 점검: 2026-07-11*
 
 ## P1 — PostgreSQL/MariaDB 운영 완성도
 
 - [ ] 실제 PostgreSQL/MariaDB 지원 버전을 컨테이너 contract test로 검증한다.
-  - table create/status/import/export/clear/drop과 JSON↔DB backend 왕복을 두 provider에서 같은 fixture로 실행한다.
-  - TLS disable/require, 잘못된 자격증명, 연결 단절, transaction rollback과 재접속을 검증한다.
-  - CI service container에서 migration/schema version 호환성을 release gate로 둔다.
+  - [x] PostgreSQL: `storage/database_contract_tests.rs` — 미존재 DB 자동 생성, create/status/import/export/clear/drop, JSON↔DB backend 왕복(문서 read/write 포함), 잘못된 자격증명 거부, 확인 문구 gate를 실서버(`KISAT_PG_*` env)로 검증 (2026-07-12).
+  - [ ] 잔여: MariaDB 동일 fixture 검증 (검증 서버 준비 후 — 사용자 결정으로 보류).
+  - [ ] 잔여: TLS require(verify-full) 인증서 시나리오, 연결 단절·transaction rollback·재접속.
+  - [ ] 잔여: CI service container에서 migration/schema version 호환성을 release gate로 둔다.
 
-- [ ] DB 자격증명을 OS keychain/credential vault로 이전한다.
-  - 현재 권한 제한된 `database_config.json`의 password를 keychain reference로 교체하고 기존 설정을 1회 migration한다.
-  - password 조회·로그·logical export 제외가 유지되는지 회귀 테스트를 둔다.
+- [x] DB 자격증명을 OS keychain/credential vault로 이전한다 (2026-07-12).
+  - password는 keyring(macOS Keychain/Windows Credential Manager)에 저장하고 `database_config.json`에서 제거, 기존 파일 password는 시작 시 1회 migration. keychain 불가 환경은 기존 파일(0o600) 저장 fallback.
+  - 회귀 테스트: 저장 후 파일에 평문 없음, 재시작 시 keychain 복원, 레거시 파일 → keychain 이전 (mock keychain). IPC view는 기존처럼 `password_configured`만 노출, 설정 파일은 logical export 대상(data_dir) 밖에 위치.
 
 - [ ] DB backend 전용 보관·복구 schema를 추가한다.
   - v1 JSON document 호환 계층 위에 broker/account scoped order, fill, position, risk runtime 정규화 테이블을 schema version migration으로 추가한다.
@@ -32,13 +33,15 @@
   - [x] 설정값(`risk/config.json`)과 일별 runtime(`risk/runtime.json`)을 분리 저장하고 시작 시 복원한다 (2026-07-12).
   - [x] 주문 접수·체결 반영·비상정지 변경 시점마다 runtime 스냅샷을 영속화하고, 저장 실패는 fail-closed로 신규 주문을 차단한다 (2026-07-12).
   - [x] 앱 재시작으로 손실 한도·주문 횟수·연속 손실 차단·비상정지를 우회할 수 없다 — 스냅샷 날짜가 오늘일 때만 카운터를 복원하고 비상정지는 날짜와 무관하게 유지 (unit test 4종).
+  - [x] 손익 ledger 재구축을 실행 scope 체결로 격리한다 — `TradeRecord.matches_scope` 필터 (2026-07-12).
   - [ ] 잔여: 일일 손익 외의 주문 횟수·연속 손실 카운터도 broker 확인 주문/체결 ledger에서 재구축해 스냅샷과 교차 검증한다.
   - [ ] 잔여: 재시작 복원 시나리오(제출→강제 종료→재시작→차단 유지) contract test를 추가한다.
 
 - [ ] 포지션과 주문/체결 기록을 `BrokerScope` 기준으로 일관되게 격리한다.
-  - PositionTracker의 symbol-only key를 broker/account/market/symbol key로 바꾼다.
-  - holdings snapshot은 `load_if_empty`가 아니라 replace/reconcile 방식으로 실제 계좌 상태를 반영한다.
-  - `OrderRecord`/`TradeRecord`에도 broker/account를 저장해 복구와 감사가 가능하게 한다.
+  - [x] 트래커는 단일 활성 scope 스냅샷만 보유: 프로파일 전환 시 `clear()` 후 다음 holdings `replace()`/수동 주문 직전 refresh로 재동기화, 실행 중 전환은 `execution_scope`로 분리 (2026-07-12).
+  - [x] holdings snapshot은 replace/reconcile 방식으로 실제 계좌 상태를 반영한다 (기존 `replace()` 확인).
+  - [x] `OrderRecord`/`TradeRecord`에 broker/account를 저장하고(`with_broker_scope`), 리스크 복원(`restore_risk_from_today_trades`)을 실행 scope 체결로 격리한다 (2026-07-12, `matches_scope` 테스트 4종).
+  - [ ] 잔여: 여러 scope 포지션을 동시에 보관하려면 broker/account/market/symbol key로 전환한다 (현재는 단일 scope 불변식으로 충분).
 
 - [ ] broker별 rate limit과 timeout을 process-wide 정책으로 통합한다.
   - Toss limiter/backoff를 짧게 생성되는 client마다 만들지 말고 credential/account scope별로 공유한다.

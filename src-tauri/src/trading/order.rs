@@ -906,7 +906,8 @@ impl OrderManager {
             Some(response.odno.clone()),
             None,
             Some(response.tr_id.clone()),
-        );
+        )
+        .with_broker_scope(&broker_scope);
         // KIS 모의투자 환경에서 ondo가 빈 문자열로 반환될 수 있음 → 로컬 UUID로 대체
         let odno = if response.odno.is_empty() {
             format!("LOCAL-{}", uuid::Uuid::new_v4())
@@ -998,7 +999,8 @@ impl OrderManager {
             quantity,
             price,
             order_type.to_string(),
-        );
+        )
+        .with_broker_scope(&self.execution_scope);
         record.status = OrderStatus::Failed;
         record.error_message = Some(error_message);
         if let Err(e) = self.order_store.append(record).await {

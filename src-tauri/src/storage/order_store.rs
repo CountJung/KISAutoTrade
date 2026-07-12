@@ -6,6 +6,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use super::{build_daily_path, read_json_or_default, write_json};
+use crate::broker::{BrokerId, BrokerScope};
 
 /// 주문 방향
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,6 +51,12 @@ pub struct OrderRecord {
     pub error_message: Option<String>,
     #[serde(default)]
     pub execution_date: Option<String>,
+    /// 주문이 발생한 broker. 기존 레코드는 None(scope 도입 전 KIS)으로 간주한다.
+    #[serde(default)]
+    pub broker_id: Option<BrokerId>,
+    /// 주문이 발생한 broker 계좌 ID (KIS CANO-상품코드, Toss accountSeq)
+    #[serde(default)]
+    pub broker_account_id: Option<String>,
 }
 
 impl OrderRecord {
@@ -78,6 +85,8 @@ impl OrderRecord {
             provider_tr_id: None,
             error_message: None,
             execution_date: None,
+            broker_id: None,
+            broker_account_id: None,
         }
     }
 
@@ -92,6 +101,13 @@ impl OrderRecord {
         self.provider_order_id = order_id;
         self.provider_request_id = request_id;
         self.provider_tr_id = tr_id;
+        self
+    }
+
+    /// 주문이 발생한 broker/account scope를 기록한다.
+    pub fn with_broker_scope(mut self, scope: &BrokerScope) -> Self {
+        self.broker_id = Some(scope.broker_id);
+        self.broker_account_id = scope.account_id.as_ref().map(|account| account.0.clone());
         self
     }
 }

@@ -6,6 +6,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use super::{build_daily_path, read_json_or_default, write_json};
+use crate::broker::{BrokerId, BrokerScope};
 
 /// 체결 방향
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -119,6 +120,12 @@ pub struct TradeRecord {
     /// provider 체결일(YYYY-MM-DD). 재시작 복구가 자정을 넘겨도 원 거래일에 귀속한다.
     #[serde(default)]
     pub execution_date: Option<String>,
+    /// 체결이 발생한 broker. 기존 레코드는 None(scope 도입 전 KIS)으로 간주한다.
+    #[serde(default)]
+    pub broker_id: Option<BrokerId>,
+    /// 체결이 발생한 broker 계좌 ID (KIS CANO-상품코드, Toss accountSeq)
+    #[serde(default)]
+    pub broker_account_id: Option<String>,
 }
 
 impl TradeRecord {
@@ -168,6 +175,8 @@ impl TradeRecord {
             provider_request_id: None,
             provider_tr_id: None,
             execution_date: None,
+            broker_id: None,
+            broker_account_id: None,
         }
     }
 
@@ -226,6 +235,8 @@ impl TradeRecord {
             provider_request_id: None,
             provider_tr_id: None,
             execution_date: None,
+            broker_id: None,
+            broker_account_id: None,
         }
     }
 
@@ -258,6 +269,30 @@ impl TradeRecord {
         self.provider_request_id = request_id;
         self.provider_tr_id = tr_id;
         self
+    }
+
+    /// 체결이 발생한 broker/account scope를 기록한다.
+    pub fn with_broker_scope(mut self, scope: &BrokerScope) -> Self {
+        self.broker_id = Some(scope.broker_id);
+        self.broker_account_id = scope.account_id.as_ref().map(|account| account.0.clone());
+        self
+    }
+
+    /// 이 체결이 주어진 실행 scope에 속하는지 판정한다.
+    ///
+    /// - scope 미기록 레거시 레코드는 scope 도입 전 KIS 체결로 간주한다.
+    /// - scope에 계좌가 없으면(legacy KIS scope) broker 일치만 요구한다.
+    pub fn matches_scope(&self, scope: &BrokerScope) -> bool {
+        match self.broker_id {
+            Some(broker_id) => {
+                broker_id == scope.broker_id
+                    && match &scope.account_id {
+                        None => true,
+                        Some(account) => self.broker_account_id.as_deref() == Some(&account.0),
+                    }
+            }
+            None => scope.broker_id == BrokerId::Kis,
+        }
     }
 }
 
@@ -316,5 +351,78 @@ impl TradeStore {
             }
         }
         Ok(all)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::broker::BrokerAccountId;
+
+    fn record() -> TradeRecord {
+        TradeRecord::new(
+            "005930".to_string(),
+            "삼성전자".to_string(),
+            TradeSide::Sell,
+            1,
+            70_000,
+            0,
+            "ODNO-1".to_string(),
+            None,
+            String::new(),
+        )
+    }
+
+    fn scope(broker_id: BrokerId, account: &str) -> BrokerScope {
+        BrokerScope::new(broker_id, Some(BrokerAccountId(account.to_string())))
+    }
+
+    #[test]
+    fn scoped_record_matches_only_same_broker_account() {
+        let kis_a = scope(BrokerId::Kis, "11111111-01");
+        let kis_b = scope(BrokerId::Kis, "22222222-01");
+        let toss_a = scope(BrokerId::Toss, "11111111-01");
+        let record = record().with_broker_scope(&kis_a);
+
+        assert!(record.matches_scope(&kis_a));
+        assert!(!record.matches_scope(&kis_b));
+        assert!(!record.matches_scope(&toss_a));
+    }
+
+    #[test]
+    fn account_less_scope_matches_any_account_of_same_broker() {
+        let record = record().with_broker_scope(&scope(BrokerId::Kis, "11111111-01"));
+
+        assert!(record.matches_scope(&BrokerScope::kis_legacy()));
+        assert!(!record.matches_scope(&BrokerScope::new(BrokerId::Toss, None)));
+    }
+
+    #[test]
+    fn legacy_record_without_scope_counts_as_kis_only() {
+        let record = record();
+
+        assert!(record.matches_scope(&BrokerScope::kis_legacy()));
+        assert!(record.matches_scope(&scope(BrokerId::Kis, "11111111-01")));
+        assert!(!record.matches_scope(&scope(BrokerId::Toss, "11111111-01")));
+    }
+
+    #[test]
+    fn json_roundtrip_preserves_broker_scope_and_legacy_defaults_to_none() {
+        let scoped = record().with_broker_scope(&scope(BrokerId::Toss, "seq-1"));
+        let json = serde_json::to_string(&scoped).expect("serialize");
+        let parsed: TradeRecord = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(parsed.broker_id, Some(BrokerId::Toss));
+        assert_eq!(parsed.broker_account_id.as_deref(), Some("seq-1"));
+
+        // scope 필드가 없는 기존 JSON은 None으로 역직렬화된다.
+        let mut value: serde_json::Value = serde_json::from_str(&json).expect("value");
+        value.as_object_mut().map(|object| {
+            object.remove("broker_id");
+            object.remove("broker_account_id")
+        });
+        let legacy: TradeRecord =
+            serde_json::from_value(value).expect("legacy deserialize");
+        assert_eq!(legacy.broker_id, None);
+        assert_eq!(legacy.broker_account_id, None);
     }
 }

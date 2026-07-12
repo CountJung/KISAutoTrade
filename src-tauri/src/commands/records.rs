@@ -162,6 +162,25 @@ pub async fn save_trade(
         }
     };
 
+    let active_scope = {
+        let profiles = state.profiles.read().await;
+        let config = state.config.read().await.clone();
+        profiles
+            .get_active()
+            .map(|profile| {
+                BrokerScope::new(
+                    profile.broker_id,
+                    Some(BrokerAccountId(profile.broker_account_id())),
+                )
+            })
+            .unwrap_or_else(|| {
+                BrokerScope::new(
+                    config.broker_id,
+                    (!config.broker_account_id.is_empty())
+                        .then(|| BrokerAccountId(config.broker_account_id.clone())),
+                )
+            })
+    };
     let record = TradeRecord::new(
         input.symbol,
         input.symbol_name,
@@ -172,7 +191,8 @@ pub async fn save_trade(
         input.order_id,
         input.strategy_id,
         String::new(), // 수동 저장 시 signal_reason 없음
-    );
+    )
+    .with_broker_scope(&active_scope);
 
     state
         .trade_store

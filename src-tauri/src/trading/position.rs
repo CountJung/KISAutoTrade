@@ -118,6 +118,11 @@ impl PositionTracker {
         }
     }
 
+    /// 전체 포지션 초기화. broker/account 전환 시 이전 scope 스냅샷이 새어들지 않게 한다.
+    pub fn clear(&mut self) {
+        self.positions.clear();
+    }
+
     /// 총 평가손익
     pub fn total_pnl(&self) -> i64 {
         self.positions.values().map(|p| p.unrealized_pnl()).sum()
@@ -236,6 +241,11 @@ impl OverseasPositionTracker {
 
     pub fn get(&self, symbol: &str) -> Option<&OverseasPosition> {
         self.positions.get(symbol)
+    }
+
+    /// 전체 포지션 초기화. broker/account 전환 시 이전 scope 스냅샷이 새어들지 않게 한다.
+    pub fn clear(&mut self) {
+        self.positions.clear();
     }
 
     /// 신뢰할 수 있는 해외 브로커 잔고 스냅샷으로 전체 포지션을 교체한다.

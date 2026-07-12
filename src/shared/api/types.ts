@@ -344,6 +344,12 @@ export interface TradeRecord {
   provider_request_id?: string | null
   /** provider 요청 TR-ID (KIS TR-ID 등) */
   provider_tr_id?: string | null
+  /** provider 체결일(YYYY-MM-DD) */
+  execution_date?: string | null
+  /** 체결이 발생한 broker. 미기록 레거시 레코드는 KIS로 간주 */
+  broker_id?: BrokerId | null
+  /** 체결이 발생한 broker 계좌 ID (KIS CANO-상품코드, Toss accountSeq) */
+  broker_account_id?: string | null
 }
 
 // ─── 자동 매매 상태 ─────────────────────────────────────────────────

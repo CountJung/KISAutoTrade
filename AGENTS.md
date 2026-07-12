@@ -71,8 +71,8 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-07-12 | DB password OS keychain 이전과 PostgreSQL 실서버 contract test 추가 |
+| 2026-07-12 | 주문/체결 기록에 broker/account scope 저장, 리스크 복원·포지션 트래커를 scope별 격리 |
 | 2026-07-12 | 리스크 설정·일별 runtime 상태 영속화로 재시작 우회 차단, DB 연결 테스트 시 미존재 DB 자동 생성 |
 | 2026-07-12 | Dashboard 소액매매 검증을 수동거래 페이지 안내로 간소화 |
 | 2026-07-11 | 전략 미리보기 봉 단위·분석 구간 선택과 모바일 차트 터치 제스처 추가 |
-| 2026-07-11 | PostgreSQL/MariaDB 저장 backend와 Settings 이관·테이블 관리 추가 |
-| 2026-07-11 | 전략 카드를 전체 너비로 통일하고 반응형 미리보기·백로그 안전성 감사를 반영 |

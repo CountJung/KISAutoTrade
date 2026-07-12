@@ -1091,7 +1091,8 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 실제 주문 제출 전에는 로컬 pending scan을 먼저 수행해 같은 scope/symbol의 같은 방향 중복 주문과 반대 방향 미체결 주문을 모두 차단한다.
 - 수동/자동 및 IPC/REST 주문은 `OrderManager::{submit_manual_order_shared,submit_signal_shared}`가 공유하는 scoped order service를 거친다. provider 응답을 받은 뒤 pending snapshot 저장에 실패하면 신규 매수를 중단한다.
 - pending 주문은 `storage::PendingOrderStore`에 broker/account scope, provider/client order ID, 누적 체결 watermark, provider 상태와 함께 저장한다. 자정/stop에서 지우지 않고 앱 시작 및 자동매매 시작 장벽에서 broker 체결/detail과 대조한다.
-- 체결 적용은 scope가 포함된 deterministic fill event ID로 OrderStore/TradeStore/StatsStore를 idempotent하게 갱신한다. provider 누적 평균가는 이전 체결 notional을 빼 delta 체결가로 변환한다. 자동매매 시작 장벽은 오늘 TradeStore의 `realized_pnl_krw`를 RiskManager에 재생해 crash 중간 지점과 무관하게 손실 한도를 복원한다.
+- 체결 적용은 scope가 포함된 deterministic fill event ID로 OrderStore/TradeStore/StatsStore를 idempotent하게 갱신한다. provider 누적 평균가는 이전 체결 notional을 빼 delta 체결가로 변환한다. 자동매매 시작 장벽은 오늘 TradeStore의 `realized_pnl_krw`를 RiskManager에 재생해 crash 중간 지점과 무관하게 손실 한도를 복원하며, `TradeRecord::matches_scope`로 실행 scope 체결만 반영한다(스코프 미기록 레거시 레코드는 KIS로 간주).
+- `OrderRecord`/`TradeRecord`는 `with_broker_scope()`로 broker/account를 기록한다. PositionTracker/OverseasPositionTracker는 단일 활성 scope 스냅샷만 보유한다 — 프로파일 전환(비실행 중) 시 `clear()`하고 다음 holdings `replace()` 또는 수동 주문 직전 refresh로 재동기화하며, 실행 중에는 `execution_scope`가 주문 흐름을 시작 시점 scope에 고정한다.
 - 리스크 설정과 일별 runtime 상태는 `storage::RiskStore`가 `risk/config.json`(설정)과 `risk/runtime.json`(날짜·손익·비상정지·주문 횟수·연속 손실 차단)으로 분리 저장한다. 주문 접수·체결 반영·비상정지 변경·일별 초기화 시점마다 스냅샷을 저장하고, OrderManager 경로의 저장 실패는 fail-closed로 신규 주문을 차단한다. 시작 시 복원은 스냅샷 날짜가 오늘일 때만 카운터를 적용하고 비상정지는 날짜와 무관하게 유지한다(수동 해제 대상). runtime 파일을 읽지 못하면 비상정지 상태로 시작한다.
 - 계좌 잔고·holdings 조회는 fail-closed다. 시작 전 하나라도 실패하거나 총평가액이 0 이하이면 시작하지 않고, 운용 중 갱신 실패는 `buy_suspended_reason`과 Discord에 노출한 뒤 신규 매수를 막는다.
 - Toss 연결 진단은 `check_toss_profile_connection` IPC에서 프로파일 lock을 짧게 잡아 clone한 뒤 실행한다. 진단 단계는 OpenAPI spec, token, accounts, holdings, order preflight read-only 순서이며 토큰 문자열은 응답에 포함하지 않는다.
@@ -1105,6 +1106,8 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - JSON → DB import는 한 transaction에서 전체 upsert한다. DB backend 활성화 전 현재 JSON key가 모두 존재하는지 검증하고, JSON backend 복귀 전 DB 문서를 live JSON 경로에 atomic restore한다.
 - DB 설정 변경, schema mutation, import, backend 전환은 자동매매 중 거부한다. clear/drop은 별도 확인 문구를 요구하고 DB backend 활성 중에는 실행하지 않는다.
 - DB password는 IPC view와 logical export에 포함하지 않는다. DB 관리 명령은 인증되지 않은 axum REST에 추가하지 않고 Tauri desktop command로만 제공한다.
+- DB password는 `storage/database_keychain.rs`를 통해 OS keychain(macOS Keychain/Windows Credential Manager)에 저장하고 `database_config.json`에는 남기지 않는다. 파일에 남은 레거시 password는 `load_sync`가 시작 시 1회 keychain으로 이전하며, keychain을 쓸 수 없는 환경에서만 파일(0o600) 저장으로 fallback한다. 테스트는 `use_mock_keychain_for_tests()` + `keychain_test_lock()`으로 mock store를 직렬 사용한다(mock은 Entry 인스턴스별 독립 상태라 handle을 process-wide로 재사용해야 한다).
+- 실서버 contract test는 `storage/database_contract_tests.rs`에 있다. `KISAT_PG_HOST/PORT/USER/PASSWORD` env가 없으면 skip하고, 있으면 매 실행 고유한 `kisautotrade_ct_*` database를 자동 생성 경로로 만들어 create/import/export/backend 전환/clear/drop 왕복을 검증한 뒤 DROP한다. 운영 database는 절대 사용하지 않는다.
 - v1 schema는 기존 JSON 복원성을 위한 document store다. 주문/체결 복구·검색·retention을 위한 정규화 schema는 명시적인 schema version migration과 PostgreSQL/MariaDB contract test를 함께 추가한다.
 - JSON 파일 저장은 경로별 lock과 store별 read-modify-write lock을 사용하고, temp write → file fsync → 정상본 `.bak` → atomic rename → parent directory fsync 순서를 지킨다. 역직렬화 실패 시 손상본을 격리하고 마지막 정상 백업으로 복구한다.
 

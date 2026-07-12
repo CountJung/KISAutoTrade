@@ -66,6 +66,10 @@ async fn apply_profile_change(s: &ServerState) {
     ));
     *s.config.write().await = new_config;
     *s.rest_client.write().await = new_client;
+
+    // 이전 프로파일의 보유 포지션이 새 broker/account scope로 새어들지 않게 초기화한다.
+    // 다음 잔고 동기화(replace)와 수동 주문 직전 refresh에서 새 계좌 스냅샷으로 채워진다.
+    s.position_tracker.lock().await.clear();
 }
 
 /// profiles.json 저장 (웹 서버 내부용)

@@ -1022,7 +1022,8 @@ fn build_kis_pending_order(
         Some(response.odno.clone()),
         None,
         Some(response.tr_id.clone()),
-    );
+    )
+    .with_broker_scope(&prepared.submission.broker_scope);
     let odno = if response.odno.is_empty() {
         format!("LOCAL-{}", uuid::Uuid::new_v4())
     } else {
@@ -1080,7 +1081,8 @@ fn build_toss_pending_order(
         prepared.order_price,
         format!("TOSS_{}", prepared.order_type.to_uppercase()),
     )
-    .with_provider_trace("toss", Some(order_id.clone()), client_order_id, None);
+    .with_provider_trace("toss", Some(order_id.clone()), client_order_id, None)
+    .with_broker_scope(&prepared.submission.broker_scope);
     record.kis_order_id = Some(order_id.clone());
     record.provider_order_id = Some(order_id.clone());
 
@@ -1118,7 +1120,8 @@ async fn append_failed_order(
         quantity,
         price,
         order_type.to_string(),
-    );
+    )
+    .with_broker_scope(&submission.broker_scope);
     record.status = OrderStatus::Failed;
     record.error_message = Some(error_message);
     if let Err(e) = order_store.append(record).await {

@@ -62,12 +62,39 @@ pub struct DatabaseManager {
 
 impl DatabaseManager {
     pub fn load_sync(config_path: PathBuf, data_dir: PathBuf) -> Result<Self> {
-        let config = match std::fs::read_to_string(&config_path) {
+        let mut config: DatabaseConfig = match std::fs::read_to_string(&config_path) {
             Ok(content) => serde_json::from_str(&content)
                 .with_context(|| format!("DB 설정 파일이 손상되었습니다: {config_path:?}"))?,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => DatabaseConfig::default(),
             Err(error) => return Err(error).context("DB 설정 파일을 읽지 못했습니다."),
         };
+        if config.password.is_empty() {
+            match super::database_keychain::load_database_password() {
+                Ok(Some(password)) => config.password = password,
+                Ok(None) => {}
+                Err(error) => tracing::warn!(
+                    "OS keychain에서 DB password를 읽지 못했습니다 — 미설정 상태로 시작합니다: {error:#}"
+                ),
+            }
+        } else {
+            // 파일에 남아 있는 password를 OS keychain으로 1회 이전한다. 실패하면 파일(0o600) 저장 유지.
+            match super::database_keychain::store_database_password(&config.password) {
+                Ok(()) => {
+                    let mut file_config = config.clone();
+                    file_config.password = String::new();
+                    let content = serde_json::to_string_pretty(&file_config)?;
+                    match super::database_io::atomic_write_private_sync(&config_path, &content) {
+                        Ok(()) => tracing::info!("DB password를 OS keychain으로 이전했습니다."),
+                        Err(error) => tracing::warn!(
+                            "keychain 이전 후 설정 파일 재작성 실패 — 다음 시작에서 재시도합니다: {error:#}"
+                        ),
+                    }
+                }
+                Err(error) => tracing::warn!(
+                    "DB password를 OS keychain으로 이전하지 못해 파일(0o600) 저장을 유지합니다: {error:#}"
+                ),
+            }
+        }
         let export_dir = config_path
             .parent()
             .unwrap_or_else(|| Path::new("."))
@@ -454,8 +481,34 @@ impl DatabaseManager {
         Ok(())
     }
 
+    /// 설정을 저장한다. password는 OS keychain에 우선 저장하고 파일에서는 제거한다.
+    /// keychain을 쓸 수 없는 환경에서만 기존 파일(0o600) 저장으로 fallback한다.
     async fn persist_config(&self, config: &DatabaseConfig) -> Result<()> {
-        let content = serde_json::to_string_pretty(config)?;
+        let mut file_config = config.clone();
+        if file_config.password.is_empty() {
+            // password 미설정: 남아 있을 수 있는 keychain 항목도 정리해 상태를 일치시킨다.
+            let deleted =
+                tokio::task::spawn_blocking(super::database_keychain::delete_database_password)
+                    .await
+                    .context("keychain 삭제 task 실패")?;
+            if let Err(error) = deleted {
+                tracing::warn!("OS keychain의 DB password 삭제 실패 (무시): {error:#}");
+            }
+        } else {
+            let password = file_config.password.clone();
+            let stored = tokio::task::spawn_blocking(move || {
+                super::database_keychain::store_database_password(&password)
+            })
+            .await
+            .context("keychain 저장 task 실패")?;
+            match stored {
+                Ok(()) => file_config.password = String::new(),
+                Err(error) => tracing::warn!(
+                    "OS keychain 저장 실패 — DB password를 파일(0o600)에 유지합니다: {error:#}"
+                ),
+            }
+        }
+        let content = serde_json::to_string_pretty(&file_config)?;
         atomic_write_private(&self.config_path, &content).await?;
         Ok(())
     }
@@ -1150,5 +1203,82 @@ mod tests {
         let inventory = inventory_from_documents(&documents);
         assert_eq!(inventory.file_count, 2);
         assert_eq!(inventory.categories.len(), 2);
+    }
+
+    fn keychain_test_dirs() -> (PathBuf, PathBuf) {
+        let base =
+            std::env::temp_dir().join(format!("kisat-db-keychain-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(base.join("data")).expect("data dir");
+        (base.join("database_config.json"), base.join("data"))
+    }
+
+    fn save_input_with_password(password: &str) -> SaveDatabaseConfigInput {
+        SaveDatabaseConfigInput {
+            provider: DatabaseProvider::Postgresql,
+            host: "127.0.0.1".to_string(),
+            port: 5432,
+            database: "kisautotrade".to_string(),
+            username: "kisautotrade".to_string(),
+            password: Some(password.to_string()),
+            tls_mode: DatabaseTlsMode::Prefer,
+            max_connections: 5,
+        }
+    }
+
+    #[tokio::test]
+    async fn save_config_stores_password_in_keychain_not_in_file() {
+        super::super::database_keychain::use_mock_keychain_for_tests();
+        let _keychain = super::super::database_keychain::keychain_test_lock();
+        let (config_path, data_dir) = keychain_test_dirs();
+        let manager =
+            DatabaseManager::load_sync(config_path.clone(), data_dir.clone()).expect("load");
+        let view = manager
+            .save_config(save_input_with_password("keychain-secret-1"))
+            .await
+            .expect("save config");
+        assert!(view.password_configured);
+
+        let file_content = std::fs::read_to_string(&config_path).expect("config file");
+        assert!(
+            !file_content.contains("keychain-secret-1"),
+            "password가 설정 파일에 남아 있으면 안 된다"
+        );
+
+        // 재시작 시뮬레이션: 새 인스턴스가 keychain에서 password를 복원한다.
+        let reloaded = DatabaseManager::load_sync(config_path, data_dir).expect("reload");
+        let view = reloaded.config_view().await;
+        assert!(view.password_configured);
+    }
+
+    #[tokio::test]
+    async fn legacy_file_password_migrates_to_keychain_on_load() {
+        super::super::database_keychain::use_mock_keychain_for_tests();
+        let _keychain = super::super::database_keychain::keychain_test_lock();
+        let (config_path, data_dir) = keychain_test_dirs();
+        let legacy = DatabaseConfig {
+            password: "legacy-file-password".to_string(),
+            ..DatabaseConfig::default()
+        };
+        std::fs::write(
+            &config_path,
+            serde_json::to_string_pretty(&legacy).expect("legacy json"),
+        )
+        .expect("write legacy config");
+
+        let manager = DatabaseManager::load_sync(config_path.clone(), data_dir).expect("load");
+        let view = manager.config_view().await;
+        assert!(view.password_configured, "이전 후에도 password는 유효해야 한다");
+
+        let file_content = std::fs::read_to_string(&config_path).expect("config file");
+        assert!(
+            !file_content.contains("legacy-file-password"),
+            "migration 후 설정 파일에 password가 남아 있으면 안 된다"
+        );
+        assert_eq!(
+            super::super::database_keychain::load_database_password()
+                .expect("keychain read")
+                .as_deref(),
+            Some("legacy-file-password")
+        );
     }
 }

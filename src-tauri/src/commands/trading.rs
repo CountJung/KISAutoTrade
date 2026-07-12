@@ -7,6 +7,7 @@ pub(crate) async fn restore_risk_from_today_trades(
     trade_store: &Arc<TradeStore>,
     risk_manager: &Arc<Mutex<RiskManager>>,
     risk_store: &Arc<crate::storage::RiskStore>,
+    execution_scope: &BrokerScope,
 ) -> CmdResult<()> {
     let trades = trade_store
         .get_by_date(chrono::Local::now().date_naive())
@@ -16,9 +17,11 @@ pub(crate) async fn restore_risk_from_today_trades(
             message: format!("오늘 체결 ledger를 읽지 못했습니다: {error}"),
         })?;
     let mut risk = risk_manager.lock().await;
+    // 다른 broker/계좌의 당일 체결이 이 scope의 손실 한도에 섞이지 않게 격리한다.
     risk.restore_daily_pnl(
         trades
             .into_iter()
+            .filter(|trade| trade.matches_scope(execution_scope))
             .filter_map(|trade| trade.realized_pnl_krw),
     );
     risk_store
@@ -644,14 +647,15 @@ pub async fn start_trading(
             (!current_cfg.broker_account_id.is_empty())
                 .then(|| current_cfg.broker_account_id.clone())
         });
+    let execution_scope = BrokerScope::new(
+        broker_id,
+        reconciliation_account_id.map(BrokerAccountId),
+    );
     state
         .order_manager
         .lock()
         .await
-        .set_execution_scope(BrokerScope::new(
-            broker_id,
-            reconciliation_account_id.map(BrokerAccountId),
-        ));
+        .set_execution_scope(execution_scope.clone());
 
     OrderManager::confirm_pending_fills_from_broker_shared(&state.order_manager)
         .await
@@ -661,8 +665,13 @@ pub async fn start_trading(
                 "복원된 미체결 주문을 broker와 대조하지 못해 자동매매를 시작하지 않습니다: {error}"
             ),
         })?;
-    restore_risk_from_today_trades(&state.trade_store, &state.risk_manager, &state.risk_store)
-        .await?;
+    restore_risk_from_today_trades(
+        &state.trade_store,
+        &state.risk_manager,
+        &state.risk_store,
+        &execution_scope,
+    )
+    .await?;
 
     let mut is_running = state.is_trading.lock().await;
     if *is_running {
