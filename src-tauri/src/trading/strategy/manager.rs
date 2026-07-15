@@ -1,11 +1,11 @@
 use crate::broker::{BrokerId, BrokerMarket};
 
 use super::{
-    BrokerPositionSnapshot, ConsecutiveMoveStrategy, DeviationStrategy, FailedBreakoutStrategy,
-    FiftyTwoWeekHighStrategy, LeveragedTrendHoldStrategy, MeanReversionStrategy, MomentumStrategy,
-    MovingAverageCrossStrategy, OhlcCandle, PriceConditionStrategy, RsiStrategy, Signal, Strategy,
-    StrategyConfig, StrategySignal, StrongCloseStrategy, TrendFilterStrategy,
-    VolatilityExpansionStrategy,
+    initialize_strategy_warmup, BrokerPositionSnapshot, ConsecutiveMoveStrategy, DeviationStrategy,
+    FailedBreakoutStrategy, FiftyTwoWeekHighStrategy, LeveragedTrendHoldStrategy,
+    MeanReversionStrategy, MomentumStrategy, MovingAverageCrossStrategy, OhlcCandle,
+    PriceConditionStrategy, RsiStrategy, Signal, Strategy, StrategyConfig, StrategySignal,
+    StrongCloseStrategy, TrendFilterStrategy, VolatilityExpansionStrategy,
 };
 
 pub fn build_strategy(config: StrategyConfig) -> Box<dyn Strategy> {
@@ -175,6 +175,20 @@ impl StrategyManager {
         for s in &mut self.strategies {
             if s.config().targets_symbol(symbol) {
                 s.initialize_range_data(symbol, ranges);
+            }
+        }
+    }
+
+    /// live/preview 공통 warmup semantics로 대상 전략을 초기화한다.
+    pub fn initialize_warmup(
+        &mut self,
+        symbol: &str,
+        daily_ohlc: &[OhlcCandle],
+        intraday_ohlc: &[OhlcCandle],
+    ) {
+        for strategy in &mut self.strategies {
+            if strategy.config().targets_symbol(symbol) {
+                initialize_strategy_warmup(strategy.as_mut(), symbol, daily_ohlc, intraday_ohlc);
             }
         }
     }

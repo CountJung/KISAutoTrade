@@ -214,6 +214,23 @@ impl Strategy for MeanReversionStrategy {
         Signal::Hold
     }
 
+    fn sync_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        let period = bounded_window(self.params.period as usize);
+        let state = self
+            .states
+            .entry(symbol.to_string())
+            .or_insert_with(|| MeanReversionState {
+                prices: VecDeque::with_capacity(bounded_window_with_extra(period, 1)),
+                in_position: false,
+                entry_price: None,
+            });
+        state.in_position = quantity > 0;
+        state.entry_price = (quantity > 0 && avg_price > 0).then_some(avg_price);
+    }
+
     fn reset(&mut self) {
         // 가격 버퍼 유지, 포지션만 초기화
         for state in self.states.values_mut() {
@@ -391,6 +408,20 @@ impl Strategy for TrendFilterStrategy {
             }
             _ => Signal::Hold,
         }
+    }
+
+    fn sync_position(&mut self, symbol: &str, quantity: u64, _avg_price: u64) {
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        let cap = bounded_window_with_extra(self.params.long_period as usize, 1);
+        self.states
+            .entry(symbol.to_string())
+            .or_insert_with(|| TrendFilterState {
+                prices: VecDeque::with_capacity(cap),
+                in_position: false,
+            })
+            .in_position = quantity > 0;
     }
 
     fn reset(&mut self) {

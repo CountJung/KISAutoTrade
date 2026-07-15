@@ -43,9 +43,16 @@ import type {
   LeveragedTrendHoldEntry,
   LeveragedTrendHoldPreviewView,
   OverseasExchange,
+  SimulationAssumptions,
   StockSearchItem,
 } from '../../../api/types'
 import { LeveragedTrendHoldPreviewChart } from './leveragedTrendHoldPreviewChart'
+import {
+  defaultSimulationAssumptions,
+  rebaseDefaultMarketCosts,
+  SimulationAssumptionsEditor,
+  StrategyResearchResults,
+} from './strategyResearchPanel'
 
 type Market = 'KR' | 'US'
 type PreviewInterval = '1m' | '1d'
@@ -103,6 +110,7 @@ function newTargetEntry(selection: TargetDraftSelection, quantity: number): Leve
 export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPanelProps) {
   const { stratEnabled, initialEntries, editedEntries, params, onUpdate } = props
   const entries = editedEntries ?? initialEntries
+  const initialPreviewIsOverseas = (entries.find((entry) => entry.is_overseas) ?? entries[0])?.is_overseas ?? true
   const [pickerMarket, setPickerMarket] = useState<Market>('US')
   const [pickerInput, setPickerInput] = useState('')
   const [pickerQuery, setPickerQuery] = useState('')
@@ -116,6 +124,8 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
   const [previewInterval, setPreviewInterval] = useState<PreviewInterval>('1m')
   const [previewCount, setPreviewCount] = useState<PreviewCount>(200)
   const [preview, setPreview] = useState<LeveragedTrendHoldPreviewView | null>(null)
+  const [assumptions, setAssumptions] = useState<SimulationAssumptions>(() => defaultSimulationAssumptions(initialPreviewIsOverseas))
+  const assumptionsMarket = useRef(initialPreviewIsOverseas)
   const previewGeneration = useRef(0)
   const entrySensitivity = numericParam(params, 'upward_sensitivity', 1)
   const reboundEnabled = boolParam(params, 'intraday_rebound_enabled', false)
@@ -163,12 +173,20 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
     && preview.interval === previewInterval
     ? preview
     : null
+  useEffect(() => {
+    const nextIsOverseas = previewEntry?.is_overseas ?? assumptionsMarket.current
+    setAssumptions((current) => rebaseDefaultMarketCosts(current, assumptionsMarket.current, nextIsOverseas))
+    assumptionsMarket.current = nextIsOverseas
+  }, [previewEntry?.is_overseas])
   const previewInputKey = JSON.stringify({
     symbol: previewEntry?.leveraged_symbol ?? '',
     interval: previewInterval,
     count: previewCount,
     params,
     entries,
+    assumptions,
+    activeProfileId: appConfig?.active_profile_id,
+    activeBrokerAccountId: appConfig?.active_broker_account_id,
   })
   const { mutate: doPickerRefreshList, isPending: pickerRefreshing } = useRefreshStockList()
   const {
@@ -316,6 +334,9 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
         params: { ...params, entries },
         interval: previewInterval,
         count: previewCount,
+        assumptions,
+        expectedProfileId: appConfig?.active_profile_id,
+        expectedBrokerAccountId: appConfig?.active_broker_account_id,
       })
       if (requestGeneration !== previewGeneration.current) return
       setPreview(result)
@@ -758,6 +779,11 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
       {entries.length > 0 && (
         <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.25 }}>
           <Stack spacing={1}>
+            <SimulationAssumptionsEditor
+              value={assumptions}
+              onChange={setAssumptions}
+              disabled={previewMutation.isPending}
+            />
             <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between" gap={1}>
               <Stack spacing={0.25}>
                 <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap">
@@ -858,6 +884,19 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   signals={currentPreview.signals}
                   sourceLabel={`Toss ${currentPreview.interval === '1m' ? '1분봉' : '일봉'} · ${currentPreview.candleCount}봉`}
                 />
+                {currentPreview.backtest && currentPreview.replay && previewEntry && (
+                  <StrategyResearchResults
+                    report={currentPreview.backtest}
+                    replay={currentPreview.replay}
+                    strategyId="leveraged_trend_hold"
+                    brokerId="toss"
+                    brokerAccountId={appConfig?.active_broker_account_id ?? null}
+                    symbol={previewEntry.leveraged_symbol}
+                    params={{ ...params, entries }}
+                    orderQuantity={previewEntry.quantity}
+                    generatedAt={currentPreview.generatedAt}
+                  />
+                )}
               </Stack>
             ) : (
               <Box sx={{ minHeight: 160, display: 'grid', placeItems: 'center', border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' }}>

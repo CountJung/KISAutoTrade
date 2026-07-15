@@ -229,7 +229,11 @@ impl Strategy for PriceConditionStrategy {
 
     fn sync_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
         self.sync_params();
-        if quantity == 0 || !self.params.symbols.iter().any(|s| s.symbol == symbol) {
+        if !self.params.symbols.iter().any(|s| s.symbol == symbol) {
+            return;
+        }
+        if quantity == 0 {
+            self.positions.remove(symbol);
             return;
         }
         self.positions
@@ -244,5 +248,43 @@ impl Strategy for PriceConditionStrategy {
 
     fn reset(&mut self) {
         self.positions.clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejected_buy_can_restore_flat_position_before_next_tick() {
+        let config = StrategyConfig::new(
+            "price_condition_test",
+            "가격 조건 테스트",
+            true,
+            vec!["005930".into()],
+            1,
+            serde_json::json!({
+                "symbols": [{
+                    "symbol": "005930",
+                    "quantity": 1,
+                    "buy_trigger_price": 70_000,
+                    "sell_trigger_price": 80_000,
+                    "take_profit_pct": 5,
+                    "stop_loss_pct": 3,
+                    "is_overseas": false
+                }]
+            }),
+        );
+        let mut strategy = PriceConditionStrategy::new(config);
+
+        assert!(matches!(
+            strategy.on_tick("005930", 69_000, 0),
+            Signal::Buy { .. }
+        ));
+        strategy.sync_position("005930", 0, 0);
+        assert!(matches!(
+            strategy.on_tick("005930", 69_000, 0),
+            Signal::Buy { .. }
+        ));
     }
 }

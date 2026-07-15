@@ -279,7 +279,7 @@ pub async fn submit_toss_small_buy_verification_for_profile(
     .map_err(CmdError::from)?;
     let order_id = match outcome {
         SubmissionOutcome::Submitted { provider_order_id } => provider_order_id,
-        SubmissionOutcome::Skipped { reason } => {
+        SubmissionOutcome::Skipped { reason, .. } => {
             return Err(CmdError {
                 code: "ORDER_PREFLIGHT_BLOCKED".into(),
                 message: reason,

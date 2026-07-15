@@ -52,10 +52,12 @@ AutoConditionTrade/                   ← 루트
 │   ├── router/index.ts               ← TanStack Router 코드 기반 라우팅 ✅
 │   ├── shared/
 │   │   ├── api/                      ← Tauri IPC/Web REST 공통 wrapper + Rust 타입 미러 (`databaseCommands/types` 포함)
+│   │   │   └── strategyResearchTypes.ts ← replay/backtest/실험 TypeScript 타입
 │   │   ├── config/theme/             ← createAppTheme, getResolvedMode
 │   │   ├── config/scheduler/         ← 전역 폴링 주기 상수
 │   │   ├── lib/                      ← localStorage 기반 레이아웃 상태 헬퍼
-│   │   └── ui/LayoutResizer.tsx      ← 범용 리사이저 UI
+│   │   ├── ui/LayoutResizer.tsx      ← 범용 리사이저 UI
+│   │   └── ui/TradingHealthPanel.tsx ← holdings/reconciliation/pending/persistence 건강 상태와 복구 안내
 │   ├── entities/
 │   │   ├── account/model/            ← 계좌 상태 store
 │   │   ├── settings/model/           ← 테마/로그/Discord 설정 store
@@ -78,6 +80,8 @@ AutoConditionTrade/                   ← 루트
 │   │   ├── strategy/ui/strategyMetadata.ts ← 전략 파라미터 메타·설명·타입 판별
 │   │   ├── strategy/ui/leveragedTrendHoldEditorPanel.tsx ← 레버리지 추세 보유 전략 편집 패널
 │   │   ├── strategy/ui/strategyPreviewPanel.tsx ← 전략 카드별 차트 캔들 조회 + 범용 신호 preview panel
+│   │   ├── strategy/ui/strategyResearchPanel.tsx ← 비용/리스크 백테스트 요약·equity·A/B 실험 UI
+│   │   ├── strategy/model/experimentStore.ts ← broker/account/전략/티커별 A/B 실험 localStorage
 │   │   ├── strategy/ui/leveragedTrendHoldPreviewChart.tsx ← 캔들/종가선/매수·청산 신호 preview chart
 │   │   ├── history/ui/Page.tsx       ← 날짜 범위 조회, 자동매매 체결 기록
 │   │   ├── log/ui/Page.tsx           ← 레벨 필터, 검색, 색상 구분 로그 뷰어
@@ -89,7 +93,6 @@ AutoConditionTrade/                   ← 루트
 │   │   └── settings/ui/section.tsx   ← Settings page-local 섹션 래퍼
 │   ├── api/                          ← shared/api 호환 re-export + TanStack Query hooks/query keys/event bridge
 │   ├── components/                   ← widgets/shared 호환 re-export
-│   ├── shared/ui/TradingHealthPanel.tsx ← holdings/reconciliation/pending/persistence 건강 상태와 복구 안내
 │   ├── store/                        ← entities 호환 re-export
 │   ├── theme/                        ← shared/config/theme 호환 re-export
 │   └── scheduler/                    ← shared/config/scheduler 호환 re-export
@@ -110,6 +113,8 @@ AutoConditionTrade/                   ← 루트
         │   ├── orders.rs             ← 수동 주문 제출 IPC
         │   ├── records.rs            ← 체결/거래/통계/로그/Discord 저장 IPC
         │   ├── settings.rs           ← app config, refresh/log/web 설정, USD/KRW 환율 IPC
+        │   ├── strategy_preview.rs   ← 범용/레버리지 replay·backtest IPC
+        │   ├── strategy_preview/tests.rs ← parity·무미래참조·hash fixture
         │   ├── toss.rs               ← Toss accountSeq 조회, 연결 진단, 주문 전 preflight, 접수 주문 조회·정정 IPC facade
         │   ├── toss/small_order.rs   ← Dashboard Toss 소액매매 1주 시장가 실주문 검증 IPC
         │   ├── toss_market.rs        ← Toss 시세 snapshot, 종목 유의사항, market-calendar, candles IPC
@@ -224,8 +229,10 @@ AutoConditionTrade/                   ← 루트
 | `pages/strategy/ui/Page.tsx` | 활성 broker scope, 전략별 저장 broker/account scope 표시, 전략 활성화/대상 종목/전체 너비 카드/카드별 미리보기 route 조립 |
 | `pages/strategy/ui/priceConditionEditorPanel.tsx` | 가격조건 전략의 종목별 수량·매수가·익절가·익절률·손절률 편집 테이블 |
 | `pages/strategy/ui/strategyMetadata.ts` | 일반 전략 파라미터 입력 메타, 전략 설명, strategy id 기반 타입 판별 |
-| `pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx` | 레버리지 추세 보유 전략의 ETF 세트 검색/편집, 진입·반등·초기 손절·수익 보호 청산 파라미터, Toss 1분/일봉·50/100/200봉 미리보기 선택과 stale 응답 차단 |
-| `pages/strategy/ui/strategyPreviewPanel.tsx` | 일반/가격조건 전략 카드에서 KIS 일/주/월봉 또는 Toss 1분/일봉과 50/100/200봉 구간을 조회해 `preview_strategy` 신호를 표시. 입력 변경 시 이전 결과와 진행 중 응답을 무효화 |
+| `pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx` | 레버리지 추세 보유 전략의 ETF 검색/편집, 진입·반등·청산 파라미터, Toss 1분/일봉·50/100/200봉 preview와 계좌 scope/stale 응답 차단 |
+| `pages/strategy/ui/strategyPreviewPanel.tsx` | 일반/가격조건 전략 카드에서 KIS 일/주/월봉 또는 Toss 1분/일봉을 조회하고 편집값·비용 가정을 `preview_strategy`에 전달. 티커/봉/구간/파라미터/수량/broker/account/가정 변경 시 결과 무효화 |
+| `pages/strategy/ui/strategyResearchPanel.tsx` | 초기자본·수수료·세금·슬리피지·환율·리스크·학습구간 입력, 수익률/MDD/승률/손익비/turnover/exposure, 원시 신호와 주문 가능/체결 구분, equity curve, 거래 목록, in/out-of-sample, A/B 비교 UI |
+| `pages/strategy/model/experimentStore.ts` | credential을 저장하지 않고 broker/account/strategy/symbol scope별 A/B 결과·전략 버전·파라미터·데이터 범위/source·비용 가정·생성 시각을 localStorage에 최대 2개 저장 |
 | `pages/strategy/ui/leveragedTrendHoldPreviewChart.tsx` | 레버리지/일반 전략 미리보기의 캔들·종가선·signal marker, 모바일 가로 패닝·핀치 확대/축소와 버튼식 줌 표시 |
 | `pages/history/ui/Page.tsx` | 활성 broker scope, 자동매매 체결 기록과 기간별 통계 조회, provider 원본 trace 표시 |
 | `pages/log/ui/Page.tsx` | 로그 레벨/검색 필터, provider trace 토큰 chip 표시 |
@@ -243,7 +250,8 @@ AutoConditionTrade/                   ← 루트
 | `commands/orders.rs` | 수동 주문 제출 IPC |
 | `commands/records.rs` | 체결/거래/통계 조회, Discord config 저장, frontend log 저장 IPC |
 | `commands/settings.rs` | app config/check_config, refresh interval, log/web 설정, USD/KRW 환율 IPC |
-| `commands/strategy_preview.rs` | 활성 Toss 프로파일의 1분/일봉 레버리지 preview(일봉 open/EOD 분리로 look-ahead 방지)와 프론트 제공 `ChartCandle[]` 기반 범용 전략 preview IPC |
+| `commands/strategy_preview.rs` | 범용 preview는 최대 500봉·공통 warmup·candle-close replay를 제공하고 broker/account는 결과 scope 메타데이터로 보존한다. Toss 레버리지 preview는 활성 profile/account를 검증하고 1분봉 warmup을 첫 거래일 이전 완료 일봉으로 제한하며 일봉 open/EOD 공개 시점을 분리한다. 두 경로 모두 재현 메타데이터와 비용/리스크 backtest를 반환한다. |
+| `commands/strategy_preview/tests.rs` | 일봉 정보 공개 시점, session 경계, 미래 봉 변경이 이전 신호에 영향을 주지 않는 deterministic fixture |
 | `commands/toss.rs` | Toss accountSeq 조회, 연결 진단, 주문 전 preflight view facade, 접수 주문 목록 조회와 정정 command |
 | `commands/toss/small_order.rs` | Dashboard 전용 Toss 소액매매 검증. 실거래 동의/최종 확인/최대 허용금액/preflight/open-order scan 후 1주 시장가 매수 제출과 주문·체결 기록 저장 |
 | `commands/toss_market.rs` | Toss 시세 snapshot, 종목 유의사항, market-calendar override, candles chart command |
@@ -251,8 +259,9 @@ AutoConditionTrade/                   ← 루트
 | `commands/strategy.rs` | 포지션 조회, 전략 목록/수정 IPC. 전략 view는 `trading/views.rs::build_strategy_view()` 재사용 |
 | `commands/risk.rs` | 리스크 설정/비상정지 IPC와 pending 주문 view |
 | `trading/strategy.rs` | 전략 facade. 공개 import 경로를 유지하면서 하위 전략 모듈을 re-export |
-| `trading/strategy/core.rs` | `Signal`, `StrategySignal`, `BrokerPositionSnapshot`, `StrategyConfig`, `Strategy` trait |
-| `trading/strategy/manager.rs` | `StrategyManager`, `build_strategy()`, 전략 config 재빌드/초기화 dispatch |
+| `trading/strategy/core.rs` | `Signal`, `StrategySignal`, `BrokerPositionSnapshot`, `StrategyConfig`, `Strategy` trait, live/preview 공통 `initialize_strategy_warmup()` |
+| `trading/strategy/manager.rs` | `StrategyManager`, `build_strategy()`, 전략 config 재빌드와 공통 warmup dispatch |
+| `trading/simulation.rs` | deterministic simulated portfolio, 공통 TradeGuard/RiskManager 기반 주문 가능 판정, 비용·환율·equity·MDD·turnover·exposure·고정 chronological in/out-of-sample 지표. preview command가 engine/strategy/source/scope/params/가정/warmup 경계와 실제 replay OHLCV fingerprint를 hash한다. |
 | `trading/strategy/state.rs` | per-symbol 전략 버퍼 상한 helper. user-param 기반 `VecDeque` OOM 방지 |
 | `trading/strategy/{classic,breakout,mean_trend}.rs` | MA/RSI/모멘텀/이격도, 돌파 계열, 평균회귀/추세필터 전략 구현 |
 | `trading/strategy/{leveraged_trend_hold,price_condition}.rs` | 레버리지 추세 보유와 종목별 가격 조건 전략 구현 |

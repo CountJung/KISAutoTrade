@@ -559,6 +559,14 @@ impl RiskManager {
     /// 날짜가 바뀌었으면 자동으로 일별 손익 초기화. 초기화가 실행되면 true를 반환한다.
     pub fn reset_if_new_day(&mut self) -> bool {
         let today = chrono::Local::now().date_naive();
+        self.reset_for_date(today)
+    }
+
+    /// 지정한 거래일이 이전 runtime 날짜와 다르면 일별 한도를 초기화한다.
+    ///
+    /// 실시간 경로는 [`Self::reset_if_new_day`]를 사용하고, replay는 이벤트 날짜를
+    /// 전달해 과거 여러 거래일을 wall clock과 무관하게 결정적으로 처리한다.
+    pub fn reset_for_date(&mut self, today: chrono::NaiveDate) -> bool {
         if self.last_reset_date != Some(today) {
             self.current_loss = 0;
             self.daily_profit = 0;
@@ -629,22 +637,26 @@ impl RiskManager {
             consecutive_loss_counts: self
                 .consecutive_loss_counts
                 .iter()
-                .map(|((scope, strategy_id, symbol), count)| StrategySymbolCountEntry {
-                    scope: scope.clone(),
-                    strategy_id: strategy_id.clone(),
-                    symbol: symbol.clone(),
-                    count: *count,
-                })
+                .map(
+                    |((scope, strategy_id, symbol), count)| StrategySymbolCountEntry {
+                        scope: scope.clone(),
+                        strategy_id: strategy_id.clone(),
+                        symbol: symbol.clone(),
+                        count: *count,
+                    },
+                )
                 .collect(),
             blocked_strategy_symbols: self
                 .blocked_strategy_symbols
                 .iter()
-                .map(|((scope, strategy_id, symbol), count)| StrategySymbolCountEntry {
-                    scope: scope.clone(),
-                    strategy_id: strategy_id.clone(),
-                    symbol: symbol.clone(),
-                    count: *count,
-                })
+                .map(
+                    |((scope, strategy_id, symbol), count)| StrategySymbolCountEntry {
+                        scope: scope.clone(),
+                        strategy_id: strategy_id.clone(),
+                        symbol: symbol.clone(),
+                        count: *count,
+                    },
+                )
                 .collect(),
         }
     }
@@ -896,7 +908,12 @@ mod tests {
         assert_eq!(restored.current_loss(), -3_000);
         assert!(restored.is_emergency_stop());
         assert!(restored
-            .daily_order_limit_reason_for_scope(&account, "strategy", "005930", DailyOrderSide::Sell)
+            .daily_order_limit_reason_for_scope(
+                &account,
+                "strategy",
+                "005930",
+                DailyOrderSide::Sell
+            )
             .is_some());
         assert!(restored
             .consecutive_loss_block_reason_for_scope(&account, "strategy", "005930")
@@ -923,7 +940,12 @@ mod tests {
         assert!(restored.is_emergency_stop());
         assert_eq!(restored.current_loss(), 0);
         assert!(restored
-            .daily_order_limit_reason_for_scope(&account, "strategy", "005930", DailyOrderSide::Sell)
+            .daily_order_limit_reason_for_scope(
+                &account,
+                "strategy",
+                "005930",
+                DailyOrderSide::Sell
+            )
             .is_none());
         assert!(restored
             .consecutive_loss_block_reason_for_scope(&account, "strategy", "005930")

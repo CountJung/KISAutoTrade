@@ -58,8 +58,8 @@
 | `submit_toss_small_buy_verification` | Dashboard 전용 Toss 소액매매 검증. 실거래 동의/최종 확인/최대 허용금액/accountSeq 일치/사전검증/미체결 scan 후 검색 종목 1주 시장가 매수를 제출하고 주문·체결 기록을 저장 |
 | `get_toss_market_calendar` | 활성 Toss 프로파일로 KR/US 정규장 캘린더 조회 (`regularSession`, `isRegularOpen`) |
 | `get_toss_chart_data` | 활성 Toss 프로파일로 캔들 조회 (`1d`/`1m`, count 1~200, `ChartCandle[]`) |
-| `preview_leveraged_trend_hold` | 활성 Toss 프로파일에서 선택한 `1m`/`1d`와 최근 20~200봉으로 레버리지 추세 보유 전략을 읽기 전용 리플레이해 매수/청산 신호와 차트 캔들을 반환 |
-| `preview_strategy` | 프론트가 제공한 `ChartCandle[]`로 일반 전략을 읽기 전용 리플레이해 매수/청산 신호와 차트 캔들을 반환 |
+| `preview_leveraged_trend_hold` | 활성 Toss profile/account scope를 검증하고 `1m`/`1d` 20~200봉을 replay. 1분봉 warmup은 replay 시작일 이전의 완료 일봉만 사용하며 raw 신호·차트, 전체 입력 hash, 비용·환율·리스크 backtest를 반환 |
+| `preview_strategy` | 최대 500개의 `ChartCandle[]`를 candle-close cadence로 deterministic replay. 공통 warmup/전략 `on_tick`/TradeGuard/RiskManager, raw 신호와 주문 가능·차단·체결 가정, 성과 지표와 전체 OHLCV 재현 메타데이터를 반환. live 10초 tick·intrabar/provider latency는 재현하지 않음 |
 | `get_chart_data` | 국내주식 차트 데이터 (일/주/월봉, 날짜 범위와 선택적 count) |
 | `get_overseas_price` | 해외주식 현재가 조회 |
 | `get_overseas_chart_data` | 해외주식 최신 차트 데이터 (일/주/월봉, 선택적 count 상한) |

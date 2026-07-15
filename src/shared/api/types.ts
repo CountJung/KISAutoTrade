@@ -676,65 +676,6 @@ export interface LeveragedTrendHoldEntry {
   is_overseas: boolean
 }
 
-export interface LeveragedTrendHoldPreviewInput {
-  symbol: string
-  params: Record<string, unknown>
-  interval?: '1m' | '1d'
-  count?: number
-}
-
-export interface LeveragedTrendHoldPreviewSignal {
-  time: string
-  chartTime?: string
-  side: 'buy' | 'sell'
-  price: number
-  quantity: number
-  reason: string
-  emaShort?: number | null
-  emaLong?: number | null
-  rsi?: number | null
-  adx?: number | null
-}
-
-export interface LeveragedTrendHoldPreviewView {
-  symbol: string
-  interval: '1m' | '1d'
-  candleCount: number
-  candles: ChartCandle[]
-  signals: LeveragedTrendHoldPreviewSignal[]
-  generatedAt: string
-  message: string
-}
-
-export interface StrategyPreviewInput {
-  strategyId: string
-  strategyName: string
-  symbol: string
-  isOverseas: boolean
-  orderQuantity: number
-  params: Record<string, unknown>
-  candles: ChartCandle[]
-  warmupCount?: number
-}
-
-export interface StrategyPreviewSignal {
-  time: string
-  chartTime?: string
-  side: 'buy' | 'sell'
-  price: number
-  quantity: number
-  reason: string
-}
-
-export interface StrategyPreviewView {
-  strategyId: string
-  symbol: string
-  candles: ChartCandle[]
-  signals: StrategyPreviewSignal[]
-  generatedAt: string
-  message: string
-}
-
 // ─── 전략 ──────────────────────────────────────────────────────────
 export interface StrategyView {
   id: string
@@ -1007,3 +948,4 @@ export interface RefreshConfig {
 }
 
 export * from './databaseTypes'
+export * from './strategyResearchTypes'

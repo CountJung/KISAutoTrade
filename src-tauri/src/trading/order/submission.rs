@@ -80,8 +80,14 @@ enum ReservationDecision {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SubmissionOutcome {
-    Submitted { provider_order_id: String },
-    Skipped { reason: String },
+    Submitted {
+        provider_order_id: String,
+    },
+    Skipped {
+        reason: String,
+        held_quantity: u64,
+        avg_price: Option<u64>,
+    },
 }
 
 impl PendingOrder {
@@ -157,6 +163,34 @@ impl OrderSubmission {
 }
 
 impl OrderManager {
+    /// 전략 raw signal 직후 provider 호출 전의 실제 position tracker snapshot.
+    /// provider/network 오류처럼 `SubmissionOutcome`을 만들지 못한 경로에서도 전략 상태를 복원한다.
+    pub async fn current_position_snapshot_for_signal_shared(
+        order_manager: &Arc<Mutex<Self>>,
+        signal: &Signal,
+        exchange: Option<String>,
+        tick_price: u64,
+    ) -> (u64, Option<u64>) {
+        let Some(submission) = OrderSubmission::from_signal(
+            None,
+            signal.clone(),
+            String::new(),
+            0,
+            exchange,
+            tick_price,
+        ) else {
+            return (0, None);
+        };
+        let (domestic, overseas) = {
+            let manager = order_manager.lock().await;
+            (
+                Arc::clone(&manager.position_tracker),
+                Arc::clone(&manager.overseas_position_tracker),
+            )
+        };
+        current_position_snapshot(&submission, &domestic, &overseas).await
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub async fn submit_manual_order_shared(
         order_manager: &Arc<Mutex<Self>>,
@@ -221,6 +255,8 @@ impl OrderManager {
         ) else {
             return Ok(SubmissionOutcome::Skipped {
                 reason: "hold signal".to_string(),
+                held_quantity: 0,
+                avg_price: None,
             });
         };
 
@@ -279,7 +315,13 @@ impl OrderManager {
         .await;
         let prepared = match prepare_order_submission(&submission, held_quantity, &deps).await {
             PrepareDecision::Submit(prepared) => *prepared,
-            PrepareDecision::Skip(reason) => return Ok(SubmissionOutcome::Skipped { reason }),
+            PrepareDecision::Skip(reason) => {
+                return Ok(SubmissionOutcome::Skipped {
+                    reason,
+                    held_quantity,
+                    avg_price,
+                })
+            }
         };
 
         let reservation = {
@@ -287,7 +329,11 @@ impl OrderManager {
             match manager.reserve_submission(&prepared.submission, held_quantity, avg_price) {
                 ReservationDecision::Reserved(reservation) => reservation,
                 ReservationDecision::Skip(reason) => {
-                    return Ok(SubmissionOutcome::Skipped { reason })
+                    return Ok(SubmissionOutcome::Skipped {
+                        reason,
+                        held_quantity,
+                        avg_price,
+                    })
                 }
             }
         };
@@ -384,7 +430,11 @@ impl OrderManager {
                         prepared.submission.symbol,
                         msg
                     );
-                    Ok(SubmissionOutcome::Skipped { reason: msg })
+                    Ok(SubmissionOutcome::Skipped {
+                        reason: msg,
+                        held_quantity,
+                        avg_price,
+                    })
                 } else if paper_unsupported {
                     tracing::warn!(
                         "모의투자 매도 미지원 — 스킵: {} ({}) | {}",
@@ -392,7 +442,11 @@ impl OrderManager {
                         prepared.order_exchange.as_deref().unwrap_or("-"),
                         msg
                     );
-                    Ok(SubmissionOutcome::Skipped { reason: msg })
+                    Ok(SubmissionOutcome::Skipped {
+                        reason: msg,
+                        held_quantity,
+                        avg_price,
+                    })
                 } else {
                     Err(e)
                 }

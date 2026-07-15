@@ -591,6 +591,13 @@ UI 규칙:
 - 티커·봉 단위·분석 구간·파라미터·수량·broker가 바뀌면 이전 미리보기 결과를 무효화한다. 진행 중 요청의 결과도 generation/key가 현재 입력과 일치할 때만 표시해 stale chart를 막는다.
 - lightweight-charts 미리보기는 `horzTouchDrag: true`, `vertTouchDrag: false`, `pinch: true`로 설정하고 컨테이너 `touchAction: pan-y`를 유지한다. 모바일에서 세로 한 손가락 이동은 페이지 스크롤, 가로 이동은 차트 패닝, 두 손가락은 확대/축소로 분리하며 확대·축소·전체 맞춤 버튼도 제공한다.
 - Playwright에서 모든 전략 카드의 x/width가 동일한지와 좁은 viewport에서 입력/Select/버튼이 카드 밖으로 넘치지 않는지 검증한다.
+- 연구 패널은 초기자본, 수수료/세금/슬리피지 bps, USD/KRW, 종목 최대 비중, 일일 손실 한도, in-sample 비율을 카드 전체 너비에서 입력받는다. 입력·티커·broker/account가 바뀌면 기존 결과와 진행 중 응답을 무효화한다.
+- 결과는 raw signal, 주문 가능, 체결 가정, 차단을 분리하고 누적 수익률/MDD/승률/손익비/turnover/exposure, equity curve, in/out-of-sample, 거래 목록을 표시한다. 큰 거래 목록은 UI에서 100건 이하로 제한해 jank를 막는다.
+- replay cadence와 live 10초 tick cadence, warmup, 데이터 source/range, 재현 hash를 함께 표시해 일봉/1분봉 근사와 실제 tick을 혼동하지 않게 한다.
+- A/B 실험은 broker/account/strategy/symbol scope별 localStorage에 두 slot만 저장한다. 전략 버전, params, data source/interval/range, 비용 가정, 생성 시각을 포함하고 credential/secret은 저장하지 않는다. source/기간이 다르면 직접 비교 경고를 표시한다.
+- equity SVG는 `role="img"`와 시작/종료 자산을 설명하는 `aria-label`을 제공한다. 좁은 화면에서는 실행 가정 입력과 preview control이 1열로 쌓여 카드 밖으로 넘치지 않아야 한다.
+
+> 마지막 업데이트: 2026-07-15T00:00:00+09:00
 
 ## DB 관리 Settings UI
 
@@ -600,4 +607,4 @@ UI 규칙:
 - backend 전환은 자동매매 정지와 schema/import 검증을 통과한 경우만 허용하며, stale 연결 설정으로 작업하지 않도록 form dirty 상태도 action을 잠근다.
 - DB password와 파괴적 관리는 Tauri desktop Settings에서만 렌더링한다. 웹 모드에는 보안 안내만 보여주고 관리 form/control을 노출하지 않는다.
 
-> 마지막 업데이트: 2026-07-11T23:27:54+09:00
+> 마지막 업데이트: 2026-07-15T00:00:00+09:00

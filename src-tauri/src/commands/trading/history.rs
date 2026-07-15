@@ -28,42 +28,29 @@ fn broker_candles_to_ohlc(candles: &[BrokerCandle]) -> Vec<OhlcCandle> {
         .collect()
 }
 
-async fn apply_ohlc_history(state: &AppState, symbol: &str, ohlc: Vec<OhlcCandle>, source: &str) {
+async fn apply_ohlc_history(
+    strategy_manager: &Arc<Mutex<StrategyManager>>,
+    risk_manager: &Arc<Mutex<RiskManager>>,
+    symbol: &str,
+    ohlc: Vec<OhlcCandle>,
+    source: &str,
+) {
     if ohlc.is_empty() {
         return;
     }
-
-    let highs: Vec<u64> = ohlc.iter().map(|c| c.high).filter(|v| *v > 0).collect();
-    if !highs.is_empty() {
-        state
-            .strategy_manager
-            .lock()
-            .await
-            .initialize_historical(symbol, &highs);
-        tracing::info!(
-            "전략 히스토리 초기화 완료: {} @ {} ({}봉)",
-            symbol,
-            source,
-            highs.len()
-        );
-    }
-
-    let high_close: Vec<(u64, u64)> = ohlc.iter().map(|c| (c.high, c.close)).collect();
-    if !high_close.is_empty() {
-        state
-            .strategy_manager
-            .lock()
-            .await
-            .initialize_candles(symbol, &high_close);
-    }
-
-    state
-        .strategy_manager
+    let candle_count = ohlc.len();
+    strategy_manager
         .lock()
         .await
-        .initialize_ohlc(symbol, &ohlc);
+        .initialize_warmup(symbol, &ohlc, &[]);
+    tracing::info!(
+        "전략 히스토리 초기화 완료: {} @ {} ({}봉)",
+        symbol,
+        source,
+        candle_count
+    );
     if let Some(atr) = calculate_atr(&ohlc, 14) {
-        state.risk_manager.lock().await.set_symbol_atr(symbol, atr);
+        risk_manager.lock().await.set_symbol_atr(symbol, atr);
         tracing::info!(
             "리스크 ATR 초기화 완료: {} @ {} ATR14={}",
             symbol,
@@ -71,30 +58,21 @@ async fn apply_ohlc_history(state: &AppState, symbol: &str, ohlc: Vec<OhlcCandle
             atr
         );
     }
-
-    let ranges: Vec<u64> = ohlc
-        .iter()
-        .map(|c| c.high.saturating_sub(c.low))
-        .filter(|v| *v > 0)
-        .collect();
-    if !ranges.is_empty() {
-        state
-            .strategy_manager
-            .lock()
-            .await
-            .initialize_range_data(symbol, &ranges);
-    }
 }
 
-async fn apply_intraday_ohlc(state: &AppState, symbol: &str, ohlc: Vec<OhlcCandle>, source: &str) {
+async fn apply_intraday_ohlc(
+    strategy_manager: &Arc<Mutex<StrategyManager>>,
+    symbol: &str,
+    ohlc: Vec<OhlcCandle>,
+    source: &str,
+) {
     if ohlc.is_empty() {
         return;
     }
-    state
-        .strategy_manager
+    strategy_manager
         .lock()
         .await
-        .initialize_intraday_ohlc(symbol, &ohlc);
+        .initialize_warmup(symbol, &[], &ohlc);
     tracing::info!(
         "전략 장중 OHLC 초기화 완료: {} @ {} ({}봉)",
         symbol,
@@ -103,15 +81,21 @@ async fn apply_intraday_ohlc(state: &AppState, symbol: &str, ohlc: Vec<OhlcCandl
     );
 }
 
-pub(super) async fn initialize_active_strategy_history(state: &AppState) {
+pub(crate) async fn initialize_active_strategy_history(
+    strategy_manager: &Arc<Mutex<StrategyManager>>,
+    order_manager: &Arc<Mutex<crate::trading::order::OrderManager>>,
+    profiles: &Arc<RwLock<ProfilesConfig>>,
+    rest_client: &Arc<RwLock<Arc<KisRestClient>>>,
+    risk_manager: &Arc<Mutex<RiskManager>>,
+) {
     // 활성 전략의 종목별 일봉 차트 데이터 로드 → 히스토리 기반 전략 초기화 (52주 신고가 등)
     // 국내 종목: get_chart_data (KRW 정수 가격)
     // 해외 종목: get_overseas_chart_data (USD float → ×100 센트로 정수화)
-    let active_symbols: Vec<String> = state.strategy_manager.lock().await.active_symbols();
+    let active_symbols: Vec<String> = strategy_manager.lock().await.active_symbols();
     if !active_symbols.is_empty() {
-        let execution_scope = state.order_manager.lock().await.execution_scope().clone();
+        let execution_scope = order_manager.lock().await.execution_scope().clone();
         let toss_adapter = if execution_scope.broker_id == BrokerId::Toss {
-            resolve_scoped_profile(&state.profiles, &execution_scope)
+            resolve_scoped_profile(profiles, &execution_scope)
                 .await
                 .map(|profile| {
                     TossBrokerAdapter::with_credentials(
@@ -124,7 +108,7 @@ pub(super) async fn initialize_active_strategy_history(state: &AppState) {
         } else {
             None
         };
-        let rest = state.rest_client.read().await.clone();
+        let rest = rest_client.read().await.clone();
         let today = chrono::Local::now();
         let end_date = today.format("%Y%m%d").to_string();
         // 400일치 조회 (52주 = 252거래일 + 여유분)
@@ -138,7 +122,14 @@ pub(super) async fn initialize_active_strategy_history(state: &AppState) {
                 match adapter.get_candles(&broker_symbol, "D", "", "").await {
                     Ok(candles) if !candles.is_empty() => {
                         let ohlc = broker_candles_to_ohlc(&candles);
-                        apply_ohlc_history(state, symbol, ohlc, "Toss candles").await;
+                        apply_ohlc_history(
+                            strategy_manager,
+                            risk_manager,
+                            symbol,
+                            ohlc,
+                            "Toss candles",
+                        )
+                        .await;
                     }
                     Ok(_) => tracing::debug!(
                         "Toss 차트 데이터 없음 (히스토리 초기화 건너뜀): {}",
@@ -153,7 +144,8 @@ pub(super) async fn initialize_active_strategy_history(state: &AppState) {
                 match adapter.get_candles(&broker_symbol, "1m", "", "").await {
                     Ok(candles) if !candles.is_empty() => {
                         let ohlc = broker_candles_to_ohlc(&candles);
-                        apply_intraday_ohlc(state, symbol, ohlc, "Toss 1m candles").await;
+                        apply_intraday_ohlc(strategy_manager, symbol, ohlc, "Toss 1m candles")
+                            .await;
                     }
                     Ok(_) => tracing::debug!(
                         "Toss 1분봉 데이터 없음 (장중 반동 초기화 건너뜀): {}",
@@ -186,7 +178,14 @@ pub(super) async fn initialize_active_strategy_history(state: &AppState) {
                                 })
                             })
                             .collect();
-                        apply_ohlc_history(state, symbol, ohlc, "KIS domestic chart").await;
+                        apply_ohlc_history(
+                            strategy_manager,
+                            risk_manager,
+                            symbol,
+                            ohlc,
+                            "KIS domestic chart",
+                        )
+                        .await;
                     }
                     Ok(_) => {
                         tracing::debug!("차트 데이터 없음 (히스토리 초기화 건너뜀): {}", symbol)
@@ -235,7 +234,8 @@ pub(super) async fn initialize_active_strategy_history(state: &AppState) {
                                 .filter(|c| c.open > 0 && c.high > 0 && c.low > 0 && c.close > 0)
                                 .collect();
                             apply_ohlc_history(
-                                state,
+                                strategy_manager,
+                                risk_manager,
                                 symbol,
                                 ohlc,
                                 &format!("KIS overseas chart {exchange}"),

@@ -142,3 +142,42 @@ pub trait Strategy: Send + Sync {
     /// 전략 상태 초기화 (일 초기화 등)
     fn reset(&mut self);
 }
+
+/// live 시작과 deterministic preview가 공유하는 전략 warmup 정규화 경계.
+///
+/// 일봉과 장중 봉을 구분해 전달하므로 1분봉을 52주 고가/일봉 ATR처럼 잘못 해석하거나,
+/// replay 이후 미래 봉을 initializer에 넣는 일을 방지한다.
+pub fn initialize_strategy_warmup(
+    strategy: &mut dyn Strategy,
+    symbol: &str,
+    daily_ohlc: &[OhlcCandle],
+    intraday_ohlc: &[OhlcCandle],
+) {
+    if !daily_ohlc.is_empty() {
+        let highs = daily_ohlc
+            .iter()
+            .map(|candle| candle.high)
+            .collect::<Vec<_>>();
+        let high_close = daily_ohlc
+            .iter()
+            .map(|candle| (candle.high, candle.close))
+            .collect::<Vec<_>>();
+        let ranges = daily_ohlc
+            .iter()
+            .map(|candle| candle.high.saturating_sub(candle.low))
+            .filter(|range| *range > 0)
+            .collect::<Vec<_>>();
+        strategy.initialize_historical(symbol, &highs);
+        strategy.initialize_candles(symbol, &high_close);
+        strategy.initialize_ohlc(symbol, daily_ohlc);
+        strategy.initialize_range_data(symbol, &ranges);
+    }
+    if !intraday_ohlc.is_empty() {
+        let closes = intraday_ohlc
+            .iter()
+            .map(|candle| candle.close)
+            .collect::<Vec<_>>();
+        strategy.initialize_intraday_prices(symbol, &closes);
+        strategy.initialize_intraday_ohlc(symbol, intraday_ohlc);
+    }
+}

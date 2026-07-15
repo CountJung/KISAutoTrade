@@ -280,6 +280,23 @@ impl Strategy for MomentumStrategy {
         }
     }
 
+    fn sync_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        let cap = bounded_window_with_extra(self.params.lookback_period, 1);
+        let state = self
+            .states
+            .entry(symbol.to_string())
+            .or_insert_with(|| MomentumState {
+                prices: VecDeque::with_capacity(cap),
+                last_buy_price: None,
+                last_sell_price: None,
+            });
+        state.last_buy_price = (quantity > 0).then_some(avg_price);
+        state.last_sell_price = None;
+    }
+
     fn reset(&mut self) {
         self.states.clear();
     }

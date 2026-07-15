@@ -17,7 +17,8 @@ pub use classic::{
     DeviationParams, DeviationStrategy, MomentumParams, MomentumStrategy, RsiParams, RsiStrategy,
 };
 pub use core::{
-    BrokerPositionSnapshot, OhlcCandle, Signal, Strategy, StrategyConfig, StrategySignal,
+    initialize_strategy_warmup, BrokerPositionSnapshot, OhlcCandle, Signal, Strategy,
+    StrategyConfig, StrategySignal,
 };
 pub use leveraged_trend_hold::{
     LeveragedTrendHoldEntry, LeveragedTrendHoldParams, LeveragedTrendHoldPreviewSignal,

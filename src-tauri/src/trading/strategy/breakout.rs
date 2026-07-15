@@ -173,6 +173,21 @@ impl Strategy for FiftyTwoWeekHighStrategy {
         signal
     }
 
+    fn sync_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        let state = self
+            .states
+            .entry(symbol.to_string())
+            .or_insert(FiftyTwoWeekState {
+                prev_price: None,
+                high_52w: None,
+                buy_price: None,
+            });
+        state.buy_price = (quantity > 0).then_some(avg_price);
+    }
+
     fn reset(&mut self) {
         self.states.clear();
     }
@@ -304,6 +319,21 @@ impl Strategy for ConsecutiveMoveStrategy {
         }
 
         Signal::Hold
+    }
+
+    fn sync_position(&mut self, symbol: &str, quantity: u64, _avg_price: u64) {
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        let cap =
+            bounded_window_with_extra(self.params.buy_days.max(self.params.sell_days) as usize, 1);
+        self.states
+            .entry(symbol.to_string())
+            .or_insert_with(|| ConsecutiveMoveState {
+                prices: VecDeque::with_capacity(cap),
+                in_position: false,
+            })
+            .in_position = quantity > 0;
     }
 
     fn reset(&mut self) {
@@ -450,6 +480,25 @@ impl Strategy for FailedBreakoutStrategy {
         }
 
         Signal::Hold
+    }
+
+    fn sync_position(&mut self, symbol: &str, quantity: u64, _avg_price: u64) {
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        let lookback = bounded_window(self.params.lookback_days as usize);
+        let state = self
+            .states
+            .entry(symbol.to_string())
+            .or_insert_with(|| FailedBreakoutState {
+                prices: VecDeque::with_capacity(bounded_window_with_extra(lookback, 1)),
+                in_position: false,
+                breakout_prev_high: None,
+            });
+        state.in_position = quantity > 0;
+        if quantity == 0 {
+            state.breakout_prev_high = None;
+        }
     }
 
     fn reset(&mut self) {
@@ -613,6 +662,25 @@ impl Strategy for StrongCloseStrategy {
         }
 
         Signal::Hold
+    }
+
+    fn sync_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        let state = self
+            .states
+            .entry(symbol.to_string())
+            .or_insert(StrongCloseState {
+                pending_buy: false,
+                in_position: false,
+                entry_price: None,
+            });
+        state.in_position = quantity > 0;
+        state.entry_price = (quantity > 0 && avg_price > 0).then_some(avg_price);
+        if quantity > 0 {
+            state.pending_buy = false;
+        }
     }
 
     fn reset(&mut self) {
@@ -806,6 +874,25 @@ impl Strategy for VolatilityExpansionStrategy {
         }
 
         Signal::Hold
+    }
+
+    fn sync_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        let state = self
+            .states
+            .entry(symbol.to_string())
+            .or_insert(VolatilityExpansionState {
+                avg_range: None,
+                day_open: None,
+                day_high: 0,
+                day_low: u64::MAX,
+                in_position: false,
+                entry_price: None,
+            });
+        state.in_position = quantity > 0;
+        state.entry_price = (quantity > 0 && avg_price > 0).then_some(avg_price);
     }
 
     fn reset(&mut self) {

@@ -95,13 +95,38 @@ impl TradeGuard {
         tick_price: u64,
         is_overseas: bool,
     ) -> GuardDecision {
+        self.evaluate_for_scope_at(
+            scope,
+            signal,
+            held_quantity,
+            avg_price,
+            tick_price,
+            is_overseas,
+            Local::now(),
+        )
+    }
+
+    /// 지정 시각 기준으로 주문 방어 규칙을 평가한다.
+    ///
+    /// 실시간 주문은 `evaluate_for_scope()`를 사용하고 deterministic replay는 이 경계를
+    /// 사용해 동일한 쿨다운/손절 후 재진입/휩소 규칙을 과거 시각으로 재현한다.
+    #[allow(clippy::too_many_arguments)]
+    pub fn evaluate_for_scope_at(
+        &mut self,
+        scope: &BrokerScope,
+        signal: &Signal,
+        held_quantity: u64,
+        avg_price: Option<u64>,
+        tick_price: u64,
+        is_overseas: bool,
+        now: DateTime<Local>,
+    ) -> GuardDecision {
         let (symbol, side) = match signal {
             Signal::Buy { symbol, .. } => (symbol, GuardSide::Buy),
             Signal::Sell { symbol, .. } => (symbol, GuardSide::Sell),
             Signal::Hold => return GuardDecision::Allow,
         };
 
-        let now = Local::now();
         self.prune_recent(scope, symbol, now);
 
         let symbol_key = (scope.clone(), symbol.clone());
@@ -191,12 +216,21 @@ impl TradeGuard {
     }
 
     pub fn record_submitted_for_scope(&mut self, scope: &BrokerScope, signal: &Signal) {
+        self.record_submitted_for_scope_at(scope, signal, Local::now());
+    }
+
+    /// 지정 시각에 주문이 접수된 것으로 기록한다. deterministic replay 전용 시각 경계다.
+    pub fn record_submitted_for_scope_at(
+        &mut self,
+        scope: &BrokerScope,
+        signal: &Signal,
+        now: DateTime<Local>,
+    ) {
         let (symbol, side, reason) = match signal {
             Signal::Buy { symbol, reason, .. } => (symbol.clone(), GuardSide::Buy, reason),
             Signal::Sell { symbol, reason, .. } => (symbol.clone(), GuardSide::Sell, reason),
             Signal::Hold => return,
         };
-        let now = Local::now();
         let symbol_key = (scope.clone(), symbol.clone());
         self.last_order_at
             .insert((scope.clone(), symbol.clone(), side), now);

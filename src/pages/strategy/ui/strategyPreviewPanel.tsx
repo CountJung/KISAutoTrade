@@ -16,9 +16,16 @@ import type {
   BrokerId,
   ChartCandle,
   CmdError,
+  SimulationAssumptions,
   StrategyPreviewView,
 } from '../../../api/types'
 import { StrategyPreviewChart } from './leveragedTrendHoldPreviewChart'
+import {
+  defaultSimulationAssumptions,
+  rebaseDefaultMarketCosts,
+  SimulationAssumptionsEditor,
+  StrategyResearchResults,
+} from './strategyResearchPanel'
 
 const OVERSEAS_EXCHANGES = ['NAS', 'NYS', 'AMS'] as const
 type PreviewInterval = '1m' | 'D' | 'W' | 'M'
@@ -108,6 +115,7 @@ type Props = {
   strategyId: string
   strategyName: string
   brokerId: BrokerId
+  brokerAccountId: string | null
   symbols: string[]
   symbolNames: Record<string, string>
   orderQuantity: number
@@ -118,6 +126,7 @@ export function StrategyPreviewPanel({
   strategyId,
   strategyName,
   brokerId,
+  brokerAccountId,
   symbols,
   symbolNames,
   orderQuantity,
@@ -128,18 +137,23 @@ export function StrategyPreviewPanel({
   const [previewInterval, setPreviewInterval] = useState<PreviewInterval>('D')
   const [previewCount, setPreviewCount] = useState<PreviewCount>(50)
   const [preview, setPreview] = useState<StrategyPreviewView | null>(null)
+  const initialIsOverseas = !isDomesticSymbol(symbols[0] ?? '')
+  const [assumptions, setAssumptions] = useState<SimulationAssumptions>(() => defaultSimulationAssumptions(initialIsOverseas))
+  const assumptionsMarket = useRef(initialIsOverseas)
   const [sourceLabel, setSourceLabel] = useState('일봉 캔들')
   const [localError, setLocalError] = useState<string | null>(null)
   const previewGeneration = useRef(0)
   const previewInputKey = JSON.stringify({
     strategyId,
     brokerId,
+    brokerAccountId,
     symbols,
     selectedSymbol,
     previewInterval,
     previewCount,
     orderQuantity,
     params,
+    assumptions,
   })
 
   useEffect(() => {
@@ -155,6 +169,12 @@ export function StrategyPreviewPanel({
       setPreview(null)
     }
   }, [selectedSymbol, symbols])
+
+  useEffect(() => {
+    const nextIsOverseas = !isDomesticSymbol(selectedSymbol)
+    setAssumptions((current) => rebaseDefaultMarketCosts(current, assumptionsMarket.current, nextIsOverseas))
+    assumptionsMarket.current = nextIsOverseas
+  }, [selectedSymbol])
 
   useEffect(() => {
     if (brokerId === 'toss' && (previewInterval === 'W' || previewInterval === 'M')) {
@@ -187,6 +207,12 @@ export function StrategyPreviewPanel({
         orderQuantity,
         params,
         candles: loaded.candles,
+        interval: previewInterval,
+        dataSource: loaded.sourceLabel,
+        strategyVersion: 'strategy-config-v1',
+        brokerId,
+        brokerAccountId,
+        assumptions,
       })
       if (requestGeneration !== previewGeneration.current) return
       setPreview(result)
@@ -199,12 +225,17 @@ export function StrategyPreviewPanel({
 
   return (
     <Box sx={{ pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
+      <SimulationAssumptionsEditor
+        value={assumptions}
+        onChange={setAssumptions}
+        disabled={previewMutation.isPending}
+      />
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         alignItems={{ xs: 'stretch', sm: 'center' }}
         justifyContent="space-between"
         spacing={1}
-        sx={{ mb: 1 }}
+        sx={{ my: 1 }}
       >
         <Box>
           <Typography variant="caption" fontWeight={700}>
@@ -307,6 +338,19 @@ export function StrategyPreviewPanel({
             sourceLabel={`${sourceLabel} · ${selectedLabel}`}
             emptyLabel={`${selectedLabel} 차트 데이터가 아직 없습니다.`}
           />
+          {preview.backtest && preview.replay && (
+            <StrategyResearchResults
+              report={preview.backtest}
+              replay={preview.replay}
+              strategyId={strategyId}
+              brokerId={brokerId}
+              brokerAccountId={brokerAccountId}
+              symbol={selectedSymbol}
+              params={params}
+              orderQuantity={orderQuantity}
+              generatedAt={preview.generatedAt}
+            />
+          )}
         </Stack>
       ) : (
         <Alert severity="info" sx={{ py: 0.75 }}>

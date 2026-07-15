@@ -3,6 +3,7 @@ pub mod order;
 pub mod position;
 pub mod preflight;
 pub mod risk;
+pub mod simulation;
 pub mod strategy;
 pub mod views;
 

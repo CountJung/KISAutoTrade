@@ -507,7 +507,17 @@ pub(super) async fn trading_start_handler(State(s): State<ServerState>) -> Json<
         .await
         .set_execution_scope(execution_scope);
 
-    *s.is_trading.lock().await = true;
+    let mut is_running = s.is_trading.lock().await;
+    crate::commands::initialize_active_strategy_history(
+        &s.strategy_manager,
+        &s.order_manager,
+        &s.profiles,
+        &s.rest_client,
+        &s.risk_manager,
+    )
+    .await;
+    *is_running = true;
+    drop(is_running);
     tracing::info!(
         "자동매매 시작 (웹 API 요청): profile={:?} broker={:?} account={:?} synced_positions={}",
         active_id,

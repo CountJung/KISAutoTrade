@@ -272,7 +272,7 @@ fn validate_symbol(symbol: &str) -> Result<(), CmdError> {
 - 급반등 단독 진입(`rapid_rebound_enabled`)은 기존 장중 반동과 별도 옵션이다. 최근 `rapid_rebound_lookback_ticks` 관측치 안에서 선행 고점 대비 저점 하락률(`rapid_rebound_drop_pct`)과 저점 대비 현재가 회복률(`rapid_rebound_recovery_pct`)을 보고, 저점 후 `rapid_rebound_max_low_age_ticks` 안에 회복했을 때만 진입한다. 이 경로도 EMA/ADX 추세 조건을 요구하지 않으며, 실시간 `on_tick()`과 `preview_signals()`가 같은 `rapid_rebound_entry_ok()` helper를 사용해야 한다.
 - 장중 반동/급반등 관측 버퍼는 `rebound_price_cap()`에서 두 옵션의 필요 길이 중 큰 값을 `bounded_window_with_extra()`로 감싼다. user-param을 그대로 `VecDeque` capacity로 쓰지 않는다.
 - Toss 실행 scope에서 자동매매를 시작하면 Toss `1d` candles로 일봉 OHLC를 초기화하고, Toss `1m` candles의 OHLC를 레버리지 전략 장중 상태에도 주입한다. 실시간 현재가 polling은 같은 분 안에서는 마지막 1분봉과 반동 관측값을 갱신하고, 분이 바뀔 때만 새 관측치를 추가한다. 공개 데이터와 Toss 데이터가 섞이지 않게 strategy preview/진단도 가능하면 Toss candles 경로를 우선 사용한다.
-- 레버리지 미리보기 입력은 `interval=1m|1d`와 `count=20..200`을 검증한다. 1분봉은 일봉 전체를 지표 warmup으로 사용하고 선택한 최근 분봉만 리플레이한다. 일봉은 표시 구간 이전 일봉만 warmup에 사용하며, 각 표시 일자는 세션 진입 시각의 시가-only 관측과 장 종료 시각의 완성 OHLC 관측으로 나눠 당일 고가·저가·종가 look-ahead를 막는다. 미국 정규장처럼 자정을 넘는 세션의 종료 시각은 다음 KST 날짜로 기록하고, signal 원본 시각은 상세 표시용으로 보존하되 별도 `chartTime` 거래일 키로 일봉 marker를 정렬한다.
+- 레버리지 미리보기 입력은 `interval=1m|1d`와 `count=20..200`을 검증한다. 1분봉은 replay 첫 거래일보다 엄격히 이전인 완료 일봉만 지표 warmup으로 사용한다. 일봉은 표시 구간 이전 일봉만 warmup에 사용하며, 각 표시 일자는 세션 진입 시각의 시가-only 관측과 장 종료 시각의 완성 OHLC 관측으로 나눠 당일 고가·저가·종가 look-ahead를 막는다. 미국 정규장처럼 자정을 넘는 세션의 종료 시각은 다음 KST 날짜로 기록하고, signal 원본 시각은 상세 표시용으로 보존하되 별도 `chartTime` 거래일 키로 일봉 marker를 정렬한다.
 - 레버리지 전략 청산은 초기 손절, 반등 실패 손절, 수익 보호 청산을 분리한다. `initial_stop_loss_pct`는 보호 활성 전에도 진입가 대비 손실을 즉시 제한한다. 반등 실패 손절은 `entry_failure_observations`와 `min_hold_observations`를 모두 지난 뒤에도 고점 수익률이 `trailing_activation_profit_pct`에 닿지 못한 채 진입가 아래일 때만 발생한다. 이렇게 해야 매수 직후 작은 음수 흔들림이 “실패”로 과도하게 해석되지 않는다. 이후 고점 수익률이 `trailing_activation_profit_pct` 이상일 때만 본전 보호/추적손절/추세 이탈 청산을 검사한다. 보호 활성 후 `breakeven_buffer_pct` 이하로 내려오면 본전 보호 청산, 고점 대비 `trailing_stop_pct` 이상 밀리면 수익 보호 추적손절, EMA/RSI 추세 이탈은 현재 수익률이 버퍼보다 높을 때만 청산한다. 미리보기와 실시간 `on_tick()`은 같은 초기 손절/보호 청산 helper를 사용해야 한다.
 - `RiskManager`의 전략/종목별 일일 매수 제한은 재진입 전략을 막을 수 있어 차단 조건으로 사용하지 않는다. 하위 호환 필드는 남기되 view/update 경로는 0으로 노출·저장하고, 매도 일일 제한과 연속 손실 차단은 별도 방어로 유지한다.
 
@@ -845,7 +845,7 @@ pub struct LeveragedTrendHoldEntry {
 - 청산 조건도 대상 ETF 자체의 OHLC로 판단한다. 고점 대비 trailing stop, 현재가 EMA20 하향 이탈, EMA20 < EMA60, RSI 약화, 장마감 청산.
 - `upward_sensitivity`는 1.0~5.0 범위로 관리한다. 기본값 1.0은 기존 RSI 진입 기준을 유지하고, 값이 높을수록 진입 RSI 기준을 완화해 더 이른 신호를 허용한다. `downward_sensitivity`는 legacy 저장값 호환 필드로 남기되 새 UI에는 노출하지 않는다.
 - 전략 상태는 `states: HashMap<String, ...>`와 `positions: HashMap<String, ...>`에 ticker별로 독립 저장한다.
-- 설정창 미리보기는 `LeveragedTrendHoldStrategy::preview_signals()`를 사용한다. 활성 Toss 프로파일의 `1m` candles를 과거 시각 기준으로 리플레이하며, 실제 주문·포지션 변경 없이 현재 편집 파라미터 기준 매수/청산 신호만 반환한다.
+- 설정창 미리보기는 `LeveragedTrendHoldStrategy::preview_signals_with_execution()`을 사용한다. 활성 Toss 프로파일의 `1m`/`1d` candles를 과거 시각 기준으로 replay하고 raw 신호마다 simulated 체결/차단 상태를 되먹임해 다음 신호를 평가한다. 실제 주문은 만들지 않으며 비용·리스크 backtest와 재현 메타데이터를 함께 반환한다.
 
 > 마지막 업데이트: 2026-07-07T17:35:00+09:00
 
@@ -1100,6 +1100,19 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 모든 broker HTTP 경로에 timeout과 응답 크기 상한을 둔다: KIS connect 10s/전체 30s/8MB(`read_kis_response_text`), Toss 15s/4MB, KIS token 15s, detect/exchange 10s. 새 HTTP 호출을 추가할 때 `Client::new()`를 그대로 쓰지 않는다.
 - Tauri IPC와 axum 웹 REST 응답 필드는 같이 갱신한다. 웹 핸들러에서 내부 struct를 그대로 직렬화하지 말고 `serde_json::json!`으로 camel/snake 응답 키를 명시한다.
 
+## 21. 전략 deterministic replay / 실행 피드백 패턴
+
+- `src-tauri/src/trading/simulation.rs`의 replay 엔진은 raw signal과 `filled`/`blocked` 실행 결과를 분리한다. 성과 지표에는 TradeGuard, RiskManager, 현금·보유 수량·포지션 비중과 수수료/세금/슬리피지/환율을 통과한 체결 가정만 반영한다.
+- 과거 시각 replay는 `TradeGuard::{evaluate_for_scope_at,record_submitted_for_scope_at}`을 사용한다. 실시간 wrapper 내부의 `Local::now()`를 test clock처럼 바꾸지 않는다.
+- live 시작과 preview warmup은 `strategy::initialize_strategy_warmup()`을 공유한다. 일봉과 장중 봉을 별도 인자로 전달하고 replay 시작 이후 봉을 warmup에 넣지 않는다.
+- 일봉 replay는 정보 공개 시점을 지킨다. 장 시작 event는 시가-only OHLC, 장 종료 event만 완성 OHLC를 사용한다. 입력은 최대 500봉으로 제한하고 결과에는 engine/strategy version, source/interval/range, warmup count, input hash를 남긴다.
+- 전략이 raw signal 생성 시 내부 `in_position`을 선반영했는데 주문이 skip되면 `SubmissionOutcome::Skipped`의 실제 `held_quantity`/`avg_price`를 `StrategyManager::sync_position()`에 되먹임한다. 수량 0 snapshot도 flat 상태로 반영해야 한다.
+- 자동매매 시작 플래그 lock은 broker reconcile/risk restore/warmup이 완료될 때까지 daemon 첫 tick을 막아야 한다.
+
+> 마지막 업데이트: 2026-07-15T00:00:00+09:00
+
+---
+
 ## PostgreSQL/MariaDB 문서 저장 backend
 
 - 거래·주문·통계·전략처럼 DB 전환 대상인 store는 `storage::read_json_or_default()`와 `storage::write_json()`만 사용한다. backend가 DB인데 실패하면 JSON fallback/dual-write로 성공을 가장하지 않고 오류를 반환한다.
@@ -1113,4 +1126,4 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - v1 schema는 기존 JSON 복원성을 위한 document store다. 주문/체결 복구·검색·retention을 위한 정규화 schema는 명시적인 schema version migration과 PostgreSQL/MariaDB contract test를 함께 추가한다.
 - JSON 파일 저장은 경로별 lock과 store별 read-modify-write lock을 사용하고, temp write → file fsync → 정상본 `.bak` → atomic rename → parent directory fsync 순서를 지킨다. 역직렬화 실패 시 손상본을 격리하고 마지막 정상 백업으로 복구한다.
 
-> 마지막 업데이트: 2026-07-11T23:27:54+09:00
+> 마지막 업데이트: 2026-07-15T00:00:00+09:00

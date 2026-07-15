@@ -836,4 +836,17 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 - Toss 주문 목록/상세는 `toss:order_history`, 생성/정정/취소는 `toss:order` rate group으로 분리한다.
 - Toss OAuth token은 공식 정책상 client당 유효 token이 1개뿐이다. `TossBrokerAdapter::with_credentials()`를 호출하는 UI/daemon 경로가 많아도 token은 `base_url + client_id` 공유 캐시에서 재사용해야 하며, 요청별 adapter 생성이 요청별 token 발급으로 이어지면 안 된다.
 
-> 마지막 업데이트: 2026-07-06T23:35:00+09:00
+## 14. 전략 preview와 backtest 구현 경계
+
+- live와 preview는 `trading::strategy::initialize_strategy_warmup()`으로 일봉/장중 warmup 의미를 공유한다. replay 구간 이후 데이터는 initializer에 전달하지 않는다.
+- preview IPC는 봉 단위, data source, broker/account scope, 비용·환율·리스크 가정을 받고 `ReplayMetadataView`와 `BacktestReportView`를 반환한다. candle 입력은 500개 상한을 유지한다.
+- simulated portfolio는 raw signal을 바로 거래로 세지 않는다. 공통 TradeGuard/RiskManager와 보유/현금/비용 조건을 통과한 주문만 `filled`로 기록하고 차단 사유를 보존한다.
+- 과거 cooldown은 `TradeGuard::*_at()`에 event timestamp를 전달한다. `Local::now()`를 직접 사용하면 deterministic fixture가 깨진다.
+- 전략이 신호 생성과 동시에 내부 포지션을 바꾸는 경우 실제 주문 skip 결과의 `held_quantity`/`avg_price`로 즉시 복원한다.
+- generic replay도 각 raw signal 직후 체결/차단 snapshot을 전략에 되먹임하고, provider/network 오류가 난 live 주문도 제출 전 tracker snapshot으로 복원한다.
+- 일일 손실/연속손실 상태는 event 거래일 경계에서 초기화한다. replay에는 수동 비상정지 입력이 없으므로 전일 손실한도에 의한 자동 정지는 다음 거래일에 해제한다.
+- in/out-of-sample은 walk-forward 재학습이 아니라 한 번의 고정 chronological split이다. 봉 종가 replay는 live 10초 tick의 intrabar 경로, pending/fill latency를 재현하지 않는다.
+- generic broker/account는 결과 저장 scope 메타데이터이고, Toss 레버리지 preview의 expected profile/account만 서버에서 현재 활성 scope와 일치하는지 검증한다.
+- UI 실험 저장은 broker/account/strategy/symbol scope별 A/B 두 slot, 최근 12 scope로 제한하고 credential은 저장하지 않는다. 이는 현재 편집값과 결과 snapshot 비교이며 편집 폼 재적용 preset은 아니다. quota 오류는 UI에 표시한다.
+
+> 마지막 업데이트: 2026-07-15T00:00:00+09:00

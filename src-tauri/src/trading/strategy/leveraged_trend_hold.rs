@@ -1015,6 +1015,26 @@ impl LeveragedTrendHoldStrategy {
         daily_candles: &[OhlcCandle],
         intraday_candles: &[LeveragedTrendHoldTimedCandle],
     ) -> Vec<LeveragedTrendHoldPreviewSignal> {
+        Self::preview_signals_with_execution(
+            symbol,
+            params,
+            daily_candles,
+            intraday_candles,
+            |_, _| true,
+        )
+    }
+
+    /// raw signal마다 실제 replay 체결 여부를 되돌려 받아 다음 신호의 포지션 상태를 결정한다.
+    pub fn preview_signals_with_execution<F>(
+        symbol: &str,
+        params: LeveragedTrendHoldParams,
+        daily_candles: &[OhlcCandle],
+        intraday_candles: &[LeveragedTrendHoldTimedCandle],
+        mut execute: F,
+    ) -> Vec<LeveragedTrendHoldPreviewSignal>
+    where
+        F: FnMut(&LeveragedTrendHoldPreviewSignal, &LeveragedTrendHoldTimedCandle) -> bool,
+    {
         let normalized_symbol = symbol.trim().to_uppercase();
         if normalized_symbol.is_empty() || intraday_candles.is_empty() {
             return Vec::new();
@@ -1098,18 +1118,22 @@ impl LeveragedTrendHoldStrategy {
                 if let Some(reason) = entry_price.and_then(|entry| {
                     strategy.initial_risk_exit_reason(price, entry, high, held_observations)
                 }) {
-                    signals.push(strategy.preview_signal(
+                    let signal = strategy.preview_signal(
                         &timed.time,
                         "sell",
                         &normalized_symbol,
                         price,
                         quantity,
                         reason,
-                    ));
-                    in_position = false;
-                    entry_price = None;
-                    high_water = None;
-                    held_observations = 0;
+                    );
+                    let filled = execute(&signal, timed);
+                    signals.push(signal);
+                    if filled {
+                        in_position = false;
+                        entry_price = None;
+                        high_water = None;
+                        held_observations = 0;
+                    }
                     continue;
                 }
                 if let Some(reason) = entry_price.and_then(|entry| {
@@ -1121,18 +1145,22 @@ impl LeveragedTrendHoldStrategy {
                         held_observations,
                     )
                 }) {
-                    signals.push(strategy.preview_signal(
+                    let signal = strategy.preview_signal(
                         &timed.time,
                         "sell",
                         &normalized_symbol,
                         price,
                         quantity,
                         reason,
-                    ));
-                    in_position = false;
-                    entry_price = None;
-                    high_water = None;
-                    held_observations = 0;
+                    );
+                    let filled = execute(&signal, timed);
+                    signals.push(signal);
+                    if filled {
+                        in_position = false;
+                        entry_price = None;
+                        high_water = None;
+                        held_observations = 0;
+                    }
                     continue;
                 }
                 if let Some(mins) = Self::minute_of_day_from_time(&timed.time) {
@@ -1142,7 +1170,7 @@ impl LeveragedTrendHoldStrategy {
                         &strategy.params.toss_us_session,
                     ) {
                         if minutes_to_close <= strategy.params.exit_before_close_min {
-                            signals.push(strategy.preview_signal(
+                            let signal = strategy.preview_signal(
                                 &timed.time,
                                 "sell",
                                 &normalized_symbol,
@@ -1151,11 +1179,15 @@ impl LeveragedTrendHoldStrategy {
                                 format!(
                                     "LeveragedTrendHold 장마감 청산: 마감 {minutes_to_close}분 전"
                                 ),
-                            ));
-                            in_position = false;
-                            entry_price = None;
-                            high_water = None;
-                            held_observations = 0;
+                            );
+                            let filled = execute(&signal, timed);
+                            signals.push(signal);
+                            if filled {
+                                in_position = false;
+                                entry_price = None;
+                                high_water = None;
+                                held_observations = 0;
+                            }
                         }
                     }
                 }
@@ -1177,7 +1209,7 @@ impl LeveragedTrendHoldStrategy {
             let in_trend_window = elapsed >= strategy.params.entry_window_start_min
                 && elapsed <= strategy.params.entry_window_end_min;
             if let Some(snap) = strategy.rapid_rebound_entry_ok(&normalized_symbol) {
-                signals.push(strategy.preview_signal(
+                let signal = strategy.preview_signal(
                     &timed.time,
                     "buy",
                     &normalized_symbol,
@@ -1190,17 +1222,21 @@ impl LeveragedTrendHoldStrategy {
                         snap.low_age_ticks,
                         Self::rapid_rebound_indicator_label(&snap)
                     ),
-                ));
-                in_position = true;
-                entry_price = Some(price);
-                high_water = Some(price);
-                held_observations = 0;
+                );
+                let filled = execute(&signal, timed);
+                signals.push(signal);
+                if filled {
+                    in_position = true;
+                    entry_price = Some(price);
+                    high_water = Some(price);
+                    held_observations = 0;
+                }
                 continue;
             }
 
             if in_trend_window {
                 if let Some(snap) = strategy.entry_ok(&normalized_symbol) {
-                    signals.push(strategy.preview_signal(
+                    let signal = strategy.preview_signal(
                         &timed.time,
                         "buy",
                         &normalized_symbol,
@@ -1215,17 +1251,21 @@ impl LeveragedTrendHoldStrategy {
                             snap.adx,
                             snap.bullish_count_3
                         ),
-                    ));
-                    in_position = true;
-                    entry_price = Some(price);
-                    high_water = Some(price);
-                    held_observations = 0;
+                    );
+                    let filled = execute(&signal, timed);
+                    signals.push(signal);
+                    if filled {
+                        in_position = true;
+                        entry_price = Some(price);
+                        high_water = Some(price);
+                        held_observations = 0;
+                    }
                     continue;
                 }
             }
 
             if let Some(snap) = strategy.rebound_entry_ok(&normalized_symbol) {
-                signals.push(strategy.preview_signal(
+                let signal = strategy.preview_signal(
                     &timed.time,
                     "buy",
                     &normalized_symbol,
@@ -1238,11 +1278,15 @@ impl LeveragedTrendHoldStrategy {
                         snap.rebound_from_low_pct,
                         Self::rebound_indicator_label(&snap)
                     ),
-                ));
-                in_position = true;
-                entry_price = Some(price);
-                high_water = Some(price);
-                held_observations = 0;
+                );
+                let filled = execute(&signal, timed);
+                signals.push(signal);
+                if filled {
+                    in_position = true;
+                    entry_price = Some(price);
+                    high_water = Some(price);
+                    held_observations = 0;
+                }
             }
         }
 
@@ -1547,7 +1591,11 @@ impl Strategy for LeveragedTrendHoldStrategy {
 
     fn sync_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
         self.sync_params();
-        if quantity == 0 || !self.is_target_symbol(symbol) {
+        if !self.is_target_symbol(symbol) {
+            return;
+        }
+        if quantity == 0 {
+            self.positions.remove(symbol);
             return;
         }
         self.positions.insert(
@@ -2004,6 +2052,58 @@ mod tests {
         assert!(
             matches!(signals.first(), Some(signal) if signal.side == "buy" && signal.reason.contains("매수세 반동 진입"))
         );
+    }
+
+    #[test]
+    fn live_tick_and_preview_have_signal_parity_for_normalized_rebound_fixture() {
+        let params = LeveragedTrendHoldParams {
+            entries: vec![entry("KORU")],
+            intraday_rebound_enabled: true,
+            rebound_baseline_ticks: 2,
+            rebound_confirm_ticks: 2,
+            rebound_pullback_pct: 4.0,
+            rebound_buy_pressure_pct: 2.0,
+            rebound_rsi_min: 20.0,
+            no_trade_adx_below: 0.0,
+            ..LeveragedTrendHoldParams::default()
+        };
+        let intraday = [190, 180, 181, 186]
+            .into_iter()
+            .enumerate()
+            .map(|(idx, price)| LeveragedTrendHoldTimedCandle {
+                time: format!("20260707090{}00", idx + 1),
+                candle: OhlcCandle {
+                    open: price,
+                    high: price,
+                    low: price,
+                    close: price,
+                },
+            })
+            .collect::<Vec<_>>();
+        let preview = LeveragedTrendHoldStrategy::preview_signals(
+            "KORU",
+            params.clone(),
+            &upward_candles(),
+            &intraday,
+        )
+        .into_iter()
+        .map(|signal| (signal.side, signal.reason))
+        .collect::<Vec<_>>();
+
+        let mut live = strategy_with_params(params);
+        live.initialize_ohlc("KORU", &upward_candles());
+        let live_signals = intraday
+            .iter()
+            .filter_map(
+                |timed| match live.on_tick("KORU", timed.candle.close, 100) {
+                    Signal::Buy { reason, .. } => Some(("buy".to_string(), reason)),
+                    Signal::Sell { reason, .. } => Some(("sell".to_string(), reason)),
+                    Signal::Hold => None,
+                },
+            )
+            .collect::<Vec<_>>();
+
+        assert_eq!(preview, live_signals);
     }
 
     #[test]

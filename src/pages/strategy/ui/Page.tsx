@@ -823,6 +823,7 @@ export default function Strategy() {
                         strategyId={s.id}
                         strategyName={s.name}
                         brokerId={s.brokerId}
+                        brokerAccountId={s.brokerAccountId}
                         symbols={pcSessionSymbols.map((symbol) => symbol.symbol)}
                         symbolNames={{
                           ...previewSymbolNames,
@@ -935,6 +936,7 @@ export default function Strategy() {
                     strategyId={s.id}
                     strategyName={s.name}
                     brokerId={s.brokerId}
+                    brokerAccountId={s.brokerAccountId}
                     symbols={edit.symbols}
                     symbolNames={previewSymbolNames}
                     orderQuantity={edit.quantity}

@@ -3,7 +3,7 @@ use super::*;
 mod history;
 #[cfg(test)]
 mod risk_restore_tests;
-use history::initialize_active_strategy_history;
+pub(crate) use history::initialize_active_strategy_history;
 
 pub(crate) async fn restore_risk_from_today_trades(
     order_store: &Arc<OrderStore>,
@@ -800,6 +800,18 @@ pub async fn start_trading(
         *state.trading_account_id.write().await = account_id;
     }
 
+    // daemon이 `is_trading`을 읽기 전에 live와 preview가 공유하는 히스토리/warmup
+    // 초기화를 끝낸다. 이 lock을 먼저 풀면 초기화되지 않은 상태로 첫 tick이 처리될 수 있다.
+    initialize_active_strategy_history(
+        &state.strategy_manager,
+        &state.order_manager,
+        &state.profiles,
+        &state.rest_client,
+        &state.risk_manager,
+    )
+    .await;
+    drop(is_running);
+
     if let Some(notifier) = &state.discord {
         let _ = notifier
             .send(NotificationEvent::info(
@@ -808,9 +820,6 @@ pub async fn start_trading(
             ))
             .await;
     }
-    drop(is_running);
-
-    initialize_active_strategy_history(&state).await;
 
     // WebSocket 연결 시작 (KIS 전용 보조 — 실패해도 폴링 루프가 독립 동작)
     if current_cfg.broker_id == BrokerId::Kis {
@@ -1181,6 +1190,13 @@ async fn poll_symbols_tick(
                         .get_name(symbol)
                         .await
                         .unwrap_or_else(|| symbol.clone());
+                    let rollback_snapshot = crate::trading::order::OrderManager::current_position_snapshot_for_signal_shared(
+                        order_mgr,
+                        &strategy_signal.signal,
+                        exchange_opt.clone(),
+                        price,
+                    )
+                    .await;
                     let submit_result = crate::trading::order::OrderManager::submit_signal_shared(
                         order_mgr,
                         Some(strategy_signal.strategy_id),
@@ -1202,10 +1218,26 @@ async fn poll_symbols_tick(
                             );
                             tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
                         }
-                        Ok(crate::trading::order::SubmissionOutcome::Skipped { reason }) => {
+                        Ok(crate::trading::order::SubmissionOutcome::Skipped {
+                            reason,
+                            held_quantity,
+                            avg_price,
+                        }) => {
+                            // 전략이 raw signal 생성 시 내부 포지션 상태를 먼저 바꿨더라도
+                            // guard/risk/provider가 주문을 거부하면 실제 tracker 상태로 되돌린다.
+                            strategy_mgr.lock().await.sync_position(
+                                symbol,
+                                held_quantity,
+                                avg_price.unwrap_or(0),
+                            );
                             tracing::debug!("전략 주문 스킵: symbol={} reason={}", symbol, reason);
                         }
                         Err(e) => {
+                            strategy_mgr.lock().await.sync_position(
+                                symbol,
+                                rollback_snapshot.0,
+                                rollback_snapshot.1.unwrap_or(0),
+                            );
                             let msg = e.to_string();
                             if is_market_closed_error(&msg) {
                                 tracing::info!(

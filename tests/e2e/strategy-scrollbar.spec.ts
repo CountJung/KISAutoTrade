@@ -76,6 +76,74 @@ type MockOptions = {
   scopeController?: { current: 'A' | 'B' }
 }
 
+function mockResearchResult(body: Record<string, unknown>, interval: string) {
+  const assumptions = body.assumptions ?? {
+    initialCapitalKrw: 10_000_000,
+    feeBps: 1.5,
+    taxBps: 20,
+    slippageBps: 5,
+    exchangeRateKrw: 1450,
+    maxPositionRatio: 0.3,
+    volatilitySizingEnabled: false,
+    riskPerTradeBps: 100,
+    atrStopMultiplier: 2,
+    dailyLossLimitKrw: 1_000_000,
+    inSamplePercent: 70,
+  }
+  return {
+    replay: {
+      engineVersion: 'strategy-replay-v2',
+      strategyVersion: 'mock-v1',
+      sourceInterval: interval,
+      replayCadence: interval === '1m' ? 'minuteClose' : 'dailyClose',
+      liveCadenceSeconds: 10,
+      warmupCount: 1,
+      dataStart: '20260701',
+      dataEnd: '20260704',
+      dataSource: String(body.dataSource ?? `mock:${interval}`),
+      deterministic: true,
+      lookAheadSafe: true,
+      inputHash: `mock-${interval}-research-hash`,
+    },
+    backtest: {
+      assumptions,
+      summary: {
+        initialCapitalKrw: 10_000_000,
+        finalEquityKrw: 10_010_000,
+        cumulativeReturnPct: 0.1,
+        mddPct: 0.02,
+        completedTrades: 1,
+        winningTrades: 1,
+        losingTrades: 0,
+        winRatePct: 100,
+        profitFactor: null,
+        turnoverPct: 0.02,
+        exposurePct: 50,
+        signalCount: 3,
+        orderEligibleCount: 2,
+        filledOrderCount: 2,
+        blockedOrderCount: 1,
+      },
+      phases: [
+        { phase: 'inSample', start: '20260701', end: '20260702', returnPct: 0.08, mddPct: 0, completedTrades: 0, winRatePct: 0 },
+        { phase: 'outOfSample', start: '20260703', end: '20260704', returnPct: 0.02, mddPct: 0.02, completedTrades: 1, winRatePct: 100 },
+      ],
+      trades: [
+        { time: '20260702', side: 'buy', signalPrice: 104, fillPrice: 104.1, quantity: 1, grossAmountKrw: 104.1, costKrw: 0.1, realizedPnlKrw: null, status: 'filled', reason: 'mock buy', phase: 'inSample' },
+        { time: '20260703', side: 'buy', signalPrice: 105, fillPrice: null, quantity: 1, grossAmountKrw: 0, costKrw: 0, realizedPnlKrw: null, status: 'blocked', reason: 'duplicate', blockedReason: '이미 보유 중인 포지션', phase: 'outOfSample' },
+        { time: '20260704', side: 'sell', signalPrice: 106, fillPrice: 105.9, quantity: 1, grossAmountKrw: 105.9, costKrw: 0.2, realizedPnlKrw: 1.6, status: 'filled', reason: 'mock sell', phase: 'outOfSample' },
+      ],
+      equityCurve: [
+        { time: '20260701', equityKrw: 10_000_000, drawdownPct: 0, phase: 'inSample' },
+        { time: '20260702', equityKrw: 10_008_000, drawdownPct: 0, phase: 'inSample' },
+        { time: '20260703', equityKrw: 10_006_000, drawdownPct: 0.02, phase: 'outOfSample' },
+        { time: '20260704', equityKrw: 10_010_000, drawdownPct: 0, phase: 'outOfSample' },
+      ],
+      overfitWarning: null,
+    },
+  }
+}
+
 async function mockApi(page: import('@playwright/test').Page, options: MockOptions = {}) {
   const activeBroker = options.activeBroker ?? 'kis'
   let tradingRunning = false
@@ -262,7 +330,7 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
       return
     }
     if (url.pathname === '/api/strategy/preview') {
-      const body = route.request().postDataJSON()
+      const body = route.request().postDataJSON() as Record<string, unknown>
       options.genericPreviewRequests?.push(body)
       if (options.genericPreviewDelayMs) {
         await new Promise((resolve) => setTimeout(resolve, options.genericPreviewDelayMs))
@@ -290,12 +358,13 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
           ],
           generatedAt: '2026-07-04T15:30:00+09:00',
           message: 'mock generic preview signals',
+          ...mockResearchResult(body, String(body.interval ?? '1d')),
         },
       })
       return
     }
     if (url.pathname === '/api/strategy/leveraged-trend-hold/preview') {
-      const body = route.request().postDataJSON()
+      const body = route.request().postDataJSON() as Record<string, unknown>
       options.previewRequests?.push(body)
       if (options.leveragedPreviewDelayMs) {
         await new Promise((resolve) => setTimeout(resolve, options.leveragedPreviewDelayMs))
@@ -338,6 +407,7 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
           ],
           generatedAt: '2026-07-07T17:03:00+09:00',
           message: 'mock preview signals',
+          ...mockResearchResult(body, String(body.interval ?? '1m')),
         },
       })
       return
@@ -622,7 +692,39 @@ test('Generic strategy card preview runs with edited card settings', async ({ pa
     strategyId: 'ma_cross_default',
     symbol: '000002',
     orderQuantity: 1,
+    interval: 'W',
+    brokerId: 'kis',
+    brokerAccountId: '12345678-01',
   })
+  await expect(card.getByTestId('strategy-backtest-results')).toBeVisible()
+  await expect(card.getByText('원시 신호 3개 · 주문 가능 2개 · 체결 가정 2개 · 차단 1개')).toBeVisible()
+  await expect(card.getByRole('img', { name: /자산 곡선/ })).toBeVisible()
+})
+
+test('Strategy research assumptions and A/B experiments are reproducible in the same data range', async ({ page }) => {
+  const genericPreviewRequests: Array<{ assumptions?: { initialCapitalKrw?: number; feeBps?: number } }> = []
+  await mockApi(page, { genericPreviewRequests })
+  await page.goto('/strategy')
+
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'MovingAverageCrossStrategy' }).first()
+  await card.getByRole('spinbutton', { name: '초기자본(원)' }).fill('20000000')
+  await card.getByRole('button', { name: '미리보기 계산' }).click()
+  await expect(card.getByTestId('strategy-backtest-results')).toBeVisible()
+  expect(genericPreviewRequests[0]?.assumptions).toMatchObject({ initialCapitalKrw: 20_000_000 })
+
+  await card.getByRole('button', { name: '현재 결과를 A로 저장' }).click()
+  await expect(card.getByTestId('strategy-ab-comparison').getByText('실험 결과 A')).toBeVisible()
+  await card.getByRole('spinbutton', { name: '수수료(bps)' }).fill('7.5')
+  await card.getByRole('button', { name: '미리보기 계산' }).click()
+  await expect.poll(() => genericPreviewRequests.length).toBe(2)
+  expect(genericPreviewRequests[1]?.assumptions).toMatchObject({ feeBps: 7.5 })
+  await card.getByRole('button', { name: '현재 결과를 B로 저장' }).click()
+  await expect(card.getByTestId('strategy-ab-comparison').getByText('실험 결과 B')).toBeVisible()
+
+  await page.reload()
+  const reloadedCard = page.locator('.MuiPaper-root').filter({ hasText: 'MovingAverageCrossStrategy' }).first()
+  await reloadedCard.getByRole('button', { name: '미리보기 계산' }).click()
+  await expect(reloadedCard.getByTestId('strategy-ab-comparison')).toBeVisible()
 })
 
 test('Generic strategy preview discards an in-flight result after parameters change', async ({ page }) => {
