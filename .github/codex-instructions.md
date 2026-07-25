@@ -39,6 +39,10 @@ npx tsc --noEmit
 
 # Vite 프로덕션 빌드
 npx vite build
+
+# 에이전트 코드 지식 drift
+npm run check:graphify
+npm run check:project-map
 ```
 
 모든 변경 후 `cargo check` → `npx tsc --noEmit` 순서로 검증한다.  
@@ -157,6 +161,27 @@ npx vite build
 
 > 장기 운영 앱이므로 대형 파일, 중복 헬퍼, polling/cache/log reader 변경은 기능 완료와 별개로 적극 정리한다.
 
+### 코드 지식 도구 및 역할 라우팅
+
+- 파일 추가·이동·삭제, FSD/Rust 모듈 경계, 데몬·데이터 흐름 변경은
+  `project_mapper` (`.github/agents/project-map-maintainer.agent.md`)에게
+  문서 pass를 위임하고 `npm run check:project-map`을 통과한다.
+- 교차 모듈 메서드·타입·컴포넌트 변경 또는 public surface 이동 전에는
+  `symbol_navigator`에게 Serena의 `find_symbol`과
+  `find_referencing_symbols` 기반 read-only 영향 분석을 위임한다.
+- 두 곳 이상 유사한 helper가 보이면 `helper_curator`에게 Graphify로 후보와
+  caller graph를 좁히고 Serena로 정의·참조·동등성을 검증하도록 위임한다.
+  Graphify의 entity dedup은 clone detector가 아니므로 그래프 유사도만으로
+  합치지 않는다.
+- 검증된 TypeScript 순수 helper는 `src/shared/lib`, 재사용 UI는
+  `src/shared/ui`, Rust helper는 기존 view builder 또는 가장 좁은 backend
+  domain module로 승격한다. broker/account/risk 의미가 다르면 분리한다.
+- helper 이동·삭제 후 `graphify update . --force`, 일반 변경 후
+  `graphify update .`에 대응하는 `npm run graphify:refresh` 또는
+  `npm run graphify:update`로 그래프를 갱신하고
+  `npm run check:graphify`를 통과한다. 상세 절차는
+  `docs/agent-tooling.md`를 따른다.
+
 - 소스 파일이 1000라인을 초과하면 신규 기능을 더 얹기 전에 페이지/route/helper/domain 단위로 분리한다. 즉시 분리가 어렵다면 `todo.md`에 구체 파일과 분리 축을 기록한다.
 - 숫자/금액/decimal 표시, provider trace, broker scope, 프로파일 view처럼 두 곳 이상 반복되는 helper는 `shared/lib`, `shared/ui`, backend view builder 등 공용 위치로 승격한다.
 - 로그 조회, 이벤트 listener, background daemon, TanStack Query polling, cache, per-symbol map을 추가하거나 수정할 때는 OOM·jank·quota 낭비 가능성을 점검한다.
@@ -270,7 +295,7 @@ Codex 환경에서는 프로젝트 루트의 `.codex/skills/kisautotrade-*` 브�
 
 | 상황 | 업데이트 대상 |
 |------|-------------|
-| 새 모듈/파일 추가 | `docs/project-map.md` 디렉토리 맵 |
+| 새 모듈/파일 추가·이동·삭제 | `npm run project-map:update`, `docs/project-map.md` 책임 표, `npm run check:project-map` |
 | 새 IPC 커맨드 추가 | `docs/ipc-commands.md` IPC 커맨드 목록 |
 | UI 패턴/컨벤션 발견 또는 수정 | `ui-conventions/SKILL.md` |
 | 프론트엔드 모듈 이동 또는 FSD 레이어 경계 변경 | `frontend-fsd/SKILL.md`, `docs/project-map.md` |
@@ -311,6 +336,7 @@ Codex 환경에서는 프로젝트 루트의 `.codex/skills/kisautotrade-*` 브�
 - `AGENTS.md` — Codex 에이전트 가이드 (핵심 경로·빌드·변경 이력)
 - `todo.md` — 개선 백로그 및 다음 작업 목록
 - `docs/project-map.md` — 전체 디렉토리 맵 및 모듈 책임 (항상 최신 유지)
+- `docs/agent-tooling.md` — 프로젝트 맵·Serena·Graphify 서브 에이전트 운영
 - `docs/ipc-commands.md` — IPC 커맨드 전체 목록 (항상 최신 유지)
 - `docs/coding-guide.md` — 설정 추가·AppState·IPC·데몬·제어흐름 실전 가이드
 - `docs/MasterPlan.md` — 전체 설계 문서 (아카이브, 읽기 전용)

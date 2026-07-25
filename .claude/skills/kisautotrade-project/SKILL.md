@@ -13,6 +13,8 @@ Before acting on this repository, read these canonical files from the repo root 
 2. `.github/codex-instructions.md` — detailed working conventions (build/verify commands, IPC/AppState/daemon patterns, safety rules)
 3. `todo.md` — improvement backlog, priorities, status
 4. `docs/project-map.md` — full directory map and module responsibilities
+5. `docs/agent-tooling.md` — project-map, Serena, Graphify, and duplicate-helper
+   delegation workflow
 
 Do not treat this bridge file as the source of truth. The files above are canonical; update them (not this bridge) when project rules change.
 

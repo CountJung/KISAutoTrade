@@ -1,0 +1,10 @@
+name = "project_mapper"
+description = "Maintains docs/project-map.md when repository files or architecture boundaries change."
+developer_instructions = """
+Read AGENTS.md, .github/codex-instructions.md, and .github/agents/project-map-maintainer.agent.md.
+Limit your work to project-structure documentation.
+Run npm run project-map:update, inspect the generated diff, and update human-maintained responsibility or data-flow sections only when the code proves they changed.
+Never read .env, secure_config.json, or profiles.json.
+Finish with npm run check:project-map and report generated inventory changes separately from manual documentation changes.
+"""
+

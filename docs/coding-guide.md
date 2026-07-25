@@ -790,7 +790,7 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 ### 프로파일/AppState scope 규칙
 
 - `AccountProfile`에는 `broker_id`를 저장하고, 기존 프로파일에는 serde 기본값 `BrokerId::Kis`가 적용되게 한다.
-- 토스 실거래 동의 상태는 `AccountProfile.live_trading_consent`로 별도 저장한다. 기존 프로파일에는 serde 기본값 `false`를 적용하고, Dashboard 소액 실주문 gate의 필수 조건으로만 사용한다. 자동매매 unlock으로 해석하지 않는다.
+- 토스 실거래 동의 상태는 `AccountProfile.live_trading_consent`로 별도 저장한다. 기존 프로파일에는 serde 기본값 `false`를 적용한다. Trading 수동주문, 호환용 1주 검증 endpoint, 자동매매를 포함한 모든 Toss 실주문 경로의 필수 조건으로 사용하되, 동의만으로 주문 제출이나 자동매매 시작이 자동 승인된 것으로 해석하지 않는다.
 - IPC `AppConfigView`와 `ProfileView`는 활성 broker/account를 내려 UI가 현재 scope를 표시할 수 있게 한다.
 - 자동매매 시작 시 `trading_profile_id`, `trading_broker_id`, `trading_account_id`를 스냅샷으로 저장한다. 실행 중 프로파일 전환이 있어도 주문 경로가 섞이지 않게 하기 위한 값이다.
 - `StrategyConfig`에도 `broker_id`와 `broker_account_id`를 저장한다. 프로파일 전환과 `update_strategy`는 현재 활성 broker/account scope를 전략 설정에 stamp하고, 저장 전략이 없는 프로파일로 전환하면 이전 프로파일 전략을 reset한다.
@@ -804,7 +804,7 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 
 1. read-only 기능부터 adapter에 붙인다: OpenAPI version 진단, token 발급 진단, accounts 조회, holdings 조회.
 2. 주문 전 검증 API(`buying-power`, `sellable-quantity`, `commissions`)는 `trading/preflight.rs`의 공통 판정 함수와 `check_toss_order_preflight` IPC/REST로 연결한다. Trading 범용 주문 UI는 `liquidityOk`, `safetyOk`, `live_trading_consent`가 모두 통과해야 `canSubmit=true`가 된다.
-3. 실제 주문 생성 client는 공식 스키마 기준으로 구현한다. Dashboard의 `submit_toss_small_buy_verification`은 1주 시장가 매수 최종 점검용으로 유지하고, Trading/자동매매는 `place_order` 및 `OrderManager::submit_signal_shared()`에서 같은 Toss order adapter를 사용한다.
+3. 실제 주문 생성 client는 공식 스키마 기준으로 구현한다. 호환용 `submit_toss_small_buy_verification` endpoint는 1주 시장가 매수 최종 점검용으로 유지하고, 현재 Dashboard는 수동거래 페이지를 안내한다. Trading/자동매매는 `place_order` 및 `OrderManager::submit_signal_shared()`에서 같은 Toss order adapter를 사용한다.
 
 ### Toss read-only client 규칙
 
@@ -820,7 +820,7 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 - 공식 스펙 범위는 client에서 선검증한다: prices/stocks 최대 200 symbols, trades count 1~50, candles interval `1m`/`1d`, candles count 1~200.
 - Trading UI에 Toss 시세/종목 유의사항/장 운영 정보를 노출할 때는 활성 Toss 프로파일에서 `get_toss_market_snapshot`, `get_toss_stock_safety`, `get_toss_market_calendar`, `get_toss_chart_data`를 호출하고, 주문 제출은 기존 `place_order` IPC가 활성 broker에 따라 Toss로 분기한다. 활성 Toss 프로파일에서는 KIS 가격/차트/해외 주문 호출이 섞이지 않게 한다.
 - Toss warnings UI는 `get_toss_stock_safety`/`/api/toss-stock-safety/:symbol`/`useTossStockSafety()` 경로로 연결한다. `buyBlocked`와 `buyBlockReason`은 주문 전 차단 사유로 사용한다.
-- Toss 주문 전 검증 UI는 `check_toss_order_preflight`/`/api/toss-order-preflight`/`useTossOrderPreflight()` 경로로 연결한다. 수량 입력 시 주문금액, 필요 현금, 매수가능금액/매도가능수량, 수수료율, 차단 사유를 표시한다. Dashboard는 별도 `submit_toss_small_buy_verification` gate로 검색 종목 1주 시장가 매수를 제출할 수 있고, Trading 주문 버튼은 `canSubmit=true`일 때 활성화된다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
+- Toss 주문 전 검증 UI는 `check_toss_order_preflight`/`/api/toss-order-preflight`/`useTossOrderPreflight()` 경로로 연결한다. 수량 입력 시 주문금액, 필요 현금, 매수가능금액/매도가능수량, 수수료율, 차단 사유를 표시한다. Dashboard는 실거래 동의 상태와 수동거래 페이지 이동을 안내하고, Trading 주문 버튼은 `canSubmit=true`일 때 활성화된다. 호환용 `submit_toss_small_buy_verification` endpoint는 현재 UI에서 호출하지 않는다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
 - Toss candles UI는 기존 `ChartCandle[]`/`StockChart`를 재사용하되 `source="toss"`로 분기한다. 일봉은 `YYYYMMDD`, 1분봉은 provider timestamp를 lightweight-charts `Time`으로 변환한다.
 - `X-Request-Id`와 `Retry-After`는 에러 메시지 또는 진단 결과에 보존해 CS 문의와 rate-limit 대응에 사용할 수 있게 한다.
 - rate-limit 대응은 `src-tauri/src/broker/rate_limit.rs`의 `RateLimitScheduler`를 사용한다. Toss client는 auth/account/market/order/order_history group을 분리하고, 응답의 `Retry-After`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`을 scheduler에 반영한다.

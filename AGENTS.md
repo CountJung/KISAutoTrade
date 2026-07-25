@@ -10,6 +10,7 @@
 | 항목 | 경로 |
 |------|------|
 | 디렉토리 맵 + 아키텍처 | `docs/project-map.md` |
+| 에이전트 코드 탐색 도구 운영 | `docs/agent-tooling.md` |
 | 개선 백로그 | `todo.md` |
 | IPC 커맨드 목록 (35개+) | `docs/ipc-commands.md` |
 | 코딩 가이드 (AppState·IPC·데몬) | `docs/coding-guide.md` |
@@ -23,6 +24,8 @@
 | Copilot 호환 지침 | `.github/copilot-instructions.md` |
 | Claude Code 지침 (AGENTS.md import) | `CLAUDE.md` |
 | Codex 프로젝트 브리지 스킬 | `.codex/skills/kisautotrade-*` |
+| Codex 프로젝트 서브 에이전트 | `.codex/agents/*.toml` |
+| Copilot 호환 서브 에이전트 | `.github/agents/*.agent.md` |
 | Claude Code 프로젝트 브리지 스킬 | `.claude/skills/kisautotrade-*` |
 
 ---
@@ -46,6 +49,8 @@
 ```powershell
 cd src-tauri; cargo check            # Rust 빠른 검증
 cd ..; npx tsc --noEmit              # TypeScript 타입 체크
+npm run check:graphify               # 코드 그래프 freshness 검사
+npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 # UI 시각/상호작용 위험 변경: npm run test:e2e 또는 focused Playwright spec 실행
 ```
 
@@ -57,6 +62,9 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 - `.env`, `secure_config.json`, `profiles.json`은 읽지 않는다.
 - 코드 변경 전 현재 구현을 먼저 검색하고, 기존 패턴을 우선한다.
+- 교차 모듈 심볼 변경은 `symbol_navigator`에게 Serena 참조 추적을 위임한다.
+- 파일 추가·이동·삭제 또는 구조 변경은 `project_mapper`에게 프로젝트 맵 pass를 위임한다.
+- 중복 helper 후보는 `helper_curator`에게 Graphify 후보 탐색과 Serena 참조 검증을 위임하고, 실제 동등성이 확인된 경우에만 공용 유틸로 승격한다.
 - KIS API 동작·TR-ID·제한사항은 추측하지 말고 공식 포털 또는 `koreainvestment/open-trading-api` 샘플로 확인한다.
 - 새 IPC 커맨드는 Rust command, `lib.rs` 등록, TypeScript 타입/래퍼/훅, 문서를 함께 갱신한다.
 - 반복 매매·손실 방지 관련 변경은 `todo.md`와 관련 스킬 문서에 남긴다.
@@ -71,8 +79,8 @@ cd ..; npx tsc --noEmit              # TypeScript 타입 체크
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-07-25 | 프로젝트 맵 자동 검증, Serena 심볼 추적, Graphify 헬퍼 공용화 위임 체계 추가 |
 | 2026-07-15 | 전략 replay/backtest, 비용·리스크 가정, 무미래참조 fixture, scope별 A/B 연구 UI 추가 |
 | 2026-07-12 | broker rate limit을 credential scope 공유로 통합, KIS timeout/응답 상한과 운영 상태 노출 추가 |
 | 2026-07-12 | DB password OS keychain 이전과 PostgreSQL 실서버 contract test 추가 |
 | 2026-07-12 | 주문/체결 기록에 broker/account scope 저장, 리스크 복원·포지션 트래커를 scope별 격리 |
-| 2026-07-12 | 리스크 설정·일별 runtime 상태 영속화로 재시작 우회 차단, DB 연결 테스트 시 미존재 DB 자동 생성 |

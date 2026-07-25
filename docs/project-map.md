@@ -1,4 +1,4 @@
-# AutoConditionTrade — 프로젝트 맵
+# KISAutoTrade — 프로젝트 맵
 
 > 이 문서는 `AGENTS.md` 에서 분리된 상세 디렉토리 맵 및 아키텍처 참조 문서입니다.
 
@@ -6,177 +6,456 @@
 
 ## 1. 전체 디렉토리 맵
 
-```
-AutoConditionTrade/                   ← 루트
-│
-├── AGENTS.md                         ← Codex 에이전트 네비게이션 가이드 (핵심만)
-├── todo.md                           ← 개선 백로그 및 다음 작업 목록
-├── Cargo.toml                        ← Rust workspace 루트 (resolver="2")
-├── package.json                      ← npm 패키지 설정 (engines: node>=20)
-├── vite.config.ts                    ← Vite 빌드 설정 (port:1420, 청크 분리)
-├── tsconfig.json / tsconfig.node.json
-├── index.html                        ← HTML 진입점 (테마 Hydration 스크립트 포함)
-├── .gitignore                        ← 민감 파일/데이터/빌드/.cargo/config.toml 제외
-├── .cargo/config.toml                ← Cargo 로컬 설정 (gitignore, 머신별 target-dir)
-├── secure_config.example.json        ← 민감 설정 템플릿 ✅
-│
-├── .github/
-│   ├── codex-instructions.md         ← Codex 프로젝트 지침 (살아있는 문서)
-│   ├── copilot-instructions.md       ← GitHub Copilot/Codex 호환용 shim
-│   ├── skills/                       ← 도메인 스킬 파일 6종 (KIS API, Toss API, Rust, React, FSD, UI)
-│   └── workflows/release.yml         ← GitHub Actions 자동 빌드/릴리즈
-│
+아래 블록은 Git이 추적하는 파일과 `.gitignore`에 걸리지 않은 새 파일을 기준으로
+자동 생성한다. `npm run project-map:update`로 갱신하고
+`npm run check:project-map`으로 drift를 검사한다.
+
+<!-- project-map:generated:start -->
+<!-- 이 블록은 scripts/project-map.mjs가 생성합니다. 직접 편집하지 마세요. -->
+```text
+KISAutoTrade/
+├── .claude/
+│   ├── skills/
+│   │   ├── kisautotrade-frontend-fsd/
+│   │   │   └── SKILL.md
+│   │   ├── kisautotrade-kis-api/
+│   │   │   └── SKILL.md
+│   │   ├── kisautotrade-project/
+│   │   │   └── SKILL.md
+│   │   ├── kisautotrade-react/
+│   │   │   └── SKILL.md
+│   │   ├── kisautotrade-rust/
+│   │   │   └── SKILL.md
+│   │   ├── kisautotrade-toss-api/
+│   │   │   └── SKILL.md
+│   │   └── kisautotrade-ui/
+│   │       └── SKILL.md
+│   └── README.md
 ├── .codex/
-│   ├── README.md                     ← 프로젝트 소유 Codex 브리지 스킬 안내
-│   └── skills/kisautotrade-*/        ← 계정 홈에 의존하지 않는 Codex 브리지 스킬
-│
+│   ├── agents/
+│   │   ├── helper_curator.toml
+│   │   ├── project_mapper.toml
+│   │   └── symbol_navigator.toml
+│   ├── skills/
+│   │   ├── kisautotrade-frontend-fsd/
+│   │   │   └── SKILL.md
+│   │   ├── kisautotrade-kis-api/
+│   │   │   └── SKILL.md
+│   │   ├── kisautotrade-project/
+│   │   │   └── SKILL.md
+│   │   ├── kisautotrade-react/
+│   │   │   └── SKILL.md
+│   │   ├── kisautotrade-rust/
+│   │   │   └── SKILL.md
+│   │   ├── kisautotrade-toss-api/
+│   │   │   └── SKILL.md
+│   │   └── kisautotrade-ui/
+│   │       └── SKILL.md
+│   ├── README.md
+│   └── config.toml
+├── .github/
+│   ├── agents/
+│   │   ├── helper-curator.agent.md
+│   │   ├── project-map-maintainer.agent.md
+│   │   └── symbol-navigator.agent.md
+│   ├── skills/
+│   │   ├── frontend-fsd/
+│   │   │   └── SKILL.md
+│   │   ├── kis-api/
+│   │   │   └── SKILL.md
+│   │   ├── react-best-practices/
+│   │   │   └── SKILL.md
+│   │   ├── rust-skills/
+│   │   │   └── SKILL.md
+│   │   ├── toss-api/
+│   │   │   └── SKILL.md
+│   │   └── ui-conventions/
+│   │       └── SKILL.md
+│   ├── workflows/
+│   │   └── release.yml
+│   ├── codex-instructions.md
+│   └── copilot-instructions.md
+├── .serena/
+│   ├── memories/
+│   │   ├── backend/
+│   │   │   └── core.md
+│   │   ├── frontend/
+│   │   │   └── core.md
+│   │   ├── conventions.md
+│   │   ├── core.md
+│   │   ├── memory_maintenance.md
+│   │   ├── suggested_commands.md
+│   │   ├── task_completion.md
+│   │   └── tech_stack.md
+│   ├── .gitignore
+│   └── project.yml
+├── .vscode/
+│   ├── extensions.json
+│   ├── launch.json
+│   └── tasks.json
 ├── docs/
-│   ├── project-map.md                ← [이 파일] 디렉토리 맵 + 아키텍처
-│   ├── ipc-commands.md               ← IPC 커맨드 전체 목록 (35개)
-│   ├── coding-guide.md               ← 설정 추가·AppState·IPC·데몬·제어흐름 실전 가이드
-│   ├── toss-openapi.md               ← 토스증권 OpenAPI endpoint inventory + 검증 절차
-│   ├── toss-readonly-small-order-checklist.md ← 토스 read-only/소액 실거래 검증 안전 절차
-│   ├── leveraged-trend-hold-parameter-guide.md ← 레버리지 추세 보유 1분봉 파라미터 튜닝 가이드
-│   ├── mock-trading-e2e-checklist.md ← 모의투자 국내/해외/E2E 검증 체크리스트
-│   ├── MasterPlan.md                 ← 전체 설계 문서 (아카이브, 읽기 전용)
-│   ├── discord-setup-guide.md        ← Discord 봇 설정 가이드
-│   └── user-guide.md                 ← 사용 가이드 (개요·전략 세팅)
-│
-├── scripts/check-fsd-imports.mjs     ← FSD 레이어 역방향 import 검증
-├── scripts/release-version.mjs       ← 버전 파일 동기화 + release commit/tag/push 자동화 (`npm run release -- x.y.z`)
-├── scripts/verify-toss-openapi.mjs   ← 공식 토스증권 OpenAPI JSON 버전/경로/헤더 검증
-├── scripts/sync-codex-skills.ps1     ← 프로젝트 Codex 브리지 스킬을 계정 Codex 홈으로 동기화 (`npm run sync:codex-skills`)
-│
-├── src/                              ← React Frontend (TypeScript, FSD 점진 구조)
-│   ├── main.tsx                      ← React 진입점 (QueryClient, RouterProvider)
-│   ├── router/index.ts               ← TanStack Router 코드 기반 라우팅 ✅
-│   ├── shared/
-│   │   ├── api/                      ← Tauri IPC/Web REST 공통 wrapper + Rust 타입 미러 (`databaseCommands/types` 포함)
-│   │   │   └── strategyResearchTypes.ts ← replay/backtest/실험 TypeScript 타입
-│   │   ├── config/theme/             ← createAppTheme, getResolvedMode
-│   │   ├── config/scheduler/         ← 전역 폴링 주기 상수
-│   │   ├── lib/                      ← localStorage 기반 레이아웃 상태 헬퍼
-│   │   ├── ui/LayoutResizer.tsx      ← 범용 리사이저 UI
-│   │   └── ui/TradingHealthPanel.tsx ← holdings/reconciliation/pending/persistence 건강 상태와 복구 안내
+│   ├── MasterPlan.md
+│   ├── agent-tooling.md
+│   ├── coding-guide.md
+│   ├── discord-setup-guide.md
+│   ├── ipc-commands.md
+│   ├── leveraged-trend-hold-parameter-guide.md
+│   ├── mock-trading-e2e-checklist.md
+│   ├── project-map.md
+│   ├── toss-openapi.md
+│   ├── toss-readonly-small-order-checklist.md
+│   └── user-guide.md
+├── scripts/
+│   ├── check-fsd-imports.mjs
+│   ├── graphify.mjs
+│   ├── project-map.mjs
+│   ├── release-version.mjs
+│   ├── setup-local.sh
+│   ├── sync-codex-skills.ps1
+│   └── verify-toss-openapi.mjs
+├── src/
+│   ├── api/
+│   │   ├── backendEvents.ts
+│   │   ├── commands.ts
+│   │   ├── databaseHooks.ts
+│   │   ├── hooks.ts
+│   │   ├── queryKeys.ts
+│   │   ├── transport.ts
+│   │   └── types.ts
+│   ├── components/
+│   │   ├── chart/
+│   │   │   ├── OverseasStockChart.tsx
+│   │   │   └── StockChart.tsx
+│   │   ├── layout/
+│   │   │   ├── AppShell.tsx
+│   │   │   └── Sidebar.tsx
+│   │   └── LayoutResizer.tsx
 │   ├── entities/
-│   │   ├── account/model/            ← 계좌 상태 store
-│   │   ├── settings/model/           ← 테마/로그/Discord 설정 store
-│   │   └── trading/model/            ← 자동매매 실행 상태 store
-│   ├── features/                     ← manual-order, symbol-search 등 행동 단위 slice
-│   │   └── manual-order/ui/TossManualTradeVerificationPanel.tsx ← Toss 소액 수동매매 검증 gate
-│   ├── widgets/
-│   │   ├── app-shell/                ← 전체 레이아웃 + ThemeProvider + Outlet
-│   │   ├── sidebar/                  ← MUI permanent/temporary Drawer
-│   │   └── stock-chart/              ← 국내/해외 lightweight-charts v5 캔들
+│   │   ├── account/
+│   │   │   ├── model/
+│   │   │   │   └── accountStore.ts
+│   │   │   └── index.ts
+│   │   ├── settings/
+│   │   │   ├── model/
+│   │   │   │   └── settingsStore.ts
+│   │   │   └── index.ts
+│   │   └── trading/
+│   │       ├── model/
+│   │       │   └── tradingStore.ts
+│   │       └── index.ts
+│   ├── features/
+│   │   ├── discord-notification-config/
+│   │   │   └── index.ts
+│   │   ├── log-filter/
+│   │   │   └── index.ts
+│   │   ├── strategy-configure/
+│   │   │   └── index.ts
+│   │   ├── strategy-toggle/
+│   │   │   └── index.ts
+│   │   ├── symbol-search/
+│   │   │   └── index.ts
+│   │   ├── trading-start-stop/
+│   │   │   └── index.ts
+│   │   └── README.md
 │   ├── pages/
-│   │   ├── dashboard/ui/Page.tsx     ← 잔고/수익 카드, 포지션, 리스크, Dashboard 라우트 조립
-│   │   ├── dashboard/ui/orderPanels.tsx ← 미체결/체결 주문 패널
-│   │   ├── dashboard/ui/tossVerificationPanel.tsx ← Dashboard Toss 소액매매 1주 시장가 실주문 검증 패널
-│   │   ├── trading/ui/Page.tsx       ← 수동 매수/매도 + 종목 검색 + 체결 내역
-│   │   ├── trading/ui/kisPanels.tsx  ← KIS 보유/시세 패널
-│   │   ├── trading/ui/tossPanels.tsx ← Toss 시세/안전/장운영/주문 전 검증/접수 주문 목록·정정 패널
-│   │   ├── strategy/ui/Page.tsx      ← 전략 ON/OFF + 파라미터 설정 route 조립
-│   │   ├── strategy/ui/priceConditionEditorPanel.tsx ← 가격조건 전략 종목별 편집 패널
-│   │   ├── strategy/ui/strategyMetadata.ts ← 전략 파라미터 메타·설명·타입 판별
-│   │   ├── strategy/ui/leveragedTrendHoldEditorPanel.tsx ← 레버리지 추세 보유 전략 편집 패널
-│   │   ├── strategy/ui/strategyPreviewPanel.tsx ← 전략 카드별 차트 캔들 조회 + 범용 신호 preview panel
-│   │   ├── strategy/ui/strategyResearchPanel.tsx ← 비용/리스크 백테스트 요약·equity·A/B 실험 UI
-│   │   ├── strategy/model/experimentStore.ts ← broker/account/전략/티커별 A/B 실험 localStorage
-│   │   ├── strategy/ui/leveragedTrendHoldPreviewChart.tsx ← 캔들/종가선/매수·청산 신호 preview chart
-│   │   ├── history/ui/Page.tsx       ← 날짜 범위 조회, 자동매매 체결 기록
-│   │   ├── log/ui/Page.tsx           ← 레벨 필터, 검색, 색상 구분 로그 뷰어
-│   │   ├── settings/ui/Page.tsx      ← 테마/갱신/로그/웹/종목/리스크/Discord 설정 route 조립
-│   │   ├── settings/ui/databaseManagementSection.tsx ← PostgreSQL/MariaDB 연결·테이블·이관 UI
-│   │   ├── settings/ui/accountProfiles.tsx ← 활성 broker/profile 요약과 KIS/Toss 프로파일 카드
-│   │   ├── settings/ui/profileDialogs.tsx ← KIS/Toss 프로파일 추가/편집 다이얼로그와 accountSeq 조회
-│   │   ├── settings/ui/profileUtils.ts ← Settings 프로파일 공통 표시/에러 유틸
-│   │   └── settings/ui/section.tsx   ← Settings page-local 섹션 래퍼
-│   ├── api/                          ← shared/api 호환 re-export + TanStack Query hooks/query keys/event bridge
-│   ├── components/                   ← widgets/shared 호환 re-export
-│   ├── store/                        ← entities 호환 re-export
-│   ├── theme/                        ← shared/config/theme 호환 re-export
-│   └── scheduler/                    ← shared/config/scheduler 호환 re-export
-│
-└── src-tauri/                        ← Rust Backend
-    ├── Cargo.toml                    ← Tauri v2 + reqwest + tokio + tracing
-    ├── build.rs                      ← tauri_build::build()
-    ├── tauri.conf.json               ← 앱 설정 (1400x900, window-state 복원용 visible:false, bundle icons)
-    └── src/
-        ├── main.rs                   ← Tauri 진입점
-        ├── lib.rs                    ← Builder 설정 + 백그라운드 데몬 6개 spawn
-        ├── commands.rs               ← AppState + IPC command facade, 공통 helper
-        ├── commands/
-        │   ├── accounts.rs           ← 프로파일 관리, KIS/Toss holdings view, KIS 잔고 IPC
-        │   ├── archive.rs            ← trade archive config/stats/purge IPC
-        │   ├── database.rs           ← Tauri 전용 DB 연결·테이블·JSON 이관 IPC
-        │   ├── market.rs             ← KIS 시세/차트/종목 검색/해외 주문 IPC
-        │   ├── orders.rs             ← 수동 주문 제출 IPC
-        │   ├── records.rs            ← 체결/거래/통계/로그/Discord 저장 IPC
-        │   ├── settings.rs           ← app config, refresh/log/web 설정, USD/KRW 환율 IPC
-        │   ├── strategy_preview.rs   ← 범용/레버리지 replay·backtest IPC
-        │   ├── strategy_preview/tests.rs ← parity·무미래참조·hash fixture
-        │   ├── toss.rs               ← Toss accountSeq 조회, 연결 진단, 주문 전 preflight, 접수 주문 조회·정정 IPC facade
-        │   ├── toss/small_order.rs   ← Dashboard Toss 소액매매 1주 시장가 실주문 검증 IPC
-        │   ├── toss_market.rs        ← Toss 시세 snapshot, 종목 유의사항, market-calendar, candles IPC
-        │   ├── trading.rs            ← 자동매매 status/start/stop/daemon/sync IPC
-        │   ├── trading/history.rs    ← 자동매매 시작 시 전략 히스토리/ATR 초기화
-        │   ├── strategy.rs           ← 포지션 조회, 전략 목록/수정 IPC
-        │   └── risk.rs               ← 리스크 설정/비상정지, pending 주문 IPC
-        ├── market_hours.rs           ← 시장 개장 여부 판단 (KRX / US)
-        ├── api/
-        │   ├── detect.rs             ← KIS 실전/모의 앱키 자동 감지
-        │   ├── rest.rs               ← KisRestClient — KIS 잔고/주문/체결/시세 호출 facade
-        │   ├── rest/types.rs         ← KIS REST 요청/응답 타입과 해외 주문 사전 검증
-        │   ├── rest/exchange.rs      ← 공개 USD/KRW 환율 fallback fetcher
-        │   ├── token.rs              ← TokenManager — 자동 갱신
-        │   └── websocket.rs          ← KisWebSocketClient — 실시간 시세
-        ├── broker/                   ← BrokerId/domain 타입 + BrokerAdapter + KIS/Toss adapter 경계 + rate_limit scheduler
-        │   └── toss/                 ← Toss adapter/client를 facade·HTTP·orders·types·support로 분리
-        ├── market/mod.rs             ← KRX 종목 목록 (CSV 파싱, 캐시, 검색)
-        ├── server/mod.rs             ← axum 웹 서버 route table + ServeDir fallback
-        ├── server/market.rs          ← 웹 REST KIS 잔고/시세/주문/차트/종목 목록 핸들러
-        ├── server/records.rs         ← 웹 REST 포지션/통계/체결/로그/보관 설정 핸들러
-        ├── server/profiles.rs        ← 웹 REST 프로파일 CRUD, KIS/Toss 키 진단, Toss accountSeq/diagnostic
-        ├── server/toss.rs            ← 웹 REST Toss market/safety/preflight/chart, 접수 주문 조회·정정 핸들러
-        ├── server/trading.rs         ← 웹 REST 자동매매 상태/시작/정지, 전략 목록/수정 핸들러
-        ├── updater/mod.rs            ← GitHub Releases API 버전 확인
-        ├── trading/
-        │   ├── mod.rs                ← 장 시간 감지, 전략 루프 실행
-        │   ├── strategy.rs           ← Strategy facade + 하위 전략 모듈 re-export
-        │   ├── strategy/core.rs      ← Signal, StrategyConfig, Strategy trait, OHLC/position snapshot
-        │   ├── strategy/manager.rs   ← StrategyManager + build_strategy()
-        │   ├── strategy/state.rs     ← 전략별 bounded buffer/상태 helper
-        │   ├── strategy/{classic,breakout,mean_trend}.rs ← 기본/돌파/평균회귀·추세 전략군
-        │   ├── strategy/{leveraged_trend_hold,price_condition}.rs ← 레버리지 추세 보유/가격조건 전략
-        │   ├── views.rs              ← IPC/REST 공용 StrategyView builder
-        │   ├── order.rs              ← OrderManager facade: 주문 → 체결 → 저장
-        │   ├── order/submission.rs   ← lock-short 전략 신호 주문 제출 + submitting 예약
-        │   ├── order/fills.rs        ← OrderManager 체결 처리 + provider별 pending 체결 확인
-        │   ├── order/conflicts.rs    ← broker/account scope별 pending 주문 충돌 판정
-        │   ├── preflight.rs          ← 주문 전 read-only 금액/수량/수수료 판정
-        │   ├── position.rs           ← PositionTracker (잔고 API 복원 지원)
-        │   └── risk.rs               ← RiskManager (enabled on/off, 비상정지, 순손실, broker/account scope별 주문/손실 제한)
-        ├── storage/
-        │   ├── mod.rs                ← build_daily_path, backend-aware read_json_or_default/write_json
-        │   ├── database.rs           ← PostgreSQL/MariaDB document backend·schema·import/export
-        │   ├── database_schema.rs    ← schema v2 정규화 테이블 DDL/migration
-        │   ├── database_projection.rs ← document↔주문·체결·포지션·risk transaction projection
-        │   ├── database_archive.rs   ← DB backend trade retention/stat transaction
-        │   ├── database_io.rs        ← atomic JSON write와 권한 제한 DB 설정 write
-        │   ├── database_types.rs     ← DB config/status/transfer camelCase DTO
-        │   ├── trade_store.rs        ← TradeRecord, TradeStore
-        │   ├── order_store.rs        ← OrderRecord, OrderStore
-        │   ├── stats_store.rs        ← DailyStats, StatsStore
-        │   ├── balance_store.rs      ← BalanceSnapshot, BalanceStore
-        │   ├── stock_store.rs        ← StockStore (종목코드↔이름 캐시)
-        │   └── strategy_store.rs     ← 전략 설정 JSON 영구 저장
-        ├── notifications/
-        │   ├── discord.rs            ← DiscordNotifier (HTTP POST)
-        │   ├── types.rs              ← NotificationLevel/Event, to_discord_message()
-        │   └── mod.rs
-        ├── logging/mod.rs            ← tracing-appender (app.log, error.log), LogConfig, bounded tail reader
-        └── config/mod.rs             ← AccountProfile, ProfilesConfig, AppConfig, DiscordConfig
+│   │   ├── dashboard/
+│   │   │   ├── ui/
+│   │   │   │   ├── Page.tsx
+│   │   │   │   ├── orderPanels.tsx
+│   │   │   │   └── tossVerificationPanel.tsx
+│   │   │   └── index.ts
+│   │   ├── history/
+│   │   │   ├── ui/
+│   │   │   │   └── Page.tsx
+│   │   │   └── index.ts
+│   │   ├── log/
+│   │   │   ├── ui/
+│   │   │   │   └── Page.tsx
+│   │   │   └── index.ts
+│   │   ├── settings/
+│   │   │   ├── ui/
+│   │   │   │   ├── Page.tsx
+│   │   │   │   ├── accountProfiles.tsx
+│   │   │   │   ├── brokerRateLimitSection.tsx
+│   │   │   │   ├── databaseManagementSection.tsx
+│   │   │   │   ├── profileDialogs.tsx
+│   │   │   │   ├── profileUtils.ts
+│   │   │   │   └── section.tsx
+│   │   │   └── index.ts
+│   │   ├── strategy/
+│   │   │   ├── model/
+│   │   │   │   └── experimentStore.ts
+│   │   │   ├── ui/
+│   │   │   │   ├── Page.tsx
+│   │   │   │   ├── leveragedTrendHoldEditorPanel.tsx
+│   │   │   │   ├── leveragedTrendHoldPreviewChart.tsx
+│   │   │   │   ├── priceConditionEditorPanel.tsx
+│   │   │   │   ├── strategyMetadata.ts
+│   │   │   │   ├── strategyPreviewPanel.tsx
+│   │   │   │   └── strategyResearchPanel.tsx
+│   │   │   └── index.ts
+│   │   └── trading/
+│   │       ├── ui/
+│   │       │   ├── Page.tsx
+│   │       │   ├── kisPanels.tsx
+│   │       │   └── tossPanels.tsx
+│   │       └── index.ts
+│   ├── router/
+│   │   └── index.ts
+│   ├── scheduler/
+│   │   └── index.ts
+│   ├── shared/
+│   │   ├── api/
+│   │   │   ├── commands.ts
+│   │   │   ├── databaseCommands.ts
+│   │   │   ├── databaseTypes.ts
+│   │   │   ├── index.ts
+│   │   │   ├── strategyResearchTypes.ts
+│   │   │   ├── transport.ts
+│   │   │   └── types.ts
+│   │   ├── config/
+│   │   │   ├── scheduler/
+│   │   │   │   └── index.ts
+│   │   │   └── theme/
+│   │   │       └── index.ts
+│   │   ├── lib/
+│   │   │   ├── formatters.ts
+│   │   │   ├── index.ts
+│   │   │   └── persistentLayout.ts
+│   │   └── ui/
+│   │       ├── BrokerScopeIndicator.tsx
+│   │       ├── LayoutResizer.tsx
+│   │       ├── ProviderTraceChips.tsx
+│   │       ├── TradingHealthPanel.tsx
+│   │       └── index.ts
+│   ├── store/
+│   │   ├── accountStore.ts
+│   │   ├── settingsStore.ts
+│   │   └── tradingStore.ts
+│   ├── theme/
+│   │   └── index.ts
+│   ├── widgets/
+│   │   ├── app-shell/
+│   │   │   ├── ui/
+│   │   │   │   └── AppShell.tsx
+│   │   │   └── index.ts
+│   │   ├── sidebar/
+│   │   │   ├── ui/
+│   │   │   │   └── Sidebar.tsx
+│   │   │   └── index.ts
+│   │   └── stock-chart/
+│   │       ├── ui/
+│   │       │   ├── OverseasStockChart.tsx
+│   │       │   └── StockChart.tsx
+│   │       └── index.ts
+│   └── main.tsx
+├── src-tauri/
+│   ├── icons/
+│   │   ├── android/
+│   │   │   ├── mipmap-anydpi-v26/
+│   │   │   │   └── ic_launcher.xml
+│   │   │   ├── mipmap-hdpi/
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   └── ic_launcher_round.png
+│   │   │   ├── mipmap-mdpi/
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   └── ic_launcher_round.png
+│   │   │   ├── mipmap-xhdpi/
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   └── ic_launcher_round.png
+│   │   │   ├── mipmap-xxhdpi/
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   └── ic_launcher_round.png
+│   │   │   ├── mipmap-xxxhdpi/
+│   │   │   │   ├── ic_launcher.png
+│   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   └── ic_launcher_round.png
+│   │   │   └── values/
+│   │   │       └── ic_launcher_background.xml
+│   │   ├── ios/
+│   │   │   ├── AppIcon-20x20@1x.png
+│   │   │   ├── AppIcon-20x20@2x-1.png
+│   │   │   ├── AppIcon-20x20@2x.png
+│   │   │   ├── AppIcon-20x20@3x.png
+│   │   │   ├── AppIcon-29x29@1x.png
+│   │   │   ├── AppIcon-29x29@2x-1.png
+│   │   │   ├── AppIcon-29x29@2x.png
+│   │   │   ├── AppIcon-29x29@3x.png
+│   │   │   ├── AppIcon-40x40@1x.png
+│   │   │   ├── AppIcon-40x40@2x-1.png
+│   │   │   ├── AppIcon-40x40@2x.png
+│   │   │   ├── AppIcon-40x40@3x.png
+│   │   │   ├── AppIcon-512@2x.png
+│   │   │   ├── AppIcon-60x60@2x.png
+│   │   │   ├── AppIcon-60x60@3x.png
+│   │   │   ├── AppIcon-76x76@1x.png
+│   │   │   ├── AppIcon-76x76@2x.png
+│   │   │   └── AppIcon-83.5x83.5@2x.png
+│   │   ├── 128x128.png
+│   │   ├── 128x128@2x.png
+│   │   ├── 32x32.png
+│   │   ├── 64x64.png
+│   │   ├── Square107x107Logo.png
+│   │   ├── Square142x142Logo.png
+│   │   ├── Square150x150Logo.png
+│   │   ├── Square284x284Logo.png
+│   │   ├── Square30x30Logo.png
+│   │   ├── Square310x310Logo.png
+│   │   ├── Square44x44Logo.png
+│   │   ├── Square71x71Logo.png
+│   │   ├── Square89x89Logo.png
+│   │   ├── StoreLogo.png
+│   │   ├── icon.icns
+│   │   ├── icon.ico
+│   │   ├── icon.png
+│   │   └── icon.svg
+│   ├── src/
+│   │   ├── api/
+│   │   │   ├── rest/
+│   │   │   │   ├── exchange.rs
+│   │   │   │   └── types.rs
+│   │   │   ├── detect.rs
+│   │   │   ├── mod.rs
+│   │   │   ├── rest.rs
+│   │   │   ├── token.rs
+│   │   │   └── websocket.rs
+│   │   ├── broker/
+│   │   │   ├── toss/
+│   │   │   │   ├── adapter.rs
+│   │   │   │   ├── client.rs
+│   │   │   │   ├── error.rs
+│   │   │   │   ├── http.rs
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── orders.rs
+│   │   │   │   ├── support.rs
+│   │   │   │   ├── tests.rs
+│   │   │   │   └── types.rs
+│   │   │   ├── adapter.rs
+│   │   │   ├── domain.rs
+│   │   │   ├── kis.rs
+│   │   │   ├── mod.rs
+│   │   │   └── rate_limit.rs
+│   │   ├── commands/
+│   │   │   ├── strategy_preview/
+│   │   │   │   └── tests.rs
+│   │   │   ├── toss/
+│   │   │   │   └── small_order.rs
+│   │   │   ├── trading/
+│   │   │   │   ├── history.rs
+│   │   │   │   └── risk_restore_tests.rs
+│   │   │   ├── accounts.rs
+│   │   │   ├── archive.rs
+│   │   │   ├── database.rs
+│   │   │   ├── market.rs
+│   │   │   ├── orders.rs
+│   │   │   ├── records.rs
+│   │   │   ├── risk.rs
+│   │   │   ├── settings.rs
+│   │   │   ├── strategy.rs
+│   │   │   ├── strategy_preview.rs
+│   │   │   ├── toss.rs
+│   │   │   ├── toss_market.rs
+│   │   │   └── trading.rs
+│   │   ├── config/
+│   │   │   └── mod.rs
+│   │   ├── logging/
+│   │   │   └── mod.rs
+│   │   ├── market/
+│   │   │   └── mod.rs
+│   │   ├── notifications/
+│   │   │   ├── discord.rs
+│   │   │   ├── mod.rs
+│   │   │   └── types.rs
+│   │   ├── server/
+│   │   │   ├── market.rs
+│   │   │   ├── mod.rs
+│   │   │   ├── profiles.rs
+│   │   │   ├── records.rs
+│   │   │   ├── security.rs
+│   │   │   ├── toss.rs
+│   │   │   └── trading.rs
+│   │   ├── storage/
+│   │   │   ├── balance_store.rs
+│   │   │   ├── database.rs
+│   │   │   ├── database_archive.rs
+│   │   │   ├── database_contract_tests.rs
+│   │   │   ├── database_io.rs
+│   │   │   ├── database_keychain.rs
+│   │   │   ├── database_projection.rs
+│   │   │   ├── database_schema.rs
+│   │   │   ├── database_types.rs
+│   │   │   ├── mod.rs
+│   │   │   ├── order_store.rs
+│   │   │   ├── pending_order_store.rs
+│   │   │   ├── risk_store.rs
+│   │   │   ├── stats_store.rs
+│   │   │   ├── stock_store.rs
+│   │   │   ├── strategy_store.rs
+│   │   │   └── trade_store.rs
+│   │   ├── trading/
+│   │   │   ├── order/
+│   │   │   │   ├── conflicts.rs
+│   │   │   │   ├── fills.rs
+│   │   │   │   └── submission.rs
+│   │   │   ├── strategy/
+│   │   │   │   ├── breakout.rs
+│   │   │   │   ├── classic.rs
+│   │   │   │   ├── core.rs
+│   │   │   │   ├── leveraged_trend_hold.rs
+│   │   │   │   ├── ma_cross.rs
+│   │   │   │   ├── manager.rs
+│   │   │   │   ├── mean_trend.rs
+│   │   │   │   ├── price_condition.rs
+│   │   │   │   ├── state.rs
+│   │   │   │   └── tests.rs
+│   │   │   ├── guard.rs
+│   │   │   ├── mod.rs
+│   │   │   ├── order.rs
+│   │   │   ├── position.rs
+│   │   │   ├── preflight.rs
+│   │   │   ├── risk.rs
+│   │   │   ├── simulation.rs
+│   │   │   ├── strategy.rs
+│   │   │   └── views.rs
+│   │   ├── updater/
+│   │   │   └── mod.rs
+│   │   ├── commands.rs
+│   │   ├── lib.rs
+│   │   ├── main.rs
+│   │   └── market_hours.rs
+│   ├── Cargo.lock
+│   ├── Cargo.toml
+│   ├── build.rs
+│   └── tauri.conf.json
+├── tests/
+│   └── e2e/
+│       ├── settings-database.spec.ts
+│       └── strategy-scrollbar.spec.ts
+├── .env.example
+├── .gitignore
+├── .graphifyignore
+├── .nvmrc
+├── AGENTS.md
+├── CLAUDE.md
+├── Cargo.lock
+├── Cargo.toml
+├── LICENSE
+├── README.md
+├── index.html
+├── package-lock.json
+├── package.json
+├── playwright.config.ts
+├── secure_config.example.json
+├── todo.md
+├── tsconfig.json
+├── tsconfig.node.json
+└── vite.config.ts
 ```
+<!-- project-map:generated:end -->
 
 ---
 
@@ -211,7 +490,6 @@ AutoConditionTrade/                   ← 루트
 | `api/queryKeys.ts` | TanStack Query `KEYS` 단일 원천 (`hooks.ts`에서 하위 호환 re-export) |
 | `api/backendEvents.ts` | Tauri backend event 구독 → 환율/잔고 Query 캐시 갱신 |
 | `api/databaseHooks.ts` | DB 설정/상태/이관 Tauri-only TanStack Query hooks |
-| `features/manual-order/ui/TossManualTradeVerificationPanel.tsx` | Trading/Dashboard에서 공유하는 Toss 소액 수동매매 검증 gate. `canSubmit=true`면 렌더링하지 않음 |
 | `widgets/app-shell/` | 전체 앱 레이아웃, ThemeProvider, responsive navigation, 좌측 사이드바 자동매매 시작/정지 전역 조작 |
 | `widgets/stock-chart/` | 국내/해외/Toss 캔들 차트 |
 | `pages/settings/ui/Page.tsx` | 테마, 데이터 갱신 주기, 로그/체결 보관, 웹 포트, 종목 목록, 리스크, Discord 설정 route 조립 |
@@ -220,10 +498,10 @@ AutoConditionTrade/                   ← 루트
 | `pages/settings/ui/profileDialogs.tsx` | KIS/Toss 프로파일 추가/편집, 실전/모의 감지, Toss accountSeq 조회. secret 입력 상태는 이 파일 안에만 보관 |
 | `pages/settings/ui/profileUtils.ts` | 프로파일 에러 메시지와 broker label 공통 유틸 |
 | `pages/settings/ui/section.tsx` | Settings page-local `Section` 래퍼 |
-| `pages/dashboard/ui/Page.tsx` | 활성 broker scope, KIS 국내/해외 잔고, 활성 Toss broker 보유 종목/평가 요약, Toss 자동매매 시작, Dashboard 소액매매 검증, USD/KRW 환율 출처 chip, 수익 카드, 리스크, Dashboard 라우트 조립 |
+| `pages/dashboard/ui/Page.tsx` | 활성 broker scope, KIS 국내/해외 잔고, 활성 Toss broker 보유 종목/평가 요약, Toss 자동매매 시작, 소액매매 검증 안내, USD/KRW 환율 출처 chip, 수익 카드, 리스크, Dashboard 라우트 조립 |
 | `pages/dashboard/ui/orderPanels.tsx` | Dashboard 미체결 주문과 체결 내역 필터/정렬/페이지네이션 패널 |
-| `pages/dashboard/ui/tossVerificationPanel.tsx` | Dashboard에서 종목 검색 후 Toss 1주 시장가 매수 조건으로 사전검증, 최대 허용금액, 실거래 확인을 거쳐 실제 소액매매 검증을 실행하는 패널 |
-| `pages/trading/ui/Page.tsx` | 활성 broker scope, KIS 국내/해외 수동 주문과 차트, Trading 라우트 조립 (`kisPanels.tsx`, `tossPanels.tsx`로 세부 패널 분리) |
+| `pages/dashboard/ui/tossVerificationPanel.tsx` | 활성 Toss 프로파일의 실거래 동의 상태를 표시하고 실제 주문 검증을 수행하는 수동거래 페이지로 안내 |
+| `pages/trading/ui/Page.tsx` | 활성 broker scope, KIS/Toss 수동 주문, Toss 주문 전 검증, 차트와 Trading 라우트 조립 (`kisPanels.tsx`, `tossPanels.tsx`로 세부 패널 분리) |
 | `pages/trading/ui/kisPanels.tsx` | KIS 국내/해외 보유 테이블과 KIS 현재가 카드 |
 | `pages/trading/ui/tossPanels.tsx` | 활성 Toss 프로파일의 holdings/시세 snapshot/차트/종목 유의사항/장 운영 상태, 주문 전 검증, 접수 주문 목록과 정정 UI |
 | `pages/strategy/ui/Page.tsx` | 활성 broker scope, 전략별 저장 broker/account scope 표시, 전략 활성화/대상 종목/전체 너비 카드/카드별 미리보기 route 조립 |
@@ -253,7 +531,7 @@ AutoConditionTrade/                   ← 루트
 | `commands/strategy_preview.rs` | 범용 preview는 최대 500봉·공통 warmup·candle-close replay를 제공하고 broker/account는 결과 scope 메타데이터로 보존한다. Toss 레버리지 preview는 활성 profile/account를 검증하고 1분봉 warmup을 첫 거래일 이전 완료 일봉으로 제한하며 일봉 open/EOD 공개 시점을 분리한다. 두 경로 모두 재현 메타데이터와 비용/리스크 backtest를 반환한다. |
 | `commands/strategy_preview/tests.rs` | 일봉 정보 공개 시점, session 경계, 미래 봉 변경이 이전 신호에 영향을 주지 않는 deterministic fixture |
 | `commands/toss.rs` | Toss accountSeq 조회, 연결 진단, 주문 전 preflight view facade, 접수 주문 목록 조회와 정정 command |
-| `commands/toss/small_order.rs` | Dashboard 전용 Toss 소액매매 검증. 실거래 동의/최종 확인/최대 허용금액/preflight/open-order scan 후 1주 시장가 매수 제출과 주문·체결 기록 저장 |
+| `commands/toss/small_order.rs` | 호환용 Toss 1주 소액매매 검증 endpoint. 실거래 동의/최종 확인/최대 허용금액/preflight/open-order scan 후 시장가 매수 제출과 주문·체결 기록 저장. 현재 UI는 일반 수동주문 경로를 사용 |
 | `commands/toss_market.rs` | Toss 시세 snapshot, 종목 유의사항, market-calendar override, candles chart command |
 | `commands/trading.rs` | 자동매매 상태/시작/정지, broker-aware 포지션 동기화, polling daemon. 히스토리 초기화는 `commands/trading/history.rs`로 분리 |
 | `commands/strategy.rs` | 포지션 조회, 전략 목록/수정 IPC. 전략 view는 `trading/views.rs::build_strategy_view()` 재사용 |
@@ -292,7 +570,7 @@ AutoConditionTrade/                   ← 루트
 | `server/market.rs` | 웹 REST KIS 잔고/해외잔고, broker holdings, 현재가, 주문, 차트, 종목 검색/갱신 |
 | `server/records.rs` | 웹 REST 포지션, 통계/체결 조회, pending 주문, 로그 설정/최근 로그, 체결 보관 설정/통계, 프론트엔드 로그. REST 보관 설정 변경도 IPC와 같이 즉시 purge를 예약 |
 | `server/profiles.rs` | 웹 REST 프로파일 CRUD/활성 전환/실전·모의 감지/Toss accountSeq·diagnostic. 프로파일 view는 IPC `profile_to_view()`를 재사용 |
-| `server/toss.rs` | 웹 REST Toss 시세 snapshot, 종목 유의사항, 주문 전 preflight, Dashboard 소액매매 검증, 접수 주문 조회·정정, market-calendar, candles |
+| `server/toss.rs` | 웹 REST Toss 시세 snapshot, 종목 유의사항, 주문 전 preflight, 호환용 1주 소액매매 검증 endpoint, 접수 주문 조회·정정, market-calendar, candles |
 | `server/trading.rs` | 웹 REST 자동매매 상태/시작/정지, 전략 목록/수정. 웹 start는 broker별 설정 검증, 실행 scope 설정, KIS/Toss 잔고 기반 전략 포지션 복원을 수행 |
 | `storage/trade_store.rs` | `data/trades/YYYY/MM/DD/trades.json` (`provider_*` 원본 요청 trace 포함) |
 | `storage/order_store.rs` | `data/orders/YYYY/MM/DD/orders.json` (`provider_*` 원본 주문 trace 포함) |
@@ -397,3 +675,38 @@ GitHub Copilot 호환용으로 유지하던 `.github/skills/**/SKILL.md` 원본 
 | `.codex/skills/kisautotrade-ui` | `.github/skills/ui-conventions/SKILL.md` |
 
 규칙 변경 시 브리지 파일이 아니라 저장소 원본을 수정한다. 프로젝트 위치나 폴더명이 바뀌어도 `AGENTS.md`와 `.github/skills/**` 구조가 유지되면 브리지는 그대로 동작한다. Codex 런타임이 프로젝트 스킬을 직접 읽지 못하는 경우 `scripts/sync-codex-skills.ps1`로 계정 홈에 동기화한 뒤 새 세션을 시작한다.
+
+---
+
+## 9. 프로젝트 맵 유지보수 워크플로
+
+| 목적 | 명령 |
+|------|------|
+| 전체 저장소 인벤토리 갱신 | `npm run project-map:update` |
+| 생성 결과 drift 검사 | `npm run check:project-map` |
+
+소스·설정·문서 파일을 추가, 이동, 삭제한 작업은 완료 전에
+`.github/agents/project-map-maintainer.agent.md` 역할로 문서 pass를 위임한다. 이
+에이전트는 자동 생성 블록을 갱신한 뒤 현재 diff와 모듈 책임 표, 데몬 목록,
+데이터 흐름을 비교한다. 자동 블록 밖의 설명은 실제 코드 책임이 바뀐 경우에만
+수정한다.
+
+자동 생성기는 Git 추적 파일과 `.gitignore`에 걸리지 않은 작업 트리 파일을
+수집하되 Serena 런타임 로그와 Graphify 생성물은 제외한다. 따라서
+`node_modules`, Cargo `target`, 빌드 산출물, 로컬 데이터, 민감 설정은
+프로젝트 맵에 포함하지 않는다.
+
+---
+
+## 10. 에이전트 코드 탐색 역할
+
+| 역할 | 프로젝트 파일 | 책임 |
+|---|---|---|
+| `project_mapper` | `.codex/agents/project_mapper.toml` | 전체 파일 인벤토리와 구조 설명 동기화 |
+| `symbol_navigator` | `.codex/agents/symbol_navigator.toml` | Serena 기반 정의·참조·영향 범위 추적 |
+| `helper_curator` | `.codex/agents/helper_curator.toml` | Graphify 후보 탐색과 Serena 동등성 검증 후 공용화 |
+
+Serena 설정과 공유 메모리는 `.serena/`, Graphify 코드 그래프는
+`graphify-out/`에 둔다. Graphify의 캐시·로컬 경로·분석 중간 산출물은
+Git에서 제외하고, 공유 그래프·보고서·manifest·source-hashes를 유지한다. 세 역할의 위임
+조건, 민감 파일 제외, 갱신·검증 명령은 `docs/agent-tooling.md`를 따른다.

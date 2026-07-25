@@ -55,7 +55,7 @@
 | `check_toss_order_preflight` | 활성 Toss 프로파일로 주문 전 검증 (`buyingPower`, `sellableQuantity`, `commissionRate`, `canSubmit`) |
 | `list_toss_open_orders` | 활성 Toss 프로파일의 접수/미체결 주문 목록 조회 (`status=OPEN`, 수동 주문창 표시용) |
 | `modify_toss_order` | 활성 Toss 프로파일의 접수 주문 정정 요청 (`orderId`, `orderType`, `quantity`, `price`) |
-| `submit_toss_small_buy_verification` | Dashboard 전용 Toss 소액매매 검증. 실거래 동의/최종 확인/최대 허용금액/accountSeq 일치/사전검증/미체결 scan 후 검색 종목 1주 시장가 매수를 제출하고 주문·체결 기록을 저장 |
+| `submit_toss_small_buy_verification` | 호환용 Toss 1주 소액매매 검증 endpoint. 실거래 동의/최종 확인/최대 허용금액/accountSeq 일치/사전검증/미체결 scan 후 시장가 매수를 제출하고 주문·체결 기록을 저장. 현재 UI는 일반 수동주문 경로를 사용 |
 | `get_toss_market_calendar` | 활성 Toss 프로파일로 KR/US 정규장 캘린더 조회 (`regularSession`, `isRegularOpen`) |
 | `get_toss_chart_data` | 활성 Toss 프로파일로 캔들 조회 (`1d`/`1m`, count 1~200, `ChartCandle[]`) |
 | `preview_leveraged_trend_hold` | 활성 Toss profile/account scope를 검증하고 `1m`/`1d` 20~200봉을 replay. 1분봉 warmup은 replay 시작일 이전의 완료 일봉만 사용하며 raw 신호·차트, 전체 입력 hash, 비용·환율·리스크 backtest를 반환 |

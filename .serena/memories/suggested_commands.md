@@ -1,0 +1,12 @@
+# Suggested commands
+- Frontend dev: npm run dev
+- Desktop dev: npm run tauri dev
+- Rust fast check: cd src-tauri && cargo check
+- TypeScript check: npx tsc --noEmit
+- FSD boundary check: npm run check:fsd
+- Project-map drift: npm run check:project-map; regenerate with npm run project-map:update
+- UI-risk regression: npm run test:e2e
+- Serena index refresh: serena project index .
+- Serena memory integrity: serena memories check .
+- Graphify incremental refresh: npm run graphify:update
+- Graphify refresh after symbol deletion/move: npm run graphify:refresh

@@ -1,0 +1,29 @@
+# Graphify must never index local credentials or account profiles.
+.env
+.env.*
+secure_config.json
+profiles.json
+discord_config.json
+
+# Keep generated graphs, build outputs, dependencies, and runtime data out of
+# subsequent graph rebuilds. Graphify also honors .gitignore; these entries make
+# the code-graph boundary explicit even if .gitignore changes later.
+graphify-out/
+.serena/
+.codex/
+.claude/
+.github/
+docs/
+node_modules/
+dist/
+target/
+**/target/
+src-tauri/gen/
+data/
+logs/
+test-results/
+playwright-report/
+AGENTS.md
+CLAUDE.md
+README.md
+todo.md
