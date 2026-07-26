@@ -433,7 +433,6 @@ KISAutoTrade/
 │   │   ├── lib.rs
 │   │   ├── main.rs
 │   │   └── market_hours.rs
-│   ├── Cargo.lock
 │   ├── Cargo.toml
 │   ├── build.rs
 │   └── tauri.conf.json
