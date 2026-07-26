@@ -5,6 +5,18 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '23 3 * * 1'
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - package-lock.json
+      - Cargo.toml
+      - Cargo.lock
+      - src-tauri/Cargo.toml
+      - src-tauri/Cargo.lock
+      - .github/dependabot.yml
+      - .github/workflows/security.yml
+      - scripts/verify-lockfiles.mjs
   pull_request:
     paths:
       - package.json
