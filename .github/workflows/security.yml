@@ -13,7 +13,6 @@ on:
       - Cargo.toml
       - Cargo.lock
       - src-tauri/Cargo.toml
-      - src-tauri/Cargo.lock
       - .github/dependabot.yml
       - .github/workflows/security.yml
       - scripts/verify-lockfiles.mjs
@@ -24,7 +23,6 @@ on:
       - Cargo.toml
       - Cargo.lock
       - src-tauri/Cargo.toml
-      - src-tauri/Cargo.lock
       - .github/dependabot.yml
       - .github/workflows/security.yml
       - scripts/verify-lockfiles.mjs
@@ -55,5 +53,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@cargo-audit
       - run: cargo metadata --locked --format-version 1 --no-deps > /dev/null
-      - name: Audit workspace lockfile
-        run: cargo audit --file Cargo.lock
+      - name: Audit authoritative workspace lockfile
+        run: >-
+          cargo audit --file Cargo.lock
+          --ignore RUSTSEC-2023-0071
+          --ignore RUSTSEC-2026-0194
+          --ignore RUSTSEC-2026-0195

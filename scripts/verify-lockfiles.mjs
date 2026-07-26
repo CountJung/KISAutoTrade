@@ -11,9 +11,7 @@ const fail = (message) => {
   process.exitCode = 1;
 };
 
-const cargoLockfiles = ['Cargo.lock', 'src-tauri/Cargo.lock'];
-
-for (const file of ['package.json', 'package-lock.json', 'Cargo.toml', ...cargoLockfiles]) {
+for (const file of ['package.json', 'package-lock.json', 'Cargo.toml', 'Cargo.lock']) {
   if (!existsSync(path.join(rootDir, file))) fail(`missing ${file}`);
 }
 if (process.exitCode) process.exit();
@@ -44,13 +42,9 @@ for (const section of ['dependencies', 'devDependencies']) {
 }
 
 const escapedName = pkg.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-for (const lockfile of cargoLockfiles) {
-  const cargoLock = readFileSync(path.join(rootDir, lockfile), 'utf8');
-  if (!/^version = [34]$/m.test(cargoLock)) fail(`${lockfile} must use Cargo lockfile format 3 or 4`);
-  if (!/\[\[package\]\]/.test(cargoLock)) fail(`${lockfile} contains no packages`);
-}
-
 const workspaceLock = readFileSync(path.join(rootDir, 'Cargo.lock'), 'utf8');
+if (!/^version = [34]$/m.test(workspaceLock)) fail('Cargo.lock must use Cargo lockfile format 3 or 4');
+if (!/\[\[package\]\]/.test(workspaceLock)) fail('Cargo.lock contains no packages');
 const appEntry = new RegExp(`\\[\\[package\\]\\]\\r?\\nname = "${escapedName}"\\r?\\nversion = "([^"]+)"`).exec(workspaceLock);
 if (!appEntry) fail(`Cargo.lock is missing package ${pkg.name}`);
 if (appEntry?.[1] !== pkg.version) {
@@ -58,5 +52,5 @@ if (appEntry?.[1] !== pkg.version) {
 }
 
 if (!process.exitCode) {
-  console.log(`Lockfiles OK: npm v${npmLock.lockfileVersion}, ${cargoLockfiles.join(' + ')}, app ${pkg.version}`);
+  console.log(`Lockfiles OK: npm v${npmLock.lockfileVersion}, workspace Cargo.lock, app ${pkg.version}`);
 }

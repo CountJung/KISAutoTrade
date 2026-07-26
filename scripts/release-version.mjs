@@ -72,7 +72,6 @@ const versionFiles = [
   'src-tauri/tauri.conf.json',
   'src-tauri/Cargo.toml',
   'Cargo.lock',
-  'src-tauri/Cargo.lock',
 ].filter((filePath) => existsSync(filePath));
 
 if (!options.noGit && !options.dryRun) {
@@ -165,15 +164,13 @@ function syncVersionFiles(nextVersion) {
     'src-tauri/Cargo.toml package version',
   ), changed);
 
-  for (const lockFile of ['Cargo.lock', 'src-tauri/Cargo.lock']) {
-    updateTextFile(lockFile, (content) => replaceFirst(
-      content,
-      new RegExp(`(\\[\\[package\\]\\]\\r?\\nname = "${escapeRegExp(appName)}"\\r?\\nversion = ")[^"]+(")`),
-      `$1${nextVersion}$2`,
-      `${lockFile} ${appName} package version`,
-      { optional: true },
-    ), changed);
-  }
+  updateTextFile('Cargo.lock', (content) => replaceFirst(
+    content,
+    new RegExp(`(\\[\\[package\\]\\]\\r?\\nname = "${escapeRegExp(appName)}"\\r?\\nversion = ")[^"]+(")`),
+    `$1${nextVersion}$2`,
+    `Cargo.lock ${appName} package version`,
+    { optional: true },
+  ), changed);
 
   return changed;
 }
