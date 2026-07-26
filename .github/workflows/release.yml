@@ -17,7 +17,14 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
+  release-gate:
+    uses: ./.github/workflows/release-gate.yml
+
+  dependency-security:
+    uses: ./.github/workflows/security.yml
+
   database-contract:
+    needs: [release-gate, dependency-security]
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -100,8 +107,8 @@ jobs:
         run: brew install pkg-config
 
       # ── npm 의존성 설치 ───────────────────────────────────────
-      - name: Install frontend dependencies
-        run: npm install
+      - name: Install frontend dependencies (locked)
+        run: npm ci --ignore-scripts
 
       # ── Tauri 빌드 & 릴리즈 업로드 ───────────────────────────
       - name: Build and release
@@ -131,3 +138,35 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.tauri-args }}
+
+  release-integrity:
+    needs: build-tauri
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REQUIRE_RELEASE_SIGNATURES: ${{ vars.REQUIRE_RELEASE_SIGNATURES }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Download draft release assets
+        run: gh release download "${GITHUB_REF_NAME}" --dir release-assets
+      - name: Verify artifacts and create checksums
+        shell: bash
+        run: |
+          args=(--dir release-assets)
+          if [[ "${REQUIRE_RELEASE_SIGNATURES}" == "true" ]]; then
+            args+=(--require-signatures)
+          fi
+          npm run verify:release-artifacts -- "${args[@]}"
+      - name: Attest installer provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-checksums: release-assets/SHA256SUMS
+      - name: Upload integrity metadata
+        run: gh release upload "${GITHUB_REF_NAME}" release-assets/SHA256SUMS release-assets/release-artifacts.json --clobber

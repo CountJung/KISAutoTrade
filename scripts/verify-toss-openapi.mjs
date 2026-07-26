@@ -38,16 +38,33 @@ function fail(message) {
   process.exitCode = 1;
 }
 
-const response = await fetch(SPEC_URL, {
-  headers: { accept: 'application/json' },
-});
+let response;
+try {
+  response = await fetch(SPEC_URL, {
+    headers: { accept: 'application/json' },
+    signal: AbortSignal.timeout(30_000),
+  });
+} catch (error) {
+  fail(`could not fetch ${SPEC_URL}: ${error.message}`);
+  process.exit();
+}
 
 if (!response.ok) {
   fail(`HTTP ${response.status} while fetching ${SPEC_URL}`);
   process.exit();
 }
 
-const spec = await response.json();
+let spec;
+try {
+  spec = await response.json();
+} catch (error) {
+  fail(`response is not valid JSON: ${error.message}`);
+  process.exit();
+}
+
+if (!/^3\.(0|1)\./.test(spec.openapi ?? '')) {
+  fail(`unsupported or missing OpenAPI version: ${spec.openapi ?? '(missing)'}`);
+}
 const paths = Object.keys(spec.paths ?? {});
 const servers = (spec.servers ?? []).map((server) => server.url);
 const missingPaths = EXPECTED_PATHS.filter((path) => !paths.includes(path));

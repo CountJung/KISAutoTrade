@@ -27,6 +27,8 @@
     "test:e2e": "playwright test",
     "verify:toss-openapi": "node scripts/verify-toss-openapi.mjs",
     "test:toss-openapi": "node scripts/verify-toss-openapi.mjs",
+    "check:lockfiles": "node scripts/verify-lockfiles.mjs",
+    "verify:release-artifacts": "node scripts/verify-release-artifacts.mjs",
     "sync:codex-skills": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-codex-skills.ps1"
   },
   "dependencies": {

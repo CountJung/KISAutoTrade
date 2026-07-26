@@ -72,9 +72,12 @@ KISAutoTrade/
 │   │   └── ui-conventions/
 │   │       └── SKILL.md
 │   ├── workflows/
-│   │   └── release.yml
+│   │   ├── release-gate.yml
+│   │   ├── release.yml
+│   │   └── security.yml
 │   ├── codex-instructions.md
-│   └── copilot-instructions.md
+│   ├── copilot-instructions.md
+│   └── dependabot.yml
 ├── .serena/
 │   ├── memories/
 │   │   ├── backend/
@@ -102,6 +105,7 @@ KISAutoTrade/
 │   ├── leveraged-trend-hold-parameter-guide.md
 │   ├── mock-trading-e2e-checklist.md
 │   ├── project-map.md
+│   ├── release-security.md
 │   ├── toss-openapi.md
 │   ├── toss-readonly-small-order-checklist.md
 │   └── user-guide.md
@@ -112,6 +116,8 @@ KISAutoTrade/
 │   ├── release-version.mjs
 │   ├── setup-local.sh
 │   ├── sync-codex-skills.ps1
+│   ├── verify-lockfiles.mjs
+│   ├── verify-release-artifacts.mjs
 │   └── verify-toss-openapi.mjs
 ├── src/
 │   ├── api/

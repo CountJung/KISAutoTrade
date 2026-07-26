@@ -1,0 +1,47 @@
+name: Dependency Security
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 3 * * 1'
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+      - Cargo.toml
+      - Cargo.lock
+      - src-tauri/Cargo.toml
+      - src-tauri/Cargo.lock
+      - .github/dependabot.yml
+      - .github/workflows/security.yml
+      - scripts/verify-lockfiles.mjs
+
+permissions:
+  contents: read
+
+jobs:
+  npm-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check:lockfiles
+      - name: 운영 의존성 high/critical 차단
+        run: npm audit --omit=dev --audit-level=high
+      - name: 전체 의존성 critical 차단
+        run: npm audit --audit-level=critical
+
+  cargo-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@cargo-audit
+      - run: cargo metadata --locked --format-version 1 --no-deps > /dev/null
+      - name: Audit workspace lockfile
+        run: cargo audit --file Cargo.lock

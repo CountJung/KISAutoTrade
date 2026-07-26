@@ -38,14 +38,15 @@
   - `src-tauri/src/trading/order.rs`: facade를 낮추고 남은 helper/state 책임 분리.
   - 검증: 변경 파일과 신규 파일은 1,000라인 아래, FSD/API public surface와 IPC 이름은 유지한다.
 
-- [ ] 핵심 거래 흐름의 자동화 테스트를 release gate로 승격한다.
+- [x] 핵심 거래 흐름의 자동화 테스트를 release gate로 승격한다.
   - broker mock 기반 제출→부분체결→완전체결→취소/거부→재시작 복구 테스트를 추가한다.
   - balance fail-closed, scope 전환, midnight rollover, manual/auto parity, 인증 없는 REST 거부를 포함한다.
   - `cargo check`, `cargo test`, `npx tsc --noEmit`, `npm run check:fsd`, `npm run test:e2e`, OpenAPI 검증을 CI에서 실행한다.
 
-- [ ] 의존성·릴리스 보안 점검을 자동화한다.
+- [x] 의존성·릴리스 보안 점검을 자동화한다.
   - `cargo audit`와 npm audit 정책, Dependabot/Renovate, lockfile 검증을 CI에 추가한다.
   - release artifact 서명/해시와 updater 경로를 검증하고, 실패 시 사용자가 확인할 수 있게 한다.
+  - `release-gate.yml`, `security.yml`, Dependabot, 추적 lockfile 검증, SHA-256/attestation 및 detached signature 준비 검증으로 반영했다. 실제 플랫폼 코드 서명/updater 서명 강제는 배포 키 준비 후 `REQUIRE_RELEASE_SIGNATURES=true`로 전환한다.
 
 - [ ] 사용자 가이드를 broker별 실제 지원 범위와 일치시킨다.
   - KIS 전용 소개를 KIS/Toss 공통 기능, broker별 주문·시세·자동매매 제한 표로 교체한다.
