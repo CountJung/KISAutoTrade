@@ -436,6 +436,8 @@ KISAutoTrade/
 │   ├── Cargo.toml
 │   ├── build.rs
 │   └── tauri.conf.json
+├── tasks/
+│   └── TASK_TEMPLATE.md
 ├── tests/
 │   └── e2e/
 │       ├── settings-database.spec.ts
@@ -445,10 +447,14 @@ KISAutoTrade/
 ├── .graphifyignore
 ├── .nvmrc
 ├── AGENTS.md
+├── ARCHITECTURE.md
 ├── CLAUDE.md
 ├── Cargo.lock
 ├── Cargo.toml
+├── HARNESS_MAP.md
 ├── LICENSE
+├── MASTER_PLAN.html
+├── PROJECT_MAP.md
 ├── README.md
 ├── index.html
 ├── package-lock.json

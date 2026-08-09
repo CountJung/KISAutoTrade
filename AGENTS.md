@@ -84,3 +84,14 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 | 2026-07-12 | broker rate limit을 credential scope 공유로 통합, KIS timeout/응답 상한과 운영 상태 노출 추가 |
 | 2026-07-12 | DB password OS keychain 이전과 PostgreSQL 실서버 contract test 추가 |
 | 2026-07-12 | 주문/체결 기록에 broker/account scope 저장, 리스크 복원·포지션 트래커를 scope별 격리 |
+## 운영 문서 스택
+
+작업 전 변경 성격에 맞춰 다음 루트 문서를 함께 확인한다.
+
+- [`MASTER_PLAN.html`](MASTER_PLAN.html): 사람용 단계 계획과 금융 안전 게이트
+- [`PROJECT_MAP.md`](PROJECT_MAP.md): 작업별 시작 파일과 핵심 경로
+- [`ARCHITECTURE.md`](ARCHITECTURE.md): React/Tauri/Axum/주문·리스크·저장 경계
+- [`HARNESS_MAP.md`](HARNESS_MAP.md): 변경 유형별 검증 명령
+- [`tasks/TASK_TEMPLATE.md`](tasks/TASK_TEMPLATE.md): 범위·위험·완료 조건·검증 기록 템플릿
+
+기존 상세 자료인 `docs/project-map.md`, `docs/agent-tooling.md`, `docs/ipc-commands.md`, `docs/coding-guide.md`는 계속 유효하다. Serena는 공용 타입, IPC, 주문, 리스크의 실제 참조 범위를 확인해야 할 때만 사용하고, Graphify는 호출 계층이나 공용 helper를 바꾸는 구조 리팩터링 때만 사용한다. 금융 안전 규칙과 provider 경계는 도구 사용 여부와 관계없이 항상 우선한다.
