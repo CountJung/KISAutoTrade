@@ -1,8 +1,20 @@
-use anyhow::anyhow;
 use reqwest::{header::HeaderMap, StatusCode};
 use serde::Deserialize;
 
 use super::http::body_snippet;
+
+#[derive(Debug, thiserror::Error)]
+#[error("{message}")]
+pub(crate) struct TossHttpError {
+    pub status: StatusCode,
+    message: String,
+}
+
+pub(crate) fn definitively_rejected(error: &anyhow::Error) -> bool {
+    error
+        .downcast_ref::<TossHttpError>()
+        .is_some_and(|error| matches!(error.status.as_u16(), 400 | 401 | 403 | 404 | 405 | 422))
+}
 
 #[derive(Debug, Deserialize)]
 struct TossErrorResponse {
@@ -39,7 +51,7 @@ pub(super) fn format_toss_error(
             .data
             .as_ref()
             .map(|value| body_snippet(&value.to_string()));
-        return anyhow!(
+        return TossHttpError { status, message: format!(
             "{context}: HTTP {status}; code={}; message={}; request_id={:?}; header_request_id={:?}; retry_after={:?}; data={:?}",
             parsed.error.code,
             body_snippet(&parsed.error.message),
@@ -47,13 +59,17 @@ pub(super) fn format_toss_error(
             request_id,
             retry_after,
             data
-        );
+        ) }.into();
     }
 
-    anyhow!(
-        "{context}: HTTP {status}; request_id={:?}; retry_after={:?}; body={}",
-        request_id,
-        retry_after,
-        body_snippet(text)
-    )
+    TossHttpError {
+        status,
+        message: format!(
+            "{context}: HTTP {status}; request_id={:?}; retry_after={:?}; body={}",
+            request_id,
+            retry_after,
+            body_snippet(text)
+        ),
+    }
+    .into()
 }

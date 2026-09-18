@@ -553,10 +553,10 @@ pub(crate) fn persist_web_config(
     let mut lines: Vec<String> = existing
         .lines()
         .filter(|line| {
-            !line.starts_with("WEB_PORT=")
-                && !line.starts_with("WEB_ALLOW_LAN=")
-                && !(dist_path.is_some() && line.starts_with("DIST_PATH="))
-                && !(supplied_token.is_some() && line.starts_with("WEB_API_TOKEN="))
+            !(line.starts_with("WEB_PORT=")
+                || line.starts_with("WEB_ALLOW_LAN=")
+                || (dist_path.is_some() && line.starts_with("DIST_PATH="))
+                || (supplied_token.is_some() && line.starts_with("WEB_API_TOKEN=")))
         })
         .map(String::from)
         .collect();

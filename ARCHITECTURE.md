@@ -147,3 +147,12 @@ UI/전략 Signal
 ## 11. 변경 도구와 검증
 
 공용 타입·IPC·주문·리스크처럼 영향 범위가 넓을 때 정의/참조 누락 방지를 위해 Serena를 선택 사용할 수 있다. Graphify는 모듈 이동, helper 공용화, 호출 계층 재편 같은 구조 리팩터링 때만 사용한다. 검증 선택표는 [`HARNESS_MAP.md`](HARNESS_MAP.md)를 따른다.
+
+
+## 자동매매 예산 경계
+
+`trading/order/budget.rs`는 broker/account와 KRW/USD별 배정·현금·소유수량·예약 원장을 담당한다. `orders/auto_trading_budget.json`을 공통 managed storage 경계로 읽고 쓴다. 과거 백업으로 자금이 되돌아가지 않도록 원장 JSON 파싱 실패 시 자동 복구를 하지 않는다.
+
+`submit_order_shared`는 manager 잠금 내에서 예산 intent를 영속화한 뒤 provider에 제출한다. 부분체결은 누적 수량/금액으로 멱등 적용하고, terminal 표식을 pending 제거 이전에 저장해 중간 종료를 복구한다. 확정 주문 거절만 예약을 해제하며 transport/파싱 실패와 애매한 HTTP 결과는 예약을 유지한다. 매수만 지정가로 제한하고 기존 자동매도 주문 유형을 보존한다. 예산은 위험 관리 비활성화로 우회되지 않는다.
+
+`leveraged_trend_hold/bollinger.rs`는 기존 전략 내부 필터다. 별도의 분봉 버퍼로 일봉 warmup 혼합을 막고, 세 진입 경로와 기존 청산 처리에 연결된다. 새로운 strategy ID는 없다.

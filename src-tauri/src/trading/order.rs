@@ -39,7 +39,9 @@ use crate::{
     },
 };
 
+mod budget;
 mod conflicts;
+pub use budget::{AutoTradingBudgetView, BudgetCurrencyView};
 mod fills;
 mod submission;
 
@@ -119,6 +121,7 @@ pub struct OrderManager {
     // ── ② 미체결 주문 풀 ────────────────────────────────────────────
     /// KIS odno → PendingOrder
     pending: HashMap<String, PendingOrder>,
+    budget: Option<budget::BudgetLedger>,
 
     // ── ③ 중복 방지 인덱스 ─────────────────────────────────────────
     /// symbol → odno (미체결 주문이 있는 종목)
@@ -177,6 +180,7 @@ impl OrderManager {
     ) -> Self {
         Self {
             pending: HashMap::new(),
+            budget: None,
             symbol_to_odno: HashMap::new(),
             submitting: HashMap::new(),
             modifying: std::collections::HashSet::new(),
@@ -235,10 +239,8 @@ impl OrderManager {
         self.health.last_holdings_sync_attempt_at = Some(now.clone());
         self.health.last_holdings_sync_error = error.clone();
         if let Some(error) = error {
-            self.health.holdings_consecutive_failures = self
-                .health
-                .holdings_consecutive_failures
-                .saturating_add(1);
+            self.health.holdings_consecutive_failures =
+                self.health.holdings_consecutive_failures.saturating_add(1);
             self.health.daemon_last_error = Some(error);
         } else {
             self.health.last_holdings_sync_at = Some(now);
@@ -260,7 +262,11 @@ impl OrderManager {
             self.health.daemon_last_error = Some(error);
             if self.health.reconciliation_consecutive_failures == 3 {
                 if let Some(discord) = self.discord.clone() {
-                    let detail = self.health.last_reconciliation_error.clone().unwrap_or_default();
+                    let detail = self
+                        .health
+                        .last_reconciliation_error
+                        .clone()
+                        .unwrap_or_default();
                     tokio::spawn(async move {
                         let _ = discord
                             .send(NotificationEvent::error(
@@ -315,6 +321,11 @@ impl OrderManager {
         exchange: Option<String>,
         tick_price: u64,
     ) -> Result<()> {
+        if !matches!(signal, Signal::Hold) {
+            anyhow::bail!(
+                "자동매매 주문은 전용 예산을 검증하는 submit_signal_shared 경로를 사용해야 합니다."
+            );
+        }
         let broker_scope = self.execution_scope.clone();
         let (held_quantity, avg_price) = match &signal {
             Signal::Buy { symbol, .. } | Signal::Sell { symbol, .. } => {
@@ -436,19 +447,12 @@ impl OrderManager {
         provider_status: &str,
         error_message: Option<String>,
     ) -> Result<()> {
-        let Some(pending) = self.pending.remove(odno) else {
+        let Some(pending) = self.pending.get(odno).cloned() else {
             return Ok(());
         };
 
-        self.symbol_to_odno.remove(&pending.record.symbol);
-
-        if let Err(error) = self.persist_pending_orders().await {
-            self.track_pending_order(odno.to_string(), pending.clone());
-            return Err(error);
-        }
-
         let pending_for_restore = pending.clone();
-        let mut record = pending.record;
+        let mut record = pending.record.clone();
         record.status = status;
         record.error_message = error_message.or_else(|| {
             matches!(
@@ -468,6 +472,15 @@ impl OrderManager {
                 "주문 terminal 상태 영속화 실패 ({provider_status}): {e}"
             ));
             return Err(e);
+        }
+
+        self.release_budget(&pending).await?;
+        self.pending.remove(odno);
+        self.symbol_to_odno.remove(&pending.record.symbol);
+        if let Err(error) = self.persist_pending_orders().await {
+            self.track_pending_order(odno.to_string(), pending.clone());
+            self.block_for_persistence_failure(format!("주문 완료 저장 실패: {error}"));
+            return Err(error);
         }
 
         tracing::info!(
@@ -644,6 +657,15 @@ impl OrderManager {
     pub fn begin_pending_modification(&mut self, order_id: &str) -> Result<bool> {
         if !self.pending.contains_key(order_id) {
             return Ok(false);
+        }
+        if self
+            .pending
+            .get(order_id)
+            .is_some_and(|p| p.record.id.starts_with("auto-budget-"))
+        {
+            anyhow::bail!(
+                "자동매매 전용 예산 주문은 정정할 수 없습니다. 취소 후 새 주문을 사용하세요."
+            );
         }
         if !self.modifying.insert(order_id.to_string()) {
             anyhow::bail!("이미 정정 또는 취소 처리 중인 주문입니다: {order_id}");
@@ -1063,7 +1085,7 @@ impl OrderManager {
         let mut record = OrderRecord::new(
             symbol.clone(),
             symbol_name,
-            side.clone(),
+            side,
             quantity,
             order_price,
             if exchange.is_some() {

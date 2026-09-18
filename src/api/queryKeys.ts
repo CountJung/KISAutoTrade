@@ -38,6 +38,8 @@ export const KEYS = {
   tossOpenOrders: (symbol?: string | null) => ['tossOpenOrders', symbol ?? 'all'] as const,
   tossMarketCalendar: ['tossMarketCalendar'] as const,
   riskConfig: ['riskConfig'] as const,
+  autoTradingBudget: (brokerId?: string, accountId?: string) =>
+    ['autoTradingBudget', brokerId ?? '', accountId ?? ''] as const,
   pendingOrders: ['pendingOrders'] as const,
   tradeArchiveConfig: ['tradeArchiveConfig'] as const,
   tradeArchiveStats: ['tradeArchiveStats'] as const,

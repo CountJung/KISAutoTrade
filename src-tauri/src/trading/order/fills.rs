@@ -161,6 +161,14 @@ impl OrderManager {
             cumulative_filled,
         );
 
+        if let Err(error) = self
+            .apply_budget_fill(&pending, cumulative_filled, cumulative_notional)
+            .await
+        {
+            self.block_for_persistence_failure(format!("자동매매 예산 체결 반영 실패: {error}"));
+            return Err(error);
+        }
+
         if is_sell {
             if first_application && self.buy_suspended && !self.persistence_blocked {
                 self.buy_suspended = false;
@@ -354,6 +362,9 @@ impl OrderManager {
         {
             self.block_for_persistence_failure(format!("주문 상태 전이 영속화 실패: {error}"));
             return Err(error);
+        }
+        if is_complete {
+            self.release_budget(&pending).await?;
         }
         if let Err(error) = self.persist_pending_orders().await {
             self.block_for_persistence_failure(format!("체결 watermark 영속화 실패: {error}"));
@@ -619,7 +630,7 @@ async fn collect_kis_pending_fills(
         .iter()
         .map(|(_, _, date)| date.as_str())
         .min()
-        .unwrap_or_else(|| "");
+        .unwrap_or("");
     let today = chrono::Local::now().format("%Y%m%d").to_string();
 
     if pending
@@ -913,6 +924,49 @@ fn overseas_order_terminal_status(
     }
 }
 
+fn storage_money_units(value: &str, currency: &str) -> u64 {
+    let parsed = value
+        .trim()
+        .replace(',', "")
+        .parse::<f64>()
+        .unwrap_or(0.0)
+        .max(0.0);
+    if currency.eq_ignore_ascii_case("USD") {
+        (parsed * 100.0).round() as u64
+    } else {
+        parsed.round() as u64
+    }
+}
+
+/// 국내주식 매매 수수료 추정
+///
+/// # 구성 (2024~2025년 기준)
+/// - 위탁수수료: 0.015% (매수·매도 모두)
+/// - 증권거래세: 0.20% (매도 시에만, 코스피/코스닥 모두 동일 적용)
+///
+/// KIS API(`TTTC8001R`)는 체결 건별(output1) 수수료를 제공하지 않으며
+/// output2 합산(`prsm_tlex_smtl`) 에만 전체 기간 추정제비용이 있다.
+/// 따라서 체결 시 표준 수수료율로 추정한 값을 로컬에 기록한다.
+fn calculate_domestic_fee(price: u64, quantity: u64, is_sell: bool) -> u64 {
+    let total = price * quantity;
+    let commission = (total as f64 * 0.00015) as u64;
+    let transaction_tax = if is_sell {
+        (total as f64 * 0.002) as u64
+    } else {
+        0
+    };
+    commission + transaction_tax
+}
+
+/// 해외주식 매매 수수료 추정.
+///
+/// KIS 해외 잔고/체결 API는 건별 수수료를 제공하지 않으므로 자동매매 guard의
+/// 기본 해외 비용 추정치와 같은 10bps(0.10%)를 사용한다. 금액 단위는 USD cents.
+fn calculate_overseas_fee_cents(price_cents: u64, quantity: u64) -> u64 {
+    let total_cents = price_cents.saturating_mul(quantity);
+    ((total_cents as f64) * 0.001).ceil() as u64
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -993,47 +1047,4 @@ mod tests {
         );
         assert_eq!(provider_terminal_status("PENDING"), None);
     }
-}
-
-fn storage_money_units(value: &str, currency: &str) -> u64 {
-    let parsed = value
-        .trim()
-        .replace(',', "")
-        .parse::<f64>()
-        .unwrap_or(0.0)
-        .max(0.0);
-    if currency.eq_ignore_ascii_case("USD") {
-        (parsed * 100.0).round() as u64
-    } else {
-        parsed.round() as u64
-    }
-}
-
-/// 국내주식 매매 수수료 추정
-///
-/// # 구성 (2024~2025년 기준)
-/// - 위탁수수료: 0.015% (매수·매도 모두)
-/// - 증권거래세: 0.20% (매도 시에만, 코스피/코스닥 모두 동일 적용)
-///
-/// KIS API(`TTTC8001R`)는 체결 건별(output1) 수수료를 제공하지 않으며
-/// output2 합산(`prsm_tlex_smtl`) 에만 전체 기간 추정제비용이 있다.
-/// 따라서 체결 시 표준 수수료율로 추정한 값을 로컬에 기록한다.
-fn calculate_domestic_fee(price: u64, quantity: u64, is_sell: bool) -> u64 {
-    let total = price * quantity;
-    let commission = (total as f64 * 0.00015) as u64;
-    let transaction_tax = if is_sell {
-        (total as f64 * 0.002) as u64
-    } else {
-        0
-    };
-    commission + transaction_tax
-}
-
-/// 해외주식 매매 수수료 추정.
-///
-/// KIS 해외 잔고/체결 API는 건별 수수료를 제공하지 않으므로 자동매매 guard의
-/// 기본 해외 비용 추정치와 같은 10bps(0.10%)를 사용한다. 금액 단위는 USD cents.
-fn calculate_overseas_fee_cents(price_cents: u64, quantity: u64) -> u64 {
-    let total_cents = price_cents.saturating_mul(quantity);
-    ((total_cents as f64) * 0.001).ceil() as u64
 }

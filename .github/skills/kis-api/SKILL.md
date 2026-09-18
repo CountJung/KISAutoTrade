@@ -1725,3 +1725,10 @@ UI에서 해외 종목 추가 시 `is_overseas: market === 'US'` 자동 설정 (
 - 다음 틱에서 `in_position = true` → 매수 신호 스킵 → **중복 매수 방지**
 - 매도 신호 발생 → `in_position = false`, `entry_price = None` 즉시
 - on_tick은 동기 함수 내에서 flag 설정하므로 race condition 없음
+
+
+### 자동 주문 예산 오류 구분 (2026-09-11)
+
+기존 주문 응답의 `rt_cd != "0"` 분기는 `KisOrderRejected` 내부 타입으로 전달해, 네트워크/응답 파싱 오류와 구분한다. 예산 예약 해제는 이 확정 거절에만 적용한다. wire 필드·TR-ID는 변경하지 않는다. 자동매수는 지정가, 기존 매도 유형은 유지한다.
+
+마지막 업데이트: 2026-09-11

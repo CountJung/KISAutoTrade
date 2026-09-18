@@ -325,8 +325,7 @@ impl Strategy for ConsecutiveMoveStrategy {
         if !self.config.targets_symbol(symbol) {
             return;
         }
-        let cap =
-            bounded_window_with_extra(self.params.buy_days.max(self.params.sell_days) as usize, 1);
+        let cap = bounded_window_with_extra(self.params.buy_days.max(self.params.sell_days), 1);
         self.states
             .entry(symbol.to_string())
             .or_insert_with(|| ConsecutiveMoveState {
@@ -486,7 +485,7 @@ impl Strategy for FailedBreakoutStrategy {
         if !self.config.targets_symbol(symbol) {
             return;
         }
-        let lookback = bounded_window(self.params.lookback_days as usize);
+        let lookback = bounded_window(self.params.lookback_days);
         let state = self
             .states
             .entry(symbol.to_string())

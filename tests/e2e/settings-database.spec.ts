@@ -1,10 +1,25 @@
 import { expect, test } from '@playwright/test'
 
 async function mockSettingsApi(page: import('@playwright/test').Page) {
+  const budget = {
+    scope: { brokerId: 'kis', accountId: '12345678-01' },
+    krw: { allocatedAmount: 0, cashAmount: 0, reservedAmount: 0, availableAmount: 0, ownedPositionCount: 0, blockedReason: null, feeBufferBps: 100 },
+    usd: { allocatedAmount: 0, cashAmount: 0, reservedAmount: 0, availableAmount: 0, ownedPositionCount: 0, blockedReason: null, feeBufferBps: 100 },
+  }
   await page.route('**/api/**', async (route) => {
     const path = new URL(route.request().url()).pathname
     if (!path.startsWith('/api/')) {
       await route.fallback()
+      return
+    }
+    if (path === '/api/auto-trading-budget') {
+      if (route.request().method() === 'POST') {
+        const input = route.request().postDataJSON()
+        for (const [key, value] of [['krw', input.krwAmount], ['usd', input.usdAmount]] as const) {
+          budget[key] = { ...budget[key], allocatedAmount: value, cashAmount: value, availableAmount: value }
+        }
+      }
+      await route.fulfill({ json: budget })
       return
     }
     const payloads: Record<string, unknown> = {
@@ -91,4 +106,39 @@ test('Database Settings safety notice does not overflow a narrow viewport', asyn
   await expect(page.getByText(/Tauri 데스크톱 앱 Settings에서만/)).toBeVisible()
   const metrics = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, width: window.innerWidth }))
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.width)
+})
+
+test('Dedicated trading budget saves scoped KRW and USD cents and validates input', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await mockSettingsApi(page)
+  await page.goto('/settings')
+  const krw = page.getByLabel('자동매매 원화 배정액 (원)')
+  const usd = page.getByLabel('자동매매 달러 배정액 (USD)')
+  const save = page.getByRole('button', { name: '자동매매 예산 저장' })
+  await expect(krw).toHaveValue('0')
+  await expect(save).toBeDisabled()
+  await krw.fill('-1')
+  await expect(save).toBeDisabled()
+  await krw.fill('1000000')
+  await usd.fill('100.501')
+  await expect(save).toBeDisabled()
+  await usd.fill('100.50')
+  const request = page.waitForRequest((r) => r.url().includes('/api/auto-trading-budget') && r.method() === 'POST')
+  await save.click()
+  expect((await request).postDataJSON()).toEqual({ brokerId: 'kis', brokerAccountId: '12345678-01', krwAmount: 1000000, usdAmount: 10050 })
+  await expect(page.getByText('자동매매 예산을 저장했습니다.')).toBeVisible()
+  await expect(page.getByText('사용 가능액: ₩1,000,000')).toBeVisible()
+  await page.reload()
+  await expect(krw).toHaveValue('1000000')
+  await expect(usd).toHaveValue('100.50')
+  const metrics = await page.evaluate(() => ({ width: window.innerWidth, content: document.documentElement.scrollWidth }))
+  expect(metrics.content).toBeLessThanOrEqual(metrics.width)
+})
+
+test('Dedicated budget cannot be changed while trading or when status is unavailable', async ({ page }) => {
+  await mockSettingsApi(page)
+  await page.route('**/api/trading/status', (route) => route.fulfill({ json: { isRunning: true } }))
+  await page.goto('/settings')
+  await expect(page.getByLabel('자동매매 원화 배정액 (원)')).toBeDisabled()
+  await expect(page.getByRole('button', { name: '자동매매 예산 저장' })).toBeDisabled()
 })

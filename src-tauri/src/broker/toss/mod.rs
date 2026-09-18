@@ -1,6 +1,6 @@
 mod adapter;
 mod client;
-mod error;
+pub(crate) mod error;
 mod http;
 mod orders;
 mod support;

@@ -35,14 +35,14 @@ description: "토스증권 Open API 전용 스킬. Toss OpenAPI JSON, OAuth2 Cli
 npm run verify:toss-openapi
 ```
 
-2026-07-07 확인 기준:
+2026-09-11 확인 기준:
 
 | 항목 | 값 |
 |------|----|
 | title | `토스증권 Open API` |
-| version | `1.2.2` |
+| version | `1.2.15` |
 | base URL | `https://openapi.tossinvest.com` |
-| paths | 27 |
+| paths | 33 |
 
 ## Authentication
 
@@ -130,3 +130,10 @@ npm run verify:toss-openapi
 - Toss 모듈 내부 DTO/validation/helper는 외부 API가 아니면 `pub(super)`로 열고, 앱 외부에서 필요한 타입과 client/adapter만 `mod.rs`에서 re-export한다.
 
 > 마지막 업데이트: 2026-07-15T00:00:00+09:00
+
+
+2026-09-11 공식 스펙 검증: v1.2.15, 33 paths. 기존 27개에 `/api/v1/stocks/all` 및 `/api/v1/stocks/{symbol}/investor-trading`, `program-trades`, `short-selling`, `credit-trades`, `securities-lending` GET 경로가 추가되어 inventory 검증 기준을 갱신했다. 추가 경로의 앱 기능은 이 변경에 포함하지 않는다.
+
+자동매매 예산: Toss HTTP 오류는 상태 코드를 보존하는 내부 타입으로 전달한다. 400/401/403/404/405/422만 확정 거절로 예약을 해제하며 408/409/429/5xx, transport/응답 파싱 실패는 보류한다. 자동 예산 주문은 정정 차단, 자동매수 지정가, 수동/자동 소유수량 분리를 유지한다.
+
+마지막 업데이트: 2026-09-11

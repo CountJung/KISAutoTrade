@@ -3,6 +3,13 @@
  * 모든 커맨드 호출 시 에러를 타입 안전하게 처리합니다.
  */
 import { invoke } from './transport'
+import type { AutoTradingBudgetInput, AutoTradingBudgetView, UpdateAutoTradingBudgetInput } from './types'
+
+export const getAutoTradingBudget = (input: AutoTradingBudgetInput) =>
+  invoke<AutoTradingBudgetView>('get_auto_trading_budget', { input })
+
+export const updateAutoTradingBudget = (input: UpdateAutoTradingBudgetInput) =>
+  invoke<AutoTradingBudgetView>('update_auto_trading_budget', { input })
 
 import type {
   AccountProfileView,

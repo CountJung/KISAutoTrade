@@ -25,6 +25,19 @@
 | `list_toss_profile_accounts` | 저장된 토스증권 프로파일 키로 `accountSeq` 후보 조회 |
 | `check_toss_profile_connection` | 토스증권 프로파일 연결 진단 (OpenAPI spec, token, accounts, holdings 단계 결과) |
 
+## 자동매매 전용 예산
+
+| Command | 입력 / 반환 |
+|---|---|
+| `get_auto_trading_budget` | `input: { brokerId, brokerAccountId }` → `AutoTradingBudgetView` |
+| `update_auto_trading_budget` | 위 scope + `krwAmount`, `usdAmount` → 저장 후 view |
+
+- REST: `GET /api/auto-trading-budget?brokerId=...&brokerAccountId=...`, `POST /api/auto-trading-budget` (동일 input body). 기존 웹 인증 경계 적용.
+- KRW는 원, USD는 **센트** 정수이며 최대 `9007199254740991`. UI는 달러를 센트로 변환한다.
+- 반환: `scope: { brokerId, accountId }`, `krw`/`usd` 각각 `allocatedAmount`, `cashAmount`, `reservedAmount`, `availableAmount`, `ownedPositionCount`, `blockedReason`, `feeBufferBps`.
+- 활성 계좌와 요청 scope 불일치는 `BUDGET_SCOPE_CHANGED`, 계좌 미선택은 `BUDGET_SCOPE_REQUIRED`, 실행 중 변경은 `TRADING_RUNNING`, 원장/예산 거부는 `AUTO_TRADING_BUDGET_ERROR`.
+- 원장 기본 배정액 0: 자동매수 차단. 리스크 사용 토글과 독립. Settings의 자동매매 전용 예산에서 조회/변경한다.
+
 ## 데이터베이스 관리 (Tauri 데스크톱 전용)
 
 > DB 자격증명과 파괴적 작업은 인증되지 않은 axum/LAN REST에 노출하지 않는다.

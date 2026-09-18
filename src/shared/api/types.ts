@@ -7,6 +7,33 @@ export interface CmdError {
 }
 
 export type BrokerId = 'kis' | 'toss'
+
+export interface AutoTradingBudgetInput {
+  brokerId: BrokerId
+  brokerAccountId: string
+}
+
+/** Amounts are whole KRW or USD cents. */
+export interface BudgetCurrencyView {
+  allocatedAmount: number
+  cashAmount: number
+  reservedAmount: number
+  availableAmount: number
+  ownedPositionCount: number
+  blockedReason: string | null
+  feeBufferBps: number
+}
+
+export interface AutoTradingBudgetView {
+  scope: { brokerId: BrokerId; accountId: string | null }
+  krw: BudgetCurrencyView
+  usd: BudgetCurrencyView
+}
+
+export interface UpdateAutoTradingBudgetInput extends AutoTradingBudgetInput {
+  krwAmount: number
+  usdAmount: number
+}
 export type BrokerMarket = 'kr' | 'us'
 export type BrokerCurrency = 'KRW' | 'USD'
 

@@ -2,6 +2,8 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests/e2e',
+  // External macOS volumes can contain AppleDouble metadata beside test sources.
+  testIgnore: '**/._*',
   timeout: 30_000,
   expect: {
     timeout: 5_000,

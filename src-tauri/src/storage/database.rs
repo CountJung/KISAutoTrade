@@ -458,8 +458,10 @@ impl DatabaseManager {
             let pool = self.pool().await?;
             self.validate_document_set_size(&pool).await?;
             let documents = self.fetch_documents(&pool).await?;
-            let database_keys: std::collections::HashSet<_> =
-                documents.iter().map(|document| document.key.as_str()).collect();
+            let database_keys: std::collections::HashSet<_> = documents
+                .iter()
+                .map(|document| document.key.as_str())
+                .collect();
             for local in scan_json_documents(self.data_dir.clone()).await? {
                 if !database_keys.contains(local.key.as_str()) {
                     let path = safe_export_path(&self.data_dir, &local.key)?;
@@ -1342,7 +1344,7 @@ mod tests {
     #[tokio::test]
     async fn save_config_stores_password_in_keychain_not_in_file() {
         super::super::database_keychain::use_mock_keychain_for_tests();
-        let _keychain = super::super::database_keychain::keychain_test_lock();
+        let _keychain = super::super::database_keychain::keychain_test_lock().await;
         let (config_path, data_dir) = keychain_test_dirs();
         let manager =
             DatabaseManager::load_sync(config_path.clone(), data_dir.clone()).expect("load");
@@ -1367,7 +1369,7 @@ mod tests {
     #[tokio::test]
     async fn legacy_file_password_migrates_to_keychain_on_load() {
         super::super::database_keychain::use_mock_keychain_for_tests();
-        let _keychain = super::super::database_keychain::keychain_test_lock();
+        let _keychain = super::super::database_keychain::keychain_test_lock().await;
         let (config_path, data_dir) = keychain_test_dirs();
         let legacy = DatabaseConfig {
             password: "legacy-file-password".to_string(),

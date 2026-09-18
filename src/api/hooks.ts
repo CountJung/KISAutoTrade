@@ -77,6 +77,7 @@ import type {
 export { KEYS } from './queryKeys'
 export { useBackendEvents } from './backendEvents'
 export * from './databaseHooks'
+export * from './budgetHooks'
 
 // ─── 앱 설정 ───────────────────────────────────────────────────────
 export function useAppConfig(

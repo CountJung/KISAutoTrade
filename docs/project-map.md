@@ -122,6 +122,7 @@ KISAutoTrade/
 ├── src/
 │   ├── api/
 │   │   ├── backendEvents.ts
+│   │   ├── budgetHooks.ts
 │   │   ├── commands.ts
 │   │   ├── databaseHooks.ts
 │   │   ├── hooks.ts
@@ -182,6 +183,7 @@ KISAutoTrade/
 │   │   │   ├── ui/
 │   │   │   │   ├── Page.tsx
 │   │   │   │   ├── accountProfiles.tsx
+│   │   │   │   ├── autoTradingBudgetSection.tsx
 │   │   │   │   ├── brokerRateLimitSection.tsx
 │   │   │   │   ├── databaseManagementSection.tsx
 │   │   │   │   ├── profileDialogs.tsx
@@ -193,6 +195,7 @@ KISAutoTrade/
 │   │   │   │   └── experimentStore.ts
 │   │   │   ├── ui/
 │   │   │   │   ├── Page.tsx
+│   │   │   │   ├── bollingerControls.tsx
 │   │   │   │   ├── leveragedTrendHoldEditorPanel.tsx
 │   │   │   │   ├── leveragedTrendHoldPreviewChart.tsx
 │   │   │   │   ├── priceConditionEditorPanel.tsx
@@ -355,6 +358,7 @@ KISAutoTrade/
 │   │   │   │   └── risk_restore_tests.rs
 │   │   │   ├── accounts.rs
 │   │   │   ├── archive.rs
+│   │   │   ├── budget.rs
 │   │   │   ├── database.rs
 │   │   │   ├── market.rs
 │   │   │   ├── orders.rs
@@ -377,6 +381,7 @@ KISAutoTrade/
 │   │   │   ├── mod.rs
 │   │   │   └── types.rs
 │   │   ├── server/
+│   │   │   ├── budget.rs
 │   │   │   ├── market.rs
 │   │   │   ├── mod.rs
 │   │   │   ├── profiles.rs
@@ -404,10 +409,13 @@ KISAutoTrade/
 │   │   │   └── trade_store.rs
 │   │   ├── trading/
 │   │   │   ├── order/
+│   │   │   │   ├── budget.rs
 │   │   │   │   ├── conflicts.rs
 │   │   │   │   ├── fills.rs
 │   │   │   │   └── submission.rs
 │   │   │   ├── strategy/
+│   │   │   │   ├── leveraged_trend_hold/
+│   │   │   │   │   └── bollinger.rs
 │   │   │   │   ├── breakout.rs
 │   │   │   │   ├── classic.rs
 │   │   │   │   ├── core.rs
@@ -500,10 +508,12 @@ KISAutoTrade/
 | `api/hooks.ts` | TanStack Query 훅 legacy entry (`KEYS`, `useBackendEvents` re-export 유지) |
 | `api/queryKeys.ts` | TanStack Query `KEYS` 단일 원천 (`hooks.ts`에서 하위 호환 re-export) |
 | `api/backendEvents.ts` | Tauri backend event 구독 → 환율/잔고 Query 캐시 갱신 |
+| `api/budgetHooks.ts` | broker/account별 자동매매 예산 조회·폴링과 저장 후 해당 scope Query 캐시 갱신 |
 | `api/databaseHooks.ts` | DB 설정/상태/이관 Tauri-only TanStack Query hooks |
 | `widgets/app-shell/` | 전체 앱 레이아웃, ThemeProvider, responsive navigation, 좌측 사이드바 자동매매 시작/정지 전역 조작 |
 | `widgets/stock-chart/` | 국내/해외/Toss 캔들 차트 |
 | `pages/settings/ui/Page.tsx` | 테마, 데이터 갱신 주기, 로그/체결 보관, 웹 포트, 종목 목록, 리스크, Discord 설정 route 조립 |
+| `pages/settings/ui/autoTradingBudgetSection.tsx` | 선택 계좌의 KRW/USD 자동매매 배정액·현금·예약액·사용 가능액·차단 사유 표시와 정지 상태 예산 편집 |
 | `pages/settings/ui/databaseManagementSection.tsx` | PostgreSQL/MariaDB 연결, 고정 앱 테이블 관리, JSON↔DB 이관, backend 전환. 웹 모드에서는 보안 안내만 표시 |
 | `pages/settings/ui/accountProfiles.tsx` | 활성 broker/profile 요약, KIS/Toss 프로파일 목록, 연결 진단, 프로파일 삭제 확인 |
 | `pages/settings/ui/profileDialogs.tsx` | KIS/Toss 프로파일 추가/편집, 실전/모의 감지, Toss accountSeq 조회. secret 입력 상태는 이 파일 안에만 보관 |
@@ -522,6 +532,7 @@ KISAutoTrade/
 | `pages/strategy/ui/strategyPreviewPanel.tsx` | 일반/가격조건 전략 카드에서 KIS 일/주/월봉 또는 Toss 1분/일봉을 조회하고 편집값·비용 가정을 `preview_strategy`에 전달. 티커/봉/구간/파라미터/수량/broker/account/가정 변경 시 결과 무효화 |
 | `pages/strategy/ui/strategyResearchPanel.tsx` | 초기자본·수수료·세금·슬리피지·환율·리스크·학습구간 입력, 수익률/MDD/승률/손익비/turnover/exposure, 원시 신호와 주문 가능/체결 구분, equity curve, 거래 목록, in/out-of-sample, A/B 비교 UI |
 | `pages/strategy/model/experimentStore.ts` | credential을 저장하지 않고 broker/account/strategy/symbol scope별 A/B 결과·전략 버전·파라미터·데이터 범위/source·비용 가정·생성 시각을 localStorage에 최대 2개 저장 |
+| `pages/strategy/ui/bollingerControls.tsx` | 레버리지 추세 보유 전략의 선택적 볼린저 보강 활성화와 기간·배수·스퀴즈·ATR 설정 입력 |
 | `pages/strategy/ui/leveragedTrendHoldPreviewChart.tsx` | 레버리지/일반 전략 미리보기의 캔들·종가선·signal marker, 모바일 가로 패닝·핀치 확대/축소와 버튼식 줌 표시 |
 | `pages/history/ui/Page.tsx` | 활성 broker scope, 자동매매 체결 기록과 기간별 통계 조회, provider 원본 trace 표시 |
 | `pages/log/ui/Page.tsx` | 로그 레벨/검색 필터, provider trace 토큰 chip 표시 |
@@ -534,6 +545,7 @@ KISAutoTrade/
 | `commands.rs` | AppState + IPC command facade, 공통 helper |
 | `commands/accounts.rs` | 계좌 프로파일 CRUD/활성화, KIS 국내·해외 잔고, broker holdings view. 프로파일 전환 시 strategy scope reset 포함 |
 | `commands/archive.rs` | 거래 파일 보관 설정, 보관 통계, 오래된 trade/log 파일 purge IPC |
+| `commands/budget.rs` | 활성 broker/account 검증, 자동매매 전용 예산 조회·변경 IPC. 변경은 자동매매 정지와 저장소/프로파일 변경 잠금 경계에서 수행 |
 | `commands/database.rs` | 인증 없는 REST에는 노출하지 않는 Tauri-only DB 관리/이관 IPC |
 | `commands/market.rs` | KIS 국내/해외 시세, 차트, 종목 검색, 해외 주문 사전 검증 IPC |
 | `commands/orders.rs` | 수동 주문 제출 IPC |
@@ -554,6 +566,7 @@ KISAutoTrade/
 | `trading/strategy/state.rs` | per-symbol 전략 버퍼 상한 helper. user-param 기반 `VecDeque` OOM 방지 |
 | `trading/strategy/{classic,breakout,mean_trend}.rs` | MA/RSI/모멘텀/이격도, 돌파 계열, 평균회귀/추세필터 전략 구현 |
 | `trading/strategy/{leveraged_trend_hold,price_condition}.rs` | 레버리지 추세 보유와 종목별 가격 조건 전략 구현 |
+| `trading/strategy/leveraged_trend_hold/bollinger.rs` | 레버리지 전략의 볼린저 스퀴즈·추세 돌파 진입 확인과 중심선/ATR 청산 조건. 마지막 미확정 봉을 제외하고 종목별 캔들 버퍼를 512개로 제한 |
 | `api/detect.rs` | KIS 토큰 응답 기반 실전/모의 앱키 자동 감지 |
 | `api/rest.rs` | KIS REST client facade. rate-limit group을 거쳐 잔고/주문/체결/시세/차트 요청 수행 |
 | `api/rest/types.rs` | KIS REST 타입, `OrderSide`/`OrderType`, 국내/해외 잔고·체결·시세 응답, 해외 주문 사전 검증 |
@@ -573,11 +586,13 @@ KISAutoTrade/
 | `trading/views.rs` | `StrategyConfig` → camelCase `StrategyView` 공용 builder. IPC/REST가 같은 view를 사용하며 종목명 조회 전 manager lock을 해제 |
 | `trading/order.rs` | `buy_suspended` 플래그, provider trace 캡처, OrderManager facade |
 | `trading/order/submission.rs` | `submit_signal_shared()` lock-short 주문 제출, provider 호출 중 `submitting` 예약, 실패 주문 기록 보존 |
+| `trading/order/budget.rs` | broker/account와 KRW/USD별 전용 현금·자동매매 소유수량·주문 예약 원장. 주문 전 예약 저장, 접수/체결/종료 반영, 미확인 주문·저장 실패 시 차단 |
 | `trading/order/fills.rs` | `OrderManager::on_fill()`, KIS/Toss pending 체결 확인, 체결/수수료/통계/TradeStore 저장. daemon은 shared helper로 provider 체결 조회 네트워크 호출을 `order_manager` mutex 밖에서 수행 |
 | `trading/order/conflicts.rs` | 실행 `BrokerScope` 기준 같은 방향/반대 방향 pending 주문 충돌 판정과 provider trace 기반 pending provider 판정 |
 | `trading/risk.rs` | 일일 손실 한도, 비상 정지, `record_pnl` |
 | `market_hours.rs` | 시장 개장 여부 (KRX 09:00-15:30 / US 22:00-07:00 KST) |
 | `server/mod.rs` | axum 웹 서버 route table, ServeDir fallback |
+| `server/budget.rs` | `/api/auto-trading-budget` GET/POST. IPC와 같은 scope 검증·정지 조건·예산 view를 사용 |
 | `server/market.rs` | 웹 REST KIS 잔고/해외잔고, broker holdings, 현재가, 주문, 차트, 종목 검색/갱신 |
 | `server/records.rs` | 웹 REST 포지션, 통계/체결 조회, pending 주문, 로그 설정/최근 로그, 체결 보관 설정/통계, 프론트엔드 로그. REST 보관 설정 변경도 IPC와 같이 즉시 purge를 예약 |
 | `server/profiles.rs` | 웹 REST 프로파일 CRUD/활성 전환/실전·모의 감지/Toss accountSeq·diagnostic. 프로파일 view는 IPC `profile_to_view()`를 재사용 |
@@ -623,6 +638,26 @@ notifications/discord.rs — TRADE 레벨 알림 전송
     ↓
 Tauri Event emit → Frontend (실시간 UI 갱신)
 ```
+
+### 자동매매 전용 예산
+
+```text
+Settings → api/budgetHooks.ts → commands/budget.rs 또는 server/budget.rs
+    ↓ 활성 broker/account 검증 (변경은 자동매매 정지 상태)
+OrderManager → trading/order/budget.rs
+    ↓ storage::read_json_or_default / write_json
+data/orders/auto_trading_budget.json (JSON 또는 DB document)
+
+자동 주문 → submission.rs → 전용 현금/소유수량 확인과 예약 영속화
+    ↓ provider 접수 → pending 저장 및 예약 접수 상태 반영
+fills.rs → 누적 체결을 원장 현금·소유수량·잔여 예약에 반영
+    ↓ 주문 완료 → 잔여 예약 해제
+```
+
+원장은 broker/account와 KRW/USD를 분리한다. 자동매도는 원장에 기록된
+자동매매 소유수량으로 제한하고, 수동매도는 해당 수량을 제외한다.
+접수 여부가 불명확한 예약은 예산 사용을 차단하며, 원장 저장 실패는
+OrderManager의 영속화 오류 차단 경계로 전달한다.
 
 ### 실시간 데이터 Push (백그라운드 데몬 → 프론트)
 

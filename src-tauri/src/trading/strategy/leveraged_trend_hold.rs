@@ -3,6 +3,9 @@ use std::collections::{HashMap, VecDeque};
 
 use super::{state::bounded_window_with_extra, OhlcCandle, Signal, Strategy, StrategyConfig};
 
+mod bollinger;
+use bollinger::BollingerParams;
+
 fn lth_default_qty() -> u64 {
     1
 }
@@ -126,6 +129,8 @@ pub struct LeveragedTrendHoldEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LeveragedTrendHoldParams {
     #[serde(default)]
+    pub bollinger: BollingerParams,
+    #[serde(default)]
     pub entries: Vec<LeveragedTrendHoldEntry>,
     #[serde(default = "lth_default_ema_short")]
     pub ema_short_period: usize,
@@ -198,6 +203,7 @@ pub struct LeveragedTrendHoldParams {
 impl Default for LeveragedTrendHoldParams {
     fn default() -> Self {
         Self {
+            bollinger: BollingerParams::default(),
             entries: Vec::new(),
             ema_short_period: lth_default_ema_short(),
             ema_long_period: lth_default_ema_long(),
@@ -294,6 +300,7 @@ pub struct LeveragedTrendHoldPreviewSignal {
 }
 
 pub struct LeveragedTrendHoldStrategy {
+    bollinger_candles: HashMap<String, VecDeque<OhlcCandle>>,
     config: StrategyConfig,
     params: LeveragedTrendHoldParams,
     states: HashMap<String, LeveragedTrendHoldMarketState>,
@@ -309,6 +316,7 @@ impl LeveragedTrendHoldStrategy {
         config.target_symbols = Self::target_symbols_for_params(&params);
         let last_params = config.params.clone();
         Self {
+            bollinger_candles: HashMap::new(),
             config,
             params,
             states: HashMap::new(),
@@ -431,6 +439,8 @@ impl LeveragedTrendHoldStrategy {
             state.rebound_prices.pop_front();
         }
 
+        let candle = *state.candles.back().expect("tick inserted candle");
+        self.update_bollinger_candle(symbol, candle, new_observation);
         new_observation
     }
 
@@ -560,6 +570,9 @@ impl LeveragedTrendHoldStrategy {
     }
 
     fn entry_ok(&self, symbol: &str) -> Option<LeveragedTrendSnapshot> {
+        if !self.bollinger_entry_allowed(symbol) {
+            return None;
+        }
         let state = self.states.get(symbol)?;
         let snap = self.snapshot_for(symbol)?;
         let close = state.candles.back()?.close as f64;
@@ -582,7 +595,7 @@ impl LeveragedTrendHoldStrategy {
     }
 
     fn rebound_entry_ok(&self, symbol: &str) -> Option<LeveragedReboundSnapshot> {
-        if !self.params.intraday_rebound_enabled {
+        if !self.params.intraday_rebound_enabled || !self.bollinger_entry_allowed(symbol) {
             return None;
         }
         let state = self.states.get(symbol)?;
@@ -640,7 +653,7 @@ impl LeveragedTrendHoldStrategy {
     }
 
     fn rapid_rebound_entry_ok(&self, symbol: &str) -> Option<LeveragedRapidReboundSnapshot> {
-        if !self.params.rapid_rebound_enabled {
+        if !self.params.rapid_rebound_enabled || !self.bollinger_entry_allowed(symbol) {
             return None;
         }
         let state = self.states.get(symbol)?;
@@ -1111,12 +1124,18 @@ impl LeveragedTrendHoldStrategy {
                 state.rebound_prices.pop_front();
             }
 
+            strategy.update_bollinger_candle(&normalized_symbol, timed.candle, true);
+
             if in_position {
                 let high = high_water.unwrap_or(price).max(price);
                 high_water = Some(high);
                 held_observations = held_observations.saturating_add(1);
                 if let Some(reason) = entry_price.and_then(|entry| {
-                    strategy.initial_risk_exit_reason(price, entry, high, held_observations)
+                    strategy
+                        .initial_risk_exit_reason(price, entry, high, held_observations)
+                        .or_else(|| {
+                            strategy.bollinger_exit_reason(&normalized_symbol, price, entry)
+                        })
                 }) {
                     let signal = strategy.preview_signal(
                         &timed.time,
@@ -1341,6 +1360,7 @@ impl Strategy for LeveragedTrendHoldStrategy {
         for candle in &candles[candles.len().saturating_sub(take)..] {
             state.candles.push_back(*candle);
         }
+        self.bollinger_candles.remove(symbol);
         self.states.insert(symbol.to_string(), state);
         tracing::info!(
             "레버리지 단일 티커 추세 초기화 [{}]: OHLC {}봉 로드",
@@ -1410,6 +1430,18 @@ impl Strategy for LeveragedTrendHoldStrategy {
             }
         }
         state.live_candle_minute = None;
+        self.bollinger_candles.insert(
+            symbol.to_string(),
+            candles
+                .iter()
+                .rev()
+                .take(512)
+                .copied()
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect(),
+        );
         tracing::info!(
             "레버리지 단일 티커 장중 OHLC 초기화 [{}]: 1분봉 {}개 로드, 반동 가격 {}개 로드",
             symbol,
@@ -1456,8 +1488,9 @@ impl Strategy for LeveragedTrendHoldStrategy {
                 pos.held_observations = held_observations;
             }
 
-            if let Some(reason) =
-                self.initial_risk_exit_reason(price, entry_price, high, held_observations)
+            if let Some(reason) = self
+                .initial_risk_exit_reason(price, entry_price, high, held_observations)
+                .or_else(|| self.bollinger_exit_reason(symbol, price, entry_price))
             {
                 self.clear_position(symbol);
                 return Signal::Sell {

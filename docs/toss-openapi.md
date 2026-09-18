@@ -2,16 +2,16 @@
 
 > Source of truth: `https://openapi.tossinvest.com/openapi-docs/latest/openapi.json`
 
-마지막 확인: 2026-07-07
+마지막 확인: 2026-09-11
 
 ## 공식 스펙 스냅샷
 
 | 항목 | 값 |
 |------|----|
 | OpenAPI title | `토스증권 Open API` |
-| version | `1.2.2` |
+| version | `1.2.15` |
 | base URL | `https://openapi.tossinvest.com` |
-| paths | 27 |
+| paths | 33 |
 | 인증 | OAuth2 Client Credentials Grant |
 
 ## 구현 전 검증
@@ -105,3 +105,8 @@ npm run verify:toss-openapi
 - 자동매매 주문 실행 경로는 Toss 프로파일에서도 활성화된다. `start_trading()`은 Toss holdings 기반 `BrokerPositionSnapshot`으로 전략 내부 포지션 상태를 복원한 뒤, 활성 Toss 프로파일 설정과 `live_trading_consent`를 확인하고 실행 scope를 `BrokerScope { brokerId: Toss, accountSeq }`로 고정한다. 실행 scope가 Toss이면 자동매매 데몬은 KIS 해외 현재가로 폴백하지 않고 Toss `/api/v1/prices`를 사용한다. 전략 히스토리 초기화도 Toss 실행 scope에서는 KIS chart API가 아니라 Toss `/api/v1/candles`를 사용하며, `1d` candles는 일봉 지표에, `1m` candles OHLC는 레버리지 전략 장중 상태와 반동 관측 버퍼에 사용한다. 이후 실시간 현재가 polling은 같은 분의 마지막 장중 캔들을 갱신하고 분이 바뀔 때 새 캔들을 추가한다. Dashboard는 자동매매 시작 버튼과 수동거래 페이지 안내 패널을 유지한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
 
 > 마지막 업데이트: 2026-07-15T00:00:00+09:00
+
+
+2026-09-11 공식 스펙 검증: v1.2.15, 33 paths. 기존 27개에 `/api/v1/stocks/all` 및 `/api/v1/stocks/{symbol}/investor-trading`, `program-trades`, `short-selling`, `credit-trades`, `securities-lending` GET 경로가 추가되어 inventory 검증 기준을 갱신했다. 추가 경로의 앱 기능은 이 변경에 포함하지 않는다.
+
+자동매매 예산: Toss HTTP 오류는 상태 코드를 보존하는 내부 타입으로 전달한다. 400/401/403/404/405/422만 확정 거절로 예약을 해제하며 408/409/429/5xx, transport/응답 파싱 실패는 보류한다. 자동 예산 주문은 정정 차단, 자동매수 지정가, 수동/자동 소유수량 분리를 유지한다.

@@ -63,7 +63,7 @@ pub(super) fn use_mock_keychain_for_tests() {
 /// keychain 항목은 (service, account) 고정 단일 항목이라 병렬 테스트가 서로 덮어쓴다.
 /// keychain을 사용하는 테스트는 이 lock을 잡고 직렬 실행한다.
 #[cfg(test)]
-pub(super) fn keychain_test_lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+pub(super) async fn keychain_test_lock() -> tokio::sync::MutexGuard<'static, ()> {
+    static LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    LOCK.lock().await
 }

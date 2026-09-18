@@ -27,6 +27,13 @@
 
 - 없음. 현재 코드와 deterministic fixture/Playwright로 진행 가능한 P2 항목은 모두 반영했다.
 
+## 자동매매 예산·볼린저 보강 검증 기록 (2026-09-11)
+
+- [x] 계좌/통화별 전용 예산, 자동 소유수량, durable 예약·체결·완료 복원, 설정 UI와 E2E 추가.
+- [x] 기존 LTH에 기본 비활성 볼린저 필터와 중심선/ATR 청산, 공통 live/replay 및 미리보기 설정 연결.
+- [ ] 실제 provider 응답 불명 주문의 운영자 대조/복구 UI: 현재는 자동 해제 없이 예산을 보류한다. 주문번호/clientOrderId 대조 및 멱등 승인 흐름으로 확장할 것.
+- [ ] LTH 보강의 일봉 미리보기: 분봉과 일봉의 완료 시점 모델을 분리한 후 지원. 현재 활성 옵션은 1분봉만 허용한다.
+
 ## P3 — 유지보수·품질 게이트
 
 - [ ] 1,000라인 초과 파일을 책임 단위로 분리한다.
@@ -35,6 +42,8 @@
   - `src/pages/trading/ui/Page.tsx`: broker별 orchestration과 공통 order form 분리.
   - `src/api/hooks.ts`: account/market/order/strategy/settings query 모듈 분리 후 public API 유지.
   - `src-tauri/src/commands/toss.rs`: diagnostic/preflight/orders surface 분리.
+  - `src-tauri/src/trading/order/submission.rs`: provider request builder와 submission persistence/test 분리.
+  - `src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx`: ticker picker/preview UI 분리.
   - `src-tauri/src/trading/order.rs`: facade를 낮추고 남은 helper/state 책임 분리.
   - 검증: 변경 파일과 신규 파일은 1,000라인 아래, FSD/API public surface와 IPC 이름은 유지한다.
 

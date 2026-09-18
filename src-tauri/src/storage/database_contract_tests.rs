@@ -12,7 +12,7 @@
 //!   database를 미존재-자동생성 경로로 만들고 테스트 후 DROP한다.
 //! - MariaDB contract test는 아직 없다 (todo.md P1 잔여 — 검증 서버 준비 후 추가).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions, PgSslMode};
@@ -99,7 +99,7 @@ async fn drop_test_database(env: &PgTestEnv, database: &str) {
     pool.close().await;
 }
 
-async fn write_test_document(data_dir: &PathBuf, relative: &str, payload: &str) {
+async fn write_test_document(data_dir: &Path, relative: &str, payload: &str) {
     let path = data_dir.join(relative);
     tokio::fs::create_dir_all(path.parent().expect("parent"))
         .await
@@ -114,7 +114,7 @@ async fn postgresql_full_roundtrip_contract() {
         return;
     };
     super::database_keychain::use_mock_keychain_for_tests();
-    let _keychain = super::database_keychain::keychain_test_lock();
+    let _keychain = super::database_keychain::keychain_test_lock().await;
     let database = unique_test_database();
     let (config_path, data_dir) = temp_dirs();
     tokio::fs::create_dir_all(&data_dir)
@@ -309,7 +309,10 @@ async fn postgresql_full_roundtrip_contract() {
         .set_backend(StorageBackend::Json)
         .await
         .expect("switch back to json backend");
-    assert!(!old_trade_path.exists(), "DB에서 purge된 local trade가 부활하면 안 된다");
+    assert!(
+        !old_trade_path.exists(),
+        "DB에서 purge된 local trade가 부활하면 안 된다"
+    );
     let restored = tokio::fs::read_to_string(&doc_path)
         .await
         .expect("restored local doc");
@@ -343,7 +346,7 @@ async fn postgresql_rejects_invalid_credentials() {
         return;
     };
     super::database_keychain::use_mock_keychain_for_tests();
-    let _keychain = super::database_keychain::keychain_test_lock();
+    let _keychain = super::database_keychain::keychain_test_lock().await;
     let (config_path, data_dir) = temp_dirs();
     tokio::fs::create_dir_all(&data_dir)
         .await
@@ -371,7 +374,7 @@ async fn postgresql_destructive_operations_require_exact_confirmation() {
         return;
     };
     super::database_keychain::use_mock_keychain_for_tests();
-    let _keychain = super::database_keychain::keychain_test_lock();
+    let _keychain = super::database_keychain::keychain_test_lock().await;
     let (config_path, data_dir) = temp_dirs();
     tokio::fs::create_dir_all(&data_dir)
         .await

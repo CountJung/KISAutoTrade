@@ -29,6 +29,7 @@ struct OrderSubmission {
     tick_price: u64,
     broker_scope: BrokerScope,
     is_manual: bool,
+    budget_id: Option<String>,
     requested_order_type: Option<OrderType>,
     requested_price: Option<u64>,
 }
@@ -134,6 +135,7 @@ impl OrderSubmission {
                 tick_price,
                 broker_scope: BrokerScope::kis_legacy(),
                 is_manual: false,
+                budget_id: None,
                 requested_order_type: None,
                 requested_price: None,
             }),
@@ -154,6 +156,7 @@ impl OrderSubmission {
                 tick_price,
                 broker_scope: BrokerScope::kis_legacy(),
                 is_manual: false,
+                budget_id: None,
                 requested_order_type: None,
                 requested_price: None,
             }),
@@ -307,13 +310,27 @@ impl OrderManager {
             refresh_manual_positions(&submission, &deps).await?;
         }
 
-        let (held_quantity, avg_price) = current_position_snapshot(
+        let (mut held_quantity, avg_price) = current_position_snapshot(
             &submission,
             &deps.position_tracker,
             &deps.overseas_position_tracker,
         )
         .await;
-        let prepared = match prepare_order_submission(&submission, held_quantity, &deps).await {
+        let usd = submission.exchange.is_some()
+            || !crate::market_hours::is_domestic_symbol(&submission.symbol);
+        let owned = order_manager
+            .lock()
+            .await
+            .budget_owned(&submission.broker_scope, &submission.symbol, usd)
+            .await?;
+        if matches!(submission.side, OrderSide::Sell) {
+            held_quantity = if submission.is_manual {
+                held_quantity.saturating_sub(owned)
+            } else {
+                held_quantity.min(owned)
+            };
+        }
+        let mut prepared = match prepare_order_submission(&submission, held_quantity, &deps).await {
             PrepareDecision::Submit(prepared) => *prepared,
             PrepareDecision::Skip(reason) => {
                 return Ok(SubmissionOutcome::Skipped {
@@ -327,7 +344,32 @@ impl OrderManager {
         let reservation = {
             let mut manager = order_manager.lock().await;
             match manager.reserve_submission(&prepared.submission, held_quantity, avg_price) {
-                ReservationDecision::Reserved(reservation) => reservation,
+                ReservationDecision::Reserved(reservation) => {
+                    if !submission.is_manual {
+                        match manager
+                            .reserve_budget(
+                                &submission.broker_scope,
+                                &submission.symbol,
+                                usd,
+                                matches!(submission.side, OrderSide::Buy),
+                                prepared.quantity,
+                                submission.tick_price,
+                            )
+                            .await
+                        {
+                            Ok(id) => prepared.submission.budget_id = Some(id),
+                            Err(error) => {
+                                manager.finish_submission_failure(
+                                    &reservation,
+                                    false,
+                                    &error.to_string(),
+                                );
+                                return Err(error);
+                            }
+                        }
+                    }
+                    reservation
+                }
                 ReservationDecision::Skip(reason) => {
                     return Ok(SubmissionOutcome::Skipped {
                         reason,
@@ -341,7 +383,10 @@ impl OrderManager {
         let order_result = place_prepared_order(&deps, &prepared).await;
         match order_result {
             Ok(response) => {
-                let pending = build_pending_order(&prepared, response);
+                let mut pending = build_pending_order(&prepared, response);
+                if let Some(id) = &prepared.submission.budget_id {
+                    pending.record.id = id.clone();
+                }
                 let record = pending.record.clone();
                 let provider_order_id = record
                     .provider_order_id
@@ -351,7 +396,7 @@ impl OrderManager {
                 let guard_signal = pending.signal();
                 {
                     let mut manager = order_manager.lock().await;
-                    manager.finish_submission_success(reservation, pending, &guard_signal);
+                    manager.finish_submission_success(reservation, pending.clone(), &guard_signal);
                     if let Err(e) = manager.persist_pending_orders().await {
                         tracing::error!("미체결 주문 스냅샷 저장 실패: {}", e);
                         manager.persistence_blocked = true;
@@ -363,6 +408,7 @@ impl OrderManager {
                         ));
                     }
                 }
+                order_manager.lock().await.accept_budget(&pending).await?;
                 if let Err(e) = deps.order_store.append(record.clone()).await {
                     tracing::error!("주문 기록 저장 실패 (Pending): {}", e);
                     let reason = format!("주문 영속화 실패로 모든 신규 주문을 중단했습니다: {e}");
@@ -414,6 +460,14 @@ impl OrderManager {
                 {
                     let mut manager = order_manager.lock().await;
                     manager.finish_submission_failure(&reservation, insufficient_balance, &msg);
+                    if e.downcast_ref::<crate::api::rest::KisOrderRejected>()
+                        .is_some()
+                        || crate::broker::toss::error::definitively_rejected(&e)
+                    {
+                        if let Some(id) = &prepared.submission.budget_id {
+                            manager.reject_budget(id).await?;
+                        }
+                    }
                 }
                 append_failed_order(
                     &deps.order_store,
@@ -526,11 +580,11 @@ impl OrderManager {
         let reservation = SubmissionReservation {
             broker_scope: submission.broker_scope.clone(),
             symbol: submission.symbol.clone(),
-            side: submission.side.clone(),
+            side: submission.side,
         };
         self.submitting.insert(
             (reservation.broker_scope.clone(), reservation.symbol.clone()),
-            reservation.side.clone(),
+            reservation.side,
         );
         ReservationDecision::Reserved(reservation)
     }
@@ -869,7 +923,10 @@ fn build_provider_request(
         let is_limit = submission
             .requested_order_type
             .map(|value| value == OrderType::Limit)
-            .unwrap_or_else(|| submission.exchange.is_some());
+            .unwrap_or_else(|| {
+                (!submission.is_manual && matches!(submission.side, OrderSide::Buy))
+                    || submission.exchange.is_some()
+            });
         let price = submission.requested_price.unwrap_or(submission.tick_price);
         let is_us = submission.exchange.is_some()
             || !crate::market_hours::is_domestic_symbol(&submission.symbol);
@@ -914,7 +971,13 @@ fn build_provider_request(
             Some(order_exch),
         )
     } else {
-        let order_type = submission.requested_order_type.unwrap_or(OrderType::Market);
+        let order_type = submission.requested_order_type.unwrap_or(
+            if !submission.is_manual && matches!(submission.side, OrderSide::Buy) {
+                OrderType::Limit
+            } else {
+                OrderType::Market
+            },
+        );
         let price = if order_type == OrderType::Limit {
             submission.requested_price.unwrap_or(submission.tick_price)
         } else {
@@ -1028,7 +1091,10 @@ async fn place_prepared_order(
             let response = adapter
                 .create_order(Some(&account_seq), req)
                 .await
-                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+                .map_err(|e| match e {
+                    crate::broker::BrokerAdapterError::Provider(error) => error,
+                    other => anyhow::anyhow!(other),
+                })?;
             Ok(ProviderOrderResponse::Toss {
                 order_id: response.order_id,
                 client_order_id: response
@@ -1069,7 +1135,7 @@ fn build_kis_pending_order(
     let mut record = OrderRecord::new(
         prepared.submission.symbol.clone(),
         prepared.submission.symbol_name.clone(),
-        prepared.submission.side.clone(),
+        prepared.submission.side,
         prepared.quantity,
         prepared.order_price,
         prepared.order_type.to_string(),
@@ -1134,7 +1200,7 @@ fn build_toss_pending_order(
     let mut record = OrderRecord::new(
         prepared.submission.symbol.clone(),
         prepared.submission.symbol_name.clone(),
-        prepared.submission.side.clone(),
+        prepared.submission.side,
         prepared.quantity,
         prepared.order_price,
         format!("TOSS_{}", prepared.order_type.to_uppercase()),
@@ -1175,7 +1241,7 @@ async fn append_failed_order(
     let mut record = OrderRecord::new(
         submission.symbol.clone(),
         submission.symbol_name.clone(),
-        submission.side.clone(),
+        submission.side,
         quantity,
         price,
         order_type.to_string(),
@@ -1318,6 +1384,7 @@ mod tests {
                 tick_price: 72000,
                 broker_scope: BrokerScope::kis_legacy(),
                 is_manual: false,
+                budget_id: None,
                 requested_order_type: None,
                 requested_price: None,
             },

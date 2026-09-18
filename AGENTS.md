@@ -79,11 +79,11 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-09-11 | 자동매매 전용 예산 원장과 기존 레버리지 상승 추세의 선택형 볼린저 필터 및 E2E 검증 추가 |
 | 2026-07-25 | 프로젝트 맵 자동 검증, Serena 심볼 추적, Graphify 헬퍼 공용화 위임 체계 추가 |
 | 2026-07-15 | 전략 replay/backtest, 비용·리스크 가정, 무미래참조 fixture, scope별 A/B 연구 UI 추가 |
 | 2026-07-12 | broker rate limit을 credential scope 공유로 통합, KIS timeout/응답 상한과 운영 상태 노출 추가 |
 | 2026-07-12 | DB password OS keychain 이전과 PostgreSQL 실서버 contract test 추가 |
-| 2026-07-12 | 주문/체결 기록에 broker/account scope 저장, 리스크 복원·포지션 트래커를 scope별 격리 |
 ## 운영 문서 스택
 
 작업 전 변경 성격에 맞춰 다음 루트 문서를 함께 확인한다.

@@ -14,6 +14,11 @@ use crate::broker::RateLimitScheduler;
 
 use super::token::TokenManager;
 
+/// A parsed negative order response, distinct from an unknown transport outcome.
+#[derive(Debug, thiserror::Error)]
+#[error("{0}")]
+pub(crate) struct KisOrderRejected(pub String);
+
 const KIS_RATE_GROUP_ACCOUNT: &str = "kis:account";
 const KIS_RATE_GROUP_EXECUTION: &str = "kis:execution";
 const KIS_RATE_GROUP_ORDER: &str = "kis:order";
@@ -399,7 +404,7 @@ impl KisRestClient {
 
         let raw: Raw = serde_json::from_str(&read_kis_response_text(resp).await?)?;
         if raw.rt_cd != "0" {
-            anyhow::bail!("주문 오류: {}", raw.msg1);
+            return Err(KisOrderRejected(format!("주문 오류: {}", raw.msg1)).into());
         }
 
         let out = raw.output.unwrap_or(OrderOutput {
@@ -875,7 +880,7 @@ impl KisRestClient {
 
         let raw: Raw = serde_json::from_str(&read_kis_response_text(resp).await?)?;
         if raw.rt_cd != "0" {
-            anyhow::bail!("해외 주문 오류: {}", raw.msg1);
+            return Err(KisOrderRejected(format!("해외 주문 오류: {}", raw.msg1)).into());
         }
 
         let out = raw.output.unwrap_or(OverseasOrderOutput {

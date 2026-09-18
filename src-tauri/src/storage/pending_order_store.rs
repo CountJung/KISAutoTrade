@@ -21,6 +21,10 @@ impl PendingOrderStore {
         }
     }
 
+    pub(crate) fn budget_path(&self) -> PathBuf {
+        self.path.with_file_name("auto_trading_budget.json")
+    }
+
     pub async fn load(&self) -> Result<Vec<PendingOrder>> {
         read_json_or_default(&self.path).await
     }

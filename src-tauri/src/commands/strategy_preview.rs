@@ -680,6 +680,15 @@ pub async fn preview_leveraged_trend_hold_for_profile(
             });
         }
     };
+    if interval != "1m"
+        && input
+            .params
+            .pointer("/bollinger/enabled")
+            .and_then(|v| v.as_bool())
+            == Some(true)
+    {
+        return Err(CmdError { code: "BOLLINGER_INTERVAL".into(), message: "볼린저 보강 옵션은 1분봉 미리보기로 점검하세요. 일봉 warmup과 분봉을 혼합하지 않습니다.".into() });
+    }
     let count = input.count.unwrap_or(200).clamp(20, 200);
     let params_fingerprint = serde_json::to_string(&input.params).unwrap_or_default();
     let assumptions = input.assumptions.clone();

@@ -47,6 +47,7 @@ import type {
   StockSearchItem,
 } from '../../../api/types'
 import { LeveragedTrendHoldPreviewChart } from './leveragedTrendHoldPreviewChart'
+import { BollingerControls } from './bollingerControls'
 import {
   defaultSimulationAssumptions,
   rebaseDefaultMarketCosts,
@@ -127,6 +128,8 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
   const [assumptions, setAssumptions] = useState<SimulationAssumptions>(() => defaultSimulationAssumptions(initialPreviewIsOverseas))
   const assumptionsMarket = useRef(initialPreviewIsOverseas)
   const previewGeneration = useRef(0)
+  const bollingerEnabled = (params.bollinger as { enabled?: boolean } | undefined)?.enabled === true
+  useEffect(() => { if (bollingerEnabled) setPreviewInterval('1m') }, [bollingerEnabled])
   const entrySensitivity = numericParam(params, 'upward_sensitivity', 1)
   const reboundEnabled = boolParam(params, 'intraday_rebound_enabled', false)
   const reboundBaselineTicks = numericParam(params, 'rebound_baseline_ticks', 8)
@@ -531,6 +534,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
             </Typography>
           </Stack>
 
+          <BollingerControls params={params} disabled={stratEnabled} onChange={props.onParamsUpdate} />
           <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 1 }}>
             <Stack spacing={1}>
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ flexWrap: 'wrap' }}>
@@ -830,7 +834,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   sx={{ minWidth: { xs: '100%', sm: 110 } }}
                 >
                   <MenuItem value="1m">1분봉</MenuItem>
-                  <MenuItem value="1d">일봉</MenuItem>
+                  <MenuItem value="1d" disabled={bollingerEnabled}>일봉</MenuItem>
                 </TextField>
                 <TextField
                   select

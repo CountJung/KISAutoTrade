@@ -24,6 +24,8 @@ mod strategy;
 pub use strategy::*;
 mod risk;
 pub use risk::*;
+mod budget;
+pub use budget::*;
 mod orders;
 pub use orders::*;
 mod market;

@@ -142,6 +142,7 @@ pub fn run() {
                 .read(true)
                 .write(true)
                 .create(true)
+                .truncate(false)
                 .open(data_dir.join(".kisautotrade.lock"))?;
             data_lock.try_lock_exclusive().context(
                 "같은 data 디렉토리를 사용하는 KISAutoTrade가 이미 실행 중입니다.",
@@ -557,6 +558,8 @@ pub fn run() {
             commands::get_overseas_chart_data,
             commands::place_overseas_order,
             commands::get_risk_config,
+            commands::get_auto_trading_budget,
+            commands::update_auto_trading_budget,
             commands::update_risk_config,
             commands::clear_emergency_stop,
             commands::activate_emergency_stop,

@@ -81,6 +81,7 @@ use crate::trading::{
     order::OrderManager, position::PositionTracker, risk::RiskManager, strategy::StrategyManager,
 };
 
+mod budget;
 mod market;
 mod profiles;
 mod records;
@@ -286,6 +287,10 @@ pub async fn start(
         .route(
             "/api/risk-config",
             get(risk_config_handler).post(update_risk_config_handler),
+        )
+        .route(
+            "/api/auto-trading-budget",
+            get(budget::budget_handler).post(budget::update_budget_handler),
         )
         .route(
             "/api/risk-config/clear-emergency",

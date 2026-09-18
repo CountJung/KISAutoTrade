@@ -56,6 +56,7 @@ import { AccountProfilesSection } from './accountProfiles'
 import { Section } from './section'
 import { DatabaseManagementSection } from './databaseManagementSection'
 import { BrokerRateLimitSection } from './brokerRateLimitSection'
+import { AutoTradingBudgetSection } from './autoTradingBudgetSection'
 
 const fmt = (n: number) => fmtNumber(n)
 
@@ -863,6 +864,7 @@ export default function Settings() {
         </Section>
 
         {/* ── 리스크 관리 ───────────────────────────────────────── */}
+        <AutoTradingBudgetSection />
         <RiskSection />
 
         {/* ── Discord 알림 ───────────────────────────────────────── */}

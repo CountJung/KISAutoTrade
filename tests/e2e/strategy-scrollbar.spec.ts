@@ -622,6 +622,23 @@ test('Leveraged strategy editor uses single target ticker model', async ({ page 
   await expect(page.getByText('숏 실험')).toHaveCount(0)
 })
 
+test('Bollinger enhancement saves on the existing leveraged strategy and reaches preview', async ({ page }) => {
+  const updateRequests: unknown[] = []
+  const previewRequests: unknown[] = []
+  await mockApi(page, { activeBroker: 'toss', updateRequests, previewRequests })
+  await page.goto('/strategy')
+  await page.getByLabel('볼린저 스퀴즈·추세 돌파 보강').check()
+  await page.getByLabel('볼린저 기간(봉)').fill('25')
+  await page.getByLabel('장기 추세 기간(봉)').fill('80')
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'LeveragedTrendHoldStrategy' }).first()
+  await card.getByRole('button', { name: '미리보기 계산', exact: true }).click()
+  await expect.poll(() => previewRequests.length).toBe(1)
+  expect(previewRequests[0]).toMatchObject({ interval: '1m', params: { bollinger: { enabled: true, period: 25, trend_period: 80 } } })
+  await card.getByRole('button', { name: '변경사항 저장', exact: true }).click()
+  await expect.poll(() => updateRequests.length).toBe(1)
+  expect(updateRequests[0]).toMatchObject({ id: 'leveraged_trend_hold_default', params: { bollinger: { enabled: true, period: 25, trend_period: 80 } } })
+})
+
 test('Leveraged strategy preview can switch between configured tickers', async ({ page }) => {
   await mockApi(page)
   await page.goto('/strategy')

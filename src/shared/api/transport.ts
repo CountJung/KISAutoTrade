@@ -198,6 +198,14 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
       return { method: 'GET', url: '/api/archive-stats' }
 
     // ─── 리스크 관리 ─────────────────────────────────────────────────
+    case 'get_auto_trading_budget': {
+      const input = args.input as { brokerId: string; brokerAccountId: string }
+      return { method: 'GET', url: `/api/auto-trading-budget?${new URLSearchParams(input)}` }
+    }
+
+    case 'update_auto_trading_budget':
+      return { method: 'POST', url: '/api/auto-trading-budget', body: args.input }
+
     case 'get_risk_config':
       return { method: 'GET', url: '/api/risk-config' }
 
