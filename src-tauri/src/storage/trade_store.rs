@@ -420,8 +420,7 @@ mod tests {
             object.remove("broker_id");
             object.remove("broker_account_id")
         });
-        let legacy: TradeRecord =
-            serde_json::from_value(value).expect("legacy deserialize");
+        let legacy: TradeRecord = serde_json::from_value(value).expect("legacy deserialize");
         assert_eq!(legacy.broker_id, None);
         assert_eq!(legacy.broker_account_id, None);
     }

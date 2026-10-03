@@ -1105,11 +1105,19 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - `src-tauri/src/trading/simulation.rs`의 replay 엔진은 raw signal과 `filled`/`blocked` 실행 결과를 분리한다. 성과 지표에는 TradeGuard, RiskManager, 현금·보유 수량·포지션 비중과 수수료/세금/슬리피지/환율을 통과한 체결 가정만 반영한다.
 - 과거 시각 replay는 `TradeGuard::{evaluate_for_scope_at,record_submitted_for_scope_at}`을 사용한다. 실시간 wrapper 내부의 `Local::now()`를 test clock처럼 바꾸지 않는다.
 - live 시작과 preview warmup은 `strategy::initialize_strategy_warmup()`을 공유한다. 일봉과 장중 봉을 별도 인자로 전달하고 replay 시작 이후 봉을 warmup에 넣지 않는다.
+- 일봉 warmup은 `Strategy::initialize_ohlc()`를 한 번 호출한다. 기본 훅은 **종가**를 `initialize_historical()`에 전달해 평균회귀 밴드·추세 필터 MA를 초기화한다. 52주 신고가는 OHLC 훅을 재정의해 **고가**를 선택한다. 공통 경계에서 historical 훅을 별도로 호출하면 고가/종가 혼용 또는 중복 초기화가 재발한다. LTH의 전용 OHLC 훅과 일봉/분봉 분리는 유지한다. high≠close fixture로 지표·첫 신호·호출 횟수·분봉 혼입 방지를 검증한다.
+- `StrategyManager::initialize_warmup`은 live provider의 신고가 일봉에서 완료 여부가 없는 최신 1봉을 보수적으로 제외한다(기존 live 정책 유지). 252봉 요구량을 251로 줄이지 않는다. Generic preview는 엄격한 이전 prefix를 직접 공통 훅에 전달해 완료된 마지막 봉까지 포함한다. Provider 완료 플래그/페이지 모델 확정 전 두 경계를 혼동하지 않는다. 재초기화로 신고가 지표가 부족해져도 실제 보유 포지션의 손절은 고가 준비 검사보다 먼저 실행한다. 자료 부족은 신규 진입만 막으며 보유 청산을 막지 않는다.
+- Generic preview v4 이후는 평가 `candles`와 이전 `historyCandles`를 따로 정규화한다. 생략한 `warmupCount`는 0이며 명시한 legacy prefix만 호환한다. 합계 500봉 상한, OHLC/시각 유효성·중복·엄격한 prefix 경계를 검사하고 잘못된 history를 걸러 평가봉으로 보충하지 않는다. 분봉 14자리와 일/주/월봉 날짜 8자리 혼합은 거부한다.
+- MA/RSI/모멘텀/이격도/연속/돌파 실패 초기화는 `on_tick`을 호출하지 않고 버퍼를 직접 seed한다. MA/RSI는 이전 지표를 복원하며 보유 상태를 유지한다. `history_readiness`는 실제 상태를 읽고 미지원은 None이다. `can_evaluate_next_tick`은 호출 전 조건 평가 가능 여부를 읽어 MA/RSI/돌파 seed-only 봉을 조건 불충족으로 오판하지 않는다.
+- `preparation`은 최초/최종 지표 상태, 처리 후 최초 준비 시각·미준비 봉 수, 실제 조건 평가 봉 수를 분리한다. 미지원 값은 null, 조건 평가 0봉은 `notEvaluable`, 준비 후 신호 없음은 `conditionsNotMet`, 신호 있으나 미체결은 `noTrades`다. 기본 200/252봉과 일봉/분봉 분리를 유지한다. 제공봉 수를 실제 버퍼 준비 여부로 대신하지 않는다.
 - 일봉 replay는 정보 공개 시점을 지킨다. 장 시작 event는 시가-only OHLC, 장 종료 event만 완성 OHLC를 사용한다. 입력은 최대 500봉으로 제한하고 결과에는 engine/strategy version, source/interval/range, warmup count, input hash를 남긴다.
+- Generic preview v5의 `D`/`1d`는 `on_trading_day_start(symbol, open)` → `on_daily_close_tick(symbol, completed_ohlc, volume)` → backtest 체결/차단 및 `sync_position` → `on_completed_candle` 순서다. 시작에는 시가만 전달하고 완료 OHLC는 종가 평가 때 공개한다. 완료봉 적재 전에 실제 포지션을 되먹임해야 차단된 강한 종가 매수가 다음 날 pending을 잃지 않는다.
+- 강한 종가는 매 완료봉으로 다음 평가일 조건을 준비한다. 변동성 확장은 날짜 시작 시 당일 시가·고저가만 초기화하고 보유 상태와 이전 N일 범위를 유지한다. 조건 평가 시 이전 N일 평균에 당일 범위를 섞지 않고, 완료 후 bounded ring에 적재하며 flat-day 0범위도 일수에 포함한다. 날짜 전환에 `reset()`을 사용하지 않는다.
+- 강한 종가·변동성 확장의 generic replay는 일봉만 허용하며 다른 간격은 `UNSUPPORTED_REPLAY_INTERVAL`이다. cadence는 `dailyCloseWithDayBoundary`. 강한 종가의 다음 평가일 신호도 그날 종가 체결 근사이며 next-open 모델은 P2-14다. live 현재가 polling에는 완료 일봉 이벤트를 연결하지 않는다. 기본 훅은 no-op/기존 tick 위임이며 다른 전략·전용 LTH 동작을 보존한다.
 - 전략이 raw signal 생성 시 내부 `in_position`을 선반영했는데 주문이 skip되면 `SubmissionOutcome::Skipped`의 실제 `held_quantity`/`avg_price`를 `StrategyManager::sync_position()`에 되먹임한다. 수량 0 snapshot도 flat 상태로 반영해야 한다.
 - 자동매매 시작 플래그 lock은 broker reconcile/risk restore/warmup이 완료될 때까지 daemon 첫 tick을 막아야 한다.
 
-> 마지막 업데이트: 2026-07-15T00:00:00+09:00
+> 마지막 업데이트: 2026-10-03T23:21:04+09:00
 
 ---
 
@@ -1137,3 +1145,5 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - LTH `bollinger`는 기본 비활성 선택 필터다. 추세·장중반동·급반등 세 진입 경로 모두에 적용하고, 보유 중 손절 경로를 막지 않는다. 일봉과 분봉 혼합 금지, 512봉 상한, 마지막 미확정봉 제외, live/replay 공통 함수·회귀 테스트를 유지한다.
 
 마지막 업데이트: 2026-09-11
+
+> 마지막 업데이트: 2026-10-03T23:21:04+09:00

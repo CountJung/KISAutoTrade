@@ -6,10 +6,10 @@ mod ma_cross;
 mod manager;
 mod mean_trend;
 mod price_condition;
+mod sequence;
 mod state;
 
 pub use breakout::{
-    ConsecutiveMoveParams, ConsecutiveMoveStrategy, FailedBreakoutParams, FailedBreakoutStrategy,
     FiftyTwoWeekHighParams, FiftyTwoWeekHighStrategy, StrongCloseParams, StrongCloseStrategy,
     VolatilityExpansionParams, VolatilityExpansionStrategy,
 };
@@ -17,8 +17,8 @@ pub use classic::{
     DeviationParams, DeviationStrategy, MomentumParams, MomentumStrategy, RsiParams, RsiStrategy,
 };
 pub use core::{
-    initialize_strategy_warmup, BrokerPositionSnapshot, OhlcCandle, Signal, Strategy,
-    StrategyConfig, StrategySignal,
+    initialize_strategy_warmup, BrokerPositionSnapshot, HistoryReadiness, OhlcCandle, Signal,
+    Strategy, StrategyConfig, StrategySignal,
 };
 pub use leveraged_trend_hold::{
     LeveragedTrendHoldEntry, LeveragedTrendHoldParams, LeveragedTrendHoldPreviewSignal,
@@ -31,6 +31,9 @@ pub use mean_trend::{
 };
 pub use price_condition::{
     PriceConditionParams, PriceConditionStrategy, PriceConditionSymbolConfig,
+};
+pub use sequence::{
+    ConsecutiveMoveParams, ConsecutiveMoveStrategy, FailedBreakoutParams, FailedBreakoutStrategy,
 };
 
 #[cfg(test)]

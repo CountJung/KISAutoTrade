@@ -18,7 +18,7 @@ export interface ReplayMetadata {
   engineVersion: string
   strategyVersion: string
   sourceInterval: string
-  replayCadence: 'minuteClose' | 'dailyClose' | 'dailyOpenAndClose' | 'weeklyClose' | 'monthlyClose' | 'candleClose' | string
+  replayCadence: 'minuteClose' | 'dailyClose' | 'dailyCloseWithDayBoundary' | 'dailyOpenAndClose' | 'weeklyClose' | 'monthlyClose' | 'candleClose' | string
   liveCadenceSeconds: number
   warmupCount: number
   dataStart: string
@@ -146,6 +146,7 @@ export interface StrategyPreviewInput {
   orderQuantity: number
   params: Record<string, unknown>
   candles: ChartCandle[]
+  historyCandles?: ChartCandle[]
   warmupCount?: number
   interval?: string
   dataSource?: string
@@ -173,4 +174,19 @@ export interface StrategyPreviewView {
   message: string
   replay: ReplayMetadata
   backtest: BacktestReport
+  preparation?: StrategyPreviewPreparation
+}
+
+export interface StrategyPreviewPreparation {
+  requiredHistoryBars: number | null
+  providedHistoryBars: number
+  availableHistoryBars: number | null
+  readyAtStart: boolean | null
+  readyAtEnd: boolean | null
+  firstReadyTime: string | null
+  unreadyEvaluationBars: number
+  evaluatedBars: number | null
+  historyStatus: 'sufficient' | 'insufficient' | 'notRequired' | 'unsupported'
+  indicatorStatus: 'ready' | 'warmingUp' | 'unsupported'
+  outcome: 'conditionsNotMet' | 'noTrades' | 'traded' | 'notEvaluable'
 }

@@ -17,6 +17,7 @@ import type {
   ChartCandle,
   CmdError,
   SimulationAssumptions,
+  StrategyPreviewPreparation,
   StrategyPreviewView,
 } from '../../../api/types'
 import { StrategyPreviewChart } from './leveragedTrendHoldPreviewChart'
@@ -41,9 +42,57 @@ const TOSS_INTERVALS: Array<{ value: PreviewInterval; label: string }> = [
   { value: 'D', label: '일봉' },
 ]
 const PREVIEW_COUNTS: PreviewCount[] = [50, 100, 200]
+const HISTORY_REQUEST_BARS = 252
 
 function previewRangeLabel(actual: number, requested: PreviewCount) {
   return actual === requested ? `최근 ${requested}봉` : `실제 ${actual}봉 / 요청 ${requested}봉`
+}
+
+function splitPreviewCandles(candles: ChartCandle[], count: PreviewCount, dataSource: string) {
+  const ordered = [...new Map(candles.map((candle) => [candle.date, candle])).values()]
+    .sort((left, right) => left.date.localeCompare(right.date))
+  const evaluationStart = Math.max(0, ordered.length - count)
+  const evaluation = ordered.slice(evaluationStart)
+  const historyCandles = ordered.slice(0, evaluationStart)
+  return {
+    candles: evaluation,
+    historyCandles,
+    dataSource,
+    sourceLabel: `${dataSource} · ${previewRangeLabel(evaluation.length, count)} · 사전 자료 ${historyCandles.length}봉`,
+  }
+}
+
+function PreparationStatus({ value }: { value: StrategyPreviewPreparation }) {
+  const historyLabel = value.historyStatus === 'unsupported' ? '사전 자료 요구량 미지원'
+    : value.historyStatus === 'notRequired' ? '사전 자료 불필요'
+      : value.historyStatus === 'insufficient' ? '평가 시작 사전 자료 부족' : '평가 시작 사전 자료 충분'
+  const indicatorLabel = value.indicatorStatus === 'unsupported' ? '지표 준비 상태 미지원'
+    : value.indicatorStatus === 'warmingUp' ? '지표 준비 중' : '지표 준비 완료'
+  const outcomeLabel = value.outcome === 'conditionsNotMet' ? '매매 조건 불충족'
+    : value.outcome === 'noTrades' ? '신호 발생 · 체결 없음'
+      : value.outcome === 'traded' ? '체결 가정 거래 발생' : '평가 불가'
+  const severity = value.historyStatus === 'insufficient' || value.outcome === 'noTrades' ? 'warning'
+    : value.outcome === 'traded' ? 'success' : 'info'
+  return (
+    <Alert severity={severity} data-testid="strategy-preparation-status" sx={{ py: 0.75 }}>
+      <Typography variant="body2">{historyLabel} · {indicatorLabel} · {outcomeLabel}</Typography>
+      <Typography variant="caption" display="block">
+        사전 자료 {value.providedHistoryBars}봉 / {value.requiredHistoryBars == null ? '요구량 미지원' : `필요 ${value.requiredHistoryBars}봉`}
+        {' · '}지표 버퍼 {value.availableHistoryBars == null ? '미지원' : `${value.availableHistoryBars}봉`}
+        {' · '}시작 준비 {value.readyAtStart == null ? '미지원' : value.readyAtStart ? '완료' : '미완료'}
+        {' · '}종료 준비 {value.readyAtEnd == null ? '미지원' : value.readyAtEnd ? '완료' : '미완료'}
+      </Typography>
+      <Typography variant="caption" display="block">
+        {value.evaluatedBars == null ? '조건 평가 확인 미지원' : `실제 조건 평가 ${value.evaluatedBars}봉`}
+      </Typography>
+      {value.unreadyEvaluationBars > 0 && (
+        <Typography variant="caption" display="block">
+          평가 구간 중 봉 처리 후 지표 준비 미확인 {value.unreadyEvaluationBars}봉
+        </Typography>
+      )}
+      {value.firstReadyTime && <Typography variant="caption" display="block">봉 처리 후 첫 준비 완료 시점 {value.firstReadyTime}</Typography>}
+    </Alert>
+  )
 }
 
 function isDomesticSymbol(symbol: string) {
@@ -62,16 +111,15 @@ async function loadPreviewCandles(
   brokerId: BrokerId,
   interval: PreviewInterval,
   count: PreviewCount,
-): Promise<{ candles: ChartCandle[]; sourceLabel: string; isOverseas: boolean }> {
+): Promise<{ candles: ChartCandle[]; historyCandles: ChartCandle[]; sourceLabel: string; dataSource: string; isOverseas: boolean }> {
   const isOverseas = !isDomesticSymbol(symbol)
   const intervalLabel = interval === '1m' ? '1분봉' : interval === 'D' ? '일봉' : interval === 'W' ? '주봉' : '월봉'
 
   if (brokerId === 'toss') {
     const tossInterval = interval === '1m' ? '1m' : '1d'
-    const candles = await cmd.getTossChartData(symbol, tossInterval, count)
+    const candles = await cmd.getTossChartData(symbol, tossInterval, Math.min(count + HISTORY_REQUEST_BARS, 200))
     return {
-      candles,
-      sourceLabel: `Toss ${intervalLabel} · ${previewRangeLabel(candles.length, count)}`,
+      ...splitPreviewCandles(candles, count, `Toss ${intervalLabel}`),
       isOverseas,
     }
   }
@@ -80,17 +128,17 @@ async function loadPreviewCandles(
     const end = new Date()
     const start = new Date(end)
     const calendarDaysPerCandle = interval === 'D' ? 2 : interval === 'W' ? 8 : 32
-    start.setDate(start.getDate() - count * calendarDaysPerCandle)
+    const requestedBars = count + HISTORY_REQUEST_BARS
+    start.setDate(start.getDate() - requestedBars * calendarDaysPerCandle)
     const candles = await cmd.getChartData({
       symbol,
       period_code: interval,
       start_date: toYmd(start),
       end_date: toYmd(end),
-      count,
+      count: requestedBars,
     })
     return {
-      candles: candles.slice(-count),
-      sourceLabel: `KIS ${intervalLabel} · ${previewRangeLabel(Math.min(candles.length, count), count)}`,
+      ...splitPreviewCandles(candles, count, `KIS ${intervalLabel}`),
       isOverseas: false,
     }
   }
@@ -98,10 +146,9 @@ async function loadPreviewCandles(
   let lastError: unknown = null
   for (const exchange of OVERSEAS_EXCHANGES) {
     try {
-      const candles = await cmd.getOverseasChartData(symbol, exchange, interval, '', count)
+      const candles = await cmd.getOverseasChartData(symbol, exchange, interval, '', count + HISTORY_REQUEST_BARS)
       return {
-        candles: candles.slice(-count),
-        sourceLabel: `KIS ${exchange} ${intervalLabel} · ${previewRangeLabel(Math.min(candles.length, count), count)}`,
+        ...splitPreviewCandles(candles, count, `KIS ${exchange} ${intervalLabel}`),
         isOverseas: true,
       }
     } catch (error) {
@@ -132,6 +179,7 @@ export function StrategyPreviewPanel({
   orderQuantity,
   params,
 }: Props) {
+  const dailyEventStrategy = strategyId.startsWith('strong_close') || strategyId.startsWith('volatility_expansion')
   const previewMutation = usePreviewStrategy()
   const [selectedSymbol, setSelectedSymbol] = useState(symbols[0] ?? '')
   const [previewInterval, setPreviewInterval] = useState<PreviewInterval>('D')
@@ -177,12 +225,14 @@ export function StrategyPreviewPanel({
   }, [selectedSymbol])
 
   useEffect(() => {
-    if (brokerId === 'toss' && (previewInterval === 'W' || previewInterval === 'M')) {
+    if (dailyEventStrategy && previewInterval !== 'D') {
+      setPreviewInterval('D')
+    } else if (brokerId === 'toss' && (previewInterval === 'W' || previewInterval === 'M')) {
       setPreviewInterval('D')
     } else if (brokerId !== 'toss' && previewInterval === '1m') {
       setPreviewInterval('D')
     }
-  }, [brokerId, previewInterval])
+  }, [brokerId, previewInterval, dailyEventStrategy])
 
   const selectedLabel = useMemo(() => {
     if (!selectedSymbol) return ''
@@ -198,6 +248,7 @@ export function StrategyPreviewPanel({
     setLocalError(null)
     try {
       const loaded = await loadPreviewCandles(selectedSymbol, brokerId, previewInterval, previewCount)
+      if (requestGeneration !== previewGeneration.current) return
       setSourceLabel(loaded.sourceLabel)
       const result = await previewMutation.mutateAsync({
         strategyId,
@@ -207,8 +258,9 @@ export function StrategyPreviewPanel({
         orderQuantity,
         params,
         candles: loaded.candles,
+        historyCandles: loaded.historyCandles,
         interval: previewInterval,
-        dataSource: loaded.sourceLabel,
+        dataSource: loaded.dataSource,
         strategyVersion: 'strategy-config-v1',
         brokerId,
         brokerAccountId,
@@ -284,7 +336,7 @@ export function StrategyPreviewPanel({
             fullWidth
             sx={{ minWidth: { sm: 110 } }}
           >
-            {(brokerId === 'toss' ? TOSS_INTERVALS : KIS_INTERVALS).map((option) => (
+            {(brokerId === 'toss' ? TOSS_INTERVALS : KIS_INTERVALS).filter((option) => !dailyEventStrategy || option.value === 'D').map((option) => (
               <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
             ))}
           </TextField>
@@ -319,6 +371,19 @@ export function StrategyPreviewPanel({
         </Stack>
       </Stack>
 
+      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+        요청 분석 구간 최근 {previewCount}봉을 평가하고, 그 이전 봉만 사전 자료로 사용합니다.
+        {' '}{brokerId === 'toss' ? 'Toss는 한 페이지 최대 200봉' : 'KIS는 한 페이지 응답 범위'} 내에서 조회해
+        사전 자료가 부족할 수 있으며, 추가 페이지 조회는 하지 않습니다.
+      </Typography>
+
+      {dailyEventStrategy && (
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }} data-testid="daily-event-replay-note">
+          강한 종가는 전일 완료봉으로 다음 평가일을 판단하고, 변동성 확장은 이전 일봉 범위와 당일 OHLC를 비교합니다.
+          {' '}일봉만 지원하며 체결은 종가 가정입니다. 장중 신호·익일 시가 체결을 재현하지 않습니다.
+        </Typography>
+      )}
+
       {symbols.length === 0 ? (
         <Alert severity="info" sx={{ py: 0.75 }}>
           대상 종목을 추가하면 이 카드 안에서 바로 전략 신호를 미리볼 수 있습니다.
@@ -332,6 +397,11 @@ export function StrategyPreviewPanel({
           <Alert severity={preview.signals.length > 0 ? 'success' : 'info'} sx={{ py: 0.75 }}>
             {preview.message}
           </Alert>
+          <Typography variant="caption" color="text.secondary" data-testid="strategy-evaluation-range">
+            요청 분석 {previewCount}봉 · 실제 평가 {preview.candles.length}봉
+            {' · '}사전 자료 {preview.preparation?.providedHistoryBars ?? preview.replay?.warmupCount ?? 0}봉
+          </Typography>
+          {preview.preparation && <PreparationStatus value={preview.preparation} />}
           <StrategyPreviewChart
             candles={preview.candles}
             signals={preview.signals}

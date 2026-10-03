@@ -588,16 +588,19 @@ UI 규칙:
 - 일반 전략 파라미터는 `xs={12} sm={6} md={4}`로 배치하고 TextField에 `fullWidth`를 적용한다.
 - 미리보기 티커 Select와 계산 버튼은 좁은 화면에서 세로로 쌓고, 데스크톱에서만 가로로 배치한다.
 - 일반 미리보기는 KIS 일/주/월봉, Toss 1분/일봉을 제공하고 분석 구간은 최근 50/100/200봉으로 분리한다. `봉 단위`와 `분석 구간`을 한 프리셋 이름으로 합쳐 사용자가 일봉과 1년 범위를 혼동하게 하지 않는다.
+- 강한 종가·변동성 확장의 generic 미리보기는 일봉만 선택할 수 있다. 전일 조건→다음 평가일과 당일 OHLC→이전 N일 평균 범위의 차이를 안내하고, 현재 동일 종가 체결 근사가 익일 시가·장중 체결을 재현한다고 표시하지 않는다.
 - 티커·봉 단위·분석 구간·파라미터·수량·broker가 바뀌면 이전 미리보기 결과를 무효화한다. 진행 중 요청의 결과도 generation/key가 현재 입력과 일치할 때만 표시해 stale chart를 막는다.
 - lightweight-charts 미리보기는 `horzTouchDrag: true`, `vertTouchDrag: false`, `pinch: true`로 설정하고 컨테이너 `touchAction: pan-y`를 유지한다. 모바일에서 세로 한 손가락 이동은 페이지 스크롤, 가로 이동은 차트 패닝, 두 손가락은 확대/축소로 분리하며 확대·축소·전체 맞춤 버튼도 제공한다.
 - Playwright에서 모든 전략 카드의 x/width가 동일한지와 좁은 viewport에서 입력/Select/버튼이 카드 밖으로 넘치지 않는지 검증한다.
 - 연구 패널은 초기자본, 수수료/세금/슬리피지 bps, USD/KRW, 종목 최대 비중, 일일 손실 한도, in-sample 비율을 카드 전체 너비에서 입력받는다. 입력·티커·broker/account가 바뀌면 기존 결과와 진행 중 응답을 무효화한다.
 - 결과는 raw signal, 주문 가능, 체결 가정, 차단을 분리하고 누적 수익률/MDD/승률/손익비/turnover/exposure, equity curve, in/out-of-sample, 거래 목록을 표시한다. 큰 거래 목록은 UI에서 100건 이하로 제한해 jank를 막는다.
 - replay cadence와 live 10초 tick cadence, warmup, 데이터 source/range, 재현 hash를 함께 표시해 일봉/1분봉 근사와 실제 tick을 혼동하지 않게 한다.
+- Generic preview는 모든 전략에 동일한 요청 평가 봉 수를 우선 적용하고 단일 provider 응답의 이전 봉만 별도 `historyCandles`로 보낸다. KIS는 요청 count+252(최대 452), Toss 현재 커맨드는 최대 200 안에서 조회하므로 실제 사전자료가 부족할 수 있다. 추가 페이지 확보 전까지 기간/200·252 기준을 줄이지 않고 요청·실제 평가·사전자료 수를 표시한다.
+- `preparation`에서 자료 부족·지표 준비 중·조건 불충족·신호 무체결·체결 가정을 구분한다. 제공 자료와 실제 지표 버퍼 수, 시작/종료 준비, 처리 후 첫 준비 시각, 조건 평가 봉 수를 함께 읽는다. seed-only 또는 미지원 구간은 평가 불가로 표시하며 null을 false/0으로 단정하지 않는다.
 - A/B 실험은 broker/account/strategy/symbol scope별 localStorage에 두 slot만 저장한다. 전략 버전, params, data source/interval/range, 비용 가정, 생성 시각을 포함하고 credential/secret은 저장하지 않는다. source/기간이 다르면 직접 비교 경고를 표시한다.
 - equity SVG는 `role="img"`와 시작/종료 자산을 설명하는 `aria-label`을 제공한다. 좁은 화면에서는 실행 가정 입력과 preview control이 1열로 쌓여 카드 밖으로 넘치지 않아야 한다.
 
-> 마지막 업데이트: 2026-07-15T00:00:00+09:00
+> 마지막 업데이트: 2026-10-03T23:21:04+09:00
 
 ## DB 관리 Settings UI
 
@@ -607,4 +610,4 @@ UI 규칙:
 - backend 전환은 자동매매 정지와 schema/import 검증을 통과한 경우만 허용하며, stale 연결 설정으로 작업하지 않도록 form dirty 상태도 action을 잠근다.
 - DB password와 파괴적 관리는 Tauri desktop Settings에서만 렌더링한다. 웹 모드에는 보안 안내만 보여주고 관리 form/control을 노출하지 않는다.
 
-> 마지막 업데이트: 2026-07-15T00:00:00+09:00
+> 마지막 업데이트: 2026-10-03T23:21:04+09:00

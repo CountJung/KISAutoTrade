@@ -90,6 +90,7 @@ fn future_candle_change_does_not_change_prior_replay_signals() {
                 candle("20260702", "81000"),
                 candle("20260703", future_close),
             ],
+            history_candles: Vec::new(),
             warmup_count: Some(0),
             interval: Some("D".into()),
             data_source: Some("fixture".into()),
@@ -168,6 +169,7 @@ fn blocked_buy_is_fed_back_before_the_next_raw_signal() {
             }]
         }),
         candles: vec![candle("20260701", "69000"), candle("20260702", "68000")],
+        history_candles: Vec::new(),
         warmup_count: Some(0),
         interval: Some("D".into()),
         data_source: Some("fixture".into()),
@@ -185,6 +187,7 @@ fn blocked_buy_is_fed_back_before_the_next_raw_signal() {
     assert_eq!(result.signals.len(), 2);
     assert_eq!(result.backtest.summary.filled_order_count, 0);
     assert_eq!(result.backtest.summary.blocked_order_count, 2);
+    assert_eq!(result.preparation.outcome, "noTrades");
 }
 
 #[test]
@@ -200,6 +203,7 @@ fn reproduction_hash_covers_ohlcv_and_order_quantity() {
             order_quantity,
             params: serde_json::json!({"symbols": []}),
             candles: vec![row, candle("20260702", "70000")],
+            history_candles: Vec::new(),
             warmup_count: Some(warmup_count),
             interval: Some("D".into()),
             data_source: Some("fixture".into()),
@@ -239,6 +243,7 @@ fn live_tick_and_preview_emit_identical_signals_for_normalized_fixture() {
         order_quantity: 1,
         params: params.clone(),
         candles: vec![candle("20260701", "69000"), candle("20260702", "81000")],
+        history_candles: Vec::new(),
         warmup_count: Some(0),
         interval: Some("D".into()),
         data_source: Some("fixture".into()),
@@ -278,6 +283,104 @@ fn live_tick_and_preview_emit_identical_signals_for_normalized_fixture() {
         .collect::<Vec<_>>();
 
     assert_eq!(preview_sides, live_sides);
+}
+
+#[test]
+fn daily_warmup_preview_uses_closes_and_excludes_future_bars() {
+    use crate::trading::strategy::{MeanReversionParams, TrendFilterParams};
+
+    for (id, params, first_signal_index) in [
+        (
+            "mean_reversion",
+            serde_json::to_value(MeanReversionParams::default()).unwrap(),
+            253,
+        ),
+        (
+            "trend_filter",
+            serde_json::to_value(TrendFilterParams::default()).unwrap(),
+            252,
+        ),
+    ] {
+        let start = chrono::NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+        let date = |index| {
+            (start + chrono::Duration::days(index))
+                .format("%Y%m%d")
+                .to_string()
+        };
+        let preview = |warmup_high: u64, future_close: u64| {
+            let mut candles = (0..252)
+                .map(|index| {
+                    let close = if id == "mean_reversion" {
+                        10_000
+                    } else {
+                        10_000 + index
+                    };
+                    // Overseas input is USD; the strategy receives integer cents.
+                    ChartCandle {
+                        date: date(index as i64),
+                        open: format!("{:.2}", close as f64 / 100.0),
+                        high: format!("{:.2}", warmup_high as f64 / 100.0),
+                        low: format!("{:.2}", (close - 100) as f64 / 100.0),
+                        close: format!("{:.2}", close as f64 / 100.0),
+                        volume: "1000".into(),
+                    }
+                })
+                .collect::<Vec<_>>();
+            let prices = if id == "mean_reversion" {
+                [10_000, 9_000, future_close]
+            } else {
+                [10_252, 10_253, future_close]
+            };
+            candles.extend(prices.into_iter().enumerate().map(|(index, price)| {
+                candle(
+                    &date(252 + index as i64),
+                    &format!("{:.2}", price as f64 / 100.0),
+                )
+            }));
+            preview_strategy_from_candles(StrategyPreviewInput {
+                strategy_id: id.into(),
+                strategy_name: id.into(),
+                symbol: "SOXQ".into(),
+                is_overseas: true,
+                order_quantity: 10,
+                params: params.clone(),
+                candles,
+                history_candles: Vec::new(),
+                warmup_count: Some(252),
+                interval: Some("1d".into()),
+                data_source: Some("high-close-fixture".into()),
+                strategy_version: None,
+                broker_id: None,
+                broker_account_id: None,
+                assumptions: SimulationAssumptions::default(),
+            })
+            .unwrap()
+        };
+
+        let baseline = preview(20_000, 10_300);
+        let changed_highs = preview(30_000, 10_300);
+        assert_eq!(baseline.signals[0].time, date(first_signal_index));
+        assert_eq!(baseline.signals[0].side, "buy");
+        assert_eq!(baseline.replay.data_start, date(252));
+        assert_eq!(baseline.replay.data_end, date(254));
+        assert_eq!(baseline.replay.warmup_count, 252);
+        assert_eq!(
+            serde_json::to_value(&baseline.signals).unwrap(),
+            serde_json::to_value(&changed_highs.signals).unwrap()
+        );
+        assert_ne!(baseline.replay.input_hash, changed_highs.replay.input_hash);
+
+        let future_changed = preview(20_000, 8_000);
+        let prior_signals = |result: &super::StrategyPreviewView| {
+            result
+                .signals
+                .iter()
+                .filter(|signal| signal.time < date(254))
+                .map(|signal| serde_json::to_value(signal).unwrap())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(prior_signals(&baseline), prior_signals(&future_changed));
+    }
 }
 
 fn candle(date: &str, close: &str) -> ChartCandle {

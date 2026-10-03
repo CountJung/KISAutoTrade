@@ -111,6 +111,14 @@ pub struct OhlcCandle {
     pub close: u64,
 }
 
+/// 전략 상태에서 읽은 실제 지표 준비 상태. 가격 단위가 아닌 관측 봉 수다.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HistoryReadiness {
+    pub required_bars: usize,
+    pub available_bars: usize,
+    pub ready: bool,
+}
+
 /// 전략 trait — 모든 자동매매 전략이 구현해야 함
 pub trait Strategy: Send + Sync {
     fn id(&self) -> &str;
@@ -121,18 +129,41 @@ pub trait Strategy: Send + Sync {
     fn set_enabled(&mut self, enabled: bool);
     /// 틱 데이터를 받아 매매 신호 반환
     fn on_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal;
-    /// 전략 시작 시 일봉 가격 배열로 초기화. 히스토리가 필요 없는 전략은 기본 no-op.
+    /// 일봉 replay의 날짜 시작. 당일 시가만 공개하며 보유 포지션을 지우지 않는다.
+    fn on_trading_day_start(&mut self, _symbol: &str, _open: u64) {}
+    /// 완료 시점에 공개된 당일 OHLC로 종가 관측을 평가한다.
+    fn on_daily_close_tick(&mut self, symbol: &str, candle: &OhlcCandle, volume: u64) -> Signal {
+        self.on_tick(symbol, candle.close, volume)
+    }
+    /// 체결/차단 피드백 뒤 완료된 일봉을 다음 평가일의 과거 상태에 반영한다.
+    fn on_completed_candle(&mut self, _symbol: &str, _candle: &OhlcCandle) {}
+    /// 전략별 단일 가격 배열 초기화. 기본 OHLC 훅은 종가를 전달한다.
+    /// 고가 등 다른 값이 필요한 전략은 initialize_ohlc를 재정의한다.
     fn initialize_historical(&mut self, _symbol: &str, _prices: &[u64]) {}
     /// 전략 시작 시 일봉 (고가, 종가) 쌍 배열로 초기화. 강한 종가 등 복합 일봉 데이터가 필요한 전략에서 재정의.
     fn initialize_candles(&mut self, _symbol: &str, _candles: &[(u64, u64)]) {}
-    /// 전략 시작 시 일봉 OHLC 배열로 초기화. ADX/갭/양봉 판단이 필요한 전략에서 재정의.
-    fn initialize_ohlc(&mut self, _symbol: &str, _candles: &[OhlcCandle]) {}
+    /// 전략 시작 시 일봉 OHLC 배열로 초기화. 기본은 종가 기반 지표를 초기화한다.
+    fn initialize_ohlc(&mut self, symbol: &str, candles: &[OhlcCandle]) {
+        let closes = candles
+            .iter()
+            .map(|candle| candle.close)
+            .collect::<Vec<_>>();
+        self.initialize_historical(symbol, &closes);
+    }
     /// 전략 시작 시 장중 가격 배열로 초기화. 실시간 틱 기반 반동/매수세 판단이 필요한 전략에서 재정의.
     fn initialize_intraday_prices(&mut self, _symbol: &str, _prices: &[u64]) {}
     /// 전략 시작 시 장중 OHLC 배열로 초기화. 미리보기와 실시간 전략의 1분봉 판단을 맞춰야 하는 전략에서 재정의.
     fn initialize_intraday_ohlc(&mut self, _symbol: &str, _candles: &[OhlcCandle]) {}
     /// 전략 시작 시 일봉 변동 범위(고가-저가) 배열로 초기화. 변동성 확장 전략에서 사용.
     fn initialize_range_data(&mut self, _symbol: &str, _ranges: &[u64]) {}
+    /// 실제 지표와 버퍼의 준비 상태. 미지원 전략은 준비 완료로 추측하지 않는다.
+    fn history_readiness(&self, _symbol: &str) -> Option<HistoryReadiness> {
+        None
+    }
+    /// 다음 tick에서 매매 조건을 평가할 수 있는지. 교차 전략은 이전 지표가 필요하다.
+    fn can_evaluate_next_tick(&self, symbol: &str) -> Option<bool> {
+        self.history_readiness(symbol).map(|state| state.ready)
+    }
     /// 자동매매 시작 시 실제 잔고 기반으로 전략 내부 포지션 플래그를 동기화한다.
     fn sync_position(&mut self, _symbol: &str, _quantity: u64, _avg_price: u64) {}
     /// broker/account scope가 있는 실제 잔고 기반 포지션 동기화 훅.
@@ -154,10 +185,6 @@ pub fn initialize_strategy_warmup(
     intraday_ohlc: &[OhlcCandle],
 ) {
     if !daily_ohlc.is_empty() {
-        let highs = daily_ohlc
-            .iter()
-            .map(|candle| candle.high)
-            .collect::<Vec<_>>();
         let high_close = daily_ohlc
             .iter()
             .map(|candle| (candle.high, candle.close))
@@ -165,9 +192,7 @@ pub fn initialize_strategy_warmup(
         let ranges = daily_ohlc
             .iter()
             .map(|candle| candle.high.saturating_sub(candle.low))
-            .filter(|range| *range > 0)
             .collect::<Vec<_>>();
-        strategy.initialize_historical(symbol, &highs);
         strategy.initialize_candles(symbol, &high_close);
         strategy.initialize_ohlc(symbol, daily_ohlc);
         strategy.initialize_range_data(symbol, &ranges);

@@ -2,8 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
 use super::{
-    state::{bounded_window, bounded_window_with_extra},
-    Signal, Strategy, StrategyConfig,
+    state::bounded_window, HistoryReadiness, OhlcCandle, Signal, Strategy, StrategyConfig,
 };
 
 // ────────────────────────────────────────────────────────────────────
@@ -32,6 +31,7 @@ impl Default for FiftyTwoWeekHighParams {
 struct FiftyTwoWeekState {
     prev_price: Option<u64>,
     high_52w: Option<u64>,
+    history_bars: usize,
     buy_price: Option<u64>,
 }
 
@@ -74,39 +74,57 @@ impl Strategy for FiftyTwoWeekHighStrategy {
         self.config.enabled = enabled;
     }
 
+    // 기존 단일 가격 API는 고가 배열을 받는다. 완료된 과거 봉 전체만 사용한다.
     fn initialize_historical(&mut self, symbol: &str, prices: &[u64]) {
         if !self.config.targets_symbol(symbol) {
             return;
         }
-        let lookback = self.params.lookback_days.min(prices.len());
-        if lookback < 2 {
-            tracing::warn!(
-                "52주 신고가 [{}]: 일봉 데이터 부족 ({}봉) — 전략 비활성",
-                symbol,
-                prices.len()
-            );
-            return;
+        let required = bounded_window(self.params.lookback_days);
+        let history = &prices[prices.len().saturating_sub(required)..];
+        let state = self
+            .states
+            .entry(symbol.to_string())
+            .or_insert(FiftyTwoWeekState {
+                prev_price: None,
+                high_52w: None,
+                history_bars: 0,
+                buy_price: None,
+            });
+        state.history_bars = history.len();
+        state.high_52w = if history.len() == required {
+            history.iter().copied().max().filter(|high| *high > 0)
+        } else {
+            None
+        };
+        state.prev_price = history.last().copied();
+    }
+
+    fn initialize_ohlc(&mut self, symbol: &str, candles: &[OhlcCandle]) {
+        let cap = bounded_window(self.params.lookback_days);
+        let highs = candles[candles.len().saturating_sub(cap)..]
+            .iter()
+            .map(|candle| candle.high)
+            .collect::<Vec<_>>();
+        self.initialize_historical(symbol, &highs);
+        if let Some(state) = self.states.get_mut(symbol) {
+            state.prev_price = candles.last().map(|candle| candle.close);
         }
-        let slice = &prices[prices.len().saturating_sub(lookback)..prices.len() - 1];
-        if let Some(&h) = slice.iter().max() {
-            if h > 0 {
-                tracing::info!(
-                    "52주 신고가 초기화 [{}]: {}원 (최근 {}거래일)",
-                    symbol,
-                    h,
-                    slice.len()
-                );
-                let state = self
-                    .states
-                    .entry(symbol.to_string())
-                    .or_insert(FiftyTwoWeekState {
-                        prev_price: None,
-                        high_52w: None,
-                        buy_price: None,
-                    });
-                state.high_52w = Some(h);
-            }
-        }
+    }
+
+    fn history_readiness(&self, symbol: &str) -> Option<HistoryReadiness> {
+        let state = self.states.get(symbol);
+        Some(HistoryReadiness {
+            required_bars: bounded_window(self.params.lookback_days),
+            available_bars: state.map_or(0, |state| state.history_bars),
+            ready: state
+                .is_some_and(|state| state.high_52w.is_some() && state.prev_price.is_some()),
+        })
+    }
+
+    fn can_evaluate_next_tick(&self, symbol: &str) -> Option<bool> {
+        Some(self.states.get(symbol).is_some_and(|state| {
+            state.buy_price.is_some() || (state.high_52w.is_some() && state.prev_price.is_some())
+        }))
     }
 
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
@@ -123,28 +141,30 @@ impl Strategy for FiftyTwoWeekHighStrategy {
             .or_insert(FiftyTwoWeekState {
                 prev_price: None,
                 high_52w: None,
+                history_bars: 0,
                 buy_price: None,
             });
+
+        // ① 손절 체크
+        if let Some(bp) = state.buy_price {
+            let stop_price = (bp as f64 * (1.0 - self.params.stop_loss_pct / 100.0)) as u64;
+            if price <= stop_price {
+                state.buy_price = None;
+                state.prev_price = Some(price);
+                return Signal::Sell {
+                    symbol: symbol.to_string(),
+                    quantity: self.config.order_quantity,
+                    reason: format!(
+                        "52주 신고가 손절: -{}% ({:.0}원 → {:.0}원)",
+                        self.params.stop_loss_pct, bp as f64, price as f64
+                    ),
+                };
+            }
+        }
 
         let signal = match state.high_52w {
             None => Signal::Hold,
             Some(high) => {
-                // ① 손절 체크
-                if let Some(bp) = state.buy_price {
-                    let stop_price = (bp as f64 * (1.0 - self.params.stop_loss_pct / 100.0)) as u64;
-                    if price <= stop_price {
-                        state.buy_price = None;
-                        state.prev_price = Some(price);
-                        return Signal::Sell {
-                            symbol: symbol.to_string(),
-                            quantity: self.config.order_quantity,
-                            reason: format!(
-                                "52주 신고가 손절: -{}% ({:.0}원 → {:.0}원)",
-                                self.params.stop_loss_pct, bp as f64, price as f64
-                            ),
-                        };
-                    }
-                }
                 // ② 52주 신고가 돌파 감지
                 let crossed = state
                     .prev_price
@@ -183,321 +203,10 @@ impl Strategy for FiftyTwoWeekHighStrategy {
             .or_insert(FiftyTwoWeekState {
                 prev_price: None,
                 high_52w: None,
+                history_bars: 0,
                 buy_price: None,
             });
         state.buy_price = (quantity > 0).then_some(avg_price);
-    }
-
-    fn reset(&mut self) {
-        self.states.clear();
-    }
-}
-
-// ────────────────────────────────────────────────────────────────────
-// 연속 상승/하락 전략 (Consecutive Move)
-// - N일 연속 종가 상승 → 매수
-// - M일 연속 종가 하락 → 매도
-// ────────────────────────────────────────────────────────────────────
-
-/// 연속 상승/하락 전략 파라미터
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConsecutiveMoveParams {
-    /// 매수 발동 연속 상승 횟수 (기본 3)
-    pub buy_days: usize,
-    /// 매도 발동 연속 하락 횟수 (기본 3)
-    pub sell_days: usize,
-}
-
-impl Default for ConsecutiveMoveParams {
-    fn default() -> Self {
-        Self {
-            buy_days: 3,
-            sell_days: 3,
-        }
-    }
-}
-
-/// 종목별 연속상승/하락 상태
-struct ConsecutiveMoveState {
-    prices: VecDeque<u64>,
-    in_position: bool,
-}
-
-pub struct ConsecutiveMoveStrategy {
-    config: StrategyConfig,
-    params: ConsecutiveMoveParams,
-    /// 종목코드 → 개별 상태
-    states: std::collections::HashMap<String, ConsecutiveMoveState>,
-}
-
-impl ConsecutiveMoveStrategy {
-    pub fn new(config: StrategyConfig) -> Self {
-        let params: ConsecutiveMoveParams =
-            serde_json::from_value(config.params.clone()).unwrap_or_default();
-        Self {
-            config,
-            params,
-            states: std::collections::HashMap::new(),
-        }
-    }
-
-    fn is_consecutive_up(prices: &VecDeque<u64>, n: usize) -> bool {
-        if prices.len() < n + 1 {
-            return false;
-        }
-        let slice: Vec<u64> = prices.iter().rev().take(n + 1).cloned().collect();
-        (0..n).all(|i| slice[i] > slice[i + 1])
-    }
-
-    fn is_consecutive_down(prices: &VecDeque<u64>, n: usize) -> bool {
-        if prices.len() < n + 1 {
-            return false;
-        }
-        let slice: Vec<u64> = prices.iter().rev().take(n + 1).cloned().collect();
-        (0..n).all(|i| slice[i] < slice[i + 1])
-    }
-}
-
-impl Strategy for ConsecutiveMoveStrategy {
-    fn id(&self) -> &str {
-        &self.config.id
-    }
-    fn name(&self) -> &str {
-        &self.config.name
-    }
-    fn config(&self) -> &StrategyConfig {
-        &self.config
-    }
-    fn config_mut(&mut self) -> &mut StrategyConfig {
-        &mut self.config
-    }
-    fn is_enabled(&self) -> bool {
-        self.config.enabled
-    }
-    fn set_enabled(&mut self, enabled: bool) {
-        self.config.enabled = enabled;
-    }
-
-    fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
-        if !self.config.enabled {
-            return Signal::Hold;
-        }
-        if !self.config.targets_symbol(symbol) {
-            return Signal::Hold;
-        }
-
-        let cap = bounded_window_with_extra(self.params.buy_days.max(self.params.sell_days), 1);
-        let state = self
-            .states
-            .entry(symbol.to_string())
-            .or_insert_with(|| ConsecutiveMoveState {
-                prices: VecDeque::with_capacity(cap),
-                in_position: false,
-            });
-
-        state.prices.push_back(price);
-        if state.prices.len() > cap {
-            state.prices.pop_front();
-        }
-
-        if state.in_position && Self::is_consecutive_down(&state.prices, self.params.sell_days) {
-            state.in_position = false;
-            return Signal::Sell {
-                symbol: symbol.to_string(),
-                quantity: self.config.order_quantity,
-                reason: format!("{}일 연속 하락 → 매도", self.params.sell_days),
-            };
-        }
-
-        if !state.in_position && Self::is_consecutive_up(&state.prices, self.params.buy_days) {
-            state.in_position = true;
-            return Signal::Buy {
-                symbol: symbol.to_string(),
-                quantity: self.config.order_quantity,
-                reason: format!("{}일 연속 상승 → 매수", self.params.buy_days),
-            };
-        }
-
-        Signal::Hold
-    }
-
-    fn sync_position(&mut self, symbol: &str, quantity: u64, _avg_price: u64) {
-        if !self.config.targets_symbol(symbol) {
-            return;
-        }
-        let cap = bounded_window_with_extra(self.params.buy_days.max(self.params.sell_days), 1);
-        self.states
-            .entry(symbol.to_string())
-            .or_insert_with(|| ConsecutiveMoveState {
-                prices: VecDeque::with_capacity(cap),
-                in_position: false,
-            })
-            .in_position = quantity > 0;
-    }
-
-    fn reset(&mut self) {
-        self.states.clear();
-    }
-}
-
-// ────────────────────────────────────────────────────────────────────
-// 06. 돌파 실패 전략 (FailedBreakoutStrategy)
-// ────────────────────────────────────────────────────────────────────
-// 동작:
-//  1. 최근 lookback_days개 가격에서 전고점(prev_high) 계산
-//  2. 현재가 ≥ prev_high × (1 + buffer_pct/100) → 전고점 돌파 → 매수
-//  3. 매수 후 현재가 < 돌파 시점의 prev_high → 돌파 실패 → 매도
-// ────────────────────────────────────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FailedBreakoutParams {
-    /// 전고점을 계산하기 위한 과거 기간 (기본 20)
-    pub lookback_days: usize,
-    /// 전고점 대비 돌파로 인정하는 버퍼 % (기본 0.5)
-    pub buffer_pct: f64,
-}
-
-impl Default for FailedBreakoutParams {
-    fn default() -> Self {
-        Self {
-            lookback_days: 20,
-            buffer_pct: 0.5,
-        }
-    }
-}
-
-/// 종목별 돌파실패 상태
-struct FailedBreakoutState {
-    prices: VecDeque<u64>,
-    in_position: bool,
-    breakout_prev_high: Option<u64>,
-}
-
-pub struct FailedBreakoutStrategy {
-    config: StrategyConfig,
-    params: FailedBreakoutParams,
-    /// 종목코드 → 개별 상태
-    states: std::collections::HashMap<String, FailedBreakoutState>,
-}
-
-impl FailedBreakoutStrategy {
-    pub fn new(config: StrategyConfig) -> Self {
-        let params: FailedBreakoutParams =
-            serde_json::from_value(config.params.clone()).unwrap_or_default();
-        Self {
-            config,
-            params,
-            states: std::collections::HashMap::new(),
-        }
-    }
-}
-
-impl Strategy for FailedBreakoutStrategy {
-    fn id(&self) -> &str {
-        &self.config.id
-    }
-    fn name(&self) -> &str {
-        &self.config.name
-    }
-    fn config(&self) -> &StrategyConfig {
-        &self.config
-    }
-    fn config_mut(&mut self) -> &mut StrategyConfig {
-        &mut self.config
-    }
-    fn is_enabled(&self) -> bool {
-        self.config.enabled
-    }
-    fn set_enabled(&mut self, enabled: bool) {
-        self.config.enabled = enabled;
-    }
-
-    fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
-        if !self.config.enabled {
-            return Signal::Hold;
-        }
-        if !self.config.targets_symbol(symbol) {
-            return Signal::Hold;
-        }
-
-        let lookback = bounded_window(self.params.lookback_days);
-        let state = self
-            .states
-            .entry(symbol.to_string())
-            .or_insert_with(|| FailedBreakoutState {
-                prices: VecDeque::with_capacity(lookback),
-                in_position: false,
-                breakout_prev_high: None,
-            });
-
-        let prev_high = state.prices.iter().copied().max().unwrap_or(0);
-
-        // ① 매도 우선: 돌파 실패
-        if state.in_position {
-            if let Some(ref_high) = state.breakout_prev_high {
-                if price < ref_high {
-                    state.in_position = false;
-                    state.breakout_prev_high = None;
-                    state.prices.push_back(price);
-                    if state.prices.len() > lookback {
-                        state.prices.pop_front();
-                    }
-                    return Signal::Sell {
-                        symbol: symbol.to_string(),
-                        quantity: self.config.order_quantity,
-                        reason: format!("돌파 실패: 현재가 {} < 전고점 {} → 매도", price, ref_high),
-                    };
-                }
-            }
-        }
-
-        // ② 매수: 전고점 돌파
-        if !state.in_position && state.prices.len() >= lookback && prev_high > 0 {
-            let breakout_threshold =
-                (prev_high as f64 * (1.0 + self.params.buffer_pct / 100.0)) as u64;
-            if price >= breakout_threshold {
-                state.in_position = true;
-                state.breakout_prev_high = Some(prev_high);
-                state.prices.push_back(price);
-                if state.prices.len() > lookback {
-                    state.prices.pop_front();
-                }
-                return Signal::Buy {
-                    symbol: symbol.to_string(),
-                    quantity: self.config.order_quantity,
-                    reason: format!(
-                        "전고점 돌파 매수: {} ≥ {} (전고점 {} + {:.1}% 버퍼)",
-                        price, breakout_threshold, prev_high, self.params.buffer_pct
-                    ),
-                };
-            }
-        }
-
-        state.prices.push_back(price);
-        if state.prices.len() > lookback {
-            state.prices.pop_front();
-        }
-
-        Signal::Hold
-    }
-
-    fn sync_position(&mut self, symbol: &str, quantity: u64, _avg_price: u64) {
-        if !self.config.targets_symbol(symbol) {
-            return;
-        }
-        let lookback = bounded_window(self.params.lookback_days);
-        let state = self
-            .states
-            .entry(symbol.to_string())
-            .or_insert_with(|| FailedBreakoutState {
-                prices: VecDeque::with_capacity(bounded_window_with_extra(lookback, 1)),
-                in_position: false,
-                breakout_prev_high: None,
-            });
-        state.in_position = quantity > 0;
-        if quantity == 0 {
-            state.breakout_prev_high = None;
-        }
     }
 
     fn reset(&mut self) {
@@ -535,6 +244,7 @@ impl Default for StrongCloseParams {
 /// 종목별 강한종가 상태
 struct StrongCloseState {
     pending_buy: bool,
+    history_bars: usize,
     in_position: bool,
     entry_price: Option<u64>,
 }
@@ -582,30 +292,42 @@ impl Strategy for StrongCloseStrategy {
         if !self.config.targets_symbol(symbol) {
             return;
         }
-        if let Some(&(high, close)) = candles.last() {
-            if high == 0 {
-                return;
-            }
-            let gap_pct = (high as f64 - close as f64) / high as f64 * 100.0;
-            if gap_pct <= self.params.threshold_pct {
-                let state = self
-                    .states
-                    .entry(symbol.to_string())
-                    .or_insert(StrongCloseState {
-                        pending_buy: false,
-                        in_position: false,
-                        entry_price: None,
-                    });
-                state.pending_buy = true;
-                tracing::info!(
-                    "강한 종가 감지 ({}): 고가={}, 종가={}, 이격={:.2}% → 다음 틱 매수 대기",
-                    symbol,
-                    high,
-                    close,
-                    gap_pct
-                );
-            }
-        }
+        let state = self
+            .states
+            .entry(symbol.to_string())
+            .or_insert(StrongCloseState {
+                pending_buy: false,
+                history_bars: 0,
+                in_position: false,
+                entry_price: None,
+            });
+        state.history_bars = usize::from(
+            candles
+                .last()
+                .is_some_and(|(high, close)| *high > 0 && *close > 0 && close <= high),
+        );
+        state.pending_buy = !state.in_position
+            && state.history_bars == 1
+            && candles.last().is_some_and(|&(high, close)| {
+                (high as f64 - close as f64) / high as f64 * 100.0 <= self.params.threshold_pct
+            });
+    }
+
+    fn history_readiness(&self, symbol: &str) -> Option<HistoryReadiness> {
+        let available_bars = self
+            .states
+            .get(symbol)
+            .map_or(0, |state| state.history_bars);
+        Some(HistoryReadiness {
+            required_bars: 1,
+            available_bars,
+            ready: available_bars == 1,
+        })
+    }
+
+    fn on_completed_candle(&mut self, symbol: &str, candle: &OhlcCandle) {
+        // 완료봉은 체결 피드백 이후에 반영해 다음 거래일의 조건만 준비한다.
+        self.initialize_candles(symbol, &[(candle.high, candle.close)]);
     }
 
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
@@ -621,6 +343,7 @@ impl Strategy for StrongCloseStrategy {
             .entry(symbol.to_string())
             .or_insert(StrongCloseState {
                 pending_buy: false,
+                history_bars: 0,
                 in_position: false,
                 entry_price: None,
             });
@@ -672,6 +395,7 @@ impl Strategy for StrongCloseStrategy {
             .entry(symbol.to_string())
             .or_insert(StrongCloseState {
                 pending_buy: false,
+                history_bars: 0,
                 in_position: false,
                 entry_price: None,
             });
@@ -720,7 +444,10 @@ impl Default for VolatilityExpansionParams {
 
 /// 종목별 변동성 확장 상태
 struct VolatilityExpansionState {
+    /// 현재 거래일을 제외한 최근 완료 일봉 변동폭. 보합일 0도 포함한다.
+    completed_ranges: VecDeque<u64>,
     avg_range: Option<f64>,
+    history_bars: usize,
     day_open: Option<u64>,
     day_high: u64,
     day_low: u64,
@@ -771,34 +498,101 @@ impl Strategy for VolatilityExpansionStrategy {
         if !self.config.targets_symbol(symbol) {
             return;
         }
-        let lookback = self.params.lookback_days.min(ranges.len());
-        if lookback == 0 {
-            tracing::warn!(
-                "변동성 확장 [{}]: 일봉 데이터 없음 — avg_range 미초기화",
-                symbol
-            );
-            return;
-        }
-        let slice = &ranges[ranges.len().saturating_sub(lookback)..];
-        let avg = slice.iter().sum::<u64>() as f64 / slice.len() as f64;
-        tracing::info!(
-            "변동성 확장 초기화 [{}]: 평균 변동폭 {:.0}원 (최근 {}거래일)",
-            symbol,
-            avg,
-            slice.len()
-        );
+        let lookback = bounded_window(self.params.lookback_days);
+        let history = &ranges[ranges.len().saturating_sub(lookback)..];
         let state = self
             .states
             .entry(symbol.to_string())
             .or_insert(VolatilityExpansionState {
+                completed_ranges: VecDeque::with_capacity(lookback),
                 avg_range: None,
+                history_bars: 0,
                 day_open: None,
                 day_high: 0,
                 day_low: u64::MAX,
                 in_position: false,
                 entry_price: None,
             });
-        state.avg_range = Some(avg);
+        state.completed_ranges.clear();
+        state.completed_ranges.extend(history.iter().copied());
+        state.history_bars = history.len();
+        state.avg_range = (history.len() == lookback)
+            .then(|| history.iter().map(|range| *range as f64).sum::<f64>() / lookback as f64);
+    }
+
+    fn history_readiness(&self, symbol: &str) -> Option<HistoryReadiness> {
+        let state = self.states.get(symbol);
+        Some(HistoryReadiness {
+            required_bars: bounded_window(self.params.lookback_days),
+            available_bars: state.map_or(0, |state| state.history_bars),
+            ready: state.is_some_and(|state| state.avg_range.is_some()),
+        })
+    }
+
+    fn on_trading_day_start(&mut self, symbol: &str, open: u64) {
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        let state = self
+            .states
+            .entry(symbol.to_string())
+            .or_insert(VolatilityExpansionState {
+                completed_ranges: VecDeque::new(),
+                avg_range: None,
+                history_bars: 0,
+                day_open: None,
+                day_high: 0,
+                day_low: u64::MAX,
+                in_position: false,
+                entry_price: None,
+            });
+        // 날짜 경계에서 가격 범위만 초기화한다. 보유·평균 범위는 그대로 유지한다.
+        state.day_open = Some(open);
+        state.day_high = open;
+        state.day_low = open;
+    }
+
+    fn on_daily_close_tick(&mut self, symbol: &str, candle: &OhlcCandle, volume: u64) -> Signal {
+        if !self.config.enabled || !self.config.targets_symbol(symbol) {
+            return Signal::Hold;
+        }
+        if !self.states.contains_key(symbol) {
+            self.on_trading_day_start(symbol, candle.open);
+        }
+        if let Some(state) = self.states.get_mut(symbol) {
+            // 완성 OHLC는 종가 시점에만 공개된다. 평균에는 아직 당일 범위를 넣지 않는다.
+            state.day_open = Some(candle.open);
+            state.day_high = candle.high;
+            state.day_low = candle.low;
+        }
+        self.on_tick(symbol, candle.close, volume)
+    }
+
+    fn on_completed_candle(&mut self, symbol: &str, candle: &OhlcCandle) {
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        if !self.states.contains_key(symbol) {
+            self.on_trading_day_start(symbol, candle.open);
+        }
+        let lookback = bounded_window(self.params.lookback_days);
+        if let Some(state) = self.states.get_mut(symbol) {
+            while state.completed_ranges.len() >= lookback {
+                state.completed_ranges.pop_front();
+            }
+            state
+                .completed_ranges
+                .push_back(candle.high.saturating_sub(candle.low));
+            state.history_bars = state.completed_ranges.len();
+            state.avg_range = (state.history_bars == lookback).then(|| {
+                state
+                    .completed_ranges
+                    .iter()
+                    .map(|range| *range as f64)
+                    .sum::<f64>()
+                    / lookback as f64
+            });
+        }
     }
 
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
@@ -813,7 +607,9 @@ impl Strategy for VolatilityExpansionStrategy {
             .states
             .entry(symbol.to_string())
             .or_insert(VolatilityExpansionState {
+                completed_ranges: VecDeque::new(),
                 avg_range: None,
+                history_bars: 0,
                 day_open: None,
                 day_high: 0,
                 day_low: u64::MAX,
@@ -883,7 +679,9 @@ impl Strategy for VolatilityExpansionStrategy {
             .states
             .entry(symbol.to_string())
             .or_insert(VolatilityExpansionState {
+                completed_ranges: VecDeque::new(),
                 avg_range: None,
+                history_bars: 0,
                 day_open: None,
                 day_high: 0,
                 day_low: u64::MAX,
@@ -903,5 +701,93 @@ impl Strategy for VolatilityExpansionStrategy {
             state.in_position = false;
             state.entry_price = None;
         }
+    }
+}
+
+#[cfg(test)]
+#[path = "breakout/day_event_tests.rs"]
+mod day_event_tests;
+
+#[cfg(test)]
+mod history_tests {
+    use super::*;
+
+    fn config(params: serde_json::Value) -> StrategyConfig {
+        StrategyConfig::new("test", "test", true, vec!["SOXQ".into()], 1, params)
+    }
+
+    #[test]
+    fn fifty_two_week_requires_full_window_and_uses_last_completed_high_and_close() {
+        let mut strategy = FiftyTwoWeekHighStrategy::new(config(serde_json::json!({})));
+        let candle = OhlcCandle {
+            open: 100,
+            high: 200,
+            low: 90,
+            close: 100,
+        };
+        strategy.initialize_ohlc("SOXQ", &vec![candle; 251]);
+        let readiness = strategy.history_readiness("SOXQ").unwrap();
+        assert_eq!(readiness.required_bars, 252);
+        assert_eq!(readiness.available_bars, 251);
+        assert!(!readiness.ready);
+        assert!(matches!(strategy.on_tick("SOXQ", 300, 0), Signal::Hold));
+        let mut candles = vec![candle; 252];
+        candles[251].high = 300;
+        strategy.initialize_ohlc("SOXQ", &candles);
+        assert!(strategy.history_readiness("SOXQ").unwrap().ready);
+        assert_eq!(strategy.states["SOXQ"].high_52w, Some(300));
+        assert_eq!(strategy.states["SOXQ"].prev_price, Some(100));
+        assert!(matches!(
+            strategy.on_tick("SOXQ", 301, 0),
+            Signal::Buy { .. }
+        ));
+        strategy.initialize_ohlc("SOXQ", &candles);
+        assert_eq!(strategy.states["SOXQ"].buy_price, Some(301));
+    }
+
+    #[test]
+    fn strong_close_ready_is_distinct_from_condition_and_preserves_positions() {
+        let mut strategy = StrongCloseStrategy::new(config(serde_json::json!({})));
+        assert!(!strategy.history_readiness("SOXQ").unwrap().ready);
+        strategy.initialize_candles("SOXQ", &[(100, 99)]);
+        assert!(strategy.states["SOXQ"].pending_buy);
+        strategy.initialize_candles("SOXQ", &[(100, 90)]);
+        assert!(strategy.history_readiness("SOXQ").unwrap().ready);
+        assert!(!strategy.states["SOXQ"].pending_buy);
+        assert!(matches!(strategy.on_tick("SOXQ", 100, 0), Signal::Hold));
+        strategy.sync_position("SOXQ", 1, 100);
+        strategy.initialize_candles("SOXQ", &[(100, 99)]);
+        assert!(strategy.states["SOXQ"].in_position);
+        assert!(!strategy.states["SOXQ"].pending_buy);
+        assert!(matches!(
+            strategy.on_tick("SOXQ", 95, 0),
+            Signal::Sell { .. }
+        ));
+        strategy.initialize_candles("SOXQ", &[]);
+        assert!(!strategy.history_readiness("SOXQ").unwrap().ready);
+    }
+
+    #[test]
+    fn volatility_requires_full_range_window_and_preserves_position() {
+        let mut strategy = VolatilityExpansionStrategy::new(config(serde_json::json!({
+            "lookback_days": 3, "expansion_factor": 2.0, "stop_loss_pct": 3.0,
+        })));
+        strategy.initialize_range_data("SOXQ", &[10, 20]);
+        assert!(!strategy.history_readiness("SOXQ").unwrap().ready);
+        assert_eq!(strategy.states["SOXQ"].avg_range, None);
+        strategy.initialize_range_data("SOXQ", &[10, 20, 30]);
+        assert_eq!(strategy.states["SOXQ"].avg_range, Some(20.0));
+        assert!(strategy.history_readiness("SOXQ").unwrap().ready);
+        assert!(matches!(strategy.on_tick("SOXQ", 100, 0), Signal::Hold));
+        assert!(matches!(
+            strategy.on_tick("SOXQ", 145, 0),
+            Signal::Buy { .. }
+        ));
+        strategy.initialize_range_data("SOXQ", &[10, 20, 30]);
+        assert_eq!(strategy.states["SOXQ"].entry_price, Some(145));
+        assert!(matches!(
+            strategy.on_tick("SOXQ", 100, 0),
+            Signal::Sell { .. }
+        ));
     }
 }

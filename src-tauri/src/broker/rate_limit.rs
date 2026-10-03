@@ -183,8 +183,7 @@ impl RateLimitScheduler {
 // scope의 pacing/pause/운영 상태를 공유한다.
 // ────────────────────────────────────────────────────────────────────
 
-static SHARED_SCHEDULERS: OnceLock<StdMutex<HashMap<String, RateLimitScheduler>>> =
-    OnceLock::new();
+static SHARED_SCHEDULERS: OnceLock<StdMutex<HashMap<String, RateLimitScheduler>>> = OnceLock::new();
 
 fn shared_registry() -> &'static StdMutex<HashMap<String, RateLimitScheduler>> {
     SHARED_SCHEDULERS.get_or_init(|| StdMutex::new(HashMap::new()))
@@ -192,11 +191,17 @@ fn shared_registry() -> &'static StdMutex<HashMap<String, RateLimitScheduler>> {
 
 /// scope key(예: `"toss|{base_url}|{client_id}"`)별로 스케줄러를 재사용한다.
 /// 최초 접근 시에만 `init`으로 생성한다.
-pub fn shared_scheduler(scope: &str, init: impl FnOnce() -> RateLimitScheduler) -> RateLimitScheduler {
+pub fn shared_scheduler(
+    scope: &str,
+    init: impl FnOnce() -> RateLimitScheduler,
+) -> RateLimitScheduler {
     let mut registry = shared_registry()
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    registry.entry(scope.to_string()).or_insert_with(init).clone()
+    registry
+        .entry(scope.to_string())
+        .or_insert_with(init)
+        .clone()
 }
 
 /// 운영 상태 노출용: 등록된 모든 scope와 스케줄러 목록.
@@ -281,9 +286,7 @@ mod tests {
         let scheduler = RateLimitScheduler::new();
         scheduler.record_outcome("toss:order", false).await;
         scheduler.record_outcome("toss:order", false).await;
-        scheduler
-            .pause("toss:order", Duration::from_secs(5))
-            .await;
+        scheduler.pause("toss:order", Duration::from_secs(5)).await;
 
         let snapshot = scheduler.status_snapshot().await;
         let group = snapshot

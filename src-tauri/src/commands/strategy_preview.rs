@@ -1,10 +1,14 @@
 use super::*;
+
+mod generic;
 use crate::trading::simulation::{
     replay_input_hash, report_position_snapshot, run_backtest, BacktestReportView,
     ReplayMetadataView, SimulationAssumptions, SimulationEvent, REPLAY_ENGINE_VERSION,
 };
-use crate::trading::strategy::{
-    build_strategy, initialize_strategy_warmup, LeveragedTrendHoldTimedCandle, Signal,
+use crate::trading::strategy::{LeveragedTrendHoldTimedCandle, Signal};
+pub use generic::{
+    preview_strategy_from_candles, StrategyPreparationView, StrategyPreviewInput,
+    StrategyPreviewSignalView, StrategyPreviewView,
 };
 
 #[derive(Debug, Deserialize)]
@@ -44,49 +48,6 @@ pub struct LeveragedTrendHoldPreviewView {
     pub candle_count: usize,
     pub candles: Vec<ChartCandle>,
     pub signals: Vec<LeveragedTrendHoldPreviewSignalView>,
-    pub generated_at: String,
-    pub message: String,
-    pub replay: ReplayMetadataView,
-    pub backtest: BacktestReportView,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StrategyPreviewInput {
-    pub strategy_id: String,
-    pub strategy_name: String,
-    pub symbol: String,
-    pub is_overseas: bool,
-    pub order_quantity: u64,
-    pub params: serde_json::Value,
-    pub candles: Vec<ChartCandle>,
-    pub warmup_count: Option<usize>,
-    pub interval: Option<String>,
-    pub data_source: Option<String>,
-    pub strategy_version: Option<String>,
-    pub broker_id: Option<BrokerId>,
-    pub broker_account_id: Option<String>,
-    #[serde(default)]
-    pub assumptions: SimulationAssumptions,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StrategyPreviewSignalView {
-    pub time: String,
-    pub side: String,
-    pub price: f64,
-    pub quantity: u64,
-    pub reason: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StrategyPreviewView {
-    pub strategy_id: String,
-    pub symbol: String,
-    pub candles: Vec<ChartCandle>,
-    pub signals: Vec<StrategyPreviewSignalView>,
     pub generated_at: String,
     pub message: String,
     pub replay: ReplayMetadataView,
@@ -369,265 +330,6 @@ fn chart_candle_to_ohlc(candle: &ChartCandle, is_overseas: bool) -> Option<OhlcC
         high: chart_amount_to_units(&candle.high, is_overseas)?,
         low: chart_amount_to_units(&candle.low, is_overseas)?,
         close: chart_amount_to_units(&candle.close, is_overseas)?,
-    })
-}
-
-fn signal_to_preview_view(
-    signal: Signal,
-    time: String,
-    price_units: u64,
-    is_overseas: bool,
-) -> Option<StrategyPreviewSignalView> {
-    let price = if is_overseas {
-        price_units as f64 / 100.0
-    } else {
-        price_units as f64
-    };
-
-    match signal {
-        Signal::Buy {
-            quantity, reason, ..
-        } => Some(StrategyPreviewSignalView {
-            time,
-            side: "buy".to_string(),
-            price,
-            quantity,
-            reason,
-        }),
-        Signal::Sell {
-            quantity, reason, ..
-        } => Some(StrategyPreviewSignalView {
-            time,
-            side: "sell".to_string(),
-            price,
-            quantity,
-            reason,
-        }),
-        Signal::Hold => None,
-    }
-}
-
-fn uses_startup_history(strategy_id: &str) -> bool {
-    strategy_id.starts_with("fifty_two_week_high")
-        || strategy_id.starts_with("strong_close")
-        || strategy_id.starts_with("volatility_expansion")
-}
-
-fn default_warmup_count(strategy_id: &str, candle_len: usize) -> usize {
-    if !uses_startup_history(strategy_id) || candle_len < 3 {
-        return 0;
-    }
-    (candle_len / 2)
-        .clamp(1, candle_len.saturating_sub(1))
-        .min(120)
-}
-
-pub fn preview_strategy_from_candles(
-    input: StrategyPreviewInput,
-) -> CmdResult<StrategyPreviewView> {
-    let symbol = normalize_preview_symbol(input.symbol)?;
-    if input.candles.is_empty() {
-        return Err(CmdError {
-            code: "NO_CANDLES".into(),
-            message: format!("{symbol} 미리보기 차트 데이터가 비어 있습니다."),
-        });
-    }
-    if input.candles.len() > 500 {
-        return Err(CmdError {
-            code: "TOO_MANY_CANDLES".into(),
-            message: format!(
-                "미리보기 입력은 최대 500봉까지 지원합니다: {}봉",
-                input.candles.len()
-            ),
-        });
-    }
-
-    let interval = input.interval.as_deref().unwrap_or("1d").to_string();
-    let data_source = input
-        .data_source
-        .clone()
-        .unwrap_or_else(|| "providedChartCandles".into());
-    let strategy_version = input
-        .strategy_version
-        .clone()
-        .unwrap_or_else(|| REPLAY_ENGINE_VERSION.into());
-    let assumptions = input.assumptions.clone();
-    let params_fingerprint = serde_json::to_string(&input.params).unwrap_or_default();
-    let assumptions_fingerprint = serde_json::to_string(&assumptions).unwrap_or_default();
-    let scope_fingerprint = format!(
-        "{:?}|{}",
-        input.broker_id,
-        input.broker_account_id.as_deref().unwrap_or_default()
-    );
-
-    let mut candles = input.candles;
-    candles.sort_by(|a, b| a.date.cmp(&b.date));
-
-    let replay_rows = candles
-        .iter()
-        .filter_map(|candle| {
-            let ohlc = chart_candle_to_ohlc(candle, input.is_overseas)?;
-            Some((candle.clone(), ohlc, chart_volume_to_u64(&candle.volume)))
-        })
-        .filter(|(_, ohlc, _)| ohlc.open > 0 && ohlc.high > 0 && ohlc.low > 0 && ohlc.close > 0)
-        .collect::<Vec<_>>();
-
-    if replay_rows.is_empty() {
-        return Err(CmdError {
-            code: "NO_VALID_CANDLES".into(),
-            message: format!("{symbol} 미리보기용 유효 캔들이 없습니다."),
-        });
-    }
-
-    let mut config = StrategyConfig::new(
-        input.strategy_id.clone(),
-        input.strategy_name.clone(),
-        true,
-        vec![symbol.clone()],
-        input.order_quantity.max(1),
-        input.params,
-    );
-    if config.id.starts_with("price_condition") {
-        if let Some(symbols) = config.params.get("symbols").and_then(|v| v.as_array()) {
-            config.target_symbols = symbols
-                .iter()
-                .filter_map(|item| {
-                    item.get("symbol")
-                        .and_then(|v| v.as_str())
-                        .map(str::to_string)
-                })
-                .collect();
-        }
-    }
-
-    let mut strategy = build_strategy(config);
-    let warmup_count = input
-        .warmup_count
-        .unwrap_or_else(|| default_warmup_count(&input.strategy_id, replay_rows.len()))
-        .min(replay_rows.len().saturating_sub(1));
-
-    if warmup_count > 0 {
-        let warmup = &replay_rows[..warmup_count];
-        let ohlc = warmup.iter().map(|(_, ohlc, _)| *ohlc).collect::<Vec<_>>();
-        if matches!(interval.as_str(), "1m" | "M1") {
-            initialize_strategy_warmup(strategy.as_mut(), &symbol, &[], &ohlc);
-        } else {
-            initialize_strategy_warmup(strategy.as_mut(), &symbol, &ohlc, &[]);
-        }
-    }
-
-    let mut signals = Vec::new();
-    let mut simulation_events = Vec::with_capacity(replay_rows.len().saturating_sub(warmup_count));
-    for (candle, ohlc, volume) in replay_rows.iter().skip(warmup_count) {
-        let signal = strategy.on_tick(&symbol, ohlc.close, *volume);
-        simulation_events.push(SimulationEvent {
-            time: candle.date.clone(),
-            chart_time: candle.date.clone(),
-            close_units: ohlc.close,
-            high_units: ohlc.high,
-            low_units: ohlc.low,
-            signal: (signal != Signal::Hold).then(|| signal.clone()),
-        });
-        if signal != Signal::Hold {
-            let partial_report = run_backtest(
-                &input.strategy_id,
-                &symbol,
-                input.is_overseas,
-                assumptions.clone(),
-                &simulation_events,
-            );
-            let (held_quantity, average_price) =
-                report_position_snapshot(&partial_report, input.is_overseas);
-            strategy.sync_position(&symbol, held_quantity, average_price);
-        }
-        if let Some(view) =
-            signal_to_preview_view(signal, candle.date.clone(), ohlc.close, input.is_overseas)
-        {
-            signals.push(view);
-        }
-    }
-
-    let message = if signals.is_empty() {
-        format!("현재 파라미터와 차트 데이터 기준으로 {symbol} 매수/청산 신호가 없습니다.")
-    } else {
-        format!(
-            "현재 파라미터와 차트 데이터 기준으로 {symbol} 신호 {}개를 찾았습니다.",
-            signals.len()
-        )
-    };
-
-    let first_time = simulation_events
-        .first()
-        .map(|event| event.chart_time.clone())
-        .unwrap_or_default();
-    let last_time = simulation_events
-        .last()
-        .map(|event| event.chart_time.clone())
-        .unwrap_or_default();
-    let event_fingerprint = replay_rows
-        .iter()
-        .map(|(candle, ohlc, volume)| {
-            format!(
-                "{}:{}:{}:{}:{}:{}",
-                candle.date, ohlc.open, ohlc.high, ohlc.low, ohlc.close, volume
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("|");
-    let order_quantity_fingerprint = input.order_quantity.to_string();
-    let warmup_count_fingerprint = warmup_count.to_string();
-    let input_hash = replay_input_hash(&[
-        REPLAY_ENGINE_VERSION,
-        &input.strategy_id,
-        &strategy_version,
-        &symbol,
-        &interval,
-        &data_source,
-        &params_fingerprint,
-        &order_quantity_fingerprint,
-        &warmup_count_fingerprint,
-        &assumptions_fingerprint,
-        &scope_fingerprint,
-        &event_fingerprint,
-    ]);
-    let replay = ReplayMetadataView {
-        engine_version: REPLAY_ENGINE_VERSION.into(),
-        strategy_version,
-        source_interval: interval.clone(),
-        replay_cadence: match interval.as_str() {
-            "1m" | "M1" => "minuteClose",
-            "D" | "1d" => "dailyClose",
-            "W" => "weeklyClose",
-            "M" => "monthlyClose",
-            _ => "candleClose",
-        }
-        .into(),
-        live_cadence_seconds: 10,
-        warmup_count,
-        data_start: first_time,
-        data_end: last_time,
-        data_source,
-        deterministic: true,
-        look_ahead_safe: true,
-        input_hash,
-    };
-    let backtest = run_backtest(
-        &input.strategy_id,
-        &symbol,
-        input.is_overseas,
-        assumptions,
-        &simulation_events,
-    );
-
-    Ok(StrategyPreviewView {
-        strategy_id: input.strategy_id,
-        symbol,
-        candles,
-        signals,
-        generated_at: chrono::Local::now().to_rfc3339(),
-        message,
-        replay,
-        backtest,
     })
 }
 
@@ -1006,3 +708,11 @@ pub async fn preview_leveraged_trend_hold(
 #[cfg(test)]
 #[path = "strategy_preview/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/preparation_tests.rs"]
+mod preparation_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/daily_event_tests.rs"]
+mod daily_event_tests;

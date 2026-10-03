@@ -264,7 +264,7 @@ export function StrategyResearchResults({
       <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
         <Chip size="small" label={`${replay.sourceInterval} · ${replay.replayCadence}`} />
         <Chip size="small" label={`live ${replay.liveCadenceSeconds}초 tick`} variant="outlined" />
-        <Chip size="small" label={`warmup ${replay.warmupCount}봉`} variant="outlined" />
+        <Chip size="small" label={`사전 자료 ${replay.warmupCount}봉`} variant="outlined" />
         <Chip size="small" label={`${replay.dataStart} → ${replay.dataEnd}`} variant="outlined" />
         <Chip size="small" label={`재현 ID ${replay.inputHash.slice(0, 10)}`} color="primary" variant="outlined" />
       </Stack>

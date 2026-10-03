@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
-use super::{state::bounded_window_with_extra, Signal, Strategy, StrategyConfig};
+use super::{state::bounded_window_with_extra, HistoryReadiness, Signal, Strategy, StrategyConfig};
 
 // ────────────────────────────────────────────────────────────────────
 // 이동평균 교차 전략 (Golden Cross / Death Cross)
@@ -51,7 +51,7 @@ impl MovingAverageCrossStrategy {
     }
 
     fn moving_average(prices: &VecDeque<u64>, period: usize) -> Option<f64> {
-        if prices.len() < period {
+        if period == 0 || prices.len() < period {
             return None;
         }
         let sum: u64 = prices.iter().rev().take(period).sum();
@@ -79,6 +79,43 @@ impl Strategy for MovingAverageCrossStrategy {
         self.config.enabled = enabled;
     }
 
+    fn initialize_historical(&mut self, symbol: &str, prices: &[u64]) {
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        let cap =
+            bounded_window_with_extra(self.params.long_period.max(self.params.short_period), 1);
+        let history = prices[prices.len().saturating_sub(cap)..]
+            .iter()
+            .copied()
+            .collect();
+        let state = self
+            .states
+            .entry(symbol.to_string())
+            .or_insert_with(|| MaCrossState {
+                prices: VecDeque::with_capacity(cap),
+                prev_short_ma: None,
+                prev_long_ma: None,
+            });
+        state.prices = history;
+        state.prev_short_ma = Self::moving_average(&state.prices, self.params.short_period);
+        state.prev_long_ma = Self::moving_average(&state.prices, self.params.long_period);
+    }
+
+    fn initialize_intraday_prices(&mut self, symbol: &str, prices: &[u64]) {
+        self.initialize_historical(symbol, prices);
+    }
+
+    fn history_readiness(&self, symbol: &str) -> Option<HistoryReadiness> {
+        let state = self.states.get(symbol);
+        Some(HistoryReadiness {
+            required_bars: self.params.short_period.max(self.params.long_period),
+            available_bars: state.map_or(0, |state| state.prices.len()),
+            ready: state
+                .is_some_and(|state| state.prev_short_ma.is_some() && state.prev_long_ma.is_some()),
+        })
+    }
+
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
         if !self.config.enabled {
             return Signal::Hold;
@@ -87,7 +124,8 @@ impl Strategy for MovingAverageCrossStrategy {
             return Signal::Hold;
         }
 
-        let cap = bounded_window_with_extra(self.params.long_period, 1);
+        let cap =
+            bounded_window_with_extra(self.params.long_period.max(self.params.short_period), 1);
         let state = self
             .states
             .entry(symbol.to_string())
@@ -139,3 +177,43 @@ impl Strategy for MovingAverageCrossStrategy {
 // ────────────────────────────────────────────────────────────────────
 // 전략 저장소 (런타임에 여러 전략을 관리)
 // ────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod history_tests {
+    use super::*;
+
+    fn config() -> StrategyConfig {
+        StrategyConfig::new(
+            "ma",
+            "MA",
+            true,
+            vec!["SOXQ".into()],
+            1,
+            serde_json::json!({ "short_period": 2, "long_period": 3 }),
+        )
+    }
+
+    #[test]
+    fn initializer_restores_previous_averages_for_first_evaluation_cross() {
+        let mut strategy = MovingAverageCrossStrategy::new(config());
+        strategy.initialize_historical("SOXQ", &[100, 90, 80]);
+        let state = &strategy.states["SOXQ"];
+        assert_eq!(state.prev_short_ma, Some(85.0));
+        assert_eq!(state.prev_long_ma, Some(90.0));
+        assert!(strategy.history_readiness("SOXQ").unwrap().ready);
+        assert!(matches!(
+            strategy.on_tick("SOXQ", 120, 0),
+            Signal::Buy { .. }
+        ));
+    }
+
+    #[test]
+    fn insufficient_history_has_no_previous_long_average() {
+        let mut strategy = MovingAverageCrossStrategy::new(config());
+        strategy.initialize_historical("SOXQ", &[100, 90]);
+        assert!(!strategy.history_readiness("SOXQ").unwrap().ready);
+        assert!(matches!(strategy.on_tick("SOXQ", 120, 0), Signal::Hold));
+        strategy.initialize_intraday_prices("SOXQ", &[10, 11, 12]);
+        assert_eq!(strategy.states["SOXQ"].prices.front(), Some(&10));
+    }
+}

@@ -3,14 +3,14 @@ use std::collections::VecDeque;
 
 use super::{
     state::{bounded_window, bounded_window_with_extra},
-    Signal, Strategy, StrategyConfig,
+    HistoryReadiness, Signal, Strategy, StrategyConfig,
 };
 
 // ────────────────────────────────────────────────────────────────────
 // 09. 평균회귀 전략 (MeanReversionStrategy) — 볼린저 밴드
 // ────────────────────────────────────────────────────────────────────
 // 동작:
-//  1. 자동매매 시작 시 `initialize_historical`로 과거 종가 배열 전달 → 가격 버퍼 사전 적재
+//  1. 공통 warmup의 `initialize_ohlc` 기본 훅이 종가를 `initialize_historical`에 전달
 //  2. 실시간 틱마다 볼린저 밴드 계산:
 //       mean      = 최근 period 개의 평균
 //       std_dev   = population std deviation
@@ -135,6 +135,23 @@ impl Strategy for MeanReversionStrategy {
         );
     }
 
+    fn history_readiness(&self, symbol: &str) -> Option<HistoryReadiness> {
+        let required_bars = bounded_window(self.params.period as usize);
+        let state = self.states.get(symbol);
+        Some(HistoryReadiness {
+            required_bars,
+            available_bars: state.map_or(0, |state| state.prices.len()),
+            ready: state.is_some_and(|state| {
+                Self::bollinger_bands(&state.prices, required_bars, self.params.std_dev).is_some()
+            }),
+        })
+    }
+
+    fn can_evaluate_next_tick(&self, symbol: &str) -> Option<bool> {
+        self.history_readiness(symbol)
+            .map(|state| state.available_bars.saturating_add(1) >= state.required_bars)
+    }
+
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
         if !self.config.enabled {
             return Signal::Hold;
@@ -244,7 +261,7 @@ impl Strategy for MeanReversionStrategy {
 // 10. 추세 필터 전략 (TrendFilterStrategy)
 // ────────────────────────────────────────────────────────────────────
 // 동작:
-//  1. 자동매매 시작 시 `initialize_historical`로 과거 종가 배열 전달 → 가격 버퍼 사전 적재
+//  1. 공통 warmup의 `initialize_ohlc` 기본 훅이 종가를 `initialize_historical`에 전달
 //  2. 실시간 틱마다 3개의 이동평균 계산:
 //       short_MA  = 최근 short_period 개의 평균
 //       mid_MA    = 최근 mid_period 개의 평균
@@ -331,7 +348,12 @@ impl Strategy for TrendFilterStrategy {
         if !self.config.targets_symbol(symbol) {
             return;
         }
-        let n = bounded_window(self.params.long_period as usize);
+        let n = bounded_window(
+            self.params
+                .long_period
+                .max(self.params.mid_period)
+                .max(self.params.short_period) as usize,
+        );
         let take = prices.len().min(n);
         let state = self
             .states
@@ -352,6 +374,30 @@ impl Strategy for TrendFilterStrategy {
         );
     }
 
+    fn history_readiness(&self, symbol: &str) -> Option<HistoryReadiness> {
+        let required_bars = [
+            self.params.long_period,
+            self.params.mid_period,
+            self.params.short_period,
+        ]
+        .into_iter()
+        .map(|period| bounded_window(period as usize))
+        .max()
+        .unwrap_or(1);
+        let state = self.states.get(symbol);
+        Some(HistoryReadiness {
+            required_bars,
+            available_bars: state.map_or(0, |state| state.prices.len()),
+            ready: state
+                .is_some_and(|state| Self::moving_avg(&state.prices, required_bars).is_some()),
+        })
+    }
+
+    fn can_evaluate_next_tick(&self, symbol: &str) -> Option<bool> {
+        self.history_readiness(symbol)
+            .map(|state| state.available_bars.saturating_add(1) >= state.required_bars)
+    }
+
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
         if !self.config.enabled {
             return Signal::Hold;
@@ -360,7 +406,13 @@ impl Strategy for TrendFilterStrategy {
             return Signal::Hold;
         }
 
-        let max_cap = bounded_window_with_extra(self.params.long_period as usize, 1);
+        let max_cap = bounded_window_with_extra(
+            self.params
+                .long_period
+                .max(self.params.mid_period)
+                .max(self.params.short_period) as usize,
+            1,
+        );
         let long_p = bounded_window(self.params.long_period as usize);
         let mid_p = bounded_window(self.params.mid_period as usize);
         let short_p = bounded_window(self.params.short_period as usize);
@@ -429,5 +481,115 @@ impl Strategy for TrendFilterStrategy {
         for state in self.states.values_mut() {
             state.in_position = false;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::trading::strategy::{initialize_strategy_warmup, OhlcCandle};
+
+    fn config(id: &str, params: serde_json::Value) -> StrategyConfig {
+        StrategyConfig::new(id, id, true, vec!["SOXQ".into()], 10, params)
+    }
+
+    fn daily(closes: impl Iterator<Item = u64>) -> Vec<OhlcCandle> {
+        closes
+            .map(|close| OhlcCandle {
+                open: close,
+                high: 20_000,
+                low: close - 100,
+                close,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn warmup_mean_reversion_uses_close_bands_and_first_signal() {
+        let params = MeanReversionParams::default();
+        let mut strategy = MeanReversionStrategy::new(config(
+            "mean_reversion",
+            serde_json::to_value(&params).unwrap(),
+        ));
+        let candles = daily(std::iter::repeat(10_000).take(252));
+        initialize_strategy_warmup(&mut strategy, "SOXQ", &candles, &[]);
+
+        let state = &strategy.states["SOXQ"];
+        assert_eq!(state.prices.len(), 20);
+        assert_eq!(
+            MeanReversionStrategy::bollinger_bands(&state.prices, 20, params.std_dev),
+            Some((10_000.0, 10_000.0, 10_000.0))
+        );
+        assert!(matches!(strategy.on_tick("SOXQ", 10_000, 0), Signal::Hold));
+        assert!(matches!(
+            strategy.on_tick("SOXQ", 9_000, 0),
+            Signal::Buy { .. }
+        ));
+    }
+
+    #[test]
+    fn warmup_trend_filter_uses_200_closes_and_first_signal() {
+        let mut strategy = TrendFilterStrategy::new(config(
+            "trend_filter",
+            serde_json::to_value(TrendFilterParams::default()).unwrap(),
+        ));
+        let candles = daily(10_000..10_252);
+        initialize_strategy_warmup(&mut strategy, "SOXQ", &candles, &[]);
+
+        let state = &strategy.states["SOXQ"];
+        assert_eq!(state.prices.len(), 200);
+        assert_eq!(
+            TrendFilterStrategy::moving_avg(&state.prices, 200),
+            Some(10_151.5)
+        );
+        assert_eq!(
+            TrendFilterStrategy::moving_avg(&state.prices, 20),
+            Some(10_241.5)
+        );
+        assert_eq!(
+            TrendFilterStrategy::moving_avg(&state.prices, 5),
+            Some(10_249.0)
+        );
+        assert!(matches!(
+            strategy.on_tick("SOXQ", 10_252, 0),
+            Signal::Buy { .. }
+        ));
+    }
+
+    #[test]
+    fn warmup_preserves_positions_and_ignores_unrelated_symbol() {
+        let mut mean = MeanReversionStrategy::new(config(
+            "mean_reversion",
+            serde_json::to_value(MeanReversionParams::default()).unwrap(),
+        ));
+        let mut trend = TrendFilterStrategy::new(config(
+            "trend_filter",
+            serde_json::to_value(TrendFilterParams::default()).unwrap(),
+        ));
+        mean.sync_position("SOXQ", 10, 10_000);
+        trend.sync_position("SOXQ", 10, 10_000);
+        let candles = daily(std::iter::repeat(10_000).take(252));
+        let intraday = daily(std::iter::repeat(15_000).take(10));
+        for strategy in [&mut mean as &mut dyn Strategy, &mut trend] {
+            initialize_strategy_warmup(strategy, "SOXQ", &candles, &[]);
+            initialize_strategy_warmup(strategy, "OTHER", &candles, &[]);
+            initialize_strategy_warmup(strategy, "SOXQ", &[], &[]);
+            initialize_strategy_warmup(strategy, "SOXQ", &[], &intraday);
+        }
+        assert_eq!(mean.states.len(), 1);
+        assert_eq!(trend.states.len(), 1);
+        assert!(mean.states["SOXQ"].in_position);
+        assert_eq!(mean.states["SOXQ"].entry_price, Some(10_000));
+        assert!(trend.states["SOXQ"].in_position);
+        assert_eq!(mean.states["SOXQ"].prices.len(), 20);
+        assert_eq!(trend.states["SOXQ"].prices.len(), 200);
+        assert!(mean.states["SOXQ"]
+            .prices
+            .iter()
+            .all(|price| *price == 10_000));
+        assert!(trend.states["SOXQ"]
+            .prices
+            .iter()
+            .all(|price| *price == 10_000));
     }
 }

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{Signal, Strategy, StrategyConfig};
+use super::{HistoryReadiness, Signal, Strategy, StrategyConfig};
 
 // ────────────────────────────────────────────────────────────────────
 // 11. 가격 조건 매매 전략 (PriceConditionStrategy) — 종목별 독립 설정
@@ -119,6 +119,14 @@ impl Strategy for PriceConditionStrategy {
     }
     fn set_enabled(&mut self, enabled: bool) {
         self.config.enabled = enabled;
+    }
+
+    fn history_readiness(&self, _symbol: &str) -> Option<HistoryReadiness> {
+        Some(HistoryReadiness {
+            required_bars: 0,
+            available_bars: 0,
+            ready: true,
+        })
     }
 
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {

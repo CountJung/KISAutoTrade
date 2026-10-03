@@ -62,6 +62,7 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 - `.env`, `secure_config.json`, `profiles.json`은 읽지 않는다.
 - 코드 변경 전 현재 구현을 먼저 검색하고, 기존 패턴을 우선한다.
+- 작업별 검증과 리뷰·문서 게이트가 완료되면 변경을 커밋하고 현재 브랜치를 origin에 푸시한다. 캐시·민감 파일은 제외하며 강제 푸시는 하지 않는다. (사용자 지시: 2026-10-03)
 - 교차 모듈 심볼 변경은 `symbol_navigator`에게 Serena 참조 추적을 위임한다.
 - 파일 추가·이동·삭제 또는 구조 변경은 `project_mapper`에게 프로젝트 맵 pass를 위임한다.
 - 중복 helper 후보는 `helper_curator`에게 Graphify 후보 탐색과 Serena 참조 검증을 위임하고, 실제 동등성이 확인된 경우에만 공용 유틸로 승격한다.
@@ -79,11 +80,11 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-10-03 | SOXQ 연구·종가 warmup 수정, 프로젝트 내부 캐시/상태 점검, 평가·준비 상태 분리 및 P1-03 일봉 날짜/완료봉 이벤트 |
 | 2026-09-11 | 자동매매 전용 예산 원장과 기존 레버리지 상승 추세의 선택형 볼린저 필터 및 E2E 검증 추가 |
 | 2026-07-25 | 프로젝트 맵 자동 검증, Serena 심볼 추적, Graphify 헬퍼 공용화 위임 체계 추가 |
 | 2026-07-15 | 전략 replay/backtest, 비용·리스크 가정, 무미래참조 fixture, scope별 A/B 연구 UI 추가 |
 | 2026-07-12 | broker rate limit을 credential scope 공유로 통합, KIS timeout/응답 상한과 운영 상태 노출 추가 |
-| 2026-07-12 | DB password OS keychain 이전과 PostgreSQL 실서버 contract test 추가 |
 ## 운영 문서 스택
 
 작업 전 변경 성격에 맞춰 다음 루트 문서를 함께 확인한다.

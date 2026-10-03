@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import type { ChartCandle, StrategyPreviewPreparation } from '../../src/api/types'
 
 const strategyEntries = [
   {
@@ -64,6 +65,27 @@ function strategy(id: string, name: string, index: number) {
   }
 }
 
+function historyFixture(count: number): ChartCandle[] {
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(Date.UTC(2025, 0, 1 + index)).toISOString().slice(0, 10).replaceAll('-', '')
+    return { date, open: '100', high: '105', low: '99', close: '104', volume: '1000' }
+  })
+}
+
+const readyPreparation: StrategyPreviewPreparation = {
+  requiredHistoryBars: 252,
+  providedHistoryBars: 252,
+  availableHistoryBars: 252,
+  readyAtStart: true,
+  readyAtEnd: true,
+  firstReadyTime: '20250910',
+  unreadyEvaluationBars: 0,
+  evaluatedBars: 50,
+  historyStatus: 'sufficient',
+  indicatorStatus: 'ready',
+  outcome: 'conditionsNotMet',
+}
+
 type MockOptions = {
   strategyDelayMs?: number
   genericPreviewDelayMs?: number
@@ -72,6 +94,8 @@ type MockOptions = {
   previewRequests?: unknown[]
   genericPreviewRequests?: unknown[]
   chartRequests?: string[]
+  chartCandles?: ChartCandle[]
+  genericPreparation?: StrategyPreviewPreparation
   updateRequests?: unknown[]
   scopeController?: { current: 'A' | 'B' }
 }
@@ -92,10 +116,10 @@ function mockResearchResult(body: Record<string, unknown>, interval: string) {
   }
   return {
     replay: {
-      engineVersion: 'strategy-replay-v2',
+      engineVersion: 'strategy-replay-v5',
       strategyVersion: 'mock-v1',
       sourceInterval: interval,
-      replayCadence: interval === '1m' ? 'minuteClose' : 'dailyClose',
+      replayCadence: interval === '1m' ? 'minuteClose' : 'dailyCloseWithDayBoundary',
       liveCadenceSeconds: 10,
       warmupCount: 1,
       dataStart: '20260701',
@@ -320,7 +344,7 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
     if (url.pathname.startsWith('/api/chart/') || url.pathname.startsWith('/api/toss-chart/')) {
       options.chartRequests?.push(url.toString())
       await route.fulfill({
-        json: [
+        json: options.chartCandles ?? [
           { date: '20260701', open: '100', high: '102', low: '99', close: '100', volume: '1000' },
           { date: '20260702', open: '100', high: '105', low: '100', close: '104', volume: '1500' },
           { date: '20260703', open: '104', high: '108', low: '103', close: '107', volume: '1800' },
@@ -359,6 +383,7 @@ async function mockApi(page: import('@playwright/test').Page, options: MockOptio
           generatedAt: '2026-07-04T15:30:00+09:00',
           message: 'mock generic preview signals',
           ...mockResearchResult(body, String(body.interval ?? '1d')),
+          preparation: options.genericPreparation,
         },
       })
       return
@@ -703,7 +728,7 @@ test('Generic strategy card preview runs with edited card settings', async ({ pa
   expect(await card.getByTestId('lth-preview-chart').evaluate((element) => getComputedStyle(element).touchAction)).toBe('pan-y')
   expect(chartRequests).toHaveLength(1)
   expect(chartRequests[0]).toContain('period=W')
-  expect(chartRequests[0]).toContain('count=100')
+  expect(chartRequests[0]).toContain('count=352')
   expect(genericPreviewRequests).toHaveLength(1)
   expect(genericPreviewRequests[0]).toMatchObject({
     strategyId: 'ma_cross_default',
@@ -712,6 +737,7 @@ test('Generic strategy card preview runs with edited card settings', async ({ pa
     interval: 'W',
     brokerId: 'kis',
     brokerAccountId: '12345678-01',
+    historyCandles: [],
   })
   await expect(card.getByTestId('strategy-backtest-results')).toBeVisible()
   await expect(card.getByText('원시 신호 3개 · 주문 가능 2개 · 체결 가정 2개 · 차단 1개')).toBeVisible()
@@ -787,6 +813,7 @@ test('Generic Toss strategy preview uses the selected one-minute interval and ra
   expect(chartRequests[0]).toContain('interval=1m')
   expect(chartRequests[0]).toContain('count=200')
   expect(genericPreviewRequests).toHaveLength(1)
+  expect(genericPreviewRequests[0]).toMatchObject({ historyCandles: [] })
 })
 
 test('Leveraged strategy preview discards an in-flight result after parameters change', async ({ page }) => {
@@ -802,6 +829,92 @@ test('Leveraged strategy preview discards an in-flight result after parameters c
   await card.getByRole('spinbutton', { name: '진입 민감도' }).fill('2')
   await page.waitForTimeout(400)
   await expect(card.getByText('mock preview signals')).toHaveCount(0)
+})
+
+test('Generic preview separates sorted history from the complete requested evaluation window', async ({ page }) => {
+  const genericPreviewRequests: Array<{ candles: ChartCandle[]; historyCandles: ChartCandle[]; warmupCount?: number }> = []
+  const chartRequests: string[] = []
+  const ordered = historyFixture(302)
+  await mockApi(page, { genericPreviewRequests, chartRequests, chartCandles: [...ordered].reverse().concat(ordered[0]), genericPreparation: readyPreparation })
+  await page.goto('/strategy')
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'MovingAverageCrossStrategy' }).first()
+  await card.getByRole('button', { name: '미리보기 계산' }).click()
+  await expect(card.getByTestId('strategy-evaluation-range')).toHaveText('요청 분석 50봉 · 실제 평가 50봉 · 사전 자료 252봉')
+  await expect(card.getByTestId('strategy-preparation-status')).toContainText('평가 시작 사전 자료 충분 · 지표 준비 완료 · 매매 조건 불충족')
+  await expect(card.getByTestId('strategy-preparation-status')).toContainText('실제 조건 평가 50봉')
+  await expect(card.getByTestId('strategy-preparation-status')).toContainText('지표 버퍼 252봉')
+  await expect(card.getByTestId('strategy-preparation-status')).toContainText('봉 처리 후 첫 준비 완료 시점')
+  expect(chartRequests).toHaveLength(1)
+  expect(chartRequests[0]).toContain('count=302')
+  expect(genericPreviewRequests[0].candles).toEqual(ordered.slice(-50))
+  expect(genericPreviewRequests[0].historyCandles).toEqual(ordered.slice(0, 252))
+  expect(genericPreviewRequests[0].warmupCount).toBeUndefined()
+})
+
+test('Generic preview retains evaluation bars when the provider returns insufficient history', async ({ page }) => {
+  const genericPreviewRequests: Array<{ candles: ChartCandle[]; historyCandles: ChartCandle[] }> = []
+  const chartRequests: string[] = []
+  const ordered = historyFixture(120)
+  await mockApi(page, { genericPreviewRequests, chartRequests, chartCandles: ordered, genericPreparation: {
+    ...readyPreparation, providedHistoryBars: 20, availableHistoryBars: 20, readyAtStart: false, readyAtEnd: false,
+    firstReadyTime: null, unreadyEvaluationBars: 100, evaluatedBars: 0, historyStatus: 'insufficient', indicatorStatus: 'warmingUp', outcome: 'notEvaluable',
+  } })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/strategy')
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'MovingAverageCrossStrategy' }).first()
+  await card.getByRole('combobox', { name: '분석 구간' }).click()
+  await page.getByRole('option', { name: '최근 100봉', exact: true }).click()
+  await card.getByRole('button', { name: '미리보기 계산' }).click()
+  await expect(card.getByTestId('strategy-evaluation-range')).toHaveText('요청 분석 100봉 · 실제 평가 100봉 · 사전 자료 20봉')
+  const status = card.getByTestId('strategy-preparation-status')
+  await expect(status).toContainText('평가 시작 사전 자료 부족 · 지표 준비 중 · 평가 불가')
+  await expect(status).toContainText('필요 252봉')
+  await expect(status).toContainText('봉 처리 후 지표 준비 미확인 100봉')
+  await expect(status).toContainText('실제 조건 평가 0봉')
+  await expect(status).toContainText('지표 버퍼 20봉')
+  expect(genericPreviewRequests[0].candles).toEqual(ordered.slice(-100))
+  expect(genericPreviewRequests[0].historyCandles).toEqual(ordered.slice(0, 20))
+  expect(chartRequests).toHaveLength(1)
+  expect(await status.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+  const statusBox = await status.boundingBox()
+  const cardBox = await card.boundingBox()
+  expect(statusBox!.x + statusBox!.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width + 1)
+})
+
+test('Toss capped response preserves all 200 evaluation bars and reports unfilled signals separately', async ({ page }) => {
+  const genericPreviewRequests: Array<{ candles: ChartCandle[]; historyCandles: ChartCandle[] }> = []
+  const chartRequests: string[] = []
+  const ordered = historyFixture(200)
+  await mockApi(page, { activeBroker: 'toss', genericPreviewRequests, chartRequests, chartCandles: ordered, genericPreparation: {
+    ...readyPreparation, requiredHistoryBars: 200, providedHistoryBars: 0, availableHistoryBars: 0, readyAtStart: false,
+    unreadyEvaluationBars: 199, evaluatedBars: 1, historyStatus: 'insufficient', outcome: 'noTrades',
+  } })
+  await page.goto('/strategy')
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'MovingAverageCrossStrategy' }).first()
+  await card.getByRole('combobox', { name: '분석 구간' }).click()
+  await page.getByRole('option', { name: '최근 200봉', exact: true }).click()
+  await card.getByRole('button', { name: '미리보기 계산' }).click()
+  await expect(card.getByTestId('strategy-evaluation-range')).toHaveText('요청 분석 200봉 · 실제 평가 200봉 · 사전 자료 0봉')
+  await expect(card.getByTestId('strategy-preparation-status')).toContainText('지표 준비 완료 · 신호 발생 · 체결 없음')
+  await expect(card.getByTestId('strategy-preparation-status')).toContainText('필요 200봉')
+  await expect(card.getByText(/Toss는 한 페이지 최대 200봉/)).toBeVisible()
+  expect(chartRequests).toHaveLength(1)
+  expect(chartRequests[0]).toContain('count=200')
+  expect(genericPreviewRequests[0].candles).toEqual(ordered)
+  expect(genericPreviewRequests[0].historyCandles).toEqual([])
+})
+
+test('Daily boundary strategies restrict replay to daily candles and explain close execution', async ({ page }) => {
+  await mockApi(page, { activeBroker: 'toss' })
+  await page.goto('/strategy')
+  for (const name of ['StrongCloseStrategy', 'VolatilityExpansionStrategy']) {
+    const card = page.locator('.MuiPaper-root').filter({ hasText: name }).first()
+    await expect(card.getByTestId('daily-event-replay-note')).toContainText('일봉만 지원하며 체결은 종가 가정')
+    await card.getByRole('combobox', { name: '봉 단위' }).click()
+    await expect(page.getByRole('option', { name: '일봉', exact: true })).toBeVisible()
+    await expect(page.getByRole('option', { name: '1분봉', exact: true })).toHaveCount(0)
+    await page.getByRole('option', { name: '일봉', exact: true }).click()
+  }
 })
 
 test('Sidebar trading action toggles auto trading from strategy page', async ({ page }) => {

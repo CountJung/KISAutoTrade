@@ -179,7 +179,7 @@ impl StrategyManager {
         }
     }
 
-    /// live/preview 공통 warmup semantics로 대상 전략을 초기화한다.
+    /// live provider 응답을 공통 warmup 경계에 전달한다.
     pub fn initialize_warmup(
         &mut self,
         symbol: &str,
@@ -188,6 +188,19 @@ impl StrategyManager {
     ) {
         for strategy in &mut self.strategies {
             if strategy.config().targets_symbol(symbol) {
+                // Provider 일봉에는 완료 플래그가 없다. 신고가 live 경로의 기존
+                // 최신 봉 제외 정책을 유지한다. Preview의 엄격한 과거 prefix는
+                // manager를 거치지 않으므로 완료된 마지막 봉까지 모두 사용한다.
+                let daily_ohlc =
+                    if strategy.id().starts_with("fifty_two_week_high") && !daily_ohlc.is_empty() {
+                        let history = &daily_ohlc[..daily_ohlc.len() - 1];
+                        if history.is_empty() {
+                            strategy.initialize_ohlc(symbol, history);
+                        }
+                        history
+                    } else {
+                        daily_ohlc
+                    };
                 initialize_strategy_warmup(strategy.as_mut(), symbol, daily_ohlc, intraday_ohlc);
             }
         }
@@ -288,5 +301,63 @@ impl StrategyManager {
 impl Default for StrategyManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod history_tests {
+    use super::*;
+
+    #[test]
+    fn live_high_excludes_unconfirmed_latest_bar_without_shortening_252_requirement() {
+        let mut manager = StrategyManager::new();
+        manager.add(build_strategy(StrategyConfig::new(
+            "fifty_two_week_high",
+            "fixture",
+            true,
+            vec!["SOXQ".into()],
+            1,
+            serde_json::to_value(super::super::FiftyTwoWeekHighParams::default()).unwrap(),
+        )));
+        let completed = OhlcCandle {
+            open: 10_000,
+            high: 10_000,
+            low: 10_000,
+            close: 10_000,
+        };
+        let mut live = vec![completed; 252];
+        live.push(OhlcCandle {
+            high: 30_000,
+            ..completed
+        });
+        manager.initialize_warmup("SOXQ", &live, &[]);
+        assert_eq!(
+            manager.strategies[0]
+                .history_readiness("SOXQ")
+                .unwrap()
+                .available_bars,
+            252
+        );
+        assert!(matches!(
+            manager.on_tick("SOXQ", 12_000, 1000)[0].signal,
+            Signal::Buy { .. }
+        ));
+        manager.initialize_warmup("SOXQ", &live[..252], &[]);
+        let state = manager.strategies[0].history_readiness("SOXQ").unwrap();
+        assert_eq!(state.available_bars, 251);
+        assert!(!state.ready);
+        assert!(matches!(
+            manager.on_tick("SOXQ", 11_000, 1000)[0].signal,
+            Signal::Sell { .. }
+        ));
+        manager.sync_position("SOXQ", 1, 12_000);
+        manager.initialize_warmup("SOXQ", &live[..1], &[]);
+        let state = manager.strategies[0].history_readiness("SOXQ").unwrap();
+        assert_eq!(state.available_bars, 0);
+        assert!(!state.ready);
+        assert!(matches!(
+            manager.on_tick("SOXQ", 11_000, 1000)[0].signal,
+            Signal::Sell { .. }
+        ));
     }
 }

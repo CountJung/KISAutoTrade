@@ -72,7 +72,7 @@
 | `get_toss_market_calendar` | 활성 Toss 프로파일로 KR/US 정규장 캘린더 조회 (`regularSession`, `isRegularOpen`) |
 | `get_toss_chart_data` | 활성 Toss 프로파일로 캔들 조회 (`1d`/`1m`, count 1~200, `ChartCandle[]`) |
 | `preview_leveraged_trend_hold` | 활성 Toss profile/account scope를 검증하고 `1m`/`1d` 20~200봉을 replay. 1분봉 warmup은 replay 시작일 이전의 완료 일봉만 사용하며 raw 신호·차트, 전체 입력 hash, 비용·환율·리스크 backtest를 반환 |
-| `preview_strategy` | 최대 500개의 `ChartCandle[]`를 candle-close cadence로 deterministic replay. 공통 warmup/전략 `on_tick`/TradeGuard/RiskManager, raw 신호와 주문 가능·차단·체결 가정, 성과 지표와 전체 OHLCV 재현 메타데이터를 반환. live 10초 tick·intrabar/provider latency는 재현하지 않음 |
+| `preview_strategy` | `candles` 평가 구간 + 선택 `historyCandles` 사전자료를 합계 최대 500봉으로 candle-close replay. `warmupCount` 생략은 0이며 명시 prefix와 별도 history 동시 지정은 거부. 결과 candles는 평가 구간만 포함. 실제 지표 준비 상태·조건 평가 봉 수(`preparation`), raw 신호·체결/차단·비용/리스크 성과와 OHLCV hash를 반환. generic LTH는 준비 미지원/비결정적 진단. live 10초 tick·intrabar/provider latency는 재현하지 않음 |
 | `get_chart_data` | 국내주식 차트 데이터 (일/주/월봉, 날짜 범위와 선택적 count) |
 | `get_overseas_price` | 해외주식 현재가 조회 |
 | `get_overseas_chart_data` | 해외주식 최신 차트 데이터 (일/주/월봉, 선택적 count 상한) |
@@ -88,6 +88,8 @@
 | `refresh_stock_list` | KRX 종목 목록 강제 갱신 |
 | `get_stock_list_stats` | 종목 목록 통계 |
 | `set_stock_update_interval` | 종목 목록 갱신 주기 설정 |
+
+`preview_strategy` v5의 `D`/`1d` cadence는 `dailyCloseWithDayBoundary`다. 시가-only 날짜 시작, 완성 OHLC 종가 평가, 체결/차단 포지션 피드백, 완료봉 적재 순서로 처리한다. 강한 종가는 전일 조건을 다음 평가일에 사용하고 변동성 확장은 이전 N일 평균과 당일 범위를 비교한다. 두 전략의 다른 interval은 `UNSUPPORTED_REPLAY_INTERVAL`로 거부한다. 모든 generic 체결은 해당 신호 봉 종가 근사이며 next-open/장중 경로는 미지원이다. 기존 입력·`preparation` 계약과 전용 LTH 경로는 유지한다.
 
 ## 거래 기록 / 통계
 
@@ -157,3 +159,7 @@
 | `ws-status` | `WsStatusEvent` | `api/websocket.rs` |
 
 > 프론트엔드 구독: `AppShell.tsx` → `useBackendEvents()` (`hooks.ts`)
+
+### Generic preview 준비 메타데이터(v4)
+
+`historyCandles`와 평가봉은 동일 interval의 날짜 형식(일/주/월 8자리, 분봉 14자리 또는 초 00으로 보정되는 12자리)을 사용하며 사전자료는 평가 첫 봉보다 엄격히 이전이어야 한다. 잘못된 OHLC/시각·중복·겹침·모호한 prefix는 거부한다. `preparation`의 요구/제공/실제 버퍼 수, 시작·종료 준비, 처리 후 첫 준비 시각/미준비 봉 수와 호출 전 조건 평가 봉 수(`evaluatedBars`)를 구분한다. 지원 여부를 알 수 없는 값은 null이며 seed-only 구간은 `notEvaluable`이다.

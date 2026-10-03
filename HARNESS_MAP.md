@@ -15,6 +15,8 @@ cargo metadata --locked --format-version 1 --no-deps
 
 기존 작업 환경에서 문서/소규모 변경만 검증할 때 불필요한 reinstall은 생략할 수 있다.
 
+프로젝트별 캐시는 저장소 안에 둔다: Cargo `target/`, Vite `node_modules/.vite/`, Playwright `test-results/`·`playwright-report/`, Serena `.serena/cache/`, Graphify `graphify-out/cache/`. 일회성 오프라인 연구 harness는 `.cache/`에 두며 모두 Git에서 제외한다. `.cargo/config.toml`은 상대 `target-dir = "target"`인 공통 설정으로 추적한다. `scripts/setup-local.sh`는 이를 외부 절대 경로로 덮어쓰지 않는다. Rust toolchain·Cargo registry와 npm 전역 다운로드 캐시는 도구의 사용자 공통 저장소를 유지한다.
+
 ## 2. 기본 정적·단위 게이트
 
 | 목적 | 실제 명령 | 근거 |

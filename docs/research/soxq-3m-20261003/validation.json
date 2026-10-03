@@ -1,0 +1,148 @@
+[
+  {
+    "label": "research runner formatting",
+    "command": [
+      "/Users/jsjmac/.cargo/bin/rustfmt",
+      "/Users/jsjmac/Workspace/MacWorking/KISAutoTrade/docs/research/soxq-3m-20261003/runner.rs"
+    ],
+    "exitCode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "label": "26 baseline strategy runs + LTH specialized + 2 benchmarks",
+    "command": [
+      "/Users/jsjmac/.cargo/bin/cargo",
+      "run",
+      "--offline",
+      "--locked",
+      "--manifest-path",
+      "/tmp/kis-soxq-research-20261003/Cargo.toml",
+      "--target-dir",
+      "/Users/jsjmac/Library/Caches/KISAutoTrade-target",
+      "--",
+      "/Users/jsjmac/Workspace/MacWorking/KISAutoTrade/docs/research/soxq-3m-20261003/replay-input.json",
+      "/Users/jsjmac/Workspace/MacWorking/KISAutoTrade/docs/research/soxq-3m-20261003/results.json"
+    ],
+    "exitCode": 0,
+    "stdout": "\"historical_warmup\" \"ma_cross\" start=\"20260706\" return=-1.1197 mdd=2.2089 completed=2 filled=5 blocked=0\n\"ui_three_month_defaults\" \"ma_cross\" start=\"20260706\" return=-1.1197 mdd=2.2089 completed=2 filled=5 blocked=0\n\"historical_warmup\" \"rsi\" start=\"20260706\" return=2.0224 mdd=1.014 completed=2 filled=4 blocked=0\n\"ui_three_month_defaults\" \"rsi\" start=\"20260706\" return=2.0224 mdd=1.014 completed=2 filled=4 blocked=0\n\"historical_warmup\" \"momentum\" start=\"20260706\" return=-0.4868 mdd=1.4493 completed=2 filled=5 blocked=9\n\"ui_three_month_defaults\" \"momentum\" start=\"20260706\" return=-0.4868 mdd=1.4493 completed=2 filled=5 blocked=9\n\"historical_warmup\" \"deviation\" start=\"20260706\" return=2.4987 mdd=0.8931 completed=2 filled=4 blocked=10\n\"ui_three_month_defaults\" \"deviation\" start=\"20260706\" return=2.4987 mdd=0.8931 completed=2 filled=4 blocked=10\n\"historical_warmup\" \"fifty_two_week_high\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"ui_three_month_defaults\" \"fifty_two_week_high\" start=\"20260819\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"historical_warmup\" \"consecutive_move\" start=\"20260706\" return=-0.6445 mdd=2.9268 completed=2 filled=5 blocked=0\n\"ui_three_month_defaults\" \"consecutive_move\" start=\"20260706\" return=-0.6445 mdd=2.9268 completed=2 filled=5 blocked=0\n\"historical_warmup\" \"failed_breakout\" start=\"20260706\" return=-0.0005 mdd=0.8096 completed=1 filled=3 blocked=0\n\"ui_three_month_defaults\" \"failed_breakout\" start=\"20260706\" return=-0.0005 mdd=0.8096 completed=1 filled=3 blocked=0\n\"historical_warmup\" \"strong_close\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"ui_three_month_defaults\" \"strong_close\" start=\"20260819\" return=-0.5586 mdd=0.7005 completed=1 filled=2 blocked=0\n\"historical_warmup\" \"volatility_expansion\" start=\"20260706\" return=-0.03 mdd=0.03 completed=0 filled=1 blocked=0\n\"ui_three_month_defaults\" \"volatility_expansion\" start=\"20260819\" return=1.3575 mdd=0.2516 completed=0 filled=1 blocked=0\n\"historical_warmup\" \"mean_reversion\" start=\"20260706\" return=1.4402 mdd=1.6683 completed=2 filled=4 blocked=0\n\"ui_three_month_defaults\" \"mean_reversion\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"historical_warmup\" \"trend_filter\" start=\"20260706\" return=0.8722 mdd=1.6917 completed=0 filled=1 blocked=0\n\"ui_three_month_defaults\" \"trend_filter\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"historical_warmup\" \"price_condition\" start=\"20260706\" return=2.2408 mdd=1.5896 completed=12 filled=24 blocked=0\n\"ui_three_month_defaults\" \"price_condition\" start=\"20260706\" return=2.2408 mdd=1.5896 completed=12 filled=24 blocked=0\n\"historical_warmup\" \"leveraged_trend_hold\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"ui_three_month_defaults\" \"leveraged_trend_hold\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\nLTH specialized: {\"blockedOrderCount\":0,\"completedTrades\":0,\"cumulativeReturnPct\":0.0,\"exposurePct\":0.0,\"filledOrderCount\":0,\"finalEquityKrw\":10000000.0,\"initialCapitalKrw\":10000000.0,\"losingTrades\":0,\"mddPct\":0.0,\"orderEligibleCount\":0,\"profitFactor\":null,\"signalCount\":0,\"turnoverPct\":0.0,\"winRatePct\":0.0,\"winningTrades\":0}\n",
+    "stderr": "   Compiling kis-auto-trade v0.2.0 (/Users/jsjmac/Workspace/MacWorking/KISAutoTrade/src-tauri)\n   Compiling soxq-research-runner v0.1.0 (/tmp/kis-soxq-research-20261003)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.20s\n     Running `/Users/jsjmac/Library/Caches/KISAutoTrade-target/debug/soxq-research-runner /Users/jsjmac/Workspace/MacWorking/KISAutoTrade/docs/research/soxq-3m-20261003/replay-input.json /Users/jsjmac/Workspace/MacWorking/KISAutoTrade/docs/research/soxq-3m-20261003/results.json`\n"
+  },
+  {
+    "label": "cost stress each20bp",
+    "command": [
+      "/Users/jsjmac/Library/Caches/KISAutoTrade-target/debug/soxq-research-runner",
+      "/Users/jsjmac/Workspace/MacWorking/KISAutoTrade/docs/research/soxq-3m-20261003/replay-input.json",
+      "/Users/jsjmac/Workspace/MacWorking/KISAutoTrade/docs/research/soxq-3m-20261003/results-cost20.json"
+    ],
+    "exitCode": 0,
+    "stdout": "\"historical_warmup\" \"ma_cross\" start=\"20260706\" return=-1.2549 mdd=2.3163 completed=2 filled=5 blocked=0\n\"ui_three_month_defaults\" \"ma_cross\" start=\"20260706\" return=-1.2549 mdd=2.3163 completed=2 filled=5 blocked=0\n\"historical_warmup\" \"rsi\" start=\"20260706\" return=1.9147 mdd=1.0668 completed=2 filled=4 blocked=0\n\"ui_three_month_defaults\" \"rsi\" start=\"20260706\" return=1.9147 mdd=1.0668 completed=2 filled=4 blocked=0\n\"historical_warmup\" \"momentum\" start=\"20260706\" return=-0.6226 mdd=1.557 completed=2 filled=5 blocked=9\n\"ui_three_month_defaults\" \"momentum\" start=\"20260706\" return=-0.6226 mdd=1.557 completed=2 filled=5 blocked=9\n\"historical_warmup\" \"deviation\" start=\"20260706\" return=2.3903 mdd=0.8938 completed=2 filled=4 blocked=10\n\"ui_three_month_defaults\" \"deviation\" start=\"20260706\" return=2.3903 mdd=0.8938 completed=2 filled=4 blocked=10\n\"historical_warmup\" \"fifty_two_week_high\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"ui_three_month_defaults\" \"fifty_two_week_high\" start=\"20260819\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"historical_warmup\" \"consecutive_move\" start=\"20260706\" return=-0.7816 mdd=3.0639 completed=2 filled=5 blocked=0\n\"ui_three_month_defaults\" \"consecutive_move\" start=\"20260706\" return=-0.7816 mdd=3.0639 completed=2 filled=5 blocked=0\n\"historical_warmup\" \"failed_breakout\" start=\"20260706\" return=-0.0851 mdd=0.8942 completed=1 filled=3 blocked=0\n\"ui_three_month_defaults\" \"failed_breakout\" start=\"20260706\" return=-0.0851 mdd=0.8942 completed=1 filled=3 blocked=0\n\"historical_warmup\" \"strong_close\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"ui_three_month_defaults\" \"strong_close\" start=\"20260819\" return=-0.6112 mdd=0.7264 completed=1 filled=2 blocked=0\n\"historical_warmup\" \"volatility_expansion\" start=\"20260706\" return=-0.06 mdd=0.06 completed=0 filled=1 blocked=0\n\"ui_three_month_defaults\" \"volatility_expansion\" start=\"20260819\" return=1.3303 mdd=0.2517 completed=0 filled=1 blocked=0\n\"historical_warmup\" \"mean_reversion\" start=\"20260706\" return=1.3333 mdd=1.6696 completed=2 filled=4 blocked=0\n\"ui_three_month_defaults\" \"mean_reversion\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"historical_warmup\" \"trend_filter\" start=\"20260706\" return=0.844 mdd=1.6921 completed=0 filled=1 blocked=0\n\"ui_three_month_defaults\" \"trend_filter\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"historical_warmup\" \"price_condition\" start=\"20260706\" return=0.9777 mdd=2.0538 completed=11 filled=22 blocked=0\n\"ui_three_month_defaults\" \"price_condition\" start=\"20260706\" return=0.9777 mdd=2.0538 completed=11 filled=22 blocked=0\n\"historical_warmup\" \"leveraged_trend_hold\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"ui_three_month_defaults\" \"leveraged_trend_hold\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\nLTH specialized: {\"blockedOrderCount\":0,\"completedTrades\":0,\"cumulativeReturnPct\":0.0,\"exposurePct\":0.0,\"filledOrderCount\":0,\"finalEquityKrw\":10000000.0,\"initialCapitalKrw\":10000000.0,\"losingTrades\":0,\"mddPct\":0.0,\"orderEligibleCount\":0,\"profitFactor\":null,\"signalCount\":0,\"turnoverPct\":0.0,\"winRatePct\":0.0,\"winningTrades\":0}\n",
+    "stderr": ""
+  },
+  {
+    "label": "repeat baseline",
+    "command": [
+      "/Users/jsjmac/Library/Caches/KISAutoTrade-target/debug/soxq-research-runner",
+      "/Users/jsjmac/Workspace/MacWorking/KISAutoTrade/docs/research/soxq-3m-20261003/replay-input.json",
+      "/tmp/kis-soxq-research-20261003/repeat-results.json"
+    ],
+    "exitCode": 0,
+    "stdout": "\"historical_warmup\" \"ma_cross\" start=\"20260706\" return=-1.1197 mdd=2.2089 completed=2 filled=5 blocked=0\n\"ui_three_month_defaults\" \"ma_cross\" start=\"20260706\" return=-1.1197 mdd=2.2089 completed=2 filled=5 blocked=0\n\"historical_warmup\" \"rsi\" start=\"20260706\" return=2.0224 mdd=1.014 completed=2 filled=4 blocked=0\n\"ui_three_month_defaults\" \"rsi\" start=\"20260706\" return=2.0224 mdd=1.014 completed=2 filled=4 blocked=0\n\"historical_warmup\" \"momentum\" start=\"20260706\" return=-0.4868 mdd=1.4493 completed=2 filled=5 blocked=9\n\"ui_three_month_defaults\" \"momentum\" start=\"20260706\" return=-0.4868 mdd=1.4493 completed=2 filled=5 blocked=9\n\"historical_warmup\" \"deviation\" start=\"20260706\" return=2.4987 mdd=0.8931 completed=2 filled=4 blocked=10\n\"ui_three_month_defaults\" \"deviation\" start=\"20260706\" return=2.4987 mdd=0.8931 completed=2 filled=4 blocked=10\n\"historical_warmup\" \"fifty_two_week_high\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"ui_three_month_defaults\" \"fifty_two_week_high\" start=\"20260819\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"historical_warmup\" \"consecutive_move\" start=\"20260706\" return=-0.6445 mdd=2.9268 completed=2 filled=5 blocked=0\n\"ui_three_month_defaults\" \"consecutive_move\" start=\"20260706\" return=-0.6445 mdd=2.9268 completed=2 filled=5 blocked=0\n\"historical_warmup\" \"failed_breakout\" start=\"20260706\" return=-0.0005 mdd=0.8096 completed=1 filled=3 blocked=0\n\"ui_three_month_defaults\" \"failed_breakout\" start=\"20260706\" return=-0.0005 mdd=0.8096 completed=1 filled=3 blocked=0\n\"historical_warmup\" \"strong_close\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"ui_three_month_defaults\" \"strong_close\" start=\"20260819\" return=-0.5586 mdd=0.7005 completed=1 filled=2 blocked=0\n\"historical_warmup\" \"volatility_expansion\" start=\"20260706\" return=-0.03 mdd=0.03 completed=0 filled=1 blocked=0\n\"ui_three_month_defaults\" \"volatility_expansion\" start=\"20260819\" return=1.3575 mdd=0.2516 completed=0 filled=1 blocked=0\n\"historical_warmup\" \"mean_reversion\" start=\"20260706\" return=1.4402 mdd=1.6683 completed=2 filled=4 blocked=0\n\"ui_three_month_defaults\" \"mean_reversion\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"historical_warmup\" \"trend_filter\" start=\"20260706\" return=0.8722 mdd=1.6917 completed=0 filled=1 blocked=0\n\"ui_three_month_defaults\" \"trend_filter\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"historical_warmup\" \"price_condition\" start=\"20260706\" return=2.2408 mdd=1.5896 completed=12 filled=24 blocked=0\n\"ui_three_month_defaults\" \"price_condition\" start=\"20260706\" return=2.2408 mdd=1.5896 completed=12 filled=24 blocked=0\n\"historical_warmup\" \"leveraged_trend_hold\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\n\"ui_three_month_defaults\" \"leveraged_trend_hold\" start=\"20260706\" return=0.0 mdd=0.0 completed=0 filled=0 blocked=0\nLTH specialized: {\"blockedOrderCount\":0,\"completedTrades\":0,\"cumulativeReturnPct\":0.0,\"exposurePct\":0.0,\"filledOrderCount\":0,\"finalEquityKrw\":10000000.0,\"initialCapitalKrw\":10000000.0,\"losingTrades\":0,\"mddPct\":0.0,\"orderEligibleCount\":0,\"profitFactor\":null,\"signalCount\":0,\"turnoverPct\":0.0,\"winRatePct\":0.0,\"winningTrades\":0}\n",
+    "stderr": ""
+  },
+  {
+    "label": "identical repeat results excluding generatedAt",
+    "exitCode": 0,
+    "detail": "Same-clock repeat does NOT prove generic LTH wall-clock independence."
+  },
+  {
+    "label": "dataset hashes,13 strategy coverage,equal primary dates",
+    "exitCode": 0
+  },
+  {
+    "label": "13 strategy chart switches + mobile layout",
+    "command": [
+      "/Users/jsjmac/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "/tmp/kis-soxq-research-20261003/verify-chart.mjs"
+    ],
+    "exitCode": 0,
+    "stdout": "{\"strategies\":13,\"priceCandles\":64,\"equityPointsPerStrategy\":64,\"consoleErrors\":0,\"mobileWidth\":390}\n",
+    "stderr": ""
+  },
+  {
+    "label": "cargo check workspace",
+    "command": [
+      "/Users/jsjmac/.cargo/bin/cargo",
+      "check",
+      "--workspace",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "stdout": "",
+    "stderr": "   Compiling kis-auto-trade v0.2.0 (/Users/jsjmac/Workspace/MacWorking/KISAutoTrade/src-tauri)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 9.74s\n"
+  },
+  {
+    "label": "existing strategy_preview tests",
+    "command": [
+      "/Users/jsjmac/.cargo/bin/cargo",
+      "test",
+      "--workspace",
+      "--lib",
+      "strategy_preview",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "stdout": "\nrunning 8 tests\ntest commands::strategy_preview::tests::daily_preview_uses_selected_market_session_entry_window ... ok\ntest commands::strategy_preview::tests::daily_preview_time_keeps_provider_date_and_selected_session_minute ... ok\ntest commands::strategy_preview::tests::minute_replay_warmup_excludes_replay_day_and_future_daily_candles ... ok\ntest commands::strategy_preview::tests::daily_preview_reveals_only_open_at_session_start_then_completed_ohlc_at_close ... ok\ntest commands::strategy_preview::tests::blocked_buy_is_fed_back_before_the_next_raw_signal ... ok\ntest commands::strategy_preview::tests::live_tick_and_preview_emit_identical_signals_for_normalized_fixture ... ok\ntest commands::strategy_preview::tests::future_candle_change_does_not_change_prior_replay_signals ... ok\ntest commands::strategy_preview::tests::reproduction_hash_covers_ohlcv_and_order_quantity ... ok\n\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 128 filtered out; finished in 0.01s\n\n",
+    "stderr": "   Compiling kis-auto-trade v0.2.0 (/Users/jsjmac/Workspace/MacWorking/KISAutoTrade/src-tauri)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 16.50s\n     Running unittests src/lib.rs (/Users/jsjmac/Library/Caches/KISAutoTrade-target/debug/deps/kis_auto_trade_lib-d7b298ac46a9ab22)\n"
+  },
+  {
+    "label": "existing simulation tests",
+    "command": [
+      "/Users/jsjmac/.cargo/bin/cargo",
+      "test",
+      "--workspace",
+      "--lib",
+      "trading::simulation",
+      "--locked",
+      "--offline"
+    ],
+    "exitCode": 0,
+    "stdout": "\nrunning 4 tests\ntest trading::simulation::tests::daily_loss_and_consecutive_loss_state_roll_over_on_event_date ... ok\ntest trading::simulation::tests::deterministic_replay_applies_costs_and_separates_signals_from_fills ... ok\ntest trading::simulation::tests::sell_guard_uses_the_same_round_trip_cost_assumptions_as_settlement ... ok\ntest trading::simulation::tests::identical_fixture_has_identical_report_and_hash ... ok\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 132 filtered out; finished in 0.00s\n\n",
+    "stderr": "   Compiling kis-auto-trade v0.2.0 (/Users/jsjmac/Workspace/MacWorking/KISAutoTrade/src-tauri)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.25s\n     Running unittests src/lib.rs (/Users/jsjmac/Library/Caches/KISAutoTrade-target/debug/deps/kis_auto_trade_lib-d7b298ac46a9ab22)\n"
+  },
+  {
+    "label": "TypeScript noEmit",
+    "command": [
+      "/Users/jsjmac/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "/Users/jsjmac/Workspace/MacWorking/KISAutoTrade/node_modules/typescript/bin/tsc",
+      "--noEmit"
+    ],
+    "exitCode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "label": "project map inventory update",
+    "command": [
+      "/Users/jsjmac/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "/Users/jsjmac/Workspace/MacWorking/KISAutoTrade/scripts/project-map.mjs",
+      "--write"
+    ],
+    "exitCode": 0,
+    "stdout": "project-map: updated docs/project-map.md\n",
+    "stderr": ""
+  },
+  {
+    "label": "project map check",
+    "command": [
+      "/Users/jsjmac/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+      "/Users/jsjmac/Workspace/MacWorking/KISAutoTrade/scripts/project-map.mjs",
+      "--check"
+    ],
+    "exitCode": 0,
+    "stdout": "project-map: docs/project-map.md is up to date\n",
+    "stderr": ""
+  }
+]

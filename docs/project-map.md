@@ -14,6 +14,8 @@
 <!-- 이 블록은 scripts/project-map.mjs가 생성합니다. 직접 편집하지 마세요. -->
 ```text
 KISAutoTrade/
+├── .cargo/
+│   └── config.toml
 ├── .claude/
 │   ├── skills/
 │   │   ├── kisautotrade-frontend-fsd/
@@ -97,6 +99,24 @@ KISAutoTrade/
 │   ├── launch.json
 │   └── tasks.json
 ├── docs/
+│   ├── research/
+│   │   └── soxq-3m-20261003/
+│   │       ├── candles.csv
+│   │       ├── charts.html
+│   │       ├── p1-01-cost20-results.json
+│   │       ├── p1-01-results.json
+│   │       ├── p1-01-validation.md
+│   │       ├── p1-02-results.json
+│   │       ├── p1-02-validation.md
+│   │       ├── p1-03-cost20-results.json
+│   │       ├── p1-03-results.json
+│   │       ├── p1-03-validation.md
+│   │       ├── replay-input.json
+│   │       ├── report.md
+│   │       ├── results-cost20.json
+│   │       ├── results.json
+│   │       ├── runner.rs
+│   │       └── validation.json
 │   ├── MasterPlan.md
 │   ├── agent-tooling.md
 │   ├── coding-guide.md
@@ -350,6 +370,9 @@ KISAutoTrade/
 │   │   │   └── rate_limit.rs
 │   │   ├── commands/
 │   │   │   ├── strategy_preview/
+│   │   │   │   ├── daily_event_tests.rs
+│   │   │   │   ├── generic.rs
+│   │   │   │   ├── preparation_tests.rs
 │   │   │   │   └── tests.rs
 │   │   │   ├── toss/
 │   │   │   │   └── small_order.rs
@@ -414,6 +437,8 @@ KISAutoTrade/
 │   │   │   │   ├── fills.rs
 │   │   │   │   └── submission.rs
 │   │   │   ├── strategy/
+│   │   │   │   ├── breakout/
+│   │   │   │   │   └── day_event_tests.rs
 │   │   │   │   ├── leveraged_trend_hold/
 │   │   │   │   │   └── bollinger.rs
 │   │   │   │   ├── breakout.rs
@@ -424,6 +449,7 @@ KISAutoTrade/
 │   │   │   │   ├── manager.rs
 │   │   │   │   ├── mean_trend.rs
 │   │   │   │   ├── price_condition.rs
+│   │   │   │   ├── sequence.rs
 │   │   │   │   ├── state.rs
 │   │   │   │   └── tests.rs
 │   │   │   ├── guard.rs
@@ -445,7 +471,9 @@ KISAutoTrade/
 │   ├── build.rs
 │   └── tauri.conf.json
 ├── tasks/
-│   └── TASK_TEMPLATE.md
+│   ├── TASK_TEMPLATE.md
+│   ├── appledouble-and-soxq-p1-03.md
+│   └── project-health-and-soxq-p1-01.md
 ├── tests/
 │   └── e2e/
 │       ├── settings-database.spec.ts
@@ -529,7 +557,7 @@ KISAutoTrade/
 | `pages/strategy/ui/priceConditionEditorPanel.tsx` | 가격조건 전략의 종목별 수량·매수가·익절가·익절률·손절률 편집 테이블 |
 | `pages/strategy/ui/strategyMetadata.ts` | 일반 전략 파라미터 입력 메타, 전략 설명, strategy id 기반 타입 판별 |
 | `pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx` | 레버리지 추세 보유 전략의 ETF 검색/편집, 진입·반등·청산 파라미터, Toss 1분/일봉·50/100/200봉 preview와 계좌 scope/stale 응답 차단 |
-| `pages/strategy/ui/strategyPreviewPanel.tsx` | 일반/가격조건 전략 카드에서 KIS 일/주/월봉 또는 Toss 1분/일봉을 조회하고 편집값·비용 가정을 `preview_strategy`에 전달. 티커/봉/구간/파라미터/수량/broker/account/가정 변경 시 결과 무효화 |
+| `pages/strategy/ui/strategyPreviewPanel.tsx` | 일반/가격조건 전략 카드에서 KIS 일/주/월봉 또는 Toss 1분/일봉을 조회하고 요청 평가봉과 그 이전 사전자료를 나눠 편집값·비용 가정과 함께 `preview_strategy`에 전달. 강한 종가·변동성 확장은 일봉 선택만 제공하고 날짜 이벤트와 종가 체결 근사를 안내한다. 실제 평가 기간·사전자료 수·준비 상태·평가 불가/조건 불충족/무체결을 표시하고 티커/봉/구간/파라미터/수량/broker/account/가정 변경 시 결과 무효화 |
 | `pages/strategy/ui/strategyResearchPanel.tsx` | 초기자본·수수료·세금·슬리피지·환율·리스크·학습구간 입력, 수익률/MDD/승률/손익비/turnover/exposure, 원시 신호와 주문 가능/체결 구분, equity curve, 거래 목록, in/out-of-sample, A/B 비교 UI |
 | `pages/strategy/model/experimentStore.ts` | credential을 저장하지 않고 broker/account/strategy/symbol scope별 A/B 결과·전략 버전·파라미터·데이터 범위/source·비용 가정·생성 시각을 localStorage에 최대 2개 저장 |
 | `pages/strategy/ui/bollingerControls.tsx` | 레버리지 추세 보유 전략의 선택적 볼린저 보강 활성화와 기간·배수·스퀴즈·ATR 설정 입력 |
@@ -551,8 +579,11 @@ KISAutoTrade/
 | `commands/orders.rs` | 수동 주문 제출 IPC |
 | `commands/records.rs` | 체결/거래/통계 조회, Discord config 저장, frontend log 저장 IPC |
 | `commands/settings.rs` | app config/check_config, refresh interval, log/web 설정, USD/KRW 환율 IPC |
-| `commands/strategy_preview.rs` | 범용 preview는 최대 500봉·공통 warmup·candle-close replay를 제공하고 broker/account는 결과 scope 메타데이터로 보존한다. Toss 레버리지 preview는 활성 profile/account를 검증하고 1분봉 warmup을 첫 거래일 이전 완료 일봉으로 제한하며 일봉 open/EOD 공개 시점을 분리한다. 두 경로 모두 재현 메타데이터와 비용/리스크 backtest를 반환한다. |
+| `commands/strategy_preview.rs` | 일반 preview 공개 surface를 `strategy_preview/generic.rs`에서 re-export하며 공통 변환 helper와 Toss 레버리지 preview를 유지한다. 레버리지 preview는 활성 profile/account를 검증하고 1분봉 warmup을 첫 거래일 이전 완료 일봉으로 제한하며 일봉 open/EOD 공개 시점을 분리한다. |
+| `commands/strategy_preview/generic.rs` | 사전자료 `historyCandles`와 평가 `candles`를 별도로 정규화하고 합계 최대 500봉·평가 시작 이전 경계를 검증한다. 기본 warmup은 0이며 명시적 `warmupCount` 호환 경로를 유지한다. 일봉은 날짜 시작·종가 OHLC 평가·실행 포지션 피드백·완료봉 순서로 처리하며 강한 종가·변동성 확장의 비일봉 입력은 거부한다. `preparation`은 처리 후 지표 준비 상태·첫 준비 시각과 처리 전 실제 조건 평가 가능 봉 수(`evaluatedBars`)를 구분하며 미지원 값은 `null`이다. generic LTH는 준비 미지원/비결정적 진단으로 표시한다. 공통 initializer와 종가 체결 근사, broker/account scope, 비용/리스크 backtest와 사전자료/평가 입력 hash를 보존한다. |
 | `commands/strategy_preview/tests.rs` | 일봉 정보 공개 시점, session 경계, 미래 봉 변경이 이전 신호에 영향을 주지 않는 deterministic fixture |
+| `commands/strategy_preview/preparation_tests.rs` | 동일 평가 기간, 사전자료 겹침·중복 입력 거부, 지표 준비 상태·실제 조건 평가봉 수와 사전자료 부족 fixture |
+| `commands/strategy_preview/daily_event_tests.rs` | generic 일봉의 전일 조건·이전 범위, 실행 차단 피드백, 평가 중 준비, 미래 봉 변경 불변과 비일봉 거부 회귀 검증 |
 | `commands/toss.rs` | Toss accountSeq 조회, 연결 진단, 주문 전 preflight view facade, 접수 주문 목록 조회와 정정 command |
 | `commands/toss/small_order.rs` | 호환용 Toss 1주 소액매매 검증 endpoint. 실거래 동의/최종 확인/최대 허용금액/preflight/open-order scan 후 시장가 매수 제출과 주문·체결 기록 저장. 현재 UI는 일반 수동주문 경로를 사용 |
 | `commands/toss_market.rs` | Toss 시세 snapshot, 종목 유의사항, market-calendar override, candles chart command |
@@ -560,11 +591,14 @@ KISAutoTrade/
 | `commands/strategy.rs` | 포지션 조회, 전략 목록/수정 IPC. 전략 view는 `trading/views.rs::build_strategy_view()` 재사용 |
 | `commands/risk.rs` | 리스크 설정/비상정지 IPC와 pending 주문 view |
 | `trading/strategy.rs` | 전략 facade. 공개 import 경로를 유지하면서 하위 전략 모듈을 re-export |
-| `trading/strategy/core.rs` | `Signal`, `StrategySignal`, `BrokerPositionSnapshot`, `StrategyConfig`, `Strategy` trait, live/preview 공통 `initialize_strategy_warmup()` |
-| `trading/strategy/manager.rs` | `StrategyManager`, `build_strategy()`, 전략 config 재빌드와 공통 warmup dispatch |
+| `trading/strategy/core.rs` | `Signal`, `StrategySignal`, `BrokerPositionSnapshot`, `StrategyConfig`, `HistoryReadiness`, `Strategy` trait와 live/preview 공통 `initialize_strategy_warmup()`. 일봉 OHLC 초기화 기본 훅은 종가를 historical initializer에 전달한다. replay 날짜 시작·완료봉 훅은 기본 no-op, 종가 평가 훅은 기존 `on_tick()` 위임이다. `history_readiness()`와 `can_evaluate_next_tick()`은 실제 전략 준비/조건 평가 가능 상태를 제공하며 미지원은 `None`이다. |
+| `trading/strategy/manager.rs` | `StrategyManager`, `build_strategy()`, 전략 config 재빌드와 live provider warmup dispatch. 52주 신고가는 완료 여부를 알 수 없는 최신 1봉을 제외하는 기존 정책을 유지한다. manager를 거치지 않는 generic preview의 엄격한 완료 사전자료는 마지막 봉까지 포함하며 252봉 요구량을 유지한다. |
 | `trading/simulation.rs` | deterministic simulated portfolio, 공통 TradeGuard/RiskManager 기반 주문 가능 판정, 비용·환율·equity·MDD·turnover·exposure·고정 chronological in/out-of-sample 지표. preview command가 engine/strategy/source/scope/params/가정/warmup 경계와 실제 replay OHLCV fingerprint를 hash한다. |
 | `trading/strategy/state.rs` | per-symbol 전략 버퍼 상한 helper. user-param 기반 `VecDeque` OOM 방지 |
-| `trading/strategy/{classic,breakout,mean_trend}.rs` | MA/RSI/모멘텀/이격도, 돌파 계열, 평균회귀/추세필터 전략 구현 |
+| `trading/strategy/{classic,breakout,mean_trend}.rs` | RSI/모멘텀/이격도, 돌파 계열, 평균회귀/추세필터 전략 구현. `breakout.rs`의 52주 신고가는 OHLC 초기화 훅에서 고가를 선택하고, 강한 종가는 완료일 조건을 다음 평가일에 사용하며 변동성 확장은 보유 상태를 유지한 채 당일 OHLC와 이전 N개 완료 범위(0 포함)의 bounded ring을 구분한다. `mean_trend.rs`의 평균회귀 밴드·추세필터 MA는 기본 훅이 전달한 종가로 초기화한다. |
+| `trading/strategy/breakout/day_event_tests.rs` | 강한 종가·변동성 확장 event 훅의 날짜별 독립 상태, 차단 피드백·실제 보유 손절, 범위 ring 상한과 flat-day 회귀 검증 |
+| `trading/strategy/ma_cross.rs` | 이동평균 교차 전략. historical initializer에서 종가 버퍼와 직전 MA를 복원하고 첫 평가봉의 교차 조건과 실제 준비 상태를 제공한다. |
+| `trading/strategy/sequence.rs` | 연속 상승/하락·돌파 실패 전략. 사전 종가 버퍼와 준비 상태를 복원하며 initializer에서 `on_tick()`을 호출해 가상 매매 상태를 만들지 않는다. |
 | `trading/strategy/{leveraged_trend_hold,price_condition}.rs` | 레버리지 추세 보유와 종목별 가격 조건 전략 구현 |
 | `trading/strategy/leveraged_trend_hold/bollinger.rs` | 레버리지 전략의 볼린저 스퀴즈·추세 돌파 진입 확인과 중심선/ATR 청산 조건. 마지막 미확정 봉을 제외하고 종목별 캔들 버퍼를 512개로 제한 |
 | `api/detect.rs` | KIS 토큰 응답 기반 실전/모의 앱키 자동 감지 |
@@ -622,6 +656,25 @@ KISAutoTrade/
 ---
 
 ## 5. 데이터 흐름
+
+### 일반 전략 일봉 replay
+
+```text
+strategyPreviewPanel.tsx → preview_strategy → strategy_preview/generic.rs
+    ↓ historyCandles 초기화 / 평가 candles 별도 검증
+Strategy::on_trading_day_start(symbol, open) — 시가만 공개
+    ↓
+Strategy::on_daily_close_tick(symbol, completed OHLC, volume) — 종가 평가
+    ↓ raw 신호가 있으면 run_backtest → sync_position (체결/차단 결과)
+Strategy::on_completed_candle — 다음 평가일의 과거 상태 준비
+    ↓
+preparation / raw 신호 / backtest / 재현 메타데이터 → 연구 UI
+```
+
+`D`/`1d` cadence는 `dailyCloseWithDayBoundary`다. 강한 종가와 변동성 확장은
+이 간격만 지원하며 날짜 전환에 보유 포지션을 reset하지 않는다. 완료일 조건을
+다음 평가일에 사용하는 강한 종가도 신호 봉 종가에 체결하는 근사다.
+live 현재가 polling과 전용 LTH replay는 이 generic 완료봉 흐름을 사용하지 않는다.
 
 ### 체결 발생 시
 
@@ -741,6 +794,11 @@ GitHub Copilot 호환용으로 유지하던 `.github/skills/**/SKILL.md` 원본 
 수집하되 Serena 런타임 로그와 Graphify 생성물은 제외한다. 따라서
 `node_modules`, Cargo `target`, 빌드 산출물, 로컬 데이터, 민감 설정은
 프로젝트 맵에 포함하지 않는다.
+
+공통 `.cargo/config.toml`은 상대 `target-dir = "target"` 설정으로 추적한다.
+Cargo 빌드 산출물은 프로젝트 루트 `target/`, 일회성 검증·연구 harness는
+`.cache/`에 두며 둘 다 Git에서 제외한다. `scripts/setup-local.sh`는 로컬
+도구·의존성을 확인하고 공통 Cargo 설정을 외부 절대 경로로 덮어쓰지 않는다.
 
 ---
 

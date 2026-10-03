@@ -251,7 +251,7 @@ Use the repository at <repo>. Compare the current diff against AGENTS.md, docs/i
 - `profiles.json`, `secure_config.json`, `.env`, 로그와 DB password는 DB document/import/export 대상에서 제외한다.
 - 경로 패턴: `{app_data_dir}/data/{category}/{YYYY}/{MM}/{DD}/{file}.json`
 - `data/`, `log/`, `.env`, `secure_config.json`은 `.gitignore`에 포함되어야 한다
-- `.cargo/config.toml`은 gitignore에 포함 — macOS 외장 드라이브(exFAT) 사용 시 `scripts/setup-local.sh` 실행으로 자동 생성
+- `.cargo/config.toml`은 상대 `target-dir = "target"`인 공통 설정으로 추적한다. Cargo 산출물은 루트 `target/`, 일회성 검증·연구 harness는 `.cache/`에 두고 둘 다 Git에서 제외한다. `scripts/setup-local.sh`는 외부 절대 경로를 자동 생성하거나 공통 설정을 덮어쓰지 않는다. 외장 볼륨 예외는 호출자가 `--target-dir`로 명시한다.
 
 ---
 

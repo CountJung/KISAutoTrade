@@ -129,8 +129,8 @@ fn projection(key: &str, payload: &str) -> Result<Projection> {
     } else if key.starts_with("trades/") {
         for item in value.as_array().into_iter().flatten() {
             let mut data = row(item, key, "");
-            data.status_or_time = text(item, &["executionDate", "execution_date", "timestamp"])
-                .unwrap_or_default();
+            data.status_or_time =
+                text(item, &["executionDate", "execution_date", "timestamp"]).unwrap_or_default();
             result.fills.push(data);
         }
     } else if key.starts_with("positions/") || key.starts_with("balance/") {
@@ -302,7 +302,8 @@ mod tests {
 
     #[test]
     fn fill_projection_uses_execution_time_not_status() {
-        let payload = r#"[{"id":"f1","status":"filled","executionDate":"2026-07-12","symbol":"005930"}]"#;
+        let payload =
+            r#"[{"id":"f1","status":"filled","executionDate":"2026-07-12","symbol":"005930"}]"#;
         let projection = super::projection("trades/2026/07/12/trades.json", payload).unwrap();
         assert_eq!(projection.fills[0].status_or_time, "2026-07-12");
     }

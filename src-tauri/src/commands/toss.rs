@@ -976,8 +976,8 @@ pub async fn modify_toss_order_for_profile(
                 message: e.to_string(),
             })?;
 
-    if modification_reserved {
-        let order_manager = order_manager.expect("reserved modification has manager");
+        if modification_reserved {
+            let order_manager = order_manager.expect("reserved modification has manager");
             match adapter
                 .get_order(Some(&account_seq), &response.order_id)
                 .await
@@ -1004,15 +1004,15 @@ pub async fn modify_toss_order_for_profile(
                                     .into(),
                         });
                     }
-                if let Err(error) = manager.persist_pending_orders().await {
-                    manager.block_for_persistence_failure(format!(
-                        "정정 주문의 미체결 스냅샷 저장 실패: {error}"
-                    ));
-                    return Err(CmdError {
-                        code: "PENDING_ORDER_WRITE_ERROR".into(),
-                        message: format!("정정 주문의 미체결 스냅샷 저장 실패: {error}"),
-                    });
-                }
+                    if let Err(error) = manager.persist_pending_orders().await {
+                        manager.block_for_persistence_failure(format!(
+                            "정정 주문의 미체결 스냅샷 저장 실패: {error}"
+                        ));
+                        return Err(CmdError {
+                            code: "PENDING_ORDER_WRITE_ERROR".into(),
+                            message: format!("정정 주문의 미체결 스냅샷 저장 실패: {error}"),
+                        });
+                    }
                 }
                 Err(e) => {
                     tracing::warn!(
@@ -1045,15 +1045,15 @@ pub async fn modify_toss_order_for_profile(
                                     .into(),
                         });
                     }
-                if let Err(error) = manager.persist_pending_orders().await {
-                    manager.block_for_persistence_failure(format!(
-                        "정정 주문의 미체결 스냅샷 저장 실패: {error}"
-                    ));
-                    return Err(CmdError {
-                        code: "PENDING_ORDER_WRITE_ERROR".into(),
-                        message: format!("정정 주문의 미체결 스냅샷 저장 실패: {error}"),
-                    });
-                }
+                    if let Err(error) = manager.persist_pending_orders().await {
+                        manager.block_for_persistence_failure(format!(
+                            "정정 주문의 미체결 스냅샷 저장 실패: {error}"
+                        ));
+                        return Err(CmdError {
+                            code: "PENDING_ORDER_WRITE_ERROR".into(),
+                            message: format!("정정 주문의 미체결 스냅샷 저장 실패: {error}"),
+                        });
+                    }
                 }
             }
         }

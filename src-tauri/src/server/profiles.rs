@@ -76,25 +76,31 @@ async fn apply_profile_change(s: &ServerState) {
         let active = profiles.get_active();
         (
             profiles.active_id.clone(),
-            active.map(|profile| profile.broker_id).unwrap_or(BrokerId::Kis),
+            active
+                .map(|profile| profile.broker_id)
+                .unwrap_or(BrokerId::Kis),
             active.map(|profile| profile.broker_account_id()),
         )
     };
     let saved = match active_id.as_deref() {
-        Some(profile_id) => s.strategy_store.load(profile_id).await.unwrap_or_else(|error| {
-            tracing::error!("웹 프로파일 전략 복원 실패 ({profile_id}): {error}");
-            Vec::new()
-        }),
+        Some(profile_id) => s
+            .strategy_store
+            .load(profile_id)
+            .await
+            .unwrap_or_else(|error| {
+                tracing::error!("웹 프로파일 전략 복원 실패 ({profile_id}): {error}");
+                Vec::new()
+            }),
         None => Vec::new(),
     };
     s.strategy_manager
         .lock()
         .await
         .apply_saved_configs_for_scope(&saved, broker_id, account_id.clone());
-    s.order_manager.lock().await.set_execution_scope(BrokerScope::new(
-        broker_id,
-        account_id.map(BrokerAccountId),
-    ));
+    s.order_manager
+        .lock()
+        .await
+        .set_execution_scope(BrokerScope::new(broker_id, account_id.map(BrokerAccountId)));
 }
 
 /// profiles.json 저장 (웹 서버 내부용)
@@ -184,7 +190,9 @@ pub(super) async fn update_profile_handler(
     let _strategy_update = s.strategy_update_lock.lock().await;
     let active_before = s.profiles.read().await.active_id.as_deref() == Some(body.id.as_str());
     if active_before && *s.is_trading.lock().await {
-        return Json(serde_json::json!({ "error": "자동매매 실행 중에는 활성 프로파일을 수정할 수 없습니다." }));
+        return Json(
+            serde_json::json!({ "error": "자동매매 실행 중에는 활성 프로파일을 수정할 수 없습니다." }),
+        );
     }
     let (view, is_active) = {
         let mut profiles = s.profiles.write().await;
@@ -229,7 +237,9 @@ pub(super) async fn delete_profile_handler(
     let _strategy_update = s.strategy_update_lock.lock().await;
     let active_before = s.profiles.read().await.active_id.as_deref() == Some(body.id.as_str());
     if active_before && *s.is_trading.lock().await {
-        return Json(serde_json::json!({ "error": "자동매매 실행 중에는 활성 프로파일을 삭제할 수 없습니다." }));
+        return Json(
+            serde_json::json!({ "error": "자동매매 실행 중에는 활성 프로파일을 삭제할 수 없습니다." }),
+        );
     }
     let deleted = {
         let mut profiles = s.profiles.write().await;
@@ -252,7 +262,9 @@ pub(super) async fn set_active_profile_handler(
 ) -> Json<serde_json::Value> {
     let _strategy_update = s.strategy_update_lock.lock().await;
     if *s.is_trading.lock().await {
-        return Json(serde_json::json!({ "error": "자동매매 실행 중에는 활성 프로파일을 전환할 수 없습니다." }));
+        return Json(
+            serde_json::json!({ "error": "자동매매 실행 중에는 활성 프로파일을 전환할 수 없습니다." }),
+        );
     }
     let ok = {
         let mut profiles = s.profiles.write().await;
@@ -323,7 +335,9 @@ pub(super) async fn detect_profile_handler(
     let _strategy_update = s.strategy_update_lock.lock().await;
     let active_before = s.profiles.read().await.active_id.as_deref() == Some(id.as_str());
     if active_before && *s.is_trading.lock().await {
-        return Json(serde_json::json!({ "error": "자동매매 실행 중에는 활성 프로파일을 변경할 수 없습니다." }));
+        return Json(
+            serde_json::json!({ "error": "자동매매 실행 중에는 활성 프로파일을 변경할 수 없습니다." }),
+        );
     }
     let (app_key, app_secret) = {
         let profiles = s.profiles.read().await;
