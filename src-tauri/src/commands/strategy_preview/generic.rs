@@ -150,6 +150,14 @@ pub fn preview_strategy_from_candles(
     input: StrategyPreviewInput,
 ) -> CmdResult<StrategyPreviewView> {
     let symbol = normalize_preview_symbol(input.symbol)?;
+    // LTH on_tick uses the live minute/session clock. Never run it for history,
+    // even as an unsupported diagnostic; the timed preview has its own contract.
+    if input.strategy_id.starts_with("leveraged_trend_hold") {
+        return Err(CmdError {
+            code: "UNSUPPORTED_GENERIC_REPLAY".into(),
+            message: "레버리지 추세 보유는 일반 replay를 지원하지 않습니다. 입력 시각을 사용하는 전용 preview_leveraged_trend_hold 경로를 사용하세요.".into(),
+        });
+    }
     if input.candles.is_empty() {
         return Err(CmdError {
             code: "NO_CANDLES".into(),
@@ -384,7 +392,7 @@ pub fn preview_strategy_from_candles(
         data_start: first_time,
         data_end: last_time,
         data_source,
-        deterministic: !input.strategy_id.starts_with("leveraged_trend_hold"),
+        deterministic: true,
         look_ahead_safe: true,
         input_hash,
     };

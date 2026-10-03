@@ -111,6 +111,8 @@ KISAutoTrade/
 │   │       ├── p1-03-cost20-results.json
 │   │       ├── p1-03-results.json
 │   │       ├── p1-03-validation.md
+│   │       ├── p1-04-results.json
+│   │       ├── p1-04-validation.md
 │   │       ├── replay-input.json
 │   │       ├── report.md
 │   │       ├── results-cost20.json
@@ -467,13 +469,16 @@ KISAutoTrade/
 │   │   ├── lib.rs
 │   │   ├── main.rs
 │   │   └── market_hours.rs
+│   ├── tests/
+│   │   └── lth_replay_clock.rs
 │   ├── Cargo.toml
 │   ├── build.rs
 │   └── tauri.conf.json
 ├── tasks/
 │   ├── TASK_TEMPLATE.md
 │   ├── appledouble-and-soxq-p1-03.md
-│   └── project-health-and-soxq-p1-01.md
+│   ├── project-health-and-soxq-p1-01.md
+│   └── soxq-p1-04.md
 ├── tests/
 │   └── e2e/
 │       ├── settings-database.spec.ts
@@ -580,9 +585,9 @@ KISAutoTrade/
 | `commands/records.rs` | 체결/거래/통계 조회, Discord config 저장, frontend log 저장 IPC |
 | `commands/settings.rs` | app config/check_config, refresh interval, log/web 설정, USD/KRW 환율 IPC |
 | `commands/strategy_preview.rs` | 일반 preview 공개 surface를 `strategy_preview/generic.rs`에서 re-export하며 공통 변환 helper와 Toss 레버리지 preview를 유지한다. 레버리지 preview는 활성 profile/account를 검증하고 1분봉 warmup을 첫 거래일 이전 완료 일봉으로 제한하며 일봉 open/EOD 공개 시점을 분리한다. |
-| `commands/strategy_preview/generic.rs` | 사전자료 `historyCandles`와 평가 `candles`를 별도로 정규화하고 합계 최대 500봉·평가 시작 이전 경계를 검증한다. 기본 warmup은 0이며 명시적 `warmupCount` 호환 경로를 유지한다. 일봉은 날짜 시작·종가 OHLC 평가·실행 포지션 피드백·완료봉 순서로 처리하며 강한 종가·변동성 확장의 비일봉 입력은 거부한다. `preparation`은 처리 후 지표 준비 상태·첫 준비 시각과 처리 전 실제 조건 평가 가능 봉 수(`evaluatedBars`)를 구분하며 미지원 값은 `null`이다. generic LTH는 준비 미지원/비결정적 진단으로 표시한다. 공통 initializer와 종가 체결 근사, broker/account scope, 비용/리스크 backtest와 사전자료/평가 입력 hash를 보존한다. |
+| `commands/strategy_preview/generic.rs` | 사전자료 `historyCandles`와 평가 `candles`를 별도로 정규화하고 합계 최대 500봉·평가 시작 이전 경계를 검증한다. 기본 warmup은 0이며 명시적 `warmupCount` 호환 경로를 유지한다. 일봉은 날짜 시작·종가 OHLC 평가·실행 포지션 피드백·완료봉 순서로 처리하며 강한 종가·변동성 확장의 비일봉 입력은 거부한다. `preparation`은 처리 후 지표 준비 상태·첫 준비 시각과 처리 전 실제 조건 평가 가능 봉 수(`evaluatedBars`)를 구분하며 미지원 값은 `null`이다. generic LTH는 기본/접미 ID 모두 factory 실행 전 `UNSUPPORTED_GENERIC_REPLAY`로 거부하며 지원 12전략 결과는 deterministic이다. 공통 initializer와 종가 체결 근사, broker/account scope, 비용/리스크 backtest와 사전자료/평가 입력 hash를 보존한다. |
 | `commands/strategy_preview/tests.rs` | 일봉 정보 공개 시점, session 경계, 미래 봉 변경이 이전 신호에 영향을 주지 않는 deterministic fixture |
-| `commands/strategy_preview/preparation_tests.rs` | 동일 평가 기간, 사전자료 겹침·중복 입력 거부, 지표 준비 상태·실제 조건 평가봉 수와 사전자료 부족 fixture |
+| `commands/strategy_preview/preparation_tests.rs` | 동일 평가 기간, 사전자료 겹침·중복 입력 거부, 지표 준비 상태·실제 조건 평가봉 수와 사전자료 부족 fixture. generic LTH의 기본/접미 ID·간격·history 조합과 malformed 입력의 factory 이전 명시 거부 검증 |
 | `commands/strategy_preview/daily_event_tests.rs` | generic 일봉의 전일 조건·이전 범위, 실행 차단 피드백, 평가 중 준비, 미래 봉 변경 불변과 비일봉 거부 회귀 검증 |
 | `commands/toss.rs` | Toss accountSeq 조회, 연결 진단, 주문 전 preflight view facade, 접수 주문 목록 조회와 정정 command |
 | `commands/toss/small_order.rs` | 호환용 Toss 1주 소액매매 검증 endpoint. 실거래 동의/최종 확인/최대 허용금액/preflight/open-order scan 후 시장가 매수 제출과 주문·체결 기록 저장. 현재 UI는 일반 수동주문 경로를 사용 |
@@ -601,6 +606,7 @@ KISAutoTrade/
 | `trading/strategy/sequence.rs` | 연속 상승/하락·돌파 실패 전략. 사전 종가 버퍼와 준비 상태를 복원하며 initializer에서 `on_tick()`을 호출해 가상 매매 상태를 만들지 않는다. |
 | `trading/strategy/{leveraged_trend_hold,price_condition}.rs` | 레버리지 추세 보유와 종목별 가격 조건 전략 구현 |
 | `trading/strategy/leveraged_trend_hold/bollinger.rs` | 레버리지 전략의 볼린저 스퀴즈·추세 돌파 진입 확인과 중심선/ATR 청산 조건. 마지막 미확정 봉을 제외하고 종목별 캔들 버퍼를 512개로 제한 |
+| `tests/lth_replay_clock.rs` | `cfg(test)` live clock 대역 없이 production library의 LTH timed replay를 검증하는 통합 테스트. 입력 시각 기반 세션·blackout·장마감, 비어 있지 않은 반복 신호/체결과 미래 봉 변경 불변 fixture |
 | `api/detect.rs` | KIS 토큰 응답 기반 실전/모의 앱키 자동 감지 |
 | `api/rest.rs` | KIS REST client facade. rate-limit group을 거쳐 잔고/주문/체결/시세/차트 요청 수행 |
 | `api/rest/types.rs` | KIS REST 타입, `OrderSide`/`OrderType`, 국내/해외 잔고·체결·시세 응답, 해외 주문 사전 검증 |
@@ -675,6 +681,10 @@ preparation / raw 신호 / backtest / 재현 메타데이터 → 연구 UI
 이 간격만 지원하며 날짜 전환에 보유 포지션을 reset하지 않는다. 완료일 조건을
 다음 평가일에 사용하는 강한 종가도 신호 봉 종가에 체결하는 근사다.
 live 현재가 polling과 전용 LTH replay는 이 generic 완료봉 흐름을 사용하지 않는다.
+Generic LTH는 기본/접미 ID 모두 factory 실행 전에 명시 거부한다. 입력 시각 기반
+전용 LTH 커맨드의 provider/profile 계약을 안내하며 제공봉 입력을 네트워크
+조회로 자동 전환하지 않는다. SOXQ 연구 `runner.rs`는 지원 24실행과 LTH의
+예상 거부 2건(`rejectedRuns`)을 분리하고 다른 오류에서는 전체 실행을 실패시킨다.
 
 ### 체결 발생 시
 

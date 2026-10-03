@@ -38,7 +38,7 @@ fn input(id: &str) -> StrategyPreviewInput {
     }
 }
 
-const IDS: [&str; 13] = [
+const IDS: [&str; 12] = [
     "ma_cross",
     "rsi",
     "momentum",
@@ -51,7 +51,6 @@ const IDS: [&str; 13] = [
     "mean_reversion",
     "trend_filter",
     "price_condition",
-    "leveraged_trend_hold",
 ];
 
 #[test]
@@ -99,7 +98,7 @@ fn separate_history_matches_explicit_legacy_prefix_and_hashes_history() {
 
 #[test]
 fn complete_daily_history_initializes_supported_strategies_without_shortening_defaults() {
-    for id in IDS.into_iter().filter(|id| *id != "leveraged_trend_hold") {
+    for id in IDS {
         let mut fixture = input(id);
         fixture.history_candles = rows("20250101", 252);
         let preview = preview_strategy_from_candles(fixture).unwrap();
@@ -154,14 +153,7 @@ fn first_ready_bar_is_observed_after_tick_without_discarding_evaluation_bars() {
 }
 
 #[test]
-fn unsupported_and_intraday_daily_indicators_do_not_claim_readiness() {
-    let preview = preview_strategy_from_candles(input("leveraged_trend_hold")).unwrap();
-    assert_eq!(preview.preparation.ready_at_start, None);
-    assert_eq!(preview.preparation.history_status, "unsupported");
-    assert_eq!(preview.preparation.outcome, "notEvaluable");
-    assert!(!preview.replay.deterministic);
-    assert_eq!(preview.preparation.evaluated_bars, None);
-    assert_eq!(preview.preparation.unready_evaluation_bars, 0);
+fn intraday_daily_indicators_do_not_claim_readiness() {
     for id in ["trend_filter", "fifty_two_week_high"] {
         let mut fixture = input(id);
         fixture.history_candles = rows("20250101", 252);
@@ -178,6 +170,51 @@ fn unsupported_and_intraday_daily_indicators_do_not_claim_readiness() {
         assert_eq!(preview.preparation.available_history_bars, Some(0), "{id}");
         assert_eq!(preview.preparation.ready_at_start, Some(false), "{id}");
     }
+}
+
+#[test]
+fn generic_lth_is_rejected_before_live_clock_or_candle_preparation() {
+    // Factory uses starts_with too: scope/version suffixes must not bypass the gate.
+    for id in [
+        "leveraged_trend_hold",
+        "leveraged_trend_hold_toss",
+        "leveraged_trend_hold_v2",
+    ] {
+        for interval in [
+            None,
+            Some("D"),
+            Some("1d"),
+            Some("1m"),
+            Some("M1"),
+            Some("W"),
+            Some("M"),
+        ] {
+            for history in [false, true] {
+                let mut fixture = input(id);
+                fixture.interval = interval.map(str::to_string);
+                if history {
+                    fixture.history_candles = rows("20250101", 252);
+                }
+                let error =
+                    preview_strategy_from_candles(fixture).expect_err("generic LTH rejected");
+                assert_eq!(
+                    error.code, "UNSUPPORTED_GENERIC_REPLAY",
+                    "{id} {interval:?}"
+                );
+                assert!(error.message.contains("preview_leveraged_trend_hold"));
+            }
+        }
+    }
+    // Rejection cannot be deferred until a valid dataset or parsed strategy exists.
+    let mut malformed = input("leveraged_trend_hold");
+    malformed.candles.clear();
+    malformed.params = serde_json::json!({"entries":"invalid"});
+    assert_eq!(
+        preview_strategy_from_candles(malformed)
+            .expect_err("generic LTH rejected")
+            .code,
+        "UNSUPPORTED_GENERIC_REPLAY"
+    );
 }
 
 #[test]

@@ -132,3 +132,5 @@ npm run build:app
 ```
 
 실패, warning, 0-test, 환경 blocker를 성공으로 축약하지 않는다.
+
+LTH 역사 시각/실시간 경로 분리 변경은 `cd src-tauri && cargo test --locked --test lth_replay_clock`로 production library(단위 테스트 clock 대역 없음)의 입력 시각·blackout·청산·미래 봉 불변을 검증한다. generic LTH 거부는 lib preparation 테스트와 오프라인 연구 runner의 `rejectedRuns`를 함께 확인한다.

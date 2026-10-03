@@ -116,7 +116,7 @@ function mockResearchResult(body: Record<string, unknown>, interval: string) {
   }
   return {
     replay: {
-      engineVersion: 'strategy-replay-v5',
+      engineVersion: 'strategy-replay-v6',
       strategyVersion: 'mock-v1',
       sourceInterval: interval,
       replayCadence: interval === '1m' ? 'minuteClose' : 'dailyCloseWithDayBoundary',

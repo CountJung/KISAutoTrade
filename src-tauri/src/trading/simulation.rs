@@ -11,7 +11,7 @@ use super::{
     strategy::Signal,
 };
 
-pub const REPLAY_ENGINE_VERSION: &str = "strategy-replay-v5";
+pub const REPLAY_ENGINE_VERSION: &str = "strategy-replay-v6";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]

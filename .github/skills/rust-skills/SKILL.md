@@ -1114,10 +1114,12 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - Generic preview v5의 `D`/`1d`는 `on_trading_day_start(symbol, open)` → `on_daily_close_tick(symbol, completed_ohlc, volume)` → backtest 체결/차단 및 `sync_position` → `on_completed_candle` 순서다. 시작에는 시가만 전달하고 완료 OHLC는 종가 평가 때 공개한다. 완료봉 적재 전에 실제 포지션을 되먹임해야 차단된 강한 종가 매수가 다음 날 pending을 잃지 않는다.
 - 강한 종가는 매 완료봉으로 다음 평가일 조건을 준비한다. 변동성 확장은 날짜 시작 시 당일 시가·고저가만 초기화하고 보유 상태와 이전 N일 범위를 유지한다. 조건 평가 시 이전 N일 평균에 당일 범위를 섞지 않고, 완료 후 bounded ring에 적재하며 flat-day 0범위도 일수에 포함한다. 날짜 전환에 `reset()`을 사용하지 않는다.
 - 강한 종가·변동성 확장의 generic replay는 일봉만 허용하며 다른 간격은 `UNSUPPORTED_REPLAY_INTERVAL`이다. cadence는 `dailyCloseWithDayBoundary`. 강한 종가의 다음 평가일 신호도 그날 종가 체결 근사이며 next-open 모델은 P2-14다. live 현재가 polling에는 완료 일봉 이벤트를 연결하지 않는다. 기본 훅은 no-op/기존 tick 위임이며 다른 전략·전용 LTH 동작을 보존한다.
+- Generic preview v6은 factory와 같은 `starts_with("leveraged_trend_hold")` 기준으로 기본/접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 명시 거부한다. LTH의 실시간 분/세션/blackout clock을 과거 재생에 호출하지 않으며 `deterministic=false`·준비 미지원 표시에 그치지 않는다. broker 조회 전용 커맨드로 generic 제공봉을 자동 우회하지 않는다.
+- 기존 LTH `preview_signals_with_execution`은 `timed.time`으로 세션·blackout·장마감을 판단한다. 응답 `generatedAt`만 생성 시각이고 신호/체결/hash의 입력이 아니다. `cfg(test)` live clock 대역으로 production 재현성을 주장하지 않고 별도 integration fixture 및 production runner의 서로 다른 분/시간대 재실행을 검증한다. 합성 일봉과 고정 KST 세션/DST 한계는 P1-05에 유지한다.
 - 전략이 raw signal 생성 시 내부 `in_position`을 선반영했는데 주문이 skip되면 `SubmissionOutcome::Skipped`의 실제 `held_quantity`/`avg_price`를 `StrategyManager::sync_position()`에 되먹임한다. 수량 0 snapshot도 flat 상태로 반영해야 한다.
 - 자동매매 시작 플래그 lock은 broker reconcile/risk restore/warmup이 완료될 때까지 daemon 첫 tick을 막아야 한다.
 
-> 마지막 업데이트: 2026-10-03T23:21:04+09:00
+> 마지막 업데이트: 2026-10-03T23:41:20+09:00
 
 ---
 
@@ -1146,4 +1148,4 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 
 마지막 업데이트: 2026-09-11
 
-> 마지막 업데이트: 2026-10-03T23:21:04+09:00
+> 마지막 업데이트: 2026-10-03T23:41:20+09:00

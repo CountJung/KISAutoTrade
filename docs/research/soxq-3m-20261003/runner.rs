@@ -198,9 +198,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let lp: LeveragedTrendHoldParams = serde_json::from_value(
         json!({"entries":[{"leveraged_symbol":"SOXQ","quantity":10,"is_overseas":true}]}),
     )?;
-    // Keep generic LTH as a clearly labeled diagnostic to expose wall-clock dependence.
+    // Verify generic LTH is refused; only the timed specialized path evaluates it.
     cases.push(("leveraged_trend_hold", serde_json::to_value(&lp)?));
     let mut runs = Vec::new();
+    let mut rejected_runs = Vec::new();
     for (id, params) in cases {
         for (mode, history) in [
             ("historical_warmup", candles[..warmup].to_vec()),
@@ -227,14 +228,19 @@ fn main() -> Result<(), Box<dyn Error>> {
             });
             match preview {
                 Ok(p) => runs.push(json!({"mode":mode,"params":params,"preview":p})),
-                Err(e) => runs.push(json!({"mode":mode,"strategyId":id,"error":format!("{:?}",e)})),
+                Err(e)
+                    if id == "leveraged_trend_hold" && e.code == "UNSUPPORTED_GENERIC_REPLAY" =>
+                {
+                    rejected_runs.push(json!({"mode":mode,"strategyId":id,"error":{"code":e.code,"message":e.message}}));
+                }
+                Err(e) => return Err(format!("{id} {mode}: {} {}", e.code, e.message).into()),
             }
         }
     }
     let evaluation = &candles[warmup..];
     let first = evaluation[0].close.parse::<f64>()?;
     let qty = (10_000_000.0 / (first * 1450.0 * 1.001 * 1.001)).floor() as u64;
-    let output = json!({"input":input,"runs":runs,"lthSpecializedDaily":lth(&candles,warmup,lp),"benchmarks":{
+    let output = json!({"input":input,"runs":runs,"rejectedRuns":rejected_runs,"lthSpecializedDaily":lth(&candles,warmup,lp),"benchmarks":{
         "sameQuantity10":benchmark(evaluation,10,false),"allCapital":benchmark(evaluation,qty,true)
     }});
     fs::write(&args[2], serde_json::to_string_pretty(&output)?)?;
