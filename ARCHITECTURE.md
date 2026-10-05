@@ -123,6 +123,8 @@ UI/전략 Signal
 
 Generic 일봉 v5는 `Strategy`의 시가-only 날짜 시작 → 완성 OHLC 종가 tick → 실제 실행 결과의 포지션 동기화 → 완료봉 훅으로 흐른다. 강한 종가는 완료일 조건을 다음 평가일에 사용하고, 변동성 확장은 보유 상태를 유지한 채 당일 고저가를 초기화하고 이전 N개 완료 범위(0 포함)를 bounded ring으로 갱신한다. 두 전략은 `D`/`1d`만 지원한다. live quote polling은 완료 일봉 이벤트를 공급하지 않으며 기존 tick 경계를 유지한다. 신호와 체결은 여전히 동일 평가 봉 종가 근사다.
 
+전용 LTH v7/LTH v3는 일봉 context를 분봉 EMA/RSI/ADX·반동·볼린저 관측과 별도 bounded 버퍼에 보관한다. 분봉 OHLC initializer는 OHLC·반동·볼린저 snapshot을 교체하고 가격 initializer는 반동 가격 snapshot만 교체한다. 일봉 재초기화는 기존 분봉과 실제 보유 상태를 보존한다. `1d`는 전략·체결 경로를 실행하지 않는 `dailyDiagnostic/notEvaluable` 자료 진단이며 시가를 장중 진입 가격으로 합성하지 않는다. `1m`은 실제 관측을 입력 시각에 재생하는 최대 200봉 `intradaySample/sampleOnly`이고 유효 관측이 없으면 `notEvaluable`이다. `ReplayMetadata.assessment`는 일봉 context/분봉 수와 시간대·DST·세션 미검증을 기록하며, `warmupCount=0`으로 일봉을 분봉 지표 사전자료로 계산하지 않는다. 고정 KST 세션 근사 때문에 LTH `lookAheadSafe=false`이며 deterministic 계산만으로 시장 시각 정확성을 주장하지 않는다. UI는 일봉 및 assessment 없는 기존 LTH 응답의 성과/A-B 저장을 숨긴다. 실제 3개월 분봉·거래소 시간 검증은 P1-05 잔여 조건이다.
+
 
 ## 9. 저장 경계
 

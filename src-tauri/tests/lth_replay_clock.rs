@@ -40,7 +40,18 @@ fn history() -> Vec<OhlcCandle> {
 }
 
 fn timed() -> Vec<LeveragedTrendHoldTimedCandle> {
-    [190, 180, 181, 186, 186]
+    // These are legitimate timed minute observations, not daily indicator seeds.
+    // The prior afternoon lies outside the configured trend entry window and
+    // has no rebound; it prepares RSI/ADX before the next day's rebound.
+    let warmup =
+        history()
+            .into_iter()
+            .enumerate()
+            .map(|(i, candle)| LeveragedTrendHoldTimedCandle {
+                time: format!("20260706{:02}{:02}00", 13 + (30 + i) / 60, (30 + i) % 60),
+                candle,
+            });
+    let evaluation = [190, 180, 181, 186, 186]
         .into_iter()
         .zip(["090100", "090200", "090300", "090400", "152500"])
         .map(|(price, time)| LeveragedTrendHoldTimedCandle {
@@ -51,8 +62,8 @@ fn timed() -> Vec<LeveragedTrendHoldTimedCandle> {
                 low: price,
                 close: price,
             },
-        })
-        .collect()
+        });
+    warmup.chain(evaluation).collect()
 }
 
 fn run(params: LeveragedTrendHoldParams, candles: &[LeveragedTrendHoldTimedCandle]) -> Value {
@@ -119,14 +130,14 @@ fn timed_replay_has_nonempty_repeatable_signals_and_execution_results() {
 fn session_and_blackout_use_input_minutes() {
     let mut off_session = timed();
     for (i, c) in off_session.iter_mut().enumerate() {
-        c.time = format!("20260707080{}00", i + 1);
+        c.time = format!("2026070708{:02}00", i % 60);
     }
     assert_eq!(run(params(), &off_session)["signals"], json!([]));
     let mut blocked = params();
     blocked.blackout_windows = vec!["09:00-09:10".into()];
-    assert_eq!(run(blocked, &timed()[..4])["signals"], json!([]));
+    assert_eq!(run(blocked, &timed()[..94])["signals"], json!([]));
     assert_eq!(
-        run(params(), &timed()[..4])["signals"]
+        run(params(), &timed()[..94])["signals"]
             .as_array()
             .unwrap()
             .len(),
@@ -138,7 +149,7 @@ fn session_and_blackout_use_input_minutes() {
 fn future_bar_does_not_change_prior_signal() {
     let baseline = run(params(), &timed());
     let mut changed = timed();
-    changed[4].candle = OhlcCandle {
+    changed[94].candle = OhlcCandle {
         open: 120,
         high: 120,
         low: 120,
@@ -147,7 +158,7 @@ fn future_bar_does_not_change_prior_signal() {
     let future = run(params(), &changed);
     assert_eq!(baseline["signals"][0], future["signals"][0]);
     assert_eq!(
-        baseline["backtest"]["equityCurve"].as_array().unwrap()[..4],
-        future["backtest"]["equityCurve"].as_array().unwrap()[..4]
+        baseline["backtest"]["equityCurve"].as_array().unwrap()[..94],
+        future["backtest"]["equityCurve"].as_array().unwrap()[..94]
     );
 }

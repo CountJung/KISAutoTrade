@@ -41,99 +41,13 @@ fn assumptions() -> SimulationAssumptions {
     }
 }
 fn lth(candles: &[ChartCandle], warmup: usize, params: LeveragedTrendHoldParams) -> Value {
-    // Mirrors existing specialized daily preview's synthetic KST auto-session:
-    // daily opening price timestamped 09:15, full bar timestamped 16:50.
-    // This is an engine diagnostic, not an intraday market-path reconstruction.
-    let daily: Vec<_> = candles[..warmup].iter().map(ohlc).collect();
-    let mut timed = Vec::new();
-    let mut events = Vec::new();
-    for c in &candles[warmup..] {
-        let p = ohlc(c);
-        for (suffix, candle) in [
-            (
-                "091500",
-                OhlcCandle {
-                    open: p.open,
-                    high: p.open,
-                    low: p.open,
-                    close: p.open,
-                },
-            ),
-            ("165000", p),
-        ] {
-            let time = format!("{}{}", c.date, suffix);
-            timed.push(LeveragedTrendHoldTimedCandle {
-                time: time.clone(),
-                candle,
-            });
-            events.push(SimulationEvent {
-                time,
-                chart_time: c.date.clone(),
-                close_units: candle.close,
-                high_units: candle.high,
-                low_units: candle.low,
-                signal: None,
-            });
-        }
-    }
-    let params_value = serde_json::to_value(&params).unwrap();
-    let mut partial = Vec::new();
-    let mut next = 0usize;
-    let signals = LeveragedTrendHoldStrategy::preview_signals_with_execution(
-        "SOXQ",
-        params,
-        &daily,
-        &timed,
-        |s, _| {
-            let index = events.iter().position(|e| e.time == s.time).unwrap();
-            while next <= index {
-                partial.push(events[next].clone());
-                next += 1;
-            }
-            let signal = if s.side == "buy" {
-                Signal::Buy {
-                    symbol: "SOXQ".into(),
-                    quantity: s.quantity,
-                    reason: s.reason.clone(),
-                }
-            } else {
-                Signal::Sell {
-                    symbol: "SOXQ".into(),
-                    quantity: s.quantity,
-                    reason: s.reason.clone(),
-                }
-            };
-            partial.last_mut().unwrap().signal = Some(signal);
-            run_backtest(
-                "leveraged_trend_hold",
-                "SOXQ",
-                true,
-                assumptions(),
-                &partial,
-            )
-            .trades
-            .last()
-            .is_some_and(|t| t.status == "filled")
-        },
-    );
-    for s in &signals {
-        let e = events.iter_mut().find(|e| e.time == s.time).unwrap();
-        e.signal = Some(if s.side == "buy" {
-            Signal::Buy {
-                symbol: "SOXQ".into(),
-                quantity: s.quantity,
-                reason: s.reason.clone(),
-            }
-        } else {
-            Signal::Sell {
-                symbol: "SOXQ".into(),
-                quantity: s.quantity,
-                reason: s.reason.clone(),
-            }
-        });
-    }
+    // Daily input cannot reconstruct minute indicators or entry-time prices.
+    // Retain chart/equity diagnostics but never call the intraday strategy engine.
+    let events: Vec<_> = candles[warmup..].iter().map(event).collect();
     let report = run_backtest("leveraged_trend_hold", "SOXQ", true, assumptions(), &events);
-    json!({"strategyId":"leveraged_trend_hold","params":params_value,"warmupCount":warmup,"syntheticDailySession":true,"signals":signals,"backtest":report})
+    let assessment =
+        kis_auto_trade_lib::trading::simulation::ReplayAssessmentView::lth("1d", warmup, 0);
+    json!({"strategyId":"leveraged_trend_hold","params":params,"warmupCount":0,"dailyContextCount":warmup,"syntheticDailySession":false,"signals":[],"assessment":assessment,"backtest":report})
 }
 fn benchmark(candles: &[ChartCandle], qty: u64, all_capital: bool) -> BacktestReportView {
     let mut events: Vec<_> = candles.iter().map(event).collect();

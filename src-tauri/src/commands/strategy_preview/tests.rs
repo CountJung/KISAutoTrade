@@ -1,5 +1,5 @@
 use super::{
-    broker_candles_to_timed_ohlc, daily_chart_time, daily_preview_time, daily_warmup_end_before,
+    broker_candles_to_timed_ohlc, daily_chart_time, daily_warmup_end_before,
     minute_replay_trading_date, preview_session_bounds, preview_strategy_from_candles,
     StrategyPreviewInput,
 };
@@ -9,18 +9,9 @@ use crate::trading::simulation::SimulationAssumptions;
 use crate::trading::strategy::{build_strategy, Signal, StrategyConfig};
 
 #[test]
-fn daily_preview_time_keeps_provider_date_and_selected_session_minute() {
-    assert_eq!(
-        daily_preview_time("2026-07-11", 22 * 60 + 35, 0).as_deref(),
-        Some("20260711223500")
-    );
-    assert_eq!(
-        daily_preview_time("2026-07-11", 5 * 60, 1).as_deref(),
-        Some("20260712050000")
-    );
-    assert_eq!(daily_preview_time("invalid", 9 * 60, 0), None);
+fn daily_diagnostic_keeps_the_provider_date_without_synthetic_session_offset() {
+    assert_eq!(daily_chart_time("20260711", 1), "20260711");
     assert_eq!(daily_chart_time("20260712050000", 1), "20260711");
-    assert_eq!(daily_chart_time("20260711224000", 1), "20260711");
 }
 
 #[test]
@@ -40,7 +31,7 @@ fn daily_preview_uses_selected_market_session_entry_window() {
 }
 
 #[test]
-fn daily_preview_reveals_only_open_at_session_start_then_completed_ohlc_at_close() {
+fn daily_diagnostic_contains_one_completed_bar_and_no_synthetic_entry_observation() {
     let source = BrokerCandle {
         symbol: BrokerSymbol("SOXL".into()),
         market: BrokerMarket::Us,
@@ -53,16 +44,12 @@ fn daily_preview_reveals_only_open_at_session_start_then_completed_ohlc_at_close
     };
     let timed = broker_candles_to_timed_ohlc(&[source], 1, "1d", 9 * 60 + 5, 16 * 60 + 50, 0);
 
-    assert_eq!(timed.len(), 2);
-    assert_eq!(timed[0].time, "20260711090500");
+    assert_eq!(timed.len(), 1);
+    assert_eq!(timed[0].time, "20260711");
     assert_eq!(timed[0].candle.open, 10_000);
-    assert_eq!(timed[0].candle.high, 10_000);
-    assert_eq!(timed[0].candle.low, 10_000);
-    assert_eq!(timed[0].candle.close, 10_000);
-    assert_eq!(timed[1].time, "20260711165000");
-    assert_eq!(timed[1].candle.high, 12_000);
-    assert_eq!(timed[1].candle.low, 9_000);
-    assert_eq!(timed[1].candle.close, 11_000);
+    assert_eq!(timed[0].candle.high, 12_000);
+    assert_eq!(timed[0].candle.low, 9_000);
+    assert_eq!(timed[0].candle.close, 11_000);
 }
 
 #[test]
@@ -392,4 +379,36 @@ fn candle(date: &str, close: &str) -> ChartCandle {
         close: close.into(),
         volume: "1000".into(),
     }
+}
+
+#[test]
+fn daily_diagnostic_never_evaluates_strategy_or_execution_even_with_intraday_input() {
+    use crate::trading::simulation::ReplayAssessmentView;
+    use crate::trading::strategy::{
+        LeveragedTrendHoldParams, LeveragedTrendHoldTimedCandle, OhlcCandle,
+    };
+    let bar = OhlcCandle {
+        open: 100,
+        high: 110,
+        low: 90,
+        close: 105,
+    };
+    let timed = vec![LeveragedTrendHoldTimedCandle {
+        time: "20260707091500".into(),
+        candle: bar,
+    }];
+    let signals = super::lth_preview_signals_for_interval(
+        "1d",
+        "SOXQ",
+        LeveragedTrendHoldParams::default(),
+        &[bar],
+        &timed,
+        |_, _| panic!("daily diagnostics must not run execution"),
+    );
+    assert!(signals.is_empty());
+    let assessment =
+        serde_json::to_value(ReplayAssessmentView::lth("1d", 252, timed.len())).unwrap();
+    assert_eq!(assessment["performanceStatus"], "notEvaluable");
+    assert_eq!(assessment["intradayBars"], 0);
+    assert_eq!(assessment["dailyContextBars"], 252);
 }

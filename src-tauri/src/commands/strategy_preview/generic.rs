@@ -395,6 +395,7 @@ pub fn preview_strategy_from_candles(
         deterministic: true,
         look_ahead_safe: true,
         input_hash,
+        assessment: None,
     };
     let backtest = run_backtest(
         &input.strategy_id,

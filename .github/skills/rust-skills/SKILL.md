@@ -272,7 +272,7 @@ fn validate_symbol(symbol: &str) -> Result<(), CmdError> {
 - 급반등 단독 진입(`rapid_rebound_enabled`)은 기존 장중 반동과 별도 옵션이다. 최근 `rapid_rebound_lookback_ticks` 관측치 안에서 선행 고점 대비 저점 하락률(`rapid_rebound_drop_pct`)과 저점 대비 현재가 회복률(`rapid_rebound_recovery_pct`)을 보고, 저점 후 `rapid_rebound_max_low_age_ticks` 안에 회복했을 때만 진입한다. 이 경로도 EMA/ADX 추세 조건을 요구하지 않으며, 실시간 `on_tick()`과 `preview_signals()`가 같은 `rapid_rebound_entry_ok()` helper를 사용해야 한다.
 - 장중 반동/급반등 관측 버퍼는 `rebound_price_cap()`에서 두 옵션의 필요 길이 중 큰 값을 `bounded_window_with_extra()`로 감싼다. user-param을 그대로 `VecDeque` capacity로 쓰지 않는다.
 - Toss 실행 scope에서 자동매매를 시작하면 Toss `1d` candles로 일봉 OHLC를 초기화하고, Toss `1m` candles의 OHLC를 레버리지 전략 장중 상태에도 주입한다. 실시간 현재가 polling은 같은 분 안에서는 마지막 1분봉과 반동 관측값을 갱신하고, 분이 바뀔 때만 새 관측치를 추가한다. 공개 데이터와 Toss 데이터가 섞이지 않게 strategy preview/진단도 가능하면 Toss candles 경로를 우선 사용한다.
-- 레버리지 미리보기 입력은 `interval=1m|1d`와 `count=20..200`을 검증한다. 1분봉은 replay 첫 거래일보다 엄격히 이전인 완료 일봉만 지표 warmup으로 사용한다. 일봉은 표시 구간 이전 일봉만 warmup에 사용하며, 각 표시 일자는 세션 진입 시각의 시가-only 관측과 장 종료 시각의 완성 OHLC 관측으로 나눠 당일 고가·저가·종가 look-ahead를 막는다. 미국 정규장처럼 자정을 넘는 세션의 종료 시각은 다음 KST 날짜로 기록하고, signal 원본 시각은 상세 표시용으로 보존하되 별도 `chartTime` 거래일 키로 일봉 marker를 정렬한다.
+- 레버리지 미리보기 입력은 `interval=1m|1d`와 `count=20..200`을 검증한다. v7/LTH v3에서 이전 완료 일봉은 별도 bounded context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `1d`는 장중 가격·진입/청산을 합성하지 않는 `dailyDiagnostic/notEvaluable` 자료 진단으로 전략·체결을 실행하지 않는다. `1m`은 실제 관측의 `intradaySample/sampleOnly`이며 유효 분봉 0개는 `notEvaluable`이다. 고정 KST 세션 근사와 원본 시간대·DST·세션 미검증을 assessment에 명시하고 `lookAheadSafe=false`로 둔다. `warmupCount=0`과 `dailyContextBars`를 구분하며 최대 200봉 표본을 3개월 성과로 표시하지 않는다.
 - 레버리지 전략 청산은 초기 손절, 반등 실패 손절, 수익 보호 청산을 분리한다. `initial_stop_loss_pct`는 보호 활성 전에도 진입가 대비 손실을 즉시 제한한다. 반등 실패 손절은 `entry_failure_observations`와 `min_hold_observations`를 모두 지난 뒤에도 고점 수익률이 `trailing_activation_profit_pct`에 닿지 못한 채 진입가 아래일 때만 발생한다. 이렇게 해야 매수 직후 작은 음수 흔들림이 “실패”로 과도하게 해석되지 않는다. 이후 고점 수익률이 `trailing_activation_profit_pct` 이상일 때만 본전 보호/추적손절/추세 이탈 청산을 검사한다. 보호 활성 후 `breakeven_buffer_pct` 이하로 내려오면 본전 보호 청산, 고점 대비 `trailing_stop_pct` 이상 밀리면 수익 보호 추적손절, EMA/RSI 추세 이탈은 현재 수익률이 버퍼보다 높을 때만 청산한다. 미리보기와 실시간 `on_tick()`은 같은 초기 손절/보호 청산 helper를 사용해야 한다.
 - `RiskManager`의 전략/종목별 일일 매수 제한은 재진입 전략을 막을 수 있어 차단 조건으로 사용하지 않는다. 하위 호환 필드는 남기되 view/update 경로는 0으로 노출·저장하고, 매도 일일 제한과 연속 손실 차단은 별도 방어로 유지한다.
 
@@ -845,9 +845,9 @@ pub struct LeveragedTrendHoldEntry {
 - 청산 조건도 대상 ETF 자체의 OHLC로 판단한다. 고점 대비 trailing stop, 현재가 EMA20 하향 이탈, EMA20 < EMA60, RSI 약화, 장마감 청산.
 - `upward_sensitivity`는 1.0~5.0 범위로 관리한다. 기본값 1.0은 기존 RSI 진입 기준을 유지하고, 값이 높을수록 진입 RSI 기준을 완화해 더 이른 신호를 허용한다. `downward_sensitivity`는 legacy 저장값 호환 필드로 남기되 새 UI에는 노출하지 않는다.
 - 전략 상태는 `states: HashMap<String, ...>`와 `positions: HashMap<String, ...>`에 ticker별로 독립 저장한다.
-- 설정창 미리보기는 `LeveragedTrendHoldStrategy::preview_signals_with_execution()`을 사용한다. 활성 Toss 프로파일의 `1m`/`1d` candles를 과거 시각 기준으로 replay하고 raw 신호마다 simulated 체결/차단 상태를 되먹임해 다음 신호를 평가한다. 실제 주문은 만들지 않으며 비용·리스크 backtest와 재현 메타데이터를 함께 반환한다.
+- 설정창의 `1m` 미리보기는 `LeveragedTrendHoldStrategy::preview_signals_with_execution()`을 사용한다. 활성 Toss 프로파일의 실제 분봉을 입력 시각 기준으로 replay하고 raw 신호마다 simulated 체결/차단 상태를 되먹임한다. `1d`는 장중 엔진을 호출하지 않는 평가 불가 자료 진단이다. 실제 주문은 만들지 않으며 assessment의 기간·시각 한계를 함께 반환한다.
 
-> 마지막 업데이트: 2026-07-07T17:35:00+09:00
+> 마지막 업데이트: 2026-10-05T23:54:16+09:00
 
 ---
 
@@ -1016,7 +1016,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - `Retry-After`, `X-RateLimit-Remaining=0`, `X-RateLimit-Reset`은 scheduler pause로 반영한다.
 - 개별 호출부마다 임의 `sleep()`을 흩뿌리지 말고 group key와 scheduler 기본 간격을 조정한다.
 
-> 마지막 업데이트: 2026-07-03T16:35:00
+> 마지막 업데이트: 2026-10-05T23:54:16+09:00
 
 ---
 
@@ -1110,16 +1110,18 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - Generic preview v4 이후는 평가 `candles`와 이전 `historyCandles`를 따로 정규화한다. 생략한 `warmupCount`는 0이며 명시한 legacy prefix만 호환한다. 합계 500봉 상한, OHLC/시각 유효성·중복·엄격한 prefix 경계를 검사하고 잘못된 history를 걸러 평가봉으로 보충하지 않는다. 분봉 14자리와 일/주/월봉 날짜 8자리 혼합은 거부한다.
 - MA/RSI/모멘텀/이격도/연속/돌파 실패 초기화는 `on_tick`을 호출하지 않고 버퍼를 직접 seed한다. MA/RSI는 이전 지표를 복원하며 보유 상태를 유지한다. `history_readiness`는 실제 상태를 읽고 미지원은 None이다. `can_evaluate_next_tick`은 호출 전 조건 평가 가능 여부를 읽어 MA/RSI/돌파 seed-only 봉을 조건 불충족으로 오판하지 않는다.
 - `preparation`은 최초/최종 지표 상태, 처리 후 최초 준비 시각·미준비 봉 수, 실제 조건 평가 봉 수를 분리한다. 미지원 값은 null, 조건 평가 0봉은 `notEvaluable`, 준비 후 신호 없음은 `conditionsNotMet`, 신호 있으나 미체결은 `noTrades`다. 기본 200/252봉과 일봉/분봉 분리를 유지한다. 제공봉 수를 실제 버퍼 준비 여부로 대신하지 않는다.
-- 일봉 replay는 정보 공개 시점을 지킨다. 장 시작 event는 시가-only OHLC, 장 종료 event만 완성 OHLC를 사용한다. 입력은 최대 500봉으로 제한하고 결과에는 engine/strategy version, source/interval/range, warmup count, input hash를 남긴다.
+- Generic 일봉 replay는 정보 공개 시점을 지킨다. 날짜 시작 event는 시가-only, 종가 평가에만 완성 OHLC를 사용한다. 입력은 최대 500봉으로 제한하고 결과에는 engine/strategy version, source/interval/range, warmup count, input hash를 남긴다. 전용 LTH 일봉은 이 장중 평가 경로와 구분하는 자료 진단이다.
 - Generic preview v5의 `D`/`1d`는 `on_trading_day_start(symbol, open)` → `on_daily_close_tick(symbol, completed_ohlc, volume)` → backtest 체결/차단 및 `sync_position` → `on_completed_candle` 순서다. 시작에는 시가만 전달하고 완료 OHLC는 종가 평가 때 공개한다. 완료봉 적재 전에 실제 포지션을 되먹임해야 차단된 강한 종가 매수가 다음 날 pending을 잃지 않는다.
 - 강한 종가는 매 완료봉으로 다음 평가일 조건을 준비한다. 변동성 확장은 날짜 시작 시 당일 시가·고저가만 초기화하고 보유 상태와 이전 N일 범위를 유지한다. 조건 평가 시 이전 N일 평균에 당일 범위를 섞지 않고, 완료 후 bounded ring에 적재하며 flat-day 0범위도 일수에 포함한다. 날짜 전환에 `reset()`을 사용하지 않는다.
 - 강한 종가·변동성 확장의 generic replay는 일봉만 허용하며 다른 간격은 `UNSUPPORTED_REPLAY_INTERVAL`이다. cadence는 `dailyCloseWithDayBoundary`. 강한 종가의 다음 평가일 신호도 그날 종가 체결 근사이며 next-open 모델은 P2-14다. live 현재가 polling에는 완료 일봉 이벤트를 연결하지 않는다. 기본 훅은 no-op/기존 tick 위임이며 다른 전략·전용 LTH 동작을 보존한다.
 - Generic preview v6은 factory와 같은 `starts_with("leveraged_trend_hold")` 기준으로 기본/접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 명시 거부한다. LTH의 실시간 분/세션/blackout clock을 과거 재생에 호출하지 않으며 `deterministic=false`·준비 미지원 표시에 그치지 않는다. broker 조회 전용 커맨드로 generic 제공봉을 자동 우회하지 않는다.
-- 기존 LTH `preview_signals_with_execution`은 `timed.time`으로 세션·blackout·장마감을 판단한다. 응답 `generatedAt`만 생성 시각이고 신호/체결/hash의 입력이 아니다. `cfg(test)` live clock 대역으로 production 재현성을 주장하지 않고 별도 integration fixture 및 production runner의 서로 다른 분/시간대 재실행을 검증한다. 합성 일봉과 고정 KST 세션/DST 한계는 P1-05에 유지한다.
+- LTH `preview_signals_with_execution`은 실제 분봉의 `timed.time`으로 세션·blackout·장마감을 판단한다. 응답 `generatedAt`만 생성 시각이고 신호/체결/hash의 입력이 아니다. `cfg(test)` live clock 대역으로 production 재현성을 주장하지 않고 별도 integration fixture 및 production runner의 서로 다른 분/시간대 재실행을 검증한다. 고정 KST 세션·DST 한계는 입력 재현성과 별개이며 `lookAheadSafe=false`다.
+- LTH 일봉 `initialize_ohlc`는 context만 교체하고 기존 분봉 지표와 보유 포지션을 보존한다. `initialize_intraday_ohlc`는 분봉 OHLC·반동 가격·볼린저 snapshot을 교체하며 누적 append로 과거 관측을 중복하지 않는다. `initialize_intraday_prices`는 반동 가격 snapshot만 교체하고 OHLC·볼린저를 초기화하지 않는다. 분봉 EMA/RSI/ADX·반동·볼린저는 분봉만 소비하고 각 버퍼 상한을 독립 유지한다. 빈 일봉 재초기화도 실제 보유 손절을 막지 않는다.
+- 전용 LTH v7/LTH v3의 엔진 버전은 공통 `REPLAY_ENGINE_VERSION`을 응답과 hash에 함께 사용한다. `ReplayMetadata.assessment`는 선택 필드이며 generic에는 생략한다. `1d`는 `dailyDiagnostic/notEvaluable`, `1m`은 `intradaySample/sampleOnly`(유효 관측 0개면 `notEvaluable`)다. `dailyContextBars`와 `intradayBars`를 분리하고 `warmupCount=0`으로 일봉이 분봉 지표를 준비했다고 주장하지 않는다. `timestampStatus/sessionStatus=unverified`와 한국어 limitations를 남긴다. 일봉 호환 빈 backtest를 0% 성과로 해석하지 않는다. 실제 2026-07-06~10-02 SOXQ 분봉·시간대·DST·세션 coverage 확보/검증은 P1-05 잔여 조건이다.
 - 전략이 raw signal 생성 시 내부 `in_position`을 선반영했는데 주문이 skip되면 `SubmissionOutcome::Skipped`의 실제 `held_quantity`/`avg_price`를 `StrategyManager::sync_position()`에 되먹임한다. 수량 0 snapshot도 flat 상태로 반영해야 한다.
 - 자동매매 시작 플래그 lock은 broker reconcile/risk restore/warmup이 완료될 때까지 daemon 첫 tick을 막아야 한다.
 
-> 마지막 업데이트: 2026-10-03T23:41:20+09:00
+> 마지막 업데이트: 2026-10-05T23:54:16+09:00
 
 ---
 
@@ -1148,4 +1150,4 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 
 마지막 업데이트: 2026-09-11
 
-> 마지막 업데이트: 2026-10-03T23:41:20+09:00
+> 마지막 업데이트: 2026-10-05T23:54:16+09:00

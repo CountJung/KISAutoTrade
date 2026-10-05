@@ -134,3 +134,5 @@ npm run build:app
 실패, warning, 0-test, 환경 blocker를 성공으로 축약하지 않는다.
 
 LTH 역사 시각/실시간 경로 분리 변경은 `cd src-tauri && cargo test --locked --test lth_replay_clock`로 production library(단위 테스트 clock 대역 없음)의 입력 시각·blackout·청산·미래 봉 불변을 검증한다. generic LTH 거부는 lib preparation 테스트와 오프라인 연구 runner의 `rejectedRuns`를 함께 확인한다.
+
+P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_tests`와 lib preview/assessment 테스트에서 일봉의 분봉 지표·반동·볼린저 혼입 방지, snapshot 교체, 포지션 보존, 독립 버퍼 상한, 일봉 전략/체결 미호출 및 유효 분봉 0개의 평가 불가를 확인한다. UI는 `npx playwright test tests/e2e/strategy-scrollbar.spec.ts tests/e2e/strategy-replay-assessment.spec.ts`로 일봉/legacy 성과·A/B 숨김, 분봉 표본 경고와 assessment 보존, 기존 generic 성과 표시를 함께 검증한다. synthetic fixture는 시장 coverage 검증을 대체하지 않는다. 실제 2026-07-06~10-02 SOXQ 분봉을 보관하고 시간대·DST·세션·기간 coverage 검증 후 별도 재평가해야 P1-05 전체 완료다.

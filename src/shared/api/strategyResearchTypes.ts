@@ -14,6 +14,16 @@ export interface SimulationAssumptions {
   inSamplePercent: number
 }
 
+export interface ReplayAssessment {
+  model: 'dailyDiagnostic' | 'intradaySample'
+  performanceStatus: 'notEvaluable' | 'sampleOnly'
+  dailyContextBars: number
+  intradayBars: number
+  timestampStatus: 'unverified'
+  sessionStatus: 'unverified'
+  limitations: string[]
+}
+
 export interface ReplayMetadata {
   engineVersion: string
   strategyVersion: string
@@ -27,6 +37,7 @@ export interface ReplayMetadata {
   deterministic: boolean
   lookAheadSafe: boolean
   inputHash: string
+  assessment?: ReplayAssessment
 }
 
 export interface BacktestTrade {

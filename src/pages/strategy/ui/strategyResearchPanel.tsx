@@ -208,12 +208,19 @@ export function StrategyResearchResults({
   const scopeKey = `${brokerId}:${brokerAccountId ?? 'none'}:${strategyId}:${symbol}`
   const [slots, setSlots] = useState<Partial<Record<'A' | 'B', StrategyExperimentSnapshot>>>({})
   const [storageError, setStorageError] = useState<string | null>(null)
+  const isLeveragedReplay = strategyId.startsWith('leveraged_trend_hold')
+  const assessment = replay.assessment
+  const performanceUnavailable = assessment?.model === 'dailyDiagnostic'
+    || assessment?.performanceStatus === 'notEvaluable'
+    || (isLeveragedReplay && !assessment)
+  const isIntradaySample = assessment?.model === 'intradaySample'
 
   useEffect(() => {
     setSlots(loadExperimentSlots(scope))
   }, [scopeKey]) // eslint-disable-line react-hooks/exhaustive-deps -- serialized scope is the persistence boundary
 
   const saveSlot = (slot: 'A' | 'B') => {
+    if (performanceUnavailable) return
     const snapshot: StrategyExperimentSnapshot = {
       id: `${replay.inputHash}:${slot}`,
       slot,
@@ -246,13 +253,59 @@ export function StrategyResearchResults({
       && slots.A.replay.sourceInterval === slots.B.replay.sourceInterval
       && slots.A.replay.dataStart === slots.B.replay.dataStart
       && slots.A.replay.dataEnd === slots.B.replay.dataEnd
+      && slots.A.replay.assessment?.model === slots.B.replay.assessment?.model
     : true
   const summary = report.summary
+  const metadata = (
+    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+      <Chip size="small" label={`${replay.sourceInterval} · ${replay.replayCadence}`} />
+      <Chip size="small" label={`live ${replay.liveCadenceSeconds}초 tick`} variant="outlined" />
+      <Chip size="small" label={`사전 자료 ${replay.warmupCount}봉`} variant="outlined" />
+      <Chip size="small" label={`${replay.dataStart} → ${replay.dataEnd}`} variant="outlined" />
+      <Chip size="small" label={`재현 ID ${replay.inputHash.slice(0, 10)}`} color="primary" variant="outlined" />
+    </Stack>
+  )
+  const assessmentNotice = (assessment || performanceUnavailable) && (
+    <Alert severity="warning" data-testid="replay-assessment-notice" sx={{ py: 0.75 }}>
+      <Typography variant="body2" fontWeight={700}>
+        {performanceUnavailable
+          ? assessment?.model === 'intradaySample' ? '성과 평가 불가 · 분봉 자료 진단' : '성과 평가 불가 · 일봉/자료 진단'
+          : '분봉 표본 모의 결과'}
+      </Typography>
+      <Typography variant="body2">
+        {assessment
+          ? `일봉 맥락 ${assessment.dailyContextBars}봉 · 실제 장중 관측 ${assessment.intradayBars}봉`
+          : '이전 응답에는 평가 모델 정보가 없어 성과를 표시하거나 A/B에 저장할 수 없습니다. 다시 계산하세요.'}
+      </Typography>
+      {assessment && (
+        <Typography variant="body2">
+          {performanceUnavailable
+            ? assessment.model === 'intradaySample'
+              ? '유효한 분봉 관측이 없어 장중 신호·체결·투자 성과를 평가할 수 없습니다.'
+              : '일봉 OHLC만으로 장중 진입·관측 횟수·청산 경로를 재현할 수 없어 수익률과 거래 성과를 계산하지 않습니다.'
+            : '최대 200봉의 분봉 표본입니다. 3개월 성과를 대표하지 않으며 실제 10초 관측과 다릅니다.'}
+          {' '}시각의 시간대·DST와 거래 세션은 검증되지 않았습니다.
+        </Typography>
+      )}
+      {assessment?.limitations.map((limitation, index) => (
+        <Typography key={`${index}:${limitation}`} variant="caption" display="block">{limitation}</Typography>
+      ))}
+    </Alert>
+  )
+
+  if (performanceUnavailable) {
+    return (
+      <Stack spacing={1.5} data-testid="strategy-replay-diagnostic">
+        {assessmentNotice}
+        {metadata}
+      </Stack>
+    )
+  }
 
   return (
     <Stack spacing={1.5} data-testid="strategy-backtest-results">
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
-        <Typography variant="subtitle2" fontWeight={700} sx={{ mr: 'auto' }}>주문 가능성 반영 백테스트</Typography>
+        <Typography variant="subtitle2" fontWeight={700} sx={{ mr: 'auto' }}>{isIntradaySample ? '분봉 표본 모의 결과' : '주문 가능성 반영 백테스트'}</Typography>
         <Button size="small" variant="outlined" onClick={() => saveSlot('A')}>현재 결과를 A로 저장</Button>
         <Button size="small" variant="outlined" onClick={() => saveSlot('B')}>현재 결과를 B로 저장</Button>
         {(slots.A || slots.B) && (
@@ -261,13 +314,8 @@ export function StrategyResearchResults({
       </Stack>
       {storageError && <Alert severity="error" sx={{ py: 0.5 }}>{storageError}</Alert>}
 
-      <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-        <Chip size="small" label={`${replay.sourceInterval} · ${replay.replayCadence}`} />
-        <Chip size="small" label={`live ${replay.liveCadenceSeconds}초 tick`} variant="outlined" />
-        <Chip size="small" label={`사전 자료 ${replay.warmupCount}봉`} variant="outlined" />
-        <Chip size="small" label={`${replay.dataStart} → ${replay.dataEnd}`} variant="outlined" />
-        <Chip size="small" label={`재현 ID ${replay.inputHash.slice(0, 10)}`} color="primary" variant="outlined" />
-      </Stack>
+      {assessmentNotice}
+      {metadata}
 
       <Alert severity="info" sx={{ py: 0.5 }}>
         봉 종가 replay와 실제 10초 tick의 시간축을 분리 표시합니다. deterministic/무미래참조 fixture를 사용하지만 봉 내부 가격 경로와 provider pending·체결 지연은 재현하지 않으며, 슬리피지는 체결가격 영향만 근사합니다.
@@ -319,8 +367,13 @@ export function StrategyResearchResults({
                 <Grid item xs={12} sm={6} key={slot}>
                   <Paper variant="outlined" sx={{ p: 1 }}>
                     <Typography variant="caption" fontWeight={700}>실험 결과 {slot}</Typography>
-                    {saved ? (
+                    {saved && (saved.replay.assessment?.model === 'dailyDiagnostic'
+                      || saved.replay.assessment?.performanceStatus === 'notEvaluable'
+                      || (isLeveragedReplay && !saved.replay.assessment)) ? (
+                      <Typography variant="body2" color="text.secondary">평가 모델 정보 부족 · 성과 비교 불가</Typography>
+                    ) : saved ? (
                       <Typography variant="body2">
+                        {saved.replay.assessment?.model === 'intradaySample' && '분봉 표본 · '}
                         {fmtPct(saved.backtest.summary.cumulativeReturnPct)} · MDD {saved.backtest.summary.mddPct.toFixed(2)}% · {saved.replay.dataStart}~{saved.replay.dataEnd}
                       </Typography>
                     ) : <Typography variant="body2" color="text.secondary">저장된 결과 없음</Typography>}

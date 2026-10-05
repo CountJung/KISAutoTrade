@@ -1,0 +1,67 @@
+import { expect, test } from '@playwright/test'
+import { mockApi } from './fixtures/strategyResearchFixture'
+
+test('LTH daily context shows diagnostics without performance or A/B saving', async ({ page }) => {
+  await mockApi(page, { activeBroker: 'toss' })
+  await page.goto('/strategy')
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'LeveragedTrendHoldStrategy' }).first()
+  await card.getByRole('combobox', { name: '봉 단위' }).click()
+  await page.getByRole('option', { name: '일봉', exact: true }).click()
+  await card.getByRole('button', { name: '미리보기 계산' }).click()
+  const diagnostic = card.getByTestId('strategy-replay-diagnostic')
+  await expect(diagnostic).toBeVisible()
+  await expect(diagnostic.getByText('성과 평가 불가 · 일봉/자료 진단')).toBeVisible()
+  await expect(diagnostic.getByText('일봉 맥락 3봉 · 실제 장중 관측 0봉')).toBeVisible()
+  await expect(diagnostic.getByText(/시간대·DST와 거래 세션은 검증되지/)).toBeVisible()
+  await expect(card.getByTestId('strategy-backtest-results')).toHaveCount(0)
+  await expect(card.getByText('누적 수익률', { exact: true })).toHaveCount(0)
+  await expect(card.getByText('승률', { exact: true })).toHaveCount(0)
+  await expect(card.getByText('0.00%', { exact: true })).toHaveCount(0)
+  await expect(card.getByRole('img', { name: /자산 곡선/ })).toHaveCount(0)
+  await expect(card.getByRole('table', { name: '백테스트 거래 목록' })).toHaveCount(0)
+  await expect(card.getByRole('button', { name: /현재 결과를 [AB]로 저장/ })).toHaveCount(0)
+  await expect(diagnostic.getByText(/재현 ID/)).toBeVisible()
+})
+
+test('LTH minute result labels coverage and keeps its assessment in A/B snapshots', async ({ page }) => {
+  await mockApi(page, { activeBroker: 'toss' })
+  await page.goto('/strategy')
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'LeveragedTrendHoldStrategy' }).first()
+  await card.getByRole('button', { name: '미리보기 계산' }).click()
+  const notice = card.getByTestId('replay-assessment-notice')
+  await expect(notice.getByText('분봉 표본 모의 결과', { exact: true })).toBeVisible()
+  await expect(notice.getByText('일봉 맥락 0봉 · 실제 장중 관측 3봉')).toBeVisible()
+  await expect(notice.getByText(/3개월 성과를 대표하지/)).toBeVisible()
+  await expect(notice.getByText(/시간대·DST와 거래 세션은 검증되지/)).toBeVisible()
+  await expect(card.getByText('누적 수익률', { exact: true })).toBeVisible()
+  await card.getByRole('button', { name: '현재 결과를 A로 저장' }).click()
+  const assessment = await page.evaluate(() => {
+    const key = Object.keys(localStorage).find((item) => item.startsWith('act:strategy-experiments:v1:') && !item.endsWith(':index'))
+    return key ? JSON.parse(localStorage.getItem(key) ?? '{}').A.replay.assessment : null
+  })
+  expect(assessment).toMatchObject({ model: 'intradaySample', performanceStatus: 'sampleOnly', intradayBars: 3, timestampStatus: 'unverified', sessionStatus: 'unverified' })
+  await expect(card.getByTestId('strategy-ab-comparison').getByText(/분봉 표본 ·/)).toBeVisible()
+})
+
+test('Legacy LTH replay without assessment hides performance instead of trusting old metrics', async ({ page }) => {
+  await mockApi(page, { activeBroker: 'toss', leveragedLegacy: true })
+  await page.goto('/strategy')
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'LeveragedTrendHoldStrategy' }).first()
+  await card.getByRole('button', { name: '미리보기 계산' }).click()
+  await expect(card.getByTestId('strategy-replay-diagnostic').getByText(/이전 응답에는 평가 모델 정보가 없어/)).toBeVisible()
+  await expect(card.getByText('누적 수익률', { exact: true })).toHaveCount(0)
+  await expect(card.getByRole('button', { name: /현재 결과를 [AB]로 저장/ })).toHaveCount(0)
+})
+
+test('LTH with zero valid minute observations shows a minute diagnostic without performance', async ({ page }) => {
+  await mockApi(page, { activeBroker: 'toss', leveragedZero: true })
+  await page.goto('/strategy')
+  const card = page.locator('.MuiPaper-root').filter({ hasText: 'LeveragedTrendHoldStrategy' }).first()
+  await card.getByRole('button', { name: '미리보기 계산' }).click()
+  const diagnostic = card.getByTestId('strategy-replay-diagnostic')
+  await expect(diagnostic.getByText('성과 평가 불가 · 분봉 자료 진단')).toBeVisible()
+  await expect(diagnostic.getByText(/유효한 분봉 관측이 없어/)).toBeVisible()
+  await expect(diagnostic.getByText(/일봉 OHLC만으로/)).toHaveCount(0)
+  await expect(card.getByTestId('strategy-backtest-results')).toHaveCount(0)
+  await expect(card.getByRole('button', { name: /현재 결과를 [AB]로 저장/ })).toHaveCount(0)
+})

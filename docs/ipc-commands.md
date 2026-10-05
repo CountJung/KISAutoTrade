@@ -71,7 +71,7 @@
 | `submit_toss_small_buy_verification` | 호환용 Toss 1주 소액매매 검증 endpoint. 실거래 동의/최종 확인/최대 허용금액/accountSeq 일치/사전검증/미체결 scan 후 시장가 매수를 제출하고 주문·체결 기록을 저장. 현재 UI는 일반 수동주문 경로를 사용 |
 | `get_toss_market_calendar` | 활성 Toss 프로파일로 KR/US 정규장 캘린더 조회 (`regularSession`, `isRegularOpen`) |
 | `get_toss_chart_data` | 활성 Toss 프로파일로 캔들 조회 (`1d`/`1m`, count 1~200, `ChartCandle[]`) |
-| `preview_leveraged_trend_hold` | 활성 Toss profile/account scope를 검증하고 `1m`/`1d` 20~200봉을 replay. 1분봉 warmup은 replay 시작일 이전의 완료 일봉만 사용하며 raw 신호·차트, 전체 입력 hash, 비용·환율·리스크 backtest를 반환 |
+| `preview_leveraged_trend_hold` | 활성 Toss profile/account scope와 `1m`/`1d` count 20~200을 검증. 일봉은 성과 평가 불가 자료 진단, 분봉은 실제 장중 관측의 모의 표본 결과를 반환. 일봉 context와 분봉 지표를 분리하고 `replay.assessment`에 관측 수·평가 가능 여부·시간/세션 미검증을 기록 |
 | `preview_strategy` | `candles` 평가 구간 + 선택 `historyCandles` 사전자료를 합계 최대 500봉으로 candle-close replay. `warmupCount` 생략은 0이며 명시 prefix와 별도 history 동시 지정은 거부. 결과 candles는 평가 구간만 포함. 실제 지표 준비 상태·조건 평가 봉 수(`preparation`), raw 신호·체결/차단·비용/리스크 성과와 OHLCV hash를 반환. generic LTH는 `UNSUPPORTED_GENERIC_REPLAY`로 명시 거부. live 10초 tick·intrabar/provider latency는 재현하지 않음 |
 | `get_chart_data` | 국내주식 차트 데이터 (일/주/월봉, 날짜 범위와 선택적 count) |
 | `get_overseas_price` | 해외주식 현재가 조회 |
@@ -92,6 +92,10 @@
 `preview_strategy` v5의 `D`/`1d` cadence는 `dailyCloseWithDayBoundary`다. 시가-only 날짜 시작, 완성 OHLC 종가 평가, 체결/차단 포지션 피드백, 완료봉 적재 순서로 처리한다. 강한 종가는 전일 조건을 다음 평가일에 사용하고 변동성 확장은 이전 N일 평균과 당일 범위를 비교한다. 두 전략의 다른 interval은 `UNSUPPORTED_REPLAY_INTERVAL`로 거부한다. 모든 generic 체결은 해당 신호 봉 종가 근사이며 next-open/장중 경로는 미지원이다. 기존 입력·`preparation` 계약과 전용 LTH 경로는 유지한다.
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
+
+현재 엔진은 `strategy-replay-v7`, 전용 LTH는 `leveraged-trend-hold-v3`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+
+전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
 ## 거래 기록 / 통계
 

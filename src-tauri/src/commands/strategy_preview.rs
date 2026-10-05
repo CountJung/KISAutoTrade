@@ -3,13 +3,18 @@ use super::*;
 mod generic;
 use crate::trading::simulation::{
     replay_input_hash, report_position_snapshot, run_backtest, BacktestReportView,
-    ReplayMetadataView, SimulationAssumptions, SimulationEvent, REPLAY_ENGINE_VERSION,
+    ReplayAssessmentView, ReplayMetadataView, SimulationAssumptions, SimulationEvent,
+    REPLAY_ENGINE_VERSION,
 };
-use crate::trading::strategy::{LeveragedTrendHoldTimedCandle, Signal};
+use crate::trading::strategy::{
+    LeveragedTrendHoldPreviewSignal, LeveragedTrendHoldTimedCandle, Signal,
+};
 pub use generic::{
     preview_strategy_from_candles, StrategyPreparationView, StrategyPreviewInput,
     StrategyPreviewSignalView, StrategyPreviewView,
 };
+
+const LTH_PREVIEW_STRATEGY_VERSION: &str = "leveraged-trend-hold-v3";
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -135,15 +140,14 @@ fn broker_candles_to_timed_ohlc(
     candles: &[BrokerCandle],
     count: u16,
     interval: &str,
-    daily_open_minute: i64,
-    daily_close_minute: i64,
-    daily_close_day_offset: i64,
+    _daily_open_minute: i64,
+    _daily_close_minute: i64,
+    _daily_close_day_offset: i64,
 ) -> Vec<LeveragedTrendHoldTimedCandle> {
     let mut candles = candles.to_vec();
     candles.sort_by(|a, b| a.date.cmp(&b.date));
     let start = candles.len().saturating_sub(count as usize);
-    let mut timed =
-        Vec::with_capacity((candles.len() - start) * if interval == "1d" { 2 } else { 1 });
+    let mut timed = Vec::with_capacity(candles.len() - start);
     for source in candles.iter().skip(start) {
         let Some(candle) = (|| {
             Some(OhlcCandle {
@@ -159,25 +163,9 @@ fn broker_candles_to_timed_ohlc(
             continue;
         }
         if interval == "1d" {
-            let Some(open_time) = daily_preview_time(&source.date, daily_open_minute, 0) else {
-                continue;
-            };
-            let Some(close_time) =
-                daily_preview_time(&source.date, daily_close_minute, daily_close_day_offset)
-            else {
-                continue;
-            };
+            // Daily prices are a chart diagnostic, never simulated minute observations.
             timed.push(LeveragedTrendHoldTimedCandle {
-                time: open_time,
-                candle: OhlcCandle {
-                    open: candle.open,
-                    high: candle.open,
-                    low: candle.open,
-                    close: candle.open,
-                },
-            });
-            timed.push(LeveragedTrendHoldTimedCandle {
-                time: close_time,
+                time: normalize_preview_chart_time(&source.date, "1d"),
                 candle,
             });
         } else {
@@ -188,26 +176,6 @@ fn broker_candles_to_timed_ohlc(
         }
     }
     timed
-}
-
-fn daily_preview_time(value: &str, minute_of_day: i64, day_offset: i64) -> Option<String> {
-    let date: String = value
-        .chars()
-        .filter(|c| c.is_ascii_digit())
-        .take(8)
-        .collect();
-    if date.len() != 8 {
-        return None;
-    }
-    let date = chrono::NaiveDate::parse_from_str(&date, "%Y%m%d").ok()?
-        + chrono::Duration::days(day_offset);
-    let minute = minute_of_day.rem_euclid(24 * 60);
-    Some(format!(
-        "{}{:02}{:02}00",
-        date.format("%Y%m%d"),
-        minute / 60,
-        minute % 60
-    ))
 }
 
 fn daily_chart_time(value: &str, close_day_offset: i64) -> String {
@@ -336,6 +304,29 @@ fn chart_candle_to_ohlc(candle: &ChartCandle, is_overseas: bool) -> Option<OhlcC
 #[tauri::command]
 pub async fn preview_strategy(input: StrategyPreviewInput) -> CmdResult<StrategyPreviewView> {
     preview_strategy_from_candles(input)
+}
+
+fn lth_preview_signals_for_interval<F>(
+    interval: &str,
+    symbol: &str,
+    params: crate::trading::strategy::LeveragedTrendHoldParams,
+    daily_context: &[OhlcCandle],
+    observations: &[LeveragedTrendHoldTimedCandle],
+    execute: F,
+) -> Vec<LeveragedTrendHoldPreviewSignal>
+where
+    F: FnMut(&LeveragedTrendHoldPreviewSignal, &LeveragedTrendHoldTimedCandle) -> bool,
+{
+    if interval != "1m" {
+        return Vec::new();
+    }
+    crate::trading::strategy::LeveragedTrendHoldStrategy::preview_signals_with_execution(
+        symbol,
+        params,
+        daily_context,
+        observations,
+        execute,
+    )
 }
 
 pub async fn preview_leveraged_trend_hold_for_profile(
@@ -503,7 +494,8 @@ pub async fn preview_leveraged_trend_hold_for_profile(
         .collect::<std::collections::HashMap<_, _>>();
     let mut execution_events = Vec::with_capacity(base_execution_events.len());
     let mut next_execution_index = 0usize;
-    let preview_signals = LeveragedTrendHoldStrategy::preview_signals_with_execution(
+    let preview_signals = lth_preview_signals_for_interval(
+        interval,
         &symbol,
         params,
         &ohlc,
@@ -599,7 +591,9 @@ pub async fn preview_leveraged_trend_hold_for_profile(
     } else {
         "일봉"
     };
-    let message = if signal_views.is_empty() {
+    let message = if interval == "1d" {
+        format!("{symbol} 일봉 {}개는 가격 진단만 제공합니다. 실제 장중 관측이 없어 진입·청산과 투자 성과를 평가할 수 없습니다.", chart_candles.len())
+    } else if signal_views.is_empty() {
         format!(
             "현재 파라미터와 Toss {interval_label} 실제 {}봉 기준으로 매수/청산 신호가 없습니다.",
             chart_candles.len()
@@ -632,7 +626,7 @@ pub async fn preview_leveraged_trend_hold_for_profile(
     let input_hash = replay_input_hash(&[
         REPLAY_ENGINE_VERSION,
         "leveraged_trend_hold",
-        "leveraged-trend-hold-v2",
+        LTH_PREVIEW_STRATEGY_VERSION,
         &symbol,
         interval,
         &params_fingerprint,
@@ -644,16 +638,16 @@ pub async fn preview_leveraged_trend_hold_for_profile(
     ]);
     let replay = ReplayMetadataView {
         engine_version: REPLAY_ENGINE_VERSION.into(),
-        strategy_version: "leveraged-trend-hold-v2".into(),
+        strategy_version: LTH_PREVIEW_STRATEGY_VERSION.into(),
         source_interval: interval.into(),
         replay_cadence: if interval == "1m" {
             "minuteClose"
         } else {
-            "dailyOpenAndClose"
+            "dailyDiagnostic"
         }
         .into(),
         live_cadence_seconds: 10,
-        warmup_count: ohlc.len(),
+        warmup_count: 0,
         data_start: simulation_events
             .first()
             .map(|event| event.chart_time.clone())
@@ -664,8 +658,14 @@ pub async fn preview_leveraged_trend_hold_for_profile(
             .unwrap_or_default(),
         data_source: format!("toss:{interval}"),
         deterministic: true,
-        look_ahead_safe: true,
+        // Provider time/DST/session coverage has not been independently validated.
+        look_ahead_safe: false,
         input_hash,
+        assessment: Some(ReplayAssessmentView::lth(
+            interval,
+            ohlc.len(),
+            if interval == "1m" { timed.len() } else { 0 },
+        )),
     };
     let backtest = run_backtest(
         "leveraged_trend_hold",

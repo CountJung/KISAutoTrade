@@ -595,6 +595,8 @@ UI 규칙:
 - 연구 패널은 초기자본, 수수료/세금/슬리피지 bps, USD/KRW, 종목 최대 비중, 일일 손실 한도, in-sample 비율을 카드 전체 너비에서 입력받는다. 입력·티커·broker/account가 바뀌면 기존 결과와 진행 중 응답을 무효화한다.
 - 결과는 raw signal, 주문 가능, 체결 가정, 차단을 분리하고 누적 수익률/MDD/승률/손익비/turnover/exposure, equity curve, in/out-of-sample, 거래 목록을 표시한다. 큰 거래 목록은 UI에서 100건 이하로 제한해 jank를 막는다.
 - replay cadence와 live 10초 tick cadence, warmup, 데이터 source/range, 재현 hash를 함께 표시해 일봉/1분봉 근사와 실제 tick을 혼동하지 않게 한다.
+- 전용 LTH의 `replay.assessment`로 성과 표시 가능 여부를 결정한다. `dailyDiagnostic/notEvaluable` 일봉과 유효 분봉 0개는 자료 진단만 표시하고 수익률·승률·자산 곡선·거래 성과·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리하며 빈 backtest를 0% 성과로 표시하지 않는다. generic 성과 패널은 기존 계약을 유지한다.
+- `intradaySample/sampleOnly`는 “분봉 표본 모의 결과”로 제목/경고를 표시한다. 별도 일봉 context 수와 실제 장중 관측 수, 최대 200봉/3개월 대표성 부족, 원본 시간대·DST·세션 미검증과 고정 KST 근사를 명시한다. `warmupCount=0`을 일봉 context 없음으로 해석하지 않는다. A/B snapshot은 assessment를 replay에 보존하며 기존 미검증 LTH 저장 결과의 성과도 숨긴다.
 - Generic preview는 모든 전략에 동일한 요청 평가 봉 수를 우선 적용하고 단일 provider 응답의 이전 봉만 별도 `historyCandles`로 보낸다. KIS는 요청 count+252(최대 452), Toss 현재 커맨드는 최대 200 안에서 조회하므로 실제 사전자료가 부족할 수 있다. 추가 페이지 확보 전까지 기간/200·252 기준을 줄이지 않고 요청·실제 평가·사전자료 수를 표시한다.
 - `preparation`에서 자료 부족·지표 준비 중·조건 불충족·신호 무체결·체결 가정을 구분한다. 제공 자료와 실제 지표 버퍼 수, 시작/종료 준비, 처리 후 첫 준비 시각, 조건 평가 봉 수를 함께 읽는다. seed-only 또는 미지원 구간은 평가 불가로 표시하며 null을 false/0으로 단정하지 않는다.
 - A/B 실험은 broker/account/strategy/symbol scope별 localStorage에 두 slot만 저장한다. 전략 버전, params, data source/interval/range, 비용 가정, 생성 시각을 포함하고 credential/secret은 저장하지 않는다. source/기간이 다르면 직접 비교 경고를 표시한다.
@@ -610,4 +612,4 @@ UI 규칙:
 - backend 전환은 자동매매 정지와 schema/import 검증을 통과한 경우만 허용하며, stale 연결 설정으로 작업하지 않도록 form dirty 상태도 action을 잠근다.
 - DB password와 파괴적 관리는 Tauri desktop Settings에서만 렌더링한다. 웹 모드에는 보안 안내만 보여주고 관리 form/control을 노출하지 않는다.
 
-> 마지막 업데이트: 2026-10-03T23:21:04+09:00
+> 마지막 업데이트: 2026-10-05T23:54:16+09:00
