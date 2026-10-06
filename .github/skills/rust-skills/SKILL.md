@@ -1136,9 +1136,9 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - DB password는 `storage/database_keychain.rs`를 통해 OS keychain(macOS Keychain/Windows Credential Manager)에 저장하고 `database_config.json`에는 남기지 않는다. 파일에 남은 레거시 password는 `load_sync`가 시작 시 1회 keychain으로 이전하며, keychain을 쓸 수 없는 환경에서만 파일(0o600) 저장으로 fallback한다. 테스트는 `use_mock_keychain_for_tests()` + `keychain_test_lock()`으로 mock store를 직렬 사용한다(mock은 Entry 인스턴스별 독립 상태라 handle을 process-wide로 재사용해야 한다).
 - 실서버 contract test는 `storage/database_contract_tests.rs`에 있다. `KISAT_PG_HOST/PORT/USER/PASSWORD` env가 없으면 skip하고, 있으면 매 실행 고유한 `kisautotrade_ct_*` database를 자동 생성 경로로 만들어 create/import/export/backend 전환/clear/drop 왕복을 검증한 뒤 DROP한다. 운영 database는 절대 사용하지 않는다.
 - v1 schema는 기존 JSON 복원성을 위한 document store다. 주문/체결 복구·검색·retention을 위한 정규화 schema는 명시적인 schema version migration과 PostgreSQL/MariaDB contract test를 함께 추가한다.
-- JSON 파일 저장은 경로별 lock과 store별 read-modify-write lock을 사용하고, temp write → file fsync → 정상본 `.bak` → atomic rename → parent directory fsync 순서를 지킨다. 역직렬화 실패 시 손상본을 격리하고 마지막 정상 백업으로 복구한다.
+- JSON 파일 저장은 경로별 lock과 store별 read-modify-write lock을 사용한다. 같은 디렉터리에 temp를 생성해 내용 fsync 후 handle을 닫고, 기존 정상본을 `.bak`에 복사·동기화한 뒤 교체한다. Unix는 읽기 전용 백업 fsync와 rename → parent directory fsync를 유지한다. Windows는 쓰기 가능한 백업 handle과 `MoveFileExW(MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)`를 사용하며 copy/delete fallback을 허용하지 않는다. Windows 경로는 기존 parent만 canonicalize해 Unicode/long-path UTF-16 경로로 전달한다. 교체 API 자체 실패 시 기존 정상본을 유지하고 temp를 정리한다. Unix rename 이후 parent fsync 실패는 오류를 반환하지만 새 정상본은 이미 반영될 수 있다. 역직렬화 실패 시 손상본을 격리하고 마지막 정상 백업으로 복구한다. 이 절차의 fixture 테스트는 실제 전원 차단 시 내구성을 증명하지 않는다.
 
-> 마지막 업데이트: 2026-07-15T00:00:00+09:00
+> 마지막 업데이트: 2026-10-06T04:01:20+00:00
 
 
 ## 자동매매 전용 예산 / 볼린저 보강 불변식 (2026-09-11)

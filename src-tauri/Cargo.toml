@@ -46,6 +46,9 @@ sha2 = "0.10"
 fs2 = "0.4"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
+
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 
