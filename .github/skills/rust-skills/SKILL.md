@@ -1152,6 +1152,12 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 
 > 마지막 업데이트: 2026-10-05T23:54:16+09:00
 
+## Rust 1.99 Clippy 호환 패턴 (2026-10-06)
+
+- async-trait 0.1.89는 trait async 메서드에 중복 must_use를 생성해 Rust 1.99의 double_must_use가 발생한다. 앱 trait의 Send/lifetime 계약을 직접 재작성하거나 lint allow/expect를 추가하지 않고 공식 수정판 0.1.92로 갱신한다. 추가 syn 3.0.6의 최소 Rust 버전도 1.71이라 프로젝트 1.90 기준을 유지한다.
+- server/market.rs의 private validate_toss_web_order는 큰 HTTP Response를 오류에 직접 넣는 대신 Box<Response>에 보관한다. 네 오류 경로의 응답을 그대로 감싸고 국내·해외 caller에서 *response를 이동하여 상태·헤더·본문·검증 순서를 보존한다. 공개 IPC와 REST 계약은 변경하지 않는다.
+- 이 helper의 정상/provider/pending 경로는 실제 Toss endpoint를 사용하므로 API 미호출 검증에서는 합성 프로파일의 비 Toss 및 수량 0 조기 오류만 실행한다. 네트워크 이후 분기를 실행했다고 주장하지 않는다.
+
 ## 보안 의존성 및 Mac 검증 기준 (2026-10-06)
 
 - Tauri 2.12.1의 최소 Rust 버전 1.90을 manifest와 harness에 유지한다. Windows Rust 1.92는 이 기준을 충족하며 Mac은 1.95에서 검사했다.
@@ -1159,4 +1165,4 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - quick-xml 예외 두 개는 plist 1.10.1 업데이트로 해제했다. RSA 예외 하나와 Linux GLib/proc-macro-error 경고는 docs/release-security.md의 실제 경로·해제 조건을 확인하며 테스트 약화나 추가 ignore로 해결하지 않는다.
 - PostgreSQL contract 테스트는 DB 환경 변수가 없으면 즉시 반환하므로 전체 통과 개수에서 실서버 검증으로 계산하지 않는다. 이번 Mac 검증에서도 DB 환경 변수를 제거했고 실거래·모의 주문 API를 호출하지 않았다.
 
-> 마지막 업데이트: 2026-10-06T07:59:39+00:00
+> 마지막 업데이트: 2026-10-06T10:56:34+00:00

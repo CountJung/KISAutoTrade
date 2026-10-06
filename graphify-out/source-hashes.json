@@ -65,7 +65,7 @@
   "src-tauri/src/notifications/mod.rs": "75f95cdb8e293b680dd3a6e838a491a61912b63d3c008dd96991493ae2d396d3",
   "src-tauri/src/notifications/types.rs": "20cde0500cf80e7c99528902c42e3fda1cec699654ac9edc901ebe84a1dd1e68",
   "src-tauri/src/server/budget.rs": "04bf6004a624cd9ab8ef34eb480ca20dd62fbb468adb4d0951fd36ec0f5b76af",
-  "src-tauri/src/server/market.rs": "772e95baffe097efe0bfe25d2fd7bd187907f76767bb3fda0f62bbe9554c72ce",
+  "src-tauri/src/server/market.rs": "1a12f93069c8821f0ed996cba3e8ca2d449739fcacc002b2b6610e5b7149a183",
   "src-tauri/src/server/mod.rs": "d15f3a06f1bfeb07903eedeceb72559b30664ec352b023e95036395e47b0c08c",
   "src-tauri/src/server/profiles.rs": "7e6ec3e054e4a8978b5a2d485cfb45f48efb6744a2a4bf36a366f349ed16cd91",
   "src-tauri/src/server/records.rs": "3af275bc0ad157732845d4aa4aa3bf0a7a3de3b1a4d8ce15ee600d4af0f66216",

@@ -571,8 +571,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "react",
-      "community": 120,
-      "community_name": "react",
+      "community": 25,
+      "community_name": "settings/ui/Page.tsx",
       "norm_label": "react"
     },
     {
@@ -2196,8 +2196,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "src_tauri_src_api_rest_kisorderrejected",
-      "community": 35,
-      "community_name": ".new",
+      "community": 9,
+      "community_name": "KisRestClient",
       "norm_label": "kisorderrejected"
     },
     {
@@ -2207,8 +2207,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_api_rest_rs_string",
-      "community": 35,
-      "community_name": ".new",
+      "community": 9,
+      "community_name": "KisRestClient",
       "norm_label": "string"
     },
     {
@@ -3670,8 +3670,8 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "src_tauri_src_broker_adapter_default_place_order_returns_unsupported_with_broker_id",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "default_place_order_returns_unsupported_with_broker_id()"
     },
     {
@@ -3758,8 +3758,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_broker_domain_rs_self",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "self"
     },
     {
@@ -3769,8 +3769,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "src_tauri_src_broker_domain_brokerscope_kis_legacy",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": ".kis_legacy()"
     },
     {
@@ -3791,8 +3791,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "src_tauri_src_broker_domain_brokersymbol",
-      "community": 89,
-      "community_name": "BrokerSymbol",
+      "community": 63,
+      "community_name": "TossBrokerAdapter",
       "norm_label": "brokersymbol"
     },
     {
@@ -3824,8 +3824,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "src_tauri_src_broker_domain_brokermoney_krw",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": ".krw()"
     },
     {
@@ -3835,8 +3835,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_broker_domain_rs_into",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "into"
     },
     {
@@ -3846,8 +3846,8 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "src_tauri_src_broker_domain_brokermoney_usd",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": ".usd()"
     },
     {
@@ -3857,8 +3857,8 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "src_tauri_src_broker_domain_brokerquantity",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "brokerquantity"
     },
     {
@@ -3868,8 +3868,8 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "src_tauri_src_broker_domain_brokerquantity_from_u64",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": ".from_u64()"
     },
     {
@@ -3879,8 +3879,8 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "src_tauri_src_broker_domain_brokerquantity_parse_u64",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": ".parse_u64()"
     },
     {
@@ -4033,8 +4033,8 @@
       "source_location": "L221",
       "_origin": "ast",
       "id": "src_tauri_src_broker_domain_serializes_currency_as_uppercase",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "serializes_currency_as_uppercase()"
     },
     {
@@ -4066,8 +4066,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_tauri_src_broker_kis",
-      "community": 21,
-      "community_name": "KisBrokerAdapter",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "kis.rs"
     },
     {
@@ -4077,8 +4077,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "src_tauri_src_broker_kis_kisbrokeradapter",
-      "community": 21,
-      "community_name": "KisBrokerAdapter",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "kisbrokeradapter"
     },
     {
@@ -4088,8 +4088,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_broker_kis_rs_arc",
-      "community": 21,
-      "community_name": "KisBrokerAdapter",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "arc"
     },
     {
@@ -4099,8 +4099,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "src_tauri_src_broker_kis_kisbrokeradapter_new",
-      "community": 21,
-      "community_name": "KisBrokerAdapter",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": ".new()"
     },
     {
@@ -4110,8 +4110,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_broker_kis_rs_self",
-      "community": 21,
-      "community_name": "KisBrokerAdapter",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "self"
     },
     {
@@ -4121,8 +4121,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "src_tauri_src_broker_kis_kisbrokeradapter_map_balance_item",
-      "community": 21,
-      "community_name": "KisBrokerAdapter",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": ".map_balance_item()"
     },
     {
@@ -4132,8 +4132,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_broker_kis_rs_balanceitem",
-      "community": 21,
-      "community_name": "KisBrokerAdapter",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "balanceitem"
     },
     {
@@ -4143,8 +4143,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "src_tauri_src_broker_kis_kisbrokeradapter_broker_id",
-      "community": 21,
-      "community_name": "KisBrokerAdapter",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": ".broker_id()"
     },
     {
@@ -4154,8 +4154,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_broker_kis_rs_brokerid",
-      "community": 21,
-      "community_name": "KisBrokerAdapter",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "brokerid"
     },
     {
@@ -4165,8 +4165,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "src_tauri_src_broker_kis_kisbrokeradapter_get_price",
-      "community": 21,
-      "community_name": "KisBrokerAdapter",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": ".get_price()"
     },
     {
@@ -4176,8 +4176,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_broker_kis_rs_brokeradapterresult",
-      "community": 21,
-      "community_name": "KisBrokerAdapter",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "brokeradapterresult"
     },
     {
@@ -4187,8 +4187,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "src_tauri_src_broker_kis_kisbrokeradapter_list_holdings",
-      "community": 21,
-      "community_name": "KisBrokerAdapter",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": ".list_holdings()"
     },
     {
@@ -4198,8 +4198,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_broker_kis_rs_option",
-      "community": 21,
-      "community_name": "KisBrokerAdapter",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "option"
     },
     {
@@ -4209,8 +4209,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_broker_kis_rs_vec",
-      "community": 21,
-      "community_name": "KisBrokerAdapter",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "vec"
     },
     {
@@ -4231,8 +4231,8 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "src_tauri_src_broker_kis_maps_kis_balance_item_to_broker_holding",
-      "community": 21,
-      "community_name": "KisBrokerAdapter",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "maps_kis_balance_item_to_broker_holding()"
     },
     {
@@ -5595,8 +5595,8 @@
       "source_location": "L394",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_client_tossopenapiclient_get_candles",
-      "community": 132,
-      "community_name": ".new",
+      "community": 15,
+      "community_name": "TossOpenApiClient",
       "norm_label": ".get_candles()"
     },
     {
@@ -5980,8 +5980,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_http_rs_string",
-      "community": 132,
-      "community_name": ".new",
+      "community": 15,
+      "community_name": "TossOpenApiClient",
       "norm_label": "string"
     },
     {
@@ -5991,8 +5991,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_http_body_snippet",
-      "community": 132,
-      "community_name": ".new",
+      "community": 15,
+      "community_name": "TossOpenApiClient",
       "norm_label": "body_snippet()"
     },
     {
@@ -6013,8 +6013,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_http_url_encode",
-      "community": 132,
-      "community_name": ".new",
+      "community": 15,
+      "community_name": "TossOpenApiClient",
       "norm_label": "url_encode()"
     },
     {
@@ -6112,8 +6112,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_orders_rs_self",
-      "community": 19,
-      "community_name": "toss/orders.rs",
+      "community": 89,
+      "community_name": "BrokerSymbol",
       "norm_label": "self"
     },
     {
@@ -6123,8 +6123,8 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_orders_tossorderlistquery_validate",
-      "community": 29,
-      "community_name": "support.rs",
+      "community": 15,
+      "community_name": "TossOpenApiClient",
       "norm_label": ".validate()"
     },
     {
@@ -6167,8 +6167,8 @@
       "source_location": "L113",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_orders_tossordercreaterequest_with_generated_client_order_id",
-      "community": 19,
-      "community_name": "toss/orders.rs",
+      "community": 89,
+      "community_name": "BrokerSymbol",
       "norm_label": ".with_generated_client_order_id()"
     },
     {
@@ -6321,8 +6321,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_support_toss_currency",
-      "community": 45,
-      "community_name": ".to_broker_holding",
+      "community": 29,
+      "community_name": "support.rs",
       "norm_label": "toss_currency()"
     },
     {
@@ -6343,8 +6343,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_support_rs_brokercurrency",
-      "community": 45,
-      "community_name": ".to_broker_holding",
+      "community": 29,
+      "community_name": "support.rs",
       "norm_label": "brokercurrency"
     },
     {
@@ -6387,8 +6387,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_support_market_from_currency",
-      "community": 45,
-      "community_name": ".to_broker_holding",
+      "community": 29,
+      "community_name": "support.rs",
       "norm_label": "market_from_currency()"
     },
     {
@@ -6398,8 +6398,8 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_support_validate_toss_symbol",
-      "community": 29,
-      "community_name": "support.rs",
+      "community": 15,
+      "community_name": "TossOpenApiClient",
       "norm_label": "validate_toss_symbol()"
     },
     {
@@ -6431,8 +6431,8 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_support_new_toss_client_order_id",
-      "community": 29,
-      "community_name": "support.rs",
+      "community": 89,
+      "community_name": "BrokerSymbol",
       "norm_label": "new_toss_client_order_id()"
     },
     {
@@ -6442,8 +6442,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_support_rs_string",
-      "community": 29,
-      "community_name": "support.rs",
+      "community": 89,
+      "community_name": "BrokerSymbol",
       "norm_label": "string"
     },
     {
@@ -6497,8 +6497,8 @@
       "source_location": "L174",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_support_validate_iso_date",
-      "community": 29,
-      "community_name": "support.rs",
+      "community": 15,
+      "community_name": "TossOpenApiClient",
       "norm_label": "validate_iso_date()"
     },
     {
@@ -6552,8 +6552,8 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_tests_maps_holding_to_broker_domain",
-      "community": 66,
-      "community_name": "BrokerAccountId",
+      "community": 89,
+      "community_name": "BrokerSymbol",
       "norm_label": "maps_holding_to_broker_domain()"
     },
     {
@@ -6585,8 +6585,8 @@
       "source_location": "L149",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_tests_validates_order_create_request_shape",
-      "community": 29,
-      "community_name": "support.rs",
+      "community": 89,
+      "community_name": "BrokerSymbol",
       "norm_label": "validates_order_create_request_shape()"
     },
     {
@@ -6629,8 +6629,8 @@
       "source_location": "L324",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_tests_selects_price_response_case_insensitively",
-      "community": 89,
-      "community_name": "BrokerSymbol",
+      "community": 63,
+      "community_name": "TossBrokerAdapter",
       "norm_label": "selects_price_response_case_insensitively()"
     },
     {
@@ -6893,8 +6893,8 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_types_tosspriceresponse",
-      "community": 27,
-      "community_name": "toss/types.rs",
+      "community": 63,
+      "community_name": "TossBrokerAdapter",
       "norm_label": "tosspriceresponse"
     },
     {
@@ -6904,8 +6904,8 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_types_tosspriceresponse_to_broker_price_quote",
-      "community": 45,
-      "community_name": ".to_broker_holding",
+      "community": 63,
+      "community_name": "TossBrokerAdapter",
       "norm_label": ".to_broker_price_quote()"
     },
     {
@@ -6915,8 +6915,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_types_rs_brokeradapterresult",
-      "community": 45,
-      "community_name": ".to_broker_holding",
+      "community": 63,
+      "community_name": "TossBrokerAdapter",
       "norm_label": "brokeradapterresult"
     },
     {
@@ -6926,8 +6926,8 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_types_tossexchangerateresponse",
-      "community": 27,
-      "community_name": "toss/types.rs",
+      "community": 63,
+      "community_name": "TossBrokerAdapter",
       "norm_label": "tossexchangerateresponse"
     },
     {
@@ -6937,8 +6937,8 @@
       "source_location": "L127",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_types_tossexchangerateresponse_rate_as_f64",
-      "community": 27,
-      "community_name": "toss/types.rs",
+      "community": 63,
+      "community_name": "TossBrokerAdapter",
       "norm_label": ".rate_as_f64()"
     },
     {
@@ -6948,8 +6948,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_types_rs_result",
-      "community": 45,
-      "community_name": ".to_broker_holding",
+      "community": 29,
+      "community_name": "support.rs",
       "norm_label": "result"
     },
     {
@@ -7146,8 +7146,8 @@
       "source_location": "L275",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_types_tosscandle_to_broker_candle",
-      "community": 45,
-      "community_name": ".to_broker_holding",
+      "community": 29,
+      "community_name": "support.rs",
       "norm_label": ".to_broker_candle()"
     },
     {
@@ -7179,8 +7179,8 @@
       "source_location": "L329",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_types_tossholdingsitem_to_broker_holding",
-      "community": 45,
-      "community_name": ".to_broker_holding",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": ".to_broker_holding()"
     },
     {
@@ -7278,8 +7278,8 @@
       "source_location": "L421",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_types_tossbuyingpower",
-      "community": 27,
-      "community_name": "toss/types.rs",
+      "community": 29,
+      "community_name": "support.rs",
       "norm_label": "tossbuyingpower"
     },
     {
@@ -7289,8 +7289,8 @@
       "source_location": "L427",
       "_origin": "ast",
       "id": "src_tauri_src_broker_toss_types_tossbuyingpower_money",
-      "community": 45,
-      "community_name": ".to_broker_holding",
+      "community": 29,
+      "community_name": "support.rs",
       "norm_label": ".money()"
     },
     {
@@ -7344,8 +7344,8 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "src_tauri_src_commands_appstate",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "appstate"
     },
     {
@@ -7355,8 +7355,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "file",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "file"
     },
     {
@@ -7366,8 +7366,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_rs_arc",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "arc"
     },
     {
@@ -7377,8 +7377,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_rs_rwlock",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "rwlock"
     },
     {
@@ -7399,8 +7399,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_rs_pathbuf",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "pathbuf"
     },
     {
@@ -7410,8 +7410,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_rs_mutex",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "mutex"
     },
     {
@@ -7421,8 +7421,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_rs_ordermanager",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "ordermanager"
     },
     {
@@ -7432,8 +7432,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_rs_logconfig",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "logconfig"
     },
     {
@@ -7443,8 +7443,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_rs_tradearchiveconfig",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "tradearchiveconfig"
     },
     {
@@ -7454,8 +7454,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_rs_vec",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "vec"
     },
     {
@@ -7465,8 +7465,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_rs_stocksearchitem",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "stocksearchitem"
     },
     {
@@ -7476,8 +7476,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_rs_atomicbool",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "atomicbool"
     },
     {
@@ -7498,8 +7498,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_rs_brokerid",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "brokerid"
     },
     {
@@ -7509,8 +7509,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_rs_exchangerateview",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "exchangerateview"
     },
     {
@@ -7520,8 +7520,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_rs_refreshconfig",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "refreshconfig"
     },
     {
@@ -7531,8 +7531,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_rs_sender",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "sender"
     },
     {
@@ -7542,8 +7542,8 @@
       "source_location": "L181",
       "_origin": "ast",
       "id": "src_tauri_src_commands_appstate_new",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": ".new()"
     },
     {
@@ -7564,8 +7564,8 @@
       "source_location": "L505",
       "_origin": "ast",
       "id": "src_tauri_src_commands_make_rest_client",
-      "community": 165,
-      "community_name": "AppState",
+      "community": 22,
+      "community_name": "commands.rs",
       "norm_label": "make_rest_client()"
     },
     {
@@ -8136,8 +8136,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "archive.rs"
     },
     {
@@ -8147,8 +8147,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_tradearchiveconfig",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "tradearchiveconfig"
     },
     {
@@ -8158,8 +8158,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_rs_default",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "default"
     },
     {
@@ -8169,8 +8169,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_tradearchiveconfig_default",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": ".default()"
     },
     {
@@ -8180,8 +8180,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_rs_self",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "self"
     },
     {
@@ -8191,8 +8191,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_tradearchiveconfig_load_or_default",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": ".load_or_default()"
     },
     {
@@ -8202,8 +8202,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_rs_path",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "path"
     },
     {
@@ -8213,8 +8213,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_tradearchiveconfig_save",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": ".save()"
     },
     {
@@ -8224,8 +8224,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_rs_result",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "result"
     },
     {
@@ -8235,8 +8235,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_rs_string",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "string"
     },
     {
@@ -8246,8 +8246,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_tradearchivestats",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "tradearchivestats"
     },
     {
@@ -8257,8 +8257,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_rs_option",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "option"
     },
     {
@@ -8268,8 +8268,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_collect_trade_archive_stats",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "collect_trade_archive_stats()"
     },
     {
@@ -8279,8 +8279,8 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_collect_trade_archive_stats_active",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "collect_trade_archive_stats_active()"
     },
     {
@@ -8290,8 +8290,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_rs_cmdresult",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "cmdresult"
     },
     {
@@ -8301,8 +8301,8 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_purge_trade_archive_active",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "purge_trade_archive_active()"
     },
     {
@@ -8312,8 +8312,8 @@
       "source_location": "L127",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_collect_trade_day_dirs",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "collect_trade_day_dirs()"
     },
     {
@@ -8323,8 +8323,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_rs_vec",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "vec"
     },
     {
@@ -8334,8 +8334,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_rs_naivedate",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "naivedate"
     },
     {
@@ -8345,8 +8345,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_rs_pathbuf",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "pathbuf"
     },
     {
@@ -8356,8 +8356,8 @@
       "source_location": "L186",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_dir_size_bytes",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "dir_size_bytes()"
     },
     {
@@ -8367,8 +8367,8 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_purge_old_trade_files",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "purge_old_trade_files()"
     },
     {
@@ -8378,8 +8378,8 @@
       "source_location": "L245",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_get_trade_archive_config",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "get_trade_archive_config()"
     },
     {
@@ -8389,8 +8389,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_rs_state",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "state"
     },
     {
@@ -8400,8 +8400,8 @@
       "source_location": "L250",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_settradearchiveconfiginput",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "settradearchiveconfiginput"
     },
     {
@@ -8411,8 +8411,8 @@
       "source_location": "L256",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_set_trade_archive_config",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "set_trade_archive_config()"
     },
     {
@@ -8422,8 +8422,8 @@
       "source_location": "L284",
       "_origin": "ast",
       "id": "src_tauri_src_commands_archive_get_trade_archive_stats",
-      "community": 74,
-      "community_name": "run",
+      "community": 42,
+      "community_name": "model/settingsStore.ts",
       "norm_label": "get_trade_archive_stats()"
     },
     {
@@ -10424,8 +10424,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "commands/strategy.rs"
     },
     {
@@ -10435,8 +10435,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_positionview",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "positionview"
     },
     {
@@ -10446,8 +10446,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_rs_string",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "string"
     },
     {
@@ -10457,8 +10457,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_rs_from",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "from"
     },
     {
@@ -10468,8 +10468,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_positionview_from",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": ".from()"
     },
     {
@@ -10479,8 +10479,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_rs_self",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "self"
     },
     {
@@ -10490,8 +10490,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_get_positions",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "get_positions()"
     },
     {
@@ -10501,8 +10501,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_rs_state",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "state"
     },
     {
@@ -10512,8 +10512,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_rs_cmdresult",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "cmdresult"
     },
     {
@@ -10523,8 +10523,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_rs_vec",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "vec"
     },
     {
@@ -10534,8 +10534,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_get_strategies",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "get_strategies()"
     },
     {
@@ -10545,8 +10545,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "strategyview",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "strategyview"
     },
     {
@@ -10556,8 +10556,8 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_updatestrategyinput",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "updatestrategyinput"
     },
     {
@@ -10567,8 +10567,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_rs_brokerid",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "brokerid"
     },
     {
@@ -10578,8 +10578,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_rs_option",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "option"
     },
     {
@@ -10589,8 +10589,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_rs_value",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "value"
     },
     {
@@ -10600,8 +10600,8 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_update_strategy",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "update_strategy()"
     },
     {
@@ -11546,8 +11546,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_preview_tests_daily_diagnostic_contains_one_completed_bar_and_no_synthetic_entry_observation",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "daily_diagnostic_contains_one_completed_bar_and_no_synthetic_entry_observation()"
     },
     {
@@ -11568,8 +11568,8 @@
       "source_location": "L113",
       "_origin": "ast",
       "id": "src_tauri_src_commands_strategy_preview_tests_minute_replay_warmup_excludes_replay_day_and_future_daily_candles",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "minute_replay_warmup_excludes_replay_day_and_future_daily_candles()"
     },
     {
@@ -14538,8 +14538,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "market_hours.rs"
     },
     {
@@ -14549,8 +14549,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_now_kst",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "now_kst()"
     },
     {
@@ -14560,8 +14560,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_rs_datetime",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "datetime"
     },
     {
@@ -14571,8 +14571,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "fixedoffset",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "fixedoffset"
     },
     {
@@ -14582,8 +14582,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_marketsessionwindow",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "marketsessionwindow"
     },
     {
@@ -14593,8 +14593,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_marketsessionwindow_parse",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": ".parse()"
     },
     {
@@ -14604,8 +14604,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_rs_option",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "option"
     },
     {
@@ -14615,8 +14615,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_rs_self",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "self"
     },
     {
@@ -14626,8 +14626,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_marketsessionwindow_contains",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": ".contains()"
     },
     {
@@ -14637,8 +14637,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_marketdaycalendar",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "marketdaycalendar"
     },
     {
@@ -14648,8 +14648,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_marketdaycalendar_regular",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": ".regular()"
     },
     {
@@ -14659,8 +14659,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_marketdaycalendar_closed",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": ".closed()"
     },
     {
@@ -14670,8 +14670,8 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_marketdaycalendar_is_open_at",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": ".is_open_at()"
     },
     {
@@ -14681,8 +14681,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_ustradingsessionpolicy",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "ustradingsessionpolicy"
     },
     {
@@ -14692,8 +14692,8 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_ustradingsessionpolicy_parse",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": ".parse()"
     },
     {
@@ -14703,8 +14703,8 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_usmarketsessioncalendar",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "usmarketsessioncalendar"
     },
     {
@@ -14714,8 +14714,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_usmarketsessioncalendar_is_open_at",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": ".is_open_at()"
     },
     {
@@ -14725,8 +14725,8 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_marketcalendaroverride",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "marketcalendaroverride"
     },
     {
@@ -14736,8 +14736,8 @@
       "source_location": "L122",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_marketcalendaroverride_is_kr_open_at",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": ".is_kr_open_at()"
     },
     {
@@ -14747,8 +14747,8 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_marketcalendaroverride_is_us_open_at",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": ".is_us_open_at()"
     },
     {
@@ -14758,8 +14758,8 @@
       "source_location": "L130",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_marketcalendaroverride_is_us_open_at_with_policy",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": ".is_us_open_at_with_policy()"
     },
     {
@@ -14769,8 +14769,8 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_is_domestic_symbol",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 58,
+      "community_name": "BrokerScope",
       "norm_label": "is_domestic_symbol()"
     },
     {
@@ -14780,8 +14780,8 @@
       "source_location": "L155",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_is_krx_open",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "is_krx_open()"
     },
     {
@@ -14791,8 +14791,8 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_is_krx_open_at",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "is_krx_open_at()"
     },
     {
@@ -14802,8 +14802,8 @@
       "source_location": "L184",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_is_us_open",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "is_us_open()"
     },
     {
@@ -14813,8 +14813,8 @@
       "source_location": "L188",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_is_us_open_at",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "is_us_open_at()"
     },
     {
@@ -14824,8 +14824,8 @@
       "source_location": "L213",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_is_market_open_for",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "is_market_open_for()"
     },
     {
@@ -14835,8 +14835,8 @@
       "source_location": "L221",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_is_market_open_for_with_calendar",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "is_market_open_for_with_calendar()"
     },
     {
@@ -14846,8 +14846,8 @@
       "source_location": "L237",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_is_market_open_for_with_calendar_policy",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "is_market_open_for_with_calendar_policy()"
     },
     {
@@ -14857,8 +14857,8 @@
       "source_location": "L257",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_open_markets_summary",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "open_markets_summary()"
     },
     {
@@ -14868,8 +14868,8 @@
       "source_location": "L266",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_open_markets_summary_with_calendar",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "open_markets_summary_with_calendar()"
     },
     {
@@ -14879,8 +14879,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_rs_string",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "string"
     },
     {
@@ -14890,8 +14890,8 @@
       "source_location": "L288",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_domestic_symbol_detection",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "domestic_symbol_detection()"
     },
     {
@@ -14901,8 +14901,8 @@
       "source_location": "L299",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_calendar_session_window_checks_time_range",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "calendar_session_window_checks_time_range()"
     },
     {
@@ -14912,8 +14912,8 @@
       "source_location": "L311",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_calendar_override_represents_holiday_without_fallback",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "calendar_override_represents_holiday_without_fallback()"
     },
     {
@@ -14923,8 +14923,8 @@
       "source_location": "L324",
       "_origin": "ast",
       "id": "src_tauri_src_market_hours_us_session_policy_checks_extended_sessions",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 210,
+      "community_name": "LeveragedTrendHoldStrategy",
       "norm_label": "us_session_policy_checks_extended_sessions()"
     },
     {
@@ -14934,8 +14934,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_discord",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 67,
+      "community_name": "DiscordNotifier",
       "norm_label": "discord.rs"
     },
     {
@@ -14945,8 +14945,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_discord_discordnotifier",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 67,
+      "community_name": "DiscordNotifier",
       "norm_label": "discordnotifier"
     },
     {
@@ -14956,8 +14956,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_discord_rs_client",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 67,
+      "community_name": "DiscordNotifier",
       "norm_label": "client"
     },
     {
@@ -14967,8 +14967,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_discord_rs_string",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 67,
+      "community_name": "DiscordNotifier",
       "norm_label": "string"
     },
     {
@@ -14978,8 +14978,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_discord_discordnotifier_new",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 67,
+      "community_name": "DiscordNotifier",
       "norm_label": ".new()"
     },
     {
@@ -14989,8 +14989,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_discord_rs_self",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 67,
+      "community_name": "DiscordNotifier",
       "norm_label": "self"
     },
     {
@@ -15000,8 +15000,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_discord_discordnotifier_send",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 67,
+      "community_name": "DiscordNotifier",
       "norm_label": ".send()"
     },
     {
@@ -15011,8 +15011,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_discord_rs_result",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 67,
+      "community_name": "DiscordNotifier",
       "norm_label": "result"
     },
     {
@@ -15022,8 +15022,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_discord_discordnotifier_send_message",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 67,
+      "community_name": "DiscordNotifier",
       "norm_label": ".send_message()"
     },
     {
@@ -15033,8 +15033,8 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_discord_test_discord_message_format",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": "test_discord_message_format()"
     },
     {
@@ -15088,8 +15088,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_types",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": "notifications/types.rs"
     },
     {
@@ -15099,8 +15099,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_types_notificationlevel",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": "notificationlevel"
     },
     {
@@ -15110,8 +15110,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_types_notificationlevel_emoji",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": ".emoji()"
     },
     {
@@ -15121,8 +15121,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_types_notificationlevel_label",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": ".label()"
     },
     {
@@ -15132,8 +15132,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_types_notificationevent",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": "notificationevent"
     },
     {
@@ -15143,8 +15143,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_types_rs_string",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": "string"
     },
     {
@@ -15154,8 +15154,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_types_rs_option",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": "option"
     },
     {
@@ -15165,8 +15165,8 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_types_notificationevent_critical",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": ".critical()"
     },
     {
@@ -15176,8 +15176,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_types_rs_into",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": "into"
     },
     {
@@ -15187,8 +15187,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_types_rs_self",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": "self"
     },
     {
@@ -15198,8 +15198,8 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_types_notificationevent_error",
-      "community": 59,
-      "community_name": "OrderManager",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": ".error()"
     },
     {
@@ -15209,8 +15209,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_types_notificationevent_trade",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": ".trade()"
     },
     {
@@ -15220,8 +15220,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_types_notificationevent_info",
-      "community": 46,
-      "community_name": "commands/trading.rs",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": ".info()"
     },
     {
@@ -15231,8 +15231,8 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "src_tauri_src_notifications_types_notificationevent_to_discord_message",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": ".to_discord_message()"
     },
     {
@@ -15654,6 +15654,17 @@
       "norm_label": "result"
     },
     {
+      "label": "Box",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast",
+      "id": "src_tauri_src_server_market_rs_box",
+      "community": 91,
+      "community_name": "server/market.rs",
+      "norm_label": "box"
+    },
+    {
       "label": "invalid_order_input()",
       "file_type": "code",
       "source_file": "src-tauri/src/server/market.rs",
@@ -15698,10 +15709,32 @@
       "norm_label": "parse_order_type()"
     },
     {
+      "label": "web_preflight_wrong_broker_preserves_bad_request_response()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/server/market.rs",
+      "source_location": "L538",
+      "_origin": "ast",
+      "id": "src_tauri_src_server_market_web_preflight_wrong_broker_preserves_bad_request_response",
+      "community": 91,
+      "community_name": "server/market.rs",
+      "norm_label": "web_preflight_wrong_broker_preserves_bad_request_response()"
+    },
+    {
+      "label": "web_preflight_zero_quantity_preserves_bad_request_response()",
+      "file_type": "code",
+      "source_file": "src-tauri/src/server/market.rs",
+      "source_location": "L571",
+      "_origin": "ast",
+      "id": "src_tauri_src_server_market_web_preflight_zero_quantity_preserves_bad_request_response",
+      "community": 91,
+      "community_name": "server/market.rs",
+      "norm_label": "web_preflight_zero_quantity_preserves_bad_request_response()"
+    },
+    {
       "label": "invalid_order_enums_never_fall_back_to_sell_or_market()",
       "file_type": "code",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L537",
+      "source_location": "L605",
       "_origin": "ast",
       "id": "src_tauri_src_server_market_invalid_order_enums_never_fall_back_to_sell_or_market",
       "community": 91,
@@ -15712,7 +15745,7 @@
       "label": "ChartQuery",
       "file_type": "code",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L548",
+      "source_location": "L616",
       "_origin": "ast",
       "id": "src_tauri_src_server_market_chartquery",
       "community": 91,
@@ -15723,7 +15756,7 @@
       "label": "chart_handler()",
       "file_type": "code",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L554",
+      "source_location": "L622",
       "_origin": "ast",
       "id": "src_tauri_src_server_market_chart_handler",
       "community": 91,
@@ -15745,7 +15778,7 @@
       "label": "overseas_chart_handler()",
       "file_type": "code",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L586",
+      "source_location": "L654",
       "_origin": "ast",
       "id": "src_tauri_src_server_market_overseas_chart_handler",
       "community": 91,
@@ -15756,7 +15789,7 @@
       "label": "stock_list_stats_handler()",
       "file_type": "code",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L608",
+      "source_location": "L676",
       "_origin": "ast",
       "id": "src_tauri_src_server_market_stock_list_stats_handler",
       "community": 91,
@@ -15767,7 +15800,7 @@
       "label": "StockIntervalBody",
       "file_type": "code",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L623",
+      "source_location": "L691",
       "_origin": "ast",
       "id": "src_tauri_src_server_market_stockintervalbody",
       "community": 91,
@@ -15778,7 +15811,7 @@
       "label": "set_stock_update_interval_handler()",
       "file_type": "code",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L628",
+      "source_location": "L696",
       "_origin": "ast",
       "id": "src_tauri_src_server_market_set_stock_update_interval_handler",
       "community": 91,
@@ -15789,7 +15822,7 @@
       "label": "refresh_stock_list_handler()",
       "file_type": "code",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L639",
+      "source_location": "L707",
       "_origin": "ast",
       "id": "src_tauri_src_server_market_refresh_stock_list_handler",
       "community": 91,
@@ -16067,8 +16100,8 @@
       "source_location": "L521",
       "_origin": "ast",
       "id": "src_tauri_src_server_mod_app_config_handler",
-      "community": 87,
-      "community_name": "profiles.rs",
+      "community": 48,
+      "community_name": "ServerState",
       "norm_label": "app_config_handler()"
     },
     {
@@ -20247,8 +20280,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "src_tauri_src_storage_order_store_orderstatus",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "orderstatus"
     },
     {
@@ -20368,8 +20401,8 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "src_tauri_src_storage_order_store_orderrecord_matches_scope",
-      "community": 192,
-      "community_name": "OrderRecord",
+      "community": 58,
+      "community_name": "BrokerScope",
       "norm_label": ".matches_scope()"
     },
     {
@@ -22194,8 +22227,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_tauri_src_trading_mod",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 68,
+      "community_name": "StrategyView",
       "norm_label": "trading/mod.rs"
     },
     {
@@ -22216,8 +22249,8 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_pendingorder",
-      "community": 59,
-      "community_name": "OrderManager",
+      "community": 71,
+      "community_name": "PendingOrder",
       "norm_label": "pendingorder"
     },
     {
@@ -22304,8 +22337,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_rs_arc",
-      "community": 59,
-      "community_name": "OrderManager",
+      "community": 70,
+      "community_name": ".new",
       "norm_label": "arc"
     },
     {
@@ -22315,8 +22348,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_rs_rwlock",
-      "community": 59,
-      "community_name": "OrderManager",
+      "community": 70,
+      "community_name": ".new",
       "norm_label": "rwlock"
     },
     {
@@ -22326,8 +22359,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_rs_mutex",
-      "community": 59,
-      "community_name": "OrderManager",
+      "community": 70,
+      "community_name": ".new",
       "norm_label": "mutex"
     },
     {
@@ -22337,8 +22370,8 @@
       "source_location": "L167",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_ordermanager_new",
-      "community": 59,
-      "community_name": "OrderManager",
+      "community": 70,
+      "community_name": ".new",
       "norm_label": ".new()"
     },
     {
@@ -22348,8 +22381,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_rs_self",
-      "community": 59,
-      "community_name": "OrderManager",
+      "community": 70,
+      "community_name": ".new",
       "norm_label": "self"
     },
     {
@@ -22359,8 +22392,8 @@
       "source_location": "L211",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_ordermanager_set_execution_scope",
-      "community": 58,
-      "community_name": "BrokerScope",
+      "community": 59,
+      "community_name": "OrderManager",
       "norm_label": ".set_execution_scope()"
     },
     {
@@ -22370,8 +22403,8 @@
       "source_location": "L216",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_ordermanager_execution_scope",
-      "community": 58,
-      "community_name": "BrokerScope",
+      "community": 59,
+      "community_name": "OrderManager",
       "norm_label": ".execution_scope()"
     },
     {
@@ -22381,8 +22414,8 @@
       "source_location": "L220",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_ordermanager_order_store_handle",
-      "community": 59,
-      "community_name": "OrderManager",
+      "community": 70,
+      "community_name": ".new",
       "norm_label": ".order_store_handle()"
     },
     {
@@ -22524,8 +22557,8 @@
       "source_location": "L544",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_ordermanager_suspend_buying_for_account_sync",
-      "community": 59,
-      "community_name": "OrderManager",
+      "community": 54,
+      "community_name": "BrokerQuantity",
       "norm_label": ".suspend_buying_for_account_sync()"
     },
     {
@@ -22568,8 +22601,8 @@
       "source_location": "L586",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_ordermanager_pending_orders",
-      "community": 59,
-      "community_name": "OrderManager",
+      "community": 71,
+      "community_name": "PendingOrder",
       "norm_label": ".pending_orders()"
     },
     {
@@ -22579,8 +22612,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_rs_vec",
-      "community": 59,
-      "community_name": "OrderManager",
+      "community": 71,
+      "community_name": "PendingOrder",
       "norm_label": "vec"
     },
     {
@@ -22590,8 +22623,8 @@
       "source_location": "L590",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_ordermanager_restore_pending_orders",
-      "community": 59,
-      "community_name": "OrderManager",
+      "community": 71,
+      "community_name": "PendingOrder",
       "norm_label": ".restore_pending_orders()"
     },
     {
@@ -22612,8 +22645,8 @@
       "source_location": "L617",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_ordermanager_track_pending_order",
-      "community": 59,
-      "community_name": "OrderManager",
+      "community": 71,
+      "community_name": "PendingOrder",
       "norm_label": ".track_pending_order()"
     },
     {
@@ -22766,8 +22799,8 @@
       "source_location": "L1281",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_estimate_order_amount_krw",
-      "community": 59,
-      "community_name": "OrderManager",
+      "community": 85,
+      "community_name": "submission.rs",
       "norm_label": "estimate_order_amount_krw()"
     },
     {
@@ -22865,8 +22898,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_budget_currencyledger",
-      "community": 58,
-      "community_name": "BrokerScope",
+      "community": 65,
+      "community_name": "CurrencyLedger",
       "norm_label": "currencyledger"
     },
     {
@@ -22876,8 +22909,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "btreemap",
-      "community": 58,
-      "community_name": "BrokerScope",
+      "community": 65,
+      "community_name": "CurrencyLedger",
       "norm_label": "btreemap"
     },
     {
@@ -22887,8 +22920,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_budget_rs_string",
-      "community": 58,
-      "community_name": "BrokerScope",
+      "community": 65,
+      "community_name": "CurrencyLedger",
       "norm_label": "string"
     },
     {
@@ -22898,8 +22931,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_budget_rs_option",
-      "community": 58,
-      "community_name": "BrokerScope",
+      "community": 65,
+      "community_name": "CurrencyLedger",
       "norm_label": "option"
     },
     {
@@ -22909,8 +22942,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_budget_budgetreservation",
-      "community": 58,
-      "community_name": "BrokerScope",
+      "community": 65,
+      "community_name": "CurrencyLedger",
       "norm_label": "budgetreservation"
     },
     {
@@ -22942,8 +22975,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_budget_budgetcurrencyview",
-      "community": 58,
-      "community_name": "BrokerScope",
+      "community": 65,
+      "community_name": "CurrencyLedger",
       "norm_label": "budgetcurrencyview"
     },
     {
@@ -22975,8 +23008,8 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_budget_currencyledger_reserved",
-      "community": 58,
-      "community_name": "BrokerScope",
+      "community": 65,
+      "community_name": "CurrencyLedger",
       "norm_label": ".reserved()"
     },
     {
@@ -22986,8 +23019,8 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_budget_currencyledger_blocked_reason",
-      "community": 58,
-      "community_name": "BrokerScope",
+      "community": 65,
+      "community_name": "CurrencyLedger",
       "norm_label": ".blocked_reason()"
     },
     {
@@ -22997,8 +23030,8 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_budget_currencyledger_view",
-      "community": 58,
-      "community_name": "BrokerScope",
+      "community": 65,
+      "community_name": "CurrencyLedger",
       "norm_label": ".view()"
     },
     {
@@ -23459,8 +23492,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "fills.rs"
     },
     {
@@ -23679,8 +23712,8 @@
       "source_location": "L592",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_cumulative_fill_delta_price",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "cumulative_fill_delta_price()"
     },
     {
@@ -23734,8 +23767,8 @@
       "source_location": "L822",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_storage_quantity_units",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "storage_quantity_units()"
     },
     {
@@ -23745,8 +23778,8 @@
       "source_location": "L831",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_normalized_execution_u64",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "normalized_execution_u64()"
     },
     {
@@ -23756,8 +23789,8 @@
       "source_location": "L835",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_provider_terminal_status",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "provider_terminal_status()"
     },
     {
@@ -23778,8 +23811,8 @@
       "source_location": "L858",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_domestic_order_is_terminal",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "domestic_order_is_terminal()"
     },
     {
@@ -23789,8 +23822,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_rs_executedorder",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "executedorder"
     },
     {
@@ -23800,8 +23833,8 @@
       "source_location": "L862",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_domestic_order_terminal_status",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "domestic_order_terminal_status()"
     },
     {
@@ -23811,8 +23844,8 @@
       "source_location": "L891",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_domestic_provider_status",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "domestic_provider_status()"
     },
     {
@@ -23822,8 +23855,8 @@
       "source_location": "L902",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_overseas_order_terminal_status",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "overseas_order_terminal_status()"
     },
     {
@@ -23833,8 +23866,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_rs_overseasexecutedorder",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "overseasexecutedorder"
     },
     {
@@ -23844,8 +23877,8 @@
       "source_location": "L927",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_storage_money_units",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "storage_money_units()"
     },
     {
@@ -23855,8 +23888,8 @@
       "source_location": "L950",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_calculate_domestic_fee",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "calculate_domestic_fee()"
     },
     {
@@ -23866,8 +23899,8 @@
       "source_location": "L965",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_calculate_overseas_fee_cents",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "calculate_overseas_fee_cents()"
     },
     {
@@ -23877,8 +23910,8 @@
       "source_location": "L979",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_repeated_cumulative_fill_is_idempotent",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "repeated_cumulative_fill_is_idempotent()"
     },
     {
@@ -23888,8 +23921,8 @@
       "source_location": "L988",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_cumulative_average_is_converted_to_delta_fill_price",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "cumulative_average_is_converted_to_delta_fill_price()"
     },
     {
@@ -23899,8 +23932,8 @@
       "source_location": "L994",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_domestic_zero_fill_cancel_is_terminal",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "domestic_zero_fill_cancel_is_terminal()"
     },
     {
@@ -23910,8 +23943,8 @@
       "source_location": "L1010",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_domestic_partial_cancel_with_remaining_quantity_is_not_terminal",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "domestic_partial_cancel_with_remaining_quantity_is_not_terminal()"
     },
     {
@@ -23921,8 +23954,8 @@
       "source_location": "L1023",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_overseas_order_received_complete_label_is_not_terminal_with_remaining",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "overseas_order_received_complete_label_is_not_terminal_with_remaining()"
     },
     {
@@ -23932,8 +23965,8 @@
       "source_location": "L1035",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_fills_provider_terminal_status_preserves_rejection_and_expiration",
-      "community": 38,
-      "community_name": "fills.rs",
+      "community": 45,
+      "community_name": ".to_broker_holding",
       "norm_label": "provider_terminal_status_preserves_rejection_and_expiration()"
     },
     {
@@ -24031,8 +24064,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_submission_providerorderrequest",
-      "community": 85,
-      "community_name": "submission.rs",
+      "community": 3,
+      "community_name": "rest/types.rs",
       "norm_label": "providerorderrequest"
     },
     {
@@ -24163,8 +24196,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_submission_pendingorder_signal",
-      "community": 85,
-      "community_name": "submission.rs",
+      "community": 116,
+      "community_name": "Signal",
       "norm_label": ".signal()"
     },
     {
@@ -24526,8 +24559,8 @@
       "source_location": "L1368",
       "_origin": "ast",
       "id": "src_tauri_src_trading_order_submission_failed_buy_uses_signal_price_even_for_domestic_market_order",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 85,
+      "community_name": "submission.rs",
       "norm_label": "failed_buy_uses_signal_price_even_for_domestic_market_order()"
     },
     {
@@ -24999,8 +25032,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_tauri_src_trading_preflight",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 5,
+      "community_name": "submit_toss_small_buy_verification_for_profile",
       "norm_label": "preflight.rs"
     },
     {
@@ -25010,8 +25043,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "src_tauri_src_trading_preflight_orderpreflightinput",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 66,
+      "community_name": "BrokerAccountId",
       "norm_label": "orderpreflightinput"
     },
     {
@@ -25021,8 +25054,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "src_tauri_src_trading_preflight_orderpreflightconstraints",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 5,
+      "community_name": "submit_toss_small_buy_verification_for_profile",
       "norm_label": "orderpreflightconstraints"
     },
     {
@@ -25032,8 +25065,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_preflight_rs_option",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 5,
+      "community_name": "submit_toss_small_buy_verification_for_profile",
       "norm_label": "option"
     },
     {
@@ -25043,8 +25076,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_preflight_rs_string",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 5,
+      "community_name": "submit_toss_small_buy_verification_for_profile",
       "norm_label": "string"
     },
     {
@@ -25054,8 +25087,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "src_tauri_src_trading_preflight_orderpreflightdecision",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 5,
+      "community_name": "submit_toss_small_buy_verification_for_profile",
       "norm_label": "orderpreflightdecision"
     },
     {
@@ -25065,8 +25098,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_preflight_rs_vec",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 5,
+      "community_name": "submit_toss_small_buy_verification_for_profile",
       "norm_label": "vec"
     },
     {
@@ -25076,8 +25109,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "src_tauri_src_trading_preflight_evaluate_order_preflight",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 5,
+      "community_name": "submit_toss_small_buy_verification_for_profile",
       "norm_label": "evaluate_order_preflight()"
     },
     {
@@ -25098,8 +25131,8 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "src_tauri_src_trading_preflight_format_money_amount",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 5,
+      "community_name": "submit_toss_small_buy_verification_for_profile",
       "norm_label": "format_money_amount()"
     },
     {
@@ -25109,8 +25142,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_preflight_rs_brokercurrency",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 5,
+      "community_name": "submit_toss_small_buy_verification_for_profile",
       "norm_label": "brokercurrency"
     },
     {
@@ -25120,8 +25153,8 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "src_tauri_src_trading_preflight_format_quantity",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 5,
+      "community_name": "submit_toss_small_buy_verification_for_profile",
       "norm_label": "format_quantity()"
     },
     {
@@ -25131,8 +25164,8 @@
       "source_location": "L135",
       "_origin": "ast",
       "id": "src_tauri_src_trading_preflight_buy_preflight_adds_commission_and_blocks_when_cash_is_short",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 5,
+      "community_name": "submit_toss_small_buy_verification_for_profile",
       "norm_label": "buy_preflight_adds_commission_and_blocks_when_cash_is_short()"
     },
     {
@@ -25142,8 +25175,8 @@
       "source_location": "L158",
       "_origin": "ast",
       "id": "src_tauri_src_trading_preflight_sell_preflight_blocks_when_sellable_quantity_is_short",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 5,
+      "community_name": "submit_toss_small_buy_verification_for_profile",
       "norm_label": "sell_preflight_blocks_when_sellable_quantity_is_short()"
     },
     {
@@ -25153,8 +25186,8 @@
       "source_location": "L180",
       "_origin": "ast",
       "id": "src_tauri_src_trading_preflight_buy_preflight_passes_when_required_cash_is_available",
-      "community": 54,
-      "community_name": "BrokerQuantity",
+      "community": 5,
+      "community_name": "submit_toss_small_buy_verification_for_profile",
       "norm_label": "buy_preflight_passes_when_required_cash_is_available()"
     },
     {
@@ -29366,8 +29399,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_tauri_src_trading_strategy_leveraged_trend_hold_buffer_tests",
-      "community": 198,
-      "community_name": "buffer_tests.rs",
+      "community": 138,
+      "community_name": ".preview_signals_with_execution",
       "norm_label": "buffer_tests.rs"
     },
     {
@@ -29377,8 +29410,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "src_tauri_src_trading_strategy_leveraged_trend_hold_buffer_tests_params",
-      "community": 198,
-      "community_name": "buffer_tests.rs",
+      "community": 138,
+      "community_name": ".preview_signals_with_execution",
       "norm_label": "params()"
     },
     {
@@ -29388,8 +29421,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "src_tauri_src_trading_strategy_leveraged_trend_hold_buffer_tests_timed",
-      "community": 198,
-      "community_name": "buffer_tests.rs",
+      "community": 138,
+      "community_name": ".preview_signals_with_execution",
       "norm_label": "timed()"
     },
     {
@@ -29399,8 +29432,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_strategy_leveraged_trend_hold_buffer_tests_rs_vec",
-      "community": 198,
-      "community_name": "buffer_tests.rs",
+      "community": 138,
+      "community_name": ".preview_signals_with_execution",
       "norm_label": "vec"
     },
     {
@@ -29410,8 +29443,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "src_tauri_src_trading_strategy_leveraged_trend_hold_buffer_tests_daily_context_cannot_prepare_minute_indicators_or_rebound",
-      "community": 198,
-      "community_name": "buffer_tests.rs",
+      "community": 138,
+      "community_name": ".preview_signals_with_execution",
       "norm_label": "daily_context_cannot_prepare_minute_indicators_or_rebound()"
     },
     {
@@ -29421,8 +29454,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "src_tauri_src_trading_strategy_leveraged_trend_hold_buffer_tests_daily_reinitialization_keeps_intraday_bollinger_and_actual_position",
-      "community": 198,
-      "community_name": "buffer_tests.rs",
+      "community": 138,
+      "community_name": ".preview_signals_with_execution",
       "norm_label": "daily_reinitialization_keeps_intraday_bollinger_and_actual_position()"
     },
     {
@@ -29432,8 +29465,8 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "src_tauri_src_trading_strategy_leveraged_trend_hold_buffer_tests_repeated_intraday_seed_replaces_buffers_without_daily_mix_or_position_reset",
-      "community": 198,
-      "community_name": "buffer_tests.rs",
+      "community": 138,
+      "community_name": ".preview_signals_with_execution",
       "norm_label": "repeated_intraday_seed_replaces_buffers_without_daily_mix_or_position_reset()"
     },
     {
@@ -29443,8 +29476,8 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "src_tauri_src_trading_strategy_leveraged_trend_hold_buffer_tests_replay_daily_values_cannot_change_minute_signals_or_indicator_snapshot",
-      "community": 198,
-      "community_name": "buffer_tests.rs",
+      "community": 138,
+      "community_name": ".preview_signals_with_execution",
       "norm_label": "replay_daily_values_cannot_change_minute_signals_or_indicator_snapshot()"
     },
     {
@@ -29454,8 +29487,8 @@
       "source_location": "L178",
       "_origin": "ast",
       "id": "src_tauri_src_trading_strategy_leveraged_trend_hold_buffer_tests_failed_buy_feedback_does_not_create_phantom_position",
-      "community": 198,
-      "community_name": "buffer_tests.rs",
+      "community": 138,
+      "community_name": ".preview_signals_with_execution",
       "norm_label": "failed_buy_feedback_does_not_create_phantom_position()"
     },
     {
@@ -29465,8 +29498,8 @@
       "source_location": "L197",
       "_origin": "ast",
       "id": "src_tauri_src_trading_strategy_leveraged_trend_hold_buffer_tests_intraday_and_daily_context_buffers_have_independent_bounds",
-      "community": 198,
-      "community_name": "buffer_tests.rs",
+      "community": 138,
+      "community_name": ".preview_signals_with_execution",
       "norm_label": "intraday_and_daily_context_buffers_have_independent_bounds()"
     },
     {
@@ -29476,8 +29509,8 @@
       "source_location": "L226",
       "_origin": "ast",
       "id": "src_tauri_src_trading_strategy_leveraged_trend_hold_buffer_tests_failed_sell_feedback_keeps_actual_position_for_next_risk_exit",
-      "community": 198,
-      "community_name": "buffer_tests.rs",
+      "community": 138,
+      "community_name": ".preview_signals_with_execution",
       "norm_label": "failed_sell_feedback_keeps_actual_position_for_next_risk_exit()"
     },
     {
@@ -32677,8 +32710,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_tauri_src_trading_views",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 68,
+      "community_name": "StrategyView",
       "norm_label": "views.rs"
     },
     {
@@ -32688,8 +32721,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "src_tauri_src_trading_views_strategyview",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 68,
+      "community_name": "StrategyView",
       "norm_label": "strategyview"
     },
     {
@@ -32699,8 +32732,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_views_rs_string",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 68,
+      "community_name": "StrategyView",
       "norm_label": "string"
     },
     {
@@ -32710,8 +32743,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_views_rs_brokerid",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 68,
+      "community_name": "StrategyView",
       "norm_label": "brokerid"
     },
     {
@@ -32721,8 +32754,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_views_rs_option",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 68,
+      "community_name": "StrategyView",
       "norm_label": "option"
     },
     {
@@ -32732,8 +32765,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_views_rs_vec",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 68,
+      "community_name": "StrategyView",
       "norm_label": "vec"
     },
     {
@@ -32743,8 +32776,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_views_rs_hashmap",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 68,
+      "community_name": "StrategyView",
       "norm_label": "hashmap"
     },
     {
@@ -32754,8 +32787,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_views_rs_value",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 68,
+      "community_name": "StrategyView",
       "norm_label": "value"
     },
     {
@@ -32765,8 +32798,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "src_tauri_src_trading_views_build_strategy_view",
-      "community": 41,
-      "community_name": "PositionTracker",
+      "community": 50,
+      "community_name": "get_positions",
       "norm_label": "build_strategy_view()"
     },
     {
@@ -32776,8 +32809,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_tauri_src_updater_mod",
-      "community": 229,
-      "community_name": "check",
+      "community": 74,
+      "community_name": "run",
       "norm_label": "updater/mod.rs"
     },
     {
@@ -32787,8 +32820,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "src_tauri_src_updater_mod_githubrelease",
-      "community": 229,
-      "community_name": "check",
+      "community": 74,
+      "community_name": "run",
       "norm_label": "githubrelease"
     },
     {
@@ -32798,8 +32831,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_updater_mod_rs_string",
-      "community": 229,
-      "community_name": "check",
+      "community": 74,
+      "community_name": "run",
       "norm_label": "string"
     },
     {
@@ -32809,8 +32842,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_updater_mod_rs_option",
-      "community": 229,
-      "community_name": "check",
+      "community": 74,
+      "community_name": "run",
       "norm_label": "option"
     },
     {
@@ -32820,8 +32853,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "src_tauri_src_updater_mod_updateinfo",
-      "community": 229,
-      "community_name": "check",
+      "community": 74,
+      "community_name": "run",
       "norm_label": "updateinfo"
     },
     {
@@ -32831,8 +32864,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "src_tauri_src_updater_mod_check",
-      "community": 229,
-      "community_name": "check",
+      "community": 74,
+      "community_name": "run",
       "norm_label": "check()"
     },
     {
@@ -32842,8 +32875,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_updater_mod_rs_client",
-      "community": 229,
-      "community_name": "check",
+      "community": 74,
+      "community_name": "run",
       "norm_label": "client"
     },
     {
@@ -32853,8 +32886,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_updater_mod_rs_result",
-      "community": 229,
-      "community_name": "check",
+      "community": 74,
+      "community_name": "run",
       "norm_label": "result"
     },
     {
@@ -32864,8 +32897,8 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "src_tauri_src_updater_mod_is_newer",
-      "community": 229,
-      "community_name": "check",
+      "community": 74,
+      "community_name": "run",
       "norm_label": "is_newer()"
     },
     {
@@ -32875,8 +32908,8 @@
       "source_location": "L140",
       "_origin": "ast",
       "id": "src_tauri_src_updater_mod_test_is_newer",
-      "community": 229,
-      "community_name": "check",
+      "community": 74,
+      "community_name": "run",
       "norm_label": "test_is_newer()"
     },
     {
@@ -33480,8 +33513,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_api_budgethooks",
-      "community": 120,
-      "community_name": "react",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "budgethooks.ts"
     },
     {
@@ -33491,8 +33524,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "src_api_budgethooks_useautotradingbudget",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "useautotradingbudget()"
     },
     {
@@ -33502,8 +33535,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "src_api_budgethooks_useupdateautotradingbudget",
-      "community": 120,
-      "community_name": "react",
+      "community": 25,
+      "community_name": "settings/ui/Page.tsx",
       "norm_label": "useupdateautotradingbudget()"
     },
     {
@@ -33513,8 +33546,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_api_commands",
-      "community": 120,
-      "community_name": "react",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "src/api/commands.ts"
     },
     {
@@ -33524,8 +33557,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_api_databasehooks",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "databasehooks.ts"
     },
     {
@@ -33535,8 +33568,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "src_api_databasehooks_usedatabaseconfig",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "usedatabaseconfig()"
     },
     {
@@ -33546,8 +33579,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "src_api_databasehooks_usejsonstorageinventory",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "usejsonstorageinventory()"
     },
     {
@@ -33557,8 +33590,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "src_api_databasehooks_usestatusmutation",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "usestatusmutation()"
     },
     {
@@ -33568,8 +33601,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "src_api_databasehooks_usesavedatabaseconfig",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "usesavedatabaseconfig()"
     },
     {
@@ -33579,8 +33612,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "src_api_databasehooks_usetestdatabaseconnection",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "usetestdatabaseconnection()"
     },
     {
@@ -33590,8 +33623,8 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "src_api_databasehooks_usecreatedatabasetables",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "usecreatedatabasetables()"
     },
     {
@@ -33601,8 +33634,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "src_api_databasehooks_usecleardatabasetables",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "usecleardatabasetables()"
     },
     {
@@ -33612,8 +33645,8 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "src_api_databasehooks_usedropdatabasetables",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "usedropdatabasetables()"
     },
     {
@@ -33623,8 +33656,8 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "src_api_databasehooks_usesetstoragebackend",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "usesetstoragebackend()"
     },
     {
@@ -33634,8 +33667,8 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "src_api_databasehooks_usetransfermutation",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "usetransfermutation()"
     },
     {
@@ -33645,8 +33678,8 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "src_api_databasehooks_useimportjsontodatabase",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "useimportjsontodatabase()"
     },
     {
@@ -33656,8 +33689,8 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "src_api_databasehooks_useexportdatabasetojson",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "useexportdatabasetojson()"
     },
     {
@@ -33722,8 +33755,8 @@
       "source_location": "L133",
       "_origin": "ast",
       "id": "src_api_hooks_usechartdata",
-      "community": 101,
-      "community_name": "ui/StockChart.tsx",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "usechartdata()"
     },
     {
@@ -33733,8 +33766,8 @@
       "source_location": "L157",
       "_origin": "ast",
       "id": "src_api_hooks_usetosschartdata",
-      "community": 101,
-      "community_name": "ui/StockChart.tsx",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "usetosschartdata()"
     },
     {
@@ -33744,8 +33777,8 @@
       "source_location": "L175",
       "_origin": "ast",
       "id": "src_api_hooks_useprice",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "useprice()"
     },
     {
@@ -33755,8 +33788,8 @@
       "source_location": "L190",
       "_origin": "ast",
       "id": "src_api_hooks_useplaceorder",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "useplaceorder()"
     },
     {
@@ -33799,8 +33832,8 @@
       "source_location": "L251",
       "_origin": "ast",
       "id": "src_api_hooks_usetradesbyrange",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "usetradesbyrange()"
     },
     {
@@ -33821,8 +33854,8 @@
       "source_location": "L283",
       "_origin": "ast",
       "id": "src_api_hooks_usestatsbyrange",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "usestatsbyrange()"
     },
     {
@@ -33942,8 +33975,8 @@
       "source_location": "L398",
       "_origin": "ast",
       "id": "src_api_hooks_useprofiles",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 83,
+      "community_name": "accountProfiles.tsx",
       "norm_label": "useprofiles()"
     },
     {
@@ -34129,8 +34162,8 @@
       "source_location": "L622",
       "_origin": "ast",
       "id": "src_api_hooks_usekisexecutedbyrange",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "usekisexecutedbyrange()"
     },
     {
@@ -34140,8 +34173,8 @@
       "source_location": "L636",
       "_origin": "ast",
       "id": "src_api_hooks_useoverseasexecutedbyrange",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "useoverseasexecutedbyrange()"
     },
     {
@@ -34173,8 +34206,8 @@
       "source_location": "L685",
       "_origin": "ast",
       "id": "src_api_hooks_useupdatecheck",
-      "community": 189,
-      "community_name": "ui/AppShell.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "useupdatecheck()"
     },
     {
@@ -34217,8 +34250,8 @@
       "source_location": "L725",
       "_origin": "ast",
       "id": "src_api_hooks_useoverseaschartdata",
-      "community": 141,
-      "community_name": "ui/OverseasStockChart.tsx",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "useoverseaschartdata()"
     },
     {
@@ -34228,8 +34261,8 @@
       "source_location": "L751",
       "_origin": "ast",
       "id": "src_api_hooks_useoverseasprice",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "useoverseasprice()"
     },
     {
@@ -34250,8 +34283,8 @@
       "source_location": "L783",
       "_origin": "ast",
       "id": "src_api_hooks_usetossstocksafety",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "usetossstocksafety()"
     },
     {
@@ -34261,8 +34294,8 @@
       "source_location": "L798",
       "_origin": "ast",
       "id": "src_api_hooks_usetossorderpreflight",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "usetossorderpreflight()"
     },
     {
@@ -34316,8 +34349,8 @@
       "source_location": "L866",
       "_origin": "ast",
       "id": "src_api_hooks_useplaceoverseasorder",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "useplaceoverseasorder()"
     },
     {
@@ -34437,8 +34470,8 @@
       "source_location": "L1009",
       "_origin": "ast",
       "id": "src_api_hooks_usependingorders",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "usependingorders()"
     },
     {
@@ -34503,8 +34536,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "src_api_querykeys_keys",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "keys"
     },
     {
@@ -34536,8 +34569,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_components_layoutresizer",
-      "community": 53,
-      "community_name": "ui/LayoutResizer.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "components/layoutresizer.tsx"
     },
     {
@@ -34580,8 +34613,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_components_layout_sidebar",
-      "community": 189,
-      "community_name": "ui/AppShell.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "layout/sidebar.tsx"
     },
     {
@@ -34635,8 +34668,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_entities_settings_index",
-      "community": 42,
-      "community_name": "model/settingsStore.ts",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "entities/settings/index.ts"
     },
     {
@@ -34646,8 +34679,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_entities_settings_model_settingsstore",
-      "community": 42,
-      "community_name": "model/settingsStore.ts",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "model/settingsstore.ts"
     },
     {
@@ -34657,8 +34690,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "src_entities_settings_model_settingsstore_settingsstate",
-      "community": 42,
-      "community_name": "model/settingsStore.ts",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "settingsstate"
     },
     {
@@ -34921,8 +34954,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_pages_dashboard_ui_orderpanels",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "orderpanels.tsx"
     },
     {
@@ -34932,8 +34965,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "src_pages_dashboard_ui_orderpanels_fmt",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "fmt()"
     },
     {
@@ -34943,8 +34976,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "src_pages_dashboard_ui_orderpanels_todaystr",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "todaystr()"
     },
     {
@@ -34954,8 +34987,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "src_pages_dashboard_ui_orderpanels_tradesort",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "tradesort"
     },
     {
@@ -34965,8 +34998,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "src_pages_dashboard_ui_orderpanels_sortdir",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "sortdir"
     },
     {
@@ -34976,8 +35009,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "src_pages_dashboard_ui_orderpanels_filledorderspanel",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "filledorderspanel()"
     },
     {
@@ -34987,8 +35020,8 @@
       "source_location": "L402",
       "_origin": "ast",
       "id": "src_pages_dashboard_ui_orderpanels_pendingorderspanel",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "pendingorderspanel()"
     },
     {
@@ -34998,8 +35031,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_pages_dashboard_ui_tossverificationpanel",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 83,
+      "community_name": "accountProfiles.tsx",
       "norm_label": "tossverificationpanel.tsx"
     },
     {
@@ -35009,8 +35042,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "src_pages_dashboard_ui_tossverificationpanel_dashboardtossverificationpanel",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 83,
+      "community_name": "accountProfiles.tsx",
       "norm_label": "dashboardtossverificationpanel()"
     },
     {
@@ -35031,8 +35064,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_pages_history_ui_page",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "history/ui/page.tsx"
     },
     {
@@ -35042,8 +35075,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "src_pages_history_ui_page_fmt",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "fmt()"
     },
     {
@@ -35053,8 +35086,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "src_pages_history_ui_page_fmtusd",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "fmtusd()"
     },
     {
@@ -35064,8 +35097,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "src_pages_history_ui_page_today",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "today()"
     },
     {
@@ -35075,8 +35108,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "src_pages_history_ui_page_weekago",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "weekago()"
     },
     {
@@ -35086,8 +35119,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "src_pages_history_ui_page_history",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "history()"
     },
     {
@@ -35262,8 +35295,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_pages_settings_ui_autotradingbudgetsection",
-      "community": 120,
-      "community_name": "react",
+      "community": 25,
+      "community_name": "settings/ui/Page.tsx",
       "norm_label": "autotradingbudgetsection.tsx"
     },
     {
@@ -35273,8 +35306,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "src_pages_settings_ui_autotradingbudgetsection_amount",
-      "community": 120,
-      "community_name": "react",
+      "community": 25,
+      "community_name": "settings/ui/Page.tsx",
       "norm_label": "amount()"
     },
     {
@@ -35284,8 +35317,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "src_pages_settings_ui_autotradingbudgetsection_currencystatus",
-      "community": 120,
-      "community_name": "react",
+      "community": 25,
+      "community_name": "settings/ui/Page.tsx",
       "norm_label": "currencystatus()"
     },
     {
@@ -35295,8 +35328,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "src_pages_settings_ui_autotradingbudgetsection_budgeteditor",
-      "community": 120,
-      "community_name": "react",
+      "community": 25,
+      "community_name": "settings/ui/Page.tsx",
       "norm_label": "budgeteditor()"
     },
     {
@@ -35405,8 +35438,8 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "src_pages_settings_ui_databasemanagementsection_formatbytes",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "formatbytes()"
     },
     {
@@ -35416,8 +35449,8 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "src_pages_settings_ui_databasemanagementsection_providerlabel",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "providerlabel()"
     },
     {
@@ -35427,8 +35460,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "src_pages_settings_ui_databasemanagementsection_databasemanagementsection",
-      "community": 61,
-      "community_name": "databaseManagementSection.tsx",
+      "community": 53,
+      "community_name": "ui/LayoutResizer.tsx",
       "norm_label": "databasemanagementsection()"
     },
     {
@@ -36549,8 +36582,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_pages_trading_ui_page",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "trading/ui/page.tsx"
     },
     {
@@ -36571,8 +36604,8 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "src_pages_trading_ui_page_tossmarketlabel",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "tossmarketlabel()"
     },
     {
@@ -36582,8 +36615,8 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "src_pages_trading_ui_page_market",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "market"
     },
     {
@@ -36593,8 +36626,8 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "src_pages_trading_ui_page_exchange_order_map",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "exchange_order_map"
     },
     {
@@ -36604,8 +36637,8 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "src_pages_trading_ui_page_paper_unsupported_us_sell_symbols",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "paper_unsupported_us_sell_symbols"
     },
     {
@@ -36615,8 +36648,8 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "src_pages_trading_ui_page_toss_us_session_options",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "toss_us_session_options"
     },
     {
@@ -36626,8 +36659,8 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "src_pages_trading_ui_page_tosssessionlabel",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "tosssessionlabel()"
     },
     {
@@ -36637,8 +36670,8 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "src_pages_trading_ui_page_fmttosssessionwindow",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "fmttosssessionwindow()"
     },
     {
@@ -36648,8 +36681,8 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "src_pages_trading_ui_page_tossussessionwindow",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "tossussessionwindow()"
     },
     {
@@ -36659,8 +36692,8 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "src_pages_trading_ui_page_istossussessionopen",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "istossussessionopen()"
     },
     {
@@ -36670,8 +36703,8 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "src_pages_trading_ui_page_normalizeexchange",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "normalizeexchange()"
     },
     {
@@ -36681,8 +36714,8 @@
       "source_location": "L157",
       "_origin": "ast",
       "id": "src_pages_trading_ui_page_trading",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "trading()"
     },
     {
@@ -36692,8 +36725,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_pages_trading_ui_kispanels",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "kispanels.tsx"
     },
     {
@@ -36703,8 +36736,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "src_pages_trading_ui_kispanels_fmt",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "fmt()"
     },
     {
@@ -36714,8 +36747,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "src_pages_trading_ui_kispanels_holdingstableprops",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "holdingstableprops"
     },
     {
@@ -36725,8 +36758,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "src_pages_trading_ui_kispanels_holdingstable",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "holdingstable()"
     },
     {
@@ -36736,8 +36769,8 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "src_pages_trading_ui_kispanels_overseasholdingstableprops",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "overseasholdingstableprops"
     },
     {
@@ -36747,8 +36780,8 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "src_pages_trading_ui_kispanels_overseasholdingstable",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "overseasholdingstable()"
     },
     {
@@ -36758,8 +36791,8 @@
       "source_location": "L163",
       "_origin": "ast",
       "id": "src_pages_trading_ui_kispanels_krstockinfocard",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "krstockinfocard()"
     },
     {
@@ -36769,8 +36802,8 @@
       "source_location": "L214",
       "_origin": "ast",
       "id": "src_pages_trading_ui_kispanels_usstockinfocard",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "usstockinfocard()"
     },
     {
@@ -37066,8 +37099,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_scheduler_index",
-      "community": 120,
-      "community_name": "react",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "src/scheduler/index.ts"
     },
     {
@@ -37088,8 +37121,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "src_shared_api_commands_getautotradingbudget",
-      "community": 1,
-      "community_name": "shared/api/commands.ts",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "getautotradingbudget()"
     },
     {
@@ -38474,8 +38507,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "src_shared_api_types_cmderror",
-      "community": 120,
-      "community_name": "react",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "cmderror"
     },
     {
@@ -38496,8 +38529,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "src_shared_api_types_autotradingbudgetinput",
-      "community": 120,
-      "community_name": "react",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "autotradingbudgetinput"
     },
     {
@@ -38507,8 +38540,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "src_shared_api_types_budgetcurrencyview",
-      "community": 120,
-      "community_name": "react",
+      "community": 25,
+      "community_name": "settings/ui/Page.tsx",
       "norm_label": "budgetcurrencyview"
     },
     {
@@ -38518,8 +38551,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "src_shared_api_types_autotradingbudgetview",
-      "community": 120,
-      "community_name": "react",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "autotradingbudgetview"
     },
     {
@@ -38529,8 +38562,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "src_shared_api_types_updateautotradingbudgetinput",
-      "community": 120,
-      "community_name": "react",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "updateautotradingbudgetinput"
     },
     {
@@ -38562,8 +38595,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "src_shared_api_types_appconfigview",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "appconfigview"
     },
     {
@@ -38694,8 +38727,8 @@
       "source_location": "L175",
       "_origin": "ast",
       "id": "src_shared_api_types_balanceitem",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "balanceitem"
     },
     {
@@ -38727,8 +38760,8 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "src_shared_api_types_overseasbalanceitem",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "overseasbalanceitem"
     },
     {
@@ -38771,8 +38804,8 @@
       "source_location": "L259",
       "_origin": "ast",
       "id": "src_shared_api_types_applogentry",
-      "community": 4,
-      "community_name": "hooks.ts",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "applogentry"
     },
     {
@@ -38793,8 +38826,8 @@
       "source_location": "L275",
       "_origin": "ast",
       "id": "src_shared_api_types_orderside",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "orderside"
     },
     {
@@ -38804,8 +38837,8 @@
       "source_location": "L276",
       "_origin": "ast",
       "id": "src_shared_api_types_ordertype",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "ordertype"
     },
     {
@@ -38969,8 +39002,8 @@
       "source_location": "L461",
       "_origin": "ast",
       "id": "src_shared_api_types_brokerholdingview",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "brokerholdingview"
     },
     {
@@ -39167,8 +39200,8 @@
       "source_location": "L649",
       "_origin": "ast",
       "id": "src_shared_api_types_tossmanualsession",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "tossmanualsession"
     },
     {
@@ -39343,8 +39376,8 @@
       "source_location": "L798",
       "_origin": "ast",
       "id": "src_shared_api_types_overseasexchange",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "overseasexchange"
     },
     {
@@ -39354,8 +39387,8 @@
       "source_location": "L800",
       "_origin": "ast",
       "id": "src_shared_api_types_overseasorderexchange",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "overseasorderexchange"
     },
     {
@@ -39497,8 +39530,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_shared_config_scheduler_index",
-      "community": 120,
-      "community_name": "react",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "config/scheduler/index.ts"
     },
     {
@@ -39508,8 +39541,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "src_shared_config_scheduler_index_poll_intervals",
-      "community": 120,
-      "community_name": "react",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "poll_intervals"
     },
     {
@@ -39519,8 +39552,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "src_shared_config_scheduler_index_getintervals",
-      "community": 120,
-      "community_name": "react",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "getintervals()"
     },
     {
@@ -39530,8 +39563,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "src_shared_config_scheduler_index_order_refetch_delay_ms",
-      "community": 120,
-      "community_name": "react",
+      "community": 4,
+      "community_name": "hooks.ts",
       "norm_label": "order_refetch_delay_ms"
     },
     {
@@ -39541,8 +39574,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_shared_config_theme_index",
-      "community": 189,
-      "community_name": "ui/AppShell.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "config/theme/index.ts"
     },
     {
@@ -39552,8 +39585,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "src_shared_config_theme_index_thememode",
-      "community": 42,
-      "community_name": "model/settingsStore.ts",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "thememode"
     },
     {
@@ -39563,8 +39596,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "src_shared_config_theme_index_getresolvedmode",
-      "community": 189,
-      "community_name": "ui/AppShell.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "getresolvedmode()"
     },
     {
@@ -39574,8 +39607,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "src_shared_config_theme_index_createapptheme",
-      "community": 189,
-      "community_name": "ui/AppShell.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "createapptheme()"
     },
     {
@@ -39607,8 +39640,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "src_shared_lib_formatters_fmtdecimalstring",
-      "community": 12,
-      "community_name": "trading/ui/Page.tsx",
+      "community": 44,
+      "community_name": "\ubc18\uc601\ub428",
       "norm_label": "fmtdecimalstring()"
     },
     {
@@ -39695,8 +39728,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_shared_ui_brokerscopeindicator",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "brokerscopeindicator.tsx"
     },
     {
@@ -39706,8 +39739,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "src_shared_ui_brokerscopeindicator_brokerscopeindicatorprops",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "brokerscopeindicatorprops"
     },
     {
@@ -39717,8 +39750,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "src_shared_ui_brokerscopeindicator_brokerlabel",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "brokerlabel()"
     },
     {
@@ -39728,8 +39761,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "src_shared_ui_brokerscopeindicator_brokerscopeindicator",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 21,
+      "community_name": "KisBrokerAdapter",
       "norm_label": "brokerscopeindicator()"
     },
     {
@@ -39739,8 +39772,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_shared_ui_layoutresizer",
-      "community": 53,
-      "community_name": "ui/LayoutResizer.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "ui/layoutresizer.tsx"
     },
     {
@@ -39750,8 +39783,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "src_shared_ui_layoutresizer_resizedirection",
-      "community": 53,
-      "community_name": "ui/LayoutResizer.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "resizedirection"
     },
     {
@@ -39761,8 +39794,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "src_shared_ui_layoutresizer_layoutresizerprops",
-      "community": 53,
-      "community_name": "ui/LayoutResizer.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "layoutresizerprops"
     },
     {
@@ -39772,8 +39805,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "src_shared_ui_layoutresizer_layoutresizer",
-      "community": 53,
-      "community_name": "ui/LayoutResizer.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "layoutresizer()"
     },
     {
@@ -39904,8 +39937,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_shared_ui_index",
-      "community": 44,
-      "community_name": "\ubc18\uc601\ub428",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "ui/index.ts"
     },
     {
@@ -39926,8 +39959,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_store_settingsstore",
-      "community": 42,
-      "community_name": "model/settingsStore.ts",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "store/settingsstore.ts"
     },
     {
@@ -39948,8 +39981,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_theme_index",
-      "community": 189,
-      "community_name": "ui/AppShell.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "src/theme/index.ts"
     },
     {
@@ -39970,8 +40003,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_widgets_app_shell_ui_appshell",
-      "community": 189,
-      "community_name": "ui/AppShell.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "ui/appshell.tsx"
     },
     {
@@ -39981,8 +40014,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "src_widgets_app_shell_ui_appshell_mainscrollbardrag",
-      "community": 189,
-      "community_name": "ui/AppShell.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "mainscrollbardrag"
     },
     {
@@ -39992,8 +40025,8 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "src_widgets_app_shell_ui_appshell_pendingmainscrollrestore",
-      "community": 189,
-      "community_name": "ui/AppShell.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "pendingmainscrollrestore"
     },
     {
@@ -40003,8 +40036,8 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "src_widgets_app_shell_ui_appshell_bottom_nav_items",
-      "community": 189,
-      "community_name": "ui/AppShell.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "bottom_nav_items"
     },
     {
@@ -40014,8 +40047,8 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "src_widgets_app_shell_ui_appshell_appshell",
-      "community": 189,
-      "community_name": "ui/AppShell.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "appshell()"
     },
     {
@@ -40025,8 +40058,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_widgets_sidebar_index",
-      "community": 189,
-      "community_name": "ui/AppShell.tsx",
+      "community": 34,
+      "community_name": "log/ui/Page.tsx",
       "norm_label": "sidebar/index.ts"
     },
     {
@@ -41002,9 +41035,9 @@
       "file_type": "code",
       "source_file": "src/pages/dashboard/ui/orderPanels.tsx",
       "source_location": "L100",
-      "community": 44,
+      "community": 21,
       "norm_label": "handlequery()",
-      "community_name": "\ubc18\uc601\ub428",
+      "community_name": "KisBrokerAdapter",
       "id": "src_pages_dashboard_ui_orderpanels_handlequery"
     },
     {
@@ -41012,9 +41045,9 @@
       "file_type": "code",
       "source_file": "src/pages/dashboard/ui/orderPanels.tsx",
       "source_location": "L106",
-      "community": 44,
+      "community": 21,
       "norm_label": "handlepagesizechange()",
-      "community_name": "\ubc18\uc601\ub428",
+      "community_name": "KisBrokerAdapter",
       "id": "src_pages_dashboard_ui_orderpanels_handlepagesizechange"
     },
     {
@@ -41022,9 +41055,9 @@
       "file_type": "code",
       "source_file": "src/pages/dashboard/ui/orderPanels.tsx",
       "source_location": "L111",
-      "community": 44,
+      "community": 21,
       "norm_label": "handlesort()",
-      "community_name": "\ubc18\uc601\ub428",
+      "community_name": "KisBrokerAdapter",
       "id": "src_pages_dashboard_ui_orderpanels_handlesort"
     },
     {
@@ -41032,9 +41065,9 @@
       "file_type": "code",
       "source_file": "src/pages/dashboard/ui/orderPanels.tsx",
       "source_location": "L121",
-      "community": 44,
+      "community": 21,
       "norm_label": "handlesidefilter()",
-      "community_name": "\ubc18\uc601\ub428",
+      "community_name": "KisBrokerAdapter",
       "id": "src_pages_dashboard_ui_orderpanels_handlesidefilter"
     },
     {
@@ -41042,9 +41075,9 @@
       "file_type": "code",
       "source_file": "src/pages/dashboard/ui/orderPanels.tsx",
       "source_location": "L134",
-      "community": 44,
+      "community": 21,
       "norm_label": "sortcell()",
-      "community_name": "\ubc18\uc601\ub428",
+      "community_name": "KisBrokerAdapter",
       "id": "src_pages_dashboard_ui_orderpanels_sortcell"
     },
     {
@@ -41092,9 +41125,9 @@
       "file_type": "code",
       "source_file": "src/pages/history/ui/Page.tsx",
       "source_location": "L58",
-      "community": 44,
+      "community": 21,
       "norm_label": "handlesearch()",
-      "community_name": "\ubc18\uc601\ub428",
+      "community_name": "KisBrokerAdapter",
       "id": "src_pages_history_ui_page_handlesearch"
     },
     {
@@ -41102,9 +41135,9 @@
       "file_type": "code",
       "source_file": "src/pages/history/ui/Page.tsx",
       "source_location": "L67",
-      "community": 44,
+      "community": 21,
       "norm_label": "isoverseastrade()",
-      "community_name": "\ubc18\uc601\ub428",
+      "community_name": "KisBrokerAdapter",
       "id": "src_pages_history_ui_page_isoverseastrade"
     },
     {
@@ -41112,9 +41145,9 @@
       "file_type": "code",
       "source_file": "src/pages/history/ui/Page.tsx",
       "source_location": "L70",
-      "community": 44,
+      "community": 21,
       "norm_label": "rendertrademoney()",
-      "community_name": "\ubc18\uc601\ub428",
+      "community_name": "KisBrokerAdapter",
       "id": "src_pages_history_ui_page_rendertrademoney"
     },
     {
@@ -41122,9 +41155,9 @@
       "file_type": "code",
       "source_file": "src/pages/history/ui/Page.tsx",
       "source_location": "L92",
-      "community": 44,
+      "community": 21,
       "norm_label": "renderslippage()",
-      "community_name": "\ubc18\uc601\ub428",
+      "community_name": "KisBrokerAdapter",
       "id": "src_pages_history_ui_page_renderslippage"
     },
     {
@@ -41132,9 +41165,9 @@
       "file_type": "code",
       "source_file": "src/pages/history/ui/Page.tsx",
       "source_location": "L102",
-      "community": 44,
+      "community": 21,
       "norm_label": "traceof()",
-      "community_name": "\ubc18\uc601\ub428",
+      "community_name": "KisBrokerAdapter",
       "id": "src_pages_history_ui_page_traceof"
     },
     {
@@ -41192,9 +41225,9 @@
       "file_type": "code",
       "source_file": "src/pages/settings/ui/autoTradingBudgetSection.tsx",
       "source_location": "L20",
-      "community": 120,
+      "community": 25,
       "norm_label": "display()",
-      "community_name": "react",
+      "community_name": "settings/ui/Page.tsx",
       "id": "src_pages_settings_ui_autotradingbudgetsection_display"
     },
     {
@@ -41512,9 +41545,9 @@
       "file_type": "code",
       "source_file": "src/pages/trading/ui/Page.tsx",
       "source_location": "L282",
-      "community": 12,
+      "community": 44,
       "norm_label": "handleussearch()",
-      "community_name": "trading/ui/Page.tsx",
+      "community_name": "\ubc18\uc601\ub428",
       "id": "src_pages_trading_ui_page_handleussearch"
     },
     {
@@ -41692,9 +41725,9 @@
       "file_type": "code",
       "source_file": "src/pages/trading/ui/Page.tsx",
       "source_location": "L254",
-      "community": 12,
+      "community": 44,
       "norm_label": "handleselectholding()",
-      "community_name": "trading/ui/Page.tsx",
+      "community_name": "\ubc18\uc601\ub428",
       "id": "src_pages_trading_ui_page_handleselectholding"
     },
     {
@@ -41702,9 +41735,9 @@
       "file_type": "code",
       "source_file": "src/pages/trading/ui/Page.tsx",
       "source_location": "L262",
-      "community": 12,
+      "community": 44,
       "norm_label": "handleselectoverseasholding()",
-      "community_name": "trading/ui/Page.tsx",
+      "community_name": "\ubc18\uc601\ub428",
       "id": "src_pages_trading_ui_page_handleselectoverseasholding"
     },
     {
@@ -41712,9 +41745,9 @@
       "file_type": "code",
       "source_file": "src/pages/trading/ui/Page.tsx",
       "source_location": "L273",
-      "community": 12,
+      "community": 44,
       "norm_label": "handleselectbrokerholding()",
-      "community_name": "trading/ui/Page.tsx",
+      "community_name": "\ubc18\uc601\ub428",
       "id": "src_pages_trading_ui_page_handleselectbrokerholding"
     },
     {
@@ -41722,9 +41755,9 @@
       "file_type": "code",
       "source_file": "src/pages/trading/ui/Page.tsx",
       "source_location": "L313",
-      "community": 12,
+      "community": 44,
       "norm_label": "handlefillmarketprice()",
-      "community_name": "trading/ui/Page.tsx",
+      "community_name": "\ubc18\uc601\ub428",
       "id": "src_pages_trading_ui_page_handlefillmarketprice"
     },
     {
@@ -41732,9 +41765,9 @@
       "file_type": "code",
       "source_file": "src/pages/trading/ui/Page.tsx",
       "source_location": "L322",
-      "community": 12,
+      "community": 44,
       "norm_label": "handlesubmit()",
-      "community_name": "trading/ui/Page.tsx",
+      "community_name": "\ubc18\uc601\ub428",
       "id": "src_pages_trading_ui_page_handlesubmit"
     },
     {
@@ -41742,9 +41775,9 @@
       "file_type": "code",
       "source_file": "src/widgets/app-shell/ui/AppShell.tsx",
       "source_location": "L206",
-      "community": 189,
+      "community": 34,
       "norm_label": "updatemainscrollbar()",
-      "community_name": "ui/AppShell.tsx",
+      "community_name": "log/ui/Page.tsx",
       "id": "src_widgets_app_shell_ui_appshell_updatemainscrollbar"
     },
     {
@@ -41752,9 +41785,9 @@
       "file_type": "code",
       "source_file": "src/widgets/app-shell/ui/AppShell.tsx",
       "source_location": "L220",
-      "community": 189,
+      "community": 34,
       "norm_label": "schedulemainscrollbarupdate()",
-      "community_name": "ui/AppShell.tsx",
+      "community_name": "log/ui/Page.tsx",
       "id": "src_widgets_app_shell_ui_appshell_schedulemainscrollbarupdate"
     },
     {
@@ -41762,9 +41795,9 @@
       "file_type": "code",
       "source_file": "src/widgets/app-shell/ui/AppShell.tsx",
       "source_location": "L231",
-      "community": 189,
+      "community": 34,
       "norm_label": "observemainscrollcontent()",
-      "community_name": "ui/AppShell.tsx",
+      "community_name": "log/ui/Page.tsx",
       "id": "src_widgets_app_shell_ui_appshell_observemainscrollcontent"
     },
     {
@@ -41772,9 +41805,9 @@
       "file_type": "code",
       "source_file": "src/widgets/app-shell/ui/AppShell.tsx",
       "source_location": "L240",
-      "community": 189,
+      "community": 34,
       "norm_label": "handlemainscroll()",
-      "community_name": "ui/AppShell.tsx",
+      "community_name": "log/ui/Page.tsx",
       "id": "src_widgets_app_shell_ui_appshell_handlemainscroll"
     },
     {
@@ -88503,7 +88536,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L554",
+      "source_location": "L622",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_tauri_src_server_market",
@@ -88514,7 +88547,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L548",
+      "source_location": "L616",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_tauri_src_server_market",
@@ -88536,7 +88569,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L537",
+      "source_location": "L605",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_tauri_src_server_market",
@@ -88591,7 +88624,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L586",
+      "source_location": "L654",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_tauri_src_server_market",
@@ -88679,7 +88712,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L639",
+      "source_location": "L707",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_tauri_src_server_market",
@@ -88701,7 +88734,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L628",
+      "source_location": "L696",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_tauri_src_server_market",
@@ -88712,7 +88745,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L608",
+      "source_location": "L676",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_tauri_src_server_market",
@@ -88723,7 +88756,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L623",
+      "source_location": "L691",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_tauri_src_server_market",
@@ -88750,6 +88783,28 @@
       "_origin": "ast",
       "source": "src_tauri_src_server_market",
       "target": "src_tauri_src_server_market_validate_toss_web_order",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/server/market.rs",
+      "source_location": "L538",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_tauri_src_server_market",
+      "target": "src_tauri_src_server_market_web_preflight_wrong_broker_preserves_bad_request_response",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/server/market.rs",
+      "source_location": "L571",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_tauri_src_server_market",
+      "target": "src_tauri_src_server_market_web_preflight_zero_quantity_preserves_bad_request_response",
       "confidence_score": 1.0
     },
     {
@@ -88828,7 +88883,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L554",
+      "source_location": "L622",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -88876,7 +88931,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L586",
+      "source_location": "L654",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -88924,7 +88979,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L639",
+      "source_location": "L707",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -88948,7 +89003,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L628",
+      "source_location": "L696",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -88960,7 +89015,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L608",
+      "source_location": "L676",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -88997,7 +89052,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L554",
+      "source_location": "L622",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_tauri_src_server_market_chart_handler",
@@ -89057,7 +89112,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L586",
+      "source_location": "L654",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_tauri_src_server_market_overseas_chart_handler",
@@ -89117,7 +89172,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L639",
+      "source_location": "L707",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_tauri_src_server_market_refresh_stock_list_handler",
@@ -89141,7 +89196,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L628",
+      "source_location": "L696",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_tauri_src_server_market_set_stock_update_interval_handler",
@@ -89153,7 +89208,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L608",
+      "source_location": "L676",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_tauri_src_server_market_stock_list_stats_handler",
@@ -89188,7 +89243,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L554",
+      "source_location": "L622",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -89224,7 +89279,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L586",
+      "source_location": "L654",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -89260,7 +89315,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L639",
+      "source_location": "L707",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -89284,7 +89339,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L628",
+      "source_location": "L696",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -89296,7 +89351,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L608",
+      "source_location": "L676",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -89368,7 +89423,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L554",
+      "source_location": "L622",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -89380,7 +89435,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L586",
+      "source_location": "L654",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -89428,7 +89483,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L554",
+      "source_location": "L622",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -89440,7 +89495,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L549",
+      "source_location": "L617",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -89464,7 +89519,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L586",
+      "source_location": "L654",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -89920,6 +89975,18 @@
       "source_file": "src-tauri/src/server/market.rs",
       "source_location": "L457",
       "weight": 1.0,
+      "context": "generic_arg",
+      "_origin": "ast",
+      "source": "src_tauri_src_server_market_validate_toss_web_order",
+      "target": "src_tauri_src_server_market_rs_box",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/server/market.rs",
+      "source_location": "L457",
+      "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
       "source": "src_tauri_src_server_market_validate_toss_web_order",
@@ -89951,6 +90018,30 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/server/market.rs",
+      "source_location": "L546",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_tauri_src_server_market_web_preflight_wrong_broker_preserves_bad_request_response",
+      "target": "src_tauri_src_server_market_validate_toss_web_order",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src-tauri/src/server/market.rs",
+      "source_location": "L580",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_tauri_src_server_market_web_preflight_zero_quantity_preserves_bad_request_response",
+      "target": "src_tauri_src_server_market_validate_toss_web_order",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
@@ -89990,7 +90081,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L550",
+      "source_location": "L618",
       "weight": 1.0,
       "context": "field",
       "_origin": "ast",
@@ -90014,7 +90105,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L554",
+      "source_location": "L622",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -90026,7 +90117,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L586",
+      "source_location": "L654",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -90038,7 +90129,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L554",
+      "source_location": "L622",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -90050,7 +90141,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L554",
+      "source_location": "L622",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -90062,7 +90153,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L586",
+      "source_location": "L654",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -90074,7 +90165,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L586",
+      "source_location": "L654",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -90086,7 +90177,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L608",
+      "source_location": "L676",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -90098,7 +90189,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L628",
+      "source_location": "L696",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -90110,7 +90201,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L628",
+      "source_location": "L696",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -90122,7 +90213,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src-tauri/src/server/market.rs",
-      "source_location": "L639",
+      "source_location": "L707",
       "weight": 1.0,
       "context": "generic_arg",
       "_origin": "ast",
@@ -157282,5 +157373,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "015a28a8b38d9cc9665511ccdae96afe06100c32"
+  "built_at_commit": "21075a222177e2cd175390dfa1c88d49d20d5812"
 }

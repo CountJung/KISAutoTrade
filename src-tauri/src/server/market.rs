@@ -151,7 +151,7 @@ pub(super) async fn order_handler(
         )
         .await
         {
-            return response;
+            return *response;
         }
         let account_id = profile.broker_account_id();
         let adapter = TossBrokerAdapter::with_credentials(
@@ -301,7 +301,7 @@ pub(super) async fn overseas_order_handler(
         )
         .await
         {
-            return response;
+            return *response;
         }
         let account_id = profile.broker_account_id();
         let adapter = TossBrokerAdapter::with_credentials(
@@ -461,7 +461,7 @@ async fn validate_toss_web_order(
     order_type: OrderType,
     quantity: u64,
     price: String,
-) -> Result<(), Response> {
+) -> Result<(), Box<Response>> {
     let preflight = crate::commands::check_toss_order_preflight_for_profile(
         crate::commands::TossOrderPreflightInput {
             symbol: symbol.to_string(),
@@ -477,16 +477,16 @@ async fn validate_toss_web_order(
         profile.clone(),
     )
     .await
-    .map_err(|error| invalid_order_input(&error.code, &error.message))?;
+    .map_err(|error| Box::new(invalid_order_input(&error.code, &error.message)))?;
     if !preflight.can_submit {
-        return Err(invalid_order_input(
+        return Err(Box::new(invalid_order_input(
             "TOSS_PREFLIGHT_BLOCKED",
             preflight
                 .blocked_reasons
                 .first()
                 .map(String::as_str)
                 .unwrap_or("Toss 주문 사전검증을 통과하지 못했습니다."),
-        ));
+        )));
     }
     let open_orders = crate::commands::list_toss_open_orders_for_profile(
         crate::commands::TossOpenOrdersInput {
@@ -495,12 +495,12 @@ async fn validate_toss_web_order(
         profile.clone(),
     )
     .await
-    .map_err(|error| provider_error(error.message))?;
+    .map_err(|error| Box::new(provider_error(error.message)))?;
     if let Some(order) = open_orders.first() {
-        return Err(invalid_order_input(
+        return Err(Box::new(invalid_order_input(
             "TOSS_PENDING_ORDER_EXISTS",
             &format!("provider 미체결 주문이 있습니다: {}", order.order_id),
-        ));
+        )));
     }
     Ok(())
 }
@@ -532,6 +532,74 @@ fn parse_order_type(value: &str) -> Option<OrderType> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Both inputs fail before credentials, adapters, or provider HTTP are used.
+    #[tokio::test]
+    async fn web_preflight_wrong_broker_preserves_bad_request_response() {
+        let profile = crate::config::AccountProfile::new(
+            "offline fixture".into(),
+            true,
+            String::new(),
+            String::new(),
+            String::new(),
+        );
+        let response = *validate_toss_web_order(
+            &profile,
+            "",
+            OrderSide::Buy,
+            OrderType::Limit,
+            0,
+            "0".into(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(response.headers()["content-type"], "application/json");
+        let body = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+            serde_json::json!({
+                "code": "BROKER_NOT_SUPPORTED",
+                "message": "Toss 주문 전 검증은 Toss 활성 프로파일에서만 사용할 수 있습니다."
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn web_preflight_zero_quantity_preserves_bad_request_response() {
+        let mut profile = crate::config::AccountProfile::new(
+            "offline fixture".into(),
+            true,
+            String::new(),
+            String::new(),
+            "fixture-account".into(),
+        );
+        profile.broker_id = BrokerId::Toss;
+        let response = *validate_toss_web_order(
+            &profile,
+            "005930",
+            OrderSide::Sell,
+            OrderType::Limit,
+            0,
+            "70000".into(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(response.headers()["content-type"], "application/json");
+        let body = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+            serde_json::json!({
+                "code": "INVALID_QUANTITY",
+                "message": "Toss 주문 전 검증 수량은 0보다 커야 합니다."
+            })
+        );
+    }
 
     #[test]
     fn invalid_order_enums_never_fall_back_to_sell_or_market() {
