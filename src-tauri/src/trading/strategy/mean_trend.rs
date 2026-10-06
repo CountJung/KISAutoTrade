@@ -511,7 +511,7 @@ mod tests {
             "mean_reversion",
             serde_json::to_value(&params).unwrap(),
         ));
-        let candles = daily(std::iter::repeat(10_000).take(252));
+        let candles = daily(std::iter::repeat_n(10_000, 252));
         initialize_strategy_warmup(&mut strategy, "SOXQ", &candles, &[]);
 
         let state = &strategy.states["SOXQ"];
@@ -568,8 +568,8 @@ mod tests {
         ));
         mean.sync_position("SOXQ", 10, 10_000);
         trend.sync_position("SOXQ", 10, 10_000);
-        let candles = daily(std::iter::repeat(10_000).take(252));
-        let intraday = daily(std::iter::repeat(15_000).take(10));
+        let candles = daily(std::iter::repeat_n(10_000, 252));
+        let intraday = daily(std::iter::repeat_n(15_000, 10));
         for strategy in [&mut mean as &mut dyn Strategy, &mut trend] {
             initialize_strategy_warmup(strategy, "SOXQ", &candles, &[]);
             initialize_strategy_warmup(strategy, "OTHER", &candles, &[]);

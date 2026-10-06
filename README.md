@@ -4,7 +4,7 @@
 > Tauri v2 (Rust) + React 18 + TypeScript 풀스택 데스크탑 앱
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Rust](https://img.shields.io/badge/Rust-1.77+-orange.svg)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/Rust-1.90+-orange.svg)](https://www.rust-lang.org/)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-blue.svg)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-18-blue.svg)](https://react.dev/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-lightgrey.svg)]()
@@ -103,9 +103,9 @@ KISAutoTrade/
 
 | 도구 | 최소 버전 | 설치 확인 |
 |------|-----------|-----------|
-| Node.js | 18.x 이상 | `node --version` |
-| npm | 9.x 이상 | `npm --version` |
-| Rust | 1.77 이상 | `rustc --version` |
+| Node.js | 20.x 이상 | `node --version` |
+| npm | 10.x 이상 | `npm --version` |
+| Rust | 1.90 이상 | `rustc --version` |
 
 Rust는 [rustup](https://rustup.rs/)으로 설치합니다:
 ```bash

@@ -5,7 +5,7 @@
 ## 1. 환경 기준
 
 - Node.js `>=20`, npm `>=10` (`package.json`, `.nvmrc`)
-- Rust `>=1.78`, workspace member `src-tauri` (root `Cargo.toml`)
+- Rust `>=1.90`, workspace member `src-tauri` (root `Cargo.toml`); Tauri 2.12 의존성의 최소 버전
 - 재현 가능한 의존성 검증은 npm `ci`와 Cargo `--locked`를 우선한다.
 
 ```bash

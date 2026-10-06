@@ -130,6 +130,7 @@ KISAutoTrade/
 │   ├── mock-trading-e2e-checklist.md
 │   ├── project-map.md
 │   ├── release-security.md
+│   ├── security-mac-handoff-2026-10-06.md
 │   ├── security-storage-handoff-2026-10-06.md
 │   ├── toss-openapi.md
 │   ├── toss-readonly-small-order-checklist.md

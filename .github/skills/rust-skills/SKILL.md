@@ -1151,3 +1151,12 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 마지막 업데이트: 2026-09-11
 
 > 마지막 업데이트: 2026-10-05T23:54:16+09:00
+
+## 보안 의존성 및 Mac 검증 기준 (2026-10-06)
+
+- Tauri 2.12.1의 최소 Rust 버전 1.90을 manifest와 harness에 유지한다. Windows Rust 1.92는 이 기준을 충족하며 Mac은 1.95에서 검사했다.
+- Windows 저장 패치의 Unix read-only 교체와 private 저장 0600 fixture, backup 실패 시 정상본 보존, 손상 JSON 복구 및 동시 쓰기를 Mac lib 테스트로 확인했다. 실제 전원 차단 내구성과 사용자 데이터 복구를 증명하지 않는다.
+- quick-xml 예외 두 개는 plist 1.10.1 업데이트로 해제했다. RSA 예외 하나와 Linux GLib/proc-macro-error 경고는 docs/release-security.md의 실제 경로·해제 조건을 확인하며 테스트 약화나 추가 ignore로 해결하지 않는다.
+- PostgreSQL contract 테스트는 DB 환경 변수가 없으면 즉시 반환하므로 전체 통과 개수에서 실서버 검증으로 계산하지 않는다. 이번 Mac 검증에서도 DB 환경 변수를 제거했고 실거래·모의 주문 API를 호출하지 않았다.
+
+> 마지막 업데이트: 2026-10-06T07:59:39+00:00

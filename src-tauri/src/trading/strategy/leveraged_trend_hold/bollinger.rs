@@ -252,7 +252,7 @@ mod tests {
         s.config.params = serde_json::to_value(&s.params).unwrap();
         s.last_params = s.config.params.clone();
         let params = s.params.clone();
-        let prices = std::iter::repeat(100).take(65).chain([90, 120, 121, 80]);
+        let prices = std::iter::repeat_n(100, 65).chain([90, 120, 121, 80]);
         let timed: Vec<_> = prices
             .enumerate()
             .map(|(i, close)| LeveragedTrendHoldTimedCandle {
