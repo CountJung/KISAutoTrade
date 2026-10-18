@@ -294,6 +294,16 @@ pub struct LeveragedTrendHoldTimedCandle {
     pub candle: OhlcCandle,
 }
 
+/// Historical replay driver phases; bar labels are not exchange timestamps.
+pub enum LeveragedTrendHoldPreviewStep<'a> {
+    Open(&'a LeveragedTrendHoldTimedCandle),
+    Signal(
+        &'a LeveragedTrendHoldPreviewSignal,
+        &'a LeveragedTrendHoldTimedCandle,
+    ),
+    Close(&'a LeveragedTrendHoldTimedCandle),
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LeveragedTrendHoldPreviewSignal {

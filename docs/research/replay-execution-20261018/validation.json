@@ -1,0 +1,14 @@
+{
+  "baselineCommit": "ba74e03",
+  "inputSha256": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+  "sameCloseFullReportAndSignalParityRuns": 1224,
+  "comparisons": 8,
+  "benchmarkRuns": 8,
+  "stockAnalystAudit": "passed; independent price/cash/cost/PnL/holdings/MDD checks",
+  "artifacts": {
+    "runner.rs": "4641a844f17a92ab7abb90e0d94494221726461ad1809df99ad575405de93421",
+    "baseline_runner.rs": "395b1676eebe5fccedb680c0a6157fbec1160591c4abca5c9b7509e2e662725c",
+    "baseline-hashes.json": "0bf34834cbae8c8bfc090585f813a31e4590473f5f39b7d52587e3fb635b9df9",
+    "results.json": "1e2b7a0503f9974e8f0e3900bc5348a31cbec52df477a3e63d83331ef9d27057"
+  }
+}

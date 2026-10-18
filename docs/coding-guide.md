@@ -827,7 +827,7 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 - KIS는 주문 제출부터 `kis:order` group으로 점진 이전한다. 조회 API까지 확장할 때는 TR-ID별로 흩어진 sleep을 추가하지 말고 같은 scheduler group을 사용한다.
 - read-only 연결 진단은 `check_toss_profile_connection` IPC와 `/api/profiles/:id/toss-diagnostic` 웹 REST를 함께 추가한다. 프로파일 lock은 clone까지만 유지하고, OpenAPI/token/accounts/holdings/preflight 네트워크 호출은 lock 밖에서 실행한다.
 - `buying-power`는 KRW/USD를 각각 조회하고, `commissions`는 account 단위로 조회한다. `sellable-quantity`는 symbol이 필수이므로 holdings에 보유 종목이 있을 때 첫 종목으로 확인하고, holdings가 비어 있으면 성공 skip으로 기록한다.
-- `check_toss_order_preflight`는 buy이면 현재 통화의 `buying-power`, sell이면 해당 symbol의 `sellable-quantity`를 조회하고, `commissions.marketCountry`가 현재 market과 일치하는 수수료율을 우선 사용한다. Toss의 `commissionRate`는 percent 문자열로 보고, 추정 수수료 계산에만 사용한다.
+- `check_toss_order_preflight`는 buy이면 현재 통화의 `buying-power`, sell이면 해당 symbol의 `sellable-quantity`를 조회하고, `commissions.marketCountry`가 현재 market과 일치하는 수수료율을 우선 사용한다. Toss의 `commissionRate`는 공식 소수 비율 문자열(`0.00015` = `0.015%`)이며 계산에서100으로 나누지 않는다. 상세 계약은 toss-api 스킬을 따른다.
 - Toss 주문 adapter를 연결할 때 provider가 `opposite-pending-order-exists`를 반환하면 로컬 pending conflict와 같은 차단 계열로 기록한다. provider 응답을 받기 전에도 로컬 pending scan을 먼저 수행해 같은 symbol의 반대 주문 제출을 막는다.
 - Toss 주문 API surface는 `create_order`, `list_orders`, `get_order`, `modify_order`, `cancel_order`로 나눈다. `TossOrderCreateRequest::with_generated_client_order_id()`가 36자 이하 idempotency key를 생성하고, request type은 `quantity`와 `orderAmount` 중 정확히 하나만 허용한다.
 - 수동 주문창의 Toss 접수 주문 목록은 `list_toss_open_orders` IPC, `/api/toss-open-orders`, `useTossOpenOrders()`로 연결한다. provider 조회는 `TossOrderListQuery::open()`을 사용하고, 화면은 현재 검색 종목을 먼저 보여주되 같은 활성 `accountSeq`의 다른 접수 주문도 함께 표시한다.
@@ -843,9 +843,9 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 - simulated portfolio는 raw signal을 바로 거래로 세지 않는다. 공통 TradeGuard/RiskManager와 보유/현금/비용 조건을 통과한 주문만 `filled`로 기록하고 차단 사유를 보존한다.
 - 과거 cooldown은 `TradeGuard::*_at()`에 event timestamp를 전달한다. `Local::now()`를 직접 사용하면 deterministic fixture가 깨진다.
 - 전략이 신호 생성과 동시에 내부 포지션을 바꾸는 경우 실제 주문 skip 결과의 `held_quantity`/`avg_price`로 즉시 복원한다.
-- generic replay도 각 raw signal 직후 체결/차단 snapshot을 전략에 되먹임하고, provider/network 오류가 난 live 주문도 제출 전 tracker snapshot으로 복원한다.
+- generic/LTH replay는 공통 ReplaySession의 봉 시작에서 이전 대기 신호를 먼저 처리하고 실제 수량/원가를 종가 평가 전에 되먹임한다. raw 신호 뒤에도 체결/차단/대기 snapshot으로 speculative 상태를 해소한다. provider/network 오류가 난 live 주문도 제출 전 tracker snapshot으로 복원한다.
 - 일일 손실/연속손실 상태는 event 거래일 경계에서 초기화한다. replay에는 수동 비상정지 입력이 없으므로 전일 손실한도에 의한 자동 정지는 다음 거래일에 해제한다.
-- in/out-of-sample은 walk-forward 재학습이 아니라 한 번의 고정 chronological split이다. 봉 종가 replay는 live 10초 tick의 intrabar 경로, pending/fill latency를 재현하지 않는다.
+- in/out-of-sample은 walk-forward 재학습이 아니라 한 번의 고정 chronological split이다. 같은 종가/다음 관측 시가의 선택 가정과 연구용 손절/익절을 live 설정과 분리한다. sameClose의 종가 후 체결 가능성, OHLC 장중 순서, live10초 tick과 provider 지연은 미검증이다. 마지막 대기 신호는 blocked/filled가 아닌 unfilled로 표시한다.
 - generic broker/account는 결과 저장 scope 메타데이터이고, Toss 레버리지 preview의 expected profile/account만 서버에서 현재 활성 scope와 일치하는지 검증한다.
 - UI 실험 저장은 broker/account/strategy/symbol scope별 A/B 두 slot, 최근 12 scope로 제한하고 credential은 저장하지 않는다. 이는 현재 편집값과 결과 snapshot 비교이며 편집 폼 재적용 preset은 아니다. quota 오류는 UI에 표시한다.
 

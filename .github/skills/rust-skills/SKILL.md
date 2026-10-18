@@ -838,7 +838,7 @@ pub struct LeveragedTrendHoldEntry {
 - 청산 조건도 대상 ETF 자체의 OHLC로 판단한다. 고점 대비 trailing stop, 현재가 EMA20 하향 이탈, EMA20 < EMA60, RSI 약화, 장마감 청산.
 - `upward_sensitivity`는 1.0~5.0 범위로 관리한다. 기본값 1.0은 기존 RSI 진입 기준을 유지하고, 값이 높을수록 진입 RSI 기준을 완화해 더 이른 신호를 허용한다. `downward_sensitivity`는 legacy 저장값 호환 필드로 남기되 새 UI에는 노출하지 않는다.
 - 전략 상태는 `states: HashMap<String, ...>`와 `positions: HashMap<String, ...>`에 ticker별로 독립 저장한다.
-- 설정창의 `1m` 미리보기는 `LeveragedTrendHoldStrategy::preview_signals_with_execution()`을 사용한다. 활성 Toss 프로파일의 실제 분봉을 입력 시각 기준으로 replay하고 raw 신호마다 simulated 체결/차단 상태를 되먹임한다. `1d`는 장중 엔진을 호출하지 않는 평가 불가 자료 진단이다. 실제 주문은 만들지 않으며 assessment의 기간·시각 한계를 함께 반환한다.
+- 설정창의 `1m` 미리보기는 `LeveragedTrendHoldStrategy::preview_signals_with_driver()`와 공통 `ReplaySession`을 사용한다. 활성 Toss 프로파일의 실제 분봉을 입력 시각 기준으로 replay하고 매 봉 시작의 대기 체결과 종가 신호 처리 뒤 실제 수량/원가를 되먹임한다. `1d`는 장중 엔진을 호출하지 않는 평가 불가 자료 진단이다. 실제 주문은 만들지 않으며 assessment의 기간·시각 한계를 함께 반환한다.
 
 > 마지막 업데이트: 2026-10-05T23:54:16+09:00
 
@@ -1107,7 +1107,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - Generic 일봉 replay는 정보 공개 시점을 지킨다. 날짜 시작 event는 시가-only, 종가 평가에만 완성 OHLC를 사용한다. 입력은 최대 500봉으로 제한하고 결과에는 engine/strategy version, source/interval/range, warmup count, input hash를 남긴다. 전용 LTH 일봉은 이 장중 평가 경로와 구분하는 자료 진단이다.
 - Generic preview v5의 `D`/`1d`는 `on_trading_day_start(symbol, open)` → `on_daily_close_tick(symbol, completed_ohlc, volume)` → backtest 체결/차단 및 `sync_position` → `on_completed_candle` 순서다. 시작에는 시가만 전달하고 완료 OHLC는 종가 평가 때 공개한다. 완료봉 적재 전에 실제 포지션을 되먹임해야 차단된 강한 종가 매수가 다음 날 pending을 잃지 않는다.
 - 강한 종가는 매 완료봉으로 다음 평가일 조건을 준비한다. 변동성 확장은 날짜 시작 시 당일 시가·고저가만 초기화하고 보유 상태와 이전 N일 범위를 유지한다. 조건 평가 시 이전 N일 평균에 당일 범위를 섞지 않고, 완료 후 bounded ring에 적재하며 flat-day 0범위도 일수에 포함한다. 날짜 전환에 `reset()`을 사용하지 않는다.
-- 강한 종가·변동성 확장의 generic replay는 일봉만 허용하며 다른 간격은 `UNSUPPORTED_REPLAY_INTERVAL`이다. cadence는 `dailyCloseWithDayBoundary`. 강한 종가의 다음 평가일 신호도 그날 종가 체결 근사이며 next-open 모델은 P2-14다. live 현재가 polling에는 완료 일봉 이벤트를 연결하지 않는다. 기본 훅은 no-op/기존 tick 위임이며 다른 전략·전용 LTH 동작을 보존한다.
+- 강한 종가·변동성 확장의 generic replay는 일봉만 허용하며 다른 간격은 `UNSUPPORTED_REPLAY_INTERVAL`이다. cadence는 `dailyCloseWithDayBoundary`. 강한 종가의 다음 평가일 신호도 완료 종가에서 발생하며 v10의 sameClose/nextOpen 실행 모델에 따라 체결한다. live 현재가 polling에는 완료 일봉 이벤트를 연결하지 않는다. 기본 훅은 no-op/기존 tick 위임이며 다른 전략·전용 LTH 동작을 보존한다.
 - Generic preview v6은 factory와 같은 `starts_with("leveraged_trend_hold")` 기준으로 기본/접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 명시 거부한다. LTH의 실시간 분/세션/blackout clock을 과거 재생에 호출하지 않으며 `deterministic=false`·준비 미지원 표시에 그치지 않는다. broker 조회 전용 커맨드로 generic 제공봉을 자동 우회하지 않는다.
 - LTH `preview_signals_with_execution`은 실제 분봉의 `timed.time`으로 세션·blackout·장마감을 판단한다. 응답 `generatedAt`만 생성 시각이고 신호/체결/hash의 입력이 아니다. `cfg(test)` live clock 대역으로 production 재현성을 주장하지 않고 별도 integration fixture 및 production runner의 서로 다른 분/시간대 재실행을 검증한다. 고정 KST 세션·DST 한계는 입력 재현성과 별개이며 `lookAheadSafe=false`다.
 - LTH 일봉 `initialize_ohlc`는 context만 교체하고 기존 분봉 지표와 보유 포지션을 보존한다. `initialize_intraday_ohlc`는 분봉 OHLC·반동 가격·볼린저 snapshot을 교체하며 누적 append로 과거 관측을 중복하지 않는다. `initialize_intraday_prices`는 반동 가격 snapshot만 교체하고 OHLC·볼린저를 초기화하지 않는다. 분봉 EMA/RSI/ADX·반동·볼린저는 분봉만 소비하고 각 버퍼 상한을 독립 유지한다. 빈 일봉 재초기화도 실제 보유 손절을 막지 않는다.
@@ -1228,3 +1228,13 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 소액 Toss 즉시 반영은 원 주문 ID·symbol·BUY·통화·정수1주·명시금액을 검증한다. 금액 누락은 즉시 반영을 보류하고 pending을 유지한다. 계좌·record 일치 eligibility를 실제 반영 lock 안에서 다시 검사한다. 수량/금액/날짜는 collector의 같은 checked parser를 재사용한다.
 
 > 마지막 업데이트: 2026-10-18T15:07:40+09:00
+
+## v10 replay 체결 모델과 정보 공개 경계
+
+- `simulation/session.rs::ReplaySession`은 batch wrapper·generic·LTH 분봉이 공유하는 단일 회계다. begin_bar에서 이전 신호를 관측 open과 이전 완료 ATR로 처리하고 optional 보호 시나리오를 실행한 뒤 실제 snapshot을 전략에 반영한다. process_close에서만 현재 OHLC ATR과 종가 신호를 공개하고 equity를 기록한다. prefix 전체를 재실행하거나 사전 계산한 raw signals를 다른 체결 모델에 재사용하지 않는다.
+- 기본 sameClose 수치를 유지하고 nextOpen은 다음 관측봉(누락 보간 없음) 시가를 사용한다. 마지막 대기 신호는 unfilled이며 거절/완료가 아니다. signalAvailableAt/fillAt는 봉 label+phase이며 정확한 거래소 timestamp를 합성하지 않는다. sameClose의 lookAheadSafe=false와 경고, LTH의 자료 진단/표본 경계를 보존한다.
+- 연구 stopLossPct/takeProfitPct는 기본0으로 live/전략 파라미터와 분리한다. 실제 평균 체결가·갭 시가·부분 원가를 사용한다. OHLC 양방향 접촉은 순서 미상이며 stopFirst에만 보수적 가정 체결을 허용한다. sameClose 신규 진입에 같은 봉의 이미 지난 고저가를 적용하지 않는다.
+- LTH의 preview_signals_with_driver(Open/Signal/Close)는 매 봉 callback을 호출한다. 신규 보유 high-water는 open 단계에 close를 미리 넣지 않고, close 관측을 정확히 한 번만 반영한다. 실제 수량·원가와 부분 청산 보호를 유지하며 기존 bool/position callback은 호환 wrapper다.
+- 기본 호환은 바뀐 전략이 섞인 옛 연구 결과만으로 판단하지 않는다. 직전 커밋의 생산 라이브러리에서 같은 입력을 재실행하여 신규 metadata를 제외한 전체 회계 report와 signals를 비교한다. QQQ2026Q3 비용·next-open 청산 경로 fixture와 실제 연구/합성 OHLC 계약을 분리한다.
+
+> 마지막 업데이트: 2026-10-18T15:21:57+09:00

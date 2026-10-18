@@ -85,6 +85,7 @@ mod tests {
         SimulationEvent {
             time: "20261001".into(),
             chart_time: "20261001".into(),
+            open_units: close,
             close_units: close,
             high_units: high,
             low_units: low,

@@ -1,5 +1,13 @@
 import type { BrokerId, ChartCandle } from './types'
 
+export type ReplayExecutionModel = 'sameClose' | 'nextOpen'
+export type ReplayIntrabarExitPolicy = 'unverified' | 'stopFirst'
+
+export interface ReplayEventTime {
+  barTime: string
+  phase: 'open' | 'close' | 'intrabar'
+}
+
 export interface SimulationAssumptions {
   initialCapitalKrw: number
   feeBps: number
@@ -12,6 +20,11 @@ export interface SimulationAssumptions {
   atrStopMultiplier: number
   dailyLossLimitKrw: number
   inSamplePercent: number
+  /** Optional only for saved results from older engines. New requests set these explicitly. */
+  executionModel?: ReplayExecutionModel
+  intrabarExitPolicy?: ReplayIntrabarExitPolicy
+  stopLossPct?: number
+  takeProfitPct?: number
 }
 
 export interface ReplayAssessment {
@@ -49,10 +62,13 @@ export interface BacktestTrade {
   grossAmountKrw: number
   costKrw: number
   realizedPnlKrw: number | null
-  status: 'filled' | 'blocked'
+  status: 'filled' | 'blocked' | 'unfilled'
   reason: string
   blockedReason?: string
   phase: 'inSample' | 'outOfSample'
+  signalAvailableAt?: ReplayEventTime
+  fillAt?: ReplayEventTime
+  intrabarPathStatus?: string
 }
 
 export interface EquityPoint {
@@ -88,6 +104,8 @@ export interface BacktestSummary {
   orderEligibleCount: number
   filledOrderCount: number
   blockedOrderCount: number
+  unfilledOrderCount?: number
+  ambiguousBarCount?: number
 }
 
 export interface BacktestReport {
@@ -98,6 +116,7 @@ export interface BacktestReport {
   equityCurve: EquityPoint[]
   overfitWarning: string | null
   atrPreparation?: BacktestAtrPreparation
+  executionWarnings?: string[]
 }
 
 export interface BacktestAtrPreparation {

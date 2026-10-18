@@ -22,7 +22,7 @@ pub use core::{
 };
 pub use leveraged_trend_hold::{
     LeveragedTrendHoldEntry, LeveragedTrendHoldParams, LeveragedTrendHoldPreviewSignal,
-    LeveragedTrendHoldStrategy, LeveragedTrendHoldTimedCandle,
+    LeveragedTrendHoldPreviewStep, LeveragedTrendHoldStrategy, LeveragedTrendHoldTimedCandle,
 };
 pub use ma_cross::{MaCrossParams, MovingAverageCrossStrategy};
 pub use manager::{build_strategy, DailyHistoryStatus, DailyHistoryTicket, StrategyManager};

@@ -2,12 +2,12 @@ use super::*;
 
 mod generic;
 use crate::trading::simulation::{
-    replay_input_hash, report_position_snapshot, run_backtest, BacktestReportView,
-    ReplayAssessmentView, ReplayMetadataView, SimulationAssumptions, SimulationEvent,
-    REPLAY_ENGINE_VERSION,
+    replay_input_hash, BacktestReportView, ReplayAssessmentView, ReplayMetadataView, ReplaySession,
+    SimulationAssumptions, SimulationEvent, REPLAY_ENGINE_VERSION,
 };
 use crate::trading::strategy::{
-    LeveragedTrendHoldPreviewSignal, LeveragedTrendHoldTimedCandle, Signal,
+    LeveragedTrendHoldPreviewSignal, LeveragedTrendHoldPreviewStep, LeveragedTrendHoldTimedCandle,
+    Signal,
 };
 pub use generic::{
     preview_strategy_from_candles, StrategyPreparationView, StrategyPreviewInput,
@@ -315,12 +315,12 @@ fn lth_preview_signals_for_interval<F>(
     execute: F,
 ) -> Vec<LeveragedTrendHoldPreviewSignal>
 where
-    F: FnMut(&LeveragedTrendHoldPreviewSignal, &LeveragedTrendHoldTimedCandle) -> (u64, u64),
+    F: FnMut(LeveragedTrendHoldPreviewStep<'_>) -> (u64, u64),
 {
     if interval != "1m" {
         return Vec::new();
     }
-    crate::trading::strategy::LeveragedTrendHoldStrategy::preview_signals_with_position(
+    crate::trading::strategy::LeveragedTrendHoldStrategy::preview_signals_with_driver(
         symbol,
         params,
         daily_context,
@@ -481,87 +481,65 @@ pub async fn preview_leveraged_trend_hold_for_profile(
             } else {
                 candle.time.clone()
             },
+            open_units: candle.candle.open,
             close_units: candle.candle.close,
             high_units: candle.candle.high,
             low_units: candle.candle.low,
             signal: None,
         })
         .collect::<Vec<_>>();
-    let event_index_by_time = base_execution_events
-        .iter()
-        .enumerate()
-        .map(|(index, event)| (event.time.clone(), index))
-        .collect::<std::collections::HashMap<_, _>>();
-    let mut execution_events = Vec::with_capacity(base_execution_events.len());
-    let mut next_execution_index = 0usize;
-    let preview_signals = lth_preview_signals_for_interval(
-        interval,
+    let mut session = ReplaySession::new(
+        "leveraged_trend_hold",
         &symbol,
-        params,
-        &ohlc,
-        &timed,
-        |preview_signal, _| {
-            let Some(&signal_index) = event_index_by_time.get(&preview_signal.time) else {
-                return (0, 0);
-            };
-            while next_execution_index <= signal_index {
-                execution_events.push(base_execution_events[next_execution_index].clone());
-                next_execution_index += 1;
-            }
-            let signal = match preview_signal.side.as_str() {
-                "buy" => Signal::Buy {
-                    symbol: symbol.clone(),
-                    quantity: preview_signal.quantity,
-                    reason: preview_signal.reason.clone(),
-                },
-                "sell" => Signal::Sell {
-                    symbol: symbol.clone(),
-                    quantity: preview_signal.quantity,
-                    reason: preview_signal.reason.clone(),
-                },
-                _ => Signal::Hold,
-            };
-            if let Some(event) = execution_events.last_mut() {
-                event.signal = (signal != Signal::Hold).then_some(signal);
-            }
-            let report = run_backtest(
-                "leveraged_trend_hold",
-                &symbol,
-                entry_is_overseas,
-                assumptions.clone(),
-                &execution_events,
-            );
-            report_position_snapshot(&report, entry_is_overseas)
+        entry_is_overseas,
+        assumptions,
+        &[],
+        if interval == "1m" {
+            base_execution_events.len()
+        } else {
+            0
         },
     );
-    let mut signals_by_time = std::collections::HashMap::<String, Vec<Signal>>::new();
-    for signal in &preview_signals {
-        let replay_signal = match signal.side.as_str() {
-            "buy" => Signal::Buy {
-                symbol: symbol.clone(),
-                quantity: signal.quantity,
-                reason: signal.reason.clone(),
-            },
-            "sell" => Signal::Sell {
-                symbol: symbol.clone(),
-                quantity: signal.quantity,
-                reason: signal.reason.clone(),
-            },
-            _ => Signal::Hold,
-        };
-        if replay_signal != Signal::Hold {
-            signals_by_time
-                .entry(signal.time.clone())
-                .or_default()
-                .push(replay_signal);
-        }
-    }
-    let mut simulation_events = base_execution_events;
-    for event in &mut simulation_events {
-        event.signal = signals_by_time
-            .remove(&event.time)
-            .and_then(|mut signals| signals.pop());
-    }
+    let mut observation_index = 0;
+    let mut close_processed = false;
+    let preview_signals =
+        lth_preview_signals_for_interval(interval, &symbol, params, &ohlc, &timed, |step| {
+            let Some(event) = base_execution_events.get(observation_index) else {
+                return session.position_snapshot();
+            };
+            match step {
+                LeveragedTrendHoldPreviewStep::Open(_) => {
+                    session.begin_bar(event);
+                    close_processed = false;
+                }
+                LeveragedTrendHoldPreviewStep::Signal(preview_signal, _) => {
+                    let mut event = event.clone();
+                    event.signal = Some(if preview_signal.side == "buy" {
+                        Signal::Buy {
+                            symbol: symbol.clone(),
+                            quantity: preview_signal.quantity,
+                            reason: preview_signal.reason.clone(),
+                        }
+                    } else {
+                        Signal::Sell {
+                            symbol: symbol.clone(),
+                            quantity: preview_signal.quantity,
+                            reason: preview_signal.reason.clone(),
+                        }
+                    });
+                    session.process_close(&event);
+                    close_processed = true;
+                }
+                LeveragedTrendHoldPreviewStep::Close(_) => {
+                    if !close_processed {
+                        session.process_close(event);
+                    }
+                    observation_index += 1;
+                }
+            }
+            session.position_snapshot()
+        });
+    let simulation_events = base_execution_events;
     let signal_views = preview_signals
         .into_iter()
         .map(|signal| LeveragedTrendHoldPreviewSignalView {
@@ -664,13 +642,7 @@ pub async fn preview_leveraged_trend_hold_for_profile(
             if interval == "1m" { timed.len() } else { 0 },
         )),
     };
-    let backtest = run_backtest(
-        "leveraged_trend_hold",
-        &symbol,
-        entry_is_overseas,
-        assumptions,
-        &simulation_events,
-    );
+    let backtest = session.finish();
 
     Ok(LeveragedTrendHoldPreviewView {
         symbol,

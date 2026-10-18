@@ -1,5 +1,5 @@
 use super::*;
-use crate::trading::simulation::run_backtest_with_history;
+use crate::trading::simulation::{ExecutionModel, ReplaySession};
 use crate::trading::strategy::{build_strategy, initialize_strategy_warmup, Signal};
 
 #[derive(Debug, Deserialize)]
@@ -235,6 +235,7 @@ pub fn preview_strategy_from_candles(
         .clone()
         .unwrap_or_else(|| REPLAY_ENGINE_VERSION.into());
     let assumptions = input.assumptions.clone();
+    let next_open = assumptions.execution_model == ExecutionModel::NextOpen;
     let params_fingerprint = serde_json::to_string(&input.params).unwrap_or_default();
     let assumptions_fingerprint = serde_json::to_string(&assumptions).unwrap_or_default();
     let scope_fingerprint = format!(
@@ -325,14 +326,39 @@ pub fn preview_strategy_from_candles(
         .map(|(candle, ohlc, _)| SimulationEvent {
             time: candle.date.clone(),
             chart_time: candle.date.clone(),
+            open_units: ohlc.open,
             close_units: ohlc.close,
             high_units: ohlc.high,
             low_units: ohlc.low,
             signal: None,
         })
         .collect::<Vec<_>>();
+    let mut session = ReplaySession::new(
+        &input.strategy_id,
+        &symbol,
+        input.is_overseas,
+        assumptions,
+        &history_events,
+        replay_rows.len(),
+    );
     let mut simulation_events = Vec::with_capacity(replay_rows.len());
+    let mut synchronized_position = (0, 0);
     for (candle, ohlc, volume) in &replay_rows {
+        let mut event = SimulationEvent {
+            time: candle.date.clone(),
+            chart_time: candle.date.clone(),
+            open_units: ohlc.open,
+            close_units: ohlc.close,
+            high_units: ohlc.high,
+            low_units: ohlc.low,
+            signal: None,
+        };
+        session.begin_bar(&event);
+        let snapshot = session.position_snapshot();
+        if snapshot != synchronized_position {
+            strategy.sync_position(&symbol, snapshot.0, snapshot.1);
+            synchronized_position = snapshot;
+        }
         if daily {
             strategy.on_trading_day_start(&symbol, ohlc.open);
         }
@@ -344,27 +370,14 @@ pub fn preview_strategy_from_candles(
         } else {
             strategy.on_tick(&symbol, ohlc.close, *volume)
         };
-        simulation_events.push(SimulationEvent {
-            time: candle.date.clone(),
-            chart_time: candle.date.clone(),
-            close_units: ohlc.close,
-            high_units: ohlc.high,
-            low_units: ohlc.low,
-            signal: (signal != Signal::Hold).then(|| signal.clone()),
-        });
-        if signal != Signal::Hold {
-            let partial_report = run_backtest_with_history(
-                &input.strategy_id,
-                &symbol,
-                input.is_overseas,
-                assumptions.clone(),
-                &history_events,
-                &simulation_events,
-            );
-            let (held_quantity, average_price) =
-                report_position_snapshot(&partial_report, input.is_overseas);
-            strategy.sync_position(&symbol, held_quantity, average_price);
+        event.signal = (signal != Signal::Hold).then(|| signal.clone());
+        session.process_close(&event);
+        let snapshot = session.position_snapshot();
+        if signal != Signal::Hold || snapshot != synchronized_position {
+            strategy.sync_position(&symbol, snapshot.0, snapshot.1);
+            synchronized_position = snapshot;
         }
+        simulation_events.push(event);
         if daily {
             strategy.on_completed_candle(&symbol, ohlc);
         }
@@ -438,18 +451,11 @@ pub fn preview_strategy_from_candles(
         data_end: last_time,
         data_source,
         deterministic: true,
-        look_ahead_safe: true,
+        look_ahead_safe: next_open,
         input_hash,
         assessment: None,
     };
-    let backtest = run_backtest_with_history(
-        &input.strategy_id,
-        &symbol,
-        input.is_overseas,
-        assumptions,
-        &history_events,
-        &simulation_events,
-    );
+    let backtest = session.finish();
     let final_readiness = strategy.history_readiness(&symbol);
     let history_status = match initial_readiness {
         None => "unsupported",

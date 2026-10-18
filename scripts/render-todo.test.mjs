@@ -39,10 +39,11 @@ test('generated document preserves every open source item and supports keyboard 
     await page.goto(htmlPath.href);
     const tasks = parseTasks(source);
     assert.equal(await page.locator('article.task').count(), tasks.length);
-    for (const task of tasks) {
+    const visibleTitles = tasks.map((task) => task.title.replace(/\[([^\]]+)\]\([^)]+\)/gu, '$1').replace(/\*\*/gu, '').replace(/`/gu, ''));
+    for (const [index, task] of tasks.entries()) {
       const card = page.locator(`#${task.id}`);
       assert.equal(await card.getAttribute('data-source-line'), String(task.line));
-      const visibleTitle = task.title.replace(/\[([^\]]+)\]\([^)]+\)/gu, '$1').replace(/\*\*/gu, '').replace(/`/gu, '');
+      const visibleTitle = visibleTitles[index];
       assert.ok((await card.textContent()).includes(visibleTitle), task.id);
       for (const link of task.title.matchAll(/\[([^\]]+)\]\(([^)]+)\)/gu)) {
         assert.equal(await card.getByRole('link', { name: link[1], exact: true }).getAttribute('href'), link[2]);
@@ -57,7 +58,9 @@ test('generated document preserves every open source item and supports keyboard 
     assert.notEqual(colors.text, colors.background);
     await page.getByLabel('상태별 보기').selectOption('all');
     await page.getByLabel('할일 검색').focus();
-    await page.keyboard.type('SOXQ-P2-14 — 체결 가능성과 장중 손절');
+    // Search an actual open title: completing a task must not break this UI test.
+    assert.ok(visibleTitles.length > 0);
+    await page.keyboard.type(visibleTitles[0]);
     assert.equal(await page.locator('article.task:visible').count(), 1);
     await page.getByLabel('할일 검색').fill('없는항목_결과없음');
     assert.equal(await page.locator('article.task:visible').count(), 0);

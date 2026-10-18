@@ -5,6 +5,7 @@ fn atr_history(count: usize) -> Vec<SimulationEvent> {
         .map(|day| SimulationEvent {
             time: format!("202609{day:02}"),
             chart_time: format!("202609{day:02}"),
+            open_units: 500,
             close_units: 500,
             high_units: 501,
             low_units: 499,
@@ -36,6 +37,7 @@ fn flat_gap_entry() -> SimulationEvent {
     SimulationEvent {
         time: "20261001".into(),
         chart_time: "20261001".into(),
+        open_units: 1_000,
         close_units: 1_000,
         high_units: 1_000,
         low_units: 1_000,
@@ -115,6 +117,7 @@ fn event(time: &str, close: u64, signal: Option<Signal>) -> SimulationEvent {
     SimulationEvent {
         time: time.into(),
         chart_time: time.into(),
+        open_units: close,
         close_units: close,
         high_units: close + 100,
         low_units: close.saturating_sub(100),

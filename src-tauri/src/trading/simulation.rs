@@ -11,19 +11,46 @@ use super::{
     strategy::Signal,
 };
 
+mod session;
+pub use session::ReplaySession;
 mod assessment;
 pub use assessment::ReplayAssessmentView;
 mod atr;
 pub use atr::AtrPreparationView;
 use atr::AtrWindow;
 
-pub const REPLAY_ENGINE_VERSION: &str = "strategy-replay-v9";
+pub const REPLAY_ENGINE_VERSION: &str = "strategy-replay-v10";
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ExecutionModel {
+    #[default]
+    SameClose,
+    NextOpen,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum IntrabarExitPolicy {
+    #[default]
+    Unverified,
+    StopFirst,
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulationAssumptions {
     #[serde(default = "default_initial_capital")]
     pub initial_capital_krw: f64,
+    #[serde(default)]
+    pub execution_model: ExecutionModel,
+    #[serde(default)]
+    pub intrabar_exit_policy: IntrabarExitPolicy,
+    /// Research-only protection, independent from strategy stop logic; zero disables.
+    #[serde(default)]
+    pub stop_loss_pct: f64,
+    #[serde(default)]
+    pub take_profit_pct: f64,
     #[serde(default = "default_fee_bps")]
     pub fee_bps: f64,
     #[serde(default = "default_tax_bps")]
@@ -50,6 +77,10 @@ impl Default for SimulationAssumptions {
     fn default() -> Self {
         Self {
             initial_capital_krw: default_initial_capital(),
+            execution_model: ExecutionModel::default(),
+            intrabar_exit_policy: IntrabarExitPolicy::default(),
+            stop_loss_pct: 0.0,
+            take_profit_pct: 0.0,
             fee_bps: default_fee_bps(),
             tax_bps: default_tax_bps(),
             slippage_bps: default_slippage_bps(),
@@ -118,6 +149,8 @@ impl SimulationAssumptions {
             1_000_000_000_000.0,
             default_daily_loss_limit(),
         );
+        self.stop_loss_pct = finite_clamp(self.stop_loss_pct, 0.0, 99.9, 0.0);
+        self.take_profit_pct = finite_clamp(self.take_profit_pct, 0.0, 1_000.0, 0.0);
         self.risk_per_trade_bps = self.risk_per_trade_bps.min(10_000);
         self.in_sample_percent = self.in_sample_percent.clamp(50, 100);
         self
@@ -167,6 +200,7 @@ fn finite_clamp(value: f64, min: f64, max: f64, fallback: f64) -> f64 {
 pub struct SimulationEvent {
     pub time: String,
     pub chart_time: String,
+    pub open_units: u64,
     pub close_units: u64,
     pub high_units: u64,
     pub low_units: u64,
@@ -192,9 +226,23 @@ pub struct ReplayMetadataView {
     pub assessment: Option<ReplayAssessmentView>,
 }
 
+/// Bar label and causal phase, without inventing an exchange execution timestamp.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplayEventTime {
+    pub bar_time: String,
+    pub phase: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BacktestTradeView {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_available_at: Option<ReplayEventTime>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fill_at: Option<ReplayEventTime>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intrabar_path_status: Option<String>,
     pub time: String,
     pub side: String,
     pub signal_price: f64,
@@ -249,11 +297,14 @@ pub struct BacktestSummaryView {
     pub order_eligible_count: usize,
     pub filled_order_count: usize,
     pub blocked_order_count: usize,
+    pub unfilled_order_count: usize,
+    pub ambiguous_bar_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BacktestReportView {
+    pub execution_warnings: Vec<String>,
     pub assumptions: SimulationAssumptions,
     pub summary: BacktestSummaryView,
     pub phases: Vec<BacktestPhaseView>,
@@ -290,327 +341,19 @@ pub fn run_backtest_with_history(
     history_events: &[SimulationEvent],
     events: &[SimulationEvent],
 ) -> BacktestReportView {
-    let assumptions = assumptions.normalized(is_overseas);
-    let mut risk = RiskManager::new(
-        assumptions.daily_loss_limit_krw.round() as i64,
-        assumptions.max_position_ratio,
+    let mut session = ReplaySession::new(
+        strategy_id,
+        symbol,
+        is_overseas,
+        assumptions,
+        history_events,
+        events.len(),
     );
-    risk.volatility_sizing_enabled = assumptions.volatility_sizing_enabled;
-    risk.risk_per_trade_bps = assumptions.risk_per_trade_bps;
-    risk.atr_stop_multiplier = assumptions.atr_stop_multiplier;
-    risk.max_daily_sell_orders_per_symbol = 0;
-    let rounded_bps = |value: f64| value.round() as i32;
-    let guard_config = TradeGuardConfig {
-        domestic_slippage_bps: rounded_bps(
-            assumptions.fee_bps * 2.0 + assumptions.tax_bps + assumptions.slippage_bps,
-        ) - 22,
-        overseas_fee_bps: rounded_bps(assumptions.fee_bps * 2.0 + assumptions.tax_bps),
-        overseas_slippage_bps: rounded_bps(assumptions.slippage_bps),
-        ..TradeGuardConfig::default()
-    };
-    let mut guard = TradeGuard::new(guard_config);
-    let scope = BrokerScope::kis_legacy();
-    let split_index = if assumptions.in_sample_percent >= 100 {
-        events.len()
-    } else {
-        events
-            .len()
-            .saturating_mul(assumptions.in_sample_percent as usize)
-            / 100
-    };
-    let mut cash = assumptions.initial_capital_krw;
-    let mut position: Option<PositionState> = None;
-    let mut trades = Vec::new();
-    let mut equity_curve = Vec::with_capacity(events.len());
-    let mut completed_pnls = Vec::new();
-    let mut turnover_krw = 0.0;
-    let mut exposed_events = 0usize;
-    let mut signal_count = 0usize;
-    let mut eligible_count = 0usize;
-    let mut filled_count = 0usize;
-    let mut atr_window = AtrWindow::default();
-    for event in history_events {
-        atr_window.observe(event);
+    for event in events {
+        session.begin_bar(event);
+        session.process_close(event);
     }
-    let mut atr_preparation = AtrWindow::preparation(history_events.len(), atr_window.ready());
-
-    for (index, event) in events.iter().enumerate() {
-        let event_time = parse_replay_time(&event.time, is_overseas);
-        if risk.reset_for_date(event_time.date_naive()) && risk.is_emergency_stop() {
-            // replay에는 사용자 수동 비상정지 입력이 없으므로 전 거래일의 자동 손실한도
-            // 비상정지는 다음 거래일 시작에 해제한다.
-            risk.clear_emergency_stop();
-        }
-        atr_window.observe(event);
-        if atr_window.ready() {
-            atr_preparation
-                .first_ready_time
-                .get_or_insert_with(|| event.time.clone());
-        } else {
-            atr_preparation.unready_evaluation_bars += 1;
-        }
-        if let Some(atr) = atr_window.value().filter(|value| *value > 0) {
-            risk.set_symbol_atr(symbol, atr);
-        }
-
-        let phase = phase_for_index(index, split_index, events.len()).to_string();
-        if let Some(signal) = &event.signal {
-            signal_count += 1;
-            let now = event_time;
-            let held = position.as_ref().map(|p| p.quantity).unwrap_or(0);
-            let average_units = position.as_ref().and_then(|p| {
-                krw_to_units(
-                    p.average_fill_krw,
-                    is_overseas,
-                    assumptions.exchange_rate_krw,
-                )
-            });
-            let mut blocked_reason = match guard.evaluate_for_scope_at(
-                &scope,
-                signal,
-                held,
-                average_units,
-                event.close_units,
-                is_overseas,
-                now,
-            ) {
-                GuardDecision::Allow => None,
-                GuardDecision::Block { reason } => Some(reason),
-            };
-
-            if blocked_reason.is_none() {
-                blocked_reason =
-                    execution_block_reason(&risk, strategy_id, symbol, signal, position.as_ref());
-            }
-            if blocked_reason.is_none()
-                && assumptions.volatility_sizing_enabled
-                && matches!(signal, Signal::Buy { .. })
-                && assumptions.risk_per_trade_bps == 0
-            {
-                blocked_reason = Some("ATR 수량 산정 위험 예산 0bps: 신규 매수 불가".into());
-            }
-            if blocked_reason.is_none()
-                && assumptions.volatility_sizing_enabled
-                && matches!(signal, Signal::Buy { .. })
-                && !atr_window.value().is_some_and(|value| value > 0)
-            {
-                blocked_reason = Some(format!(
-                    "ATR(TR,14) 수량 산정 자료 부족 또는 변동폭 0: {} / 14개 true range",
-                    atr_window.available_ranges()
-                ));
-            }
-
-            let (side, requested_quantity, reason) = signal_parts(signal);
-            let signal_price_krw = units_to_krw(
-                event.close_units,
-                is_overseas,
-                assumptions.exchange_rate_krw,
-            );
-            let mut trade = BacktestTradeView {
-                time: event.time.clone(),
-                side: side.to_string(),
-                signal_price: units_to_display(event.close_units, is_overseas),
-                fill_price: None,
-                quantity: requested_quantity,
-                gross_amount_krw: 0.0,
-                cost_krw: 0.0,
-                realized_pnl_krw: None,
-                status: "blocked".into(),
-                reason: reason.to_string(),
-                blocked_reason,
-                phase: phase.clone(),
-            };
-
-            if trade.blocked_reason.is_none() {
-                match signal {
-                    Signal::Buy { quantity, .. } => {
-                        let total_equity =
-                            current_equity(cash, position.as_ref(), signal_price_krw);
-                        let adjusted_quantity = risk.volatility_adjusted_quantity(
-                            symbol,
-                            *quantity,
-                            event.close_units,
-                            total_equity.round() as i64,
-                            is_overseas,
-                            assumptions.exchange_rate_krw,
-                        );
-                        let fill_krw =
-                            apply_slippage(signal_price_krw, assumptions.slippage_bps, true);
-                        let gross = fill_krw * adjusted_quantity as f64;
-                        let fee = bps_cost(gross, assumptions.fee_bps);
-                        let amount = gross + fee;
-                        if adjusted_quantity == 0 {
-                            trade.blocked_reason = Some("변동성 수량 산정 결과가 0주".into());
-                        } else if !risk
-                            .check_position_size(gross.round() as i64, total_equity.round() as i64)
-                        {
-                            trade.blocked_reason = Some("단일 종목 최대 비중 초과".into());
-                        } else if amount > cash {
-                            trade.blocked_reason = Some("초기자본/현금 부족".into());
-                        } else {
-                            cash -= amount;
-                            position = Some(PositionState {
-                                quantity: adjusted_quantity,
-                                average_fill_krw: fill_krw,
-                                allocated_buy_cost_krw: fee,
-                            });
-                            trade.fill_price = Some(krw_to_display(
-                                fill_krw,
-                                is_overseas,
-                                assumptions.exchange_rate_krw,
-                            ));
-                            trade.quantity = adjusted_quantity;
-                            trade.gross_amount_krw = gross;
-                            trade.cost_krw = fee
-                                + (fill_krw - signal_price_krw).max(0.0) * adjusted_quantity as f64;
-                            trade.status = "filled".into();
-                            turnover_krw += gross;
-                        }
-                    }
-                    Signal::Sell { quantity, .. } => {
-                        if let Some(open) = position.take() {
-                            let sell_quantity = (*quantity).min(open.quantity);
-                            let fill_krw =
-                                apply_slippage(signal_price_krw, assumptions.slippage_bps, false);
-                            let gross = fill_krw * sell_quantity as f64;
-                            let fee = bps_cost(gross, assumptions.fee_bps);
-                            let tax = bps_cost(gross, assumptions.tax_bps);
-                            let buy_cost = open.allocated_buy_cost_krw * sell_quantity as f64
-                                / open.quantity as f64;
-                            let pnl = (fill_krw - open.average_fill_krw) * sell_quantity as f64
-                                - fee
-                                - tax
-                                - buy_cost;
-                            cash += gross - fee - tax;
-                            let remaining = open.quantity - sell_quantity;
-                            if remaining > 0 {
-                                position = Some(PositionState {
-                                    quantity: remaining,
-                                    average_fill_krw: open.average_fill_krw,
-                                    allocated_buy_cost_krw: open.allocated_buy_cost_krw - buy_cost,
-                                });
-                            }
-                            risk.record_pnl(pnl.round() as i64);
-                            risk.record_strategy_symbol_pnl_for_scope(
-                                &scope,
-                                strategy_id,
-                                symbol,
-                                pnl.round() as i64,
-                            );
-                            completed_pnls.push((event.time.clone(), pnl, phase.clone()));
-                            trade.fill_price = Some(krw_to_display(
-                                fill_krw,
-                                is_overseas,
-                                assumptions.exchange_rate_krw,
-                            ));
-                            trade.quantity = sell_quantity;
-                            trade.gross_amount_krw = gross;
-                            trade.cost_krw = fee
-                                + tax
-                                + (signal_price_krw - fill_krw).max(0.0) * sell_quantity as f64;
-                            trade.realized_pnl_krw = Some(round_money(pnl));
-                            trade.status = "filled".into();
-                            turnover_krw += gross;
-                        }
-                    }
-                    Signal::Hold => {}
-                }
-
-                if trade.status == "filled" {
-                    eligible_count += 1;
-                    filled_count += 1;
-                    guard.record_submitted_for_scope_at(&scope, signal, now);
-                }
-            }
-            trades.push(trade);
-        }
-
-        if position.is_some() {
-            exposed_events += 1;
-        }
-        let mark_price = units_to_krw(
-            event.close_units,
-            is_overseas,
-            assumptions.exchange_rate_krw,
-        );
-        let equity = current_equity(cash, position.as_ref(), mark_price);
-        let peak = equity_curve
-            .iter()
-            .map(|p: &EquityPointView| p.equity_krw)
-            .fold(assumptions.initial_capital_krw, f64::max);
-        let drawdown = if peak > 0.0 {
-            ((peak - equity) / peak * 100.0).max(0.0)
-        } else {
-            0.0
-        };
-        equity_curve.push(EquityPointView {
-            time: event.chart_time.clone(),
-            equity_krw: round_money(equity),
-            drawdown_pct: round_metric(drawdown),
-            phase: phase_for_index(index, split_index, events.len()).to_string(),
-        });
-    }
-
-    let final_price_krw = events
-        .last()
-        .map(|e| units_to_krw(e.close_units, is_overseas, assumptions.exchange_rate_krw))
-        .unwrap_or(0.0);
-    let final_equity = current_equity(cash, position.as_ref(), final_price_krw);
-    let winning = completed_pnls
-        .iter()
-        .filter(|(_, pnl, _)| *pnl > 0.0)
-        .count();
-    let losing = completed_pnls
-        .iter()
-        .filter(|(_, pnl, _)| *pnl < 0.0)
-        .count();
-    let gross_profit: f64 = completed_pnls.iter().map(|(_, pnl, _)| pnl.max(0.0)).sum();
-    let gross_loss: f64 = completed_pnls
-        .iter()
-        .map(|(_, pnl, _)| pnl.min(0.0).abs())
-        .sum();
-    let phases = phase_summaries(
-        &equity_curve,
-        &completed_pnls,
-        assumptions.initial_capital_krw,
-    );
-    let overfit_warning = overfit_warning(&phases);
-    atr_preparation.ready_at_end = atr_window.ready();
-
-    BacktestReportView {
-        assumptions: assumptions.clone(),
-        summary: BacktestSummaryView {
-            initial_capital_krw: round_money(assumptions.initial_capital_krw),
-            final_equity_krw: round_money(final_equity),
-            cumulative_return_pct: round_metric(return_pct(
-                assumptions.initial_capital_krw,
-                final_equity,
-            )),
-            mdd_pct: equity_curve
-                .iter()
-                .map(|p| p.drawdown_pct)
-                .fold(0.0, f64::max),
-            completed_trades: completed_pnls.len(),
-            winning_trades: winning,
-            losing_trades: losing,
-            win_rate_pct: round_metric(percent(winning, completed_pnls.len())),
-            profit_factor: (gross_loss > 0.0).then(|| round_metric(gross_profit / gross_loss)),
-            turnover_pct: round_metric(turnover_krw / assumptions.initial_capital_krw * 100.0),
-            exposure_pct: round_metric(percent(exposed_events, events.len())),
-            signal_count,
-            order_eligible_count: eligible_count,
-            filled_order_count: filled_count,
-            blocked_order_count: trades
-                .iter()
-                .filter(|trade| trade.status == "blocked")
-                .count(),
-        },
-        phases,
-        trades,
-        equity_curve,
-        overfit_warning,
-        atr_preparation,
-    }
+    session.finish()
 }
 
 /// replay의 마지막 실제 체결 포지션을 전략 내부 상태 동기화 단위로 반환한다.
@@ -900,3 +643,7 @@ pub fn replay_input_hash(parts: &[&str]) -> String {
 #[cfg(test)]
 #[path = "simulation/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "simulation/execution_tests.rs"]
+mod execution_tests;

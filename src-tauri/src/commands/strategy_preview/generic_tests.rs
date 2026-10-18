@@ -240,3 +240,173 @@ fn minute_replay_risk_guard_and_full_reports_are_independent_of_host_timezone() 
         }
     }
 }
+
+#[test]
+fn next_open_settles_before_the_next_strategy_close_and_retains_final_pending() {
+    use crate::trading::simulation::ExecutionModel;
+    let mut fixture = input(&["20260706", "20260707", "20260708", "20260709"]);
+    fixture.interval = Some("1d".into());
+    fixture.assumptions.execution_model = ExecutionModel::NextOpen;
+    fixture.assumptions.fee_bps = 0.0;
+    fixture.assumptions.tax_bps = 0.0;
+    fixture.assumptions.slippage_bps = 0.0;
+    fixture.candles = [
+        (69_000, 69_000),
+        (75_000, 76_000),
+        (76_000, 82_000),
+        (81_000, 81_000),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(index, (open, close))| ChartCandle {
+        date: format!("202607{:02}", 6 + index),
+        open: open.to_string(),
+        close: close.to_string(),
+        high: open.max(close).to_string(),
+        low: open.min(close).to_string(),
+        volume: "1000".into(),
+    })
+    .collect();
+    let result = preview_strategy_from_candles(fixture).unwrap();
+    assert!(result.replay.look_ahead_safe);
+    assert_eq!(result.signals.len(), 2);
+    assert_eq!(
+        result.signals[1].time, "20260708",
+        "entry must be the next open, not the previous close"
+    );
+    assert_eq!(result.backtest.trades[0].fill_price, Some(75_000.0));
+    assert_eq!(result.backtest.trades[1].fill_price, Some(81_000.0));
+    let first = &result.backtest.trades[0];
+    assert_eq!(
+        first.signal_available_at.as_ref().unwrap().bar_time,
+        "20260706"
+    );
+    assert_eq!(first.signal_available_at.as_ref().unwrap().phase, "close");
+    assert_eq!(first.fill_at.as_ref().unwrap().bar_time, "20260707");
+    assert_eq!(first.fill_at.as_ref().unwrap().phase, "open");
+    assert_eq!(result.backtest.summary.unfilled_order_count, 0);
+
+    let mut pending = input(&["20260706"]);
+    pending.interval = Some("1d".into());
+    pending.assumptions.execution_model = ExecutionModel::NextOpen;
+    let pending = preview_strategy_from_candles(pending).unwrap();
+    assert_eq!(pending.backtest.summary.filled_order_count, 0);
+    assert_eq!(pending.backtest.summary.blocked_order_count, 0);
+    assert_eq!(pending.backtest.summary.unfilled_order_count, 1);
+    assert_eq!(pending.backtest.trades[0].status, "unfilled");
+    assert!(pending.backtest.trades[0].fill_at.is_none());
+}
+
+#[test]
+fn future_open_cannot_change_an_earlier_signal_or_fill() {
+    use crate::trading::simulation::ExecutionModel;
+    let build = |future| {
+        let mut fixture = input(&["20260706", "20260707", "20260708"]);
+        fixture.interval = Some("1d".into());
+        fixture.assumptions.execution_model = ExecutionModel::NextOpen;
+        fixture.candles[2] = candle("20260708", future);
+        preview_strategy_from_candles(fixture).unwrap()
+    };
+    let left = build(40_000);
+    let right = build(140_000);
+    assert_eq!(
+        serde_json::to_value(&left.signals[0]).unwrap(),
+        serde_json::to_value(&right.signals[0]).unwrap()
+    );
+    assert_eq!(
+        serde_json::to_value(&left.backtest.trades[0]).unwrap(),
+        serde_json::to_value(&right.backtest.trades[0]).unwrap()
+    );
+    assert_eq!(
+        serde_json::to_value(&left.backtest.equity_curve[..2]).unwrap(),
+        serde_json::to_value(&right.backtest.equity_curve[..2]).unwrap()
+    );
+}
+
+#[test]
+fn frozen_qqq_cost_and_next_open_feedback_change_the_real_strategy_exit_path() {
+    use crate::trading::simulation::ExecutionModel;
+    let data: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../docs/research/strategy-review-20261018/input.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let dataset = data["datasets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["symbol"] == "QQQ")
+        .unwrap();
+    let bars: Vec<ChartCandle> = serde_json::from_value(dataset["candles"].clone()).unwrap();
+    for (cost, model, expected_return, exit_signal, exit_fill) in [
+        (
+            10.0,
+            ExecutionModel::SameClose,
+            0.6274,
+            "20260921",
+            "20260921",
+        ),
+        (
+            20.0,
+            ExecutionModel::SameClose,
+            -0.5659,
+            "20260729",
+            "20260729",
+        ),
+        (
+            10.0,
+            ExecutionModel::NextOpen,
+            -0.4372,
+            "20260729",
+            "20260730",
+        ),
+        (
+            20.0,
+            ExecutionModel::NextOpen,
+            -0.4772,
+            "20260729",
+            "20260730",
+        ),
+    ] {
+        let result = preview_strategy_from_candles(StrategyPreviewInput {
+            strategy_id: "mean_reversion".into(),
+            strategy_name: "Frozen QQQ feedback".into(),
+            symbol: "QQQ".into(),
+            is_overseas: true,
+            order_quantity: 1,
+            params: serde_json::to_value(crate::trading::strategy::MeanReversionParams::default())
+                .unwrap(),
+            candles: bars[1179..1243].to_vec(),
+            history_candles: bars[927..1179].to_vec(),
+            warmup_count: None,
+            interval: Some("1d".into()),
+            data_source: Some("frozen fixture; calendar coverage unverified".into()),
+            strategy_version: None,
+            broker_id: None,
+            broker_account_id: None,
+            assumptions: SimulationAssumptions {
+                execution_model: model,
+                fee_bps: cost,
+                slippage_bps: cost,
+                tax_bps: 0.0,
+                ..SimulationAssumptions::default()
+            },
+        })
+        .unwrap();
+        assert_eq!(
+            result.backtest.summary.cumulative_return_pct,
+            expected_return
+        );
+        let exit = &result.backtest.trades[1];
+        assert_eq!(
+            exit.signal_available_at.as_ref().unwrap().bar_time,
+            exit_signal
+        );
+        assert_eq!(exit.fill_at.as_ref().unwrap().bar_time, exit_fill);
+        assert_eq!(exit.reason.contains("손절"), exit_signal == "20260729");
+        assert_eq!(result.backtest.summary.completed_trades, 1);
+    }
+}

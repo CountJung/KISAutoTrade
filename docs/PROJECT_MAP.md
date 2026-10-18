@@ -37,6 +37,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | 자동매매 시작/데몬 | `src-tauri/src/commands/trading.rs` / `commands/trading/daemon.rs` | `daemon/{fence,flow}.rs`, `commands/trading/{positions,balance,risk_restore,history,daily_history}.rs`, `lib.rs` |
 | Live 52주 완료 일봉 준비 | `commands/trading/daily_history.rs`, `daily_history/jobs.rs` | `trading/strategy/manager/live_history.rs`, `src/shared/ui/LiveDailyHistoryPanel.tsx`, TradingStatus |
 | 전략 | `src-tauri/src/trading/strategy/` | `commands/strategy.rs`, `commands/strategy_preview.rs`, Strategy UI |
+| Replay 체결 모델·연구 보호 청산 | `trading/simulation/{session,execution_tests}.rs`, `simulation.rs` | `commands/strategy_preview{,/generic}.rs`, `strategy/leveraged_trend_hold/preview.rs`, `strategyResearchPanel.tsx`, `tests/e2e/strategy-execution-model.spec.ts` |
 | 전략 설정 저장·보유 보호 | `src-tauri/src/trading/configuration.rs` | `trading/order/configuration.rs`, `trading/strategy/manager/configuration.rs`, 각 전략의 `reconfigure_tests.rs`, IPC/Web 전략 수정 facade |
 | 잔고 조회·tracker 게시·계좌별 캐시 | `src-tauri/src/trading/order/holdings.rs`, `holdings/{fetch,parse}.rs` | `trading/position.rs`, `commands/accounts.rs`, `commands/trading/positions.rs`, `server/{market,trading}.rs`, `src/api/{accountHooks,backendEvents}.ts` |
 | 수동·자동 주문 | `src-tauri/src/trading/order/submission.rs` | `order/execution_run.rs`, `submission/{positions,prepare,provider,records}.rs`, `commands/orders.rs` |
@@ -142,6 +143,21 @@ Toss의 명시 금액과 누락을 구분하고 실제 평균가 대체 계산�
 명시 체결대금이 일치해야 하며, 미확정 자료를 체결로 만들어내지 않는다.
 
 공용 타입·IPC·주문·리스크의 다중 참조 추적에는 필요할 때 Serena를 선택한다. Graphify는 위 구조 자체를 이동·통합하는 리팩터링 때만 사용한다.
+
+### Replay 회계·체결 피드백
+
+`trading/simulation/session.rs`의 ReplaySession이 batch와 일반/LTH preview의
+포지션·비용·리스크 회계를 공유한다. 각 관측 봉은 begin_bar의 이전 종가 신호 시가
+체결·연구 보호 청산 → 전략에 체결 포지션 피드백 → 종가 신호 → process_close의
+종가 체결 또는 nextOpen 보류·mark/equity → 체결 포지션 피드백 순서로 처리한다.
+다음 시가 체결은 이전 완료봉 ATR을 사용하고, 평가 마지막 신호의 미체결은 차단과
+구분한다. 연구 보호 주문은 원시 전략 신호와 별도이며 OHLC 내부 순서는 미검증으로
+남기거나 선택한 손절 우선 근사로 처리한다.
+
+연구 UI는 체결/보호 가정·신호 공개와 체결 단계·미체결·동시 도달·A/B의 엔진과
+가정 차이를 표시한다. 이전 결과의 누락 metadata는 미확인으로 남긴다. 동결 자료를
+생산 엔진으로 비교하는 진입점은 `docs/research/replay-execution-20261018/runner.rs`다.
+이 경로는 사용자 운용 설정·실제 주문을 변경하지 않는다. [연구 비교](research/replay-execution-20261018/report.md)와 [작업 기록](tasks/replay-execution-model-20261018.md)에서 검증 범위를 확인한다.
 
 ### DB 설정·pool 변경
 

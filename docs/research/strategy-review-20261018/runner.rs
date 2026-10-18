@@ -144,6 +144,7 @@ fn benchmark(
             Ok(SimulationEvent {
                 time: c.date.clone(),
                 chart_time: c.date.clone(),
+                open_units: (price(&c.open)? * 100.0).round() as u64,
                 close_units: (price(&c.close)? * 100.0).round() as u64,
                 high_units: (price(&c.high)? * 100.0).round() as u64,
                 low_units: (price(&c.low)? * 100.0).round() as u64,
@@ -273,6 +274,7 @@ fn minute_diagnostics(input: &Value, writer: &mut impl Write) -> ResearchResult<
                 .map(|timed| SimulationEvent {
                     time: timed.time.clone(),
                     chart_time: timed.time.clone(),
+                    open_units: timed.candle.open,
                     close_units: timed.candle.close,
                     high_units: timed.candle.high,
                     low_units: timed.candle.low,

@@ -140,6 +140,27 @@ impl LeveragedTrendHoldStrategy {
     where
         F: FnMut(&LeveragedTrendHoldPreviewSignal, &LeveragedTrendHoldTimedCandle) -> (u64, u64),
     {
+        let mut snapshot = (0, 0);
+        Self::preview_signals_with_driver(symbol, params, daily_candles, intraday_candles, |step| {
+            if let LeveragedTrendHoldPreviewStep::Signal(signal, candle) = step {
+                snapshot = execute(signal, candle);
+            }
+            snapshot
+        })
+    }
+
+    /// Settle the prior close at this open before observing this candle's close.
+    /// Close is emitted even when no strategy signal is generated.
+    pub fn preview_signals_with_driver<F>(
+        symbol: &str,
+        params: LeveragedTrendHoldParams,
+        daily_candles: &[OhlcCandle],
+        intraday_candles: &[LeveragedTrendHoldTimedCandle],
+        mut drive: F,
+    ) -> Vec<LeveragedTrendHoldPreviewSignal>
+    where
+        F: FnMut(LeveragedTrendHoldPreviewStep<'_>) -> (u64, u64),
+    {
         let normalized_symbol = symbol.trim().to_uppercase();
         if normalized_symbol.is_empty() || intraday_candles.is_empty() {
             return Vec::new();
@@ -198,7 +219,12 @@ impl LeveragedTrendHoldStrategy {
             if price == 0 {
                 continue;
             }
+            position.sync(
+                drive(LeveragedTrendHoldPreviewStep::Open(timed)),
+                timed.candle.open,
+            );
             let Some(state) = strategy.states.get_mut(&normalized_symbol) else {
+                drive(LeveragedTrendHoldPreviewStep::Close(timed));
                 continue;
             };
             state.intraday_candles.push_back(timed.candle);
@@ -231,8 +257,12 @@ impl LeveragedTrendHoldStrategy {
                         position.quantity,
                         reason,
                     );
-                    position.sync(execute(&signal, timed), price);
+                    position.sync(
+                        drive(LeveragedTrendHoldPreviewStep::Signal(&signal, timed)),
+                        price,
+                    );
                     signals.push(signal);
+                    drive(LeveragedTrendHoldPreviewStep::Close(timed));
                     continue;
                 }
                 if let Some(reason) = position.entry_price.and_then(|entry| {
@@ -252,8 +282,12 @@ impl LeveragedTrendHoldStrategy {
                         position.quantity,
                         reason,
                     );
-                    position.sync(execute(&signal, timed), price);
+                    position.sync(
+                        drive(LeveragedTrendHoldPreviewStep::Signal(&signal, timed)),
+                        price,
+                    );
                     signals.push(signal);
+                    drive(LeveragedTrendHoldPreviewStep::Close(timed));
                     continue;
                 }
                 if let Some(mins) = Self::minute_of_day_from_time(&timed.time) {
@@ -273,11 +307,15 @@ impl LeveragedTrendHoldStrategy {
                                     "LeveragedTrendHold 장마감 청산: 마감 {minutes_to_close}분 전"
                                 ),
                             );
-                            position.sync(execute(&signal, timed), price);
+                            position.sync(
+                                drive(LeveragedTrendHoldPreviewStep::Signal(&signal, timed)),
+                                price,
+                            );
                             signals.push(signal);
                         }
                     }
                 }
+                drive(LeveragedTrendHoldPreviewStep::Close(timed));
                 continue;
             }
 
@@ -290,6 +328,7 @@ impl LeveragedTrendHoldStrategy {
                 .filter(|_| !Self::is_blackout_minute(mins, &strategy.params.blackout_windows))
             });
             let Some((elapsed, _)) = session else {
+                drive(LeveragedTrendHoldPreviewStep::Close(timed));
                 continue;
             };
 
@@ -310,8 +349,12 @@ impl LeveragedTrendHoldStrategy {
                         Self::rapid_rebound_indicator_label(&snap)
                     ),
                 );
-                position.sync(execute(&signal, timed), price);
+                position.sync(
+                    drive(LeveragedTrendHoldPreviewStep::Signal(&signal, timed)),
+                    price,
+                );
                 signals.push(signal);
+                drive(LeveragedTrendHoldPreviewStep::Close(timed));
                 continue;
             }
 
@@ -333,8 +376,12 @@ impl LeveragedTrendHoldStrategy {
                             snap.bullish_count_3
                         ),
                     );
-                    position.sync(execute(&signal, timed), price);
+                    position.sync(
+                        drive(LeveragedTrendHoldPreviewStep::Signal(&signal, timed)),
+                        price,
+                    );
                     signals.push(signal);
+                    drive(LeveragedTrendHoldPreviewStep::Close(timed));
                     continue;
                 }
             }
@@ -354,9 +401,13 @@ impl LeveragedTrendHoldStrategy {
                         Self::rebound_indicator_label(&snap)
                     ),
                 );
-                position.sync(execute(&signal, timed), price);
+                position.sync(
+                    drive(LeveragedTrendHoldPreviewStep::Signal(&signal, timed)),
+                    price,
+                );
                 signals.push(signal);
             }
+            drive(LeveragedTrendHoldPreviewStep::Close(timed));
         }
 
         signals

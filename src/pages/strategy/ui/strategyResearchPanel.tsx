@@ -5,6 +5,7 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Grid from '@mui/material/Grid'
+import MenuItem from '@mui/material/MenuItem'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
@@ -24,6 +25,7 @@ import type {
   BacktestReport,
   BrokerId,
   ReplayMetadata,
+  ReplayEventTime,
   SimulationAssumptions,
   StrategyExperimentSnapshot,
 } from '../../../api/types'
@@ -47,6 +49,10 @@ export function defaultSimulationAssumptions(isOverseas: boolean): SimulationAss
     atrStopMultiplier: 2,
     dailyLossLimitKrw: 1_000_000,
     inSamplePercent: 70,
+    executionModel: 'sameClose',
+    intrabarExitPolicy: 'unverified',
+    stopLossPct: 0,
+    takeProfitPct: 0,
   }
 }
 
@@ -101,6 +107,41 @@ export function SimulationAssumptionsEditor({ value, onChange, disabled }: Assum
         <ScienceOutlinedIcon fontSize="small" color="primary" />
         <Typography variant="caption" fontWeight={700}>백테스트 실행 가정</Typography>
       </Stack>
+      <Grid container spacing={1.25} sx={{ mb: 1.25 }}>
+        <Grid item xs={12} sm={6}>
+          <TextField select size="small" label="체결 모델" value={value.executionModel ?? 'sameClose'} fullWidth disabled={disabled}
+            onChange={(event) => onChange({ ...value, executionModel: event.target.value as SimulationAssumptions['executionModel'] })}>
+            <MenuItem value="sameClose">신호 봉 종가 체결 가정</MenuItem>
+            <MenuItem value="nextOpen">다음 관측 봉 시가 체결 가정</MenuItem>
+          </TextField>
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField select size="small" label="봉 내부 청산 정책" value={value.intrabarExitPolicy ?? 'unverified'} fullWidth disabled={disabled}
+            onChange={(event) => onChange({ ...value, intrabarExitPolicy: event.target.value as SimulationAssumptions['intrabarExitPolicy'] })}>
+            <MenuItem value="unverified">봉 내부 경로 미검증 · 시가 갭 청산만</MenuItem>
+            <MenuItem value="stopFirst">손절 우선 · 보수적 모의 청산</MenuItem>
+          </TextField>
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField size="small" type="number" label="연구 손절(%)" value={value.stopLossPct ?? 0} fullWidth disabled={disabled}
+            onChange={(event) => updateNumber('stopLossPct', Number(event.target.value))}
+            inputProps={{ min: 0, max: 99.9, step: 0.1 }} helperText="0 = 비활성 · 백테스트 전용" />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField size="small" type="number" label="연구 익절(%)" value={value.takeProfitPct ?? 0} fullWidth disabled={disabled}
+            onChange={(event) => updateNumber('takeProfitPct', Number(event.target.value))}
+            inputProps={{ min: 0, max: 1000, step: 0.1 }} helperText="0 = 비활성 · 백테스트 전용" />
+        </Grid>
+      </Grid>
+      <Alert severity="info" sx={{ mb: 1.25 }}>
+        {value.executionModel === 'nextOpen'
+          ? '종가에서 확인한 신호는 다음 관측 봉의 시가로 체결을 가정합니다. 마지막 봉 신호는 다음 봉이 없으면 미체결로 남습니다.'
+          : '종가로 신호를 확인한 같은 봉의 종가 체결은 낙관적 가정입니다.'}
+        {' '}{value.intrabarExitPolicy === 'stopFirst'
+          ? '손절·익절이 같은 봉에서 함께 닿으면 손절을 먼저 적용합니다. OHLC만으로 실제 도달 순서를 확인할 수 없습니다.'
+          : '봉 내부 손절·익절 경로를 검증하지 않습니다. 연구 손절·익절은 갭 시가 청산만 가정하며 봉 내부 닿음으로 체결하지 않습니다.'}
+        {' '}실제 주문·자동매매 설정에는 적용되지 않습니다.
+      </Alert>
       <Grid container spacing={1.25}>
         {assumptionFields.map((field) => (
           <Grid item xs={12} sm={6} md={3} key={field.key}>
@@ -143,6 +184,32 @@ export function SimulationAssumptionsEditor({ value, onChange, disabled }: Assum
       </Typography>
     </Box>
   )
+}
+
+function executionModelLabel(assumptions: SimulationAssumptions) {
+  if (assumptions.executionModel === 'nextOpen') return '다음 관측 봉 시가'
+  if (assumptions.executionModel === 'sameClose') return '신호 봉 종가'
+  return '체결 모델 정보 없음 · 이전 결과'
+}
+
+function executionAssumptionsLabel(assumptions: SimulationAssumptions) {
+  const policy = assumptions.intrabarExitPolicy === 'stopFirst' ? '손절 우선' : assumptions.intrabarExitPolicy === 'unverified' ? '봉 내부 미검증' : '봉 내부 정책 정보 없음'
+  const stop = assumptions.stopLossPct == null ? '정보 없음' : `${assumptions.stopLossPct}%`
+  const take = assumptions.takeProfitPct == null ? '정보 없음' : `${assumptions.takeProfitPct}%`
+  return `${executionModelLabel(assumptions)} · ${policy} · 손절 ${stop} · 익절 ${take}`
+}
+
+function intrabarPathLabel(status: string) {
+  if (status === 'gapAtOpen') return '시가 갭 청산 가정'
+  if (status === 'ambiguousStopFirst') return '손절·익절 동시 도달 · 손절 우선 가정'
+  if (status === 'ohlcUnverified') return 'OHLC 경로 미검증'
+  return status
+}
+
+function eventTimeLabel(time?: ReplayEventTime) {
+  if (!time) return '정보 없음'
+  const phase = { open: '시가', close: '종가', intrabar: '봉 내부' }[time.phase]
+  return `${time.barTime} · ${phase}`
 }
 
 function fmtMoney(value: number) {
@@ -305,9 +372,18 @@ export function StrategyResearchResults({
       && slots.A.replay.dataEnd === slots.B.replay.dataEnd
       && slots.A.replay.assessment?.model === slots.B.replay.assessment?.model
     : true
+  const differentExecution = slots.A && slots.B && (
+    slots.A.replay.engineVersion !== slots.B.replay.engineVersion
+    || slots.A.backtest.assumptions.executionModel !== slots.B.backtest.assumptions.executionModel
+    || slots.A.backtest.assumptions.intrabarExitPolicy !== slots.B.backtest.assumptions.intrabarExitPolicy
+    || slots.A.backtest.assumptions.stopLossPct !== slots.B.backtest.assumptions.stopLossPct
+    || slots.A.backtest.assumptions.takeProfitPct !== slots.B.backtest.assumptions.takeProfitPct
+  )
   const summary = report.summary
   const metadata = (
     <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+      <Chip size="small" label={`엔진 ${replay.engineVersion}`} variant="outlined" />
+      <Chip size="small" label={`체결 ${executionModelLabel(report.assumptions)}`} color="primary" variant="outlined" sx={{ maxWidth: '100%', height: 'auto', '& .MuiChip-label': { whiteSpace: 'normal', py: 0.5 } }} />
       <Chip size="small" label={`${replay.sourceInterval} · ${replay.replayCadence}`} />
       <Chip size="small" label={`live ${replay.liveCadenceSeconds}초 tick`} variant="outlined" />
       <Chip size="small" label={`사전 자료 ${replay.warmupCount}봉`} variant="outlined" />
@@ -368,8 +444,14 @@ export function StrategyResearchResults({
       {metadata}
       <AtrPreparationNotice report={report} />
 
-      <Alert severity="info" sx={{ py: 0.5 }}>
-        봉 종가 replay와 실제 10초 tick의 시간축을 분리 표시합니다. deterministic/무미래참조 fixture를 사용하지만 봉 내부 가격 경로와 provider pending·체결 지연은 재현하지 않으며, 슬리피지는 체결가격 영향만 근사합니다.
+      <Alert severity="warning" sx={{ py: 0.5 }} data-testid="backtest-execution-assumptions">
+        <Typography variant="body2">{executionAssumptionsLabel(report.assumptions)}</Typography>
+        <Typography variant="caption" display="block">
+          신호 확인과 체결 시점은 봉 라벨과 시가·종가·봉 내부 단계로 표시하며 정확한 거래소 체결 시각을 뜻하지 않습니다.
+          실제 10초 관측, 봉 내부 가격 경로, provider pending·체결 지연은 검증하지 않습니다. 슬리피지는 가격 영향만 근사합니다.
+        </Typography>
+        {(report.executionWarnings ?? []).map((warning, index) => <Typography key={`${index}:${warning}`} variant="body2">{warning}</Typography>)}
+        {!report.executionWarnings && <Typography variant="body2">이전 응답에는 체결 진단 정보가 없습니다. 다시 계산해 확인하세요.</Typography>}
       </Alert>
       {report.overfitWarning && <Alert severity="warning" sx={{ py: 0.5 }}>{report.overfitWarning}</Alert>}
 
@@ -382,8 +464,9 @@ export function StrategyResearchResults({
         <Grid item xs={6} sm={4} md={2}><Metric label="Exposure" value={`${summary.exposurePct.toFixed(1)}%`} /></Grid>
       </Grid>
 
-      <Alert severity={summary.blockedOrderCount > 0 ? 'warning' : 'success'} sx={{ py: 0.5 }}>
-        원시 신호 {summary.signalCount}개 · 주문 가능 {summary.orderEligibleCount}개 · 체결 가정 {summary.filledOrderCount}개 · 차단 {summary.blockedOrderCount}개
+      <Alert severity={summary.blockedOrderCount > 0 || (summary.unfilledOrderCount ?? 0) > 0 || (summary.ambiguousBarCount ?? 0) > 0 ? 'warning' : 'success'} sx={{ py: 0.5 }}>
+        원시 신호 {summary.signalCount}개 · 주문 가능 {summary.orderEligibleCount}개 · 체결 가정 {summary.filledOrderCount}개 · 차단 {summary.blockedOrderCount}개 · 미체결 {summary.unfilledOrderCount == null ? '정보 없음' : `${summary.unfilledOrderCount}개`}
+        {summary.ambiguousBarCount != null && ` · 손절·익절 동시 도달 ${summary.ambiguousBarCount}봉`}
       </Alert>
 
       <EquityCurve report={report} />
@@ -411,6 +494,7 @@ export function StrategyResearchResults({
         <Box sx={{ p: 1.25, border: 1, borderColor: 'divider', borderRadius: 1 }} data-testid="strategy-ab-comparison">
           <Typography variant="caption" fontWeight={700} display="block" sx={{ mb: 0.75 }}>저장된 A/B 실험 비교</Typography>
           {!comparable && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 데이터 source/봉/기간이 달라 직접 비교할 수 없습니다.</Alert>}
+          {differentExecution && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 엔진 또는 체결 가정이 다릅니다. 아래 조건 차이를 함께 확인하세요.</Alert>}
           <Grid container spacing={1}>
             {(['A', 'B'] as const).map((slot) => {
               const saved = slots[slot]
@@ -418,6 +502,7 @@ export function StrategyResearchResults({
                 <Grid item xs={12} sm={6} key={slot}>
                   <Paper variant="outlined" sx={{ p: 1 }}>
                     <Typography variant="caption" fontWeight={700}>실험 결과 {slot}</Typography>
+                    {saved && <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }}>엔진 {saved.replay.engineVersion} · {executionAssumptionsLabel(saved.backtest.assumptions)}</Typography>}
                     {saved && (saved.replay.assessment?.model === 'dailyDiagnostic'
                       || saved.replay.assessment?.performanceStatus === 'notEvaluable'
                       || (isLeveragedReplay && !saved.replay.assessment)) ? (
@@ -436,23 +521,25 @@ export function StrategyResearchResults({
         </Box>
       )}
 
-      <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 320 }}>
+      <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 320, maxWidth: '100%' }}>
         <Table size="small" stickyHeader aria-label="백테스트 거래 목록">
-          <TableHead><TableRow><TableCell>시각</TableCell><TableCell>상태</TableCell><TableCell>방향</TableCell><TableCell align="right">수량</TableCell><TableCell align="right">체결가</TableCell><TableCell align="right">비용</TableCell><TableCell align="right">실현손익</TableCell><TableCell>사유</TableCell></TableRow></TableHead>
+          <TableHead><TableRow><TableCell>기록 봉</TableCell><TableCell>신호 확인</TableCell><TableCell>체결 시점</TableCell><TableCell>상태</TableCell><TableCell>방향</TableCell><TableCell align="right">수량</TableCell><TableCell align="right">체결가</TableCell><TableCell align="right">비용</TableCell><TableCell align="right">실현손익</TableCell><TableCell>사유</TableCell></TableRow></TableHead>
           <TableBody>
             {report.trades.slice(0, 100).map((trade, index) => (
               <TableRow key={`${trade.time}:${trade.side}:${index}`}>
                 <TableCell>{trade.time}</TableCell>
-                <TableCell><Chip size="small" label={trade.status === 'filled' ? '체결 가정' : '차단'} color={trade.status === 'filled' ? 'success' : 'warning'} variant="outlined" /></TableCell>
+                <TableCell>{eventTimeLabel(trade.signalAvailableAt)}</TableCell>
+                <TableCell>{trade.fillAt ? eventTimeLabel(trade.fillAt) : trade.status === 'filled' ? '정보 없음' : '—'}</TableCell>
+                <TableCell><Chip size="small" label={trade.status === 'filled' ? '체결 가정' : trade.status === 'unfilled' ? '미체결' : '차단'} color={trade.status === 'filled' ? 'success' : 'warning'} variant="outlined" /></TableCell>
                 <TableCell>{trade.side === 'buy' ? '매수' : '매도'}</TableCell>
                 <TableCell align="right">{trade.quantity.toLocaleString('ko-KR')}</TableCell>
                 <TableCell align="right">{trade.fillPrice == null ? '—' : trade.fillPrice.toLocaleString('ko-KR')}</TableCell>
                 <TableCell align="right">{fmtMoney(trade.costKrw)}</TableCell>
                 <TableCell align="right">{trade.realizedPnlKrw == null ? '—' : fmtMoney(trade.realizedPnlKrw)}</TableCell>
-                <TableCell>{trade.blockedReason ?? trade.reason}</TableCell>
+                <TableCell>{trade.blockedReason ?? trade.reason}{trade.intrabarPathStatus && <Typography variant="caption" display="block">봉 내부 경로: {intrabarPathLabel(trade.intrabarPathStatus)}</Typography>}</TableCell>
               </TableRow>
             ))}
-            {report.trades.length === 0 && <TableRow><TableCell colSpan={8}>거래 신호가 없습니다.</TableCell></TableRow>}
+            {report.trades.length === 0 && <TableRow><TableCell colSpan={10}>거래 신호가 없습니다.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </TableContainer>

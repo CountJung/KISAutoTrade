@@ -151,3 +151,12 @@ npm run build:app
 LTH 역사 시각/실시간 경로 분리 변경은 `cd src-tauri && cargo test --locked --test lth_replay_clock`로 production library(단위 테스트 clock 대역 없음)의 입력 시각·blackout·청산·미래 봉 불변을 검증한다. generic LTH 거부는 lib preparation 테스트와 오프라인 연구 runner의 `rejectedRuns`를 함께 확인한다.
 
 P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_tests`와 lib preview/assessment 테스트에서 일봉의 분봉 지표·반동·볼린저 혼입 방지, snapshot 교체, 포지션 보존, 독립 버퍼 상한, 일봉 전략/체결 미호출 및 유효 분봉 0개의 평가 불가를 확인한다. UI는 `npx playwright test tests/e2e/strategy-scrollbar.spec.ts tests/e2e/strategy-replay-assessment.spec.ts`로 일봉/legacy 성과·A/B 숨김, 분봉 표본 경고와 assessment 보존, 기존 generic 성과 표시를 함께 검증한다. synthetic fixture는 시장 coverage 검증을 대체하지 않는다. 실제 2026-07-06~10-02 SOXQ 분봉을 보관하고 시간대·DST·세션·기간 coverage 검증 후 별도 재평가해야 P1-05 전체 완료다.
+
+
+## P2-14 체결 모델 회귀
+
+- `cargo test --workspace --lib simulation --locked`: 다음 관측 시가·이전 ATR·현금/비중·부분매도 원가·갭·동봉 순서불명/손절우선·마지막 미체결·기본 수치·분할 공급 계약.
+- `cargo test --workspace --lib generic::tests --locked`: 실제 전략 피드백·미래 봉 불변·고정 QQQ2026Q3 두 비용/두 체결 모델의 실제 청산 경로.
+- `cargo test --workspace --test lth_replay_clock --locked`: production library의 Open/Signal/Close·다음 시가 원가·마지막 미체결, 기존 입력 clock/session/미래봉 불변.
+- `npx playwright test tests/e2e/strategy-execution-model.spec.ts`: 가정 입력→전송·이전 응답 무효화, 시점/미체결/불명경로·legacy A/B·모바일·LTH 일봉 진단 유지. 인접 ATR·assessment·scrollbar 또는 전체 UI 회귀를 함께 확인한다.
+- [새 연구의 재현 절차](research/replay-execution-20261018/report.md)는 동결 입력과 직전 커밋 생산 라이브러리의 1,224회 호환 비교, QQQ 두 전략×두 비용×두 모델과 같은 규칙 benchmark를 구분한다. 이 비교는 실제 주문·장중 체결 검증이 아니다.

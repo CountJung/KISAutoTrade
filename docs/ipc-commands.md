@@ -90,17 +90,25 @@
 | `get_stock_list_stats` | 종목 목록 통계 |
 | `set_stock_update_interval` | 종목 목록 갱신 주기 설정 |
 
-`preview_strategy` v5의 `D`/`1d` cadence는 `dailyCloseWithDayBoundary`다. 시가-only 날짜 시작, 완성 OHLC 종가 평가, 체결/차단 포지션 피드백, 완료봉 적재 순서로 처리한다. 강한 종가는 전일 조건을 다음 평가일에 사용하고 변동성 확장은 이전 N일 평균과 당일 범위를 비교한다. 두 전략의 다른 interval은 `UNSUPPORTED_REPLAY_INTERVAL`로 거부한다. 모든 generic 체결은 해당 신호 봉 종가 근사이며 next-open/장중 경로는 미지원이다. 기존 입력·`preparation` 계약과 전용 LTH 경로는 유지한다.
+`preview_strategy` v5의 `D`/`1d` cadence는 `dailyCloseWithDayBoundary`다. 시가-only 날짜 시작, 완성 OHLC 종가 평가, 체결/차단 포지션 피드백, 완료봉 적재 순서로 처리한다. 강한 종가는 전일 조건을 다음 평가일에 사용하고 변동성 확장은 이전 N일 평균과 당일 범위를 비교한다. 두 전략의 다른 interval은 `UNSUPPORTED_REPLAY_INTERVAL`로 거부한다. v5의 해당 신호 봉 종가 근사는 v10에서 호환 기본값 `sameClose`로 유지한다. 아래 v10의 `nextOpen`과 장중 연구 가정 계약을 함께 확인한다. 기존 입력·`preparation` 계약과 전용 LTH 경로는 유지한다.
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v9`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v10`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
 전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
 v8 `BacktestReport.atrPreparation`은 `{period:14, historyBars, readyAtStart, readyAtEnd, firstReadyTime, unreadyEvaluationBars, rangePolicy:"observedBarsWithPreviousCloseNoInterpolation"}`다. 전략의 `preparation`과 별도이며 이전 close를 포함한 최근 TR14개를 사용한다. generic의 검증된 같은 간격 history만 지표를 준비하고 주문·손익에는 넣지 않는다. 분봉 LTH는 분봉 관측에서만 ATR을 준비한다. `volatilitySizingEnabled`의 기본 false는 유지하며, 활성화 시 미준비·0범위·0bps 위험예산 매수는 명시 차단한다. `atrPreparation`이 없는 보관/legacy 응답은 UI에서 준비 여부 미상으로 표시한다.
 
 전용 LTH v4의 실행 콜백은 실제 잔여 수량·평균 체결가 snapshot을 반환한다. ATR 수량 확대/축소와 슬리피지를 다음 청산 판단에 반영하고 부분매도·차단 뒤 잔여 포지션의 보호 상태를 유지한다. 기존 bool callback API는 요청수량·신호가격의 raw-signal 연구용 호환 wrapper로 유지한다. 일봉의 실행 callback 미호출과 평가 불가 계약은 동일하다.
+
+v10 공통 `assumptions`에 `executionModel: sameClose | nextOpen`(기본sameClose), `intrabarExitPolicy: unverified | stopFirst`(기본unverified), `stopLossPct`(기본0,0..99.9), `takeProfitPct`(기본0,0..1000)를 추가했다. 0은 보호 비활성이며 live 설정을 바꾸지 않는다. 다음 관측봉 시가 모델은 이전 종가 신호를 보류하고, 다음 봉 시작에 이전 완료봉 ATR·해당 시가로 guard/risk/현금을 검사한 뒤 실제 수량·원가를 전략에 반영한다. 마지막 대기 신호는 `unfilled`로 남기며 체결·차단으로 세지 않는다.
+
+`BacktestTrade`의 선택 `signalAvailableAt`/`fillAt`는 `{barTime,phase:open|close|intrabar}`이며 거래소의 정확한 timestamp가 아닌 봉 label과 정보 공개 단계다. `time`은 처리/체결 봉 label(마지막 미체결은 신호 봉), `intrabarPathStatus`는 `gapAtOpen|ambiguousStopFirst|ohlcUnverified`다. summary에 `unfilledOrderCount`·`ambiguousBarCount`, report에 `executionWarnings`를 추가한다. 신규 `nextOpen` generic은 기술적 미래봉 불변 검증으로 `lookAheadSafe=true`, 같은 종가 체결 가정은 false다. 어느 쪽도 실제 체결 가능성 인증이 아니다. LTH의 false/assessment 제한은 유지한다.
+
+연구 보호는 실제 체결 평균가 기준의 별도 시나리오다. 갭이 보호 가격을 넘으면 관측 시가에서 처리한다. 장중 고저가 접촉은 unverified에서 체결하지 않으며 stopFirst에서만 가정 체결한다. 양방향 접촉은 순서 불명 집계와 손절 우선 표시를 남긴다. 같은 종가에 새로 진입한 포지션에 이미 지난 그 봉 고저가를 적용하지 않는다. 강제 보호 주문은 수익/전략 재진입 guard로 손절을 억제하지 않으며 비용·손익은 공통 회계에 반영한다.
+
+`ReplaySession`의 `begin_bar → position_snapshot → 전략 종가 평가 → process_close → position_snapshot`을 generic과 전용 LTH 분봉에 공통 적용한다. LTH의 새 `preview_signals_with_driver`는 매 관측 `Open/Signal/Close`를 전달하여 신호 없는 봉의 대기 체결도 먼저 반영한다. 기존 callback API는 호환 wrapper다. Tauri 등록·웹 route·query key는 그대로이며 A/B 보관 응답의 새 필드가 없으면 UI는 이전 결과의 체결 정보 부족을 표시한다.
 
 ### 공통 캔들 페이지 계약
 
