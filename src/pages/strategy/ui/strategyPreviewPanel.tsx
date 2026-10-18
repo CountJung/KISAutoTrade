@@ -109,6 +109,8 @@ export function StrategyPreviewPanel({
   const initialIsOverseas = !isDomesticSymbol(symbols[0] ?? '')
   const [assumptions, setAssumptions] = useState<SimulationAssumptions>(() => defaultSimulationAssumptions(initialIsOverseas))
   const assumptionsMarket = useRef(initialIsOverseas)
+  const [accountingError, setAccountingError] = useState<string | null>(null)
+  const [accountingDraftRevision, setAccountingDraftRevision] = useState(0)
   const [sourceLabel, setSourceLabel] = useState('일봉 캔들')
   const [collecting, setCollecting] = useState(false)
   const [collection, setCollection] = useState<CandleCollection | null>(null)
@@ -126,6 +128,7 @@ export function StrategyPreviewPanel({
     orderQuantity,
     params,
     assumptions,
+    accountingDraftRevision,
   })
 
   const currentInputKey = useRef(previewInputKey)
@@ -174,7 +177,7 @@ export function StrategyPreviewPanel({
   const error = previewMutation.error as CmdError | Error | null
 
   const handlePreview = async () => {
-    if (!selectedSymbol || !profileId) return
+    if (!selectedSymbol || !profileId || accountingError) return
     const requestGeneration = ++previewGeneration.current
     const requestInputKey = previewInputKey
     const cancelled = () => requestGeneration !== previewGeneration.current || requestInputKey !== currentInputKey.current
@@ -232,6 +235,9 @@ export function StrategyPreviewPanel({
   return (
     <Box sx={{ pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
       <SimulationAssumptionsEditor
+        key={`${profileId}:${brokerId}:${brokerAccountId}:${selectedSymbol}`}
+        isOverseas={!isDomesticSymbol(selectedSymbol)} onValidationChange={setAccountingError}
+        onDraftChange={() => { previewGeneration.current += 1; setPreview(null); setAccountingDraftRevision((revision) => revision + 1) }}
         value={assumptions}
         onChange={setAssumptions}
         disabled={busy}
@@ -317,7 +323,7 @@ export function StrategyPreviewPanel({
             variant="outlined"
             startIcon={busy ? <CircularProgress size={14} /> : <RefreshIcon />}
             onClick={handlePreview}
-            disabled={!selectedSymbol || !profileId || busy}
+            disabled={!selectedSymbol || !profileId || busy || !!accountingError}
             sx={{ width: { xs: '100%', sm: 'auto' }, whiteSpace: 'nowrap' }}
           >
             {collecting ? '캔들 페이지 조회 중' : '미리보기 계산'}

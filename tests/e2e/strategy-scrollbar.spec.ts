@@ -318,7 +318,7 @@ test('Strategy research assumptions and A/B experiments are reproducible in the 
 
   await card.getByRole('button', { name: '현재 결과를 A로 저장' }).click()
   await expect(card.getByTestId('strategy-ab-comparison').getByText('실험 결과 A')).toBeVisible()
-  await card.getByRole('spinbutton', { name: '수수료(bps)' }).fill('7.5')
+  await card.getByRole('spinbutton', { name: '수수료(bps)', exact: true }).fill('7.5')
   await card.getByRole('button', { name: '미리보기 계산' }).click()
   await expect.poll(() => genericPreviewRequests.length).toBe(2)
   expect(genericPreviewRequests[1]?.assumptions).toMatchObject({ feeBps: 7.5 })

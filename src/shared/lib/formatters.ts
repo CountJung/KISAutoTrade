@@ -4,6 +4,11 @@ export function fmtNumber(value: number): string {
   return value.toLocaleString('ko-KR')
 }
 
+/** Preserve Math.round (including negative half ties) for whole-KRW research values. */
+export function fmtRoundedKrw(value: number): string {
+  return `${Math.round(value).toLocaleString('ko-KR')}원`
+}
+
 export function fmtDecimalString(value: string, fractionDigits = 4): string {
   const parsed = Number(value.replace(/,/g, ''))
   if (!Number.isFinite(parsed)) return value

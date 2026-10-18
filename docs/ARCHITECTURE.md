@@ -145,7 +145,7 @@ UI/전략 Signal
 
 `commands/strategy_preview/generic.rs`와 `trading/simulation.rs`는 평가 구간과 이전 사전자료를 분리한 candle-close replay, 비용·환율·리스크 가정과 지표를 제공한다. `Strategy::history_readiness`는 실제 버퍼 상태, `can_evaluate_next_tick`은 해당 봉의 조건 평가 가능 여부를 보고한다. 과거 초기화는 직접 버퍼와 이전 지표를 복원하고 주문/포지션을 만들지 않는다. 기본 추세 200봉·신고가 252봉을 유지하며, generic LTH는 factory 실행 전에 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 전용 LTH 경로는 `strategy_preview.rs`에 남아 있다. preview는 live 10초 tick, intrabar, provider latency, 실제 체결을 재현하지 않으므로 실거래 승인 근거로 단독 사용하지 않는다.
 
-Generic 일봉 event 경로는 `Strategy`의 시가-only 날짜 시작 → 완성 OHLC 종가 tick → 실제 실행 결과의 포지션 동기화 → 완료봉 훅으로 흐른다. 강한 종가는 완료일 조건을 다음 평가일에 사용하고, 변동성 확장은 보유 상태를 유지한 채 당일 고저가를 초기화하고 이전 N개 완료 범위(0 포함)를 bounded ring으로 갱신한다. 두 전략은 `D`/`1d`만 지원한다. live quote polling은 완료 일봉 이벤트를 공급하지 않으며 기존 tick 경계를 유지한다. 신호와 체결은 여전히 동일 평가 봉 종가 근사다.
+Generic 일봉 event 경로는 `Strategy`의 시가-only 날짜 시작 → 완성 OHLC 종가 tick → 실제 실행 결과의 포지션 동기화 → 완료봉 훅으로 흐른다. 강한 종가는 완료일 조건을 다음 평가일에 사용하고, 변동성 확장은 보유 상태를 유지한 채 당일 고저가를 초기화하고 이전 N개 완료 범위(0 포함)를 bounded ring으로 갱신한다. 두 전략은 `D`/`1d`만 지원한다. live quote polling은 완료 일봉 이벤트를 공급하지 않으며 기존 tick 경계를 유지한다. 신호는 완료 종가에서 판단하고 체결은 공통 세션의 sameClose/nextOpen 가정에 따른다.
 
 전용 LTH preview와 전략 v4는 일봉 context를 분봉 EMA/RSI/ADX·반동·볼린저 관측과 별도 bounded 버퍼에 보관한다. 분봉 OHLC initializer는 OHLC·반동·볼린저 snapshot을 교체하고 가격 initializer는 반동 가격 snapshot만 교체한다. 일봉 재초기화는 기존 분봉과 실제 보유 상태를 보존한다. `1d`는 전략·체결 경로를 실행하지 않는 `dailyDiagnostic/notEvaluable` 자료 진단이며 시가를 장중 진입 가격으로 합성하지 않는다. `1m`은 실제 관측을 입력 시각에 재생하는 최대 200봉 `intradaySample/sampleOnly`이고 유효 관측이 없으면 `notEvaluable`이다. `ReplayMetadata.assessment`는 일봉 context/분봉 수와 시간대·DST·세션 미검증을 기록하며, `warmupCount=0`으로 일봉을 분봉 지표 사전자료로 계산하지 않는다. 고정 KST 세션 근사 때문에 LTH `lookAheadSafe=false`이며 deterministic 계산만으로 시장 시각 정확성을 주장하지 않는다. UI는 일봉 및 assessment 없는 기존 LTH 응답의 성과/A-B 저장을 숨긴다. 실제 3개월 분봉·거래소 시간 검증은 P1-05 잔여 조건이다.
 
@@ -153,6 +153,10 @@ Generic 일봉 event 경로는 `Strategy`의 시가-only 날짜 시작 → 완�
 v9 generic 분봉은 offset 포함 RFC3339 또는 KST compact 시각을 고정 정밀도 UTC instant로 정규화해 정렬·중복·사전자료 겹침을 검사한다. `simulation.rs`와 공용 preview 차트도 RFC3339의 실제 instant를 우선 해석하며 관측 갭을 보간하지 않는다. 이 변경은 전용 LTH의 고정 KST 세션/DST 미검증 상태를 해소하지 않는다.
 
 현재 replay의 `simulation/atr.rs`는 같은 간격의 이전 close를 포함한 TR14를 보관한다. `run_backtest_with_history`의 검증된 이전 자료는 ATR 지표만 준비하며 주문·equity에는 포함하지 않는다. 15관측/14TR 준비 상태를 `backtest.atrPreparation`으로 전략 준비와 구분한다. 연구 수량 산정 활성 시 부족/0변동폭/0bps는 신규 매수만 차단한다. 전용 LTH v4의 callback은 실제 잔여 수량·평균 체결가를 반환하여 ATR 수량 변경과 부분 청산 뒤에도 보호 상태를 유지한다. 기존 bool API는 raw 신호 연구용 호환 wrapper다.
+
+v11 공통 실행 회계는 `simulation/accounting.rs`의 입력 검증, `simulation/session/accounting.rs`의 청산 전망·순손익·기여 분해와 `simulation/comparison.rs`의 비교 보고로 분리한다. `simulation/session.rs`는 봉 시작의 FX 변경·직전 보유 배당과 봉말 보유 평가액을 처리하고 native 평균 체결가는 환율 변화와 분리해 유지한다. 현금 장부는 KRW이며 배당 시나리오는 실제 브로커 기업행동·USD 유휴 현금 장부를 구현하지 않는다. 최소 수수료가 있는 일반 이익 청산은 실제 청산 전망과 같은 수량·과거 매수 비용 배분·현재 FX의 순익을 검사하며 손절/위험 축소 예외를 유지한다.
+
+보고는 실현·잔여 평가·순배당으로 자산 증감을 설명하고 종료 시 가상 청산을 상태 변경과 분리한다. 평균/최대 투자 비중은 관측 봉말의 평가액이며 보유 봉 비율·시간 가중 노출과 다르다. 같은 입력 수량의 단순 보유는 실제 체결 수량·노출 차이를 공개하고, 같은 체결 경로의 비용 제거 값은 사후 원화 환급 산술로만 제공한다. 가격 자료의 배당 조정 선언·수동 비용 확인·정규화 후 정확한 평가 봉 일치 및 legacy 보관 집계의 계약은 [IPC 정본](ipc-commands.md)의 v11 항목을 따른다. LTH 일봉 자료 진단은 이 성과·비교 경로를 실행하지 않는다.
 
 52주 신고가의 완료 고가는 bounded ring으로 만료하며 generic 일봉 완료 이벤트 또는 live 완료 일봉 페이지에서 갱신한다. sampled 가격 tick을 완료 고가로 적재하지 않는다.
 

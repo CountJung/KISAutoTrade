@@ -35,6 +35,8 @@ import {
   saveExperimentSlot,
   type ExperimentScope,
 } from '../model/experimentStore'
+import { AccountingResults, ComparisonResults, AccountingAssumptionSummary, accountingComparisonKey, SimulationAccountingEditor } from './strategyAccountingPanel'
+import { fmtRoundedKrw as fmtMoney } from '../../../shared/lib/formatters'
 
 export function defaultSimulationAssumptions(isOverseas: boolean): SimulationAssumptions {
   return {
@@ -53,6 +55,14 @@ export function defaultSimulationAssumptions(isOverseas: boolean): SimulationAss
     intrabarExitPolicy: 'unverified',
     stopLossPct: 0,
     takeProfitPct: 0,
+    dividendPriceBasis: 'unverified',
+    costSource: 'estimated',
+    costNote: '',
+    buyFeeBps: null,
+    sellFeeBps: null,
+    minimumFeeNative: 0,
+    fxScenario: [],
+    dividendScenario: [],
   }
 }
 
@@ -76,6 +86,9 @@ type AssumptionsProps = {
   value: SimulationAssumptions
   onChange: (value: SimulationAssumptions) => void
   disabled?: boolean
+  isOverseas: boolean
+  onValidationChange: (error: string | null) => void
+  onDraftChange: () => void
 }
 
 const assumptionFields: Array<{
@@ -96,7 +109,7 @@ const assumptionFields: Array<{
   { key: 'inSamplePercent', label: '학습 구간(%)', min: 50, max: 100, step: 5, helper: '나머지는 out-of-sample 검증' },
 ]
 
-export function SimulationAssumptionsEditor({ value, onChange, disabled }: AssumptionsProps) {
+export function SimulationAssumptionsEditor({ value, onChange, disabled, isOverseas, onValidationChange, onDraftChange }: AssumptionsProps) {
   const updateNumber = (key: keyof SimulationAssumptions, next: number) => {
     onChange({ ...value, [key]: Number.isFinite(next) ? next : 0 })
   }
@@ -159,6 +172,7 @@ export function SimulationAssumptionsEditor({ value, onChange, disabled }: Assum
           </Grid>
         ))}
       </Grid>
+      <SimulationAccountingEditor value={value} onChange={onChange} disabled={disabled} isOverseas={isOverseas} onValidationChange={onValidationChange} onDraftChange={onDraftChange} />
       <FormControlLabel
         control={<Switch checked={value.volatilitySizingEnabled} disabled={disabled} onChange={(event) => onChange({ ...value, volatilitySizingEnabled: event.target.checked })} />}
         label="백테스트 ATR 기반 수량 산정"
@@ -210,10 +224,6 @@ function eventTimeLabel(time?: ReplayEventTime) {
   if (!time) return '정보 없음'
   const phase = { open: '시가', close: '종가', intrabar: '봉 내부' }[time.phase]
   return `${time.barTime} · ${phase}`
-}
-
-function fmtMoney(value: number) {
-  return `${Math.round(value).toLocaleString('ko-KR')}원`
 }
 
 function fmtPct(value: number) {
@@ -378,6 +388,7 @@ export function StrategyResearchResults({
     || slots.A.backtest.assumptions.intrabarExitPolicy !== slots.B.backtest.assumptions.intrabarExitPolicy
     || slots.A.backtest.assumptions.stopLossPct !== slots.B.backtest.assumptions.stopLossPct
     || slots.A.backtest.assumptions.takeProfitPct !== slots.B.backtest.assumptions.takeProfitPct
+    || accountingComparisonKey(slots.A.backtest.assumptions) !== accountingComparisonKey(slots.B.backtest.assumptions)
   )
   const summary = report.summary
   const metadata = (
@@ -461,7 +472,7 @@ export function StrategyResearchResults({
         <Grid item xs={6} sm={4} md={2}><Metric label="승률" value={`${summary.winRatePct.toFixed(1)}%`} /></Grid>
         <Grid item xs={6} sm={4} md={2}><Metric label="손익비" value={summary.profitFactor == null ? '—' : summary.profitFactor.toFixed(2)} /></Grid>
         <Grid item xs={6} sm={4} md={2}><Metric label="Turnover" value={`${summary.turnoverPct.toFixed(1)}%`} /></Grid>
-        <Grid item xs={6} sm={4} md={2}><Metric label="Exposure" value={`${summary.exposurePct.toFixed(1)}%`} /></Grid>
+        <Grid item xs={6} sm={4} md={2}><Metric label="보유 관측 봉 비율" value={`${summary.exposurePct.toFixed(1)}%`} /></Grid>
       </Grid>
 
       <Alert severity={summary.blockedOrderCount > 0 || (summary.unfilledOrderCount ?? 0) > 0 || (summary.ambiguousBarCount ?? 0) > 0 ? 'warning' : 'success'} sx={{ py: 0.5 }}>
@@ -469,6 +480,8 @@ export function StrategyResearchResults({
         {summary.ambiguousBarCount != null && ` · 손절·익절 동시 도달 ${summary.ambiguousBarCount}봉`}
       </Alert>
 
+      <AccountingResults report={report} />
+      <ComparisonResults report={report} />
       <EquityCurve report={report} />
 
       {report.phases.length > 0 && (
@@ -495,17 +508,18 @@ export function StrategyResearchResults({
           <Typography variant="caption" fontWeight={700} display="block" sx={{ mb: 0.75 }}>저장된 A/B 실험 비교</Typography>
           {!comparable && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 데이터 source/봉/기간이 달라 직접 비교할 수 없습니다.</Alert>}
           {differentExecution && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 엔진 또는 체결 가정이 다릅니다. 아래 조건 차이를 함께 확인하세요.</Alert>}
+          <Typography variant="caption" display="block" sx={{ mb: 1 }}>같은 기간/겹친 기간의 A/B는 독립 검증이 아닙니다. 부분기간의 결과를 전체 분기나 연속 운용 성과로 합산하지 마세요.</Typography>
           <Grid container spacing={1}>
             {(['A', 'B'] as const).map((slot) => {
               const saved = slots[slot]
+              const savedUnavailable = saved && (saved.replay.assessment?.model === 'dailyDiagnostic' || saved.replay.assessment?.performanceStatus === 'notEvaluable' || (isLeveragedReplay && !saved.replay.assessment))
               return (
                 <Grid item xs={12} sm={6} key={slot}>
                   <Paper variant="outlined" sx={{ p: 1 }}>
                     <Typography variant="caption" fontWeight={700}>실험 결과 {slot}</Typography>
                     {saved && <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }}>엔진 {saved.replay.engineVersion} · {executionAssumptionsLabel(saved.backtest.assumptions)}</Typography>}
-                    {saved && (saved.replay.assessment?.model === 'dailyDiagnostic'
-                      || saved.replay.assessment?.performanceStatus === 'notEvaluable'
-                      || (isLeveragedReplay && !saved.replay.assessment)) ? (
+                    {saved && <AccountingAssumptionSummary value={saved.backtest.assumptions} />}
+                    {savedUnavailable ? (
                       <Typography variant="body2" color="text.secondary">평가 모델 정보 부족 · 성과 비교 불가</Typography>
                     ) : saved ? (
                       <Typography variant="body2">
@@ -513,6 +527,7 @@ export function StrategyResearchResults({
                         {fmtPct(saved.backtest.summary.cumulativeReturnPct)} · MDD {saved.backtest.summary.mddPct.toFixed(2)}% · {saved.replay.dataStart}~{saved.replay.dataEnd}
                       </Typography>
                     ) : <Typography variant="body2" color="text.secondary">저장된 결과 없음</Typography>}
+                    {saved && !savedUnavailable && <AccountingResults report={saved.backtest} compact />}
                   </Paper>
                 </Grid>
               )
@@ -533,8 +548,8 @@ export function StrategyResearchResults({
                 <TableCell><Chip size="small" label={trade.status === 'filled' ? '체결 가정' : trade.status === 'unfilled' ? '미체결' : '차단'} color={trade.status === 'filled' ? 'success' : 'warning'} variant="outlined" /></TableCell>
                 <TableCell>{trade.side === 'buy' ? '매수' : '매도'}</TableCell>
                 <TableCell align="right">{trade.quantity.toLocaleString('ko-KR')}</TableCell>
-                <TableCell align="right">{trade.fillPrice == null ? '—' : trade.fillPrice.toLocaleString('ko-KR')}</TableCell>
-                <TableCell align="right">{fmtMoney(trade.costKrw)}</TableCell>
+                <TableCell align="right">{trade.fillPrice == null ? '—' : trade.fillPrice.toLocaleString('ko-KR')}<Typography variant="caption" display="block">체결 기준가 {trade.executionReferencePrice ?? '정보 없음'} · 환율 {trade.exchangeRateKrw ?? '정보 없음'}</Typography></TableCell>
+                <TableCell align="right">{fmtMoney(trade.costKrw)}<Typography variant="caption" display="block">수수료 {trade.feeKrw == null ? '정보 없음' : fmtMoney(trade.feeKrw)} · 거래세 {trade.taxKrw == null ? '정보 없음' : fmtMoney(trade.taxKrw)} · 슬리피지 영향 {trade.slippageKrw == null ? '정보 없음' : fmtMoney(trade.slippageKrw)}</Typography></TableCell>
                 <TableCell align="right">{trade.realizedPnlKrw == null ? '—' : fmtMoney(trade.realizedPnlKrw)}</TableCell>
                 <TableCell>{trade.blockedReason ?? trade.reason}{trade.intrabarPathStatus && <Typography variant="caption" display="block">봉 내부 경로: {intrabarPathLabel(trade.intrabarPathStatus)}</Typography>}</TableCell>
               </TableRow>

@@ -1,5 +1,7 @@
 //! One accounting engine for batch replay and strategy-feedback streaming replay.
 use super::*;
+mod accounting;
+use accounting::SaleProjection;
 
 struct PendingSignal {
     signal: Signal,
@@ -35,6 +37,13 @@ pub struct ReplaySession {
     atr_preparation: AtrPreparationView,
     last_close: u64,
     execution_warnings: Vec<String>,
+    current_fx: f64,
+    accounting: ReplayAccountingView,
+    invested_notional_sum: f64,
+    invested_equity_pct_sum: f64,
+    applied_fx_points: usize,
+    applied_dividend_points: usize,
+    invalid_scenarios: bool,
 }
 
 impl ReplaySession {
@@ -56,12 +65,28 @@ impl ReplaySession {
         risk.atr_stop_multiplier = assumptions.atr_stop_multiplier;
         risk.max_daily_sell_orders_per_symbol = 0;
         let rounded_bps = |value: f64| value.round() as i32;
+        let round_trip_fees = assumptions.buy_fee_bps.unwrap_or(assumptions.fee_bps)
+            + assumptions.sell_fee_bps.unwrap_or(assumptions.fee_bps);
+        // Minimum commissions depend on requested shares and current FX. In that
+        // opt-in mode the settlement projection below replaces only the static
+        // bps profit approximation; all temporal/whipsaw guards stay enabled.
+        let minimum_fee_mode = assumptions.minimum_fee_native > 0.0;
         let guard = TradeGuard::new(TradeGuardConfig {
-            domestic_slippage_bps: rounded_bps(
-                assumptions.fee_bps * 2.0 + assumptions.tax_bps + assumptions.slippage_bps,
-            ) - 22,
-            overseas_fee_bps: rounded_bps(assumptions.fee_bps * 2.0 + assumptions.tax_bps),
-            overseas_slippage_bps: rounded_bps(assumptions.slippage_bps),
+            domestic_slippage_bps: if minimum_fee_mode {
+                -22
+            } else {
+                rounded_bps(round_trip_fees + assumptions.tax_bps + assumptions.slippage_bps) - 22
+            },
+            overseas_fee_bps: if minimum_fee_mode {
+                0
+            } else {
+                rounded_bps(round_trip_fees + assumptions.tax_bps)
+            },
+            overseas_slippage_bps: if minimum_fee_mode {
+                0
+            } else {
+                rounded_bps(assumptions.slippage_bps)
+            },
             ..TradeGuardConfig::default()
         });
         let split_index = if assumptions.in_sample_percent >= 100 {
@@ -85,7 +110,33 @@ impl ReplaySession {
         if assumptions.stop_loss_pct > 0.0 || assumptions.take_profit_pct > 0.0 {
             execution_warnings.push("손절·익절은 실제 체결 원가 기준의 별도 연구 시나리오이며 전략 자체의 손절 로직과 독립입니다. OHLC 장중 경로는 검증할 수 없습니다.".into());
         }
+        let labels = assumptions
+            .fx_scenario
+            .iter()
+            .map(|p| p.bar_time.clone())
+            .chain(
+                assumptions
+                    .dividend_scenario
+                    .iter()
+                    .map(|p| p.bar_time.clone()),
+            )
+            .collect::<Vec<_>>();
+        let scenario_error = assumptions.validate_scenarios(is_overseas, &labels).err();
+        if let Some(error) = &scenario_error {
+            execution_warnings.push(format!("시나리오 평가 불가: {error}"));
+        }
         Self {
+            current_fx: if is_overseas {
+                assumptions.exchange_rate_krw
+            } else {
+                1.0
+            },
+            accounting: ReplayAccountingView::default(),
+            invested_notional_sum: 0.0,
+            invested_equity_pct_sum: 0.0,
+            applied_fx_points: 0,
+            applied_dividend_points: 0,
+            invalid_scenarios: scenario_error.is_some(),
             cash: assumptions.initial_capital_krw,
             strategy_id: strategy_id.into(),
             symbol: symbol.into(),
@@ -117,7 +168,43 @@ impl ReplaySession {
 
     /// Execute only the previous close's queued signal using this bar's open and
     /// prior completed bars' ATR. Then evaluate the optional protective scenario.
+    pub fn reject_scenarios(&mut self, error: String) {
+        self.invalid_scenarios = true;
+        self.execution_warnings
+            .push(format!("시나리오 평가 불가: {error}"));
+    }
+
     pub fn begin_bar(&mut self, event: &SimulationEvent) {
+        if self.invalid_scenarios {
+            return;
+        }
+        if let Some(point) = self
+            .assumptions
+            .fx_scenario
+            .iter()
+            .find(|p| p.bar_time == event.time)
+        {
+            self.current_fx = point.rate_krw;
+            self.applied_fx_points += 1;
+        }
+        // Entitlement precedes this bar's queued open order. This immediate cash
+        // credit is an explicit research assumption, not a real payment calendar.
+        if let Some(point) = self
+            .assumptions
+            .dividend_scenario
+            .iter()
+            .find(|p| p.bar_time == event.time)
+        {
+            let gross = self.position.as_ref().map_or(0.0, |p| p.quantity as f64)
+                * point.amount_per_share
+                * self.current_fx;
+            let tax = bps_cost(gross, point.withholding_tax_bps);
+            self.cash += gross - tax;
+            self.accounting.dividend_gross_krw += gross;
+            self.accounting.dividend_tax_krw += tax;
+            self.accounting.dividend_net_krw += gross - tax;
+            self.applied_dividend_points += 1;
+        }
         let date = parse_replay_time(&event.time, self.is_overseas).date_naive();
         if self.risk.reset_for_date(date) && self.risk.is_emergency_stop() {
             self.risk.clear_emergency_stop();
@@ -140,12 +227,7 @@ impl ReplaySession {
         self.position.as_ref().map_or((0, 0), |position| {
             (
                 position.quantity,
-                krw_to_units(
-                    position.average_fill_krw,
-                    self.is_overseas,
-                    self.assumptions.exchange_rate_krw,
-                )
-                .unwrap_or(0),
+                position.average_fill_units.round() as u64,
             )
         })
     }
@@ -153,6 +235,9 @@ impl ReplaySession {
     /// Observe the completed bar before sizing same-close orders. Next-open
     /// orders remain pending until begin_bar of the next observed bar.
     pub fn process_close(&mut self, event: &SimulationEvent) {
+        if self.invalid_scenarios {
+            return;
+        }
         self.atr_window.observe(event);
         if self.atr_window.ready() {
             self.atr_preparation
@@ -191,6 +276,23 @@ impl ReplaySession {
             self.position.as_ref(),
             self.krw(event.close_units),
         );
+        let invested = self
+            .position
+            .as_ref()
+            .map_or(0.0, |p| p.quantity as f64 * self.krw(event.close_units));
+        self.invested_notional_sum += invested;
+        let equity_pct = if equity > 0.0 {
+            invested / equity * 100.0
+        } else {
+            0.0
+        };
+        self.invested_equity_pct_sum += equity_pct;
+        self.accounting.peak_invested_equity_pct =
+            self.accounting.peak_invested_equity_pct.max(equity_pct);
+        self.accounting.peak_invested_capital_pct = self
+            .accounting
+            .peak_invested_capital_pct
+            .max(invested / self.assumptions.initial_capital_krw * 100.0);
         let peak = self
             .equity_curve
             .iter()
@@ -217,7 +319,7 @@ impl ReplaySession {
     }
 
     fn krw(&self, units: u64) -> f64 {
-        units_to_krw(units, self.is_overseas, self.assumptions.exchange_rate_krw)
+        units_to_krw(units, self.is_overseas, self.current_fx)
     }
 
     fn phase(&self) -> String {
@@ -244,6 +346,11 @@ impl ReplaySession {
             side: side.into(),
             signal_price: units_to_display(price, self.is_overseas),
             fill_price: None,
+            execution_reference_price: None,
+            exchange_rate_krw: self.current_fx,
+            fee_krw: 0.0,
+            tax_krw: 0.0,
+            slippage_krw: 0.0,
             quantity,
             gross_amount_krw: 0.0,
             cost_krw: 0.0,
@@ -270,13 +377,17 @@ impl ReplaySession {
             .position
             .as_ref()
             .map_or(0, |position| position.quantity);
-        let average_units = self.position.as_ref().and_then(|position| {
-            krw_to_units(
-                position.average_fill_krw,
-                self.is_overseas,
-                self.assumptions.exchange_rate_krw,
-            )
-        });
+        let average_units = self
+            .position
+            .as_ref()
+            .map(|position| position.average_fill_units.round() as u64);
+        let sale_projection = match &signal {
+            Signal::Sell { quantity, .. } => self
+                .position
+                .as_ref()
+                .map(|position| self.project_sale(position, *quantity, self.krw(price_units))),
+            _ => None,
+        };
         let mut blocked_reason = if price_units == 0 {
             Some("체결 단계 가격이 0: 체결 불가".into())
         } else if protective {
@@ -304,6 +415,14 @@ impl ReplaySession {
                 &self.symbol,
                 &signal,
                 self.position.as_ref(),
+            );
+        }
+        if blocked_reason.is_none() {
+            blocked_reason = self.minimum_fee_profit_block_reason(
+                &signal,
+                price_units,
+                protective,
+                sale_projection.as_ref(),
             );
         }
         if blocked_reason.is_none()
@@ -339,12 +458,12 @@ impl ReplaySession {
                     price_units,
                     total_equity.round() as i64,
                     self.is_overseas,
-                    self.assumptions.exchange_rate_krw,
+                    self.current_fx,
                 );
                 let fill_krw =
                     apply_slippage(signal_price_krw, self.assumptions.slippage_bps, true);
                 let gross = fill_krw * adjusted_quantity as f64;
-                let fee = bps_cost(gross, self.assumptions.fee_bps);
+                let fee = self.assumptions.fee(gross, true, self.current_fx);
                 let amount = gross + fee;
                 if adjusted_quantity == 0 {
                     trade.blocked_reason = Some("변동성 수량 산정 결과가 0주".into());
@@ -360,13 +479,21 @@ impl ReplaySession {
                     self.position = Some(PositionState {
                         quantity: adjusted_quantity,
                         average_fill_krw: fill_krw,
+                        average_fill_units: if self.is_overseas {
+                            fill_krw / self.current_fx * 100.0
+                        } else {
+                            fill_krw
+                        },
                         allocated_buy_cost_krw: fee,
                     });
-                    trade.fill_price = Some(krw_to_display(
-                        fill_krw,
-                        self.is_overseas,
-                        self.assumptions.exchange_rate_krw,
-                    ));
+                    trade.fill_price =
+                        Some(krw_to_display(fill_krw, self.is_overseas, self.current_fx));
+                    trade.execution_reference_price =
+                        Some(units_to_display(price_units, self.is_overseas));
+                    trade.exchange_rate_krw = self.current_fx;
+                    trade.fee_krw = fee;
+                    trade.slippage_krw =
+                        (fill_krw - signal_price_krw).max(0.0) * adjusted_quantity as f64;
                     trade.quantity = adjusted_quantity;
                     trade.gross_amount_krw = gross;
                     trade.cost_krw =
@@ -375,29 +502,35 @@ impl ReplaySession {
                     self.turnover_krw += gross;
                 }
             }
-            Signal::Sell { quantity, .. } => {
-                if let Some(open) = self.position.take() {
-                    let sell_quantity = (*quantity).min(open.quantity);
-                    let fill_krw =
-                        apply_slippage(signal_price_krw, self.assumptions.slippage_bps, false);
-                    let gross = fill_krw * sell_quantity as f64;
-                    let fee = bps_cost(gross, self.assumptions.fee_bps);
-                    let tax = bps_cost(gross, self.assumptions.tax_bps);
-                    let buy_cost =
-                        open.allocated_buy_cost_krw * sell_quantity as f64 / open.quantity as f64;
-                    let pnl = (fill_krw - open.average_fill_krw) * sell_quantity as f64
-                        - fee
-                        - tax
-                        - buy_cost;
+            Signal::Sell { .. } => {
+                if let (Some(open), Some(sale)) = (self.position.take(), sale_projection) {
+                    let SaleProjection {
+                        quantity: sell_quantity,
+                        fill_krw,
+                        gross,
+                        fee,
+                        tax,
+                        buy_cost,
+                        pnl,
+                    } = sale;
                     self.cash += gross - fee - tax;
                     let remaining = open.quantity - sell_quantity;
                     if remaining > 0 {
                         self.position = Some(PositionState {
                             quantity: remaining,
                             average_fill_krw: open.average_fill_krw,
+                            average_fill_units: open.average_fill_units,
                             allocated_buy_cost_krw: open.allocated_buy_cost_krw - buy_cost,
                         });
                     }
+                    let entry_native =
+                        open.average_fill_units / if self.is_overseas { 100.0 } else { 1.0 };
+                    let entry_fx = open.average_fill_krw / entry_native;
+                    let exit_native = fill_krw / self.current_fx;
+                    self.accounting.realized_price_pnl_krw +=
+                        (exit_native - entry_native) * entry_fx * sell_quantity as f64;
+                    self.accounting.realized_fx_pnl_krw +=
+                        exit_native * (self.current_fx - entry_fx) * sell_quantity as f64;
                     self.risk.record_pnl(pnl.round() as i64);
                     self.risk.record_strategy_symbol_pnl_for_scope(
                         &self.scope,
@@ -406,11 +539,15 @@ impl ReplaySession {
                         pnl.round() as i64,
                     );
                     self.completed_pnls.push((event.time.clone(), pnl, phase));
-                    trade.fill_price = Some(krw_to_display(
-                        fill_krw,
-                        self.is_overseas,
-                        self.assumptions.exchange_rate_krw,
-                    ));
+                    trade.fill_price =
+                        Some(krw_to_display(fill_krw, self.is_overseas, self.current_fx));
+                    trade.execution_reference_price =
+                        Some(units_to_display(price_units, self.is_overseas));
+                    trade.exchange_rate_krw = self.current_fx;
+                    trade.fee_krw = fee;
+                    trade.tax_krw = tax;
+                    trade.slippage_krw =
+                        (signal_price_krw - fill_krw).max(0.0) * sell_quantity as f64;
                     trade.quantity = sell_quantity;
                     trade.gross_amount_krw = gross;
                     trade.cost_krw =
@@ -441,11 +578,7 @@ impl ReplaySession {
         if event.open_units == 0 {
             return;
         }
-        let entry_units = if self.is_overseas {
-            position.average_fill_krw / self.assumptions.exchange_rate_krw * 100.0
-        } else {
-            position.average_fill_krw
-        };
+        let entry_units = position.average_fill_units;
         let stop = (self.assumptions.stop_loss_pct > 0.0)
             .then(|| entry_units * (1.0 - self.assumptions.stop_loss_pct / 100.0));
         let take = (self.assumptions.take_profit_pct > 0.0)
@@ -535,9 +668,13 @@ impl ReplaySession {
             self.assumptions.initial_capital_krw,
         );
         self.atr_preparation.ready_at_end = self.atr_window.ready();
+        let accounting = self.finish_accounting(final_equity);
+
         BacktestReportView {
             execution_warnings: self.execution_warnings,
             assumptions: self.assumptions.clone(),
+            accounting,
+            comparison: None,
             summary: BacktestSummaryView {
                 initial_capital_krw: round_money(self.assumptions.initial_capital_krw),
                 final_equity_krw: round_money(final_equity),

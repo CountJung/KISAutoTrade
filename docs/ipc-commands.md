@@ -73,7 +73,7 @@
 | `get_candle_page` | KIS/Toss 공통 완료봉 페이지 조회. 활성 프로파일·계좌 scope와 기준 시각을 고정한 typed cursor, 완료/무효 제외 수·출처·종료 사유 반환. 웹 GET `/api/candles/page`와 동일 camelCase DTO |
 | `get_toss_chart_data` | 활성 Toss 프로파일로 캔들 조회 (`1d`/`1m`, count 1~200, `ChartCandle[]`) |
 | `preview_leveraged_trend_hold` | 활성 Toss profile/account scope와 `1m`/`1d` count 20~200을 검증. 일봉은 성과 평가 불가 자료 진단, 분봉은 실제 장중 관측의 모의 표본 결과를 반환. 일봉 context와 분봉 지표를 분리하고 `replay.assessment`에 관측 수·평가 가능 여부·시간/세션 미검증을 기록 |
-| `preview_strategy` | `candles` 평가 구간 + 선택 `historyCandles` 사전자료를 합계 최대 500봉으로 candle-close replay. `warmupCount` 생략은 0이며 명시 prefix와 별도 history 동시 지정은 거부. 결과 candles는 평가 구간만 포함. 실제 지표 준비 상태·조건 평가 봉 수(`preparation`), raw 신호·체결/차단·비용/리스크 성과와 OHLCV hash를 반환. generic LTH는 `UNSUPPORTED_GENERIC_REPLAY`로 명시 거부. live 10초 tick·intrabar/provider latency는 재현하지 않음 |
+| `preview_strategy` | `candles` 평가 구간 + 선택 `historyCandles` 사전자료를 합계 최대 500봉으로 종가 신호·선택 체결 모델 replay. `warmupCount` 생략은 0이며 명시 prefix와 별도 history 동시 지정은 거부. 결과 candles는 평가 구간만 포함. 실제 지표 준비 상태·조건 평가 봉 수(`preparation`), raw 신호·체결/차단·비용/리스크 성과와 OHLCV hash를 반환. generic LTH는 `UNSUPPORTED_GENERIC_REPLAY`로 명시 거부. live 10초 tick·intrabar/provider latency는 재현하지 않음 |
 | `get_chart_data` | 국내주식 차트 데이터 (일/주/월봉, 날짜 범위와 선택적 count) |
 | `get_overseas_price` | 해외주식 현재가 조회 |
 | `get_overseas_chart_data` | 해외주식 최신 차트 데이터 (일/주/월봉, 선택적 count 상한) |
@@ -90,11 +90,11 @@
 | `get_stock_list_stats` | 종목 목록 통계 |
 | `set_stock_update_interval` | 종목 목록 갱신 주기 설정 |
 
-`preview_strategy` v5의 `D`/`1d` cadence는 `dailyCloseWithDayBoundary`다. 시가-only 날짜 시작, 완성 OHLC 종가 평가, 체결/차단 포지션 피드백, 완료봉 적재 순서로 처리한다. 강한 종가는 전일 조건을 다음 평가일에 사용하고 변동성 확장은 이전 N일 평균과 당일 범위를 비교한다. 두 전략의 다른 interval은 `UNSUPPORTED_REPLAY_INTERVAL`로 거부한다. v5의 해당 신호 봉 종가 근사는 v10에서 호환 기본값 `sameClose`로 유지한다. 아래 v10의 `nextOpen`과 장중 연구 가정 계약을 함께 확인한다. 기존 입력·`preparation` 계약과 전용 LTH 경로는 유지한다.
+`preview_strategy` v5의 `D`/`1d` cadence는 `dailyCloseWithDayBoundary`다. 시가-only 날짜 시작, 완성 OHLC 종가 평가, 체결/차단 포지션 피드백, 완료봉 적재 순서로 처리한다. 강한 종가는 전일 조건을 다음 평가일에 사용하고 변동성 확장은 이전 N일 평균과 당일 범위를 비교한다. 두 전략의 다른 interval은 `UNSUPPORTED_REPLAY_INTERVAL`로 거부한다. v5의 해당 신호 봉 종가 근사는 v10에서 호환 기본값 `sameClose`로 유지한다. 아래 v10의 `nextOpen`·장중 연구 가정 및 v11 회계 계약을 함께 확인한다. 기존 입력·`preparation` 계약과 전용 LTH 경로는 유지한다.
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v10`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v11`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
 전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
@@ -109,6 +109,49 @@ v10 공통 `assumptions`에 `executionModel: sameClose | nextOpen`(기본sameClo
 연구 보호는 실제 체결 평균가 기준의 별도 시나리오다. 갭이 보호 가격을 넘으면 관측 시가에서 처리한다. 장중 고저가 접촉은 unverified에서 체결하지 않으며 stopFirst에서만 가정 체결한다. 양방향 접촉은 순서 불명 집계와 손절 우선 표시를 남긴다. 같은 종가에 새로 진입한 포지션에 이미 지난 그 봉 고저가를 적용하지 않는다. 강제 보호 주문은 수익/전략 재진입 guard로 손절을 억제하지 않으며 비용·손익은 공통 회계에 반영한다.
 
 `ReplaySession`의 `begin_bar → position_snapshot → 전략 종가 평가 → process_close → position_snapshot`을 generic과 전용 LTH 분봉에 공통 적용한다. LTH의 새 `preview_signals_with_driver`는 매 관측 `Open/Signal/Close`를 전달하여 신호 없는 봉의 대기 체결도 먼저 반영한다. 기존 callback API는 호환 wrapper다. Tauri 등록·웹 route·query key는 그대로이며 A/B 보관 응답의 새 필드가 없으면 UI는 이전 결과의 체결 정보 부족을 표시한다.
+
+### Replay v11 회계·비교 계약
+
+`preview_strategy`와 전용 LTH `1m`은 같은 v11 회계를 사용한다. 입력·응답 타입 정본은 [`strategyResearchTypes.ts`](../src/shared/api/strategyResearchTypes.ts), 회계는 `trading/simulation/{accounting.rs,session/accounting.rs}`, 비교는 `simulation/comparison.rs`다. 기존 커맨드·웹 route·query key를 유지하며 이 필드는 실운영 주문·브로커 비용 조회를 수행하지 않는다.
+
+| 추가 `assumptions` | 기본값·검증 |
+|---|---|
+| `costSource` | `estimated` 또는 `brokerVerifiedManual`; 기본 `estimated`. 후자는 사용자의 수동 확인 표시이며 앱이 브로커 API로 검증했다는 뜻이 아님 |
+| `costNote` | 기본 빈 문자열. 제어문자 없는 최대 120문자이며 수동 확인에는 공백 이외 메모 필수 |
+| `buyFeeBps`, `sellFeeBps` | 생략/null이면 기존 `feeBps`를 방향별로 사용. 지정 값은 유한수 0..1000bps |
+| `minimumFeeNative` | 기본 0, 유한수 0..100000000. 국내 원·해외 USD의 체결당 최소 수수료; 비율 수수료와 비교해 큰 값을 적용하고 해당 시점 환율로 원화 환산 |
+| `fxScenario` | 기본 `[]`. 각각 `{barTime,rateKrw}`이며 `rateKrw`는 유한수 100..10000. 국내 종목의 비어 있지 않은 시나리오는 거부 |
+| `dividendScenario` | 기본 `[]`. 각각 `{barTime,amountPerShare,withholdingTaxBps}`. 주당 금액은 국내 원·해외 USD의 유한수 0..100000000, 원천징수는 유한수 0..10000bps |
+| `dividendPriceBasis` | 기본 `unverified`; `unadjusted`/`dividendAdjusted`는 사용자의 가격 자료 선언. `dividendAdjusted`와 비어 있지 않은 현금 배당을 함께 입력하면 중복 계상으로 거부. 미확인은 경고하며 자동 검증으로 표시하지 않음 |
+
+두 시나리오는 **각각 최대 64개의 고유 평가 봉**만 허용한다. `barTime`은 서버에서 최대 64바이트이며 일봉 ISO 날짜/compact 날짜, 분봉 RFC3339/legacy compact 시각을 기존 캔들 규칙으로 정규화한다. 실제 평가 봉 하나와 정확히 일치해야 하며 alias 정규화 후 중복도 거부한다. 사전자료·미래·누락 봉으로 옮기거나 가까운 봉에 붙이지 않는다. 검증 오류는 `INVALID_ACCOUNTING_SCENARIO`다. LTH `1d`는 자료 진단이므로 비어 있지 않은 FX/배당 시나리오를 `SCENARIO_NOT_EVALUABLE`로 거부하고 성과·새 회계·비교를 표시하지 않는다. UI의 JSON 입력은 각각 24,000자, 봉 라벨 40자로 더 좁게 제한한다. 잘못된 draft는 기존 결과와 진행 응답을 무효화하고 계산을 막으며 `[]`로 대체하지 않는다.
+
+환율은 지정 평가 봉의 시작에 알려진 시나리오 값으로 적용하고 다음 지정점까지 유지한다. 첫 지정점 전에는 `exchangeRateKrw`를 사용하며 미래 환율을 소급하지 않는다. 배당은 해당 봉 시작 **직전** 보유 수량에만 귀속되어 같은 봉 대기 매수는 제외한다. 원천징수 후 해당 봉에서 원화 현금으로 지급하는 연구 가정이며 실제 배당락·지급일·기업행동·통화를 검증하지 않는다. 유휴 현금은 KRW로 유지하므로 USD 현금 계좌의 환율 재평가가 아니다. 거래·배당 시점의 원화 환산과 별개로 native 평균 체결가는 보존하여 FX 변화가 전략의 원가·손절 기준을 바꾸지 않게 한다.
+
+최소 수수료가 양수인 일반 이익 매도는 실제 청산 수량·잔여 매수 비용의 비례 배분·현재 환율·수수료·세금·슬리피지를 반영한 세후 기대 순익이 양수여야 한다. native 가격 손실 매도·명시 손절·연구 보호 청산은 이 추가 순익 제한에서 제외하며 기존 시간·리스크 검사는 유지한다. 같은 전망 계산을 실제 청산 장부에도 사용한다. 차단·미체결에는 체결 수수료를 부과하지 않는다.
+
+`BacktestReport.accounting`은 다음 필드를 반환한다. 가격/환율 기여는 수수료 배분 전의 분해이며, 순손익은 해당 비용을 포함한다.
+
+| 회계 필드 | 의미 |
+|---|---|
+| `realizedPnlKrw`, `residualUnrealizedPnlKrw` | 완료 청산 순손익과 아직 매도하지 않은 잔여 평가 순손익. 표시 반올림 전 `실현 + 잔여 평가 + dividendNetKrw = finalEquityKrw − initialCapitalKrw` |
+| `remainingQuantity`, `remainingCostBasisKrw`, `remainingBuyFeeKrw` | 잔여 수량, 과거 환율로 기록한 매수 원가, 아직 잔여분에 배분된 매수 수수료 |
+| `realizedPricePnlKrw`, `realizedFxPnlKrw`, `residualPricePnlKrw`, `residualFxPnlKrw` | 가격 효과 `(종료 native 가격 − 진입 native 가격) × 진입 환율 × 수량`; FX 효과 `종료 native 가격 × (종료 환율 − 진입 환율) × 수량`. 슬리피지는 체결 가격에 포함 |
+| `totalFeeKrw`, `totalTaxKrw`, `totalSlippageKrw` | 실제 모의 체결의 수수료·거래세·가격에 포함된 슬리피지 영향. 슬리피지를 현금 비용으로 다시 차감하지 않음 |
+| `dividendGrossKrw`, `dividendTaxKrw`, `dividendNetKrw` | 시나리오 배당 총액·원천징수·순현금. 시나리오가 없으면 가격 기반 결과이며 배당 포함 총수익이 아님 |
+| `terminalLiquidationEquityKrw`, `terminalLiquidationReturnPct`, `terminalExitFeeKrw`, `terminalExitTaxKrw`, `terminalExitSlippageKrw` | 마지막 종가에 잔여분을 청산한다고 가정한 보고 전용 값. 실제 cash/보유·체결 수·승률·리스크 상태를 바꾸지 않음 |
+| `averageInvestedNotionalKrw`, `averageInvestedCapitalPct`, `averageInvestedEquityPct`, `peakInvestedCapitalPct`, `peakInvestedEquityPct` | 각 평가 봉말 보유 **평가액**의 평균과 초기자본/당시 순자산 대비 관측 평균·최대 비중. 진입 원금·시간 가중 노출·장중 최대 비중이 아니며 `summary.exposurePct`의 보유 관측 봉 비율과도 구분 |
+| `realizedEquitySignMismatch`, `warnings` | 실현손익과 전체 자산 증감 부호 차이 및 비용 출처·현금 장부·시나리오·자료 한계 경고. 청산 표본 20건 미만을 경고하며 부분 청산도 각각 1건으로 집계 |
+
+`BacktestTrade`에는 `executionReferencePrice`(슬리피지 적용 전 native 기준가), `exchangeRateKrw`, `feeKrw`, `taxKrw`, `slippageKrw`를 추가한다. 기존 `costKrw`는 호환용 진단 합계인 수수료+거래세+슬리피지 영향이다. 슬리피지 영향은 이미 체결 가격에 포함되므로 이 진단 합계를 현금에서 다시 차감하지 않는다.
+
+`BacktestReport.comparison`은 `sameInputQuantityBuyHold`, `sameExecutionPathCostReference`, `capitalExposureDifferencePct`, `holdingBarDifferencePct`, `limitations`를 반환한다.
+
+- `sameInputQuantityBuyHold`: 같은 평가 구간·자본·요청 수량·체결/비용/FX/배당·ATR/리스크 조건에서 첫 평가 종가에 매수를 지시한 단순 보유다. 연구 손절·익절과 전략 청산은 끈다. `requestedQuantity`, `actualEntryQuantity`, `remainingQuantity`, `finalEquityKrw`, `cumulativeReturnPct`, `terminalLiquidationReturnPct`, `realizedPnlKrw`, `residualUnrealizedPnlKrw`, `dividendNetKrw`, `mddPct`, `averageInvestedCapitalPct`, `averageInvestedEquityPct`, `peakInvestedCapitalPct`, `peakInvestedEquityPct`, `holdingBarPct`, `filledOrderCount`, `blockedOrderCount`, `unfilledOrderCount`로 실제 수량·노출 차이를 공개한다. 입력 수량이 같아도 실제 체결 수량·기간·비중이 같다고 주장하지 않는다.
+- `sameExecutionPathCostReference`: 전략의 실제 모의 체결 수량·시점·노출을 고정해 발생 당시 기록한 원화 수수료·거래세·슬리피지 영향·배당 원천징수만 환급한 사후 산술 참고값이다. `restoredCostKrw`, `finalEquityKrw`, `cumulativeReturnPct`를 반환하며 원가/FX 귀속 재산정 또는 비용을 바꾼 전략 재실행 성과가 아니다.
+- 두 difference는 전략에서 단순 보유의 평균 초기자본 투자 비중/보유 관측 봉 비율을 뺀 %p다. 관측 봉이 없는 구간은 비교를 만들지 않는다. 같은/겹친 기간의 A/B·모델 비교는 독립 검증이 아니며 부분기간을 전체 분기·연속 운용 성과로 합산하지 않는다.
+
+TS의 새 응답 필드는 보관된 legacy 결과를 위해 선택 필드다. `accounting`·`comparison`이 없으면 확인 불가로 표시하며 0이나 보관 거래 100건에서 역산한 손익으로 대체하지 않는다. A/B는 서버 집계와 비용·FX·배당·가격 자료 선언을 그대로 보존하고 비교 조건 차이를 표시한다. 상세 검증 명령과 mock UI 47/47 근거는 [Harness 지도](HARNESS_MAP.md)의 P2-15 항목을 따른다.
 
 ### 공통 캔들 페이지 계약
 

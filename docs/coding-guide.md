@@ -846,7 +846,12 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 - generic/LTH replay는 공통 ReplaySession의 봉 시작에서 이전 대기 신호를 먼저 처리하고 실제 수량/원가를 종가 평가 전에 되먹임한다. raw 신호 뒤에도 체결/차단/대기 snapshot으로 speculative 상태를 해소한다. provider/network 오류가 난 live 주문도 제출 전 tracker snapshot으로 복원한다.
 - 일일 손실/연속손실 상태는 event 거래일 경계에서 초기화한다. replay에는 수동 비상정지 입력이 없으므로 전일 손실한도에 의한 자동 정지는 다음 거래일에 해제한다.
 - in/out-of-sample은 walk-forward 재학습이 아니라 한 번의 고정 chronological split이다. 같은 종가/다음 관측 시가의 선택 가정과 연구용 손절/익절을 live 설정과 분리한다. sameClose의 종가 후 체결 가능성, OHLC 장중 순서, live10초 tick과 provider 지연은 미검증이다. 마지막 대기 신호는 blocked/filled가 아닌 unfilled로 표시한다.
+- v11 비용·현금흐름 필드와 응답 필드 정본은 [IPC 계약](ipc-commands.md)의 회계·비교 항목을 따른다. 사용자의 비용 수동 확인을 API 자동 검증으로 표현하지 않는다. FX/배당 시나리오는 각각 최대64개의 정규화된 고유 평가 봉과 정확히 일치시켜 검증하며 history/누락 봉으로 옮기지 않는다. 국내 FX와 LTH 일봉의 현금흐름 시나리오, 배당 조정 가격+현금 배당 중복은 명시 거부한다.
+- KRW 현금과 native 평균 체결가를 별도로 보존한다. 배당은 봉 시작 직전 보유에만 배분하고 미래 FX를 소급하지 않는다. 부분 매도 전망과 실제 청산은 같은 수량·과거 매수 비용 배분·현재 FX·최소 수수료 계산을 공유한다. 일반 이익 매도의 세후 순익 검사로 native 손실 청산·명시 손절·연구 보호를 억제하지 않는다.
+- 실현 순손익+잔여 평가 순손익+순배당의 자산 증감 일치를 검사한다. 가격 효과는 진입 FX, 환율 효과는 종료 native 금액에 귀속하고 슬리피지를 체결 가격과 현금 비용 양쪽에서 빼지 않는다. 종료 청산은 보고 전용이며 실제 현금·보유·체결/승률·risk 상태를 수정하지 않는다.
+- 평균/최대 투자 비중은 평가 봉말의 보유 평가액을 사용한다. 보유 봉 비율과 구분하고 시간 가중·장중 최대라는 이름을 붙이지 않는다. 단순 보유의 입력 수량과 실제 체결 수량·노출을 공개하며 동일 체결 경로 비용 환급을 비용 변경 전략 재실행으로 설명하지 않는다.
+- UI의 잘못된 JSON draft도 preview generation을 즉시 무효화하고 결과·계산 버튼을 차단한다. A/B의 회계 집계는 서버 결과를 보존하며 100건으로 잘린 거래 목록에서 역산하지 않는다. 이전 응답의 집계 누락은 unknown으로 표시하고 일봉 LTH 진단/legacy 평가 불가에는 회계 성과를 노출하지 않는다.
 - generic broker/account는 결과 저장 scope 메타데이터이고, Toss 레버리지 preview의 expected profile/account만 서버에서 현재 활성 scope와 일치하는지 검증한다.
 - UI 실험 저장은 broker/account/strategy/symbol scope별 A/B 두 slot, 최근 12 scope로 제한하고 credential은 저장하지 않는다. 이는 현재 편집값과 결과 snapshot 비교이며 편집 폼 재적용 preset은 아니다. quota 오류는 UI에 표시한다.
 
-> 마지막 업데이트: 2026-07-15T00:00:00+09:00
+> 마지막 업데이트: 2026-10-18T15:44:21+09:00

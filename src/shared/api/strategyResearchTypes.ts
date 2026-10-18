@@ -8,6 +8,70 @@ export interface ReplayEventTime {
   phase: 'open' | 'close' | 'intrabar'
 }
 
+export interface FxScenarioPoint { barTime: string; rateKrw: number }
+export interface DividendScenarioPoint { barTime: string; amountPerShare: number; withholdingTaxBps: number }
+
+export interface ReplayComparison {
+  sameInputQuantityBuyHold: {
+    requestedQuantity: number
+    actualEntryQuantity: number
+    remainingQuantity: number
+    finalEquityKrw: number
+    cumulativeReturnPct: number
+    terminalLiquidationReturnPct: number
+    realizedPnlKrw: number
+    residualUnrealizedPnlKrw: number
+    dividendNetKrw: number
+    mddPct: number
+    averageInvestedCapitalPct: number
+    averageInvestedEquityPct: number
+    peakInvestedCapitalPct?: number
+    peakInvestedEquityPct?: number
+    holdingBarPct: number
+    filledOrderCount: number
+    blockedOrderCount: number
+    unfilledOrderCount: number
+  }
+  sameExecutionPathCostReference: {
+    restoredCostKrw: number
+    finalEquityKrw: number
+    cumulativeReturnPct: number
+  }
+  capitalExposureDifferencePct: number
+  holdingBarDifferencePct: number
+  limitations: string[]
+}
+
+export interface ReplayAccounting {
+  realizedPnlKrw: number
+  residualUnrealizedPnlKrw: number
+  remainingQuantity: number
+  remainingCostBasisKrw: number
+  remainingBuyFeeKrw: number
+  realizedPricePnlKrw: number
+  realizedFxPnlKrw: number
+  residualPricePnlKrw: number
+  residualFxPnlKrw: number
+  totalFeeKrw: number
+  totalTaxKrw: number
+  totalSlippageKrw: number
+  dividendGrossKrw: number
+  dividendTaxKrw: number
+  dividendNetKrw: number
+  terminalLiquidationEquityKrw: number
+  terminalLiquidationReturnPct: number
+  terminalExitFeeKrw: number
+  terminalExitTaxKrw: number
+  terminalExitSlippageKrw: number
+  averageInvestedNotionalKrw: number
+  averageInvestedCapitalPct: number
+  averageInvestedEquityPct: number
+  peakInvestedCapitalPct: number
+  peakInvestedEquityPct: number
+  realizedEquitySignMismatch: boolean
+  warnings: string[]
+}
+
 export interface SimulationAssumptions {
   initialCapitalKrw: number
   feeBps: number
@@ -25,6 +89,14 @@ export interface SimulationAssumptions {
   intrabarExitPolicy?: ReplayIntrabarExitPolicy
   stopLossPct?: number
   takeProfitPct?: number
+  dividendPriceBasis?: 'unverified' | 'unadjusted' | 'dividendAdjusted'
+  costSource?: 'estimated' | 'brokerVerifiedManual'
+  costNote?: string
+  buyFeeBps?: number | null
+  sellFeeBps?: number | null
+  minimumFeeNative?: number
+  fxScenario?: FxScenarioPoint[]
+  dividendScenario?: DividendScenarioPoint[]
 }
 
 export interface ReplayAssessment {
@@ -57,6 +129,11 @@ export interface BacktestTrade {
   time: string
   side: 'buy' | 'sell'
   signalPrice: number
+  executionReferencePrice?: number
+  exchangeRateKrw?: number
+  feeKrw?: number
+  taxKrw?: number
+  slippageKrw?: number
   fillPrice: number | null
   quantity: number
   grossAmountKrw: number
@@ -117,6 +194,8 @@ export interface BacktestReport {
   overfitWarning: string | null
   atrPreparation?: BacktestAtrPreparation
   executionWarnings?: string[]
+  accounting?: ReplayAccounting
+  comparison?: ReplayComparison
 }
 
 export interface BacktestAtrPreparation {

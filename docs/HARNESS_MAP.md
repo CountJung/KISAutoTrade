@@ -160,3 +160,17 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 - `cargo test --workspace --test lth_replay_clock --locked`: production library의 Open/Signal/Close·다음 시가 원가·마지막 미체결, 기존 입력 clock/session/미래봉 불변.
 - `npx playwright test tests/e2e/strategy-execution-model.spec.ts`: 가정 입력→전송·이전 응답 무효화, 시점/미체결/불명경로·legacy A/B·모바일·LTH 일봉 진단 유지. 인접 ATR·assessment·scrollbar 또는 전체 UI 회귀를 함께 확인한다.
 - [새 연구의 재현 절차](research/replay-execution-20261018/report.md)는 동결 입력과 직전 커밋 생산 라이브러리의 1,224회 호환 비교, QQQ 두 전략×두 비용×두 모델과 같은 규칙 benchmark를 구분한다. 이 비교는 실제 주문·장중 체결 검증이 아니다.
+
+
+## P2-15 비용·현금흐름·손익 분해 회귀
+
+계약 정본은 [IPC 문서](ipc-commands.md)의 v11 회계·비교 항목이다. 아래 검증은 합성 자료·보관 연구 입력과 mock API를 사용하며 실제 브로커 수수료·배당·주문 실행을 검증하지 않는다.
+
+- `cargo test --workspace --lib simulation --locked`: 방향별 비용·최소 수수료의 실제 청산 전망, 부분 수량/매수 비용/FX 배분, 손실 청산·손절 예외, 실현+잔여+배당의 장부 일치, 원화 현금과 native 원가 유지, 관측 평균/최대 노출, 보고 전용 종료 청산과 비교 정책을 확인한다.
+- `cargo test --workspace --lib generic::tests --locked`: 생산 preview의 분봉 alias 정규화와 실제 평가 봉 일치, 누락 봉·국내 FX 거부를 확인한다. 시나리오 범위·중복·배당 조정 중복은 simulation 테스트에서 확인한다. `cargo test --workspace --lib strategy_preview --locked`로 기존 LTH 일봉 진단·분봉 공통 동작을 확인한다. LTH 일봉의 시나리오 명시 거부는 소스 감사로 확인했으며 실제 provider를 호출한 API 검증은 실행하지 않았다. 필터의 실제 실행 건수를 검증하고 전체 lib test로 보완한다.
+- `npx playwright test tests/e2e/strategy-accounting.spec.ts tests/e2e/strategy-execution-model.spec.ts tests/e2e/strategy-atr-readiness.spec.ts tests/e2e/strategy-replay-assessment.spec.ts tests/e2e/strategy-scrollbar.spec.ts`: 고정 소스에서 **47/47 통과**(2026-10-18). 새 회계9개와 기존38개로 입력→payload, 잘못된 JSON의 이전 결과 폐기/계산 차단, 국내 FX·64행/중복·배당 조정 중복 거부, 실현/전체 부호 차이·청산 표본·가상 청산, 비교 정책·A/B 집계 보존·legacy unknown·모바일 overflow·LTH 일봉 진단을 검증했다. 실제 Tauri IPC/브로커 E2E로 집계하지 않는다.
+- `npx tsc --noEmit`, `npm run check:fsd`, `npm run build:web`와 구조·그래프 게이트를 현재 변경 범위에 맞게 수행한다. 보관 응답의 `accounting`/`comparison` 누락을 0 또는 잘린 거래 목록으로 복원하면 회귀다.
+
+실제 비용·배당 자료의 출처, 가격 배당 조정 여부, 거래소 시간·세션·coverage는 별도 자료 검증이다. 겹친 기간·부분 분기·20건 미만 청산 표본의 비교를 독립 일반화 근거로 확대하지 않는다.
+
+[P2-15 연구 재현·한계](research/replay-accounting-20261018/report.md)는 직전1192673 생산코드1224회 기본호환, 단일분기40개 합성 현금흐름 시나리오/120개 항등식과 기록fill 독립4540대사를 구분한다.

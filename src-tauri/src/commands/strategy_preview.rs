@@ -79,6 +79,71 @@ fn normalize_preview_symbol(symbol: String) -> CmdResult<String> {
     Ok(symbol)
 }
 
+/// Align user scenario labels with the actual normalized evaluation bars. Never
+/// shift an unmatched dividend/FX event to the nearest observed bar.
+fn align_accounting_scenarios(
+    assumptions: &mut SimulationAssumptions,
+    labels: &[String],
+    interval: &str,
+    is_overseas: bool,
+) -> CmdResult<()> {
+    if assumptions.fx_scenario.len() > 64
+        || assumptions.dividend_scenario.len() > 64
+        || assumptions
+            .fx_scenario
+            .iter()
+            .any(|point| point.bar_time.len() > 64)
+        || assumptions
+            .dividend_scenario
+            .iter()
+            .any(|point| point.bar_time.len() > 64)
+    {
+        return Err(CmdError {
+            code: "INVALID_ACCOUNTING_SCENARIO".into(),
+            message: "환율·배당 시나리오는 각각 최대 64개, 시각은 64바이트 이하여야 합니다.".into(),
+        });
+    }
+    let canonical = |label: &str| {
+        if matches!(interval, "1m" | "M1") {
+            generic::normalize_minute_time(label)
+        } else {
+            let compact = label.replace('-', "");
+            (compact.len() == 8 && chrono::NaiveDate::parse_from_str(&compact, "%Y%m%d").is_ok())
+                .then_some(compact)
+        }
+    };
+    let mut aliases = std::collections::HashMap::<String, Vec<String>>::new();
+    for label in labels {
+        if let Some(key) = canonical(label) {
+            aliases.entry(key).or_default().push(label.clone());
+        }
+    }
+    for label in assumptions
+        .fx_scenario
+        .iter_mut()
+        .map(|point| &mut point.bar_time)
+        .chain(
+            assumptions
+                .dividend_scenario
+                .iter_mut()
+                .map(|point| &mut point.bar_time),
+        )
+    {
+        let matches = canonical(label).and_then(|key| aliases.get(&key));
+        match matches {
+            Some(matches) if matches.len() == 1 => *label = matches[0].clone(),
+            _ => return Err(CmdError { code: "INVALID_ACCOUNTING_SCENARIO".into(),
+                message: "시나리오 시각은 평가봉 하나와 정확히 일치해야 합니다. 사전자료·누락봉·중복 시각으로 옮기지 않습니다.".into() }),
+        }
+    }
+    assumptions
+        .validate_scenarios(is_overseas, labels)
+        .map_err(|message| CmdError {
+            code: "INVALID_ACCOUNTING_SCENARIO".into(),
+            message,
+        })
+}
+
 fn broker_money_amount(money: &BrokerMoney) -> Option<f64> {
     let amount = money.amount.trim().replace(',', "").parse::<f64>().ok()?;
     (amount > 0.0).then_some(amount)
@@ -384,8 +449,7 @@ pub async fn preview_leveraged_trend_hold_for_profile(
     }
     let count = input.count.unwrap_or(200).clamp(20, 200);
     let params_fingerprint = serde_json::to_string(&input.params).unwrap_or_default();
-    let assumptions = input.assumptions.clone();
-    let assumptions_fingerprint = serde_json::to_string(&assumptions).unwrap_or_default();
+    let mut assumptions = input.assumptions.clone();
     let params: LeveragedTrendHoldParams =
         serde_json::from_value(input.params).map_err(|e| CmdError {
             code: "INVALID_PARAMS".into(),
@@ -488,6 +552,28 @@ pub async fn preview_leveraged_trend_hold_for_profile(
             signal: None,
         })
         .collect::<Vec<_>>();
+    if interval == "1d"
+        && (!assumptions.fx_scenario.is_empty() || !assumptions.dividend_scenario.is_empty())
+    {
+        return Err(CmdError { code: "SCENARIO_NOT_EVALUABLE".into(),
+            message: "LTH 일봉은 자료 진단입니다. 현금흐름 시나리오 성과는 분봉 표본에서만 계산할 수 있습니다.".into() });
+    }
+    align_accounting_scenarios(
+        &mut assumptions,
+        &base_execution_events
+            .iter()
+            .map(|event| event.time.clone())
+            .collect::<Vec<_>>(),
+        interval,
+        entry_is_overseas,
+    )?;
+    let assumptions_fingerprint = serde_json::to_string(&assumptions).unwrap_or_default();
+    let benchmark_quantity = params
+        .entries
+        .iter()
+        .find(|entry| entry.leveraged_symbol.eq_ignore_ascii_case(&symbol))
+        .map(|entry| entry.quantity.max(1))
+        .unwrap_or(1);
     let mut session = ReplaySession::new(
         "leveraged_trend_hold",
         &symbol,
@@ -642,7 +728,18 @@ pub async fn preview_leveraged_trend_hold_for_profile(
             if interval == "1m" { timed.len() } else { 0 },
         )),
     };
-    let backtest = session.finish();
+    let mut backtest = session.finish();
+    if interval == "1m" {
+        crate::trading::simulation::attach_comparison(
+            &mut backtest,
+            "leveraged_trend_hold",
+            &symbol,
+            entry_is_overseas,
+            benchmark_quantity,
+            &[],
+            &simulation_events,
+        );
+    }
 
     Ok(LeveragedTrendHoldPreviewView {
         symbol,

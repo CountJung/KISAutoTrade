@@ -11,6 +11,12 @@ use super::{
     strategy::Signal,
 };
 
+mod comparison;
+pub use comparison::{attach_comparison, ReplayComparisonView};
+mod accounting;
+pub use accounting::{
+    CostSource, DividendPriceBasis, DividendScenarioPoint, FxScenarioPoint, ReplayAccountingView,
+};
 mod session;
 pub use session::ReplaySession;
 mod assessment;
@@ -19,7 +25,7 @@ mod atr;
 pub use atr::AtrPreparationView;
 use atr::AtrWindow;
 
-pub const REPLAY_ENGINE_VERSION: &str = "strategy-replay-v10";
+pub const REPLAY_ENGINE_VERSION: &str = "strategy-replay-v11";
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -53,6 +59,22 @@ pub struct SimulationAssumptions {
     pub take_profit_pct: f64,
     #[serde(default = "default_fee_bps")]
     pub fee_bps: f64,
+    #[serde(default)]
+    pub buy_fee_bps: Option<f64>,
+    #[serde(default)]
+    pub sell_fee_bps: Option<f64>,
+    #[serde(default)]
+    pub minimum_fee_native: f64,
+    #[serde(default)]
+    pub cost_source: CostSource,
+    #[serde(default)]
+    pub cost_note: String,
+    #[serde(default)]
+    pub fx_scenario: Vec<FxScenarioPoint>,
+    #[serde(default)]
+    pub dividend_scenario: Vec<DividendScenarioPoint>,
+    #[serde(default)]
+    pub dividend_price_basis: DividendPriceBasis,
     #[serde(default = "default_tax_bps")]
     pub tax_bps: f64,
     #[serde(default = "default_slippage_bps")]
@@ -82,6 +104,14 @@ impl Default for SimulationAssumptions {
             stop_loss_pct: 0.0,
             take_profit_pct: 0.0,
             fee_bps: default_fee_bps(),
+            buy_fee_bps: None,
+            sell_fee_bps: None,
+            minimum_fee_native: 0.0,
+            cost_source: CostSource::default(),
+            cost_note: String::new(),
+            fx_scenario: Vec::new(),
+            dividend_scenario: Vec::new(),
+            dividend_price_basis: DividendPriceBasis::default(),
             tax_bps: default_tax_bps(),
             slippage_bps: default_slippage_bps(),
             exchange_rate_krw: default_exchange_rate(),
@@ -247,6 +277,11 @@ pub struct BacktestTradeView {
     pub side: String,
     pub signal_price: f64,
     pub fill_price: Option<f64>,
+    pub execution_reference_price: Option<f64>,
+    pub exchange_rate_krw: f64,
+    pub fee_krw: f64,
+    pub tax_krw: f64,
+    pub slippage_krw: f64,
     pub quantity: u64,
     pub gross_amount_krw: f64,
     pub cost_krw: f64,
@@ -306,6 +341,9 @@ pub struct BacktestSummaryView {
 pub struct BacktestReportView {
     pub execution_warnings: Vec<String>,
     pub assumptions: SimulationAssumptions,
+    pub accounting: ReplayAccountingView,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comparison: Option<ReplayComparisonView>,
     pub summary: BacktestSummaryView,
     pub phases: Vec<BacktestPhaseView>,
     pub trades: Vec<BacktestTradeView>,
@@ -318,6 +356,7 @@ pub struct BacktestReportView {
 struct PositionState {
     quantity: u64,
     average_fill_krw: f64,
+    average_fill_units: f64,
     allocated_buy_cost_krw: f64,
 }
 
@@ -341,6 +380,15 @@ pub fn run_backtest_with_history(
     history_events: &[SimulationEvent],
     events: &[SimulationEvent],
 ) -> BacktestReportView {
+    let scenario_error = assumptions
+        .validate_scenarios(
+            is_overseas,
+            &events
+                .iter()
+                .map(|event| event.time.clone())
+                .collect::<Vec<_>>(),
+        )
+        .err();
     let mut session = ReplaySession::new(
         strategy_id,
         symbol,
@@ -349,6 +397,10 @@ pub fn run_backtest_with_history(
         history_events,
         events.len(),
     );
+    if let Some(error) = scenario_error {
+        session.reject_scenarios(error);
+        return session.finish();
+    }
     for event in events {
         session.begin_bar(event);
         session.process_close(event);
@@ -490,17 +542,6 @@ fn units_to_display(units: u64, is_overseas: bool) -> f64 {
     } else {
         units as f64
     }
-}
-
-fn krw_to_units(krw: f64, is_overseas: bool, exchange_rate: f64) -> Option<u64> {
-    if krw <= 0.0 {
-        return None;
-    }
-    Some(if is_overseas {
-        (krw / exchange_rate * 100.0).round() as u64
-    } else {
-        krw.round() as u64
-    })
 }
 
 fn krw_to_display(krw: f64, is_overseas: bool, exchange_rate: f64) -> f64 {
@@ -647,3 +688,7 @@ mod tests;
 #[cfg(test)]
 #[path = "simulation/execution_tests.rs"]
 mod execution_tests;
+
+#[cfg(test)]
+#[path = "simulation/accounting_tests.rs"]
+mod accounting_tests;

@@ -410,3 +410,45 @@ fn frozen_qqq_cost_and_next_open_feedback_change_the_real_strategy_exit_path() {
         assert_eq!(result.backtest.summary.completed_trades, 1);
     }
 }
+
+#[test]
+fn accounting_scenario_labels_match_actual_evaluation_instants_without_shifting() {
+    use crate::trading::simulation::{DividendScenarioPoint, FxScenarioPoint};
+    let mut fixture = input(&["2026-07-11T13:30:00Z", "2026-07-11T13:31:00Z"]);
+    fixture.assumptions.dividend_scenario = vec![DividendScenarioPoint {
+        bar_time: "20260711223000".into(),
+        amount_per_share: 100.0,
+        withholding_tax_bps: 0.0,
+    }];
+    let result = preview_strategy_from_candles(fixture).unwrap();
+    assert_eq!(
+        result.backtest.assumptions.dividend_scenario[0].bar_time,
+        "2026-07-11T13:30:00.000000000Z"
+    );
+    assert_eq!(
+        result.backtest.accounting.dividend_net_krw, 0.0,
+        "first-bar close buyer has no pre-open dividend rights"
+    );
+    for label in ["20260711222900", "20260711223030", "garbage"] {
+        let mut fixture = input(&["2026-07-11T13:30:00Z", "2026-07-11T13:31:00Z"]);
+        fixture.assumptions.dividend_scenario = vec![DividendScenarioPoint {
+            bar_time: label.into(),
+            amount_per_share: 100.0,
+            withholding_tax_bps: 0.0,
+        }];
+        assert_eq!(
+            preview_strategy_from_candles(fixture).unwrap_err().code,
+            "INVALID_ACCOUNTING_SCENARIO"
+        );
+    }
+    let mut domestic = input(&["20260711"]);
+    domestic.interval = Some("1d".into());
+    domestic.assumptions.fx_scenario = vec![FxScenarioPoint {
+        bar_time: "2026-07-11".into(),
+        rate_krw: 1400.0,
+    }];
+    assert_eq!(
+        preview_strategy_from_candles(domestic).unwrap_err().code,
+        "INVALID_ACCOUNTING_SCENARIO"
+    );
+}

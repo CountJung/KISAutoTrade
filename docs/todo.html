@@ -43,13 +43,13 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <h1>KISAutoTrade — 열린 할일</h1>
 <p class="intro"><a href="todo.md">원본 Markdown·연구 근거·완료 기준</a> · 이 화면은 원본에서 자동 생성됩니다.</p>
 <p>🟢 자동 구현은 추가 판단 없이 진행할 작업입니다. <strong>🟠 사용자 판단 대기</strong>는 제품 범위·보류 해제·키 준비 등의 선택이, <strong>🟠 사용자 검증·자료 대기</strong>는 실제 자료나 별도 승인된 검증이 필요합니다. 대기는 완료를 뜻하지 않습니다.</p>
-<p>구현 17개 · 사용자 판단 3개 · 사용자 검증·자료 4개. 선행 구현이 필요한 연구·리팩터링도 구현 목록에 유지합니다.</p>
+<p>구현 16개 · 사용자 판단 3개 · 사용자 검증·자료 4개. 선행 구현이 필요한 연구·리팩터링도 구현 목록에 유지합니다.</p>
 </header>
 <form class="controls" role="search" onsubmit="return false">
 <label for="status">상태별 보기<select id="status"><option value="all">전체 열린 할일</option value="implementation">🟢 자동 구현</option><option value="decision">🟠 사용자 판단 대기</option><option value="validation">🟠 사용자 검증·자료 대기</option><option value="waiting">🟠 모든 사용자 대기</option></select></label>
 <label for="search">할일 검색<input id="search" type="search" placeholder="ID, 전략 이름, 파일 경로" autocomplete="off"></label>
 </form>
-<p id="result" role="status" aria-live="polite">전체 24개 표시</p>
+<p id="result" role="status" aria-live="polite">전체 23개 표시</p>
 <noscript><p>JavaScript 없이도 모든 열린 할일을 읽을 수 있습니다. 상태 필터와 검색은 JavaScript가 필요합니다.</p></noscript>
 <section id="tasks" aria-label="열린 할일 목록"><article class="task validation" id="soxq-p1-05" data-status="validation" data-source-line="48">
 <p class="section">SOXQ 3개월 연구에서 확인한 P1 과제 (2026-10-03)</p>
@@ -175,15 +175,6 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 
 <a class="permalink" href="#soxq-p2-13" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-15" data-status="implementation" data-source-line="107">
-<p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
-<p class="badge">🟢 자동 구현</p>
-<h2><strong>SOXQ-P2-15 — 비용·배당·환율·청산 가정과 비교 기준을 명시한다.</strong></h2>
-<ul><li><a href="research/replay-execution-20261018/report.md">P2-14 관측</a>의 평균회귀 nextOpen -0.4372%/-0.4772%와 강한 종가 열린 평가이익/실현손실 사례를 회귀 기준으로 손익·기말 청산 비용을 분리한다. 봉말 보유 비율을 실제 평균 자본 비중으로 표시하지 않는다.</li>
-<li>최신 연구는 1천만원/전일 종가15%목표 고정 수량/환율1450원, 수수료·슬리피지 각각10bp→20bp다. 비용 변화는 손절·guard·후속 경로에도 영향을 준다. 배당·변동 FX·기말 청산 비용을 제외했으므로 이를 별도로 비교한다.</li>
-<li>완료 조건: 같은 수량/노출·실제 평균 투자비중 비교, 실현손익과 비용 포함 잔여 평가손익 분리, 기말 가정 청산 비용 표시, broker 실제 비용 입력·배당/환율 시나리오 지원. 부분 분기/겹침 창과 평가이익·실현손실 역부호를 명시한다.</li></ul>
-<a class="permalink" href="#soxq-p2-15" aria-label="이 할일 링크">#</a>
-</article>
 <article class="task implementation" id="soxq-p2-16" data-status="implementation" data-source-line="111">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
@@ -237,7 +228,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <a class="permalink" href="#task-ffa0458c56" aria-label="이 할일 링크">#</a>
 </article></section>
 <p id="empty" hidden>일치하는 열린 할일이 없습니다. 검색어나 상태를 바꿔 주세요.</p>
-<footer>원본 SHA-256: 24282c5930cb59e67bb1ad9c8e762a65113551a0672b0a3ea54668b200092499<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
+<footer>원본 SHA-256: 8013c5d4db846399d39029d9838a97bb8ffcdb6811faf90eb73159dba4b68c1d<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
 </main>
 <script>
 const status = document.getElementById('status');

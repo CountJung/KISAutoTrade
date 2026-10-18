@@ -38,6 +38,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | Live 52주 완료 일봉 준비 | `commands/trading/daily_history.rs`, `daily_history/jobs.rs` | `trading/strategy/manager/live_history.rs`, `src/shared/ui/LiveDailyHistoryPanel.tsx`, TradingStatus |
 | 전략 | `src-tauri/src/trading/strategy/` | `commands/strategy.rs`, `commands/strategy_preview.rs`, Strategy UI |
 | Replay 체결 모델·연구 보호 청산 | `trading/simulation/{session,execution_tests}.rs`, `simulation.rs` | `commands/strategy_preview{,/generic}.rs`, `strategy/leveraged_trend_hold/preview.rs`, `strategyResearchPanel.tsx`, `tests/e2e/strategy-execution-model.spec.ts` |
+| Replay 손익·현금흐름·비교 | `trading/simulation/{accounting,comparison}.rs`, `simulation/session/accounting.rs` | `simulation/accounting_tests.rs`, `src/shared/api/strategyResearchTypes.ts`, `strategyAccountingPanel.tsx`, `tests/e2e/strategy-accounting.spec.ts`, `docs/research/replay-accounting-20261018/` |
 | 전략 설정 저장·보유 보호 | `src-tauri/src/trading/configuration.rs` | `trading/order/configuration.rs`, `trading/strategy/manager/configuration.rs`, 각 전략의 `reconfigure_tests.rs`, IPC/Web 전략 수정 facade |
 | 잔고 조회·tracker 게시·계좌별 캐시 | `src-tauri/src/trading/order/holdings.rs`, `holdings/{fetch,parse}.rs` | `trading/position.rs`, `commands/accounts.rs`, `commands/trading/positions.rs`, `server/{market,trading}.rs`, `src/api/{accountHooks,backendEvents}.ts` |
 | 수동·자동 주문 | `src-tauri/src/trading/order/submission.rs` | `order/execution_run.rs`, `submission/{positions,prepare,provider,records}.rs`, `commands/orders.rs` |
@@ -158,6 +159,25 @@ Toss의 명시 금액과 누락을 구분하고 실제 평균가 대체 계산�
 가정 차이를 표시한다. 이전 결과의 누락 metadata는 미확인으로 남긴다. 동결 자료를
 생산 엔진으로 비교하는 진입점은 `docs/research/replay-execution-20261018/runner.rs`다.
 이 경로는 사용자 운용 설정·실제 주문을 변경하지 않는다. [연구 비교](research/replay-execution-20261018/report.md)와 [작업 기록](tasks/replay-execution-model-20261018.md)에서 검증 범위를 확인한다.
+
+### Replay 손익·현금흐름과 비교
+
+`simulation/accounting.rs`가 방향별·최소 수수료와 수동 출처, 평가 봉에 일치하는
+bounded FX·배당 가정을 검증한다. `ReplaySession`은 해당 봉의 환율·직전 보유
+수량의 배당을 적용한 뒤 대기 시가 주문을 처리하며 native 평균 체결가와 역사적
+KRW 원가를 분리한다. 해외 장부의 유휴 현금은 KRW이며 USD 현금 재평가가 아니다.
+`session/accounting.rs`는 실현·잔여·가격/환율·배당·비용 대사와 거래 수를 바꾸지
+않는 종료 청산 projection, 관측 봉말 투자 비중을 생성한다. 최소수수료 모드의
+일반 이익 매도는 실제 청산 수량의 순익을 검사하고 손절·native 손실 청산은 보존한다.
+
+`comparison.rs`는 같은 입력 수량의 보유 지시를 같은 세션으로 실행하고 실제 수량과
+노출 차이를 공개한다. 실제 체결 경로의 기록 KRW 비용 환급은 독립 무비용 전략
+재실행과 구분한다. `strategyAccountingPanel.tsx`가 일반/LTH 공통 입력·결과를
+표시하며 잘못된 초안은 실행을 막고 과거 누락 회계를 미확인으로 남긴다.
+생산 실행·기준·결과는 `docs/research/replay-accounting-20261018/`에 둔다.
+[연구 보고서](research/replay-accounting-20261018/report.md)의 직전/현재 harness
+manifest와 `validate.py`의 독립 기록 fill 대사로 재현하며, 구현·검증 범위는
+[작업 기록](tasks/replay-accounting-20261018.md)을 따른다.
 
 ### DB 설정·pool 변경
 

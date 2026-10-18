@@ -105,6 +105,14 @@ KISAutoTrade/
 │   │   │   ├── compare.py
 │   │   │   ├── comparison.json
 │   │   │   └── report.md
+│   │   ├── replay-accounting-20261018/
+│   │   │   ├── baseline-hashes.json
+│   │   │   ├── baseline_runner.rs
+│   │   │   ├── report.md
+│   │   │   ├── results.json
+│   │   │   ├── runner.rs
+│   │   │   ├── validate.py
+│   │   │   └── validation.json
 │   │   ├── replay-execution-20261018/
 │   │   │   ├── baseline-hashes.json
 │   │   │   ├── baseline_runner.rs
@@ -154,6 +162,7 @@ KISAutoTrade/
 │   │   ├── live-completed-daily-history-20261018.md
 │   │   ├── project-health-and-soxq-p1-01.md
 │   │   ├── provider-candle-contract-20261018.md
+│   │   ├── replay-accounting-20261018.md
 │   │   ├── replay-execution-model-20261018.md
 │   │   ├── soxq-p1-04.md
 │   │   ├── soxq-p1-05.md
@@ -283,6 +292,7 @@ KISAutoTrade/
 │   │   │   │   ├── leveragedTrendHoldEditorPanel.tsx
 │   │   │   │   ├── leveragedTrendHoldPreviewChart.tsx
 │   │   │   │   ├── priceConditionEditorPanel.tsx
+│   │   │   │   ├── strategyAccountingPanel.tsx
 │   │   │   │   ├── strategyMetadata.ts
 │   │   │   │   ├── strategyPreviewPanel.tsx
 │   │   │   │   └── strategyResearchPanel.tsx
@@ -592,8 +602,13 @@ KISAutoTrade/
 │   │   │   │   │   └── tests.rs
 │   │   │   │   └── fill_accounting.rs
 │   │   │   ├── simulation/
+│   │   │   │   ├── session/
+│   │   │   │   │   └── accounting.rs
+│   │   │   │   ├── accounting.rs
+│   │   │   │   ├── accounting_tests.rs
 │   │   │   │   ├── assessment.rs
 │   │   │   │   ├── atr.rs
+│   │   │   │   ├── comparison.rs
 │   │   │   │   ├── execution_tests.rs
 │   │   │   │   ├── session.rs
 │   │   │   │   └── tests.rs
@@ -673,6 +688,7 @@ KISAutoTrade/
 │       ├── candle-pagination.spec.ts
 │       ├── live-daily-history.spec.ts
 │       ├── settings-database.spec.ts
+│       ├── strategy-accounting.spec.ts
 │       ├── strategy-atr-readiness.spec.ts
 │       ├── strategy-configuration-errors.spec.ts
 │       ├── strategy-execution-model.spec.ts
@@ -789,6 +805,9 @@ KISAutoTrade/
 | `pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx` | 레버리지 추세 보유 전략의 ETF 검색/편집, 진입·반등·청산 파라미터, Toss 1분/일봉·50/100/200봉 preview와 계좌 scope/stale 응답 차단 |
 | `pages/strategy/ui/strategyPreviewPanel.tsx` | 일반/가격조건 전략 카드에서 `candlePageCollector`로 KIS 일/주/월봉 또는 Toss 1분/일봉을 순차 조회하고 요청 평가봉과 그 이전 사전자료를 나눠 편집값·비용 가정과 함께 `preview_strategy`에 전달. 실제 페이지 수·종료 사유·미완료/무효/중복 제외 수와 확보한 사전자료를 표시한다. 강한 종가·변동성 확장은 일봉 선택만 제공하고 날짜 이벤트와 선택한 연구 체결 모델의 가정을 안내한다. 실제 평가 기간·사전자료 수·준비 상태·평가 불가/조건 불충족/무체결을 표시하고 티커/봉/구간/파라미터/수량/broker/account/가정 변경 시 결과 무효화 |
 | `pages/strategy/ui/strategyResearchPanel.tsx` | 초기자본·수수료·세금·슬리피지·환율·리스크·학습구간 입력, 수익률/MDD/승률/손익비/turnover/exposure, 원시 신호와 주문 가능/체결 구분, equity curve, 거래 목록, in/out-of-sample, A/B 비교 UI. LTH assessment에 따라 일봉·관측 부족·과거 평가 정보 없는 결과의 성과 표시와 저장/비교를 차단하고, 분봉은 기간 전체 성과와 구분한 표본으로 안내. 연구 전용 ATR 수량 산정 토글·위험 예산·손절 배수 입력과 전략 지표 준비와 별도인 ATR 준비/미준비·과거 응답의 미확인 상태를 표시. sameClose/nextOpen, 봉 내부 미검증/손절 우선, 연구 손절·익절 가정과 신호 공개/체결 단계·미체결·동시 도달 진단을 표시한다. 이전 응답의 누락 정보는 미확인으로 유지하고 A/B에 엔진·가정 차이를 안내하며 운용 설정을 변경하지 않음 |
+| `pages/strategy/ui/strategyAccountingPanel.tsx` | 일반·LTH 공통 연구 비용/현금흐름 입력과 결과 표시. 방향별·최소 수수료와 수동 출처, bounded 환율·배당 JSON·배당 가격 조정 선언을 검증하고 오류 초안은 실행을 차단하며 이전 성과를 무효화. 실현/잔여·가격/환율·배당·종료 가상 청산·관측 봉말 투자 비중·동일 요청 수량 보유/기록 비용 환급 비교와 한계를 표시. 과거 응답의 누락 회계를 0으로 추정하지 않음 |
+| `shared/api/strategyResearchTypes.ts` | 일반/LTH replay의 비용·체결·현금흐름 가정과 회계/비교 DTO 계약. 과거 저장 결과의 새 회계 필드는 optional로 유지하며 런타임의 미확인 표시와 맞춤 |
+| `shared/lib/formatters.ts` | 공통 숫자·금액 표시. 연구 화면의 `fmtRoundedKrw(number)`는 기존 Math.round→ko-KR→원 순서를 보존하며 일반/회계 패널이 alias로 재사용한다. BrokerMoneyView의 통화·누락·decimal 문자열 처리를 하는 `fmtBrokerMoney`와 음수 절반 반올림 의미가 달라 별도 유지 |
 | `pages/strategy/model/candlePageCollector.ts` | 공통 페이지 API를 최대 8회 요청하고 최대 500봉만 유지한다. 요청 평가봉을 우선 배정한 뒤 이전 최대 252봉을 별도 사전자료로 분리하며 시각 기준 중복 제거·정렬·커서 반복/무진전/제공 자료 끝/일부 오류 종료를 처리한다. 프로파일·계좌 scope와 asOf/source/완료 정책 변경 시 결과를 폐기하고, KIS 해외 거래소 fallback은 첫 성공 페이지 이전 provider 오류에만 허용한다. |
 | `shared/api/candlePageTypes.ts` | desktop IPC와 Web GET에 공통인 `CandlePageInput`/`CandlePageView` 계약과 scope·커서·완료 정책·제외 수 타입. 기존 Vec 차트 계약과 구분 |
 | `pages/strategy/model/experimentStore.ts` | credential을 저장하지 않고 broker/account/strategy/symbol scope별 A/B 결과·전략 버전·파라미터·데이터 범위/source·비용 가정·생성 시각을 localStorage에 최대 2개 저장 |
@@ -849,7 +868,11 @@ KISAutoTrade/
 | `trading/strategy/manager/live_history.rs` | run generation·전체 config fingerprint·profile/broker/account·종목·서울/뉴욕 시장 날짜 ticket 검증과 52주 전용 완료 OHLC 적용. 실제 대상 511개+초과 진단 1행 상한, 준비 무효화·실패/부족/재시도 상태 및 최신 완료봉의 1~10일 freshness 관리. 보유 손절을 유지하고 LTH 분봉 initializer 미호출 |
 | `trading/strategy/manager/live_history_tests.rs` | 마지막 완료 high/close·다음날 고가 만료·252/512봉·대상 cap·재시작/config ABA·scope/profile 변경·quote 중 자정·DST·실패 중 손절·동일 scope 설정/rollback 보유 보존·무관 전략 불변 fixture |
 | `trading/simulation.rs` | deterministic simulated portfolio, 공통 TradeGuard/RiskManager 기반 주문 가능 판정, 비용·환율·equity·MDD·turnover·exposure·고정 chronological in/out-of-sample 지표. `run_backtest`/`run_backtest_with_history`는 ReplaySession을 구동하는 batch facade다. 동일 주기 과거 관측으로 위험 지표만 준비하고 주문·equity는 평가 구간에서만 만든다. ATR 미준비·변동폭 0 또는 거래당 위험 예산 0이면 선택적 ATR 수량 산정의 신규 매수를 차단하고 보유분 매도는 유지한다. preview command가 engine/strategy/source/scope/params/가정/warmup 경계와 실제 replay OHLCV fingerprint를 hash한다. v9 replay 시각은 RFC3339 offset의 실제 instant를 우선 사용한다. |
-| `trading/simulation/session.rs` | 공통 ReplaySession 회계·리스크·포지션·보류 신호 상태. begin_bar에서 전일 손실 상태 갱신·이전 신호 시가 체결·연구 보호 청산을 처리하고 process_close에서 ATR·종가 신호·mark/equity를 반영. sameClose/nextOpen, unverified/stopFirst, 원시 신호·보호 주문·마지막 미체결·봉 내부 모호성 진단을 구분 |
+| `trading/simulation/session.rs` | 공통 ReplaySession 회계·리스크·포지션·보류 신호 상태. begin_bar에서 해당 봉 FX와 직전 보유 수량의 배당을 적용한 후 전일 손실 상태 갱신·이전 신호 시가 체결·연구 보호 청산을 처리하고 process_close에서 ATR·종가 신호·mark/equity·관측 투자 비중을 반영. native 평균 체결가와 진입 KRW 원가를 분리하고 sameClose/nextOpen, 원시 신호·보호 주문·마지막 미체결을 구분 |
+| `trading/simulation/accounting.rs` | 비용 출처/방향별·최소 수수료, 최대 64개 FX·배당 시나리오 DTO와 평가 봉 라벨·중복·수치·배당 조정 가격 중복 계상 검증. 공통 fee 계산과 회계 결과 DTO를 소유 |
+| `trading/simulation/session/accounting.rs` | 실현·잔여·가격/환율·배당 귀속, 실제 수량의 매도 projection과 최소수수료 기대순익 gate, 종료 가상 청산·투자 비중·표본/출처 한계 생성. 종료 청산은 실제 거래·리스크를 변경하지 않고, 최소수수료 모드의 일반 이익 매도만 실제 비용 순익을 검사하며 손절·native 손실 청산을 보존 |
+| `trading/simulation/accounting_tests.rs` | 부분 매도·잔여 매수 비용·현금흐름 대사, 미래 FX 차단·native 진입가 불변, 배당 권리/원천징수·가격 조정 중복 거부, 가상 청산 비변이·노출/부호 경고, 최소수수료·실제 수량/환율 순익과 손절 예외 회귀 |
+| `trading/simulation/comparison.rs` | 같은 입력 수량의 첫 평가 종가 보유 지시를 같은 ReplaySession으로 계산해 실제 수량·봉말 투자 비중 차이를 공개. 실제 체결 경로를 고정한 발생 시점 KRW 비용 환급 산술 참조를 제공하고 독립 무비용 전략 재실행과 구분 |
 | `trading/simulation/execution_tests.rs` | 다음 관측 봉 시가·마지막 미체결·갭 수량/리스크·미래 ATR 차단·실제 체결 원가 보호/부분 매도·동시 도달 정책·chunk/batch 회계 일치·기본 sameClose 수치 호환 합성 회귀 |
 | `trading/simulation/assessment.rs` | optional `ReplayAssessmentView`로 LTH의 dailyDiagnostic/notEvaluable과 intradaySample/sampleOnly를 구분한다. 분봉 관측 0개도 notEvaluable이며 일봉 맥락·장중 봉 수와 미검증 시각/세션·모델 한계를 제공 |
 | `trading/simulation/atr.rs` | 이전 종가를 포함한 True Range 14개를 bounded ring에 보관하고 단순 평균 ATR을 계산한다. 같은 주기 관측 15봉을 요구하며 갭을 보존하고 누락 봉을 보간하지 않는다. `AtrPreparationView`로 사전 관측 수·시작/종료 준비·최초 준비 시각·미준비 평가봉 수를 제공 |
@@ -963,6 +986,9 @@ KISAutoTrade/
 | `tests/e2e/live-daily-history.spec.ts` | 기존 상태 polling의 pending→ready, 부족/실패/legacy/mismatch와 계좌 범위, 512항목 요약·3행 페이지·모바일 표시를 mock 상태로 검증. 주문·자동매매 시작/정지 요청 없이 UI 검사 |
 | `tests/e2e/candle-pagination.spec.ts` | 페이지 중복·종료·무진전·상한·계좌 scope 변경·오류, 평가 200봉+이전 252봉 분리와 Web query cursor encoding을 mock provider/page 응답으로 검증 |
 | `tests/e2e/strategy-execution-model.spec.ts` | 연구 전용 체결/보호 가정 전달, 신호 공개·체결 단계·미체결/동시 도달 표시, A/B 엔진·가정 차이와 legacy 미확인, 좁은 폭·LTH preview 경계를 mock transport로 검증 |
+| `tests/e2e/strategy-accounting.spec.ts` | 일반/LTH 공통 비용·FX/배당 입력 전달·잘못된 초안 실행 차단·이전 결과 무효화, 실현/잔여·종료 청산·투자 비중·비교·legacy 미확인과 좁은 화면을 mock transport로 검증 |
+| `docs/research/replay-accounting-20261018/{baseline_runner,runner}.rs` | `baseline_runner.rs`는 직전 1192673 생산 라이브러리의 동결 입력 report·신호 hash를 생성하고 `runner.rs`는 현재 생산 preview로 새 회계 metadata를 제외한 전체 호환을 대조한다. 실제 관측 가격의 회계·동일 요청 보유와 합성 FX/배당/수수료 가정을 분리한 결과를 저장. 별도 `.cache/` harness manifest의 재현 경로는 같은 디렉터리 report.md를 따르며 사용자 계정·주문 API와 분리 |
+| `docs/research/replay-accounting-20261018/validate.py` | 원본 봉과 기록된 생산 fill로 현금·부분 원가·비용·FX/배당 권리·매봉 자산·관측 투자 비중·종료 청산·비용 환급을 독립 대사하고 소스/산출물 SHA-256을 validation.json에 기록. 전략 신호를 재구현하지 않음 |
 | `docs/research/replay-execution-20261018/baseline_runner.rs` | 작업 시작 HEAD의 생산 preview로 동결 자료를 실행하여 신호·보고 hash와 summary를 baseline-hashes.json에 보관하는 오프라인 기준 생성기 |
 | `docs/research/replay-execution-20261018/runner.rs` | 기존 동결 input/results를 실제 preview/회계 엔진에 전달해 작업 시작 HEAD baseline과 sameClose 신호·보고 hash를 비교하고 과거 연구 summary 차이는 별도 집계. QQQ 일부 전략·비용별 sameClose/nextOpen 및 같은 모델 단순보유 비교를 results.json에 저장하며 운영 계정·provider·주문 API를 사용하지 않음 |
 | `tests/e2e/strategy-atr-readiness.spec.ts` | ATR 토글 기본값·연구 요청 가정·자료 부족/평가 중 준비·과거 응답 미확인·비활성 상태와 LTH 평가 불가 우선 표시를 mock replay로 검증 |
@@ -1189,6 +1215,33 @@ P2-14의 직전 코드 기본 모드 호환과 QQQ 체결 모델 비교는
 [연구 보고서](research/replay-execution-20261018/report.md), 구현·검증 범위는
 [작업 기록](tasks/replay-execution-model-20261018.md)을 따른다. 이 비교를
 장중 경로·실제 체결 또는 장기 연속 운용 검증으로 확대하지 않는다.
+
+### Replay 회계 귀속과 비교
+
+`simulation/accounting.rs`는 비용 출처와 방향별/최소 수수료, 최대 64개 환율·배당
+시나리오를 검증한다. generic/LTH facade는 정규화한 평가 봉과 시나리오 시각을
+대조한 뒤 실행하며 사전자료에는 현금흐름을 적용하지 않는다. 해당 봉의 환율을
+먼저 적용하고 이전 봉부터 보유한 수량에 배당을 귀속한 뒤 대기 시가 주문을
+처리한다. 배당 조정 가격과 현금 배당의 명시적 중복 조합은 거부한다.
+
+원가 장부는 native 평균 체결가와 역사적 KRW 원가를 따로 유지한다. 각 거래·배당은
+당시 환율로 KRW 현금에 반영하며 유휴 현금은 USD 자산으로 재평가하지 않는다.
+`session/accounting.rs`가 실현 순손익 + 잔여 순평가 손익 + 세후 배당을 총자산
+증감과 대사하고 가격/환율 귀속·남은 매수 비용을 표시한다. 종료 청산은 마지막
+종가에서 추가 매도 비용만 차감한 projection이며 거래 수·리스크 상태를 바꾸지
+않는다. 평균/최대 투자 비중은 관측 봉말 평가금액 기준이며 보유 봉 비율과 다르다.
+최소수수료가 있는 일반 이익 매도는 동일 매도 projection으로 요청/보유 수량과
+비례 매수 비용·현재 환율의 비용을 검사하며 손절·native 손실 매도는 보존한다.
+
+`comparison.rs`는 같은 요청 수량의 단순 보유와 실제 수량·노출 차이를 공개하고,
+실제 체결 경로의 발생 시점 KRW 비용 환급을 별도 산술 참조로 제공한다. 이를
+독립 무비용 전략 성과로 표시하지 않는다. 공통 `strategyAccountingPanel.tsx`가
+이 결과와 가정을 일반/LTH 연구 UI에 표시하며 과거 응답의 누락 정보는 미확인으로
+유지한다. 재현 입력·생산 실행기는 `docs/research/replay-accounting-20261018/`에 두며
+[연구 보고서](research/replay-accounting-20261018/report.md)에 직전/현재 harness
+manifest와 실행 순서를 기록한다. `validate.py`는 생산 fill을 독립 대사하고
+소스/산출물 hash를 보관한다. 구현·검증 범위는
+[작업 기록](tasks/replay-accounting-20261018.md)을 따른다.
 
 ### 오프라인 전략 전수 연구
 

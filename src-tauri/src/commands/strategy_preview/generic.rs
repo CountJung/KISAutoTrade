@@ -102,7 +102,7 @@ fn signal_to_preview_view(
 
 type PreviewRow = (ChartCandle, OhlcCandle, u64);
 
-fn normalize_minute_time(value: &str) -> Option<String> {
+pub(super) fn normalize_minute_time(value: &str) -> Option<String> {
     use chrono::{FixedOffset, NaiveDateTime, SecondsFormat, TimeZone, Utc};
 
     let instant = chrono::DateTime::parse_from_rfc3339(value)
@@ -234,10 +234,9 @@ pub fn preview_strategy_from_candles(
         .strategy_version
         .clone()
         .unwrap_or_else(|| REPLAY_ENGINE_VERSION.into());
-    let assumptions = input.assumptions.clone();
+    let mut assumptions = input.assumptions.clone();
     let next_open = assumptions.execution_model == ExecutionModel::NextOpen;
     let params_fingerprint = serde_json::to_string(&input.params).unwrap_or_default();
-    let assumptions_fingerprint = serde_json::to_string(&assumptions).unwrap_or_default();
     let scope_fingerprint = format!(
         "{:?}|{}",
         input.broker_id,
@@ -272,6 +271,16 @@ pub fn preview_strategy_from_candles(
             message: "사전자료는 평가 시작보다 엄격히 이전이어야 합니다.".into(),
         });
     }
+    align_accounting_scenarios(
+        &mut assumptions,
+        &replay_rows
+            .iter()
+            .map(|row| row.0.date.clone())
+            .collect::<Vec<_>>(),
+        &interval,
+        input.is_overseas,
+    )?;
+    let assumptions_fingerprint = serde_json::to_string(&assumptions).unwrap_or_default();
     let candles = replay_rows
         .iter()
         .map(|(candle, _, _)| candle.clone())
@@ -455,7 +464,16 @@ pub fn preview_strategy_from_candles(
         input_hash,
         assessment: None,
     };
-    let backtest = session.finish();
+    let mut backtest = session.finish();
+    crate::trading::simulation::attach_comparison(
+        &mut backtest,
+        &input.strategy_id,
+        &symbol,
+        input.is_overseas,
+        input.order_quantity.max(1),
+        &history_events,
+        &simulation_events,
+    );
     let final_readiness = strategy.history_readiness(&symbol);
     let history_status = match initial_readiness {
         None => "unsupported",

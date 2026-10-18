@@ -127,6 +127,8 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
   const [preview, setPreview] = useState<LeveragedTrendHoldPreviewView | null>(null)
   const [assumptions, setAssumptions] = useState<SimulationAssumptions>(() => defaultSimulationAssumptions(initialPreviewIsOverseas))
   const assumptionsMarket = useRef(initialPreviewIsOverseas)
+  const [accountingError, setAccountingError] = useState<string | null>(null)
+  const [accountingDraftRevision, setAccountingDraftRevision] = useState(0)
   const previewGeneration = useRef(0)
   const bollingerEnabled = (params.bollinger as { enabled?: boolean } | undefined)?.enabled === true
   useEffect(() => { if (bollingerEnabled) setPreviewInterval('1m') }, [bollingerEnabled])
@@ -187,7 +189,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
     count: previewCount,
     params,
     entries,
-    assumptions,
+    assumptions, accountingDraftRevision,
     activeProfileId: appConfig?.active_profile_id,
     activeBrokerAccountId: appConfig?.active_broker_account_id,
   })
@@ -329,7 +331,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
   }
 
   const handlePreview = async () => {
-    if (!previewEntry) return
+    if (!previewEntry || accountingError) return
     const requestGeneration = previewGeneration.current
     try {
       const result = await previewMutation.mutateAsync({
@@ -784,6 +786,9 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
         <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.25 }}>
           <Stack spacing={1}>
             <SimulationAssumptionsEditor
+              key={`${appConfig?.active_profile_id}:${appConfig?.active_broker_account_id}:${previewEntry?.leveraged_symbol}`}
+              isOverseas={previewEntry?.is_overseas ?? false} onValidationChange={setAccountingError}
+              onDraftChange={() => { previewGeneration.current += 1; setPreview(null); setAccountingDraftRevision((revision) => revision + 1) }}
               value={assumptions}
               onChange={setAssumptions}
               disabled={previewMutation.isPending}
@@ -853,7 +858,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   size="small"
                   variant="outlined"
                   onClick={handlePreview}
-                  disabled={!isTossActive || !previewEntry || previewMutation.isPending}
+                  disabled={!isTossActive || !previewEntry || previewMutation.isPending || !!accountingError}
                   startIcon={previewMutation.isPending ? <CircularProgress size={14} /> : <RefreshIcon fontSize="small" />}
                   sx={{ alignSelf: { xs: 'stretch', sm: 'center' }, whiteSpace: 'nowrap' }}
                 >
