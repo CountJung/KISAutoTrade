@@ -39,6 +39,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | 전략 | `src-tauri/src/trading/strategy/` | `commands/strategy.rs`, `commands/strategy_preview.rs`, Strategy UI |
 | Replay 체결 모델·연구 보호 청산 | `trading/simulation/{session,execution_tests}.rs`, `simulation.rs` | `commands/strategy_preview{,/generic}.rs`, `strategy/leveraged_trend_hold/preview.rs`, `strategyResearchPanel.tsx`, `tests/e2e/strategy-execution-model.spec.ts` |
 | Replay 손익·현금흐름·비교 | `trading/simulation/{accounting,comparison}.rs`, `simulation/session/accounting.rs` | `simulation/accounting_tests.rs`, `src/shared/api/strategyResearchTypes.ts`, `strategyAccountingPanel.tsx`, `tests/e2e/strategy-accounting.spec.ts`, `docs/research/replay-accounting-20261018/` |
+| 연속 replay·분기 리셋 비교 | `commands/strategy_preview/{continuous,driver}.rs` | `continuous_tests.rs`, `simulation/session.rs`, `continuousReplayPanel.tsx`, `candlePageCollector.ts`, `docs/research/continuous-replay-20261018/` |
 | 전략 설정 저장·보유 보호 | `src-tauri/src/trading/configuration.rs` | `trading/order/configuration.rs`, `trading/strategy/manager/configuration.rs`, 각 전략의 `reconfigure_tests.rs`, IPC/Web 전략 수정 facade |
 | 잔고 조회·tracker 게시·계좌별 캐시 | `src-tauri/src/trading/order/holdings.rs`, `holdings/{fetch,parse}.rs` | `trading/position.rs`, `commands/accounts.rs`, `commands/trading/positions.rs`, `server/{market,trading}.rs`, `src/api/{accountHooks,backendEvents}.ts` |
 | 수동·자동 주문 | `src-tauri/src/trading/order/submission.rs` | `order/execution_run.rs`, `submission/{positions,prepare,provider,records}.rs`, `commands/orders.rs` |
@@ -178,6 +179,28 @@ KRW 원가를 분리한다. 해외 장부의 유휴 현금은 KRW이며 USD 현�
 [연구 보고서](research/replay-accounting-20261018/report.md)의 직전/현재 harness
 manifest와 `validate.py`의 독립 기록 fill 대사로 재현하며, 구현·검증 범위는
 [작업 기록](tasks/replay-accounting-20261018.md)을 따른다.
+
+### 연속 replay 경계
+
+`commands/strategy_preview/generic.rs`의 기존 flat500 입력과 새 `continuous.rs`의
+최대16청크/각500봉·평가4096봉·이전history512봉 입력은 `driver.rs`를 공유한다.
+모든 시각/겹침/가정을 검증한 뒤 생산 전략과 warmup·ReplaySession을 한 번만
+생성하고 순차 청크 사이의 지표·보유·guard/risk·pending·ATR을 보존한다.
+단일 요청이 끝날 때 한 번 finish하며 서버의 세션/append 상태는 만들지 않는다.
+
+UI는 별도 일봉 날짜 범위와 최대48페이지·보관4608봉 정책으로 엄격히 이전252봉을
+수집한다. 준비/요청 범위/관측 간격 경계를 확인하지 못하면 계산을 보류하고
+coverageVerified=false 한계를 유지한다. mutation/공통 transport는 desktop의
+`preview_strategy_continuous`와 Web POST `/api/strategy/preview/continuous`를
+같은 command에 연결한다. 응답 continuity는 공급 경계의 수량·대기 신호를
+표시하며 분기 리셋·독립 실험이 아니다. 입력 hash는 모드를 구분하고 청크 분할
+형태는 제외한다. 사전 고정된 연속/분기 리셋 비교는
+`docs/research/continuous-replay-20261018/`의12파일에 보관한다.
+[연구 보고서](research/continuous-replay-20261018/report.md)의 baseline/현재
+harness manifest로 재현하고 `validate.py`로 기록 fill과 실제 보유구간을 독립
+대사한다. 전체 JSONL은 두 .gz로 손실 없이 압축해 보관하며 생성 평문 .cache는
+프로젝트 인벤토리에 넣지 않는다. 구현·검증 범위는
+[작업 기록](tasks/continuous-replay-20261018.md)을 따른다.
 
 ### DB 설정·pool 변경
 

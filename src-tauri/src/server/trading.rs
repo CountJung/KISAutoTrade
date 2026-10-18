@@ -585,3 +585,13 @@ pub(super) async fn strategy_preview_handler(
         })),
     }
 }
+
+/// POST /api/strategy/preview/continuous — bounded supplied-data research only.
+pub(super) async fn strategy_continuous_preview_handler(
+    Json(input): Json<crate::commands::ContinuousStrategyPreviewInput>,
+) -> Json<serde_json::Value> {
+    match crate::commands::preview_strategy_continuous_from_candles(input) {
+        Ok(preview) => Json(serde_json::to_value(preview).unwrap_or_default()),
+        Err(e) => Json(serde_json::json!({ "code": e.code, "error": e.message })),
+    }
+}

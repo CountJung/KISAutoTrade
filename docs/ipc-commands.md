@@ -74,6 +74,7 @@
 | `get_toss_chart_data` | 활성 Toss 프로파일로 캔들 조회 (`1d`/`1m`, count 1~200, `ChartCandle[]`) |
 | `preview_leveraged_trend_hold` | 활성 Toss profile/account scope와 `1m`/`1d` count 20~200을 검증. 일봉은 성과 평가 불가 자료 진단, 분봉은 실제 장중 관측의 모의 표본 결과를 반환. 일봉 context와 분봉 지표를 분리하고 `replay.assessment`에 관측 수·평가 가능 여부·시간/세션 미검증을 기록 |
 | `preview_strategy` | `candles` 평가 구간 + 선택 `historyCandles` 사전자료를 합계 최대 500봉으로 종가 신호·선택 체결 모델 replay. `warmupCount` 생략은 0이며 명시 prefix와 별도 history 동시 지정은 거부. 결과 candles는 평가 구간만 포함. 실제 지표 준비 상태·조건 평가 봉 수(`preparation`), raw 신호·체결/차단·비용/리스크 성과와 OHLCV hash를 반환. generic LTH는 `UNSUPPORTED_GENERIC_REPLAY`로 명시 거부. live 10초 tick·intrabar/provider latency는 재현하지 않음 |
+| `preview_strategy_continuous` | 한 요청의 엄격한 이전 사전자료와 시간순 분할 평가봉을 공통 v12 세션에서 연속 재생. history 최대512봉·1~16묶음·묶음당1~500봉·전체 평가4096봉. 상태 보존과 공급 경계 원장을 반환하며 generic LTH는 거부. 웹 POST `/api/strategy/preview/continuous`와 동일 입력 |
 | `get_chart_data` | 국내주식 차트 데이터 (일/주/월봉, 날짜 범위와 선택적 count) |
 | `get_overseas_price` | 해외주식 현재가 조회 |
 | `get_overseas_chart_data` | 해외주식 최신 차트 데이터 (일/주/월봉, 선택적 count 상한) |
@@ -94,7 +95,7 @@
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v11`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v12`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
 전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
@@ -152,6 +153,34 @@ v10 공통 `assumptions`에 `executionModel: sameClose | nextOpen`(기본sameClo
 - 두 difference는 전략에서 단순 보유의 평균 초기자본 투자 비중/보유 관측 봉 비율을 뺀 %p다. 관측 봉이 없는 구간은 비교를 만들지 않는다. 같은/겹친 기간의 A/B·모델 비교는 독립 검증이 아니며 부분기간을 전체 분기·연속 운용 성과로 합산하지 않는다.
 
 TS의 새 응답 필드는 보관된 legacy 결과를 위해 선택 필드다. `accounting`·`comparison`이 없으면 확인 불가로 표시하며 0이나 보관 거래 100건에서 역산한 손익으로 대체하지 않는다. A/B는 서버 집계와 비용·FX·배당·가격 자료 선언을 그대로 보존하고 비교 조건 차이를 표시한다. 상세 검증 명령과 mock UI 47/47 근거는 [Harness 지도](HARNESS_MAP.md)의 P2-15 항목을 따른다.
+
+### Replay v12 연속 재생 계약
+
+`preview_strategy_continuous({input})`와 웹 POST `/api/strategy/preview/continuous`(body는 `input` 객체)는 같은 `ContinuousStrategyPreviewInput`을 받는다. 오프라인 생산 라이브러리는 `preview_strategy_continuous_from_candles`다. 기존 `preview_strategy`의 평가+사전자료 합계500봉·선택 `warmupCount` 계약은 그대로 유지한다. 연속 경로는 서버 session ID·이어받기 캐시 없이 **한 번의 bounded 요청 안에서만** 상태를 이어가는 stateless 계산이다.
+
+| 연속 입력 | 검증·의미 |
+|---|---|
+| 공통 필드 | 기존 `strategyId`, `strategyName`, `symbol`, `isOverseas`, `orderQuantity`, `params`, 선택 `interval`, `dataSource`, `strategyVersion`, `brokerId`, `brokerAccountId`, 기본값이 있는 `assumptions` 사용 |
+| `historyCandles` | 기본 `[]`, 최대512봉. 정규화된 모든 시각이 첫 평가 봉보다 엄격히 이전이어야 하며 최초 지표 준비에만 한 번 사용 |
+| `chunks` | 필수1~16개. 각각 `{candles: ChartCandle[]}`이며 묶음당1~500봉, 전체 평가 최대4096봉 |
+| 입력 형식 | input과 chunk는 알 수 없는 필드를 거부한다. flat `candles` 또는 `warmupCount`를 섞어 prefix/별도 history 의미를 중복 지정할 수 없음 |
+| 간격·전략 | 기본 `1d`; API는 기존 `D`/`1d`/`1m`/`M1`/`W`/`M`을 지원. 강한 종가·변동성 확장은 `D`/`1d`만 허용. generic LTH 및 접미 ID는 `UNSUPPORTED_GENERIC_REPLAY`로 거부하며 전용 LTH로 자동 우회하지 않음 |
+
+각 history·chunk 내부와 chunk 사이의 시각은 기존 일봉/분봉 label 규칙으로 정규화 후 엄격한 시간순이어야 한다. 중복·역전을 전체 정렬로 수리하지 않는다. history/평가·chunk 경계 겹침은 `CONTINUOUS_TIME_OVERLAP`, 묶음/개별/history 상한은 `INVALID_CONTINUOUS_BOUNDS`, 전체 평가 초과는 `TOO_MANY_CONTINUOUS_CANDLES`다. 기존 캔들 유효성·간격 오류도 그대로 거부한다. FX/배당 시나리오는 전체 평가 봉을 기준으로 먼저 검증하며 history·다른 묶음의 가까운 봉으로 이동하지 않는다. v11의 비용·배당 조정 중복 거부·현금 장부·회계 및 비교 계약은 그대로 적용한다.
+
+`strategy_preview/driver.rs`는 입력 전체 검증 뒤 전략 factory·warmup·`ReplaySession`을 각각 한 번 만들고, 모든 묶음을 순서대로 append한 후 마지막에만 finish한다. 지표·현금·보유 수량/native 평균 원가·대기 신호·쿨다운·연속손실·리스크 상태를 공급 묶음이나 분기마다 초기화하지 않는다. 일일 상태 변경은 실제 event 거래일 경계를 따른다. `nextOpen`의 묶음 끝 신호는 다음 묶음 첫 관측 시가까지 대기하며, 전체 마지막에도 남은 신호만 `unfilled`로 확정한다. 종료 시 가상 청산은 여전히 보고 전용이며 연속 장부를 바꾸지 않는다.
+
+응답 `ContinuousStrategyPreviewView`는 기존 `StrategyPreviewView`를 최상위에 그대로 펼치고 `continuity`를 추가한다. `continuity`는 `{mode:"continuous",chunkCount,evaluationBars,historyBars,chunks}`이고 각 원장은 `{index,start,end,bars,startQuantity,endQuantity,pendingAtEnd}`다. index는0부터 시작한다. 수량과 대기 여부는 공급 경계의 상태 진단이며 독립 실험·청산/재진입 지시가 아니다. UI는 원장·평가/history 수가 보낸 입력과 일치하는지 확인한 뒤 결과를 게시한다.
+
+v12 `inputHash`는 `boundedWindow`/`continuous` 계산 모드를 포함하므로 같은 봉이라도 두 모드는 구분한다. 동일 연속 경제 입력의 chunk 분할 위치·개수는 hash에 넣지 않아 분할만 바꾼 요청은 같은 hash다. UI의 A/B snapshot은 실제 호출 모드인 `calculationMode`와 최상위 `continuity`를 서버 집계와 함께 보존한다. 이전 슬롯에 모드가 없으면 **계산 범위 정보 없음**으로 표시하며 현 엔진/단기 모드를 추정해 채우지 않는다. 계산 모드가 다른 A/B도 가정 차이를 표시해 비교할 수 있으며 같은 기간 비교는 독립 검증이 아니다.
+
+연속 보고의 기존 `inSample`/`outOfSample` wire key는 호환을 위해 유지한다. UI는 **앞 구간·뒤 구간의 동일 장부 성과**와 **연속 구간 경계(기본70/30)**로 표시한다. 이 경계에서도 포지션·원가·리스크가 이어지므로 독립 훈련/검증, 재학습 또는 분기별 초기화 성과로 해석하지 않는다. 부분 구간 수익률을 더해 전체 연속 수익률을 만들지 않는다.
+
+UI는 일반 전략에서 **연속 일봉·날짜 범위**만 제공하고 기본 요청은 어제까지 최근3년이다. `candlePageCollector.ts`가 같은 profile/account·자료 출처·기준 시각을 고정해 최대48회 페이지 요청, 보관4608봉·평가4096봉 안에서 수집한다. 요청 시작보다 엄격히 이전인252관측을 한 번 확보해야 하며 평가 봉을 history로 옮겨 부족분을 채우지 않는다. 준비된 평가를 오래된 순서로500봉씩 나누어 연속 API를 한 번 호출한다. API의 history512 상한과 UI의252봉 요구는 서로 다른 제한이다.
+
+범위·이전252봉 부족, provider 부분 오류/조기 종료·scope 변경, 반복 cursor·진행 없음·수집 상한 초과는 수집 진단과 계산 보류로 표시한다. 요청 시작→실제 시작 또는 실제 종료→요청 종료 차이, 평가 관측 사이 최대 간격이 **각7달력일을 초과**해도 계산을 보류한다. 7일은 앱의 보수적 자료 경계이며 검증된 거래소 휴장 달력이 아니므로 긴 휴장도 보류될 수 있다. 준비되어도 `coverageVerified=false`를 유지하고 요청/실제 범위·asOf·제외/중복 수·최대 간격을 공개한다. 없는 봉을 합성하거나 부분기간을3년 성과로 표시하지 않는다. 모드·날짜·가정 변경/취소는 기존 결과와 진행 generation을 무효화한다. 기존 단기50/100/200봉의8회·보관500봉 경로와 전용 LTH 계약은 유지한다.
+
+구현 경계는 [아키텍처](ARCHITECTURE.md), 사용법은 [사용자 가이드](user-guide.md), 합성/mock 검증 근거는 [Harness 지도](HARNESS_MAP.md)의 P2-18 항목을 따른다. 연속 계산 성공은 실제 거래소 coverage·체결 가능성·다년 자료 확보의 인증이 아니다.
 
 ### 공통 캔들 페이지 계약
 

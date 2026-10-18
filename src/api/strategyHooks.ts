@@ -6,6 +6,8 @@ import type {
   LeveragedTrendHoldPreviewInput,
   LeveragedTrendHoldPreviewView,
   StrategyPreviewInput,
+  ContinuousStrategyPreviewInput,
+  ContinuousStrategyPreviewView,
   StrategyPreviewView,
   StrategyView,
   UpdateStrategyInput,
@@ -45,5 +47,12 @@ export function usePreviewLeveragedTrendHold() {
 export function usePreviewStrategy() {
   return useMutation<StrategyPreviewView, CmdError, StrategyPreviewInput>({
     mutationFn: cmd.previewStrategy,
+  })
+}
+
+
+export function usePreviewStrategyContinuous() {
+  return useMutation<ContinuousStrategyPreviewView, CmdError, ContinuousStrategyPreviewInput>({
+    mutationFn: cmd.previewStrategyContinuous,
   })
 }

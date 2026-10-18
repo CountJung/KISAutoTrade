@@ -10,15 +10,17 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import RefreshIcon from '@mui/icons-material/Refresh'
 
-import { usePreviewStrategy } from '../../../api/hooks'
+import { usePreviewStrategy, usePreviewStrategyContinuous } from '../../../api/hooks'
 import type {
   BrokerId,
   CmdError,
   SimulationAssumptions,
   StrategyPreviewPreparation,
   StrategyPreviewView,
+  ReplayCalculationMode,
 } from '../../../api/types'
-import { collectPreviewCandles, type CandleCollection } from '../model/candlePageCollector'
+import { collectPreviewCandles, collectContinuousCandles, continuousRangeError, type CandleCollection, type ContinuousCandleCollection, type ContinuousCollectionProgress } from '../model/candlePageCollector'
+import { defaultContinuousRange, ReplayRangeControls, ContinuousCollectionNotice } from './continuousReplayPanel'
 import { StrategyPreviewChart } from './leveragedTrendHoldPreviewChart'
 import {
   defaultSimulationAssumptions,
@@ -102,6 +104,12 @@ export function StrategyPreviewPanel({
 }: Props) {
   const dailyEventStrategy = strategyId.startsWith('strong_close') || strategyId.startsWith('volatility_expansion')
   const previewMutation = usePreviewStrategy()
+  const continuousMutation = usePreviewStrategyContinuous()
+  const [calculationMode, setCalculationMode] = useState<ReplayCalculationMode>('boundedWindow')
+  const [continuousRange, setContinuousRange] = useState(defaultContinuousRange)
+  const [continuousCollection, setContinuousCollection] = useState<ContinuousCandleCollection | null>(null)
+  const [continuousProgress, setContinuousProgress] = useState<ContinuousCollectionProgress | null>(null)
+  const rangeError = calculationMode === 'continuous' ? continuousRangeError(continuousRange.start, continuousRange.end) : null
   const [selectedSymbol, setSelectedSymbol] = useState(symbols[0] ?? '')
   const [previewInterval, setPreviewInterval] = useState<PreviewInterval>('D')
   const [previewCount, setPreviewCount] = useState<PreviewCount>(50)
@@ -129,6 +137,7 @@ export function StrategyPreviewPanel({
     params,
     assumptions,
     accountingDraftRevision,
+    calculationMode, continuousRange,
   })
 
   const currentInputKey = useRef(previewInputKey)
@@ -140,9 +149,12 @@ export function StrategyPreviewPanel({
     previewGeneration.current += 1
     setCollecting(false)
     setCollection(null)
+    setContinuousCollection(null)
+    setContinuousProgress(null)
     setPreview(null)
     setLocalError(null)
     previewMutation.reset()
+    continuousMutation.reset()
   }, [previewInputKey]) // eslint-disable-line react-hooks/exhaustive-deps -- serialized preview input is the invalidation boundary
 
   useEffect(() => {
@@ -159,14 +171,16 @@ export function StrategyPreviewPanel({
   }, [selectedSymbol])
 
   useEffect(() => {
-    if (dailyEventStrategy && previewInterval !== 'D') {
+    if (calculationMode === 'continuous' && previewInterval !== 'D') {
+      setPreviewInterval('D')
+    } else if (dailyEventStrategy && previewInterval !== 'D') {
       setPreviewInterval('D')
     } else if (brokerId === 'toss' && (previewInterval === 'W' || previewInterval === 'M')) {
       setPreviewInterval('D')
     } else if (brokerId !== 'toss' && previewInterval === '1m') {
       setPreviewInterval('D')
     }
-  }, [brokerId, previewInterval, dailyEventStrategy])
+  }, [brokerId, previewInterval, dailyEventStrategy, calculationMode])
 
   const selectedLabel = useMemo(() => {
     if (!selectedSymbol) return ''
@@ -174,35 +188,39 @@ export function StrategyPreviewPanel({
     return name && name !== selectedSymbol ? `${selectedSymbol} · ${name}` : selectedSymbol
   }, [selectedSymbol, symbolNames])
 
-  const error = previewMutation.error as CmdError | Error | null
+  const error = (calculationMode === 'continuous' ? continuousMutation.error : previewMutation.error) as CmdError | Error | null
 
   const handlePreview = async () => {
-    if (!selectedSymbol || !profileId || accountingError) return
+    if (!selectedSymbol || !profileId || accountingError || rangeError) return
     const requestGeneration = ++previewGeneration.current
     const requestInputKey = previewInputKey
     const cancelled = () => requestGeneration !== previewGeneration.current || requestInputKey !== currentInputKey.current
     setLocalError(null)
     setPreview(null)
     setCollection(null)
+    setContinuousCollection(null)
+    setContinuousProgress(null)
     setCollecting(true)
     try {
-      const loaded = await collectPreviewCandles({
-        symbol: selectedSymbol, brokerId, interval: previewInterval,
-        isOverseas: !isDomesticSymbol(selectedSymbol), expectedProfileId: profileId,
-        expectedBrokerAccountId: brokerAccountId ?? undefined,
-      }, previewCount, cancelled)
+      const source = { symbol: selectedSymbol, brokerId, isOverseas: !isDomesticSymbol(selectedSymbol), expectedProfileId: profileId, expectedBrokerAccountId: brokerAccountId ?? undefined }
+      const loaded = calculationMode === 'continuous'
+        ? await collectContinuousCandles(source, continuousRange, cancelled, (progress) => { if (!cancelled()) setContinuousProgress(progress) })
+        : await collectPreviewCandles({ ...source, interval: previewInterval }, previewCount, cancelled)
       if (cancelled()) return
-      setCollection(loaded)
+      if (calculationMode === 'continuous') {
+        const continuous = loaded as ContinuousCandleCollection
+        setContinuousCollection(continuous)
+        if (!continuous.ready) throw new Error('연속기간 자료 준비를 확인하지 못해 계산을 보류했습니다.')
+      } else setCollection(loaded as CandleCollection)
       if (!loaded.candles.length) throw new Error(`완료된 평가 봉이 없습니다. ${loaded.sourceLabel}`)
       setSourceLabel(loaded.sourceLabel)
-      const result = await previewMutation.mutateAsync({
+      const common = {
         strategyId,
         strategyName,
         symbol: selectedSymbol,
         isOverseas: loaded.isOverseas,
         orderQuantity,
         params,
-        candles: loaded.candles,
         historyCandles: loaded.historyCandles,
         interval: previewInterval,
         dataSource: loaded.dataSource,
@@ -210,8 +228,12 @@ export function StrategyPreviewPanel({
         brokerId,
         brokerAccountId,
         assumptions,
-      })
+      }
+      const result = calculationMode === 'continuous'
+        ? await continuousMutation.mutateAsync({ ...common, chunks: (loaded as ContinuousCandleCollection).chunks })
+        : await previewMutation.mutateAsync({ ...common, candles: loaded.candles })
       if (cancelled()) return
+      if (calculationMode === 'continuous' && (result.continuity?.mode !== 'continuous' || result.continuity.evaluationBars !== loaded.candles.length || result.continuity.historyBars !== loaded.historyCandles.length || result.continuity.chunkCount !== (loaded as ContinuousCandleCollection).chunks.length || result.continuity.chunks.length !== (loaded as ContinuousCandleCollection).chunks.length)) throw new Error('연속 실행 응답의 평가/사전자료 계약이 입력과 일치하지 않습니다.')
       setPreview(result)
     } catch (caught) {
       if (cancelled()) return
@@ -222,19 +244,23 @@ export function StrategyPreviewPanel({
     }
   }
 
-  const busy = collecting || previewMutation.isPending
+  const busy = collecting || previewMutation.isPending || continuousMutation.isPending
   const cancelPreview = () => {
     previewGeneration.current += 1
     setCollecting(false)
     setCollection(null)
     setPreview(null)
     previewMutation.reset()
+    continuousMutation.reset()
+    setContinuousProgress(null)
     setLocalError('미리보기 계산을 취소했습니다.')
   }
 
   return (
     <Box sx={{ pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
+      <ReplayRangeControls mode={calculationMode} onModeChange={setCalculationMode} range={continuousRange} onRangeChange={setContinuousRange} disabled={busy} error={rangeError} />
       <SimulationAssumptionsEditor
+        continuousMode={calculationMode === 'continuous'}
         key={`${profileId}:${brokerId}:${brokerAccountId}:${selectedSymbol}`}
         isOverseas={!isDomesticSymbol(selectedSymbol)} onValidationChange={setAccountingError}
         onDraftChange={() => { previewGeneration.current += 1; setPreview(null); setAccountingDraftRevision((revision) => revision + 1) }}
@@ -292,7 +318,7 @@ export function StrategyPreviewPanel({
               setPreview(null)
               setLocalError(null)
             }}
-            disabled={busy}
+            disabled={busy || calculationMode === 'continuous'}
             fullWidth
             sx={{ minWidth: { sm: 110 } }}
           >
@@ -310,7 +336,8 @@ export function StrategyPreviewPanel({
               setPreview(null)
               setLocalError(null)
             }}
-            disabled={busy}
+            disabled={busy || calculationMode === 'continuous'}
+            helperText={calculationMode === 'continuous' ? '단기 모드 전용' : undefined}
             fullWidth
             sx={{ minWidth: { sm: 120 } }}
           >
@@ -323,7 +350,7 @@ export function StrategyPreviewPanel({
             variant="outlined"
             startIcon={busy ? <CircularProgress size={14} /> : <RefreshIcon />}
             onClick={handlePreview}
-            disabled={!selectedSymbol || !profileId || busy || !!accountingError}
+            disabled={!selectedSymbol || !profileId || busy || !!accountingError || !!rangeError}
             sx={{ width: { xs: '100%', sm: 'auto' }, whiteSpace: 'nowrap' }}
           >
             {collecting ? '캔들 페이지 조회 중' : '미리보기 계산'}
@@ -332,11 +359,11 @@ export function StrategyPreviewPanel({
         </Stack>
       </Stack>
 
-      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+      {calculationMode === 'boundedWindow' && <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
         요청 분석 구간 최근 {previewCount}봉을 평가하고, 그 이전 봉만 사전 자료로 사용합니다.
         {' '}{brokerId === 'toss' ? 'Toss는 한 페이지 최대 200봉' : 'KIS는 한 페이지 최대 100봉'}으로 사전 자료 252봉까지 순차 조회합니다.
         최대 8페이지·보관 500봉이며, 제공 자료가 끝나면 실제 확보량과 부족 사유를 표시합니다.
-      </Typography>
+      </Typography>}
 
       {collection && (
         <Alert severity={collection.historyCandles.length < 252 || collection.candles.length < previewCount ? 'warning' : 'info'}
@@ -346,10 +373,11 @@ export function StrategyPreviewPanel({
         </Alert>
       )}
 
+      {calculationMode === 'continuous' && <ContinuousCollectionNotice progress={continuousProgress} collection={continuousCollection} />}
       {dailyEventStrategy && (
         <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }} data-testid="daily-event-replay-note">
           강한 종가는 전일 완료봉으로 다음 평가일을 판단하고, 변동성 확장은 이전 일봉 범위와 당일 OHLC를 비교합니다.
-          {' '}일봉만 지원하며 체결은 종가 가정입니다. 장중 신호·익일 시가 체결을 재현하지 않습니다.
+          {' '}일봉만 지원하며 선택한 같은 종가/다음 관측 시가 체결 가정을 적용합니다. 실제 장중 순서·체결은 검증하지 않습니다.
         </Typography>
       )}
 
@@ -367,8 +395,8 @@ export function StrategyPreviewPanel({
             {preview.message}
           </Alert>
           <Typography variant="caption" color="text.secondary" data-testid="strategy-evaluation-range">
-            요청 분석 {previewCount}봉 · 실제 평가 {preview.candles.length}봉
-            {' · '}사전 자료 {collection?.historyCandles.length ?? preview.preparation?.providedHistoryBars ?? 0}봉
+            {calculationMode === 'continuous' ? `연속 요청 ${continuousRange.start}~${continuousRange.end}` : `요청 분석 ${previewCount}봉`} · 실제 평가 {preview.candles.length}봉
+            {' · '}사전 자료 {continuousCollection?.historyCandles.length ?? collection?.historyCandles.length ?? preview.preparation?.providedHistoryBars ?? 0}봉
           </Typography>
           {preview.preparation && <PreparationStatus value={preview.preparation} />}
           <StrategyPreviewChart
@@ -380,6 +408,8 @@ export function StrategyPreviewPanel({
           {preview.backtest && preview.replay && (
             <StrategyResearchResults
               report={preview.backtest}
+              calculationMode={preview.continuity ? 'continuous' : 'boundedWindow'}
+              continuity={preview.continuity}
               replay={preview.replay}
               strategyId={strategyId}
               brokerId={brokerId}

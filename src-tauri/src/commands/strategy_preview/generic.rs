@@ -1,6 +1,5 @@
 use super::*;
-use crate::trading::simulation::{ExecutionModel, ReplaySession};
-use crate::trading::strategy::{build_strategy, initialize_strategy_warmup, Signal};
+use crate::trading::strategy::Signal;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -65,7 +64,7 @@ pub struct StrategyPreparationView {
     pub outcome: String,
 }
 
-fn signal_to_preview_view(
+pub(super) fn signal_to_preview_view(
     signal: Signal,
     time: String,
     price_units: u64,
@@ -100,7 +99,7 @@ fn signal_to_preview_view(
     }
 }
 
-type PreviewRow = (ChartCandle, OhlcCandle, u64);
+pub(super) type PreviewRow = (ChartCandle, OhlcCandle, u64);
 
 pub(super) fn normalize_minute_time(value: &str) -> Option<String> {
     use chrono::{FixedOffset, NaiveDateTime, SecondsFormat, TimeZone, Utc};
@@ -131,10 +130,27 @@ pub(super) fn normalize_minute_time(value: &str) -> Option<String> {
     )
 }
 
-fn normalize_rows(
+pub(super) fn normalize_rows(
     candles: Vec<ChartCandle>,
     is_overseas: bool,
     minute: bool,
+) -> CmdResult<Vec<PreviewRow>> {
+    normalize_rows_with_order(candles, is_overseas, minute, false)
+}
+
+pub(super) fn normalize_ordered_rows(
+    candles: Vec<ChartCandle>,
+    is_overseas: bool,
+    minute: bool,
+) -> CmdResult<Vec<PreviewRow>> {
+    normalize_rows_with_order(candles, is_overseas, minute, true)
+}
+
+fn normalize_rows_with_order(
+    candles: Vec<ChartCandle>,
+    is_overseas: bool,
+    minute: bool,
+    strict_order: bool,
 ) -> CmdResult<Vec<PreviewRow>> {
     let mut rows = Vec::with_capacity(candles.len());
     for mut candle in candles {
@@ -165,7 +181,12 @@ fn normalize_rows(
         candle.date = normalized_time.expect("validated timestamp");
         rows.push((candle, ohlc.expect("validated OHLC"), volume));
     }
-    rows.sort_by(|left, right| left.0.date.cmp(&right.0.date));
+    if strict_order && rows.windows(2).any(|pair| pair[0].0.date >= pair[1].0.date) {
+        return Err(CmdError { code: "NON_MONOTONIC_CANDLES".into(), message: "연속 replay의 사전자료와 각 청크는 중복 없이 엄격한 시간순이어야 합니다. 역전을 정렬로 숨기지 않습니다.".into() });
+    }
+    if !strict_order {
+        rows.sort_by(|left, right| left.0.date.cmp(&right.0.date));
+    }
     if rows.windows(2).any(|pair| pair[0].0.date == pair[1].0.date) {
         return Err(CmdError {
             code: "DUPLICATE_CANDLE".into(),
@@ -180,9 +201,9 @@ fn normalize_rows(
 mod tests;
 
 pub fn preview_strategy_from_candles(
-    input: StrategyPreviewInput,
+    mut input: StrategyPreviewInput,
 ) -> CmdResult<StrategyPreviewView> {
-    let symbol = normalize_preview_symbol(input.symbol)?;
+    let symbol = normalize_preview_symbol(input.symbol.clone())?;
     // LTH on_tick uses the live minute/session clock. Never run it for history,
     // even as an unsupported diagnostic; the timed preview has its own contract.
     if input.strategy_id.starts_with("leveraged_trend_hold") {
@@ -226,25 +247,12 @@ pub fn preview_strategy_from_candles(
             message: "강한 종가·변동성 확장 replay는 완료 일봉(D/1d)만 지원합니다.".into(),
         });
     }
-    let data_source = input
-        .data_source
-        .clone()
-        .unwrap_or_else(|| "providedChartCandles".into());
-    let strategy_version = input
-        .strategy_version
-        .clone()
-        .unwrap_or_else(|| REPLAY_ENGINE_VERSION.into());
-    let mut assumptions = input.assumptions.clone();
-    let next_open = assumptions.execution_model == ExecutionModel::NextOpen;
-    let params_fingerprint = serde_json::to_string(&input.params).unwrap_or_default();
-    let scope_fingerprint = format!(
-        "{:?}|{}",
-        input.broker_id,
-        input.broker_account_id.as_deref().unwrap_or_default()
-    );
-
     let minute = matches!(interval.as_str(), "1m" | "M1");
-    let mut replay_rows = normalize_rows(input.candles, input.is_overseas, minute)?;
+    let mut replay_rows = normalize_rows(
+        std::mem::take(&mut input.candles),
+        input.is_overseas,
+        minute,
+    )?;
     let legacy_warmup = input.warmup_count.unwrap_or(0);
     if legacy_warmup >= replay_rows.len() {
         return Err(CmdError {
@@ -252,7 +260,11 @@ pub fn preview_strategy_from_candles(
             message: "사전자료를 제외한 평가봉이 한 개 이상 필요합니다.".into(),
         });
     }
-    let mut history_rows = normalize_rows(input.history_candles, input.is_overseas, minute)?;
+    let mut history_rows = normalize_rows(
+        std::mem::take(&mut input.history_candles),
+        input.is_overseas,
+        minute,
+    )?;
     if legacy_warmup > 0 && !history_rows.is_empty() {
         return Err(CmdError {
             code: "AMBIGUOUS_HISTORY".into(),
@@ -271,270 +283,12 @@ pub fn preview_strategy_from_candles(
             message: "사전자료는 평가 시작보다 엄격히 이전이어야 합니다.".into(),
         });
     }
-    align_accounting_scenarios(
-        &mut assumptions,
-        &replay_rows
-            .iter()
-            .map(|row| row.0.date.clone())
-            .collect::<Vec<_>>(),
-        &interval,
-        input.is_overseas,
-    )?;
-    let assumptions_fingerprint = serde_json::to_string(&assumptions).unwrap_or_default();
-    let candles = replay_rows
-        .iter()
-        .map(|(candle, _, _)| candle.clone())
-        .collect();
-
-    let mut config = StrategyConfig::new(
-        input.strategy_id.clone(),
-        input.strategy_name.clone(),
-        true,
-        vec![symbol.clone()],
-        input.order_quantity.max(1),
-        input.params,
-    );
-    if config.id.starts_with("price_condition") {
-        if let Some(symbols) = config.params.get("symbols").and_then(|v| v.as_array()) {
-            config.target_symbols = symbols
-                .iter()
-                .filter_map(|item| {
-                    item.get("symbol")
-                        .and_then(|v| v.as_str())
-                        .map(str::to_string)
-                })
-                .collect();
-        }
-    }
-
-    let mut strategy = build_strategy(config);
-    let warmup_count = history_rows.len();
-
-    if warmup_count > 0 {
-        let ohlc = history_rows
-            .iter()
-            .map(|(_, ohlc, _)| *ohlc)
-            .collect::<Vec<_>>();
-        if matches!(interval.as_str(), "1m" | "M1") {
-            initialize_strategy_warmup(strategy.as_mut(), &symbol, &[], &ohlc);
-        } else {
-            initialize_strategy_warmup(strategy.as_mut(), &symbol, &ohlc, &[]);
-        }
-    }
-
-    let initial_readiness = strategy.history_readiness(&symbol);
-    let mut first_ready_time = initial_readiness
-        .filter(|state| state.ready)
-        .map(|_| replay_rows[0].0.date.clone());
-    let mut unready_evaluation_bars = 0;
-    let mut evaluated_bars = 0;
-
-    let mut signals = Vec::new();
-    let history_events = history_rows
-        .iter()
-        .map(|(candle, ohlc, _)| SimulationEvent {
-            time: candle.date.clone(),
-            chart_time: candle.date.clone(),
-            open_units: ohlc.open,
-            close_units: ohlc.close,
-            high_units: ohlc.high,
-            low_units: ohlc.low,
-            signal: None,
-        })
-        .collect::<Vec<_>>();
-    let mut session = ReplaySession::new(
-        &input.strategy_id,
-        &symbol,
-        input.is_overseas,
-        assumptions,
-        &history_events,
-        replay_rows.len(),
-    );
-    let mut simulation_events = Vec::with_capacity(replay_rows.len());
-    let mut synchronized_position = (0, 0);
-    for (candle, ohlc, volume) in &replay_rows {
-        let mut event = SimulationEvent {
-            time: candle.date.clone(),
-            chart_time: candle.date.clone(),
-            open_units: ohlc.open,
-            close_units: ohlc.close,
-            high_units: ohlc.high,
-            low_units: ohlc.low,
-            signal: None,
-        };
-        session.begin_bar(&event);
-        let snapshot = session.position_snapshot();
-        if snapshot != synchronized_position {
-            strategy.sync_position(&symbol, snapshot.0, snapshot.1);
-            synchronized_position = snapshot;
-        }
-        if daily {
-            strategy.on_trading_day_start(&symbol, ohlc.open);
-        }
-        if strategy.can_evaluate_next_tick(&symbol) == Some(true) {
-            evaluated_bars += 1;
-        }
-        let signal = if daily {
-            strategy.on_daily_close_tick(&symbol, ohlc, *volume)
-        } else {
-            strategy.on_tick(&symbol, ohlc.close, *volume)
-        };
-        event.signal = (signal != Signal::Hold).then(|| signal.clone());
-        session.process_close(&event);
-        let snapshot = session.position_snapshot();
-        if signal != Signal::Hold || snapshot != synchronized_position {
-            strategy.sync_position(&symbol, snapshot.0, snapshot.1);
-            synchronized_position = snapshot;
-        }
-        simulation_events.push(event);
-        if daily {
-            strategy.on_completed_candle(&symbol, ohlc);
-        }
-        if strategy
-            .history_readiness(&symbol)
-            .is_some_and(|state| state.ready)
-        {
-            if first_ready_time.is_none() {
-                first_ready_time = Some(candle.date.clone());
-            }
-        } else if strategy.history_readiness(&symbol).is_some() {
-            unready_evaluation_bars += 1;
-        }
-        if let Some(view) =
-            signal_to_preview_view(signal, candle.date.clone(), ohlc.close, input.is_overseas)
-        {
-            signals.push(view);
-        }
-    }
-
-    let first_time = simulation_events
-        .first()
-        .map(|event| event.chart_time.clone())
-        .unwrap_or_default();
-    let last_time = simulation_events
-        .last()
-        .map(|event| event.chart_time.clone())
-        .unwrap_or_default();
-    let event_fingerprint = history_rows
-        .iter()
-        .chain(replay_rows.iter())
-        .map(|(candle, ohlc, volume)| {
-            format!(
-                "{}:{}:{}:{}:{}:{}",
-                candle.date, ohlc.open, ohlc.high, ohlc.low, ohlc.close, volume
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("|");
-    let order_quantity_fingerprint = input.order_quantity.to_string();
-    let warmup_count_fingerprint = warmup_count.to_string();
-    let input_hash = replay_input_hash(&[
-        REPLAY_ENGINE_VERSION,
-        &input.strategy_id,
-        &strategy_version,
-        &symbol,
-        &interval,
-        &data_source,
-        &params_fingerprint,
-        &order_quantity_fingerprint,
-        &warmup_count_fingerprint,
-        &assumptions_fingerprint,
-        &scope_fingerprint,
-        &event_fingerprint,
-    ]);
-    let replay = ReplayMetadataView {
-        engine_version: REPLAY_ENGINE_VERSION.into(),
-        strategy_version,
-        source_interval: interval.clone(),
-        replay_cadence: match interval.as_str() {
-            "1m" | "M1" => "minuteClose",
-            "D" | "1d" => "dailyCloseWithDayBoundary",
-            "W" => "weeklyClose",
-            "M" => "monthlyClose",
-            _ => "candleClose",
-        }
-        .into(),
-        live_cadence_seconds: 10,
-        warmup_count,
-        data_start: first_time,
-        data_end: last_time,
-        data_source,
-        deterministic: true,
-        look_ahead_safe: next_open,
-        input_hash,
-        assessment: None,
-    };
-    let mut backtest = session.finish();
-    crate::trading::simulation::attach_comparison(
-        &mut backtest,
-        &input.strategy_id,
-        &symbol,
-        input.is_overseas,
-        input.order_quantity.max(1),
-        &history_events,
-        &simulation_events,
-    );
-    let final_readiness = strategy.history_readiness(&symbol);
-    let history_status = match initial_readiness {
-        None => "unsupported",
-        Some(state) if state.required_bars == 0 => "notRequired",
-        Some(state) if state.ready => "sufficient",
-        Some(_) => "insufficient",
-    };
-    let indicator_status = match final_readiness {
-        None => "unsupported",
-        Some(state) if state.ready => "ready",
-        Some(_) => "warmingUp",
-    };
-    let outcome = if initial_readiness.is_none() || evaluated_bars == 0 {
-        "notEvaluable"
-    } else if backtest.summary.filled_order_count > 0 {
-        "traded"
-    } else if !signals.is_empty() {
-        "noTrades"
-    } else {
-        "conditionsNotMet"
-    };
-    let message = match outcome {
-        "notEvaluable" => format!(
-            "{symbol} 조건 평가가 가능한 관측 구간이 없거나 준비 상태가 미지원이므로 무거래 성과로 판정할 수 없습니다."
-        ),
-        "conditionsNotMet" => {
-            format!("{symbol} 지표 준비 후 매수/청산 조건이 충족되지 않았습니다.")
-        }
-        "noTrades" => format!(
-            "{symbol} 신호 {}개가 발생했으나 실행 조건으로 체결되지 않았습니다.",
-            signals.len()
-        ),
-        _ => format!(
-            "{symbol} 신호 {}개, 체결 가정 {}개를 찾았습니다.",
-            signals.len(),
-            backtest.summary.filled_order_count
-        ),
-    };
-    let preparation = StrategyPreparationView {
-        required_history_bars: initial_readiness.map(|state| state.required_bars),
-        provided_history_bars: warmup_count,
-        available_history_bars: initial_readiness.map(|state| state.available_bars),
-        ready_at_start: initial_readiness.map(|state| state.ready),
-        ready_at_end: final_readiness.map(|state| state.ready),
-        first_ready_time,
-        unready_evaluation_bars,
-        evaluated_bars: initial_readiness.map(|_| evaluated_bars),
-        history_status: history_status.into(),
-        indicator_status: indicator_status.into(),
-        outcome: outcome.into(),
-    };
-
-    Ok(StrategyPreviewView {
-        strategy_id: input.strategy_id,
+    super::driver::run_prepared_preview(
+        input,
         symbol,
-        candles,
-        signals,
-        generated_at: chrono::Local::now().to_rfc3339(),
-        message,
-        replay,
-        backtest,
-        preparation,
-    })
+        history_rows,
+        vec![replay_rows],
+        "boundedWindow",
+    )
+    .map(|(preview, _)| preview)
 }

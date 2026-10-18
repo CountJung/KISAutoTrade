@@ -465,12 +465,13 @@ test('Toss capped response preserves all 200 evaluation bars and reports unfille
   expect(genericPreviewRequests[0].historyCandles).toEqual([])
 })
 
-test('Daily boundary strategies restrict replay to daily candles and explain close execution', async ({ page }) => {
+test('Daily boundary strategies restrict replay to daily candles and explain selected execution assumptions', async ({ page }) => {
   await mockApi(page, { activeBroker: 'toss' })
   await page.goto('/strategy')
   for (const name of ['StrongCloseStrategy', 'VolatilityExpansionStrategy']) {
     const card = page.locator('.MuiPaper-root').filter({ hasText: name }).first()
-    await expect(card.getByTestId('daily-event-replay-note')).toContainText('일봉만 지원하며 체결은 종가 가정')
+    await expect(card.getByTestId('daily-event-replay-note')).toContainText('일봉만 지원하며 선택한 같은 종가/다음 관측 시가 체결 가정')
+    await expect(card.getByTestId('daily-event-replay-note')).toContainText('실제 장중 순서·체결은 검증하지 않습니다')
     await card.getByRole('combobox', { name: '봉 단위' }).click()
     await expect(page.getByRole('option', { name: '일봉', exact: true })).toBeVisible()
     await expect(page.getByRole('option', { name: '1분봉', exact: true })).toHaveCount(0)

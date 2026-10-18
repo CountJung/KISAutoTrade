@@ -463,6 +463,7 @@ pub fn run() {
             commands::get_candle_page,
             commands::preview_leveraged_trend_hold,
             commands::preview_strategy,
+            commands::preview_strategy_continuous,
             commands::get_chart_data,
             commands::get_price,
             commands::place_order,

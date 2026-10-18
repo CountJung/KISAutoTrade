@@ -112,6 +112,9 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
         body: args.input,
       }
 
+    case 'preview_strategy_continuous':
+      return { method: 'POST', url: '/api/strategy/preview/continuous', body: args.input }
+
     case 'preview_strategy':
       return {
         method: 'POST',

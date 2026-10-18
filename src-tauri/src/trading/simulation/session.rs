@@ -26,6 +26,7 @@ pub struct ReplaySession {
     pending: Option<PendingSignal>,
     trades: Vec<BacktestTradeView>,
     equity_curve: Vec<EquityPointView>,
+    peak_recorded_equity: f64,
     completed_pnls: Vec<(String, f64, String)>,
     turnover_krw: f64,
     exposed_events: usize,
@@ -138,6 +139,7 @@ impl ReplaySession {
             applied_dividend_points: 0,
             invalid_scenarios: scenario_error.is_some(),
             cash: assumptions.initial_capital_krw,
+            peak_recorded_equity: assumptions.initial_capital_krw,
             strategy_id: strategy_id.into(),
             symbol: symbol.into(),
             is_overseas,
@@ -223,6 +225,11 @@ impl ReplaySession {
         self.protect_position(event);
     }
 
+    /// Observational checkpoint only; a chunk never consumes the pending signal.
+    pub fn has_pending_signal(&self) -> bool {
+        self.pending.is_some()
+    }
+
     pub fn position_snapshot(&self) -> (u64, u64) {
         self.position.as_ref().map_or((0, 0), |position| {
             (
@@ -293,16 +300,13 @@ impl ReplaySession {
             .accounting
             .peak_invested_capital_pct
             .max(invested / self.assumptions.initial_capital_krw * 100.0);
-        let peak = self
-            .equity_curve
-            .iter()
-            .map(|p| p.equity_krw)
-            .fold(self.assumptions.initial_capital_krw, f64::max);
+        let peak = self.peak_recorded_equity;
         let drawdown = if peak > 0.0 {
             ((peak - equity) / peak * 100.0).max(0.0)
         } else {
             0.0
         };
+        self.peak_recorded_equity = self.peak_recorded_equity.max(round_money(equity));
         self.equity_curve.push(EquityPointView {
             time: event.chart_time.clone(),
             equity_krw: round_money(equity),

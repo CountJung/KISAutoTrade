@@ -1247,4 +1247,13 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 시나리오는 각각64개/시각64바이트/유한수 범위를 검증하고 history 제외 평가봉에 정확히 정렬한 뒤 hash에 포함한다. 배당 조정 가격+현금 배당은 거절하고 미확인은 경고한다. 배당은 봉 직전 보유분에 봉 시작 즉시 세후 KRW로 지급하는 가정이다.
 - 비교는 같은 요청 수량과 실제 체결량·노출 차이를 명시하며 같은 엔진을 재사용한다. 실제 경로 비용 환급을 무비용 전략 재실행으로 표현하지 않는다. 소표본·부분 분기·겹침창과 실제 자료/합성 가정을 구분한다. 상세 정본은 `docs/ipc-commands.md`와 P2-15 연구 보고서다.
 
-> 마지막 업데이트: 2026-10-18T15:51:29+09:00
+## replay v12 연속 장부 불변식
+
+- 기존 flat 입력의 history+평가500봉 상한을 유지한다. 새 continuous는1~16청크·각1~500봉·평가총4096·history512이며 unknown field/legacy warmup 혼용을 거부한다. 모든 입력을 먼저 정규화·검증하고 history 내부/청크 내부/경계의 엄격한 시간순을 보장한다. 전역 sort로 잘못된 공급순서를 고치지 않는다.
+- `strategy_preview/driver.rs`가 flat/continuous의 단일 생산 실행 경로다. factory·최초 warmup·ReplaySession·최종finish는 각각1회다. 청크마다 reset/재초기화/finish하면 pending nextOpen·원가·ATR·쿨다운·리스크를 잃는다. 경계 ledger는 수량/pending 관측만 하며 live 계좌/장기 서버세션을 만들지 않는다.
+- 계산모드는 inputHash에 포함하고 청크 배치만 바뀐 동일 경제 입력은 같은 hash/report/signals를 가져야 한다. 단일/분할의 실제 전략과 sameClose/nextOpen 미래 prefix 불변을 검증한다. 회계 peak 캐시는 이전 반올림 equity 최댓값이라는 기존 순서를 보존한다.
+- 연속70/30은 같은 상태를 이어받는 앞/뒤 구간이며 독립학습/검증이 아니다. 분기 초기화는 별도 현금/포지션 계좌이므로 수익률을 합산/복리하지 않는다. 연구 수량·PC기준가/내부수량은 최초 결정값을 고정하고 차단·실제 노출 차이를 남긴다.
+- fixedFX/no배당/nextOpen/nooverlay에서는 실제 전봉 보유수량의 close→open 갭과 accepted open 체결 후 수량의 open→close 시장손익을 나눠 기존 비용환급 참조와 대사할 수 있다. 동일 수량/보유구간이지 동일%자산비중·독립 알파 benchmark·무비용 전략 재실행이 아니다.
+- 새 IPC/REST/TS/hooks/transport와 source/시나리오 상한·UI 준비/취소/legacy 모드를 함께 갱신한다. 정본은 `docs/ipc-commands.md`, 검증·한계는 `docs/research/continuous-replay-20261018/report.md`를 따른다.
+
+> 마지막 업데이트: 2026-10-18T16:14:29+09:00

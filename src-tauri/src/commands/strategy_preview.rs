@@ -1,5 +1,7 @@
 use super::*;
 
+mod continuous;
+mod driver;
 mod generic;
 use crate::trading::simulation::{
     replay_input_hash, BacktestReportView, ReplayAssessmentView, ReplayMetadataView, ReplaySession,
@@ -8,6 +10,10 @@ use crate::trading::simulation::{
 use crate::trading::strategy::{
     LeveragedTrendHoldPreviewSignal, LeveragedTrendHoldPreviewStep, LeveragedTrendHoldTimedCandle,
     Signal,
+};
+pub use continuous::{
+    preview_strategy_continuous_from_candles, ChunkContinuityView, ContinuousStrategyPreviewChunk,
+    ContinuousStrategyPreviewInput, ContinuousStrategyPreviewView, ReplayContinuityView,
 };
 pub use generic::{
     preview_strategy_from_candles, StrategyPreparationView, StrategyPreviewInput,
@@ -364,6 +370,13 @@ fn chart_candle_to_ohlc(candle: &ChartCandle, is_overseas: bool) -> Option<OhlcC
         low: chart_amount_to_units(&candle.low, is_overseas)?,
         close: chart_amount_to_units(&candle.close, is_overseas)?,
     })
+}
+
+#[tauri::command]
+pub async fn preview_strategy_continuous(
+    input: ContinuousStrategyPreviewInput,
+) -> CmdResult<ContinuousStrategyPreviewView> {
+    preview_strategy_continuous_from_candles(input)
 }
 
 #[tauri::command]

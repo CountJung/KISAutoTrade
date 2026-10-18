@@ -26,6 +26,8 @@ import type {
   BrokerId,
   ReplayMetadata,
   ReplayEventTime,
+  ReplayCalculationMode,
+  ReplayContinuityView,
   SimulationAssumptions,
   StrategyExperimentSnapshot,
 } from '../../../api/types'
@@ -36,6 +38,7 @@ import {
   type ExperimentScope,
 } from '../model/experimentStore'
 import { AccountingResults, ComparisonResults, AccountingAssumptionSummary, accountingComparisonKey, SimulationAccountingEditor } from './strategyAccountingPanel'
+import { calculationModeLabel, ContinuityResults } from './continuousReplayPanel'
 import { fmtRoundedKrw as fmtMoney } from '../../../shared/lib/formatters'
 
 export function defaultSimulationAssumptions(isOverseas: boolean): SimulationAssumptions {
@@ -87,6 +90,7 @@ type AssumptionsProps = {
   onChange: (value: SimulationAssumptions) => void
   disabled?: boolean
   isOverseas: boolean
+  continuousMode?: boolean
   onValidationChange: (error: string | null) => void
   onDraftChange: () => void
 }
@@ -109,7 +113,7 @@ const assumptionFields: Array<{
   { key: 'inSamplePercent', label: '학습 구간(%)', min: 50, max: 100, step: 5, helper: '나머지는 out-of-sample 검증' },
 ]
 
-export function SimulationAssumptionsEditor({ value, onChange, disabled, isOverseas, onValidationChange, onDraftChange }: AssumptionsProps) {
+export function SimulationAssumptionsEditor({ value, onChange, disabled, isOverseas, onValidationChange, onDraftChange, continuousMode = false }: AssumptionsProps) {
   const updateNumber = (key: keyof SimulationAssumptions, next: number) => {
     onChange({ ...value, [key]: Number.isFinite(next) ? next : 0 })
   }
@@ -161,12 +165,12 @@ export function SimulationAssumptionsEditor({ value, onChange, disabled, isOvers
             <TextField
               size="small"
               type="number"
-              label={field.label}
+              label={continuousMode && field.key === 'inSamplePercent' ? '연속 구간 경계(%)' : field.label}
               value={value[field.key] as number}
               onChange={(event) => updateNumber(field.key, Number(event.target.value))}
               disabled={disabled}
               fullWidth
-              helperText={field.helper}
+              helperText={continuousMode && field.key === 'inSamplePercent' ? '동일 장부의 전후 구간 · 독립 학습/검증 아님' : field.helper}
               inputProps={{ min: field.min, max: field.max, step: field.step }}
             />
           </Grid>
@@ -313,6 +317,8 @@ type ResultsProps = {
   params: Record<string, unknown>
   orderQuantity: number
   generatedAt: string
+  calculationMode?: ReplayCalculationMode
+  continuity?: ReplayContinuityView
 }
 
 export function StrategyResearchResults({
@@ -325,6 +331,8 @@ export function StrategyResearchResults({
   params,
   orderQuantity,
   generatedAt,
+  calculationMode,
+  continuity,
 }: ResultsProps) {
   const scope = useMemo<ExperimentScope>(() => ({
     brokerId,
@@ -361,6 +369,8 @@ export function StrategyResearchResults({
       replay,
       backtest: report,
       generatedAt,
+      calculationMode,
+      continuity,
     }
     if (!saveExperimentSlot(scope, snapshot)) {
       setStorageError('브라우저 저장 공간이 부족하거나 비활성화되어 A/B 결과를 저장하지 못했습니다.')
@@ -384,6 +394,7 @@ export function StrategyResearchResults({
     : true
   const differentExecution = slots.A && slots.B && (
     slots.A.replay.engineVersion !== slots.B.replay.engineVersion
+    || slots.A.calculationMode !== slots.B.calculationMode
     || slots.A.backtest.assumptions.executionModel !== slots.B.backtest.assumptions.executionModel
     || slots.A.backtest.assumptions.intrabarExitPolicy !== slots.B.backtest.assumptions.intrabarExitPolicy
     || slots.A.backtest.assumptions.stopLossPct !== slots.B.backtest.assumptions.stopLossPct
@@ -393,6 +404,7 @@ export function StrategyResearchResults({
   const summary = report.summary
   const metadata = (
     <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+      <Chip size="small" label={calculationModeLabel(calculationMode)} color={calculationMode === 'continuous' ? 'primary' : 'default'} variant="outlined" />
       <Chip size="small" label={`엔진 ${replay.engineVersion}`} variant="outlined" />
       <Chip size="small" label={`체결 ${executionModelLabel(report.assumptions)}`} color="primary" variant="outlined" sx={{ maxWidth: '100%', height: 'auto', '& .MuiChip-label': { whiteSpace: 'normal', py: 0.5 } }} />
       <Chip size="small" label={`${replay.sourceInterval} · ${replay.replayCadence}`} />
@@ -480,18 +492,20 @@ export function StrategyResearchResults({
         {summary.ambiguousBarCount != null && ` · 손절·익절 동시 도달 ${summary.ambiguousBarCount}봉`}
       </Alert>
 
+      {continuity && <ContinuityResults value={continuity} />}
+      {calculationMode === 'continuous' && <Alert severity="warning" data-testid="continuous-phase-policy">앞/뒤 구간은 현금·보유·대기 주문·guard·risk를 보존한 한 연속 장부의 구간 표시입니다. 경계에서 재학습/리셋하지 않으며 후반을 독립 검증 성과로 해석하지 않습니다.</Alert>}
       <AccountingResults report={report} />
       <ComparisonResults report={report} />
       <EquityCurve report={report} />
 
       {report.phases.length > 0 && (
         <TableContainer component={Paper} variant="outlined">
-          <Table size="small" aria-label="학습 및 검증 구간 성과">
+          <Table size="small" aria-label={calculationMode === 'continuous' ? '연속 장부 구간 성과' : '학습 및 검증 구간 성과'}>
             <TableHead><TableRow><TableCell>구간</TableCell><TableCell>기간</TableCell><TableCell align="right">수익률</TableCell><TableCell align="right">MDD</TableCell><TableCell align="right">거래/승률</TableCell></TableRow></TableHead>
             <TableBody>
               {report.phases.map((phase) => (
                 <TableRow key={phase.phase}>
-                  <TableCell>{phase.phase === 'inSample' ? 'In-sample' : 'Out-of-sample'}</TableCell>
+                  <TableCell>{calculationMode === 'continuous' ? phase.phase === 'inSample' ? '앞 구간 · 동일 장부' : '뒤 구간 · 동일 장부' : phase.phase === 'inSample' ? 'In-sample' : 'Out-of-sample'}</TableCell>
                   <TableCell>{phase.start} → {phase.end}</TableCell>
                   <TableCell align="right">{fmtPct(phase.returnPct)}</TableCell>
                   <TableCell align="right">{phase.mddPct.toFixed(2)}%</TableCell>
@@ -518,6 +532,7 @@ export function StrategyResearchResults({
                   <Paper variant="outlined" sx={{ p: 1 }}>
                     <Typography variant="caption" fontWeight={700}>실험 결과 {slot}</Typography>
                     {saved && <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }}>엔진 {saved.replay.engineVersion} · {executionAssumptionsLabel(saved.backtest.assumptions)}</Typography>}
+                    {saved && <Typography variant="caption" display="block">{calculationModeLabel(saved.calculationMode)}{saved.continuity ? ` · 공급 ${saved.continuity.chunkCount}묶음 / 평가 ${saved.continuity.evaluationBars}봉 / 사전 ${saved.continuity.historyBars}봉 1회` : ''}</Typography>}
                     {saved && <AccountingAssumptionSummary value={saved.backtest.assumptions} />}
                     {savedUnavailable ? (
                       <Typography variant="body2" color="text.secondary">평가 모델 정보 부족 · 성과 비교 불가</Typography>

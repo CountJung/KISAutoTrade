@@ -1,0 +1,54 @@
+{
+  "baselineCommit": "cc6f5d0",
+  "flatFullReportAndSignalParityRuns": 1224,
+  "continuousRuns": 72,
+  "alternatePartitionEquivalenceRuns": 72,
+  "separateQuarterResetRuns": 864,
+  "independentArithmeticChecks": 136717,
+  "archives": {
+    "continuous-results.jsonl.gz": {
+      "uncompressedSha256": "21f9f17c7a3eeb6d455bcbcf51659a16ac30a9e6a6ef86758249422b74d1b83c",
+      "uncompressedBytes": 12004032,
+      "compressedBytes": 2032360
+    },
+    "reset-results.jsonl.gz": {
+      "uncompressedSha256": "fc0dd27fc135e723bfa7f793800886d80da4dd226a5794cf6b05a97ce700731e",
+      "uncompressedBytes": 17917141,
+      "compressedBytes": 2149787
+    }
+  },
+  "scope": "Recorded accepted open quantities, cash/exposure/terminal and causal overnight/intraday market PnL. No strategy signal reimplementation.",
+  "sha256": {
+    "docs/research/continuous-replay-20261018/aggregate.json": "52eb6d63e9d4b9da94c5b71256c103399810b47fa304a6ebb09cb4194a3d789f",
+    "docs/research/continuous-replay-20261018/baseline-hashes.json": "076d63eaf3b94284071139988da48aba014936dfb5ce4382545a45751fb680ad",
+    "docs/research/continuous-replay-20261018/baseline_runner.rs": "b602a0f6b016eb79a64332a1d84d99abdd970ca6d7a663b221852fff1c272ed5",
+    "docs/research/continuous-replay-20261018/continuous-results.jsonl.gz": "9989a9f5e49d56246fb69e275a08d1721fb0a4cac466d987c142904cbd7630fa",
+    "docs/research/continuous-replay-20261018/design.json": "b702730b008db4e216b98766995a16328a007cd25a945aea1aa3b03a267a49d8",
+    "docs/research/continuous-replay-20261018/report.md": "c75d72f7462aa50c0bee596c277c61bbe775a30591afa597e1722e3bdcacbbb5",
+    "docs/research/continuous-replay-20261018/reset-results.jsonl.gz": "e859cdb3f461c2a55c1b40a8c1bb872ada165cdc7138012b28e360bc2ce16b94",
+    "docs/research/continuous-replay-20261018/run-summary.json": "b112b589c5b61ce1069ff03c8787ccad8ba77e0c77dc7a9d65d4c2971e171514",
+    "docs/research/continuous-replay-20261018/runner.rs": "e58047247985d955c083e3881ad4f5b5243dff6380ebbb01908277c3cf092943",
+    "docs/research/continuous-replay-20261018/summary.csv": "9153b05794f34dd4f15ec4e78b51162164672067613e2fe035307d8c30fd9b1f",
+    "docs/research/continuous-replay-20261018/validate.py": "18a512f970a9fb533d34c0e395fff1ddf3f9fe5a91b50548d870ba52b2c1a52d",
+    "docs/research/strategy-review-20261018/input.json": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+    "src-tauri/src/commands/strategy_preview/continuous.rs": "d6c6e65db6df909bc3676a4fab181eb609c88ac5103f1b04c4d74daad6db8097",
+    "src-tauri/src/commands/strategy_preview/continuous_tests.rs": "ec521734f82619a8dc8c80a5632d0788eff266bea47cd6f487e84d235c441c97",
+    "src-tauri/src/commands/strategy_preview/daily_event_tests.rs": "7fce38b4667f902b3ec7274483850afb4c8d3c8e57812f2c6e3feb4cb885d320",
+    "src-tauri/src/commands/strategy_preview/driver.rs": "f3c9417ae1a9ab23b973b6400acb39869d21334c0a7c777f02a104dbb9702cfd",
+    "src-tauri/src/commands/strategy_preview/generic.rs": "ba866d784ba39f0f0a2c846177ad22df95b4caf2911cf78b85716314eb94c2dc",
+    "src-tauri/src/commands/strategy_preview/generic_tests.rs": "60861b4c214e3a3f405b132b10eeffee12674b0c53d85fea030d2812d4367f5d",
+    "src-tauri/src/commands/strategy_preview/preparation_tests.rs": "2eb05563cfe3fb30803272f2f6896d2d67bc1c6e25cf7348fc771b017c605b72",
+    "src-tauri/src/commands/strategy_preview/tests.rs": "a3388fdc5776d6d99d3783fd3644d06bc94c59fe28e948a0191a84ab43f8c9fd",
+    "src-tauri/src/commands/strategy_preview.rs": "06b3a80e047a7703c7c1924fe46f3c2f1506321cb69d0cba8f596dc01f3ff863",
+    "src-tauri/src/trading/simulation/accounting.rs": "0dad977e87fd0dae8bc1a582ee7cc5c42d5f534d84ec9664634047c4a2f00472",
+    "src-tauri/src/trading/simulation/accounting_tests.rs": "2c3eebc8385fe3ced6a4b21e8a79e2c3ec4d4c4472dfca9fca87eda43668e152",
+    "src-tauri/src/trading/simulation/assessment.rs": "78f3fa932e3743a932cde4a339a0ccd25d5924e0b3bce6bbf500bff401b87a5b",
+    "src-tauri/src/trading/simulation/atr.rs": "08b59f57fb6bc8fafd5cc6666feed8c72a1c7974e3ecea193ff99bbe34b54ca1",
+    "src-tauri/src/trading/simulation/comparison.rs": "59116354873274b33898cb5e8635293ba8406a56c4fa2dacc107081fa5df8a98",
+    "src-tauri/src/trading/simulation/execution_tests.rs": "bd81a35bbea6e969c7336c7eecf4a7bf89edaa95aa9623151236b0e2aeda82d1",
+    "src-tauri/src/trading/simulation/session/accounting.rs": "8b7447f4393d770192b985d8dbc722710d33bbdea832acc717350bd2402a67d0",
+    "src-tauri/src/trading/simulation/session.rs": "48f9dfdb547a42226c5fc25d9aca066eb5490b8208db35d3c88da0b4579851be",
+    "src-tauri/src/trading/simulation/tests.rs": "a8fbd8e1f6256d52de4a983ae729211efea7586282630b323c79ebdd51072285",
+    "src-tauri/src/trading/simulation.rs": "bbda261af0fd27559919b987990583d3af82e454945557225051741d189a575f"
+  }
+}

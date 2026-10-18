@@ -1,0 +1,659 @@
+{
+  "baselineCommit": "cc6f5d0",
+  "continuousRuns": 72,
+  "elapsedSeconds": 25.696406167,
+  "flatFullReportAndSignalParityRuns": 1224,
+  "independentQuarterResetRuns": 864,
+  "note": "Quarter-reset returns are separate accounts and are never aggregated into continuous performance",
+  "partitionEquivalenceRuns": 72,
+  "partitions": [
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "2eb637247728fca6",
+      "inputHash": "a9d850938720115f",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "4b30d9517d0f06e2",
+      "inputHash": "718984dbd7ca5a39",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "ca42b18822119162",
+      "inputHash": "87bea9b007f1224e",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "66c324e0ecee3029",
+      "inputHash": "c68dd331120b9e38",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "beb14619002a9ea3",
+      "inputHash": "747862098e12d38f",
+      "quarterChunks": 12,
+      "strategyId": "momentum",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "7ced7ee696b19a3b",
+      "inputHash": "e98babc4637c3669",
+      "quarterChunks": 12,
+      "strategyId": "momentum",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "ae3e18c0b4a58652",
+      "inputHash": "9636d86473d47fa7",
+      "quarterChunks": 12,
+      "strategyId": "deviation",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "9871c24033515eab",
+      "inputHash": "7056c3a3a9eb9b61",
+      "quarterChunks": 12,
+      "strategyId": "deviation",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "a0d2a22205e7be65",
+      "inputHash": "20217505521fa47c",
+      "quarterChunks": 12,
+      "strategyId": "fifty_two_week_high",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "094582a9316c964d",
+      "inputHash": "733087bd861c170e",
+      "quarterChunks": 12,
+      "strategyId": "fifty_two_week_high",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "3c3f4bcf8fbf5ab4",
+      "inputHash": "b24199d842cdd81d",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "4155461f9b9eebed",
+      "inputHash": "3bbe2e5dcbf4d1b7",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "065d18dd219e5f6f",
+      "inputHash": "7909da8bdfd8ce97",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "ef3ec225cb3f4062",
+      "inputHash": "484d7d4947a07b11",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "56c6f129cd08fd90",
+      "inputHash": "eaff09ed95395dc6",
+      "quarterChunks": 12,
+      "strategyId": "strong_close",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "4a062f6de5414c7d",
+      "inputHash": "251dfdc14a241a90",
+      "quarterChunks": 12,
+      "strategyId": "strong_close",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "b8060149b52c9526",
+      "inputHash": "9cd39ac198194683",
+      "quarterChunks": 12,
+      "strategyId": "volatility_expansion",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "5d21af9338b3b3e8",
+      "inputHash": "fcf8a6024810678d",
+      "quarterChunks": 12,
+      "strategyId": "volatility_expansion",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "21d6072a31728e87",
+      "inputHash": "adf83f806bfea74f",
+      "quarterChunks": 12,
+      "strategyId": "mean_reversion",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "e765b0aa6e3a5003",
+      "inputHash": "9211484f1ec43b29",
+      "quarterChunks": 12,
+      "strategyId": "mean_reversion",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "133bd5dee38d858f",
+      "inputHash": "c5a810ec46c2f90c",
+      "quarterChunks": 12,
+      "strategyId": "trend_filter",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "26b11994da186adf",
+      "inputHash": "9a95da8623731e5e",
+      "quarterChunks": 12,
+      "strategyId": "trend_filter",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "11fcf274ba0fd2a6",
+      "inputHash": "bba3928311caff71",
+      "quarterChunks": 12,
+      "strategyId": "price_condition",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "52a187e98dcf3c36",
+      "inputHash": "2a6258397c8199cb",
+      "quarterChunks": 12,
+      "strategyId": "price_condition",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "ebbbc6d5afbea0d6",
+      "inputHash": "ed464f5a22814133",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "3e5e159c28fc28ef",
+      "inputHash": "5cafbe1b185f4015",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "9dfde38c9cf9ddee",
+      "inputHash": "2b896f8dd5e051ee",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "a48b66cb8184c322",
+      "inputHash": "511ecc04025066b0",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "a8761ac40249d129",
+      "inputHash": "a570cd12ff85e663",
+      "quarterChunks": 12,
+      "strategyId": "momentum",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "c67378caab167575",
+      "inputHash": "04c82512ce645905",
+      "quarterChunks": 12,
+      "strategyId": "momentum",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "d8dd26d3ab03dfcf",
+      "inputHash": "61d8b83f4e99415d",
+      "quarterChunks": 12,
+      "strategyId": "deviation",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "8f64f4245b4168da",
+      "inputHash": "85e99c6ecf224c5f",
+      "quarterChunks": 12,
+      "strategyId": "deviation",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "8f9ee17ade3c877d",
+      "inputHash": "b1622957a911a632",
+      "quarterChunks": 12,
+      "strategyId": "fifty_two_week_high",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "85efece87d894fa2",
+      "inputHash": "2faf92ebdf41b834",
+      "quarterChunks": 12,
+      "strategyId": "fifty_two_week_high",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "25951fe8bcd7e53e",
+      "inputHash": "a55ccefd9267f691",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "8dab0b41ff4b9c60",
+      "inputHash": "dcb197271a494d53",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "f8ff5574ecb6bdb2",
+      "inputHash": "7742d594abc44047",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "502e6ca5b3e8c79a",
+      "inputHash": "e474811b98637db9",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "a08dfecff47786d7",
+      "inputHash": "eeff39a67eeb72aa",
+      "quarterChunks": 12,
+      "strategyId": "strong_close",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "36fe4229206f0463",
+      "inputHash": "c588bc36b0adac4c",
+      "quarterChunks": 12,
+      "strategyId": "strong_close",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "eac7a16f0078b5e5",
+      "inputHash": "237d27c2222678d3",
+      "quarterChunks": 12,
+      "strategyId": "volatility_expansion",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "d7b28c6de7b3d1af",
+      "inputHash": "5cd9b986ac997f35",
+      "quarterChunks": 12,
+      "strategyId": "volatility_expansion",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "8fc3c44ca983d6c4",
+      "inputHash": "a44a0d12597f5937",
+      "quarterChunks": 12,
+      "strategyId": "mean_reversion",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "7ddcc6825ef8d505",
+      "inputHash": "3ec57fd859bbe0e9",
+      "quarterChunks": 12,
+      "strategyId": "mean_reversion",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "9d07f983b1aac96d",
+      "inputHash": "2ccedf2b39b4d1f6",
+      "quarterChunks": 12,
+      "strategyId": "trend_filter",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "a8a5f8e6b221df8d",
+      "inputHash": "9e13b6b5eaea1358",
+      "quarterChunks": 12,
+      "strategyId": "trend_filter",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "d53933c2f2604aab",
+      "inputHash": "c9fc70218b3d16a4",
+      "quarterChunks": 12,
+      "strategyId": "price_condition",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "4e036aff86319c6d",
+      "inputHash": "59168169f48c5dde",
+      "quarterChunks": 12,
+      "strategyId": "price_condition",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "2289a0108111baa1",
+      "inputHash": "fbc36445f2c1f82c",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "8442f6b3af141f3b",
+      "inputHash": "36cea2bb478663ca",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "59eafd6f9ff00096",
+      "inputHash": "e28ec44b6966a9d9",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "ea815ba8f442cbdb",
+      "inputHash": "823e0000f046949f",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "89c1c7e6e89e577e",
+      "inputHash": "9442ecc403bf716a",
+      "quarterChunks": 12,
+      "strategyId": "momentum",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "11be844a4cd6ba74",
+      "inputHash": "fa12d366fbc683a8",
+      "quarterChunks": 12,
+      "strategyId": "momentum",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "b190d11578b8ca7e",
+      "inputHash": "c6cd3b69578d3088",
+      "quarterChunks": 12,
+      "strategyId": "deviation",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "3cfa767779c1919d",
+      "inputHash": "41c90fe63ba1eab6",
+      "quarterChunks": 12,
+      "strategyId": "deviation",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "f9d52d686cbe19f9",
+      "inputHash": "262b9852f9ab57e9",
+      "quarterChunks": 12,
+      "strategyId": "fifty_two_week_high",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "50a638bb05d4213e",
+      "inputHash": "131af9017748d92f",
+      "quarterChunks": 12,
+      "strategyId": "fifty_two_week_high",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "c8fd6a89c2da9c5a",
+      "inputHash": "1c179b7a1314fefc",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "f092fa5f6769f465",
+      "inputHash": "3fc388eb5385721a",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "d875628be768da58",
+      "inputHash": "a53d2ddc81ed7c18",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "cabee2479562edc1",
+      "inputHash": "3d87a11b0607ddc6",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "3eac526942156f6e",
+      "inputHash": "805f6a8c5138b7c9",
+      "quarterChunks": 12,
+      "strategyId": "strong_close",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "b2cb2d9da1d2c159",
+      "inputHash": "f61b0ebf841c008f",
+      "quarterChunks": 12,
+      "strategyId": "strong_close",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "b5c71b509cd9feb4",
+      "inputHash": "0d3e73cfe860f224",
+      "quarterChunks": 12,
+      "strategyId": "volatility_expansion",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "305d3839f7150ce6",
+      "inputHash": "7eea4315e2727aa2",
+      "quarterChunks": 12,
+      "strategyId": "volatility_expansion",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "fcb7c0e510775014",
+      "inputHash": "6e8c10c2c10a80b8",
+      "quarterChunks": 12,
+      "strategyId": "mean_reversion",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "b5c52cd4da321745",
+      "inputHash": "450455b307e0d466",
+      "quarterChunks": 12,
+      "strategyId": "mean_reversion",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "a880a345db22bdab",
+      "inputHash": "0bfccb5026e61967",
+      "quarterChunks": 12,
+      "strategyId": "trend_filter",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "044595caa408ab4a",
+      "inputHash": "fa3f92e14a1885e5",
+      "quarterChunks": 12,
+      "strategyId": "trend_filter",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "0e74e9a096360f77",
+      "inputHash": "222b64489b376ac7",
+      "quarterChunks": 12,
+      "strategyId": "price_condition",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "2df4bbd6413a7516",
+      "inputHash": "8159b377934c6e45",
+      "quarterChunks": 12,
+      "strategyId": "price_condition",
+      "symbol": "QQQ"
+    }
+  ]
+}

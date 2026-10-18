@@ -47,6 +47,8 @@ import type {
   StockListStats,
   StockSearchItem,
   StrategyPreviewInput,
+  ContinuousStrategyPreviewInput,
+  ContinuousStrategyPreviewView,
   StrategyPreviewView,
   StrategyView,
   TradeArchiveConfig,
@@ -219,6 +221,9 @@ export const previewStrategy = (
   input: StrategyPreviewInput,
 ): Promise<StrategyPreviewView> =>
   invoke('preview_strategy', { input })
+
+export const previewStrategyContinuous = (input: ContinuousStrategyPreviewInput): Promise<ContinuousStrategyPreviewView> =>
+  invoke('preview_strategy_continuous', { input })
 
 // ─── 로그 설정 ────────────────────────────────────────────────────
 export const getLogConfig = (): Promise<LogConfig> =>

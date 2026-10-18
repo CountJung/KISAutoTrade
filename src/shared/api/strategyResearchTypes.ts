@@ -208,6 +208,24 @@ export interface BacktestAtrPreparation {
   rangePolicy: 'observedBarsWithPreviousCloseNoInterpolation'
 }
 
+export type ReplayCalculationMode = 'boundedWindow' | 'continuous'
+export interface ChunkContinuityView {
+  index: number
+  start: string
+  end: string
+  bars: number
+  startQuantity: number
+  endQuantity: number
+  pendingAtEnd: boolean
+}
+export interface ReplayContinuityView {
+  mode: 'continuous'
+  chunkCount: number
+  evaluationBars: number
+  historyBars: number
+  chunks: ChunkContinuityView[]
+}
+
 export interface StrategyExperimentSnapshot {
   id: string
   slot: 'A' | 'B'
@@ -221,6 +239,8 @@ export interface StrategyExperimentSnapshot {
   replay: ReplayMetadata
   backtest: BacktestReport
   generatedAt: string
+  calculationMode?: ReplayCalculationMode
+  continuity?: ReplayContinuityView
 }
 
 export interface LeveragedTrendHoldPreviewInput {
@@ -276,6 +296,14 @@ export interface StrategyPreviewInput {
   assumptions?: SimulationAssumptions
 }
 
+export interface ContinuousStrategyPreviewChunk { candles: ChartCandle[] }
+export interface ContinuousStrategyPreviewInput extends Omit<StrategyPreviewInput, 'candles' | 'warmupCount'> {
+  chunks: ContinuousStrategyPreviewChunk[]
+}
+export interface ContinuousStrategyPreviewView extends StrategyPreviewView {
+  continuity: ReplayContinuityView
+}
+
 export interface StrategyPreviewSignal {
   time: string
   chartTime?: string
@@ -295,6 +323,7 @@ export interface StrategyPreviewView {
   replay: ReplayMetadata
   backtest: BacktestReport
   preparation?: StrategyPreviewPreparation
+  continuity?: ReplayContinuityView
 }
 
 export interface StrategyPreviewPreparation {

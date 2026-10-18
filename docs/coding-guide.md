@@ -839,7 +839,11 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 ## 14. 전략 preview와 backtest 구현 경계
 
 - live와 preview는 `trading::strategy::initialize_strategy_warmup()`으로 일봉/장중 warmup 의미를 공유한다. replay 구간 이후 데이터는 initializer에 전달하지 않는다.
-- preview IPC는 봉 단위, data source, broker/account scope, 비용·환율·리스크 가정을 받고 `ReplayMetadataView`와 `BacktestReportView`를 반환한다. candle 입력은 500개 상한을 유지한다.
+- preview IPC는 봉 단위, data source, broker/account scope, 비용·환율·리스크 가정을 받고 `ReplayMetadataView`와 `BacktestReportView`를 반환한다. 기존 flat `preview_strategy`는 평가+history 합계500봉 상한을 유지한다.
+- v12 `preview_strategy_continuous`/POST `/api/strategy/preview/continuous`는 별도 입력 계약이다. history 최대512·1~16chunks·묶음당1~500·전체 평가4096봉을 검증하고 알 수 없는 필드와 flat `candles`/`warmupCount` 혼용을 거부한다. 정규화된 history/평가 및 모든 경계의 엄격한 시간순을 먼저 검사하며 잘못된 입력을 정렬·봉 이동으로 수리하지 않는다. 시나리오도 전체 실제 평가 봉과 먼저 대사한다.
+- 공통 `strategy_preview/driver.rs`는 전체 검증 뒤 factory·warmup·ReplaySession을 각각 한 번 생성하고 순차 append 후 finish한다. 공급 묶음·분기 경계에서 자본·보유/native 원가·pending·cooldown/risk를 초기화하지 않는다. 다음 묶음 첫 Open이 이전 pending을 처리하며 최종 미체결 확정은 전체 끝에서만 한다. 서버 session/cache가 없는 한 요청이므로 경계별 preview 결과를 사후 합산하는 방식으로 대체하지 않는다.
+- hash는 `boundedWindow`/`continuous`를 구분하되 같은 연속 경제 입력의 chunk 분할은 제외한다. 응답의 최상위 `continuity`를 A/B에 보존하며 이전 슬롯에 모드가 없으면 unknown이다. wire `inSample`/`outOfSample`은 유지하되 연속 UI는 동일 장부의 앞/뒤 구간으로 표시한다. 고정70/30 경계를 독립 훈련/검증으로 표현하지 않는다. 상세 DTO/오류와 UI 수집 정책은 [v12 IPC 계약](ipc-commands.md)을 따른다.
+- 연속 UI는 일봉만 제공하고 strict 이전252봉·48회 요청·보관4608/평가4096 상한을 적용한다. 요청/실제 경계 차이 또는 관측 간격7달력일 초과를 보류하되 거래소 달력 검증이라고 주장하지 않는다. `coverageVerified=false`, 요청/실제 범위·중단 사유를 유지하며 누락 봉을 합성하지 않는다. 잘못된 날짜·모드/가정 변경·취소는 기존 결과와 진행 generation을 무효화한다.
 - simulated portfolio는 raw signal을 바로 거래로 세지 않는다. 공통 TradeGuard/RiskManager와 보유/현금/비용 조건을 통과한 주문만 `filled`로 기록하고 차단 사유를 보존한다.
 - 과거 cooldown은 `TradeGuard::*_at()`에 event timestamp를 전달한다. `Local::now()`를 직접 사용하면 deterministic fixture가 깨진다.
 - 전략이 신호 생성과 동시에 내부 포지션을 바꾸는 경우 실제 주문 skip 결과의 `held_quantity`/`avg_price`로 즉시 복원한다.
