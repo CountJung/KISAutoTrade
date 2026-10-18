@@ -12,6 +12,19 @@
 
 ---
 
+## 프로젝트 문서
+
+운영·설계·작업 기록은 [`docs/`](docs/)에서 관리합니다. 루트에는 README와 에이전트 진입 문서인 [`AGENTS.md`](AGENTS.md), [`CLAUDE.md`](CLAUDE.md)를 둡니다.
+
+| 문서 | 위치 |
+|---|---|
+| 단계 계획 | [MASTER_PLAN.html](docs/MASTER_PLAN.html) |
+| 작업별 탐색 지도 / 전체 파일 지도 | [PROJECT_MAP.md](docs/PROJECT_MAP.md) / [project-map.md](docs/project-map.md) |
+| 아키텍처 / 검증 명령 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) / [HARNESS_MAP.md](docs/HARNESS_MAP.md) |
+| 할일 / 작업 기록 템플릿 | [todo.md](docs/todo.md) / [TASK_TEMPLATE.md](docs/tasks/TASK_TEMPLATE.md) |
+
+---
+
 ## 목차
 
 1. [개요](#개요)

@@ -7,7 +7,7 @@ GitHub Copilot에서 이 파일을 읽는 경우에도 아래 순서로 작업�
 1. `AGENTS.md`를 먼저 읽습니다.
 2. `.github/codex-instructions.md`의 규칙을 따릅니다.
 3. 도메인별 세부 규칙은 `.github/skills/**/SKILL.md`를 참고합니다.
-4. 개선 백로그는 `todo.md`에 기록합니다.
+4. 개선 백로그는 `docs/todo.md`에 기록합니다.
 5. 구조·심볼·중복 helper 작업은 `.github/agents/*.agent.md`의 전용 역할과
    `docs/agent-tooling.md`의 라우팅을 따릅니다.
 

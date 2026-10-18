@@ -68,7 +68,7 @@ Graphify는 기존 빈 JSON 설정 4개에서 AST node를 만들지 못한다는
 - Serena symbol navigator가 live 시작/서버 시작/일반 preview의 warmup 경로와 상수 참조를 확인했다.
 - 별도 read-only 코드 리뷰에서 P0–P2 결함 없음. 권장한 호출 횟수 spy와 intraday-only 불변 테스트를 추가하고 mock 들여쓰기를 정리했다.
 - project mapper가 기존 연구 설명을 보존하면서 프로젝트 맵과 문서/스킬 drift를 확인했다.
-- 최초 git 상태의 AGENTS.md, todo.md, docs/project-map.md, docs/research/ 변경을 보존했다. 민감 파일은 읽지 않았다.
+- 최초 git 상태의 AGENTS.md, docs/todo.md, docs/project-map.md, docs/research/ 변경을 보존했다. 민감 파일은 읽지 않았다.
 - 다음 권장 작업은 SOXQ-P1-01의 동일 평가 기간·충분한 사전자료·전략별 준비 상태 구현이다.
 - 롤백 범위: 이 작업의 typed warmup/신고가 override/version/회귀 테스트 변경. 주문·guard·risk·provider 코드 변경은 없다.
 

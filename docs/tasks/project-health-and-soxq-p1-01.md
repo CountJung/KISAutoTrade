@@ -40,7 +40,7 @@
 - PASS: Graphify refresh + `npm run check:graphify`, project mapper의 map/document drift pass + `npm run check:project-map`, `git diff --check`.
 - 도구 진단: Playwright Node 색상 환경변수 충돌(NO_COLOR/FORCE_COLOR) 2줄, Graphify의 설정 JSON 4개 AST 노드 없음 메시지가 남는다. 코드 컴파일/타입/Clippy 경고와 구분하며 제거했다고 보고하지 않는다.
 - Serena 교차 심볼 참조 및 독립 리뷰 완료. seed-only 조건 판정, 날짜 granularity 혼합, 비정렬 추세 기간 cap, live 신고가 미확정 최신 봉 경계를 보완했다. 자료 부족 후에도 보유 손절이 작동하는 251봉/0봉 재초기화 회귀를 포함했다.
-- [P1-01 재평가](../docs/research/soxq-3m-20261003/p1-01-validation.md): 13전략×2모드 모두 2026-07-06~10-02의 64봉 평가. 지원 12전략×2모드 generatedAt 제외 결과 재현, 각20bp 비용 스트레스 보존. 초기 v2/v3 보고서·차트는 해당 시점 기록으로 유지한다.
+- [P1-01 재평가](../research/soxq-3m-20261003/p1-01-validation.md): 13전략×2모드 모두 2026-07-06~10-02의 64봉 평가. 지원 12전략×2모드 generatedAt 제외 결과 재현, 각20bp 비용 스트레스 보존. 초기 v2/v3 보고서·차트는 해당 시점 기록으로 유지한다.
 - provider 페이지 조회와 완료 일봉 보장은 `SOXQ-P2-17`에 별도 기록했다. 단일 응답 자료가 부족하면 기간/200·252 기본값을 줄이지 않고 평가 불가/부족 상태를 표시한다.
 - 실제 주문/자동매매 시작·위험 설정 완화는 실행하지 않았다. 기존 미커밋 변경을 보존했으며 커밋은 만들지 않았다.
 

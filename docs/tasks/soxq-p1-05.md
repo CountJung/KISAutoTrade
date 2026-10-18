@@ -7,7 +7,7 @@
 - 상태: **In Progress — 구현 검증 완료, 실제 3개월 분봉 자료 대기**
 - 작성/갱신일: 2026-10-05 KST
 - 브랜치/시작 커밋: main / cbc4553
-- 관련 문서: [검증 기록](../docs/research/soxq-3m-20261003/p1-05-validation.md), [TODO](../todo.md)
+- 관련 문서: [검증 기록](../research/soxq-3m-20261003/p1-05-validation.md), [TODO](../todo.md)
 - 위험 등급: 보통 — 지표 초기화는 live LTH에도 적용, 주문 제출·리스크 경계 변경 없음
 
 ## 2. 목표와 완료 조건

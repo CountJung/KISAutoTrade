@@ -8,7 +8,7 @@
 
 이 연구의 '현재 전략'은 코드에 등록된 전략과 기본 파라미터다. 민감한 사용자 저장 설정은 읽지 않았다. 가격조건 전략에는 평가 전일 종가·익절 5%·손절 3%·사전 고정 수량을 명시한 연구 설정을 사용했다. LTH 볼린저 활성은 사전 선언한 선택 옵션 진단이며 실운영 설정을 바꾼 것이 아니다.
 
-[TODO](../../../todo.md), [작업 기록](../../../tasks/strategy-review-20261018.md), [전담 역할](../../../.codex/agents/stock_analyst.toml), [동결 입력](input.json), [실행별 결과](results.jsonl), [기계 판독 요약](summary.json), [검증 기록](validation.json).
+[TODO](../../todo.md), [작업 기록](../../tasks/strategy-review-20261018.md), [전담 역할](../../../.codex/agents/stock_analyst.toml), [동결 입력](input.json), [실행별 결과](results.jsonl), [기계 판독 요약](summary.json), [검증 기록](validation.json).
 
 ## 자료와 설계
 

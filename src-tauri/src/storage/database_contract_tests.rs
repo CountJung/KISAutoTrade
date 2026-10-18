@@ -10,7 +10,7 @@
 //!
 //! - 사용자의 운영 database는 건드리지 않는다. 매 실행 고유한 `kisautotrade_ct_*`
 //!   database를 미존재-자동생성 경로로 만들고 테스트 후 DROP한다.
-//! - MariaDB contract test는 아직 없다 (todo.md P1 잔여 — 검증 서버 준비 후 추가).
+//! - MariaDB contract test는 아직 없다 (docs/todo.md P1 잔여 — 검증 서버 준비 후 추가).
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;

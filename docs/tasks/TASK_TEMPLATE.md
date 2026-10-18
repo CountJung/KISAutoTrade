@@ -105,7 +105,7 @@ branch:
 
 ## 9. 검증 계획과 결과
 
-[`HARNESS_MAP.md`](../HARNESS_MAP.md)에서 범위에 맞게 선택한다.
+[`docs/HARNESS_MAP.md`](../HARNESS_MAP.md)에서 범위에 맞게 선택한다.
 
 | 상태 | 명령 | 실행 결과(테스트 수 포함) | 비고 |
 |---|---|---|---|

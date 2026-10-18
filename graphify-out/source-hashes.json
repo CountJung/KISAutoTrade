@@ -75,7 +75,7 @@
   "src-tauri/src/storage/balance_store.rs": "f5a0ac27751ae9fc2deb6c0141007f0bb95964b748a66d03f7b071126e9ce3ac",
   "src-tauri/src/storage/database.rs": "e05a3ddd1a57a43f5a6df4c0e770bd5f3603c5fe549bb0600e69a9c3a9a86d39",
   "src-tauri/src/storage/database_archive.rs": "117d40d801b3fa9e27c8579aeaaa34f07c9977cf904c2dd917a6039b869739ec",
-  "src-tauri/src/storage/database_contract_tests.rs": "212b439922ad7852bdc35ab401e7e7bd54a93c9e8ff450132801bd60028bf463",
+  "src-tauri/src/storage/database_contract_tests.rs": "e6f9483c142c616deb69c6533cdd70712d0a5051d860137bc3085b3c6151ff7d",
   "src-tauri/src/storage/database_io.rs": "b645bf1f3180fa86c89f3c7b40617f3d7d5973da021a3c803593bef1f1503adf",
   "src-tauri/src/storage/database_keychain.rs": "df160b8f81f71cedc2fb40fe2bf7bd1e5288760a05958197f485efe3138fde6f",
   "src-tauri/src/storage/database_projection.rs": "4e14d708e68306532befe5e944a22b48c9379e872a35a599b5363731be36b1e1",

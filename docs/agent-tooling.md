@@ -26,7 +26,7 @@
 
 연구 기본 흐름은 `prepare_data.py`의 자료·시각 정규화/구간 선언 → 실제
 `preview_strategy_from_candles`/전용 LTH 실행 → `analyze.py`의 결과 집계 →
-전담 에이전트의 해석 감사 → 기존 `todo.md` 항목 갱신이다.
+전담 에이전트의 해석 감사 → 기존 `docs/todo.md` 항목 갱신이다.
 최근 사례는 [`strategy-review-20261018`](research/strategy-review-20261018/report.md)다.
 일봉 LTH·준비 자료 부족·분봉 표본은 정상 성과 순위와 분리하고, 실제 자료와
 코드 fixture를 섞지 않는다. 생산 전략/계정 설정을 연구 목적으로 바꾸지 않는다.

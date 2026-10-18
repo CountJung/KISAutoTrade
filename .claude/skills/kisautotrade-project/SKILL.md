@@ -11,7 +11,7 @@ Before acting on this repository, read these canonical files from the repo root 
 
 1. `AGENTS.md` — top-level agent guide (also imported automatically by root `CLAUDE.md`)
 2. `.github/codex-instructions.md` — detailed working conventions (build/verify commands, IPC/AppState/daemon patterns, safety rules)
-3. `todo.md` — improvement backlog, priorities, status
+3. `docs/todo.md` — improvement backlog, priorities, status
 4. `docs/project-map.md` — full directory map and module responsibilities
 5. `docs/agent-tooling.md` — project-map, Serena, Graphify, and duplicate-helper
    delegation workflow

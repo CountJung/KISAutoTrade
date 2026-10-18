@@ -11,7 +11,7 @@
 |------|------|
 | 디렉토리 맵 + 아키텍처 | `docs/project-map.md` |
 | 에이전트 코드 탐색 도구 운영 | `docs/agent-tooling.md` |
-| 개선 백로그 | `todo.md` |
+| 개선 백로그 | `docs/todo.md` |
 | IPC 커맨드 목록 (35개+) | `docs/ipc-commands.md` |
 | 코딩 가이드 (AppState·IPC·데몬) | `docs/coding-guide.md` |
 | KIS API 스킬 | `.github/skills/kis-api/SKILL.md` |
@@ -60,6 +60,7 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 ## Codex 작업 원칙
 
+- 루트 문서는 `README.md`, `AGENTS.md`, `CLAUDE.md`를 유지하고 일반 운영·설계·할일 문서는 `docs/`, 작업 기록은 `docs/tasks/`에 둔다. 도구가 요구하는 `.github/`, `.codex/`, `.claude/`, `.serena/` 진입 설정·스킬 경로는 유지한다.
 - `.env`, `secure_config.json`, `profiles.json`은 읽지 않는다.
 - 코드 변경 전 현재 구현을 먼저 검색하고, 기존 패턴을 우선한다.
 - 작업별 검증과 리뷰·문서 게이트가 완료되면 변경을 커밋하고 현재 브랜치를 origin에 푸시한다. 캐시·민감 파일은 제외하며 강제 푸시는 하지 않는다. (사용자 지시: 2026-10-03)
@@ -69,7 +70,7 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 - 주식 전략 연구는 `stock_analyst`에게 생산 replay 결과의 비용·손익·표본 해석을 감사하도록 위임한다. 실제 자료/fixture와 평가 불가를 구분하고 기존 TODO에 근거·완료 조건을 기록한다. 역할은 주문·자동매매 시작·민감 계정 접근을 맡지 않는다.
 - KIS API 동작·TR-ID·제한사항은 추측하지 말고 공식 포털 또는 `koreainvestment/open-trading-api` 샘플로 확인한다.
 - 새 IPC 커맨드는 Rust command, `lib.rs` 등록, TypeScript 타입/래퍼/훅, 문서를 함께 갱신한다.
-- 반복 매매·손실 방지 관련 변경은 `todo.md`와 관련 스킬 문서에 남긴다.
+- 반복 매매·손실 방지 관련 변경은 `docs/todo.md`와 관련 스킬 문서에 남긴다.
 - Copilot 호환 지침과 `.github/skills/**`의 원본 스킬은 프로젝트 브리지 스킬(`.codex/skills/kisautotrade-*`)을 통해 재사용한다. Codex 런타임이 계정 스킬만 읽는 경우 `scripts/sync-codex-skills.ps1`로 동기화한다. 원본은 저장소의 `.github/skills/**/SKILL.md`로 유지한다.
 - 코드 리뷰 또는 문서 업데이트 조건이 충족되면 `.github/codex-instructions.md`의 위임 게이트를 따른다. subagent 도구가 있으면 review/documentation pass를 위임하고, 도구가 없으면 같은 체크리스트를 직접 수행한 뒤 다음 턴용 위임 프롬프트를 최종 보고에 남긴다.
 
@@ -81,19 +82,19 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-10-18 | 일반 운영·설계·할일 문서를 docs로, 작업 기록을 docs/tasks로 이동하고 README·에이전트 진입 참조와 인벤토리 갱신 |
 | 2026-10-18 | 주식 분석 전담 역할 설정, 12종 일봉 1,224회·LTH 분봉 4회 진단과 독립 감사, 전략별 TODO 및 연속 운용 검증 과제 정리 |
 | 2026-10-06 | Rust 1.99 Clippy 7건을 async-trait 0.1.92와 웹 주문 검증 오류 boxing으로 해소; 응답 보존·오프라인 회귀 검증, 그래프 안전성 보강 |
 | 2026-10-06 | Mac 저장·권한 검증 및 Tauri 2.12/Vite 6.4 보안 갱신; XML 예외 2개·RustSec 경고 12개 해소, RSA 예외 1개·Linux 경고 2개 잔여 |
 | 2026-10-06 | Windows JSON 저장을 write-through 교체와 쓰기 가능한 백업 flush로 수정; Unix fsync·읽기 전용 교체 유지 및 저장 실패/재시도 회귀 보강 |
-| 2026-10-06 | rustls 0.23.45/webpki 0.103.15 및 seroval 1.6.8/nanoid 3.3.20/source-map-js 1.2.2 보안 패치; 기존 예외·Windows 저장 문제와 Mac 검증은 별도 인계 |
 ## 운영 문서 스택
 
-작업 전 변경 성격에 맞춰 다음 루트 문서를 함께 확인한다.
+작업 전 변경 성격에 맞춰 다음 운영 문서를 함께 확인한다.
 
-- [`MASTER_PLAN.html`](MASTER_PLAN.html): 사람용 단계 계획과 금융 안전 게이트
-- [`PROJECT_MAP.md`](PROJECT_MAP.md): 작업별 시작 파일과 핵심 경로
-- [`ARCHITECTURE.md`](ARCHITECTURE.md): React/Tauri/Axum/주문·리스크·저장 경계
-- [`HARNESS_MAP.md`](HARNESS_MAP.md): 변경 유형별 검증 명령
-- [`tasks/TASK_TEMPLATE.md`](tasks/TASK_TEMPLATE.md): 범위·위험·완료 조건·검증 기록 템플릿
+- [`docs/MASTER_PLAN.html`](docs/MASTER_PLAN.html): 사람용 단계 계획과 금융 안전 게이트
+- [`docs/PROJECT_MAP.md`](docs/PROJECT_MAP.md): 작업별 시작 파일과 핵심 경로
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): React/Tauri/Axum/주문·리스크·저장 경계
+- [`docs/HARNESS_MAP.md`](docs/HARNESS_MAP.md): 변경 유형별 검증 명령
+- [`docs/tasks/TASK_TEMPLATE.md`](docs/tasks/TASK_TEMPLATE.md): 범위·위험·완료 조건·검증 기록 템플릿
 
 기존 상세 자료인 `docs/project-map.md`, `docs/agent-tooling.md`, `docs/ipc-commands.md`, `docs/coding-guide.md`는 계속 유효하다. Serena는 공용 타입, IPC, 주문, 리스크의 실제 참조 범위를 확인해야 할 때만 사용하고, Graphify는 호출 계층이나 공용 helper를 바꾸는 구조 리팩터링 때만 사용한다. 금융 안전 규칙과 provider 경계는 도구 사용 여부와 관계없이 항상 우선한다.

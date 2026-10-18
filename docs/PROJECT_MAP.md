@@ -1,6 +1,6 @@
 # KISAutoTrade 탐색 지도
 
-> 목적: 작업 유형에서 실제 수정 지점으로 빠르게 이동하는 수동 큐레이션 지도다. 전체 파일 트리와 장문의 모듈 책임표는 자동 생성 기준인 [`docs/project-map.md`](docs/project-map.md)를 사용한다.
+> 목적: 작업 유형에서 실제 수정 지점으로 빠르게 이동하는 수동 큐레이션 지도다. 전체 파일 트리와 장문의 모듈 책임표는 자동 생성 기준인 [`docs/project-map.md`](project-map.md)를 사용한다.
 
 ## 1. 런타임 한눈에 보기
 
@@ -17,7 +17,7 @@ strategy → guard/preflight/risk → OrderManager → KIS/Toss
 JSON/DB storage + pending/order/trade/risk + Discord/event
 ```
 
-상세 계층과 주문 시퀀스는 [`ARCHITECTURE.md`](ARCHITECTURE.md)를 본다.
+상세 계층과 주문 시퀀스는 [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)를 본다.
 
 ## 2. 작업별 첫 진입점
 
@@ -111,4 +111,4 @@ BrokerScope + profile/account
 - 이 문서는 작업 라우팅이 달라질 때만 갱신한다.
 - 전체 파일 추가·이동·삭제는 `npm run project-map:update`로 `docs/project-map.md` 생성 블록을 갱신하고 `npm run check:project-map`으로 확인한다.
 - IPC 이름은 이 문서에 복제하지 않고 `docs/ipc-commands.md`에만 유지한다.
-- 검증 명령은 이 문서에 복제하지 않고 [`HARNESS_MAP.md`](HARNESS_MAP.md)에 유지한다.
+- 검증 명령은 이 문서에 복제하지 않고 [`docs/HARNESS_MAP.md`](HARNESS_MAP.md)에 유지한다.

@@ -1,6 +1,6 @@
 # SOXQ-P1-05 일봉 진단·분봉 지표 분리 검증 (2026-10-05)
 
-**구현 검증 완료, 실제 3개월 분봉 재평가는 미완료다.** 엔진 `strategy-replay-v7`, 전용 LTH `leveraged-trend-hold-v3`. [작업 기록](../../../tasks/soxq-p1-05.md), [전체 오프라인 결과](p1-05-results.json), [이전 v6 검증](p1-04-validation.md).
+**구현 검증 완료, 실제 3개월 분봉 재평가는 미완료다.** 엔진 `strategy-replay-v7`, 전용 LTH `leveraged-trend-hold-v3`. [작업 기록](../../tasks/soxq-p1-05.md), [전체 오프라인 결과](p1-05-results.json), [이전 v6 검증](p1-04-validation.md).
 
 ## 수정 결과
 

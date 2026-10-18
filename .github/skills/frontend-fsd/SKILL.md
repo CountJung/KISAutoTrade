@@ -69,7 +69,7 @@ app -> pages -> widgets -> features -> entities -> shared
 4. 새 위치의 `index.ts`에서 public API를 export한다.
 5. 기존 import를 새 public API로 갱신한다.
 6. `npx tsc --noEmit`을 실행하고, 실패한 import를 모두 수정한다.
-7. 구조가 바뀐 경우 `docs/project-map.md`와 필요 시 `todo.md`를 갱신한다.
+7. 구조가 바뀐 경우 `docs/project-map.md`와 필요 시 `docs/todo.md`를 갱신한다.
 
 ## 경계 검증
 
@@ -98,4 +98,4 @@ ESLint나 별도 스크립트를 추가하기 전까지는 수동으로 아래�
 - Strategy의 route 전용 연구 UI는 `src/pages/strategy/ui/strategyResearchPanel.tsx`, A/B localStorage 모델은 `src/pages/strategy/model/experimentStore.ts`에 둔다. replay/backtest IPC 미러 타입은 `src/shared/api/strategyResearchTypes.ts`로 분리하고 `types.ts`에서 호환 re-export한다.
 - FSD 경계 검증은 `npm run check:fsd`로 실행한다. 스크립트는 `scripts/check-fsd-imports.mjs`에 있으며 `shared → entities → features → widgets → pages → app` 역방향 import를 실패 처리한다.
 
-> 마지막 업데이트: 2026-07-15T00:00:00+09:00
+> 마지막 업데이트: 2026-10-18T10:02:23+09:00

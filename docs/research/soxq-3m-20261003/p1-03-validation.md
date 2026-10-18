@@ -2,7 +2,7 @@
 
 엔진 `strategy-replay-v5`. 동결 SOXQ 입력의 평가 64봉(2026-07-06~10-02)과 기존 비용·리스크 가정을 유지했다. 사전자료 252봉 모드와 사전자료 없는 진단 모드를 각각 실행했다. `ui_three_month_defaults`는 이전 runner의 이름이며 현재 UI provider 조회를 그대로 재현한 모드가 아니다.
 
-[기본 결과](p1-03-results.json), [각 20bp 비용 스트레스](p1-03-cost20-results.json), [이전 v4 결과](p1-01-validation.md), [작업 기록](../../../tasks/appledouble-and-soxq-p1-03.md). 초기 v2 차트/보고서는 당시 관측으로 보존한다.
+[기본 결과](p1-03-results.json), [각 20bp 비용 스트레스](p1-03-cost20-results.json), [이전 v4 결과](p1-01-validation.md), [작업 기록](../../tasks/appledouble-and-soxq-p1-03.md). 초기 v2 차트/보고서는 당시 관측으로 보존한다.
 
 ## 이벤트와 포지션 경계
 

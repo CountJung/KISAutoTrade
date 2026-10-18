@@ -131,7 +131,19 @@ KISAutoTrade/
 │   │       ├── runner.rs
 │   │       ├── summary.json
 │   │       └── validation.json
+│   ├── tasks/
+│   │   ├── TASK_TEMPLATE.md
+│   │   ├── appledouble-and-soxq-p1-03.md
+│   │   ├── documentation-layout-20261018.md
+│   │   ├── project-health-and-soxq-p1-01.md
+│   │   ├── soxq-p1-04.md
+│   │   ├── soxq-p1-05.md
+│   │   └── strategy-review-20261018.md
+│   ├── ARCHITECTURE.md
+│   ├── HARNESS_MAP.md
+│   ├── MASTER_PLAN.html
 │   ├── MasterPlan.md
+│   ├── PROJECT_MAP.md
 │   ├── agent-tooling.md
 │   ├── coding-guide.md
 │   ├── discord-setup-guide.md
@@ -142,6 +154,7 @@ KISAutoTrade/
 │   ├── release-security.md
 │   ├── security-mac-handoff-2026-10-06.md
 │   ├── security-storage-handoff-2026-10-06.md
+│   ├── todo.md
 │   ├── toss-openapi.md
 │   ├── toss-readonly-small-order-checklist.md
 │   └── user-guide.md
@@ -498,13 +511,6 @@ KISAutoTrade/
 │   ├── Cargo.toml
 │   ├── build.rs
 │   └── tauri.conf.json
-├── tasks/
-│   ├── TASK_TEMPLATE.md
-│   ├── appledouble-and-soxq-p1-03.md
-│   ├── project-health-and-soxq-p1-01.md
-│   ├── soxq-p1-04.md
-│   ├── soxq-p1-05.md
-│   └── strategy-review-20261018.md
 ├── tests/
 │   └── e2e/
 │       ├── fixtures/
@@ -517,21 +523,16 @@ KISAutoTrade/
 ├── .graphifyignore
 ├── .nvmrc
 ├── AGENTS.md
-├── ARCHITECTURE.md
 ├── CLAUDE.md
 ├── Cargo.lock
 ├── Cargo.toml
-├── HARNESS_MAP.md
 ├── LICENSE
-├── MASTER_PLAN.html
-├── PROJECT_MAP.md
 ├── README.md
 ├── index.html
 ├── package-lock.json
 ├── package.json
 ├── playwright.config.ts
 ├── secure_config.example.json
-├── todo.md
 ├── tsconfig.json
 ├── tsconfig.node.json
 └── vite.config.ts
@@ -539,6 +540,28 @@ KISAutoTrade/
 <!-- project-map:generated:end -->
 
 ---
+
+### 문서 위치와 책임
+
+루트에는 `README.md`, `AGENTS.md`, `CLAUDE.md`를 문서 진입점으로 유지한다.
+일반 운영·설계·할일 문서는 `docs/`, 작업 기록은 `docs/tasks/`에 모은다.
+도구가 요구하는 `.github/`, `.codex/`, `.claude/`, `.serena/` 설정·스킬과
+빌드 설정·라이선스·앱 진입 파일은 각 기존 위치를 유지한다.
+
+| 문서 | 책임 |
+|---|---|
+| `README.md` | 프로젝트 소개·실행과 운영 문서로의 루트 진입점 |
+| `AGENTS.md`, `CLAUDE.md` | 에이전트 작업 규칙과 호환 진입점 |
+| `docs/MASTER_PLAN.html` | 사람용 단계 계획과 금융 안전 게이트 |
+| `docs/PROJECT_MAP.md` | 작업별 수정 시작점과 주요 동기화 묶음의 수동 탐색 지도 |
+| `docs/project-map.md` | 이 문서: 자동 생성 전체 인벤토리와 상세 모듈 책임·데이터 흐름 |
+| `docs/ARCHITECTURE.md` | 현재 구현된 런타임·주문·리스크·저장 경계 |
+| `docs/HARNESS_MAP.md` | 변경 유형별 검증 명령과 완료 게이트 |
+| `docs/todo.md` | 근거·위험·완료 조건이 있는 개선 백로그 |
+| `docs/tasks/` | 작업별 범위·실행·검증·전달 기록, `TASK_TEMPLATE.md` 템플릿 |
+
+`docs/PROJECT_MAP.md`의 밑줄과 `docs/project-map.md`의 하이픈을 구분한다.
+문서 정리는 앱 모듈·IPC·데몬·연구 데이터의 책임을 변경하지 않는다.
 
 ## 2. 파일 저장 위치 요약
 
@@ -754,7 +777,7 @@ docs/research/strategy-review-20261018/input.json
     ↓ analyze.py
 results.jsonl (실행별 compact 결과) / summary.json
     ↓ stock_analyst의 입력·결과·해석 감사
-report.md / validation.json → 기존 todo.md의 근거·우선순위·완료 조건
+report.md / validation.json → docs/todo.md의 근거·우선순위·완료 조건
 ```
 
 연구 실행기는 별도 전략을 재구현하지 않고 생산 Rust 라이브러리를 사용한다.

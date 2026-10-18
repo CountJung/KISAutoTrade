@@ -1,6 +1,6 @@
 # KISAutoTrade 아키텍처
 
-이 문서는 현재 코드에 구현된 경계와 고위험 데이터 흐름을 설명한다. 전체 파일 목록은 [`docs/project-map.md`](docs/project-map.md), 작업별 진입점은 [`PROJECT_MAP.md`](PROJECT_MAP.md)를 사용한다.
+이 문서는 현재 코드에 구현된 경계와 고위험 데이터 흐름을 설명한다. 전체 파일 목록은 [`docs/project-map.md`](project-map.md), 작업별 진입점은 [`docs/PROJECT_MAP.md`](PROJECT_MAP.md)를 사용한다.
 
 ## 1. 시스템 경계
 
@@ -151,7 +151,7 @@ Generic 일봉 v5는 `Strategy`의 시가-only 날짜 시작 → 완성 OHLC 종
 
 ## 11. 변경 도구와 검증
 
-공용 타입·IPC·주문·리스크처럼 영향 범위가 넓을 때 정의/참조 누락 방지를 위해 Serena를 선택 사용할 수 있다. Graphify는 모듈 이동, helper 공용화, 호출 계층 재편 같은 구조 리팩터링 때만 사용한다. 검증 선택표는 [`HARNESS_MAP.md`](HARNESS_MAP.md)를 따른다.
+공용 타입·IPC·주문·리스크처럼 영향 범위가 넓을 때 정의/참조 누락 방지를 위해 Serena를 선택 사용할 수 있다. Graphify는 모듈 이동, helper 공용화, 호출 계층 재편 같은 구조 리팩터링 때만 사용한다. 검증 선택표는 [`docs/HARNESS_MAP.md`](HARNESS_MAP.md)를 따른다.
 
 
 ## 자동매매 예산 경계

@@ -8,7 +8,7 @@
 - 날짜: 2026-10-03
 - 브랜치: main
 - 위험 등급: 보통 — 과거 실행 계약 변경, 실제 주문 없음
-- 관련 문서: [검증](../docs/research/soxq-3m-20261003/p1-04-validation.md), [TODO](../todo.md)
+- 관련 문서: [검증](../research/soxq-3m-20261003/p1-04-validation.md), [TODO](../todo.md)
 
 ## 2. 목표와 비목표
 

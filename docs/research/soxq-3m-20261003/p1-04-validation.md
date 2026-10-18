@@ -2,7 +2,7 @@
 
 엔진 `strategy-replay-v6`. **Generic LTH 실행을 명시 거부하고 기존 입력 시각 기반 전용 경로를 유지한다.** P1-04 완료 조건의 두 대안 중 generic 거부를 적용했다. 제공봉 오프라인 계약을 provider 조회로 바꾸거나 live 전략에 역사 시계를 주입하지 않았다.
 
-[전체 결과](p1-04-results.json), [작업 기록](../../../tasks/soxq-p1-04.md), [이전 v5 날짜 이벤트 검증](p1-03-validation.md). 이전 v2~v5 결과/차트는 당시 관측으로 보존한다.
+[전체 결과](p1-04-results.json), [작업 기록](../../tasks/soxq-p1-04.md), [이전 v5 날짜 이벤트 검증](p1-03-validation.md). 이전 v2~v5 결과/차트는 당시 관측으로 보존한다.
 
 ## 수정 경계
 

@@ -7,7 +7,7 @@
 - 상태: Done — 실행·분석·최종 검증 완료
 - 브랜치/시작: `fix/mac-security-storage-2026-10-06` / `2cd04db`
 - 위험: 보통 — 금융 연구 해석, 생산 주문/리스크 코드 변경 없음
-- 근거: [보고서](../docs/research/strategy-review-20261018/report.md), [검증](../docs/research/strategy-review-20261018/validation.json), [TODO](../todo.md)
+- 근거: [보고서](../research/strategy-review-20261018/report.md), [검증](../research/strategy-review-20261018/validation.json), [TODO](../todo.md)
 
 ## 2. 목표·완료 조건
 
@@ -35,7 +35,7 @@
 | LTH timed preview / simulation | 실제 분봉 전용 진단과 생산 체결/차단 피드백, 시장 시각 미검증 유지 |
 | `.codex/agents/stock_analyst.toml` | 공식 custom-agent 형식 name/description/developer_instructions, 모델 부모 상속 |
 | 새 research runner/prepare/analyze | 자료 정규화·창 선언, 실제 Rust 실행, 집계만 분리. 전략을 Python으로 재구현하지 않음 |
-| `todo.md` / tooling / Rust skill | 수치·근거·완료 조건과 재사용 분석 역할 기록 |
+| `docs/todo.md` / tooling / Rust skill | 수치·근거·완료 조건과 재사용 분석 역할 기록 |
 
 공식 근거: [OpenAI subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents), [Nasdaq 통상 정규장](https://www.nasdaq.com/market-activity/stock-market-holiday-schedule), 입력 metadata의 Yahoo 공개 원본 URL/수집 시각/hash. 미확인: 기업행동 조정·전 기간 캘린더/분봉 completeness·시장 체결 경로.
 

@@ -7,7 +7,7 @@
 - 상태: Done
 - 작성/갱신일: 2026-10-03
 - 대상 브랜치: main (커밋/PR 생성 없음)
-- 관련 문서: [검증 보고서](../docs/research/soxq-3m-20261003/p1-03-validation.md), [TODO](../todo.md)
+- 관련 문서: [검증 보고서](../research/soxq-3m-20261003/p1-03-validation.md), [TODO](../todo.md)
 - 위험 등급: 보통 — replay 공용 훅, 실제 주문 실행 없음
 
 ## 2. 목표와 비목표

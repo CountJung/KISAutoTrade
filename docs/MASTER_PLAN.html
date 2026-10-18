@@ -32,7 +32,7 @@
     </div>
     <aside class="meta">
       <strong>문서 역할</strong>
-      <p>이 HTML은 외부 CDN·폰트·스크립트가 없는 standalone 운영 계획이다. 구현 위치는 <a href="PROJECT_MAP.md">PROJECT_MAP.md</a>, 계층은 <a href="ARCHITECTURE.md">ARCHITECTURE.md</a>, 검증 명령은 <a href="HARNESS_MAP.md">HARNESS_MAP.md</a>가 기준이다.</p>
+      <p>이 HTML은 외부 CDN·폰트·스크립트가 없는 standalone 운영 계획이다. 구현 위치는 <a href="PROJECT_MAP.md">docs/PROJECT_MAP.md</a>, 계층은 <a href="ARCHITECTURE.md">docs/ARCHITECTURE.md</a>, 검증 명령은 <a href="HARNESS_MAP.md">docs/HARNESS_MAP.md</a>가 기준이다.</p>
       <small>계획은 수익 보장이나 투자 권유가 아니며, 테스트 통과는 실거래 안전성의 충분조건이 아니다.</small>
     </aside>
   </div>
@@ -99,7 +99,7 @@
       <article class="card wide"><h3>항상 가까운 harness</h3><pre>npx tsc --noEmit
 npm run check:fsd
 cargo check --workspace --all-targets --locked
-cargo test --workspace --lib --locked</pre><p>변경 범위별 focused test, Playwright, project map, provider spec은 <a href="HARNESS_MAP.md">HARNESS_MAP.md</a>를 따른다.</p></article>
+cargo test --workspace --lib --locked</pre><p>변경 범위별 focused test, Playwright, project map, provider spec은 <a href="HARNESS_MAP.md">docs/HARNESS_MAP.md</a>를 따른다.</p></article>
       <article class="card wide"><h3>탐색 도구 정책</h3><p><strong>Serena:</strong> 공용 타입·IPC·주문·리스크 변경에서 다중 모듈 참조 누락 위험이 있을 때 선택 사용한다.</p><p><strong>Graphify:</strong> 모듈 이동, 공용 helper 추출, 호출 계층 재편 같은 구조 리팩터링 때만 사용한다. 일반 기능·문서 변경의 의무 단계가 아니다.</p></article>
       <article class="card full"><h3>테스트의 주장 한계</h3><p class="caution">preview는 candle-close replay와 비용·리스크 가정을 제공하지만 live cadence, intrabar, provider latency, 실제 체결을 완전히 재현하지 않는다. mock Playwright는 실제 Tauri/provider E2E가 아니다. 이 한계를 완료 보고와 운영 승인에 명시한다.</p></article>
     </div>
@@ -123,7 +123,7 @@ cargo test --workspace --lib --locked</pre><p>변경 범위별 focused test, Pla
       <article class="card wide"><h3>작업 완료</h3><ul><li>요구사항과 비목표가 충족됐다.</li><li>변경된 계약·문서가 동기화됐다.</li><li>focused 및 범위 전체 harness 결과가 기록됐다.</li><li>실거래/모의주문 미실행 여부가 명확하다.</li><li>기존 사용자 변경이 보존됐다.</li><li>잔여 위험과 rollback이 보고됐다.</li></ul></article>
       <article class="card wide"><h3>운영 활성화 승인</h3><ul><li>코드 완료와 별개의 결정이다.</li><li>운영자가 계좌·scope·한도·시장 상태를 확인한다.</li><li>read-only와 모의/소액 검증 결과를 검토한다.</li><li>비상정지·reconciliation 담당자가 준비됐다.</li><li>정해진 손실/오류 임계치에서 자동 중단한다.</li></ul></article>
     </div>
-    <p style="margin-top:25px">작업 기록은 <a href="tasks/TASK_TEMPLATE.md">tasks/TASK_TEMPLATE.md</a>에서 시작한다. 구현 상세의 단일 기준은 항상 현재 코드와 manifest/CI이며, 계획과 코드가 다르면 먼저 차이를 기록하고 문서를 동기화한다.</p>
+    <p style="margin-top:25px">작업 기록은 <a href="tasks/TASK_TEMPLATE.md">docs/tasks/TASK_TEMPLATE.md</a>에서 시작한다. 구현 상세의 단일 기준은 항상 현재 코드와 manifest/CI이며, 계획과 코드가 다르면 먼저 차이를 기록하고 문서를 동기화한다.</p>
   </section>
 </main>
 <footer>KISAutoTrade · standalone operations plan · 외부 리소스 없음</footer>
