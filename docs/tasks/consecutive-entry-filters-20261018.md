@@ -67,7 +67,7 @@ symbol_navigator 역할의 targeted source 참조 조사로 factory·trait·warm
 | TODO renderer | 3/3; 색상/필터/모바일·열린 항목 보존 회귀 |
 | 기본 생산 대조 | flat1224 + long6 전체 backtest/signals, 두 단위 문구와 정확한 알려진 종료 suffix 예외만 적용 |
 | 후보 생산 실행 | 연속24·분할동일24·별도분기288, parent 기록 산술55,986 PASS |
-| 독립 stock 감사 | 312개 원장148,073체크 오류0; 최대 약0.01원/0.00005%p 출력 반올림 차이 |
+| 독립 stock 감사 | 312개 원장148,099체크 오류0; 최대 약0.01원/0.00005%p 출력 반올림 차이 |
 | 코드·문서 최종 감사 | P1/P2 잔여0; 모두0 중립/활성 legacy unknown 설명 drift 수정 확인 |
 | Graphify | CLI refresh; canonical/HTML node ID·edge multiset·community legend·report5502/12008/528 정확히 일치 |
 
@@ -87,3 +87,5 @@ project_mapper가 신규21개 파일 인벤토리와 모듈 책임·완료 일�
 - 기본 SPY20 장기 대조의 최초 실패는 정확한 마지막 미체결 reason의 알려진 종료 suffix 때문이었다. 독립 old/new 원문 diff에서 해당 문구1개 외 회계/경로 차이가 없음을 확인하고 suffix 원문 보존 정규화로 재검증했다.
 - 연구 결과에 따라 전 필터 기본0을 유지한다. 자료/실거래 검증과 사용자 판단 대기 항목의 주황 강조를 보존한다.
 - 변경 파일은 Git diff와 자동 프로젝트 지도에서 확인하며 모든 신규 일반 문서·연구·작업 기록을 docs 아래에 둔다. 커밋/원격 게시 이력은 현재 브랜치 Git log에서 확인한다. 캐시·민감 설정은 커밋하지 않는다.
+
+최종 아카이브 재감사는 312행·148,099검사 오류0이며 이전 독립 감사148,073검사와 경제 지표가 정확히 같음을 추가 확인했다. 변경 commit `d39d15f`와 원격 HEAD 일치·작업 트리 clean을 확인한 뒤 이 최종 감사 기록을 별도 문서 커밋으로 덧붙인다.
