@@ -22,6 +22,8 @@ import type {
   OverseasBalanceResult,
   ChartCandle,
   ChartDataInput,
+  CandlePageInput,
+  CandlePageView,
   ConfigDiagnostic,
   DailyStats,
   DetectTradingTypeResult,
@@ -109,6 +111,9 @@ export const getPrice = (symbol: string): Promise<PriceResponse> =>
   invoke('get_price', { symbol })
 
 // ─── 차트 ───────────────────────────────────────────────────────
+export const getCandlePage = (input: CandlePageInput): Promise<CandlePageView> =>
+  invoke('get_candle_page', { input })
+
 export const getChartData = (input: ChartDataInput): Promise<ChartCandle[]> =>
   invoke('get_chart_data', { input })
 

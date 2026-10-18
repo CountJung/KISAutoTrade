@@ -512,6 +512,7 @@ pub fn run() {
             commands::submit_toss_small_buy_verification,
             commands::get_toss_market_calendar,
             commands::get_toss_chart_data,
+            commands::get_candle_page,
             commands::preview_leveraged_trend_hold,
             commands::preview_strategy,
             commands::get_chart_data,

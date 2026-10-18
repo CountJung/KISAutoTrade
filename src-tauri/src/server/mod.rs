@@ -250,6 +250,7 @@ pub async fn start(
             get(toss_market_calendar_handler),
         )
         .route("/api/toss-chart/:symbol", get(toss_chart_handler))
+        .route("/api/candles/page", get(candle_page_handler))
         .route(
             "/api/strategy/leveraged-trend-hold/preview",
             post(leveraged_trend_hold_preview_handler),

@@ -85,9 +85,10 @@ SOXQ 연구에서 확인한 시뮬레이션 정확성 과제는 아래에 기록
   - P1-05/P2-12의 실제3개월 자료 확보와 별도로 거래소 timezone/DST·봉 시작/종가 공개·정규장/마감·누락 진단을 fixture로 구현할 수 있다. 장중 원본이 없다는 이유로 기술 구현까지 사용자 대기로 돌리지 않는다. 실제 자료 coverage 검증과 fixture 검증은 구분한다.
 - [ ] **🟢 자동 구현** **SOXQ-P2-13 — 가격조건:** 전일 종가 고정·익절5%·손절3% 연구 설정에서 중앙값 +0.2847%, 완료117회, 비용 부호 반전3창. 완료 조건: 평가 전 고정 기준가 유지, 손절 직후 재진입·공통 cooldown/최소 기대수익·회전율을 두 비용과 복수 구간에서 비교; guard 완화나 사후 최적화 금지.
 - [ ] **🟢 자동 구현** **SOXQ-P2-17 — provider별 사전자료 페이지 조회를 연결한다.**
-  - 현재 generic UI는 KIS 단일 응답, Toss 커맨드 최대 200봉 안에서 평가봉을 우선 보존한다. 252봉 이전 자료가 부족하면 기간을 줄이지 않고 부족 상태를 표시한다.
-  - [공식 계약 조사](tasks/provider-candle-contract-20261018.md): Toss inclusive nextBefore/분봉 종료시각, KIS 국내100건 및 해외TR-ID 불일치를 확인했다. 요청 fixture·차트 모듈 분리·공통 page·UI/live 연결은 자동 구현으로 이어간다.
-  - 완료 조건: 공통 candle page/cursor 계약과 Tauri·웹 경로 동기화, 중복/겹침/미래 자료 제거, provider scope·rate limit 유지, 완료 일봉 확인과 live 신고가 최신 봉 제외 경계 유지, 200/252봉 확보 또는 명확한 부족 사유.
+  - [x] 공통 candle page/cursor를 Tauri·웹 GET·TS에 연결했다. KIS D/W/M100봉·Toss D/1m200봉, scope와 기준시각 고정, typed cursor·중복/미래/무효봉 제거·종료 사유를 반환한다. 해외 KIS dailyprice TR-ID와 `xymd` 응답 매핑도 공식 샘플에 맞췄다.
+  - [x] generic UI는 최대8회 요청·보관500봉으로 요청 평가50/100/200봉을 우선 유지하고 이전252봉을 수집한다. 실제 확보량·품질 제외·부분 실패·종료/무진전/상한과 취소·scope 변경 폐기를 검증했다. 분봉은 actual instant 기준 중복·정렬, v9 replay/차트 시간대로 연결한다.
+  - [ ] **잔여 자동 구현:** P2-05의 live 완료 일봉 수집·날짜 전환·run generation/config identity 검증과 targeted 52주 준비 적용. 기존 initializer의 최신1봉 제외와 완료 page를 중복 적용하지 않는다. quote/손절 polling은 network 수집을 기다리지 않게 한다. 이는 자료 제공을 기다리는 과제가 아니다.
+  - [공식 계약·구현/검증 기록](tasks/provider-candle-contract-20261018.md). 실제 provider 응답·보관 범위는 fixture 통과만으로 확정하지 않는다. 200/252봉을 확보하지 못하면 요구량을 낮추지 않고 부족 이유를 유지한다.
 - [ ] **🟢 자동 구현** **SOXQ-P2-14 — 체결 가능성과 장중 손절을 별도로 모델링한다.**
   - 현재 종가 신호가 동일 종가+슬리피지에 체결된다. next-bar-open 체결 모드, 신호/체결 시각과 봉 종가 공개 시각 구분, 장중 경로 미확인 상태를 추가한다. 비용에 따른 실제 체결가 피드백이 청산 경로를 바꾸는 QQQ2026Q3 평균회귀 사례도 회귀 fixture로 고정한다.
   - 완료 조건: 익일 갭 fixture; 같은 봉에서 손절·익절이 함께 닿을 때 순서 불명/보수적 처리; close-only와 next-open 결과 비교.

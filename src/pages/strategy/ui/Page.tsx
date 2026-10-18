@@ -820,6 +820,7 @@ export default function Strategy() {
                         onUpdate={(syms) => setPcEditMap((prev) => ({ ...prev, [s.id]: syms }))}
                       />
                       <StrategyPreviewPanel
+                        profileId={appConfig?.active_profile_id ?? null}
                         strategyId={s.id}
                         strategyName={s.name}
                         brokerId={s.brokerId}
@@ -933,6 +934,7 @@ export default function Strategy() {
                     ))}
                   </Grid>
                   <StrategyPreviewPanel
+                    profileId={appConfig?.active_profile_id ?? null}
                     strategyId={s.id}
                     strategyName={s.name}
                     brokerId={s.brokerId}

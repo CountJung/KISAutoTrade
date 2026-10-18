@@ -7,6 +7,7 @@ export interface CmdError {
 }
 
 export type BrokerId = 'kis' | 'toss'
+export type { CandleInterval, CandlePageInput, CandlePageView } from './candlePageTypes'
 
 export interface AutoTradingBudgetInput {
   brokerId: BrokerId

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, TimeZone};
+use chrono::{DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, TimeZone};
 use serde::{Deserialize, Serialize};
 
 use crate::broker::BrokerScope;
@@ -17,7 +17,7 @@ mod atr;
 pub use atr::AtrPreparationView;
 use atr::AtrWindow;
 
-pub const REPLAY_ENGINE_VERSION: &str = "strategy-replay-v8";
+pub const REPLAY_ENGINE_VERSION: &str = "strategy-replay-v9";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -335,7 +335,7 @@ pub fn run_backtest_with_history(
     let mut atr_preparation = AtrWindow::preparation(history_events.len(), atr_window.ready());
 
     for (index, event) in events.iter().enumerate() {
-        let event_time = parse_replay_time(&event.time);
+        let event_time = parse_replay_time(&event.time, is_overseas);
         if risk.reset_for_date(event_time.date_naive()) && risk.is_emergency_stop() {
             // replay에는 사용자 수동 비상정지 입력이 없으므로 전 거래일의 자동 손실한도
             // 비상정지는 다음 거래일 시작에 해제한다.
@@ -674,7 +674,20 @@ fn signal_parts(signal: &Signal) -> (&str, u64, &str) {
     }
 }
 
-fn parse_replay_time(value: &str) -> DateTime<Local> {
+fn parse_replay_time(value: &str, is_overseas: bool) -> DateTime<FixedOffset> {
+    if let Ok(instant) = DateTime::parse_from_rfc3339(value) {
+        // Replay risk reset and same-day reentry rules follow the market calendar,
+        // independent of the machine timezone. Fix each event's actual DST offset.
+        return if is_overseas {
+            instant
+                .with_timezone(&chrono_tz::America::New_York)
+                .fixed_offset()
+        } else {
+            instant
+                .with_timezone(&chrono_tz::Asia::Seoul)
+                .fixed_offset()
+        };
+    }
     let digits: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
     let parsed = match digits.len() {
         14.. => NaiveDateTime::parse_from_str(&digits[..14], "%Y%m%d%H%M%S").ok(),
@@ -691,6 +704,33 @@ fn parse_replay_time(value: &str) -> DateTime<Local> {
                 .earliest()
                 .expect("local timezone must represent unix epoch")
         })
+        // Preserve legacy compact/daily replay interpretation and numeric results.
+        .fixed_offset()
+}
+
+#[test]
+fn replay_time_preserves_rfc3339_instant_and_subseconds() {
+    let utc = parse_replay_time("2026-07-11T13:30:00.125Z", true);
+    let new_york = parse_replay_time("2026-07-11T09:30:00.125-04:00", true);
+    let seoul = parse_replay_time("2026-07-11T22:30:00.125+09:00", true);
+    assert_eq!(utc, new_york);
+    assert_eq!(utc, seoul);
+    assert_eq!(utc.timestamp_millis(), 1_783_776_600_125);
+    assert_eq!(utc.offset().local_minus_utc(), -4 * 60 * 60);
+    let winter = parse_replay_time("2026-11-01T06:30:00Z", true);
+    assert_eq!(winter.offset().local_minus_utc(), -5 * 60 * 60);
+    assert_eq!(
+        parse_replay_time("2026-07-11T23:30:00Z", true)
+            .date_naive()
+            .to_string(),
+        "2026-07-11"
+    );
+    assert_eq!(
+        parse_replay_time("2026-07-11T23:30:00Z", false)
+            .date_naive()
+            .to_string(),
+        "2026-07-12"
+    );
 }
 
 fn units_to_krw(units: u64, is_overseas: bool, exchange_rate: f64) -> f64 {

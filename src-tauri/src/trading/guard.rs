@@ -1,12 +1,12 @@
 use std::collections::{HashMap, VecDeque};
 
-use chrono::{DateTime, Duration, Local, NaiveDate};
+use chrono::{DateTime, Duration, FixedOffset, Local, NaiveDate, TimeZone};
 
 use crate::broker::BrokerScope;
 use crate::trading::strategy::Signal;
 
 type ScopedSymbol = (BrokerScope, String);
-type RecentSideHistory = VecDeque<(DateTime<Local>, GuardSide)>;
+type RecentSideHistory = VecDeque<(DateTime<FixedOffset>, GuardSide)>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GuardSide {
@@ -51,9 +51,9 @@ impl Default for TradeGuardConfig {
 
 pub struct TradeGuard {
     config: TradeGuardConfig,
-    last_order_at: HashMap<(BrokerScope, String, GuardSide), DateTime<Local>>,
+    last_order_at: HashMap<(BrokerScope, String, GuardSide), DateTime<FixedOffset>>,
     recent_sides: HashMap<ScopedSymbol, RecentSideHistory>,
-    cooldown_until: HashMap<ScopedSymbol, DateTime<Local>>,
+    cooldown_until: HashMap<ScopedSymbol, DateTime<FixedOffset>>,
     stop_loss_block_date: HashMap<ScopedSymbol, NaiveDate>,
 }
 
@@ -111,7 +111,7 @@ impl TradeGuard {
     /// 실시간 주문은 `evaluate_for_scope()`를 사용하고 deterministic replay는 이 경계를
     /// 사용해 동일한 쿨다운/손절 후 재진입/휩소 규칙을 과거 시각으로 재현한다.
     #[allow(clippy::too_many_arguments)]
-    pub fn evaluate_for_scope_at(
+    pub fn evaluate_for_scope_at<Tz: TimeZone>(
         &mut self,
         scope: &BrokerScope,
         signal: &Signal,
@@ -119,8 +119,11 @@ impl TradeGuard {
         avg_price: Option<u64>,
         tick_price: u64,
         is_overseas: bool,
-        now: DateTime<Local>,
+        now: DateTime<Tz>,
     ) -> GuardDecision {
+        // Retain the caller's calendar offset while elapsed durations use actual instants.
+        // Live wrappers supply Local; replay supplies the instrument's market timezone.
+        let now = now.fixed_offset();
         let (symbol, side) = match signal {
             Signal::Buy { symbol, .. } => (symbol, GuardSide::Buy),
             Signal::Sell { symbol, .. } => (symbol, GuardSide::Sell),
@@ -220,12 +223,13 @@ impl TradeGuard {
     }
 
     /// 지정 시각에 주문이 접수된 것으로 기록한다. deterministic replay 전용 시각 경계다.
-    pub fn record_submitted_for_scope_at(
+    pub fn record_submitted_for_scope_at<Tz: TimeZone>(
         &mut self,
         scope: &BrokerScope,
         signal: &Signal,
-        now: DateTime<Local>,
+        now: DateTime<Tz>,
     ) {
+        let now = now.fixed_offset();
         let (symbol, side, reason) = match signal {
             Signal::Buy { symbol, reason, .. } => (symbol.clone(), GuardSide::Buy, reason),
             Signal::Sell { symbol, reason, .. } => (symbol.clone(), GuardSide::Sell, reason),
@@ -250,7 +254,7 @@ impl TradeGuard {
         self.recent_sides.clear();
     }
 
-    fn prune_recent(&mut self, scope: &BrokerScope, symbol: &str, now: DateTime<Local>) {
+    fn prune_recent(&mut self, scope: &BrokerScope, symbol: &str, now: DateTime<FixedOffset>) {
         let cutoff = now - Duration::minutes(self.config.whipsaw_window_min);
         let key = (scope.clone(), symbol.to_string());
         if let Some(recent) = self.recent_sides.get_mut(&key) {
@@ -404,6 +408,63 @@ mod tests {
         assert!(matches!(
             guard.evaluate(&sell, 1, Some(70_000), 70_010, false),
             GuardDecision::Block { reason } if reason.contains("기대 순익")
+        ));
+    }
+
+    #[test]
+    fn explicit_market_dates_control_stop_reentry_and_dst_elapsed_cooldown() {
+        let mut guard = TradeGuard::default();
+        let account = scope("synthetic-market");
+        let parse = |time| DateTime::parse_from_rfc3339(time).unwrap();
+        let stop = parse("2026-07-10T23:02:00-04:00");
+        guard.record_submitted_for_scope_at(&account, &sell_signal("손절 매도"), stop);
+        assert!(matches!(
+            guard.evaluate_for_scope_at(&account, &buy_signal(), 0, None, 70_000, true,
+                parse("2026-07-10T23:59:00-04:00")),
+            GuardDecision::Block { reason } if reason.contains("손절 후")
+        ));
+        assert!(matches!(
+            guard.evaluate_for_scope_at(
+                &account,
+                &buy_signal(),
+                0,
+                None,
+                70_000,
+                true,
+                parse("2026-07-11T00:30:00-04:00")
+            ),
+            GuardDecision::Allow
+        ));
+
+        let mut guard = TradeGuard::default();
+        let ny = chrono_tz::America::New_York;
+        let first = parse("2026-11-01T01:30:00-04:00").with_timezone(&ny);
+        let second = parse("2026-11-01T01:30:00-05:00").with_timezone(&ny);
+        guard.record_submitted_for_scope_at(&account, &buy_signal(), first);
+        assert!(matches!(
+            guard.evaluate_for_scope_at(&account, &buy_signal(), 0, None, 70_000, true, second),
+            GuardDecision::Allow
+        ));
+    }
+
+    #[test]
+    fn live_wrappers_keep_local_calendar_and_instant() {
+        let mut guard = TradeGuard::default();
+        let account = scope("synthetic-live");
+        let before = Local::now();
+        guard.record_submitted_for_scope(&account, &sell_signal("손절 매도"));
+        let after = Local::now();
+        let stored = guard.last_order_at[&(account.clone(), "005930".into(), GuardSide::Sell)];
+        assert!(stored >= before && stored <= after);
+        let local = stored.with_timezone(&Local).fixed_offset();
+        assert_eq!(stored.offset(), local.offset());
+        assert_eq!(
+            guard.stop_loss_block_date[&(account.clone(), "005930".into())],
+            stored.date_naive()
+        );
+        assert!(matches!(
+            guard.evaluate_for_scope(&account, &buy_signal(), 0, None, 70_000, false),
+            GuardDecision::Block { reason } if reason.contains("손절 후")
         ));
     }
 }

@@ -1,4 +1,4 @@
-import type { ChartCandle, StrategyPreviewPreparation } from '../../../src/api/types'
+import type { CandlePageView, ChartCandle, StrategyPreviewPreparation, StrategyPreviewSignal } from '../../../src/api/types'
 
 const strategyEntries = [
   {
@@ -96,7 +96,12 @@ type MockOptions = {
   genericPreviewRequests?: unknown[]
   chartRequests?: string[]
   chartCandles?: ChartCandle[]
+  candlePages?: Array<Partial<CandlePageView>>
+  candlePageDelayMs?: number
+  candlePageError?: { page: number; code: string }
   genericPreparation?: StrategyPreviewPreparation
+  genericSignals?: StrategyPreviewSignal[]
+  genericSymbol?: string
   updateRequests?: unknown[]
   scopeController?: { current: 'A' | 'B' }
 }
@@ -218,10 +223,14 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
     strategy('price_condition_default', 'PriceConditionStrategy', 13),
   ].map((item) => ({
     ...item,
+    ...(options.genericSymbol && item.id === 'ma_cross_default' ? {
+      targetSymbols: [options.genericSymbol], targetSymbolNames: { [options.genericSymbol]: 'Mock overseas' },
+    } : {}),
     brokerId: activeBroker,
     brokerAccountId: activeBroker === 'toss' ? '1' : '12345678-01',
   }))
 
+  let candlePageIndex = 0
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url())
     if (!url.pathname.startsWith('/api/')) {
@@ -342,6 +351,38 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
       })
       return
     }
+    if (url.pathname === '/api/candles/page') {
+      options.chartRequests?.push(url.toString())
+      const pageIndex = candlePageIndex++
+      if (options.candlePageDelayMs) await new Promise((resolve) => setTimeout(resolve, options.candlePageDelayMs))
+      if (options.candlePageError?.page === pageIndex) {
+        await route.fulfill({ status: 409, json: { error: 'mock page failure', code: options.candlePageError.code } })
+        return
+      }
+      const defaults = ['20260701', '20260702', '20260703', '20260704'].map((date) => ({ date, open: '100', high: '109', low: '99', close: '106', volume: '1000' }))
+      const ordered = [...new Map((options.chartCandles ?? defaults).map((candle) => [candle.date, candle])).values()]
+        .sort((left, right) => left.date.localeCompare(right.date))
+      const capacity = activeBroker === 'kis' ? 100 : 200
+      const offset = url.searchParams.has('cursor') ? JSON.parse(url.searchParams.get('cursor')!).offset as number : 0
+      const start = Math.max(0, ordered.length - offset - capacity)
+      const end = ordered.length - offset
+      const nextCursor = options.candlePages
+        ? (pageIndex + 1 < options.candlePages.length ? JSON.stringify({ offset: pageIndex + 1, token: 'a+/=&한글' }) : null)
+        : (start > 0 ? JSON.stringify({ offset: offset + capacity, token: 'a+/=&한글' }) : null)
+      const response = {
+        candles: ordered.slice(start, end), nextCursor, endReason: nextCursor ? null : 'exhausted',
+        brokerId: activeBroker, profileId: activeProfileId(),
+        scopeKey: `${activeProfileId()}:${activeAccountId()}:${url.searchParams.get('symbol')}`,
+        symbol: url.searchParams.get('symbol'), interval: url.searchParams.get('interval'),
+        exchange: url.searchParams.get('exchange'), source: `${activeBroker}Mock`,
+        timestampSemantics: url.searchParams.get('interval') === '1m' ? 'barClose' : 'tradingDate',
+        completionPolicy: url.searchParams.get('interval') === '1m' ? 'barCloseAtOrBeforeAsOf' : 'strictlyBeforeCurrentMarketPeriod',
+        asOf: '2026-10-18T00:00:00Z', excludedUnfinishedBars: 0, excludedInvalidBars: 0,
+        ...options.candlePages?.[pageIndex],
+      }
+      await route.fulfill({ json: response })
+      return
+    }
     if (url.pathname.startsWith('/api/chart/') || url.pathname.startsWith('/api/toss-chart/')) {
       options.chartRequests?.push(url.toString())
       await route.fulfill({
@@ -365,7 +406,7 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
           strategyId: body.strategyId,
           symbol: body.symbol,
           candles: body.candles,
-          signals: [
+          signals: options.genericSignals ?? [
             {
               time: '20260702',
               side: 'buy',

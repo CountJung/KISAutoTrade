@@ -30,6 +30,8 @@ mod orders;
 pub use orders::*;
 mod market;
 pub use market::*;
+mod candles;
+pub use candles::*;
 mod records;
 pub use records::*;
 mod settings;

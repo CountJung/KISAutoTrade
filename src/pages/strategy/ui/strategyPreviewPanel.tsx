@@ -11,15 +11,14 @@ import Typography from '@mui/material/Typography'
 import RefreshIcon from '@mui/icons-material/Refresh'
 
 import { usePreviewStrategy } from '../../../api/hooks'
-import * as cmd from '../../../api/commands'
 import type {
   BrokerId,
-  ChartCandle,
   CmdError,
   SimulationAssumptions,
   StrategyPreviewPreparation,
   StrategyPreviewView,
 } from '../../../api/types'
+import { collectPreviewCandles, type CandleCollection } from '../model/candlePageCollector'
 import { StrategyPreviewChart } from './leveragedTrendHoldPreviewChart'
 import {
   defaultSimulationAssumptions,
@@ -28,7 +27,6 @@ import {
   StrategyResearchResults,
 } from './strategyResearchPanel'
 
-const OVERSEAS_EXCHANGES = ['NAS', 'NYS', 'AMS'] as const
 type PreviewInterval = '1m' | 'D' | 'W' | 'M'
 type PreviewCount = 50 | 100 | 200
 
@@ -42,26 +40,6 @@ const TOSS_INTERVALS: Array<{ value: PreviewInterval; label: string }> = [
   { value: 'D', label: '일봉' },
 ]
 const PREVIEW_COUNTS: PreviewCount[] = [50, 100, 200]
-const HISTORY_REQUEST_BARS = 252
-
-function previewRangeLabel(actual: number, requested: PreviewCount) {
-  return actual === requested ? `최근 ${requested}봉` : `실제 ${actual}봉 / 요청 ${requested}봉`
-}
-
-function splitPreviewCandles(candles: ChartCandle[], count: PreviewCount, dataSource: string) {
-  const ordered = [...new Map(candles.map((candle) => [candle.date, candle])).values()]
-    .sort((left, right) => left.date.localeCompare(right.date))
-  const evaluationStart = Math.max(0, ordered.length - count)
-  const evaluation = ordered.slice(evaluationStart)
-  const historyCandles = ordered.slice(0, evaluationStart)
-  return {
-    candles: evaluation,
-    historyCandles,
-    dataSource,
-    sourceLabel: `${dataSource} · ${previewRangeLabel(evaluation.length, count)} · 사전 자료 ${historyCandles.length}봉`,
-  }
-}
-
 function PreparationStatus({ value }: { value: StrategyPreviewPreparation }) {
   const historyLabel = value.historyStatus === 'unsupported' ? '사전 자료 요구량 미지원'
     : value.historyStatus === 'notRequired' ? '사전 자료 불필요'
@@ -99,70 +77,12 @@ function isDomesticSymbol(symbol: string) {
   return symbol.length === 6 && /^[0-9]/.test(symbol)
 }
 
-function toYmd(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}${month}${day}`
-}
-
-async function loadPreviewCandles(
-  symbol: string,
-  brokerId: BrokerId,
-  interval: PreviewInterval,
-  count: PreviewCount,
-): Promise<{ candles: ChartCandle[]; historyCandles: ChartCandle[]; sourceLabel: string; dataSource: string; isOverseas: boolean }> {
-  const isOverseas = !isDomesticSymbol(symbol)
-  const intervalLabel = interval === '1m' ? '1분봉' : interval === 'D' ? '일봉' : interval === 'W' ? '주봉' : '월봉'
-
-  if (brokerId === 'toss') {
-    const tossInterval = interval === '1m' ? '1m' : '1d'
-    const candles = await cmd.getTossChartData(symbol, tossInterval, Math.min(count + HISTORY_REQUEST_BARS, 200))
-    return {
-      ...splitPreviewCandles(candles, count, `Toss ${intervalLabel}`),
-      isOverseas,
-    }
-  }
-
-  if (!isOverseas) {
-    const end = new Date()
-    const start = new Date(end)
-    const calendarDaysPerCandle = interval === 'D' ? 2 : interval === 'W' ? 8 : 32
-    const requestedBars = count + HISTORY_REQUEST_BARS
-    start.setDate(start.getDate() - requestedBars * calendarDaysPerCandle)
-    const candles = await cmd.getChartData({
-      symbol,
-      period_code: interval,
-      start_date: toYmd(start),
-      end_date: toYmd(end),
-      count: requestedBars,
-    })
-    return {
-      ...splitPreviewCandles(candles, count, `KIS ${intervalLabel}`),
-      isOverseas: false,
-    }
-  }
-
-  let lastError: unknown = null
-  for (const exchange of OVERSEAS_EXCHANGES) {
-    try {
-      const candles = await cmd.getOverseasChartData(symbol, exchange, interval, '', count + HISTORY_REQUEST_BARS)
-      return {
-        ...splitPreviewCandles(candles, count, `KIS ${exchange} ${intervalLabel}`),
-        isOverseas: true,
-      }
-    } catch (error) {
-      lastError = error
-    }
-  }
-  throw lastError ?? new Error(`${symbol} 해외 일봉 차트를 조회할 수 없습니다.`)
-}
-
 type Props = {
   strategyId: string
   strategyName: string
   brokerId: BrokerId
   brokerAccountId: string | null
+  profileId: string | null
   symbols: string[]
   symbolNames: Record<string, string>
   orderQuantity: number
@@ -174,6 +94,7 @@ export function StrategyPreviewPanel({
   strategyName,
   brokerId,
   brokerAccountId,
+  profileId,
   symbols,
   symbolNames,
   orderQuantity,
@@ -189,12 +110,15 @@ export function StrategyPreviewPanel({
   const [assumptions, setAssumptions] = useState<SimulationAssumptions>(() => defaultSimulationAssumptions(initialIsOverseas))
   const assumptionsMarket = useRef(initialIsOverseas)
   const [sourceLabel, setSourceLabel] = useState('일봉 캔들')
+  const [collecting, setCollecting] = useState(false)
+  const [collection, setCollection] = useState<CandleCollection | null>(null)
   const [localError, setLocalError] = useState<string | null>(null)
   const previewGeneration = useRef(0)
   const previewInputKey = JSON.stringify({
     strategyId,
     brokerId,
     brokerAccountId,
+    profileId,
     symbols,
     selectedSymbol,
     previewInterval,
@@ -204,8 +128,15 @@ export function StrategyPreviewPanel({
     assumptions,
   })
 
+  const currentInputKey = useRef(previewInputKey)
+  currentInputKey.current = previewInputKey
+
+  useEffect(() => () => { previewGeneration.current += 1 }, [])
+
   useEffect(() => {
     previewGeneration.current += 1
+    setCollecting(false)
+    setCollection(null)
     setPreview(null)
     setLocalError(null)
     previewMutation.reset()
@@ -243,12 +174,23 @@ export function StrategyPreviewPanel({
   const error = previewMutation.error as CmdError | Error | null
 
   const handlePreview = async () => {
-    if (!selectedSymbol) return
-    const requestGeneration = previewGeneration.current
+    if (!selectedSymbol || !profileId) return
+    const requestGeneration = ++previewGeneration.current
+    const requestInputKey = previewInputKey
+    const cancelled = () => requestGeneration !== previewGeneration.current || requestInputKey !== currentInputKey.current
     setLocalError(null)
+    setPreview(null)
+    setCollection(null)
+    setCollecting(true)
     try {
-      const loaded = await loadPreviewCandles(selectedSymbol, brokerId, previewInterval, previewCount)
-      if (requestGeneration !== previewGeneration.current) return
+      const loaded = await collectPreviewCandles({
+        symbol: selectedSymbol, brokerId, interval: previewInterval,
+        isOverseas: !isDomesticSymbol(selectedSymbol), expectedProfileId: profileId,
+        expectedBrokerAccountId: brokerAccountId ?? undefined,
+      }, previewCount, cancelled)
+      if (cancelled()) return
+      setCollection(loaded)
+      if (!loaded.candles.length) throw new Error(`완료된 평가 봉이 없습니다. ${loaded.sourceLabel}`)
       setSourceLabel(loaded.sourceLabel)
       const result = await previewMutation.mutateAsync({
         strategyId,
@@ -266,13 +208,25 @@ export function StrategyPreviewPanel({
         brokerAccountId,
         assumptions,
       })
-      if (requestGeneration !== previewGeneration.current) return
+      if (cancelled()) return
       setPreview(result)
     } catch (caught) {
-      if (requestGeneration !== previewGeneration.current) return
+      if (cancelled()) return
       setPreview(null)
-      setLocalError(caught instanceof Error ? caught.message : '미리보기 차트 데이터를 가져오지 못했습니다.')
+      setLocalError(caught instanceof Error ? caught.message : typeof caught === 'object' && caught !== null && 'message' in caught ? String(caught.message) : '미리보기 차트 데이터를 가져오지 못했습니다.')
+    } finally {
+      if (!cancelled()) setCollecting(false)
     }
+  }
+
+  const busy = collecting || previewMutation.isPending
+  const cancelPreview = () => {
+    previewGeneration.current += 1
+    setCollecting(false)
+    setCollection(null)
+    setPreview(null)
+    previewMutation.reset()
+    setLocalError('미리보기 계산을 취소했습니다.')
   }
 
   return (
@@ -280,7 +234,7 @@ export function StrategyPreviewPanel({
       <SimulationAssumptionsEditor
         value={assumptions}
         onChange={setAssumptions}
-        disabled={previewMutation.isPending}
+        disabled={busy}
       />
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
@@ -312,7 +266,7 @@ export function StrategyPreviewPanel({
               setPreview(null)
               setLocalError(null)
             }}
-            disabled={symbols.length === 0 || previewMutation.isPending}
+            disabled={symbols.length === 0 || busy}
             fullWidth
             sx={{ minWidth: { sm: 220 } }}
           >
@@ -332,7 +286,7 @@ export function StrategyPreviewPanel({
               setPreview(null)
               setLocalError(null)
             }}
-            disabled={previewMutation.isPending}
+            disabled={busy}
             fullWidth
             sx={{ minWidth: { sm: 110 } }}
           >
@@ -350,7 +304,7 @@ export function StrategyPreviewPanel({
               setPreview(null)
               setLocalError(null)
             }}
-            disabled={previewMutation.isPending}
+            disabled={busy}
             fullWidth
             sx={{ minWidth: { sm: 120 } }}
           >
@@ -361,21 +315,30 @@ export function StrategyPreviewPanel({
           <Button
             size="small"
             variant="outlined"
-            startIcon={previewMutation.isPending ? <CircularProgress size={14} /> : <RefreshIcon />}
+            startIcon={busy ? <CircularProgress size={14} /> : <RefreshIcon />}
             onClick={handlePreview}
-            disabled={!selectedSymbol || previewMutation.isPending}
+            disabled={!selectedSymbol || !profileId || busy}
             sx={{ width: { xs: '100%', sm: 'auto' }, whiteSpace: 'nowrap' }}
           >
-            미리보기 계산
+            {collecting ? '캔들 페이지 조회 중' : '미리보기 계산'}
           </Button>
+          {busy && <Button size="small" onClick={cancelPreview}>취소</Button>}
         </Stack>
       </Stack>
 
       <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
         요청 분석 구간 최근 {previewCount}봉을 평가하고, 그 이전 봉만 사전 자료로 사용합니다.
-        {' '}{brokerId === 'toss' ? 'Toss는 한 페이지 최대 200봉' : 'KIS는 한 페이지 응답 범위'} 내에서 조회해
-        사전 자료가 부족할 수 있으며, 추가 페이지 조회는 하지 않습니다.
+        {' '}{brokerId === 'toss' ? 'Toss는 한 페이지 최대 200봉' : 'KIS는 한 페이지 최대 100봉'}으로 사전 자료 252봉까지 순차 조회합니다.
+        최대 8페이지·보관 500봉이며, 제공 자료가 끝나면 실제 확보량과 부족 사유를 표시합니다.
       </Typography>
+
+      {collection && (
+        <Alert severity={collection.historyCandles.length < 252 || collection.candles.length < previewCount ? 'warning' : 'info'}
+          data-testid="candle-collection-status" sx={{ mb: 1, overflowWrap: 'anywhere' }}>
+          {collection.sourceLabel}
+          {(collection.historyCandles.length < 252 || collection.candles.length < previewCount) && ' · 자료 부족: 요청 기간과 사전 자료 기준을 줄이지 않습니다.'}
+        </Alert>
+      )}
 
       {dailyEventStrategy && (
         <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }} data-testid="daily-event-replay-note">
@@ -399,7 +362,7 @@ export function StrategyPreviewPanel({
           </Alert>
           <Typography variant="caption" color="text.secondary" data-testid="strategy-evaluation-range">
             요청 분석 {previewCount}봉 · 실제 평가 {preview.candles.length}봉
-            {' · '}사전 자료 {preview.preparation?.providedHistoryBars ?? preview.replay?.warmupCount ?? 0}봉
+            {' · '}사전 자료 {collection?.historyCandles.length ?? preview.preparation?.providedHistoryBars ?? 0}봉
           </Typography>
           {preview.preparation && <PreparationStatus value={preview.preparation} />}
           <StrategyPreviewChart

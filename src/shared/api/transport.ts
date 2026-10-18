@@ -71,6 +71,15 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
       return { method: 'POST', url: '/api/order', body: args.input }
 
     // ─── 차트 데이터 ──────────────────────────────────────────
+    case 'get_candle_page': {
+      const input = args.input as Record<string, unknown>
+      const query = new URLSearchParams()
+      for (const [key, value] of Object.entries(input)) {
+        if (value != null) query.set(key, String(value))
+      }
+      return { method: 'GET', url: `/api/candles/page?${query}` }
+    }
+
     case 'get_chart_data': {
       const inp = args.input as {
         symbol: string
@@ -362,7 +371,8 @@ async function restInvoke<T>(command: string, args: Args = {}): Promise<T> {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error((err as { error?: string }).error ?? res.statusText)
+    const detail = err as { error?: string; message?: string; code?: string }
+    throw Object.assign(new Error(detail.message ?? detail.error ?? res.statusText), { code: detail.code })
   }
 
   const data = (await res.json()) as Record<string, unknown>

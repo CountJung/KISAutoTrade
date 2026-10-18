@@ -54,6 +54,11 @@ function toNumber(value: string) {
 }
 
 function parseTimeMs(value: string, fallbackIndex = 0): number {
+  // Offset-bearing timestamps already identify the instant; stripping digits loses the offset.
+  if (/(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(value)) {
+    const timestamp = Date.parse(value)
+    if (Number.isFinite(timestamp)) return timestamp
+  }
   const digits = value.replace(/\D/g, '')
   if (digits.length === 8) {
     const year = Number(digits.slice(0, 4))

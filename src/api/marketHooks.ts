@@ -6,6 +6,8 @@ import { KEYS } from './queryKeys'
 import { useRefreshConfig } from './settingsHooks'
 import type {
   ChartCandle,
+  CandlePageInput,
+  CandlePageView,
   OverseasPriceResponse,
   PriceResponse,
   StockSearchItem,
@@ -17,6 +19,24 @@ import type {
 } from './types'
 
 // ─── 차트 데이터 ──────────────────────────────────────────────────────
+export function useCandlePage(
+  input: CandlePageInput,
+  options?: Partial<UseQueryOptions<CandlePageView>>,
+) {
+  return useQuery({
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    retry: false,
+    ...options,
+    queryKey: KEYS.candlePage(input),
+    queryFn: () => {
+      if (!input.expectedProfileId || !input.symbol) throw new Error('캔들 조회 프로파일과 종목을 확인하세요.')
+      return cmd.getCandlePage(input)
+    },
+    enabled: input.expectedProfileId && input.symbol ? options?.enabled ?? true : false,
+  })
+}
+
 /** symbol 6자리 + 프리셋 키 보유 시 자동 페치 */
 export function useChartData(
   symbol: string,

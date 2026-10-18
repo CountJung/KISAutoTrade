@@ -16,6 +16,20 @@ use crate::{
     trading::order::{OrderManager, SubmissionOutcome},
 };
 
+pub(super) async fn candle_page_handler(
+    State(s): State<ServerState>,
+    Query(input): Query<crate::commands::CandlePageInput>,
+) -> Response {
+    let Some(profile) = s.profiles.read().await.get_active().cloned() else {
+        return (StatusCode::CONFLICT, Json(serde_json::json!({"code":"CONFIG_NOT_READY", "message":"활성 프로파일이 없습니다."}))).into_response();
+    };
+    let rest = s.rest_client.read().await.clone();
+    match crate::commands::get_candle_page_for_profile(input, profile, rest).await {
+        Ok(page) => Json(page).into_response(),
+        Err(error) => (StatusCode::BAD_REQUEST, Json(error)).into_response(),
+    }
+}
+
 pub(super) async fn balance_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
     let client = s.rest_client.read().await.clone();
     match client.get_balance().await {

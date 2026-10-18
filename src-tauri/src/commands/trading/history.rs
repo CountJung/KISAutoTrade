@@ -108,6 +108,10 @@ pub(crate) async fn initialize_active_strategy_history(
         } else {
             None
         };
+        if execution_scope.broker_id == BrokerId::Toss && toss_adapter.is_none() {
+            tracing::warn!("Toss 실행 scope의 프로파일을 찾지 못해 히스토리 초기화를 중단합니다.");
+            return;
+        }
         let rest = rest_client.read().await.clone();
         let today = chrono::Local::now();
         let end_date = today.format("%Y%m%d").to_string();

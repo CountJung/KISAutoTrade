@@ -70,6 +70,7 @@
 | `modify_toss_order` | 활성 Toss 프로파일의 접수 주문 정정 요청 (`orderId`, `orderType`, `quantity`, `price`) |
 | `submit_toss_small_buy_verification` | 호환용 Toss 1주 소액매매 검증 endpoint. 실거래 동의/최종 확인/최대 허용금액/accountSeq 일치/사전검증/미체결 scan 후 시장가 매수를 제출하고 주문·체결 기록을 저장. 현재 UI는 일반 수동주문 경로를 사용 |
 | `get_toss_market_calendar` | 활성 Toss 프로파일로 KR/US 정규장 캘린더 조회 (`regularSession`, `isRegularOpen`) |
+| `get_candle_page` | KIS/Toss 공통 완료봉 페이지 조회. 활성 프로파일·계좌 scope와 기준 시각을 고정한 typed cursor, 완료/무효 제외 수·출처·종료 사유 반환. 웹 GET `/api/candles/page`와 동일 camelCase DTO |
 | `get_toss_chart_data` | 활성 Toss 프로파일로 캔들 조회 (`1d`/`1m`, count 1~200, `ChartCandle[]`) |
 | `preview_leveraged_trend_hold` | 활성 Toss profile/account scope와 `1m`/`1d` count 20~200을 검증. 일봉은 성과 평가 불가 자료 진단, 분봉은 실제 장중 관측의 모의 표본 결과를 반환. 일봉 context와 분봉 지표를 분리하고 `replay.assessment`에 관측 수·평가 가능 여부·시간/세션 미검증을 기록 |
 | `preview_strategy` | `candles` 평가 구간 + 선택 `historyCandles` 사전자료를 합계 최대 500봉으로 candle-close replay. `warmupCount` 생략은 0이며 명시 prefix와 별도 history 동시 지정은 거부. 결과 candles는 평가 구간만 포함. 실제 지표 준비 상태·조건 평가 봉 수(`preparation`), raw 신호·체결/차단·비용/리스크 성과와 OHLCV hash를 반환. generic LTH는 `UNSUPPORTED_GENERIC_REPLAY`로 명시 거부. live 10초 tick·intrabar/provider latency는 재현하지 않음 |
@@ -93,13 +94,25 @@
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v8`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v9`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
 전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
 v8 `BacktestReport.atrPreparation`은 `{period:14, historyBars, readyAtStart, readyAtEnd, firstReadyTime, unreadyEvaluationBars, rangePolicy:"observedBarsWithPreviousCloseNoInterpolation"}`다. 전략의 `preparation`과 별도이며 이전 close를 포함한 최근 TR14개를 사용한다. generic의 검증된 같은 간격 history만 지표를 준비하고 주문·손익에는 넣지 않는다. 분봉 LTH는 분봉 관측에서만 ATR을 준비한다. `volatilitySizingEnabled`의 기본 false는 유지하며, 활성화 시 미준비·0범위·0bps 위험예산 매수는 명시 차단한다. `atrPreparation`이 없는 보관/legacy 응답은 UI에서 준비 여부 미상으로 표시한다.
 
 전용 LTH v4의 실행 콜백은 실제 잔여 수량·평균 체결가 snapshot을 반환한다. ATR 수량 확대/축소와 슬리피지를 다음 청산 판단에 반영하고 부분매도·차단 뒤 잔여 포지션의 보호 상태를 유지한다. 기존 bool callback API는 요청수량·신호가격의 raw-signal 연구용 호환 wrapper로 유지한다. 일봉의 실행 callback 미호출과 평가 불가 계약은 동일하다.
+
+### 공통 캔들 페이지 계약
+
+`get_candle_page({input})`와 GET `/api/candles/page`는 같은 `CandlePageInput`을 사용한다. 필수 값은 `symbol`, `brokerId`, `isOverseas`, `interval`, `expectedProfileId`; 선택 값은 `expectedBrokerAccountId`, `count`(1~200, 기본200), `exchange`, `cursor`다. KIS는 D/W/M(한 페이지 최대100), Toss는 D/1m(최대200)을 지원하며 KIS 미국 조회는 NAS/NYS/AMS 거래소를 지정한다. 기존 Vec 반환 차트 커맨드는 유지한다.
+
+응답 `CandlePageView`는 `candles`, `nextCursor`, `endReason`, `brokerId`, `profileId`, `scopeKey`, `symbol`, `interval`, `exchange`, `source`, `timestampSemantics`, `completionPolicy`, `asOf`, `excludedUnfinishedBars`, `excludedInvalidBars`다. cursor는 클라이언트가 해석·수정하지 않고 그대로 전달한다. profile/broker/account/투자모드·종목·간격·거래소·count가 바뀌면 재사용하지 않는다. KIS는 최저 거래일 이전 날짜로 후퇴하고 Toss inclusive `nextBefore`는 변경 없이 URL 인코딩한다.
+
+`asOf`는 첫 페이지에서 고정된다. 일봉은 거래소 현지의 당일, 주봉은 이번 주, 월봉은 이번 달을 보수적으로 제외한다(`strictlyBeforeCurrentMarketPeriod`). 이는 provider의 확정 플래그가 아닌 기간 경계 정책이다. Toss 분봉은 공식 종료 시각이 `asOf` 이하인 관측만 반환한다(`barCloseAtOrBeforeAsOf`). 미래·무효 OHLCV는 제외하며 누락봉을 합성하지 않는다. 실패는 `{code,message}`이며 scope/커서/입력 오류를 일반 provider 실패(`CANDLE_PAGE_FAILED`)와 구분한다.
+
+일반 미리보기는 최대8회 요청·보관500봉으로 요청 평가봉50/100/200개를 우선 보존하고 이전252봉을 별도 수집한다. 부족·provider 종료·무진전·커서 반복·요청 상한·부분 오류와 제외 수를 UI에 표시한다. 범위 변경·취소 결과는 폐기하며 첫 페이지 provider 오류 때만 KIS 미국 거래소 후보를 변경한다. live 일봉 갱신과 전용 LTH의 실제 장중 자료 검증은 별도 미완료 과제다.
+
+v9 generic 1m 입력은 RFC3339 offset을 실제 순간으로 해석하고 고정 정밀도 UTC로 정규화한다. 같은 순간의 다른 표기는 중복이며 history/evaluation 경계에도 동일 규칙을 적용한다. legacy compact12/14는 기존 차트의 KST 계약을 유지한다. simulation guard 시간 parser도 RFC3339를 우선 해석하고, replay의 일일 리스크·손절 당일 재진입 기준 날짜는 한국 Seoul/미국 New York으로 고정한다. cooldown 경과는 실제 순간으로 비교한다. 실운용 guard의 Local 시각 정책과 일봉 OHLC/전략 계산은 바꾸지 않는다.
 
 ## 거래 기록 / 통계
 

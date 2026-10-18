@@ -102,6 +102,35 @@ fn signal_to_preview_view(
 
 type PreviewRow = (ChartCandle, OhlcCandle, u64);
 
+fn normalize_minute_time(value: &str) -> Option<String> {
+    use chrono::{FixedOffset, NaiveDateTime, SecondsFormat, TimeZone, Utc};
+
+    let instant = chrono::DateTime::parse_from_rfc3339(value)
+        .ok()
+        .or_else(|| {
+            // Legacy compact minute timestamps represent KST, as in the preview chart.
+            // Do not infer a market offset or use the host's configured timezone.
+            if !value.bytes().all(|byte| byte.is_ascii_digit()) {
+                return None;
+            }
+            let compact = match value.len() {
+                12 => format!("{value}00"),
+                14 => value.to_string(),
+                _ => return None,
+            };
+            let naive = NaiveDateTime::parse_from_str(&compact, "%Y%m%d%H%M%S").ok()?;
+            FixedOffset::east_opt(9 * 60 * 60)?
+                .from_local_datetime(&naive)
+                .single()
+        })?;
+    // Fixed precision makes string order and duplicate/overlap checks instant based.
+    Some(
+        instant
+            .with_timezone(&Utc)
+            .to_rfc3339_opts(SecondsFormat::Nanos, true),
+    )
+}
+
 fn normalize_rows(
     candles: Vec<ChartCandle>,
     is_overseas: bool,
@@ -109,32 +138,31 @@ fn normalize_rows(
 ) -> CmdResult<Vec<PreviewRow>> {
     let mut rows = Vec::with_capacity(candles.len());
     for mut candle in candles {
-        let mut time = candle
+        let time = candle
             .date
             .chars()
             .filter(char::is_ascii_digit)
             .collect::<String>();
-        if time.len() == 12 {
-            time.push_str("00");
-        }
-        let valid_time = match (minute, time.len()) {
-            (false, 8) => chrono::NaiveDate::parse_from_str(&time, "%Y%m%d").is_ok(),
-            (true, 14) => chrono::NaiveDateTime::parse_from_str(&time, "%Y%m%d%H%M%S").is_ok(),
-            _ => false,
+        let normalized_time = if minute {
+            normalize_minute_time(&candle.date)
+        } else if time.len() == 8 && chrono::NaiveDate::parse_from_str(&time, "%Y%m%d").is_ok() {
+            Some(time)
+        } else {
+            None
         };
         let ohlc = chart_candle_to_ohlc(&candle, is_overseas).filter(|ohlc| {
             ohlc.low > 0
                 && ohlc.low <= ohlc.open.min(ohlc.close)
                 && ohlc.high >= ohlc.open.max(ohlc.close)
         });
-        if !valid_time || ohlc.is_none() {
+        if normalized_time.is_none() || ohlc.is_none() {
             return Err(CmdError {
                 code: "INVALID_CANDLE".into(),
                 message: "유효하지 않은 OHLC/시각이 있습니다. 평가봉을 사전자료로 이동시키지 않도록 입력을 거부합니다.".into(),
             });
         }
         let volume = chart_volume_to_u64(&candle.volume);
-        candle.date = time;
+        candle.date = normalized_time.expect("validated timestamp");
         rows.push((candle, ohlc.expect("validated OHLC"), volume));
     }
     rows.sort_by(|left, right| left.0.date.cmp(&right.0.date));
@@ -146,6 +174,10 @@ fn normalize_rows(
     }
     Ok(rows)
 }
+
+#[cfg(test)]
+#[path = "generic_tests.rs"]
+mod tests;
 
 pub fn preview_strategy_from_candles(
     input: StrategyPreviewInput,

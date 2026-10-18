@@ -1174,3 +1174,11 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - PostgreSQL contract 테스트는 DB 환경 변수가 없으면 즉시 반환하므로 전체 통과 개수에서 실서버 검증으로 계산하지 않는다. 이번 Mac 검증에서도 DB 환경 변수를 제거했고 실거래·모의 주문 API를 호출하지 않았다.
 
 > 마지막 업데이트: 2026-10-18T11:00:43+09:00
+
+## 완료봉 페이지와 분봉 actual instant (2026-10-18)
+
+공통 page DTO·scope·cursor·완료 정책은 `docs/ipc-commands.md`의 공통 캔들 페이지 계약을 정본으로 사용한다. 기존 Vec 차트 메서드는 유지하며 broker별 typed cursor를 바꾸어 넣지 않는다. 커서가 고정한 profile/account/투자모드·입력 범위·asOf를 매 페이지 검증한다. 시크릿은 cursor/응답에 넣지 않는다. quote/stop polling을 페이지 수집 network await로 막지 않는다. live 갱신은 별도 generation·config identity·bounded backoff가 필요하다.
+
+❌ RFC3339에서 숫자만 뽑아 compact14로 만들면 offset을 잃거나 길이 오류가 난다. ✅ generic minute replay는 RFC3339를 실제 순간으로 parse해 고정 정밀도 UTC로 정규화하고, 중복·정렬·history overlap·입력 hash에 같은 기준을 사용한다. legacy compact12/14는 KST 차트 계약으로 해석한다. simulation guard parser와 UI 차트도 RFC3339 offset을 우선 해석한다. RFC3339 replay의 일일 리스크/손절 당일 기준은 KR Seoul·US New York으로 고정하고 host Local 날짜를 사용하지 않는다. guard의 지정시각 경계는 generic timezone을 받아 내부 FixedOffset으로 저장해 실제 경과와 시장 날짜를 함께 보존한다. 실운용 Local wrapper 정책은 유지한다. 분봉 시작/종료 의미는 provider별로 확인하며 임의 시각이나 누락봉을 합성하지 않는다.
+
+> 마지막 업데이트: 2026-10-18T11:38:53+09:00

@@ -5,6 +5,7 @@ use super::domain::{
     BrokerAccountId, BrokerCandle, BrokerHolding, BrokerId, BrokerOrderId, BrokerOrderReceipt,
     BrokerOrderRequest, BrokerPriceQuote, BrokerSymbol,
 };
+use super::{BrokerCandlePage, CandlePageRequest};
 
 #[derive(Debug, Error)]
 pub enum BrokerAdapterError {
@@ -39,6 +40,16 @@ pub trait BrokerAdapter: Send + Sync {
         Err(BrokerAdapterError::Unsupported {
             broker: self.broker_id(),
             operation: "get_candles",
+        })
+    }
+
+    async fn get_candle_page(
+        &self,
+        _request: &CandlePageRequest,
+    ) -> BrokerAdapterResult<BrokerCandlePage> {
+        Err(BrokerAdapterError::Unsupported {
+            broker: self.broker_id(),
+            operation: "get_candle_page",
         })
     }
 

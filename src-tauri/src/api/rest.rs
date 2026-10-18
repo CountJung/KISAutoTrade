@@ -78,6 +78,7 @@ pub struct KisRestClient {
     rate_limiter: RateLimitScheduler,
 }
 
+mod chart;
 mod exchange;
 mod types;
 pub use exchange::fetch_usd_krw_rate;
@@ -128,6 +129,20 @@ impl KisRestClient {
     /// is_paper 모드 반환
     pub fn is_paper(&self) -> bool {
         self.is_paper
+    }
+
+    /// Profile snapshot과 현재 client의 계좌·credential scope 일치 여부.
+    pub(crate) fn matches_account(
+        &self,
+        app_key: &str,
+        app_secret: &str,
+        account_no: &str,
+        is_paper: bool,
+    ) -> bool {
+        self.app_key == app_key
+            && self.app_secret == app_secret
+            && self.account_no == account_no
+            && self.is_paper == is_paper
     }
 
     /// KIS API 진단 로그 ON/OFF (런타임 토글)
@@ -654,104 +669,6 @@ impl KisRestClient {
         );
         Ok(all_orders)
     }
-    // GET /uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice
-    // TR-ID: FHKST03010100 (실전/모의 공통)
-    // ──────────────────────────────────────────────────────────
-    // 기간별 차트 데이터 조회
-    // GET /uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice
-    // TR-ID: FHKST03010100 (실전/모의 공통)
-    // ──────────────────────────────────────────────────────────
-    pub async fn get_chart_data(
-        &self,
-        symbol: &str,
-        period_code: &str, // "D"=일, "W"=주, "M"=월
-        start_date: &str,  // YYYYMMDD
-        end_date: &str,    // YYYYMMDD
-    ) -> Result<Vec<ChartCandle>> {
-        let url = format!(
-            "{}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice",
-            self.base_url
-        );
-        let headers = self.auth_headers("FHKST03010100").await?;
-
-        let resp = self
-            .send_with_rate_limit(
-                KIS_RATE_GROUP_QUOTE,
-                self.client.get(&url).headers(headers).query(&[
-                    ("FID_COND_MRKT_DIV_CODE", "J"),
-                    ("FID_INPUT_ISCD", symbol),
-                    ("FID_INPUT_DATE_1", start_date),
-                    ("FID_INPUT_DATE_2", end_date),
-                    ("FID_PERIOD_DIV_CODE", period_code),
-                    ("FID_ORG_ADJ_PRC", "0"),
-                ]),
-            )
-            .await?;
-
-        let status = resp.status();
-        let body = read_kis_response_text(resp).await.unwrap_or_default();
-
-        if !status.is_success() {
-            anyhow::bail!("차트 조회 HTTP {}: {}", status, body);
-        }
-
-        #[derive(Deserialize)]
-        struct Raw {
-            rt_cd: String,
-            msg1: String,
-            output2: Option<Vec<RawCandle>>,
-        }
-
-        #[derive(Deserialize, Default)]
-        #[serde(default)]
-        struct RawCandle {
-            stck_bsop_date: String, // 영업일자
-            stck_oprc: String,      // 시가
-            stck_hgpr: String,      // 고가
-            stck_lwpr: String,      // 저가
-            stck_clpr: String,      // 종가
-            acml_vol: String,       // 누적거래량
-        }
-
-        let raw: Raw = serde_json::from_str(&body).map_err(|e| {
-            tracing::error!(
-                "차트 JSON 파싱 실패: {}\nbody preview: {}",
-                e,
-                &body[..body.len().min(300)]
-            );
-            anyhow::anyhow!("차트 JSON 파싱 실패: {}", e)
-        })?;
-
-        if raw.rt_cd != "0" {
-            anyhow::bail!("차트 조회 오류: {}", raw.msg1);
-        }
-
-        // KIS는 최신순(내림차순) 반환 → 오름차순으로 뒤집기
-        let mut candles: Vec<ChartCandle> = raw
-            .output2
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|c| !c.stck_bsop_date.is_empty())
-            .map(|c| ChartCandle {
-                date: c.stck_bsop_date,
-                open: c.stck_oprc,
-                high: c.stck_hgpr,
-                low: c.stck_lwpr,
-                close: c.stck_clpr,
-                volume: c.acml_vol,
-            })
-            .collect();
-
-        candles.reverse();
-        tracing::debug!(
-            "차트 데이터 조회 완료: {} ({}) {} 봉",
-            symbol,
-            period_code,
-            candles.len()
-        );
-        Ok(candles)
-    }
-
     // ──────────────────────────────────────────────────────────
     // 해외 현재가 조회
     // GET /uapi/overseas-price/v1/quotations/price
@@ -894,112 +811,6 @@ impl KisRestClient {
             rt_cd: raw.rt_cd,
             msg1: raw.msg1,
         })
-    }
-
-    // ──────────────────────────────────────────────────────────
-    // 해외주식 기간별시세 (차트 데이터)
-    // GET /uapi/overseas-price/v1/quotations/dailyprice
-    // TR-ID: HHDFS76200200 (실전/모의 공통)
-    // GUBN: 0=일별, 1=주별, 2=월별
-    // BYMD: 조회 기준일 YYYYMMDD (빈 문자열이면 당일 기준)
-    // MODP: 1=수정주가 반영
-    // ──────────────────────────────────────────────────────────
-    pub async fn get_overseas_chart_data(
-        &self,
-        symbol: &str,
-        exchange: &str,
-        period_code: &str, // "D"=일, "W"=주, "M"=월
-        base_date: &str,   // YYYYMMDD — 비워두면 오늘 기준
-    ) -> Result<Vec<ChartCandle>> {
-        let url = format!(
-            "{}/uapi/overseas-price/v1/quotations/dailyprice",
-            self.base_url
-        );
-        let headers = self.auth_headers("HHDFS76200200").await?;
-
-        let gubn = match period_code {
-            "W" => "1",
-            "M" => "2",
-            _ => "0", // D
-        };
-
-        let resp = self
-            .send_with_rate_limit(
-                KIS_RATE_GROUP_QUOTE,
-                self.client.get(&url).headers(headers).query(&[
-                    ("AUTH", ""),
-                    ("EXCD", exchange),
-                    ("SYMB", symbol),
-                    ("GUBN", gubn),
-                    ("BYMD", base_date),
-                    ("MODP", "1"),
-                ]),
-            )
-            .await?;
-
-        let status = resp.status();
-        let body = read_kis_response_text(resp).await.unwrap_or_default();
-
-        if !status.is_success() {
-            anyhow::bail!("해외 차트 조회 HTTP {}: {}", status, body);
-        }
-
-        #[derive(Deserialize)]
-        struct Raw {
-            rt_cd: String,
-            msg1: String,
-            output2: Option<Vec<RawOverseasCandle>>,
-        }
-
-        #[derive(Deserialize, Default)]
-        #[serde(default)]
-        struct RawOverseasCandle {
-            bass_dt: String, // 기준일자
-            open: String,    // 시가
-            high: String,    // 고가
-            low: String,     // 저가
-            clos: String,    // 종가
-            tvol: String,    // 거래량
-        }
-
-        let raw: Raw = serde_json::from_str(&body).map_err(|e| {
-            tracing::error!(
-                "해외 차트 JSON 파싱 실패: {}\nbody: {}",
-                e,
-                &body[..body.len().min(300)]
-            );
-            anyhow::anyhow!("해외 차트 JSON 파싱 실패: {}", e)
-        })?;
-
-        if raw.rt_cd != "0" {
-            anyhow::bail!("해외 차트 조회 오류: {}", raw.msg1);
-        }
-
-        // KIS는 최신순(내림차순) 반환 → 오름차순으로 뒤집기
-        let mut candles: Vec<ChartCandle> = raw
-            .output2
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|c| !c.bass_dt.is_empty())
-            .map(|c| ChartCandle {
-                date: c.bass_dt,
-                open: c.open,
-                high: c.high,
-                low: c.low,
-                close: c.clos,
-                volume: c.tvol,
-            })
-            .collect();
-
-        candles.reverse();
-        tracing::debug!(
-            "해외 차트 조회 완료: {} {} ({}) {} 봉",
-            exchange,
-            symbol,
-            period_code,
-            candles.len()
-        );
-        Ok(candles)
     }
 
     // ──────────────────────────────────────────────────────────
