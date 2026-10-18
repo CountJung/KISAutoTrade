@@ -33,7 +33,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | KIS 연동 | `src-tauri/src/api/rest.rs`, `api/rest/*` | `api/token.rs`, `api/websocket.rs`, `broker/kis.rs` |
 | Toss 연동 | `src-tauri/src/broker/toss/` | `commands/toss*.rs`, `server/toss.rs` |
 | broker 공통 계약 | `src-tauri/src/broker/domain.rs`, `adapter.rs` | `kis.rs`, `toss/adapter.rs`, `rate_limit.rs` |
-| 자동매매 시작/데몬 | `src-tauri/src/commands/trading.rs` | `lib.rs`, `trading/mod.rs`, `trading/views.rs` |
+| 자동매매 시작/데몬 | `src-tauri/src/commands/trading.rs` / `commands/trading/daemon.rs` | `commands/trading/{positions,balance,risk_restore,history}.rs`, `lib.rs`, `trading/mod.rs` |
 | 전략 | `src-tauri/src/trading/strategy/` | `commands/strategy.rs`, `commands/strategy_preview.rs`, Strategy UI |
 | 수동·자동 주문 | `src-tauri/src/trading/order/submission.rs` | `order/{conflicts,fills}.rs`, `commands/orders.rs` |
 | 주문 전 검증 | `src-tauri/src/trading/preflight.rs`, `trading/guard.rs` | broker별 preflight command, `trading/risk.rs` |

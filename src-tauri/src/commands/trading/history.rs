@@ -258,3 +258,24 @@ pub(crate) async fn initialize_active_strategy_history(
         }
     }
 }
+
+fn calculate_atr(candles: &[OhlcCandle], period: usize) -> Option<u64> {
+    if candles.len() < 2 || period == 0 {
+        return None;
+    }
+    let start = candles.len().saturating_sub(period).max(1);
+    let mut ranges = Vec::with_capacity(candles.len().saturating_sub(start));
+    for idx in start..candles.len() {
+        let candle = candles[idx];
+        let prev_close = candles[idx - 1].close;
+        let high_low = candle.high.saturating_sub(candle.low);
+        let high_prev = candle.high.abs_diff(prev_close);
+        let low_prev = candle.low.abs_diff(prev_close);
+        ranges.push(high_low.max(high_prev).max(low_prev));
+    }
+    if ranges.is_empty() {
+        return None;
+    }
+    Some((ranges.iter().sum::<u64>() as f64 / ranges.len() as f64).round() as u64)
+        .filter(|atr| *atr > 0)
+}

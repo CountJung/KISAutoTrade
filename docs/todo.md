@@ -114,7 +114,7 @@ SOXQ 연구에서 확인한 시뮬레이션 정확성 과제는 아래에 기록
 ## P3 — 유지보수·품질 게이트
 
 - [ ] **🟢 자동 구현** 1,000라인 초과 파일을 책임 단위로 분리한다.
-  - `src-tauri/src/commands/trading.rs`: lifecycle/reconciliation/price-source/daemon cycle 분리.
+  - [x] `src-tauri/src/commands/trading.rs`: lifecycle469/positions329/balance96/risk_restore96/daemon527/history281행으로 분리. IPC4개·scope·복원/시작 순서 보존, lib212개와 독립 본문 감사 통과. [기록](tasks/trading-module-split-20261018.md).
   - `src/pages/trading/ui/Page.tsx`: broker별 orchestration과 공통 order form 분리.
   - `src/api/hooks.ts`: account/market/order/strategy/settings query 모듈 분리 후 public API 유지.
   - `src-tauri/src/commands/toss.rs`: diagnostic/preflight/orders surface 분리.

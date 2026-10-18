@@ -245,14 +245,14 @@
     "semantic_hash": "22d1589cd1bc235cac9dd055523e7fc2"
   },
   "src-tauri/src/commands/trading.rs": {
-    "mtime": 1784126446.52,
-    "ast_hash": "12c2e06da797dbdac800b2ed7c00ebf2",
-    "semantic_hash": "12c2e06da797dbdac800b2ed7c00ebf2"
+    "mtime": 1792288663.1004965,
+    "ast_hash": "11fcf9fd61bb45e0dd940f59b8321b44",
+    "semantic_hash": ""
   },
   "src-tauri/src/commands/trading/history.rs": {
-    "mtime": 1784126469.07,
-    "ast_hash": "c91dbde27f58cc8179fda980ad232d84",
-    "semantic_hash": "c91dbde27f58cc8179fda980ad232d84"
+    "mtime": 1792288663.1002886,
+    "ast_hash": "d396269853a9f17ae51100ce5fb912c5",
+    "semantic_hash": ""
   },
   "src-tauri/src/commands/trading/risk_restore_tests.rs": {
     "mtime": 1783821119.1,
@@ -1397,6 +1397,26 @@
   "tests/e2e/strategy-atr-readiness.spec.ts": {
     "mtime": 1792286218.7677412,
     "ast_hash": "5e5f86ae03dd84b141e41b1394240a50",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/commands/trading/balance.rs": {
+    "mtime": 1792288663.0985756,
+    "ast_hash": "b245fd88ffebdf17724acad91df154b0",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/commands/trading/daemon.rs": {
+    "mtime": 1792288663.0987086,
+    "ast_hash": "ee24addea5c81df1ab4497fc6bf5ae10",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/commands/trading/positions.rs": {
+    "mtime": 1792288663.098637,
+    "ast_hash": "d9af1953c37975af48b5f7377faff437",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/commands/trading/risk_restore.rs": {
+    "mtime": 1792288663.0985198,
+    "ast_hash": "4e3b77a80c05b61eb4b19ce05a4319b6",
     "semantic_hash": ""
   }
 }

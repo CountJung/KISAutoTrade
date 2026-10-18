@@ -143,7 +143,8 @@ KISAutoTrade/
 │   │   ├── project-health-and-soxq-p1-01.md
 │   │   ├── soxq-p1-04.md
 │   │   ├── soxq-p1-05.md
-│   │   └── strategy-review-20261018.md
+│   │   ├── strategy-review-20261018.md
+│   │   └── trading-module-split-20261018.md
 │   ├── ARCHITECTURE.md
 │   ├── HARNESS_MAP.md
 │   ├── MASTER_PLAN.html
@@ -414,7 +415,11 @@ KISAutoTrade/
 │   │   │   ├── toss/
 │   │   │   │   └── small_order.rs
 │   │   │   ├── trading/
+│   │   │   │   ├── balance.rs
+│   │   │   │   ├── daemon.rs
 │   │   │   │   ├── history.rs
+│   │   │   │   ├── positions.rs
+│   │   │   │   ├── risk_restore.rs
 │   │   │   │   └── risk_restore_tests.rs
 │   │   │   ├── accounts.rs
 │   │   │   ├── archive.rs
@@ -656,7 +661,12 @@ KISAutoTrade/
 | `commands/toss.rs` | Toss accountSeq 조회, 연결 진단, 주문 전 preflight view facade, 접수 주문 목록 조회와 정정 command |
 | `commands/toss/small_order.rs` | 호환용 Toss 1주 소액매매 검증 endpoint. 실거래 동의/최종 확인/최대 허용금액/preflight/open-order scan 후 시장가 매수 제출과 주문·체결 기록 저장. 현재 UI는 일반 수동주문 경로를 사용 |
 | `commands/toss_market.rs` | Toss 시세 snapshot, 종목 유의사항, market-calendar override, candles chart command |
-| `commands/trading.rs` | 자동매매 상태/시작/정지, broker-aware 포지션 동기화, polling daemon. 히스토리 초기화는 `commands/trading/history.rs`로 분리 |
+| `commands/trading.rs` | 자동매매 상태/시작/정지·매수 정지 해제의 4개 IPC와 시작 순서·scope 검증을 조립하는 facade. daemon·잔고·위험 복원·히스토리 initializer의 기존 공개/내부 re-export 경로를 유지 |
+| `commands/trading/positions.rs` | 활성 broker를 따라 KIS/Toss 실제 보유 수량·평균가를 전략 상태에 복원하고 broker별 보유 값 파싱을 담당 |
+| `commands/trading/balance.rs` | KIS 국내/해외 및 Toss 계좌의 현금·평가잔고를 조회해 리스크 기준 총잔고를 KRW로 환산 |
+| `commands/trading/risk_restore.rs` | 실행 broker/account scope의 당일 체결·주문 ledger에서 실현손익·주문 횟수·전략/종목별 손익을 복원하고 runtime을 저장. 조회·저장 실패를 호출자에게 전달 |
+| `commands/trading/history.rs` | 활성 전략의 broker별 과거 OHLC 조회·통화 단위 변환과 일봉/분봉 warmup dispatch. live 초기화용 `calculate_atr`를 소유하며 replay 전용 ATR 준비 모듈과 구분 |
+| `commands/trading/daemon.rs` | 영구 `run_trading_daemon`과 시세 polling 사이클, KIS/Toss 가격 소스·세션 판단·장 종료 대기·해외 거래소 조회 helper를 소유. facade의 기존 export를 통해 `lib.rs`에서 실행 |
 | `commands/strategy.rs` | 포지션 조회, 전략 목록/수정 IPC. 전략 view는 `trading/views.rs::build_strategy_view()` 재사용 |
 | `commands/risk.rs` | 리스크 설정/비상정지 IPC와 pending 주문 view |
 | `trading/strategy.rs` | 전략 facade. 공개 import 경로를 유지하면서 하위 전략 모듈을 re-export |
@@ -741,7 +751,7 @@ KISAutoTrade/
 | 번호 | 역할 | 제어 방식 |
 |------|------|----------|
 | 1 | KRX 종목 목록 로드 | 1회성 |
-| 2 | 자동매매 폴링 (`run_trading_daemon`) | `is_trading: Arc<Mutex<bool>>` |
+| 2 | 자동매매 폴링 (`commands/trading/daemon.rs::run_trading_daemon`) | `is_trading: Arc<Mutex<bool>>`; `commands/trading.rs` re-export를 통해 spawn |
 | 3 | axum 웹 서버 | 영구 실행 |
 | 4 | 환율 갱신 (USD/KRW) | `watch::Receiver` — Toss 우선/공개 환율/fallback 캐시 정책 + interval 변경 즉시 반영 |
 | 5 | 로그/체결기록 일일 정리 | 24h 주기 |

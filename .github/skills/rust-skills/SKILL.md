@@ -1047,7 +1047,9 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 | Toss read-only REST 핸들러 | `src-tauri/src/server/toss.rs` |
 | 자동매매/전략 REST 핸들러 | `src-tauri/src/server/trading.rs` |
 | 자동매매 실행 scope 고정 | `src-tauri/src/commands/trading.rs::TradingStatus` |
-| 자동매매 daemon/status/sync IPC | `src-tauri/src/commands/trading.rs` |
+| 자동매매 status/lifecycle IPC facade | `src-tauri/src/commands/trading.rs` |
+| 자동매매 daemon/tick/시세 source | `src-tauri/src/commands/trading/daemon.rs` |
+| broker별 평가액 / 당일 리스크 복원 | `src-tauri/src/commands/trading/{balance,risk_restore}.rs` |
 | 자동매매 시작 히스토리/ATR 초기화 | `src-tauri/src/commands/trading/history.rs` |
 | 포지션/전략 IPC | `src-tauri/src/commands/strategy.rs` |
 | 리스크/pending 주문 IPC | `src-tauri/src/commands/risk.rs` |
@@ -1056,7 +1058,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 | 개별 전략 구현 | `src-tauri/src/trading/strategy/{classic,breakout,mean_trend,leveraged_trend_hold,price_condition}.rs` |
 | 전략 설정 저장 scope | `src-tauri/src/trading/strategy/core.rs::StrategyConfig` |
 | 전략 view builder | `src-tauri/src/trading/views.rs::build_strategy_view()` |
-| 시작 전 broker-aware 포지션 복원 | `src-tauri/src/commands/trading.rs::sync_strategy_positions_from_active_broker()` |
+| 시작 전 broker-aware 포지션 복원 | `src-tauri/src/commands/trading/positions.rs::sync_strategy_positions_from_active_broker()` |
 | 주문 전 broker read-only 검증 | `src-tauri/src/trading/preflight.rs`, `src-tauri/src/commands.rs::check_toss_order_preflight()` |
 | 자동매매 주문 scope | `src-tauri/src/trading/order.rs::OrderManager::execution_scope` |
 | 로컬 pending 충돌 차단 | `src-tauri/src/trading/order/conflicts.rs::pending_conflict_reason_for_scope()` |
@@ -1171,4 +1173,4 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - quick-xml 예외 두 개는 plist 1.10.1 업데이트로 해제했다. RSA 예외 하나와 Linux GLib/proc-macro-error 경고는 docs/release-security.md의 실제 경로·해제 조건을 확인하며 테스트 약화나 추가 ignore로 해결하지 않는다.
 - PostgreSQL contract 테스트는 DB 환경 변수가 없으면 즉시 반환하므로 전체 통과 개수에서 실서버 검증으로 계산하지 않는다. 이번 Mac 검증에서도 DB 환경 변수를 제거했고 실거래·모의 주문 API를 호출하지 않았다.
 
-> 마지막 업데이트: 2026-10-18T10:22:52+09:00
+> 마지막 업데이트: 2026-10-18T11:00:43+09:00
