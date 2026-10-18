@@ -1,9 +1,9 @@
 //! 전략 설정 저장 중 영향 종목의 주문과 수동 전체 잔고 게시를 잠시 보류한다.
 
+use super::execution_run::profile_fingerprint;
 use super::*;
 use crate::{
     broker::BrokerMarket,
-    config::AccountProfile,
     trading::{
         configuration::{
             effective_target_markets, ConfigurationEditReservation, ConfigurationUpdateError,
@@ -11,7 +11,6 @@ use crate::{
         strategy::{BrokerPositionSnapshot, StrategyConfig},
     },
 };
-use sha2::{Digest, Sha256};
 use std::{collections::HashMap, sync::Weak};
 
 type EditResult<T> = std::result::Result<T, ConfigurationUpdateError>;
@@ -22,24 +21,6 @@ pub(super) struct ConfigurationIdentity {
     profile_fingerprint: [u8; 32],
     previous_targets: HashMap<String, bool>,
     next_targets: HashMap<String, bool>,
-}
-
-fn profile_fingerprint(profile: &AccountProfile) -> [u8; 32] {
-    let mut hash = Sha256::new();
-    for value in [
-        &profile.id,
-        &profile.account_no,
-        &profile.app_key,
-        &profile.app_secret,
-    ] {
-        hash.update((value.len() as u64).to_le_bytes());
-        hash.update(value.as_bytes());
-    }
-    hash.update([
-        u8::from(profile.is_paper_trading),
-        u8::from(profile.live_trading_consent),
-    ]);
-    hash.finalize().into()
 }
 
 impl OrderManager {

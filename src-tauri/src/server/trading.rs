@@ -11,6 +11,7 @@ use crate::broker::{
     TossBrokerAdapter,
 };
 use crate::config::AccountProfile;
+use crate::trading::order::{HoldingsMarkets, HoldingsUpdate};
 use crate::trading::strategy::BrokerPositionSnapshot;
 
 /// GET /api/trading/status
@@ -67,7 +68,14 @@ pub(super) async fn trading_status_handler(
 }
 
 async fn sync_kis_strategy_positions(s: &ServerState) -> Result<usize, String> {
-    let rest = s.rest_client.read().await.clone();
+    let query = s
+        .order_manager
+        .lock()
+        .await
+        .begin_holdings_query(BrokerId::Kis, HoldingsMarkets::Both)
+        .await
+        .map_err(|error| error.to_string())?;
+    let rest = query.client();
     let mut synced = 0usize;
     let domestic = rest
         .get_balance()
@@ -137,80 +145,98 @@ async fn sync_kis_strategy_positions(s: &ServerState) -> Result<usize, String> {
         })
         .map(|value| (value * exchange_rate).round() as i64)
         .unwrap_or(0);
-    {
-        let resp = domestic;
-        s.stock_store
-            .upsert_many(
-                resp.items
-                    .iter()
-                    .map(|i| (i.pdno.clone(), i.prdt_name.clone())),
+    let domestic_positions: Vec<_> = domestic
+        .items
+        .iter()
+        .map(|item| {
+            (
+                item.pdno.clone(),
+                item.prdt_name.clone(),
+                normalized_u64(&item.hldg_qty),
+                normalized_f64(&item.pchs_avg_pric).round() as u64,
+                normalized_u64(&item.prpr),
             )
-            .await;
-        {
-            let mut tracker = s.position_tracker.lock().await;
-            tracker.replace(resp.items.iter().map(|i| {
-                (
-                    i.pdno.clone(),
-                    i.prdt_name.clone(),
-                    normalized_u64(&i.hldg_qty),
-                    normalized_f64(&i.pchs_avg_pric).round() as u64,
-                    normalized_u64(&i.prpr),
-                )
-            }));
-        }
-        let mut mgr = s.strategy_manager.lock().await;
-        for symbol in mgr.active_symbols() {
-            if crate::market_hours::is_domestic_symbol(&symbol) {
-                mgr.sync_position_for_broker(&BrokerPositionSnapshot {
-                    broker_id: BrokerId::Kis,
-                    market: BrokerMarket::Kr,
-                    symbol,
-                    quantity: 0,
-                    avg_price: 0,
-                });
-            }
-        }
-        for item in &resp.items {
-            let qty = normalized_u64(&item.hldg_qty);
-            let avg = normalized_f64(&item.pchs_avg_pric).round() as u64;
-            if qty > 0 {
-                synced += 1;
-            }
+        })
+        .collect();
+    let overseas_positions: Vec<_> = overseas
+        .items
+        .iter()
+        .map(|item| {
+            (
+                item.ovrs_pdno.clone(),
+                item.ovrs_item_name.clone(),
+                crate::trading::order::normalize_overseas_order_exchange(&item.ovrs_excg_cd),
+                normalized_u64(&item.ovrs_cblc_qty),
+                money_units(&item.pchs_avg_pric, &BrokerCurrency::Usd),
+                money_units(&item.now_pric2, &BrokerCurrency::Usd),
+            )
+        })
+        .collect();
+    s.stock_store
+        .upsert_many(
+            domestic
+                .items
+                .iter()
+                .map(|item| (item.pdno.clone(), item.prdt_name.clone())),
+        )
+        .await;
+    let mut mgr = s.strategy_manager.lock().await;
+    let mut orders = s.order_manager.lock().await;
+    orders
+        .publish_holdings(
+            query,
+            HoldingsUpdate::Both {
+                domestic: domestic_positions.clone(),
+                overseas: overseas_positions.clone(),
+            },
+        )
+        .await
+        .map_err(|error| error.to_string())?;
+    for symbol in mgr.active_symbols() {
+        if crate::market_hours::is_domestic_symbol(&symbol) {
             mgr.sync_position_for_broker(&BrokerPositionSnapshot {
                 broker_id: BrokerId::Kis,
                 market: BrokerMarket::Kr,
-                symbol: item.pdno.clone(),
-                quantity: qty,
-                avg_price: avg,
+                symbol,
+                quantity: 0,
+                avg_price: 0,
             });
         }
     }
-    {
-        let mut mgr = s.strategy_manager.lock().await;
-        for symbol in mgr.active_symbols() {
-            if !crate::market_hours::is_domestic_symbol(&symbol) {
-                mgr.sync_position_for_broker(&BrokerPositionSnapshot {
-                    broker_id: BrokerId::Kis,
-                    market: BrokerMarket::Us,
-                    symbol,
-                    quantity: 0,
-                    avg_price: 0,
-                });
-            }
+    for (symbol, _, qty, avg, _) in &domestic_positions {
+        if *qty > 0 {
+            synced += 1;
         }
-        for item in &overseas.items {
-            let quantity = normalized_u64(&item.ovrs_cblc_qty);
-            if quantity > 0 {
-                synced += 1;
-            }
+        mgr.sync_position_for_broker(&BrokerPositionSnapshot {
+            broker_id: BrokerId::Kis,
+            market: BrokerMarket::Kr,
+            symbol: symbol.clone(),
+            quantity: *qty,
+            avg_price: *avg,
+        });
+    }
+    for symbol in mgr.active_symbols() {
+        if !crate::market_hours::is_domestic_symbol(&symbol) {
             mgr.sync_position_for_broker(&BrokerPositionSnapshot {
                 broker_id: BrokerId::Kis,
                 market: BrokerMarket::Us,
-                symbol: item.ovrs_pdno.clone(),
-                quantity,
-                avg_price: money_units(&item.pchs_avg_pric, &BrokerCurrency::Usd),
+                symbol,
+                quantity: 0,
+                avg_price: 0,
             });
         }
+    }
+    for (symbol, _, _, qty, avg, _) in &overseas_positions {
+        if *qty > 0 {
+            synced += 1;
+        }
+        mgr.sync_position_for_broker(&BrokerPositionSnapshot {
+            broker_id: BrokerId::Kis,
+            market: BrokerMarket::Us,
+            symbol: symbol.clone(),
+            quantity: *qty,
+            avg_price: *avg,
+        });
     }
     if domestic_total.saturating_add(overseas_total) <= 0 {
         return Err("KIS 계좌 총평가액이 0원 이하입니다.".into());
@@ -225,6 +251,22 @@ async fn sync_toss_strategy_positions(
     if !profile.is_configured() {
         return Err("활성 Toss 프로파일 설정이 미완료입니다.".into());
     }
+    let client = s.rest_client.read().await.clone();
+    let scope = BrokerScope::new(
+        BrokerId::Toss,
+        Some(BrokerAccountId(profile.broker_account_id())),
+    );
+    let query = s
+        .order_manager
+        .lock()
+        .await
+        .begin_holdings_query_for_snapshot(&scope, &client, Some(&profile), HoldingsMarkets::Both)
+        .await
+        .map_err(|error| error.to_string())?;
+    let profile = query
+        .profile()
+        .cloned()
+        .ok_or_else(|| "활성 Toss 프로파일이 없습니다.".to_string())?;
     let account_seq = profile.broker_account_id();
     let adapter = TossBrokerAdapter::with_credentials(
         TossBrokerAdapter::DEFAULT_BASE_URL,
@@ -286,31 +328,58 @@ async fn sync_toss_strategy_positions(
                 .map(|holding| (holding.symbol.0.clone(), holding.symbol_name.clone())),
         )
         .await;
-    {
-        let mut tracker = s.position_tracker.lock().await;
-        tracker.replace(
-            holdings
-                .iter()
-                .filter(|holding| holding.market == BrokerMarket::Kr)
-                .map(|holding| {
-                    (
-                        holding.symbol.0.clone(),
-                        holding.symbol_name.clone(),
-                        decimal_quantity_units(&holding.quantity.0),
-                        money_units(
-                            &holding.average_price.amount,
-                            &holding.average_price.currency,
-                        ),
-                        money_units(
-                            &holding.current_price.amount,
-                            &holding.current_price.currency,
-                        ),
-                    )
-                }),
-        );
-    }
+    let domestic_positions = holdings
+        .iter()
+        .filter(|holding| holding.market == BrokerMarket::Kr)
+        .map(|holding| {
+            (
+                holding.symbol.0.clone(),
+                holding.symbol_name.clone(),
+                decimal_quantity_units(&holding.quantity.0),
+                money_units(
+                    &holding.average_price.amount,
+                    &holding.average_price.currency,
+                ),
+                money_units(
+                    &holding.current_price.amount,
+                    &holding.current_price.currency,
+                ),
+            )
+        })
+        .collect();
+    let overseas_positions = holdings
+        .iter()
+        .filter(|holding| holding.market == BrokerMarket::Us)
+        .map(|holding| {
+            (
+                holding.symbol.0.clone(),
+                holding.symbol_name.clone(),
+                "TOSS_US".to_string(),
+                decimal_quantity_units(&holding.quantity.0),
+                money_units(
+                    &holding.average_price.amount,
+                    &holding.average_price.currency,
+                ),
+                money_units(
+                    &holding.current_price.amount,
+                    &holding.current_price.currency,
+                ),
+            )
+        })
+        .collect();
     let mut synced = 0usize;
     let mut mgr = s.strategy_manager.lock().await;
+    let mut orders = s.order_manager.lock().await;
+    orders
+        .publish_holdings(
+            query,
+            HoldingsUpdate::Both {
+                domestic: domestic_positions,
+                overseas: overseas_positions,
+            },
+        )
+        .await
+        .map_err(|error| error.to_string())?;
     for symbol in mgr.active_symbols() {
         mgr.sync_position_for_broker(&BrokerPositionSnapshot {
             broker_id: BrokerId::Toss,

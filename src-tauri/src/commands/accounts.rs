@@ -290,8 +290,13 @@ pub struct BalanceResult {
 
 #[tauri::command]
 pub async fn get_balance(state: State<'_, AppState>) -> CmdResult<BalanceResult> {
-    let client = state.rest_client.read().await.clone();
-    match client.get_balance().await {
+    match OrderManager::refresh_kis_domestic_shared(
+        &state.order_manager,
+        Some(&state.stock_store),
+        |_| {},
+    )
+    .await
+    {
         Ok(resp) => {
             tracing::info!(
                 "잔고 조회 성공: 보유종목 {}개, 총평가금액 {}원",
@@ -301,28 +306,6 @@ pub async fn get_balance(state: State<'_, AppState>) -> CmdResult<BalanceResult>
                     .map(|s| s.tot_evlu_amt.as_str())
                     .unwrap_or("미제공")
             );
-            // 잔고 응답의 종목코드+이름 데이터 자동 수집
-            state
-                .stock_store
-                .upsert_many(
-                    resp.items
-                        .iter()
-                        .map(|i| (i.pdno.clone(), i.prdt_name.clone())),
-                )
-                .await;
-            // 앱 재시작 후 position_tracker가 비어있으면 잔고 응답으로 복원
-            {
-                let mut tracker = state.position_tracker.lock().await;
-                tracker.replace(resp.items.iter().map(|i| {
-                    (
-                        i.pdno.clone(),
-                        i.prdt_name.clone(),
-                        i.hldg_qty.parse::<u64>().unwrap_or(0),
-                        i.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) as u64,
-                        i.prpr.parse::<u64>().unwrap_or(0),
-                    )
-                }));
-            }
             Ok(BalanceResult {
                 items: resp.items,
                 summary: resp.summary,
@@ -347,24 +330,9 @@ pub struct OverseasBalanceResult {
 
 #[tauri::command]
 pub async fn get_overseas_balance(state: State<'_, AppState>) -> CmdResult<OverseasBalanceResult> {
-    let client = state.rest_client.read().await.clone();
-    match client.get_overseas_balance().await {
+    match OrderManager::refresh_kis_overseas_shared(&state.order_manager, |_| {}).await {
         Ok(resp) => {
             tracing::info!("해외 잔고 조회 성공: 보유종목 {}개", resp.items.len());
-            // 해외 잔고는 국내 position_tracker에 혼입하지 않고 별도 tracker에만 복원한다.
-            {
-                let mut tracker = state.overseas_position_tracker.lock().await;
-                tracker.replace(resp.items.iter().map(|i| {
-                    (
-                        i.ovrs_pdno.clone(),
-                        i.ovrs_item_name.clone(),
-                        normalize_overseas_order_exchange(&i.ovrs_excg_cd),
-                        i.ovrs_cblc_qty.parse::<u64>().unwrap_or(0),
-                        usd_to_cents(&i.pchs_avg_pric),
-                        usd_to_cents(&i.now_pric2),
-                    )
-                }));
-            }
             Ok(OverseasBalanceResult {
                 items: resp.items,
                 summary: resp.summary,
@@ -467,13 +435,31 @@ fn broker_market_sort_key(market: BrokerMarket) -> u8 {
 
 #[tauri::command]
 pub async fn get_broker_holdings(state: State<'_, AppState>) -> CmdResult<Vec<BrokerHoldingView>> {
-    let profile = {
-        let profiles = state.profiles.read().await;
-        profiles.get_active().cloned()
+    let query = {
+        let mut orders = state.order_manager.lock().await;
+        let broker = orders.execution_scope().broker_id;
+        orders
+            .begin_holdings_query(broker, crate::trading::order::HoldingsMarkets::ReadOnly)
+            .await
+            .map_err(CmdError::from)?
     };
-    let Some(profile) = profile else {
+    let Some(profile) = query.profile().cloned() else {
+        state
+            .order_manager
+            .lock()
+            .await
+            .publish_holdings(query, crate::trading::order::HoldingsUpdate::ReadOnly)
+            .await
+            .map_err(CmdError::from)?;
         return Ok(Vec::new());
     };
-    let rest_client = state.rest_client.read().await.clone();
-    list_broker_holdings_for_profile(profile, rest_client).await
+    let response = list_broker_holdings_for_profile(profile, query.client()).await?;
+    state
+        .order_manager
+        .lock()
+        .await
+        .publish_holdings(query, crate::trading::order::HoldingsUpdate::ReadOnly)
+        .await
+        .map_err(CmdError::from)?;
+    Ok(response)
 }

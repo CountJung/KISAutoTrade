@@ -41,6 +41,8 @@ use crate::{
 
 mod budget;
 mod configuration;
+mod holdings;
+pub(crate) use holdings::{normalize_overseas_order_exchange, HoldingsMarkets, HoldingsUpdate};
 mod conflicts;
 pub use budget::{AutoTradingBudgetView, BudgetCurrencyView};
 mod execution_run;

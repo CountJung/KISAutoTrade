@@ -532,14 +532,7 @@ fn usd_to_cents(value: &str) -> u64 {
         .unwrap_or(0)
 }
 
-fn normalize_overseas_order_exchange(code: &str) -> String {
-    match code.trim().to_uppercase().as_str() {
-        "NAS" | "NASD" | "NASDAQ" => "NASD".to_string(),
-        "NYS" | "NYSE" => "NYSE".to_string(),
-        "AMS" | "AMEX" => "AMEX".to_string(),
-        other => other.to_string(),
-    }
-}
+use crate::trading::order::normalize_overseas_order_exchange;
 
 fn parse_amount_i64(value: &str) -> i64 {
     value.trim().replace(',', "").parse::<i64>().unwrap_or(0)
@@ -571,7 +564,7 @@ pub struct CmdError {
 }
 
 impl CmdError {
-    fn from(e: anyhow::Error) -> Self {
+    pub(crate) fn from(e: anyhow::Error) -> Self {
         Self {
             code: "ERROR".into(),
             message: e.to_string(),

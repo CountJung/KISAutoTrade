@@ -170,13 +170,13 @@
     "semantic_hash": "37ced0c01e1834e572fd0a01d14795ac"
   },
   "src-tauri/src/commands.rs": {
-    "mtime": 1792295022.7805247,
-    "ast_hash": "b79cc5225765fec9b4cf7e1b0da1e6cf",
+    "mtime": 1792296980.753976,
+    "ast_hash": "c4aa00b7091fa0f8e819ce837137ccd2",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/accounts.rs": {
-    "mtime": 1792294770.1525357,
-    "ast_hash": "d0232203fda69180c389ffa7c5c4c30d",
+    "mtime": 1792297220.909238,
+    "ast_hash": "c60795e27b35b03fc33d45974dfd84ce",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/archive.rs": {
@@ -265,8 +265,8 @@
     "semantic_hash": "e9d4d3abcbf646fae970191a7928fb0b"
   },
   "src-tauri/src/lib.rs": {
-    "mtime": 1792293161.3330083,
-    "ast_hash": "479866d157951ce00c66e77744f94878",
+    "mtime": 1792297220.7238517,
+    "ast_hash": "4400d57c3772b793496cd2d0cc497efb",
     "semantic_hash": ""
   },
   "src-tauri/src/logging/mod.rs": {
@@ -305,8 +305,8 @@
     "semantic_hash": "fcfc78294174bf5081b87926dc47c9a3"
   },
   "src-tauri/src/server/market.rs": {
-    "mtime": 1792293689.6517217,
-    "ast_hash": "b45a8139763e5316d7746fe8cba2d895",
+    "mtime": 1792297220.968621,
+    "ast_hash": "95f536f8afb58a35c267b3f059e480d7",
     "semantic_hash": ""
   },
   "src-tauri/src/server/mod.rs": {
@@ -335,8 +335,8 @@
     "semantic_hash": "bf93217b112029c772a81a9253c77d7d"
   },
   "src-tauri/src/server/trading.rs": {
-    "mtime": 1792295022.8013904,
-    "ast_hash": "bbe37c82218ca91642c3f2a7d6ba7c0d",
+    "mtime": 1792296697.6534777,
+    "ast_hash": "308ab64bfe3b1dab67ccae28b62fd8e9",
     "semantic_hash": ""
   },
   "src-tauri/src/storage/balance_store.rs": {
@@ -435,8 +435,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/order.rs": {
-    "mtime": 1792294809.9658325,
-    "ast_hash": "f3dfc83021b8bcaabfd16529e12bbabf",
+    "mtime": 1792296823.947476,
+    "ast_hash": "9068195c24f04a80631bfadb0ec45510",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/order/conflicts.rs": {
@@ -455,9 +455,9 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/position.rs": {
-    "mtime": 1783815303.97,
-    "ast_hash": "f9319da4272eca1002301231e3a78b5c",
-    "semantic_hash": "f9319da4272eca1002301231e3a78b5c"
+    "mtime": 1792296367.6986794,
+    "ast_hash": "e55b3dd1777ae299af47d916d88a0973",
+    "semantic_hash": ""
   },
   "src-tauri/src/trading/preflight.rs": {
     "mtime": 1783083256.79,
@@ -545,9 +545,9 @@
     "semantic_hash": "f20bf72af330e1ea553c32483129736a"
   },
   "src/api/backendEvents.ts": {
-    "mtime": 1783135411.96,
-    "ast_hash": "63feed9d9837d4268892222495243334",
-    "semantic_hash": "63feed9d9837d4268892222495243334"
+    "mtime": 1792296684.6600146,
+    "ast_hash": "e45e93aaaec9dc0a054a129ef1d3b02f",
+    "semantic_hash": ""
   },
   "src/api/commands.ts": {
     "mtime": 1783083256.81,
@@ -1410,8 +1410,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/trading/positions.rs": {
-    "mtime": 1792288663.098637,
-    "ast_hash": "d9af1953c37975af48b5f7377faff437",
+    "mtime": 1792296617.26212,
+    "ast_hash": "b04a61255f930571434ae8d67c1390de",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/trading/risk_restore.rs": {
@@ -1420,8 +1420,8 @@
     "semantic_hash": ""
   },
   "src/api/accountHooks.ts": {
-    "mtime": 1792288905.6862423,
-    "ast_hash": "9f30e86d8b798d056cb2d05a3e8d026d",
+    "mtime": 1792297792.6307378,
+    "ast_hash": "d2f42165caae74cfa82eea09de61ef01",
     "semantic_hash": ""
   },
   "src/api/historyHooks.ts": {
@@ -1560,8 +1560,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/order/execution_run.rs": {
-    "mtime": 1792293673.2297056,
-    "ast_hash": "d32259b64c914481b74fdf45a969331d",
+    "mtime": 1792296752.5263073,
+    "ast_hash": "c6c1863ca8429bf1599c368844f5f57e",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/order/fills/collector.rs": {
@@ -1575,8 +1575,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/order/fills/reconciliation/tests.rs": {
-    "mtime": 1792293938.6719735,
-    "ast_hash": "fdc21460c9de9d321ce6e7ba466eb8a2",
+    "mtime": 1792297131.9273522,
+    "ast_hash": "4af457fa990353a0c9efe887780afb06",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/order/health.rs": {
@@ -1595,8 +1595,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/order/submission/positions.rs": {
-    "mtime": 1792294740.3077097,
-    "ast_hash": "612f3ef434ab399b1b7b7d291c6a2840",
+    "mtime": 1792296752.5378323,
+    "ast_hash": "996150c83f7e7be48b090a68ab3e389c",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/order/submission/prepare.rs": {
@@ -1640,8 +1640,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/order/configuration.rs": {
-    "mtime": 1792295336.1273448,
-    "ast_hash": "74dc918610b488475f387f7b40718b5c",
+    "mtime": 1792296797.000753,
+    "ast_hash": "e4e43ec8d93000d1e69ecc0769d1bc8b",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/order/configuration/tests.rs": {
@@ -1702,6 +1702,31 @@
   "tests/e2e/strategy-configuration-errors.spec.ts": {
     "mtime": 1792295598.3750074,
     "ast_hash": "8abe0d8b2b5cb8d15efe8188d51aa023",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/trading/order/holdings.rs": {
+    "mtime": 1792297092.3114948,
+    "ast_hash": "c8564ad3162e167c041e6a8457a376b7",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/trading/order/holdings/fetch.rs": {
+    "mtime": 1792297221.0092566,
+    "ast_hash": "25369af46e331facf9804b9c745048e7",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/trading/order/holdings/tests.rs": {
+    "mtime": 1792297265.912841,
+    "ast_hash": "02df560aa26ed45a50eb10e3bc15606c",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/trading/order/holdings/tests/http.rs": {
+    "mtime": 1792297220.7240942,
+    "ast_hash": "aa565d553a92921c0a6755c099cdf6ca",
+    "semantic_hash": ""
+  },
+  "tests/e2e/balance-events.spec.ts": {
+    "mtime": 1792297792.6310685,
+    "ast_hash": "4c1567f6e712a910876232a5b77ece00",
     "semantic_hash": ""
   }
 }

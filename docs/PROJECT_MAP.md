@@ -38,6 +38,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | Live 52주 완료 일봉 준비 | `commands/trading/daily_history.rs`, `daily_history/jobs.rs` | `trading/strategy/manager/live_history.rs`, `src/shared/ui/LiveDailyHistoryPanel.tsx`, TradingStatus |
 | 전략 | `src-tauri/src/trading/strategy/` | `commands/strategy.rs`, `commands/strategy_preview.rs`, Strategy UI |
 | 전략 설정 저장·보유 보호 | `src-tauri/src/trading/configuration.rs` | `trading/order/configuration.rs`, `trading/strategy/manager/configuration.rs`, 각 전략의 `reconfigure_tests.rs`, IPC/Web 전략 수정 facade |
+| 잔고 조회·tracker 게시·계좌별 캐시 | `src-tauri/src/trading/order/holdings.rs`, `holdings/fetch.rs` | `trading/position.rs`, `commands/accounts.rs`, `commands/trading/positions.rs`, `server/{market,trading}.rs`, `src/api/{accountHooks,backendEvents}.ts` |
 | 수동·자동 주문 | `src-tauri/src/trading/order/submission.rs` | `order/execution_run.rs`, `submission/{positions,prepare,provider,records}.rs`, `commands/orders.rs` |
 | 실행 변경·지연 결과 폐기 | `commands/trading/daemon/fence.rs`, `trading/order/execution_run.rs` | IPC/Web start/stop·전략 수정·프로파일 적용, `submission/run_tests.rs` |
 | 주문 전 검증 | `src-tauri/src/trading/preflight.rs`, `trading/guard.rs` | broker별 preflight command, `trading/risk.rs` |
@@ -107,7 +108,12 @@ BrokerScope + profile/account
 전략 인스턴스를 새로 만들어 이전 프로파일의 내부 보유 상태를 넘기지 않는다. provider
 조회는 잠금 밖에서 수행한다. 정지 전 예약한 주문·pending·예산은 원래 scope로
 계속 추적하며, 이전 실행의 quote·신호·전략 상태 복원은 새 실행에 반영하지 않는다.
-수동 holdings 게시와 체결 조회 결과 적용도 계좌·profile·client 변경을 재검증한다.
+일반 조회·백그라운드 갱신·시작 복원·수동 주문의 holdings 게시는 공통
+`order/holdings.rs`에서 계좌·profile·client·epoch와 설정 편집 예약을 재검증한다.
+`position.rs`의 조회/변경 UUID로 최신 조회와 체결 뒤 상태를 보호하고, KR/US
+동시 게시는 두 시장 검증 후 함께 교체한다. 읽기 전용 IPC/Web holdings 응답도
+identity를 검사한다. 프론트 잔고 캐시는 profile/broker/account/모드로 나누고,
+잔고 이벤트는 현재 계좌의 재조회를 유도한다. 체결 조회 결과 적용도 계좌·profile·client 변경을 재검증한다.
 KIS pending의 저장 TR-ID가 현재 실전/모의 모드와 다르거나 출처를 확인할 수
 없으면 조회·직접 체결·체결 조회의 종료 상태와 예산 반영을 보류하고 체결 동기화
 health에 남긴다.

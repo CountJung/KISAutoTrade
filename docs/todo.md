@@ -25,7 +25,7 @@
 4. **자료/표본:** **P1-05·P2-12·16·17**의 실제 분봉·봉 공개 시각·DST·누락 자료·ATR·준비 자료 조회를 검증한다.
 5. **전략별 가설과 연속 운용:** 아래 P2-01~13 필터 후보와 신규 **P2-18**을 순서대로 평가한다. 후보를 하나씩 사전 고정하고 기각 결과도 보관한다.
 
-P1-RUN-01의 실행 epoch·설정 revision 예약 검증, provider 고정, 수동/체결 대조 계좌·모드 보호를 구현했다. [검증 기록](tasks/execution-run-reservation-20261018.md). P1-CONFIG-01은 저장 후 인스턴스 공개와 13전략 보유 보호 보존으로 해결했다. [검증 기록](tasks/strategy-configuration-preservation-20261018.md). 다음은 일반 잔고 게시 fencing과 정상 체결의 전략 소유권 피드백을 해결한다.
+P1-RUN-01의 실행 epoch·설정 revision 예약 검증, provider 고정, 수동/체결 대조 계좌·모드 보호를 구현했다. [검증 기록](tasks/execution-run-reservation-20261018.md). P1-CONFIG-01은 저장 후 인스턴스 공개와 13전략 보유 보호 보존으로 해결했다. [검증 기록](tasks/strategy-configuration-preservation-20261018.md). P1-BAL-01은 공통 잔고 게시 gate와 계좌별 캐시·오류 복구로 해결했다. [검증 기록](tasks/holdings-publication-fence-20261018.md). 다음은 정상 체결의 전략 소유권 피드백을 해결한다.
 
 모든 12전략의 동일 수량 보유 대비 초과수익 중앙값이 0 이하이며 우수 전략을 확정하지 않았다. 분기 포트폴리오는 매번 초기화하며, 부분 Q4와 겹치는 최근248봉은 주집계에서 제외했다. 작은 완료 표본·서로 상관된 ETF·same-close 체결·고정 환율/무배당의 한계를 유지한다.
 
@@ -68,9 +68,10 @@ SOXQ 연구에서 확인한 시뮬레이션 정확성 과제는 아래에 기록
 - [ ] **🟢 자동 구현** **P1-FILL-01 — 정상·부분 체결과 거부/취소를 주문 소유 전략의 보유 상태에 반영한다.**
   - `OrderManager::on_fill_on`은 실제 tracker/risk/budget을 갱신하지만 정상 체결을 해당 StrategyManager 인스턴스에 전달하지 않는다. 현재 피드백은 시작 복원과 daemon 차단/오류에 집중되어 있다. 설정 저장의 인스턴스 보존으로 이 기존 경계를 해결했다고 보지 않는다. [발견·범위](tasks/strategy-configuration-preservation-20261018.md).
   - 완료 조건: strategy/order ID와 실제 잔여 수량을 연결한 fill·partial·reject·cancel fixture, 같은 종목의 다른 전략/수동 보유 미전달, run/profile/account/투자모드 경계와 재시작, LTH 최고가·보유 관측 수를 평균가로 초기화하지 않는 검증. 공유 계좌 총수량을 모든 전략에 배정하지 않는다. P2 전략 파라미터 비교보다 먼저 해결한다.
-- [ ] **🟢 자동 구현** **P1-BAL-01 — 일반 잔고 조회의 늦은 응답이 새 계좌 tracker를 덮지 않게 한다.**
-  - `commands/accounts.rs`의 일반 국내/해외 잔고 조회는 client snapshot으로 await한 뒤 profile/order gate 없이 tracker를 게시할 수 있다. A 조회 중 B 전환 뒤 A 응답이 도착하는 경합이다. 수동 주문과 reconciliation의 fencing만으로 일반 조회까지 보장하지 않는다.
-  - 완료 조건: IPC/Web/자동 갱신의 tracker 게시 호출자를 추적하고 조회 시 profile/client/scope/모드를 고정, 게시 직전 현재 identity 검증. A→B→A, 정지/재시작, 실제 0수량·삭제 종목·설정 저장 lease 및 동시에 도착한 fill을 포함한 barrier fixture. 네트워크 await 동안 전역 lock을 유지하지 않는다.
+  - 전체 잔고에 이미 반영된 provider fill과 뒤늦은 local reconciliation이 수량을 중복 반영하지 않는 lifecycle fixture도 포함한다. P1-BAL-01의 조회 이후 mutation fencing만으로 이 경계까지 해결됐다고 보지 않는다.
+- [x] **P1-BAL-01 — 일반 잔고 조회의 늦은 응답과 계좌별 캐시 경합을 보호했다.**
+  - 기존 게시 14곳을 공통 gate에 연결하고 profile/client/scope/모드·실행 epoch·설정 lease와 tracker별 조회/수량 version을 검증한다. A→B→A, 정지/재시작, 실제 0수량·삭제·두 시장 원자성·실제 partial fill·HTTP barrier를 검증했다. 네트워크 await 동안 전역 lock을 유지하지 않는다.
+  - 잔고 이벤트는 현재 scope 재조회 힌트로 사용하고 이전 cache를 제거한다. 늦은 설정 응답·설정 재조회 실패·연속 프로파일 변경·backend 적용 후 mutation 오류도 검증했다. Rust365개·브라우저 신규13개와 기존26개, 독립 리뷰를 통과했다. [구현·검증과 한계](tasks/holdings-publication-fence-20261018.md).
 
 - [ ] **🟢 자동 구현** TLS verify-full 인증서, 서버 강제 단절·재접속 contract.
   - 로컬 CA/hostname 인증서와 PostgreSQL kill/restart fixture를 구성하는 자동 구현 과제다. 실제 검증 환경이 필요하다는 이유만으로 사용자 판단 대기로 돌리지 않는다. 유효 CA·hostname 불일치·잘못된 CA·서버 재시작 후 복구를 검증한다.

@@ -1223,7 +1223,19 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - save 전 인스턴스/revision을 바꾸지 않는다. 성공 후 기존 인스턴스를 재설정하고 새 revision을 공개한다. 저장 실패는 기존 보유/설정을 유지한다. 첫 저장 오류도 교체 후 fsync/commit 실패일 수 있으므로 저장 후 identity 검증 실패와 함께 원본을 다시 저장한다. 복구 실패는 persistence block이다.
 - manager/order가 Weak lease만 보유한다. transaction 종료 시 자동 해제되며 같은 scope의 새 신호와 영향 종목 주문 예약·전체 수동 holdings 게시를 잠시 보류한다. 이 보류를 시장 폐장으로 분류해 5분 대기하지 않는다.
 - raw 신호는 current generation별 미처리 표시를 남긴다. 제출/차단/오류에서 exact 전략만 완료 처리하고 폐장 조기 종료 시 나머지 신호도 현재 실행 gate에서 정리한다. 이미 제출한 다른 전략의 낙관적 상태를 덮지 않는다.
-- private held 또는 실제 tracker 양쪽 중 하나에 보유가 있으면 대상 제거/시장 변경을 거부한다. PC params.symbols는 빈 배열까지 대상의 정본이고 LTH 거래 대상도 production constructor로 검증한다. 두 전략 모두 실제 on_tick처럼 첫 중복 entry의 시장 구분을 사용하며 LTH의 legacy inverse 필드로 다른 대상을 덮지 않는다. 공유 tracker의 0수량이나 startup cache로 private 보호를 지우지 않는다. 정상 체결 소유권 피드백과 일반 잔고 게시 fencing은 별도 P1 후속이다.
+- private held 또는 실제 tracker 양쪽 중 하나에 보유가 있으면 대상 제거/시장 변경을 거부한다. PC params.symbols는 빈 배열까지 대상의 정본이고 LTH 거래 대상도 production constructor로 검증한다. 두 전략 모두 실제 on_tick처럼 첫 중복 entry의 시장 구분을 사용하며 LTH의 legacy inverse 필드로 다른 대상을 덮지 않는다. 공유 tracker의 0수량이나 startup cache로 private 보호를 지우지 않는다. 일반 잔고 게시 fencing은 아래 공통 gate를 사용하며 정상 체결 소유권 피드백은 별도 P1 후속이다.
 - ❌ 저장 전에 전략을 재생성하고 실패 시 저장한 config로 다시 재생성하면 보유·trailing 상태를 잃는다. ✅ 먼저 저장한 뒤 같은 ID/scope에서 보유를 유지하며 공개한다. 실제 수량의 소유권을 모르면 새 대상에 다른 전략/수동 보유를 배정하지 않는다.
 
 > 마지막 업데이트: 2026-10-18T12:57:00+09:00
+
+## 일반 잔고 응답 게시 경계 (2026-10-18)
+
+- `order/holdings.rs`의 조회 ticket은 profile/client/scope/투자 모드, 실행 epoch, 설정 Weak lease identity와 시장별 tracker version을 고정한다. 민감 profile snapshot은 Debug/serde로 노출하지 않는다.
+- `begin_holdings_query` 후 네트워크 await에는 전역 lock을 해제한다. 게시 시 동일 OrderManager mutex에서 현재 identity와 version을 검증한 뒤 `publish_holdings`만 tracker를 replace한다. IPC/Web 시작 복원은 manager→order를 유지해 게시와 전략 복원 사이 fill을 막는다.
+- tracker는 quantity mutation과 최신 조회 UUID를 따로 보관한다. buy/sell/clear/replace·tracker 재생성·후속 요청이 먼저 발생하면 이전 ticket을 폐기한다. update_price는 수량을 바꾸지 않는다. 국내/해외 Both는 양쪽 version을 모두 검증한 뒤 함께 게시한다. 실제 빈 응답과 0수량은 정상 삭제이며 오래된 응답과 구분한다.
+- IPC·daemon·시작 복원·수동 주문 갱신에 공통 gate를 적용한다. tracker를 쓰지 않는 Web/일반 broker 조회도 ReadOnly ticket으로 응답 반환 전 identity를 확인하며 새 quantity query를 무효화하지 않는다. no-profile 빈 결과도 검증한다.
+- KIS 공통 refresh는 엄격한 수량/가격 변환과 종목명 저장 await를 완료한 뒤 최종 gate를 실행한다. 실패한 값은 0으로 대체하지 않는다. 잔고 이벤트 callback은 성공한 gate 내부에서 동기 실행한다. frontend는 이벤트를 현재 scope 재조회 힌트로 사용한다.
+- profile fingerprint는 execution_run의 공통 순수 helper를 사용하되 broker/scope/client 비교를 별도로 유지한다. 해외 거래소 trim/대문자 정규화는 holdings helper를 사용하며 다른 의미의 order_exchange_code와 합치지 않는다.
+- 이 gate는 조회 시작 이후의 로컬 변경과 계좌 경합을 막는다. provider snapshot에 이미 반영된 체결을 나중 reconciliation이 다시 적용하는 lifecycle·소유 전략 피드백은 P1-FILL-01에서 별도로 검증한다.
+
+> 마지막 업데이트: 2026-10-18T13:35:00+09:00

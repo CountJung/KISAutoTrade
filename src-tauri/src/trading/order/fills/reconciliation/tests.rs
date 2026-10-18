@@ -18,6 +18,36 @@ struct Provider {
     fail: Arc<AtomicBool>,
 }
 
+#[tokio::test]
+async fn real_fill_invalidates_an_earlier_whole_holdings_response() {
+    use crate::trading::order::{HoldingsMarkets, HoldingsUpdate};
+    let fixture = Fixture::new("http://127.0.0.1:1".into()).await;
+    seed_pending(&fixture).await;
+    let scope = test_support::scope(&fixture.profile);
+    let mut manager = fixture.manager.lock().await;
+    let query = manager
+        .begin_holdings_query(scope.broker_id, HoldingsMarkets::Domestic)
+        .await
+        .unwrap();
+    // Actual order-ID accounting updates the tracker while the snapshot is in flight.
+    manager.on_fill("fixture-fill", 1, 100).await.unwrap();
+    assert!(manager
+        .publish_holdings(query, HoldingsUpdate::Domestic(vec![]))
+        .await
+        .is_err());
+    assert_eq!(
+        manager
+            .position_tracker
+            .lock()
+            .await
+            .get("005930")
+            .unwrap()
+            .quantity,
+        1
+    );
+    assert_eq!(manager.pending["fixture-fill"].filled_quantity, 1);
+}
+
 async fn executed(
     axum::extract::State(provider): axum::extract::State<Provider>,
     headers: axum::http::HeaderMap,

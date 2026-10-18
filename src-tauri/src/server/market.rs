@@ -13,7 +13,7 @@ use crate::{
         BrokerAccountId, BrokerAdapter, BrokerCurrency, BrokerId, BrokerMarket, BrokerScope,
         BrokerSymbol, TossBrokerAdapter,
     },
-    trading::order::{OrderManager, SubmissionOutcome},
+    trading::order::{HoldingsMarkets, HoldingsUpdate, OrderManager, SubmissionOutcome},
 };
 
 pub(super) async fn candle_page_handler(
@@ -31,36 +31,86 @@ pub(super) async fn candle_page_handler(
 }
 
 pub(super) async fn balance_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
-    let client = s.rest_client.read().await.clone();
-    match client.get_balance().await {
-        Ok(b) => Json(serde_json::to_value(b).unwrap_or_default()),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
+    let result: anyhow::Result<_> = async {
+        let query = s
+            .order_manager
+            .lock()
+            .await
+            .begin_holdings_query(BrokerId::Kis, HoldingsMarkets::ReadOnly)
+            .await?;
+        let balance = query.client().get_balance().await?;
+        s.order_manager
+            .lock()
+            .await
+            .publish_holdings(query, HoldingsUpdate::ReadOnly)
+            .await?;
+        Ok(balance)
+    }
+    .await;
+    match result {
+        Ok(balance) => Json(serde_json::to_value(balance).unwrap_or_default()),
+        Err(error) => Json(serde_json::json!({ "error": error.to_string() })),
     }
 }
 
 pub(super) async fn overseas_balance_handler(
     State(s): State<ServerState>,
 ) -> Json<serde_json::Value> {
-    let client = s.rest_client.read().await.clone();
-    match client.get_overseas_balance().await {
-        Ok(b) => Json(serde_json::to_value(b).unwrap_or_default()),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
+    let result: anyhow::Result<_> = async {
+        let query = s
+            .order_manager
+            .lock()
+            .await
+            .begin_holdings_query(BrokerId::Kis, HoldingsMarkets::ReadOnly)
+            .await?;
+        let balance = query.client().get_overseas_balance().await?;
+        s.order_manager
+            .lock()
+            .await
+            .publish_holdings(query, HoldingsUpdate::ReadOnly)
+            .await?;
+        Ok(balance)
+    }
+    .await;
+    match result {
+        Ok(balance) => Json(serde_json::to_value(balance).unwrap_or_default()),
+        Err(error) => Json(serde_json::json!({ "error": error.to_string() })),
     }
 }
 
 pub(super) async fn broker_holdings_handler(
     State(s): State<ServerState>,
 ) -> Json<serde_json::Value> {
-    let profile = {
-        let profiles = s.profiles.read().await;
-        profiles.get_active().cloned()
-    };
-    let Some(profile) = profile else {
-        return Json(serde_json::json!([]));
-    };
-
-    let rest_client = s.rest_client.read().await.clone();
-    match crate::commands::list_broker_holdings_for_profile(profile, rest_client).await {
+    let result: Result<_, crate::commands::CmdError> = async {
+        let query = {
+            let mut orders = s.order_manager.lock().await;
+            let broker = orders.execution_scope().broker_id;
+            orders
+                .begin_holdings_query(broker, HoldingsMarkets::ReadOnly)
+                .await
+                .map_err(crate::commands::CmdError::from)?
+        };
+        let Some(profile) = query.profile().cloned() else {
+            s.order_manager
+                .lock()
+                .await
+                .publish_holdings(query, HoldingsUpdate::ReadOnly)
+                .await
+                .map_err(crate::commands::CmdError::from)?;
+            return Ok(Vec::new());
+        };
+        let response =
+            crate::commands::list_broker_holdings_for_profile(profile, query.client()).await?;
+        s.order_manager
+            .lock()
+            .await
+            .publish_holdings(query, HoldingsUpdate::ReadOnly)
+            .await
+            .map_err(crate::commands::CmdError::from)?;
+        Ok(response)
+    }
+    .await;
+    match result {
         Ok(holdings) => Json(serde_json::to_value(holdings).unwrap_or_default()),
         Err(e) => Json(serde_json::json!({
             "code": e.code,

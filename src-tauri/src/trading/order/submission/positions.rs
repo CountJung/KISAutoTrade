@@ -7,13 +7,23 @@ pub(super) async fn refresh_manual_positions(
     submission: &OrderSubmission,
     deps: &SubmissionDeps,
 ) -> Result<()> {
-    {
-        let manager = order_manager.lock().await;
-        anyhow::ensure!(
-            !manager.configuration_blocks_holdings(&submission.broker_scope),
-            "전략 설정 저장 중에는 전체 계좌 잔고 갱신을 보류합니다."
-        );
-    }
+    let markets = if submission.broker_scope.broker_id == BrokerId::Toss {
+        HoldingsMarkets::Both
+    } else if submission.exchange.is_some() {
+        HoldingsMarkets::Overseas
+    } else {
+        HoldingsMarkets::Domestic
+    };
+    let query = order_manager
+        .lock()
+        .await
+        .begin_holdings_query_for_snapshot(
+            &submission.broker_scope,
+            &deps.rest_client,
+            deps.active_profile.as_ref(),
+            markets,
+        )
+        .await?;
     if submission.broker_scope.broker_id == BrokerId::Toss {
         let profile = deps
             .active_profile
@@ -82,22 +92,11 @@ pub(super) async fn refresh_manual_positions(
                 )),
             }
         }
-        let manager = order_manager.lock().await;
-        anyhow::ensure!(
-            !manager.configuration_blocks_holdings(&submission.broker_scope),
-            "전략 설정 저장 중에는 전체 계좌 잔고 게시를 보류합니다."
-        );
-        let profiles = manager.profiles.read().await;
-        let current_client = manager.rest_client.read().await;
-        anyhow::ensure!(
-            manager.manual_snapshot_matches(deps, &profiles, &current_client),
-            "수동 주문 계좌 또는 프로파일이 잔고 조회 중 변경되었습니다."
-        );
-        deps.position_tracker.lock().await.replace(domestic);
-        deps.overseas_position_tracker
+        order_manager
             .lock()
             .await
-            .replace(overseas);
+            .publish_holdings(query, HoldingsUpdate::Both { domestic, overseas })
+            .await?;
         return Ok(());
     }
 
@@ -131,21 +130,11 @@ pub(super) async fn refresh_manual_positions(
                 parse_cents(&item.now_pric2)?,
             ));
         }
-        let manager = order_manager.lock().await;
-        anyhow::ensure!(
-            !manager.configuration_blocks_holdings(&submission.broker_scope),
-            "전략 설정 저장 중에는 전체 계좌 잔고 게시를 보류합니다."
-        );
-        let profiles = manager.profiles.read().await;
-        let current_client = manager.rest_client.read().await;
-        anyhow::ensure!(
-            manager.manual_snapshot_matches(deps, &profiles, &current_client),
-            "수동 주문 계좌 또는 프로파일이 잔고 조회 중 변경되었습니다."
-        );
-        deps.overseas_position_tracker
+        order_manager
             .lock()
             .await
-            .replace(positions);
+            .publish_holdings(query, HoldingsUpdate::Overseas(positions))
+            .await?;
     } else {
         let balance = client
             .get_balance()
@@ -164,18 +153,11 @@ pub(super) async fn refresh_manual_positions(
             let current = item.prpr.trim().replace(',', "").parse::<u64>()?;
             positions.push((item.pdno, item.prdt_name, quantity, avg, current));
         }
-        let manager = order_manager.lock().await;
-        anyhow::ensure!(
-            !manager.configuration_blocks_holdings(&submission.broker_scope),
-            "전략 설정 저장 중에는 전체 계좌 잔고 게시를 보류합니다."
-        );
-        let profiles = manager.profiles.read().await;
-        let current_client = manager.rest_client.read().await;
-        anyhow::ensure!(
-            manager.manual_snapshot_matches(deps, &profiles, &current_client),
-            "수동 주문 계좌 또는 프로파일이 잔고 조회 중 변경되었습니다."
-        );
-        deps.position_tracker.lock().await.replace(positions);
+        order_manager
+            .lock()
+            .await
+            .publish_holdings(query, HoldingsUpdate::Domestic(positions))
+            .await?;
     }
     Ok(())
 }

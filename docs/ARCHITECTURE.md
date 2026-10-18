@@ -38,7 +38,7 @@ Frontend는 provider credential이나 핵심 주문 상태의 권위자가 아�
 - Web: 정의된 REST route로 변환한다.
 - DB credential/파괴 작업 같은 Tauri-only 기능은 웹 REST에 확장하지 않는다.
 
-Backend push는 `src/api/backendEvents.ts`가 `exchange-rate-updated`, `exchange-rate-status-updated`, `balance-updated`, `overseas-balance-updated` 등을 구독하여 Query cache를 갱신한다.
+Backend push는 `src/api/backendEvents.ts`가 구독한다. 환율은 전역 캐시를 갱신하고, 잔고 이벤트는 현재 계좌 쿼리를 무효화해 재조회한다. 잔고 payload를 캐시에 직접 넣지 않는다. 국내·해외·broker holdings는 profile/broker/account/투자 모드별 키를 사용한다.
 
 ## 3. IPC 계약
 
@@ -193,8 +193,31 @@ IPC/HTTP waiter 취소는 별도의 owned transaction task를 중단하지 않�
 
 공용 tracker의 0수량만으로 전략의 private 보유 보호를 지우거나 다른 전략의
 보유를 할당하지 않는다. private 보호 또는 실제 tracker에 보유가 있으면 대상
-제거·국내/해외 전환을 거부한다. 정상 체결의 전략별 소유권 피드백과 일반 잔고
-조회 응답의 profile fencing은 후속 P1 과제이며 전체 lifecycle 완료로 확대하지 않는다.
+제거·국내/해외 전환을 거부한다. 정상 체결의 전략별 소유권 피드백은 후속
+P1-FILL-01 과제이며 전체 lifecycle 완료로 확대하지 않는다.
+
+### 잔고 응답과 포지션 게시
+
+`order/holdings.rs`의 `HoldingsQuery`는 조회 시작 시 broker/account·profile·
+credential/mode·client Arc·실행 epoch·설정 lease identity를 고정한다.
+국내/해외 tracker는 고정 크기 UUID로 마지막 발급 조회와 수량 변경을 기록한다.
+매수·매도·전체 교체·clear·tracker 재생성은 이전 응답을 무효화하고 현재가만
+바뀐 경우는 수량 조회를 버리지 않는다. 조회·파싱·종목명 저장은 잠금 밖이다.
+게시 직전 OM gate에서 identity와 두 시장의 버전을 모두 확인한 뒤 교체한다.
+Both 응답은 한 시장이 무효이면 어느 쪽도 반영하지 않는다. 유효한 빈 목록과
+0수량은 실제 청산/삭제로 처리하며 반대 시장을 지우지 않는다.
+
+일반 IPC, KIS background, 수동 주문 준비, IPC/Web 시작 동기화가 같은 게시
+경계를 사용한다. 시작은 manager→OM을 유지한 채 게시와 전략 복원을 마친다.
+Web 일반 잔고와 IPC/Web broker holdings는 ReadOnly ticket으로 계좌 연속성만
+확인하며 tracker에 부작용을 추가하지 않는다. background 성공 이벤트도 게시와
+같은 OM gate에서 발행하고 거절된 응답은 이벤트를 발행하지 않는다.
+
+프런트엔드는 이벤트를 현재 계좌 재조회 힌트로 취급한다. 계좌별 쿼리는 이전
+scope의 payload/placeholder를 넘기지 않고 요청 시작·완료 때 config를 확인한다.
+프로파일 전환은 이전 config 요청과 보유 쿼리를 취소하고 이전 범위 캐시를 제거한다.
+새 config를 확인하지 못한 상태에서 이전 계좌 잔고를 현재 자료로 표시하지 않는다.
+이 경계는 증권사 잔고의 체결 반영 지연이나 정상 체결 소유권 피드백을 해결하지 않는다.
 
 ## 9. 저장 경계
 

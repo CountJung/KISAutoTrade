@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::{broker::BrokerId, config::AccountProfile};
+use sha2::{Digest, Sha256};
 
 /// 비민감 실행 식별자. 예약 전에 같은 OrderManager mutex에서 검증한다.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -159,4 +160,22 @@ pub(super) fn validate_snapshot(
         }
     }
     Ok(())
+}
+
+pub(super) fn profile_fingerprint(profile: &AccountProfile) -> [u8; 32] {
+    let mut hash = Sha256::new();
+    for value in [
+        &profile.id,
+        &profile.account_no,
+        &profile.app_key,
+        &profile.app_secret,
+    ] {
+        hash.update((value.len() as u64).to_le_bytes());
+        hash.update(value.as_bytes());
+    }
+    hash.update([
+        u8::from(profile.is_paper_trading),
+        u8::from(profile.live_trading_consent),
+    ]);
+    hash.finalize().into()
 }

@@ -1,5 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use uuid::Uuid;
+
+/// 잔고 조회 시작 이후 포지션 변경과 더 최신 조회가 없었는지 확인하는 고정 크기 버전.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PositionSnapshotVersion {
+    mutation: Uuid,
+    request: Uuid,
+}
 
 /// 단일 종목 포지션
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,17 +62,36 @@ impl Position {
 /// 전체 포지션 추적기
 pub struct PositionTracker {
     positions: HashMap<String, Position>,
+    mutation_revision: Uuid,
+    latest_query: Uuid,
 }
 
 impl PositionTracker {
     pub fn new() -> Self {
         Self {
             positions: HashMap::new(),
+            mutation_revision: Uuid::new_v4(),
+            latest_query: Uuid::new_v4(),
         }
+    }
+
+    /// 새 잔고 조회를 등록하고 이전 조회의 응답을 무효화한다.
+    pub(crate) fn begin_snapshot(&mut self) -> PositionSnapshotVersion {
+        self.latest_query = Uuid::new_v4();
+        PositionSnapshotVersion {
+            mutation: self.mutation_revision,
+            request: self.latest_query,
+        }
+    }
+
+    /// 포지션 변경과 더 최신 조회가 없어 응답이 여전히 유효한지 확인한다.
+    pub(crate) fn snapshot_is_current(&self, version: &PositionSnapshotVersion) -> bool {
+        self.mutation_revision == version.mutation && self.latest_query == version.request
     }
 
     /// 매수 체결 반영
     pub fn on_buy(&mut self, symbol: String, symbol_name: String, quantity: u64, price: u64) {
+        self.mutation_revision = Uuid::new_v4();
         self.positions
             .entry(symbol.clone())
             .and_modify(|p| p.add_buy(quantity, price))
@@ -73,6 +100,7 @@ impl PositionTracker {
 
     /// 매도 체결 반영
     pub fn on_sell(&mut self, symbol: &str, quantity: u64) {
+        self.mutation_revision = Uuid::new_v4();
         if let Some(pos) = self.positions.get_mut(symbol) {
             pos.reduce(quantity);
             if pos.quantity == 0 {
@@ -107,6 +135,7 @@ impl PositionTracker {
     where
         I: IntoIterator<Item = (String, String, u64, u64, u64)>,
     {
+        self.mutation_revision = Uuid::new_v4();
         self.positions.clear();
         for (symbol, name, qty, avg_price, current_price) in entries {
             if qty == 0 {
@@ -120,6 +149,7 @@ impl PositionTracker {
 
     /// 전체 포지션 초기화. broker/account 전환 시 이전 scope 스냅샷이 새어들지 않게 한다.
     pub fn clear(&mut self) {
+        self.mutation_revision = Uuid::new_v4();
         self.positions.clear();
     }
 
@@ -192,13 +222,31 @@ impl OverseasPosition {
 /// 국내 `PositionTracker`와 분리해 USD cents, 거래소 코드, 해외 보유 수량을 보존한다.
 pub struct OverseasPositionTracker {
     positions: HashMap<String, OverseasPosition>,
+    mutation_revision: Uuid,
+    latest_query: Uuid,
 }
 
 impl OverseasPositionTracker {
     pub fn new() -> Self {
         Self {
             positions: HashMap::new(),
+            mutation_revision: Uuid::new_v4(),
+            latest_query: Uuid::new_v4(),
         }
+    }
+
+    /// 새 잔고 조회를 등록하고 이전 조회의 응답을 무효화한다.
+    pub(crate) fn begin_snapshot(&mut self) -> PositionSnapshotVersion {
+        self.latest_query = Uuid::new_v4();
+        PositionSnapshotVersion {
+            mutation: self.mutation_revision,
+            request: self.latest_query,
+        }
+    }
+
+    /// 포지션 변경과 더 최신 조회가 없어 응답이 여전히 유효한지 확인한다.
+    pub(crate) fn snapshot_is_current(&self, version: &PositionSnapshotVersion) -> bool {
+        self.mutation_revision == version.mutation && self.latest_query == version.request
     }
 
     pub fn on_buy(
@@ -209,6 +257,7 @@ impl OverseasPositionTracker {
         quantity: u64,
         price_cents: u64,
     ) {
+        self.mutation_revision = Uuid::new_v4();
         self.positions
             .entry(symbol.clone())
             .and_modify(|p| {
@@ -221,6 +270,7 @@ impl OverseasPositionTracker {
     }
 
     pub fn on_sell(&mut self, symbol: &str, quantity: u64) {
+        self.mutation_revision = Uuid::new_v4();
         if let Some(pos) = self.positions.get_mut(symbol) {
             pos.reduce(quantity);
             if pos.quantity == 0 {
@@ -245,6 +295,7 @@ impl OverseasPositionTracker {
 
     /// 전체 포지션 초기화. broker/account 전환 시 이전 scope 스냅샷이 새어들지 않게 한다.
     pub fn clear(&mut self) {
+        self.mutation_revision = Uuid::new_v4();
         self.positions.clear();
     }
 
@@ -255,6 +306,7 @@ impl OverseasPositionTracker {
     where
         I: IntoIterator<Item = (String, String, String, u64, u64, u64)>,
     {
+        self.mutation_revision = Uuid::new_v4();
         self.positions.clear();
         for (symbol, name, exchange, qty, avg_price_cents, current_price_cents) in entries {
             if qty == 0 {

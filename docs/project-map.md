@@ -142,6 +142,7 @@ KISAutoTrade/
 │   │   ├── documentation-layout-20261018.md
 │   │   ├── execution-run-reservation-20261018.md
 │   │   ├── frontend-hooks-split-20261018.md
+│   │   ├── holdings-publication-fence-20261018.md
 │   │   ├── live-completed-daily-history-20261018.md
 │   │   ├── project-health-and-soxq-p1-01.md
 │   │   ├── provider-candle-contract-20261018.md
@@ -521,6 +522,11 @@ KISAutoTrade/
 │   │   │   │   │   ├── collector.rs
 │   │   │   │   │   ├── provider_mode.rs
 │   │   │   │   │   └── reconciliation.rs
+│   │   │   │   ├── holdings/
+│   │   │   │   │   ├── tests/
+│   │   │   │   │   │   └── http.rs
+│   │   │   │   │   ├── fetch.rs
+│   │   │   │   │   └── tests.rs
 │   │   │   │   ├── submission/
 │   │   │   │   │   ├── positions.rs
 │   │   │   │   │   ├── prepare.rs
@@ -533,6 +539,7 @@ KISAutoTrade/
 │   │   │   │   ├── execution_run.rs
 │   │   │   │   ├── fills.rs
 │   │   │   │   ├── health.rs
+│   │   │   │   ├── holdings.rs
 │   │   │   │   ├── legacy.rs
 │   │   │   │   ├── pending.rs
 │   │   │   │   ├── submission.rs
@@ -606,6 +613,7 @@ KISAutoTrade/
 │   └── e2e/
 │       ├── fixtures/
 │       │   └── strategyResearchFixture.ts
+│       ├── balance-events.spec.ts
 │       ├── candle-pagination.spec.ts
 │       ├── live-daily-history.spec.ts
 │       ├── settings-database.spec.ts
@@ -687,7 +695,7 @@ KISAutoTrade/
 | `shared/config/scheduler/` | TanStack Query 공통 폴링 주기 |
 | `entities/*/model/` | Zustand 전역 상태 (계좌, 매매, 설정) |
 | `api/hooks.ts` | 기존 import를 유지하는 TanStack Query 훅 facade. 도메인별 hook 모듈과 기존 budget/database hook, `KEYS`, `useBackendEvents`를 re-export하며 훅 구현을 직접 소유하지 않음 |
-| `api/accountHooks.ts` | 앱 계정 설정·설정 확인·국내/해외/broker 잔고·프로파일 CRUD/전환·거래 환경 감지·Toss 연결/계좌 조회 hook |
+| `api/accountHooks.ts` | 앱 계정 설정·설정 확인·국내/해외/broker 잔고·프로파일 CRUD/전환·거래 환경 감지·Toss 연결/계좌 조회 hook. 잔고 query key를 profile/broker/account/투자 모드로 분리하고 응답 전후 현재 scope를 검사. 계좌 전환 시 이전 query를 취소·무효화하며 이전 계좌의 placeholder/initial data를 공유하지 않음 |
 | `shared/api/liveDailyHistoryTypes.ts` | `TradingStatus.dailyHistory`의 읽기 전용 준비 진단 타입. 기존 응답의 필드 누락은 준비 완료로 추정하지 않도록 optional 호환 계약 유지 |
 | `shared/ui/LiveDailyHistoryPanel.tsx` | Dashboard/Strategy가 기존 상태 query로 공유하는 완료 일봉 준비 패널. 실행/활성 profile·broker/account 범위를 확인하고 상태·확보량·시장 날짜·출처·실패/재시도 사유 표시. 최대 512상태를 요약하고 실제 행은 3개씩 표시하며 프로파일 없는 legacy KIS 실행은 일치 계좌의 실패 진단만 허용 |
 | `api/marketHooks.ts` | 국내/해외/Toss 시세·차트·검색·종목 목록 갱신·시장 일정/유의사항·환율 hook과 해외 차트 preset. 갱신 설정은 `settingsHooks.ts::useRefreshConfig`를 직접 참조. `useCandlePage`는 프로파일·broker/account·종목·간격·거래소·커서별 공통 페이지 조회 계약을 사용 |
@@ -698,7 +706,7 @@ KISAutoTrade/
 | `api/tradingHooks.ts` | 자동매매 상태·시작/정지·매수 정지 해제·포지션·리스크 설정·비상정지 hook |
 | `api/logHooks.ts` | 로그 설정·최근 로그 조회·프런트 로그 기록 hook과 `frontendLogger` |
 | `api/queryKeys.ts` | TanStack Query `KEYS` 단일 원천 (`hooks.ts`에서 하위 호환 re-export) |
-| `api/backendEvents.ts` | Tauri backend event 구독 → 환율/잔고 Query 캐시 갱신 |
+| `api/backendEvents.ts` | Tauri backend event 구독. 환율은 전역 캐시를 갱신하고 잔고 이벤트는 payload를 대입하지 않고 현재 계좌 query를 무효화하여 재조회. listener 등록/해제 지연과 실패 및 unmount 뒤 callback을 처리 |
 | `api/budgetHooks.ts` | broker/account별 자동매매 예산 조회·폴링과 저장 후 해당 scope Query 캐시 갱신 |
 | `api/databaseHooks.ts` | DB 설정/상태/이관 Tauri-only TanStack Query hooks |
 | `widgets/app-shell/` | 전체 앱 레이아웃, ThemeProvider, responsive navigation, 좌측 사이드바 자동매매 시작/정지 전역 조작 |
@@ -736,7 +744,7 @@ KISAutoTrade/
 |------|------|
 | `lib.rs` | Tauri Builder + window-state 플러그인 + 6개 백그라운드 데몬 spawn + `on_window_event` (종료 안전 처리) |
 | `commands.rs` | AppState + IPC command facade, 공통 helper |
-| `commands/accounts.rs` | 계좌 프로파일 CRUD/활성화, KIS 국내·해외 잔고, broker holdings view. 프로파일 적용 전 실행을 무효화하고 자료 로드 뒤 manager → OrderManager 잠금에서 scope·client 교체·tracker 초기화·전략 복원을 함께 게시 |
+| `commands/accounts.rs` | 계좌 프로파일 CRUD/활성화, KIS 국내·해외 잔고, broker holdings view. KIS 잔고는 공통 holdings fetch/publish 서비스를 사용하고 broker holdings 읽기 응답은 ReadOnly identity gate로 검증. 프로파일 적용 전 실행을 무효화하고 자료 로드 뒤 manager → OrderManager 잠금에서 scope·client 교체·tracker 초기화·전략 복원을 함께 게시 |
 | `commands/archive.rs` | 거래 파일 보관 설정, 보관 통계, 오래된 trade/log 파일 purge IPC |
 | `commands/budget.rs` | 활성 broker/account 검증, 자동매매 전용 예산 조회·변경 IPC. 변경은 자동매매 정지와 저장소/프로파일 변경 잠금 경계에서 수행 |
 | `commands/database.rs` | 인증 없는 REST에는 노출하지 않는 Tauri-only DB 관리/이관 IPC |
@@ -756,7 +764,7 @@ KISAutoTrade/
 | `commands/toss/small_order.rs` | 호환용 Toss 1주 소액매매 검증 endpoint. 실거래 동의/최종 확인/최대 허용금액/preflight/open-order scan 후 시장가 매수 제출과 주문·체결 기록 저장. 현재 UI는 일반 수동주문 경로를 사용 |
 | `commands/toss_market.rs` | Toss 시세 snapshot, 종목 유의사항, market-calendar override, candles chart command |
 | `commands/trading.rs` | 자동매매 상태/시작/정지·매수 정지 해제의 4개 IPC와 시작 순서·scope 검증을 조립하는 facade. daemon·잔고·위험 복원·히스토리 initializer의 기존 공개/내부 re-export 경로를 유지. 시작 준비 뒤 검증한 profile/client와 revision으로 실행 epoch를 게시하고 실행 플래그를 켠다. 정지는 실행과 일봉 generation을 무효화하며 예약·pending 추적은 보존. 상태에 완료 일봉 진단 포함 |
-| `commands/trading/positions.rs` | 활성 broker를 따라 KIS/Toss 실제 보유 수량·평균가를 전략 상태에 복원하고 broker별 보유 값 파싱을 담당 |
+| `commands/trading/positions.rs` | 활성 broker를 따라 KIS/Toss 실제 보유 수량·평균가를 전략 상태에 복원하고 broker별 보유 값 파싱을 담당. 고정 holdings query로 잠금 밖에서 조회한 뒤 manager → OrderManager 아래 KR/US tracker 게시 검증을 먼저 마치고 전략 상태를 복원 |
 | `commands/trading/balance.rs` | KIS 국내/해외 및 Toss 계좌의 현금·평가잔고를 조회해 리스크 기준 총잔고를 KRW로 환산 |
 | `commands/trading/risk_restore.rs` | 실행 broker/account scope의 당일 체결·주문 ledger에서 실현손익·주문 횟수·전략/종목별 손익을 복원하고 runtime을 저장. 조회·저장 실패를 호출자에게 전달 |
 | `commands/trading/history.rs` | 활성 전략의 broker별 과거 OHLC 조회·통화 단위 변환과 일봉/분봉 warmup dispatch. live 초기화용 `calculate_atr`를 소유하며 replay 전용 ATR 준비 모듈과 구분. 52주 전용 종목은 legacy seed를 생략하고 공유 종목의 다른 전략은 기존 seed를 받는다. Toss 실행 scope의 프로파일이 없으면 KIS로 대체하지 않고 초기화를 중단 |
@@ -818,15 +826,19 @@ KISAutoTrade/
 | `api/websocket.rs` | 실시간 시세 수신, 체결 콜백 |
 | `trading/mod.rs` | 전략 루프 실행, 장 시간 감지 |
 | `trading/views.rs` | `StrategyConfig` → camelCase `StrategyView` 공용 builder. IPC/REST가 같은 view를 사용하며 종목명 조회 전 manager lock을 해제 |
-| `trading/order.rs` | OrderManager facade와 공유 상태·provider trace. health·pending·legacy·execution_run·submission·fills의 하위 책임을 연결 |
-| `trading/order/execution_run.rs` | 비민감 `ExecutionRunContext`(epoch/revision/scope/profile)와 시작 검증에 사용한 client/profile snapshot. 시작·정지·scope 변경은 실행을 무효화하고 설정 revision 갱신은 이전 예약 후보를 폐기. pending·submitting·예산을 지우지 않음 |
+| `trading/order.rs` | OrderManager facade와 공유 상태·provider trace. health·pending·legacy·execution_run·configuration·holdings·submission·fills의 하위 책임을 연결 |
+| `trading/order/execution_run.rs` | 비민감 `ExecutionRunContext`(epoch/revision/scope/profile)와 시작 검증에 사용한 client/profile snapshot. 시작·정지·scope 변경은 실행을 무효화하고 설정 revision 갱신은 이전 예약 후보를 폐기. pending·submitting·예산을 지우지 않음. 설정 편집과 holdings가 공유하는 비공개 profile 인증·모드 fingerprint 소유 |
+| `trading/order/holdings.rs` | `HoldingsQuery`의 scope/epoch/client/profile/설정 편집 예약과 시장별 조회 버전을 캡처하고 게시 직전 검증하는 공통 gate. KR/US 버전을 모두 검사한 뒤 해당 시장만 교체하며 ReadOnly 응답은 tracker를 바꾸지 않음. 해외 주문 거래소 코드 정규화 helper 소유 |
+| `trading/order/holdings/fetch.rs` | KIS 국내·해외 잔고의 수량/금액 검증·tracker 입력 변환과 공통 refresh 서비스. provider await는 잠금 밖에서 수행하고 성공한 게시와 callback 이벤트는 같은 OrderManager gate에서 순서대로 처리 |
+| `trading/order/holdings/{tests.rs,tests/http.rs}` | 조회 역순 완료·실제 0수량/빈 목록·양 시장 원자 게시·체결/포지션 변경·재시작·계좌/인증/모드·설정 lease 경합, localhost 지연 HTTP와 게시 전 성공 이벤트 금지 검증 |
+| `trading/position.rs` | 국내 원화·해외 USD cents 포지션 tracker와 시세 평가. 고정 크기 UUID로 최신 조회와 체결/교체/초기화 변경 버전을 관리하여 이전 잔고 응답의 덮어쓰기를 차단하며 시세 갱신은 보유 변경 버전을 바꾸지 않음 |
 | `trading/order/configuration.rs` | 설정 편집 예약의 profile/client/scope identity와 실제 KR/US tracker 보유·pending/submitting/modifying 충돌 검증. 편집 대상의 주문 예약과 같은 scope 수동 holdings 교체를 보류하며 Weak 예약 종료 시 자동 해제 |
 | `trading/order/configuration/tests.rs` | 설정 편집 중 주문·holdings 차단, 예약 해제·identity 변경, 실제 보유 대상 제거·시장 변경의 합성 검증 |
 | `trading/order/health.rs` | 매수 정지·계좌/체결 동기화·영속화 장애 상태, health view와 일 초기화 |
 | `trading/order/pending.rs` | pending 복원·영속화·종료 상태와 취소/수정 예약, 종료 시 예산 정산 |
 | `trading/order/legacy.rs` | 기존 단일 manager의 매수/매도 처리와 KIS 재시도 호환 경로. daemon의 shared 제출 경로와 구분 |
 | `trading/order/submission.rs` | 수동·자동 주문 제출 조정. 자동 주문의 필수 실행 context를 준비 후·예약 전에 같은 OrderManager 잠금에서 검증하고 stale은 guard·submitting·예산 변경 전에 폐기. 예약 후 provider 응답·pending 처리는 원래 scope로 계속 추적 |
-| `trading/order/submission/positions.rs` | 제출용 실제 포지션 snapshot과 수동 주문 전 holdings 갱신. 조회에 고정한 profile/client/scope가 현재와 같은지 OrderManager 잠금에서 확인한 뒤 tracker에 게시 |
+| `trading/order/submission/positions.rs` | 제출용 실제 포지션 snapshot과 수동 주문 전 holdings 갱신. 요청에 고정한 profile/client/scope로 공통 holdings query를 예약하고 provider await 후 같은 게시 gate로 tracker를 갱신 |
 | `trading/order/submission/prepare.rs` | 위험·보유수량·주문 유형과 가격 검증, provider별 준비 요청 생성 |
 | `trading/order/submission/provider.rs` | 준비 요청 전송. KIS 국내/해외 재시도는 최초 snapshot의 같은 client를 사용하고 Toss 요청은 고정 profile을 사용 |
 | `trading/order/submission/records.rs` | 접수·실패 주문과 pending record 생성, provider trace·원래 broker scope 보존 |
@@ -842,11 +854,11 @@ KISAutoTrade/
 | `market_hours.rs` | 시장 개장 여부 (KRX 09:00-15:30 / US 22:00-07:00 KST) |
 | `server/mod.rs` | axum 웹 서버 route table, ServeDir fallback |
 | `server/budget.rs` | `/api/auto-trading-budget` GET/POST. IPC와 같은 scope 검증·정지 조건·예산 view를 사용 |
-| `server/market.rs` | 웹 REST KIS 잔고/해외잔고, broker holdings, 현재가, 주문, 차트, 종목 검색/갱신. 공통 캔들 페이지 GET은 `commands/candles.rs`의 동일 서비스와 camelCase view를 재사용 |
+| `server/market.rs` | 웹 REST KIS 잔고/해외잔고, broker holdings, 현재가, 주문, 차트, 종목 검색/갱신. 잔고 읽기 응답은 공통 holdings ReadOnly identity gate를 거쳐 반환하며 tracker 게시를 만들지 않음. 공통 캔들 페이지 GET은 `commands/candles.rs`의 동일 서비스와 camelCase view를 재사용 |
 | `server/records.rs` | 웹 REST 포지션, 통계/체결 조회, pending 주문, 로그 설정/최근 로그, 체결 보관 설정/통계, 프론트엔드 로그. REST 보관 설정 변경도 IPC와 같이 즉시 purge를 예약 |
 | `server/profiles.rs` | 웹 REST 프로파일 CRUD/활성 전환/실전·모의 감지/Toss accountSeq·diagnostic. 적용 전 실행을 무효화하고 manager → OrderManager에서 scope·client·tracker·전략 설정을 함께 게시. 프로파일 view는 IPC `profile_to_view()`를 재사용 |
 | `server/toss.rs` | 웹 REST Toss 시세 snapshot, 종목 유의사항, 주문 전 preflight, 호환용 1주 소액매매 검증 endpoint, 접수 주문 조회·정정, market-calendar, candles |
-| `server/trading.rs` | 웹 REST 자동매매 상태/시작/정지, 전략 목록/수정. 웹 start는 broker별 설정 검증·잔고 복원 뒤 profile/client 고정 실행 epoch를 게시. stop은 실행을 무효화하고 전략 수정은 IPC와 같은 `trading/configuration.rs` 서비스를 사용. status는 실제 identity와 camelCase `dailyHistory` 제공 |
+| `server/trading.rs` | 웹 REST 자동매매 상태/시작/정지, 전략 목록/수정. 웹 start는 broker별 설정 검증과 공통 holdings gate를 통한 KR/US 게시·전략 복원 뒤 profile/client 고정 실행 epoch를 게시. stop은 실행을 무효화하고 전략 수정은 IPC와 같은 `trading/configuration.rs` 서비스를 사용. status는 실제 identity와 camelCase `dailyHistory` 제공 |
 | `storage/trade_store.rs` | `data/trades/YYYY/MM/DD/trades.json` (`provider_*` 원본 요청 trace 포함) |
 | `storage/order_store.rs` | `data/orders/YYYY/MM/DD/orders.json` (`provider_*` 원본 주문 trace 포함) |
 | `storage/stats_store.rs` | `data/stats/YYYY/MM/daily_stats.json` |
@@ -882,7 +894,7 @@ KISAutoTrade/
 | 3 | axum 웹 서버 | 영구 실행 |
 | 4 | 환율 갱신 (USD/KRW) | `watch::Receiver` — Toss 우선/공개 환율/fallback 캐시 정책 + interval 변경 즉시 반영 |
 | 5 | 로그/체결기록 일일 정리 | 24h 주기 |
-| 6 | 잔고 갱신 + 이벤트 발행 | `watch::Receiver` — interval 변경 즉시 반영, 활성 broker가 KIS일 때만 KIS 잔고 조회 |
+| 6 | 잔고 갱신 + 이벤트 발행 | `watch::Receiver` — interval 변경 즉시 반영, 활성 broker가 KIS일 때 공통 holdings refresh로 조회·게시 검증 후 이벤트 발행 |
 
 ---
 
@@ -961,14 +973,32 @@ guard/submitting 예약 → 예산 예약 저장 → 고정 provider 전송·재
 이미 예약한 요청은 정지로 취소되었다고 간주하지 않는다.
 
 프로파일 적용은 먼저 실행을 무효화하고 자료 로드 후 같은 manager → OrderManager
-경계에서 scope/client 교체·tracker 초기화·전략 설정을 게시한다. 수동 holdings는
-최초 요청의 profile/client/scope를 재검증한 뒤 tracker를 교체한다. 체결 조회는
+경계에서 scope/client 교체·tracker 초기화·전략 설정을 게시한다. 일반·수동 holdings는
+아래 공통 게시 경계로 최초 요청의 identity와 포지션 버전을 재검증한다. 체결 조회는
 전략 epoch보다 실제 계좌·인증의 연속성을 확인하므로 같은 계좌의 실제 체결을
 재시작만으로 버리지 않으며, 다른 계좌의 지연 응답은 적용을 보류한다.
 KIS pending은 저장 TR-ID로 확인한 실전/모의 출처가 현재 client와 같아야 한다.
 출처가 없거나 알려지지 않았거나 모드가 다르면 조회 후보에서 제외하고 직접
 체결과 체결 조회의 종료 상태 반영도 보류하여 포지션·예산을 보존하고 체결 동기화
 health에 남긴다.
+
+### 잔고 조회와 tracker 게시
+
+```text
+IPC 일반 잔고 / lib.rs 갱신 / IPC·Web 시작 복원 / 수동 주문 준비
+    ↓ OrderManager::begin_holdings_query[_for_snapshot]
+scope·epoch·client/profile·설정 lease + 시장별 최신 조회/변경 UUID 캡처
+    ↓ 잠금 밖 provider await → 수량·가격 파싱
+OrderManager::publish_holdings: 현재 identity·lease·조회/변경 버전 재검증
+    ↓ KR/US 동시 응답은 양쪽 검증 완료 후 함께 교체 (실제 빈 목록/0수량 포함)
+tracker 게시 → 시작 경로의 전략 복원 또는 background 성공 이벤트
+```
+
+조회 중 계좌 A→B→A, 정지/재시작, 인증·투자 모드 변경, 설정 저장,
+더 최신 조회 또는 체결·포지션 교체가 발생하면 이전 응답을 버린다. 시세만
+바뀌는 것은 보유 변경으로 보지 않는다. 게시용 요청과 별도인 ReadOnly gate는
+IPC broker holdings와 Web 잔고 응답의 identity를 검증하며 tracker나 최신 게시
+조회 번호를 바꾸지 않는다. 이 경계는 정상 체결의 전략별 소유권 배분을 대신하지 않는다.
 
 ### 전략 설정 저장과 보유 상태 보존
 
@@ -1101,7 +1131,9 @@ lib.rs daemon 4/6 → app_handle.emit("exchange-rate-updated" / "exchange-rate-s
     ↓
 AppShell.tsx — useBackendEvents() listen()
     ↓
-TanStack Query — setQueryData() (캐시 직접 갱신, 네트워크 요청 없음)
+환율 → setQueryData() / 잔고 → invalidateQueries() (이벤트 payload는 사용하지 않음)
+    ↓ 잔고는 현재 profile/broker/account/모드 query key로 다시 조회
+accountHooks.ts — 응답 전후 현재 scope 검사, 이전 계좌 data 이어받기 금지
     ↓
 관련 컴포넌트 리렌더
 ```

@@ -59,8 +59,8 @@
 
 | Command | 설명 |
 |---------|------|
-| `get_balance` | 국내 잔고 조회 (BalanceSummary + items) |
-| `get_overseas_balance` | 해외 잔고 조회 (OverseasBalanceItem[] + summary) |
+| `get_balance` | 국내 잔고 조회 (BalanceSummary + items). 고정 계좌/실행·설정 lease·시장별 요청/포지션 버전을 검증한 응답만 tracker에 게시 |
+| `get_overseas_balance` | 해외 잔고 조회 (OverseasBalanceItem[] + summary). 같은 검증 후 해외 tracker만 게시, USD cents·거래소 정규화 유지 |
 | `get_broker_holdings` | 활성 broker 보유 종목 조회 (`BrokerHoldingView[]`, Toss/KIS 공통 decimal 문자열 보존) |
 | `get_price` | 종목 현재가 조회 |
 | `get_toss_market_snapshot` | 활성 Toss 프로파일로 현재가/호가/최근 체결/상하한가 read-only snapshot 조회 |
@@ -177,11 +177,17 @@ v9 generic 1m 입력은 RFC3339 offset을 실제 순간으로 해석하고 고�
 |---------|--------|---------|
 | `exchange-rate-updated` | `f64` (USD/KRW 환율) | 데몬 4 (환율 갱신, 숫자 캐시 호환) |
 | `exchange-rate-status-updated` | `ExchangeRateView` | 데몬 4 (환율 출처/유효시간 갱신) |
-| `balance-updated` | `{ items, summary }` | 데몬 6 (잔고 갱신) |
-| `overseas-balance-updated` | `{ items, summary }` | 데몬 6 (잔고 갱신) |
+| `balance-updated` | `{ items, summary }` | 데몬 6의 검증된 국내 게시. UI는 payload 대입 없이 현재 계좌 query 재조회 |
+| `overseas-balance-updated` | `{ items, summary }` | 데몬 6의 검증된 해외 게시. UI는 payload 대입 없이 현재 계좌 query 재조회 |
 | `ws-status` | `WsStatusEvent` | `api/websocket.rs` |
 
 > 프론트엔드 구독: `AppShell.tsx` → `useBackendEvents()` (`hooks.ts`)
+
+잔고 payload 형식과 기존 command 입력은 유지한다. 늦은 응답·더 최신 조회·조회 중
+체결/삭제·설정 lease·프로파일/모드/실행 변경은 기존 오류 경로로 재조회 사유를
+반환하며 tracker를 덮지 않는다. Web 일반 balance와 IPC/Web broker holdings도
+응답 전 계좌 identity를 확인하지만 기존 ReadOnly 성격을 유지한다. holdings
+쿼리 키는 기존 prefix 뒤 profile/broker/account/mode를 붙여 prefix 무효화와 호환한다.
 
 ### Generic preview 준비 메타데이터(v4)
 

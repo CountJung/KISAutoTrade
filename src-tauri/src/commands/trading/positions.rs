@@ -1,4 +1,5 @@
 use super::*;
+use crate::trading::order::{HoldingsMarkets, HoldingsUpdate};
 
 pub(super) async fn sync_strategy_positions_from_active_broker(
     state: &AppState,
@@ -25,7 +26,17 @@ pub(super) async fn sync_strategy_positions_from_active_broker(
 }
 
 async fn sync_kis_strategy_positions(state: &AppState) -> CmdResult<usize> {
-    let rest = state.rest_client.read().await.clone();
+    let query = state
+        .order_manager
+        .lock()
+        .await
+        .begin_holdings_query(BrokerId::Kis, HoldingsMarkets::Both)
+        .await
+        .map_err(|error| CmdError {
+            code: "ACCOUNT_SYNC_FAILED".into(),
+            message: error.to_string(),
+        })?;
+    let rest = query.client();
     let mut synced = 0usize;
     let domestic = rest.get_balance().await.map_err(|e| CmdError {
         code: "ACCOUNT_SYNC_FAILED".into(),
@@ -63,77 +74,75 @@ async fn sync_kis_strategy_positions(state: &AppState) -> CmdResult<usize> {
         })
         .collect::<CmdResult<_>>()?;
 
-    {
-        let resp = domestic;
-        state
-            .stock_store
-            .upsert_many(
-                resp.items
-                    .iter()
-                    .map(|i| (i.pdno.clone(), i.prdt_name.clone())),
-            )
-            .await;
-        {
-            let mut tracker = state.position_tracker.lock().await;
-            tracker.replace(domestic_positions.iter().cloned());
-        }
-        {
-            let mut mgr = state.strategy_manager.lock().await;
-            for symbol in mgr.active_symbols() {
-                if is_domestic_symbol(&symbol) {
-                    mgr.sync_position_for_broker(&BrokerPositionSnapshot {
-                        broker_id: BrokerId::Kis,
-                        market: BrokerMarket::Kr,
-                        symbol,
-                        quantity: 0,
-                        avg_price: 0,
-                    });
-                }
-            }
-            for (symbol, _, qty, avg, _) in &domestic_positions {
-                if *qty > 0 {
-                    synced += 1;
-                }
-                mgr.sync_position_for_broker(&BrokerPositionSnapshot {
-                    broker_id: BrokerId::Kis,
-                    market: BrokerMarket::Kr,
-                    symbol: symbol.clone(),
-                    quantity: *qty,
-                    avg_price: *avg,
-                });
-            }
+    state
+        .stock_store
+        .upsert_many(
+            domestic
+                .items
+                .iter()
+                .map(|item| (item.pdno.clone(), item.prdt_name.clone())),
+        )
+        .await;
+    let mut mgr = state.strategy_manager.lock().await;
+    let mut orders = state.order_manager.lock().await;
+    orders
+        .publish_holdings(
+            query,
+            HoldingsUpdate::Both {
+                domestic: domestic_positions.clone(),
+                overseas: overseas_positions.clone(),
+            },
+        )
+        .await
+        .map_err(|error| CmdError {
+            code: "ACCOUNT_SYNC_FAILED".into(),
+            message: error.to_string(),
+        })?;
+    for symbol in mgr.active_symbols() {
+        if is_domestic_symbol(&symbol) {
+            mgr.sync_position_for_broker(&BrokerPositionSnapshot {
+                broker_id: BrokerId::Kis,
+                market: BrokerMarket::Kr,
+                symbol,
+                quantity: 0,
+                avg_price: 0,
+            });
         }
     }
-
-    {
-        {
-            let mut tracker = state.overseas_position_tracker.lock().await;
-            tracker.replace(overseas_positions.iter().cloned());
+    for (symbol, _, qty, avg, _) in &domestic_positions {
+        if *qty > 0 {
+            synced += 1;
         }
-        let mut mgr = state.strategy_manager.lock().await;
-        for symbol in mgr.active_symbols() {
-            if !is_domestic_symbol(&symbol) {
-                mgr.sync_position_for_broker(&BrokerPositionSnapshot {
-                    broker_id: BrokerId::Kis,
-                    market: BrokerMarket::Us,
-                    symbol,
-                    quantity: 0,
-                    avg_price: 0,
-                });
-            }
-        }
-        for (symbol, _, _, qty, avg, _) in &overseas_positions {
-            if *qty > 0 {
-                synced += 1;
-            }
+        mgr.sync_position_for_broker(&BrokerPositionSnapshot {
+            broker_id: BrokerId::Kis,
+            market: BrokerMarket::Kr,
+            symbol: symbol.clone(),
+            quantity: *qty,
+            avg_price: *avg,
+        });
+    }
+    for symbol in mgr.active_symbols() {
+        if !is_domestic_symbol(&symbol) {
             mgr.sync_position_for_broker(&BrokerPositionSnapshot {
                 broker_id: BrokerId::Kis,
                 market: BrokerMarket::Us,
-                symbol: symbol.clone(),
-                quantity: *qty,
-                avg_price: *avg,
+                symbol,
+                quantity: 0,
+                avg_price: 0,
             });
         }
+    }
+    for (symbol, _, _, qty, avg, _) in &overseas_positions {
+        if *qty > 0 {
+            synced += 1;
+        }
+        mgr.sync_position_for_broker(&BrokerPositionSnapshot {
+            broker_id: BrokerId::Kis,
+            market: BrokerMarket::Us,
+            symbol: symbol.clone(),
+            quantity: *qty,
+            avg_price: *avg,
+        });
     }
 
     Ok(synced)
@@ -185,6 +194,25 @@ async fn sync_toss_strategy_positions(
         });
     }
 
+    let client = state.rest_client.read().await.clone();
+    let scope = BrokerScope::new(
+        BrokerId::Toss,
+        Some(BrokerAccountId(profile.broker_account_id())),
+    );
+    let query = state
+        .order_manager
+        .lock()
+        .await
+        .begin_holdings_query_for_snapshot(&scope, &client, Some(&profile), HoldingsMarkets::Both)
+        .await
+        .map_err(|error| CmdError {
+            code: "ACCOUNT_SYNC_FAILED".into(),
+            message: error.to_string(),
+        })?;
+    let profile = query.profile().cloned().ok_or_else(|| CmdError {
+        code: "ACCOUNT_SYNC_FAILED".into(),
+        message: "활성 Toss 프로파일이 없습니다.".into(),
+    })?;
     let account_id = BrokerAccountId(profile.broker_account_id());
     let adapter = TossBrokerAdapter::with_credentials(
         TossBrokerAdapter::DEFAULT_BASE_URL,
@@ -257,44 +285,49 @@ async fn sync_toss_strategy_positions(
         )
         .await;
 
-    {
-        let mut domestic_tracker = state.position_tracker.lock().await;
-        domestic_tracker.replace(
-            parsed_holdings
-                .iter()
-                .filter(|holding| holding.2 == BrokerMarket::Kr)
-                .map(|holding| {
-                    (
-                        holding.0.clone(),
-                        holding.1.clone(),
-                        holding.3,
-                        holding.4,
-                        holding.5,
-                    )
-                }),
-        );
-    }
-    {
-        let mut overseas_tracker = state.overseas_position_tracker.lock().await;
-        overseas_tracker.replace(
-            parsed_holdings
-                .iter()
-                .filter(|holding| holding.2 == BrokerMarket::Us)
-                .map(|holding| {
-                    (
-                        holding.0.clone(),
-                        holding.1.clone(),
-                        "TOSS_US".to_string(),
-                        holding.3,
-                        holding.4,
-                        holding.5,
-                    )
-                }),
-        );
-    }
-
+    let domestic_positions = parsed_holdings
+        .iter()
+        .filter(|holding| holding.2 == BrokerMarket::Kr)
+        .map(|holding| {
+            (
+                holding.0.clone(),
+                holding.1.clone(),
+                holding.3,
+                holding.4,
+                holding.5,
+            )
+        })
+        .collect();
+    let overseas_positions = parsed_holdings
+        .iter()
+        .filter(|holding| holding.2 == BrokerMarket::Us)
+        .map(|holding| {
+            (
+                holding.0.clone(),
+                holding.1.clone(),
+                "TOSS_US".to_string(),
+                holding.3,
+                holding.4,
+                holding.5,
+            )
+        })
+        .collect();
     let mut synced = 0usize;
     let mut mgr = state.strategy_manager.lock().await;
+    let mut orders = state.order_manager.lock().await;
+    orders
+        .publish_holdings(
+            query,
+            HoldingsUpdate::Both {
+                domestic: domestic_positions,
+                overseas: overseas_positions,
+            },
+        )
+        .await
+        .map_err(|error| CmdError {
+            code: "ACCOUNT_SYNC_FAILED".into(),
+            message: error.to_string(),
+        })?;
     for symbol in mgr.active_symbols() {
         mgr.sync_position_for_broker(&BrokerPositionSnapshot {
             broker_id: BrokerId::Toss,
