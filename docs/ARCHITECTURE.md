@@ -95,6 +95,8 @@ LTH 조회는 유지하며 live 완료 일봉 갱신은 이 경로의 책임이 
 
 수동 주문(`commands/orders.rs`)과 전략 신호는 공통 `OrderManager` 제출 서비스를 사용한다.
 
+자동매매는 OrderManager에 epoch·configuration revision·broker/account·profile context와 검증한 client/profile snapshot을 저장한다. daemon의 시세·평가액은 같은 snapshot을 사용하고, 전략 변경은 bool→strategy→order 검증 구간에서만 수행한다. 자동 예약은 같은 OrderManager mutex에서 context를 검사한 다음 guard·submitting·예산을 변경한다. 설정 변경·저장 실패 복원은 manager→order 임계구역에서 새 revision을 공개한다. provider await에는 bool/strategy lock을 유지하지 않는다. 예약 후에는 최초 client/scope로 응답·재시도·pending을 끝까지 추적하며 정지나 자정 초기화로 submitting을 지우지 않는다. 세부 검증은 [P1-RUN-01 기록](tasks/execution-run-reservation-20261018.md)을 참조한다.
+
 ```text
 UI/전략 Signal
  → 실행 BrokerScope와 현재 profile 검증

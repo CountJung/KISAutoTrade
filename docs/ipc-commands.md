@@ -19,7 +19,7 @@
 | `get_web_config` | 웹 서버 포트, LAN 공개, API token 설정 여부 조회 (token 원문 미반환) |
 | `save_web_config` | `WEB_PORT`, `WEB_ALLOW_LAN`, 32자 이상 `WEB_API_TOKEN` 저장. LAN 공개는 token 필수 |
 | `detect_trading_type` | 실전/모의투자 자동 감지 |
-| `detect_profile_trading_type` | 특정 프로파일 실전/모의 감지 |
+| `detect_profile_trading_type` | 특정 프로파일 실전/모의 감지. 활성 프로파일은 실행 중 `TRADING_ACTIVE`로 거절 |
 | `get_broker_rate_limit_status` | broker rate limiter 운영 상태 (scope/그룹별 pause 잔여, rate limit 누적, 마지막 성공/실패, 연속 실패; credential 마스킹) |
 | `list_toss_accounts` | 입력한 토스증권 Client ID/Secret으로 `accountSeq` 후보 조회 |
 | `list_toss_profile_accounts` | 저장된 토스증권 프로파일 키로 `accountSeq` 후보 조회 |
@@ -133,13 +133,13 @@ v9 generic 1m 입력은 RFC3339 offset을 실제 순간으로 해석하고 고�
 | Command | 설명 |
 |---------|------|
 | `get_trading_status` | 자동 매매 상태와 건강 정보 조회 (holdings sync/reconciliation/pending/persistence/daemon 실패, 실행 scope 포함) |
-| `start_trading` | 활성 broker/account 잔고·holdings 및 복원 pending 대조 성공 후에만 자동 매매 시작 |
-| `stop_trading` | 자동 매매 정지 |
+| `start_trading` | 활성 broker/account 잔고·holdings 및 복원 pending 대조 성공 후 실행 epoch·설정 revision·profile/client snapshot 고정. 시작 context 불일치는 `EXECUTION_CONTEXT_CHANGED`로 차단 |
+| `stop_trading` | 실행 epoch 무효화 후 자동 매매 정지. 이미 예약한 주문의 원래 scope·pending·예산 추적 유지 |
 | `clear_buy_suspension` | 잔고 부족 매수 정지 수동 해제 |
 | `get_positions` | 포지션 목록 조회 |
 | `get_pending_orders` | 미체결 주문 조회 (`status`, `filledQuantity`, `remainingQuantity`, provider trace 포함) |
 | `get_strategies` | 전략 목록 조회 (`brokerId`, `brokerAccountId`, 대상 종목, params 포함) |
-| `update_strategy` | 전략 파라미터 업데이트. 요청의 expected profile/broker/account가 현재 scope와 다르면 `SCOPE_MISMATCH`로 거부 |
+| `update_strategy` | 전략 파라미터 업데이트. 변경·저장 실패 복원 모두 새 revision을 예약 gate에 공개. 요청의 expected profile/broker/account가 현재 scope와 다르면 `SCOPE_MISMATCH`로 거부 |
 | `get_risk_config` | 리스크 설정 조회 (손실/비중/일일 주문 제한/연속 손실/ATR 수량 산정) |
 | `update_risk_config` | 리스크 설정 변경 (손실/비중/일일 주문 제한/연속 손실/ATR 수량 산정) |
 | `clear_emergency_stop` | 비상정지 수동 해제 |

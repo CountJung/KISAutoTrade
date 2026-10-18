@@ -27,6 +27,7 @@ pub(super) async fn profiles_handler(State(s): State<ServerState>) -> Json<serde
 
 /// 활성 프로파일 변경 시 config + rest_client 갱신 (웹 서버 내부용)
 async fn apply_profile_change(s: &ServerState) {
+    s.order_manager.lock().await.end_execution_run();
     let new_config = {
         let profiles = s.profiles.read().await;
         let existing = s.config.read().await.clone();
@@ -64,12 +65,6 @@ async fn apply_profile_change(s: &ServerState) {
         new_config.kis_is_paper_trading,
         token_mgr,
     ));
-    *s.config.write().await = new_config;
-    *s.rest_client.write().await = new_client;
-
-    // 이전 프로파일의 보유 포지션이 새 broker/account scope로 새어들지 않게 초기화한다.
-    // 다음 잔고 동기화(replace)와 수동 주문 직전 refresh에서 새 계좌 스냅샷으로 채워진다.
-    s.position_tracker.lock().await.clear();
 
     let (active_id, broker_id, account_id) = {
         let profiles = s.profiles.read().await;
@@ -93,14 +88,17 @@ async fn apply_profile_change(s: &ServerState) {
             }),
         None => Vec::new(),
     };
-    s.strategy_manager
-        .lock()
-        .await
-        .apply_saved_configs_for_scope(&saved, broker_id, account_id.clone());
-    s.order_manager
-        .lock()
-        .await
-        .set_execution_scope(BrokerScope::new(broker_id, account_id.map(BrokerAccountId)));
+    // Publish the client, scope and tracker reset atomically with order consumers.
+    let mut manager = s.strategy_manager.lock().await;
+    let mut orders = s.order_manager.lock().await;
+    orders.set_execution_scope(BrokerScope::new(
+        broker_id,
+        account_id.clone().map(BrokerAccountId),
+    ));
+    *s.config.write().await = new_config;
+    *s.rest_client.write().await = new_client;
+    orders.clear_position_trackers_for_scope_change().await;
+    manager.apply_saved_configs_for_scope(&saved, broker_id, account_id);
 }
 
 /// profiles.json 저장 (웹 서버 내부용)
@@ -138,6 +136,13 @@ pub(super) async fn add_profile_handler(
     Json(body): Json<AddProfileBody>,
 ) -> Json<serde_json::Value> {
     let _strategy_update = s.strategy_update_lock.lock().await;
+    let activates_profile = s.profiles.read().await.profiles.is_empty();
+    if activates_profile && *s.is_trading.lock().await {
+        return Json(serde_json::json!({
+            "code": "TRADING_RUNNING",
+            "error": "첫 프로파일을 활성화하려면 자동매매를 먼저 정지하세요."
+        }));
+    }
     let profile = AccountProfile::new(
         body.name,
         body.is_paper_trading,
@@ -250,7 +255,9 @@ pub(super) async fn delete_profile_handler(
             serde_json::json!({ "error": format!("프로파일을 찾을 수 없습니다: {}", body.id) }),
         );
     }
-    apply_profile_change(&s).await;
+    if active_before {
+        apply_profile_change(&s).await;
+    }
     save_profiles_server(&s).await;
     Json(serde_json::json!({ "ok": true }))
 }

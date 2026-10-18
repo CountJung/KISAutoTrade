@@ -116,6 +116,10 @@ pub(super) fn manual_submission_response(
                 msg1: format!("{provider} 주문 접수"),
             })
         }
+        crate::trading::order::SubmissionOutcome::StaleRun { reason } => Err(CmdError {
+            code: "EXECUTION_CONTEXT_CHANGED".into(),
+            message: reason,
+        }),
         crate::trading::order::SubmissionOutcome::Skipped { reason, .. } => Err(CmdError {
             code: "ORDER_PREFLIGHT_BLOCKED".into(),
             message: reason,

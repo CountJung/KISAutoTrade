@@ -8,19 +8,12 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use tokio::{
-    sync::{Mutex, RwLock},
-    task::JoinHandle,
-};
+use tokio::{sync::Mutex, task::JoinHandle};
 
 use super::{collect_daily_history, CollectedDailyHistory};
-use crate::{
-    api::rest::KisRestClient,
-    config::ProfilesConfig,
-    trading::{
-        order::OrderManager,
-        strategy::{DailyHistoryTicket, StrategyManager},
-    },
+use crate::trading::{
+    order::OrderManager,
+    strategy::{DailyHistoryTicket, StrategyManager},
 };
 
 const MAX_IN_FLIGHT: usize = 2;
@@ -61,46 +54,39 @@ impl DailyHistoryJobs {
         is_running: &Arc<Mutex<bool>>,
         manager: &Arc<Mutex<StrategyManager>>,
         orders: &Arc<Mutex<OrderManager>>,
-        profiles: &Arc<RwLock<ProfilesConfig>>,
-        rest: &Arc<RwLock<Arc<KisRestClient>>>,
     ) {
-        if !*is_running.lock().await {
-            self.clear();
-            return;
-        }
-        let scope = orders.lock().await.execution_scope().clone();
-        let identity = manager.lock().await.history_execution_identity();
-        let run_profile = identity.and_then(|(_, profile)| profile);
-        // Resolve the pinned run profile, never another profile sharing the account.
-        let profile = {
-            let profiles = profiles.read().await;
-            profiles
-                .profiles
-                .iter()
-                .find(|profile| {
-                    run_profile.as_ref().is_some_and(|id| id == &profile.id)
-                        && profile.broker_id == scope.broker_id
-                        && scope
-                            .account_id
-                            .as_ref()
-                            .is_some_and(|id| id.0 == profile.broker_account_id())
-                })
-                .cloned()
-        };
-        let profile_id = run_profile.unwrap_or_default();
         let now = Utc::now();
-        let targets = {
+        let (targets, profile, rest) = {
             let running = is_running.lock().await;
             if !*running {
                 self.clear();
                 return;
             }
-            manager
-                .lock()
-                .await
-                .prepare_daily_history_targets(&scope, &profile_id, now)
+            let mut manager = manager.lock().await;
+            let orders = orders.lock().await;
+            let Some(context) = orders.execution_run_context() else {
+                self.clear();
+                return;
+            };
+            if manager.history_generation() != context.configuration_revision
+                || manager.history_execution_identity()
+                    != Some((context.broker_scope.clone(), context.profile_id.clone()))
+            {
+                // An obsolete caller cannot invalidate the newly started manager.
+                self.clear();
+                return;
+            }
+            let Some((rest, profile)) = orders.execution_run_snapshots(&context) else {
+                self.clear();
+                return;
+            };
+            let targets = manager.prepare_daily_history_targets(
+                &context.broker_scope,
+                context.profile_id.as_deref().unwrap_or_default(),
+                now,
+            );
+            (targets, profile, rest)
         };
-        let rest = rest.read().await.clone();
         self.tick(
             targets,
             now,

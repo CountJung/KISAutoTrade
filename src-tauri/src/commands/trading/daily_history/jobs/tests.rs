@@ -1,5 +1,6 @@
 use super::*;
 use crate::{
+    api::rest::KisRestClient,
     broker::{BrokerAccountId, BrokerId, BrokerScope},
     trading::strategy::{build_strategy, OhlcCandle, Signal, StrategyConfig},
 };
@@ -74,6 +75,118 @@ async fn completed(jobs: &DailyHistoryJobs) {
         tokio::task::yield_now().await;
     }
     panic!("synthetic futures did not finish");
+}
+
+fn orders_for_maintain(account: &str) -> (Arc<Mutex<OrderManager>>, Arc<KisRestClient>) {
+    use crate::{
+        api::token::TokenManager,
+        config::{AppConfig, ProfilesConfig},
+        storage::{OrderStore, PendingOrderStore, RiskStore, StatsStore, TradeStore},
+        trading::{
+            position::{OverseasPositionTracker, PositionTracker},
+            risk::RiskManager,
+        },
+    };
+    use tokio::sync::RwLock;
+    let config = Arc::new(AppConfig {
+        broker_id: BrokerId::Kis,
+        broker_account_id: account.into(),
+        kis_app_key: String::new(),
+        kis_app_secret: String::new(),
+        kis_account_no: account.into(),
+        kis_is_paper_trading: true,
+        discord_bot_token: None,
+        discord_channel_id: None,
+        notification_levels: vec![],
+    });
+    let rest = Arc::new(KisRestClient::new(
+        "http://127.0.0.1:1".into(),
+        String::new(),
+        String::new(),
+        account.into(),
+        true,
+        Arc::new(RwLock::new(TokenManager::new(config))),
+    ));
+    let path = std::env::temp_dir().join(format!("daily-maintain-{}", uuid::Uuid::new_v4()));
+    let orders = OrderManager::new(
+        Arc::new(RwLock::new(Arc::clone(&rest))),
+        Arc::new(RwLock::new(ProfilesConfig::default())),
+        Arc::new(OrderStore::new(path.clone())),
+        Arc::new(PendingOrderStore::new(path.clone())),
+        Arc::new(TradeStore::new(path.clone())),
+        Arc::new(Mutex::new(PositionTracker::new())),
+        Arc::new(Mutex::new(OverseasPositionTracker::new())),
+        Arc::new(StatsStore::new(path.clone())),
+        Arc::new(RwLock::new(1400.0)),
+        Arc::new(Mutex::new(RiskManager::default())),
+        Arc::new(RiskStore::new(path)),
+        None,
+    );
+    (Arc::new(Mutex::new(orders)), rest)
+}
+
+#[tokio::test]
+async fn maintain_captures_the_new_scope_atomically_after_a_waiting_start() {
+    let manager = manager(&["SOXQ"], 1);
+    let running = Arc::new(Mutex::new(true));
+    let (orders, rest) = orders_for_maintain("new-account");
+    // Stall maintain before it can observe any lifecycle state. Publish the whole
+    // new run while retaining the flag guard, exactly like start/stop publication.
+    let running_guard = running.lock().await;
+    let task_manager = manager.clone();
+    let task_running = running.clone();
+    let task_orders = orders.clone();
+    let task = tokio::spawn(async move {
+        let mut jobs = DailyHistoryJobs::default();
+        jobs.maintain(&task_running, &task_manager, &task_orders)
+            .await;
+        jobs
+    });
+    let new_scope = BrokerScope::new(BrokerId::Kis, Some(BrokerAccountId("new-account".into())));
+    let revision = {
+        let mut manager = manager.lock().await;
+        let configs = manager
+            .all_configs()
+            .into_iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        manager.apply_saved_configs_for_scope(&configs, BrokerId::Kis, Some("new-account".into()));
+        manager.set_history_execution_identity(new_scope.clone(), None);
+        let revision = manager.history_generation();
+        orders
+            .lock()
+            .await
+            .begin_execution_run(new_scope, None, revision, rest, None)
+            .unwrap();
+        revision
+    };
+    drop(running_guard);
+    let mut jobs = task.await.unwrap();
+    assert_eq!(manager.lock().await.history_generation(), revision);
+    assert_eq!(jobs.entries.len(), 1);
+    let ticket = &jobs.entries.values().next().unwrap().tickets[0];
+    assert_eq!(ticket.generation, revision);
+    assert_eq!(ticket.broker_account_id.as_deref(), Some("new-account"));
+    assert_eq!(ticket.profile_id, "");
+    // Legacy no-profile history reports unavailable before any provider request.
+    completed(&jobs).await;
+    jobs.maintain(&running, &manager, &orders).await;
+    assert_eq!(
+        manager.lock().await.daily_history_status()[0].state,
+        "failed"
+    );
+    let before = serde_json::to_value(manager.lock().await.daily_history_status()).unwrap();
+    manager
+        .lock()
+        .await
+        .set_history_execution_identity(scope(), Some("obsolete-profile".into()));
+    jobs.maintain(&running, &manager, &orders).await;
+    assert!(jobs.entries.is_empty());
+    assert_eq!(manager.lock().await.history_generation(), revision);
+    assert_eq!(
+        serde_json::to_value(manager.lock().await.daily_history_status()).unwrap(),
+        before
+    );
 }
 
 #[tokio::test]

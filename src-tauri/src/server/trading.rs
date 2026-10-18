@@ -387,6 +387,7 @@ fn normalized_f64(value: &str) -> f64 {
 /// POST /api/trading/start — is_trading = true (폴링 데몬이 자동으로 재개)
 pub(super) async fn trading_start_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
     let _storage_maintenance = s.storage_maintenance.lock().await;
+    let _strategy_update = s.strategy_update_lock.lock().await;
     if s.database_manager.config_view().await.active_backend
         == crate::storage::database::StorageBackend::Database
     {
@@ -538,10 +539,24 @@ pub(super) async fn trading_start_handler(State(s): State<ServerState>) -> Json<
         &s.risk_manager,
     )
     .await;
+    let rest_snapshot = s.rest_client.read().await.clone();
     {
         let history_scope = s.order_manager.lock().await.execution_scope().clone();
         let mut manager = s.strategy_manager.lock().await;
         manager.advance_history_generation();
+        if let Err(error) = s.order_manager.lock().await.begin_execution_run(
+            history_scope.clone(),
+            active_id.clone(),
+            manager.history_generation(),
+            rest_snapshot,
+            active_profile,
+        ) {
+            return Json(serde_json::json!({
+                "ok": false,
+                "code": "EXECUTION_CONTEXT_CHANGED",
+                "message": error.to_string()
+            }));
+        }
         manager.set_history_execution_identity(history_scope, active_id.clone());
     }
     *is_running = true;
@@ -564,6 +579,7 @@ pub(super) async fn trading_stop_handler(State(s): State<ServerState>) -> Json<s
         let mut manager = s.strategy_manager.lock().await;
         manager.advance_history_generation();
         manager.clear_history_execution_identity();
+        s.order_manager.lock().await.end_execution_run();
     }
     tracing::info!("자동매매 정지 (웹 API 요청)");
     Json(serde_json::json!({ "ok": true, "message": "자동매매 정지됨" }))
@@ -630,7 +646,7 @@ pub(super) async fn update_strategy_handler(
     };
     let updated_config = {
         let mut mgr = s.strategy_manager.lock().await;
-        match mgr.update_config(&id, |cfg| {
+        let updated = match mgr.update_config(&id, |cfg| {
             if let Some(en) = body.enabled {
                 cfg.enabled = en;
             }
@@ -654,7 +670,12 @@ pub(super) async fn update_strategy_handler(
                     ),
                 )
             }
-        }
+        };
+        s.order_manager
+            .lock()
+            .await
+            .publish_strategy_revision(mgr.history_generation());
+        updated
     };
 
     let mut symbol_names = std::collections::HashMap::new();
@@ -674,14 +695,16 @@ pub(super) async fn update_strategy_handler(
             mgr.all_configs().into_iter().cloned().collect()
         };
         if let Err(error) = s.strategy_store.save(pid, &all_configs).await {
-            s.strategy_manager
+            let mut manager = s.strategy_manager.lock().await;
+            manager.apply_saved_configs_for_scope(
+                &previous_configs,
+                active_scope.0,
+                active_scope.1.clone(),
+            );
+            s.order_manager
                 .lock()
                 .await
-                .apply_saved_configs_for_scope(
-                    &previous_configs,
-                    active_scope.0,
-                    active_scope.1.clone(),
-                );
+                .publish_strategy_revision(manager.history_generation());
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({

@@ -102,6 +102,8 @@ pub async fn start_trading(
     state: State<'_, AppState>,
 ) -> CmdResult<TradingStatus> {
     let _storage_maintenance = state.storage_maintenance.lock().await;
+    // Serialize profile/config publication across the entire startup snapshot.
+    let _strategy_update = state.strategy_update_lock.lock().await;
     if state.database_manager.config_view().await.active_backend
         == crate::storage::database::StorageBackend::Database
     {
@@ -301,9 +303,26 @@ pub async fn start_trading(
     .await;
     let history_scope = state.order_manager.lock().await.execution_scope().clone();
     let history_profile_id = state.trading_profile_id.read().await.clone();
+    let rest_snapshot = state.rest_client.read().await.clone();
     {
+        // The bool → strategy → order lock order also fences quote and reservation work.
         let mut manager = state.strategy_manager.lock().await;
         manager.advance_history_generation();
+        state
+            .order_manager
+            .lock()
+            .await
+            .begin_execution_run(
+                history_scope.clone(),
+                history_profile_id.clone(),
+                manager.history_generation(),
+                rest_snapshot,
+                active_profile,
+            )
+            .map_err(|error| CmdError {
+                code: "EXECUTION_CONTEXT_CHANGED".into(),
+                message: error.to_string(),
+            })?;
         manager.set_history_execution_identity(history_scope, history_profile_id);
     }
     *is_running = true;
@@ -393,6 +412,7 @@ pub async fn stop_trading(state: State<'_, AppState>) -> CmdResult<TradingStatus
         let mut manager = state.strategy_manager.lock().await;
         manager.advance_history_generation();
         manager.clear_history_execution_identity();
+        state.order_manager.lock().await.end_execution_run();
     }
     tracing::info!("자동 매매 정지");
 

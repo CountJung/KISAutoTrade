@@ -444,6 +444,11 @@ fn submission_response(outcome: SubmissionOutcome) -> Response {
             "msg1": "주문 접수"
         }))
         .into_response(),
+        SubmissionOutcome::StaleRun { reason } => (
+            StatusCode::CONFLICT,
+            Json(serde_json::json!({ "code": "EXECUTION_CONTEXT_CHANGED", "message": reason })),
+        )
+            .into_response(),
         SubmissionOutcome::Skipped { reason, .. } => (
             StatusCode::CONFLICT,
             Json(serde_json::json!({ "code": "ORDER_PREFLIGHT_BLOCKED", "message": reason })),

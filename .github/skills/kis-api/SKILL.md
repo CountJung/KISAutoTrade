@@ -1738,3 +1738,11 @@ UI에서 해외 종목 추가 시 `is_overseas: market === 'US'` 자동 설정 (
 - 공통 IPC/웹 page의 profile/account/client scope 검증과 완료 기간 제외는 `commands/candles.rs`, 미리보기 수집8회/500봉·실패/부족 표시는 `docs/ipc-commands.md`를 따른다. 완료 page를 기존 `initialize_warmup`에 넣으면 최신봉을 이중 제외하므로 live52주에는 manager의 `apply_daily_history`만 사용한다. run/config/profile/account/시장 날짜가 같은 ticket만 적용하고 새날·부족/실패 중 신규 진입을 차단한다.8회/512봉·동시2개·공유client/rate-limit·backoff·보유 손절 보존은 `docs/tasks/live-completed-daily-history-20261018.md`를 따른다.
 
 > 마지막 업데이트: 2026-10-18T11:57:42+09:00
+
+## 자동 실행의 client 고정 (2026-10-18)
+
+`order/execution_run.rs`에서 시작 profile의 ID/broker/account/키/투자 모드와 KIS client를 검증한다. 자동 시세·평가액·주문은 같은 실행 snapshot을 사용하고, `order/submission/provider.rs`의 국내/해외 retry는 예약 때 고정한 `Arc<KisRestClient>`를 끝까지 사용한다. 전역 client를 각 재시도마다 다시 읽어 계좌를 바꾸지 않는다. 기존 EGW00133/EGW00201 최대 3회·2초 간격 정책과 wire 계약은 유지한다. 정지 후에도 이미 예약한 주문은 원 scope로 pending/예산을 기록한다. 실제 provider 응답 검증을 localhost 회귀로 대체했다고 주장하지 않는다.
+
+KIS pending 대조는 저장된 주문 TR-ID의 출처 모드도 확인한다. 생산 request builder의 모의 4개(`VTTC0802U`, `VTTC0801U`, `VTTT1002U`, `VTTT1006U`)와 실전 4개(`TTTC0802U`, `TTTC0801U`, `TTTT1002U`, `TTTT1006U`)만 명시적으로 식별한다. 다른 모드와 TR-ID 누락/미상은 현재 모드로 추정하지 않고 조회·체결·종결을 보류하며 기존 reconciliation health에 표시한다. 원 모드를 선택하면 다시 대조할 수 있다. 이 정책은 기존 `provider_tr_id`를 이용하고 새로운 credential을 저장하지 않는다.
+
+> 마지막 업데이트: 2026-10-18T12:29:40+09:00

@@ -692,6 +692,14 @@ pub async fn detect_profile_trading_type(
     profile_id: String,
     state: State<'_, AppState>,
 ) -> CmdResult<ProfileView> {
+    let _strategy_update = state.strategy_update_lock.lock().await;
+    let is_active = state.profiles.read().await.active_id.as_deref() == Some(&profile_id);
+    if is_active && *state.is_trading.lock().await {
+        return Err(CmdError {
+            code: "TRADING_ACTIVE".into(),
+            message: "자동매매를 정지한 뒤 활성 프로파일의 투자 모드를 감지하세요.".into(),
+        });
+    }
     // 1) 해당 프로파일의 키 복사 (read lock 빠르게 해제)
     let (app_key, app_secret) = {
         let profiles = state.profiles.read().await;

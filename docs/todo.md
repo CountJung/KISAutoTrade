@@ -25,7 +25,7 @@
 4. **자료/표본:** **P1-05·P2-12·16·17**의 실제 분봉·봉 공개 시각·DST·누락 자료·ATR·준비 자료 조회를 검증한다.
 5. **전략별 가설과 연속 운용:** 아래 P2-01~13 필터 후보와 신규 **P2-18**을 순서대로 평가한다. 후보를 하나씩 사전 고정하고 기각 결과도 보관한다.
 
-새로 확인한 P1-RUN-01·P1-CONFIG-01의 실행/보유 안전 경계를 다음 연구보다 먼저 해결한다.
+P1-RUN-01의 실행 epoch·설정 revision 예약 검증, provider 고정, 수동/체결 대조 계좌·모드 보호를 구현했다. [검증 기록](tasks/execution-run-reservation-20261018.md). 다음 연구보다 P1-CONFIG-01의 일반 전략 보유 상태 보존을 먼저 해결한다.
 
 모든 12전략의 동일 수량 보유 대비 초과수익 중앙값이 0 이하이며 우수 전략을 확정하지 않았다. 분기 포트폴리오는 매번 초기화하며, 부분 Q4와 겹치는 최근248봉은 주집계에서 제외했다. 작은 완료 표본·서로 상관된 ETF·same-close 체결·고정 환율/무배당의 한계를 유지한다.
 
@@ -61,10 +61,6 @@ SOXQ 연구에서 확인한 시뮬레이션 정확성 과제는 아래에 기록
 
 ## P1 — 통합 검증과 실제 provider 확인
 
-- [ ] **🟢 자동 구현** **P1-RUN-01 — 실행 context와 자동 주문 예약을 원자적으로 검증한다.**
-  - 기존 quote await 중 stop/start·계좌 전환 뒤 옛 신호가 현재 execution scope로 재해석될 수 있다. `submit_signal_shared`에 expected active/generation/scope/profile을 전달하고 `reserve_submission`의 동일 gate에서 확인한다. 신호 생성 전도 검사하되 이 검사만으로 완료하지 않는다.
-  - KIS 예약 후 retry는 검증한 `Arc<KisRestClient>`를 고정한다. stale 거절 뒤 옛 보유 snapshot을 새 manager에 복원하지 않는다. 이미 provider에 전송한 주문은 추적/reconciliation을 유지한다. 수동 주문의 별도 scope 의미를 보존한다.
-  - 완료 조건: provider 없는 barrier/future fixture로 quote/name/position/prepare/예약 전후 전환·same-scope 재시작·KIS retry client 교체·stale 복원 금지를 검증. [발견/정확한 경계](tasks/live-completed-daily-history-20261018.md).
 - [ ] **🟢 자동 구현** **P1-CONFIG-01 — 일반 전략의 설정 재생성과 저장 실패 복원 중 보유 보호 상태를 보존한다.**
   - 52주 같은scope 변경/rollback은 보강했다. 다른 전략의 `update_config`/`apply_saved_configs_for_scope` rebuild는 실제 보유를 잃을 수 있다. 시작 시 cache는 정상 체결 뒤 갱신되지 않아 복원 원본으로 쓰지 않는다.
   - 완료 조건: 저장 commit 전 인스턴스 보존 또는 최신 실제 tracker의 scope 검증을 갖춘 복원, 실패 rollback·params/targets 변경·다른계좌 격리·보유 매도/손절 fixture. 제거한 보유 대상의 운용 경계도 명시하며 자동으로 다른 계정/전략에 옮기지 않는다.
@@ -126,9 +122,9 @@ SOXQ 연구에서 확인한 시뮬레이션 정확성 과제는 아래에 기록
   - `src/pages/trading/ui/Page.tsx`: broker별 orchestration과 공통 order form 분리.
   - [x] `src/api/hooks.ts`: 19행 facade와 account/market/order/strategy/settings/history/trading/log 모듈49~255행으로 분리, 공개export87개/선언74개 동일. [기록](tasks/frontend-hooks-split-20261018.md).
   - `src-tauri/src/commands/toss.rs`: diagnostic/preflight/orders surface 분리.
-  - `src-tauri/src/trading/order/submission.rs`: provider request builder와 submission persistence/test 분리.
+  - [x] `src-tauri/src/trading/order/submission.rs`: positions/prepare/provider/records와 run 회귀로 분리. 예약·scope·manual API 경계를 검증했다. [기록](tasks/execution-run-reservation-20261018.md).
   - `src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx`: ticker picker/preview UI 분리.
-  - `src-tauri/src/trading/order.rs`: facade를 낮추고 남은 helper/state 책임 분리.
+  - [x] `src-tauri/src/trading/order.rs`: facade·health·pending·legacy·execution run으로 분리하고 1050행 fills도 적용/collector/reconciliation/provider mode로 나눴다. [기록](tasks/execution-run-reservation-20261018.md).
   - 검증: 변경 파일과 신규 파일은 1,000라인 아래, FSD/API public surface와 IPC 이름은 유지한다.
 
 - [x] 핵심 거래 흐름의 자동화 테스트를 release gate로 승격한다.

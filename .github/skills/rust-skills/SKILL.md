@@ -572,11 +572,17 @@ Tauri v2 Builder에 `on_window_event` 등록으로 종료 시 자동매매 정�
     if let tauri::WindowEvent::CloseRequested { .. } = event {
         let state: tauri::State<commands::AppState> = window.state();
         let is_trading = state.is_trading.clone();
+        let strategy_manager = state.strategy_manager.clone();
+        let order_manager = state.order_manager.clone();
         // sync 컨텍스트 → spawn으로 비동기 작업 예약
         tauri::async_runtime::spawn(async move {
             let mut guard = is_trading.lock().await;
             if *guard {
                 *guard = false;
+                let mut manager = strategy_manager.lock().await;
+                manager.advance_history_generation();
+                manager.clear_history_execution_identity();
+                order_manager.lock().await.end_execution_run();
                 tracing::info!("앱 종료 — 자동매매 정지 신호 전송");
             }
         });
@@ -586,6 +592,8 @@ Tauri v2 Builder에 `on_window_event` 등록으로 종료 시 자동매매 정�
 ```
 
 > ⚠️ `on_window_event` 콜백은 동기 컨텍스트. `tokio::sync::Mutex` 의 `.lock().await` 는 직접 호출 불가 → `spawn` 으로 예약.
+
+잠금 순서는 bool→strategy→order다. 이 `spawn` 예약만으로 프로세스 종료 전에 정지 작업의 완료를 보장하지는 않는다.
 
 ### Tauri window-state 플러그인 패턴
 
@@ -1190,6 +1198,19 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 완료 일봉만 `apply_daily_history`로 적용하고 마지막 봉을 다시 버리지 않는다. 당일/미래/무효/중복 제외, 기본252/최대512 요구, 마지막 완료일1~10일 과거를 확인한다. 이 freshness 상한은 실제 휴장 달력 검증이 아니다. 부족/실패/한도 초과도 신규 매수만 막고 buy_price 손절 보존, 무관한 LTH 분봉 initializer 미호출을 검증한다.
 - `Strategy::reconfigure_preserving_position`은 기본 false이고 52주는 동일 ID/broker/account에서만 활성이다. 새 설정과 관측 버퍼를 바꾸되 보유 buy_price를 유지한다. 다른 계좌로 옮기거나 제거한 대상을 자동 복구하지 않는다. 시작 시 옛 snapshot cache를 새 보유 복원 원본으로 만들지 않는다.
 - `TradingStatus.dailyHistory`의 IPC/웹/TS/UI를 같이 갱신한다. 실제 확보/요구·상태·출처·마지막 완료일·실패/재시도를 표시하며 legacy 누락을 ready로 추정하지 않는다. 상세 계약은 docs/ipc-commands.md, 검증은 docs/tasks/live-completed-daily-history-20261018.md다.
-- 일봉 ticket 보호를 전체 주문 run/예약 안전성으로 확대하지 않는다. 기존 quote→자동 예약 context와 KIS retry client 고정, 다른 전략 config rollback 보유 보존은 P1-RUN-01/P1-CONFIG-01 자동 잔여다.
+- 일봉 ticket과 주문 run은 서로 다른 소비 경계를 가진다. 완료 일봉 준비도 bool→manager→order에서 동일 run snapshot으로 대상을 만든다. 잘못된 scope/profile 조회는 새 실행 generation을 변경하지 않는다. 일반 전략 config rollback 보유 보존은 P1-CONFIG-01 잔여다.
 
 > 마지막 업데이트: 2026-10-18T11:57:42+09:00
+
+## 자동 주문 실행 context와 예약 경계 (2026-10-18)
+
+- `order/execution_run.rs`는 epoch·configuration revision·BrokerScope·profile ID와 pinned client/profile을 관리한다. 민감 snapshot을 Debug/serde로 노출하지 않는다. begin은 profile/broker/account/credential/투자 모드를 검증하고, end·scope setter는 epoch를 무효화한다.
+- `submit_signal_shared`는 mandatory expected context를 받는다. 자동 요청의 context 누락·변경은 `StaleRun`이다. OrderManager mutex 안에서 context→guard→submitting→예산 순으로 검증하며 예약 후 client를 다시 읽지 않는다. 수동 요청은 자동 run 없이 요청 scope를 검증한다.
+- daemon은 quote/name/position/preflight await 후 현재 실행을 확인하고, on_tick/rollback은 bool→strategy→order fence 내부에서만 실행한다. stale snapshot으로 새 전략을 sync하지 않는다. provider/network await에는 bool/strategy guard를 유지하지 않는다.
+- start는 profile/config publication과 `strategy_update_lock`으로 직렬화하고 snapshot을 고정한다. IPC/웹 설정 변경·저장 실패 복원은 manager guard를 유지한 채 새 revision을 OrderManager에 공개한다. A→B→A도 이전 신호를 복구하지 않는다. revision 역행은 실행 무효화로 처리한다.
+- 프로파일 publication은 manager→order gate 아래 scope/client/config/양쪽 tracker/전략 설정을 함께 바꾼다. 수동 holdings 게시·예약도 order gate에서 exact active profile/scope/client를 확인한다. no-profile KIS 설정 계좌의 기존 수동 경로는 유지한다.
+- reconciliation은 실제 client/profile을 고정하고 응답 후 scope/credentials/mode를 다시 검사해 fill/terminal/health를 적용한다. 같은 scope의 새 epoch는 실제 체결을 막지 않는다. KIS pending의 저장 TR-ID로 모드를 확인하며 반대 모드·미상 출처는 pending/예산을 보류하고 기존 health에 진단한다. 이전 계좌·모드의 잔고 부족 응답으로 현재 실행의 매수를 정지하지 않는다.
+- end·자정 reset은 이미 예약한 submitting/pending/예산을 지우지 않는다. 예약이 먼저 완료된 주문은 최초 scope/client로 완료·기록·대조한다. 정지는 provider 취소가 아니다. 비활성 프로파일 삭제는 runtime을 재생성하지 않는다.
+- 회귀는 실제 shared submission coordinator와 localhost 주문 서버를 사용한다. synthetic TokenManager cache는 `cfg(test)`로만 주입하며 실제 token/order URL로 fixture를 보내지 않는다. 검증 기록은 `docs/tasks/execution-run-reservation-20261018.md`를 따른다.
+
+> 마지막 업데이트: 2026-10-18T12:29:40+09:00

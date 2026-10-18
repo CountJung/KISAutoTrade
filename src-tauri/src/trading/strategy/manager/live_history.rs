@@ -120,7 +120,6 @@ impl StrategyManager {
     ) -> Vec<DailyHistoryTicket> {
         if let Some((run_scope, run_profile)) = &self.history_execution_identity {
             if run_scope != scope || run_profile.as_deref().unwrap_or_default() != profile_id {
-                self.advance_history_generation();
                 return Vec::new();
             }
         }
@@ -259,7 +258,8 @@ impl StrategyManager {
         last_completed_date: Option<String>,
         now: DateTime<Utc>,
     ) -> bool {
-        if !self.valid_daily_history_ticket(ticket, now) {
+        // A missing-profile diagnostic ticket can report failure but never accept data.
+        if ticket.profile_id.is_empty() || !self.valid_daily_history_ticket(ticket, now) {
             return false;
         }
         // The current response timestamp does not make old candles current. This

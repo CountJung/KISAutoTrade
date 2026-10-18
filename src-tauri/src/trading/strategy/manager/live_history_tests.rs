@@ -181,15 +181,54 @@ fn config_aba_and_profile_scope_switch_cannot_revive_old_tickets() {
     assert_eq!(old.config_fingerprint, fresh.config_fingerprint);
     assert_ne!(old.generation, fresh.generation);
     assert!(!apply(&mut manager, &old, &bars(), now()));
+    let current_generation = manager.history_generation();
     assert!(manager
         .prepare_daily_history_targets(&scope(), "another-profile", now())
         .is_empty());
-    assert!(!apply(&mut manager, &fresh, &bars(), now()));
+    assert_eq!(manager.history_generation(), current_generation);
+    assert!(apply(&mut manager, &fresh, &bars(), now()));
     manager
         .set_history_execution_identity(BrokerScope::kis_legacy(), Some("fixture-profile".into()));
     assert!(manager
         .prepare_daily_history_targets(&scope(), "fixture-profile", now())
         .is_empty());
+}
+
+#[test]
+fn obsolete_scope_request_does_not_invalidate_new_run_history_or_held_stop() {
+    let mut manager = manager(vec!["SOXQ".into()]);
+    let old_scope = scope();
+    let old = prepare(&mut manager, now());
+    let new_scope = BrokerScope::new(BrokerId::Kis, Some(BrokerAccountId("new-account".into())));
+    let configs = manager
+        .all_configs()
+        .into_iter()
+        .cloned()
+        .collect::<Vec<_>>();
+    manager.apply_saved_configs_for_scope(&configs, BrokerId::Kis, Some("new-account".into()));
+    manager.advance_history_generation();
+    manager.set_history_execution_identity(new_scope.clone(), Some("new-profile".into()));
+    manager.sync_position("SOXQ", 3, 10_000);
+    let current = manager
+        .prepare_daily_history_targets(&new_scope, "new-profile", now())
+        .remove(0);
+    assert!(apply(&mut manager, &current, &bars(), now()));
+    let generation = manager.history_generation();
+    let before = serde_json::to_value(manager.daily_history_status()).unwrap();
+    assert!(manager
+        .prepare_daily_history_targets(&old_scope, "fixture-profile", now())
+        .is_empty());
+    assert_eq!(manager.history_generation(), generation);
+    assert_eq!(
+        serde_json::to_value(manager.daily_history_status()).unwrap(),
+        before
+    );
+    assert!(!apply(&mut manager, &old, &bars(), now()));
+    assert!(manager.is_daily_history_ready(&current));
+    assert!(matches!(
+        manager.on_tick("SOXQ", 9_000, 0)[0].signal,
+        Signal::Sell { quantity: 1, .. }
+    ));
 }
 
 #[test]
@@ -409,6 +448,9 @@ fn legacy_missing_profile_gets_visible_failure_without_accepting_another_profile
         None,
         now()
     ));
+    assert_eq!(manager.daily_history_status()[0].state, "failed");
+    // Empty-profile tickets remain diagnostic even without an unrelated request.
+    assert!(!apply(&mut manager, &ticket, &bars(), now()));
     assert_eq!(manager.daily_history_status()[0].state, "failed");
     assert!(manager
         .prepare_daily_history_targets(&scope(), "unrelated-profile", now())

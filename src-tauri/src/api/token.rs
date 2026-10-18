@@ -50,6 +50,15 @@ impl TokenManager {
         }
     }
 
+    /// Localhost 회귀 전용: 실제 token endpoint를 호출하지 않도록 synthetic 캐시를 주입한다.
+    #[cfg(test)]
+    pub(crate) async fn set_test_access_token(&self, token: String) {
+        *self.current_token.lock().await = Some(AccessToken {
+            token,
+            expires_at: Utc::now() + chrono::Duration::hours(1),
+        });
+    }
+
     /// 유효한 토큰 반환 (만료 시 자동 갱신)
     pub async fn get_token(&self) -> Result<String> {
         if let Some(token) = self.current_token.lock().await.as_ref().cloned() {

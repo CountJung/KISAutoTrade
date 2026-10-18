@@ -34,13 +34,14 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | Toss 연동 | `src-tauri/src/broker/toss/` | `commands/toss*.rs`, `server/toss.rs` |
 | broker 공통 계약 | `src-tauri/src/broker/domain.rs`, `adapter.rs` | `kis.rs`, `toss/adapter.rs`, `rate_limit.rs` |
 | 캔들 페이지/일반 preview 사전자료 | `src-tauri/src/commands/candles.rs`, `broker/candles.rs` | `api/rest/chart.rs`, `src/shared/api/candlePageTypes.ts`, `pages/strategy/model/candlePageCollector.ts`, `server/market.rs` |
-| 자동매매 시작/데몬 | `src-tauri/src/commands/trading.rs` / `commands/trading/daemon.rs` | `commands/trading/{positions,balance,risk_restore,history,daily_history}.rs`, `lib.rs`, `trading/mod.rs` |
+| 자동매매 시작/데몬 | `src-tauri/src/commands/trading.rs` / `commands/trading/daemon.rs` | `daemon/fence.rs`, `commands/trading/{positions,balance,risk_restore,history,daily_history}.rs`, `lib.rs` |
 | Live 52주 완료 일봉 준비 | `commands/trading/daily_history.rs`, `daily_history/jobs.rs` | `trading/strategy/manager/live_history.rs`, `src/shared/ui/LiveDailyHistoryPanel.tsx`, TradingStatus |
 | 전략 | `src-tauri/src/trading/strategy/` | `commands/strategy.rs`, `commands/strategy_preview.rs`, Strategy UI |
-| 수동·자동 주문 | `src-tauri/src/trading/order/submission.rs` | `order/{conflicts,fills}.rs`, `commands/orders.rs` |
+| 수동·자동 주문 | `src-tauri/src/trading/order/submission.rs` | `order/execution_run.rs`, `submission/{positions,prepare,provider,records}.rs`, `commands/orders.rs` |
+| 실행 변경·지연 결과 폐기 | `commands/trading/daemon/fence.rs`, `trading/order/execution_run.rs` | IPC/Web start/stop·전략 수정·프로파일 적용, `submission/run_tests.rs` |
 | 주문 전 검증 | `src-tauri/src/trading/preflight.rs`, `trading/guard.rs` | broker별 preflight command, `trading/risk.rs` |
 | 리스크 | `src-tauri/src/trading/risk.rs` | `commands/risk.rs`, `storage/risk_store.rs`, restore tests |
-| pending/체결 | `trading/order/fills.rs` | `storage/pending_order_store.rs`, `order_store.rs`, `trade_store.rs` |
+| pending/체결 | `trading/order/fills.rs`, `order/fills/reconciliation.rs` | `order/{pending,health}.rs`, `fills/{collector,provider_mode}.rs`, `storage/{pending_order_store,order_store,trade_store}.rs` |
 | 저장 backend | `src-tauri/src/storage/mod.rs`, `database.rs` | 각 `*_store.rs`, DB contract tests |
 | 데몬/앱 초기화 | `src-tauri/src/lib.rs` | `commands.rs::AppState`, `server/mod.rs` |
 | 릴리스/CI | `package.json`, root `Cargo.toml` | `.github/workflows/*.yml`, `docs/release-security.md` |
@@ -84,15 +85,26 @@ Rust input/view + serde
 
 ```text
 BrokerScope + profile/account
-→ strategy/manual request
+→ 실행 epoch + 설정 revision + 고정 profile/client (자동) / 요청 snapshot (수동)
+→ strategy/manual request + 지연 조회 후 현재 context 검사
 → provider preflight
 → RiskManager + TradeGuard
-→ submission reservation/conflict
-→ provider adapter
+→ 같은 OrderManager 잠금에서 실행 context 재검증 + reservation/conflict
+→ 고정 provider adapter/client (재시도 포함)
 → pending/order persistence
-→ fill reconciliation
+→ scope/profile/인증 + 저장 주문의 투자 모드 출처 재검증 후 fill reconciliation
 → trade/stats/risk persistence
 ```
+
+시작·정지와 daemon의 전략 변경은 running → StrategyManager → OrderManager 순서로
+직렬화한다. 설정 적용/rollback은 manager → OrderManager에서 revision을 게시하고,
+프로파일 적용은 같은 순서로 scope·client·tracker·전략 설정을 교체한다. provider
+조회는 잠금 밖에서 수행한다. 정지 전 예약한 주문·pending·예산은 원래 scope로
+계속 추적하며, 이전 실행의 quote·신호·전략 상태 복원은 새 실행에 반영하지 않는다.
+수동 holdings 게시와 체결 조회 결과 적용도 계좌·profile·client 변경을 재검증한다.
+KIS pending의 저장 TR-ID가 현재 실전/모의 모드와 다르거나 출처를 확인할 수
+없으면 조회·직접 체결·체결 조회의 종료 상태와 예산 반영을 보류하고 체결 동기화
+health에 남긴다.
 
 공용 타입·IPC·주문·리스크의 다중 참조 추적에는 필요할 때 Serena를 선택한다. Graphify는 위 구조 자체를 이동·통합하는 리팩터링 때만 사용한다.
 

@@ -103,25 +103,32 @@ pub async fn update_strategy(
     };
     let updated_config = {
         let mut mgr = state.strategy_manager.lock().await;
-        mgr.update_config(&input.id, |cfg| {
-            if let Some(enabled) = input.enabled {
-                cfg.enabled = enabled;
-            }
-            if let Some(symbols) = input.target_symbols {
-                cfg.target_symbols = symbols;
-            }
-            if let Some(qty) = input.order_quantity {
-                cfg.order_quantity = qty;
-            }
-            if let Some(params) = input.params {
-                cfg.params = params;
-            }
-            cfg.set_scope(active_scope.0, active_scope.1.clone());
-        })
-        .ok_or_else(|| CmdError {
-            code: "STRATEGY_NOT_FOUND".into(),
-            message: format!("전략을 찾을 수 없습니다: {}", input.id),
-        })?
+        let updated = mgr
+            .update_config(&input.id, |cfg| {
+                if let Some(enabled) = input.enabled {
+                    cfg.enabled = enabled;
+                }
+                if let Some(symbols) = input.target_symbols {
+                    cfg.target_symbols = symbols;
+                }
+                if let Some(qty) = input.order_quantity {
+                    cfg.order_quantity = qty;
+                }
+                if let Some(params) = input.params {
+                    cfg.params = params;
+                }
+                cfg.set_scope(active_scope.0, active_scope.1.clone());
+            })
+            .ok_or_else(|| CmdError {
+                code: "STRATEGY_NOT_FOUND".into(),
+                message: format!("전략을 찾을 수 없습니다: {}", input.id),
+            })?;
+        state
+            .order_manager
+            .lock()
+            .await
+            .publish_strategy_revision(mgr.history_generation());
+        updated
     };
     let view = build_strategy_view(&updated_config, &state.stock_store).await;
 
@@ -133,15 +140,17 @@ pub async fn update_strategy(
             mgr.all_configs().into_iter().cloned().collect()
         };
         if let Err(error) = state.strategy_store.save(pid, &all_configs).await {
+            let mut manager = state.strategy_manager.lock().await;
+            manager.apply_saved_configs_for_scope(
+                &previous_configs,
+                active_scope.0,
+                active_scope.1.clone(),
+            );
             state
-                .strategy_manager
+                .order_manager
                 .lock()
                 .await
-                .apply_saved_configs_for_scope(
-                    &previous_configs,
-                    active_scope.0,
-                    active_scope.1.clone(),
-                );
+                .publish_strategy_revision(manager.history_generation());
             return Err(CmdError {
                 code: "PERSISTENCE_ERROR".into(),
                 message: format!("전략 설정을 저장하지 못했습니다: {error}"),
