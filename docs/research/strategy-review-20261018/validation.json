@@ -1,0 +1,66 @@
+{
+  "verifiedAtUtc": "2026-10-18T00:11:07.924993+00:00",
+  "codeBaseCommit": "2cd04dbf116c134c1a0bc487199869de0997437e",
+  "branch": "fix/mac-security-storage-2026-10-06",
+  "engineVersion": "strategy-replay-v7",
+  "filesSha256": {
+    "input.json": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+    "results.jsonl": "e0efb919c5b3f0185f6136155923f740d6d7b6fc7738b00f9856f060889dedaa",
+    "summary.json": "2f294b617ca8393d4d38a418abecf2b96cc27273c9fcaa68fbc36b47d96b3c01",
+    "runner.rs": "4c923c4ab91e58fbfa15c7691c8547e894097f1532ad1940512749977047dca7",
+    "prepare_data.py": "bfeef199571f0b4e9a975be35d469cf9f2a49e146b041cd8946ab9eb1086ec97",
+    "analyze.py": "f747957fd2ef1529c8eded3a136e8f7b0e2ee59b60c6068c28a6bc1da3b9c0cb"
+  },
+  "productionCargoLockSha256": "b9e526c8fa3bcca291aa28237b06d996b2cdb7c28cc115f04e96923ef7f3d628",
+  "researchDependencyIdentityChanges": {
+    "added": [
+      "strategy-review-runner 0.1.0"
+    ],
+    "removed": [],
+    "changed": []
+  },
+  "counts": {
+    "strategy": 1224,
+    "unsupported": 102,
+    "benchmark": 102,
+    "lthDiagnostic": 4
+  },
+  "completedQuarterWindows": 45,
+  "totalWindows": 51,
+  "repeatComparison": "PASS: all1432 full rows equal except generatedAt; Asia/Seoul vs America/New_York",
+  "frozenSoxqRegression": "PASS:24 supported,2 rejected,daily diagnostics and benchmarks equal to frozenv7 except generatedAt",
+  "workspaceTests": {
+    "library": 197,
+    "integration": 3,
+    "documentation": 3,
+    "total": 203,
+    "status": "PASS"
+  },
+  "checks": {
+    "workspaceCheckAllTargetsLocked": "PASS",
+    "workspaceClippyAllTargetsAllFeaturesDenyWarnings": "PASS",
+    "harnessCheckOffline": "PASS",
+    "harnessClippyAllTargetsAllFeaturesDenyWarnings": "PASS",
+    "typescriptNoEmit": "PASS",
+    "fsd": "PASS",
+    "lockfiles": "PASS",
+    "rustfmt": "PASS",
+    "graphifyFreshness": "PASS",
+    "tomlRequiredFieldsAndInheritedModel": "PASS",
+    "pythonSyntax": "PASS",
+    "rawNormalizationHashesAnd1432CompactRowsIndependentAudit": "PASS",
+    "projectMap": "PASS",
+    "documentationFinalAudit": "PASS: independent numerical/claim, map, local links and TODO-ID audit; no outstanding findings",
+    "diffWhitespace": "PASS"
+  },
+  "codeWarnings": 0,
+  "notRun": {
+    "playwright": "No UI/runtime code changes",
+    "realOrPaperOrders": "No broker execution or automated trading start",
+    "lthThreeMonthMarketValidation": "Only2318 retained minutes in7 recent sessions; oldP1-05 criterion remains open"
+  },
+  "lthSourceExclusions": {
+    "nullOHLCV": 412,
+    "outsideNormalRegularSession": 1
+  }
+}

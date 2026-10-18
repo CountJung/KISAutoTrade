@@ -10,11 +10,32 @@
 | 파일 추가·이동·삭제, 모듈/데몬/데이터 흐름 변경 | `project_mapper` | `project-map-maintainer` | `scripts/project-map.mjs` | `npm run check:project-map` |
 | 메서드·타입·컴포넌트 정의와 호출자 추적 | `symbol_navigator` | `symbol-navigator` | Serena MCP | 정의·참조·영향 범위 보고 |
 | 두 곳 이상 유사한 helper 발견 또는 공용화 검토 | `helper_curator` | `helper-curator` | Graphify + Serena | 동등성 확인, 공용 위치 이동, 빌드·그래프 재검증 |
+| 주식 자동 전략 시뮬레이션·비용/손실 분석·개선 백로그 | `stock_analyst` | — | 실제 Rust replay + Serena | 동일 기간·사전자료·비용 비교, 평가 불가 분리, 근거와 완료 조건이 있는 TODO |
 
 프로젝트 전용 Codex 역할은 `.codex/agents/*.toml`에 있으며, Copilot
 호환 역할 설명은 `.github/agents/*.agent.md`에 있다. Codex는 신뢰한
 저장소에서 `.codex/config.toml`을 읽으며 동시에 최대 세 개의 서브
 에이전트를 실행하도록 설정되어 있다.
+
+`stock_analyst`는 `.codex/agents/stock_analyst.toml`에 정의한 프로젝트 연구
+역할이다. 모델은 부모 설정을 상속하며 주문 실행·자동매매 시작·민감 계정 파일
+접근을 맡기지 않는다. 분석은 읽기 전용을 기본으로 하고 실행기는 부모가
+생산 Rust 라이브러리에 연결해 실행한다. 결과·문서 작성이 필요하면 부모가
+연구 출력 경로만 명시적으로 할당한다. 파일의 지시는 역할 범위이며 별도
+보안 sandbox 권한을 부여하거나 변경하지 않는다.
+
+연구 기본 흐름은 `prepare_data.py`의 자료·시각 정규화/구간 선언 → 실제
+`preview_strategy_from_candles`/전용 LTH 실행 → `analyze.py`의 결과 집계 →
+전담 에이전트의 해석 감사 → 기존 `todo.md` 항목 갱신이다.
+최근 사례는 [`strategy-review-20261018`](research/strategy-review-20261018/report.md)다.
+일봉 LTH·준비 자료 부족·분봉 표본은 정상 성과 순위와 분리하고, 실제 자료와
+코드 fixture를 섞지 않는다. 생산 전략/계정 설정을 연구 목적으로 바꾸지 않는다.
+
+설정 형식은 [공식 custom agents 문서](https://learn.chatgpt.com/docs/agent-configuration/subagents)의
+프로젝트 `.codex/agents/*.toml` 및 `name`/`description`/`developer_instructions`
+계약을 따른다. 새 역할을 로드하지 않은 기존 세션은 같은 지침을 일반
+서브 에이전트에 전달해 분석할 수 있으며 역할 파일 저장과 현재 세션의
+역할 목록 반영을 구분한다.
 
 ## Serena
 

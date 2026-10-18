@@ -37,6 +37,7 @@ KISAutoTrade/
 │   ├── agents/
 │   │   ├── helper_curator.toml
 │   │   ├── project_mapper.toml
+│   │   ├── stock_analyst.toml
 │   │   └── symbol_navigator.toml
 │   ├── skills/
 │   │   ├── kisautotrade-frontend-fsd/
@@ -100,26 +101,35 @@ KISAutoTrade/
 │   └── tasks.json
 ├── docs/
 │   ├── research/
-│   │   └── soxq-3m-20261003/
-│   │       ├── candles.csv
-│   │       ├── charts.html
-│   │       ├── p1-01-cost20-results.json
-│   │       ├── p1-01-results.json
-│   │       ├── p1-01-validation.md
-│   │       ├── p1-02-results.json
-│   │       ├── p1-02-validation.md
-│   │       ├── p1-03-cost20-results.json
-│   │       ├── p1-03-results.json
-│   │       ├── p1-03-validation.md
-│   │       ├── p1-04-results.json
-│   │       ├── p1-04-validation.md
-│   │       ├── p1-05-results.json
-│   │       ├── p1-05-validation.md
-│   │       ├── replay-input.json
+│   │   ├── soxq-3m-20261003/
+│   │   │   ├── candles.csv
+│   │   │   ├── charts.html
+│   │   │   ├── p1-01-cost20-results.json
+│   │   │   ├── p1-01-results.json
+│   │   │   ├── p1-01-validation.md
+│   │   │   ├── p1-02-results.json
+│   │   │   ├── p1-02-validation.md
+│   │   │   ├── p1-03-cost20-results.json
+│   │   │   ├── p1-03-results.json
+│   │   │   ├── p1-03-validation.md
+│   │   │   ├── p1-04-results.json
+│   │   │   ├── p1-04-validation.md
+│   │   │   ├── p1-05-results.json
+│   │   │   ├── p1-05-validation.md
+│   │   │   ├── replay-input.json
+│   │   │   ├── report.md
+│   │   │   ├── results-cost20.json
+│   │   │   ├── results.json
+│   │   │   ├── runner.rs
+│   │   │   └── validation.json
+│   │   └── strategy-review-20261018/
+│   │       ├── analyze.py
+│   │       ├── input.json
+│   │       ├── prepare_data.py
 │   │       ├── report.md
-│   │       ├── results-cost20.json
-│   │       ├── results.json
+│   │       ├── results.jsonl
 │   │       ├── runner.rs
+│   │       ├── summary.json
 │   │       └── validation.json
 │   ├── MasterPlan.md
 │   ├── agent-tooling.md
@@ -493,7 +503,8 @@ KISAutoTrade/
 │   ├── appledouble-and-soxq-p1-03.md
 │   ├── project-health-and-soxq-p1-01.md
 │   ├── soxq-p1-04.md
-│   └── soxq-p1-05.md
+│   ├── soxq-p1-05.md
+│   └── strategy-review-20261018.md
 ├── tests/
 │   └── e2e/
 │       ├── fixtures/
@@ -732,6 +743,26 @@ LTH `warmupCount`는 0이다. 유효한 분봉 표본은 `sampleOnly`이며 기�
 false다. SOXQ 2026-07-06~10-02의 실제 분봉과 거래소 시간대/DST·세션 검증은
 P1-05의 미완료 항목으로 남아 있다.
 
+### 오프라인 전략 전수 연구
+
+```text
+공개 시세 원본 (.cache/research/strategy-review-20261018/)
+    ↓ prepare_data.py: 정규화·hash·준비/평가 구간 선언
+docs/research/strategy-review-20261018/input.json
+    ↓ runner.rs → 생산 preview_strategy_from_candles / run_backtest
+전체 실행 trace (.cache/) / 전용 LTH 실제 분봉 표본 진단
+    ↓ analyze.py
+results.jsonl (실행별 compact 결과) / summary.json
+    ↓ stock_analyst의 입력·결과·해석 감사
+report.md / validation.json → 기존 todo.md의 근거·우선순위·완료 조건
+```
+
+연구 실행기는 별도 전략을 재구현하지 않고 생산 Rust 라이브러리를 사용한다.
+일봉 지원 전략, generic LTH 거부, 실제 분봉 LTH 진단과 benchmark를 구분한다.
+분기별 포지션 초기화 결과와 겹치는 최근 기간은 따로 집계하며, 분봉 표본을
+3개월 시장 검증으로 승격하지 않는다. 이 흐름은 앱 IPC·UI·데몬 경로를 변경하지
+않고 주문 실행이나 사용자 계정 설정 변경 없이 연구 파일과 TODO를 남긴다.
+
 ### 체결 발생 시
 
 ```
@@ -858,15 +889,20 @@ Cargo 빌드 산출물은 프로젝트 루트 `target/`, 일회성 검증·연�
 
 ---
 
-## 10. 에이전트 코드 탐색 역할
+## 10. 에이전트 역할
 
 | 역할 | 프로젝트 파일 | 책임 |
 |---|---|---|
 | `project_mapper` | `.codex/agents/project_mapper.toml` | 전체 파일 인벤토리와 구조 설명 동기화 |
 | `symbol_navigator` | `.codex/agents/symbol_navigator.toml` | Serena 기반 정의·참조·영향 범위 추적 |
 | `helper_curator` | `.codex/agents/helper_curator.toml` | Graphify 후보 탐색과 Serena 동등성 검증 후 공용화 |
+| `stock_analyst` | `.codex/agents/stock_analyst.toml` | 생산 엔진 기반 주식 전략 연구의 입력·결과·재무 해석 감사와 근거 있는 개선 TODO 제안 |
 
 Serena 설정과 공유 메모리는 `.serena/`, Graphify 코드 그래프는
 `graphify-out/`에 둔다. Graphify의 캐시·로컬 경로·분석 중간 산출물은
 Git에서 제외하고, 공유 그래프·보고서·manifest·source-hashes를 유지한다. 세 역할의 위임
 조건, 민감 파일 제외, 갱신·검증 명령은 `docs/agent-tooling.md`를 따른다.
+
+`stock_analyst`는 읽기 전용 연구를 기본으로 하며 실행기는 부모가 생산
+라이브러리에 연결해 실행한다. 연구 산출물 편집은 부모가 할당한 경로에서만
+수행하고 주문 실행·자동매매 시작·민감 계정 파일 접근은 맡지 않는다.

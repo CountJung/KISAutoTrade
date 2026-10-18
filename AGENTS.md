@@ -66,6 +66,7 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 - 교차 모듈 심볼 변경은 `symbol_navigator`에게 Serena 참조 추적을 위임한다.
 - 파일 추가·이동·삭제 또는 구조 변경은 `project_mapper`에게 프로젝트 맵 pass를 위임한다.
 - 중복 helper 후보는 `helper_curator`에게 Graphify 후보 탐색과 Serena 참조 검증을 위임하고, 실제 동등성이 확인된 경우에만 공용 유틸로 승격한다.
+- 주식 전략 연구는 `stock_analyst`에게 생산 replay 결과의 비용·손익·표본 해석을 감사하도록 위임한다. 실제 자료/fixture와 평가 불가를 구분하고 기존 TODO에 근거·완료 조건을 기록한다. 역할은 주문·자동매매 시작·민감 계정 접근을 맡지 않는다.
 - KIS API 동작·TR-ID·제한사항은 추측하지 말고 공식 포털 또는 `koreainvestment/open-trading-api` 샘플로 확인한다.
 - 새 IPC 커맨드는 Rust command, `lib.rs` 등록, TypeScript 타입/래퍼/훅, 문서를 함께 갱신한다.
 - 반복 매매·손실 방지 관련 변경은 `todo.md`와 관련 스킬 문서에 남긴다.
@@ -80,11 +81,11 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-10-18 | 주식 분석 전담 역할 설정, 12종 일봉 1,224회·LTH 분봉 4회 진단과 독립 감사, 전략별 TODO 및 연속 운용 검증 과제 정리 |
 | 2026-10-06 | Rust 1.99 Clippy 7건을 async-trait 0.1.92와 웹 주문 검증 오류 boxing으로 해소; 응답 보존·오프라인 회귀 검증, 그래프 안전성 보강 |
 | 2026-10-06 | Mac 저장·권한 검증 및 Tauri 2.12/Vite 6.4 보안 갱신; XML 예외 2개·RustSec 경고 12개 해소, RSA 예외 1개·Linux 경고 2개 잔여 |
 | 2026-10-06 | Windows JSON 저장을 write-through 교체와 쓰기 가능한 백업 flush로 수정; Unix fsync·읽기 전용 교체 유지 및 저장 실패/재시도 회귀 보강 |
 | 2026-10-06 | rustls 0.23.45/webpki 0.103.15 및 seroval 1.6.8/nanoid 3.3.20/source-map-js 1.2.2 보안 패치; 기존 예외·Windows 저장 문제와 Mac 검증은 별도 인계 |
-| 2026-10-05 | P1-05 LTH 일봉 context·분봉 지표 분리, 일봉 성과 평가 차단과 분봉 표본/시간 미검증 표시; 실제 3개월 분봉 검증은 잔여 |
 ## 운영 문서 스택
 
 작업 전 변경 성격에 맞춰 다음 루트 문서를 함께 확인한다.

@@ -1102,6 +1102,8 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 
 ## 21. 전략 deterministic replay / 실행 피드백 패턴
 
+- 전수 연구는 `docs/research/strategy-review-20261018/{prepare_data.py,runner.rs,analyze.py}`처럼 입력/창 선언·생산 Rust 실행·집계를 분리한다. 별도 Python 전략으로 결과를 대체하지 않는다. `stock_analyst`가 비용·표본·benchmark·실현/잔여 평가손익을 독립 감사하고 기존 TODO를 갱신한다. 상세 재현 절차와 해석 경계는 해당 `report.md`를 참조한다.
+- 각 창의 수량은 평가 전일 자료로 미리 고정하며 비용 스트레스에서도 같게 유지한다. 분기 리셋/겹침 창/부분 창을 구분하고, 비용으로 체결가·손절·guard·후속 경로가 달라지는 결과를 순수 수수료 차감으로 설명하지 않는다. 0신호·준비 부족·미지원·분봉 진단을 정상 성과0%와 구분한다.
 - `src-tauri/src/trading/simulation.rs`의 replay 엔진은 raw signal과 `filled`/`blocked` 실행 결과를 분리한다. 성과 지표에는 TradeGuard, RiskManager, 현금·보유 수량·포지션 비중과 수수료/세금/슬리피지/환율을 통과한 체결 가정만 반영한다.
 - 과거 시각 replay는 `TradeGuard::{evaluate_for_scope_at,record_submitted_for_scope_at}`을 사용한다. 실시간 wrapper 내부의 `Local::now()`를 test clock처럼 바꾸지 않는다.
 - live 시작과 preview warmup은 `strategy::initialize_strategy_warmup()`을 공유한다. 일봉과 장중 봉을 별도 인자로 전달하고 replay 시작 이후 봉을 warmup에 넣지 않는다.
@@ -1121,8 +1123,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 전략이 raw signal 생성 시 내부 `in_position`을 선반영했는데 주문이 skip되면 `SubmissionOutcome::Skipped`의 실제 `held_quantity`/`avg_price`를 `StrategyManager::sync_position()`에 되먹임한다. 수량 0 snapshot도 flat 상태로 반영해야 한다.
 - 자동매매 시작 플래그 lock은 broker reconcile/risk restore/warmup이 완료될 때까지 daemon 첫 tick을 막아야 한다.
 
-> 마지막 업데이트: 2026-10-05T23:54:16+09:00
-
+> 마지막 업데이트: 2026-10-18T09:11:46+09:00
 ---
 
 ## PostgreSQL/MariaDB 문서 저장 backend
@@ -1165,4 +1166,4 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - quick-xml 예외 두 개는 plist 1.10.1 업데이트로 해제했다. RSA 예외 하나와 Linux GLib/proc-macro-error 경고는 docs/release-security.md의 실제 경로·해제 조건을 확인하며 테스트 약화나 추가 ignore로 해결하지 않는다.
 - PostgreSQL contract 테스트는 DB 환경 변수가 없으면 즉시 반환하므로 전체 통과 개수에서 실서버 검증으로 계산하지 않는다. 이번 Mac 검증에서도 DB 환경 변수를 제거했고 실거래·모의 주문 API를 호출하지 않았다.
 
-> 마지막 업데이트: 2026-10-06T10:56:34+00:00
+> 마지막 업데이트: 2026-10-18T09:11:46+09:00
