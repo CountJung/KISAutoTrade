@@ -60,6 +60,19 @@ pub(super) fn use_mock_keychain_for_tests() {
     });
 }
 
+#[cfg(test)]
+pub(super) fn fail_next_mock_operation_for_tests() {
+    let entry = entry().expect("mock keychain entry");
+    let credential: &keyring::mock::MockCredential = entry
+        .get_credential()
+        .downcast_ref()
+        .expect("tests must install the mock keychain before opening an entry");
+    credential.set_error(keyring::Error::Invalid(
+        "synthetic keychain failure".into(),
+        "test operation".into(),
+    ));
+}
+
 /// keychain 항목은 (service, account) 고정 단일 항목이라 병렬 테스트가 서로 덮어쓴다.
 /// keychain을 사용하는 테스트는 이 lock을 잡고 직렬 실행한다.
 #[cfg(test)]

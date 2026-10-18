@@ -47,7 +47,8 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | 전략 소유 수량·체결 피드백 | `trading/order/{ownership,feedback}.rs` | `ownership/runtime.rs`, `submission/owned.rs`, `fills/ownership.rs`, `trading/strategy/{core,manager}.rs`, 각 `live_feedback_tests.rs` |
 | 체결 손익·재시도 영수증 | `trading/order/fills/ownership.rs`, `trading/risk/fill_accounting.rs` | `fills/collector/notional.rs`, `commands/trading/risk_restore.rs`, `storage/pending_order_store.rs`, `order/ownership/` |
 | Toss 소액 검증·수수료율 표시 | `commands/toss/small_order.rs`, `trading/preflight.rs` | `small_order/tests.rs`, `src/pages/trading/ui/tossPanels.tsx`, `tests/e2e/toss-commission-ratio.spec.ts` |
-| 저장 backend | `src-tauri/src/storage/mod.rs`, `database.rs` | 각 `*_store.rs`, DB contract tests |
+| 저장 backend·설정 복구 | `src-tauri/src/storage/mod.rs`, `database.rs` | `storage/database/{configuration,connection,tests}.rs`, 각 `*_store.rs` |
+| DB TLS·강제 단절·재접속 계약 | `scripts/database-tls-contract.mjs` | `storage/database_contract_tests/tls_restart.rs`, `docs/tasks/database-tls-reconnect-20261018.md`, `docs/HARNESS_MAP.md` |
 | 데몬/앱 초기화 | `src-tauri/src/lib.rs` | `commands.rs::AppState`, `server/mod.rs` |
 | 릴리스/CI | `package.json`, root `Cargo.toml` | `.github/workflows/*.yml`, `docs/release-security.md` |
 
@@ -142,6 +143,19 @@ Toss의 명시 금액과 누락을 구분하고 실제 평균가 대체 계산�
 
 공용 타입·IPC·주문·리스크의 다중 참조 추적에는 필요할 때 Serena를 선택한다. Graphify는 위 구조 자체를 이동·통합하는 리팩터링 때만 사용한다.
 
+### DB 설정·pool 변경
+
+설정 파일·OS keychain 저장과 메모리 게시 경계는 `database/configuration.rs`,
+provider TLS·관리자 DB 생성·pool 경계는 `database/connection.rs`가 소유한다.
+설정 저장 전 recovery 표시와 runtime latch를 유지하고, 파일/비밀 복원 불확실·취소는
+연결과 후속 저장을 차단한다. cold pool 생성은 직렬화하고 연결 완료 후 설정
+fingerprint를 재검사한다. 상태는 같은 설정/pool snapshot을 사용한다.
+
+DB 단절은 store에 오류로 전달하며, 서버 재기동 후 기존 pool의 새 연결 취득으로
+복구한다. 애플리케이션의 쓰기 자동 재실행은 추가하지 않는다. 계약 실행기의
+임시 CA·개인키·결과는 Git 제외 `.cache/database-tls-contract/<UUID>/`에 두고
+고유 소유 라벨의 컨테이너만 제어·정리한다. 실행 명령과 한계는 Harness 지도를 본다.
+
 ## 6. 데이터와 민감 영역
 
 | 데이터 | 코드상 위치/경계 |
@@ -149,7 +163,8 @@ Toss의 명시 금액과 누락을 구분하고 실제 평균가 대체 계산�
 | 프로파일 | Tauri app data의 `profiles.json`; `lib.rs`/`config` 관리 |
 | 거래 데이터 | 실행 CWD의 `data/`; `storage::*Store`와 JSON/DB document 경계 |
 | 로그 | 실행 CWD의 `logs/`; `logging/` |
-| DB 설정 | app data의 `database_config.json`; password는 IPC view에서 반환하지 않음 |
+| DB 설정 | app data의 `database_config.json`; password는 OS keychain 우선, 사용 불가 시 권한 제한 파일에 유지하며 IPC view에서는 미반환 |
+| DB 설정 복구 표시 | app data의 `database_config.json.recovery`; 비밀 없는 저장/게시 미완료 표시이며 runtime latch와 함께 사용 |
 | DB export | app data의 `database_exports/`; manifest 포함 |
 
 실제 `.env`, `secure_config.json`, `profiles.json`은 탐색 대상이 아니다. 위치·형식의 상세 기준은 `docs/project-map.md`와 `docs/coding-guide.md`를 따른다.

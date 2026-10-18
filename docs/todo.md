@@ -25,7 +25,7 @@
 4. **자료/표본:** **P1-05·P2-12·16·17**의 실제 분봉·봉 공개 시각·DST·누락 자료·ATR·준비 자료 조회를 검증한다.
 5. **전략별 가설과 연속 운용:** 아래 P2-01~13 필터 후보와 신규 **P2-18**을 순서대로 평가한다. 후보를 하나씩 사전 고정하고 기각 결과도 보관한다.
 
-P1-RUN-01의 실행 epoch·설정 revision 예약 검증, provider 고정, 수동/체결 대조 계좌·모드 보호를 구현했다. [검증 기록](tasks/execution-run-reservation-20261018.md). P1-CONFIG-01은 저장 후 인스턴스 공개와 13전략 보유 보호 보존으로 해결했다. [검증 기록](tasks/strategy-configuration-preservation-20261018.md). P1-BAL-01은 공통 잔고 게시 gate와 계좌별 캐시·오류 복구로 해결했다. [검증 기록](tasks/holdings-publication-fence-20261018.md). P1-FILL-01은 exact owner 체결·원가·보호 복원으로 해결했다. [검증 기록](tasks/strategy-fill-ownership-20261018.md). 다음 P1 자동 과제는 로컬 TLS verify-full·서버 단절/재접속 contract다.
+P1-RUN-01의 실행 epoch·설정 revision 예약 검증, provider 고정, 수동/체결 대조 계좌·모드 보호를 구현했다. [검증 기록](tasks/execution-run-reservation-20261018.md). P1-CONFIG-01은 저장 후 인스턴스 공개와 13전략 보유 보호 보존으로 해결했다. [검증 기록](tasks/strategy-configuration-preservation-20261018.md). P1-BAL-01은 공통 잔고 게시 gate와 계좌별 캐시·오류 복구로 해결했다. [검증 기록](tasks/holdings-publication-fence-20261018.md). P1-FILL-01은 exact owner 체결·원가·보호 복원으로 해결했다. [검증 기록](tasks/strategy-fill-ownership-20261018.md). 로컬 TLS verify-full·서버 단절/재접속 contract도 완료했다. 다음 자동 과제는 P2-14 체결 모델과 연속 replay 경계다.
 
 모든 12전략의 동일 수량 보유 대비 초과수익 중앙값이 0 이하이며 우수 전략을 확정하지 않았다. 분기 포트폴리오는 매번 초기화하며, 부분 Q4와 겹치는 최근248봉은 주집계에서 제외했다. 작은 완료 표본·서로 상관된 ETF·same-close 체결·고정 환율/무배당의 한계를 유지한다.
 
@@ -73,8 +73,9 @@ SOXQ 연구에서 확인한 시뮬레이션 정확성 과제는 아래에 기록
   - 기존 게시 14곳을 공통 gate에 연결하고 profile/client/scope/모드·실행 epoch·설정 lease와 tracker별 조회/수량 version을 검증한다. A→B→A, 정지/재시작, 실제 0수량·삭제·두 시장 원자성·실제 partial fill·HTTP barrier를 검증했다. 네트워크 await 동안 전역 lock을 유지하지 않는다.
   - 잔고 이벤트는 현재 scope 재조회 힌트로 사용하고 이전 cache를 제거한다. 늦은 설정 응답·설정 재조회 실패·연속 프로파일 변경·backend 적용 후 mutation 오류도 검증했다. Rust365개·브라우저 신규13개와 기존26개, 독립 리뷰를 통과했다. [구현·검증과 한계](tasks/holdings-publication-fence-20261018.md).
 
-- [ ] **🟢 자동 구현** TLS verify-full 인증서, 서버 강제 단절·재접속 contract.
-  - 로컬 CA/hostname 인증서와 PostgreSQL kill/restart fixture를 구성하는 자동 구현 과제다. 실제 검증 환경이 필요하다는 이유만으로 사용자 판단 대기로 돌리지 않는다. 유효 CA·hostname 불일치·잘못된 CA·서버 재시작 후 복구를 검증한다.
+- [x] **TLS verify-full 인증서, 서버 강제 단절·재접속 contract를 완료했다.**
+  - 임시 CA/localhost 인증서의 PostgreSQL16 로컬 fixture에서 일반 계약3개와 TLS/재접속2개를 실제 실행했다. 신뢰 CA 성공, hostname/CA 불일치·비TLS·오인증 거부, backend socket 종료와 SIGKILL/재기동 뒤 동일 pool 복구, 단절 중 pending/소유/risk 오류 및 JSON/backup/backend 설정 보존을 검증했다.
+  - cold pool single-flight·설정/pool snapshot, 파일/keychain 동시 원복·취소/불명확 복구 차단을 보강했다. 릴리스 gate에 같은 fixture를 연결했으며 실제 운영 DB·MariaDB matrix·Windows 실행은 별도 범위다. [구현·검증과 한계](tasks/database-tls-reconnect-20261018.md).
 - [ ] **🟠 사용자 검증·자료 대기** KIS/Toss 기존 운영 원장과 실제 정정·취소 응답의 최종 검증.
   - **필요한 사용자 검증:** 비식별 provider fixture 또는 명시 승인된 read-only/소액 검증 환경을 제공한다. 공통 상태와 정정/reconciliation 직렬화는 구현했으나 old/new order ID 및 거부·만료 필드 의미는 실제 근거 확인 후 고정한다. 주문 실행 승인은 이 목록에서 가정하지 않는다.
   - 도입 이전 보유·기존 체결의 전략/프로파일 귀속·원가·투자모드를 실제 원본과 대조한다. 새 원장에 계좌 전체 보유를 자동 편입하지 않으며 확인 불가 기록은 신규 주문 차단 사유로 유지한다. 로컬 합성 재시작·체결 검증을 운영 원장 검증으로 대신하지 않는다.

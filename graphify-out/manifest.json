@@ -15,8 +15,8 @@
     "semantic_hash": "1cd5dc184ea1ac7fcd2bb2d9d7818c4e"
   },
   "package.json": {
-    "mtime": 1792285898.7737675,
-    "ast_hash": "f48698700c43e3d06aa09309dd91b0e1",
+    "mtime": 1792302866.4471717,
+    "ast_hash": "e7701f37fb1e698f49cb79544852eee1",
     "semantic_hash": ""
   },
   "playwright.config.ts": {
@@ -345,8 +345,8 @@
     "semantic_hash": "3a12a070af652bab37effb86889c0104"
   },
   "src-tauri/src/storage/database.rs": {
-    "mtime": 1789120416.39,
-    "ast_hash": "383bb0ce69f02185a85b6a2241517552",
+    "mtime": 1792303336.8090086,
+    "ast_hash": "f0c92ed26afd7c6fd0f4541da2c6e329",
     "semantic_hash": ""
   },
   "src-tauri/src/storage/database_archive.rs": {
@@ -355,18 +355,18 @@
     "semantic_hash": "8ea2a98fcb47679e8b9fcaf19d4eff4f"
   },
   "src-tauri/src/storage/database_contract_tests.rs": {
-    "mtime": 1792285295.6408153,
-    "ast_hash": "851032265a6d8af7ea39a3139fae45ec",
+    "mtime": 1792303468.2599719,
+    "ast_hash": "61bc71b06b8aaa431c31ffb95c6da25f",
     "semantic_hash": ""
   },
   "src-tauri/src/storage/database_io.rs": {
-    "mtime": 1791273689.7859797,
-    "ast_hash": "a9eddc6f2d8712d5565c49ca0b23fac9",
+    "mtime": 1792303380.579431,
+    "ast_hash": "5d2f486425c5b27bfe38e5cd3b3b07f4",
     "semantic_hash": ""
   },
   "src-tauri/src/storage/database_keychain.rs": {
-    "mtime": 1789120416.22,
-    "ast_hash": "660a4febef8cead4c81b70f486de687a",
+    "mtime": 1792302596.9751508,
+    "ast_hash": "92447db29533e2bec53813289c7b6ca2",
     "semantic_hash": ""
   },
   "src-tauri/src/storage/database_projection.rs": {
@@ -1857,6 +1857,31 @@
   "tests/e2e/toss-commission-ratio.spec.ts": {
     "mtime": 1792301116.0815845,
     "ast_hash": "c1edccf1c4ca1d7dcaf0338ab73b02ae",
+    "semantic_hash": ""
+  },
+  "scripts/database-tls-contract.mjs": {
+    "mtime": 1792303416.1259406,
+    "ast_hash": "7d238d3b2a72a0d4baa0d7818a3730dc",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/storage/database/configuration.rs": {
+    "mtime": 1792303416.4953191,
+    "ast_hash": "f32cbd2b7d5eab461d7e646827b18ee9",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/storage/database/connection.rs": {
+    "mtime": 1792303336.8269842,
+    "ast_hash": "a774189804e2fb67424993736a329c13",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/storage/database/tests.rs": {
+    "mtime": 1792302597.078628,
+    "ast_hash": "910c6ec14e63ed6cd6cdad3204907534",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/storage/database_contract_tests/tls_restart.rs": {
+    "mtime": 1792302981.6836617,
+    "ast_hash": "c79e4f018cdd08cf658bfa4634ea1161",
     "semantic_hash": ""
   }
 }

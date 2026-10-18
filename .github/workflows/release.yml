@@ -26,36 +26,32 @@ jobs:
   database-contract:
     needs: [release-gate, dependency-security]
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: kisautotrade
-          POSTGRES_PASSWORD: contract-password
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U kisautotrade -d postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
-    env:
-      KISAT_PG_HOST: 127.0.0.1
-      KISAT_PG_PORT: 5432
-      KISAT_PG_USER: kisautotrade
-      KISAT_PG_PASSWORD: contract-password
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Tauri Linux build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
-      - name: PostgreSQL 16 storage contract
-        run: cargo test --manifest-path src-tauri/Cargo.toml --lib storage::database_contract_tests -- --nocapture
+      - name: PostgreSQL 16 storage, verified TLS and restart contracts
+        run: npm run test:database-tls-contract
+      - name: Upload database contract results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-contract-results
+          path: .cache/database-tls-contract/*/result.json
+          if-no-files-found: ignore
+          include-hidden-files: true
+          retention-days: 7
 
   build-tauri:
     needs: database-contract

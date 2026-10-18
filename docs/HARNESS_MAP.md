@@ -64,6 +64,18 @@ cargo test --workspace --lib --locked
 
 필터가 실제 테스트명과 일치해 실행 건수가 0이면 성공으로 간주하지 않는다. 출력의 `running N tests`를 확인하고 다른 필터 또는 전체 lib test로 보완한다. DB contract test는 외부 DB 환경 요구 여부와 skip 상태를 결과에 명시한다.
 
+### PostgreSQL TLS·단절·복구
+
+```bash
+npm run test:database-tls-contract
+```
+
+로컬 Docker 엔진(Unix socket 또는 Windows named pipe), OpenSSL, Rust가 필요하다. `postgres:16` 이미지가 없으면 내려받는다. 일반 contract 3개와 독립 프로세스의 TLS/재접속 2개를 실제 실행한다. PostgreSQL `Require`의 신뢰 CA 성공, hostname·CA 불일치/비TLS/잘못된 암호 거부, backend socket 종료와 서버 SIGKILL/재시작 후 같은 pool 복구를 확인한다. 단절 중 pending·소유 원장·risk 읽기와 쓰기·JSON 복귀가 오류를 반환하고 로컬 정상본/백업이 바뀌지 않는지도 검증한다.
+
+실행마다 `.cache/database-tls-contract/<UUID>/`에 임시 CA와 `localhost` 인증서를 생성하고, loopback에만 포트를 공개하는 고유 이름·소유 라벨의 컨테이너 2개를 사용한다. `PG*`/`KISAT_PG_*` 환경을 정리한 자식 프로세스에 합성 자격증명·빈 pgpass·임시 CA만 전달한다. 실제 앱 설정·OS keychain·계좌를 사용하지 않는다. 종료 시 소유 라벨을 검증해 컨테이너/볼륨과 개인키를 정리하고 `result.json`을 남긴다. 프로세스 강제 종료로 정리가 중단되면 이 UUID의 이름·라벨을 먼저 대조한 뒤 해당 fixture만 정리한다.
+
+환경 변수를 지정하지 않은 일반 `cargo test`에서는 서버 contract가 skip되므로 TLS 검증으로 집계하지 않는다. 릴리스 `database-contract` job은 위 명령을 실행하며 성공 marker와 실제 실행 건수를 확인한다. MariaDB 버전 matrix와 실제 운영 서버 검증은 이 fixture의 범위 밖이다. 설정 복구 집중 테스트는 marker 삭제/동기화 실패 후 재생성과 실행 중 recovery latch 유지, 새 파일의 post-rename 원복, 취소·재저장 차단을 합성 실패 주입으로 확인한다.
+
 ## 5. Playwright
 
 설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. Vite를 `127.0.0.1:1430`에서 띄우며 현재 spec은 mock transport를 이용한 설정 DB와 전략 스크롤바 회귀를 다룬다.

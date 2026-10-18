@@ -8,16 +8,12 @@ use std::{
     collections::BTreeMap,
     path::{Component, Path, PathBuf},
     sync::{Arc, OnceLock},
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
 use sha2::{Digest, Sha256};
-use sqlx::{
-    mysql::{MySqlConnectOptions, MySqlPoolOptions, MySqlSslMode},
-    postgres::{PgConnectOptions, PgPoolOptions, PgSslMode},
-    MySqlPool, PgPool,
-};
+use sqlx::{MySqlPool, PgPool};
 use tokio::{fs, sync::Mutex};
 
 const DOCUMENTS_TABLE: &str = "kisautotrade_documents";
@@ -29,7 +25,7 @@ const MAX_IMPORT_FILES: usize = 10_000;
 const MAX_DOCUMENT_KEY_BYTES: usize = 512;
 
 static DATABASE_MANAGER: OnceLock<Arc<DatabaseManager>> = OnceLock::new();
-use super::database_io::{atomic_write, atomic_write_private};
+use super::database_io::atomic_write;
 use super::database_types::DatabaseConfig;
 pub use super::database_types::{
     DatabaseConfigView, DatabaseProvider, DatabaseStatusView, DatabaseTableStatus, DatabaseTlsMode,
@@ -56,97 +52,16 @@ pub struct DatabaseManager {
     data_dir: PathBuf,
     export_dir: PathBuf,
     config: tokio::sync::RwLock<DatabaseConfig>,
+    recovery_required: Arc<std::sync::atomic::AtomicBool>,
     pool: Mutex<Option<(String, DatabasePool)>>,
+    pool_creation_lock: Mutex<()>,
     operation_lock: Mutex<()>,
 }
 
 impl DatabaseManager {
-    pub fn load_sync(config_path: PathBuf, data_dir: PathBuf) -> Result<Self> {
-        let mut config: DatabaseConfig = match std::fs::read_to_string(&config_path) {
-            Ok(content) => serde_json::from_str(&content)
-                .with_context(|| format!("DB 설정 파일이 손상되었습니다: {config_path:?}"))?,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => DatabaseConfig::default(),
-            Err(error) => return Err(error).context("DB 설정 파일을 읽지 못했습니다."),
-        };
-        if config.password.is_empty() {
-            match super::database_keychain::load_database_password() {
-                Ok(Some(password)) => config.password = password,
-                Ok(None) => {}
-                Err(error) => tracing::warn!(
-                    "OS keychain에서 DB password를 읽지 못했습니다 — 미설정 상태로 시작합니다: {error:#}"
-                ),
-            }
-        } else {
-            // 파일에 남아 있는 password를 OS keychain으로 1회 이전한다. 실패하면 파일(0o600) 저장 유지.
-            match super::database_keychain::store_database_password(&config.password) {
-                Ok(()) => {
-                    let mut file_config = config.clone();
-                    file_config.password = String::new();
-                    let content = serde_json::to_string_pretty(&file_config)?;
-                    match super::database_io::atomic_write_private_sync(&config_path, &content) {
-                        Ok(()) => tracing::info!("DB password를 OS keychain으로 이전했습니다."),
-                        Err(error) => tracing::warn!(
-                            "keychain 이전 후 설정 파일 재작성 실패 — 다음 시작에서 재시도합니다: {error:#}"
-                        ),
-                    }
-                }
-                Err(error) => tracing::warn!(
-                    "DB password를 OS keychain으로 이전하지 못해 파일(0o600) 저장을 유지합니다: {error:#}"
-                ),
-            }
-        }
-        let export_dir = config_path
-            .parent()
-            .unwrap_or_else(|| Path::new("."))
-            .join("database_exports");
-        Ok(Self {
-            config_path,
-            data_dir,
-            export_dir,
-            config: tokio::sync::RwLock::new(config),
-            pool: Mutex::new(None),
-            operation_lock: Mutex::new(()),
-        })
-    }
-
-    pub async fn config_view(&self) -> DatabaseConfigView {
-        DatabaseConfigView::from(&*self.config.read().await)
-    }
-
-    pub async fn save_config(&self, input: SaveDatabaseConfigInput) -> Result<DatabaseConfigView> {
-        let _operation = self.operation_lock.lock().await;
-        let existing = self.config.read().await.clone();
-        if existing.active_backend == StorageBackend::Database {
-            bail!("DB 연결 설정을 바꾸기 전에 JSON 저장으로 전환해 최신 데이터를 복구하세요.");
-        }
-        let password = input
-            .password
-            .filter(|value| !value.is_empty())
-            .unwrap_or(existing.password);
-        let config = DatabaseConfig {
-            provider: input.provider,
-            host: input.host.trim().to_string(),
-            port: input.port,
-            database: input.database.trim().to_string(),
-            username: input.username.trim().to_string(),
-            password,
-            tls_mode: input.tls_mode,
-            max_connections: input.max_connections,
-            // Connection changes always return to JSON until the new target is tested/imported.
-            active_backend: StorageBackend::Json,
-        };
-        config.validate()?;
-        self.persist_config(&config).await?;
-        *self.config.write().await = config.clone();
-        *self.pool.lock().await = None;
-        Ok(DatabaseConfigView::from(&config))
-    }
-
     pub async fn status(&self) -> Result<DatabaseStatusView> {
-        let config = self.config.read().await.clone();
-        config.validate()?;
         let started = Instant::now();
-        let pool = self.pool().await?;
+        let (config, pool) = self.connection_snapshot().await?;
         let server_version = self.server_version(&pool).await?;
         let documents_exists = self.table_exists(&pool, DOCUMENTS_TABLE).await?;
         let metadata_exists = self.table_exists(&pool, METADATA_TABLE).await?;
@@ -480,7 +395,7 @@ impl DatabaseManager {
         let mut config = self.config.read().await.clone();
         config.active_backend = backend;
         self.persist_config(&config).await?;
-        *self.config.write().await = config;
+        self.publish_config(config, false).await?;
         drop(_operation);
         self.status().await
     }
@@ -545,52 +460,6 @@ impl DatabaseManager {
             }
         }
         Ok(())
-    }
-
-    /// 설정을 저장한다. password는 OS keychain에 우선 저장하고 파일에서는 제거한다.
-    /// keychain을 쓸 수 없는 환경에서만 기존 파일(0o600) 저장으로 fallback한다.
-    async fn persist_config(&self, config: &DatabaseConfig) -> Result<()> {
-        let mut file_config = config.clone();
-        if file_config.password.is_empty() {
-            // password 미설정: 남아 있을 수 있는 keychain 항목도 정리해 상태를 일치시킨다.
-            let deleted =
-                tokio::task::spawn_blocking(super::database_keychain::delete_database_password)
-                    .await
-                    .context("keychain 삭제 task 실패")?;
-            if let Err(error) = deleted {
-                tracing::warn!("OS keychain의 DB password 삭제 실패 (무시): {error:#}");
-            }
-        } else {
-            let password = file_config.password.clone();
-            let stored = tokio::task::spawn_blocking(move || {
-                super::database_keychain::store_database_password(&password)
-            })
-            .await
-            .context("keychain 저장 task 실패")?;
-            match stored {
-                Ok(()) => file_config.password = String::new(),
-                Err(error) => tracing::warn!(
-                    "OS keychain 저장 실패 — DB password를 파일(0o600)에 유지합니다: {error:#}"
-                ),
-            }
-        }
-        let content = serde_json::to_string_pretty(&file_config)?;
-        atomic_write_private(&self.config_path, &content).await?;
-        Ok(())
-    }
-
-    pub(super) async fn pool(&self) -> Result<DatabasePool> {
-        let config = self.config.read().await.clone();
-        config.validate()?;
-        let fingerprint = config.fingerprint();
-        if let Some((cached_fingerprint, pool)) = &*self.pool.lock().await {
-            if cached_fingerprint == &fingerprint {
-                return Ok(pool.clone());
-            }
-        }
-        let pool = connect_pool(&config).await?;
-        *self.pool.lock().await = Some((fingerprint, pool.clone()));
-        Ok(pool)
     }
 
     pub async fn database_archive_stats(
@@ -919,176 +788,6 @@ impl DatabaseManager {
     }
 }
 
-async fn connect_pool(config: &DatabaseConfig) -> Result<DatabasePool> {
-    let timeout = Duration::from_secs(10);
-    match config.provider {
-        DatabaseProvider::Postgresql => {
-            let ssl_mode = match config.tls_mode {
-                DatabaseTlsMode::Disable => PgSslMode::Disable,
-                DatabaseTlsMode::Prefer => PgSslMode::Prefer,
-                DatabaseTlsMode::Require => PgSslMode::VerifyFull,
-            };
-            let options = PgConnectOptions::new()
-                .host(&config.host)
-                .port(config.port)
-                .database(&config.database)
-                .username(&config.username)
-                .password(&config.password)
-                .ssl_mode(ssl_mode);
-            match PgPoolOptions::new()
-                .max_connections(config.max_connections)
-                .acquire_timeout(timeout)
-                .connect_with(options.clone())
-                .await
-            {
-                Ok(pool) => Ok(DatabasePool::Postgresql(pool)),
-                // 3D000 = invalid_catalog_name: 자격증명은 유효하지만 대상 DB가 없는 경우이므로
-                // 관리자 DB(postgres)로 접속해 대상 DB를 생성한 뒤 다시 시도한다.
-                Err(error) if is_missing_database_error(&error, "3D000") => {
-                    create_missing_postgres_database(config, ssl_mode, timeout).await?;
-                    Ok(DatabasePool::Postgresql(
-                        PgPoolOptions::new()
-                            .max_connections(config.max_connections)
-                            .acquire_timeout(timeout)
-                            .connect_with(options)
-                            .await
-                            .context("PostgreSQL 연결 실패")?,
-                    ))
-                }
-                Err(error) => Err(error).context("PostgreSQL 연결 실패"),
-            }
-        }
-        DatabaseProvider::Mariadb => {
-            let ssl_mode = match config.tls_mode {
-                DatabaseTlsMode::Disable => MySqlSslMode::Disabled,
-                DatabaseTlsMode::Prefer => MySqlSslMode::Preferred,
-                DatabaseTlsMode::Require => MySqlSslMode::VerifyIdentity,
-            };
-            let options = MySqlConnectOptions::new()
-                .host(&config.host)
-                .port(config.port)
-                .database(&config.database)
-                .username(&config.username)
-                .password(&config.password)
-                .ssl_mode(ssl_mode);
-            match MySqlPoolOptions::new()
-                .max_connections(config.max_connections)
-                .acquire_timeout(timeout)
-                .connect_with(options.clone())
-                .await
-            {
-                Ok(pool) => Ok(DatabasePool::Mariadb(pool)),
-                // 1049 = ER_BAD_DB_ERROR: 자격증명은 유효하지만 대상 DB가 없는 경우이므로
-                // DB를 지정하지 않고 접속해 대상 DB를 생성한 뒤 다시 시도한다.
-                Err(error) if is_missing_database_error(&error, "1049") => {
-                    create_missing_mariadb_database(config, ssl_mode, timeout).await?;
-                    Ok(DatabasePool::Mariadb(
-                        MySqlPoolOptions::new()
-                            .max_connections(config.max_connections)
-                            .acquire_timeout(timeout)
-                            .connect_with(options)
-                            .await
-                            .context("MariaDB 연결 실패")?,
-                    ))
-                }
-                Err(error) => Err(error).context("MariaDB 연결 실패"),
-            }
-        }
-    }
-}
-
-fn is_missing_database_error(error: &sqlx::Error, code: &str) -> bool {
-    matches!(error, sqlx::Error::Database(db_error) if db_error.code().as_deref() == Some(code))
-}
-
-/// 자동 생성 시 SQL 구문에 그대로 삽입되므로 영문/숫자/밑줄만 허용해 인젝션을 방지한다.
-fn validate_database_identifier(name: &str) -> Result<()> {
-    let valid = !name.is_empty()
-        && name.len() <= 63
-        && name
-            .chars()
-            .next()
-            .is_some_and(|first| first.is_ascii_alphabetic() || first == '_')
-        && name
-            .chars()
-            .all(|value| value.is_ascii_alphanumeric() || value == '_');
-    if !valid {
-        bail!(
-            "자동 생성하려는 DB 이름 '{name}'을(를) 사용할 수 없습니다. \
-             영문/숫자/밑줄만 사용하고 첫 글자는 영문 또는 밑줄이어야 하며 63자 이하여야 합니다."
-        );
-    }
-    Ok(())
-}
-
-async fn create_missing_postgres_database(
-    config: &DatabaseConfig,
-    ssl_mode: PgSslMode,
-    timeout: Duration,
-) -> Result<()> {
-    validate_database_identifier(&config.database)?;
-    let admin_options = PgConnectOptions::new()
-        .host(&config.host)
-        .port(config.port)
-        .database("postgres")
-        .username(&config.username)
-        .password(&config.password)
-        .ssl_mode(ssl_mode);
-    let admin_pool = PgPoolOptions::new()
-        .max_connections(1)
-        .acquire_timeout(timeout)
-        .connect_with(admin_options)
-        .await
-        .context(
-            "지정한 DB가 없어 자동 생성을 시도했지만 관리자 DB(postgres)에 연결하지 못했습니다. \
-             DB 관리자에게 요청해 데이터베이스를 미리 만들어주세요.",
-        )?;
-    sqlx::query(&format!("CREATE DATABASE \"{}\"", config.database))
-        .execute(&admin_pool)
-        .await
-        .context(
-            "지정한 DB가 없어 자동 생성을 시도했지만 실패했습니다. \
-             DB 사용자에게 CREATEDB 권한이 있는지 확인하세요.",
-        )?;
-    admin_pool.close().await;
-    Ok(())
-}
-
-async fn create_missing_mariadb_database(
-    config: &DatabaseConfig,
-    ssl_mode: MySqlSslMode,
-    timeout: Duration,
-) -> Result<()> {
-    validate_database_identifier(&config.database)?;
-    let admin_options = MySqlConnectOptions::new()
-        .host(&config.host)
-        .port(config.port)
-        .username(&config.username)
-        .password(&config.password)
-        .ssl_mode(ssl_mode);
-    let admin_pool = MySqlPoolOptions::new()
-        .max_connections(1)
-        .acquire_timeout(timeout)
-        .connect_with(admin_options)
-        .await
-        .context(
-            "지정한 DB가 없어 자동 생성을 시도했지만 MariaDB 서버에 연결하지 못했습니다. \
-             DB 관리자에게 요청해 데이터베이스를 미리 만들어주세요.",
-        )?;
-    sqlx::query(&format!(
-        "CREATE DATABASE IF NOT EXISTS `{}` CHARACTER SET utf8mb4 COLLATE utf8mb4_bin",
-        config.database
-    ))
-    .execute(&admin_pool)
-    .await
-    .context(
-        "지정한 DB가 없어 자동 생성을 시도했지만 실패했습니다. \
-         DB 사용자에게 CREATE 권한이 있는지 확인하세요.",
-    )?;
-    admin_pool.close().await;
-    Ok(())
-}
-
 pub fn install_database_manager(manager: Arc<DatabaseManager>) -> Result<()> {
     DATABASE_MANAGER
         .set(manager)
@@ -1274,130 +973,8 @@ fn inventory_from_documents(documents: &[LocalDocument]) -> JsonStorageInventory
     }
 }
 
+mod configuration;
+mod connection;
+
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn document_key_rejects_paths_outside_data_dir() {
-        let root = PathBuf::from("/tmp/kis-data");
-        assert!(document_key(&root, Path::new("/tmp/secret.json")).is_err());
-    }
-
-    #[test]
-    fn safe_export_path_rejects_parent_traversal() {
-        assert!(safe_export_path(Path::new("/tmp/export"), "../profiles.json").is_err());
-        assert!(safe_export_path(Path::new("/tmp/export"), "trades/ok.json").is_ok());
-    }
-
-    #[test]
-    fn config_view_never_contains_password() {
-        let config = DatabaseConfig {
-            password: "secret-value".to_string(),
-            ..DatabaseConfig::default()
-        };
-        let json = serde_json::to_string(&DatabaseConfigView::from(&config)).unwrap();
-        assert!(!json.contains("secret-value"));
-        assert!(json.contains("passwordConfigured"));
-    }
-
-    #[test]
-    fn inventory_groups_documents_by_top_level_category() {
-        let documents = vec![
-            LocalDocument {
-                key: "trades/2026/07/11/trades.json".to_string(),
-                category: "trades".to_string(),
-                payload: "[]".to_string(),
-                size_bytes: 2,
-            },
-            LocalDocument {
-                key: "orders/2026/07/11/orders.json".to_string(),
-                category: "orders".to_string(),
-                payload: "[]".to_string(),
-                size_bytes: 2,
-            },
-        ];
-        let inventory = inventory_from_documents(&documents);
-        assert_eq!(inventory.file_count, 2);
-        assert_eq!(inventory.categories.len(), 2);
-    }
-
-    fn keychain_test_dirs() -> (PathBuf, PathBuf) {
-        let base = std::env::temp_dir().join(format!("kisat-db-keychain-{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(base.join("data")).expect("data dir");
-        (base.join("database_config.json"), base.join("data"))
-    }
-
-    fn save_input_with_password(password: &str) -> SaveDatabaseConfigInput {
-        SaveDatabaseConfigInput {
-            provider: DatabaseProvider::Postgresql,
-            host: "127.0.0.1".to_string(),
-            port: 5432,
-            database: "kisautotrade".to_string(),
-            username: "kisautotrade".to_string(),
-            password: Some(password.to_string()),
-            tls_mode: DatabaseTlsMode::Prefer,
-            max_connections: 5,
-        }
-    }
-
-    #[tokio::test]
-    async fn save_config_stores_password_in_keychain_not_in_file() {
-        super::super::database_keychain::use_mock_keychain_for_tests();
-        let _keychain = super::super::database_keychain::keychain_test_lock().await;
-        let (config_path, data_dir) = keychain_test_dirs();
-        let manager =
-            DatabaseManager::load_sync(config_path.clone(), data_dir.clone()).expect("load");
-        let view = manager
-            .save_config(save_input_with_password("keychain-secret-1"))
-            .await
-            .expect("save config");
-        assert!(view.password_configured);
-
-        let file_content = std::fs::read_to_string(&config_path).expect("config file");
-        assert!(
-            !file_content.contains("keychain-secret-1"),
-            "password가 설정 파일에 남아 있으면 안 된다"
-        );
-
-        // 재시작 시뮬레이션: 새 인스턴스가 keychain에서 password를 복원한다.
-        let reloaded = DatabaseManager::load_sync(config_path, data_dir).expect("reload");
-        let view = reloaded.config_view().await;
-        assert!(view.password_configured);
-    }
-
-    #[tokio::test]
-    async fn legacy_file_password_migrates_to_keychain_on_load() {
-        super::super::database_keychain::use_mock_keychain_for_tests();
-        let _keychain = super::super::database_keychain::keychain_test_lock().await;
-        let (config_path, data_dir) = keychain_test_dirs();
-        let legacy = DatabaseConfig {
-            password: "legacy-file-password".to_string(),
-            ..DatabaseConfig::default()
-        };
-        std::fs::write(
-            &config_path,
-            serde_json::to_string_pretty(&legacy).expect("legacy json"),
-        )
-        .expect("write legacy config");
-
-        let manager = DatabaseManager::load_sync(config_path.clone(), data_dir).expect("load");
-        let view = manager.config_view().await;
-        assert!(
-            view.password_configured,
-            "이전 후에도 password는 유효해야 한다"
-        );
-
-        let file_content = std::fs::read_to_string(&config_path).expect("config file");
-        assert!(
-            !file_content.contains("legacy-file-password"),
-            "migration 후 설정 파일에 password가 남아 있으면 안 된다"
-        );
-        assert_eq!(
-            super::super::database_keychain::load_database_password()
-                .expect("keychain read")
-                .as_deref(),
-            Some("legacy-file-password")
-        );
-    }
-}
+mod tests;

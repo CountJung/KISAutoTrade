@@ -21,6 +21,8 @@ use super::database::{
     DatabaseManager, DatabaseProvider, DatabaseTlsMode, SaveDatabaseConfigInput, StorageBackend,
 };
 
+mod tls_restart;
+
 struct PgTestEnv {
     host: String,
     port: u16,
@@ -140,10 +142,15 @@ async fn postgresql_full_roundtrip_contract() {
     assert_eq!(status.schema_version, Some(status.required_schema_version));
 
     // ③ JSON → DB 가져오기 (한글 payload 포함 — utf8 왕복 검증)
+    // Retention uses the local calendar date; keep one current document and one
+    // document strictly outside its 90-day window regardless of the run date.
+    let today = chrono::Local::now().date_naive();
+    let current_day = today.format("%Y/%m/%d").to_string();
+    let current_trade_key = format!("trades/{current_day}/trades.json");
     let doc_a = r#"{"symbol":"005930","name":"삼성전자","qty":10}"#;
-    let doc_b = r#"[{"date":"2026-07-12","pnl":-12000}]"#;
+    let doc_b = format!(r#"[{{"date":"{today}","pnl":-12000}}]"#);
     write_test_document(&data_dir, "positions/current.json", doc_a).await;
-    write_test_document(&data_dir, "trades/2026/07/12/trades.json", doc_b).await;
+    write_test_document(&data_dir, &current_trade_key, &doc_b).await;
     let import = manager.import_json().await.expect("import json");
     assert_eq!(import.processed, 2);
     let status = manager.status().await.expect("status after import");
@@ -199,7 +206,7 @@ async fn postgresql_full_roundtrip_contract() {
         .expect("read through db backend");
     assert_eq!(read_back.as_deref(), Some(updated));
 
-    let order_path = data_dir.join("orders/2026/07/12/orders.json");
+    let order_path = data_dir.join(format!("orders/{current_day}/orders.json"));
     let order_payload = r#"[{"id":"order-1","broker_id":"kis","broker_account_id":"12345678-01","provider_order_id":"provider-1","symbol":"005930","status":"partially_filled"}]"#;
     manager
         .write_document(&order_path, order_payload)
@@ -217,7 +224,7 @@ async fn postgresql_full_roundtrip_contract() {
     );
 
     // document upsert와 projection은 같은 transaction이다. projection constraint 실패 시 문서도 없어야 한다.
-    let invalid_path = data_dir.join("orders/2026/07/12/invalid-orders.json");
+    let invalid_path = data_dir.join(format!("orders/{current_day}/invalid-orders.json"));
     let invalid_payload = format!(
         r#"[{{"id":"{}","symbol":"005930","status":"pending"}}]"#,
         "x".repeat(256)
@@ -232,10 +239,14 @@ async fn postgresql_full_roundtrip_contract() {
         .expect("rollback read")
         .is_none());
 
-    let old_trade_path = data_dir.join("trades/2020/01/01/trades.json");
-    let old_trade_payload = r#"[{"id":"old-fill","broker_id":"kis","broker_account_id":"12345678-01","provider_order_id":"old-order","symbol":"005930","execution_date":"2020-01-01"}]"#;
+    let expired_date = today - chrono::Duration::days(91);
+    let old_trade_key = format!("trades/{}/trades.json", expired_date.format("%Y/%m/%d"));
+    let old_trade_path = data_dir.join(&old_trade_key);
+    let old_trade_payload = format!(
+        r#"[{{"id":"old-fill","broker_id":"kis","broker_account_id":"12345678-01","provider_order_id":"old-order","symbol":"005930","execution_date":"{expired_date}"}}]"#
+    );
     manager
-        .write_document(&old_trade_path, old_trade_payload)
+        .write_document(&old_trade_path, &old_trade_payload)
         .await
         .expect("old trade projection");
     assert!(
@@ -255,6 +266,14 @@ async fn postgresql_full_roundtrip_contract() {
         .await
         .expect("purged trade read")
         .is_none());
+    assert_eq!(
+        manager
+            .read_document(&data_dir.join(&current_trade_key))
+            .await
+            .expect("current trade survives retention")
+            .as_deref(),
+        Some(doc_b.as_str())
+    );
     let status = manager.status().await.expect("retention projection status");
     assert_eq!(
         status
@@ -265,24 +284,19 @@ async fn postgresql_full_roundtrip_contract() {
             .row_count,
         1
     );
-    write_test_document(
-        &data_dir,
-        "trades/2020/01/01/trades.json",
-        old_trade_payload,
-    )
-    .await;
+    write_test_document(&data_dir, &old_trade_key, &old_trade_payload).await;
 
     // DB backend 활성 상태로 manager를 재생성해 pending/partial/risk 문서 복원을 검증한다.
     let pending_path = data_dir.join("orders/pending.json");
     let risk_path = data_dir.join("risk/runtime.json");
     let pending_payload = r#"[{"providerStatus":"partially_filled","filledQuantity":2}]"#;
-    let risk_payload = r#"{"date":"2026-07-12","emergencyStop":true}"#;
+    let risk_payload = format!(r#"{{"date":"{today}","emergencyStop":true}}"#);
     manager
         .write_document(&pending_path, pending_payload)
         .await
         .expect("pending write");
     manager
-        .write_document(&risk_path, risk_payload)
+        .write_document(&risk_path, &risk_payload)
         .await
         .expect("risk write");
     let reloaded =
@@ -301,7 +315,7 @@ async fn postgresql_full_roundtrip_contract() {
             .await
             .expect("risk reload")
             .as_deref(),
-        Some(risk_payload)
+        Some(risk_payload.as_str())
     );
 
     // ⑥ JSON backend 복귀 시 DB 문서가 로컬 파일로 복원

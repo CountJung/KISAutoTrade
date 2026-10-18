@@ -15,19 +15,36 @@ pub(super) fn atomic_write_private_sync(path: &Path, content: &str) -> Result<()
     durable_atomic_write(path, content, true)
 }
 
-pub(super) async fn atomic_write_private(path: &Path, content: &str) -> Result<()> {
-    #[cfg(unix)]
+/// Make the original path's absence durable before a dependent transaction marker is removed.
+pub(super) fn durable_remove_file(path: &Path) -> Result<()> {
+    #[cfg(not(windows))]
     {
-        let path = path.to_path_buf();
-        let content = content.to_string();
-        tokio::task::spawn_blocking(move || durable_atomic_write(&path, &content, true))
-            .await
-            .context("민감 설정 저장 task 실패")??;
-        Ok(())
+        remove_file_using_sync(path, sync_parent)
     }
+    #[cfg(windows)]
+    {
+        // Windows has no Unix directory fsync. A write-through rename commits the original
+        // name's absence; a leftover private tombstone cannot be loaded as active config.
+        let tombstone = path.with_file_name(format!(".database-removed-{}", uuid::Uuid::new_v4()));
+        replace_and_sync(path, &tombstone)?;
+        std::fs::remove_file(&tombstone).context("Windows DB 삭제 tombstone 정리 실패")
+    }
+}
 
-    #[cfg(not(unix))]
-    atomic_write(path, content).await
+#[cfg(not(windows))]
+fn remove_file_using_sync(path: &Path, sync: impl FnOnce(&Path) -> Result<()>) -> Result<()> {
+    std::fs::remove_file(path)?;
+    sync(path)
+}
+
+#[cfg(not(windows))]
+fn sync_parent(path: &Path) -> Result<()> {
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    std::fs::File::open(parent)?.sync_all()?;
+    Ok(())
 }
 
 fn durable_atomic_write(path: &Path, content: &str, private: bool) -> Result<()> {
@@ -84,10 +101,7 @@ fn sync_backup(path: &Path) -> std::io::Result<()> {
 #[cfg(not(windows))]
 fn replace_and_sync(source: &Path, destination: &Path) -> Result<()> {
     std::fs::rename(source, destination)?;
-    if let Some(parent) = destination.parent() {
-        std::fs::File::open(parent)?.sync_all()?;
-    }
-    Ok(())
+    sync_parent(destination)
 }
 
 #[cfg(windows)]
@@ -158,6 +172,31 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn durable_removal_clears_the_original_path() {
+        let dir = TestDir::new();
+        let path = dir.0.join("removed.json");
+        atomic_write_private_sync(&path, "private synthetic data").unwrap();
+        durable_remove_file(&path).unwrap();
+        assert!(!path.exists());
+        assert!(std::fs::read_dir(&dir.0).unwrap().next().is_none());
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn removal_reports_parent_sync_failure_after_unlink() {
+        let dir = TestDir::new();
+        let path = dir.0.join("removed.json");
+        atomic_write_private_sync(&path, "private synthetic data").unwrap();
+        let result = remove_file_using_sync(&path, |deleted| {
+            assert_eq!(deleted, path);
+            assert!(!deleted.exists(), "unlink must precede the parent flush");
+            anyhow::bail!("synthetic parent sync failure")
+        });
+        assert!(result.is_err());
+        assert!(!path.exists());
     }
 
     #[test]
@@ -254,20 +293,5 @@ mod tests {
                 0o600
             );
         }
-    }
-
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn private_async_replacements_keep_owner_only_permissions() {
-        use std::os::unix::fs::PermissionsExt;
-
-        let dir = TestDir::new();
-        let path = dir.0.join("private.json");
-        atomic_write_private(&path, "first").await.unwrap();
-        atomic_write_private(&path, "second").await.unwrap();
-        assert_eq!(
-            std::fs::metadata(path).unwrap().permissions().mode() & 0o777,
-            0o600
-        );
     }
 }

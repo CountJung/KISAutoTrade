@@ -1128,6 +1128,9 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - DB password는 IPC view와 logical export에 포함하지 않는다. DB 관리 명령은 인증되지 않은 axum REST에 추가하지 않고 Tauri desktop command로만 제공한다.
 - DB password는 `storage/database_keychain.rs`를 통해 OS keychain(macOS Keychain/Windows Credential Manager)에 저장하고 `database_config.json`에는 남기지 않는다. 파일에 남은 레거시 password는 `load_sync`가 시작 시 1회 keychain으로 이전하며, keychain을 쓸 수 없는 환경에서만 파일(0o600) 저장으로 fallback한다. 테스트는 `use_mock_keychain_for_tests()` + `keychain_test_lock()`으로 mock store를 직렬 사용한다(mock은 Entry 인스턴스별 독립 상태라 handle을 process-wide로 재사용해야 한다).
 - 실서버 contract test는 `storage/database_contract_tests.rs`에 있다. `KISAT_PG_HOST/PORT/USER/PASSWORD` env가 없으면 skip하고, 있으면 매 실행 고유한 `kisautotrade_ct_*` database를 자동 생성 경로로 만들어 create/import/export/backend 전환/clear/drop 왕복을 검증한 뒤 DROP한다. 운영 database는 절대 사용하지 않는다.
+- `database/connection.rs`는 pool 최초 생성을 별도 mutex로 직렬화하고 게시 직전 설정 fingerprint를 재검사한다. 상태 view는 같은 설정·pool snapshot을 사용한다. PostgreSQL `Require=VerifyFull`와 MariaDB `Require=VerifyIdentity`는 대상 DB 자동 생성의 관리자 연결에도 유지한다. 서버 복구는 SQLx의 연결 취득 검증에 맡기며 결과가 불명확한 쓰기를 자동 재실행하지 않는다.
+- `database/configuration.rs`는 설정 파일과 keychain을 함께 저장/복구한다. 저장 전 비밀 없는 `.recovery` 표시를 내구성 있게 생성하고 메모리 게시까지 유지한다. 쓰기 오류는 rename 이후 오류일 수 있으므로 원래 파일 내용과 keychain을 둘 다 복원·검증한다. 취소/불확실 복구는 load/save/pool을 차단한다. primary 원복 삭제와 marker 삭제도 내구성 있게 반영하고, marker 삭제 후 sync 실패 시 표시를 재생성한다. 실행 중 recovery latch는 표시 재생성 실패에도 연결/저장을 차단하며 검증된 원복 또는 메모리 게시 완료 후에만 해제한다. 표시만 삭제하는 자동 우회나 JSON fallback을 추가하지 않는다.
+- `npm run test:database-tls-contract`는 고유 라벨의 로컬 Docker PostgreSQL16과 임시 CA·hostname 인증서를 사용한다. 일반 계약3개와 TLS/서버 재시작2개를 실제 실행하고 운영 설정/pgpass/OS keychain은 사용하지 않는다. TLS2개는 `--exact` 독립 child process에서 실행하여 global manager와 신뢰 CA 환경이 다른 단위 테스트에 유출되지 않게 한다. 상세 환경·정리·한계는 `docs/HARNESS_MAP.md`를 따른다.
 - v1 schema는 기존 JSON 복원성을 위한 document store다. 주문/체결 복구·검색·retention을 위한 정규화 schema는 명시적인 schema version migration과 PostgreSQL/MariaDB contract test를 함께 추가한다.
 - JSON 파일 저장은 경로별 lock과 store별 read-modify-write lock을 사용한다. 같은 디렉터리에 temp를 생성해 내용 fsync 후 handle을 닫고, 기존 정상본을 `.bak`에 복사·동기화한 뒤 교체한다. Unix는 읽기 전용 백업 fsync와 rename → parent directory fsync를 유지한다. Windows는 쓰기 가능한 백업 handle과 `MoveFileExW(MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)`를 사용하며 copy/delete fallback을 허용하지 않는다. Windows 경로는 기존 parent만 canonicalize해 Unicode/long-path UTF-16 경로로 전달한다. 교체 API 자체 실패 시 기존 정상본을 유지하고 temp를 정리한다. Unix rename 이후 parent fsync 실패는 오류를 반환하지만 새 정상본은 이미 반영될 수 있다. 역직렬화 실패 시 손상본을 격리하고 마지막 정상 백업으로 복구한다. 이 절차의 fixture 테스트는 실제 전원 차단 시 내구성을 증명하지 않는다.
 
@@ -1224,4 +1227,4 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 
 소액 Toss 즉시 반영은 원 주문 ID·symbol·BUY·통화·정수1주·명시금액을 검증한다. 금액 누락은 즉시 반영을 보류하고 pending을 유지한다. 계좌·record 일치 eligibility를 실제 반영 lock 안에서 다시 검사한다. 수량/금액/날짜는 collector의 같은 checked parser를 재사용한다.
 
-> 마지막 업데이트: 2026-10-18T14:40:06+09:00
+> 마지막 업데이트: 2026-10-18T15:07:40+09:00

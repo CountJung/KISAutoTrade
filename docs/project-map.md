@@ -139,6 +139,7 @@ KISAutoTrade/
 │   │   ├── TASK_TEMPLATE.md
 │   │   ├── appledouble-and-soxq-p1-03.md
 │   │   ├── autonomous-backlog-20261018.md
+│   │   ├── database-tls-reconnect-20261018.md
 │   │   ├── documentation-layout-20261018.md
 │   │   ├── execution-run-reservation-20261018.md
 │   │   ├── frontend-hooks-split-20261018.md
@@ -174,6 +175,7 @@ KISAutoTrade/
 │   └── user-guide.md
 ├── scripts/
 │   ├── check-fsd-imports.mjs
+│   ├── database-tls-contract.mjs
 │   ├── graphify.mjs
 │   ├── project-map.mjs
 │   ├── release-version.mjs
@@ -498,6 +500,12 @@ KISAutoTrade/
 │   │   │   ├── toss.rs
 │   │   │   └── trading.rs
 │   │   ├── storage/
+│   │   │   ├── database/
+│   │   │   │   ├── configuration.rs
+│   │   │   │   ├── connection.rs
+│   │   │   │   └── tests.rs
+│   │   │   ├── database_contract_tests/
+│   │   │   │   └── tls_restart.rs
 │   │   │   ├── balance_store.rs
 │   │   │   ├── database.rs
 │   │   │   ├── database_archive.rs
@@ -711,7 +719,8 @@ KISAutoTrade/
 | 데이터 종류 | 위치 |
 |-----------|------|
 | `profiles.json` | `~/Library/Application Support/com.countjung.kisautotrade/` (macOS) |
-| `database_config.json` | 앱 데이터 폴더 (DB password 포함, IPC에서는 미반환) |
+| `database_config.json` | 앱 데이터 폴더. DB password는 OS keychain에 저장하며 keychain 사용 불가 시 권한 제한 파일에 유지. IPC view에는 미반환 |
+| `database_config.json.recovery` | 앱 데이터 폴더. 설정 파일·keychain 저장/게시 미완료를 나타내는 비밀 없는 내구성 표시 |
 | `database_exports/` | 앱 데이터 폴더 (DB logical JSON snapshot + manifest) |
 | `data/` (거래기록 등) | CWD 기준 `./data/` (레거시: app_data_dir, 자동 이전) |
 | `logs/` | CWD 기준 `./logs/` |
@@ -920,7 +929,11 @@ KISAutoTrade/
 | `storage/order_store.rs` | `data/orders/YYYY/MM/DD/orders.json` (`provider_*` 원본 주문 trace 포함) |
 | `storage/stats_store.rs` | `data/stats/YYYY/MM/daily_stats.json` |
 | `storage/strategy_store.rs` | `data/strategies/{profile_id}/strategies.json` (`StrategyConfig`에 broker/account scope 저장) |
-| `storage/database.rs` | PostgreSQL/MariaDB 문서 호환 계층, schema v2 정규화 projection, transaction import/retention, JSON export, fail-closed backend 전환 |
+| `storage/database.rs` | DatabaseManager facade, PostgreSQL/MariaDB 문서 계층, schema v2 projection, transaction import/retention, JSON export와 fail-closed backend 전환. 상태는 같은 설정/pool snapshot으로 생성 |
+| `storage/database/configuration.rs` | 설정 로드·검증·파일/OS keychain 저장·원복과 메모리 게시. 내구성 recovery 표시와 manager의 runtime latch로 취소·불확실 복구 시 다음 저장/연결을 차단 |
+| `storage/database/connection.rs` | provider별 TLS 옵션과 관리자 DB 생성, pool 생성 직렬화와 fingerprint 재검증. 늦게 완료된 이전 설정의 pool을 닫고 현재 설정/pool snapshot을 반환 |
+| `storage/database/tests.rs` | 문서/export 경로·inventory·비밀 없는 view와 합성 keychain 저장·이전 회귀. 설정 복구/경합 회귀는 해당 configuration/connection 모듈에도 포함 |
+| `storage/database_contract_tests/tls_restart.rs` | 독립 테스트 프로세스에서 합성 PostgreSQL 인증서/hostname 검증, 실제 pool 경합·socket 종료·서버 강제 종료/재시작, managed store 오류와 commit 자료 보존 계약 |
 | `notifications/discord.rs` | Discord Bot 알림 |
 | `config/mod.rs` | `secure_config.json` + `.env` 로드 |
 
@@ -930,6 +943,7 @@ KISAutoTrade/
 
 | 경로 | 책임 |
 |---|---|
+| `scripts/database-tls-contract.mjs` | 로컬 Docker socket의 실행별 PostgreSQL16 TLS/비TLS fixture·임시 CA를 생성하고 일반 계약 3개와 독립 TLS/복구 계약 2개를 실행. 생성물은 Git 제외 `.cache/database-tls-contract/<UUID>/`에만 두며 소유 라벨 확인 후 컨테이너/볼륨·개인키를 정리 |
 | `scripts/render-todo.mjs` | `docs/todo.md`의 상태가 명시된 열린 최상위 항목을 `docs/todo.html`로 생성하고 원본 hash·상태별 색상·검색·필터를 제공한다. `npm run check:todo`는 원본과 생성물의 동기화를 검사 |
 | `scripts/render-todo.test.mjs` | 열린 항목 보존·상태 분류·escaping·freshness와 실제 Chromium의 좁은 화면·키보드 필터·JavaScript 없는 읽기를 검증 |
 | `scripts/verify-toss-openapi.mjs` | 공식 Toss OpenAPI의 예상 경로 목록을 검사하며 sector 목록·순위·상세·주식·ETF 경로도 포함. 이 목록의 확인을 앱 adapter 구현 또는 장기 분봉 자료 확보와 혼동하지 않음 |
@@ -956,6 +970,27 @@ KISAutoTrade/
 ---
 
 ## 5. 데이터 흐름
+
+### DB 설정 게시·연결·단절 복구
+
+`database/configuration.rs`는 저장 시작 전에 runtime latch와 비밀 없는
+`database_config.json.recovery` 표시를 세우고, blocking 작업에서 설정 파일과
+OS keychain을 함께 저장한다. 쓰기 오류는 rename 이후에도 발생할 수 있으므로
+이전 파일 내용·keychain을 모두 복원하고 검증한다. 성공은 설정과 pool 무효화를
+같은 잠금 구간에서 게시한 뒤 표시와 latch를 해제한다. 취소·복원 불확실·표시 제거
+실패는 연결/다음 저장을 차단하며, 디스크 표시가 남으면 앱 초기 로드도 실패한다.
+`lib.rs`는 초기 로드와 활성 DB 연결 오류를 전파해 JSON으로 우회하지 않는다.
+
+`database/connection.rs`는 별도 생성 mutex로 cold pool 생성을 직렬화한다.
+네트워크 연결 뒤 현재 설정 fingerprint를 다시 검사하여 이전 대상의 늦은 pool은
+닫고, 현재 설정/pool snapshot만 게시한다. `database.rs`의 상태 조회도 이
+snapshot을 사용한다. 서버 단절은 managed store에 오류로 전달되고 로컬 JSON
+정상본/백업을 대체하지 않는다. 서버 복구 뒤 기존 SQLx pool의 새 연결 취득으로
+회복하며, 완료 여부가 불명확한 쓰기를 애플리케이션이 자동 재실행하지 않는다.
+
+검증 실행기·테스트 책임은 위 표와 [DB TLS 작업 기록](tasks/database-tls-reconnect-20261018.md),
+실행 환경·명령은 [Harness 지도](HARNESS_MAP.md)를 따른다. 임시 인증서·개인키·결과는
+프로젝트 `.cache/`에서만 생성하고 Git에서 제외한다.
 
 ### 공통 캔들 페이지와 일반 preview 자료 수집
 
