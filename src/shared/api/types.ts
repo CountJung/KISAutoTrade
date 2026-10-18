@@ -1,4 +1,6 @@
 /// Rust commands.rs 와 1:1 대응하는 TypeScript 타입 정의
+import type { LiveDailyHistoryStatus } from './liveDailyHistoryTypes'
+export type { LiveDailyHistoryStatus } from './liveDailyHistoryTypes'
 
 // ─── 공통 오류 ──────────────────────────────────────────────────────
 export interface CmdError {
@@ -401,6 +403,7 @@ export interface TradeRecord {
 
 // ─── 자동 매매 상태 ─────────────────────────────────────────────────
 export interface TradingStatus {
+  dailyHistory?: LiveDailyHistoryStatus[]
   isRunning: boolean
   activeStrategies: string[]
   positionCount: number

@@ -87,6 +87,30 @@ impl Strategy for FiftyTwoWeekHighStrategy {
         self.config.enabled = enabled;
     }
 
+    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
+        if self.config.id != config.id
+            || !self
+                .config
+                .matches_scope(config.broker_id, config.broker_account_id.as_deref())
+        {
+            return false;
+        }
+        self.params = serde_json::from_value(config.params.clone()).unwrap_or_default();
+        // A removed target follows the existing explicit target-removal policy.
+        // Retained targets keep buy_price, while every price/history observation is
+        // invalidated so the new parameters cannot trade against the old window.
+        self.states
+            .retain(|symbol, _| config.targets_symbol(symbol));
+        for state in self.states.values_mut() {
+            state.prev_price = None;
+            state.high_52w = None;
+            state.completed_highs.clear();
+            state.awaiting_daily_completion = false;
+        }
+        self.config = config;
+        true
+    }
+
     // 기존 단일 가격 API는 고가 배열을 받는다. 완료된 과거 봉 전체만 사용한다.
     fn initialize_historical(&mut self, symbol: &str, prices: &[u64]) {
         if !self.config.targets_symbol(symbol) {

@@ -2,6 +2,7 @@ use super::*;
 
 mod balance;
 mod daemon;
+mod daily_history;
 mod history;
 mod positions;
 mod risk_restore;
@@ -39,20 +40,38 @@ pub struct TradingStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub buy_suspended_reason: Option<String>,
     pub health: crate::trading::order::TradingHealthStatus,
+    pub daily_history: Vec<crate::trading::strategy::DailyHistoryStatus>,
 }
 
 #[tauri::command]
 pub async fn get_trading_status(state: State<'_, AppState>) -> CmdResult<TradingStatus> {
     let is_running = *state.is_trading.lock().await;
-    let strategies = state.strategy_manager.lock().await.active_names();
+    let (strategies, daily_history) = {
+        let manager = state.strategy_manager.lock().await;
+        (manager.active_names(), manager.daily_history_status())
+    };
     let (position_count, total_pnl) = {
         let tracker = state.position_tracker.lock().await;
         (tracker.count(), tracker.total_pnl())
     };
     let ws_connected = state.ws_connected.load(Ordering::Relaxed);
-    let trading_profile_id = state.trading_profile_id.read().await.clone();
-    let trading_broker_id = *state.trading_broker_id.read().await;
-    let trading_account_id = state.trading_account_id.read().await.clone();
+    let history_identity = state
+        .strategy_manager
+        .lock()
+        .await
+        .history_execution_identity();
+    let (trading_profile_id, trading_broker_id, trading_account_id) = if is_running {
+        match history_identity {
+            Some((scope, profile_id)) => (
+                profile_id,
+                Some(scope.broker_id),
+                scope.account_id.map(|id| id.0),
+            ),
+            None => (None, None, None),
+        }
+    } else {
+        (None, None, None)
+    };
     let (buy_suspended, buy_suspended_reason, health) = {
         let om = state.order_manager.lock().await;
         (
@@ -73,6 +92,7 @@ pub async fn get_trading_status(state: State<'_, AppState>) -> CmdResult<Trading
         buy_suspended,
         buy_suspended_reason,
         health,
+        daily_history,
     })
 }
 
@@ -235,8 +255,7 @@ pub async fn start_trading(
             message: "자동 매매가 이미 실행 중입니다.".into(),
         });
     }
-    *is_running = true;
-    tracing::info!("자동 매매 시작");
+    tracing::info!("자동 매매 시작 준비");
 
     // 자동매매 시작 시점의 활성 프로파일 ID 스냅샷 저장
     {
@@ -280,6 +299,14 @@ pub async fn start_trading(
         &state.risk_manager,
     )
     .await;
+    let history_scope = state.order_manager.lock().await.execution_scope().clone();
+    let history_profile_id = state.trading_profile_id.read().await.clone();
+    {
+        let mut manager = state.strategy_manager.lock().await;
+        manager.advance_history_generation();
+        manager.set_history_execution_identity(history_scope, history_profile_id);
+    }
+    *is_running = true;
     drop(is_running);
 
     if let Some(notifier) = &state.discord {
@@ -322,7 +349,10 @@ pub async fn start_trading(
     // is_trading 플래그가 true 로 바뀌면 데몬이 자동으로 폴링을 재개한다.
     // (이전 spawn 블록은 lib.rs → tauri::async_runtime::spawn(run_trading_daemon(...)) 로 이동)
 
-    let strategies = state.strategy_manager.lock().await.active_names();
+    let (strategies, daily_history) = {
+        let manager = state.strategy_manager.lock().await;
+        (manager.active_names(), manager.daily_history_status())
+    };
     let (position_count, total_pnl) = {
         let tracker = state.position_tracker.lock().await;
         (tracker.count(), tracker.total_pnl())
@@ -351,6 +381,7 @@ pub async fn start_trading(
         buy_suspended,
         buy_suspended_reason,
         health,
+        daily_history,
     })
 }
 
@@ -358,6 +389,11 @@ pub async fn start_trading(
 pub async fn stop_trading(state: State<'_, AppState>) -> CmdResult<TradingStatus> {
     let mut is_running = state.is_trading.lock().await;
     *is_running = false;
+    {
+        let mut manager = state.strategy_manager.lock().await;
+        manager.advance_history_generation();
+        manager.clear_history_execution_identity();
+    }
     tracing::info!("자동 매매 정지");
 
     // 자동매매 종료 시 트레이딩 프로파일 ID 클리어
@@ -375,7 +411,10 @@ pub async fn stop_trading(state: State<'_, AppState>) -> CmdResult<TradingStatus
     }
     drop(is_running);
 
-    let strategies = state.strategy_manager.lock().await.active_names();
+    let (strategies, daily_history) = {
+        let manager = state.strategy_manager.lock().await;
+        (manager.active_names(), manager.daily_history_status())
+    };
     let (position_count, total_pnl) = {
         let tracker = state.position_tracker.lock().await;
         (tracker.count(), tracker.total_pnl())
@@ -401,6 +440,7 @@ pub async fn stop_trading(state: State<'_, AppState>) -> CmdResult<TradingStatus
         buy_suspended,
         buy_suspended_reason,
         health,
+        daily_history,
     })
 }
 
@@ -411,15 +451,32 @@ pub async fn clear_buy_suspension(state: State<'_, AppState>) -> CmdResult<Tradi
     state.order_manager.lock().await.clear_buy_suspension();
 
     let is_running = *state.is_trading.lock().await;
-    let strategies = state.strategy_manager.lock().await.active_names();
+    let (strategies, daily_history) = {
+        let manager = state.strategy_manager.lock().await;
+        (manager.active_names(), manager.daily_history_status())
+    };
     let (position_count, total_pnl) = {
         let tracker = state.position_tracker.lock().await;
         (tracker.count(), tracker.total_pnl())
     };
     let ws_connected = state.ws_connected.load(Ordering::Relaxed);
-    let trading_profile_id = state.trading_profile_id.read().await.clone();
-    let trading_broker_id = *state.trading_broker_id.read().await;
-    let trading_account_id = state.trading_account_id.read().await.clone();
+    let history_identity = state
+        .strategy_manager
+        .lock()
+        .await
+        .history_execution_identity();
+    let (trading_profile_id, trading_broker_id, trading_account_id) = if is_running {
+        match history_identity {
+            Some((scope, profile_id)) => (
+                profile_id,
+                Some(scope.broker_id),
+                scope.account_id.map(|id| id.0),
+            ),
+            None => (None, None, None),
+        }
+    } else {
+        (None, None, None)
+    };
     let (buy_suspended, buy_suspended_reason, health) = {
         let manager = state.order_manager.lock().await;
         (
@@ -440,6 +497,7 @@ pub async fn clear_buy_suspension(state: State<'_, AppState>) -> CmdResult<Tradi
         buy_suspended,
         buy_suspended_reason,
         health,
+        daily_history,
     })
 }
 

@@ -1107,7 +1107,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - v8 replay ATR은 `simulation/atr.rs`의 bounded TR14 window다. 이전 close reference 1봉과 TR14개가 필요하므로 같은 interval 관측15봉부터 준비한다. `run_backtest_with_history`의 history는 caller가 검증한 엄격한 이전 같은 간격 자료만 전달하고 주문·equity에는 넣지 않는다. 갭은 인접 실제 관측의 이전 close로 반영하며 누락봉을 합성하지 않는다. u128 합계로 overflow를 막고 엄격한 준비 상태를 `atrPreparation`으로 전략 준비와 구분한다. live ATR의 부분-window/rounding 및 LTH 분봉 지표와 의미가 달라 helper를 무리하게 통합하지 않는다.
 - 연구 `volatilitySizingEnabled`는 기본 false다. 켰을 때 ATR 미준비/0범위 및 위험0bps의 신규 매수는 replay 경계에서 명시 차단한다. RiskManager의 live용 fallback에 맡기면 요청수량 매수로 우회된다. 보유 매도는 이 제한으로 막지 않는다.
 - LTH 전용 v4는 `preview_signals_with_position`과 `report_position_snapshot`으로 실제 잔여수량/평균체결가를 되먹임한다. 매도는 실제 보유 전량을 요청하고 부분매도/차단이면 high-water·보유관측 보호 상태를 보존한다. bool `preview_signals_with_execution`은 기존 raw 연구의 요청수량/신호가 체결 가정 호환용이다. 실제 실행수량을 bool 하나로 축약하면 ATR 확대 뒤 잔여 보유가 flat으로 유실된다.
-- 52주 신고가 완료 고가는 bounded ring으로 보관하고 만료 시 최고가를 다시 계산한다. tick 수로 거래일을 세지 않으며 day-start 뒤 완료 이벤트만 한 번 소비한다. generic 일봉에 연결되어 있고 live 운용 중 완료일봉 공급은 P2-05 잔여다. 자료 부족 시에도 실제 보유 손절은 유지한다.
+- 52주 신고가 완료 고가는 bounded ring으로 보관하고 만료 시 최고가를 다시 계산한다. tick 수로 거래일을 세지 않으며 day-start 뒤 완료 이벤트만 한 번 소비한다. generic 일봉과 live 완료 일봉 page를 각각 연결했다. live는 manager targeted completed-only 경계이며 startup warmup의 마지막1봉 제외를 중복 적용하지 않는다. 자료 부족 시에도 실제 보유 손절은 유지한다.
 
 - 전수 연구는 `docs/research/strategy-review-20261018/{prepare_data.py,runner.rs,analyze.py}`처럼 입력/창 선언·생산 Rust 실행·집계를 분리한다. 별도 Python 전략으로 결과를 대체하지 않는다. `stock_analyst`가 비용·표본·benchmark·실현/잔여 평가손익을 독립 감사하고 기존 TODO를 갱신한다. 상세 재현 절차와 해석 경계는 해당 `report.md`를 참조한다.
 - 각 창의 수량은 평가 전일 자료로 미리 고정하며 비용 스트레스에서도 같게 유지한다. 분기 리셋/겹침 창/부분 창을 구분하고, 비용으로 체결가·손절·guard·후속 경로가 달라지는 결과를 순수 수수료 차감으로 설명하지 않는다. 0신호·준비 부족·미지원·분봉 진단을 정상 성과0%와 구분한다.
@@ -1182,3 +1182,14 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 ❌ RFC3339에서 숫자만 뽑아 compact14로 만들면 offset을 잃거나 길이 오류가 난다. ✅ generic minute replay는 RFC3339를 실제 순간으로 parse해 고정 정밀도 UTC로 정규화하고, 중복·정렬·history overlap·입력 hash에 같은 기준을 사용한다. legacy compact12/14는 KST 차트 계약으로 해석한다. simulation guard parser와 UI 차트도 RFC3339 offset을 우선 해석한다. RFC3339 replay의 일일 리스크/손절 당일 기준은 KR Seoul·US New York으로 고정하고 host Local 날짜를 사용하지 않는다. guard의 지정시각 경계는 generic timezone을 받아 내부 FixedOffset으로 저장해 실제 경과와 시장 날짜를 함께 보존한다. 실운용 Local wrapper 정책은 유지한다. 분봉 시작/종료 의미는 provider별로 확인하며 임의 시각이나 누락봉을 합성하지 않는다.
 
 > 마지막 업데이트: 2026-10-18T11:38:53+09:00
+
+## Live 완료 일봉의 세대·준비 상태 경계 (2026-10-18)
+
+- `commands/trading/daily_history`는 quote polling과 분리한 동시 2개 background task다. 각 8회/512봉, 같은 scope/날짜/종목의 설정은 최대 요구량 공유 조회, 대상 511개+초과 진단 1행, 30~900초 retry로 한정한다. 완료된 handle만 await하고 삭제/정지/교체 task를 abort한다.
+- manager ticket은 run generation/config fingerprint/profile/broker/account/symbol/시장 날짜를 포함한다. start/stop/close/설정 변경·rollback은 무효화한다. apply 직전 bool→manager lock 순서로 확인하며 네트워크 await는 lock 밖이다. quote await 중 날짜 전환을 막으려 on_tick 직전에도 `invalidate_stale_daily_history_for_symbol`을 호출한다.
+- 완료 일봉만 `apply_daily_history`로 적용하고 마지막 봉을 다시 버리지 않는다. 당일/미래/무효/중복 제외, 기본252/최대512 요구, 마지막 완료일1~10일 과거를 확인한다. 이 freshness 상한은 실제 휴장 달력 검증이 아니다. 부족/실패/한도 초과도 신규 매수만 막고 buy_price 손절 보존, 무관한 LTH 분봉 initializer 미호출을 검증한다.
+- `Strategy::reconfigure_preserving_position`은 기본 false이고 52주는 동일 ID/broker/account에서만 활성이다. 새 설정과 관측 버퍼를 바꾸되 보유 buy_price를 유지한다. 다른 계좌로 옮기거나 제거한 대상을 자동 복구하지 않는다. 시작 시 옛 snapshot cache를 새 보유 복원 원본으로 만들지 않는다.
+- `TradingStatus.dailyHistory`의 IPC/웹/TS/UI를 같이 갱신한다. 실제 확보/요구·상태·출처·마지막 완료일·실패/재시도를 표시하며 legacy 누락을 ready로 추정하지 않는다. 상세 계약은 docs/ipc-commands.md, 검증은 docs/tasks/live-completed-daily-history-20261018.md다.
+- 일봉 ticket 보호를 전체 주문 run/예약 안전성으로 확대하지 않는다. 기존 quote→자동 예약 context와 KIS retry client 고정, 다른 전략 config rollback 보유 보존은 P1-RUN-01/P1-CONFIG-01 자동 잔여다.
+
+> 마지막 업데이트: 2026-10-18T11:57:42+09:00

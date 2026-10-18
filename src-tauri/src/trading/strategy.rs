@@ -25,7 +25,7 @@ pub use leveraged_trend_hold::{
     LeveragedTrendHoldStrategy, LeveragedTrendHoldTimedCandle,
 };
 pub use ma_cross::{MaCrossParams, MovingAverageCrossStrategy};
-pub use manager::{build_strategy, StrategyManager};
+pub use manager::{build_strategy, DailyHistoryStatus, DailyHistoryTicket, StrategyManager};
 pub use mean_trend::{
     MeanReversionParams, MeanReversionStrategy, TrendFilterParams, TrendFilterStrategy,
 };

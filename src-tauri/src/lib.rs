@@ -587,10 +587,14 @@ pub fn run() {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 let state: tauri::State<commands::AppState> = window.state();
                 let is_trading = state.is_trading.clone();
+                let strategy_manager = state.strategy_manager.clone();
                 tauri::async_runtime::spawn(async move {
                     let mut guard = is_trading.lock().await;
                     if *guard {
                         *guard = false;
+                        let mut manager = strategy_manager.lock().await;
+                        manager.advance_history_generation();
+                        manager.clear_history_execution_identity();
                         tracing::info!("앱 종료 — 자동매매 정지 신호 전송");
                     }
                 });

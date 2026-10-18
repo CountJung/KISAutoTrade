@@ -54,7 +54,7 @@ import {
   KEYS,
 } from '../../../api/hooks'
 import { fmtBrokerMoney, fmtDecimalString, fmtNumber, parseDecimalString } from '../../../shared/lib'
-import { BrokerScopeIndicator, TradingHealthPanel } from '../../../shared/ui'
+import { BrokerScopeIndicator, LiveDailyHistoryPanel, TradingHealthPanel } from '../../../shared/ui'
 
 function fmt(n: number) {
   return fmtNumber(n)
@@ -527,6 +527,7 @@ export default function Dashboard() {
       {tradingStatus?.health && (
         <Box sx={{ mb: 2 }}><TradingHealthPanel health={tradingStatus.health} /></Box>
       )}
+      <LiveDailyHistoryPanel status={tradingStatus} appConfig={appConfig} />
 
       {/* ── 국내 보유주식 (잔고 API 직접) ───────────────────────── */}
       {!isTossActive && (

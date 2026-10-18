@@ -1,5 +1,8 @@
 use crate::broker::{BrokerId, BrokerMarket};
 
+mod live_history;
+pub use live_history::{DailyHistoryStatus, DailyHistoryTicket};
+
 use super::{
     initialize_strategy_warmup, BrokerPositionSnapshot, ConsecutiveMoveStrategy, DeviationStrategy,
     FailedBreakoutStrategy, FiftyTwoWeekHighStrategy, LeveragedTrendHoldStrategy,
@@ -46,12 +49,18 @@ pub fn build_strategy(config: StrategyConfig) -> Box<dyn Strategy> {
 
 pub struct StrategyManager {
     strategies: Vec<Box<dyn Strategy>>,
+    history_generation: u64,
+    daily_history: std::collections::BTreeMap<(String, String), live_history::DailyHistoryEntry>,
+    history_execution_identity: Option<(crate::broker::BrokerScope, Option<String>)>,
 }
 
 impl StrategyManager {
     pub fn new() -> Self {
         Self {
             strategies: Vec::new(),
+            history_generation: 0,
+            daily_history: std::collections::BTreeMap::new(),
+            history_execution_identity: None,
         }
     }
 
@@ -101,6 +110,7 @@ impl StrategyManager {
     }
 
     pub fn reset_all(&mut self) {
+        self.advance_history_generation();
         self.strategies.iter_mut().for_each(|s| s.reset());
     }
 
@@ -243,26 +253,23 @@ impl StrategyManager {
         broker_id: BrokerId,
         broker_account_id: Option<String>,
     ) {
-        // 1) 모든 전략 기본값으로 초기화 (프로필 전환 시 이전 상태 잔류 방지)
-        for s in &mut self.strategies {
-            let cfg = s.config_mut();
-            cfg.enabled = false;
-            cfg.target_symbols = Vec::new();
-            cfg.set_scope(broker_id, broker_account_id.clone());
-        }
-        // 2) 저장된 설정 적용
-        for saved_cfg in saved {
-            if let Some(cfg) = self.get_config_mut(&saved_cfg.id) {
-                cfg.enabled = saved_cfg.enabled;
-                cfg.target_symbols = saved_cfg.target_symbols.clone();
-                cfg.order_quantity = saved_cfg.order_quantity;
-                cfg.params = saved_cfg.params.clone();
-                cfg.set_scope(broker_id, broker_account_id.clone());
-            }
-        }
+        self.advance_history_generation();
         for strategy in &mut self.strategies {
-            let config = strategy.config().clone();
-            *strategy = build_strategy(config);
+            let mut config = strategy.config().clone();
+            config.enabled = false;
+            config.target_symbols.clear();
+            config.set_scope(broker_id, broker_account_id.clone());
+            if let Some(saved_config) = saved.iter().rev().find(|saved| saved.id == config.id) {
+                config.enabled = saved_config.enabled;
+                config.target_symbols = saved_config.target_symbols.clone();
+                config.order_quantity = saved_config.order_quantity;
+                config.params = saved_config.params.clone();
+            }
+            // A same-account rollback must not erase a held 52-week stop loss.
+            // Other strategies and cross-account changes retain the rebuild policy.
+            if !strategy.reconfigure_preserving_position(config.clone()) {
+                *strategy = build_strategy(config);
+            }
         }
     }
 
@@ -273,6 +280,9 @@ impl StrategyManager {
 
     /// 특정 ID의 전략 설정 가변 참조 반환
     pub fn get_config_mut(&mut self, id: &str) -> Option<&mut StrategyConfig> {
+        if self.strategies.iter().any(|strategy| strategy.id() == id) {
+            self.advance_history_generation();
+        }
         self.strategies
             .iter_mut()
             .find(|s| s.id() == id)
@@ -284,14 +294,17 @@ impl StrategyManager {
         F: FnOnce(&mut StrategyConfig),
     {
         let index = self.strategies.iter().position(|s| s.id() == id)?;
-        let previous_params = self.strategies[index].config().params.clone();
-        let previous_targets = self.strategies[index].config().target_symbols.clone();
-        {
-            let cfg = self.strategies[index].config_mut();
-            update(cfg);
-        }
-        let updated = self.strategies[index].config().clone();
-        if previous_params != updated.params || previous_targets != updated.target_symbols {
+        self.advance_history_generation();
+        let previous = self.strategies[index].config();
+        let mut updated = previous.clone();
+        update(&mut updated);
+        let rebuild = previous.params != updated.params
+            || previous.target_symbols != updated.target_symbols
+            || previous.id != updated.id
+            || !previous.matches_scope(updated.broker_id, updated.broker_account_id.as_deref());
+        if !rebuild {
+            *self.strategies[index].config_mut() = updated.clone();
+        } else if !self.strategies[index].reconfigure_preserving_position(updated.clone()) {
             self.strategies[index] = build_strategy(updated.clone());
         }
         Some(updated)

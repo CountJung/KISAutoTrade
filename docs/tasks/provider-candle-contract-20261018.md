@@ -1,6 +1,6 @@
 # 사전자료 페이지 구현을 위한 공개 계약 확인
 
-2026-10-18 KST. P2-17과 live P2-05의 선행 조사다. 공개 문서만 조회했고 token/계좌/주문 요청은 하지 않았다. 공개 계약과 구현·fixture 검증, 실제 provider 검증을 구분한다. live 잔여는 자동 구현 과제로 유지한다.
+2026-10-18 KST. P2-17과 live P2-05의 선행 조사다. 공개 문서만 조회했고 token/계좌/주문 요청은 하지 않았다. 공개 계약과 구현·fixture 검증, 실제 provider 검증을 구분한다. live 완료 연결은 [후속 구현](live-completed-daily-history-20261018.md)에서 검증했다.
 
 ## Toss
 
@@ -9,7 +9,7 @@
 - `/api/v1/candles`는 최신순, 최대200봉, `MARKET_DATA_CHART` group이다.
 - `before`는 ISO8601 inclusive 상한이다. 응답 `nextBefore`를 그대로 보내고 timezone `+`를 `%2B`로 인코딩한다. 겹침 제거와 cursor 무진전 종료가 필요하다.
 - `1m` timestamp는 **봉 종료 시각**, `1d`는 현지 거래일 자정이다. 다른 자료원의 봉 시작 표기에 같은 정책을 적용하지 않는다.
-- 공통 page adapter가 `nextBefore`를 보존하고 count보다 큰 응답을 거부한다. 기존 Vec 커맨드는 그대로 유지한다. generic UI는 새 page 경로를 사용하며 live 연결은 잔여다.
+- 공통 page adapter가 `nextBefore`를 보존하고 count보다 큰 응답을 거부한다. 기존 Vec 커맨드는 그대로 유지한다. generic UI와 후속 live52주 갱신은 새 page 경로를 사용한다.
 
 ## KIS
 
@@ -26,7 +26,7 @@
 3. 공통 page/cursor 계약과 IPC/웹/TS/UI를 연결한다. 합계500봉 replay 상한은 유지하며200/252봉 확보 실패 이유를 표시한다.
 4. exchange 날짜와 완료 증거를 갖춘 live 일봉 refresh를 scope/symbol별 bounded cache·backoff로 연결하고, 자료 부족은 신규 진입만 막는다. sampled tick을 완료 고가로 합성하지 않는다.
 
-공개 스펙 inventory는 섹터 GET5개 추가로33→38경로를 확인하고 검사·문서를 갱신해 통과했다. page/TR-ID/UI는 아래 fixture로 검증하며, live refresh와 실제 provider 응답·보관 범위 검증은 완료하지 않았다.
+공개 스펙 inventory는 섹터 GET5개 추가로33→38경로를 확인하고 검사·문서를 갱신해 통과했다. page/TR-ID/UI는 아래 fixture로 검증하며, live refresh는 후속 구현 기록을 따르며 실제 provider 응답·보관 범위 검증과 구분한다.
 
 
 ## 공통 페이지와 UI
@@ -51,6 +51,8 @@ v9는 RFC3339 offset·소수초를 실제 순간으로 해석하고 UTC 고정 �
 - 독립 리뷰가 발견한 해외 날짜 컬럼·RFC3339 replay 입력·페이지 경계 instant 중복을 수정했다. 후속 리뷰의 host Local 날짜 의존도 수정했다. UTC/Seoul/New_York 독립 프로세스에서 KR/US 시장 자정 손절·일일 손실 제한 초기화·재진입의 전체 결과/hash/trades가 같음을 검증했다. NY DST 중복01:30의 실제60분 경과와 실운용 Local wrapper 보존 fixture도 통과했다. 최종 독립 재리뷰에서 추가 확정 버그는 없었다.
 - 실제 DB 서버 contract는 이번 범위가 아니며 기존 lib fixture 통과를 실제 서버 검증으로 해석하지 않는다. Graphify의4개 설정 JSON0-node 안내는 기존 추출 한계이며 코드 빌드 경고와 구분한다.
 
-## 다음 자동 작업
+## 후속 live 구현 기록
 
 live52w: `{run generation, broker/account/profile, symbol, config fingerprint, market date}`를 고정하고 수집 중 상태가 바뀌면 폐기한다. 현재 stop/start는 bool만 있어서 같은scope의 빠른 재시작을 구분할 공유 generation이 필요하다. bounded background job·retry backoff로 quote/손절을 막지 않으며 부족 시 신규 진입만 차단하고 실제 보유 손절은 보존한다. 완료252봉은 최신봉 추가 제외 없는 targeted manager 경계로 적용한다. 상태를 IPC/웹/TS와 UI에 노출하고 같은날 반복 tick·날짜 변경·재시작·scope/config race fixture를 검증한다.
+
+위 live 설계는 [후속 완료 일봉 구현·검증](live-completed-daily-history-20261018.md)에 반영했다. 실제 provider 운용·전체 주문 lifecycle 검증을 완료한 것으로 해석하지 않는다.

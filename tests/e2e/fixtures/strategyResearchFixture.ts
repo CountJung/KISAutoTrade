@@ -1,4 +1,4 @@
-import type { CandlePageView, ChartCandle, StrategyPreviewPreparation, StrategyPreviewSignal } from '../../../src/api/types'
+import type { AppConfigView, CandlePageView, ChartCandle, StrategyPreviewPreparation, StrategyPreviewSignal, TradingStatus } from '../../../src/api/types'
 
 const strategyEntries = [
   {
@@ -102,6 +102,8 @@ type MockOptions = {
   genericPreparation?: StrategyPreviewPreparation
   genericSignals?: StrategyPreviewSignal[]
   genericSymbol?: string
+  tradingStatusOverride?: () => Partial<TradingStatus>
+  appConfigOverride?: Partial<AppConfigView>
   updateRequests?: unknown[]
   scopeController?: { current: 'A' | 'B' }
 }
@@ -206,6 +208,7 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
       daemonConsecutiveFailures: 0,
       daemonLastError: null,
     },
+    ...options.tradingStatusOverride?.(),
   })
   const strategies = [
     strategy('leveraged_trend_hold_default', 'LeveragedTrendHoldStrategy', 1),
@@ -255,6 +258,7 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
           notification_levels: [],
           active_profile_id: activeProfileId(),
           active_profile_name: options.scopeController?.current === 'B' ? '계좌 B' : (activeBroker === 'toss' ? 'Toss 실전' : '모의'),
+          ...options.appConfigOverride,
         },
       })
       return
@@ -288,6 +292,19 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
       return
     }
     const settingsPayloads: Record<string, unknown> = {
+      '/api/balance': { items: [], summary: null },
+      '/api/overseas-balance': { items: [], summary: null },
+      '/api/broker-holdings': [],
+      '/api/today-trades': [],
+      '/api/positions': [],
+      '/api/pending-orders': [],
+      '/api/trades': [],
+      '/api/executed': [],
+      '/api/kis-executed': [],
+      '/api/today-stats': { net_profit: 0, fees_paid: 0, win_rate: 0, total_trades: 0 },
+      '/api/exchange-rate': 1450,
+      '/api/exchange-rate/status': { rate: 1450, source: 'mock', fallbackUsed: false, message: 'fixture rate' },
+      '/api/refresh-interval': 30,
       '/api/log-config': { retention_days: 5, max_size_mb: 100, api_debug: false },
       '/api/archive-config': { retention_days: 90, max_size_mb: 500 },
       '/api/archive-stats': { total_files: 0, size_bytes: 0, oldest_date: null, newest_date: null },

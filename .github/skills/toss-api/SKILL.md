@@ -138,6 +138,6 @@ npm run verify:toss-openapi
 
 2026-10-18 공개 스펙 v1.2.24는 기존33개에 섹터 GET5개(`/api/v1/sectors`, `/sectors/rankings`, `/sectors/{sectorId}`, 그 하위 `/stocks`, `/etfs`)를 추가했다. 정확한 inventory 검증을38개로 갱신하며 새 섹터 앱 기능은 추가하지 않는다. [공식 OpenAPI](https://openapi.tossinvest.com/openapi-docs/latest/openapi.json).
 
-캔들 page adapter는 inclusive `nextBefore`를 그대로 보존하며 요청한 count(최대200)보다 큰 응답은 거부한다. 다음 커서가 없거나 이전 커서보다 과거로 전진하지 않으면 명시 종료한다. 공통 `get_candle_page`/웹 GET는 동일 scope·기준 시각을 고정한다. `1m`은 봉 종료 시각을 RFC3339 offset 포함 actual instant로 처리하고, `1d` 거래일은 시장 현지 날짜로 변환한다. provider 응답의 timezone `+`를 URL `%2B`로 인코딩하며 임의1초 차감으로 inclusive 계약을 바꾸지 않는다. UI 수집8회/500봉·사전252봉과 정확한 부족 사유, live 갱신 잔여는 `docs/tasks/provider-candle-contract-20261018.md`를 따른다.
+캔들 page adapter는 inclusive `nextBefore`를 그대로 보존하며 요청한 count(최대200)보다 큰 응답은 거부한다. 다음 커서가 없거나 이전 커서보다 과거로 전진하지 않으면 명시 종료한다. 공통 `get_candle_page`/웹 GET는 동일 scope·기준 시각을 고정한다. `1m`은 봉 종료 시각을 RFC3339 offset 포함 actual instant로 처리하고, `1d` 거래일은 시장 현지 날짜로 변환한다. provider 응답의 timezone `+`를 URL `%2B`로 인코딩하며 임의1초 차감으로 inclusive 계약을 바꾸지 않는다. UI 수집8회/500봉·사전252봉과 정확한 부족 사유, live52주 갱신은 `docs/tasks/live-completed-daily-history-20261018.md`를 따른다. live는실행profile/account고정,동시2개·8회/512봉·30~900초backoff이며프로파일누락을KIS조회로폴백하지않는다.
 
-> 마지막 업데이트: 2026-10-18T11:38:53+09:00
+> 마지막 업데이트: 2026-10-18T11:57:42+09:00

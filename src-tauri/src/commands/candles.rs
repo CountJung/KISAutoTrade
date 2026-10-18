@@ -1,5 +1,6 @@
 //! Read-only page API shared by desktop and web, with a frozen scope/cutoff.
 use super::*;
+use crate::broker::candles::candle_market_date;
 use crate::broker::{
     BrokerCandle, BrokerCandlePage, CandleCursor, CandlePageRequest, KisBrokerAdapter,
 };
@@ -145,8 +146,16 @@ fn decode_cursor(
         (CandleCursor::Kis { before }, BrokerId::Kis) => {
             before.len() == 8
                 && before.chars().all(|c| c.is_ascii_digit())
-                && NaiveDate::parse_from_str(before, "%Y%m%d")
-                    .is_ok_and(|day| day <= market_date(cursor.as_of, input.is_overseas))
+                && NaiveDate::parse_from_str(before, "%Y%m%d").is_ok_and(|day| {
+                    day <= candle_market_date(
+                        cursor.as_of,
+                        if input.is_overseas {
+                            BrokerMarket::Us
+                        } else {
+                            BrokerMarket::Kr
+                        },
+                    )
+                })
         }
         (CandleCursor::Toss { before }, BrokerId::Toss) => {
             before.len() <= 64
@@ -163,18 +172,15 @@ fn decode_cursor(
     Ok((cursor.as_of, Some(cursor.provider_cursor)))
 }
 
-fn market_date(as_of: DateTime<Utc>, overseas: bool) -> NaiveDate {
-    if overseas {
-        as_of
-            .with_timezone(&chrono_tz::America::New_York)
-            .date_naive()
-    } else {
-        as_of.with_timezone(&chrono_tz::Asia::Seoul).date_naive()
-    }
-}
-
 fn completed_before(as_of: DateTime<Utc>, overseas: bool, interval: &str) -> NaiveDate {
-    let today = market_date(as_of, overseas);
+    let today = candle_market_date(
+        as_of,
+        if overseas {
+            BrokerMarket::Us
+        } else {
+            BrokerMarket::Kr
+        },
+    );
     match interval {
         "W" => today - chrono::Duration::days(i64::from(today.weekday().num_days_from_monday())),
         "M" => today.with_day(1).expect("first day is valid"),
@@ -240,9 +246,16 @@ fn page_view(
             let day = match bar.date.len() {
                 8 => NaiveDate::parse_from_str(&bar.date, "%Y%m%d").ok(),
                 10 => NaiveDate::parse_from_str(&bar.date, "%Y-%m-%d").ok(),
-                _ => DateTime::parse_from_rfc3339(&bar.date)
-                    .ok()
-                    .map(|time| market_date(time.with_timezone(&Utc), input.is_overseas)),
+                _ => DateTime::parse_from_rfc3339(&bar.date).ok().map(|time| {
+                    candle_market_date(
+                        time.with_timezone(&Utc),
+                        if input.is_overseas {
+                            BrokerMarket::Us
+                        } else {
+                            BrokerMarket::Kr
+                        },
+                    )
+                }),
             };
             let Some(day) = day else {
                 invalid += 1;

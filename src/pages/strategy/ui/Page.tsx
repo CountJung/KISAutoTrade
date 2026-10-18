@@ -65,7 +65,7 @@ import type {
   TossMarketCalendarView,
   UpdateStrategyInput,
 } from '../../../api/types'
-import { BrokerScopeIndicator, tradingHealthProblem } from '../../../shared/ui'
+import { BrokerScopeIndicator, LiveDailyHistoryPanel, tradingHealthProblem } from '../../../shared/ui'
 
 type Market = 'KR' | 'US'
 
@@ -474,6 +474,7 @@ export default function Strategy() {
         <BrokerScopeIndicator appConfig={appConfig} compact />
       </Box>
 
+      <LiveDailyHistoryPanel status={tradingStatus} appConfig={appConfig} />
       {tradingHealthProblem(tradingStatus?.health) && (
         <Alert severity="error" sx={{ mb: 2 }}>
           자동매매 상태 확인 필요: {tradingHealthProblem(tradingStatus?.health)}

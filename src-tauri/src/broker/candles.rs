@@ -1,9 +1,19 @@
 //! Provider-specific cursors remain typed inside the broker boundary.
 
-use chrono::{DateTime, Days, NaiveDate};
+use chrono::{DateTime, Days, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::{BrokerCandle, BrokerMarket, BrokerSymbol};
+
+/// Calendar date in the requested candle market, including daylight saving time.
+pub fn candle_market_date(as_of: DateTime<Utc>, market: BrokerMarket) -> NaiveDate {
+    match market {
+        BrokerMarket::Kr => as_of.with_timezone(&chrono_tz::Asia::Seoul).date_naive(),
+        BrokerMarket::Us => as_of
+            .with_timezone(&chrono_tz::America::New_York)
+            .date_naive(),
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "provider", rename_all = "camelCase")]

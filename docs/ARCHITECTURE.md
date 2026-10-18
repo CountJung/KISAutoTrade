@@ -134,7 +134,7 @@ UI/전략 Signal
 
 ## 8. 전략과 preview
 
-`trading/strategy/core.rs`가 `Signal`, config, trait와 warmup을 정의하고 `manager.rs`가 전략 생성을 조정한다. 실제 전략은 `strategy/*` 하위 모듈에 있다. live loop는 `trading/mod.rs`와 `commands/trading/daemon.rs`가 시세 tick을 전략에 전달한다. `commands/trading.rs`는 상태/시작·정지 IPC facade이며 positions/balance/risk_restore/history 하위 모듈이 포지션·평가액·당일 복원·사전자료를 맡는다.
+`trading/strategy/core.rs`가 `Signal`, config, trait와 warmup을 정의하고 `manager.rs`가 전략 생성을 조정한다. 실제 전략은 `strategy/*` 하위 모듈에 있다. live loop는 `trading/mod.rs`와 `commands/trading/daemon.rs`가 시세 tick을 전략에 전달한다. `commands/trading.rs`는 상태/시작·정지 IPC facade이며 positions/balance/risk_restore/history 하위 모듈이 포지션·평가액·당일 복원·legacy 사전자료를 맡고 daily_history가 52주 완료 일봉의 비동기 수집을 맡는다.
 
 `commands/strategy_preview/generic.rs`와 `trading/simulation.rs`는 평가 구간과 이전 사전자료를 분리한 candle-close replay, 비용·환율·리스크 가정과 지표를 제공한다. `Strategy::history_readiness`는 실제 버퍼 상태, `can_evaluate_next_tick`은 해당 봉의 조건 평가 가능 여부를 보고한다. 과거 초기화는 직접 버퍼와 이전 지표를 복원하고 주문/포지션을 만들지 않는다. 기본 추세 200봉·신고가 252봉을 유지하며, generic LTH는 factory 실행 전에 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 전용 LTH 경로는 `strategy_preview.rs`에 남아 있다. preview는 live 10초 tick, intrabar, provider latency, 실제 체결을 재현하지 않으므로 실거래 승인 근거로 단독 사용하지 않는다.
 
@@ -147,7 +147,36 @@ v9 generic 분봉은 offset 포함 RFC3339 또는 KST compact 시각을 고정 �
 
 현재 replay의 `simulation/atr.rs`는 같은 간격의 이전 close를 포함한 TR14를 보관한다. `run_backtest_with_history`의 검증된 이전 자료는 ATR 지표만 준비하며 주문·equity에는 포함하지 않는다. 15관측/14TR 준비 상태를 `backtest.atrPreparation`으로 전략 준비와 구분한다. 연구 수량 산정 활성 시 부족/0변동폭/0bps는 신규 매수만 차단한다. 전용 LTH v4의 callback은 실제 잔여 수량·평균 체결가를 반환하여 ATR 수량 변경과 부분 청산 뒤에도 보호 상태를 유지한다. 기존 bool API는 raw 신호 연구용 호환 wrapper다.
 
-52주 신고가의 완료 고가는 bounded ring으로 만료하며 generic 일봉 완료 이벤트에서 갱신한다. live 운용 중 완료 일봉 공급은 아직 P2-05 잔여다. sampled 가격 tick을 완료 고가로 적재하지 않는다.
+52주 신고가의 완료 고가는 bounded ring으로 만료하며 generic 일봉 완료 이벤트 또는 live 완료 일봉 페이지에서 갱신한다. sampled 가격 tick을 완료 고가로 적재하지 않는다.
+
+### Live 52주 사전자료와 실행 경계
+
+`commands/trading/daily_history.rs`는 공통 완료 페이지로 최대 8회 요청·512봉을
+수집한다. `daily_history/jobs.rs`는 같은 실행 profile/종목의 여러 52주 설정을
+최대 요구량 1회 수집으로 공유하고 동시 2개 background job만 실행한다.
+시세 loop는 provider future를 기다리지 않고 완료 handle만 수거한다.
+실패/부족은 30~900초 backoff를 사용하고, 대상 제거·generation/config/scope/
+시장 날짜 변경·정지 시 과거 작업을 취소하거나 결과 적용을 거부한다.
+
+`strategy/manager/live_history.rs`는 실제 511대상과 초과 진단 1행을 유지한다.
+실행 generation·전체 config fingerprint·profile/broker/account·종목·서울/뉴욕
+시장 날짜가 일치하는 ticket에만 완료 OHLC를 적용하며 마지막 완료봉을 다시
+제외하지 않는다. 최신 완료봉은 현재 시장 날짜보다 1~10일 이전이어야 하며,
+긴 휴장도 보류하는 보수적 freshness 기준이다. 새 거래일에 신규 진입 준비를
+비우며 quote 중 자정을 넘어도 tick과 같은 manager lock에서 재확인한다.
+준비 부족·실패 중 보유 손절을 유지하고 LTH 분봉 상태는 건드리지 않는다.
+
+IPC/Web 시작 준비 완료와 정지, window close는 일봉 generation·실행 identity를
+갱신한다. 웹 상태도 이 identity와 동일한 camelCase `dailyHistory`를 반환한다.
+Dashboard/Strategy의 `LiveDailyHistoryPanel`은 기존 상태 polling으로 확보량·
+출처·날짜·실패/재시도 사유를 표시하고 최대 512항목 중 3행씩 렌더링한다.
+활성 계좌와 실행 계좌가 다르면 상태를 섞지 않는다.
+
+같은 ID/broker/account의 52주 설정 변경·동일 scope 저장 rollback은
+`reconfigure_preserving_position` opt-in으로 잔존 대상의 보유 기준을 유지하고
+관측 준비만 무효화한다. 다른 계정/제거 대상으로 보유 상태를 이전하지 않는다.
+이 일봉 경계가 일반 전략 설정 재빌드/rollback이나 quote 이후 주문 예약의
+전체 경합 안전성을 보장하지는 않는다. 그 기존 위험은 별도 P1 자동 과제다.
 
 ## 9. 저장 경계
 

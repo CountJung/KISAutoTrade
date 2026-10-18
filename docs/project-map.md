@@ -141,6 +141,7 @@ KISAutoTrade/
 │   │   ├── autonomous-backlog-20261018.md
 │   │   ├── documentation-layout-20261018.md
 │   │   ├── frontend-hooks-split-20261018.md
+│   │   ├── live-completed-daily-history-20261018.md
 │   │   ├── project-health-and-soxq-p1-01.md
 │   │   ├── provider-candle-contract-20261018.md
 │   │   ├── soxq-p1-04.md
@@ -289,6 +290,7 @@ KISAutoTrade/
 │   │   │   ├── databaseCommands.ts
 │   │   │   ├── databaseTypes.ts
 │   │   │   ├── index.ts
+│   │   │   ├── liveDailyHistoryTypes.ts
 │   │   │   ├── strategyResearchTypes.ts
 │   │   │   ├── transport.ts
 │   │   │   └── types.ts
@@ -304,6 +306,7 @@ KISAutoTrade/
 │   │   └── ui/
 │   │       ├── BrokerScopeIndicator.tsx
 │   │       ├── LayoutResizer.tsx
+│   │       ├── LiveDailyHistoryPanel.tsx
 │   │       ├── ProviderTraceChips.tsx
 │   │       ├── TradingHealthPanel.tsx
 │   │       └── index.ts
@@ -433,8 +436,14 @@ KISAutoTrade/
 │   │   │   ├── toss/
 │   │   │   │   └── small_order.rs
 │   │   │   ├── trading/
+│   │   │   │   ├── daily_history/
+│   │   │   │   │   ├── jobs/
+│   │   │   │   │   │   └── tests.rs
+│   │   │   │   │   ├── jobs.rs
+│   │   │   │   │   └── tests.rs
 │   │   │   │   ├── balance.rs
 │   │   │   │   ├── daemon.rs
+│   │   │   │   ├── daily_history.rs
 │   │   │   │   ├── history.rs
 │   │   │   │   ├── positions.rs
 │   │   │   │   ├── risk_restore.rs
@@ -514,6 +523,9 @@ KISAutoTrade/
 │   │   │   │   │   ├── preview.rs
 │   │   │   │   │   ├── session.rs
 │   │   │   │   │   └── tests.rs
+│   │   │   │   ├── manager/
+│   │   │   │   │   ├── live_history.rs
+│   │   │   │   │   └── live_history_tests.rs
 │   │   │   │   ├── breakout.rs
 │   │   │   │   ├── classic.rs
 │   │   │   │   ├── core.rs
@@ -550,6 +562,7 @@ KISAutoTrade/
 │       ├── fixtures/
 │       │   └── strategyResearchFixture.ts
 │       ├── candle-pagination.spec.ts
+│       ├── live-daily-history.spec.ts
 │       ├── settings-database.spec.ts
 │       ├── strategy-atr-readiness.spec.ts
 │       ├── strategy-replay-assessment.spec.ts
@@ -629,6 +642,8 @@ KISAutoTrade/
 | `entities/*/model/` | Zustand 전역 상태 (계좌, 매매, 설정) |
 | `api/hooks.ts` | 기존 import를 유지하는 TanStack Query 훅 facade. 도메인별 hook 모듈과 기존 budget/database hook, `KEYS`, `useBackendEvents`를 re-export하며 훅 구현을 직접 소유하지 않음 |
 | `api/accountHooks.ts` | 앱 계정 설정·설정 확인·국내/해외/broker 잔고·프로파일 CRUD/전환·거래 환경 감지·Toss 연결/계좌 조회 hook |
+| `shared/api/liveDailyHistoryTypes.ts` | `TradingStatus.dailyHistory`의 읽기 전용 준비 진단 타입. 기존 응답의 필드 누락은 준비 완료로 추정하지 않도록 optional 호환 계약 유지 |
+| `shared/ui/LiveDailyHistoryPanel.tsx` | Dashboard/Strategy가 기존 상태 query로 공유하는 완료 일봉 준비 패널. 실행/활성 profile·broker/account 범위를 확인하고 상태·확보량·시장 날짜·출처·실패/재시도 사유 표시. 최대 512상태를 요약하고 실제 행은 3개씩 표시하며 프로파일 없는 legacy KIS 실행은 일치 계좌의 실패 진단만 허용 |
 | `api/marketHooks.ts` | 국내/해외/Toss 시세·차트·검색·종목 목록 갱신·시장 일정/유의사항·환율 hook과 해외 차트 preset. 갱신 설정은 `settingsHooks.ts::useRefreshConfig`를 직접 참조. `useCandlePage`는 프로파일·broker/account·종목·간격·거래소·커서별 공통 페이지 조회 계약을 사용 |
 | `api/orderHooks.ts` | 국내/해외 수동 주문·Toss 주문 전 검증/정정·소액 검증·미체결 조회 hook과 주문 후 관련 query 무효화 |
 | `api/strategyHooks.ts` | scope별 전략 목록·수정, 일반 replay와 LTH preview mutation hook |
@@ -694,17 +709,22 @@ KISAutoTrade/
 | `commands/toss.rs` | Toss accountSeq 조회, 연결 진단, 주문 전 preflight view facade, 접수 주문 목록 조회와 정정 command |
 | `commands/toss/small_order.rs` | 호환용 Toss 1주 소액매매 검증 endpoint. 실거래 동의/최종 확인/최대 허용금액/preflight/open-order scan 후 시장가 매수 제출과 주문·체결 기록 저장. 현재 UI는 일반 수동주문 경로를 사용 |
 | `commands/toss_market.rs` | Toss 시세 snapshot, 종목 유의사항, market-calendar override, candles chart command |
-| `commands/trading.rs` | 자동매매 상태/시작/정지·매수 정지 해제의 4개 IPC와 시작 순서·scope 검증을 조립하는 facade. daemon·잔고·위험 복원·히스토리 initializer의 기존 공개/내부 re-export 경로를 유지 |
+| `commands/trading.rs` | 자동매매 상태/시작/정지·매수 정지 해제의 4개 IPC와 시작 순서·scope 검증을 조립하는 facade. daemon·잔고·위험 복원·히스토리 initializer의 기존 공개/내부 re-export 경로를 유지. 시작 준비 뒤 실행 플래그를 켜며 시작/정지는 일봉 generation·실행 identity 갱신. 상태에 완료 일봉 진단 포함 |
 | `commands/trading/positions.rs` | 활성 broker를 따라 KIS/Toss 실제 보유 수량·평균가를 전략 상태에 복원하고 broker별 보유 값 파싱을 담당 |
 | `commands/trading/balance.rs` | KIS 국내/해외 및 Toss 계좌의 현금·평가잔고를 조회해 리스크 기준 총잔고를 KRW로 환산 |
 | `commands/trading/risk_restore.rs` | 실행 broker/account scope의 당일 체결·주문 ledger에서 실현손익·주문 횟수·전략/종목별 손익을 복원하고 runtime을 저장. 조회·저장 실패를 호출자에게 전달 |
-| `commands/trading/history.rs` | 활성 전략의 broker별 과거 OHLC 조회·통화 단위 변환과 일봉/분봉 warmup dispatch. live 초기화용 `calculate_atr`를 소유하며 replay 전용 ATR 준비 모듈과 구분. Toss 실행 scope의 프로파일이 없으면 KIS로 대체하지 않고 초기화를 중단 |
-| `commands/trading/daemon.rs` | 영구 `run_trading_daemon`과 시세 polling 사이클, KIS/Toss 가격 소스·세션 판단·장 종료 대기·해외 거래소 조회 helper를 소유. facade의 기존 export를 통해 `lib.rs`에서 실행 |
+| `commands/trading/history.rs` | 활성 전략의 broker별 과거 OHLC 조회·통화 단위 변환과 일봉/분봉 warmup dispatch. live 초기화용 `calculate_atr`를 소유하며 replay 전용 ATR 준비 모듈과 구분. 52주 전용 종목은 legacy seed를 생략하고 공유 종목의 다른 전략은 기존 seed를 받는다. Toss 실행 scope의 프로파일이 없으면 KIS로 대체하지 않고 초기화를 중단 |
+| `commands/trading/daemon.rs` | 영구 `run_trading_daemon`과 시세 polling 사이클, KIS/Toss 가격 소스·세션 판단·장 종료 대기·해외 거래소 조회 helper를 소유. 시장 대기 전 일봉 작업을 관리하고 quote 응답 뒤 tick과 같은 manager lock에서 시장 날짜 변경 재확인. facade의 기존 export를 통해 `lib.rs`에서 실행 |
+| `commands/trading/daily_history.rs` | 공통 완료 페이지로 live 52주 사전자료 수집. 작업당 최대 8회 요청·512봉 유지, 이전 시장 날짜·OHLC·scope/asOf/source 검증과 거래소 fallback·중복·커서 무진전·부분 오류 종료. 마지막 완료봉을 다시 제외하지 않으며 preview의 500봉 상한과 분리 |
+| `commands/trading/daily_history/jobs.rs` | 실행 프로파일에 고정한 background scheduler. 같은 profile/종목의 여러 설정을 최대 요구량 1회 조회로 공유하고 동시 2작업만 실행. 완료 handle만 수거하며 제거/새 generation/config/scope/시장 날짜의 과거 작업 취소. 실패/부족은 30~900초 backoff, 정지/drop 시 작업 중단 |
+| `commands/trading/daily_history/{tests.rs,jobs/tests.rs}` | 합성 DTO/fetch로 실제 252/512봉·중복/미완료/오류·scope drift·수집 상한, 공유 조회·동시 2작업·backoff·대기 중 손절·정지/재시작 결과 폐기 검증 |
 | `commands/strategy.rs` | 포지션 조회, 전략 목록/수정 IPC. 전략 view는 `trading/views.rs::build_strategy_view()` 재사용 |
 | `commands/risk.rs` | 리스크 설정/비상정지 IPC와 pending 주문 view |
 | `trading/strategy.rs` | 전략 facade. 공개 import 경로를 유지하면서 하위 전략 모듈을 re-export |
-| `trading/strategy/core.rs` | `Signal`, `StrategySignal`, `BrokerPositionSnapshot`, `StrategyConfig`, `HistoryReadiness`, `Strategy` trait와 live/preview 공통 `initialize_strategy_warmup()`. 일봉 OHLC 초기화 기본 훅은 종가를 historical initializer에 전달한다. replay 날짜 시작·완료봉 훅은 기본 no-op, 종가 평가 훅은 기존 `on_tick()` 위임이다. `history_readiness()`와 `can_evaluate_next_tick()`은 실제 전략 준비/조건 평가 가능 상태를 제공하며 미지원은 `None`이다. |
-| `trading/strategy/manager.rs` | `StrategyManager`, `build_strategy()`, 전략 config 재빌드와 live provider warmup dispatch. 52주 신고가는 완료 여부를 알 수 없는 최신 1봉을 제외하는 기존 정책을 유지한다. manager를 거치지 않는 generic preview의 엄격한 완료 사전자료는 마지막 봉까지 포함하며 252봉 요구량을 유지한다. |
+| `trading/strategy/core.rs` | `Signal`, `StrategySignal`, `BrokerPositionSnapshot`, `StrategyConfig`, `HistoryReadiness`, `Strategy` trait와 live/preview 공통 `initialize_strategy_warmup()`. 일봉 OHLC 초기화 기본 훅은 종가를 historical initializer에 전달한다. replay 날짜 시작·완료봉 훅은 기본 no-op, 종가 평가 훅은 기존 `on_tick()` 위임이다. `history_readiness()`와 `can_evaluate_next_tick()`은 실제 전략 준비/조건 평가 가능 상태를 제공하며 미지원은 `None`이다. 기본 false인 `reconfigure_preserving_position` opt-in으로 같은 scope 52주 설정 변경의 보유 상태 보존 지원 |
+| `trading/strategy/manager.rs` | `StrategyManager`, `build_strategy()`, config 적용과 live warmup dispatch. legacy warmup의 최신 1봉 제외는 유지하되 새 52주 live 실행은 완료 페이지 경계로 준비. config 변경·복원·reset은 일봉 generation 무효화. 같은 ID/scope의 52주는 opt-in 훅으로 보유 상태를 보존하며 다른 전략/계정은 기존 재빌드 정책 사용 |
+| `trading/strategy/manager/live_history.rs` | run generation·전체 config fingerprint·profile/broker/account·종목·서울/뉴욕 시장 날짜 ticket 검증과 52주 전용 완료 OHLC 적용. 실제 대상 511개+초과 진단 1행 상한, 준비 무효화·실패/부족/재시도 상태 및 최신 완료봉의 1~10일 freshness 관리. 보유 손절을 유지하고 LTH 분봉 initializer 미호출 |
+| `trading/strategy/manager/live_history_tests.rs` | 마지막 완료 high/close·다음날 고가 만료·252/512봉·대상 cap·재시작/config ABA·scope/profile 변경·quote 중 자정·DST·실패 중 손절·동일 scope 설정/rollback 보유 보존·무관 전략 불변 fixture |
 | `trading/simulation.rs` | deterministic simulated portfolio, 공통 TradeGuard/RiskManager 기반 주문 가능 판정, 비용·환율·equity·MDD·turnover·exposure·고정 chronological in/out-of-sample 지표. `run_backtest_with_history`는 동일 주기 과거 관측으로 위험 지표만 준비하고 주문·equity는 평가 구간에서만 만든다. ATR 미준비·변동폭 0 또는 거래당 위험 예산 0이면 선택적 ATR 수량 산정의 신규 매수를 차단하고 보유분 매도는 유지한다. preview command가 engine/strategy/source/scope/params/가정/warmup 경계와 실제 replay OHLCV fingerprint를 hash한다. v9 replay 시각은 RFC3339 offset의 실제 instant를 우선 사용한다. |
 | `trading/simulation/assessment.rs` | optional `ReplayAssessmentView`로 LTH의 dailyDiagnostic/notEvaluable과 intradaySample/sampleOnly를 구분한다. 분봉 관측 0개도 notEvaluable이며 일봉 맥락·장중 봉 수와 미검증 시각/세션·모델 한계를 제공 |
 | `trading/simulation/atr.rs` | 이전 종가를 포함한 True Range 14개를 bounded ring에 보관하고 단순 평균 ATR을 계산한다. 같은 주기 관측 15봉을 요구하며 갭을 보존하고 누락 봉을 보간하지 않는다. `AtrPreparationView`로 사전 관측 수·시작/종료 준비·최초 준비 시각·미준비 평가봉 수를 제공 |
@@ -732,7 +752,7 @@ KISAutoTrade/
 | `api/rest/types.rs` | KIS REST 타입, `OrderSide`/`OrderType`, 국내/해외 잔고·체결·시세 응답, 해외 주문 사전 검증 |
 | `api/rest/exchange.rs` | 공개 USD/KRW 환율 fallback fetcher (`fetch_usd_krw_rate`) |
 | `broker/` | 다중 증권사 공통 타입(`BrokerScope` 포함), adapter trait, `RateLimitScheduler`. KIS 기존 REST 호출을 점진 래핑하고 Toss token/accounts/holdings/market-data/market-info/order client를 수용 |
-| `broker/candles.rs` | provider별 typed cursor와 `CandlePageRequest`/`BrokerCandlePage`. KIS 날짜 anchor와 Toss inclusive timestamp 커서를 구분하고 커서 무진전을 감지한다. `BrokerAdapter::get_candle_page`로 KIS/Toss를 공통 호출하되 기존 `get_candles`는 유지 |
+| `broker/candles.rs` | provider별 typed cursor와 `CandlePageRequest`/`BrokerCandlePage`, KR/US 시장 날짜의 공통 `candle_market_date` 변환. KIS 날짜 anchor와 Toss inclusive timestamp 커서를 구분하고 커서 무진전을 감지한다. `BrokerAdapter::get_candle_page`로 KIS/Toss를 공통 호출하되 기존 `get_candles`는 유지 |
 | `broker/toss/mod.rs` | Toss 공개 surface re-export. 내부 DTO/helper는 외부로 직접 노출하지 않음 |
 | `broker/toss/adapter.rs` | `TossBrokerAdapter` 구현과 broker 공통 타입 매핑 |
 | `broker/toss/client.rs` | OAuth2 token, accounts/holdings/market/order REST 호출과 401 1회 재시도 |
@@ -758,7 +778,7 @@ KISAutoTrade/
 | `server/records.rs` | 웹 REST 포지션, 통계/체결 조회, pending 주문, 로그 설정/최근 로그, 체결 보관 설정/통계, 프론트엔드 로그. REST 보관 설정 변경도 IPC와 같이 즉시 purge를 예약 |
 | `server/profiles.rs` | 웹 REST 프로파일 CRUD/활성 전환/실전·모의 감지/Toss accountSeq·diagnostic. 프로파일 view는 IPC `profile_to_view()`를 재사용 |
 | `server/toss.rs` | 웹 REST Toss 시세 snapshot, 종목 유의사항, 주문 전 preflight, 호환용 1주 소액매매 검증 endpoint, 접수 주문 조회·정정, market-calendar, candles |
-| `server/trading.rs` | 웹 REST 자동매매 상태/시작/정지, 전략 목록/수정. 웹 start는 broker별 설정 검증, 실행 scope 설정, KIS/Toss 잔고 기반 전략 포지션 복원을 수행 |
+| `server/trading.rs` | 웹 REST 자동매매 상태/시작/정지, 전략 목록/수정. 웹 start는 broker별 설정 검증, 실행 scope 설정, KIS/Toss 잔고 기반 전략 포지션 복원 수행. start/stop은 일봉 generation·실행 identity 갱신, status는 실제 identity와 camelCase `dailyHistory` 제공 |
 | `storage/trade_store.rs` | `data/trades/YYYY/MM/DD/trades.json` (`provider_*` 원본 요청 trace 포함) |
 | `storage/order_store.rs` | `data/orders/YYYY/MM/DD/orders.json` (`provider_*` 원본 주문 trace 포함) |
 | `storage/stats_store.rs` | `data/stats/YYYY/MM/daily_stats.json` |
@@ -776,6 +796,7 @@ KISAutoTrade/
 | `scripts/render-todo.mjs` | `docs/todo.md`의 상태가 명시된 열린 최상위 항목을 `docs/todo.html`로 생성하고 원본 hash·상태별 색상·검색·필터를 제공한다. `npm run check:todo`는 원본과 생성물의 동기화를 검사 |
 | `scripts/render-todo.test.mjs` | 열린 항목 보존·상태 분류·escaping·freshness와 실제 Chromium의 좁은 화면·키보드 필터·JavaScript 없는 읽기를 검증 |
 | `scripts/verify-toss-openapi.mjs` | 공식 Toss OpenAPI의 예상 경로 목록을 검사하며 sector 목록·순위·상세·주식·ETF 경로도 포함. 이 목록의 확인을 앱 adapter 구현 또는 장기 분봉 자료 확보와 혼동하지 않음 |
+| `tests/e2e/live-daily-history.spec.ts` | 기존 상태 polling의 pending→ready, 부족/실패/legacy/mismatch와 계좌 범위, 512항목 요약·3행 페이지·모바일 표시를 mock 상태로 검증. 주문·자동매매 시작/정지 요청 없이 UI 검사 |
 | `tests/e2e/candle-pagination.spec.ts` | 페이지 중복·종료·무진전·상한·계좌 scope 변경·오류, 평가 200봉+이전 252봉 분리와 Web query cursor encoding을 mock provider/page 응답으로 검증 |
 | `tests/e2e/strategy-atr-readiness.spec.ts` | ATR 토글 기본값·연구 요청 가정·자료 부족/평가 중 준비·과거 응답 미확인·비활성 상태와 LTH 평가 불가 우선 표시를 mock replay로 검증 |
 | `docs/research/autonomous-corrections-20261018/compare.py` | 기존 동결 입력의 수정 전후 생산 replay trace를 비교하고 trace hash·변화 행·기술 통계를 `comparison.json`에 보관. 원래 연구 JSON/CSV는 변경하지 않으며 전체 trace는 `.cache/`에 유지 |
@@ -821,6 +842,32 @@ CandlePageView: 고정 scope/asOf + nextCursor + 완료 정책·제외 수
 부족을 합성 봉으로 채우지 않고 실제 확보 범위와 종료 사유를 표시한다.
 기존 Vec 차트 API와 전용 LTH 자료 조회는 유지되며 이 수집기는 live 완료
 일봉 갱신을 제공하지 않는다.
+
+### Live 52주 완료 일봉 갱신
+
+```text
+IPC/Web start 준비 완료 → manager generation + 실행 identity → 실행 플래그
+    ↓ daemon: 시장 대기 전 DailyHistoryJobs::maintain
+prepare_daily_history_targets: config/profile/scope/종목/시장 날짜 ticket
+    ↓ 같은 종목 설정 공유 / 동시 2작업 / 작업당 8회 요청·512봉 유지
+공통 완료 일봉 페이지 → 종료 사유·실제 완료 OHLC
+    ↓ 완료 handle 수거 / 현재 ticket 재검증
+manager/live_history.rs → 52주 initialize_ohlc (마지막 완료봉 포함)
+    ↓ dailyHistory 상태 (대상 511 + 초과 진단 1)
+TradingStatus IPC/Web → Dashboard/Strategy LiveDailyHistoryPanel (3행씩)
+```
+
+새 시장 날짜·설정 변경·정지/재시작은 이전 준비와 비동기 결과를 무효화한다.
+quote 중 자정을 넘으면 tick 직전 manager lock에서 다시 준비를 비운다.
+부족·실패·상한 초과 대상은 새 매수를 보류하고 보유 손절은 유지하며,
+실패/부족은 30·60·120·240·480·900초 간격으로 재시도한다. 최신 완료봉은
+현재 시장 날짜보다 1~10일 이전이어야 한다. 긴 휴장도 보류하는 보수적 기준이며
+거래소 휴장 달력 확인을 대신하지 않는다.
+
+동일 ID/broker/account의 52주 설정 변경·저장 rollback은 잔존 대상의 보유
+기준을 보존한다. 이 일봉 경계는 일반 전략의 설정 재빌드/rollback 또는 quote
+이후 주문 예약 경합 전체를 보호하지 않는다. 해당 기존 경로는 별도 P1 자동
+과제다. LTH initializer나 sampled tick은 완료 일봉 자료로 사용하지 않는다.
 
 ### 일반 전략 일봉 replay
 

@@ -18,7 +18,26 @@ pub(super) async fn trading_status_handler(
     State(s): State<ServerState>,
 ) -> Json<serde_json::Value> {
     let is_running = *s.is_trading.lock().await;
-    let active_strategies: Vec<String> = s.strategy_manager.lock().await.active_names();
+    let (active_strategies, daily_history, history_identity) = {
+        let manager = s.strategy_manager.lock().await;
+        (
+            manager.active_names(),
+            manager.daily_history_status(),
+            manager.history_execution_identity(),
+        )
+    };
+    let (trading_profile_id, trading_broker_id, trading_account_id) = if is_running {
+        match history_identity {
+            Some((scope, profile_id)) => (
+                profile_id,
+                Some(scope.broker_id),
+                scope.account_id.map(|id| id.0),
+            ),
+            None => (None, None, None),
+        }
+    } else {
+        (None, None, None)
+    };
     let (position_count, total_unrealized_pnl) = {
         let tracker = s.position_tracker.lock().await;
         (tracker.count(), tracker.total_pnl())
@@ -37,7 +56,10 @@ pub(super) async fn trading_status_handler(
         "positionCount":       position_count,
         "totalUnrealizedPnl":  total_unrealized_pnl,
         "wsConnected":         false,
-        "tradingProfileId":    null,
+        "tradingProfileId":    trading_profile_id,
+        "tradingBrokerId":     trading_broker_id,
+        "tradingAccountId":    trading_account_id,
+        "dailyHistory":        daily_history,
         "buySuspended":        buy_suspended,
         "buySuspendedReason":  buy_suspended_reason,
         "health":              health,
@@ -516,6 +538,12 @@ pub(super) async fn trading_start_handler(State(s): State<ServerState>) -> Json<
         &s.risk_manager,
     )
     .await;
+    {
+        let history_scope = s.order_manager.lock().await.execution_scope().clone();
+        let mut manager = s.strategy_manager.lock().await;
+        manager.advance_history_generation();
+        manager.set_history_execution_identity(history_scope, active_id.clone());
+    }
     *is_running = true;
     drop(is_running);
     tracing::info!(
@@ -530,7 +558,13 @@ pub(super) async fn trading_start_handler(State(s): State<ServerState>) -> Json<
 
 /// POST /api/trading/stop — is_trading = false (폴링 데몬 자동 일시 정지)
 pub(super) async fn trading_stop_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
-    *s.is_trading.lock().await = false;
+    {
+        let mut is_running = s.is_trading.lock().await;
+        *is_running = false;
+        let mut manager = s.strategy_manager.lock().await;
+        manager.advance_history_generation();
+        manager.clear_history_execution_identity();
+    }
     tracing::info!("자동매매 정지 (웹 API 요청)");
     Json(serde_json::json!({ "ok": true, "message": "자동매매 정지됨" }))
 }

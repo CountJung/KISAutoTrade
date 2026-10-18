@@ -110,7 +110,7 @@ v8 `BacktestReport.atrPreparation`은 `{period:14, historyBars, readyAtStart, re
 
 `asOf`는 첫 페이지에서 고정된다. 일봉은 거래소 현지의 당일, 주봉은 이번 주, 월봉은 이번 달을 보수적으로 제외한다(`strictlyBeforeCurrentMarketPeriod`). 이는 provider의 확정 플래그가 아닌 기간 경계 정책이다. Toss 분봉은 공식 종료 시각이 `asOf` 이하인 관측만 반환한다(`barCloseAtOrBeforeAsOf`). 미래·무효 OHLCV는 제외하며 누락봉을 합성하지 않는다. 실패는 `{code,message}`이며 scope/커서/입력 오류를 일반 provider 실패(`CANDLE_PAGE_FAILED`)와 구분한다.
 
-일반 미리보기는 최대8회 요청·보관500봉으로 요청 평가봉50/100/200개를 우선 보존하고 이전252봉을 별도 수집한다. 부족·provider 종료·무진전·커서 반복·요청 상한·부분 오류와 제외 수를 UI에 표시한다. 범위 변경·취소 결과는 폐기하며 첫 페이지 provider 오류 때만 KIS 미국 거래소 후보를 변경한다. live 일봉 갱신과 전용 LTH의 실제 장중 자료 검증은 별도 미완료 과제다.
+일반 미리보기는 최대8회 요청·보관500봉으로 요청 평가봉50/100/200개를 우선 보존하고 이전252봉을 별도 수집한다. 부족·provider 종료·무진전·커서 반복·요청 상한·부분 오류와 제외 수를 UI에 표시한다. 범위 변경·취소 결과는 폐기하며 첫 페이지 provider 오류 때만 KIS 미국 거래소 후보를 변경한다. live52주 완료 일봉 갱신은 아래 상태 계약과 연결했다. 전용 LTH의 실제 장중 자료 검증은 별도 미완료 과제다.
 
 v9 generic 1m 입력은 RFC3339 offset을 실제 순간으로 해석하고 고정 정밀도 UTC로 정규화한다. 같은 순간의 다른 표기는 중복이며 history/evaluation 경계에도 동일 규칙을 적용한다. legacy compact12/14는 기존 차트의 KST 계약을 유지한다. simulation guard 시간 parser도 RFC3339를 우선 해석하고, replay의 일일 리스크·손절 당일 재진입 기준 날짜는 한국 Seoul/미국 New York으로 고정한다. cooldown 경과는 실제 순간으로 비교한다. 실운용 guard의 Local 시각 정책과 일봉 OHLC/전략 계산은 바꾸지 않는다.
 
@@ -186,3 +186,10 @@ v9 generic 1m 입력은 RFC3339 offset을 실제 순간으로 해석하고 고�
 ### Generic preview 준비 메타데이터(v4)
 
 `historyCandles`와 평가봉은 동일 interval의 날짜 형식(일/주/월 8자리, 분봉 14자리 또는 초 00으로 보정되는 12자리)을 사용하며 사전자료는 평가 첫 봉보다 엄격히 이전이어야 한다. 잘못된 OHLC/시각·중복·겹침·모호한 prefix는 거부한다. `preparation`의 요구/제공/실제 버퍼 수, 시작·종료 준비, 처리 후 첫 준비 시각/미준비 봉 수와 호출 전 조건 평가 봉 수(`evaluatedBars`)를 구분한다. 지원 여부를 알 수 없는 값은 null이며 seed-only 구간은 `notEvaluable`이다.
+
+
+## Live 52주 완료 일봉 상태
+
+`get_trading_status` 및 시작/정지/매수정지 해제 응답의 `dailyHistory`는 `strategyId`, `symbol`, `brokerId`, `profileId`, `marketDate`, `requiredBars`, `availableBars`, `state`, `source`, `lastCompletedDate`, `lastError`, `nextRetryAt` 배열이다. state는 pending/ready/insufficient/failed/capacityExceeded다. 웹 GET `/api/trading/status`도 같은 camelCase 의미를 사용하며 실행 profile/broker/account는 실제 manager run identity를 반환한다. 중지 후 남은 OrderManager scope를 실행중으로 표시하지 않는다. 구버전의 필드 누락은 UI에서 미지원 중립 상태다.
+
+최대511개 수집 대상과 초과 진단1행, 동시2개 job, 종목/계좌/날짜 공유 수집,8회 요청/512봉 보관,30~900초 재시도를 적용한다. 당일 제외·최신 완료일1~10일 이내와 실제 요구량 충족을 확인한다. quote 직전 새 시장 날짜를 다시 확인하며 부족 중 신규 매수만 막고 보유 손절은 유지한다. run/config/scope/profile 변경 결과를 버린다. 기존 preview500봉 상한과 다른 live512봉 경계다. [상세 검증·한계](tasks/live-completed-daily-history-20261018.md).

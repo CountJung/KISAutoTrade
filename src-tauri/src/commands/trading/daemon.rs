@@ -175,18 +175,18 @@ async fn poll_symbols_tick(
         // 틱 처리: 현재가 기반 전략 신호 생성 → 주문
         match tick {
             Ok((price, volume)) if price > 0 => {
-                let signals =
-                    strategy_mgr
-                        .lock()
-                        .await
-                        .on_tick_filtered(symbol, price, volume, |config| {
-                            strategy_market_open_for_symbol(
-                                config,
-                                symbol,
-                                price_source,
-                                market_calendar,
-                            )
-                        });
+                let signals = {
+                    let mut manager = strategy_mgr.lock().await;
+                    manager.invalidate_stale_daily_history_for_symbol(symbol, chrono::Utc::now());
+                    manager.on_tick_filtered(symbol, price, volume, |config| {
+                        strategy_market_open_for_symbol(
+                            config,
+                            symbol,
+                            price_source,
+                            market_calendar,
+                        )
+                    })
+                };
                 for strategy_signal in signals {
                     let symbol_name = stock_store
                         .get_name(symbol)
@@ -296,6 +296,7 @@ pub async fn run_trading_daemon(
     let mut last_reset_date = chrono::Local::now().date_naive();
     let mut market_pause_until: Option<tokio::time::Instant> = None;
     let mut was_running = false;
+    let mut daily_history_jobs = super::daily_history::DailyHistoryJobs::default();
 
     // 레이블 없는 단순 루프 — 제어 흐름은 위→아래 순차 실행
     loop {
@@ -306,6 +307,11 @@ pub async fn run_trading_daemon(
         {
             tracing::warn!("provider 미체결 주문 대조 실패: {}", error);
         }
+        // Refill completed history even during the market pause. These calls only
+        // schedule jobs or drain finished handles; they never await provider data.
+        daily_history_jobs
+            .maintain(&is_trading, &strategy_mgr, &order_mgr, &profiles, &rest_arc)
+            .await;
 
         // ── Phase 1: 자동매매 비활성 → 5초 대기 후 재확인 ──────────
         if !is_running {

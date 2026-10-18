@@ -1735,6 +1735,6 @@ UI에서 해외 종목 추가 시 `is_overseas: market === 'US'` 자동 설정 (
 - `api/rest/chart.rs`는 국내 `FHKST03010100`과 해외 dailyprice `HHDFS76240000`을 사용한다. 해외 현재가의 `HHDFS76200200`과 구분한다. [공식 요청 샘플](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/overseas_stock/dailyprice/dailyprice.py), [공식 응답 컬럼](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/overseas_stock/dailyprice/chk_dailyprice.py).
 - 해외 `output2`의 날짜는 `xymd`, 종가는 `clos`다. ❌ 기존 `bass_dt` 파서는 실제 dailyprice 행을 전부 누락시켰다. ✅ `xymd`와 decimal OHLCV를 그대로 읽고 최신순→오름차순으로 반환한다. 요청/응답 fixture는 생산 빌더·파서를 사용한다.
 - 국내 날짜1/2, 해외 BYMD/GUBN/MODP를 별도로 유지한다. 새 broker page는 한 번에 최대100봉, 오래된 거래일-1일을 다음 날짜 anchor로 사용한다. 샘플의 tr_cont 재귀와 날짜 anchor를 혼합하지 않는다. 공유 auth/rate-limit/timeout·8MiB Content-Length/실제 bytes 상한을 유지하며 HTTP 오류 preview는300자로 제한한다.
-- 공통 IPC/웹 page의 profile/account/client scope 검증과 완료 기간 제외는 `commands/candles.rs`, 미리보기 수집8회/500봉·실패/부족 표시는 `docs/ipc-commands.md`를 따른다. 완료 page를 live 기존 `initialize_warmup`에 그대로 넣으면 52주 최신봉을 이중 제외하므로 targeted 적용 경계를 별도 구현해야 한다. live 갱신은 P2-05/P2-17 잔여다.
+- 공통 IPC/웹 page의 profile/account/client scope 검증과 완료 기간 제외는 `commands/candles.rs`, 미리보기 수집8회/500봉·실패/부족 표시는 `docs/ipc-commands.md`를 따른다. 완료 page를 기존 `initialize_warmup`에 넣으면 최신봉을 이중 제외하므로 live52주에는 manager의 `apply_daily_history`만 사용한다. run/config/profile/account/시장 날짜가 같은 ticket만 적용하고 새날·부족/실패 중 신규 진입을 차단한다.8회/512봉·동시2개·공유client/rate-limit·backoff·보유 손절 보존은 `docs/tasks/live-completed-daily-history-20261018.md`를 따른다.
 
-> 마지막 업데이트: 2026-10-18T11:38:53+09:00
+> 마지막 업데이트: 2026-10-18T11:57:42+09:00

@@ -127,6 +127,12 @@ pub trait Strategy: Send + Sync {
     fn config_mut(&mut self) -> &mut StrategyConfig;
     fn is_enabled(&self) -> bool;
     fn set_enabled(&mut self, enabled: bool);
+    /// Opt-in reconfiguration for a strategy that can preserve its actual held state.
+    /// Returning false leaves replacement to the manager; never transfer positions
+    /// between different broker/account scopes.
+    fn reconfigure_preserving_position(&mut self, _config: StrategyConfig) -> bool {
+        false
+    }
     /// 틱 데이터를 받아 매매 신호 반환
     fn on_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal;
     /// 일봉 replay의 날짜 시작. 당일 시가만 공개하며 보유 포지션을 지우지 않는다.
