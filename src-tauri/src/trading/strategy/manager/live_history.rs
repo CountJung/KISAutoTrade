@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 
 use crate::broker::{candles::candle_market_date, BrokerId, BrokerMarket, BrokerScope};
 
-use super::super::{state::bounded_window, FiftyTwoWeekHighParams, OhlcCandle, StrategyConfig};
+use super::super::{OhlcCandle, StrategyConfig};
 use super::StrategyManager;
 
 /// At most 511 fetch targets plus one visible capacity diagnostic are retained.
@@ -86,10 +86,10 @@ impl StrategyManager {
         self.unsettled_signals.clear();
         self.daily_history.clear();
         for strategy in &mut self.strategies {
-            if strategy.id().starts_with("fifty_two_week_high") {
+            if strategy.required_completed_daily_bars().is_some() {
                 let symbols = strategy.config().target_symbols.clone();
                 for symbol in symbols {
-                    strategy.initialize_ohlc(&symbol, &[]);
+                    strategy.invalidate_completed_daily_history(&symbol);
                 }
             }
         }
@@ -131,7 +131,7 @@ impl StrategyManager {
         for strategy in &mut self.strategies {
             let config = strategy.config().clone();
             if !strategy.is_enabled()
-                || !config.id.starts_with("fifty_two_week_high")
+                || strategy.required_completed_daily_bars().is_none()
                 || !config.matches_scope(
                     scope.broker_id,
                     scope.account_id.as_ref().map(|id| id.0.as_str()),
@@ -139,11 +139,10 @@ impl StrategyManager {
             {
                 continue;
             }
-            let required_bars = bounded_window(
-                serde_json::from_value::<FiftyTwoWeekHighParams>(config.params.clone())
-                    .unwrap_or_default()
-                    .lookback_days,
-            );
+            let required_bars = strategy
+                .required_completed_daily_bars()
+                .unwrap_or(1)
+                .clamp(1, 512);
             let config_fingerprint = fingerprint(&config);
             for symbol in &config.target_symbols {
                 let key = (config.id.clone(), symbol.clone());
@@ -169,7 +168,7 @@ impl StrategyManager {
                     required_bars,
                 };
                 if tickets.len() >= MAX_DAILY_HISTORY_TARGETS {
-                    strategy.initialize_ohlc(symbol, &[]);
+                    strategy.invalidate_completed_daily_history(symbol);
                     overflow_count += 1;
                     if overflow.is_none() {
                         let mut status = pending_status(&ticket);
@@ -184,7 +183,7 @@ impl StrategyManager {
                 let entry = match self.daily_history.remove(&key) {
                     Some(entry) if entry.ticket == ticket => entry,
                     _ => {
-                        strategy.initialize_ohlc(symbol, &[]);
+                        strategy.invalidate_completed_daily_history(symbol);
                         DailyHistoryEntry {
                             status: pending_status(&ticket),
                             ticket: ticket.clone(),
@@ -288,8 +287,8 @@ impl StrategyManager {
         let Some(strategy) = strategy else {
             return false;
         };
-        strategy.initialize_ohlc(&ticket.symbol, &valid);
-        let readiness = strategy.history_readiness(&ticket.symbol);
+        strategy.apply_completed_daily_history(&ticket.symbol, &valid);
+        let readiness = strategy.completed_daily_history_readiness(&ticket.symbol);
         let entry = self
             .daily_history
             .get_mut(&(ticket.strategy_id.clone(), ticket.symbol.clone()));
@@ -307,10 +306,11 @@ impl StrategyManager {
             Some("최신 완료 일봉 날짜를 확인하지 못했거나 시장 날짜보다 10일을 초과해 오래되었습니다. 신규 매수는 차단하며 보유 손절은 유지합니다.".into())
         } else {
             (entry.status.state != "ready").then(|| {
-                format!(
-                    "완료 일봉 부족: {}/{}봉. 신규 매수는 차단하며 보유 손절은 유지합니다.",
-                    entry.status.available_bars, ticket.required_bars
-                )
+                if entry.status.available_bars >= ticket.required_bars {
+                    "완료 일봉 수는 충족하지만 지표가 미준비입니다(예: ATR 0). 신규 매수만 차단하며 보유 청산은 유지합니다.".into()
+                } else {
+                    format!("완료 일봉 부족: {}/{}봉. 신규 매수는 차단하며 보유 손절은 유지합니다.", entry.status.available_bars, ticket.required_bars)
+                }
             })
         };
         entry.status.next_retry_at = None;
@@ -332,7 +332,7 @@ impl StrategyManager {
             .iter_mut()
             .find(|strategy| strategy.id() == ticket.strategy_id)
         {
-            strategy.initialize_ohlc(&ticket.symbol, &[]);
+            strategy.invalidate_completed_daily_history(&ticket.symbol);
         }
         let entry = self
             .daily_history
@@ -358,7 +358,7 @@ impl StrategyManager {
             .iter_mut()
             .find(|strategy| strategy.id() == ticket.strategy_id)
         {
-            strategy.initialize_ohlc(&ticket.symbol, &[]);
+            strategy.invalidate_completed_daily_history(&ticket.symbol);
         }
         let entry = self
             .daily_history
@@ -438,7 +438,7 @@ impl StrategyManager {
                 && entry.ticket.market_date != today
                 && entry.status.last_error.as_deref() != Some(reason.as_str())
             {
-                strategy.initialize_ohlc(symbol, &[]);
+                strategy.invalidate_completed_daily_history(symbol);
                 entry.status.state = "pending".into();
                 entry.status.available_bars = 0;
                 entry.status.last_error = Some(reason.clone());

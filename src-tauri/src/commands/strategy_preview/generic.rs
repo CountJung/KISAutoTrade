@@ -46,6 +46,8 @@ pub struct StrategyPreviewView {
     pub replay: ReplayMetadataView,
     pub backtest: BacktestReportView,
     pub preparation: StrategyPreparationView,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entry_filter_preparation: Option<crate::trading::strategy::EntryFilterPreparation>,
 }
 
 #[derive(Debug, Serialize)]

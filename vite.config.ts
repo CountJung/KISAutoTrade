@@ -35,6 +35,7 @@ export default defineConfig(async () => ({
         manualChunks: {
           mui: ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
           tanstack: ['@tanstack/react-query', '@tanstack/react-router'],
+          charts: ['lightweight-charts'],
         },
       },
     },

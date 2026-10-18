@@ -7,7 +7,7 @@ use chrono::Duration;
 
 use super::*;
 use crate::broker::BrokerAccountId;
-use crate::trading::strategy::{build_strategy, Signal, Strategy};
+use crate::trading::strategy::{build_strategy, FiftyTwoWeekHighParams, Signal, Strategy};
 
 fn now() -> DateTime<Utc> {
     "2026-10-19T13:30:00Z".parse().unwrap()
@@ -548,4 +548,116 @@ fn removed_target_does_not_reappear_after_preserving_retained_target_stop() {
         Signal::Sell { .. }
     ));
     assert_eq!(manager.active_symbols(), vec!["SOXQ"]);
+}
+
+fn consecutive_manager() -> StrategyManager {
+    let mut manager = StrategyManager::new();
+    manager.add(build_strategy(
+        StrategyConfig::new(
+            "consecutive_move_live",
+            "entry fixture",
+            true,
+            vec!["SOXQ".into()],
+            2,
+            serde_json::json!({"buy_days":2,"sell_days":4,"long_trend_period":3}),
+        )
+        .with_scope(BrokerId::Kis, Some("fixture-account".into())),
+    ));
+    manager.set_history_execution_identity(scope(), Some("fixture-profile".into()));
+    manager
+}
+
+#[test]
+fn consecutive_scoped_daily_apply_preserves_live_streak_and_requires_verified_source() {
+    let mut manager = consecutive_manager();
+    let seed = [
+        OhlcCandle {
+            open: 100,
+            high: 101,
+            low: 99,
+            close: 100,
+        },
+        OhlcCandle {
+            open: 101,
+            high: 102,
+            low: 100,
+            close: 101,
+        },
+    ];
+    manager.initialize_warmup("SOXQ", &seed, &[]);
+    assert!(
+        !manager.strategies[0]
+            .entry_filter_preparation("SOXQ")
+            .unwrap()
+            .ready
+    );
+    let ticket = prepare(&mut manager, now());
+    assert_eq!(ticket.required_bars, 3);
+    let completed = [OhlcCandle {
+        open: 90,
+        high: 91,
+        low: 89,
+        close: 90,
+    }; 3];
+    assert!(apply(&mut manager, &ticket, &completed, now()));
+    assert_eq!(manager.daily_history_status()[0].state, "ready");
+    assert!(matches!(
+        manager.on_tick("SOXQ", 102, 0)[0].signal,
+        Signal::Buy { .. }
+    ));
+    // Replacing the streak with completed closes90/90/90 would not produce this buy.
+    assert_eq!(manager.strategies[0].has_held_position("SOXQ"), Some(false));
+
+    // Late, unverified legacy warmup expires both the context and its ready
+    // status. Otherwise the daemon would skip refetching an unavailable filter.
+    manager.initialize_warmup("SOXQ", &seed, &[]);
+    assert!(manager.daily_history_status().is_empty());
+    let next_ticket = prepare(&mut manager, now());
+    assert_eq!(manager.daily_history_status()[0].state, "pending");
+    assert!(apply(&mut manager, &next_ticket, &completed, now()));
+    assert_eq!(manager.daily_history_status()[0].state, "ready");
+}
+
+#[test]
+fn consecutive_pending_failure_midnight_and_config_refresh_preserve_held_exit_streak() {
+    let mut manager = consecutive_manager();
+    manager.strategies[0].initialize_historical("SOXQ", &[104, 103, 102]);
+    manager.strategies[0].sync_owned_position("SOXQ", 2, 105);
+    let ticket = prepare(&mut manager, now());
+    assert!(manager.note_order_pending(
+        "consecutive_move_live",
+        &scope(),
+        BrokerMarket::Us,
+        "SOXQ",
+        true
+    ));
+    assert!(manager.mark_daily_history_pending(&ticket, now()));
+    assert!(manager.mark_daily_history_failure(&ticket, "synthetic failure", None, now()));
+    assert_eq!(manager.pending_orders.len(), 1);
+    assert!(manager.on_tick("SOXQ", 101, 0).is_empty()); // pending suppression only, observes third decline
+    manager.invalidate_stale_daily_history_for_symbol("SOXQ", now() + Duration::days(1));
+    assert_eq!(manager.pending_orders.len(), 1);
+    assert!(manager.note_order_pending(
+        "consecutive_move_live",
+        &scope(),
+        BrokerMarket::Us,
+        "SOXQ",
+        false
+    ));
+    let signals = manager.on_tick("SOXQ", 100, 0);
+    assert_eq!(signals.len(), 1);
+    assert!(matches!(signals[0].signal, Signal::Sell { .. }));
+    assert_eq!(manager.strategies[0].has_held_position("SOXQ"), Some(true));
+    manager.complete_signal(
+        "consecutive_move_live",
+        "SOXQ",
+        manager.history_generation(),
+    );
+    manager.update_config("consecutive_move_live", |cfg| {
+        cfg.params["long_trend_period"] = serde_json::json!(200);
+    });
+    assert_eq!(manager.strategies[0].has_held_position("SOXQ"), Some(true));
+    assert!(manager.strategies[0]
+        .can_evaluate_next_tick("SOXQ")
+        .unwrap());
 }

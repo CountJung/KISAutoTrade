@@ -89,6 +89,7 @@ type Props = {
   symbolNames: Record<string, string>
   orderQuantity: number
   params: Record<string, unknown>
+  paramsError?: string | null
 }
 
 export function StrategyPreviewPanel({
@@ -101,6 +102,7 @@ export function StrategyPreviewPanel({
   symbolNames,
   orderQuantity,
   params,
+  paramsError,
 }: Props) {
   const dailyEventStrategy = strategyId.startsWith('strong_close') || strategyId.startsWith('volatility_expansion')
   const previewMutation = usePreviewStrategy()
@@ -112,6 +114,7 @@ export function StrategyPreviewPanel({
   const rangeError = calculationMode === 'continuous' ? continuousRangeError(continuousRange.start, continuousRange.end) : null
   const [selectedSymbol, setSelectedSymbol] = useState(symbols[0] ?? '')
   const [previewInterval, setPreviewInterval] = useState<PreviewInterval>('D')
+  const filterCadenceError = strategyId.startsWith('consecutive_move') && calculationMode !== 'continuous' && previewInterval !== 'D' && (Number(params.min_move_atr_multiplier ?? 0) > 0 || Number(params.long_trend_period ?? 0) > 0) ? 'ATR·장기 MA 진입 필터는 이전 완료 일봉이 필요합니다. 일봉을 선택하세요.' : null
   const [previewCount, setPreviewCount] = useState<PreviewCount>(50)
   const [preview, setPreview] = useState<StrategyPreviewView | null>(null)
   const initialIsOverseas = !isDomesticSymbol(symbols[0] ?? '')
@@ -134,7 +137,7 @@ export function StrategyPreviewPanel({
     previewInterval,
     previewCount,
     orderQuantity,
-    params,
+    params, paramsError,
     assumptions,
     accountingDraftRevision,
     calculationMode, continuousRange,
@@ -191,7 +194,7 @@ export function StrategyPreviewPanel({
   const error = (calculationMode === 'continuous' ? continuousMutation.error : previewMutation.error) as CmdError | Error | null
 
   const handlePreview = async () => {
-    if (!selectedSymbol || !profileId || accountingError || rangeError) return
+    if (!selectedSymbol || !profileId || accountingError || rangeError || paramsError || filterCadenceError) return
     const requestGeneration = ++previewGeneration.current
     const requestInputKey = previewInputKey
     const cancelled = () => requestGeneration !== previewGeneration.current || requestInputKey !== currentInputKey.current
@@ -258,6 +261,7 @@ export function StrategyPreviewPanel({
 
   return (
     <Box sx={{ pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
+      {(paramsError || filterCadenceError) && <Alert severity="error">{paramsError ?? filterCadenceError}</Alert>}
       <ReplayRangeControls mode={calculationMode} onModeChange={setCalculationMode} range={continuousRange} onRangeChange={setContinuousRange} disabled={busy} error={rangeError} />
       <SimulationAssumptionsEditor
         continuousMode={calculationMode === 'continuous'}
@@ -350,7 +354,7 @@ export function StrategyPreviewPanel({
             variant="outlined"
             startIcon={busy ? <CircularProgress size={14} /> : <RefreshIcon />}
             onClick={handlePreview}
-            disabled={!selectedSymbol || !profileId || busy || !!accountingError || !!rangeError}
+            disabled={!selectedSymbol || !profileId || busy || !!accountingError || !!rangeError || !!paramsError || !!filterCadenceError}
             sx={{ width: { xs: '100%', sm: 'auto' }, whiteSpace: 'nowrap' }}
           >
             {collecting ? '캔들 페이지 조회 중' : '미리보기 계산'}
@@ -410,6 +414,7 @@ export function StrategyPreviewPanel({
               report={preview.backtest}
               calculationMode={preview.continuity ? 'continuous' : 'boundedWindow'}
               continuity={preview.continuity}
+              entryFilterPreparation={preview.entryFilterPreparation}
               replay={preview.replay}
               strategyId={strategyId}
               brokerId={brokerId}

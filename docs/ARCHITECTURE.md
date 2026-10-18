@@ -268,3 +268,6 @@ feedback으로 다루며 계좌 게시 gate만으로 이를 대신하지 않는�
 `submit_order_shared`는 manager 잠금 내에서 예산 intent를 영속화한 뒤 provider에 제출한다. 부분체결은 누적 수량/금액으로 멱등 적용하고, terminal 표식을 pending 제거 이전에 저장해 중간 종료를 복구한다. 확정 주문 거절만 예약을 해제하며 transport/파싱 실패와 애매한 HTTP 결과는 예약을 유지한다. 매수만 지정가로 제한하고 기존 자동매도 주문 유형을 보존한다. 예산은 위험 관리 비활성화로 우회되지 않는다.
 
 `leveraged_trend_hold/bollinger.rs`는 기존 전략 내부 필터다. 별도의 분봉 버퍼로 일봉 warmup 혼합을 막고, 세 진입 경로와 기존 청산 처리에 연결된다. 새로운 strategy ID는 없다.
+
+
+v13 Consecutive는 가격 관측열/확정 보유와 `sequence/consecutive/context.rs`의 완료 일봉 맥락을 분리한다. coordinator는 `required_completed_daily_bars` opt-in 및 apply/invalidate/readiness 훅으로 기존 52주 고가와 선택 ATR/MA 진입 확인을 공급한다. 일봉 갱신·실패·날짜 전환으로 가격 관측열과 보유 청산을 지우지 않는다. legacy warmup은 scoped 완료 일봉 인증을 대신하지 않는다. generic driver는 현재 후보 평가/피드백 뒤에만 OHLC를 완료 맥락으로 게시한다. 선택 `entryFilterPreparation`과 수량 조절 ATR은 별도이며 전 필터0이면 기존 경로를 유지한다. 계약은 [IPC v13](ipc-commands.md), 인과/기본 호환·후보 기각은 [P2-06 연구](research/consecutive-filters-20261018/report.md)에 기록한다.

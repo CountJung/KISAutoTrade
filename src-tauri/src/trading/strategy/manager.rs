@@ -270,6 +270,14 @@ impl StrategyManager {
                         daily_ohlc
                     };
                 initialize_strategy_warmup(strategy.as_mut(), symbol, daily_ohlc, intraday_ohlc);
+                if strategy.legacy_warmup_requires_daily_verification() {
+                    strategy.invalidate_completed_daily_history(symbol);
+                    // A delayed legacy warmup can arrive after scoped history is
+                    // ready. Its unverified bars must also expire that status so
+                    // the next preparation schedules a genuine completed fetch.
+                    self.daily_history
+                        .remove(&(strategy.id().to_owned(), symbol.to_owned()));
+                }
             }
         }
     }

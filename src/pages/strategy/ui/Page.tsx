@@ -37,6 +37,7 @@ import {
   hasInvalidLthEntries,
 } from './leveragedTrendHoldEditorPanel'
 import { StrategyPreviewPanel } from './strategyPreviewPanel'
+import { ConsecutiveEntryControls, consecutiveEntryParamError, isConsecutiveEntryParam } from './consecutiveEntryControls'
 import { PriceConditionEditorPanel } from './priceConditionEditorPanel'
 import {
   STRATEGY_DESCRIPTION,
@@ -141,7 +142,7 @@ function isActiveStrategyScope(
   )
 }
 
-type EditState = { symbols: string[]; quantity: number; params: Record<string, number> }
+type EditState = { symbols: string[]; quantity: number; params: Record<string, unknown> }
 
 // ─── Strategy 메인 ────────────────────────────────────────────────
 export default function Strategy() {
@@ -290,9 +291,9 @@ export default function Strategy() {
 
   const getEdit = (id: string, s: { targetSymbols: string[]; orderQuantity: number; params: Record<string, unknown> }): EditState => {
     if (editMap[id]) return editMap[id]
-    const numericParams: Record<string, number> = {}
+    const numericParams: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(s.params)) {
-      numericParams[k] = typeof v === 'number' ? v : Number(v)
+      numericParams[k] = id.startsWith('consecutive_move') && isConsecutiveEntryParam(k) ? v : typeof v === 'number' ? v : Number(v)
     }
     return { symbols: s.targetSymbols, quantity: s.orderQuantity, params: numericParams }
   }
@@ -300,7 +301,7 @@ export default function Strategy() {
   const setEdit = (id: string, s: { targetSymbols: string[]; orderQuantity: number; params: Record<string, unknown> }, patch: Partial<EditState>) =>
     setEditMap(prev => ({ ...prev, [id]: { ...getEdit(id, s), ...patch } }))
 
-  const setParam = (id: string, s: { targetSymbols: string[]; orderQuantity: number; params: Record<string, unknown> }, key: string, val: number) => {
+  const setParam = (id: string, s: { targetSymbols: string[]; orderQuantity: number; params: Record<string, unknown> }, key: string, val: number | string) => {
     const cur = getEdit(id, s)
     setEditMap(prev => ({ ...prev, [id]: { ...cur, params: { ...cur.params, [key]: val } } }))
   }
@@ -671,7 +672,8 @@ export default function Strategy() {
         {(strategies ?? []).map((s) => {
           const edit = getEdit(s.id, s)
           const sType = getStrategyType(s.id)
-          const paramMetas = STRATEGY_PARAM_META[sType] ?? []
+          const paramMetas = (STRATEGY_PARAM_META[sType] ?? []).filter((meta) => sType !== 'consecutive_move' || !isConsecutiveEntryParam(meta.key))
+          const entryError = sType === 'consecutive_move' ? consecutiveEntryParamError(edit.params) : null
           const stratDesc = STRATEGY_DESCRIPTION[sType]
           const pcInitialSymbols = (s.params['symbols'] as PriceConditionSymbolConfig[] | undefined) ?? []
           const lthInitialEntries = (s.params['entries'] as LeveragedTrendHoldEntry[] | undefined) ?? []
@@ -718,7 +720,7 @@ export default function Strategy() {
                 variant="outlined"
                 startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
                 onClick={() => handleSave(s.id, s)}
-                disabled={saving || !scopeMatchesActive}
+                disabled={saving || !scopeMatchesActive || !!entryError}
               >
                 변경사항 저장
               </Button>
@@ -934,7 +936,9 @@ export default function Strategy() {
                       </Grid>
                     ))}
                   </Grid>
+                  {sType === 'consecutive_move' && <ConsecutiveEntryControls params={edit.params} disabled={s.enabled} onChange={(key, value) => setParam(s.id, s, key, value)} />}
                   <StrategyPreviewPanel
+                    paramsError={entryError}
                     profileId={appConfig?.active_profile_id ?? null}
                     strategyId={s.id}
                     strategyName={s.name}

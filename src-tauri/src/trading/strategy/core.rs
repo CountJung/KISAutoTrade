@@ -126,6 +126,25 @@ pub struct HistoryReadiness {
     pub ready: bool,
 }
 
+/// Strategy-entry diagnostics, distinct from execution quantity-sizing ATR.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EntryFilterPreparation {
+    pub enabled: bool,
+    pub ready: bool,
+    pub status: String,
+    pub cadence: String,
+    pub required_completed_bars: usize,
+    pub available_completed_bars: usize,
+    pub true_range_samples: usize,
+    pub candidates: u64,
+    pub unready_candidates: u64,
+    pub min_move_rejections: u64,
+    pub atr_rejections: u64,
+    pub trend_rejections: u64,
+    pub passed_candidates: u64,
+}
+
 /// 전략 trait — 모든 자동매매 전략이 구현해야 함
 pub trait Strategy: Send + Sync {
     fn id(&self) -> &str;
@@ -198,6 +217,26 @@ pub trait Strategy: Send + Sync {
     fn initialize_intraday_ohlc(&mut self, _symbol: &str, _candles: &[OhlcCandle]) {}
     /// 전략 시작 시 일봉 변동 범위(고가-저가) 배열로 초기화. 변동성 확장 전략에서 사용.
     fn initialize_range_data(&mut self, _symbol: &str, _ranges: &[u64]) {}
+    /// Opt-in scoped live completed-daily context; defaults preserve other strategies.
+    fn required_completed_daily_bars(&self) -> Option<usize> {
+        None
+    }
+    fn apply_completed_daily_history(&mut self, symbol: &str, candles: &[OhlcCandle]) {
+        self.initialize_ohlc(symbol, candles);
+    }
+    fn invalidate_completed_daily_history(&mut self, symbol: &str) {
+        self.apply_completed_daily_history(symbol, &[]);
+    }
+    fn completed_daily_history_readiness(&self, symbol: &str) -> Option<HistoryReadiness> {
+        self.history_readiness(symbol)
+    }
+    fn legacy_warmup_requires_daily_verification(&self) -> bool {
+        false
+    }
+    fn entry_filter_preparation(&self, _symbol: &str) -> Option<EntryFilterPreparation> {
+        None
+    }
+
     /// 실제 지표와 버퍼의 준비 상태. 미지원 전략은 준비 완료로 추측하지 않는다.
     fn history_readiness(&self, _symbol: &str) -> Option<HistoryReadiness> {
         None

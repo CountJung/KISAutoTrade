@@ -483,3 +483,72 @@ async fn failed_post_save_restore_blocks_all_new_orders_and_reports_persistence_
     assert!(s.orders.lock().await.health_status().persistence_blocked);
     assert_eq!(config(&s).await.order_quantity, 1);
 }
+
+#[tokio::test]
+async fn invalid_consecutive_optional_params_are_rejected_before_persistence_or_runtime_publication(
+) {
+    let f = Fixture::new("http://127.0.0.1:1".into()).await;
+    let s = state(&f, false).await;
+    let id = "consecutive_move_configuration";
+    let original = StrategyConfig::new(
+        id,
+        "fixture",
+        true,
+        vec!["005930".into()],
+        1,
+        serde_json::json!({"buy_days":2,"sell_days":4}),
+    )
+    .with_scope(f.profile.broker_id, Some(f.profile.account_no.clone()));
+    {
+        let mut manager = s.strategies.lock().await;
+        *manager = StrategyManager::new();
+        manager.add(build_strategy(original.clone()));
+        manager.set_history_execution_identity(
+            test_support::scope(&f.profile),
+            Some(f.profile.id.clone()),
+        );
+    }
+    let calls = Arc::new(AtomicUsize::new(0));
+    for period in [2.5, 0.5] {
+        let mut update = request(&f);
+        update.id = id.into();
+        update.params =
+            Some(serde_json::json!({"buy_days":2,"sell_days":4,"long_trend_period":period}));
+        let c = calls.clone();
+        let error = run_update(s.clone(), update, move |_, _| {
+            c.fetch_add(1, Ordering::SeqCst);
+            async { Ok(()) }
+        })
+        .await
+        .unwrap_err();
+        assert_eq!(error.code, "INVALID_STRATEGY_PARAMS");
+    }
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    assert_eq!(config(&s).await.params, original.params);
+    assert!(!s.strategies.lock().await.configuration_edit_active());
+
+    // JSON numeric integers such as 200.0 are accepted consistently by the
+    // validator, durable save and the production constructor; never disabled.
+    for period in [200.0, 512.0] {
+        let mut update = request(&f);
+        update.id = id.into();
+        update.params =
+            Some(serde_json::json!({"buy_days":2,"sell_days":4,"long_trend_period":period}));
+        let published = update_strategy_configuration(s.clone(), update)
+            .await
+            .unwrap();
+        assert_eq!(
+            published.params["long_trend_period"],
+            serde_json::json!(period)
+        );
+        let loaded = s.store.load(&f.profile.id).await.unwrap();
+        assert_eq!(loaded[0].params, published.params);
+        let strategy = build_strategy(loaded[0].clone());
+        assert_eq!(
+            strategy.required_completed_daily_bars(),
+            Some(period as usize)
+        );
+        assert_eq!(published.params["buy_days"], 2);
+        assert_eq!(published.params["sell_days"], 4);
+    }
+}

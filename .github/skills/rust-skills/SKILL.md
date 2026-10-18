@@ -1257,3 +1257,13 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 새 IPC/REST/TS/hooks/transport와 source/시나리오 상한·UI 준비/취소/legacy 모드를 함께 갱신한다. 정본은 `docs/ipc-commands.md`, 검증·한계는 `docs/research/continuous-replay-20261018/report.md`를 따른다.
 
 > 마지막 업데이트: 2026-10-18T16:14:29+09:00
+
+## Consecutive v13 진입 확인과 완료 일봉 분리
+
+- 기존 buy_days/sell_days는 가격 관측 횟수다. 선택 3필드는 각각 serde default0이며 신규 필드 오류가 기존 custom 매도 기간을 전체 기본값으로 덮거나 필터를 조용히 끄지 않게 한다. 저장/replay는 엄격히 거부하고 손상된 runtime params는 신규 매수만 차단한다.
+- 누적 변화는 native 관측 차이, ATR14는 직전 완료 실제 OHLC15의 산술 TR, MA는 직전 완료 종가 N으로 계산한다. 현재 후보 OHLC는 판단/체결 피드백 후에만 게시한다. ATR/MA 활성 generic은 일봉만 지원한다.
+- 완료 일봉 coordinator의 opt-in 훅은 context만 갱신·무효화한다. 기존 tick 관측열·확정 보유·청산을 보존하며 legacy warmup을 검증된 완료 일봉으로 승격하지 않는다. 0 ATR/준비 부족은 신규 진입만 보류한다.
+- 후보/준비 부족/각 필터 거절/통과 진단과 후속 guard/risk 차단을 구분한다. 필터 통과는 체결이 아니며 optional 진단 부재는 필터 활성 시 legacy unknown이며, 유효 숫자0/누락으로 모두 비활성이 확인되면 UI는 중립 표시한다. 기본0 전체 report/signals 호환과 실제 비용별 경로를 검증하고 guard를 완화하지 않는다.
+- ❌ quote 관측열을 일봉 ATR/MA로 계산하거나 일봉 재조회로 streak/보유를 초기화하면 시간 간격과 청산 계약이 깨진다. ✅ 별도 bounded 완료 일봉 context와 기존 방향 상태를 유지한다. DTO 정본은 docs/ipc-commands.md, 연구는 docs/research/consecutive-filters-20261018/report.md다.
+
+> 마지막 업데이트: 2026-10-18T16:31:45+09:00

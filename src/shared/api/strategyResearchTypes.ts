@@ -226,6 +226,23 @@ export interface ReplayContinuityView {
   chunks: ChunkContinuityView[]
 }
 
+/** Strategy entry confirmation, separate from execution sizing ATR. Missing legacy data is unknown. */
+export interface EntryFilterPreparation {
+  enabled: boolean
+  ready: boolean
+  status: 'ready' | 'insufficientHistory' | 'invalidParams' | 'unsupportedObservation' | 'zeroAtr'
+  cadence: 'priceObservations' | 'priorCompletedDailyOhlc'
+  requiredCompletedBars: number
+  availableCompletedBars: number
+  trueRangeSamples: number
+  candidates: number
+  unreadyCandidates: number
+  minMoveRejections: number
+  atrRejections: number
+  trendRejections: number
+  passedCandidates: number
+}
+
 export interface StrategyExperimentSnapshot {
   id: string
   slot: 'A' | 'B'
@@ -241,6 +258,7 @@ export interface StrategyExperimentSnapshot {
   generatedAt: string
   calculationMode?: ReplayCalculationMode
   continuity?: ReplayContinuityView
+  entryFilterPreparation?: EntryFilterPreparation
 }
 
 export interface LeveragedTrendHoldPreviewInput {
@@ -324,6 +342,7 @@ export interface StrategyPreviewView {
   backtest: BacktestReport
   preparation?: StrategyPreviewPreparation
   continuity?: ReplayContinuityView
+  entryFilterPreparation?: EntryFilterPreparation
 }
 
 export interface StrategyPreviewPreparation {

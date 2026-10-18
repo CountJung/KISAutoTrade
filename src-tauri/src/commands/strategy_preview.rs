@@ -795,3 +795,7 @@ mod preparation_tests;
 #[cfg(test)]
 #[path = "strategy_preview/daily_event_tests.rs"]
 mod daily_event_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/entry_filter_tests.rs"]
+mod entry_filter_tests;

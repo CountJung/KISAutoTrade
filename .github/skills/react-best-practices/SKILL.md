@@ -510,3 +510,10 @@ const savedGeometry = useMemo(() => {
 - ❌ 계좌 없는 전역 key에 늦은 이벤트 payload를 setQueryData하면 이전 계좌 잔고가 표시될 수 있다. ✅ 현재 scope로 다시 조회하고 backend 게시 gate와 frontend scope 검증을 함께 유지한다.
 
 > 마지막 업데이트: 2026-10-18T13:35:00+09:00
+
+
+## 금융 차트 번들 경계
+
+`vite.config.ts`의 manualChunks는 MUI·TanStack과 별도로 lightweight-charts를 charts chunk로 둔다. 전략 연구 UI 확장 때 main chunk가 500kB를 넘으면 warning limit를 높여 숨기지 않고 안정된 라이브러리 경계를 분리한다. production build 경고0과 실제 vite preview에서 차트/전략 화면의 로딩·초기화 회귀를 확인한다. dev-server E2E만으로 production chunk 초기화 검증을 대신하지 않는다.
+
+> 마지막 업데이트: 2026-10-18T16:38:45+09:00

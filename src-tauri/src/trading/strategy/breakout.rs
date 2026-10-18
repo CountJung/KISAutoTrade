@@ -140,6 +140,10 @@ impl Strategy for FiftyTwoWeekHighStrategy {
         }
     }
 
+    fn required_completed_daily_bars(&self) -> Option<usize> {
+        Some(bounded_window(self.params.lookback_days))
+    }
+
     fn history_readiness(&self, symbol: &str) -> Option<HistoryReadiness> {
         let state = self.states.get(symbol);
         Some(HistoryReadiness {

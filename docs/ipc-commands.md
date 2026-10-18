@@ -95,7 +95,7 @@
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v12`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v13`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
 전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
@@ -279,3 +279,23 @@ v9 generic 1m 입력은 RFC3339 offset을 실제 순간으로 해석하고 고�
 `get_trading_status` 및 시작/정지/매수정지 해제 응답의 `dailyHistory`는 `strategyId`, `symbol`, `brokerId`, `profileId`, `marketDate`, `requiredBars`, `availableBars`, `state`, `source`, `lastCompletedDate`, `lastError`, `nextRetryAt` 배열이다. state는 pending/ready/insufficient/failed/capacityExceeded다. 웹 GET `/api/trading/status`도 같은 camelCase 의미를 사용하며 실행 profile/broker/account는 실제 manager run identity를 반환한다. 중지 후 남은 OrderManager scope를 실행중으로 표시하지 않는다. 구버전의 필드 누락은 UI에서 미지원 중립 상태다.
 
 최대511개 수집 대상과 초과 진단1행, 동시2개 job, 종목/계좌/날짜 공유 수집,8회 요청/512봉 보관,30~900초 재시도를 적용한다. 당일 제외·최신 완료일1~10일 이내와 실제 요구량 충족을 확인한다. quote 직전 새 시장 날짜를 다시 확인하며 부족 중 신규 매수만 막고 보유 손절은 유지한다. run/config/scope/profile 변경 결과를 버린다. 기존 preview500봉 상한과 다른 live512봉 경계다. [상세 검증·한계](tasks/live-completed-daily-history-20261018.md).
+
+
+### Replay v13 Consecutive 진입 필터
+
+`consecutive_move` params의 `min_cumulative_move_pct`(유한 0..100), `min_move_atr_multiplier`(유한 0..20), `long_trend_period`(정수 0..512)는 각각 0이 비활성이다. 기존 `buy_days`/`sell_days`는 관측 횟수이며 legacy 사용자 값과 기본 3/3을 보존한다. 신규 필드 누락은 기본 0, 문자열/null/범위 밖은 저장·preview에서 거부한다. 손상된 저장 설정을 읽는 runtime은 신규 진입을 차단하면서 기존 보유 매도 기간을 유지한다.
+
+누적 조건은 현재와 buy_days 관측 이전 가격의 변화율 이상이다. ATR은 같은 native 상승폭이 직전 완료 일봉 15개에서 산술 평균한 TR14×배수 이상이며 현재 후보 OHLC는 제외한다. 장기 MA는 현재 가격이 직전 완료 종가 N개의 평균보다 엄격히 높아야 한다. 복수 활성은 AND다. ATR/MA 활성 generic은 `D`/`1d`만 허용하며 다른 간격은 `UNSUPPORTED_ENTRY_FILTER_INTERVAL`이다. 기존 sell 조건과 공통 guard/risk·체결 피드백은 필터를 통과한 뒤에도 유지한다.
+
+기존 short/continuous 응답 최상위에 선택적 `entryFilterPreparation`을 반환한다. 전 필터 비활성이면 생략하며 legacy 응답의 부재를 준비 완료로 추정하지 않는다. UI는 요청/보관 params가 모두 유효 숫자0 또는 누락이면 알려진 비활성을 중립 표시하고, 활성 필터인데 진단이 없을 때만 준비 미확인 경고를 표시한다. `backtest.atrPreparation`은 수량 조절용으로 별도 계약이다.
+
+| 필드 | 의미 |
+|---|---|
+| enabled / ready / status | 활성·현재 진입 준비와 ready/insufficientHistory/invalidParams/unsupportedObservation/zeroAtr |
+| cadence | priceObservations 또는 priorCompletedDailyOhlc |
+| requiredCompletedBars / availableCompletedBars / trueRangeSamples | 완료 OHLC 맥락과 TR 준비 수 |
+| candidates / unreadyCandidates | 미보유+기존 연속상승 조건의 진입후보 및 준비 부족 보류 수 |
+| minMoveRejections / atrRejections / trendRejections | 유효 후보에서 각 조건 거절 수; 복수 필터에서는 중복 집계 가능 |
+| passedCandidates | 필터 통과 raw 매수 수; 실제 주문·체결 수와 다름 |
+
+live는 약10초 quote 관측열과 별도로 범위·세대·시장 날짜가 확인된 완료 일봉 context를 사용한다. context 갱신·실패·시장 날짜 전환은 관측열과 확정 보유를 보존하며 준비 부족과 0 ATR은 신규 매수만 보류한다. replay는 현재 후보 종가 평가와 체결 피드백 후 해당 OHLC를 다음 판단의 완료 자료로 게시한다. A/B는 요청 params와 이 선택 진단을 함께 보존한다. 단위 문구 두 개 외 기본 전체 report/signals 호환과 한계는 [P2-06 연구](research/consecutive-filters-20261018/report.md)에 기록한다.

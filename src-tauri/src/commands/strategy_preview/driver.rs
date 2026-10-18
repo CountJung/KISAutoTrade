@@ -14,6 +14,25 @@ pub(super) fn run_prepared_preview(
 ) -> CmdResult<(StrategyPreviewView, Vec<ChunkContinuityView>)> {
     let interval = input.interval.as_deref().unwrap_or("1d").to_string();
     let daily = matches!(interval.as_str(), "D" | "1d");
+    crate::trading::strategy::validate_consecutive_entry_params(&input.strategy_id, &input.params)
+        .map_err(|message| CmdError {
+            code: "INVALID_STRATEGY_PARAMS".into(),
+            message,
+        })?;
+    if input.strategy_id.starts_with("consecutive_move")
+        && !daily
+        && ["min_move_atr_multiplier", "long_trend_period"]
+            .iter()
+            .any(|key| {
+                input
+                    .params
+                    .get(*key)
+                    .and_then(serde_json::Value::as_f64)
+                    .is_some_and(|value| value > 0.0)
+            })
+    {
+        return Err(CmdError {code:"UNSUPPORTED_ENTRY_FILTER_INTERVAL".into(), message:"ATR/장기 MA 진입 확인은 직전 완료 일봉 맥락을 요구합니다. 일봉(D/1d) replay를 선택하세요.".into()});
+    }
     let data_source = input
         .data_source
         .clone()
@@ -258,6 +277,7 @@ pub(super) fn run_prepared_preview(
         &simulation_events,
     );
     let final_readiness = strategy.history_readiness(&symbol);
+    let entry_filter_preparation = strategy.entry_filter_preparation(&symbol);
     let history_status = match initial_readiness {
         None => "unsupported",
         Some(state) if state.required_bars == 0 => "notRequired",
@@ -320,6 +340,7 @@ pub(super) fn run_prepared_preview(
             replay,
             backtest,
             preparation,
+            entry_filter_preparation,
         },
         chunk_ledger,
     ))

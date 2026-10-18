@@ -31,8 +31,11 @@ export const STRATEGY_PARAM_META: Record<string, StrategyParamMeta[]> = {
     { key: 'stop_loss_pct', label: '손절 기준 (%)', min: 1, max: 15, step: 0.1, description: '매수가 대비 이 % 이상 하락 시 손절 매도 (기본 3.0)' },
   ],
   consecutive_move: [
-    { key: 'buy_days', label: '연속 상승 횟수', min: 2, max: 10, step: 1, description: 'N일 연속 종가 상승 시 매수 (기본 3)' },
-    { key: 'sell_days', label: '연속 하락 횟수', min: 2, max: 10, step: 1, description: 'M일 연속 종가 하락 시 매도 (기본 3)' },
+    { key: 'buy_days', label: '연속 상승 관측 횟수', min: 2, max: 10, step: 1, description: 'N회 연속 가격관측 상승 시 매수 (기본 3, 실시간 약10초 관측/replay 선택 봉 종가)' },
+    { key: 'sell_days', label: '연속 하락 관측 횟수', min: 2, max: 10, step: 1, description: 'M회 연속 가격관측 하락 시 매도 (기본 3, 신규 진입 필터와 독립)' },
+    { key: 'min_cumulative_move_pct', label: '최소 누적 상승률 (%)', min: 0, max: 100, step: 0.1, description: 'N회 상승 구간의 누적 상승률 하한. 0은 비활성, 신규 진입만 확인' },
+    { key: 'min_move_atr_multiplier', label: '최소 상승폭 ATR 배수', min: 0, max: 20, step: 0.1, description: 'N회 가격 상승폭이 직전 완료 OHLC의 ATR14 × 배수 이상. 0은 비활성' },
+    { key: 'long_trend_period', label: '진입 장기 MA 기간', min: 0, max: 512, step: 1, description: '현재 후보 가격이 직전 완료 종가 MA보다 높을 때만 진입. 0은 비활성, 정수 관측 수' },
   ],
   failed_breakout: [
     { key: 'lookback_days', label: '전고점 기간', min: 5, max: 60, step: 1, description: '전고점 계산을 위한 과거 기간 (기본 20)' },
@@ -65,7 +68,7 @@ export const STRATEGY_DESCRIPTION: Record<string, string> = {
   momentum: 'N기간 전 가격 대비 현재가 변화율이 임계값 이상이면 매수, 이하이면 매도 (추세 추종).',
   deviation: '현재가가 이동평균 대비 일정 % 이하이면 매수(저평가), 일정 % 이상이면 매도(고평가).',
   fifty_two_week_high: '최근 252 거래일(1년) 최고가를 재돌파하면 매수. 매수 후 지정 % 하락 시 손절. 자동매매 시작 시 KIS 차트 API로 초기화됨.',
-  consecutive_move: 'N일 연속 종가 상승 시 매수, M일 연속 하락 시 매도. 추세 초입에 상승/하락할 때 조기에 편승하는 추세추종 전략.',
+  consecutive_move: 'N회 연속 가격관측 상승 시 매수, M회 연속 하락 시 매도. 실시간은 약10초 관측, replay는 선택 봉 종가이며 N일을 뜻하지 않는다. 선택 진입 필터는 모두 충족해야 하며 기존 보유 청산에는 적용하지 않는다.',
   failed_breakout: '최근 N일 전고점을 버퍼% 이상 돌파하면 매수. 이후 가격이 전고점 이하로 내려오면 돌파 실패로 판단하여 즉시 매도.',
   strong_close: '자동매매 시작 시 전일 종가가 고가 대비 N% 이내여서 강하게 마감하면 당일 첫 틱에 매수. 매수 후 지정 % 하락 시 손절.',
   volatility_expansion: '당일 변동폭(고-저)이 최근 N거래일 평균 변동폭의 K배 이상이며 현재가 > 시가인 경우 매수. 장중 변동성 폭발 구간에 상승 방향으로 편승. 매수 후 지정 % 하락 시 손절.',

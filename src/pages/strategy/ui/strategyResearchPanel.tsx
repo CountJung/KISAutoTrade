@@ -23,6 +23,7 @@ import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined'
 
 import type {
   BacktestReport,
+  EntryFilterPreparation,
   BrokerId,
   ReplayMetadata,
   ReplayEventTime,
@@ -39,6 +40,8 @@ import {
 } from '../model/experimentStore'
 import { AccountingResults, ComparisonResults, AccountingAssumptionSummary, accountingComparisonKey, SimulationAccountingEditor } from './strategyAccountingPanel'
 import { calculationModeLabel, ContinuityResults } from './continuousReplayPanel'
+import { ConsecutiveEntrySummary } from './consecutiveEntryControls'
+import { ConsecutiveEntryPreparation } from './consecutiveEntryPreparation'
 import { fmtRoundedKrw as fmtMoney } from '../../../shared/lib/formatters'
 
 export function defaultSimulationAssumptions(isOverseas: boolean): SimulationAssumptions {
@@ -319,6 +322,7 @@ type ResultsProps = {
   generatedAt: string
   calculationMode?: ReplayCalculationMode
   continuity?: ReplayContinuityView
+  entryFilterPreparation?: EntryFilterPreparation
 }
 
 export function StrategyResearchResults({
@@ -333,6 +337,7 @@ export function StrategyResearchResults({
   generatedAt,
   calculationMode,
   continuity,
+  entryFilterPreparation,
 }: ResultsProps) {
   const scope = useMemo<ExperimentScope>(() => ({
     brokerId,
@@ -371,6 +376,7 @@ export function StrategyResearchResults({
       generatedAt,
       calculationMode,
       continuity,
+      entryFilterPreparation,
     }
     if (!saveExperimentSlot(scope, snapshot)) {
       setStorageError('브라우저 저장 공간이 부족하거나 비활성화되어 A/B 결과를 저장하지 못했습니다.')
@@ -465,6 +471,7 @@ export function StrategyResearchResults({
 
       {assessmentNotice}
       {metadata}
+      {strategyId.startsWith('consecutive_move') && <ConsecutiveEntryPreparation value={entryFilterPreparation} params={params} />}
       <AtrPreparationNotice report={report} />
 
       <Alert severity="warning" sx={{ py: 0.5 }} data-testid="backtest-execution-assumptions">
@@ -521,6 +528,7 @@ export function StrategyResearchResults({
         <Box sx={{ p: 1.25, border: 1, borderColor: 'divider', borderRadius: 1 }} data-testid="strategy-ab-comparison">
           <Typography variant="caption" fontWeight={700} display="block" sx={{ mb: 0.75 }}>저장된 A/B 실험 비교</Typography>
           {!comparable && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 데이터 source/봉/기간이 달라 직접 비교할 수 없습니다.</Alert>}
+          {strategyId.startsWith('consecutive_move') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 전략 파라미터가 다릅니다. 진입 필터 조건을 함께 확인하세요.</Alert>}
           {differentExecution && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 엔진 또는 체결 가정이 다릅니다. 아래 조건 차이를 함께 확인하세요.</Alert>}
           <Typography variant="caption" display="block" sx={{ mb: 1 }}>같은 기간/겹친 기간의 A/B는 독립 검증이 아닙니다. 부분기간의 결과를 전체 분기나 연속 운용 성과로 합산하지 마세요.</Typography>
           <Grid container spacing={1}>
@@ -533,6 +541,10 @@ export function StrategyResearchResults({
                     <Typography variant="caption" fontWeight={700}>실험 결과 {slot}</Typography>
                     {saved && <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }}>엔진 {saved.replay.engineVersion} · {executionAssumptionsLabel(saved.backtest.assumptions)}</Typography>}
                     {saved && <Typography variant="caption" display="block">{calculationModeLabel(saved.calculationMode)}{saved.continuity ? ` · 공급 ${saved.continuity.chunkCount}묶음 / 평가 ${saved.continuity.evaluationBars}봉 / 사전 ${saved.continuity.historyBars}봉 1회` : ''}</Typography>}
+                    {saved?.strategyId.startsWith('consecutive_move') && <>
+                      <ConsecutiveEntrySummary params={saved.params} />
+                      <ConsecutiveEntryPreparation value={saved.entryFilterPreparation} params={saved.params} compact />
+                    </>}
                     {saved && <AccountingAssumptionSummary value={saved.backtest.assumptions} />}
                     {savedUnavailable ? (
                       <Typography variant="body2" color="text.secondary">평가 모델 정보 부족 · 성과 비교 불가</Typography>

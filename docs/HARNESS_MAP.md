@@ -184,3 +184,12 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 - `npx playwright test tests/e2e/strategy-continuous-replay.spec.ts tests/e2e/strategy-accounting.spec.ts tests/e2e/strategy-execution-model.spec.ts tests/e2e/strategy-atr-readiness.spec.ts tests/e2e/strategy-replay-assessment.spec.ts tests/e2e/strategy-scrollbar.spec.ts`: 새 연속10개와 인접47개의 mock UI 조합이다. 2026-10-18 최초57개 실행에서 **56개 통과·1개 실패**였으며 같은 종가만 안내하던 기존 일봉 도움말 assertion을 선택 체결 모델·장중 미검증 문구에 맞게 고친 뒤 해당 **1개 재실행 통과**를 확인했다. 이를 단일57/57 실행으로 합쳐 기록하지 않는다. 전체 UI 최종 실행 결과는 작업 기록에서 별도로 확인한다.
 - 연속 focused 항목은 합성3년 일봉→strict 이전252봉→500/500/96 공급 묶음→한 번의 연속 payload, 이전12봉 부족에도 평가 봉을 history로 옮기지 않음, 과거자료만 존재하는 종료 범위 차이/중간 간격7일 gate, 부분 오류·scope 변경·48페이지/4096봉 상한, 취소 후 늦은 응답 폐기, A/B 모드·원장 보존과 legacy unknown, 잘못된 날짜·모바일 overflow를 확인한다. mock API 통과는 실제 Tauri IPC·브로커 또는 거래소 휴장/누락 검증을 뜻하지 않는다.
 - `npx tsc --noEmit`, `npm run check:fsd` 및 변경 범위의 구조/문서 게이트를 수행한다. `coverageVerified=false`를 유지하고7일을 검증된 거래소 달력으로 표시하지 않는지, 연속 앞/뒤70/30을 독립 훈련/검증으로 부르지 않는지도 확인한다.
+
+
+## P2-06 Consecutive 신규 진입 확인
+
+- `cargo test --workspace --lib sequence --locked`: 새 strict params/default0/custom legacy, 누적·정밀TR14·MA 경계, zero ATR·자료 부족·OHLC 미지원에서 보유 청산, 완료 게시·관측 보존과 재설정 카운터를 확인한다. 실제 실행 건수는 해당 작업 기록에서 확인한다.
+- `cargo test --workspace --lib entry_filter --locked`: 생산 preview의 optional 진단, 잘못된 params/미지원 간격, 현재 OHLC 미래 정보 배제와 SPY 비용별 완료 매도 경로를 확인한다. `cargo test --workspace --lib live_history --locked`와 configuration 회귀로 pending/실패/날짜 전환/legacy warmup 경합과 저장 이전 검증을 확인한다.
+- `npx playwright test tests/e2e/strategy-consecutive-entry-filters.spec.ts`: strict raw draft·실제 소수 키입력·저장 실패/재시도·활성 잠금·short/continuous payload·이전 응답 폐기·A/B 준비 진단/모두0/활성 legacy unknown·수량 ATR 분리·모바일 overflow를 확인한다.
+- `npm run build:web`는 warnings0이어야 한다. 차트 라이브러리 chunk를 분리한 뒤에는 실제 vite preview의 전략/차트 회귀를 실행해 production 초기화를 확인한다.
+- 동결 입력·생산 실행·독립 기록 산술은 [연구 재현](research/consecutive-filters-20261018/report.md)과 [작업 기록](tasks/consecutive-entry-filters-20261018.md)에 구분한다. 필터 통과를 체결이나 운용 우수성으로 해석하지 않는다.

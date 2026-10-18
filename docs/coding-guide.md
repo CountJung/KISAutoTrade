@@ -859,3 +859,10 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 - UI 실험 저장은 broker/account/strategy/symbol scope별 A/B 두 slot, 최근 12 scope로 제한하고 credential은 저장하지 않는다. 이는 현재 편집값과 결과 snapshot 비교이며 편집 폼 재적용 preset은 아니다. quota 오류는 UI에 표시한다.
 
 > 마지막 업데이트: 2026-10-18T15:44:21+09:00
+
+
+## Consecutive 완료 일봉 진입 맥락 (v13)
+
+`sequence/consecutive.rs`는 기존 방향 관측/확정 보유를 유지하고 별도 `context.rs`가 bounded 완료 OHLC와 진입 진단을 관리한다. `Strategy::required_completed_daily_bars`는 opt-in이다. coordinator의 apply/invalidate/readiness 훅을 통해 context만 교체하고 실패·시장 날짜 전환·재설정으로 관측열과 보유 청산을 초기화하지 않는다. 기본 훅은 기존 52주 고가 동작을 보존한다. legacy 초기화 자료를 검증된 live 완료 일봉으로 추정하지 않도록 별도 검증 경계를 사용한다.
+
+필터 params는 0으로 opt-in하며 저장·short/continuous preview에서 엄격히 검증한다. 선택 `entryFilterPreparation`은 실제 주문 수와 수량 조절 ATR을 대신하지 않는다. 기본/오류·준비 부족·보유 청산·미래 봉 불변·live 갱신·비용별 매도 경로와 분할 무관 결과를 함께 검증한다. 상세 정본은 [v13 IPC 계약](ipc-commands.md)이다.
