@@ -6,7 +6,7 @@ use crate::{
     config::{AccountProfile, AppConfig},
 };
 
-pub(super) fn profile(account: &str) -> AccountProfile {
+pub(crate) fn profile(account: &str) -> AccountProfile {
     AccountProfile {
         id: format!("fixture-profile-{account}"),
         broker_id: BrokerId::Kis,
@@ -18,13 +18,13 @@ pub(super) fn profile(account: &str) -> AccountProfile {
         account_no: account.into(),
     }
 }
-pub(super) fn scope(profile: &AccountProfile) -> BrokerScope {
+pub(crate) fn scope(profile: &AccountProfile) -> BrokerScope {
     BrokerScope::new(
         profile.broker_id,
         Some(BrokerAccountId(profile.account_no.clone())),
     )
 }
-pub(super) async fn client(base_url: String, profile: &AccountProfile) -> Arc<KisRestClient> {
+pub(crate) async fn client(base_url: String, profile: &AccountProfile) -> Arc<KisRestClient> {
     assert!(base_url.starts_with("http://127.0.0.1:"));
     let config = Arc::new(AppConfig {
         broker_id: profile.broker_id,
@@ -50,14 +50,14 @@ pub(super) async fn client(base_url: String, profile: &AccountProfile) -> Arc<Ki
         Arc::new(RwLock::new(tokens)),
     ))
 }
-pub(super) struct Fixture {
-    pub(super) manager: Arc<Mutex<OrderManager>>,
-    pub(super) path: std::path::PathBuf,
-    pub(super) profile: AccountProfile,
-    pub(super) client: Arc<KisRestClient>,
+pub(crate) struct Fixture {
+    pub(crate) manager: Arc<Mutex<OrderManager>>,
+    pub(crate) path: std::path::PathBuf,
+    pub(crate) profile: AccountProfile,
+    pub(crate) client: Arc<KisRestClient>,
 }
 impl Fixture {
-    pub(super) async fn new(base_url: String) -> Self {
+    pub(crate) async fn new(base_url: String) -> Self {
         let profile = profile("1234567801");
         let client = client(base_url, &profile).await;
         let path = std::env::temp_dir().join(format!("kis-execution-run-{}", uuid::Uuid::new_v4()));
@@ -85,7 +85,38 @@ impl Fixture {
             client,
         }
     }
-    pub(super) async fn begin(&self, revision: u64) -> ExecutionRunContext {
+    /// 실제 tracker의 체결 반영 경로를 사용하는 synthetic 보유 fixture.
+    pub(crate) async fn seed_holding(&self, symbol: &str, quantity: u64, avg_price: u64) {
+        let manager = self.manager.lock().await;
+        if crate::market_hours::is_domestic_symbol(symbol) {
+            let mut tracker = manager.position_tracker.lock().await;
+            if quantity == 0 {
+                tracker.on_sell(symbol, u64::MAX);
+            } else {
+                tracker.on_buy(
+                    symbol.into(),
+                    "synthetic fixture".into(),
+                    quantity,
+                    avg_price,
+                );
+            }
+        } else {
+            let mut tracker = manager.overseas_position_tracker.lock().await;
+            if quantity == 0 {
+                tracker.on_sell(symbol, u64::MAX);
+            } else {
+                tracker.on_buy(
+                    symbol.into(),
+                    "synthetic fixture".into(),
+                    "NASD".into(),
+                    quantity,
+                    avg_price,
+                );
+            }
+        }
+    }
+
+    pub(crate) async fn begin(&self, revision: u64) -> ExecutionRunContext {
         self.manager
             .lock()
             .await

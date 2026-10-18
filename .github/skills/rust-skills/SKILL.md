@@ -1196,9 +1196,9 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - `commands/trading/daily_history`는 quote polling과 분리한 동시 2개 background task다. 각 8회/512봉, 같은 scope/날짜/종목의 설정은 최대 요구량 공유 조회, 대상 511개+초과 진단 1행, 30~900초 retry로 한정한다. 완료된 handle만 await하고 삭제/정지/교체 task를 abort한다.
 - manager ticket은 run generation/config fingerprint/profile/broker/account/symbol/시장 날짜를 포함한다. start/stop/close/설정 변경·rollback은 무효화한다. apply 직전 bool→manager lock 순서로 확인하며 네트워크 await는 lock 밖이다. quote await 중 날짜 전환을 막으려 on_tick 직전에도 `invalidate_stale_daily_history_for_symbol`을 호출한다.
 - 완료 일봉만 `apply_daily_history`로 적용하고 마지막 봉을 다시 버리지 않는다. 당일/미래/무효/중복 제외, 기본252/최대512 요구, 마지막 완료일1~10일 과거를 확인한다. 이 freshness 상한은 실제 휴장 달력 검증이 아니다. 부족/실패/한도 초과도 신규 매수만 막고 buy_price 손절 보존, 무관한 LTH 분봉 initializer 미호출을 검증한다.
-- `Strategy::reconfigure_preserving_position`은 기본 false이고 52주는 동일 ID/broker/account에서만 활성이다. 새 설정과 관측 버퍼를 바꾸되 보유 buy_price를 유지한다. 다른 계좌로 옮기거나 제거한 대상을 자동 복구하지 않는다. 시작 시 옛 snapshot cache를 새 보유 복원 원본으로 만들지 않는다.
+- `Strategy::reconfigure_preserving_position`은 기본 false이며 현재 13개 전략이 동일 ID/broker/account에서 opt-in한다. 새 파라미터로 유효 관측을 재계산하되 잔존 대상의 보유 기준을 유지한다. LTH의 entry/high-water/held-observations를 평균가 snapshot으로 다시 만들지 않는다. 시작 시 옛 snapshot cache를 새 보유 복원 원본으로 만들지 않는다.
 - `TradingStatus.dailyHistory`의 IPC/웹/TS/UI를 같이 갱신한다. 실제 확보/요구·상태·출처·마지막 완료일·실패/재시도를 표시하며 legacy 누락을 ready로 추정하지 않는다. 상세 계약은 docs/ipc-commands.md, 검증은 docs/tasks/live-completed-daily-history-20261018.md다.
-- 일봉 ticket과 주문 run은 서로 다른 소비 경계를 가진다. 완료 일봉 준비도 bool→manager→order에서 동일 run snapshot으로 대상을 만든다. 잘못된 scope/profile 조회는 새 실행 generation을 변경하지 않는다. 일반 전략 config rollback 보유 보존은 P1-CONFIG-01 잔여다.
+- 일봉 ticket과 주문 run은 서로 다른 소비 경계를 가진다. 완료 일봉 준비도 bool→manager→order에서 동일 run snapshot으로 대상을 만든다. 잘못된 scope/profile 조회는 새 실행 generation을 변경하지 않는다. 설정 저장의 보유 보존은 아래 transaction 경계를 따른다.
 
 > 마지막 업데이트: 2026-10-18T11:57:42+09:00
 
@@ -1207,10 +1207,23 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - `order/execution_run.rs`는 epoch·configuration revision·BrokerScope·profile ID와 pinned client/profile을 관리한다. 민감 snapshot을 Debug/serde로 노출하지 않는다. begin은 profile/broker/account/credential/투자 모드를 검증하고, end·scope setter는 epoch를 무효화한다.
 - `submit_signal_shared`는 mandatory expected context를 받는다. 자동 요청의 context 누락·변경은 `StaleRun`이다. OrderManager mutex 안에서 context→guard→submitting→예산 순으로 검증하며 예약 후 client를 다시 읽지 않는다. 수동 요청은 자동 run 없이 요청 scope를 검증한다.
 - daemon은 quote/name/position/preflight await 후 현재 실행을 확인하고, on_tick/rollback은 bool→strategy→order fence 내부에서만 실행한다. stale snapshot으로 새 전략을 sync하지 않는다. provider/network await에는 bool/strategy guard를 유지하지 않는다.
-- start는 profile/config publication과 `strategy_update_lock`으로 직렬화하고 snapshot을 고정한다. IPC/웹 설정 변경·저장 실패 복원은 manager guard를 유지한 채 새 revision을 OrderManager에 공개한다. A→B→A도 이전 신호를 복구하지 않는다. revision 역행은 실행 무효화로 처리한다.
+- start는 profile/config publication과 `strategy_update_lock`으로 직렬화하고 snapshot을 고정한다. IPC/웹 설정은 저장 성공 후 manager→order에서 새 revision을 공개하며 저장 실패는 기존 revision을 유지한다. A→B→A도 이전 신호를 복구하지 않는다. revision 역행은 실행 무효화로 처리한다.
 - 프로파일 publication은 manager→order gate 아래 scope/client/config/양쪽 tracker/전략 설정을 함께 바꾼다. 수동 holdings 게시·예약도 order gate에서 exact active profile/scope/client를 확인한다. no-profile KIS 설정 계좌의 기존 수동 경로는 유지한다.
 - reconciliation은 실제 client/profile을 고정하고 응답 후 scope/credentials/mode를 다시 검사해 fill/terminal/health를 적용한다. 같은 scope의 새 epoch는 실제 체결을 막지 않는다. KIS pending의 저장 TR-ID로 모드를 확인하며 반대 모드·미상 출처는 pending/예산을 보류하고 기존 health에 진단한다. 이전 계좌·모드의 잔고 부족 응답으로 현재 실행의 매수를 정지하지 않는다.
 - end·자정 reset은 이미 예약한 submitting/pending/예산을 지우지 않는다. 예약이 먼저 완료된 주문은 최초 scope/client로 완료·기록·대조한다. 정지는 provider 취소가 아니다. 비활성 프로파일 삭제는 runtime을 재생성하지 않는다.
 - 회귀는 실제 shared submission coordinator와 localhost 주문 서버를 사용한다. synthetic TokenManager cache는 `cfg(test)`로만 주입하며 실제 token/order URL로 fixture를 보내지 않는다. 검증 기록은 `docs/tasks/execution-run-reservation-20261018.md`를 따른다.
 
 > 마지막 업데이트: 2026-10-18T12:29:40+09:00
+
+
+## 전략 설정 transaction과 보유 상태 (2026-10-18)
+
+- 전략별 재설정의 ID/broker/account 검사는 `StrategyConfig::same_identity`를 사용한다. 기존 `matches_scope`의 candidate account 빈 문자열 처리 의미를 유지하고, 상태/관측 복원 로직은 각 전략에 둔다.
+- IPC/Web 수정은 `trading/configuration.rs`의 공통 coordinator를 사용한다. `strategy_update_lock`은 owned task가 소유하고 저장 전/후 manager→order에서 profile/client/범위와 주문 충돌을 검사한다. manager/order guard는 파일·DB await 동안 해제한다. 대기자 취소가 durable save와 runtime 공개 사이를 중단하지 않게 한다.
+- save 전 인스턴스/revision을 바꾸지 않는다. 성공 후 기존 인스턴스를 재설정하고 새 revision을 공개한다. 저장 실패는 기존 보유/설정을 유지한다. 첫 저장 오류도 교체 후 fsync/commit 실패일 수 있으므로 저장 후 identity 검증 실패와 함께 원본을 다시 저장한다. 복구 실패는 persistence block이다.
+- manager/order가 Weak lease만 보유한다. transaction 종료 시 자동 해제되며 같은 scope의 새 신호와 영향 종목 주문 예약·전체 수동 holdings 게시를 잠시 보류한다. 이 보류를 시장 폐장으로 분류해 5분 대기하지 않는다.
+- raw 신호는 current generation별 미처리 표시를 남긴다. 제출/차단/오류에서 exact 전략만 완료 처리하고 폐장 조기 종료 시 나머지 신호도 현재 실행 gate에서 정리한다. 이미 제출한 다른 전략의 낙관적 상태를 덮지 않는다.
+- private held 또는 실제 tracker 양쪽 중 하나에 보유가 있으면 대상 제거/시장 변경을 거부한다. PC params.symbols는 빈 배열까지 대상의 정본이고 LTH 거래 대상도 production constructor로 검증한다. 두 전략 모두 실제 on_tick처럼 첫 중복 entry의 시장 구분을 사용하며 LTH의 legacy inverse 필드로 다른 대상을 덮지 않는다. 공유 tracker의 0수량이나 startup cache로 private 보호를 지우지 않는다. 정상 체결 소유권 피드백과 일반 잔고 게시 fencing은 별도 P1 후속이다.
+- ❌ 저장 전에 전략을 재생성하고 실패 시 저장한 config로 다시 재생성하면 보유·trailing 상태를 잃는다. ✅ 먼저 저장한 뒤 같은 ID/scope에서 보유를 유지하며 공개한다. 실제 수량의 소유권을 모르면 새 대상에 다른 전략/수동 보유를 배정하지 않는다.
+
+> 마지막 업데이트: 2026-10-18T12:57:00+09:00

@@ -102,11 +102,44 @@ impl Strategy for MeanReversionStrategy {
     fn config_mut(&mut self) -> &mut StrategyConfig {
         &mut self.config
     }
+    fn has_held_position(&self, symbol: &str) -> Option<bool> {
+        Some(
+            self.states
+                .get(symbol)
+                .is_some_and(|state| state.in_position),
+        )
+    }
     fn is_enabled(&self) -> bool {
         self.config.enabled
     }
     fn set_enabled(&mut self, enabled: bool) {
         self.config.enabled = enabled;
+    }
+
+    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
+        if !self.config.same_identity(&config) {
+            return false;
+        }
+        let mut replacement = Self::new(config);
+        replacement.states = std::mem::take(&mut self.states);
+        replacement
+            .states
+            .retain(|symbol, _| replacement.config.targets_symbol(symbol));
+        let histories: Vec<_> = replacement
+            .states
+            .iter()
+            .map(|(symbol, state)| {
+                (
+                    symbol.clone(),
+                    state.prices.iter().copied().collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+        for (symbol, prices) in histories {
+            replacement.initialize_historical(&symbol, &prices);
+        }
+        *self = replacement;
+        true
     }
 
     fn initialize_historical(&mut self, symbol: &str, prices: &[u64]) {
@@ -179,11 +212,6 @@ impl Strategy for MeanReversionStrategy {
             state.prices.pop_front();
         }
 
-        let (mean, upper, lower) = match Self::bollinger_bands(&state.prices, period, std_dev) {
-            Some(b) => b,
-            None => return Signal::Hold,
-        };
-
         if state.in_position {
             if let Some(ep) = state.entry_price {
                 let loss_pct = (ep as f64 - price as f64) / ep as f64 * 100.0;
@@ -200,6 +228,14 @@ impl Strategy for MeanReversionStrategy {
                     };
                 }
             }
+        }
+
+        let (mean, upper, lower) = match Self::bollinger_bands(&state.prices, period, std_dev) {
+            Some(b) => b,
+            None => return Signal::Hold,
+        };
+
+        if state.in_position {
             if price as f64 > upper {
                 state.in_position = false;
                 state.entry_price = None;
@@ -337,11 +373,44 @@ impl Strategy for TrendFilterStrategy {
     fn config_mut(&mut self) -> &mut StrategyConfig {
         &mut self.config
     }
+    fn has_held_position(&self, symbol: &str) -> Option<bool> {
+        Some(
+            self.states
+                .get(symbol)
+                .is_some_and(|state| state.in_position),
+        )
+    }
     fn is_enabled(&self) -> bool {
         self.config.enabled
     }
     fn set_enabled(&mut self, enabled: bool) {
         self.config.enabled = enabled;
+    }
+
+    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
+        if !self.config.same_identity(&config) {
+            return false;
+        }
+        let mut replacement = Self::new(config);
+        replacement.states = std::mem::take(&mut self.states);
+        replacement
+            .states
+            .retain(|symbol, _| replacement.config.targets_symbol(symbol));
+        let histories: Vec<_> = replacement
+            .states
+            .iter()
+            .map(|(symbol, state)| {
+                (
+                    symbol.clone(),
+                    state.prices.iter().copied().collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+        for (symbol, prices) in histories {
+            replacement.initialize_historical(&symbol, &prices);
+        }
+        *self = replacement;
+        true
     }
 
     fn initialize_historical(&mut self, symbol: &str, prices: &[u64]) {
@@ -593,3 +662,6 @@ mod tests {
             .all(|price| *price == 10_000));
     }
 }
+
+#[cfg(test)]
+mod reconfigure_tests;

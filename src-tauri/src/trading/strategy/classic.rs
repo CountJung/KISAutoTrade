@@ -95,6 +95,19 @@ impl Strategy for RsiStrategy {
         self.config.enabled = enabled;
     }
 
+    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
+        if !self.config.same_identity(&config) {
+            return false;
+        }
+        let mut replacement = Self::new(config);
+        for (symbol, state) in &self.states {
+            let prices: Vec<_> = state.0.iter().copied().collect();
+            replacement.initialize_historical(symbol, &prices);
+        }
+        *self = replacement;
+        true
+    }
+
     fn initialize_historical(&mut self, symbol: &str, prices: &[u64]) {
         if !self.config.targets_symbol(symbol) {
             return;
@@ -233,11 +246,44 @@ impl Strategy for MomentumStrategy {
     fn config_mut(&mut self) -> &mut StrategyConfig {
         &mut self.config
     }
+    fn has_held_position(&self, symbol: &str) -> Option<bool> {
+        Some(
+            self.states
+                .get(symbol)
+                .is_some_and(|state| state.last_buy_price.is_some()),
+        )
+    }
     fn is_enabled(&self) -> bool {
         self.config.enabled
     }
     fn set_enabled(&mut self, enabled: bool) {
         self.config.enabled = enabled;
+    }
+
+    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
+        if !self.config.same_identity(&config) {
+            return false;
+        }
+        let mut replacement = Self::new(config);
+        replacement.states = std::mem::take(&mut self.states);
+        replacement
+            .states
+            .retain(|symbol, _| replacement.config.targets_symbol(symbol));
+        let histories: Vec<_> = replacement
+            .states
+            .iter()
+            .map(|(symbol, state)| {
+                (
+                    symbol.clone(),
+                    state.prices.iter().copied().collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+        for (symbol, prices) in histories {
+            replacement.initialize_historical(&symbol, &prices);
+        }
+        *self = replacement;
+        true
     }
 
     fn initialize_historical(&mut self, symbol: &str, prices: &[u64]) {
@@ -438,6 +484,19 @@ impl Strategy for DeviationStrategy {
         self.config.enabled = enabled;
     }
 
+    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
+        if !self.config.same_identity(&config) {
+            return false;
+        }
+        let mut replacement = Self::new(config);
+        for (symbol, state) in &self.states {
+            let prices: Vec<_> = state.iter().copied().collect();
+            replacement.initialize_historical(symbol, &prices);
+        }
+        *self = replacement;
+        true
+    }
+
     fn initialize_historical(&mut self, symbol: &str, prices: &[u64]) {
         if !self.config.targets_symbol(symbol) {
             return;
@@ -625,3 +684,6 @@ mod history_tests {
         assert!(matches!(flat.on_tick("SOXQ", 100, 0), Signal::Hold));
     }
 }
+
+#[cfg(test)]
+mod reconfigure_tests;

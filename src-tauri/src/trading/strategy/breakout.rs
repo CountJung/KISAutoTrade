@@ -80,6 +80,13 @@ impl Strategy for FiftyTwoWeekHighStrategy {
     fn config_mut(&mut self) -> &mut StrategyConfig {
         &mut self.config
     }
+    fn has_held_position(&self, symbol: &str) -> Option<bool> {
+        Some(
+            self.states
+                .get(symbol)
+                .is_some_and(|state| state.buy_price.is_some()),
+        )
+    }
     fn is_enabled(&self) -> bool {
         self.config.enabled
     }
@@ -88,11 +95,7 @@ impl Strategy for FiftyTwoWeekHighStrategy {
     }
 
     fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
-        if self.config.id != config.id
-            || !self
-                .config
-                .matches_scope(config.broker_id, config.broker_account_id.as_deref())
-        {
+        if !self.config.same_identity(&config) {
             return false;
         }
         self.params = serde_json::from_value(config.params.clone()).unwrap_or_default();
@@ -317,11 +320,35 @@ impl Strategy for StrongCloseStrategy {
     fn config_mut(&mut self) -> &mut StrategyConfig {
         &mut self.config
     }
+    fn has_held_position(&self, symbol: &str) -> Option<bool> {
+        Some(
+            self.states
+                .get(symbol)
+                .is_some_and(|state| state.in_position),
+        )
+    }
     fn is_enabled(&self) -> bool {
         self.config.enabled
     }
     fn set_enabled(&mut self, enabled: bool) {
         self.config.enabled = enabled;
+    }
+
+    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
+        if !self.config.same_identity(&config) {
+            return false;
+        }
+        let mut replacement = Self::new(config);
+        replacement.states = std::mem::take(&mut self.states);
+        replacement
+            .states
+            .retain(|symbol, _| replacement.config.targets_symbol(symbol));
+        for state in replacement.states.values_mut() {
+            // A pending entry was evaluated with the previous threshold.
+            state.pending_buy = false;
+        }
+        *self = replacement;
+        true
     }
 
     fn initialize_candles(&mut self, symbol: &str, candles: &[(u64, u64)]) {
@@ -523,11 +550,44 @@ impl Strategy for VolatilityExpansionStrategy {
     fn config_mut(&mut self) -> &mut StrategyConfig {
         &mut self.config
     }
+    fn has_held_position(&self, symbol: &str) -> Option<bool> {
+        Some(
+            self.states
+                .get(symbol)
+                .is_some_and(|state| state.in_position),
+        )
+    }
     fn is_enabled(&self) -> bool {
         self.config.enabled
     }
     fn set_enabled(&mut self, enabled: bool) {
         self.config.enabled = enabled;
+    }
+
+    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
+        if !self.config.same_identity(&config) {
+            return false;
+        }
+        let mut replacement = Self::new(config);
+        replacement.states = std::mem::take(&mut self.states);
+        replacement
+            .states
+            .retain(|symbol, _| replacement.config.targets_symbol(symbol));
+        let ranges: Vec<_> = replacement
+            .states
+            .iter()
+            .map(|(symbol, state)| {
+                (
+                    symbol.clone(),
+                    state.completed_ranges.iter().copied().collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+        for (symbol, history) in ranges {
+            replacement.initialize_range_data(&symbol, &history);
+        }
+        *self = replacement;
+        true
     }
 
     fn initialize_range_data(&mut self, symbol: &str, ranges: &[u64]) {
@@ -802,3 +862,6 @@ mod history_tests {
         ));
     }
 }
+
+#[cfg(test)]
+mod reconfigure_tests;

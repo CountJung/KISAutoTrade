@@ -21,6 +21,9 @@ pub(super) async fn capture_cycle(
         return None;
     }
     let strategies = strategies.lock().await;
+    if strategies.configuration_edit_active() {
+        return None;
+    }
     let orders = orders.lock().await;
     let context = orders.execution_run_context()?;
     if strategies.history_generation() != context.configuration_revision {
@@ -85,6 +88,46 @@ impl RunFence<'_> {
     pub async fn after<R>(&self, future: impl std::future::Future<Output = R>) -> Option<R> {
         let result = future.await;
         self.with_current(|_| result).await
+    }
+
+    /// Restore only raw signals that were never submitted, under the same gate
+    /// used for lifecycle and configuration publication. Already submitted signals
+    /// retain their private state and pending/provider tracking.
+    pub async fn settle_unsubmitted_signals(
+        &self,
+        signals: &[crate::trading::strategy::StrategySignal],
+        exchange: Option<String>,
+        tick_price: u64,
+    ) -> bool {
+        let running = self.running.lock().await;
+        if !*running {
+            return false;
+        }
+        let mut strategies = self.strategies.lock().await;
+        let orders = self.orders.lock().await;
+        if strategies.history_generation() != self.expected.configuration_revision
+            || !orders.execution_run_matches(self.expected)
+        {
+            return false;
+        }
+        for signal in signals {
+            let symbol = match &signal.signal {
+                crate::trading::strategy::Signal::Buy { symbol, .. }
+                | crate::trading::strategy::Signal::Sell { symbol, .. } => symbol,
+                crate::trading::strategy::Signal::Hold => continue,
+            };
+            let (quantity, avg_price) = orders
+                .current_position_snapshot_for_signal(&signal.signal, exchange.clone(), tick_price)
+                .await;
+            strategies.settle_unsubmitted_signal(
+                &signal.strategy_id,
+                symbol,
+                self.expected.configuration_revision,
+                quantity,
+                avg_price.unwrap_or(0),
+            );
+        }
+        true
     }
 
     /// Keep only the order guard through notification/storage awaits. A following

@@ -13,11 +13,58 @@ impl Strategy for LeveragedTrendHoldStrategy {
     fn config_mut(&mut self) -> &mut StrategyConfig {
         &mut self.config
     }
+    fn has_held_position(&self, symbol: &str) -> Option<bool> {
+        Some(
+            self.positions
+                .get(symbol)
+                .is_some_and(|position| position.in_position),
+        )
+    }
     fn is_enabled(&self) -> bool {
         self.config.enabled
     }
     fn set_enabled(&mut self, enabled: bool) {
         self.config.enabled = enabled;
+    }
+
+    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
+        if !self.config.same_identity(&config) {
+            return false;
+        }
+        let mut replacement = Self::new(config);
+        replacement.positions = std::mem::take(&mut self.positions);
+        replacement
+            .positions
+            .retain(|symbol, _| replacement.config.targets_symbol(symbol));
+        replacement.states = std::mem::take(&mut self.states);
+        replacement
+            .states
+            .retain(|symbol, _| replacement.config.targets_symbol(symbol));
+        let window_cap = replacement.window_cap();
+        let rebound_cap = replacement.rebound_price_cap();
+        for state in replacement.states.values_mut() {
+            while state.intraday_candles.len() > window_cap {
+                state.intraday_candles.pop_front();
+            }
+            while state.rebound_prices.len() > rebound_cap {
+                state.rebound_prices.pop_front();
+            }
+        }
+        replacement.daily_context = std::mem::take(&mut self.daily_context);
+        replacement
+            .daily_context
+            .retain(|symbol, _| replacement.config.targets_symbol(symbol));
+        for candles in replacement.daily_context.values_mut() {
+            while candles.len() > window_cap {
+                candles.pop_front();
+            }
+        }
+        replacement.bollinger_candles = std::mem::take(&mut self.bollinger_candles);
+        replacement
+            .bollinger_candles
+            .retain(|symbol, _| replacement.config.targets_symbol(symbol));
+        *self = replacement;
+        true
     }
 
     fn initialize_ohlc(&mut self, symbol: &str, candles: &[OhlcCandle]) {

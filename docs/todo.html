@@ -43,13 +43,13 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <h1>KISAutoTrade — 열린 할일</h1>
 <p class="intro"><a href="todo.md">원본 Markdown·연구 근거·완료 기준</a> · 이 화면은 원본에서 자동 생성됩니다.</p>
 <p>🟢 자동 구현은 추가 판단 없이 진행할 작업입니다. <strong>🟠 사용자 판단 대기</strong>는 제품 범위·보류 해제·키 준비 등의 선택이, <strong>🟠 사용자 검증·자료 대기</strong>는 실제 자료나 별도 승인된 검증이 필요합니다. 대기는 완료를 뜻하지 않습니다.</p>
-<p>구현 20개 · 사용자 판단 3개 · 사용자 검증·자료 4개. 선행 구현이 필요한 연구·리팩터링도 구현 목록에 유지합니다.</p>
+<p>구현 21개 · 사용자 판단 3개 · 사용자 검증·자료 4개. 선행 구현이 필요한 연구·리팩터링도 구현 목록에 유지합니다.</p>
 </header>
 <form class="controls" role="search" onsubmit="return false">
 <label for="status">상태별 보기<select id="status"><option value="all">전체 열린 할일</option value="implementation">🟢 자동 구현</option><option value="decision">🟠 사용자 판단 대기</option><option value="validation">🟠 사용자 검증·자료 대기</option><option value="waiting">🟠 모든 사용자 대기</option></select></label>
 <label for="search">할일 검색<input id="search" type="search" placeholder="ID, 전략 이름, 파일 경로" autocomplete="off"></label>
 </form>
-<p id="result" role="status" aria-live="polite">전체 27개 표시</p>
+<p id="result" role="status" aria-live="polite">전체 28개 표시</p>
 <noscript><p>JavaScript 없이도 모든 열린 할일을 읽을 수 있습니다. 상태 필터와 검색은 JavaScript가 필요합니다.</p></noscript>
 <section id="tasks" aria-label="열린 할일 목록"><article class="task validation" id="soxq-p1-05" data-status="validation" data-source-line="48">
 <p class="section">SOXQ 3개월 연구에서 확인한 P1 과제 (2026-10-03)</p>
@@ -76,120 +76,128 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <ul><li><strong>필요한 사용자 판단:</strong> 동시 다계좌 운용을 제품 범위로 채택할지 결정한다. 현재 제품은 단일 활성 scope 불변식을 사용한다. 동시 다계좌 운용을 제품 범위로 채택할 때 <code>(broker, account, market, symbol)</code> tracker와 scope별 credential reconciliation으로 전환한다.</li></ul>
 <a class="permalink" href="#task-991db0eb09" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-e20e7d239b" data-status="implementation" data-source-line="64">
+<article class="task implementation" id="task-5f343e94a9" data-status="implementation" data-source-line="68">
 <p class="section">P1 — 통합 검증과 실제 provider 확인</p>
 <p class="badge">🟢 자동 구현</p>
-<h2><strong>P1-CONFIG-01 — 일반 전략의 설정 재생성과 저장 실패 복원 중 보유 보호 상태를 보존한다.</strong></h2>
-<ul><li>52주 같은scope 변경/rollback은 보강했다. 다른 전략의 <code>update_config</code>/<code>apply_saved_configs_for_scope</code> rebuild는 실제 보유를 잃을 수 있다. 시작 시 cache는 정상 체결 뒤 갱신되지 않아 복원 원본으로 쓰지 않는다.</li>
-<li>완료 조건: 저장 commit 전 인스턴스 보존 또는 최신 실제 tracker의 scope 검증을 갖춘 복원, 실패 rollback·params/targets 변경·다른계좌 격리·보유 매도/손절 fixture. 제거한 보유 대상의 운용 경계도 명시하며 자동으로 다른 계정/전략에 옮기지 않는다.</li></ul>
-<a class="permalink" href="#task-e20e7d239b" aria-label="이 할일 링크">#</a>
+<h2><strong>P1-FILL-01 — 정상·부분 체결과 거부/취소를 주문 소유 전략의 보유 상태에 반영한다.</strong></h2>
+<ul><li><code>OrderManager::on_fill_on</code>은 실제 tracker/risk/budget을 갱신하지만 정상 체결을 해당 StrategyManager 인스턴스에 전달하지 않는다. 현재 피드백은 시작 복원과 daemon 차단/오류에 집중되어 있다. 설정 저장의 인스턴스 보존으로 이 기존 경계를 해결했다고 보지 않는다. <a href="tasks/strategy-configuration-preservation-20261018.md">발견·범위</a>.</li>
+<li>완료 조건: strategy/order ID와 실제 잔여 수량을 연결한 fill·partial·reject·cancel fixture, 같은 종목의 다른 전략/수동 보유 미전달, run/profile/account/투자모드 경계와 재시작, LTH 최고가·보유 관측 수를 평균가로 초기화하지 않는 검증. 공유 계좌 총수량을 모든 전략에 배정하지 않는다. P2 전략 파라미터 비교보다 먼저 해결한다.</li></ul>
+<a class="permalink" href="#task-5f343e94a9" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-3baf9c3459" data-status="implementation" data-source-line="68">
+<article class="task implementation" id="task-3e751b46f4" data-status="implementation" data-source-line="71">
+<p class="section">P1 — 통합 검증과 실제 provider 확인</p>
+<p class="badge">🟢 자동 구현</p>
+<h2><strong>P1-BAL-01 — 일반 잔고 조회의 늦은 응답이 새 계좌 tracker를 덮지 않게 한다.</strong></h2>
+<ul><li><code>commands/accounts.rs</code>의 일반 국내/해외 잔고 조회는 client snapshot으로 await한 뒤 profile/order gate 없이 tracker를 게시할 수 있다. A 조회 중 B 전환 뒤 A 응답이 도착하는 경합이다. 수동 주문과 reconciliation의 fencing만으로 일반 조회까지 보장하지 않는다.</li>
+<li>완료 조건: IPC/Web/자동 갱신의 tracker 게시 호출자를 추적하고 조회 시 profile/client/scope/모드를 고정, 게시 직전 현재 identity 검증. A→B→A, 정지/재시작, 실제 0수량·삭제 종목·설정 저장 lease 및 동시에 도착한 fill을 포함한 barrier fixture. 네트워크 await 동안 전역 lock을 유지하지 않는다.</li></ul>
+<a class="permalink" href="#task-3e751b46f4" aria-label="이 할일 링크">#</a>
+</article>
+<article class="task implementation" id="task-3baf9c3459" data-status="implementation" data-source-line="75">
 <p class="section">P1 — 통합 검증과 실제 provider 확인</p>
 <p class="badge">🟢 자동 구현</p>
 <h2>TLS verify-full 인증서, 서버 강제 단절·재접속 contract.</h2>
 <ul><li>로컬 CA/hostname 인증서와 PostgreSQL kill/restart fixture를 구성하는 자동 구현 과제다. 실제 검증 환경이 필요하다는 이유만으로 사용자 판단 대기로 돌리지 않는다. 유효 CA·hostname 불일치·잘못된 CA·서버 재시작 후 복구를 검증한다.</li></ul>
 <a class="permalink" href="#task-3baf9c3459" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="task-0a6df87d43" data-status="validation" data-source-line="70">
+<article class="task validation" id="task-0a6df87d43" data-status="validation" data-source-line="77">
 <p class="section">P1 — 통합 검증과 실제 provider 확인</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2>KIS/Toss 실제 정정·취소 응답의 최종 provider mapping 확정.</h2>
 <ul><li><strong>필요한 사용자 검증:</strong> 비식별 provider fixture 또는 명시 승인된 read-only/소액 검증 환경을 제공한다. 공통 상태와 정정/reconciliation 직렬화는 구현했으나 old/new order ID 및 거부·만료 필드 의미는 실제 근거 확인 후 고정한다. 주문 실행 승인은 이 목록에서 가정하지 않는다.</li></ul>
 <a class="permalink" href="#task-0a6df87d43" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-01" data-status="implementation" data-source-line="80">
+<article class="task implementation" id="soxq-p2-01" data-status="implementation" data-source-line="87">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-01 — 이동평균 교차:</strong> 완전45창 순평가수익 중앙값 +0.0718%, 최악 -3.6563%, 완료62회(손실48), 기말 보유31창. SOXQ 중앙값 -0.2814%/SPY +0.3232%로 자산 차이가 있다. 장기 추세·MA 기울기·ATR/밴드폭 필터를 하나씩 비교한다. 완료 조건: 같은 창/수량/비용에서 순수익·최악 손실·MDD·회전·노출 변화와 기각 결과 보관; P2-14 체결 모델 선행.</h2>
 
 <a class="permalink" href="#soxq-p2-01" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-02" data-status="implementation" data-source-line="81">
+<article class="task implementation" id="soxq-p2-02" data-status="implementation" data-source-line="88">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-02 — RSI:</strong> 중앙값0%, 완료23회, 무완료23/45창, 무보유 매도 차단117건. 하락 추세 조기 진입과 보유 상태 독립 신호를 점검한다. 완료 조건: 장기 추세/손절/최대 보유 후보를 각각 고정하여 복수 기간·종목·두 비용으로 비교하고 무신호·준비 부족·작은 표본을 구분.</h2>
 
 <a class="permalink" href="#soxq-p2-02" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-03" data-status="implementation" data-source-line="82">
+<article class="task implementation" id="soxq-p2-03" data-status="implementation" data-source-line="89">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-03 — 모멘텀:</strong> 중앙값 +0.5348%, 완료15회·기말 보유33/45창, 무보유 매도 차단238건. <code>classic.rs</code>의 sync_position 후 last_sell_price 초기화와 반복 매도 조건을 검증한다. 완료 조건: 임계값 교차/hysteresis·체결/차단 피드백 fixture, raw 중복 감소·동일 guard의 체결/차단·비용별 순손익 비교. 기존 SOXQ 동결 v7 사전자료 결과는 -1.2637%/차단24건이며 초기 v3 -0.4868%/9건과 구분.</h2>
 
 <a class="permalink" href="#soxq-p2-03" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-04" data-status="implementation" data-source-line="83">
+<article class="task implementation" id="soxq-p2-04" data-status="implementation" data-source-line="90">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-04 — 이격도:</strong> 중앙값0%, 완료12회·무완료35/45창, 신호421건 중 차단386건(무보유 매도293·보유 중 매수93). 완료 조건: 보유 상태/임계값 교차와 차단 피드백을 먼저 검증한 뒤 장기 하락 추세·최대 보유·손절을 하나씩 A/B 비교하고 guard 유지. 동결 SOXQ v7 사전자료 결과 +1.3756%와 초기 v3 +2.4987%를 구분.</h2>
 
 <a class="permalink" href="#soxq-p2-04" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-06" data-status="implementation" data-source-line="84">
+<article class="task implementation" id="soxq-p2-06" data-status="implementation" data-source-line="91">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-06 — 연속 상승/하락:</strong> 중앙값 +0.0482%→비용 스트레스 -0.0424%, 완료93회(손실57), 비용 증가로 양수→0 이하5창. 완료 조건: 최소 누적 변화/ATR·장기 추세 필터를 하나씩 고정해 MDD·회전·최악 손실·비용별 순수익·노출을 비교; 작은 등락 반복 진입과 공통 guard 상호작용 검증.</h2>
 
 <a class="permalink" href="#soxq-p2-06" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-07" data-status="implementation" data-source-line="85">
+<article class="task implementation" id="soxq-p2-07" data-status="implementation" data-source-line="92">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-07 — 돌파 실패:</strong> 중앙값 -0.1375%, 완료43회 모두 손실·기말 보유30/45창. 수익 보유분이 미청산된 청산 설계를 구분한다. 완료 조건: 종가 돌파/완료 고가 돌파·ATR/거래량 buffer fixture와 수익 보호/최대 보유 후보별 비교; 실현/잔여 평가손익 및 기말 청산 비용 분리. 완료 승률만으로 가치 판단 금지.</h2>
 
 <a class="permalink" href="#soxq-p2-07" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-08" data-status="implementation" data-source-line="86">
+<article class="task implementation" id="soxq-p2-08" data-status="implementation" data-source-line="93">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-08 — 강한 종가:</strong> 중앙값 +0.7581%지만 완료50회 모두 손실·기말 보유44/45창, 평가이익/실현손실 역부호15창. 완료 조건: P2-14 next-open/익일 갭 모델을 먼저 적용하고 실현/잔여 평가·가정 청산 비용을 구분해 조건 후보 비교. P1-03 완료봉·날짜 이벤트 수정은 유지하며 다시 미완료로 처리하지 않는다.</h2>
 
 <a class="permalink" href="#soxq-p2-08" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-09" data-status="implementation" data-source-line="87">
+<article class="task implementation" id="soxq-p2-09" data-status="implementation" data-source-line="94">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-09 — 변동성 확장:</strong> 중앙값0%, 완료8회·무완료38/45창·무신호20창. 전 창 준비 완료이므로 무신호를 자료 부족으로 오해하지 않는다. 완료 조건: 당일 범위·이전 N일 평균/0범위 포함 fixture 유지, 조건 발생 빈도·진입/청산 장중 창·실제 체결 가능성 검증 후 범위/배수 후보별 비교; 미청산 이익으로 우수성 판정 금지.</h2>
 
 <a class="permalink" href="#soxq-p2-09" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-10" data-status="implementation" data-source-line="88">
+<article class="task implementation" id="soxq-p2-10" data-status="implementation" data-source-line="95">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-10 — 평균회귀:</strong> 중앙값 +0.2437%, 완료32회, 비용 부호 반전1창. QQQ2026Q3은 +0.6274%→-0.5659%로 체결가 차이가 7/29 손절과 9/21 밴드 청산 경로를 바꿨다. 완료 조건: 체결가/손절 피드백 회귀를 고정하고 추세 지속 하락·최대 보유·중심선 청산 후보별 비교; 종가-only 손절을 장중 손실 상한으로 표현하지 않음.</h2>
 
 <a class="permalink" href="#soxq-p2-10" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-11" data-status="implementation" data-source-line="89">
+<article class="task implementation" id="soxq-p2-11" data-status="implementation" data-source-line="96">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-11 — 추세 필터:</strong> 중앙값 +0.4886%, 최악 -4.1022%/MDD5.5534%, 완료22회 모두 손실·기말 보유39/45창. 최근248봉 SOXQ +9.6300%도 완료0회 평가손익이다. 완료 조건: 실제 청산이 있는 복수 구간에서 장기 추세 이탈·수익 보호·최대 보유 후보와 노출을 비교하고 실현/잔여 손익을 분리; 200봉 기준 유지.</h2>
 
 <a class="permalink" href="#soxq-p2-11" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="soxq-p2-12" data-status="validation" data-source-line="90">
+<article class="task validation" id="soxq-p2-12" data-status="validation" data-source-line="97">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>SOXQ-P2-12 — 레버리지 추세 보유(LTH):</strong> 최근 실제 분봉2,318개/7날짜의 기본·볼린저 활성×비용2종 네 진단은 신호0이다. null OHLCV412개·정규장 밖1개는 제거했고 합성하지 않았다. 고정KST/auto 세션·분봉 시작 표기와 종가 공개·10초 관측 차이·누락/기간 coverage 미검증이라 0% 성과/볼린저 효과 없음으로 해석하지 않는다. 완료 조건: P1-05 실제3개월 원본·DST/거래일/세션·gap·진입/마감 창 검증 후 옵션별 비교. generic 거부·일봉 평가 불가 유지.</h2>
 
 <a class="permalink" href="#soxq-p2-12" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-9425181cd2" data-status="implementation" data-source-line="91">
+<article class="task implementation" id="task-9425181cd2" data-status="implementation" data-source-line="98">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2>LTH 분봉의 거래소 시각·세션·누락 진단 구현.</h2>
 <ul><li>P1-05/P2-12의 실제3개월 자료 확보와 별도로 거래소 timezone/DST·봉 시작/종가 공개·정규장/마감·누락 진단을 fixture로 구현할 수 있다. 장중 원본이 없다는 이유로 기술 구현까지 사용자 대기로 돌리지 않는다. 실제 자료 coverage 검증과 fixture 검증은 구분한다.</li></ul>
 <a class="permalink" href="#task-9425181cd2" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-13" data-status="implementation" data-source-line="93">
+<article class="task implementation" id="soxq-p2-13" data-status="implementation" data-source-line="100">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-13 — 가격조건:</strong> 전일 종가 고정·익절5%·손절3% 연구 설정에서 중앙값 +0.2847%, 완료117회, 비용 부호 반전3창. 완료 조건: 평가 전 고정 기준가 유지, 손절 직후 재진입·공통 cooldown/최소 기대수익·회전율을 두 비용과 복수 구간에서 비교; guard 완화나 사후 최적화 금지.</h2>
 
 <a class="permalink" href="#soxq-p2-13" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-14" data-status="implementation" data-source-line="94">
+<article class="task implementation" id="soxq-p2-14" data-status="implementation" data-source-line="101">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-14 — 체결 가능성과 장중 손절을 별도로 모델링한다.</strong></h2>
@@ -197,7 +205,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>완료 조건: 익일 갭 fixture; 같은 봉에서 손절·익절이 함께 닿을 때 순서 불명/보수적 처리; close-only와 next-open 결과 비교.</li></ul>
 <a class="permalink" href="#soxq-p2-14" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-15" data-status="implementation" data-source-line="97">
+<article class="task implementation" id="soxq-p2-15" data-status="implementation" data-source-line="104">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-15 — 비용·배당·환율·청산 가정과 비교 기준을 명시한다.</strong></h2>
@@ -205,7 +213,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>완료 조건: 같은 수량/노출·실제 평균 투자비중 비교, 실현손익과 비용 포함 잔여 평가손익 분리, 기말 가정 청산 비용 표시, broker 실제 비용 입력·배당/환율 시나리오 지원. 부분 분기/겹침 창과 평가이익·실현손실 역부호를 명시한다.</li></ul>
 <a class="permalink" href="#soxq-p2-15" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-16" data-status="implementation" data-source-line="100">
+<article class="task implementation" id="soxq-p2-16" data-status="implementation" data-source-line="107">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-16 — ATR을 true range로 계산하고 표본 부족을 성과와 구분한다.</strong></h2>
@@ -213,7 +221,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>완료 조건: 이전 종가 포함 TR·사전 ATR warmup·봉 간격 유지; 표본 수/신뢰 부족 표시; 70/30 구간을 기간 정규화 없이 과최적화 확정에 사용하지 않고 별도 walk-forward 평가.</li></ul>
 <a class="permalink" href="#soxq-p2-16" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-18" data-status="implementation" data-source-line="105">
+<article class="task implementation" id="soxq-p2-18" data-status="implementation" data-source-line="112">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-18 — 연속 운용 검증의 포지션·guard·risk 상태를 보존한다.</strong></h2>
@@ -221,21 +229,21 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>완료 조건: 엄격한 이전 warmup 이후 시간순 공급을 이어 포지션·쿨다운·일일 risk/손실 상태를 보존하고 분할/단일 공급 결과 일치; 미래봉 불변 fixture·범위 상한 유지. 같은 전일 결정 수량·비용·동일 노출 benchmark로 연속 실행과 분기 리셋을 별도 비교하며 분기 수익을 합성하지 않는다.</li></ul>
 <a class="permalink" href="#soxq-p2-18" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-f4140a9e27" data-status="implementation" data-source-line="115">
+<article class="task implementation" id="task-f4140a9e27" data-status="implementation" data-source-line="122">
 <p class="section">자동매매 예산·볼린저 보강 검증 기록 (2026-09-11)</p>
 <p class="badge">🟢 자동 구현</p>
 <h2>실제 provider 응답 불명 주문의 운영자 대조/복구 UI: 현재는 자동 해제 없이 예산을 보류한다. 주문번호/clientOrderId 대조 및 멱등 승인 흐름으로 확장할 것.</h2>
 
 <a class="permalink" href="#task-f4140a9e27" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="task-e353185411" data-status="validation" data-source-line="116">
+<article class="task validation" id="task-e353185411" data-status="validation" data-source-line="123">
 <p class="section">자동매매 예산·볼린저 보강 검증 기록 (2026-09-11)</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2>LTH 보강의 일봉 성과 미리보기: 일봉 context와 분봉 지표는 분리했지만 장중 경로를 일봉에서 복원하지 않는다. 현재 일봉은 평가 불가 진단이며 활성 볼린저 옵션의 성과 표본은 1분봉만 허용한다. 실제 장중 자료·시장 시간 검증은 P1-05 잔여 조건이다.</h2>
 
 <a class="permalink" href="#task-e353185411" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-a322b97c93" data-status="implementation" data-source-line="120">
+<article class="task implementation" id="task-a322b97c93" data-status="implementation" data-source-line="127">
 <p class="section">P3 — 유지보수·품질 게이트</p>
 <p class="badge">🟢 자동 구현</p>
 <h2>1,000라인 초과 파일을 책임 단위로 분리한다.</h2>
@@ -249,7 +257,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>검증: 변경 파일과 신규 파일은 1,000라인 아래, FSD/API public surface와 IPC 이름은 유지한다.</li></ul>
 <a class="permalink" href="#task-a322b97c93" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-ffa0458c56" data-status="decision" data-source-line="144">
+<article class="task decision" id="task-ffa0458c56" data-status="decision" data-source-line="151">
 <p class="section">P3 — 유지보수·품질 게이트</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2>플랫폼 코드 서명·updater 서명 강제를 위한 배포 키 준비.</h2>
@@ -257,7 +265,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <a class="permalink" href="#task-ffa0458c56" aria-label="이 할일 링크">#</a>
 </article></section>
 <p id="empty" hidden>일치하는 열린 할일이 없습니다. 검색어나 상태를 바꿔 주세요.</p>
-<footer>원본 SHA-256: 894d921f58a7a9e15e2665e8a52b6530381486e0c69e5be1e168a54c86b4c399<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
+<footer>원본 SHA-256: 408ef254f09693c40baa7022c63cf3d5e8af53d7cae6f72208edf1276a84283f<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
 </main>
 <script>
 const status = document.getElementById('status');

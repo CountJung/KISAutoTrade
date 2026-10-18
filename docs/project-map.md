@@ -147,6 +147,7 @@ KISAutoTrade/
 │   │   ├── provider-candle-contract-20261018.md
 │   │   ├── soxq-p1-04.md
 │   │   ├── soxq-p1-05.md
+│   │   ├── strategy-configuration-preservation-20261018.md
 │   │   ├── strategy-review-20261018.md
 │   │   └── trading-module-split-20261018.md
 │   ├── ARCHITECTURE.md
@@ -440,7 +441,10 @@ KISAutoTrade/
 │   │   │   │   ├── daemon/
 │   │   │   │   │   ├── fence/
 │   │   │   │   │   │   └── tests.rs
-│   │   │   │   │   └── fence.rs
+│   │   │   │   │   ├── flow/
+│   │   │   │   │   │   └── tests.rs
+│   │   │   │   │   ├── fence.rs
+│   │   │   │   │   └── flow.rs
 │   │   │   │   ├── daily_history/
 │   │   │   │   │   ├── jobs/
 │   │   │   │   │   │   └── tests.rs
@@ -506,7 +510,11 @@ KISAutoTrade/
 │   │   │   ├── strategy_store.rs
 │   │   │   └── trade_store.rs
 │   │   ├── trading/
+│   │   │   ├── configuration/
+│   │   │   │   └── tests.rs
 │   │   │   ├── order/
+│   │   │   │   ├── configuration/
+│   │   │   │   │   └── tests.rs
 │   │   │   │   ├── fills/
 │   │   │   │   │   ├── reconciliation/
 │   │   │   │   │   │   └── tests.rs
@@ -520,6 +528,7 @@ KISAutoTrade/
 │   │   │   │   │   ├── records.rs
 │   │   │   │   │   └── run_tests.rs
 │   │   │   │   ├── budget.rs
+│   │   │   │   ├── configuration.rs
 │   │   │   │   ├── conflicts.rs
 │   │   │   │   ├── execution_run.rs
 │   │   │   │   ├── fills.rs
@@ -535,7 +544,10 @@ KISAutoTrade/
 │   │   │   ├── strategy/
 │   │   │   │   ├── breakout/
 │   │   │   │   │   ├── day_event_tests.rs
-│   │   │   │   │   └── high_tests.rs
+│   │   │   │   │   ├── high_tests.rs
+│   │   │   │   │   └── reconfigure_tests.rs
+│   │   │   │   ├── classic/
+│   │   │   │   │   └── reconfigure_tests.rs
 │   │   │   │   ├── leveraged_trend_hold/
 │   │   │   │   │   ├── bollinger.rs
 │   │   │   │   │   ├── buffer_tests.rs
@@ -543,11 +555,21 @@ KISAutoTrade/
 │   │   │   │   │   ├── indicators.rs
 │   │   │   │   │   ├── live.rs
 │   │   │   │   │   ├── preview.rs
+│   │   │   │   │   ├── reconfigure_tests.rs
 │   │   │   │   │   ├── session.rs
 │   │   │   │   │   └── tests.rs
+│   │   │   │   ├── ma_cross/
+│   │   │   │   │   └── reconfigure_tests.rs
 │   │   │   │   ├── manager/
+│   │   │   │   │   ├── configuration.rs
 │   │   │   │   │   ├── live_history.rs
 │   │   │   │   │   └── live_history_tests.rs
+│   │   │   │   ├── mean_trend/
+│   │   │   │   │   └── reconfigure_tests.rs
+│   │   │   │   ├── price_condition/
+│   │   │   │   │   └── reconfigure_tests.rs
+│   │   │   │   ├── sequence/
+│   │   │   │   │   └── reconfigure_tests.rs
 │   │   │   │   ├── breakout.rs
 │   │   │   │   ├── classic.rs
 │   │   │   │   ├── core.rs
@@ -559,6 +581,7 @@ KISAutoTrade/
 │   │   │   │   ├── sequence.rs
 │   │   │   │   ├── state.rs
 │   │   │   │   └── tests.rs
+│   │   │   ├── configuration.rs
 │   │   │   ├── guard.rs
 │   │   │   ├── mod.rs
 │   │   │   ├── order.rs
@@ -587,6 +610,7 @@ KISAutoTrade/
 │       ├── live-daily-history.spec.ts
 │       ├── settings-database.spec.ts
 │       ├── strategy-atr-readiness.spec.ts
+│       ├── strategy-configuration-errors.spec.ts
 │       ├── strategy-replay-assessment.spec.ts
 │       └── strategy-scrollbar.spec.ts
 ├── .env.example
@@ -739,14 +763,19 @@ KISAutoTrade/
 | `commands/trading/daemon.rs` | 영구 `run_trading_daemon`과 시세 polling 사이클, KIS/Toss 가격 소스·세션 판단·장 종료 대기·해외 거래소 조회 helper를 소유. 실행에 고정한 provider로 조회하고 fence로 오래된 잔고·quote·종목명·포지션 결과와 전략 복원을 폐기한다. 시장 대기 전 일봉 작업을 관리하고 tick 직전 시장 날짜 변경 재확인. facade의 기존 export를 통해 `lib.rs`에서 실행 |
 | `commands/trading/daemon/fence.rs` | running → StrategyManager → OrderManager 잠금 순서의 실행 snapshot 캡처·현재 context 검사. provider await는 잠금 밖에서 수행하고 전략 tick/복원은 현재 epoch·revision일 때만 적용. 잔고 동기화 상태·일 초기화도 실행 범위 검증 후 반영 |
 | `commands/trading/daemon/fence/tests.rs` | quote·종목명·포지션 대기, 설정 변경·정지/재시작과 stale 전략 상태 복원 경계의 합성 회귀 검증 |
+| `commands/trading/daemon/flow.rs` | 설정 편집 대기와 실제 시장 종료를 구분하고, 장 종료로 제출하지 않은 신호 묶음의 실제 포지션 복원·현재 revision 정산을 연결. 설정 저장 대기는 짧게 재확인하여 장 종료의 긴 대기로 바꾸지 않음 |
 | `commands/trading/daily_history.rs` | 공통 완료 페이지로 live 52주 사전자료 수집. 작업당 최대 8회 요청·512봉 유지, 이전 시장 날짜·OHLC·scope/asOf/source 검증과 거래소 fallback·중복·커서 무진전·부분 오류 종료. 마지막 완료봉을 다시 제외하지 않으며 preview의 500봉 상한과 분리 |
 | `commands/trading/daily_history/jobs.rs` | 실행 프로파일에 고정한 background scheduler. 같은 profile/종목의 여러 설정을 최대 요구량 1회 조회로 공유하고 동시 2작업만 실행. 완료 handle만 수거하며 제거/새 generation/config/scope/시장 날짜의 과거 작업 취소. 실패/부족은 30~900초 backoff, 정지/drop 시 작업 중단 |
 | `commands/trading/daily_history/{tests.rs,jobs/tests.rs}` | 합성 DTO/fetch로 실제 252/512봉·중복/미완료/오류·scope drift·수집 상한, 공유 조회·동시 2작업·backoff·대기 중 손절·정지/재시작 결과 폐기 검증 |
-| `commands/strategy.rs` | 포지션 조회, 전략 목록/수정 IPC. 설정 적용과 저장 실패 rollback 모두 manager → OrderManager 잠금에서 revision을 게시하여 이전 자동 신호를 무효화. 전략 view는 `trading/views.rs::build_strategy_view()` 재사용 |
+| `commands/strategy.rs` | 포지션 조회, 전략 목록/수정 IPC. 공통 `trading/configuration.rs`에 검증·저장·보유 상태 보존과 revision 게시를 위임하며 전략 view는 `trading/views.rs::build_strategy_view()` 재사용 |
 | `commands/risk.rs` | 리스크 설정/비상정지 IPC와 pending 주문 view |
 | `trading/strategy.rs` | 전략 facade. 공개 import 경로를 유지하면서 하위 전략 모듈을 re-export |
-| `trading/strategy/core.rs` | `Signal`, `StrategySignal`, `BrokerPositionSnapshot`, `StrategyConfig`, `HistoryReadiness`, `Strategy` trait와 live/preview 공통 `initialize_strategy_warmup()`. 일봉 OHLC 초기화 기본 훅은 종가를 historical initializer에 전달한다. replay 날짜 시작·완료봉 훅은 기본 no-op, 종가 평가 훅은 기존 `on_tick()` 위임이다. `history_readiness()`와 `can_evaluate_next_tick()`은 실제 전략 준비/조건 평가 가능 상태를 제공하며 미지원은 `None`이다. 기본 false인 `reconfigure_preserving_position` opt-in으로 같은 scope 52주 설정 변경의 보유 상태 보존 지원 |
-| `trading/strategy/manager.rs` | `StrategyManager`, `build_strategy()`, config 적용과 live warmup dispatch. legacy warmup의 최신 1봉 제외는 유지하되 새 52주 live 실행은 완료 페이지 경계로 준비. config 변경·복원·reset은 일봉 generation 무효화. 같은 ID/scope의 52주는 opt-in 훅으로 보유 상태를 보존하며 다른 전략/계정은 기존 재빌드 정책 사용 |
+| `trading/strategy/core.rs` | `Signal`, `StrategySignal`, `BrokerPositionSnapshot`, `StrategyConfig`, `HistoryReadiness`, `Strategy` trait와 live/preview 공통 `initialize_strategy_warmup()`. 일봉 OHLC 초기화 기본 훅은 종가를 historical initializer에 전달한다. replay 날짜 시작·완료봉 훅은 기본 no-op, 종가 평가 훅은 기존 `on_tick()` 위임이다. 준비·평가 가능 상태와 내부 보유 여부의 미지원 값은 `None`이다. 기본 false인 `reconfigure_preserving_position` opt-in으로 같은 ID/broker/account 설정 변경의 보유 상태 보존 계약 제공 |
+| `trading/strategy/manager.rs` | `StrategyManager`, `build_strategy()`, config 적용과 live warmup dispatch. legacy warmup의 최신 1봉 제외는 유지하되 새 52주 live 실행은 완료 페이지 경계로 준비. config 변경·복원·reset은 일봉 generation 무효화. 13개 전략은 같은 ID/scope 설정 변경 시 opt-in 훅으로 보유 상태와 유효한 관측을 보존한다. 프로파일 게시 경로는 같은 계좌 문자열이어도 새 인스턴스를 구성 |
+| `trading/strategy/manager/configuration.rs` | 설정 편집 Weak 예약의 활성 여부 관리, 현재 revision의 미완료 신호 확인·정산과 미제출 신호 복원. 전략 내부 보유 보호 중인 대상 제거·시장 변경을 저장 전에 거부 |
+| `trading/configuration.rs` | IPC/Web 공통 설정 변경 서비스. 작업 소유 task와 `strategy_update_lock`으로 호출자 취소와 동시 저장을 제어한다. 생산 constructor로 대상 정규화 후 manager → OrderManager에서 편집 예약을 만들고 잠금 밖에서 저장. 성공 후 identity 재검증·보유 상태 보존·revision 게시, 사후 검증 실패 시 원본 저장값 복구와 복구 실패의 영속화 차단 |
+| `trading/configuration/tests.rs` | 실제 manager/store와 합성 주문 fixture로 저장 실패·지연·호출자 취소·보유 대상 제거·프로파일 변경·사후 복구 경계를 검증 |
+| `trading/strategy/{classic,breakout,mean_trend,sequence,ma_cross,price_condition,leveraged_trend_hold}/reconfigure_tests.rs` | 전략별 설정 변경의 보유·손절·관측 보존, 파라미터 재해석과 다른 ID/scope 상태 격리를 검증 |
 | `trading/strategy/manager/live_history.rs` | run generation·전체 config fingerprint·profile/broker/account·종목·서울/뉴욕 시장 날짜 ticket 검증과 52주 전용 완료 OHLC 적용. 실제 대상 511개+초과 진단 1행 상한, 준비 무효화·실패/부족/재시도 상태 및 최신 완료봉의 1~10일 freshness 관리. 보유 손절을 유지하고 LTH 분봉 initializer 미호출 |
 | `trading/strategy/manager/live_history_tests.rs` | 마지막 완료 high/close·다음날 고가 만료·252/512봉·대상 cap·재시작/config ABA·scope/profile 변경·quote 중 자정·DST·실패 중 손절·동일 scope 설정/rollback 보유 보존·무관 전략 불변 fixture |
 | `trading/simulation.rs` | deterministic simulated portfolio, 공통 TradeGuard/RiskManager 기반 주문 가능 판정, 비용·환율·equity·MDD·turnover·exposure·고정 chronological in/out-of-sample 지표. `run_backtest_with_history`는 동일 주기 과거 관측으로 위험 지표만 준비하고 주문·equity는 평가 구간에서만 만든다. ATR 미준비·변동폭 0 또는 거래당 위험 예산 0이면 선택적 ATR 수량 산정의 신규 매수를 차단하고 보유분 매도는 유지한다. preview command가 engine/strategy/source/scope/params/가정/warmup 경계와 실제 replay OHLCV fingerprint를 hash한다. v9 replay 시각은 RFC3339 offset의 실제 instant를 우선 사용한다. |
@@ -791,6 +820,8 @@ KISAutoTrade/
 | `trading/views.rs` | `StrategyConfig` → camelCase `StrategyView` 공용 builder. IPC/REST가 같은 view를 사용하며 종목명 조회 전 manager lock을 해제 |
 | `trading/order.rs` | OrderManager facade와 공유 상태·provider trace. health·pending·legacy·execution_run·submission·fills의 하위 책임을 연결 |
 | `trading/order/execution_run.rs` | 비민감 `ExecutionRunContext`(epoch/revision/scope/profile)와 시작 검증에 사용한 client/profile snapshot. 시작·정지·scope 변경은 실행을 무효화하고 설정 revision 갱신은 이전 예약 후보를 폐기. pending·submitting·예산을 지우지 않음 |
+| `trading/order/configuration.rs` | 설정 편집 예약의 profile/client/scope identity와 실제 KR/US tracker 보유·pending/submitting/modifying 충돌 검증. 편집 대상의 주문 예약과 같은 scope 수동 holdings 교체를 보류하며 Weak 예약 종료 시 자동 해제 |
+| `trading/order/configuration/tests.rs` | 설정 편집 중 주문·holdings 차단, 예약 해제·identity 변경, 실제 보유 대상 제거·시장 변경의 합성 검증 |
 | `trading/order/health.rs` | 매수 정지·계좌/체결 동기화·영속화 장애 상태, health view와 일 초기화 |
 | `trading/order/pending.rs` | pending 복원·영속화·종료 상태와 취소/수정 예약, 종료 시 예산 정산 |
 | `trading/order/legacy.rs` | 기존 단일 manager의 매수/매도 처리와 KIS 재시도 호환 경로. daemon의 shared 제출 경로와 구분 |
@@ -815,7 +846,7 @@ KISAutoTrade/
 | `server/records.rs` | 웹 REST 포지션, 통계/체결 조회, pending 주문, 로그 설정/최근 로그, 체결 보관 설정/통계, 프론트엔드 로그. REST 보관 설정 변경도 IPC와 같이 즉시 purge를 예약 |
 | `server/profiles.rs` | 웹 REST 프로파일 CRUD/활성 전환/실전·모의 감지/Toss accountSeq·diagnostic. 적용 전 실행을 무효화하고 manager → OrderManager에서 scope·client·tracker·전략 설정을 함께 게시. 프로파일 view는 IPC `profile_to_view()`를 재사용 |
 | `server/toss.rs` | 웹 REST Toss 시세 snapshot, 종목 유의사항, 주문 전 preflight, 호환용 1주 소액매매 검증 endpoint, 접수 주문 조회·정정, market-calendar, candles |
-| `server/trading.rs` | 웹 REST 자동매매 상태/시작/정지, 전략 목록/수정. 웹 start는 broker별 설정 검증·잔고 복원 뒤 profile/client 고정 실행 epoch를 게시. stop은 실행을 무효화하고 설정 적용/rollback은 manager → OrderManager에서 revision 게시. status는 실제 identity와 camelCase `dailyHistory` 제공 |
+| `server/trading.rs` | 웹 REST 자동매매 상태/시작/정지, 전략 목록/수정. 웹 start는 broker별 설정 검증·잔고 복원 뒤 profile/client 고정 실행 epoch를 게시. stop은 실행을 무효화하고 전략 수정은 IPC와 같은 `trading/configuration.rs` 서비스를 사용. status는 실제 identity와 camelCase `dailyHistory` 제공 |
 | `storage/trade_store.rs` | `data/trades/YYYY/MM/DD/trades.json` (`provider_*` 원본 요청 trace 포함) |
 | `storage/order_store.rs` | `data/orders/YYYY/MM/DD/orders.json` (`provider_*` 원본 주문 trace 포함) |
 | `storage/stats_store.rs` | `data/stats/YYYY/MM/daily_stats.json` |
@@ -901,9 +932,10 @@ quote 중 자정을 넘으면 tick 직전 manager lock에서 다시 준비를 �
 현재 시장 날짜보다 1~10일 이전이어야 한다. 긴 휴장도 보류하는 보수적 기준이며
 거래소 휴장 달력 확인을 대신하지 않는다.
 
-동일 ID/broker/account의 52주 설정 변경·저장 rollback은 잔존 대상의 보유
-기준을 보존한다. 일반 전략의 설정 재빌드/rollback 보유 보존은 별도 P1 과제이며,
-quote 이후 주문 예약 경합은 아래 실행 context 경계에서 보호한다.
+동일 ID/broker/account의 설정 변경은 52주를 포함한 13개 전략의 보유 보호를
+유지하며, 저장 실패는 기존 인스턴스와 revision을 그대로 둔다. 완료 일봉 준비는
+성공한 설정 게시의 generation 변경에 따라 다시 수집한다. quote 이후 주문 예약
+경합은 아래 실행 context와 설정 편집 예약 경계에서 보호한다.
 LTH initializer나 sampled tick은 완료 일봉 자료로 사용하지 않는다.
 
 ### 자동 주문 실행과 계좌 게시 경계
@@ -922,8 +954,9 @@ guard/submitting 예약 → 예산 예약 저장 → 고정 provider 전송·재
 실제 체결·종료 반영 (출처 불명·모드 불일치는 보류 + health 진단)
 ```
 
-설정 적용과 저장 실패 rollback은 manager → OrderManager 잠금에서 새 revision을
-게시한다. 정지·같은 scope 재시작도 epoch를 바꾸므로 이전 quote·신호·전략 상태
+성공한 설정 저장은 manager → OrderManager 잠금에서 새 revision을 게시한다.
+저장 실패에는 revision을 바꾸거나 기존 인스턴스를 재빌드하지 않는다.
+정지·같은 scope 재시작도 epoch를 바꾸므로 이전 quote·신호·전략 상태
 복원은 새 실행에 적용하지 않는다. 예약 전 폐기는 guard·예산을 소비하지 않으며,
 이미 예약한 요청은 정지로 취소되었다고 간주하지 않는다.
 
@@ -936,6 +969,27 @@ KIS pending은 저장 TR-ID로 확인한 실전/모의 출처가 현재 client�
 출처가 없거나 알려지지 않았거나 모드가 다르면 조회 후보에서 제외하고 직접
 체결과 체결 조회의 종료 상태 반영도 보류하여 포지션·예산을 보존하고 체결 동기화
 health에 남긴다.
+
+### 전략 설정 저장과 보유 상태 보존
+
+```text
+IPC/Web 전략 수정 → trading/configuration.rs의 작업 소유 task
+    ↓ strategy_update_lock / 생산 constructor로 유효 대상 정규화
+manager → OrderManager: 미완료 신호·보유 대상·예약 주문·계좌 identity 검증
+    ↓ Weak 편집 예약: scope의 전략 tick / 대상 주문 예약 / 수동 holdings 교체 보류
+잠금 밖 StrategyStore 저장 (기존 전략 인스턴스·revision 유지)
+    ↓ manager → OrderManager: profile/client/scope·실제 보유 재검증
+같은 ID/scope 전략 설정 갱신 → 기존 보유 보호·유효 관측 보존 → 새 revision 게시
+    ↓ 작업 종료·Weak 예약 해제 → daemon 짧은 대기 후 재개
+```
+
+저장 전 또는 저장 자체의 실패는 기존 runtime을 유지한다. 첫 저장 오류도 교체 후
+오류일 수 있으므로 저장 후 검증 실패와 함께 원래 저장값을 복구한다. 복구까지
+실패하면 영속화 장애로 주문을 차단한다.
+IPC/HTTP 호출자의 대기 취소가 저장과 게시 사이를 끊지 않도록 독립 task가 끝까지
+처리한다. 내부 보유 보호 또는 실제 tracker 보유가 있는 대상 제거·국내외 시장
+변경은 저장 전에 거부하고, 다른 전략·신규 대상에 공용 tracker 보유를 복사하지
+않는다. 프로파일 게시는 동일 계좌 문자열이어도 새 전략 인스턴스를 구성한다.
 
 ### 일반 전략 일봉 replay
 

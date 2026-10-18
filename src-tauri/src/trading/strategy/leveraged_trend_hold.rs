@@ -407,3 +407,6 @@ impl LeveragedTrendHoldStrategy {
             + now.minute() as i64
     }
 }
+
+#[cfg(test)]
+mod reconfigure_tests;

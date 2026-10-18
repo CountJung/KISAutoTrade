@@ -73,9 +73,14 @@ pub struct PriceConditionStrategy {
 }
 
 impl PriceConditionStrategy {
-    pub fn new(config: StrategyConfig) -> Self {
+    pub fn new(mut config: StrategyConfig) -> Self {
         let params: PriceConditionParams =
             serde_json::from_value(config.params.clone()).unwrap_or_default();
+        config.target_symbols = params
+            .symbols
+            .iter()
+            .map(|entry| entry.symbol.clone())
+            .collect();
         let last_params = config.params.clone();
         Self {
             config,
@@ -114,11 +119,35 @@ impl Strategy for PriceConditionStrategy {
     fn config_mut(&mut self) -> &mut StrategyConfig {
         &mut self.config
     }
+    fn has_held_position(&self, symbol: &str) -> Option<bool> {
+        Some(
+            self.positions
+                .get(symbol)
+                .is_some_and(|position| position.0),
+        )
+    }
     fn is_enabled(&self) -> bool {
         self.config.enabled
     }
     fn set_enabled(&mut self, enabled: bool) {
         self.config.enabled = enabled;
+    }
+
+    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
+        if !self.config.same_identity(&config) {
+            return false;
+        }
+        let mut replacement = Self::new(config);
+        replacement.positions = std::mem::take(&mut self.positions);
+        replacement.positions.retain(|symbol, _| {
+            replacement
+                .params
+                .symbols
+                .iter()
+                .any(|entry| entry.symbol == *symbol)
+        });
+        *self = replacement;
+        true
     }
 
     fn history_readiness(&self, _symbol: &str) -> Option<HistoryReadiness> {
@@ -296,3 +325,6 @@ mod tests {
         ));
     }
 }
+
+#[cfg(test)]
+mod reconfigure_tests;

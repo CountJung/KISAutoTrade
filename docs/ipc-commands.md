@@ -139,7 +139,7 @@ v9 generic 1m 입력은 RFC3339 offset을 실제 순간으로 해석하고 고�
 | `get_positions` | 포지션 목록 조회 |
 | `get_pending_orders` | 미체결 주문 조회 (`status`, `filledQuantity`, `remainingQuantity`, provider trace 포함) |
 | `get_strategies` | 전략 목록 조회 (`brokerId`, `brokerAccountId`, 대상 종목, params 포함) |
-| `update_strategy` | 전략 파라미터 업데이트. 변경·저장 실패 복원 모두 새 revision을 예약 gate에 공개. 요청의 expected profile/broker/account가 현재 scope와 다르면 `SCOPE_MISMATCH`로 거부 |
+| `update_strategy` | 전략 파라미터 업데이트. 공통 설정 transaction에서 저장 성공 후 기존 보유 상태를 유지하며 새 revision 공개. 저장 실패는 기존 설정·revision 유지. expected profile/broker/account 불일치는 `SCOPE_MISMATCH`, 신호·영향 종목 주문 처리 중은 `CONFIGURATION_BUSY`, 보유 대상 제거/시장 변경은 `HELD_TARGET_REMOVAL`/`HELD_MARKET_CHANGE`로 거부 |
 | `get_risk_config` | 리스크 설정 조회 (손실/비중/일일 주문 제한/연속 손실/ATR 수량 산정) |
 | `update_risk_config` | 리스크 설정 변경 (손실/비중/일일 주문 제한/연속 손실/ATR 수량 산정) |
 | `clear_emergency_stop` | 비상정지 수동 해제 |

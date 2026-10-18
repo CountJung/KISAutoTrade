@@ -7,6 +7,13 @@ pub(super) async fn refresh_manual_positions(
     submission: &OrderSubmission,
     deps: &SubmissionDeps,
 ) -> Result<()> {
+    {
+        let manager = order_manager.lock().await;
+        anyhow::ensure!(
+            !manager.configuration_blocks_holdings(&submission.broker_scope),
+            "전략 설정 저장 중에는 전체 계좌 잔고 갱신을 보류합니다."
+        );
+    }
     if submission.broker_scope.broker_id == BrokerId::Toss {
         let profile = deps
             .active_profile
@@ -76,6 +83,10 @@ pub(super) async fn refresh_manual_positions(
             }
         }
         let manager = order_manager.lock().await;
+        anyhow::ensure!(
+            !manager.configuration_blocks_holdings(&submission.broker_scope),
+            "전략 설정 저장 중에는 전체 계좌 잔고 게시를 보류합니다."
+        );
         let profiles = manager.profiles.read().await;
         let current_client = manager.rest_client.read().await;
         anyhow::ensure!(
@@ -121,6 +132,10 @@ pub(super) async fn refresh_manual_positions(
             ));
         }
         let manager = order_manager.lock().await;
+        anyhow::ensure!(
+            !manager.configuration_blocks_holdings(&submission.broker_scope),
+            "전략 설정 저장 중에는 전체 계좌 잔고 게시를 보류합니다."
+        );
         let profiles = manager.profiles.read().await;
         let current_client = manager.rest_client.read().await;
         anyhow::ensure!(
@@ -150,6 +165,10 @@ pub(super) async fn refresh_manual_positions(
             positions.push((item.pdno, item.prdt_name, quantity, avg, current));
         }
         let manager = order_manager.lock().await;
+        anyhow::ensure!(
+            !manager.configuration_blocks_holdings(&submission.broker_scope),
+            "전략 설정 저장 중에는 전체 계좌 잔고 게시를 보류합니다."
+        );
         let profiles = manager.profiles.read().await;
         let current_client = manager.rest_client.read().await;
         anyhow::ensure!(

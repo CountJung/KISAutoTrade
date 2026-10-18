@@ -84,11 +84,44 @@ impl Strategy for ConsecutiveMoveStrategy {
     fn config_mut(&mut self) -> &mut StrategyConfig {
         &mut self.config
     }
+    fn has_held_position(&self, symbol: &str) -> Option<bool> {
+        Some(
+            self.states
+                .get(symbol)
+                .is_some_and(|state| state.in_position),
+        )
+    }
     fn is_enabled(&self) -> bool {
         self.config.enabled
     }
     fn set_enabled(&mut self, enabled: bool) {
         self.config.enabled = enabled;
+    }
+
+    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
+        if !self.config.same_identity(&config) {
+            return false;
+        }
+        let mut replacement = Self::new(config);
+        replacement.states = std::mem::take(&mut self.states);
+        replacement
+            .states
+            .retain(|symbol, _| replacement.config.targets_symbol(symbol));
+        let histories: Vec<_> = replacement
+            .states
+            .iter()
+            .map(|(symbol, state)| {
+                (
+                    symbol.clone(),
+                    state.prices.iter().copied().collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+        for (symbol, prices) in histories {
+            replacement.initialize_historical(&symbol, &prices);
+        }
+        *self = replacement;
+        true
     }
 
     fn initialize_historical(&mut self, symbol: &str, prices: &[u64]) {
@@ -263,11 +296,44 @@ impl Strategy for FailedBreakoutStrategy {
     fn config_mut(&mut self) -> &mut StrategyConfig {
         &mut self.config
     }
+    fn has_held_position(&self, symbol: &str) -> Option<bool> {
+        Some(
+            self.states
+                .get(symbol)
+                .is_some_and(|state| state.in_position),
+        )
+    }
     fn is_enabled(&self) -> bool {
         self.config.enabled
     }
     fn set_enabled(&mut self, enabled: bool) {
         self.config.enabled = enabled;
+    }
+
+    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
+        if !self.config.same_identity(&config) {
+            return false;
+        }
+        let mut replacement = Self::new(config);
+        replacement.states = std::mem::take(&mut self.states);
+        replacement
+            .states
+            .retain(|symbol, _| replacement.config.targets_symbol(symbol));
+        let histories: Vec<_> = replacement
+            .states
+            .iter()
+            .map(|(symbol, state)| {
+                (
+                    symbol.clone(),
+                    state.prices.iter().copied().collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+        for (symbol, prices) in histories {
+            replacement.initialize_historical(&symbol, &prices);
+        }
+        *self = replacement;
+        true
     }
 
     fn initialize_historical(&mut self, symbol: &str, prices: &[u64]) {
@@ -488,3 +554,6 @@ mod history_tests {
         assert_eq!(evaluated, 1);
     }
 }
+
+#[cfg(test)]
+mod reconfigure_tests;

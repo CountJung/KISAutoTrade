@@ -97,6 +97,13 @@ impl StrategyConfig {
             && self.broker_account_id.as_deref() == broker_account_id.filter(|v| !v.is_empty())
     }
 
+    /// Position-preserving edits require the same strategy ID and broker/account.
+    /// Keep matches_scope's existing account normalization on the candidate side.
+    pub(super) fn same_identity(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.matches_scope(other.broker_id, other.broker_account_id.as_deref())
+    }
+
     pub fn targets_symbol(&self, symbol: &str) -> bool {
         self.target_symbols.iter().any(|target| target == symbol)
     }
@@ -132,6 +139,11 @@ pub trait Strategy: Send + Sync {
     /// between different broker/account scopes.
     fn reconfigure_preserving_position(&mut self, _config: StrategyConfig) -> bool {
         false
+    }
+    /// None means the strategy has no private position cache. Never infer ownership
+    /// from another strategy's holdings when this returns Some(false).
+    fn has_held_position(&self, _symbol: &str) -> Option<bool> {
+        None
     }
     /// 틱 데이터를 받아 매매 신호 반환
     fn on_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal;

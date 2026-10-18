@@ -192,6 +192,21 @@ impl OrderManager {
         exchange: Option<String>,
         tick_price: u64,
     ) -> (u64, Option<u64>) {
+        order_manager
+            .lock()
+            .await
+            .current_position_snapshot_for_signal(signal, exchange, tick_price)
+            .await
+    }
+
+    /// Read under the caller's order/run gate so feedback cannot cross a
+    /// reservation, fill publication, or profile switch.
+    pub(crate) async fn current_position_snapshot_for_signal(
+        &self,
+        signal: &Signal,
+        exchange: Option<String>,
+        tick_price: u64,
+    ) -> (u64, Option<u64>) {
         let Some(submission) = OrderSubmission::from_signal(
             None,
             signal.clone(),
@@ -202,14 +217,12 @@ impl OrderManager {
         ) else {
             return (0, None);
         };
-        let (domestic, overseas) = {
-            let manager = order_manager.lock().await;
-            (
-                Arc::clone(&manager.position_tracker),
-                Arc::clone(&manager.overseas_position_tracker),
-            )
-        };
-        current_position_snapshot(&submission, &domestic, &overseas).await
+        current_position_snapshot(
+            &submission,
+            &self.position_tracker,
+            &self.overseas_position_tracker,
+        )
+        .await
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -302,6 +315,17 @@ impl OrderManager {
             let manager = order_manager.lock().await;
             if !manager.submission_run_is_current(&submission) {
                 return Ok(stale_run_outcome());
+            }
+            let requested_scope = scope_override.as_ref().unwrap_or(&submission.broker_scope);
+            if manager.configuration_blocks_order(requested_scope, &submission.symbol)
+                || (submission.is_manual && manager.configuration_blocks_holdings(requested_scope))
+            {
+                return Ok(SubmissionOutcome::Skipped {
+                    reason: "전략 설정을 저장하는 동안 해당 계좌·종목의 주문을 잠시 보류합니다."
+                        .into(),
+                    held_quantity: 0,
+                    avg_price: None,
+                });
             }
             let (broker_scope, rest_client, active_profile) =
                 if let Some(expected) = &submission.expected_run {
@@ -649,6 +673,14 @@ impl OrderManager {
     ) -> ReservationDecision {
         if !self.submission_run_is_current(submission) {
             return ReservationDecision::StaleRun(stale_run_reason());
+        }
+        if self.configuration_blocks_order(&submission.broker_scope, &submission.symbol)
+            || (submission.is_manual
+                && self.configuration_blocks_holdings(&submission.broker_scope))
+        {
+            return ReservationDecision::Skip(
+                "전략 설정 저장 중에는 해당 계좌·종목의 주문을 잠시 보류합니다.".into(),
+            );
         }
         if self.persistence_blocked {
             return ReservationDecision::Skip(

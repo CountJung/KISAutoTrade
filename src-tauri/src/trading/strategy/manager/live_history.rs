@@ -83,6 +83,7 @@ impl StrategyManager {
     /// Identity remains stable while config mutations invalidate indicator readiness.
     pub fn advance_history_generation(&mut self) {
         self.history_generation = self.history_generation.wrapping_add(1);
+        self.unsettled_signals.clear();
         self.daily_history.clear();
         for strategy in &mut self.strategies {
             if strategy.id().starts_with("fifty_two_week_high") {

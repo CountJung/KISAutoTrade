@@ -1,5 +1,6 @@
 use crate::broker::{BrokerId, BrokerMarket};
 
+mod configuration;
 mod live_history;
 pub use live_history::{DailyHistoryStatus, DailyHistoryTicket};
 
@@ -52,6 +53,9 @@ pub struct StrategyManager {
     history_generation: u64,
     daily_history: std::collections::BTreeMap<(String, String), live_history::DailyHistoryEntry>,
     history_execution_identity: Option<(crate::broker::BrokerScope, Option<String>)>,
+    configuration_edit:
+        Option<std::sync::Weak<crate::trading::configuration::ConfigurationEditReservation>>,
+    unsettled_signals: std::collections::HashMap<(String, String), u64>,
 }
 
 impl StrategyManager {
@@ -61,6 +65,8 @@ impl StrategyManager {
             history_generation: 0,
             daily_history: std::collections::BTreeMap::new(),
             history_execution_identity: None,
+            configuration_edit: None,
+            unsettled_signals: std::collections::HashMap::new(),
         }
     }
 
@@ -82,8 +88,21 @@ impl StrategyManager {
     where
         F: FnMut(&StrategyConfig) -> bool,
     {
-        self.strategies
+        let paused = self
+            .configuration_edit
+            .as_ref()
+            .and_then(std::sync::Weak::upgrade);
+        let signals: Vec<_> = self
+            .strategies
             .iter_mut()
+            .filter(|s| {
+                !paused.as_ref().is_some_and(|edit| {
+                    s.config().matches_scope(
+                        edit.scope.broker_id,
+                        edit.scope.account_id.as_ref().map(|id| id.0.as_str()),
+                    )
+                })
+            })
             .filter(|s| allow(s.config()))
             .filter_map(|s| {
                 let signal = s.on_tick(symbol, price, volume);
@@ -96,13 +115,29 @@ impl StrategyManager {
                     })
                 }
             })
-            .collect()
+            .collect();
+        if self.history_execution_identity.is_some() {
+            for signal in &signals {
+                let symbol = match &signal.signal {
+                    Signal::Buy { symbol, .. } | Signal::Sell { symbol, .. } => symbol,
+                    Signal::Hold => continue,
+                };
+                self.unsettled_signals.insert(
+                    (signal.strategy_id.clone(), symbol.clone()),
+                    self.history_generation,
+                );
+            }
+        }
+        signals
     }
 
     pub fn any_active_config_for_symbol<F>(&self, symbol: &str, mut predicate: F) -> bool
     where
         F: FnMut(&StrategyConfig) -> bool,
     {
+        if self.configuration_edit_active() {
+            return false;
+        }
         self.strategies.iter().any(|strategy| {
             let config = strategy.config();
             strategy.is_enabled() && config.targets_symbol(symbol) && predicate(config)
@@ -124,6 +159,9 @@ impl StrategyManager {
 
     /// 활성 전략에 등록된 구독 종목 코드 목록 (중복 제거)
     pub fn active_symbols(&self) -> Vec<String> {
+        if self.configuration_edit_active() {
+            return Vec::new();
+        }
         let mut symbols: Vec<String> = self
             .strategies
             .iter()
@@ -265,12 +303,34 @@ impl StrategyManager {
                 config.order_quantity = saved_config.order_quantity;
                 config.params = saved_config.params.clone();
             }
-            // A same-account rollback must not erase a held 52-week stop loss.
-            // Other strategies and cross-account changes retain the rebuild policy.
+            // Same-account application preserves each strategy's held protection.
+            // Profile publication explicitly rebuilds first in the method below.
             if !strategy.reconfigure_preserving_position(config.clone()) {
                 *strategy = build_strategy(config);
             }
         }
+    }
+
+    /// Profile publication deliberately starts without another profile's private
+    /// holdings, even when the broker/account strings happen to be identical.
+    pub(crate) fn replace_saved_configs_for_scope(
+        &mut self,
+        saved: &[StrategyConfig],
+        broker_id: BrokerId,
+        account_id: Option<String>,
+    ) {
+        self.clear_history_execution_identity();
+        for strategy in &mut self.strategies {
+            let mut defaults = strategy.config().clone();
+            defaults.enabled = false;
+            defaults.target_symbols.clear();
+            defaults.order_quantity = 1;
+            // PC/LTH derive targets from params. An empty saved profile must not
+            // inherit another profile's entry list or customized parameters.
+            defaults.params = serde_json::json!({});
+            *strategy = build_strategy(defaults);
+        }
+        self.apply_saved_configs_for_scope(saved, broker_id, account_id);
     }
 
     /// 전체 전략 설정 반환

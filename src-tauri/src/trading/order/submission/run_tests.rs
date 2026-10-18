@@ -772,3 +772,74 @@ async fn legacy_configured_account_without_profile_allows_manual_but_fences_clie
         server.abort();
     }
 }
+
+#[tokio::test]
+async fn manual_holdings_inflight_before_configuration_reservation_cannot_publish_or_submit() {
+    use crate::trading::configuration::ConfigurationEditReservation;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base_url = format!("http://{}", listener.local_addr().unwrap());
+    let provider = LocalProvider::default();
+    let router = axum::Router::new()
+        .route(
+            "/uapi/domestic-stock/v1/trading/inquire-balance",
+            axum::routing::get(local_holdings),
+        )
+        .route(
+            "/uapi/domestic-stock/v1/trading/order-cash",
+            axum::routing::post(local_single_order),
+        )
+        .with_state(provider.clone());
+    let server = tokio::spawn(async move {
+        axum::serve(listener, router).await.unwrap();
+    });
+    let f = Fixture::new(base_url).await;
+    let scope = test_support::scope(&f.profile);
+    f.manager.lock().await.set_execution_scope(scope.clone());
+    let task = tokio::spawn(manual_submit(Arc::clone(&f.manager), scope.clone()));
+    timeout(Duration::from_secs(10), provider.arrived.notified())
+        .await
+        .unwrap();
+    let previous = crate::trading::strategy::StrategyConfig::new(
+        "moving_average_cross",
+        "fixture",
+        true,
+        vec!["005930".into()],
+        1,
+        serde_json::json!({}),
+    );
+    let edit = Arc::new(ConfigurationEditReservation {
+        strategy_id: previous.id.clone(),
+        profile_id: f.profile.id.clone(),
+        scope,
+        symbols: previous.target_symbols.iter().cloned().collect(),
+    });
+    {
+        let mut manager = f.manager.lock().await;
+        manager
+            .reserve_configuration_edit(&edit, &previous, &previous)
+            .await
+            .unwrap();
+        manager.position_tracker.lock().await.on_buy(
+            "005930".into(),
+            "current scoped holding".into(),
+            7,
+            120,
+        );
+    }
+    provider.resume.notify_one();
+    let error = timeout(Duration::from_secs(10), task)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap_err();
+    assert!(error.to_string().contains("설정"));
+    let manager = f.manager.lock().await;
+    let positions = manager.position_tracker.lock().await;
+    assert_eq!(positions.get("005930").unwrap().quantity, 7);
+    assert_eq!(positions.get("005930").unwrap().avg_price, 120.0);
+    assert!(manager.pending.is_empty());
+    assert!(manager.submitting.is_empty());
+    assert!(manager.budget.is_none());
+    assert_eq!(provider.requests.lock().await.len(), 1);
+    server.abort();
+}

@@ -98,7 +98,7 @@ async fn apply_profile_change(s: &ServerState) {
     *s.config.write().await = new_config;
     *s.rest_client.write().await = new_client;
     orders.clear_position_trackers_for_scope_change().await;
-    manager.apply_saved_configs_for_scope(&saved, broker_id, account_id);
+    manager.replace_saved_configs_for_scope(&saved, broker_id, account_id);
 }
 
 /// profiles.json 저장 (웹 서버 내부용)

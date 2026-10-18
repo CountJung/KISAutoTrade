@@ -264,7 +264,7 @@ pub(super) async fn apply_active_profile(state: &AppState) -> CmdResult<()> {
     *state.config.write().await = new_config;
     *state.rest_client.write().await = new_client;
     orders.clear_position_trackers_for_scope_change().await;
-    manager.apply_saved_configs_for_scope(&saved, broker_id, account_id);
+    manager.replace_saved_configs_for_scope(&saved, broker_id, account_id);
     tracing::info!("활성 프로파일 적용 완료");
     Ok(())
 }

@@ -25,7 +25,7 @@
 4. **자료/표본:** **P1-05·P2-12·16·17**의 실제 분봉·봉 공개 시각·DST·누락 자료·ATR·준비 자료 조회를 검증한다.
 5. **전략별 가설과 연속 운용:** 아래 P2-01~13 필터 후보와 신규 **P2-18**을 순서대로 평가한다. 후보를 하나씩 사전 고정하고 기각 결과도 보관한다.
 
-P1-RUN-01의 실행 epoch·설정 revision 예약 검증, provider 고정, 수동/체결 대조 계좌·모드 보호를 구현했다. [검증 기록](tasks/execution-run-reservation-20261018.md). 다음 연구보다 P1-CONFIG-01의 일반 전략 보유 상태 보존을 먼저 해결한다.
+P1-RUN-01의 실행 epoch·설정 revision 예약 검증, provider 고정, 수동/체결 대조 계좌·모드 보호를 구현했다. [검증 기록](tasks/execution-run-reservation-20261018.md). P1-CONFIG-01은 저장 후 인스턴스 공개와 13전략 보유 보호 보존으로 해결했다. [검증 기록](tasks/strategy-configuration-preservation-20261018.md). 다음은 일반 잔고 게시 fencing과 정상 체결의 전략 소유권 피드백을 해결한다.
 
 모든 12전략의 동일 수량 보유 대비 초과수익 중앙값이 0 이하이며 우수 전략을 확정하지 않았다. 분기 포트폴리오는 매번 초기화하며, 부분 Q4와 겹치는 최근248봉은 주집계에서 제외했다. 작은 완료 표본·서로 상관된 ETF·same-close 체결·고정 환율/무배당의 한계를 유지한다.
 
@@ -61,9 +61,16 @@ SOXQ 연구에서 확인한 시뮬레이션 정확성 과제는 아래에 기록
 
 ## P1 — 통합 검증과 실제 provider 확인
 
-- [ ] **🟢 자동 구현** **P1-CONFIG-01 — 일반 전략의 설정 재생성과 저장 실패 복원 중 보유 보호 상태를 보존한다.**
-  - 52주 같은scope 변경/rollback은 보강했다. 다른 전략의 `update_config`/`apply_saved_configs_for_scope` rebuild는 실제 보유를 잃을 수 있다. 시작 시 cache는 정상 체결 뒤 갱신되지 않아 복원 원본으로 쓰지 않는다.
-  - 완료 조건: 저장 commit 전 인스턴스 보존 또는 최신 실제 tracker의 scope 검증을 갖춘 복원, 실패 rollback·params/targets 변경·다른계좌 격리·보유 매도/손절 fixture. 제거한 보유 대상의 운용 경계도 명시하며 자동으로 다른 계정/전략에 옮기지 않는다.
+- [x] **P1-CONFIG-01 — 일반 전략의 설정 저장 중 보유 보호 상태를 보존했다.**
+  - 13전략의 같은 ID/scope 재설정과 저장 후 공개, 저장 실패·불명확 저장 원본 복구/복구 실패 차단, params/targets 변경·빈 프로파일·held stop/trailing·취소·신호/주문 경합을 검증했다. 실제 provider·정상 fill 소유권 피드백까지 완료한 것은 아니다. [구현·검증](tasks/strategy-configuration-preservation-20261018.md).
+  - 보유 또는 private 보호 중인 대상 제거/시장 변경을 거부하고, 다른 전략/계좌의 보유를 새 대상에 옮기거나 공유 tracker의 0수량으로 기존 보호를 지우지 않는다.
+
+- [ ] **🟢 자동 구현** **P1-FILL-01 — 정상·부분 체결과 거부/취소를 주문 소유 전략의 보유 상태에 반영한다.**
+  - `OrderManager::on_fill_on`은 실제 tracker/risk/budget을 갱신하지만 정상 체결을 해당 StrategyManager 인스턴스에 전달하지 않는다. 현재 피드백은 시작 복원과 daemon 차단/오류에 집중되어 있다. 설정 저장의 인스턴스 보존으로 이 기존 경계를 해결했다고 보지 않는다. [발견·범위](tasks/strategy-configuration-preservation-20261018.md).
+  - 완료 조건: strategy/order ID와 실제 잔여 수량을 연결한 fill·partial·reject·cancel fixture, 같은 종목의 다른 전략/수동 보유 미전달, run/profile/account/투자모드 경계와 재시작, LTH 최고가·보유 관측 수를 평균가로 초기화하지 않는 검증. 공유 계좌 총수량을 모든 전략에 배정하지 않는다. P2 전략 파라미터 비교보다 먼저 해결한다.
+- [ ] **🟢 자동 구현** **P1-BAL-01 — 일반 잔고 조회의 늦은 응답이 새 계좌 tracker를 덮지 않게 한다.**
+  - `commands/accounts.rs`의 일반 국내/해외 잔고 조회는 client snapshot으로 await한 뒤 profile/order gate 없이 tracker를 게시할 수 있다. A 조회 중 B 전환 뒤 A 응답이 도착하는 경합이다. 수동 주문과 reconciliation의 fencing만으로 일반 조회까지 보장하지 않는다.
+  - 완료 조건: IPC/Web/자동 갱신의 tracker 게시 호출자를 추적하고 조회 시 profile/client/scope/모드를 고정, 게시 직전 현재 identity 검증. A→B→A, 정지/재시작, 실제 0수량·삭제 종목·설정 저장 lease 및 동시에 도착한 fill을 포함한 barrier fixture. 네트워크 await 동안 전역 lock을 유지하지 않는다.
 
 - [ ] **🟢 자동 구현** TLS verify-full 인증서, 서버 강제 단절·재접속 contract.
   - 로컬 CA/hostname 인증서와 PostgreSQL kill/restart fixture를 구성하는 자동 구현 과제다. 실제 검증 환경이 필요하다는 이유만으로 사용자 판단 대기로 돌리지 않는다. 유효 CA·hostname 불일치·잘못된 CA·서버 재시작 후 복구를 검증한다.

@@ -617,101 +617,56 @@ pub(super) async fn update_strategy_handler(
     Path(id): Path<String>,
     Json(body): Json<UpdateStrategyBody>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let _strategy_update = s.strategy_update_lock.lock().await;
-    let (active_profile_id, active_scope) = {
-        let cfg = s.config.read().await.clone();
-        let account_id = if cfg.broker_account_id.is_empty() {
-            None
-        } else {
-            Some(cfg.broker_account_id.clone())
-        };
-        let profile_id = s.profiles.read().await.active_id.clone();
-        (profile_id, (cfg.broker_id, account_id))
+    use crate::trading::configuration::{
+        update_strategy_configuration, ConfigurationUpdateRequest, ConfigurationUpdateState,
     };
-    if active_profile_id.as_deref() != Some(body.expected_profile_id.as_str())
-        || active_scope.0 != body.expected_broker_id
-        || active_scope.1 != body.expected_broker_account_id
+    let updated_config = match update_strategy_configuration(
+        ConfigurationUpdateState {
+            update_lock: s.strategy_update_lock.clone(),
+            strategies: s.strategy_manager.clone(),
+            orders: s.order_manager.clone(),
+            store: s.strategy_store.clone(),
+        },
+        ConfigurationUpdateRequest {
+            id,
+            expected_profile_id: body.expected_profile_id,
+            expected_scope: BrokerScope::new(
+                body.expected_broker_id,
+                body.expected_broker_account_id.map(BrokerAccountId),
+            ),
+            enabled: body.enabled,
+            target_symbols: body.target_symbols,
+            order_quantity: body.order_quantity,
+            params: body.params,
+        },
+    )
+    .await
     {
-        return (
-            StatusCode::CONFLICT,
-            Json(serde_json::json!({
-                "code": "SCOPE_MISMATCH",
-                "error": "활성 계좌가 변경되었습니다. 전략을 다시 불러온 뒤 수정하세요."
-            })),
-        );
-    }
-    let previous_configs: Vec<crate::trading::strategy::StrategyConfig> = {
-        let mgr = s.strategy_manager.lock().await;
-        mgr.all_configs().into_iter().cloned().collect()
-    };
-    let updated_config = {
-        let mut mgr = s.strategy_manager.lock().await;
-        let updated = match mgr.update_config(&id, |cfg| {
-            if let Some(en) = body.enabled {
-                cfg.enabled = en;
-            }
-            if let Some(sym) = body.target_symbols {
-                cfg.target_symbols = sym;
-            }
-            if let Some(qty) = body.order_quantity {
-                cfg.order_quantity = qty;
-            }
-            if let Some(p) = body.params {
-                cfg.params = p;
-            }
-            cfg.set_scope(active_scope.0, active_scope.1.clone());
-        }) {
-            Some(config) => config,
-            None => {
-                return (
-                    StatusCode::NOT_FOUND,
-                    Json(
-                        serde_json::json!({ "error": format!("전략을 찾을 수 없습니다: {}", id) }),
-                    ),
-                )
-            }
-        };
-        s.order_manager
-            .lock()
-            .await
-            .publish_strategy_revision(mgr.history_generation());
-        updated
-    };
-
-    let mut symbol_names = std::collections::HashMap::new();
-    for code in &updated_config.target_symbols {
-        let name = s
-            .stock_store
-            .get_name(code)
-            .await
-            .unwrap_or_else(|| code.to_string());
-        symbol_names.insert(code.clone(), name);
-    }
-
-    let profile_id = active_profile_id;
-    if let Some(pid) = &profile_id {
-        let all_configs: Vec<crate::trading::strategy::StrategyConfig> = {
-            let mgr = s.strategy_manager.lock().await;
-            mgr.all_configs().into_iter().cloned().collect()
-        };
-        if let Err(error) = s.strategy_store.save(pid, &all_configs).await {
-            let mut manager = s.strategy_manager.lock().await;
-            manager.apply_saved_configs_for_scope(
-                &previous_configs,
-                active_scope.0,
-                active_scope.1.clone(),
-            );
-            s.order_manager
-                .lock()
-                .await
-                .publish_strategy_revision(manager.history_generation());
+        Ok(config) => config,
+        Err(error) => {
+            let status = match error.code {
+                "SCOPE_MISMATCH"
+                | "CONFIGURATION_BUSY"
+                | "HELD_TARGET_REMOVAL"
+                | "HELD_MARKET_CHANGE" => StatusCode::CONFLICT,
+                "STRATEGY_NOT_FOUND" => StatusCode::NOT_FOUND,
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            };
             return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({
-                    "error": format!("전략 설정을 저장하지 못했습니다: {error}")
-                })),
+                status,
+                Json(serde_json::json!({ "code": error.code, "error": error.message })),
             );
         }
+    };
+    let mut symbol_names = std::collections::HashMap::new();
+    for code in &updated_config.target_symbols {
+        symbol_names.insert(
+            code.clone(),
+            s.stock_store
+                .get_name(code)
+                .await
+                .unwrap_or_else(|| code.clone()),
+        );
     }
 
     (

@@ -262,6 +262,13 @@ impl AppState {
         )));
         {
             let mut manager = order_manager.lock().await;
+            // Manual/configuration gates must already see the selected account
+            // before the first automatic run, including application restart.
+            manager.set_execution_scope(crate::broker::BrokerScope::new(
+                config.broker_id,
+                (!config.broker_account_id.is_empty())
+                    .then(|| crate::broker::BrokerAccountId(config.broker_account_id.clone())),
+            ));
             manager.restore_pending_orders(restored_pending_orders);
             if let Some(error) = pending_restore_error {
                 manager.block_for_persistence_failure(format!(

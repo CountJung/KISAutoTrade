@@ -95,7 +95,7 @@ LTH 조회는 유지하며 live 완료 일봉 갱신은 이 경로의 책임이 
 
 수동 주문(`commands/orders.rs`)과 전략 신호는 공통 `OrderManager` 제출 서비스를 사용한다.
 
-자동매매는 OrderManager에 epoch·configuration revision·broker/account·profile context와 검증한 client/profile snapshot을 저장한다. daemon의 시세·평가액은 같은 snapshot을 사용하고, 전략 변경은 bool→strategy→order 검증 구간에서만 수행한다. 자동 예약은 같은 OrderManager mutex에서 context를 검사한 다음 guard·submitting·예산을 변경한다. 설정 변경·저장 실패 복원은 manager→order 임계구역에서 새 revision을 공개한다. provider await에는 bool/strategy lock을 유지하지 않는다. 예약 후에는 최초 client/scope로 응답·재시도·pending을 끝까지 추적하며 정지나 자정 초기화로 submitting을 지우지 않는다. 세부 검증은 [P1-RUN-01 기록](tasks/execution-run-reservation-20261018.md)을 참조한다.
+자동매매는 OrderManager에 epoch·configuration revision·broker/account·profile context와 검증한 client/profile snapshot을 저장한다. daemon의 시세·평가액은 같은 snapshot을 사용하고, 전략 변경은 bool→strategy→order 검증 구간에서만 수행한다. 자동 예약은 같은 OrderManager mutex에서 context를 검사한 다음 guard·submitting·예산을 변경한다. 설정 저장 성공 후 manager→order 임계구역에서 새 revision을 공개하고, 저장 실패는 기존 revision을 유지한다. provider await에는 bool/strategy lock을 유지하지 않는다. 예약 후에는 최초 client/scope로 응답·재시도·pending을 끝까지 추적하며 정지나 자정 초기화로 submitting을 지우지 않는다. 세부 검증은 [P1-RUN-01 기록](tasks/execution-run-reservation-20261018.md)을 참조한다.
 
 ```text
 UI/전략 Signal
@@ -174,11 +174,27 @@ Dashboard/Strategy의 `LiveDailyHistoryPanel`은 기존 상태 polling으로 확
 출처·날짜·실패/재시도 사유를 표시하고 최대 512항목 중 3행씩 렌더링한다.
 활성 계좌와 실행 계좌가 다르면 상태를 섞지 않는다.
 
-같은 ID/broker/account의 52주 설정 변경·동일 scope 저장 rollback은
-`reconfigure_preserving_position` opt-in으로 잔존 대상의 보유 기준을 유지하고
-관측 준비만 무효화한다. 다른 계정/제거 대상으로 보유 상태를 이전하지 않는다.
-이 일봉 경계가 일반 전략 설정 재빌드/rollback이나 quote 이후 주문 예약의
-전체 경합 안전성을 보장하지는 않는다. 그 기존 위험은 별도 P1 자동 과제다.
+13개 전략은 같은 ID/broker/account의 `reconfigure_preserving_position`으로
+잔존 대상의 보유 기준과 필요한 관측을 유지하며 새 파라미터를 적용한다.
+LTH는 진입가·최고가·보유 관측 수를 그대로 유지하고, 평균회귀는 새 기간의
+밴드 준비 전에도 기존 보유 손절을 평가한다. 프로파일 publication은 같은
+계좌 문자열이라도 인스턴스를 새로 만들어 이전 프로파일 상태를 넘기지 않는다.
+
+`trading/configuration.rs`는 IPC와 Web이 공유하는 저장 transaction이다.
+`strategy_update_lock`으로 설정/시작/프로파일 변경을 직렬화하고,
+manager→order 아래 private 보유·실제 tracker·submitting/pending/modifying·
+profile/client identity를 검사한 뒤 Weak lease를 공개한다. lease 동안 같은
+scope의 새 전략 신호와 영향 종목 예약·수동 전체 잔고 게시를 보류한다.
+파일/DB 저장 await에는 manager/order lock을 유지하지 않는다. 저장 성공 후
+identity를 다시 검사하고 기존 인스턴스와 새 revision을 함께 공개한다.
+저장 실패는 runtime/revision을 바꾸지 않으며, 첫 저장 오류도 디스크 교체 후
+오류일 수 있으므로 저장 후 검증 실패와 함께 원본 설정을 다시 저장한다. 복구 저장도 실패하면 persistence block으로 신규 주문을 막는다.
+IPC/HTTP waiter 취소는 별도의 owned transaction task를 중단하지 않는다.
+
+공용 tracker의 0수량만으로 전략의 private 보유 보호를 지우거나 다른 전략의
+보유를 할당하지 않는다. private 보호 또는 실제 tracker에 보유가 있으면 대상
+제거·국내/해외 전환을 거부한다. 정상 체결의 전략별 소유권 피드백과 일반 잔고
+조회 응답의 profile fencing은 후속 P1 과제이며 전체 lifecycle 완료로 확대하지 않는다.
 
 ## 9. 저장 경계
 

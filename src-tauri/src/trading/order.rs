@@ -40,6 +40,7 @@ use crate::{
 };
 
 mod budget;
+mod configuration;
 mod conflicts;
 pub use budget::{AutoTradingBudgetView, BudgetCurrencyView};
 mod execution_run;
@@ -165,6 +166,9 @@ pub struct OrderManager {
     /// 자동매매 시작 시점의 broker/account scope. 실행 중 프로파일 전환과 분리한다.
     execution_scope: BrokerScope,
     execution_epoch: u64,
+    configuration_edit:
+        Option<std::sync::Weak<crate::trading::configuration::ConfigurationEditReservation>>,
+    configuration_identity: Option<configuration::ConfigurationIdentity>,
     active_execution_run: Option<execution_run::ExecutionRun>,
     #[cfg(test)]
     preparation_test_gate: Option<Arc<submission::PreparationTestGate>>,
@@ -211,6 +215,8 @@ impl OrderManager {
             trade_guard: TradeGuard::default(),
             execution_scope: BrokerScope::kis_legacy(),
             execution_epoch: 0,
+            configuration_edit: None,
+            configuration_identity: None,
             active_execution_run: None,
             #[cfg(test)]
             preparation_test_gate: None,
@@ -436,4 +442,4 @@ fn is_paper_unsupported_error(msg: &str) -> bool {
 }
 
 #[cfg(test)]
-mod test_support;
+pub(crate) mod test_support;

@@ -1,8 +1,10 @@
 use super::*;
 
 mod fence;
+mod flow;
 use crate::trading::order::ExecutionRunContext;
 use fence::{capture_cycle, RunFence};
+use flow::{finish_closed_batch, market_readiness, MarketReadiness};
 
 // ────────────────────────────────────────────────────────────────────
 // 자동매매 폴링 데몬 (lib.rs 에서 앱 시작 시 영구 spawn)
@@ -27,6 +29,8 @@ enum TickCycleResult {
     Done,
     /// 장 마감 / 장외 시간 감지 → 호출자는 market_pause_until 설정 후 다음 이터레이션으로
     MarketClosed,
+    /// A configuration save temporarily pauses evaluation without closing a market.
+    ConfigurationPending,
     /// is_trading 플래그가 false 로 바뀜 → 이번 사이클 조기 종료
     Stopped,
 }
@@ -136,17 +140,27 @@ async fn poll_symbols_tick(
 
         // 해당 종목을 사용하는 활성 전략 중 현재 허용된 세션이 있는지 확인한다.
         // Toss 미국 전략은 params.toss_us_session에 따라 day/pre/regular/after/auto gate를 적용한다.
-        let Some(symbol_has_open_strategy) = fence
+        let Some(symbol_market) = fence
             .with_current(|manager| {
-                manager.any_active_config_for_symbol(symbol, |config| {
-                    strategy_market_open_for_symbol(config, symbol, price_source, market_calendar)
+                market_readiness(manager, |manager| {
+                    manager.any_active_config_for_symbol(symbol, |config| {
+                        strategy_market_open_for_symbol(
+                            config,
+                            symbol,
+                            price_source,
+                            market_calendar,
+                        )
+                    })
                 })
             })
             .await
         else {
             return TickCycleResult::Stopped;
         };
-        if !symbol_has_open_strategy {
+        if symbol_market == MarketReadiness::ConfigurationPending {
+            return TickCycleResult::ConfigurationPending;
+        }
+        if symbol_market == MarketReadiness::Closed {
             tracing::debug!(
                 "시장 폐장 — 건너뜀: {} ({})",
                 symbol,
@@ -196,24 +210,34 @@ async fn poll_symbols_tick(
         // 틱 처리: 현재가 기반 전략 신호 생성 → 주문
         match tick {
             Ok((price, volume)) if price > 0 => {
-                let Some(signals) = fence
+                let Some((configuration_pending, signals)) = fence
                     .with_current(|manager| {
+                        if manager.configuration_edit_active() {
+                            return (true, Vec::new());
+                        }
                         manager
                             .invalidate_stale_daily_history_for_symbol(symbol, chrono::Utc::now());
-                        manager.on_tick_filtered(symbol, price, volume, |config| {
+                        let signals = manager.on_tick_filtered(symbol, price, volume, |config| {
                             strategy_market_open_for_symbol(
                                 config,
                                 symbol,
                                 price_source,
                                 market_calendar,
                             )
-                        })
+                        });
+                        (false, signals)
                     })
                     .await
                 else {
                     return TickCycleResult::Stopped;
                 };
-                for strategy_signal in signals {
+                if configuration_pending {
+                    return TickCycleResult::ConfigurationPending;
+                }
+                let mut remaining_signals = signals.into_iter();
+                while let Some(strategy_signal) = remaining_signals.next() {
+                    let unsubmitted_signal = strategy_signal.clone();
+                    let signal_strategy_id = strategy_signal.strategy_id.clone();
                     if !fence.is_current().await {
                         return TickCycleResult::Stopped;
                     }
@@ -221,16 +245,6 @@ async fn poll_symbols_tick(
                         return TickCycleResult::Stopped;
                     };
                     let symbol_name = symbol_name.unwrap_or_else(|| symbol.clone());
-                    let rollback_snapshot = crate::trading::order::OrderManager::current_position_snapshot_for_signal_shared(
-                        order_mgr,
-                        &strategy_signal.signal,
-                        exchange_opt.clone(),
-                        price,
-                    )
-                    .await;
-                    if !fence.is_current().await {
-                        return TickCycleResult::Stopped;
-                    }
                     let submit_result = crate::trading::order::OrderManager::submit_signal_shared(
                         order_mgr,
                         expected.clone(),
@@ -245,6 +259,15 @@ async fn poll_symbols_tick(
                         Ok(crate::trading::order::SubmissionOutcome::Submitted {
                             provider_order_id,
                         }) => {
+                            fence
+                                .with_current(|manager| {
+                                    manager.complete_signal(
+                                        &signal_strategy_id,
+                                        symbol,
+                                        expected.configuration_revision,
+                                    )
+                                })
+                                .await;
                             tracing::info!(
                                 "전략 주문 제출 완료: symbol={} providerOrderId={}",
                                 symbol,
@@ -260,41 +283,23 @@ async fn poll_symbols_tick(
                             return TickCycleResult::Stopped;
                         }
                         Ok(crate::trading::order::SubmissionOutcome::Skipped {
-                            reason,
-                            held_quantity,
-                            avg_price,
+                            reason, ..
                         }) => {
                             // 전략이 raw signal 생성 시 내부 포지션 상태를 먼저 바꿨더라도
                             // guard/risk/provider가 주문을 거부하면 실제 tracker 상태로 되돌린다.
-                            if fence
-                                .with_current(|manager| {
-                                    manager.sync_position(
-                                        symbol,
-                                        held_quantity,
-                                        avg_price.unwrap_or(0),
-                                    )
-                                })
+                            if !fence
+                                .settle_unsubmitted_signals(
+                                    std::slice::from_ref(&unsubmitted_signal),
+                                    exchange_opt.clone(),
+                                    price,
+                                )
                                 .await
-                                .is_none()
                             {
                                 return TickCycleResult::Stopped;
                             }
                             tracing::debug!("전략 주문 스킵: symbol={} reason={}", symbol, reason);
                         }
                         Err(e) => {
-                            if fence
-                                .with_current(|manager| {
-                                    manager.sync_position(
-                                        symbol,
-                                        rollback_snapshot.0,
-                                        rollback_snapshot.1.unwrap_or(0),
-                                    )
-                                })
-                                .await
-                                .is_none()
-                            {
-                                return TickCycleResult::Stopped;
-                            }
                             let msg = e.to_string();
                             if is_market_closed_error(&msg) {
                                 tracing::info!(
@@ -302,7 +307,25 @@ async fn poll_symbols_tick(
                                     symbol,
                                     msg
                                 );
-                                return TickCycleResult::MarketClosed;
+                                return finish_closed_batch(
+                                    &fence,
+                                    std::iter::once(unsubmitted_signal)
+                                        .chain(remaining_signals)
+                                        .collect(),
+                                    exchange_opt.clone(),
+                                    price,
+                                )
+                                .await;
+                            }
+                            if !fence
+                                .settle_unsubmitted_signals(
+                                    std::slice::from_ref(&unsubmitted_signal),
+                                    exchange_opt.clone(),
+                                    price,
+                                )
+                                .await
+                            {
+                                return TickCycleResult::Stopped;
                             }
                             tracing::warn!("신호 처리 실패 ({}): {}", symbol, msg);
                         }
@@ -441,16 +464,18 @@ pub async fn run_trading_daemon(
         // ── Phase 7: 전체 시장 폐장 여부 사전 체크 ─────────────────
         let market_calendar = get_active_toss_calendar_override(&profiles).await;
 
-        let Some(all_markets_closed) = fence
+        let Some(market_state) = fence
             .with_current(|mgr| {
-                symbols.iter().all(|symbol| {
-                    !mgr.any_active_config_for_symbol(symbol, |config| {
-                        strategy_market_open_for_symbol(
-                            config,
-                            symbol,
-                            &price_source,
-                            market_calendar.as_ref(),
-                        )
+                market_readiness(mgr, |mgr| {
+                    symbols.iter().any(|symbol| {
+                        mgr.any_active_config_for_symbol(symbol, |config| {
+                            strategy_market_open_for_symbol(
+                                config,
+                                symbol,
+                                &price_source,
+                                market_calendar.as_ref(),
+                            )
+                        })
                     })
                 })
             })
@@ -459,7 +484,12 @@ pub async fn run_trading_daemon(
             continue;
         };
 
-        if all_markets_closed {
+        if market_state == MarketReadiness::ConfigurationPending {
+            market_pause_until = None;
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            continue;
+        }
+        if market_state == MarketReadiness::Closed {
             tracing::info!(
                 "모든 시장 폐장 ({}) — 5분 대기 후 재확인",
                 open_markets_summary_with_calendar(market_calendar.as_ref())
@@ -509,6 +539,11 @@ pub async fn run_trading_daemon(
         if tick_result == TickCycleResult::Stopped {
             continue;
         }
+        if tick_result == TickCycleResult::ConfigurationPending {
+            market_pause_until = None;
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            continue;
+        }
         if tick_result == TickCycleResult::MarketClosed && fence.is_current().await {
             market_pause_until =
                 Some(tokio::time::Instant::now() + tokio::time::Duration::from_secs(300));
@@ -517,7 +552,11 @@ pub async fn run_trading_daemon(
 
         // ── Phase 9: 다음 틱까지 10초 대기 (100ms 단위 — 종료 신호 즉시 반응) ──
         for _ in 0u32..100 {
-            if !fence.is_current().await {
+            if fence
+                .with_current(|manager| manager.configuration_edit_active())
+                .await
+                != Some(false)
+            {
                 break;
             }
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;

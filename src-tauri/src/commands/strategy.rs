@@ -77,86 +77,33 @@ pub async fn update_strategy(
     input: UpdateStrategyInput,
     state: State<'_, AppState>,
 ) -> CmdResult<StrategyView> {
-    let _strategy_update = state.strategy_update_lock.lock().await;
-    let (active_profile_id, active_scope) = {
-        let cfg = state.config.read().await.clone();
-        let account_id = if cfg.broker_account_id.is_empty() {
-            None
-        } else {
-            Some(cfg.broker_account_id.clone())
-        };
-        let profile_id = state.profiles.read().await.active_id.clone();
-        (profile_id, (cfg.broker_id, account_id))
+    use crate::trading::configuration::{
+        update_strategy_configuration, ConfigurationUpdateRequest, ConfigurationUpdateState,
     };
-    if active_profile_id.as_deref() != Some(input.expected_profile_id.as_str())
-        || active_scope.0 != input.expected_broker_id
-        || active_scope.1 != input.expected_broker_account_id
-    {
-        return Err(CmdError {
-            code: "SCOPE_MISMATCH".into(),
-            message: "활성 계좌가 변경되었습니다. 전략을 다시 불러온 뒤 수정하세요.".into(),
-        });
-    }
-    let previous_configs: Vec<crate::trading::strategy::StrategyConfig> = {
-        let mgr = state.strategy_manager.lock().await;
-        mgr.all_configs().into_iter().cloned().collect()
-    };
-    let updated_config = {
-        let mut mgr = state.strategy_manager.lock().await;
-        let updated = mgr
-            .update_config(&input.id, |cfg| {
-                if let Some(enabled) = input.enabled {
-                    cfg.enabled = enabled;
-                }
-                if let Some(symbols) = input.target_symbols {
-                    cfg.target_symbols = symbols;
-                }
-                if let Some(qty) = input.order_quantity {
-                    cfg.order_quantity = qty;
-                }
-                if let Some(params) = input.params {
-                    cfg.params = params;
-                }
-                cfg.set_scope(active_scope.0, active_scope.1.clone());
-            })
-            .ok_or_else(|| CmdError {
-                code: "STRATEGY_NOT_FOUND".into(),
-                message: format!("전략을 찾을 수 없습니다: {}", input.id),
-            })?;
-        state
-            .order_manager
-            .lock()
-            .await
-            .publish_strategy_revision(mgr.history_generation());
-        updated
-    };
-    let view = build_strategy_view(&updated_config, &state.stock_store).await;
-
-    // 변경된 전략 설정을 디스크에 영구 저장 (프로파일별)
-    let profile_id = active_profile_id;
-    if let Some(pid) = &profile_id {
-        let all_configs: Vec<crate::trading::strategy::StrategyConfig> = {
-            let mgr = state.strategy_manager.lock().await;
-            mgr.all_configs().into_iter().cloned().collect()
-        };
-        if let Err(error) = state.strategy_store.save(pid, &all_configs).await {
-            let mut manager = state.strategy_manager.lock().await;
-            manager.apply_saved_configs_for_scope(
-                &previous_configs,
-                active_scope.0,
-                active_scope.1.clone(),
-            );
-            state
-                .order_manager
-                .lock()
-                .await
-                .publish_strategy_revision(manager.history_generation());
-            return Err(CmdError {
-                code: "PERSISTENCE_ERROR".into(),
-                message: format!("전략 설정을 저장하지 못했습니다: {error}"),
-            });
-        }
-    }
-
-    Ok(view)
+    let updated_config = update_strategy_configuration(
+        ConfigurationUpdateState {
+            update_lock: state.strategy_update_lock.clone(),
+            strategies: state.strategy_manager.clone(),
+            orders: state.order_manager.clone(),
+            store: state.strategy_store.clone(),
+        },
+        ConfigurationUpdateRequest {
+            id: input.id,
+            expected_profile_id: input.expected_profile_id,
+            expected_scope: BrokerScope::new(
+                input.expected_broker_id,
+                input.expected_broker_account_id.map(BrokerAccountId),
+            ),
+            enabled: input.enabled,
+            target_symbols: input.target_symbols,
+            order_quantity: input.order_quantity,
+            params: input.params,
+        },
+    )
+    .await
+    .map_err(|error| CmdError {
+        code: error.code.into(),
+        message: error.message,
+    })?;
+    Ok(build_strategy_view(&updated_config, &state.stock_store).await)
 }

@@ -34,9 +34,10 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | Toss 연동 | `src-tauri/src/broker/toss/` | `commands/toss*.rs`, `server/toss.rs` |
 | broker 공통 계약 | `src-tauri/src/broker/domain.rs`, `adapter.rs` | `kis.rs`, `toss/adapter.rs`, `rate_limit.rs` |
 | 캔들 페이지/일반 preview 사전자료 | `src-tauri/src/commands/candles.rs`, `broker/candles.rs` | `api/rest/chart.rs`, `src/shared/api/candlePageTypes.ts`, `pages/strategy/model/candlePageCollector.ts`, `server/market.rs` |
-| 자동매매 시작/데몬 | `src-tauri/src/commands/trading.rs` / `commands/trading/daemon.rs` | `daemon/fence.rs`, `commands/trading/{positions,balance,risk_restore,history,daily_history}.rs`, `lib.rs` |
+| 자동매매 시작/데몬 | `src-tauri/src/commands/trading.rs` / `commands/trading/daemon.rs` | `daemon/{fence,flow}.rs`, `commands/trading/{positions,balance,risk_restore,history,daily_history}.rs`, `lib.rs` |
 | Live 52주 완료 일봉 준비 | `commands/trading/daily_history.rs`, `daily_history/jobs.rs` | `trading/strategy/manager/live_history.rs`, `src/shared/ui/LiveDailyHistoryPanel.tsx`, TradingStatus |
 | 전략 | `src-tauri/src/trading/strategy/` | `commands/strategy.rs`, `commands/strategy_preview.rs`, Strategy UI |
+| 전략 설정 저장·보유 보호 | `src-tauri/src/trading/configuration.rs` | `trading/order/configuration.rs`, `trading/strategy/manager/configuration.rs`, 각 전략의 `reconfigure_tests.rs`, IPC/Web 전략 수정 facade |
 | 수동·자동 주문 | `src-tauri/src/trading/order/submission.rs` | `order/execution_run.rs`, `submission/{positions,prepare,provider,records}.rs`, `commands/orders.rs` |
 | 실행 변경·지연 결과 폐기 | `commands/trading/daemon/fence.rs`, `trading/order/execution_run.rs` | IPC/Web start/stop·전략 수정·프로파일 적용, `submission/run_tests.rs` |
 | 주문 전 검증 | `src-tauri/src/trading/preflight.rs`, `trading/guard.rs` | broker별 preflight command, `trading/risk.rs` |
@@ -97,8 +98,13 @@ BrokerScope + profile/account
 ```
 
 시작·정지와 daemon의 전략 변경은 running → StrategyManager → OrderManager 순서로
-직렬화한다. 설정 적용/rollback은 manager → OrderManager에서 revision을 게시하고,
-프로파일 적용은 같은 순서로 scope·client·tracker·전략 설정을 교체한다. provider
+직렬화한다. 전략 설정은 공통 `trading/configuration.rs`가 저장 작업을 소유하며,
+보유 대상·처리 중 신호·예약 주문을 검증하고 설정 편집 예약을 잡은 뒤 잠금 밖에서
+저장한다. 저장 성공 후 manager → OrderManager에서 계좌 identity를 재검증하고
+같은 ID/scope 전략의 보유 상태를 유지하며 새 revision을 게시한다. 저장 실패는
+기존 인스턴스와 revision을 유지하고, 첫 저장 오류도 교체 후 오류일 수 있어
+저장 후 identity 검증 실패와 함께 원본 저장값을 복구한다. 프로파일 적용은 같은 잠금 순서로 scope·client·tracker를 교체하고
+전략 인스턴스를 새로 만들어 이전 프로파일의 내부 보유 상태를 넘기지 않는다. provider
 조회는 잠금 밖에서 수행한다. 정지 전 예약한 주문·pending·예산은 원래 scope로
 계속 추적하며, 이전 실행의 quote·신호·전략 상태 복원은 새 실행에 반영하지 않는다.
 수동 holdings 게시와 체결 조회 결과 적용도 계좌·profile·client 변경을 재검증한다.

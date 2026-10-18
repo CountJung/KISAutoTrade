@@ -79,6 +79,19 @@ impl Strategy for MovingAverageCrossStrategy {
         self.config.enabled = enabled;
     }
 
+    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
+        if !self.config.same_identity(&config) {
+            return false;
+        }
+        let mut replacement = Self::new(config);
+        for (symbol, state) in &self.states {
+            let prices: Vec<_> = state.prices.iter().copied().collect();
+            replacement.initialize_historical(symbol, &prices);
+        }
+        *self = replacement;
+        true
+    }
+
     fn initialize_historical(&mut self, symbol: &str, prices: &[u64]) {
         if !self.config.targets_symbol(symbol) {
             return;
@@ -217,3 +230,6 @@ mod history_tests {
         assert_eq!(strategy.states["SOXQ"].prices.front(), Some(&10));
     }
 }
+
+#[cfg(test)]
+mod reconfigure_tests;
