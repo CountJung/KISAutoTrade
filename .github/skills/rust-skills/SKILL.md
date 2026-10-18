@@ -1102,6 +1102,11 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 
 ## 21. 전략 deterministic replay / 실행 피드백 패턴
 
+- v8 replay ATR은 `simulation/atr.rs`의 bounded TR14 window다. 이전 close reference 1봉과 TR14개가 필요하므로 같은 interval 관측15봉부터 준비한다. `run_backtest_with_history`의 history는 caller가 검증한 엄격한 이전 같은 간격 자료만 전달하고 주문·equity에는 넣지 않는다. 갭은 인접 실제 관측의 이전 close로 반영하며 누락봉을 합성하지 않는다. u128 합계로 overflow를 막고 엄격한 준비 상태를 `atrPreparation`으로 전략 준비와 구분한다. live ATR의 부분-window/rounding 및 LTH 분봉 지표와 의미가 달라 helper를 무리하게 통합하지 않는다.
+- 연구 `volatilitySizingEnabled`는 기본 false다. 켰을 때 ATR 미준비/0범위 및 위험0bps의 신규 매수는 replay 경계에서 명시 차단한다. RiskManager의 live용 fallback에 맡기면 요청수량 매수로 우회된다. 보유 매도는 이 제한으로 막지 않는다.
+- LTH 전용 v4는 `preview_signals_with_position`과 `report_position_snapshot`으로 실제 잔여수량/평균체결가를 되먹임한다. 매도는 실제 보유 전량을 요청하고 부분매도/차단이면 high-water·보유관측 보호 상태를 보존한다. bool `preview_signals_with_execution`은 기존 raw 연구의 요청수량/신호가 체결 가정 호환용이다. 실제 실행수량을 bool 하나로 축약하면 ATR 확대 뒤 잔여 보유가 flat으로 유실된다.
+- 52주 신고가 완료 고가는 bounded ring으로 보관하고 만료 시 최고가를 다시 계산한다. tick 수로 거래일을 세지 않으며 day-start 뒤 완료 이벤트만 한 번 소비한다. generic 일봉에 연결되어 있고 live 운용 중 완료일봉 공급은 P2-05 잔여다. 자료 부족 시에도 실제 보유 손절은 유지한다.
+
 - 전수 연구는 `docs/research/strategy-review-20261018/{prepare_data.py,runner.rs,analyze.py}`처럼 입력/창 선언·생산 Rust 실행·집계를 분리한다. 별도 Python 전략으로 결과를 대체하지 않는다. `stock_analyst`가 비용·표본·benchmark·실현/잔여 평가손익을 독립 감사하고 기존 TODO를 갱신한다. 상세 재현 절차와 해석 경계는 해당 `report.md`를 참조한다.
 - 각 창의 수량은 평가 전일 자료로 미리 고정하며 비용 스트레스에서도 같게 유지한다. 분기 리셋/겹침 창/부분 창을 구분하고, 비용으로 체결가·손절·guard·후속 경로가 달라지는 결과를 순수 수수료 차감으로 설명하지 않는다. 0신호·준비 부족·미지원·분봉 진단을 정상 성과0%와 구분한다.
 - `src-tauri/src/trading/simulation.rs`의 replay 엔진은 raw signal과 `filled`/`blocked` 실행 결과를 분리한다. 성과 지표에는 TradeGuard, RiskManager, 현금·보유 수량·포지션 비중과 수수료/세금/슬리피지/환율을 통과한 체결 가정만 반영한다.
@@ -1119,11 +1124,11 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - Generic preview v6은 factory와 같은 `starts_with("leveraged_trend_hold")` 기준으로 기본/접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 명시 거부한다. LTH의 실시간 분/세션/blackout clock을 과거 재생에 호출하지 않으며 `deterministic=false`·준비 미지원 표시에 그치지 않는다. broker 조회 전용 커맨드로 generic 제공봉을 자동 우회하지 않는다.
 - LTH `preview_signals_with_execution`은 실제 분봉의 `timed.time`으로 세션·blackout·장마감을 판단한다. 응답 `generatedAt`만 생성 시각이고 신호/체결/hash의 입력이 아니다. `cfg(test)` live clock 대역으로 production 재현성을 주장하지 않고 별도 integration fixture 및 production runner의 서로 다른 분/시간대 재실행을 검증한다. 고정 KST 세션·DST 한계는 입력 재현성과 별개이며 `lookAheadSafe=false`다.
 - LTH 일봉 `initialize_ohlc`는 context만 교체하고 기존 분봉 지표와 보유 포지션을 보존한다. `initialize_intraday_ohlc`는 분봉 OHLC·반동 가격·볼린저 snapshot을 교체하며 누적 append로 과거 관측을 중복하지 않는다. `initialize_intraday_prices`는 반동 가격 snapshot만 교체하고 OHLC·볼린저를 초기화하지 않는다. 분봉 EMA/RSI/ADX·반동·볼린저는 분봉만 소비하고 각 버퍼 상한을 독립 유지한다. 빈 일봉 재초기화도 실제 보유 손절을 막지 않는다.
-- 전용 LTH v7/LTH v3의 엔진 버전은 공통 `REPLAY_ENGINE_VERSION`을 응답과 hash에 함께 사용한다. `ReplayMetadata.assessment`는 선택 필드이며 generic에는 생략한다. `1d`는 `dailyDiagnostic/notEvaluable`, `1m`은 `intradaySample/sampleOnly`(유효 관측 0개면 `notEvaluable`)다. `dailyContextBars`와 `intradayBars`를 분리하고 `warmupCount=0`으로 일봉이 분봉 지표를 준비했다고 주장하지 않는다. `timestampStatus/sessionStatus=unverified`와 한국어 limitations를 남긴다. 일봉 호환 빈 backtest를 0% 성과로 해석하지 않는다. 실제 2026-07-06~10-02 SOXQ 분봉·시간대·DST·세션 coverage 확보/검증은 P1-05 잔여 조건이다.
+- 전용 LTH v8/LTH v4의 엔진 버전은 공통 `REPLAY_ENGINE_VERSION`을 응답과 hash에 함께 사용한다. `ReplayMetadata.assessment`는 선택 필드이며 generic에는 생략한다. `1d`는 `dailyDiagnostic/notEvaluable`, `1m`은 `intradaySample/sampleOnly`(유효 관측 0개면 `notEvaluable`)다. `dailyContextBars`와 `intradayBars`를 분리하고 `warmupCount=0`으로 일봉이 분봉 지표를 준비했다고 주장하지 않는다. `timestampStatus/sessionStatus=unverified`와 한국어 limitations를 남긴다. 일봉 호환 빈 backtest를 0% 성과로 해석하지 않는다. 실제 2026-07-06~10-02 SOXQ 분봉·시간대·DST·세션 coverage 확보/검증은 P1-05 잔여 조건이다.
 - 전략이 raw signal 생성 시 내부 `in_position`을 선반영했는데 주문이 skip되면 `SubmissionOutcome::Skipped`의 실제 `held_quantity`/`avg_price`를 `StrategyManager::sync_position()`에 되먹임한다. 수량 0 snapshot도 flat 상태로 반영해야 한다.
 - 자동매매 시작 플래그 lock은 broker reconcile/risk restore/warmup이 완료될 때까지 daemon 첫 tick을 막아야 한다.
 
-> 마지막 업데이트: 2026-10-18T09:11:46+09:00
+> 마지막 업데이트: 2026-10-18T10:22:52+09:00
 ---
 
 ## PostgreSQL/MariaDB 문서 저장 backend
@@ -1166,4 +1171,4 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - quick-xml 예외 두 개는 plist 1.10.1 업데이트로 해제했다. RSA 예외 하나와 Linux GLib/proc-macro-error 경고는 docs/release-security.md의 실제 경로·해제 조건을 확인하며 테스트 약화나 추가 ignore로 해결하지 않는다.
 - PostgreSQL contract 테스트는 DB 환경 변수가 없으면 즉시 반환하므로 전체 통과 개수에서 실서버 검증으로 계산하지 않는다. 이번 Mac 검증에서도 DB 환경 변수를 제거했고 실거래·모의 주문 API를 호출하지 않았다.
 
-> 마지막 업데이트: 2026-10-18T09:11:46+09:00
+> 마지막 업데이트: 2026-10-18T10:22:52+09:00

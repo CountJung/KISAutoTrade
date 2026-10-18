@@ -28,11 +28,24 @@ impl Default for FiftyTwoWeekHighParams {
 }
 
 /// 종목별 52주 신고가 상태
+#[derive(Default)]
 struct FiftyTwoWeekState {
     prev_price: Option<u64>,
     high_52w: Option<u64>,
-    history_bars: usize,
+    /// Only completed daily highs belong in this bounded window.
+    completed_highs: VecDeque<u64>,
+    /// One completion may follow each explicit daily boundary; ticks never age history.
+    awaiting_daily_completion: bool,
     buy_price: Option<u64>,
+}
+
+impl FiftyTwoWeekState {
+    fn refresh_high(&mut self, required: usize) {
+        self.high_52w = (self.completed_highs.len() == required)
+            .then(|| self.completed_highs.iter().copied().max())
+            .flatten()
+            .filter(|high| *high > 0);
+    }
 }
 
 pub struct FiftyTwoWeekHighStrategy {
@@ -81,22 +94,11 @@ impl Strategy for FiftyTwoWeekHighStrategy {
         }
         let required = bounded_window(self.params.lookback_days);
         let history = &prices[prices.len().saturating_sub(required)..];
-        let state = self
-            .states
-            .entry(symbol.to_string())
-            .or_insert(FiftyTwoWeekState {
-                prev_price: None,
-                high_52w: None,
-                history_bars: 0,
-                buy_price: None,
-            });
-        state.history_bars = history.len();
-        state.high_52w = if history.len() == required {
-            history.iter().copied().max().filter(|high| *high > 0)
-        } else {
-            None
-        };
+        let state = self.states.entry(symbol.to_string()).or_default();
+        state.completed_highs = history.iter().copied().collect();
+        state.refresh_high(required);
         state.prev_price = history.last().copied();
+        state.awaiting_daily_completion = false;
     }
 
     fn initialize_ohlc(&mut self, symbol: &str, candles: &[OhlcCandle]) {
@@ -115,7 +117,7 @@ impl Strategy for FiftyTwoWeekHighStrategy {
         let state = self.states.get(symbol);
         Some(HistoryReadiness {
             required_bars: bounded_window(self.params.lookback_days),
-            available_bars: state.map_or(0, |state| state.history_bars),
+            available_bars: state.map_or(0, |state| state.completed_highs.len()),
             ready: state
                 .is_some_and(|state| state.high_52w.is_some() && state.prev_price.is_some()),
         })
@@ -135,15 +137,7 @@ impl Strategy for FiftyTwoWeekHighStrategy {
             return Signal::Hold;
         }
 
-        let state = self
-            .states
-            .entry(symbol.to_string())
-            .or_insert(FiftyTwoWeekState {
-                prev_price: None,
-                high_52w: None,
-                history_bars: 0,
-                buy_price: None,
-            });
+        let state = self.states.entry(symbol.to_string()).or_default();
 
         // ① 손절 체크
         if let Some(bp) = state.buy_price {
@@ -170,7 +164,6 @@ impl Strategy for FiftyTwoWeekHighStrategy {
                     .prev_price
                     .is_some_and(|prev| prev <= high && price > high);
                 if crossed && state.buy_price.is_none() {
-                    state.high_52w = Some(price);
                     state.buy_price = Some(price);
                     state.prev_price = Some(price);
                     return Signal::Buy {
@@ -182,9 +175,6 @@ impl Strategy for FiftyTwoWeekHighStrategy {
                         ),
                     };
                 }
-                if price > high {
-                    state.high_52w = Some(price);
-                }
                 Signal::Hold
             }
         };
@@ -193,19 +183,41 @@ impl Strategy for FiftyTwoWeekHighStrategy {
         signal
     }
 
+    fn on_trading_day_start(&mut self, symbol: &str, _open: u64) {
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        self.states
+            .entry(symbol.to_string())
+            .or_default()
+            .awaiting_daily_completion = true;
+    }
+
+    fn on_completed_candle(&mut self, symbol: &str, candle: &OhlcCandle) {
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        let Some(state) = self.states.get_mut(symbol) else {
+            return;
+        };
+        if !state.awaiting_daily_completion {
+            return;
+        }
+        state.awaiting_daily_completion = false;
+        let required = bounded_window(self.params.lookback_days);
+        if state.completed_highs.len() == required {
+            state.completed_highs.pop_front();
+        }
+        state.completed_highs.push_back(candle.high);
+        state.refresh_high(required);
+        state.prev_price = Some(candle.close);
+    }
+
     fn sync_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
         if !self.config.targets_symbol(symbol) {
             return;
         }
-        let state = self
-            .states
-            .entry(symbol.to_string())
-            .or_insert(FiftyTwoWeekState {
-                prev_price: None,
-                high_52w: None,
-                history_bars: 0,
-                buy_price: None,
-            });
+        let state = self.states.entry(symbol.to_string()).or_default();
         state.buy_price = (quantity > 0).then_some(avg_price);
     }
 
@@ -709,40 +721,15 @@ impl Strategy for VolatilityExpansionStrategy {
 mod day_event_tests;
 
 #[cfg(test)]
+#[path = "breakout/high_tests.rs"]
+mod high_tests;
+
+#[cfg(test)]
 mod history_tests {
     use super::*;
 
     fn config(params: serde_json::Value) -> StrategyConfig {
         StrategyConfig::new("test", "test", true, vec!["SOXQ".into()], 1, params)
-    }
-
-    #[test]
-    fn fifty_two_week_requires_full_window_and_uses_last_completed_high_and_close() {
-        let mut strategy = FiftyTwoWeekHighStrategy::new(config(serde_json::json!({})));
-        let candle = OhlcCandle {
-            open: 100,
-            high: 200,
-            low: 90,
-            close: 100,
-        };
-        strategy.initialize_ohlc("SOXQ", &vec![candle; 251]);
-        let readiness = strategy.history_readiness("SOXQ").unwrap();
-        assert_eq!(readiness.required_bars, 252);
-        assert_eq!(readiness.available_bars, 251);
-        assert!(!readiness.ready);
-        assert!(matches!(strategy.on_tick("SOXQ", 300, 0), Signal::Hold));
-        let mut candles = vec![candle; 252];
-        candles[251].high = 300;
-        strategy.initialize_ohlc("SOXQ", &candles);
-        assert!(strategy.history_readiness("SOXQ").unwrap().ready);
-        assert_eq!(strategy.states["SOXQ"].high_52w, Some(300));
-        assert_eq!(strategy.states["SOXQ"].prev_price, Some(100));
-        assert!(matches!(
-            strategy.on_tick("SOXQ", 301, 0),
-            Signal::Buy { .. }
-        ));
-        strategy.initialize_ohlc("SOXQ", &candles);
-        assert_eq!(strategy.states["SOXQ"].buy_price, Some(301));
     }
 
     #[test]

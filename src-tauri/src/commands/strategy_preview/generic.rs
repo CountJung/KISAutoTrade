@@ -1,4 +1,5 @@
 use super::*;
+use crate::trading::simulation::run_backtest_with_history;
 use crate::trading::strategy::{build_strategy, initialize_strategy_warmup, Signal};
 
 #[derive(Debug, Deserialize)]
@@ -287,6 +288,17 @@ pub fn preview_strategy_from_candles(
     let mut evaluated_bars = 0;
 
     let mut signals = Vec::new();
+    let history_events = history_rows
+        .iter()
+        .map(|(candle, ohlc, _)| SimulationEvent {
+            time: candle.date.clone(),
+            chart_time: candle.date.clone(),
+            close_units: ohlc.close,
+            high_units: ohlc.high,
+            low_units: ohlc.low,
+            signal: None,
+        })
+        .collect::<Vec<_>>();
     let mut simulation_events = Vec::with_capacity(replay_rows.len());
     for (candle, ohlc, volume) in &replay_rows {
         if daily {
@@ -309,11 +321,12 @@ pub fn preview_strategy_from_candles(
             signal: (signal != Signal::Hold).then(|| signal.clone()),
         });
         if signal != Signal::Hold {
-            let partial_report = run_backtest(
+            let partial_report = run_backtest_with_history(
                 &input.strategy_id,
                 &symbol,
                 input.is_overseas,
                 assumptions.clone(),
+                &history_events,
                 &simulation_events,
             );
             let (held_quantity, average_price) =
@@ -397,11 +410,12 @@ pub fn preview_strategy_from_candles(
         input_hash,
         assessment: None,
     };
-    let backtest = run_backtest(
+    let backtest = run_backtest_with_history(
         &input.strategy_id,
         &symbol,
         input.is_overseas,
         assumptions,
+        &history_events,
         &simulation_events,
     );
     let final_readiness = strategy.history_readiness(&symbol);

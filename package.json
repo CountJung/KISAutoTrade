@@ -18,6 +18,8 @@
     "version:set": "node scripts/release-version.mjs --no-git",
     "release": "node scripts/release-version.mjs",
     "release:dry": "node scripts/release-version.mjs --dry-run",
+    "todo:render": "node scripts/render-todo.mjs",
+    "check:todo": "node scripts/render-todo.mjs --check",
     "check:fsd": "node scripts/check-fsd-imports.mjs",
     "check:project-map": "node scripts/project-map.mjs --check",
     "project-map:update": "node scripts/project-map.mjs --write",

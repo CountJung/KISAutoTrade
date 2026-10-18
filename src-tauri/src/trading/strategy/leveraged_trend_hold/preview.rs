@@ -1,5 +1,28 @@
 use super::*;
 
+#[derive(Default)]
+struct PreviewPosition {
+    quantity: u64,
+    entry_price: Option<u64>,
+    high_water: Option<u64>,
+    held_observations: usize,
+}
+
+impl PreviewPosition {
+    fn sync(&mut self, (quantity, average_price): (u64, u64), price: u64) {
+        let was_flat = self.quantity == 0;
+        self.quantity = quantity;
+        self.entry_price = (quantity > 0).then_some(average_price);
+        if quantity == 0 {
+            self.high_water = None;
+            self.held_observations = 0;
+        } else if was_flat {
+            self.high_water = Some(price);
+            self.held_observations = 0;
+        }
+    }
+}
+
 impl LeveragedTrendHoldStrategy {
     pub(super) fn preview_snapshot(
         &self,
@@ -84,6 +107,39 @@ impl LeveragedTrendHoldStrategy {
     where
         F: FnMut(&LeveragedTrendHoldPreviewSignal, &LeveragedTrendHoldTimedCandle) -> bool,
     {
+        // Compatibility for raw-signal callers: a successful callback fills the
+        // requested quantity at the observation price, as before.
+        let mut snapshot = (0, 0);
+        Self::preview_signals_with_position(
+            symbol,
+            params,
+            daily_candles,
+            intraday_candles,
+            |signal, candle| {
+                if execute(signal, candle) {
+                    snapshot = if signal.side == "buy" {
+                        (signal.quantity, signal.price_units)
+                    } else {
+                        (0, 0)
+                    };
+                }
+                snapshot
+            },
+        )
+    }
+
+    /// The callback returns the actual remaining quantity and average fill
+    /// price (strategy units) after every attempted order, including blocks.
+    pub fn preview_signals_with_position<F>(
+        symbol: &str,
+        params: LeveragedTrendHoldParams,
+        daily_candles: &[OhlcCandle],
+        intraday_candles: &[LeveragedTrendHoldTimedCandle],
+        mut execute: F,
+    ) -> Vec<LeveragedTrendHoldPreviewSignal>
+    where
+        F: FnMut(&LeveragedTrendHoldPreviewSignal, &LeveragedTrendHoldTimedCandle) -> (u64, u64),
+    {
         let normalized_symbol = symbol.trim().to_uppercase();
         if normalized_symbol.is_empty() || intraday_candles.is_empty() {
             return Vec::new();
@@ -135,10 +191,7 @@ impl LeveragedTrendHoldStrategy {
         strategy.states.insert(normalized_symbol.clone(), state);
 
         let mut signals = Vec::new();
-        let mut in_position = false;
-        let mut entry_price: Option<u64> = None;
-        let mut high_water: Option<u64> = None;
-        let mut held_observations = 0usize;
+        let mut position = PreviewPosition::default();
 
         for timed in intraday_candles {
             let price = timed.candle.close;
@@ -159,13 +212,13 @@ impl LeveragedTrendHoldStrategy {
 
             strategy.update_bollinger_candle(&normalized_symbol, timed.candle, true);
 
-            if in_position {
-                let high = high_water.unwrap_or(price).max(price);
-                high_water = Some(high);
-                held_observations = held_observations.saturating_add(1);
-                if let Some(reason) = entry_price.and_then(|entry| {
+            if position.quantity > 0 {
+                let high = position.high_water.unwrap_or(price).max(price);
+                position.high_water = Some(high);
+                position.held_observations = position.held_observations.saturating_add(1);
+                if let Some(reason) = position.entry_price.and_then(|entry| {
                     strategy
-                        .initial_risk_exit_reason(price, entry, high, held_observations)
+                        .initial_risk_exit_reason(price, entry, high, position.held_observations)
                         .or_else(|| {
                             strategy.bollinger_exit_reason(&normalized_symbol, price, entry)
                         })
@@ -175,26 +228,20 @@ impl LeveragedTrendHoldStrategy {
                         "sell",
                         &normalized_symbol,
                         price,
-                        quantity,
+                        position.quantity,
                         reason,
                     );
-                    let filled = execute(&signal, timed);
+                    position.sync(execute(&signal, timed), price);
                     signals.push(signal);
-                    if filled {
-                        in_position = false;
-                        entry_price = None;
-                        high_water = None;
-                        held_observations = 0;
-                    }
                     continue;
                 }
-                if let Some(reason) = entry_price.and_then(|entry| {
+                if let Some(reason) = position.entry_price.and_then(|entry| {
                     strategy.protection_exit_reason(
                         &normalized_symbol,
                         price,
                         entry,
                         high,
-                        held_observations,
+                        position.held_observations,
                     )
                 }) {
                     let signal = strategy.preview_signal(
@@ -202,17 +249,11 @@ impl LeveragedTrendHoldStrategy {
                         "sell",
                         &normalized_symbol,
                         price,
-                        quantity,
+                        position.quantity,
                         reason,
                     );
-                    let filled = execute(&signal, timed);
+                    position.sync(execute(&signal, timed), price);
                     signals.push(signal);
-                    if filled {
-                        in_position = false;
-                        entry_price = None;
-                        high_water = None;
-                        held_observations = 0;
-                    }
                     continue;
                 }
                 if let Some(mins) = Self::minute_of_day_from_time(&timed.time) {
@@ -227,19 +268,13 @@ impl LeveragedTrendHoldStrategy {
                                 "sell",
                                 &normalized_symbol,
                                 price,
-                                quantity,
+                                position.quantity,
                                 format!(
                                     "LeveragedTrendHold 장마감 청산: 마감 {minutes_to_close}분 전"
                                 ),
                             );
-                            let filled = execute(&signal, timed);
+                            position.sync(execute(&signal, timed), price);
                             signals.push(signal);
-                            if filled {
-                                in_position = false;
-                                entry_price = None;
-                                high_water = None;
-                                held_observations = 0;
-                            }
                         }
                     }
                 }
@@ -275,14 +310,8 @@ impl LeveragedTrendHoldStrategy {
                         Self::rapid_rebound_indicator_label(&snap)
                     ),
                 );
-                let filled = execute(&signal, timed);
+                position.sync(execute(&signal, timed), price);
                 signals.push(signal);
-                if filled {
-                    in_position = true;
-                    entry_price = Some(price);
-                    high_water = Some(price);
-                    held_observations = 0;
-                }
                 continue;
             }
 
@@ -304,14 +333,8 @@ impl LeveragedTrendHoldStrategy {
                             snap.bullish_count_3
                         ),
                     );
-                    let filled = execute(&signal, timed);
+                    position.sync(execute(&signal, timed), price);
                     signals.push(signal);
-                    if filled {
-                        in_position = true;
-                        entry_price = Some(price);
-                        high_water = Some(price);
-                        held_observations = 0;
-                    }
                     continue;
                 }
             }
@@ -331,14 +354,8 @@ impl LeveragedTrendHoldStrategy {
                         Self::rebound_indicator_label(&snap)
                     ),
                 );
-                let filled = execute(&signal, timed);
+                position.sync(execute(&signal, timed), price);
                 signals.push(signal);
-                if filled {
-                    in_position = true;
-                    entry_price = Some(price);
-                    high_water = Some(price);
-                    held_observations = 0;
-                }
             }
         }
 

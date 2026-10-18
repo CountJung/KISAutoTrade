@@ -5,8 +5,10 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Grid from '@mui/material/Grid'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
+import Switch from '@mui/material/Switch'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
@@ -116,6 +118,26 @@ export function SimulationAssumptionsEditor({ value, onChange, disabled }: Assum
           </Grid>
         ))}
       </Grid>
+      <FormControlLabel
+        control={<Switch checked={value.volatilitySizingEnabled} disabled={disabled} onChange={(event) => onChange({ ...value, volatilitySizingEnabled: event.target.checked })} />}
+        label="백테스트 ATR 기반 수량 산정"
+      />
+      {value.volatilitySizingEnabled && (
+        <Grid container spacing={1.25}>
+          <Grid item xs={12} sm={6}>
+            <TextField size="small" type="number" label="거래당 위험(bps)" value={value.riskPerTradeBps} onChange={(event) => updateNumber('riskPerTradeBps', Number(event.target.value))} disabled={disabled} fullWidth inputProps={{ min: 0, max: 10000, step: 1 }} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField size="small" type="number" label="ATR 손절 배수" value={value.atrStopMultiplier} onChange={(event) => updateNumber('atrStopMultiplier', Number(event.target.value))} disabled={disabled} fullWidth inputProps={{ min: 0.1, max: 20, step: 0.1 }} />
+          </Grid>
+          <Grid item xs={12}>
+            <Typography variant="caption" color="text.secondary">
+              이 백테스트에만 적용합니다. 같은 주기의 관측 15봉으로 이전 종가를 포함한 True Range 14개를 준비합니다.
+              자료 부족 또는 ATR 0이면 신규 매수를 차단하며, 보유분 매도는 ATR 준비로 차단하지 않습니다. 누락 봉을 보간하지 않습니다.
+            </Typography>
+          </Grid>
+        </Grid>
+      )}
       <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
         신호 수와 별도로 공통 cooldown·손절 재진입 금지·포지션 비중·비용·현금 조건을 통과한 주문/체결만 성과에 반영합니다.
       </Typography>
@@ -173,6 +195,34 @@ function EquityCurve({ report }: { report: BacktestReport }) {
         <polyline points={polyline} fill="none" stroke="currentColor" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
       </svg>
     </Box>
+  )
+}
+
+function AtrPreparationNotice({ report }: { report: BacktestReport }) {
+  if (!report.assumptions.volatilitySizingEnabled) return null
+  const preparation = report.atrPreparation
+  if (!preparation) {
+    return (
+      <Alert severity="warning" data-testid="backtest-atr-preparation">
+        이전 응답에는 ATR 준비 정보가 없습니다. ATR 기반 수량 산정의 준비 여부를 확인하려면 다시 계산하세요.
+      </Alert>
+    )
+  }
+  const hadUnreadyBars = !preparation.readyAtStart || !preparation.readyAtEnd || preparation.unreadyEvaluationBars > 0
+  return (
+    <Alert severity={hadUnreadyBars ? 'warning' : 'info'} data-testid="backtest-atr-preparation">
+      <Typography variant="body2" fontWeight={700}>ATR 기반 수량 산정 준비</Typography>
+      <Typography variant="body2">
+        ATR 기간 {preparation.period} · 사전 관측 {preparation.historyBars}봉 · 시작 {preparation.readyAtStart ? '준비' : '미준비'} · 종료 {preparation.readyAtEnd ? '준비' : '미준비'}
+      </Typography>
+      <Typography variant="body2">
+        ATR 미준비 평가 {preparation.unreadyEvaluationBars}봉 · 최초 준비 {preparation.firstReadyTime ?? '확인되지 않음'}
+      </Typography>
+      <Typography variant="caption" display="block">
+        전략 지표 준비 상태와 별도입니다. 자료 부족 또는 ATR 0이면 신규 매수를 차단하며 보유분 매도는 ATR 준비로 차단하지 않습니다.
+        True Range는 이전 종가와 관측 OHLC로 계산하고 누락 봉은 보간하지 않습니다.
+      </Typography>
+    </Alert>
   )
 }
 
@@ -316,6 +366,7 @@ export function StrategyResearchResults({
 
       {assessmentNotice}
       {metadata}
+      <AtrPreparationNotice report={report} />
 
       <Alert severity="info" sx={{ py: 0.5 }}>
         봉 종가 replay와 실제 10초 tick의 시간축을 분리 표시합니다. deterministic/무미래참조 fixture를 사용하지만 봉 내부 가격 경로와 provider pending·체결 지연은 재현하지 않으며, 슬리피지는 체결가격 영향만 근사합니다.

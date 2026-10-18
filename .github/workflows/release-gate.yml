@@ -28,6 +28,7 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run check:fsd
       - run: npm run check:project-map
+      - run: npm run check:todo
 
   rust:
     runs-on: ubuntu-latest
@@ -53,6 +54,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
+      - run: node --test scripts/render-todo.test.mjs
       - run: npm run test:e2e
       - name: Upload Playwright report on failure
         if: failure()

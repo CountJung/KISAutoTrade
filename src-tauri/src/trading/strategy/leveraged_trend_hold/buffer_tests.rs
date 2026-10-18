@@ -242,3 +242,98 @@ fn failed_sell_feedback_keeps_actual_position_for_next_risk_exit() {
         vec!["buy", "sell", "sell"]
     );
 }
+
+#[test]
+fn preview_sells_actual_filled_quantity_when_sizing_expands_or_reduces_the_request() {
+    for actual in [2, 9] {
+        let mut p = LeveragedTrendHoldParams {
+            rapid_rebound_enabled: true,
+            rapid_rebound_lookback_ticks: 4,
+            ..params()
+        };
+        p.entries[0].quantity = 5;
+        let signals = LeveragedTrendHoldStrategy::preview_signals_with_position(
+            "KORU",
+            p,
+            &[],
+            &timed(&[100, 96, 97, 98, 90]),
+            |signal, _| {
+                if signal.side == "buy" {
+                    (actual, 98)
+                } else {
+                    (0, 0)
+                }
+            },
+        );
+        assert_eq!(signals[0].side, "buy");
+        assert_eq!(signals[0].quantity, 5);
+        assert_eq!(signals[1].side, "sell");
+        assert_eq!(signals[1].quantity, actual);
+    }
+}
+
+#[test]
+fn partial_exit_snapshot_keeps_the_remaining_quantity_under_risk_management() {
+    let p = LeveragedTrendHoldParams {
+        rapid_rebound_enabled: true,
+        rapid_rebound_lookback_ticks: 4,
+        ..params()
+    };
+    let mut sells = 0;
+    let signals = LeveragedTrendHoldStrategy::preview_signals_with_position(
+        "KORU",
+        p,
+        &[],
+        &timed(&[100, 96, 97, 98, 90, 89]),
+        |signal, _| {
+            if signal.side == "buy" {
+                return (9, 98);
+            }
+            sells += 1;
+            if sells == 1 {
+                (4, 98)
+            } else {
+                (0, 0)
+            }
+        },
+    );
+    assert_eq!(
+        signals.iter().map(|s| s.side.as_str()).collect::<Vec<_>>(),
+        ["buy", "sell", "sell"]
+    );
+    assert_eq!(signals[1].quantity, 9);
+    assert_eq!(signals[2].quantity, 4);
+}
+
+#[test]
+fn average_fill_price_drives_preview_stop_even_when_observation_price_rises() {
+    let p = LeveragedTrendHoldParams {
+        rapid_rebound_enabled: true,
+        rapid_rebound_lookback_ticks: 4,
+        ..params()
+    };
+    let observations = timed(&[100, 96, 97, 98, 99]);
+    let baseline = LeveragedTrendHoldStrategy::preview_signals_with_execution(
+        "KORU",
+        p.clone(),
+        &[],
+        &observations,
+        |_, _| true,
+    );
+    let actual = LeveragedTrendHoldStrategy::preview_signals_with_position(
+        "KORU",
+        p,
+        &[],
+        &observations,
+        |signal, _| {
+            if signal.side == "buy" {
+                (3, 110)
+            } else {
+                (0, 0)
+            }
+        },
+    );
+    assert!(baseline.iter().all(|s| s.side == "buy"));
+    assert_eq!(actual.last().unwrap().side, "sell");
+    assert_eq!(actual.last().unwrap().quantity, 3);
+}

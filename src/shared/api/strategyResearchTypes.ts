@@ -97,6 +97,17 @@ export interface BacktestReport {
   trades: BacktestTrade[]
   equityCurve: EquityPoint[]
   overfitWarning: string | null
+  atrPreparation?: BacktestAtrPreparation
+}
+
+export interface BacktestAtrPreparation {
+  period: number
+  historyBars: number
+  readyAtStart: boolean
+  readyAtEnd: boolean
+  firstReadyTime: string | null
+  unreadyEvaluationBars: number
+  rangePolicy: 'observedBarsWithPreviousCloseNoInterpolation'
 }
 
 export interface StrategyExperimentSnapshot {

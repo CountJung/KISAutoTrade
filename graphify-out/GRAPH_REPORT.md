@@ -1,16 +1,16 @@
 # Graph Report - KISAutoTrade  (2026-10-18)
 
 ## Corpus Check
-- 225 files · ~173,996 words
+- 230 files · ~178,016 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 3809 nodes · 6863 edges · 715 communities (151 shown, 564 thin omitted)
-- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 338 edges (avg confidence: 0.8)
+- 3878 nodes · 7020 edges · 720 communities (156 shown, 564 thin omitted)
+- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 343 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `cd353899`
+- Built from commit: `694fa149`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -709,49 +709,56 @@
 - Result
 - String
 - Vec
+- buffer_tests.rs
+- high_tests.rs
+- LeveragedTrendHoldStrategy
+- package.json
+- vite
+- preview_strategy
 - kis-auto-trade
 
 ## God Nodes (most connected - your core abstractions)
 1. `invoke()` - 91 edges
-2. `StrategyConfig` - 75 edges
+2. `StrategyConfig` - 76 edges
 3. `ServerState` - 47 edges
 4. `OrderManager` - 42 edges
 5. `TossOpenApiClient` - 39 edges
 6. `RiskManager` - 38 edges
-7. `TossBrokerAdapter` - 34 edges
-8. `DatabaseManager` - 33 edges
-9. `preview_strategy_from_candles()` - 32 edges
-10. `OhlcCandle` - 32 edges
+7. `OhlcCandle` - 36 edges
+8. `TossBrokerAdapter` - 34 edges
+9. `DatabaseManager` - 33 edges
+10. `preview_strategy_from_candles()` - 32 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `default_place_order_returns_unsupported_with_broker_id()` --calls--> `BrokerQuantity`  [INFERRED]
   src-tauri/src/broker/adapter.rs → src-tauri/src/broker/domain.rs
-- `maps_holding_to_broker_domain()` --calls--> `BrokerAccountId`  [INFERRED]
-  src-tauri/src/broker/toss/tests.rs → src-tauri/src/broker/domain.rs
 - `format_toss_error()` --calls--> `body_snippet()`  [INFERRED]
   src-tauri/src/broker/toss/error.rs → src-tauri/src/broker/toss/http.rs
 - `blocked_buy_is_fed_back_before_the_next_raw_signal()` --calls--> `preview_strategy_from_candles()`  [INFERRED]
   src-tauri/src/commands/strategy_preview/tests.rs → src-tauri/src/commands/strategy_preview/generic.rs
 - `future_candle_change_does_not_change_prior_replay_signals()` --calls--> `preview_strategy_from_candles()`  [INFERRED]
   src-tauri/src/commands/strategy_preview/tests.rs → src-tauri/src/commands/strategy_preview/generic.rs
+- `run_toss_connection_diagnostic()` --calls--> `BrokerAccountId`  [INFERRED]
+  src-tauri/src/commands/toss.rs → src-tauri/src/broker/domain.rs
 
 ## Import Cycles
 - 1-file cycle: `src-tauri/src/trading/simulation/assessment.rs -> src-tauri/src/trading/simulation/assessment.rs`
 - 2-file cycle: `src-tauri/src/server/mod.rs -> src-tauri/src/server/profiles.rs -> src-tauri/src/server/mod.rs`
+- 2-file cycle: `src-tauri/src/trading/simulation.rs -> src-tauri/src/trading/simulation/atr.rs -> src-tauri/src/trading/simulation.rs`
 
-## Communities (715 total, 564 thin omitted)
+## Communities (720 total, 564 thin omitted)
 
 ### Community 0 - "leveraged_trend_hold.rs"
-Cohesion: 0.07
-Nodes (23): config_state_roundtrip_restores_all_settings(), consecutive_loss_block_only_clears_after_profit(), consecutive_loss_blocks_are_isolated_by_broker_account_scope(), daily_buy_order_limit_is_disabled_even_after_submission_count_increases(), daily_order_limit_isolated_by_broker_account_scope(), daily_sell_order_limit_blocks_after_submission_count_reaches_limit(), DailyOrderCountEntry, DailyOrderSide (+15 more)
+Cohesion: 0.06
+Nodes (24): RiskStore, config_state_roundtrip_restores_all_settings(), consecutive_loss_block_only_clears_after_profit(), consecutive_loss_blocks_are_isolated_by_broker_account_scope(), daily_buy_order_limit_is_disabled_even_after_submission_count_increases(), daily_order_limit_isolated_by_broker_account_scope(), daily_sell_order_limit_blocks_after_submission_count_reaches_limit(), DailyOrderCountEntry (+16 more)
 
 ### Community 1 - "simulation.rs"
 Cohesion: 0.04
-Nodes (88): handleLookupTossAccounts(), handleSubmit(), activateEmergencyStop(), addProfile(), checkConfig(), checkForUpdate(), checkTossOrderPreflight(), checkTossProfileConnection() (+80 more)
+Nodes (89): handleLookupTossAccounts(), handleSubmit(), activateEmergencyStop(), addProfile(), checkConfig(), checkForUpdate(), checkTossOrderPreflight(), checkTossProfileConnection() (+81 more)
 
 ### Community 2 - "hooks.ts"
-Cohesion: 0.09
-Nodes (28): ProfileFormState, BacktestPhase, BacktestReport, BacktestSummary, BacktestTrade, EquityPoint, LeveragedTrendHoldPreviewInput, LeveragedTrendHoldPreviewView (+20 more)
+Cohesion: 0.14
+Nodes (18): ProfileFormState, BacktestPhase, BacktestSummary, BacktestTrade, EquityPoint, LeveragedTrendHoldPreviewInput, LeveragedTrendHoldPreviewView, ReplayAssessment (+10 more)
 
 ### Community 3 - "shared/api/commands.ts"
 Cohesion: 0.09
@@ -762,31 +769,31 @@ Cohesion: 0.04
 Nodes (64): frontendLogger, OVERSEAS_CHART_PRESETS, AppLogEntry, BalanceResult, BalanceSummary, BrokerCurrency, BrokerMarket, BrokerMoneyView (+56 more)
 
 ### Community 5 - "commands/trading.rs"
-Cohesion: 0.12
-Nodes (33): useActivateEmergencyStop(), useAppConfig(), useBalance(), useBrokerHoldings(), useCheckConfig(), useClearBuySuspension(), useClearEmergencyStop(), useExchangeRate() (+25 more)
+Cohesion: 0.10
+Nodes (36): useActivateEmergencyStop(), useAppConfig(), useBalance(), useBrokerHoldings(), useCheckConfig(), useClearBuySuspension(), useClearEmergencyStop(), useExchangeRate() (+28 more)
 
 ### Community 6 - "ConsecutiveMoveStrategy"
 Cohesion: 0.05
-Nodes (20): config(), fifty_two_week_requires_full_window_and_uses_last_completed_high_and_close(), FiftyTwoWeekHighParams, FiftyTwoWeekHighStrategy, FiftyTwoWeekState, Default, HashMap, Option (+12 more)
+Nodes (20): config(), FiftyTwoWeekHighParams, FiftyTwoWeekHighStrategy, FiftyTwoWeekState, Default, HashMap, Option, Self (+12 more)
 
 ### Community 7 - "leveragedTrendHoldEditorPanel.tsx"
 Cohesion: 0.06
-Nodes (21): config(), deviation_counts_current_price_as_last_required_observation(), deviation_history_is_ready_before_first_evaluation_and_bounded(), DeviationParams, DeviationStrategy, momentum_counts_first_comparison_but_excludes_seed_prices(), momentum_history_does_not_create_or_erase_order_state(), MomentumParams (+13 more)
+Nodes (20): config(), deviation_counts_current_price_as_last_required_observation(), deviation_history_is_ready_before_first_evaluation_and_bounded(), DeviationParams, DeviationStrategy, momentum_counts_first_comparison_but_excludes_seed_prices(), momentum_history_does_not_create_or_erase_order_state(), MomentumParams (+12 more)
 
 ### Community 8 - "PositionTracker"
 Cohesion: 0.06
-Nodes (25): initialize_strategy_warmup(), config(), daily(), MeanReversionParams, MeanReversionState, MeanReversionStrategy, Default, HashMap (+17 more)
+Nodes (26): initialize_strategy_warmup(), Send, Sync, Strategy, config(), daily(), MeanReversionParams, MeanReversionState (+18 more)
 
 ### Community 9 - "ui/AppShell.tsx"
 Cohesion: 0.07
 Nodes (29): OverseasPriceResponse, RequestBuilder, kis_http_client(), kis_read_min_interval(), KisOrderRejected, KisRestClient, read_kis_response_text(), BalanceItem (+21 more)
 
 ### Community 10 - "OrderManager"
-Cohesion: 0.04
-Nodes (47): devDependencies, @playwright/test, @tauri-apps/cli, @types/react, @types/react-dom, @types/react-grid-layout, typescript, vite (+39 more)
+Cohesion: 0.08
+Nodes (25): scripts, build, build:app, build:app:debug, build:web, check:fsd, check:graphify, check:lockfiles (+17 more)
 
 ### Community 11 - "submission.rs"
-Cohesion: 0.10
+Cohesion: 0.11
 Nodes (12): queryClient, dashboardRoute, historyRoute, logRoute, Register, rootRoute, router, routeTree (+4 more)
 
 ### Community 12 - "dashboard/ui/Page.tsx"
@@ -798,7 +805,7 @@ Cohesion: 0.11
 Nodes (26): get_active_toss_calendar_override(), get_toss_chart_data(), get_toss_chart_data_for_profile(), get_toss_market_calendar(), get_toss_market_calendar_for_profile(), get_toss_market_snapshot(), get_toss_market_snapshot_for_profile(), get_toss_stock_safety() (+18 more)
 
 ### Community 14 - "TossOpenApiClient"
-Cohesion: 0.20
+Cohesion: 0.21
 Nodes (5): MySqlPool, PgPool, DatabaseManager, DatabasePool, safe_export_path()
 
 ### Community 15 - "settings.rs"
@@ -811,7 +818,7 @@ Nodes (18): config(), consecutive_counts_current_price_and_uses_active_position_
 
 ### Community 17 - "BrokerSymbol"
 Cohesion: 0.15
-Nodes (19): broker_scope_serializes_with_camel_case_fields(), BrokerAccountId, BrokerClientOrderId, BrokerCurrency, BrokerHolding, BrokerId, BrokerMarket, BrokerMoney (+11 more)
+Nodes (20): broker_scope_serializes_with_camel_case_fields(), BrokerAccountId, BrokerClientOrderId, BrokerCurrency, BrokerHolding, BrokerId, BrokerMarket, BrokerMoney (+12 more)
 
 ### Community 18 - "RsiStrategy"
 Cohesion: 0.12
@@ -819,7 +826,7 @@ Nodes (5): TossOpenApiClient, validate_iso_date(), validate_toss_order_id(), val
 
 ### Community 19 - "fills.rs"
 Cohesion: 0.11
-Nodes (17): usePreviewLeveragedTrendHold(), BollingerControls(), boolParam(), EXCHANGE_SEARCH_ORDER, handleAddTarget(), handlePickerSelect(), handlePickerUsSearch(), LeveragedTrendHoldEditorPanel() (+9 more)
+Nodes (19): usePreviewLeveragedTrendHold(), BollingerControls(), boolParam(), EXCHANGE_SEARCH_ORDER, handleAddTarget(), handlePickerSelect(), handlePickerUsSearch(), LeveragedTrendHoldEditorPanel() (+11 more)
 
 ### Community 20 - "accounts.rs"
 Cohesion: 0.18
@@ -842,12 +849,12 @@ Cohesion: 0.05
 Nodes (40): icons/128x128@2x.png, icons/128x128.png, icons/32x32.png, icons/icon.icns, icons/icon.ico, Korean, app, security (+32 more)
 
 ### Community 25 - "RateLimitScheduler"
-Cohesion: 0.08
-Nodes (30): react, useBrokerRateLimitStatus(), useLogConfig(), useRefreshConfig(), useSaveWebConfig(), useSendTestDiscord(), useSetLogConfig(), useSetRefreshConfig() (+22 more)
+Cohesion: 0.09
+Nodes (29): react, useBrokerRateLimitStatus(), useLogConfig(), useRefreshConfig(), useSaveWebConfig(), useSendTestDiscord(), useSetLogConfig(), useSetRefreshConfig() (+21 more)
 
 ### Community 26 - "strategy/ui/Page.tsx"
-Cohesion: 0.09
-Nodes (16): live_tick_and_preview_emit_identical_signals_for_normalized_fixture(), Send, Sync, Strategy, StrategySignal, build_strategy(), live_high_excludes_unconfirmed_latest_bar_without_shortening_252_requirement(), Box (+8 more)
+Cohesion: 0.10
+Nodes (12): StrategySignal, build_strategy(), live_high_excludes_unconfirmed_latest_bar_without_shortening_252_requirement(), Box, BrokerId, Default, F, Option (+4 more)
 
 ### Community 27 - "commands/toss.rs"
 Cohesion: 0.12
@@ -858,8 +865,8 @@ Cohesion: 0.16
 Nodes (13): classify_token_response(), detect_trading_type(), DetectedTradingType, DetectTokenReq, DetectTradingTypeError, is_paper_key_rejected_by_real_domain(), is_real_key_rejected_by_paper_domain(), mentions_app_key() (+5 more)
 
 ### Community 29 - "ui/StockChart.tsx"
-Cohesion: 0.14
-Nodes (12): useAutoTradingBudget(), useUpdateAutoTradingBudget(), amount(), BudgetEditor(), getAutoTradingBudget(), AutoTradingBudgetInput, AutoTradingBudgetView, BudgetCurrencyView (+4 more)
+Cohesion: 0.15
+Nodes (10): useUpdateAutoTradingBudget(), amount(), BudgetEditor(), AutoTradingBudgetInput, AutoTradingBudgetView, BudgetCurrencyView, CmdError, UpdateAutoTradingBudgetInput (+2 more)
 
 ### Community 30 - "StrategyManager"
 Cohesion: 0.07
@@ -879,22 +886,22 @@ Nodes (23): UpdateInfo, AppConfigView, BrokerRateLimitScopeView, check_config(),
 
 ### Community 34 - "KisRestClient"
 Cohesion: 0.18
-Nodes (10): canUseTauriEvents(), useBackendEvents(), useUpdateCheck(), BOTTOM_NAV_ITEMS, handleMainScroll(), MainScrollbarDrag, observeMainScrollContent(), PendingMainScrollRestore (+2 more)
+Nodes (8): useUpdateCheck(), BOTTOM_NAV_ITEMS, handleMainScroll(), MainScrollbarDrag, observeMainScrollContent(), PendingMainScrollRestore, scheduleMainScrollbarUpdate(), updateMainScrollbar()
 
 ### Community 35 - "AccountProfile"
-Cohesion: 0.19
-Nodes (16): clearExperimentSlots(), compactSnapshot(), ExperimentScope, loadExperimentSlots(), normalizePart(), readIndex(), saveExperimentSlot(), storageKey() (+8 more)
+Cohesion: 0.17
+Nodes (17): clearExperimentSlots(), compactSnapshot(), ExperimentScope, loadExperimentSlots(), normalizePart(), readIndex(), saveExperimentSlot(), storageKey() (+9 more)
 
 ### Community 36 - "src/api/types.ts"
-Cohesion: 0.13
-Nodes (36): broker_candles_to_chart(), broker_candles_to_ohlc(), broker_candles_to_timed_ohlc(), broker_money_amount(), broker_money_to_strategy_units(), chart_amount_to_units(), chart_candle_to_ohlc(), daily_chart_time() (+28 more)
+Cohesion: 0.17
+Nodes (29): broker_candles_to_chart(), broker_candles_to_ohlc(), broker_candles_to_timed_ohlc(), broker_money_amount(), broker_money_to_strategy_units(), chart_amount_to_units(), chart_candle_to_ohlc(), daily_chart_time() (+21 more)
 
 ### Community 37 - "rest/types.rs"
 Cohesion: 0.13
 Nodes (10): DateRangeQuery, frontend_log_handler(), FrontendLogBody, kis_executed_handler(), set_archive_config_handler(), set_log_config_handler(), SetArchiveConfigBody, SetLogConfigBody (+2 more)
 
 ### Community 38 - "databaseManagementSection.tsx"
-Cohesion: 0.17
+Cohesion: 0.15
 Nodes (17): usePreviewStrategy(), handlePreview(), isDomesticSymbol(), KIS_INTERVALS, loadPreviewCandles(), OVERSEAS_EXCHANGES, PREVIEW_COUNTS, PreviewCount (+9 more)
 
 ### Community 39 - "DatabaseManager"
@@ -906,8 +913,8 @@ Cohesion: 0.15
 Nodes (12): KrxItem, KrxProxyItem, KrxProxySearchResponse, KrxResponse, NaverAcItem, NaverAcResponse, save_cache(), StockList (+4 more)
 
 ### Community 41 - "server/records.rs"
-Cohesion: 0.12
-Nodes (6): BrokerSymbol, BrokerWarning, maps_holding_to_broker_domain(), maps_toss_candle_to_broker_candle(), selects_price_response_case_insensitively(), validates_market_data_query_limits_before_request()
+Cohesion: 0.13
+Nodes (5): BrokerSymbol, BrokerWarning, maps_toss_candle_to_broker_candle(), selects_price_response_case_insensitively(), validates_market_data_query_limits_before_request()
 
 ### Community 42 - "StrategyConfig"
 Cohesion: 0.22
@@ -919,7 +926,7 @@ Nodes (11): DatabaseConfig, DatabaseConfigView, DatabaseProvider, DatabaseStatus
 
 ### Community 44 - "archive.rs"
 Cohesion: 0.06
-Nodes (59): useKisExecutedByRange(), useModifyTossOrder(), useOverseasExecutedByRange(), useOverseasPrice(), usePlaceOrder(), usePlaceOverseasOrder(), usePrice(), useTossMarketSnapshot() (+51 more)
+Nodes (60): useAutoTradingBudget(), useKisExecutedByRange(), useModifyTossOrder(), useOverseasExecutedByRange(), useOverseasPrice(), usePlaceOrder(), usePlaceOverseasOrder(), usePrice() (+52 more)
 
 ### Community 45 - "commands/records.rs"
 Cohesion: 0.27
@@ -966,8 +973,8 @@ Cohesion: 0.19
 Nodes (3): StockEntry, StockListStats, StockStore
 
 ### Community 56 - "logging/mod.rs"
-Cohesion: 0.17
-Nodes (29): apply_slippage(), BacktestPhaseView, BacktestReportView, BacktestSummaryView, BacktestTradeView, bps_cost(), current_equity(), EquityPointView (+21 more)
+Cohesion: 0.05
+Nodes (77): daily_diagnostic_never_evaluates_strategy_or_execution_even_with_intraday_input(), apply_slippage(), empty_minute_observations_are_not_evaluable(), ReplayAssessmentView, Self, String, Vec, AtrPreparationView (+69 more)
 
 ### Community 57 - "active_profile"
 Cohesion: 0.18
@@ -1002,12 +1009,12 @@ Cohesion: 0.22
 Nodes (6): clear_database_tables(), drop_database_tables(), ensure_trading_stopped(), export_database_to_json(), import_json_to_database(), set_storage_backend()
 
 ### Community 65 - "release-version.mjs"
-Cohesion: 0.33
-Nodes (8): useRecentLogs(), LEVEL_COLORS, Log(), LogLevel, clampNumber(), readStoredNumber(), writeStoredNumber(), AppShell()
+Cohesion: 0.48
+Nodes (6): canUseTauriEvents(), useBackendEvents(), clampNumber(), readStoredNumber(), writeStoredNumber(), AppShell()
 
 ### Community 66 - "MovingAverageCrossStrategy"
-Cohesion: 0.20
-Nodes (4): minute_replay_warmup_excludes_replay_day_and_future_daily_candles(), BrokerQuantity, KisBrokerAdapter, maps_kis_balance_item_to_broker_holding()
+Cohesion: 0.18
+Nodes (5): daily_diagnostic_contains_one_completed_bar_and_no_synthetic_entry_observation(), minute_replay_warmup_excludes_replay_day_and_future_daily_candles(), BrokerQuantity, KisBrokerAdapter, maps_kis_balance_item_to_broker_holding()
 
 ### Community 67 - "scripts"
 Cohesion: 0.27
@@ -1030,8 +1037,8 @@ Cohesion: 0.36
 Nodes (8): buy_preflight_adds_commission_and_blocks_when_cash_is_short(), buy_preflight_passes_when_required_cash_is_available(), evaluate_order_preflight(), format_money_amount(), OrderPreflightConstraints, OrderPreflightDecision, OrderPreflightInput, sell_preflight_blocks_when_sellable_quantity_is_short()
 
 ### Community 73 - "storage/database.rs"
-Cohesion: 0.28
-Nodes (4): SettingsState, createAppTheme(), getResolvedMode(), ThemeMode
+Cohesion: 0.24
+Nodes (5): SettingsState, useSettingsStore, createAppTheme(), getResolvedMode(), ThemeMode
 
 ### Community 74 - "KisWebSocketClient"
 Cohesion: 0.08
@@ -1050,8 +1057,8 @@ Cohesion: 0.32
 Nodes (4): keychain_test_dirs(), legacy_file_password_migrates_to_keychain_on_load(), save_config_stores_password_in_keychain_not_in_file(), save_input_with_password()
 
 ### Community 78 - "devDependencies"
-Cohesion: 0.43
-Nodes (6): chip(), hasProviderTrace(), parseProviderTraceText(), ProviderTrace, ProviderTraceChips(), shortValue()
+Cohesion: 0.29
+Nodes (10): useRecentLogs(), LEVEL_COLORS, Log(), LogLevel, chip(), hasProviderTrace(), parseProviderTraceText(), ProviderTrace (+2 more)
 
 ### Community 79 - "project-map.mjs"
 Cohesion: 0.38
@@ -1070,20 +1077,24 @@ Cohesion: 0.13
 Nodes (12): config(), initializer_restores_previous_averages_for_first_evaluation_cross(), insufficient_history_has_no_previous_long_average(), MaCrossParams, MaCrossState, MovingAverageCrossStrategy, Default, HashMap (+4 more)
 
 ### Community 83 - "KisBrokerAdapter"
-Cohesion: 0.10
-Nodes (29): useAddProfile(), useCheckTossProfileConnection(), useDeleteProfile(), useDetectProfileTradingType(), useDetectTradingType(), useListTossAccounts(), useListTossProfileAccounts(), useProfiles() (+21 more)
+Cohesion: 0.11
+Nodes (26): useAddProfile(), useCheckTossProfileConnection(), useDeleteProfile(), useDetectProfileTradingType(), useDetectTradingType(), useListTossAccounts(), useListTossProfileAccounts(), useSetActiveProfile() (+18 more)
 
 ### Community 84 - "support.rs"
 Cohesion: 0.48
 Nodes (6): calculate_atr(), apply_intraday_ohlc(), apply_ohlc_history(), broker_candles_to_ohlc(), broker_money_to_strategy_units(), initialize_active_strategy_history()
 
+### Community 86 - "broker/adapter.rs"
+Cohesion: 0.20
+Nodes (12): BacktestAtrPreparation, historyFixture(), mockApi(), MockOptions, mockResearchResult(), readyPreparation, strategy(), strategyEntries (+4 more)
+
 ### Community 87 - ".to_broker_holding"
-Cohesion: 0.33
+Cohesion: 0.40
 Nodes (3): LayoutResizer(), LayoutResizerProps, ResizeDirection
 
 ### Community 88 - "initialize_active_strategy_history"
-Cohesion: 0.14
-Nodes (33): LeveragedTrendHoldEntry, LeveragedTrendHoldStrategy, daily_context_cannot_prepare_minute_indicators_or_rebound(), daily_reinitialization_keeps_intraday_bollinger_and_actual_position(), failed_buy_feedback_does_not_create_phantom_position(), failed_sell_feedback_keeps_actual_position_for_next_risk_exit(), intraday_and_daily_context_buffers_have_independent_bounds(), params() (+25 more)
+Cohesion: 0.20
+Nodes (23): LeveragedTrendHoldEntry, LeveragedTrendHoldStrategy, buys_any_target_ticker_when_itself_trends_up(), buys_intraday_rebound_when_next_window_shows_buy_pressure(), buys_rapid_rebound_without_trend_snapshot_when_enabled(), downward_candles(), entry(), holds_failed_rebound_until_min_hold_observations_elapsed() (+15 more)
 
 ### Community 89 - "PendingOrderStore"
 Cohesion: 0.40
@@ -1122,8 +1133,8 @@ Cohesion: 0.67
 Nodes (3): copy_dir_all(), run(), install_database_manager()
 
 ### Community 100 - "verify-toss-openapi.mjs"
-Cohesion: 0.67
-Nodes (3): parse_replay_time(), DateTime, Local
+Cohesion: 0.13
+Nodes (15): devDependencies, @playwright/test, @tauri-apps/cli, @types/react, @types/react-dom, @types/react-grid-layout, typescript, @vitejs/plugin-react (+7 more)
 
 ### Community 101 - "OverseasExecutedOrder"
 Cohesion: 0.12
@@ -1138,7 +1149,7 @@ Cohesion: 0.09
 Nodes (22): @emotion/react, @emotion/styled, @mui/icons-material, @mui/material, dependencies, @emotion/react, @emotion/styled, @mui/icons-material (+14 more)
 
 ### Community 106 - "TossApiError"
-Cohesion: 0.20
+Cohesion: 0.19
 Nodes (17): account_less_scope_matches_any_account_of_same_broker(), default_currency(), default_trade_market(), json_roundtrip_preserves_broker_scope_and_legacy_defaults_to_none(), legacy_record_without_scope_counts_as_kis_only(), record(), BrokerId, Mutex (+9 more)
 
 ### Community 116 - "build.rs"
@@ -1174,12 +1185,12 @@ Cohesion: 0.22
 Nodes (11): BrokerPositionSnapshot, default_strategy_broker_id(), BrokerId, BrokerMarket, Into, Option, Self, String (+3 more)
 
 ### Community 138 - "KISAutoTrade 탐색 지도"
-Cohesion: 0.13
-Nodes (14): OhlcCandle, LeveragedTrendHoldTimedCandle, lth_default_qty(), LeveragedTrendHoldStrategy, F, LeveragedTrendHoldPreviewSignal, String, Vec (+6 more)
+Cohesion: 0.21
+Nodes (13): lth_preview_signals_for_interval(), F, LeveragedTrendHoldPreviewSignal, OhlcCandle, LeveragedTrendHoldTimedCandle, lth_default_qty(), LeveragedTrendHoldStrategy, F (+5 more)
 
 ### Community 139 - "CurrencyLedger"
-Cohesion: 0.29
-Nodes (6): LeveragedTrendHoldStrategy, Option, Vec, VecDeque, LeveragedTrendSnapshot, Option
+Cohesion: 0.23
+Nodes (7): LeveragedTrendHoldStrategy, Option, Vec, VecDeque, LeveragedTrendSnapshot, PreviewPosition, Option
 
 ### Community 141 - "modify_toss_order_for_profile"
 Cohesion: 0.19
@@ -1194,8 +1205,8 @@ Cohesion: 0.18
 Nodes (12): buildSnapshot(), fail(), listRepositoryFiles(), mode, parseMode(), REPOSITORY_ROOT, ROOT_CONFIGS, SCRIPT_DIR (+4 more)
 
 ### Community 148 - "Arc"
-Cohesion: 0.20
-Nodes (14): default_atr_stop_multiplier(), default_daily_loss_limit(), default_exchange_rate(), default_fee_bps(), default_in_sample_percent(), default_initial_capital(), default_max_position_ratio(), default_risk_per_trade_bps() (+6 more)
+Cohesion: 0.25
+Nodes (13): bodyHtml(), checkFreshness(), escapeHtml(), inlineMarkdown(), outputPath, parseTasks(), renderTodo(), root (+5 more)
 
 ### Community 153 - "ExecutedOrder"
 Cohesion: 0.20
@@ -1254,36 +1265,56 @@ Cohesion: 0.36
 Nodes (7): R, DatabaseArchiveStats, purge(), row_values(), stats(), trade_date(), trade_rows()
 
 ### Community 226 - "Into"
-Cohesion: 0.15
-Nodes (12): blocked_buy_is_fed_back_before_the_next_raw_signal(), candle(), daily_diagnostic_never_evaluates_strategy_or_execution_even_with_intraday_input(), daily_warmup_preview_uses_closes_and_excludes_future_bars(), future_candle_change_does_not_change_prior_replay_signals(), reproduction_hash_covers_ohlcv_and_order_quantity(), ChartCandle, empty_minute_observations_are_not_evaluable() (+4 more)
+Cohesion: 0.27
+Nodes (7): blocked_buy_is_fed_back_before_the_next_raw_signal(), candle(), daily_warmup_preview_uses_closes_and_excludes_future_bars(), future_candle_change_does_not_change_prior_replay_signals(), live_tick_and_preview_emit_identical_signals_for_normalized_fixture(), reproduction_hash_covers_ohlcv_and_order_quantity(), ChartCandle
 
 ### Community 227 - "Option"
-Cohesion: 0.28
-Nodes (8): SimulationEvent, daily_loss_and_consecutive_loss_state_roll_over_on_event_date(), deterministic_replay_applies_costs_and_separates_signals_from_fills(), event(), identical_fixture_has_identical_report_and_hash(), Option, sell_guard_uses_the_same_round_trip_cost_assumptions_as_settlement(), Signal
+Cohesion: 0.17
+Nodes (3): Signal, bounded_window(), bounded_window_with_extra()
 
 ### Community 245 - "StatusCode"
 Cohesion: 0.15
 Nodes (7): zustand, AccountState, useAccountStore, TradingState, TradingStatus, useTradingStore, zustand
 
+### Community 704 - "buffer_tests.rs"
+Cohesion: 0.32
+Nodes (13): average_fill_price_drives_preview_stop_even_when_observation_price_rises(), daily_context_cannot_prepare_minute_indicators_or_rebound(), daily_reinitialization_keeps_intraday_bollinger_and_actual_position(), failed_buy_feedback_does_not_create_phantom_position(), failed_sell_feedback_keeps_actual_position_for_next_risk_exit(), intraday_and_daily_context_buffers_have_independent_bounds(), params(), partial_exit_snapshot_keeps_the_remaining_quantity_under_risk_management() (+5 more)
+
+### Community 705 - "high_tests.rs"
+Cohesion: 0.36
+Nodes (12): bar(), complete_day(), completed_high_not_close_sets_next_reference_without_lookahead(), config(), fifty_two_week_requires_full_window_and_uses_last_completed_high_and_close(), initialization_keeps_last_window_and_daily_bookkeeping_is_symbol_scoped(), many_intraday_prices_and_intraday_initializers_do_not_age_daily_highs(), missing_history_becomes_ready_only_after_252_completed_daily_highs() (+4 more)
+
+### Community 706 - "LeveragedTrendHoldStrategy"
+Cohesion: 0.29
+Nodes (4): LeveragedTrendHoldStrategy, parse_hhmm(), Option, String
+
+### Community 707 - "package.json"
+Cohesion: 0.25
+Nodes (7): engines, node, npm, name, private, type, version
+
+### Community 709 - "preview_strategy"
+Cohesion: 0.67
+Nodes (3): preview_strategy(), StrategyPreviewInput, StrategyPreviewView
+
 ## Knowledge Gaps
-- **287 isolated node(s):** `name`, `private`, `version`, `type`, `node` (+282 more)
+- **296 isolated node(s):** `name`, `private`, `version`, `type`, `node` (+291 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **564 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `BrokerAccountId` connect `BrokerSymbol` to `leveraged_trend_hold.rs`, `shared/api/commands.ts`, `place_toss_order`, `conflicts.rs`, `DatabaseManager`, `server/records.rs`, `TossApiError`, `KisWebSocketClient`, `PriceConditionStrategy`, `build.rs`, `leveragedTrendHoldPreviewChart.tsx`, `security.rs`, `PendingOrderStore`, `compilerOptions`, `TradeStore`, `Vec`?**
-  _High betweenness centrality (0.065) - this node is a cross-community bridge._
-- **Why does `BrokerSymbol` connect `server/records.rs` to `MovingAverageCrossStrategy`, `scripts`, `src/api/types.ts`, `conflicts.rs`, `trading/ui/Page.tsx`, `PriceConditionStrategy`, `BrokerSymbol`, `support.rs`, `TradeStore`?**
-  _High betweenness centrality (0.048) - this node is a cross-community bridge._
-- **Why does `preview_leveraged_trend_hold_for_profile()` connect `src/api/types.ts` to `logging/mod.rs`, `server/records.rs`, `Into`, `commands/toss.rs`?**
-  _High betweenness centrality (0.043) - this node is a cross-community bridge._
+- **Why does `BrokerAccountId` connect `BrokerSymbol` to `leveraged_trend_hold.rs`, `shared/api/commands.ts`, `place_toss_order`, `conflicts.rs`, `DatabaseManager`, `TossApiError`, `KisWebSocketClient`, `PriceConditionStrategy`, `build.rs`, `leveragedTrendHoldPreviewChart.tsx`, `security.rs`, `PendingOrderStore`, `compilerOptions`, `TradeStore`, `Vec`?**
+  _High betweenness centrality (0.073) - this node is a cross-community bridge._
+- **Why does `ServerState` connect `TradeStore` to `strategy-configure/index.ts`?**
+  _High betweenness centrality (0.050) - this node is a cross-community bridge._
+- **Why does `StrategyConfig` connect `작업 기록: <짧은 제목>` to `high_tests.rs`, `ConsecutiveMoveStrategy`, `leveragedTrendHoldEditorPanel.tsx`, `PositionTracker`, `KISAutoTrade 검증 Harness 지도`, `Mutex`, `toss/types.rs`, `BrokerQuantity`, `.write_document`, `strategy/ui/Page.tsx`, `.load_sync`?**
+  _High betweenness centrality (0.047) - this node is a cross-community bridge._
 - **What connects `name`, `private`, `version` to the rest of the system?**
-  _287 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _296 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `leveraged_trend_hold.rs` be split into smaller, more focused modules?**
-  _Cohesion score 0.07344632768361582 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06331976481230213 - nodes in this community are weakly interconnected._
 - **Should `simulation.rs` be split into smaller, more focused modules?**
-  _Cohesion score 0.044194756554307116 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.04371184371184371 - nodes in this community are weakly interconnected._
 - **Should `hooks.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.08901515151515152 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.1368421052631579 - nodes in this community are weakly interconnected._

@@ -13,8 +13,11 @@ use super::{
 
 mod assessment;
 pub use assessment::ReplayAssessmentView;
+mod atr;
+pub use atr::AtrPreparationView;
+use atr::AtrWindow;
 
-pub const REPLAY_ENGINE_VERSION: &str = "strategy-replay-v7";
+pub const REPLAY_ENGINE_VERSION: &str = "strategy-replay-v8";
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -257,6 +260,7 @@ pub struct BacktestReportView {
     pub trades: Vec<BacktestTradeView>,
     pub equity_curve: Vec<EquityPointView>,
     pub overfit_warning: Option<String>,
+    pub atr_preparation: AtrPreparationView,
 }
 
 #[derive(Debug, Clone)]
@@ -271,6 +275,19 @@ pub fn run_backtest(
     symbol: &str,
     is_overseas: bool,
     assumptions: SimulationAssumptions,
+    events: &[SimulationEvent],
+) -> BacktestReportView {
+    run_backtest_with_history(strategy_id, symbol, is_overseas, assumptions, &[], events)
+}
+
+/// Seed risk indicators with the caller's validated, same-interval history.
+/// History contributes no orders, equity samples or evaluation-period returns.
+pub fn run_backtest_with_history(
+    strategy_id: &str,
+    symbol: &str,
+    is_overseas: bool,
+    assumptions: SimulationAssumptions,
+    history_events: &[SimulationEvent],
     events: &[SimulationEvent],
 ) -> BacktestReportView {
     let assumptions = assumptions.normalized(is_overseas);
@@ -311,7 +328,11 @@ pub fn run_backtest(
     let mut signal_count = 0usize;
     let mut eligible_count = 0usize;
     let mut filled_count = 0usize;
-    let mut atr_window = Vec::with_capacity(14);
+    let mut atr_window = AtrWindow::default();
+    for event in history_events {
+        atr_window.observe(event);
+    }
+    let mut atr_preparation = AtrWindow::preparation(history_events.len(), atr_window.ready());
 
     for (index, event) in events.iter().enumerate() {
         let event_time = parse_replay_time(&event.time);
@@ -320,15 +341,16 @@ pub fn run_backtest(
             // 비상정지는 다음 거래일 시작에 해제한다.
             risk.clear_emergency_stop();
         }
-        if event.high_units > 0 && event.low_units > 0 {
-            atr_window.push(event.high_units.saturating_sub(event.low_units));
-            if atr_window.len() > 14 {
-                atr_window.remove(0);
-            }
-            let atr = atr_window.iter().sum::<u64>() / atr_window.len() as u64;
-            if atr > 0 {
-                risk.set_symbol_atr(symbol, atr);
-            }
+        atr_window.observe(event);
+        if atr_window.ready() {
+            atr_preparation
+                .first_ready_time
+                .get_or_insert_with(|| event.time.clone());
+        } else {
+            atr_preparation.unready_evaluation_bars += 1;
+        }
+        if let Some(atr) = atr_window.value().filter(|value| *value > 0) {
+            risk.set_symbol_atr(symbol, atr);
         }
 
         let phase = phase_for_index(index, split_index, events.len()).to_string();
@@ -359,6 +381,23 @@ pub fn run_backtest(
             if blocked_reason.is_none() {
                 blocked_reason =
                     execution_block_reason(&risk, strategy_id, symbol, signal, position.as_ref());
+            }
+            if blocked_reason.is_none()
+                && assumptions.volatility_sizing_enabled
+                && matches!(signal, Signal::Buy { .. })
+                && assumptions.risk_per_trade_bps == 0
+            {
+                blocked_reason = Some("ATR 수량 산정 위험 예산 0bps: 신규 매수 불가".into());
+            }
+            if blocked_reason.is_none()
+                && assumptions.volatility_sizing_enabled
+                && matches!(signal, Signal::Buy { .. })
+                && !atr_window.value().is_some_and(|value| value > 0)
+            {
+                blocked_reason = Some(format!(
+                    "ATR(TR,14) 수량 산정 자료 부족 또는 변동폭 0: {} / 14개 true range",
+                    atr_window.available_ranges()
+                ));
             }
 
             let (side, requested_quantity, reason) = signal_parts(signal);
@@ -536,6 +575,7 @@ pub fn run_backtest(
         assumptions.initial_capital_krw,
     );
     let overfit_warning = overfit_warning(&phases);
+    atr_preparation.ready_at_end = atr_window.ready();
 
     BacktestReportView {
         assumptions: assumptions.clone(),
@@ -569,6 +609,7 @@ pub fn run_backtest(
         trades,
         equity_curve,
         overfit_warning,
+        atr_preparation,
     }
 }
 

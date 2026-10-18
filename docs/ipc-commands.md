@@ -93,9 +93,13 @@
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v7`, 전용 LTH는 `leveraged-trend-hold-v3`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v8`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
 전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
+
+v8 `BacktestReport.atrPreparation`은 `{period:14, historyBars, readyAtStart, readyAtEnd, firstReadyTime, unreadyEvaluationBars, rangePolicy:"observedBarsWithPreviousCloseNoInterpolation"}`다. 전략의 `preparation`과 별도이며 이전 close를 포함한 최근 TR14개를 사용한다. generic의 검증된 같은 간격 history만 지표를 준비하고 주문·손익에는 넣지 않는다. 분봉 LTH는 분봉 관측에서만 ATR을 준비한다. `volatilitySizingEnabled`의 기본 false는 유지하며, 활성화 시 미준비·0범위·0bps 위험예산 매수는 명시 차단한다. `atrPreparation`이 없는 보관/legacy 응답은 UI에서 준비 여부 미상으로 표시한다.
+
+전용 LTH v4의 실행 콜백은 실제 잔여 수량·평균 체결가 snapshot을 반환한다. ATR 수량 확대/축소와 슬리피지를 다음 청산 판단에 반영하고 부분매도·차단 뒤 잔여 포지션의 보호 상태를 유지한다. 기존 bool callback API는 요청수량·신호가격의 raw-signal 연구용 호환 wrapper로 유지한다. 일봉의 실행 callback 미호출과 평가 불가 계약은 동일하다.
 
 ## 거래 기록 / 통계
 

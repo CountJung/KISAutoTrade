@@ -26,6 +26,7 @@ cargo metadata --locked --format-version 1 --no-deps
 | Rust 전체 target check | `cargo check --workspace --all-targets --locked` | release-gate rust |
 | Rust lib tests | `cargo test --workspace --lib --locked` | release-gate rust |
 | lockfile 일관성 | `npm run check:lockfiles` | release-gate frontend |
+| 할일 HTML 원본 동기화 | `npm run check:todo` | release-gate frontend |
 | Web production build | `npm run build:web` | `package.json` |
 
 `cargo check`/`test`는 저장소 루트 workspace에서 실행한다. `src-tauri`에서 빠르게 확인할 때도 최종 보고에는 실행 위치와 명령을 정확히 적는다.
@@ -76,6 +77,8 @@ npx playwright test tests/e2e/strategy-scrollbar.spec.ts
 UI 변경과 직접 관련된 spec을 먼저 실행한 뒤 범위가 넓으면 전체 E2E를 실행한다. 실제 Tauri IPC·provider 주문 E2E로 오인하지 않는다.
 
 ## 6. 구조·생성물 검사
+
+할일 상태는 `docs/todo.md`가 원본이며 `npm run todo:render`로 `docs/todo.html`을 생성한다. `npm run check:todo`는 최신 여부, `node --test scripts/render-todo.test.mjs`는 열린 항목 보존·필터·검색·모바일·JavaScript 없는 읽기와 마크업 escaping을 실제 Chromium에서 검증한다. 후자는 CI e2e job에서 Chromium 설치 후 실행한다.
 
 ```bash
 npm run check:project-map

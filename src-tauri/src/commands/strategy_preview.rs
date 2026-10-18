@@ -14,7 +14,7 @@ pub use generic::{
     StrategyPreviewSignalView, StrategyPreviewView,
 };
 
-const LTH_PREVIEW_STRATEGY_VERSION: &str = "leveraged-trend-hold-v3";
+const LTH_PREVIEW_STRATEGY_VERSION: &str = "leveraged-trend-hold-v4";
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -315,12 +315,12 @@ fn lth_preview_signals_for_interval<F>(
     execute: F,
 ) -> Vec<LeveragedTrendHoldPreviewSignal>
 where
-    F: FnMut(&LeveragedTrendHoldPreviewSignal, &LeveragedTrendHoldTimedCandle) -> bool,
+    F: FnMut(&LeveragedTrendHoldPreviewSignal, &LeveragedTrendHoldTimedCandle) -> (u64, u64),
 {
     if interval != "1m" {
         return Vec::new();
     }
-    crate::trading::strategy::LeveragedTrendHoldStrategy::preview_signals_with_execution(
+    crate::trading::strategy::LeveragedTrendHoldStrategy::preview_signals_with_position(
         symbol,
         params,
         daily_context,
@@ -502,7 +502,7 @@ pub async fn preview_leveraged_trend_hold_for_profile(
         &timed,
         |preview_signal, _| {
             let Some(&signal_index) = event_index_by_time.get(&preview_signal.time) else {
-                return false;
+                return (0, 0);
             };
             while next_execution_index <= signal_index {
                 execution_events.push(base_execution_events[next_execution_index].clone());
@@ -531,10 +531,7 @@ pub async fn preview_leveraged_trend_hold_for_profile(
                 assumptions.clone(),
                 &execution_events,
             );
-            report
-                .trades
-                .last()
-                .is_some_and(|trade| trade.status == "filled")
+            report_position_snapshot(&report, entry_is_overseas)
         },
     );
     let mut signals_by_time = std::collections::HashMap::<String, Vec<Signal>>::new();

@@ -1,5 +1,116 @@
 use super::*;
 
+fn atr_history(count: usize) -> Vec<SimulationEvent> {
+    (1..=count)
+        .map(|day| SimulationEvent {
+            time: format!("202609{day:02}"),
+            chart_time: format!("202609{day:02}"),
+            close_units: 500,
+            high_units: 501,
+            low_units: 499,
+            // Warmup signals must never become evaluation orders.
+            signal: Some(Signal::Buy {
+                symbol: "005930".into(),
+                quantity: 1,
+                reason: "ignored history".into(),
+            }),
+        })
+        .collect()
+}
+
+fn atr_sizing_assumptions() -> SimulationAssumptions {
+    SimulationAssumptions {
+        initial_capital_krw: 1_000_000.0,
+        max_position_ratio: 1.0,
+        fee_bps: 0.0,
+        tax_bps: 0.0,
+        slippage_bps: 0.0,
+        risk_per_trade_bps: 100,
+        atr_stop_multiplier: 2.0,
+        volatility_sizing_enabled: true,
+        ..SimulationAssumptions::default()
+    }
+}
+
+fn flat_gap_entry() -> SimulationEvent {
+    SimulationEvent {
+        time: "20261001".into(),
+        chart_time: "20261001".into(),
+        close_units: 1_000,
+        high_units: 1_000,
+        low_units: 1_000,
+        signal: Some(Signal::Buy {
+            symbol: "005930".into(),
+            quantity: 1_000,
+            reason: "entry after gap".into(),
+        }),
+    }
+}
+
+#[test]
+fn atr_risk_uses_previous_history_close_and_evaluation_gap_without_trading_history() {
+    let report = run_backtest_with_history(
+        "test",
+        "005930",
+        false,
+        atr_sizing_assumptions(),
+        &atr_history(15),
+        &[flat_gap_entry()],
+    );
+    // (13 prior ranges * 2 + gap 500) / 14 = 37; 10,000 / (37 * 2) = 135.
+    assert_eq!(report.trades.len(), 1);
+    assert_eq!(report.trades[0].quantity, 135);
+    assert_eq!(report.trades[0].status, "filled");
+    assert_eq!(report.equity_curve.len(), 1);
+    assert_eq!(report.atr_preparation.history_bars, 15);
+    assert!(report.atr_preparation.ready_at_start);
+    assert!(report.atr_preparation.ready_at_end);
+    assert_eq!(report.atr_preparation.unready_evaluation_bars, 0);
+}
+
+#[test]
+fn atr_sizing_never_silently_uses_requested_quantity_when_ranges_are_missing() {
+    let report = run_backtest_with_history(
+        "test",
+        "005930",
+        false,
+        atr_sizing_assumptions(),
+        &atr_history(13),
+        &[flat_gap_entry()],
+    );
+    assert_eq!(report.trades[0].status, "blocked");
+    assert!(report.trades[0]
+        .blocked_reason
+        .as_deref()
+        .unwrap()
+        .contains("ATR(TR,14)"));
+    assert_eq!(report.summary.filled_order_count, 0);
+    assert!(!report.atr_preparation.ready_at_end);
+    assert_eq!(report.atr_preparation.unready_evaluation_bars, 1);
+}
+
+#[test]
+fn zero_atr_risk_budget_cannot_fall_back_to_requested_buy_quantity() {
+    let report = run_backtest_with_history(
+        "test",
+        "005930",
+        false,
+        SimulationAssumptions {
+            risk_per_trade_bps: 0,
+            ..atr_sizing_assumptions()
+        },
+        &atr_history(15),
+        &[flat_gap_entry()],
+    );
+    assert_eq!(report.summary.filled_order_count, 0);
+    assert_eq!(report.trades[0].status, "blocked");
+    assert!(report.trades[0]
+        .blocked_reason
+        .as_ref()
+        .unwrap()
+        .contains("위험 예산 0bps"));
+}
+
 fn event(time: &str, close: u64, signal: Option<Signal>) -> SimulationEvent {
     SimulationEvent {
         time: time.into(),
