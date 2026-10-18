@@ -30,7 +30,12 @@ async fn restart_rebuilds_order_counts_and_consecutive_losses_from_ledgers() {
         "Market".into(),
     )
     .with_strategy_id(Some("restart-strategy".into()))
-    .with_provider_trace("kis", Some("ORDER-1".into()), None, None)
+    .with_provider_trace(
+        "kis",
+        Some("ORDER-1".into()),
+        None,
+        Some("TTTC0801U".into()),
+    )
     .with_broker_scope(&scope);
     order.status = OrderStatus::Filled;
     order_store.append(order).await.expect("order ledger");
@@ -47,7 +52,13 @@ async fn restart_rebuilds_order_counts_and_consecutive_losses_from_ledgers() {
             Some("restart-strategy".into()),
             "loss".into(),
         )
-        .with_broker_scope(&scope);
+        .with_broker_scope(&scope)
+        .with_provider_trace(
+            Some("kis".into()),
+            Some("ORDER-1".into()),
+            None,
+            Some("TTTC0801U".into()),
+        );
         trade.realized_pnl_krw = Some(-10_000);
         trade_store.append(trade).await.expect("trade ledger");
     }
@@ -58,6 +69,7 @@ async fn restart_rebuilds_order_counts_and_consecutive_losses_from_ledgers() {
         &risk_manager,
         &risk_store,
         &scope,
+        false,
     )
     .await
     .expect("restore");

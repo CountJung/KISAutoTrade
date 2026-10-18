@@ -149,6 +149,7 @@ KISAutoTrade/
 │   │   ├── soxq-p1-04.md
 │   │   ├── soxq-p1-05.md
 │   │   ├── strategy-configuration-preservation-20261018.md
+│   │   ├── strategy-fill-ownership-20261018.md
 │   │   ├── strategy-review-20261018.md
 │   │   └── trading-module-split-20261018.md
 │   ├── ARCHITECTURE.md
@@ -437,6 +438,8 @@ KISAutoTrade/
 │   │   │   │   ├── preparation_tests.rs
 │   │   │   │   └── tests.rs
 │   │   │   ├── toss/
+│   │   │   │   ├── small_order/
+│   │   │   │   │   └── tests.rs
 │   │   │   │   └── small_order.rs
 │   │   │   ├── trading/
 │   │   │   │   ├── daemon/
@@ -450,6 +453,8 @@ KISAutoTrade/
 │   │   │   │   │   ├── jobs/
 │   │   │   │   │   │   └── tests.rs
 │   │   │   │   │   ├── jobs.rs
+│   │   │   │   │   └── tests.rs
+│   │   │   │   ├── risk_restore/
 │   │   │   │   │   └── tests.rs
 │   │   │   │   ├── balance.rs
 │   │   │   │   ├── daemon.rs
@@ -516,18 +521,38 @@ KISAutoTrade/
 │   │   │   ├── order/
 │   │   │   │   ├── configuration/
 │   │   │   │   │   └── tests.rs
+│   │   │   │   ├── feedback/
+│   │   │   │   │   └── tests.rs
 │   │   │   │   ├── fills/
+│   │   │   │   │   ├── collector/
+│   │   │   │   │   │   ├── notional/
+│   │   │   │   │   │   │   └── tests.rs
+│   │   │   │   │   │   └── notional.rs
+│   │   │   │   │   ├── ownership/
+│   │   │   │   │   │   └── tests.rs
 │   │   │   │   │   ├── reconciliation/
 │   │   │   │   │   │   └── tests.rs
 │   │   │   │   │   ├── collector.rs
+│   │   │   │   │   ├── ownership.rs
 │   │   │   │   │   ├── provider_mode.rs
 │   │   │   │   │   └── reconciliation.rs
 │   │   │   │   ├── holdings/
+│   │   │   │   │   ├── parse/
+│   │   │   │   │   │   └── tests.rs
 │   │   │   │   │   ├── tests/
 │   │   │   │   │   │   └── http.rs
 │   │   │   │   │   ├── fetch.rs
+│   │   │   │   │   ├── parse.rs
+│   │   │   │   │   └── tests.rs
+│   │   │   │   ├── ownership/
+│   │   │   │   │   ├── runtime/
+│   │   │   │   │   │   └── tests.rs
+│   │   │   │   │   ├── runtime.rs
 │   │   │   │   │   └── tests.rs
 │   │   │   │   ├── submission/
+│   │   │   │   │   ├── owned/
+│   │   │   │   │   │   └── tests.rs
+│   │   │   │   │   ├── owned.rs
 │   │   │   │   │   ├── positions.rs
 │   │   │   │   │   ├── prepare.rs
 │   │   │   │   │   ├── provider.rs
@@ -537,13 +562,19 @@ KISAutoTrade/
 │   │   │   │   ├── configuration.rs
 │   │   │   │   ├── conflicts.rs
 │   │   │   │   ├── execution_run.rs
+│   │   │   │   ├── feedback.rs
 │   │   │   │   ├── fills.rs
 │   │   │   │   ├── health.rs
 │   │   │   │   ├── holdings.rs
 │   │   │   │   ├── legacy.rs
+│   │   │   │   ├── ownership.rs
 │   │   │   │   ├── pending.rs
 │   │   │   │   ├── submission.rs
 │   │   │   │   └── test_support.rs
+│   │   │   ├── risk/
+│   │   │   │   ├── fill_accounting/
+│   │   │   │   │   └── tests.rs
+│   │   │   │   └── fill_accounting.rs
 │   │   │   ├── simulation/
 │   │   │   │   ├── assessment.rs
 │   │   │   │   ├── atr.rs
@@ -552,8 +583,10 @@ KISAutoTrade/
 │   │   │   │   ├── breakout/
 │   │   │   │   │   ├── day_event_tests.rs
 │   │   │   │   │   ├── high_tests.rs
+│   │   │   │   │   ├── live_feedback_tests.rs
 │   │   │   │   │   └── reconfigure_tests.rs
 │   │   │   │   ├── classic/
+│   │   │   │   │   ├── live_feedback_tests.rs
 │   │   │   │   │   └── reconfigure_tests.rs
 │   │   │   │   ├── leveraged_trend_hold/
 │   │   │   │   │   ├── bollinger.rs
@@ -561,6 +594,7 @@ KISAutoTrade/
 │   │   │   │   │   ├── exits.rs
 │   │   │   │   │   ├── indicators.rs
 │   │   │   │   │   ├── live.rs
+│   │   │   │   │   ├── live_feedback_tests.rs
 │   │   │   │   │   ├── preview.rs
 │   │   │   │   │   ├── reconfigure_tests.rs
 │   │   │   │   │   ├── session.rs
@@ -569,13 +603,17 @@ KISAutoTrade/
 │   │   │   │   │   └── reconfigure_tests.rs
 │   │   │   │   ├── manager/
 │   │   │   │   │   ├── configuration.rs
+│   │   │   │   │   ├── live_feedback_tests.rs
 │   │   │   │   │   ├── live_history.rs
 │   │   │   │   │   └── live_history_tests.rs
 │   │   │   │   ├── mean_trend/
+│   │   │   │   │   ├── live_feedback_tests.rs
 │   │   │   │   │   └── reconfigure_tests.rs
 │   │   │   │   ├── price_condition/
+│   │   │   │   │   ├── live_feedback_tests.rs
 │   │   │   │   │   └── reconfigure_tests.rs
 │   │   │   │   ├── sequence/
+│   │   │   │   │   ├── live_feedback_tests.rs
 │   │   │   │   │   └── reconfigure_tests.rs
 │   │   │   │   ├── breakout.rs
 │   │   │   │   ├── classic.rs
@@ -620,7 +658,8 @@ KISAutoTrade/
 │       ├── strategy-atr-readiness.spec.ts
 │       ├── strategy-configuration-errors.spec.ts
 │       ├── strategy-replay-assessment.spec.ts
-│       └── strategy-scrollbar.spec.ts
+│       ├── strategy-scrollbar.spec.ts
+│       └── toss-commission-ratio.spec.ts
 ├── .env.example
 ├── .gitignore
 ├── .graphifyignore
@@ -761,12 +800,14 @@ KISAutoTrade/
 | `commands/strategy_preview/preparation_tests.rs` | 동일 평가 기간, 사전자료 겹침·중복 입력 거부, 지표 준비 상태·실제 조건 평가봉 수와 사전자료 부족 fixture. generic LTH의 기본/접미 ID·간격·history 조합과 malformed 입력의 factory 이전 명시 거부 검증 |
 | `commands/strategy_preview/daily_event_tests.rs` | generic 일봉의 전일 조건·이전 범위, 실행 차단 피드백, 평가 중 준비, 미래 봉 변경 불변과 비일봉 거부 회귀 검증 |
 | `commands/toss.rs` | Toss accountSeq 조회, 연결 진단, 주문 전 preflight view facade, 접수 주문 목록 조회와 정정 command |
-| `commands/toss/small_order.rs` | 호환용 Toss 1주 소액매매 검증 endpoint. 실거래 동의/최종 확인/최대 허용금액/preflight/open-order scan 후 시장가 매수 제출과 주문·체결 기록 저장. 현재 UI는 일반 수동주문 경로를 사용 |
+| `commands/toss/small_order.rs` | 호환용 Toss 1주 소액매매 검증 endpoint. 실거래 동의/최종 확인/최대 허용금액/preflight/open-order scan 후 시장가 매수 제출. 즉시 체결은 원 주문 ID·종목·BUY·통화·정수 1주·명시 체결대금과 체결일자(미제공 시 주문일)를 확인해 일반 fill 경계에 전달하고 미확정 자료는 대조 대상으로 유지. 현재 UI는 일반 수동주문 경로를 사용 |
+| `commands/toss/small_order/tests.rs` | 원 주문과 다른 응답의 ID·종목·방향·통화·수량 거부, 금액 누락/실제 0수량 보류 및 주문가·평균가로 체결대금을 만들지 않는 회귀 fixture |
 | `commands/toss_market.rs` | Toss 시세 snapshot, 종목 유의사항, market-calendar override, candles chart command |
 | `commands/trading.rs` | 자동매매 상태/시작/정지·매수 정지 해제의 4개 IPC와 시작 순서·scope 검증을 조립하는 facade. daemon·잔고·위험 복원·히스토리 initializer의 기존 공개/내부 re-export 경로를 유지. 시작 준비 뒤 검증한 profile/client와 revision으로 실행 epoch를 게시하고 실행 플래그를 켠다. 정지는 실행과 일봉 generation을 무효화하며 예약·pending 추적은 보존. 상태에 완료 일봉 진단 포함 |
-| `commands/trading/positions.rs` | 활성 broker를 따라 KIS/Toss 실제 보유 수량·평균가를 전략 상태에 복원하고 broker별 보유 값 파싱을 담당. 고정 holdings query로 잠금 밖에서 조회한 뒤 manager → OrderManager 아래 KR/US tracker 게시 검증을 먼저 마치고 전략 상태를 복원 |
+| `commands/trading/positions.rs` | 활성 broker의 KIS/Toss 전체 잔고를 고정 holdings query로 조회·파싱하고 manager → OrderManager 아래 KR/US tracker에 게시. 전략 복원은 같은 gate에서 소유 원장의 exact 전략별 수량·metadata로 수행하며 계좌 총보유를 전체 전략에 broadcast하지 않음 |
 | `commands/trading/balance.rs` | KIS 국내/해외 및 Toss 계좌의 현금·평가잔고를 조회해 리스크 기준 총잔고를 KRW로 환산 |
-| `commands/trading/risk_restore.rs` | 실행 broker/account scope의 당일 체결·주문 ledger에서 실현손익·주문 횟수·전략/종목별 손익을 복원하고 runtime을 저장. 조회·저장 실패를 호출자에게 전달 |
+| `commands/trading/risk_restore.rs` | 실행 broker/account·투자 모드를 검증한 당일 체결·주문 ledger로 리스크 후보를 만들고 저장 성공 후 공개. 당일 체결 이벤트 영수증도 같은 durable trade 원본에서 재구성해 pending 재시도의 손익 중복 반영을 방지. KIS 모드 출처 불명·조회·저장 실패를 호출자에게 전달 |
+| `commands/trading/risk_restore/tests.rs` | 리스크 복원의 계좌·실전/모의 출처 격리, 실패 전후 기존 상태 보존과 이벤트 영수증 경계의 합성 회귀 fixture |
 | `commands/trading/history.rs` | 활성 전략의 broker별 과거 OHLC 조회·통화 단위 변환과 일봉/분봉 warmup dispatch. live 초기화용 `calculate_atr`를 소유하며 replay 전용 ATR 준비 모듈과 구분. 52주 전용 종목은 legacy seed를 생략하고 공유 종목의 다른 전략은 기존 seed를 받는다. Toss 실행 scope의 프로파일이 없으면 KIS로 대체하지 않고 초기화를 중단 |
 | `commands/trading/daemon.rs` | 영구 `run_trading_daemon`과 시세 polling 사이클, KIS/Toss 가격 소스·세션 판단·장 종료 대기·해외 거래소 조회 helper를 소유. 실행에 고정한 provider로 조회하고 fence로 오래된 잔고·quote·종목명·포지션 결과와 전략 복원을 폐기한다. 시장 대기 전 일봉 작업을 관리하고 tick 직전 시장 날짜 변경 재확인. facade의 기존 export를 통해 `lib.rs`에서 실행 |
 | `commands/trading/daemon/fence.rs` | running → StrategyManager → OrderManager 잠금 순서의 실행 snapshot 캡처·현재 context 검사. provider await는 잠금 밖에서 수행하고 전략 tick/복원은 현재 epoch·revision일 때만 적용. 잔고 동기화 상태·일 초기화도 실행 범위 검증 후 반영 |
@@ -778,12 +819,13 @@ KISAutoTrade/
 | `commands/strategy.rs` | 포지션 조회, 전략 목록/수정 IPC. 공통 `trading/configuration.rs`에 검증·저장·보유 상태 보존과 revision 게시를 위임하며 전략 view는 `trading/views.rs::build_strategy_view()` 재사용 |
 | `commands/risk.rs` | 리스크 설정/비상정지 IPC와 pending 주문 view |
 | `trading/strategy.rs` | 전략 facade. 공개 import 경로를 유지하면서 하위 전략 모듈을 re-export |
-| `trading/strategy/core.rs` | `Signal`, `StrategySignal`, `BrokerPositionSnapshot`, `StrategyConfig`, `HistoryReadiness`, `Strategy` trait와 live/preview 공통 `initialize_strategy_warmup()`. 일봉 OHLC 초기화 기본 훅은 종가를 historical initializer에 전달한다. replay 날짜 시작·완료봉 훅은 기본 no-op, 종가 평가 훅은 기존 `on_tick()` 위임이다. 준비·평가 가능 상태와 내부 보유 여부의 미지원 값은 `None`이다. 기본 false인 `reconfigure_preserving_position` opt-in으로 같은 ID/broker/account 설정 변경의 보유 상태 보존 계약 제공 |
-| `trading/strategy/manager.rs` | `StrategyManager`, `build_strategy()`, config 적용과 live warmup dispatch. legacy warmup의 최신 1봉 제외는 유지하되 새 52주 live 실행은 완료 페이지 경계로 준비. config 변경·복원·reset은 일봉 generation 무효화. 13개 전략은 같은 ID/scope 설정 변경 시 opt-in 훅으로 보유 상태와 유효한 관측을 보존한다. 프로파일 게시 경로는 같은 계좌 문자열이어도 새 인스턴스를 구성 |
+| `trading/strategy/core.rs` | `Signal`, `StrategySignal`, `BrokerPositionSnapshot`, `StrategyConfig`, `HistoryReadiness`, `Strategy` trait와 live/preview 공통 `initialize_strategy_warmup()`. live의 관측 평가·확인된 소유 수량·pending·미제출 신호 폐기·보호 metadata 훅을 replay와 구분한다. 일봉 OHLC 초기화 기본 훅은 종가를 historical initializer에 전달한다. replay 날짜 시작·완료봉 훅은 기본 no-op, 종가 평가 훅은 기존 `on_tick()` 위임이다. 준비·평가 가능 상태와 내부 보유 여부의 미지원 값은 `None`이다. 기본 false인 `reconfigure_preserving_position` opt-in으로 같은 ID/broker/account 설정 변경의 보유 상태 보존 계약 제공 |
+| `trading/strategy/manager.rs` | `StrategyManager`, `build_strategy()`, config 적용과 live warmup dispatch. live 관측·pending 신호 억제와 exact 전략/scope/시장 소유 피드백·metadata 훅을 연결한다. legacy warmup의 최신 1봉 제외는 유지하되 새 52주 live 실행은 완료 페이지 경계로 준비. config 변경·복원·reset은 일봉 generation 무효화. 13개 전략은 같은 ID/scope 설정 변경 시 opt-in 훅으로 보유 상태와 유효한 관측을 보존한다. 프로파일 게시 경로는 같은 계좌 문자열이어도 새 인스턴스를 구성 |
 | `trading/strategy/manager/configuration.rs` | 설정 편집 Weak 예약의 활성 여부 관리, 현재 revision의 미완료 신호 확인·정산과 미제출 신호 복원. 전략 내부 보유 보호 중인 대상 제거·시장 변경을 저장 전에 거부 |
 | `trading/configuration.rs` | IPC/Web 공통 설정 변경 서비스. 작업 소유 task와 `strategy_update_lock`으로 호출자 취소와 동시 저장을 제어한다. 생산 constructor로 대상 정규화 후 manager → OrderManager에서 편집 예약을 만들고 잠금 밖에서 저장. 성공 후 identity 재검증·보유 상태 보존·revision 게시, 사후 검증 실패 시 원본 저장값 복구와 복구 실패의 영속화 차단 |
 | `trading/configuration/tests.rs` | 실제 manager/store와 합성 주문 fixture로 저장 실패·지연·호출자 취소·보유 대상 제거·프로파일 변경·사후 복구 경계를 검증 |
 | `trading/strategy/{classic,breakout,mean_trend,sequence,ma_cross,price_condition,leveraged_trend_hold}/reconfigure_tests.rs` | 전략별 설정 변경의 보유·손절·관측 보존, 파라미터 재해석과 다른 ID/scope 상태 격리를 검증 |
+| `trading/strategy/{classic,breakout,mean_trend,sequence,price_condition,leveraged_trend_hold,manager}/live_feedback_tests.rs` | live 평가가 확인된 보유를 미리 변경하지 않는 경계, exact 전략 피드백·미제출/부분 체결·pending 보호와 LTH 상태 metadata 회귀 fixture |
 | `trading/strategy/manager/live_history.rs` | run generation·전체 config fingerprint·profile/broker/account·종목·서울/뉴욕 시장 날짜 ticket 검증과 52주 전용 완료 OHLC 적용. 실제 대상 511개+초과 진단 1행 상한, 준비 무효화·실패/부족/재시도 상태 및 최신 완료봉의 1~10일 freshness 관리. 보유 손절을 유지하고 LTH 분봉 initializer 미호출 |
 | `trading/strategy/manager/live_history_tests.rs` | 마지막 완료 high/close·다음날 고가 만료·252/512봉·대상 cap·재시작/config ABA·scope/profile 변경·quote 중 자정·DST·실패 중 손절·동일 scope 설정/rollback 보유 보존·무관 전략 불변 fixture |
 | `trading/simulation.rs` | deterministic simulated portfolio, 공통 TradeGuard/RiskManager 기반 주문 가능 판정, 비용·환율·equity·MDD·turnover·exposure·고정 chronological in/out-of-sample 지표. `run_backtest_with_history`는 동일 주기 과거 관측으로 위험 지표만 준비하고 주문·equity는 평가 구간에서만 만든다. ATR 미준비·변동폭 0 또는 거래당 위험 예산 0이면 선택적 ATR 수량 산정의 신규 매수를 차단하고 보유분 매도는 유지한다. preview command가 engine/strategy/source/scope/params/가정/warmup 경계와 실제 replay OHLCV fingerprint를 hash한다. v9 replay 시각은 RFC3339 offset의 실제 instant를 우선 사용한다. |
@@ -798,7 +840,7 @@ KISAutoTrade/
 | `trading/strategy/sequence.rs` | 연속 상승/하락·돌파 실패 전략. 사전 종가 버퍼와 준비 상태를 복원하며 initializer에서 `on_tick()`을 호출해 가상 매매 상태를 만들지 않는다. |
 | `trading/strategy/leveraged_trend_hold.rs` | 레버리지 전략 공개 타입·config·상태와 bounded buffer 상한을 소유하는 facade. 일봉 맥락과 분봉 지표/반등·실제 보유 상태를 분리하고 하위 모듈의 live/timed 구현을 연결 |
 | `trading/strategy/price_condition.rs` | 종목별 가격 조건 전략 구현 |
-| `trading/strategy/leveraged_trend_hold/live.rs` | `Strategy` 구현과 live tick/포지션 동기화. 일봉 초기화는 별도 bounded 맥락 ring만 교체하고, 분봉 초기화는 분봉·반등·볼린저 snapshot을 교체하며 실제 보유 포지션은 유지 |
+| `trading/strategy/leveraged_trend_hold/live.rs` | `Strategy` 구현과 live tick/소유 포지션 동기화. 확인된 보유와 신호 후보·pending을 구분하고 high-water/보유 관측 수를 metadata로 checkpoint/복원한다. 일봉 초기화는 별도 bounded 맥락 ring만 교체하고, 분봉 초기화는 분봉·반등·볼린저 snapshot을 교체하며 실제 보유 포지션은 유지 |
 | `trading/strategy/leveraged_trend_hold/preview.rs` | 입력 timestamp 기반 timed replay와 실제 잔여 수량·평균 체결가 snapshot 피드백. 부분 청산 뒤 잔량과 가격 기준을 보존하며 bool callback 호환 경로도 유지한다. EMA/RSI/ADX·반등·볼린저는 실제 장중 관측만 적재하고 일봉 맥락으로 분봉 준비 상태를 만들지 않음 |
 | `trading/strategy/leveraged_trend_hold/indicators.rs` | 장중 버퍼 기반 EMA/RSI/ADX와 진입·단계/급반등 조건 계산 |
 | `trading/strategy/leveraged_trend_hold/exits.rs` | 최소 보유 관측·초기 위험·수익 보호·진입 실패 청산 조건과 포지션 정리 |
@@ -826,10 +868,16 @@ KISAutoTrade/
 | `api/websocket.rs` | 실시간 시세 수신, 체결 콜백 |
 | `trading/mod.rs` | 전략 루프 실행, 장 시간 감지 |
 | `trading/views.rs` | `StrategyConfig` → camelCase `StrategyView` 공용 builder. IPC/REST가 같은 view를 사용하며 종목명 조회 전 manager lock을 해제 |
-| `trading/order.rs` | OrderManager facade와 공유 상태·provider trace. health·pending·legacy·execution_run·configuration·holdings·submission·fills의 하위 책임을 연결 |
+| `trading/order.rs` | OrderManager facade와 공유 상태·provider trace. health·pending·legacy·execution_run·configuration·holdings·ownership·feedback·submission·fills의 하위 책임을 연결 |
+| `trading/order/ownership.rs` | profile/투자 모드/broker/account/소유 전략/시장/종목 key의 확인된 수량·원가와 주문별 누적 체결 영수증. 고정 세대·상한·엄격한 역직렬화·동일 intent 검증, 부분 매도 원가·손익 계산과 보호 metadata 보관 |
+| `trading/order/ownership/runtime.rs` | managed storage의 `position_ownership.json`과 generation manifest를 읽고 세대 연속성 검증·저장. manifest가 남은 원장 유실, 오염·세대 교체·저장 실패를 persistence block으로 전달 |
+| `trading/order/feedback.rs` | 체결 대조 후 manager → OrderManager 순서로 현재 identity의 exact 소유 전략에 수량·평균가·pending과 metadata 전달. live 관측 뒤 보호 checkpoint를 저장하고 체결로 무효화한 계좌 전체 잔고는 provider에서 재조회 |
+| `trading/order/feedback/tests.rs` | 다른 전략·수동 보유·계좌/프로파일/모드 격리, 재시작 metadata·부분 수량 변경·stale checkpoint와 이전 계좌 실패 응답의 health 오염 방지 fixture |
 | `trading/order/execution_run.rs` | 비민감 `ExecutionRunContext`(epoch/revision/scope/profile)와 시작 검증에 사용한 client/profile snapshot. 시작·정지·scope 변경은 실행을 무효화하고 설정 revision 갱신은 이전 예약 후보를 폐기. pending·submitting·예산을 지우지 않음. 설정 편집과 holdings가 공유하는 비공개 profile 인증·모드 fingerprint 소유 |
 | `trading/order/holdings.rs` | `HoldingsQuery`의 scope/epoch/client/profile/설정 편집 예약과 시장별 조회 버전을 캡처하고 게시 직전 검증하는 공통 gate. KR/US 버전을 모두 검사한 뒤 해당 시장만 교체하며 ReadOnly 응답은 tracker를 바꾸지 않음. 해외 주문 거래소 코드 정규화 helper 소유 |
-| `trading/order/holdings/fetch.rs` | KIS 국내·해외 잔고의 수량/금액 검증·tracker 입력 변환과 공통 refresh 서비스. provider await는 잠금 밖에서 수행하고 성공한 게시와 callback 이벤트는 같은 OrderManager gate에서 순서대로 처리 |
+| `trading/order/holdings/fetch.rs` | 공통 잔고 refresh 서비스와 체결 후 KIS/Toss 계좌 전체 재조회. 응답 변환은 `holdings/parse.rs`에 위임. provider await는 잠금 밖에서 수행하고 성공한 게시와 callback 이벤트는 같은 OrderManager gate에서 순서대로 처리 |
+| `trading/order/holdings/parse.rs` | 일반 갱신·시작 복원·수동 주문이 공유하는 KIS/Toss→tracker 입력 변환과 엄격한 수량/가격 범위·종목 검증. Toss broker/account·시장/통화·시장별 중복을 확인하고 소수 잔량을 정수 주식으로 올리지 않음 |
+| `trading/order/holdings/parse/tests.rs` | Toss 소수 잔량·가격 단위·부동소수 경계·오염 응답 격리, dirty KIS 시장만 갱신과 잘못된 수동 잔고의 tracker 게시·주문 전송 금지 fixture |
 | `trading/order/holdings/{tests.rs,tests/http.rs}` | 조회 역순 완료·실제 0수량/빈 목록·양 시장 원자 게시·체결/포지션 변경·재시작·계좌/인증/모드·설정 lease 경합, localhost 지연 HTTP와 게시 전 성공 이벤트 금지 검증 |
 | `trading/position.rs` | 국내 원화·해외 USD cents 포지션 tracker와 시세 평가. 고정 크기 UUID로 최신 조회와 체결/교체/초기화 변경 버전을 관리하여 이전 잔고 응답의 덮어쓰기를 차단하며 시세 갱신은 보유 변경 버전을 바꾸지 않음 |
 | `trading/order/configuration.rs` | 설정 편집 예약의 profile/client/scope identity와 실제 KR/US tracker 보유·pending/submitting/modifying 충돌 검증. 편집 대상의 주문 예약과 같은 scope 수동 holdings 교체를 보류하며 Weak 예약 종료 시 자동 해제 |
@@ -839,18 +887,27 @@ KISAutoTrade/
 | `trading/order/legacy.rs` | 기존 단일 manager의 매수/매도 처리와 KIS 재시도 호환 경로. daemon의 shared 제출 경로와 구분 |
 | `trading/order/submission.rs` | 수동·자동 주문 제출 조정. 자동 주문의 필수 실행 context를 준비 후·예약 전에 같은 OrderManager 잠금에서 검증하고 stale은 guard·submitting·예산 변경 전에 폐기. 예약 후 provider 응답·pending 처리는 원래 scope로 계속 추적 |
 | `trading/order/submission/positions.rs` | 제출용 실제 포지션 snapshot과 수동 주문 전 holdings 갱신. 요청에 고정한 profile/client/scope로 공통 holdings query를 예약하고 provider await 후 같은 게시 gate로 tracker를 갱신 |
+| `trading/order/submission/owned.rs` | 주문 전 소유 원장 세대와 exact 전략 key 고정. 자동 매도는 실제 관측 수량과 해당 전략 소유 수량으로 제한하고 수동 매도는 다른 전략·예산 소유분을 제외. 매도 원가 snapshot을 저장 주문에 연결 |
+| `trading/order/submission/owned/tests.rs` | 실제 shared 제출의 owner별 자동/수동 매도 수량 제한, 준비 후 소유 수량 변경의 예약 재검증과 전체 잔고 선반영 fixture |
 | `trading/order/submission/prepare.rs` | 위험·보유수량·주문 유형과 가격 검증, provider별 준비 요청 생성 |
 | `trading/order/submission/provider.rs` | 준비 요청 전송. KIS 국내/해외 재시도는 최초 snapshot의 같은 client를 사용하고 Toss 요청은 고정 profile을 사용 |
 | `trading/order/submission/records.rs` | 접수·실패 주문과 pending record 생성, provider trace·원래 broker scope 보존 |
 | `trading/order/submission/run_tests.rs`, `trading/order/test_support.rs` | 합성 profile·캐시 토큰·localhost provider로 실행 context, 준비/예약 경합, 예약 후 client 고정과 pending 추적 검증. 실제 계좌/provider 검증과 분리 |
 | `trading/order/budget.rs` | broker/account와 KRW/USD별 전용 현금·자동매매 소유수량·주문 예약 원장. 주문 전 예약 저장, 접수/체결/종료 반영, 미확인 주문·저장 실패 시 차단 |
-| `trading/order/fills.rs` | `OrderManager::on_fill()`의 체결·수수료·포지션·통계·TradeStore 반영과 체결 확인 하위 모듈 연결 |
+| `trading/order/fills.rs` | 누적 체결 intent와 소유 원장·예산·리스크·통계·TradeStore의 반영 순서 조정. 실제 계좌 tracker에는 delta를 더하지 않고 조회 버전 무효화와 재조회 필요 상태를 남김 |
+| `trading/order/fills/ownership.rs` | 저장 주문의 소유 key·세대·누적 영수증 검증과 확인 체결의 원가/손익 준비. 재시도 시 기존 손익 영수증을 재사용하고 초기 보유 metadata를 보존하며 종료된 소유 영수증 정리를 담당 |
+| `trading/order/{ownership/tests.rs,ownership/runtime/tests.rs,fills/ownership/tests.rs}` | 원장 입력·상한·세대·저장 오류, 누적/부분 체결·재시도·소유 격리·확인된 원가와 보호 metadata 경계의 회귀 fixture |
 | `trading/order/fills/collector.rs` | 고정 KIS client/Toss profile의 주문번호·종목·날짜 조회 결과를 공통 누적 체결/종료 상태로 정규화 |
+| `trading/order/fills/collector/notional.rs` | 체결 수량·일자와 decimal 누적 금액 파싱. native 총액을 KRW 원/USD cents로 한 번 반올림하고 Toss 명시 금액 우선·누락 시 실제 평균가×수량 대체·명시 0/통화 오류를 구분 |
+| `trading/order/fills/collector/notional/tests.rs` | decimal 반올림·범위, KIS 3주/301원 같은 원본 총액 보존, Toss 명시 총액 우선·명시 0과 누락 대체 계산의 회귀 fixture |
 | `trading/order/fills/provider_mode.rs` | 저장된 KIS 주문 TR-ID 8종으로 실전/모의 출처를 확인하고 현재 client 모드와 비교. 반대 모드·누락/미상 출처의 pending 조회 후보·직접 체결·체결 조회의 종료 상태 및 예산 반영을 보류 |
 | `trading/order/fills/reconciliation.rs` | 현재 scope의 pending 후보와 provider snapshot을 캡처하고 OrderManager 잠금 밖에서 조회. 적용 전 scope·profile·인증/모드를 재검증하며 다른 계좌 응답과 zero-fill 종료 처리를 보류. 같은 계좌·인증의 실제 체결은 전략 epoch 변경과 독립적으로 반영 |
 | `trading/order/fills/reconciliation/tests.rs` | localhost 체결 조회 중 계좌·profile 변경의 결과 보류, 동일 계좌 실행 변경 후 실제 체결 반영, 저장 TR-ID의 실전/모의·미상 출처 및 직접 체결/종료 보류 회귀 검증 |
 | `trading/order/conflicts.rs` | 실행 `BrokerScope` 기준 같은 방향/반대 방향 pending 주문 충돌 판정과 provider trace 기반 pending provider 판정 |
 | `trading/risk.rs` | 일일 손실 한도, 비상 정지, `record_pnl` |
+| `trading/risk/fill_accounting.rs` | 당일 체결 이벤트별 손익·전략 손실 보호를 한 번만 반영하는 bounded 영수증과 runtime 저장/복원. 다른 날짜 체결과 변경된 이벤트 payload를 구분 |
+| `trading/risk/fill_accounting/tests.rs` | 체결 손익 중복·이벤트 변경·날짜·산술 상한과 runtime 복원 경계의 회귀 fixture |
+| `tests/e2e/toss-commission-ratio.spec.ts` | 실제 Toss preflight 패널의 소수 비율→퍼센트 표시와 수수료 포함 필요 현금·잔고 부족 표시를 합성 자료로 검증 |
 | `market_hours.rs` | 시장 개장 여부 (KRX 09:00-15:30 / US 22:00-07:00 KST) |
 | `server/mod.rs` | axum 웹 서버 route table, ServeDir fallback |
 | `server/budget.rs` | `/api/auto-trading-budget` GET/POST. IPC와 같은 scope 검증·정지 조건·예산 view를 사용 |
@@ -858,7 +915,7 @@ KISAutoTrade/
 | `server/records.rs` | 웹 REST 포지션, 통계/체결 조회, pending 주문, 로그 설정/최근 로그, 체결 보관 설정/통계, 프론트엔드 로그. REST 보관 설정 변경도 IPC와 같이 즉시 purge를 예약 |
 | `server/profiles.rs` | 웹 REST 프로파일 CRUD/활성 전환/실전·모의 감지/Toss accountSeq·diagnostic. 적용 전 실행을 무효화하고 manager → OrderManager에서 scope·client·tracker·전략 설정을 함께 게시. 프로파일 view는 IPC `profile_to_view()`를 재사용 |
 | `server/toss.rs` | 웹 REST Toss 시세 snapshot, 종목 유의사항, 주문 전 preflight, 호환용 1주 소액매매 검증 endpoint, 접수 주문 조회·정정, market-calendar, candles |
-| `server/trading.rs` | 웹 REST 자동매매 상태/시작/정지, 전략 목록/수정. 웹 start는 broker별 설정 검증과 공통 holdings gate를 통한 KR/US 게시·전략 복원 뒤 profile/client 고정 실행 epoch를 게시. stop은 실행을 무효화하고 전략 수정은 IPC와 같은 `trading/configuration.rs` 서비스를 사용. status는 실제 identity와 camelCase `dailyHistory` 제공 |
+| `server/trading.rs` | 웹 REST 자동매매 상태/시작/정지, 전략 목록/수정. 웹 start는 broker별 설정 검증과 공통 holdings gate를 통한 KR/US 게시·exact 전략 소유 원장 복원 뒤 profile/client 고정 실행 epoch를 게시. stop은 실행을 무효화하고 전략 수정은 IPC와 같은 `trading/configuration.rs` 서비스를 사용. status는 실제 identity와 camelCase `dailyHistory` 제공 |
 | `storage/trade_store.rs` | `data/trades/YYYY/MM/DD/trades.json` (`provider_*` 원본 요청 trace 포함) |
 | `storage/order_store.rs` | `data/orders/YYYY/MM/DD/orders.json` (`provider_*` 원본 주문 trace 포함) |
 | `storage/stats_store.rs` | `data/stats/YYYY/MM/daily_stats.json` |
@@ -998,7 +1055,9 @@ tracker 게시 → 시작 경로의 전략 복원 또는 background 성공 이�
 더 최신 조회 또는 체결·포지션 교체가 발생하면 이전 응답을 버린다. 시세만
 바뀌는 것은 보유 변경으로 보지 않는다. 게시용 요청과 별도인 ReadOnly gate는
 IPC broker holdings와 Web 잔고 응답의 identity를 검증하며 tracker나 최신 게시
-조회 번호를 바꾸지 않는다. 이 경계는 정상 체결의 전략별 소유권 배분을 대신하지 않는다.
+조회 번호를 바꾸지 않는다. 계좌 전체 tracker는 증권사의 관측값으로 유지하며
+확인된 체결 delta를 다시 더하지 않는다. 소유 전략의 수량과 원가는 별도 원장으로
+관리하고 체결 뒤에는 전체 잔고를 재조회한다.
 
 ### 전략 설정 저장과 보유 상태 보존
 
@@ -1088,21 +1147,42 @@ report.md / validation.json → docs/todo.md의 근거·우선순위·완료 조
 3개월 시장 검증으로 승격하지 않는다. 이 흐름은 앱 IPC·UI·데몬 경로를 변경하지
 않고 주문 실행이나 사용자 계정 설정 변경 없이 연구 파일과 TODO를 남긴다.
 
-### 체결 발생 시
+### 확인된 체결과 전략 소유권 피드백
 
+```text
+submission.rs / submission/owned.rs → exact 소유 key + 원장 세대 + 신호 시점 보호 metadata
+    ↓ provider 접수 → PendingOrder 영속화
+fills/reconciliation.rs → 고정 provider의 주문번호별 누적 체결·종료 조회
+    ↓ fills/ownership.rs: key·세대·누적 수량/금액과 원가·손익 영수증 검증
+fills.rs: 적용 intent → position_ownership.json → 예산·risk·stats·TradeStore
+    ↓ 계좌 전체 tracker는 조회 무효화·재조회 표시 (체결 delta 재가산 없음)
+feedback.rs: manager → OrderManager → 해당 소유 전략의 수량·pending·metadata
+    ↓ holdings/fetch.rs: KIS/Toss 전체 잔고 재조회 → 공통 게시 gate
 ```
-WebSocket 수신 (체결 이벤트)
-    ↓
-trading/order.rs — 체결 확인
-    ↓
-storage/trade_store.rs — 공통 저장 경계 (JSON 또는 DB document, provider/order/request/TR trace 포함)
-    ↓
-storage/stats_store.rs — 통계 집계 갱신
-    ↓
-notifications/discord.rs — TRADE 레벨 알림 전송
-    ↓
-Tauri Event emit → Frontend (실시간 UI 갱신)
-```
+
+소유 원장은 profile·투자 모드·broker/account·strategy·market·symbol로 나누며
+주문별 누적 수량·금액과 원가·손익 영수증으로 부분 체결과 재시도를 처리한다.
+계좌 총보유나 다른 전략·수동 주문의 수량을 새 전략에 배정하지 않는다. 시작
+경로도 전체 잔고 broadcast 대신 현재 identity의 소유 원장을 복원한다.
+
+live 신호는 관측을 진행하되 확인된 소유 수량을 미리 바꾸지 않으며 pending과
+미제출 신호 정리를 별도 훅으로 처리한다. LTH의 high-water·보유 관측 수는
+평균가로 다시 만들지 않고 보호 metadata로 checkpoint/복원한다. 소유 원장이나
+영수증의 유실·세대 불일치·저장 실패는 persistence block으로 전달한다. 계좌
+전체 관측과 소유 원장은 역할이 다르므로 증권사의 체결 반영 지연과 실제 운용
+검증까지 이 구조만으로 완료했다고 판단하지 않는다.
+
+일반 잔고 갱신·시작·수동 주문은 `holdings/parse.rs`의 동일 검증을 사용한다.
+오염된 수량·가격이나 Toss 응답 범위/통화·중복 종목을 정상 0수량으로 바꾸지
+않으며, 정수 주식 경로에서 소수 잔량을 1주로 올리지 않는다. 리스크 복원도
+KIS 체결/주문 투자 모드를 확인한 후보를 저장한 뒤 공개한다. 상세 구현·검증
+범위는 [전략 체결 소유권 작업 기록](tasks/strategy-fill-ownership-20261018.md)에 남긴다.
+
+provider 누적 체결금액은 `fills/collector/notional.rs`에서 정수 원·cents로
+변환한다. Toss 명시 `filledAmount`를 우선하고 누락에만 실제 평균가×수량을
+총액으로 계산한 뒤 한 번 반올림한다. 명시 0이나 잘못된 통화를 누락과 섞지
+않는다. 소액 검증 즉시 체결은 원 주문·종목·방향·통화·1주와 명시 체결대금을
+추가 확인하며 미확정 자료는 정상 체결로 처리하지 않는다.
 
 ### 자동매매 전용 예산
 

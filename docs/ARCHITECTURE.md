@@ -101,7 +101,7 @@ LTH 조회는 유지하며 live 완료 일봉 갱신은 이 경로의 책임이 
 UI/전략 Signal
  → 실행 BrokerScope와 현재 profile 검증
  → 수동 주문이면 holdings 재조회
- → 현재 position snapshot
+ → 계좌 관측 snapshot + exact owner 수량·원가
  → provider preflight / 입력·통화·유동성 검증
  → RiskManager + TradeGuard
  → 같은 scope/symbol의 submitting·pending 충돌 검사
@@ -110,7 +110,8 @@ UI/전략 Signal
  → PendingOrder 및 OrderRecord 저장
  → scope별 risk 주문 카운트 저장
  → fills daemon/WebSocket reconciliation
- → TradeRecord/Stats/Risk/Position 갱신
+ → 소유 원장/TradeRecord/Stats/Risk 갱신
+ → 소유 전략 피드백 + 해당 시장 계좌 snapshot 재조회
 ```
 
 `trading/preflight.rs`는 수량·가격 양수 여부, 수수료를 포함한 매수가능금액, 매도가능수량, 통화 일치를 검사한다. provider별 command가 얻은 constraints를 공통 판정에 연결한다.
@@ -118,6 +119,10 @@ UI/전략 Signal
 `trading/order/conflicts.rs`와 submission 예약은 같은 scope/symbol의 중복·반대 방향 주문을 막는다. provider 접수 성공 뒤 pending/order/risk 영속화가 실패하면 `persistence_blocked`/`buy_suspended`를 설정해 신규 주문을 차단한다. 이 fail-closed 동작은 완화하지 않는다.
 
 `trading/order/fills.rs`는 KIS/Toss pending 체결을 확인하고 체결, 수수료, 통계, trade store와 risk state를 갱신한다. provider order/request/TR trace는 credential을 제외한 최소 식별자만 저장한다.
+
+`order/ownership.rs`는 broker/account/profile/투자모드·전략·시장·종목별 확정 수량과 정수 원가의 권위자다. `position_ownership.json`과 별도 generation manifest를 검증하며 pending/order record와 연결한다. 자동매도는 owner 수량과 계좌 관측 수량의 교집합을 예약 직전에 다시 확인한다. 계좌 tracker는 broker snapshot의 권위만 유지하고 fill delta로 변경하지 않는다. 체결 뒤 해당 시장 재조회가 성공하기 전 신규 예약을 보류한다.
+
+`order/feedback.rs`가 manager → order lock 순서로 정확한 전략에만 수량·pending·보호 metadata를 전달한다. live 관측은 지표·LTH 최고가/보유 관측 수를 유지하지만 raw 신호만으로 확정 보유를 바꾸지 않는다. 전체 계좌 보유를 모든 전략에 broadcast하지 않는다. 원가·세대·모드 미상 기록과 저장 실패는 신규 주문을 차단한다. 리스크 재복원은 동일 당일 체결 이벤트·계좌·투자모드를 검증하고 후보를 저장한 뒤 공개한다. 상세 검증은 [P1-FILL-01 기록](tasks/strategy-fill-ownership-20261018.md)을 참조한다.
 
 ## 7. 리스크 계층
 
@@ -193,8 +198,8 @@ IPC/HTTP waiter 취소는 별도의 owned transaction task를 중단하지 않�
 
 공용 tracker의 0수량만으로 전략의 private 보유 보호를 지우거나 다른 전략의
 보유를 할당하지 않는다. private 보호 또는 실제 tracker에 보유가 있으면 대상
-제거·국내/해외 전환을 거부한다. 정상 체결의 전략별 소유권 피드백은 후속
-P1-FILL-01 과제이며 전체 lifecycle 완료로 확대하지 않는다.
+제거·국내/해외 전환을 거부한다. 정상 체결의 전략별 소유권 피드백은 위 주문
+파이프라인의 별도 원장·feedback 경계를 사용한다.
 
 ### 잔고 응답과 포지션 게시
 
@@ -217,7 +222,8 @@ Web 일반 잔고와 IPC/Web broker holdings는 ReadOnly ticket으로 계좌 연
 scope의 payload/placeholder를 넘기지 않고 요청 시작·완료 때 config를 확인한다.
 프로파일 전환은 이전 config 요청과 보유 쿼리를 취소하고 이전 범위 캐시를 제거한다.
 새 config를 확인하지 못한 상태에서 이전 계좌 잔고를 현재 자료로 표시하지 않는다.
-이 경계는 증권사 잔고의 체결 반영 지연이나 정상 체결 소유권 피드백을 해결하지 않는다.
+증권사 잔고의 체결 반영 지연은 남아 있다. 정상 체결 소유권은 위 별도 원장과
+feedback으로 다루며 계좌 게시 gate만으로 이를 대신하지 않는다.
 
 ## 9. 저장 경계
 

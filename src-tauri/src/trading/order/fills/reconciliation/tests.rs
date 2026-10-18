@@ -29,22 +29,18 @@ async fn real_fill_invalidates_an_earlier_whole_holdings_response() {
         .begin_holdings_query(scope.broker_id, HoldingsMarkets::Domestic)
         .await
         .unwrap();
-    // Actual order-ID accounting updates the tracker while the snapshot is in flight.
+    // Actual order-ID accounting invalidates the in-flight snapshot without double-applying account quantity.
     manager.on_fill("fixture-fill", 1, 100).await.unwrap();
     assert!(manager
         .publish_holdings(query, HoldingsUpdate::Domestic(vec![]))
         .await
         .is_err());
-    assert_eq!(
-        manager
-            .position_tracker
-            .lock()
-            .await
-            .get("005930")
-            .unwrap()
-            .quantity,
-        1
-    );
+    assert!(manager
+        .position_tracker
+        .lock()
+        .await
+        .get("005930")
+        .is_none());
     assert_eq!(manager.pending["fixture-fill"].filled_quantity, 1);
 }
 
@@ -122,6 +118,10 @@ async fn seed_pending(fixture: &Fixture) {
         .into(),
     );
     let pending = PendingOrder {
+        ownership_key: None,
+        ownership_generation: None,
+        strategy_position_metadata: None,
+        submitted_cost_basis: None,
         record,
         signal_reason: "synthetic fill".into(),
         strategy_id: Some("fixture-strategy".into()),
@@ -133,7 +133,10 @@ async fn seed_pending(fixture: &Fixture) {
         filled_notional: 0,
         confirmed_filled_quantity: 0,
         confirmed_avg_price: 0,
+        confirmed_filled_notional: None,
         application_started: false,
+        application_execution_date: None,
+        application_exchange_rate: None,
         application_pnl: None,
         client_order_id: None,
         provider_status: None,
@@ -229,16 +232,12 @@ async fn delayed_reconciliation_cannot_mutate_new_scope_and_applies_when_origina
         {
             let mut manager = fixture.manager.lock().await;
             assert!(manager.pending.is_empty());
-            assert_eq!(
-                manager
-                    .position_tracker
-                    .lock()
-                    .await
-                    .get("005930")
-                    .unwrap()
-                    .quantity,
-                2
-            );
+            assert!(manager
+                .position_tracker
+                .lock()
+                .await
+                .get("005930")
+                .is_none());
             assert_eq!(
                 manager
                     .auto_trading_budget(&test_support::scope(&fixture.profile))
@@ -299,16 +298,12 @@ async fn actual_fill_crosses_same_scope_restart_with_identical_provider_snapshot
         .unwrap();
     let manager = fixture.manager.lock().await;
     assert!(manager.pending.is_empty());
-    assert_eq!(
-        manager
-            .position_tracker
-            .lock()
-            .await
-            .get("005930")
-            .unwrap()
-            .quantity,
-        2
-    );
+    assert!(manager
+        .position_tracker
+        .lock()
+        .await
+        .get("005930")
+        .is_none());
     server.abort();
 }
 
@@ -322,6 +317,7 @@ async fn direct_fill_and_zero_fill_terminal_cannot_mutate_another_execution_scop
     manager.on_fill("fixture-fill", 2, 100).await.unwrap();
     manager
         .apply_pending_fills(vec![PendingFill {
+            cumulative_notional: None,
             odno: "fixture-fill".into(),
             filled_qty: 0,
             avg_price: 0,
@@ -387,6 +383,7 @@ async fn persisted_kis_pending_never_queries_or_applies_in_the_opposite_mode() {
             assert!(manager.on_fill("fixture-fill", 2, 100).await.is_err());
             assert!(manager
                 .apply_pending_fills(vec![PendingFill {
+                    cumulative_notional: None,
                     odno: "fixture-fill".into(),
                     filled_qty: 0,
                     avg_price: 0,
@@ -414,16 +411,12 @@ async fn persisted_kis_pending_never_queries_or_applies_in_the_opposite_mode() {
         assert_eq!(provider.requests.load(Ordering::SeqCst), 1);
         let manager = fixture.manager.lock().await;
         assert!(manager.pending.is_empty());
-        assert_eq!(
-            manager
-                .position_tracker
-                .lock()
-                .await
-                .get("005930")
-                .unwrap()
-                .quantity,
-            2
-        );
+        assert!(manager
+            .position_tracker
+            .lock()
+            .await
+            .get("005930")
+            .is_none());
         server.abort();
     }
 }

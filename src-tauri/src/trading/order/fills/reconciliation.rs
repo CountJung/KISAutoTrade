@@ -122,14 +122,31 @@ impl OrderManager {
                     return Err(error);
                 }
             }
-            if fill.filled_qty > 0 {
-                self.on_fill_on(
+            let applying = self
+                .pending
+                .get(&fill.odno)
+                .is_some_and(|pending| pending.application_started);
+            if fill.filled_qty > 0 || applying {
+                self.on_fill_confirmed(
                     &fill.odno,
                     fill.filled_qty,
                     fill.avg_price,
+                    fill.cumulative_notional,
                     fill.execution_date,
                 )
                 .await?;
+            }
+            if self.pending.get(&fill.odno).is_some_and(|pending| {
+                pending.filled_quantity < fill.filled_qty.min(pending.record.quantity)
+                    || fill.filled_qty
+                        < pending
+                            .confirmed_filled_quantity
+                            .max(pending.filled_quantity)
+            }) {
+                // A persisted earlier application intent must finish first. Do
+                // not discard a later cumulative delta, or let a regressed
+                // provider quantity erase an already-confirmed execution.
+                continue;
             }
             if let Some(status) = fill.terminal_status {
                 self.finalize_pending_order(&fill.odno, status, &fill.provider_status, None)

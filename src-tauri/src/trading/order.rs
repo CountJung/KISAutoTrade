@@ -41,8 +41,10 @@ use crate::{
 
 mod budget;
 mod configuration;
+mod feedback;
 mod holdings;
-pub(crate) use holdings::{normalize_overseas_order_exchange, HoldingsMarkets, HoldingsUpdate};
+mod ownership;
+pub(crate) use holdings::{HoldingsMarkets, HoldingsUpdate};
 mod conflicts;
 pub use budget::{AutoTradingBudgetView, BudgetCurrencyView};
 mod execution_run;
@@ -54,7 +56,7 @@ mod pending;
 mod submission;
 
 use conflicts::pending_conflict_reason_for_scope;
-pub use submission::SubmissionOutcome;
+pub use submission::{OwnedStrategySignal, SubmissionOutcome};
 
 // ────────────────────────────────────────────────────────────────────
 // PendingOrder — 미체결 주문 항목
@@ -78,6 +80,18 @@ pub struct PendingOrder {
     pub exchange: Option<String>,
     /// 주문이 발생한 broker/account scope
     pub broker_scope: BrokerScope,
+    /// Exact strategy ownership captured before submission. Legacy/manual orders
+    /// never acquire a strategy owner by inference from account holdings.
+    #[serde(default)]
+    pub(crate) ownership_key: Option<ownership::OwnershipKey>,
+    #[serde(default)]
+    pub(crate) ownership_generation: Option<String>,
+    #[serde(default)]
+    pub(crate) strategy_position_metadata: Option<serde_json::Value>,
+    /// Provider-observed average captured before a manual sell, never a later
+    /// empty holdings snapshot interpreted as zero cost.
+    #[serde(default)]
+    pub(crate) submitted_cost_basis: Option<u64>,
     /// 주문번호 기반 조회로 이미 반영한 누적 체결 수량
     pub filled_quantity: u64,
     /// 이미 반영한 체결금액 합계(가격 내부단위 × 수량)
@@ -88,9 +102,16 @@ pub struct PendingOrder {
     pub confirmed_filled_quantity: u64,
     #[serde(default)]
     pub confirmed_avg_price: u64,
+    /// Provider cumulative native-unit amount fixed by the durable fill intent.
+    #[serde(default)]
+    pub confirmed_filled_notional: Option<u128>,
     /// 체결 event의 durable side effect 적용을 시작했는지 여부
     #[serde(default)]
     pub application_started: bool,
+    #[serde(default)]
+    pub(crate) application_execution_date: Option<String>,
+    #[serde(default)]
+    pub(crate) application_exchange_rate: Option<f64>,
     /// 적용 intent에 고정한 delta 체결 손익(국내 KRW, 해외 cents).
     #[serde(default)]
     pub application_pnl: Option<i64>,
@@ -171,6 +192,8 @@ pub struct OrderManager {
     configuration_edit:
         Option<std::sync::Weak<crate::trading::configuration::ConfigurationEditReservation>>,
     configuration_identity: Option<configuration::ConfigurationIdentity>,
+    ownership_document_generation: Option<String>,
+    holdings_refresh_required: u8,
     active_execution_run: Option<execution_run::ExecutionRun>,
     #[cfg(test)]
     preparation_test_gate: Option<Arc<submission::PreparationTestGate>>,
@@ -219,6 +242,8 @@ impl OrderManager {
             execution_epoch: 0,
             configuration_edit: None,
             configuration_identity: None,
+            ownership_document_generation: None,
+            holdings_refresh_required: 0,
             active_execution_run: None,
             #[cfg(test)]
             preparation_test_gate: None,

@@ -613,3 +613,10 @@ UI 규칙:
 - DB password와 파괴적 관리는 Tauri desktop Settings에서만 렌더링한다. 웹 모드에는 보안 안내만 보여주고 관리 form/control을 노출하지 않는다.
 
 > 마지막 업데이트: 2026-10-05T23:54:16+09:00
+
+
+### Toss 수수료 비율 표시 (2026-10-18)
+
+`TossOrderPreflightView.commissionRate`는 공식 소수 비율 문자열이다. `0.00015`를 `0.015%`로 표시하며 원본에 `%`만 붙이지 않는다. 주문 계산은 Rust preflight에서 비율을 그대로 적용한다. 공식 계약 근거와100배 오류 회귀는 `toss-api/SKILL.md`를 따른다.
+
+> 마지막 업데이트: 2026-10-18T14:30:00+09:00

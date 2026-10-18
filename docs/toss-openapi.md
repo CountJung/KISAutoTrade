@@ -87,7 +87,7 @@ npm run verify:toss-openapi
 - `src-tauri/src/broker/toss/` 하위에 read-only `TossOpenApiClient`와 `TossBrokerAdapter`가 있다. 공개 surface는 `mod.rs`에서 re-export하고, 구현은 `adapter.rs`, `client.rs`, `http.rs`, `error.rs`, `support.rs`, `types.rs`, `orders.rs`, `tests.rs`로 나눈다.
 - 구현된 범위: `POST /oauth2/token`, `GET /api/v1/accounts`, `GET /api/v1/holdings`, `GET /api/v1/prices`, `GET /api/v1/orderbook`, `GET /api/v1/trades`, `GET /api/v1/price-limits`, `GET /api/v1/candles`, `GET /api/v1/stocks`, `GET /api/v1/stocks/{symbol}/warnings`, `GET /api/v1/market-calendar/KR`, `GET /api/v1/market-calendar/US`.
 - access token은 `base_url + client_id` 단위 공유 캐시에서 재사용하고, 만료 5분 전 갱신 대상으로 본다. 401 응답 시에는 해당 요청이 사용한 token이 아직 캐시에 남아 있을 때만 캐시를 지우고 1회 재발급/재시도한다. 다른 병렬 요청이 이미 token을 갱신했다면 그 token을 재사용한다.
-- holdings 응답은 `BrokerHolding`으로 매핑한다. `marketCountry`는 `KR`/`US`, `currency`는 `KRW`/`USD`만 공통 타입으로 변환한다. Dashboard 표시와 자동매매 시작 전 전략 포지션 복원에 사용하되, 자동매매 주문 수량 산정에는 재사용하지 않는다.
+- holdings 응답은 `BrokerHolding`으로 매핑한다. `marketCountry`는 `KR`/`US`, `currency`는 `KRW`/`USD`만 공통 타입으로 변환한다. Dashboard 표시와 계좌 tracker 게시에 사용한다. 전략 보유는 별도 exact owner 원장에서 복원하며 계좌 전체 수량을 전략 소유로 배정하지 않는다.
 - prices 응답은 `BrokerPriceQuote`로, candles 응답은 `BrokerCandle`로 매핑한다. `prices`는 최대 200개 symbols, `trades`는 count 1~50, `candles`는 interval `1m`/`1d`와 count 1~200 범위를 client에서 선검증한다. 공식 스펙 v1.2.2 기준 `prices` symbols는 영문 대/소문자, 숫자, `.`, `-`를 허용하고 응답 symbol은 canonical casing으로 올 수 있으므로 adapter/자동매매는 응답 symbol을 대소문자 무시로 매칭한다.
 - stocks 응답은 `TossStockInfo`, warnings 응답은 `TossStockWarning`으로 보존한다. 공식 스펙이 unknown warning code 허용을 요구하므로 `warningType`은 enum이 아니라 문자열로 유지한다.
 - market-calendar 응답은 KR의 `today.integrated.regularMarket`과 US의 `today.regularMarket`을 `MarketCalendarOverride`로 변환해 장 시간 판단에 사용한다. 공식 US calendar의 `dayMarket`/`preMarket`/`afterMarket`도 함께 보존해 Toss 미국 수동 주문과 자동매매 세션 gate에 사용한다. 공식 calendar가 있으면 우선 사용하고, 없거나 조회 실패하면 기존 KST 하드코딩 fallback을 유지한다.
@@ -113,7 +113,7 @@ npm run verify:toss-openapi
 - `get_toss_chart_data` IPC와 `/api/toss-chart/:symbol` 웹 REST는 활성 Toss 프로파일 기준 `1d`/`1m` candles를 기존 `ChartCandle[]`로 내려준다. Trading 화면은 `StockChart source="toss"`로 lightweight-charts를 재사용한다. Strategy 화면의 `preview_leveraged_trend_hold` IPC와 `/api/strategy/leveraged-trend-hold/preview` 웹 REST는 요청 시점 profile/account scope를 검증하고 `1m`/`1d`를 주문 없이 deterministic replay한다. raw 매수/청산 신호·차트 외에 live 10초 tick과 분리된 replay cadence, warmup/source/range/hash, 초기자본·수수료·세금·슬리피지·환율·리스크를 반영한 주문 가능/차단/체결 가정과 equity/성과/in-out-of-sample 결과를 반환한다.
 - `get_exchange_rate_status` IPC와 `/api/exchange-rate/status` 웹 REST는 환율 source/fallback/유효시간을 `ExchangeRateView`로 내려준다. 기존 `get_exchange_rate`와 `/api/exchange-rate`는 숫자 캐시 호환 경로로 유지한다.
 - Settings 프로파일 카드의 `연결 진단` 버튼은 토스 프로파일에만 표시한다. 진단 결과는 `steps[]`, `issues[]`, OpenAPI version, accounts/holdings count, KRW/USD buying power, commissions count로 요약한다. Add 다이얼로그는 열린 섹션의 broker로 고정하고, Edit 다이얼로그는 저장된 `broker_id`를 바꾸지 않는다.
-- 자동매매 주문 실행 경로는 Toss 프로파일에서도 활성화된다. `start_trading()`은 Toss holdings 기반 `BrokerPositionSnapshot`으로 전략 내부 포지션 상태를 복원한 뒤, 활성 Toss 프로파일 설정과 `live_trading_consent`를 확인하고 실행 scope를 `BrokerScope { brokerId: Toss, accountSeq }`로 고정한다. 실행 scope가 Toss이면 자동매매 데몬은 KIS 해외 현재가로 폴백하지 않고 Toss `/api/v1/prices`를 사용한다. 전략 히스토리 초기화도 Toss 실행 scope에서는 KIS chart API가 아니라 Toss `/api/v1/candles`를 사용하며, `1d` candles는 일봉 지표에, `1m` candles OHLC는 레버리지 전략 장중 상태와 반동 관측 버퍼에 사용한다. 이후 실시간 현재가 polling은 같은 분의 마지막 장중 캔들을 갱신하고 분이 바뀔 때 새 캔들을 추가한다. Dashboard는 자동매매 시작 버튼과 수동거래 페이지 안내 패널을 유지한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
+- 자동매매 주문 실행 경로는 Toss 프로파일에서도 활성화된다. `start_trading()`은 Toss holdings를 엄격히 검증해 계좌 tracker에 게시하고 별도 exact owner 원장으로 전략 보유를 복원한 뒤, 활성 Toss 프로파일 설정과 `live_trading_consent`를 확인하고 실행 scope를 `BrokerScope { brokerId: Toss, accountSeq }`로 고정한다. 실행 scope가 Toss이면 자동매매 데몬은 KIS 해외 현재가로 폴백하지 않고 Toss `/api/v1/prices`를 사용한다. 전략 히스토리 초기화도 Toss 실행 scope에서는 KIS chart API가 아니라 Toss `/api/v1/candles`를 사용하며, `1d` candles는 일봉 지표에, `1m` candles OHLC는 레버리지 전략 장중 상태와 반동 관측 버퍼에 사용한다. 이후 실시간 현재가 polling은 같은 분의 마지막 장중 캔들을 갱신하고 분이 바뀔 때 새 캔들을 추가한다. Dashboard는 자동매매 시작 버튼과 수동거래 페이지 안내 패널을 유지한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
 
 > 마지막 업데이트: 2026-07-15T00:00:00+09:00
 
@@ -125,3 +125,21 @@ npm run verify:toss-openapi
 2026-10-18: [공식 OpenAPI](https://openapi.tossinvest.com/openapi-docs/latest/openapi.json) v1.2.24에서 섹터 GET5개가 추가되어38개 inventory로 검증했다. 기존 인증·오류·rate-limit 헤더 검사는 유지한다. 계좌/주문 호출은 하지 않았다.
 
 캔들 cursor·봉 시각과 KIS 요청 불일치의 구현 잔여는 [공개 계약 조사](tasks/provider-candle-contract-20261018.md)를 따른다.
+
+
+### 체결·수수료의 네이티브 단위 확인 (2026-10-18)
+
+[공식 OpenAPI v1.2.24](https://openapi.tossinvest.com/openapi-docs/latest/openapi.json)의 `OrderExecution.filledAmount`는 총 체결 금액(native currency), `averageFilledPrice`는 평균 가격이다. 정수 평균가에 수량을 다시 곱해 누적 금액을 복원하면 나눗셈 잔액이 사라질 수 있다. nullable 응답·미확인 자료와 실제 0을 구분한다.
+
+`Commission.commissionRate`는 소수 비율이다. `0.00015`는 `0.015%`이며 1,000,000원 주문의 수수료는150원이다. `OrderPreflightConstraints.commission_rate_ratio`는 추가로100을 나누지 않으며, wire `commissionRate` 문자열은 원본 비율을 유지하고 화면에서만 퍼센트로 변환한다. 비정상·음수 rate는 사전검증을 차단한다. 수수료 정책 미확보의 기존 명시적 경고는 유지한다.
+
+❌ 기존 오류: 비율을 percent로 해석해 `/100`하거나 원본 뒤에 `%`를 붙여 수수료/표시를100배 낮추는 것.
+
+✅ 현 계약: 공식 비율을 주문 필요 현금 계산에 사용하고 표시 시에만 퍼센트로 변환한다. 경계 cash10001/필요10002와 실제 패널 표시를 검증한다. 실제 broker 주문 검증을 뜻하지 않는다.
+
+> 마지막 업데이트: 2026-10-18T14:30:00+09:00
+
+
+앱의 누적금액 정책: `filledAmount` 명시값이 우선이다. 누락에만 실제 `averageFilledPrice` 원문×확정 정수 수량을 총액에서 한번 반올림한다. 명시0/오염·시장 통화 불일치를 주문가나 신호가로 대체하지 않는다. 소액 검증 즉시 fill은 명시금액이 있어야 하며 원 주문 ID·symbol·BUY·통화·정수1주를 검증한다. 누락 금액은 즉시 적용 없이 pending을 유지해 정규 대조로 넘긴다.
+
+> 마지막 업데이트: 2026-10-18T14:40:06+09:00

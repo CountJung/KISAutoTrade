@@ -564,6 +564,7 @@ export interface TossOrderPreflightView {
   priceSource: 'input' | 'snapshot'
   buyingPower: BrokerMoneyView | null
   sellableQuantity: string | null
+  /** Native decimal ratio: 0.00015 means 0.015%. */
   commissionRate: string | null
   grossAmount: BrokerMoneyView
   estimatedCommission: BrokerMoneyView | null

@@ -313,6 +313,8 @@ pub struct OverseasExecutedOrder {
     pub ft_ccld_unpr3: String,
     /// 체결금액
     pub ft_ccld_amt3: String,
+    /// 거래통화코드. 누적 체결금액을 USD cents로 해석하기 전에 확인한다.
+    pub tr_crcy_cd: String,
     /// 주문번호
     pub odno: String,
     /// 주문일자

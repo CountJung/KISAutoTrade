@@ -1746,3 +1746,14 @@ UI에서 해외 종목 추가 시 `is_overseas: market === 'US'` 자동 설정 (
 KIS pending 대조는 저장된 주문 TR-ID의 출처 모드도 확인한다. 생산 request builder의 모의 4개(`VTTC0802U`, `VTTC0801U`, `VTTT1002U`, `VTTT1006U`)와 실전 4개(`TTTC0802U`, `TTTC0801U`, `TTTT1002U`, `TTTT1006U`)만 명시적으로 식별한다. 다른 모드와 TR-ID 누락/미상은 현재 모드로 추정하지 않고 조회·체결·종결을 보류하며 기존 reconciliation health에 표시한다. 원 모드를 선택하면 다시 대조할 수 있다. 이 정책은 기존 `provider_tr_id`를 이용하고 새로운 credential을 저장하지 않는다.
 
 > 마지막 업데이트: 2026-10-18T12:29:40+09:00
+
+
+## 체결 원가와 누적 금액 보존 (2026-10-18)
+
+공식 [국내 일별체결 샘플](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/domestic_stock/inquire_daily_ccld/chk_inquire_daily_ccld.py)은 `tot_ccld_qty`·`tot_ccld_amt`, [해외 체결 샘플](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/overseas_stock/inquire_ccnl/chk_inquire_ccnl.py)은 `ft_ccld_qty`·`ft_ccld_amt3`·`tr_crcy_cd`를 노출한다. 평균가의 정수 절삭 뒤 수량을 곱해 원가를 재구성하면 잔액을 잃을 수 있으므로 누적 체결대금을 별도로 보존한다. 앱의 국내 금액 단위는 KRW 원, 미국 금액은 USD cents다.
+
+정상 체결은 계좌 전체 tracker에 다시 delta 가산/차감하지 않는다. 이미 체결을 포함한 broker snapshot 뒤에 local 대조가 도착할 수 있다. 주문의 exact owner 원장에만 체결을 적용하고 해당 시장 잔고를 재조회한다. 부분 체결/거부/취소·원가 불명 자료의 정책과 검증은 Rust 스킬 §12와 `docs/tasks/strategy-fill-ownership-20261018.md`를 따른다.
+
+pending 대조와 당일 리스크 복원은 저장된 주문 TR-ID의 정확한 허용값으로 투자모드를 검증한다. 계좌 문자열이 같아도 모의 손익을 실전 손실에 합산하지 않으며 미상 출처를 임의 추정하지 않는다. 이 로컬 provenance 검증을 provider 자체의 진위 확인이나 실계좌 운용 검증으로 확대하지 않는다.
+
+> 마지막 업데이트: 2026-10-18T14:30:00+09:00

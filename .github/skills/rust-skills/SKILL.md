@@ -688,7 +688,7 @@ if matches!(decision, GuardDecision::Allow) {
 
 ### 상태 복원 주의
 
-전략 내부 `in_position` 플래그는 프로세스 재시작 또는 수동 매매 후 실제 잔고와 어긋날 수 있다. 자동매매 시작 시 국내는 `PositionTracker`/KIS 잔고, 해외는 `get_overseas_balance()`를 기준으로 전략 상태를 복원하는 API를 별도로 설계한다.
+전략 내부 보유는 확인된 주문 소유권으로 복원한다. 시작 시 broker 잔고는 계좌 tracker에 게시하고, 전략에는 `sync_strategy_ownership`으로 exact owner 수량만 전달한다. 계좌 총잔고나 수동 매수를 모든 전략의 `in_position` 근거로 사용하지 않는다. 아래 §12를 따른다.
 
 > 마지막 업데이트: 2026-07-03T17:17:37+09:00
 
@@ -802,37 +802,22 @@ let adjusted_qty = min(risk_qty, position_qty);
 
 ---
 
-## 12. 전략 상태와 실제 잔고 동기화 패턴
+## 12. 전략 소유권과 계좌 잔고 동기화 패턴
 
-내부 `in_position` 플래그가 있는 전략은 앱 재시작 후 실제 잔고와 상태가 어긋날 수 있다.
-자동매매 시작 전에 활성 broker의 실제 잔고를 읽고 `Strategy::sync_position_for_broker()` 훅으로 전략별 상태를 복원한다.
+계좌 전체 관측 수량과 전략별 확정 보유는 별도 authority다. 시작 IPC·웹·상시 체결 데몬은 broker snapshot 게시와 `OrderManager::sync_strategy_ownership`을 사용한다.
 
-```rust
-pub struct BrokerPositionSnapshot {
-    pub broker_id: BrokerId,
-    pub market: BrokerMarket,
-    pub symbol: String,
-    pub quantity: u64,
-    pub avg_price: u64,
-}
+- `PositionTracker`/`OverseasPositionTracker`는 검증된 broker snapshot으로 교체한다. 실제 fill에서 delta 가산/차감을 하지 않고 snapshot version을 무효화하고 해당 시장을 재조회한다. 조회 성공 전 신규 주문 예약을 보류한다.
+- `order/ownership.rs`의 원장은 broker/account/profile/투자모드·owner·시장·종목별 수량과 정수 원가를 보관한다. 자동 매도는 exact owner와 계좌 관측 수량 중 작은 값으로 제한하고 예약 직전 다시 확인한다. 수동 매도는 자동 소유와 예산 원장의 보유를 제외한다.
+- `StrategyManager::sync_owned_position_for_strategy`는 ID/scope/시장/종목을 일치시킨 대상만 갱신한다. 전체 계좌 `BrokerPositionSnapshot`을 모든 전략에 broadcast하지 않는다. legacy hook은 replay/호환 호출과 구분한다.
+- live `on_live_tick`은 관측 지표를 갱신하되 raw 신호로 확정 보유를 바꾸지 않는다. pending/unsettled 상태는 외부 중복 신호만 억제한다. 체결·취소/거부 후 소유 수량과 pending을 다시 전달한다.
+- LTH 최고가·보유 관측 수 및 신고가 실패의 진입 기준을 보호 metadata로 보존한다. 부분 체결·설정 변경으로 평균가와 동일한 새 최고가/관측0을 만들지 않는다. replay의 입력 시각/모의 체결 경로는 유지한다.
+- manager → order lock 순서로 동기화한다. order mutex 아래에서 전략 manager를 await하지 않는다. live 관측 뒤 확정 보유 metadata를 checkpoint하며 오래된 run/revision은 저장하지 않는다.
+- Toss 변환은 `HoldingsUpdate::from_toss` 하나로 IPC/웹 시작·수동·체결 후 refresh를 통일한다. broker/account/시장/통화·중복 종목·유한 범위를 검증한다. 정수 주문 체계에서 소수 수량은 floor하며 양수 최소1 올림을 하지 않는다. KRW 원/USD cents를 구분하고 `< 2^64`를 검사한다.
+- 도입 이전/수동 보유를 새 전략에 임의 귀속하지 않는다. 소유 원장과 별도 generation manifest의 누락·손상·충돌, 원가 미상 체결은 신규 주문 차단 사유다. pending/소유 원장을 오래된 backup으로 자동 복원하지 않는다.
 
-pub trait Strategy: Send + Sync {
-    fn sync_position(&mut self, _symbol: &str, _quantity: u64, _avg_price: u64) {}
-    fn sync_position_for_broker(&mut self, snapshot: &BrokerPositionSnapshot) {
-        self.sync_position(&snapshot.symbol, snapshot.quantity, snapshot.avg_price);
-    }
-}
-```
+검증과 범위: `docs/tasks/strategy-fill-ownership-20261018.md`.
 
-- KIS 국내: `get_balance()` → `PositionTracker::load_if_empty()` + `StrategyManager::sync_position_for_broker()`
-- KIS 해외: `get_overseas_balance()` → `OverseasPositionTracker::load_if_empty()` + `StrategyManager::sync_position_for_broker()`
-- Toss: `TossBrokerAdapter::list_holdings()` → market/currency 기준 국내/해외 tracker 분리 복원 + `StrategyManager::sync_position_for_broker()`
-- 해외 또는 USD 평균단가/현재가는 USD × 100(cents)로 변환해서 전략에 전달한다.
-- 해외 잔고와 체결은 국내 `PositionTracker`에 혼입하지 않는다.
-- Toss decimal 수량은 전략의 in-position 복원 목적상 양수면 최소 1 단위로 snapshot에 반영한다. 실제 주문 수량으로 쓰기 전에는 Toss 주문 adapter에서 decimal 지원 여부를 별도 검증해야 한다.
-- Toss 자동매매 실행은 주문/체결 adapter가 연결되어 있으므로, `start_trading()`에서 활성 Toss 프로파일 설정과 `live_trading_consent`를 확인한 뒤 holdings 기반 전략 상태 복원을 수행한다.
-
-> 마지막 업데이트: 2026-07-03T15:25:46
+> 마지막 업데이트: 2026-10-18T14:21:43+09:00
 
 ---
 
@@ -890,15 +875,7 @@ stats.gross_profit += overseas_pnl_cents; // 원화 통계 오염
 ```
 
 ✅ 올바른 패턴:
-```rust
-overseas_position_tracker.on_buy(
-    symbol,
-    symbol_name,
-    exchange,      // NASD / NYSE / AMEX
-    qty,
-    price_cents,   // USD × 100
-);
-```
+해외 체결은 USD cents 단위의 owner 원장에 반영한다. 계좌 전체 해외 tracker는 broker 잔고 재조회로 교체하고 원화 통계에는 저장한 체결 환율로 환산한 값만 전달한다. 계좌 snapshot이 이미 포함한 체결을 다시 더하지 않는다.
 
 > 마지막 업데이트: 2026-07-01T16:15:13
 
@@ -941,7 +918,7 @@ pub fn new_overseas(
 
 ## 16. 주문번호 기반 부분체결 상태 패턴
 
-KIS 체결 조회 API로 주문번호를 확인할 때 `tot_ccld_qty`는 주문의 누적 체결 수량으로 취급한다. `src-tauri/src/trading/order/fills.rs`의 `OrderManager::on_fill()`은 누적 수량과 `PendingOrder.filled_quantity`의 차이만 포지션, 수수료, 거래 기록에 반영해야 한다.
+KIS 체결 조회 API로 주문번호를 확인할 때 `tot_ccld_qty`는 주문의 누적 체결 수량으로 취급한다. `src-tauri/src/trading/order/fills.rs`의 `OrderManager::on_fill()`은 누적 수량과 `PendingOrder.filled_quantity`의 차이만 소유 원장, 수수료, 거래 기록에 반영해야 한다. 계좌 전체 tracker는 재조회하며 delta 변경하지 않는다.
 
 ```rust
 let cumulative_filled = filled_qty.min(pending.record.quantity);
@@ -1089,19 +1066,19 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - `OrderManager::set_execution_scope(BrokerScope)`는 `start_trading()`에서만 설정하고, 주문 전 `TradeGuard`/`RiskManager`/`PendingOrder`에 같은 scope를 전달한다.
 - `BrokerScope`는 `broker_id`와 `Option<BrokerAccountId>`를 함께 들고, KIS 계좌번호와 Toss `accountSeq`가 같은 키 공간을 공유하지 않게 한다.
 - 아직 실제 주문/체결 adapter가 없는 broker는 자동매매 시작 시 `BROKER_NOT_SUPPORTED`로 차단한다. 현재 Toss는 주문/체결 adapter가 연결되어 있으므로 `live_trading_consent`와 accountSeq 설정을 통과하면 `start_trading()`을 허용한다.
-- 웹 REST `/api/trading/start`도 IPC `start_trading`과 같은 broker gate를 유지해야 한다. `is_trading`만 true로 바꾸지 말고 KIS 설정 검증, 미지원 broker 차단, `OrderManager::set_execution_scope()` 설정, 시작 전 KIS 잔고 기반 전략 포지션 복원을 수행한다.
+- 웹 REST `/api/trading/start`도 IPC `start_trading`과 같은 broker gate를 유지해야 한다. `is_trading`만 true로 바꾸지 말고 KIS 설정 검증, 미지원 broker 차단, `OrderManager::set_execution_scope()` 설정, 시작 전 broker 잔고 게시와 exact owner 원장 기반 전략 보유 복원을 수행한다.
 - 웹 REST `/api/archive-config` 변경도 IPC `set_trade_archive_config`와 같이 파일 저장 후 `purge_old_trade_files()`를 즉시 예약한다. IPC/REST 관리 경로가 다른 보관 정책을 가지면 장기 운영 중 디스크 사용량 예측이 어긋난다.
 - KIS REST client는 주문뿐 아니라 read API도 `RateLimitScheduler`를 거친다. 계좌/잔고는 `kis:account`, 체결 조회는 `kis:execution`, 시세/차트는 `kis:quote`, 주문은 `kis:order` group을 사용하고 응답 rate-limit header를 group별로 반영한다.
-- Toss client는 token 발급/401 1회 재시도/accounts/holdings/buying-power/sellable-quantity/commissions 및 주문 생성/조회 API를 제공한다. HTTP timeout과 response body 상한을 두고, `Content-Length`가 없거나 부정확한 응답도 chunk 누적 중 상한 초과 전에 중단한다. 파싱/에러 메시지에는 전체 body를 싣지 말고 snippet만 포함한다. token cache mutex를 잡은 채 네트워크 token 발급을 기다리지 않는다. holdings는 `BrokerHolding`으로 매핑하며 자동매매 시작 전 전략 포지션 복원에 사용한다.
-- Toss 주문 client surface는 `create_order`, `list_orders`, `get_order`, `modify_order`, `cancel_order`로 둔다. `TossOrderCreateRequest::with_generated_client_order_id()`는 공식 idempotency key 제약을 만족하는 `clientOrderId`를 생성한다. 소액 검증 IPC(`submit_toss_small_buy_verification`)는 실거래 동의, 최종 확인, 최대 허용 주문금액, 직전 preflight, open-order scan 후 1주 시장가 매수만 제출한다. Dashboard는 수동거래 페이지로 안내만 표시하고 소액매매 검증 UI를 두지 않는다. Trading 수동 주문은 `place_order`에서 활성 Toss 프로파일이면 live consent/preflight/local pending/provider open-order scan 후 Toss order API로 분기한다. 자동매매 주문은 `OrderManager::submit_signal_shared()`에서 시작 시점 `BrokerScope`와 일치하는 Toss profile credential을 찾아 제출하고, `confirm_pending_fills_from_broker_shared()`는 Toss `get_order` detail의 누적 체결수량/평균가를 `on_fill()`로 반영한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
+- Toss client는 token 발급/401 1회 재시도/accounts/holdings/buying-power/sellable-quantity/commissions 및 주문 생성/조회 API를 제공한다. HTTP timeout과 response body 상한을 두고, `Content-Length`가 없거나 부정확한 응답도 chunk 누적 중 상한 초과 전에 중단한다. 파싱/에러 메시지에는 전체 body를 싣지 말고 snippet만 포함한다. token cache mutex를 잡은 채 네트워크 token 발급을 기다리지 않는다. holdings는 `BrokerHolding`으로 매핑하며 시작 전 계좌 tracker 게시에 사용한다. 전략 보유는 별도의 exact owner 원장에서 복원한다.
+- Toss 주문 client surface는 `create_order`, `list_orders`, `get_order`, `modify_order`, `cancel_order`로 둔다. `TossOrderCreateRequest::with_generated_client_order_id()`는 공식 idempotency key 제약을 만족하는 `clientOrderId`를 생성한다. 소액 검증 IPC(`submit_toss_small_buy_verification`)는 실거래 동의, 최종 확인, 최대 허용 주문금액, 직전 preflight, open-order scan 후 1주 시장가 매수만 제출한다. Dashboard는 수동거래 페이지로 안내만 표시하고 소액매매 검증 UI를 두지 않는다. Trading 수동 주문은 `place_order`에서 활성 Toss 프로파일이면 live consent/preflight/local pending/provider open-order scan 후 Toss order API로 분기한다. 자동매매 주문은 `OrderManager::submit_signal_shared()`에서 시작 시점 `BrokerScope`와 일치하는 Toss profile credential을 찾아 제출하고, `confirm_pending_fills_from_broker_shared()`는 Toss `get_order` detail의 식별자·통화·정수 누적 수량과 명시 누적 금액을 검증해 `on_fill_confirmed()`로 반영한다. 평균가만으로 원가를 재구성하지 않는다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
 - Toss 모듈을 분리할 때 내부 DTO/validation/helper는 `pub(super)`로 제한하고, 외부에서 필요한 client/adapter와 공식 응답 타입만 `broker/toss/mod.rs`에서 re-export한다.
-- `src-tauri/src/trading/order/fills.rs::confirm_pending_fills_from_broker()`는 pending `OrderRecord.provider` trace로 provider를 판정한다. 자동매매 daemon은 `OrderManager::confirm_pending_fills_from_broker_shared()`를 호출해 KIS/Toss 체결 조회 네트워크 await를 `order_manager` mutex 밖에서 수행한다.
+- `src-tauri/src/trading/order/fills.rs::confirm_pending_fills_from_broker()`는 pending `OrderRecord.provider` trace로 provider를 판정한다. 자동매매 daemon은 `OrderManager::reconcile_strategy_state_shared()`로 체결 대조·owner 피드백·필요 잔고 재조회를 연결하고 내부 `confirm_pending_fills_from_broker_shared()`는 KIS/Toss 체결 조회 네트워크 await를 `order_manager` mutex 밖에서 수행한다.
 - 자동매매 daemon의 전략 신호 주문 제출은 `src-tauri/src/trading/order/submission.rs`의 `OrderManager::submit_signal_shared()`를 사용한다. 이 경로는 `order_manager` mutex를 짧게 잡아 guard/pending/submitting 예약만 수행하고, provider 주문 API와 order store append는 mutex 밖에서 await한다. provider 호출 중 같은 broker scope/symbol의 중복/반대 주문은 `submitting` 예약 맵으로 차단한다.
-- 주문 전 금액/수량 판정은 `trading/preflight.rs`의 공통 함수에 모은다. Toss `commissionRate`는 percent 문자열로 해석하고, `BrokerMoney`/`BrokerQuantity` 문자열 precision은 응답 view까지 보존한다.
+- 주문 전 금액/수량 판정은 `trading/preflight.rs`의 공통 함수에 모은다. Toss `commissionRate`는 소수 비율(`0.00015` = `0.015%`) 문자열로 해석하고, `BrokerMoney`/`BrokerQuantity` 문자열 precision은 응답 view까지 보존한다.
 - 실제 주문 제출 전에는 로컬 pending scan을 먼저 수행해 같은 scope/symbol의 같은 방향 중복 주문과 반대 방향 미체결 주문을 모두 차단한다.
 - 수동/자동 및 IPC/REST 주문은 `OrderManager::{submit_manual_order_shared,submit_signal_shared}`가 공유하는 scoped order service를 거친다. provider 응답을 받은 뒤 pending snapshot 저장에 실패하면 신규 매수를 중단한다.
 - pending 주문은 `storage::PendingOrderStore`에 broker/account scope, provider/client order ID, 누적 체결 watermark, provider 상태와 함께 저장한다. 자정/stop에서 지우지 않고 앱 시작 및 자동매매 시작 장벽에서 broker 체결/detail과 대조한다.
-- 체결 적용은 scope가 포함된 deterministic fill event ID로 OrderStore/TradeStore/StatsStore를 idempotent하게 갱신한다. provider 누적 평균가는 이전 체결 notional을 빼 delta 체결가로 변환한다. 자동매매 시작 장벽은 오늘 TradeStore의 `realized_pnl_krw`를 RiskManager에 재생해 crash 중간 지점과 무관하게 손실 한도를 복원하며, `TradeRecord::matches_scope`로 실행 scope 체결만 반영한다(스코프 미기록 레거시 레코드는 KIS로 간주).
+- 체결 적용은 scope가 포함된 deterministic fill event ID로 OrderStore/TradeStore/StatsStore를 idempotent하게 갱신한다. 명시 누적 체결대금을 이전 watermark와 비교해 delta 원가/체결대금을 구한다. KIS 해외/Toss 금액이 누락된 경우에만 실제 평균가 원문×수량을 총액에서 한번 반올림하며 명시0/오염을 주문가로 대체하지 않는다. 자동매매 시작 장벽은 오늘 TradeStore의 `realized_pnl_krw`를 RiskManager에 재생해 crash 중간 지점과 무관하게 손실 한도를 복원하며, `TradeRecord::matches_scope`와 저장된 KIS TR-ID의 정확한 모드를 확인하고 후보 runtime 저장 후 공개한다. 모드 미상 레코드는 fail-closed이며 같은 계좌의 paper/live 손익을 합산하지 않는다.
 - `OrderRecord`/`TradeRecord`는 `with_broker_scope()`로 broker/account를 기록한다. PositionTracker/OverseasPositionTracker는 단일 활성 scope 스냅샷만 보유한다 — 프로파일 전환(비실행 중) 시 `clear()`하고 다음 holdings `replace()` 또는 수동 주문 직전 refresh로 재동기화하며, 실행 중에는 `execution_scope`가 주문 흐름을 시작 시점 scope에 고정한다.
 - 리스크 설정과 일별 runtime 상태는 `storage::RiskStore`가 `risk/config.json`(설정)과 `risk/runtime.json`(날짜·손익·비상정지·주문 횟수·연속 손실 차단)으로 분리 저장한다. 주문 접수·체결 반영·비상정지 변경·일별 초기화 시점마다 스냅샷을 저장하고, OrderManager 경로의 저장 실패는 fail-closed로 신규 주문을 차단한다. 시작 시 복원은 스냅샷 날짜가 오늘일 때만 카운터를 적용하고 비상정지는 날짜와 무관하게 유지한다(수동 해제 대상). runtime 파일을 읽지 못하면 비상정지 상태로 시작한다.
 - 계좌 잔고·holdings 조회는 fail-closed다. 시작 전 하나라도 실패하거나 총평가액이 0 이하이면 시작하지 않고, 운용 중 갱신 실패는 `buy_suspended_reason`과 Discord에 노출한 뒤 신규 매수를 막는다.
@@ -1223,7 +1200,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - save 전 인스턴스/revision을 바꾸지 않는다. 성공 후 기존 인스턴스를 재설정하고 새 revision을 공개한다. 저장 실패는 기존 보유/설정을 유지한다. 첫 저장 오류도 교체 후 fsync/commit 실패일 수 있으므로 저장 후 identity 검증 실패와 함께 원본을 다시 저장한다. 복구 실패는 persistence block이다.
 - manager/order가 Weak lease만 보유한다. transaction 종료 시 자동 해제되며 같은 scope의 새 신호와 영향 종목 주문 예약·전체 수동 holdings 게시를 잠시 보류한다. 이 보류를 시장 폐장으로 분류해 5분 대기하지 않는다.
 - raw 신호는 current generation별 미처리 표시를 남긴다. 제출/차단/오류에서 exact 전략만 완료 처리하고 폐장 조기 종료 시 나머지 신호도 현재 실행 gate에서 정리한다. 이미 제출한 다른 전략의 낙관적 상태를 덮지 않는다.
-- private held 또는 실제 tracker 양쪽 중 하나에 보유가 있으면 대상 제거/시장 변경을 거부한다. PC params.symbols는 빈 배열까지 대상의 정본이고 LTH 거래 대상도 production constructor로 검증한다. 두 전략 모두 실제 on_tick처럼 첫 중복 entry의 시장 구분을 사용하며 LTH의 legacy inverse 필드로 다른 대상을 덮지 않는다. 공유 tracker의 0수량이나 startup cache로 private 보호를 지우지 않는다. 일반 잔고 게시 fencing은 아래 공통 gate를 사용하며 정상 체결 소유권 피드백은 별도 P1 후속이다.
+- private held 또는 실제 tracker 양쪽 중 하나에 보유가 있으면 대상 제거/시장 변경을 거부한다. PC params.symbols는 빈 배열까지 대상의 정본이고 LTH 거래 대상도 production constructor로 검증한다. 두 전략 모두 실제 on_tick처럼 첫 중복 entry의 시장 구분을 사용하며 LTH의 legacy inverse 필드로 다른 대상을 덮지 않는다. 공유 tracker의 0수량이나 startup cache로 private 보호를 지우지 않는다. 일반 잔고 게시 fencing은 아래 공통 gate를 사용하며 정상 체결은 §12의 exact owner 피드백을 사용한다.
 - ❌ 저장 전에 전략을 재생성하고 실패 시 저장한 config로 다시 재생성하면 보유·trailing 상태를 잃는다. ✅ 먼저 저장한 뒤 같은 ID/scope에서 보유를 유지하며 공개한다. 실제 수량의 소유권을 모르면 새 대상에 다른 전략/수동 보유를 배정하지 않는다.
 
 > 마지막 업데이트: 2026-10-18T12:57:00+09:00
@@ -1236,6 +1213,15 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - IPC·daemon·시작 복원·수동 주문 갱신에 공통 gate를 적용한다. tracker를 쓰지 않는 Web/일반 broker 조회도 ReadOnly ticket으로 응답 반환 전 identity를 확인하며 새 quantity query를 무효화하지 않는다. no-profile 빈 결과도 검증한다.
 - KIS 공통 refresh는 엄격한 수량/가격 변환과 종목명 저장 await를 완료한 뒤 최종 gate를 실행한다. 실패한 값은 0으로 대체하지 않는다. 잔고 이벤트 callback은 성공한 gate 내부에서 동기 실행한다. frontend는 이벤트를 현재 scope 재조회 힌트로 사용한다.
 - profile fingerprint는 execution_run의 공통 순수 helper를 사용하되 broker/scope/client 비교를 별도로 유지한다. 해외 거래소 trim/대문자 정규화는 holdings helper를 사용하며 다른 의미의 order_exchange_code와 합치지 않는다.
-- 이 gate는 조회 시작 이후의 로컬 변경과 계좌 경합을 막는다. provider snapshot에 이미 반영된 체결을 나중 reconciliation이 다시 적용하는 lifecycle·소유 전략 피드백은 P1-FILL-01에서 별도로 검증한다.
+- 이 gate는 조회 시작 이후의 로컬 변경과 계좌 경합을 막는다. provider snapshot에 이미 포함된 체결의 중복은 계좌 delta 변경을 없애고 소유 원장과 재조회로 분리해 방지한다. P1-FILL-01의 lifecycle 검증은 `docs/tasks/strategy-fill-ownership-20261018.md`를 따른다.
 
 > 마지막 업데이트: 2026-10-18T13:35:00+09:00
+
+
+### 저장 intent와 정밀 체결 후속 계약 (2026-10-18)
+
+`confirmed_filled_notional`은 intent의 수량·날짜·US 환율과 함께 고정한다. 재시도 중 더 큰 누적값이 와도 원래 intent부터 완료한다. 0수량 terminal도 저장 intent 복구를 건너뛰지 않고, 기확정 수량보다 작은 terminal은 pending을 제거하지 않는다. owner 원장 영수증은 terminal side effect와 pending 제거가 durable한 뒤에만 정리한다.
+
+소액 Toss 즉시 반영은 원 주문 ID·symbol·BUY·통화·정수1주·명시금액을 검증한다. 금액 누락은 즉시 반영을 보류하고 pending을 유지한다. 계좌·record 일치 eligibility를 실제 반영 lock 안에서 다시 검사한다. 수량/금액/날짜는 collector의 같은 checked parser를 재사용한다.
+
+> 마지막 업데이트: 2026-10-18T14:40:06+09:00

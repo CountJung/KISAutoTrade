@@ -158,6 +158,15 @@ impl Strategy for PriceConditionStrategy {
         })
     }
 
+    fn on_live_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal {
+        let confirmed = self.positions.get(symbol).copied().unwrap_or((false, None));
+        let signal = self.on_tick(symbol, price, volume);
+        if let Some(position) = self.positions.get_mut(symbol) {
+            *position = confirmed;
+        }
+        signal
+    }
+
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
         if !self.config.enabled {
             return Signal::Hold;
@@ -328,3 +337,7 @@ mod tests {
 
 #[cfg(test)]
 mod reconfigure_tests;
+
+#[cfg(test)]
+#[path = "price_condition/live_feedback_tests.rs"]
+mod live_feedback_tests;

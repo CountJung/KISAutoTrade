@@ -6,6 +6,7 @@ pub(crate) async fn restore_risk_from_today_trades(
     risk_manager: &Arc<Mutex<RiskManager>>,
     risk_store: &Arc<crate::storage::RiskStore>,
     execution_scope: &BrokerScope,
+    execution_is_paper: bool,
 ) -> CmdResult<()> {
     let today = chrono::Local::now().date_naive();
     let mut trades = trade_store
@@ -23,23 +24,47 @@ pub(crate) async fn restore_risk_from_today_trades(
             message: format!("오늘 주문 ledger를 읽지 못했습니다: {error}"),
         })?;
     trades.sort_by(|left, right| left.timestamp.cmp(&right.timestamp));
-    let scoped_trades: Vec<_> = trades
+    let mode_matches = |tr_id: Option<&str>| -> CmdResult<bool> {
+        if execution_scope.broker_id == BrokerId::Toss {
+            return Ok(true);
+        }
+        OrderManager::kis_order_is_paper(tr_id)
+            .map(|mode| mode == execution_is_paper)
+            .map_err(|error| CmdError {
+                code: "RISK_MODE_UNCONFIRMED".into(),
+                message: error.to_string(),
+            })
+    };
+    let mut scoped_trades = Vec::new();
+    for trade in trades
         .into_iter()
-        .filter(|trade| trade.matches_scope(execution_scope))
-        .collect();
-    let mut risk = risk_manager.lock().await;
-    risk.reset_daily();
-    // 다른 broker/계좌의 당일 체결이 이 scope의 손실 한도에 섞이지 않게 격리한다.
-    risk.restore_daily_pnl(
-        scoped_trades
-            .iter()
-            .filter_map(|trade| trade.realized_pnl_krw),
-    );
-    let mut submitted_order_ids = std::collections::HashSet::new();
-    for order in orders
-        .into_iter()
-        .filter(|order| order.matches_scope(execution_scope))
+        .filter(|trade| trade.matches_scope(execution_scope) && trade.realized_pnl_krw.is_some())
     {
+        if mode_matches(trade.provider_tr_id.as_deref())? {
+            scoped_trades.push(trade);
+        }
+    }
+    let mut scoped_orders = Vec::new();
+    for order in orders.into_iter().filter(|order| {
+        order.matches_scope(execution_scope)
+            && order.strategy_id.is_some()
+            && !matches!(
+                order.status,
+                crate::storage::order_store::OrderStatus::Failed
+            )
+    }) {
+        if mode_matches(order.provider_tr_id.as_deref())? {
+            scoped_orders.push(order);
+        }
+    }
+    let mut current = risk_manager.lock().await;
+    let mut risk = current.clone();
+    risk.reset_daily();
+    // Rebuild both the totals and event receipts from the same durable source.
+    // A pending intent absent from TradeStore is retried; an already recorded
+    // trade cannot add its PnL again after restart.
+    let mut submitted_order_ids = std::collections::HashSet::new();
+    for order in scoped_orders {
         if matches!(
             order.status,
             crate::storage::order_store::OrderStatus::Failed
@@ -74,15 +99,19 @@ pub(crate) async fn restore_risk_from_today_trades(
         );
     }
     for trade in &scoped_trades {
-        if let (Some(strategy_id), Some(pnl)) =
-            (trade.strategy_id.as_deref(), trade.realized_pnl_krw)
-        {
-            risk.record_strategy_symbol_pnl_for_scope(
+        if let Some(pnl) = trade.realized_pnl_krw {
+            risk.record_fill_pnl_once(
+                today,
+                trade.id.strip_prefix("trade-").unwrap_or(&trade.id),
                 execution_scope,
-                strategy_id,
+                trade.strategy_id.as_deref().unwrap_or("unknown"),
                 &trade.symbol,
                 pnl,
-            );
+            )
+            .map_err(|error| CmdError {
+                code: "RISK_RESTORE_FAILED".into(),
+                message: error.to_string(),
+            })?;
         }
     }
     risk_store
@@ -92,5 +121,9 @@ pub(crate) async fn restore_risk_from_today_trades(
             code: "RISK_PERSIST_FAILED".into(),
             message: format!("리스크 runtime 상태를 저장하지 못했습니다: {error}"),
         })?;
+    *current = risk;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

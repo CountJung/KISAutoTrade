@@ -5,6 +5,7 @@ use crate::{broker::BrokerId, config::AccountProfile};
 use std::sync::Weak;
 
 mod fetch;
+mod parse;
 
 pub(crate) fn normalize_overseas_order_exchange(code: &str) -> String {
     match code.trim().to_uppercase().as_str() {
@@ -220,9 +221,11 @@ impl OrderManager {
         );
         if let Some(items) = domestic {
             kr.replace(items);
+            self.holdings_refresh_required &= !1;
         }
         if let Some(items) = overseas {
             us.replace(items);
+            self.holdings_refresh_required &= !2;
         }
         Ok(())
     }

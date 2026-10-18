@@ -82,7 +82,7 @@ async fn failed_configuration_pause_never_becomes_market_close_and_same_revision
 }
 
 #[tokio::test]
-async fn unsubmitted_feedback_uses_the_latest_holding_at_the_apply_gate() {
+async fn unsubmitted_feedback_never_assigns_an_unowned_account_holding_to_strategy() {
     let fixture = Fixture::new("http://127.0.0.1:1".into()).await;
     let (strategies, context) = strategies(&fixture).await;
     let running = Arc::new(Mutex::new(true));
@@ -93,8 +93,8 @@ async fn unsubmitted_feedback_uses_the_latest_holding_at_the_apply_gate() {
             config.id == "price_condition_first"
         });
     assert_eq!(raw.len(), 1);
-    // Holdings change while an order/preflight future is awaited. Feedback must
-    // not reuse the flat snapshot from before that await.
+    // Another owner acquired an account holding while preflight was awaited.
+    // A rejected raw entry must not acquire that position through rollback.
     fixture.seed_holding("005930", 1, 100).await;
     let fence = RunFence {
         running: &running,
@@ -110,7 +110,7 @@ async fn unsubmitted_feedback_uses_the_latest_holding_at_the_apply_gate() {
     });
     assert!(matches!(
         signals[0].signal,
-        crate::trading::strategy::Signal::Sell { .. }
+        crate::trading::strategy::Signal::Buy { .. }
     ));
 }
 
@@ -145,8 +145,16 @@ async fn market_closed_first_order_settles_remaining_raw_batch_without_touching_
         assert!(manager.has_unsettled_signals());
         batch
     };
-    // This strategy was handled earlier in the batch and must retain its cache.
+    // This strategy has an accepted order. It stays pending without inventing a
+    // confirmed position and must not emit another outward signal in this batch.
     let submitted = batch.pop().unwrap();
+    strategies.lock().await.note_order_pending(
+        &submitted.strategy_id,
+        &context.broker_scope,
+        crate::broker::BrokerMarket::Kr,
+        "005930",
+        true,
+    );
     strategies.lock().await.complete_signal(
         &submitted.strategy_id,
         "005930",

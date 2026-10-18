@@ -2,64 +2,72 @@
 use super::*;
 use crate::api::rest::{BalanceResponse, OverseasBalanceResponse};
 
-fn quantity(value: &str, symbol: &str) -> Result<u64> {
-    value
-        .trim()
-        .replace(',', "")
-        .parse()
-        .map_err(|_| anyhow::anyhow!("{symbol} 보유수량 형식 오류"))
-}
-fn money(value: &str, multiplier: f64, symbol: &str) -> Result<u64> {
-    let parsed: f64 = value
-        .trim()
-        .replace(',', "")
-        .parse()
-        .map_err(|_| anyhow::anyhow!("{symbol} 잔고 가격 형식 오류"))?;
-    let scaled = parsed * multiplier;
-    anyhow::ensure!(
-        scaled.is_finite() && scaled >= 0.0 && scaled <= u64::MAX as f64,
-        "{symbol} 잔고 가격 범위 오류"
-    );
-    Ok(scaled.round() as u64)
-}
-
-impl HoldingsUpdate {
-    pub(crate) fn from_kis_domestic(response: &BalanceResponse) -> Result<Self> {
-        let items = response
-            .items
-            .iter()
-            .map(|item| {
-                Ok((
-                    item.pdno.clone(),
-                    item.prdt_name.clone(),
-                    quantity(&item.hldg_qty, &item.pdno)?,
-                    money(&item.pchs_avg_pric, 1.0, &item.pdno)?,
-                    money(&item.prpr, 1.0, &item.pdno)?,
-                ))
-            })
-            .collect::<Result<_>>()?;
-        Ok(Self::Domestic(items))
-    }
-    pub(crate) fn from_kis_overseas(response: &OverseasBalanceResponse) -> Result<Self> {
-        let items = response
-            .items
-            .iter()
-            .map(|item| {
-                Ok((
-                    item.ovrs_pdno.clone(),
-                    item.ovrs_item_name.clone(),
-                    normalize_overseas_order_exchange(&item.ovrs_excg_cd),
-                    quantity(&item.ovrs_cblc_qty, &item.ovrs_pdno)?,
-                    money(&item.pchs_avg_pric, 100.0, &item.ovrs_pdno)?,
-                    money(&item.now_pric2, 100.0, &item.ovrs_pdno)?,
-                ))
-            })
-            .collect::<Result<_>>()?;
-        Ok(Self::Overseas(items))
-    }
-}
-
 impl OrderManager {
+    /// Re-query the account authority after a fill; never add a fill delta to it.
+    pub(crate) async fn refresh_active_holdings_shared(orders: &Arc<Mutex<Self>>) -> Result<()> {
+        use crate::broker::{BrokerAdapter, TossBrokerAdapter};
+        let (query, markets) = {
+            let mut manager = orders.lock().await;
+            let broker = manager.execution_scope.broker_id;
+            let markets = if broker == BrokerId::Kis {
+                match manager.holdings_refresh_required & 3 {
+                    1 => HoldingsMarkets::Domestic,
+                    2 => HoldingsMarkets::Overseas,
+                    _ => HoldingsMarkets::Both,
+                }
+            } else {
+                HoldingsMarkets::Both
+            };
+            (
+                manager.begin_holdings_query(broker, markets).await?,
+                markets,
+            )
+        };
+        let update = if query.scope.broker_id == BrokerId::Kis {
+            match markets {
+                HoldingsMarkets::Domestic => {
+                    HoldingsUpdate::from_kis_domestic(&query.client().get_balance().await?)?
+                }
+                HoldingsMarkets::Overseas => HoldingsUpdate::from_kis_overseas(
+                    &query.client().get_overseas_balance().await?,
+                )?,
+                _ => {
+                    let domestic = query.client().get_balance().await?;
+                    let overseas = query.client().get_overseas_balance().await?;
+                    let HoldingsUpdate::Domestic(domestic) =
+                        HoldingsUpdate::from_kis_domestic(&domestic)?
+                    else {
+                        unreachable!()
+                    };
+                    let HoldingsUpdate::Overseas(overseas) =
+                        HoldingsUpdate::from_kis_overseas(&overseas)?
+                    else {
+                        unreachable!()
+                    };
+                    HoldingsUpdate::Both { domestic, overseas }
+                }
+            }
+        } else {
+            let profile = query
+                .profile()
+                .ok_or_else(|| anyhow::anyhow!("활성 Toss 프로파일이 없습니다."))?;
+            let adapter = TossBrokerAdapter::with_credentials(
+                TossBrokerAdapter::DEFAULT_BASE_URL,
+                profile.app_key.clone(),
+                profile.app_secret.clone(),
+                Some(profile.broker_account_id()),
+            );
+            let holdings = adapter
+                .list_holdings(query.scope.account_id.as_ref())
+                .await?;
+            HoldingsUpdate::from_toss(&query.scope, &holdings)?
+        };
+        let mut manager = orders.lock().await;
+        manager.publish_holdings(query, update).await?;
+        manager.mark_holdings_sync(None);
+        Ok(())
+    }
+
     pub(crate) async fn refresh_kis_domestic_shared<P>(
         orders: &Arc<Mutex<Self>>,
         stock_store: Option<&crate::storage::StockStore>,

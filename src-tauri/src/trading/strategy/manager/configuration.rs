@@ -48,8 +48,15 @@ impl StrategyManager {
         {
             return;
         }
-        if let Some(strategy) = self.strategies.iter_mut().find(|s| s.id() == strategy_id) {
-            strategy.sync_position(symbol, quantity, avg_price);
+        if self.history_execution_identity.is_none() {
+            if let Some(strategy) = self.strategies.iter_mut().find(|s| s.id() == strategy_id) {
+                strategy.sync_position(symbol, quantity, avg_price);
+            }
+        }
+        if self.history_execution_identity.is_some() {
+            if let Some(strategy) = self.strategies.iter_mut().find(|s| s.id() == strategy_id) {
+                strategy.discard_unsubmitted_signal(symbol);
+            }
         }
         self.complete_signal(strategy_id, symbol, revision);
     }

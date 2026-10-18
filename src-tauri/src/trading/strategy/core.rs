@@ -147,6 +147,30 @@ pub trait Strategy: Send + Sync {
     }
     /// 틱 데이터를 받아 매매 신호 반환
     fn on_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal;
+    /// Live evaluation advances observations but leaves confirmed ownership unchanged.
+    /// Stateless strategies can share replay evaluation directly.
+    fn on_live_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal {
+        self.on_tick(symbol, price, volume)
+    }
+    /// Publish only this strategy's confirmed owned quantity, never account totals.
+    fn sync_owned_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
+        self.sync_position(symbol, quantity, avg_price);
+    }
+    /// Keep signal-time protection metadata while the accepted order is pending.
+    fn set_order_pending(&mut self, _symbol: &str, _pending: bool) {}
+    /// Discard an unreserved candidate without changing confirmed ownership.
+    fn discard_unsubmitted_signal(&mut self, _symbol: &str) {}
+    /// Minimal protection checkpoint, scoped by the coordinator to the exact owner.
+    fn owned_position_metadata(&self, _symbol: &str) -> Option<serde_json::Value> {
+        None
+    }
+    fn restore_owned_position_metadata(
+        &mut self,
+        _symbol: &str,
+        _metadata: &serde_json::Value,
+    ) -> Result<(), String> {
+        Err("This strategy does not support owned position metadata".into())
+    }
     /// 일봉 replay의 날짜 시작. 당일 시가만 공개하며 보유 포지션을 지우지 않는다.
     fn on_trading_day_start(&mut self, _symbol: &str, _open: u64) {}
     /// 완료 시점에 공개된 당일 OHLC로 종가 관측을 평가한다.

@@ -491,6 +491,10 @@ mod tests {
         record.id = id;
         record.kis_order_id = Some("test-order".into());
         PendingOrder {
+            ownership_key: None,
+            ownership_generation: None,
+            strategy_position_metadata: None,
+            submitted_cost_basis: None,
             record,
             signal_reason: "test".into(),
             strategy_id: None,
@@ -502,7 +506,10 @@ mod tests {
             filled_notional: 0,
             confirmed_filled_quantity: 0,
             confirmed_avg_price: 0,
+            confirmed_filled_notional: None,
             application_started: false,
+            application_execution_date: None,
+            application_exchange_rate: None,
             application_pnl: None,
             client_order_id: None,
             provider_status: None,

@@ -410,3 +410,7 @@ impl LeveragedTrendHoldStrategy {
 
 #[cfg(test)]
 mod reconfigure_tests;
+
+#[cfg(test)]
+#[path = "leveraged_trend_hold/live_feedback_tests.rs"]
+mod live_feedback_tests;

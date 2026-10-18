@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+
+mod fill_accounting;
 
 use crate::broker::BrokerScope;
 
@@ -57,13 +59,16 @@ pub struct RiskRuntimeState {
     pub daily_order_counts: Vec<DailyOrderCountEntry>,
     pub consecutive_loss_counts: Vec<StrategySymbolCountEntry>,
     pub blocked_strategy_symbols: Vec<StrategySymbolCountEntry>,
+    /// Current-day fill event and payload fingerprints for retry-safe accounting.
+    #[serde(default)]
+    pub processed_fill_pnl: BTreeMap<String, String>,
 }
 
 /// 리스크 관리자
 /// - 일일 최대 순손실 한도 감시 (순손실 = 총 손실 - 당일 수익)
 /// - 최대 단일 종목 비중 검사
 /// - 비상 정지(Emergency Stop) 기능
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RiskManager {
     /// 리스크 관리 활성화 여부. false이면 자동 비상정지·한도 검사 비활성
     #[serde(default = "default_true")]
@@ -120,6 +125,8 @@ pub struct RiskManager {
     /// 종목별 최근 ATR. 국내=KRW, 해외=USD cents.
     #[serde(skip)]
     atr_by_symbol: HashMap<String, u64>,
+    #[serde(skip)]
+    processed_fill_pnl: BTreeMap<String, String>,
 }
 
 fn default_true() -> bool {
@@ -166,6 +173,7 @@ impl RiskManager {
             consecutive_loss_counts: HashMap::new(),
             blocked_strategy_symbols: HashMap::new(),
             atr_by_symbol: HashMap::new(),
+            processed_fill_pnl: BTreeMap::new(),
         }
     }
 
@@ -552,6 +560,7 @@ impl RiskManager {
         self.consecutive_loss_counts.clear();
         self.blocked_strategy_symbols.clear();
         self.atr_by_symbol.clear();
+        self.processed_fill_pnl.clear();
         self.last_reset_date = Some(chrono::Local::now().date_naive());
         // 비상 정지는 수동 해제 필요
     }
@@ -574,6 +583,7 @@ impl RiskManager {
             self.consecutive_loss_counts.clear();
             self.blocked_strategy_symbols.clear();
             self.atr_by_symbol.clear();
+            self.processed_fill_pnl.clear();
             self.last_reset_date = Some(today);
             tracing::info!("리스크 관리자 일별 초기화 완료 (날짜: {})", today);
             return true;
@@ -609,110 +619,6 @@ impl RiskManager {
         self.volatility_sizing_enabled = state.volatility_sizing_enabled;
         self.risk_per_trade_bps = state.risk_per_trade_bps;
         self.atr_stop_multiplier = state.atr_stop_multiplier;
-    }
-
-    /// 재시작 후 복원용 일별 runtime 스냅샷. ATR 캐시는 시세에서 재구축되므로 제외한다.
-    pub fn runtime_state(&self) -> RiskRuntimeState {
-        RiskRuntimeState {
-            date: self
-                .last_reset_date
-                .unwrap_or_else(|| chrono::Local::now().date_naive()),
-            current_loss: self.current_loss,
-            daily_profit: self.daily_profit,
-            emergency_stop: self.emergency_stop,
-            daily_order_counts: self
-                .daily_order_counts
-                .iter()
-                .map(
-                    |((date, scope, strategy_id, symbol, side), count)| DailyOrderCountEntry {
-                        date: *date,
-                        scope: scope.clone(),
-                        strategy_id: strategy_id.clone(),
-                        symbol: symbol.clone(),
-                        side: *side,
-                        count: *count,
-                    },
-                )
-                .collect(),
-            consecutive_loss_counts: self
-                .consecutive_loss_counts
-                .iter()
-                .map(
-                    |((scope, strategy_id, symbol), count)| StrategySymbolCountEntry {
-                        scope: scope.clone(),
-                        strategy_id: strategy_id.clone(),
-                        symbol: symbol.clone(),
-                        count: *count,
-                    },
-                )
-                .collect(),
-            blocked_strategy_symbols: self
-                .blocked_strategy_symbols
-                .iter()
-                .map(
-                    |((scope, strategy_id, symbol), count)| StrategySymbolCountEntry {
-                        scope: scope.clone(),
-                        strategy_id: strategy_id.clone(),
-                        symbol: symbol.clone(),
-                        count: *count,
-                    },
-                )
-                .collect(),
-        }
-    }
-
-    /// 저장된 일별 runtime 스냅샷을 적용한다.
-    ///
-    /// - 비상정지는 수동 해제 대상이므로 날짜와 무관하게 복원한다.
-    /// - 손익·주문 횟수·연속 손실 상태는 스냅샷 날짜가 오늘일 때만 복원한다.
-    pub fn apply_runtime_state(&mut self, state: RiskRuntimeState) {
-        self.emergency_stop = state.emergency_stop;
-        let today = chrono::Local::now().date_naive();
-        if state.date != today {
-            tracing::info!(
-                "리스크 runtime 스냅샷이 이전 날짜({})라 비상정지 상태만 복원했습니다.",
-                state.date
-            );
-            self.last_reset_date = Some(today);
-            return;
-        }
-        self.current_loss = state.current_loss;
-        self.daily_profit = state.daily_profit;
-        self.last_reset_date = Some(state.date);
-        self.daily_order_counts = state
-            .daily_order_counts
-            .into_iter()
-            .filter(|entry| entry.date == today)
-            .map(|entry| {
-                (
-                    (
-                        entry.date,
-                        entry.scope,
-                        entry.strategy_id,
-                        entry.symbol,
-                        entry.side,
-                    ),
-                    entry.count,
-                )
-            })
-            .collect();
-        self.consecutive_loss_counts = state
-            .consecutive_loss_counts
-            .into_iter()
-            .map(|entry| ((entry.scope, entry.strategy_id, entry.symbol), entry.count))
-            .collect();
-        self.blocked_strategy_symbols = state
-            .blocked_strategy_symbols
-            .into_iter()
-            .map(|entry| ((entry.scope, entry.strategy_id, entry.symbol), entry.count))
-            .collect();
-        tracing::info!(
-            "리스크 runtime 복원 완료 — 순손실 {}원, 주문횟수 {}건, 연속손실 차단 {}건, 비상정지 {}",
-            self.net_loss(),
-            self.daily_order_counts.len(),
-            self.blocked_strategy_symbols.len(),
-            self.emergency_stop
-        );
     }
 
     /// 오늘 누적 총 손실 (음수)

@@ -38,6 +38,10 @@ async fn fixture() -> Fixture {
 }
 fn pending(scope: BrokerScope, symbol: &str) -> PendingOrder {
     PendingOrder {
+        ownership_key: None,
+        ownership_generation: None,
+        strategy_position_metadata: None,
+        submitted_cost_basis: None,
         record: OrderRecord::new(
             symbol.into(),
             "fixture".into(),
@@ -57,7 +61,10 @@ fn pending(scope: BrokerScope, symbol: &str) -> PendingOrder {
         filled_notional: 0,
         confirmed_filled_quantity: 0,
         confirmed_avg_price: 0,
+        confirmed_filled_notional: None,
         application_started: false,
+        application_execution_date: None,
+        application_exchange_rate: None,
         application_pnl: None,
         client_order_id: None,
         provider_status: None,

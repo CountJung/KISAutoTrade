@@ -185,6 +185,20 @@ impl Strategy for MeanReversionStrategy {
             .map(|state| state.available_bars.saturating_add(1) >= state.required_bars)
     }
 
+    fn on_live_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal {
+        let confirmed = self
+            .states
+            .get(symbol)
+            .map(|state| (state.in_position, state.entry_price))
+            .unwrap_or((false, None));
+        let signal = self.on_tick(symbol, price, volume);
+        if let Some(state) = self.states.get_mut(symbol) {
+            state.in_position = confirmed.0;
+            state.entry_price = confirmed.1;
+        }
+        signal
+    }
+
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
         if !self.config.enabled {
             return Signal::Hold;
@@ -467,6 +481,19 @@ impl Strategy for TrendFilterStrategy {
             .map(|state| state.available_bars.saturating_add(1) >= state.required_bars)
     }
 
+    fn on_live_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal {
+        let confirmed = self
+            .states
+            .get(symbol)
+            .map(|state| state.in_position)
+            .unwrap_or(false);
+        let signal = self.on_tick(symbol, price, volume);
+        if let Some(state) = self.states.get_mut(symbol) {
+            state.in_position = confirmed;
+        }
+        signal
+    }
+
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
         if !self.config.enabled {
             return Signal::Hold;
@@ -665,3 +692,7 @@ mod tests {
 
 #[cfg(test)]
 mod reconfigure_tests;
+
+#[cfg(test)]
+#[path = "mean_trend/live_feedback_tests.rs"]
+mod live_feedback_tests;

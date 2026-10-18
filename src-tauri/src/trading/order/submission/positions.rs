@@ -40,62 +40,11 @@ pub(super) async fn refresh_manual_positions(
             .list_holdings(submission.broker_scope.account_id.as_ref())
             .await
             .map_err(|error| anyhow::anyhow!("Toss 수동 주문 전 holdings 조회 실패: {error}"))?;
-        let mut domestic = Vec::new();
-        let mut overseas = Vec::new();
-        for holding in holdings {
-            let quantity = holding
-                .quantity
-                .0
-                .trim()
-                .replace(',', "")
-                .parse::<f64>()
-                .map_err(|_| anyhow::anyhow!("{} Toss 보유수량 형식 오류", holding.symbol.0))?;
-            let quantity = if quantity <= 0.0 {
-                0
-            } else {
-                quantity.floor().max(1.0) as u64
-            };
-            let money_units = |amount: &str, currency: BrokerCurrency| -> Result<u64> {
-                let value = amount
-                    .trim()
-                    .replace(',', "")
-                    .parse::<f64>()
-                    .map_err(|_| anyhow::anyhow!("{} Toss 가격 형식 오류", holding.symbol.0))?;
-                Ok(match currency {
-                    BrokerCurrency::Krw => value.max(0.0).round() as u64,
-                    BrokerCurrency::Usd => (value.max(0.0) * 100.0).round() as u64,
-                })
-            };
-            let avg = money_units(
-                &holding.average_price.amount,
-                holding.average_price.currency,
-            )?;
-            let current = money_units(
-                &holding.current_price.amount,
-                holding.current_price.currency,
-            )?;
-            match holding.market {
-                BrokerMarket::Kr => domestic.push((
-                    holding.symbol.0,
-                    holding.symbol_name,
-                    quantity,
-                    avg,
-                    current,
-                )),
-                BrokerMarket::Us => overseas.push((
-                    holding.symbol.0,
-                    holding.symbol_name,
-                    "TOSS_US".to_string(),
-                    quantity,
-                    avg,
-                    current,
-                )),
-            }
-        }
+        let update = HoldingsUpdate::from_toss(&submission.broker_scope, &holdings)?;
         order_manager
             .lock()
             .await
-            .publish_holdings(query, HoldingsUpdate::Both { domestic, overseas })
+            .publish_holdings(query, update)
             .await?;
         return Ok(());
     }
@@ -105,58 +54,22 @@ pub(super) async fn refresh_manual_positions(
         let balance = client.get_overseas_balance().await.map_err(|error| {
             anyhow::anyhow!("KIS 해외 수동 주문 전 holdings 조회 실패: {error}")
         })?;
-        let mut positions = Vec::new();
-        for item in balance.items {
-            let quantity = item
-                .ovrs_cblc_qty
-                .trim()
-                .replace(',', "")
-                .parse::<u64>()
-                .map_err(|_| anyhow::anyhow!("{} 해외 보유수량 형식 오류", item.ovrs_pdno))?;
-            let parse_cents = |value: &str| -> Result<u64> {
-                value
-                    .trim()
-                    .replace(',', "")
-                    .parse::<f64>()
-                    .map(|price| (price.max(0.0) * 100.0).round() as u64)
-                    .map_err(Into::into)
-            };
-            positions.push((
-                item.ovrs_pdno,
-                item.ovrs_item_name,
-                order_exchange_code(&item.ovrs_excg_cd).to_string(),
-                quantity,
-                parse_cents(&item.pchs_avg_pric)?,
-                parse_cents(&item.now_pric2)?,
-            ));
-        }
+        let update = HoldingsUpdate::from_kis_overseas(&balance)?;
         order_manager
             .lock()
             .await
-            .publish_holdings(query, HoldingsUpdate::Overseas(positions))
+            .publish_holdings(query, update)
             .await?;
     } else {
         let balance = client
             .get_balance()
             .await
             .map_err(|error| anyhow::anyhow!("KIS 수동 주문 전 holdings 조회 실패: {error}"))?;
-        let mut positions = Vec::new();
-        for item in balance.items {
-            let quantity = item.hldg_qty.trim().replace(',', "").parse::<u64>()?;
-            let avg = item
-                .pchs_avg_pric
-                .trim()
-                .replace(',', "")
-                .parse::<f64>()?
-                .max(0.0)
-                .round() as u64;
-            let current = item.prpr.trim().replace(',', "").parse::<u64>()?;
-            positions.push((item.pdno, item.prdt_name, quantity, avg, current));
-        }
+        let update = HoldingsUpdate::from_kis_domestic(&balance)?;
         order_manager
             .lock()
             .await
-            .publish_holdings(query, HoldingsUpdate::Domestic(positions))
+            .publish_holdings(query, update)
             .await?;
     }
     Ok(())

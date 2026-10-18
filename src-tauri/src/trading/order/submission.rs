@@ -1,6 +1,22 @@
 use super::*;
 use crate::trading::strategy::StrategySignal;
 
+/// Optional protection state captured from the exact live strategy at evaluation.
+pub struct OwnedStrategySignal {
+    pub signal: StrategySignal,
+    pub position_metadata: Option<serde_json::Value>,
+}
+
+impl From<StrategySignal> for OwnedStrategySignal {
+    fn from(signal: StrategySignal) -> Self {
+        Self {
+            signal,
+            position_metadata: None,
+        }
+    }
+}
+
+mod owned;
 mod positions;
 mod prepare;
 mod provider;
@@ -13,8 +29,7 @@ use records::{append_failed_order, build_pending_order, failed_order_price};
 
 use crate::{
     broker::{
-        toss::TossOrderCreateRequest, BrokerAdapter, BrokerCurrency, BrokerId, BrokerMarket,
-        TossBrokerAdapter,
+        toss::TossOrderCreateRequest, BrokerAdapter, BrokerId, BrokerMarket, TossBrokerAdapter,
     },
     config::AccountProfile,
 };
@@ -44,6 +59,10 @@ struct OrderSubmission {
     budget_id: Option<String>,
     requested_order_type: Option<OrderType>,
     requested_price: Option<u64>,
+    ownership_key: Option<super::ownership::OwnershipKey>,
+    ownership_generation: Option<String>,
+    strategy_position_metadata: Option<serde_json::Value>,
+    submitted_cost_basis: Option<u64>,
 }
 
 struct PreparedOrderSubmission {
@@ -155,6 +174,10 @@ impl OrderSubmission {
                 budget_id: None,
                 requested_order_type: None,
                 requested_price: None,
+                ownership_key: None,
+                ownership_generation: None,
+                strategy_position_metadata: None,
+                submitted_cost_basis: None,
             }),
             Signal::Sell {
                 symbol,
@@ -177,6 +200,10 @@ impl OrderSubmission {
                 budget_id: None,
                 requested_order_type: None,
                 requested_price: None,
+                ownership_key: None,
+                ownership_generation: None,
+                strategy_position_metadata: None,
+                submitted_cost_basis: None,
             }),
             Signal::Hold => None,
         }
@@ -273,7 +300,7 @@ impl OrderManager {
     pub async fn submit_signal_shared(
         order_manager: &Arc<Mutex<Self>>,
         expected_run: ExecutionRunContext,
-        strategy_signal: StrategySignal,
+        strategy_signal: impl Into<OwnedStrategySignal> + Send,
         symbol_name: String,
         total_balance: i64,
         exchange: Option<String>,
@@ -286,6 +313,10 @@ impl OrderManager {
         {
             return Ok(stale_run_outcome());
         }
+        let OwnedStrategySignal {
+            signal: strategy_signal,
+            position_metadata,
+        } = strategy_signal.into();
         let Some(mut submission) = OrderSubmission::from_signal(
             Some(strategy_signal.strategy_id),
             strategy_signal.signal,
@@ -302,6 +333,7 @@ impl OrderManager {
         };
 
         submission.broker_scope = expected_run.broker_scope.clone();
+        submission.strategy_position_metadata = position_metadata;
         submission.expected_run = Some(expected_run);
         Self::submit_order_shared(order_manager, submission, None).await
     }
@@ -384,7 +416,7 @@ impl OrderManager {
             refresh_manual_positions(order_manager, &submission, &deps).await?;
         }
 
-        let (mut held_quantity, avg_price) = current_position_snapshot(
+        let (observed_quantity, observed_avg) = current_position_snapshot(
             &submission,
             &deps.position_tracker,
             &deps.overseas_position_tracker,
@@ -392,22 +424,24 @@ impl OrderManager {
         .await;
         let usd = submission.exchange.is_some()
             || !crate::market_hours::is_domestic_symbol(&submission.symbol);
-        let owned = {
+        let (held_quantity, avg_price) = {
             let mut manager = order_manager.lock().await;
             if !manager.submission_run_is_current(&submission) {
                 return Ok(stale_run_outcome());
             }
-            manager
+            let budget_owned = manager
                 .budget_owned(&submission.broker_scope, &submission.symbol, usd)
-                .await?
+                .await?;
+            owned::prepare_ownership(
+                &mut manager,
+                &mut submission,
+                &deps,
+                observed_quantity,
+                observed_avg,
+                budget_owned,
+            )
+            .await?
         };
-        if matches!(submission.side, OrderSide::Sell) {
-            held_quantity = if submission.is_manual {
-                held_quantity.saturating_sub(owned)
-            } else {
-                held_quantity.min(owned)
-            };
-        }
         #[cfg(test)]
         {
             let gate = order_manager.lock().await.preparation_test_gate.clone();
@@ -439,7 +473,34 @@ impl OrderManager {
                     return Ok(stale_run_outcome());
                 }
             }
-            match manager.reserve_submission(&prepared.submission, held_quantity, avg_price) {
+            let (latest_observed, latest_avg) = current_position_snapshot(
+                &prepared.submission,
+                &deps.position_tracker,
+                &deps.overseas_position_tracker,
+            )
+            .await;
+            let budget_owned = manager
+                .budget_owned(&submission.broker_scope, &submission.symbol, usd)
+                .await?;
+            let (latest_held, latest_cost) = owned::prepare_ownership(
+                &mut manager,
+                &mut prepared.submission,
+                &deps,
+                latest_observed,
+                latest_avg,
+                budget_owned,
+            )
+            .await?;
+            if matches!(prepared.submission.side, OrderSide::Sell)
+                && prepared.quantity > latest_held
+            {
+                return Ok(SubmissionOutcome::Skipped {
+                    reason: "확인된 전략 소유·매도 가능 수량이 변경되었습니다.".into(),
+                    held_quantity: latest_held,
+                    avg_price: latest_cost,
+                });
+            }
+            match manager.reserve_submission(&prepared.submission, latest_held, latest_cost) {
                 ReservationDecision::Reserved(reservation) => {
                     if !submission.is_manual {
                         match manager
@@ -689,6 +750,11 @@ impl OrderManager {
                 }),
             );
         }
+        if self.holdings_refresh_required != 0 {
+            return ReservationDecision::Skip(
+                "체결 후 증권사 잔고를 다시 확인하고 있습니다.".into(),
+            );
+        }
         if matches!(submission.side, OrderSide::Buy) && self.buy_suspended {
             tracing::debug!(
                 "매수 스킵 — 잔고 부족 정지 중: {} (사유: {})",
@@ -811,6 +877,10 @@ mod tests {
     fn failed_buy_uses_signal_price_even_for_domestic_market_order() {
         let prepared = PreparedOrderSubmission {
             submission: OrderSubmission {
+                ownership_key: None,
+                ownership_generation: None,
+                strategy_position_metadata: None,
+                submitted_cost_basis: None,
                 strategy_id: None,
                 signal: Signal::Buy {
                     symbol: "005930".into(),

@@ -61,6 +61,10 @@ fn build_kis_pending_order(
     );
 
     PendingOrder {
+        ownership_key: prepared.submission.ownership_key.clone(),
+        ownership_generation: prepared.submission.ownership_generation.clone(),
+        strategy_position_metadata: prepared.submission.strategy_position_metadata.clone(),
+        submitted_cost_basis: prepared.submission.submitted_cost_basis,
         record,
         signal_reason: prepared.submission.reason.clone(),
         exchange: prepared.order_exchange.clone(),
@@ -68,7 +72,10 @@ fn build_kis_pending_order(
         filled_notional: 0,
         confirmed_filled_quantity: 0,
         confirmed_avg_price: 0,
+        confirmed_filled_notional: None,
         application_started: false,
+        application_execution_date: None,
+        application_exchange_rate: None,
         application_pnl: None,
         strategy_id: prepared.submission.strategy_id.clone(),
         signal_price: prepared.submission.tick_price,
@@ -109,6 +116,10 @@ fn build_toss_pending_order(
     record.provider_order_id = Some(order_id.clone());
 
     PendingOrder {
+        ownership_key: prepared.submission.ownership_key.clone(),
+        ownership_generation: prepared.submission.ownership_generation.clone(),
+        strategy_position_metadata: prepared.submission.strategy_position_metadata.clone(),
+        submitted_cost_basis: prepared.submission.submitted_cost_basis,
         record,
         signal_reason: prepared.submission.reason.clone(),
         exchange: prepared.order_exchange.clone(),
@@ -116,7 +127,10 @@ fn build_toss_pending_order(
         filled_notional: 0,
         confirmed_filled_quantity: 0,
         confirmed_avg_price: 0,
+        confirmed_filled_notional: None,
         application_started: false,
+        application_execution_date: None,
+        application_exchange_rate: None,
         application_pnl: None,
         strategy_id: prepared.submission.strategy_id.clone(),
         signal_price: prepared.submission.tick_price,

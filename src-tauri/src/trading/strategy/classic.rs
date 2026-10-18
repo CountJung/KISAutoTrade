@@ -332,6 +332,20 @@ impl Strategy for MomentumStrategy {
         Some(available_bars.saturating_add(1) >= required_bars)
     }
 
+    fn on_live_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal {
+        let confirmed = self
+            .states
+            .get(symbol)
+            .map(|state| (state.last_buy_price, state.last_sell_price))
+            .unwrap_or((None, None));
+        let signal = self.on_tick(symbol, price, volume);
+        if let Some(state) = self.states.get_mut(symbol) {
+            state.last_buy_price = confirmed.0;
+            state.last_sell_price = confirmed.1;
+        }
+        signal
+    }
+
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
         if !self.config.enabled {
             return Signal::Hold;
@@ -687,3 +701,7 @@ mod history_tests {
 
 #[cfg(test)]
 mod reconfigure_tests;
+
+#[cfg(test)]
+#[path = "classic/live_feedback_tests.rs"]
+mod live_feedback_tests;

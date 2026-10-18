@@ -84,6 +84,12 @@ impl PositionTracker {
         }
     }
 
+    /// A confirmed fill invalidates older queries without adding its delta to an
+    /// account balance which may already include it.
+    pub(crate) fn invalidate_snapshot(&mut self) {
+        self.mutation_revision = Uuid::new_v4();
+    }
+
     /// 포지션 변경과 더 최신 조회가 없어 응답이 여전히 유효한지 확인한다.
     pub(crate) fn snapshot_is_current(&self, version: &PositionSnapshotVersion) -> bool {
         self.mutation_revision == version.mutation && self.latest_query == version.request
@@ -242,6 +248,12 @@ impl OverseasPositionTracker {
             mutation: self.mutation_revision,
             request: self.latest_query,
         }
+    }
+
+    /// A confirmed fill invalidates older queries without adding its delta to an
+    /// account balance which may already include it.
+    pub(crate) fn invalidate_snapshot(&mut self) {
+        self.mutation_revision = Uuid::new_v4();
     }
 
     /// 포지션 변경과 더 최신 조회가 없어 응답이 여전히 유효한지 확인한다.

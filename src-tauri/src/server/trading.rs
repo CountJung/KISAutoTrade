@@ -12,7 +12,6 @@ use crate::broker::{
 };
 use crate::config::AccountProfile;
 use crate::trading::order::{HoldingsMarkets, HoldingsUpdate};
-use crate::trading::strategy::BrokerPositionSnapshot;
 
 /// GET /api/trading/status
 pub(super) async fn trading_status_handler(
@@ -85,40 +84,16 @@ async fn sync_kis_strategy_positions(s: &ServerState) -> Result<usize, String> {
         .get_overseas_balance()
         .await
         .map_err(|e| format!("KIS 해외 잔고 조회 실패: {e}"))?;
-    for item in &domestic.items {
-        item.hldg_qty
-            .trim()
-            .replace(',', "")
-            .parse::<u64>()
-            .map_err(|_| format!("{} KIS 보유수량 응답 형식 오류", item.pdno))?;
-        item.pchs_avg_pric
-            .trim()
-            .replace(',', "")
-            .parse::<f64>()
-            .map_err(|_| format!("{} KIS 평균매입가 응답 형식 오류", item.pdno))?;
-        item.prpr
-            .trim()
-            .replace(',', "")
-            .parse::<u64>()
-            .map_err(|_| format!("{} KIS 현재가 응답 형식 오류", item.pdno))?;
-    }
-    for item in &overseas.items {
-        item.ovrs_cblc_qty
-            .trim()
-            .replace(',', "")
-            .parse::<u64>()
-            .map_err(|_| format!("{} KIS 해외 보유수량 응답 형식 오류", item.ovrs_pdno))?;
-        item.pchs_avg_pric
-            .trim()
-            .replace(',', "")
-            .parse::<f64>()
-            .map_err(|_| format!("{} KIS 해외 평균매입가 응답 형식 오류", item.ovrs_pdno))?;
-        item.now_pric2
-            .trim()
-            .replace(',', "")
-            .parse::<f64>()
-            .map_err(|_| format!("{} KIS 해외 현재가 응답 형식 오류", item.ovrs_pdno))?;
-    }
+    let HoldingsUpdate::Domestic(domestic_positions) =
+        HoldingsUpdate::from_kis_domestic(&domestic).map_err(|error| error.to_string())?
+    else {
+        unreachable!()
+    };
+    let HoldingsUpdate::Overseas(overseas_positions) =
+        HoldingsUpdate::from_kis_overseas(&overseas).map_err(|error| error.to_string())?
+    else {
+        unreachable!()
+    };
     let domestic_total = domestic
         .summary
         .as_ref()
@@ -145,33 +120,6 @@ async fn sync_kis_strategy_positions(s: &ServerState) -> Result<usize, String> {
         })
         .map(|value| (value * exchange_rate).round() as i64)
         .unwrap_or(0);
-    let domestic_positions: Vec<_> = domestic
-        .items
-        .iter()
-        .map(|item| {
-            (
-                item.pdno.clone(),
-                item.prdt_name.clone(),
-                normalized_u64(&item.hldg_qty),
-                normalized_f64(&item.pchs_avg_pric).round() as u64,
-                normalized_u64(&item.prpr),
-            )
-        })
-        .collect();
-    let overseas_positions: Vec<_> = overseas
-        .items
-        .iter()
-        .map(|item| {
-            (
-                item.ovrs_pdno.clone(),
-                item.ovrs_item_name.clone(),
-                crate::trading::order::normalize_overseas_order_exchange(&item.ovrs_excg_cd),
-                normalized_u64(&item.ovrs_cblc_qty),
-                money_units(&item.pchs_avg_pric, &BrokerCurrency::Usd),
-                money_units(&item.now_pric2, &BrokerCurrency::Usd),
-            )
-        })
-        .collect();
     s.stock_store
         .upsert_many(
             domestic
@@ -192,52 +140,12 @@ async fn sync_kis_strategy_positions(s: &ServerState) -> Result<usize, String> {
         )
         .await
         .map_err(|error| error.to_string())?;
-    for symbol in mgr.active_symbols() {
-        if crate::market_hours::is_domestic_symbol(&symbol) {
-            mgr.sync_position_for_broker(&BrokerPositionSnapshot {
-                broker_id: BrokerId::Kis,
-                market: BrokerMarket::Kr,
-                symbol,
-                quantity: 0,
-                avg_price: 0,
-            });
-        }
-    }
-    for (symbol, _, qty, avg, _) in &domestic_positions {
-        if *qty > 0 {
-            synced += 1;
-        }
-        mgr.sync_position_for_broker(&BrokerPositionSnapshot {
-            broker_id: BrokerId::Kis,
-            market: BrokerMarket::Kr,
-            symbol: symbol.clone(),
-            quantity: *qty,
-            avg_price: *avg,
-        });
-    }
-    for symbol in mgr.active_symbols() {
-        if !crate::market_hours::is_domestic_symbol(&symbol) {
-            mgr.sync_position_for_broker(&BrokerPositionSnapshot {
-                broker_id: BrokerId::Kis,
-                market: BrokerMarket::Us,
-                symbol,
-                quantity: 0,
-                avg_price: 0,
-            });
-        }
-    }
-    for (symbol, _, _, qty, avg, _) in &overseas_positions {
-        if *qty > 0 {
-            synced += 1;
-        }
-        mgr.sync_position_for_broker(&BrokerPositionSnapshot {
-            broker_id: BrokerId::Kis,
-            market: BrokerMarket::Us,
-            symbol: symbol.clone(),
-            quantity: *qty,
-            avg_price: *avg,
-        });
-    }
+    synced += domestic_positions.iter().filter(|item| item.2 > 0).count();
+    synced += overseas_positions.iter().filter(|item| item.3 > 0).count();
+    orders
+        .sync_strategy_ownership(&mut mgr)
+        .await
+        .map_err(|error| error.to_string())?;
     if domestic_total.saturating_add(overseas_total) <= 0 {
         return Err("KIS 계좌 총평가액이 0원 이하입니다.".into());
     }
@@ -279,29 +187,19 @@ async fn sync_toss_strategy_positions(
         .list_holdings(Some(&account_id))
         .await
         .map_err(|e| format!("Toss 보유종목 조회 실패: {e}"))?;
-    for holding in &holdings {
-        holding
-            .quantity
-            .0
-            .trim()
-            .replace(',', "")
-            .parse::<f64>()
-            .map_err(|_| format!("{} Toss 보유수량 응답 형식 오류", holding.symbol.0))?;
-        holding
-            .average_price
-            .amount
-            .trim()
-            .replace(',', "")
-            .parse::<f64>()
-            .map_err(|_| format!("{} Toss 평균매입가 응답 형식 오류", holding.symbol.0))?;
-        holding
-            .current_price
-            .amount
-            .trim()
-            .replace(',', "")
-            .parse::<f64>()
-            .map_err(|_| format!("{} Toss 현재가 응답 형식 오류", holding.symbol.0))?;
-    }
+    let update = HoldingsUpdate::from_toss(&scope, &holdings).map_err(|error| error.to_string())?;
+    let HoldingsUpdate::Both { domestic, overseas } = &update else {
+        unreachable!()
+    };
+    let quantities: std::collections::HashMap<(bool, &str), u64> = domestic
+        .iter()
+        .map(|item| ((false, item.0.as_str()), item.2))
+        .chain(
+            overseas
+                .iter()
+                .map(|item| ((true, item.0.as_str()), item.3)),
+        )
+        .collect();
     let exchange_rate = *s.exchange_rate_krw.read().await;
     let mut total_krw = 0.0;
     for currency in [BrokerCurrency::Krw, BrokerCurrency::Usd] {
@@ -328,73 +226,14 @@ async fn sync_toss_strategy_positions(
                 .map(|holding| (holding.symbol.0.clone(), holding.symbol_name.clone())),
         )
         .await;
-    let domestic_positions = holdings
-        .iter()
-        .filter(|holding| holding.market == BrokerMarket::Kr)
-        .map(|holding| {
-            (
-                holding.symbol.0.clone(),
-                holding.symbol_name.clone(),
-                decimal_quantity_units(&holding.quantity.0),
-                money_units(
-                    &holding.average_price.amount,
-                    &holding.average_price.currency,
-                ),
-                money_units(
-                    &holding.current_price.amount,
-                    &holding.current_price.currency,
-                ),
-            )
-        })
-        .collect();
-    let overseas_positions = holdings
-        .iter()
-        .filter(|holding| holding.market == BrokerMarket::Us)
-        .map(|holding| {
-            (
-                holding.symbol.0.clone(),
-                holding.symbol_name.clone(),
-                "TOSS_US".to_string(),
-                decimal_quantity_units(&holding.quantity.0),
-                money_units(
-                    &holding.average_price.amount,
-                    &holding.average_price.currency,
-                ),
-                money_units(
-                    &holding.current_price.amount,
-                    &holding.current_price.currency,
-                ),
-            )
-        })
-        .collect();
     let mut synced = 0usize;
-    let mut mgr = s.strategy_manager.lock().await;
-    let mut orders = s.order_manager.lock().await;
-    orders
-        .publish_holdings(
-            query,
-            HoldingsUpdate::Both {
-                domestic: domestic_positions,
-                overseas: overseas_positions,
-            },
-        )
-        .await
-        .map_err(|error| error.to_string())?;
-    for symbol in mgr.active_symbols() {
-        mgr.sync_position_for_broker(&BrokerPositionSnapshot {
-            broker_id: BrokerId::Toss,
-            market: if crate::market_hours::is_domestic_symbol(&symbol) {
-                BrokerMarket::Kr
-            } else {
-                BrokerMarket::Us
-            },
-            symbol,
-            quantity: 0,
-            avg_price: 0,
-        });
-    }
     for holding in &holdings {
-        let quantity = decimal_quantity_units(&holding.quantity.0);
+        let quantity = *quantities
+            .get(&(
+                holding.market == BrokerMarket::Us,
+                holding.symbol.0.as_str(),
+            ))
+            .ok_or_else(|| "Toss 보유 변환 결과에 종목이 없습니다.".to_string())?;
         if quantity > 0 {
             synced += 1;
         }
@@ -411,46 +250,21 @@ async fn sync_toss_strategy_positions(
         } else {
             holding_value
         };
-        mgr.sync_position_for_broker(&BrokerPositionSnapshot {
-            broker_id: BrokerId::Toss,
-            market: holding.market,
-            symbol: holding.symbol.0.clone(),
-            quantity,
-            avg_price: money_units(
-                &holding.average_price.amount,
-                &holding.average_price.currency,
-            ),
-        });
     }
+    let mut mgr = s.strategy_manager.lock().await;
+    let mut orders = s.order_manager.lock().await;
+    orders
+        .publish_holdings(query, update)
+        .await
+        .map_err(|error| error.to_string())?;
+    orders
+        .sync_strategy_ownership(&mut mgr)
+        .await
+        .map_err(|error| error.to_string())?;
     if total_krw <= 0.0 {
         return Err("Toss 계좌 총평가액이 0원 이하입니다.".into());
     }
     Ok(synced)
-}
-
-fn decimal_quantity_units(value: &str) -> u64 {
-    let parsed = normalized_f64(value);
-    if parsed <= 0.0 {
-        0
-    } else {
-        parsed.floor().max(1.0) as u64
-    }
-}
-
-fn money_units(value: &str, currency: &crate::broker::BrokerCurrency) -> u64 {
-    let parsed = normalized_f64(value);
-    match currency {
-        crate::broker::BrokerCurrency::Krw => parsed.round().max(0.0) as u64,
-        crate::broker::BrokerCurrency::Usd => (parsed.max(0.0) * 100.0).round() as u64,
-    }
-}
-
-fn normalized_u64(value: &str) -> u64 {
-    value.trim().replace(',', "").parse::<u64>().unwrap_or(0)
-}
-
-fn normalized_f64(value: &str) -> f64 {
-    value.trim().replace(',', "").parse::<f64>().unwrap_or(0.0)
 }
 
 /// POST /api/trading/start — is_trading = true (폴링 데몬이 자동으로 재개)
@@ -547,11 +361,11 @@ pub(super) async fn trading_start_handler(State(s): State<ServerState>) -> Json<
         .lock()
         .await
         .set_execution_scope(execution_scope.clone());
-    if let Err(error) =
-        crate::trading::order::OrderManager::confirm_pending_fills_from_broker_shared(
-            &s.order_manager,
-        )
-        .await
+    if let Err(error) = crate::trading::order::OrderManager::reconcile_strategy_state_shared(
+        &s.order_manager,
+        &s.strategy_manager,
+    )
+    .await
     {
         return Json(serde_json::json!({
             "ok": false,
@@ -566,9 +380,14 @@ pub(super) async fn trading_start_handler(State(s): State<ServerState>) -> Json<
         &s.risk_manager,
         &s.risk_store,
         &execution_scope,
+        s.rest_client.read().await.is_paper(),
     )
     .await
     {
+        s.order_manager
+            .lock()
+            .await
+            .block_for_persistence_failure(format!("리스크 재구축 실패: {}", error.message));
         return Json(serde_json::json!({
             "ok": false,
             "code": error.code,

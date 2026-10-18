@@ -65,10 +65,10 @@
 | `get_price` | 종목 현재가 조회 |
 | `get_toss_market_snapshot` | 활성 Toss 프로파일로 현재가/호가/최근 체결/상하한가 read-only snapshot 조회 |
 | `get_toss_stock_safety` | 활성 Toss 프로파일로 종목 기본 정보와 매수 유의사항 조회 (`buyBlocked`, `buyBlockReason`) |
-| `check_toss_order_preflight` | 활성 Toss 프로파일로 주문 전 검증 (`buyingPower`, `sellableQuantity`, `commissionRate`, `canSubmit`) |
+| `check_toss_order_preflight` | 활성 Toss 프로파일로 주문 전 검증 (`buyingPower`, `sellableQuantity`, `commissionRate`, `canSubmit`). commissionRate는 소수 비율 원문이며 필요 현금에는 비율을 그대로 적용한 수수료 포함 |
 | `list_toss_open_orders` | 활성 Toss 프로파일의 접수/미체결 주문 목록 조회 (`status=OPEN`, 수동 주문창 표시용) |
 | `modify_toss_order` | 활성 Toss 프로파일의 접수 주문 정정 요청 (`orderId`, `orderType`, `quantity`, `price`) |
-| `submit_toss_small_buy_verification` | 호환용 Toss 1주 소액매매 검증 endpoint. 실거래 동의/최종 확인/최대 허용금액/accountSeq 일치/사전검증/미체결 scan 후 시장가 매수를 제출하고 주문·체결 기록을 저장. 현재 UI는 일반 수동주문 경로를 사용 |
+| `submit_toss_small_buy_verification` | 호환용 Toss 1주 소액매매 검증 endpoint. 동의/최종 확인/최대 금액/accountSeq/사전검증/미체결 scan 후 제출. 즉시 체결은 원 주문 ID·종목·BUY·통화·정수1주·명시 체결대금 검증; 금액 누락은 pending 유지. 현재 UI는 일반 수동주문 경로를 사용 |
 | `get_toss_market_calendar` | 활성 Toss 프로파일로 KR/US 정규장 캘린더 조회 (`regularSession`, `isRegularOpen`) |
 | `get_candle_page` | KIS/Toss 공통 완료봉 페이지 조회. 활성 프로파일·계좌 scope와 기준 시각을 고정한 typed cursor, 완료/무효 제외 수·출처·종료 사유 반환. 웹 GET `/api/candles/page`와 동일 camelCase DTO |
 | `get_toss_chart_data` | 활성 Toss 프로파일로 캔들 조회 (`1d`/`1m`, count 1~200, `ChartCandle[]`) |
@@ -133,7 +133,7 @@ v9 generic 1m 입력은 RFC3339 offset을 실제 순간으로 해석하고 고�
 | Command | 설명 |
 |---------|------|
 | `get_trading_status` | 자동 매매 상태와 건강 정보 조회 (holdings sync/reconciliation/pending/persistence/daemon 실패, 실행 scope 포함) |
-| `start_trading` | 활성 broker/account 잔고·holdings 및 복원 pending 대조 성공 후 실행 epoch·설정 revision·profile/client snapshot 고정. 시작 context 불일치는 `EXECUTION_CONTEXT_CHANGED`로 차단 |
+| `start_trading` | 활성 broker/account 잔고 게시·복원 pending 대조·exact owner 전략 복원·당일 모드별 리스크 복원 후 실행 context 고정. 전체 계좌 수량을 각 전략에 배정하지 않음. context 불일치는 `EXECUTION_CONTEXT_CHANGED`, 리스크 복원 실패는 신규 주문 차단 |
 | `stop_trading` | 실행 epoch 무효화 후 자동 매매 정지. 이미 예약한 주문의 원래 scope·pending·예산 추적 유지 |
 | `clear_buy_suspension` | 잔고 부족 매수 정지 수동 해제 |
 | `get_positions` | 포지션 목록 조회 |

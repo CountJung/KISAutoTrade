@@ -75,10 +75,6 @@ fn storage_money_amount(value: &str, currency: BrokerCurrency) -> u64 {
     }
 }
 
-fn storage_quantity(value: &str) -> u64 {
-    parse_decimal_amount(value).unwrap_or(0.0).max(0.0).round() as u64
-}
-
 fn money_view_from_decimal(
     value: Option<&str>,
     currency: BrokerCurrency,
@@ -304,13 +300,24 @@ pub async fn submit_toss_small_buy_verification_for_profile(
     let order_detail = poll_toss_order_detail(&adapter, &account_seq, &order_id).await;
     let mut trade_recorded = false;
     if let Some(detail) = &order_detail {
-        let filled = storage_quantity(&detail.execution.filled_quantity);
-        if filled > 0 {
-            if let Some(avg_price) = detail.execution.average_filled_price.as_deref() {
-                order_manager
-                    .lock()
-                    .await
-                    .on_fill(&order_id, filled, storage_money_amount(avg_price, currency))
+        if let Some(fill) = confirmed_small_order_fill(detail, &order_id, &symbol, currency)? {
+            let mut manager = order_manager.lock().await;
+            // A profile switch or the permanent daemon may have moved/finished
+            // this pending order while its HTTP detail was in flight.
+            let eligible = manager.pending_orders().iter().any(|pending| {
+                pending.broker_scope == *manager.execution_scope()
+                    && pending.record.id == order_record_id
+                    && pending.record.provider_order_id.as_deref() == Some(order_id.as_str())
+            });
+            if eligible {
+                manager
+                    .on_fill_confirmed(
+                        &order_id,
+                        fill.quantity,
+                        fill.average,
+                        Some(fill.notional),
+                        fill.execution_date,
+                    )
                     .await
                     .map_err(CmdError::from)?;
                 trade_recorded = true;
@@ -388,3 +395,79 @@ pub async fn submit_toss_small_buy_verification(
     )
     .await
 }
+
+struct ConfirmedSmallOrderFill {
+    quantity: u64,
+    average: u64,
+    notional: u128,
+    execution_date: chrono::NaiveDate,
+}
+
+fn confirmed_small_order_fill(
+    detail: &TossOrder,
+    order_id: &str,
+    symbol: &str,
+    currency: BrokerCurrency,
+) -> CmdResult<Option<ConfirmedSmallOrderFill>> {
+    if detail.order_id != order_id || detail.symbol != symbol || detail.side != "BUY" {
+        return Err(CmdError {
+            code: "TOSS_FILL_IDENTITY_MISMATCH".into(),
+            message: "주문과 체결 응답의 식별자가 달라 즉시 체결 반영을 보류했습니다.".into(),
+        });
+    }
+    let expected_currency = if currency == BrokerCurrency::Usd {
+        "USD"
+    } else {
+        "KRW"
+    };
+    if detail.currency != expected_currency {
+        return Err(CmdError {
+            code: "TOSS_FILL_CURRENCY_MISMATCH".into(),
+            message: "주문과 체결 응답의 통화가 달라 즉시 체결 반영을 보류했습니다.".into(),
+        });
+    }
+    let quantity = OrderManager::parse_fill_quantity(&detail.execution.filled_quantity)
+        .map_err(CmdError::from)?;
+    if quantity == 0 {
+        return Ok(None);
+    }
+    if quantity != 1 {
+        return Err(CmdError {
+            code: "TOSS_FILL_QUANTITY_MISMATCH".into(),
+            message: "소액 검증 주문의 확정 수량이 1주를 초과했습니다.".into(),
+        });
+    }
+    let Some(amount) = detail.execution.filled_amount.as_deref() else {
+        return Ok(None);
+    };
+    let notional = OrderManager::parse_fill_notional(amount, currency).map_err(CmdError::from)?;
+    if notional == 0 {
+        return Err(CmdError {
+            code: "TOSS_FILL_AMOUNT_UNCONFIRMED".into(),
+            message: "양수 체결 수량의 체결대금을 확인할 수 없습니다.".into(),
+        });
+    }
+    let average = u64::try_from(notional / u128::from(quantity)).map_err(|error| CmdError {
+        code: "TOSS_FILL_AMOUNT_UNCONFIRMED".into(),
+        message: error.to_string(),
+    })?;
+    let execution_date = detail
+        .execution
+        .filled_at
+        .as_deref()
+        .and_then(OrderManager::parse_fill_execution_date)
+        .or_else(|| OrderManager::parse_fill_execution_date(&detail.ordered_at))
+        .ok_or_else(|| CmdError {
+            code: "TOSS_FILL_DATE_UNCONFIRMED".into(),
+            message: "체결일을 확인할 수 없어 즉시 체결 반영을 보류했습니다.".into(),
+        })?;
+    Ok(Some(ConfirmedSmallOrderFill {
+        quantity,
+        average,
+        notional,
+        execution_date,
+    }))
+}
+
+#[cfg(test)]
+mod tests;

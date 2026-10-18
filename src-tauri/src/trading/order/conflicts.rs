@@ -83,6 +83,10 @@ mod tests {
         record.kis_order_id = Some("ODNO-1".to_string());
 
         PendingOrder {
+            ownership_key: None,
+            ownership_generation: None,
+            strategy_position_metadata: None,
+            submitted_cost_basis: None,
             record,
             signal_reason: "test".to_string(),
             strategy_id: Some("strategy".to_string()),
@@ -94,7 +98,10 @@ mod tests {
             filled_notional: 0,
             confirmed_filled_quantity: 0,
             confirmed_avg_price: 0,
+            confirmed_filled_notional: None,
             application_started: false,
+            application_execution_date: None,
+            application_exchange_rate: None,
             application_pnl: None,
             client_order_id: None,
             provider_status: Some("pending".to_string()),

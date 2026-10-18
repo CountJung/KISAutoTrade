@@ -156,6 +156,19 @@ impl Strategy for FiftyTwoWeekHighStrategy {
         }))
     }
 
+    fn on_live_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal {
+        let confirmed = self
+            .states
+            .get(symbol)
+            .map(|state| state.buy_price)
+            .unwrap_or(None);
+        let signal = self.on_tick(symbol, price, volume);
+        if let Some(state) = self.states.get_mut(symbol) {
+            state.buy_price = confirmed;
+        }
+        signal
+    }
+
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
         if !self.config.enabled {
             return Signal::Hold;
@@ -391,6 +404,21 @@ impl Strategy for StrongCloseStrategy {
     fn on_completed_candle(&mut self, symbol: &str, candle: &OhlcCandle) {
         // 완료봉은 체결 피드백 이후에 반영해 다음 거래일의 조건만 준비한다.
         self.initialize_candles(symbol, &[(candle.high, candle.close)]);
+    }
+
+    fn on_live_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal {
+        let confirmed = self
+            .states
+            .get(symbol)
+            .map(|state| (state.in_position, state.entry_price, state.pending_buy))
+            .unwrap_or((false, None, false));
+        let signal = self.on_tick(symbol, price, volume);
+        if let Some(state) = self.states.get_mut(symbol) {
+            state.in_position = confirmed.0;
+            state.entry_price = confirmed.1;
+            state.pending_buy = confirmed.2;
+        }
+        signal
     }
 
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
@@ -691,6 +719,20 @@ impl Strategy for VolatilityExpansionStrategy {
         }
     }
 
+    fn on_live_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal {
+        let confirmed = self
+            .states
+            .get(symbol)
+            .map(|state| (state.in_position, state.entry_price))
+            .unwrap_or((false, None));
+        let signal = self.on_tick(symbol, price, volume);
+        if let Some(state) = self.states.get_mut(symbol) {
+            state.in_position = confirmed.0;
+            state.entry_price = confirmed.1;
+        }
+        signal
+    }
+
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
         if !self.config.enabled {
             return Signal::Hold;
@@ -865,3 +907,7 @@ mod history_tests {
 
 #[cfg(test)]
 mod reconfigure_tests;
+
+#[cfg(test)]
+#[path = "breakout/live_feedback_tests.rs"]
+mod live_feedback_tests;

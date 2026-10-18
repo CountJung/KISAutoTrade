@@ -2,6 +2,10 @@
 
 use super::*;
 
+mod notional;
+use crate::broker::BrokerCurrency;
+use notional::{execution_quantity, scaled_total, toss_amount};
+
 pub(super) fn kis_pending_from(
     pending: &[(BrokerId, String, String, String)],
 ) -> Vec<(String, String, String)> {
@@ -50,22 +54,24 @@ pub(super) async fn collect_kis_pending_fills(
             }) else {
                 continue;
             };
-            let qty = normalized_execution_u64(&order.tot_ccld_qty);
+            let qty = execution_quantity(&order.tot_ccld_qty)?;
             let terminal_status = domestic_order_terminal_status(order);
             if qty == 0 && terminal_status.is_none() {
                 continue;
             }
-            let amount = normalized_execution_u64(&order.tot_ccld_amt);
-            let avg_price = if qty > 0 && amount > 0 {
-                amount / qty
-            } else if qty > 0 {
-                normalized_execution_u64(&order.ord_unpr)
+            let amount = if qty > 0 {
+                let amount =
+                    OrderManager::parse_fill_notional(&order.tot_ccld_amt, BrokerCurrency::Krw)?;
+                anyhow::ensure!(amount > 0, "KIS 국내 양수 체결 수량의 누적 금액이 0입니다");
+                amount
             } else {
                 0
             };
-            if qty > 0 && avg_price == 0 {
-                continue;
-            }
+            let avg_price = if qty > 0 {
+                u64::try_from(amount / u128::from(qty))?
+            } else {
+                0
+            };
             tracing::info!(
                 "국내 주문번호 기반 체결 확인: odno={} symbol={} qty={} avg={}",
                 odno,
@@ -77,6 +83,7 @@ pub(super) async fn collect_kis_pending_fills(
                 anyhow::anyhow!("KIS 국내 체결일을 해석할 수 없습니다: {}", order.ord_dt)
             })?;
             fills.push(PendingFill {
+                cumulative_notional: Some(amount),
                 odno: odno.clone(),
                 filled_qty: qty,
                 avg_price,
@@ -105,15 +112,31 @@ pub(super) async fn collect_kis_pending_fills(
             }) else {
                 continue;
             };
-            let qty = order.filled_qty();
+            let qty = execution_quantity(&order.ft_ccld_qty)?;
             let terminal_status = overseas_order_terminal_status(order);
             if qty == 0 && terminal_status.is_none() {
                 continue;
             }
-            let avg_price_cents = order.avg_price_cents();
-            if qty > 0 && avg_price_cents == 0 {
-                continue;
-            }
+            anyhow::ensure!(
+                qty == 0 || order.tr_crcy_cd.trim().eq_ignore_ascii_case("USD"),
+                "KIS 해외 체결 응답의 거래 통화를 USD로 확인할 수 없습니다"
+            );
+            let amount = if qty == 0 {
+                0
+            } else if order.ft_ccld_amt3.trim().is_empty() {
+                scaled_total(&order.ft_ccld_unpr3, BrokerCurrency::Usd, qty)?
+            } else {
+                OrderManager::parse_fill_notional(&order.ft_ccld_amt3, BrokerCurrency::Usd)?
+            };
+            anyhow::ensure!(
+                qty == 0 || amount > 0,
+                "KIS 해외 양수 체결 수량의 누적 금액이 0입니다"
+            );
+            let avg_price_cents = if qty > 0 {
+                u64::try_from(amount / u128::from(qty))?
+            } else {
+                0
+            };
             tracing::info!(
                 "해외 주문번호 기반 체결 확인: odno={} symbol={} qty={} avg_cents={}",
                 odno,
@@ -125,6 +148,7 @@ pub(super) async fn collect_kis_pending_fills(
                 anyhow::anyhow!("KIS 해외 체결일을 해석할 수 없습니다: {}", order.ord_dt)
             })?;
             fills.push(PendingFill {
+                cumulative_notional: Some(amount),
                 odno: odno.clone(),
                 filled_qty: qty,
                 avg_price: avg_price_cents,
@@ -175,20 +199,25 @@ pub(super) async fn collect_toss_pending_fills(
                     "Toss 주문번호 기반 체결 확인 실패: order_id={order_id} symbol={symbol} error={e}"
                 )
             })?;
-        let qty = storage_quantity_units(&order.execution.filled_quantity);
+        anyhow::ensure!(
+            order.order_id == *order_id && order.symbol.eq_ignore_ascii_case(symbol),
+            "Toss 체결 응답의 주문번호 또는 종목이 조회 대상과 다릅니다"
+        );
+        let qty = execution_quantity(&order.execution.filled_quantity)?;
         let terminal_status = provider_terminal_status(order.status.as_str());
-        let avg_units = order
-            .execution
-            .average_filled_price
-            .as_deref()
-            .map(|price| storage_money_units(price, &order.currency))
-            .unwrap_or(0);
         if qty == 0 && terminal_status.is_none() {
             continue;
         }
-        if qty > 0 && avg_units == 0 {
-            anyhow::bail!("Toss {order_id} 체결수량은 있으나 평균체결가가 없습니다.");
-        }
+        let amount = if qty > 0 {
+            toss_amount(&order, symbol, qty)?
+        } else {
+            0
+        };
+        let avg_units = if qty > 0 {
+            u64::try_from(amount / u128::from(qty))?
+        } else {
+            0
+        };
         tracing::info!(
             "Toss 주문번호 기반 체결 확인: order_id={} symbol={} status={} qty={} avg={}",
             order_id,
@@ -209,6 +238,7 @@ pub(super) async fn collect_toss_pending_fills(
                 )
             })?;
         fills.push(PendingFill {
+            cumulative_notional: Some(amount),
             odno: order_id.clone(),
             filled_qty: qty,
             avg_price: avg_units,
@@ -218,15 +248,6 @@ pub(super) async fn collect_toss_pending_fills(
         });
     }
     Ok(fills)
-}
-
-pub(super) fn storage_quantity_units(value: &str) -> u64 {
-    value
-        .trim()
-        .replace(',', "")
-        .parse::<f64>()
-        .map(|v| v.max(0.0).floor() as u64)
-        .unwrap_or(0)
 }
 
 pub(super) fn normalized_execution_u64(value: &str) -> u64 {
@@ -324,19 +345,5 @@ pub(super) fn overseas_order_terminal_status(
         Some(OrderStatus::Filled)
     } else {
         Some(OrderStatus::Failed)
-    }
-}
-
-pub(super) fn storage_money_units(value: &str, currency: &str) -> u64 {
-    let parsed = value
-        .trim()
-        .replace(',', "")
-        .parse::<f64>()
-        .unwrap_or(0.0)
-        .max(0.0);
-    if currency.eq_ignore_ascii_case("USD") {
-        (parsed * 100.0).round() as u64
-    } else {
-        parsed.round() as u64
     }
 }

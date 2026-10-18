@@ -1,4 +1,4 @@
-use crate::broker::{BrokerId, BrokerMarket};
+use crate::broker::{BrokerId, BrokerMarket, BrokerScope};
 
 mod configuration;
 mod live_history;
@@ -56,6 +56,7 @@ pub struct StrategyManager {
     configuration_edit:
         Option<std::sync::Weak<crate::trading::configuration::ConfigurationEditReservation>>,
     unsettled_signals: std::collections::HashMap<(String, String), u64>,
+    pending_orders: std::collections::HashSet<(BrokerScope, String, String)>,
 }
 
 impl StrategyManager {
@@ -67,6 +68,7 @@ impl StrategyManager {
             history_execution_identity: None,
             configuration_edit: None,
             unsettled_signals: std::collections::HashMap::new(),
+            pending_orders: std::collections::HashSet::new(),
         }
     }
 
@@ -92,6 +94,9 @@ impl StrategyManager {
             .configuration_edit
             .as_ref()
             .and_then(std::sync::Weak::upgrade);
+        let live = self.history_execution_identity.is_some();
+        let pending_orders = &self.pending_orders;
+        let unsettled = &self.unsettled_signals;
         let signals: Vec<_> = self
             .strategies
             .iter_mut()
@@ -105,8 +110,23 @@ impl StrategyManager {
             })
             .filter(|s| allow(s.config()))
             .filter_map(|s| {
-                let signal = s.on_tick(symbol, price, volume);
-                if signal == Signal::Hold {
+                let signal = if live {
+                    s.on_live_tick(symbol, price, volume)
+                } else {
+                    s.on_tick(symbol, price, volume)
+                };
+                let config = s.config();
+                let scope = BrokerScope {
+                    broker_id: config.broker_id,
+                    account_id: config
+                        .broker_account_id
+                        .clone()
+                        .map(crate::broker::BrokerAccountId),
+                };
+                let pending = live
+                    && (pending_orders.contains(&(scope, s.id().to_string(), symbol.to_string()))
+                        || unsettled.contains_key(&(s.id().to_string(), symbol.to_string())));
+                if signal == Signal::Hold || pending {
                     None
                 } else {
                     Some(StrategySignal {
@@ -277,6 +297,83 @@ impl StrategyManager {
         }
     }
 
+    /// Reconciliation targets one exact owner; shared symbols and manual holdings
+    /// must never broadcast confirmed quantity into other strategies.
+    pub(crate) fn sync_owned_position_for_strategy(
+        &mut self,
+        strategy_id: &str,
+        scope: &BrokerScope,
+        market: BrokerMarket,
+        symbol: &str,
+        quantity: u64,
+        avg_price: u64,
+    ) -> bool {
+        let Some(strategy) = self.strategies.iter_mut().find(|strategy| {
+            owned_target_matches(strategy.as_ref(), strategy_id, scope, market, symbol)
+        }) else {
+            return false;
+        };
+        strategy.sync_owned_position(symbol, quantity, avg_price);
+        true
+    }
+
+    /// Pending suppression is scoped to the actual owner and survives stop/start.
+    /// Calling this for a different account or market cannot mutate a candidate.
+    pub(crate) fn note_order_pending(
+        &mut self,
+        strategy_id: &str,
+        scope: &BrokerScope,
+        market: BrokerMarket,
+        symbol: &str,
+        pending: bool,
+    ) -> bool {
+        let Some(strategy) = self.strategies.iter_mut().find(|strategy| {
+            owned_target_matches(strategy.as_ref(), strategy_id, scope, market, symbol)
+        }) else {
+            return false;
+        };
+        strategy.set_order_pending(symbol, pending);
+        let key = (scope.clone(), strategy_id.to_string(), symbol.to_string());
+        if pending {
+            self.pending_orders.insert(key);
+        } else {
+            self.pending_orders.remove(&key);
+        }
+        true
+    }
+
+    pub(crate) fn owned_position_metadata_for_strategy(
+        &self,
+        strategy_id: &str,
+        scope: &BrokerScope,
+        market: BrokerMarket,
+        symbol: &str,
+    ) -> Option<serde_json::Value> {
+        self.strategies
+            .iter()
+            .find(|strategy| {
+                owned_target_matches(strategy.as_ref(), strategy_id, scope, market, symbol)
+            })?
+            .owned_position_metadata(symbol)
+    }
+
+    pub(crate) fn restore_owned_position_metadata_for_strategy(
+        &mut self,
+        strategy_id: &str,
+        scope: &BrokerScope,
+        market: BrokerMarket,
+        symbol: &str,
+        metadata: &serde_json::Value,
+    ) -> Result<bool, String> {
+        let Some(strategy) = self.strategies.iter_mut().find(|strategy| {
+            owned_target_matches(strategy.as_ref(), strategy_id, scope, market, symbol)
+        }) else {
+            return Ok(false);
+        };
+        strategy.restore_owned_position_metadata(symbol, metadata)?;
+        Ok(true)
+    }
+
     /// 저장된 전략 설정으로 인메모리 전략 상태 업데이트 (프로그램 재시작 또는 프로필 전환 후 복원)
     ///
     /// 모든 전략을 기본값(비활성화, 종목 없음)으로 먼저 리셋한 뒤 저장된 설정을 덮어씀.
@@ -320,6 +417,7 @@ impl StrategyManager {
         account_id: Option<String>,
     ) {
         self.clear_history_execution_identity();
+        self.pending_orders.clear();
         for strategy in &mut self.strategies {
             let mut defaults = strategy.config().clone();
             defaults.enabled = false;
@@ -433,4 +531,24 @@ mod history_tests {
             Signal::Sell { .. }
         ));
     }
+}
+
+#[cfg(test)]
+#[path = "manager/live_feedback_tests.rs"]
+mod live_feedback_tests;
+
+fn owned_target_matches(
+    strategy: &dyn Strategy,
+    strategy_id: &str,
+    scope: &BrokerScope,
+    market: BrokerMarket,
+    symbol: &str,
+) -> bool {
+    strategy.id() == strategy_id
+        && strategy.config().matches_scope(
+            scope.broker_id,
+            scope.account_id.as_ref().map(|id| id.0.as_str()),
+        )
+        && crate::trading::configuration::effective_target_markets(strategy.config()).get(symbol)
+            == Some(&(market == BrokerMarket::Us))
 }

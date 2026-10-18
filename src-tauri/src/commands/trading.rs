@@ -233,7 +233,7 @@ pub async fn start_trading(
         .await
         .set_execution_scope(execution_scope.clone());
 
-    OrderManager::confirm_pending_fills_from_broker_shared(&state.order_manager)
+    OrderManager::reconcile_strategy_state_shared(&state.order_manager, &state.strategy_manager)
         .await
         .map_err(|error| CmdError {
             code: "PENDING_RECONCILIATION_FAILED".into(),
@@ -241,14 +241,26 @@ pub async fn start_trading(
                 "복원된 미체결 주문을 broker와 대조하지 못해 자동매매를 시작하지 않습니다: {error}"
             ),
         })?;
-    restore_risk_from_today_trades(
+    if let Err(error) = restore_risk_from_today_trades(
         &state.order_store,
         &state.trade_store,
         &state.risk_manager,
         &state.risk_store,
         &execution_scope,
+        state.rest_client.read().await.is_paper(),
     )
-    .await?;
+    .await
+    {
+        state
+            .order_manager
+            .lock()
+            .await
+            .block_for_persistence_failure(format!(
+                "체결 리스크 복원을 확인하지 못했습니다: {}",
+                error.message
+            ));
+        return Err(error);
+    }
 
     let mut is_running = state.is_trading.lock().await;
     if *is_running {

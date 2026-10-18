@@ -51,6 +51,12 @@ impl OrderManager {
             self.block_for_persistence_failure(format!("주문 완료 저장 실패: {error}"));
             return Err(error);
         }
+        self.prune_completed_ownership_receipt(
+            &pending,
+            pending.filled_quantity,
+            pending.filled_notional,
+        )
+        .await?;
 
         tracing::info!(
             "주문 terminal 처리: {} (odno: {}, status: {})",

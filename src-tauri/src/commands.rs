@@ -90,14 +90,14 @@ use crate::{
         },
         risk::RiskManager,
         strategy::{
-            BrokerPositionSnapshot, ConsecutiveMoveParams, ConsecutiveMoveStrategy,
-            DeviationParams, DeviationStrategy, FailedBreakoutParams, FailedBreakoutStrategy,
-            FiftyTwoWeekHighParams, FiftyTwoWeekHighStrategy, LeveragedTrendHoldParams,
-            LeveragedTrendHoldStrategy, MaCrossParams, MeanReversionParams, MeanReversionStrategy,
-            MomentumParams, MomentumStrategy, MovingAverageCrossStrategy, OhlcCandle,
-            PriceConditionParams, PriceConditionStrategy, RsiParams, RsiStrategy, StrategyConfig,
-            StrategyManager, StrongCloseParams, StrongCloseStrategy, TrendFilterParams,
-            TrendFilterStrategy, VolatilityExpansionParams, VolatilityExpansionStrategy,
+            ConsecutiveMoveParams, ConsecutiveMoveStrategy, DeviationParams, DeviationStrategy,
+            FailedBreakoutParams, FailedBreakoutStrategy, FiftyTwoWeekHighParams,
+            FiftyTwoWeekHighStrategy, LeveragedTrendHoldParams, LeveragedTrendHoldStrategy,
+            MaCrossParams, MeanReversionParams, MeanReversionStrategy, MomentumParams,
+            MomentumStrategy, MovingAverageCrossStrategy, OhlcCandle, PriceConditionParams,
+            PriceConditionStrategy, RsiParams, RsiStrategy, StrategyConfig, StrategyManager,
+            StrongCloseParams, StrongCloseStrategy, TrendFilterParams, TrendFilterStrategy,
+            VolatilityExpansionParams, VolatilityExpansionStrategy,
         },
         views::{build_strategy_view, StrategyView},
     },
@@ -531,8 +531,6 @@ fn usd_to_cents(value: &str) -> u64 {
         .map(|v| (v * 100.0).round() as u64)
         .unwrap_or(0)
 }
-
-use crate::trading::order::normalize_overseas_order_exchange;
 
 fn parse_amount_i64(value: &str) -> i64 {
     value.trim().replace(',', "").parse::<i64>().unwrap_or(0)

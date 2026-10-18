@@ -169,6 +169,19 @@ impl Strategy for ConsecutiveMoveStrategy {
         Some(available_bars >= required_moves)
     }
 
+    fn on_live_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal {
+        let confirmed = self
+            .states
+            .get(symbol)
+            .map(|state| state.in_position)
+            .unwrap_or(false);
+        let signal = self.on_tick(symbol, price, volume);
+        if let Some(state) = self.states.get_mut(symbol) {
+            state.in_position = confirmed;
+        }
+        signal
+    }
+
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
         if !self.config.enabled {
             return Signal::Hold;
@@ -262,6 +275,8 @@ struct FailedBreakoutState {
     prices: VecDeque<u64>,
     in_position: bool,
     breakout_prev_high: Option<u64>,
+    candidate_prev_high: Option<u64>,
+    order_pending: bool,
 }
 
 pub struct FailedBreakoutStrategy {
@@ -348,6 +363,8 @@ impl Strategy for FailedBreakoutStrategy {
                 prices: VecDeque::with_capacity(cap),
                 in_position: false,
                 breakout_prev_high: None,
+                candidate_prev_high: None,
+                order_pending: false,
             });
         state.prices = prices[prices.len().saturating_sub(cap)..]
             .iter()
@@ -369,6 +386,107 @@ impl Strategy for FailedBreakoutStrategy {
         })
     }
 
+    fn on_live_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal {
+        let confirmed = self
+            .states
+            .get(symbol)
+            .map(|state| (state.in_position, state.breakout_prev_high))
+            .unwrap_or((false, None));
+        let signal = self.on_tick(symbol, price, volume);
+        if let Some(state) = self.states.get_mut(symbol) {
+            if matches!(signal, Signal::Buy { .. }) && state.candidate_prev_high.is_none() {
+                state.candidate_prev_high = state.breakout_prev_high;
+            }
+            state.in_position = confirmed.0;
+            state.breakout_prev_high = confirmed.1;
+        }
+        signal
+    }
+
+    fn owned_position_metadata(&self, symbol: &str) -> Option<serde_json::Value> {
+        let state = self.states.get(symbol)?;
+        if state.breakout_prev_high.is_none() && state.candidate_prev_high.is_none() {
+            return None;
+        }
+        Some(serde_json::json!({
+            "version": 1,
+            "kind": "failedBreakout",
+            "confirmedAnchor": state.breakout_prev_high,
+            "candidateAnchor": state.candidate_prev_high,
+        }))
+    }
+
+    fn restore_owned_position_metadata(
+        &mut self,
+        symbol: &str,
+        metadata: &serde_json::Value,
+    ) -> Result<(), String> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase", deny_unknown_fields)]
+        struct Protection {
+            version: u64,
+            kind: String,
+            confirmed_anchor: Option<u64>,
+            candidate_anchor: Option<u64>,
+        }
+        let protection: Protection = serde_json::from_value(metadata.clone())
+            .map_err(|error| format!("Invalid breakout protection checkpoint: {error}"))?;
+        if protection.version != 1
+            || protection.kind != "failedBreakout"
+            || protection.confirmed_anchor == Some(0)
+            || protection.candidate_anchor == Some(0)
+            || (protection.confirmed_anchor.is_none() && protection.candidate_anchor.is_none())
+        {
+            return Err("Invalid breakout protection checkpoint identity or anchor".into());
+        }
+        let state = self
+            .states
+            .get_mut(symbol)
+            .ok_or("Cannot restore breakout protection without a target position")?;
+        if state.in_position {
+            state.breakout_prev_high = protection.confirmed_anchor.or(protection.candidate_anchor);
+            state.candidate_prev_high = None;
+        } else {
+            if protection.confirmed_anchor.is_some() {
+                return Err("Confirmed breakout anchor requires owned quantity".into());
+            }
+            state.candidate_prev_high = protection.candidate_anchor;
+        }
+        Ok(())
+    }
+
+    fn sync_owned_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
+        let was_held = self
+            .states
+            .get(symbol)
+            .is_some_and(|state| state.in_position);
+        self.sync_position(symbol, quantity, avg_price);
+        if let Some(state) = self.states.get_mut(symbol) {
+            if quantity > 0 && !was_held {
+                state.breakout_prev_high = state.candidate_prev_high.take();
+            } else if quantity == 0 {
+                state.candidate_prev_high = None;
+            }
+        }
+    }
+
+    fn set_order_pending(&mut self, symbol: &str, pending: bool) {
+        if let Some(state) = self.states.get_mut(symbol) {
+            state.order_pending = pending;
+            if !pending && !state.in_position {
+                state.candidate_prev_high = None;
+            }
+        }
+    }
+
+    fn discard_unsubmitted_signal(&mut self, symbol: &str) {
+        if let Some(state) = self.states.get_mut(symbol) {
+            if !state.order_pending {
+                state.candidate_prev_high = None;
+            }
+        }
+    }
+
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
         if !self.config.enabled {
             return Signal::Hold;
@@ -385,6 +503,8 @@ impl Strategy for FailedBreakoutStrategy {
                 prices: VecDeque::with_capacity(lookback),
                 in_position: false,
                 breakout_prev_high: None,
+                candidate_prev_high: None,
+                order_pending: false,
             });
 
         let prev_high = state.prices.iter().copied().max().unwrap_or(0);
@@ -450,6 +570,8 @@ impl Strategy for FailedBreakoutStrategy {
                 prices: VecDeque::with_capacity(bounded_window_with_extra(lookback, 1)),
                 in_position: false,
                 breakout_prev_high: None,
+                candidate_prev_high: None,
+                order_pending: false,
             });
         state.in_position = quantity > 0;
         if quantity == 0 {
@@ -557,3 +679,7 @@ mod history_tests {
 
 #[cfg(test)]
 mod reconfigure_tests;
+
+#[cfg(test)]
+#[path = "sequence/live_feedback_tests.rs"]
+mod live_feedback_tests;

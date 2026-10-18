@@ -127,6 +127,10 @@ impl KisRestClient {
     }
 
     /// is_paper 모드 반환
+    pub(crate) fn account_no(&self) -> &str {
+        &self.account_no
+    }
+
     pub fn is_paper(&self) -> bool {
         self.is_paper
     }

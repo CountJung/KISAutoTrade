@@ -297,6 +297,11 @@ export function TossOrderPreflightPanel({
   }
   if (!data) return null
 
+  const commissionRatio = data.commissionRate ? Number(data.commissionRate) : Number.NaN
+  const commissionPercent = Number.isFinite(commissionRatio) && commissionRatio >= 0
+    ? commissionRatio.toLocaleString('ko-KR', { style: 'percent', maximumFractionDigits: 8 })
+    : '-'
+
   return (
     <Box sx={{ mb: 1.5, p: 1.25, bgcolor: 'action.hover', borderRadius: 1 }}>
       <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" mb={1}>
@@ -333,7 +338,7 @@ export function TossOrderPreflightPanel({
         )}
         {data.commissionRate && (
           <Typography variant="caption" color="text.secondary">
-            수수료율 {data.commissionRate}% · 추정 수수료 {data.estimatedCommission ? fmtTossMoney(data.estimatedCommission.amount, data.estimatedCommission.currency) : '-'}
+            수수료율 {commissionPercent} · 추정 수수료 {data.estimatedCommission ? fmtTossMoney(data.estimatedCommission.amount, data.estimatedCommission.currency) : '-'}
           </Typography>
         )}
       </Stack>

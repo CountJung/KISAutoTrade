@@ -18,6 +18,7 @@ use crate::{
 use super::{conflicts::pending_order_provider, OrderManager};
 
 mod collector;
+mod ownership;
 mod provider_mode;
 mod reconciliation;
 #[cfg(test)]
@@ -29,6 +30,7 @@ struct PendingFill {
     odno: String,
     filled_qty: u64,
     avg_price: u64,
+    cumulative_notional: Option<u128>,
     terminal_status: Option<OrderStatus>,
     provider_status: String,
     execution_date: chrono::NaiveDate,
@@ -57,6 +59,20 @@ impl OrderManager {
         avg_price: u64,
         execution_date: chrono::NaiveDate,
     ) -> Result<()> {
+        self.on_fill_confirmed(odno, filled_qty, avg_price, None, execution_date)
+            .await
+    }
+
+    /// Exact provider consideration in native KRW / USD cents. Average price is
+    /// display-only when this consideration is present.
+    pub(crate) async fn on_fill_confirmed(
+        &mut self,
+        odno: &str,
+        filled_qty: u64,
+        avg_price: u64,
+        cumulative_notional: Option<u128>,
+        execution_date: chrono::NaiveDate,
+    ) -> Result<()> {
         let Some(pending) = self.pending.get(odno).cloned() else {
             tracing::debug!("on_fill: odno {} 는 미체결 풀에 없음 (이미 처리됨)", odno);
             return Ok(());
@@ -70,13 +86,39 @@ impl OrderManager {
             return Err(error);
         }
 
+        let execution_date = if pending.application_started {
+            match pending.application_execution_date.as_deref() {
+                Some(date) => match chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d") {
+                    Ok(parsed) if parsed.to_string() == date => parsed,
+                    _ => {
+                        self.block_for_persistence_failure(
+                            "체결 intent의 실행일을 확인할 수 없습니다.".into(),
+                        );
+                        anyhow::bail!("체결 intent의 실행일을 확인할 수 없습니다.");
+                    }
+                },
+                None => {
+                    self.block_for_persistence_failure(
+                        "진행 중인 체결 intent의 실행일이 없습니다.".into(),
+                    );
+                    anyhow::bail!("진행 중인 체결 intent의 실행일이 없습니다.");
+                }
+            }
+        } else {
+            execution_date
+        };
         let symbol = pending.record.symbol.clone();
         let symbol_name = pending.record.symbol_name.clone();
         let order_quantity = pending.record.quantity;
-        let confirmed_filled = filled_qty
-            .max(pending.confirmed_filled_quantity)
-            .min(order_quantity);
-        let confirmed_avg_price = if filled_qty >= pending.confirmed_filled_quantity {
+        let confirmed_filled = if pending.application_started {
+            pending.confirmed_filled_quantity
+        } else {
+            filled_qty.max(pending.confirmed_filled_quantity)
+        }
+        .min(order_quantity);
+        let confirmed_avg_price = if pending.application_started {
+            pending.confirmed_avg_price
+        } else if filled_qty >= pending.confirmed_filled_quantity {
             avg_price
         } else {
             pending.confirmed_avg_price
@@ -92,42 +134,111 @@ impl OrderManager {
             );
             return Ok(());
         };
-        let (fill_price, cumulative_notional) = cumulative_fill_delta_price(
-            pending.filled_notional,
-            cumulative_filled,
-            confirmed_avg_price,
-            delta_qty,
-        );
-        if fill_price == 0 {
-            anyhow::bail!("on_fill: odno {odno} 증가분 체결가를 계산할 수 없습니다.");
+        let cumulative_notional = if pending.application_started {
+            match pending.confirmed_filled_notional {
+                Some(notional) => notional,
+                None => {
+                    self.block_for_persistence_failure(
+                        "진행 중인 체결 intent의 누적 금액이 없습니다.".into(),
+                    );
+                    anyhow::bail!("진행 중인 체결 intent의 누적 금액이 없습니다.");
+                }
+            }
+        } else if filled_qty >= pending.confirmed_filled_quantity {
+            if cumulative_notional.is_some() && filled_qty > order_quantity {
+                self.block_for_persistence_failure(
+                    "확정 체결수량이 주문수량을 초과했습니다.".into(),
+                );
+                anyhow::bail!("확정 체결수량이 주문수량을 초과했습니다.");
+            }
+            cumulative_notional
+                .unwrap_or(u128::from(confirmed_avg_price) * u128::from(cumulative_filled))
+        } else {
+            pending
+                .confirmed_filled_notional
+                .unwrap_or(u128::from(confirmed_avg_price) * u128::from(cumulative_filled))
+        };
+        let Some(delta_notional) = cumulative_notional
+            .checked_sub(pending.filled_notional)
+            .filter(|amount| *amount > 0)
+        else {
+            self.block_for_persistence_failure(
+                "증가분 체결 금액이 없거나 누적 금액이 감소했습니다.".into(),
+            );
+            anyhow::bail!("증가분 체결 금액이 없거나 누적 금액이 감소했습니다.");
+        };
+        let delta_notional_units = match u64::try_from(delta_notional) {
+            Ok(amount) => amount,
+            Err(error) => {
+                self.block_for_persistence_failure(
+                    "증가분 체결 금액이 저장 범위를 초과했습니다.".into(),
+                );
+                return Err(error.into());
+            }
+        };
+        let confirmed_avg_price =
+            u64::try_from(cumulative_notional / u128::from(cumulative_filled))?;
+        let fill_price = delta_notional_units / delta_qty;
+        if fill_price == 0 || delta_notional_units > i64::MAX as u64 {
+            self.block_for_persistence_failure(
+                "증가분 체결가 또는 금액 범위를 확인할 수 없습니다.".into(),
+            );
+            anyhow::bail!("증가분 체결가 또는 금액 범위를 확인할 수 없습니다.");
         }
 
         let is_sell = matches!(pending.record.side, OrderSide::Sell);
         let is_overseas = pending.exchange.is_some() || !is_domestic_symbol(&symbol);
         let first_application = !pending.application_started;
-        let pnl = if let Some(pnl) = pending.application_pnl {
-            pnl
-        } else if !is_sell {
-            0
-        } else if is_overseas {
-            let tracker = self.overseas_position_tracker.lock().await;
-            let buy_avg = tracker
-                .get(&symbol)
-                .map(|position| position.avg_price_cents)
-                .unwrap_or(0.0);
-            ((fill_price as f64 - buy_avg) * delta_qty as f64) as i64
+        let exchange_rate = if is_overseas {
+            if pending.application_started {
+                match pending.application_exchange_rate {
+                    Some(rate) => rate,
+                    None => {
+                        self.block_for_persistence_failure(
+                            "진행 중인 해외 체결 intent의 환율이 없습니다.".into(),
+                        );
+                        anyhow::bail!("진행 중인 해외 체결 intent의 환율이 없습니다.");
+                    }
+                }
+            } else {
+                *self.exchange_rate_krw.read().await
+            }
         } else {
-            let tracker = self.position_tracker.lock().await;
-            let buy_avg = tracker
-                .get(&symbol)
-                .map(|position| position.avg_price)
-                .unwrap_or(0.0);
-            ((fill_price as f64 - buy_avg) * delta_qty as f64) as i64
+            1.0
         };
+        if !exchange_rate.is_finite() || exchange_rate <= 0.0 {
+            self.block_for_persistence_failure("체결 intent의 환율을 확인할 수 없습니다.".into());
+            anyhow::bail!("체결 intent의 환율을 확인할 수 없습니다.");
+        }
+
+        self.holdings_refresh_required |= if is_overseas { 2 } else { 1 };
+        // A whole broker snapshot may already include this fill. Invalidate older
+        // queries, but never add/subtract the same execution from account totals.
+        if is_overseas {
+            self.overseas_position_tracker
+                .lock()
+                .await
+                .invalidate_snapshot();
+        } else {
+            self.position_tracker.lock().await.invalidate_snapshot();
+        }
+        let prepared = self
+            .prepare_confirmed_ownership(
+                &pending,
+                cumulative_filled,
+                cumulative_notional,
+                delta_qty,
+                is_overseas,
+            )
+            .await?;
+        let pnl = prepared.pnl;
         if let Some(current) = self.pending.get_mut(odno) {
             current.confirmed_filled_quantity = cumulative_filled;
             current.confirmed_avg_price = confirmed_avg_price;
+            current.confirmed_filled_notional = Some(cumulative_notional);
             current.application_started = true;
+            current.application_execution_date = Some(execution_date.to_string());
+            current.application_exchange_rate = Some(exchange_rate);
             current.application_pnl = Some(pnl);
             current.provider_status = Some("applying_fill".to_string());
         }
@@ -136,11 +247,9 @@ impl OrderManager {
             return Err(error);
         }
 
-        let exchange_rate = if is_overseas {
-            *self.exchange_rate_krw.read().await
-        } else {
-            1.0
-        };
+        if let Some(candidate) = prepared.candidate {
+            self.save_ownership_ledger(&candidate).await?;
+        }
 
         let fee = if is_overseas {
             calculate_overseas_fee_cents(fill_price, delta_qty)
@@ -153,11 +262,20 @@ impl OrderManager {
             fee
         };
         let pnl_krw = if is_overseas {
-            ((pnl as f64 / 100.0) * exchange_rate).round() as i64
+            let converted = ((pnl as f64 / 100.0) * exchange_rate).round();
+            if !converted.is_finite()
+                || !(-9_223_372_036_854_775_808.0..9_223_372_036_854_775_808.0).contains(&converted)
+            {
+                self.block_for_persistence_failure(
+                    "체결 손익의 원화 환산 범위를 초과했습니다.".into(),
+                );
+                anyhow::bail!("체결 손익의 원화 환산 범위를 초과했습니다.");
+            }
+            converted as i64
         } else {
             pnl
         };
-        let fill_event_id = format!(
+        let mut fill_event_id = format!(
             "fill:{:?}:{}:{}:{}:{}:{}",
             pending.broker_scope.broker_id,
             pending
@@ -176,6 +294,13 @@ impl OrderManager {
             execution_date,
             cumulative_filled,
         );
+        // Provider IDs may be reused across paper/live orders on the same account.
+        // New owned orders have a durable unique record ID. Keep legacy IDs intact
+        // so a pre-migration application intent retries the original event.
+        if pending.ownership_key.is_some() {
+            fill_event_id.push(':');
+            fill_event_id.push_str(&pending.record.id);
+        }
 
         if let Err(error) = self
             .apply_budget_fill(&pending, cumulative_filled, cumulative_notional)
@@ -194,18 +319,25 @@ impl OrderManager {
                     symbol
                 );
             }
-            if first_application {
-                {
-                    let mut risk = self.risk_manager.lock().await;
-                    risk.record_pnl(pnl_krw);
-                    risk.record_strategy_symbol_pnl_for_scope(
-                        &pending.broker_scope,
-                        pending.strategy_id.as_deref().unwrap_or("unknown"),
-                        &symbol,
-                        pnl_krw,
-                    );
+            let risk_snapshot = {
+                let mut risk = self.risk_manager.lock().await;
+                if let Err(error) = risk.record_fill_pnl_once(
+                    execution_date,
+                    &fill_event_id,
+                    &pending.broker_scope,
+                    pending.strategy_id.as_deref().unwrap_or("unknown"),
+                    &symbol,
+                    pnl_krw,
+                ) {
+                    drop(risk);
+                    self.block_for_persistence_failure(format!("체결 리스크 반영 실패: {error}"));
+                    return Err(error);
                 }
-                self.persist_risk_runtime().await;
+                risk.runtime_state()
+            };
+            if let Err(error) = self.risk_store.save_runtime(&risk_snapshot).await {
+                self.block_for_persistence_failure(format!("체결 리스크 영속화 실패: {error}"));
+                return Err(error);
             }
 
             let mut stats = match self.stats_store.get_by_date(execution_date).await {
@@ -327,6 +459,19 @@ impl OrderManager {
                 pending.record.provider_tr_id.clone(),
             )
         };
+        trade_record.total_amount = delta_notional_units;
+        if is_overseas {
+            let usd = delta_notional_units as f64 / 100.0;
+            trade_record.total_amount_usd = Some(usd);
+            let converted = (usd * exchange_rate).round();
+            anyhow::ensure!(
+                converted.is_finite() && converted < 9_223_372_036_854_775_808.0,
+                "체결 원화 환산 금액 범위 오류"
+            );
+            trade_record.total_amount_krw = Some(converted as i64);
+        } else {
+            trade_record.total_amount_krw = Some(i64::try_from(delta_notional_units)?);
+        }
         trade_record = trade_record.with_broker_scope(&pending.broker_scope);
         trade_record.id = format!("trade-{fill_event_id}");
         trade_record.execution_date = Some(execution_date.to_string());
@@ -349,18 +494,6 @@ impl OrderManager {
             return Err(e);
         }
 
-        if is_complete {
-            self.pending.remove(odno);
-            self.symbol_to_odno.remove(&symbol);
-        } else if let Some(current) = self.pending.get_mut(odno) {
-            current.filled_quantity = cumulative_filled;
-            current.filled_notional = cumulative_notional;
-            current.record.status = OrderStatus::PartiallyFilled;
-            current.record.price = confirmed_avg_price;
-            current.provider_status = Some("partially_filled".to_string());
-            current.application_started = false;
-            current.application_pnl = None;
-        }
         let mut lifecycle_record = pending.record.clone();
         lifecycle_record.status = if is_complete {
             OrderStatus::Filled
@@ -382,37 +515,39 @@ impl OrderManager {
         if is_complete {
             self.release_budget(&pending).await?;
         }
+        let applying = self.pending.get(odno).cloned();
+        if is_complete {
+            self.pending.remove(odno);
+            self.symbol_to_odno.remove(&symbol);
+        } else if let Some(current) = self.pending.get_mut(odno) {
+            current.filled_quantity = cumulative_filled;
+            current.filled_notional = cumulative_notional;
+            current.record.status = OrderStatus::PartiallyFilled;
+            current.record.price = confirmed_avg_price;
+            current.provider_status = Some("partially_filled".to_string());
+            current.application_started = false;
+            current.application_execution_date = None;
+            current.application_exchange_rate = None;
+            current.application_pnl = None;
+        }
         if let Err(error) = self.persist_pending_orders().await {
+            if let Some(applying) = applying {
+                self.pending.insert(odno.to_string(), applying);
+                self.symbol_to_odno.insert(symbol.clone(), odno.to_string());
+            }
             self.block_for_persistence_failure(format!("체결 watermark 영속화 실패: {error}"));
             return Err(error);
         }
 
-        if first_application {
-            if is_overseas {
-                let exchange = pending
-                    .exchange
-                    .clone()
-                    .unwrap_or_else(|| "UNKNOWN".to_string());
-                let mut tracker = self.overseas_position_tracker.lock().await;
-                match pending.record.side {
-                    OrderSide::Buy => tracker.on_buy(
-                        symbol.clone(),
-                        symbol_name.clone(),
-                        exchange,
-                        delta_qty,
-                        fill_price,
-                    ),
-                    OrderSide::Sell => tracker.on_sell(&symbol, delta_qty),
-                }
-            } else {
-                let mut tracker = self.position_tracker.lock().await;
-                match pending.record.side {
-                    OrderSide::Buy => {
-                        tracker.on_buy(symbol.clone(), symbol_name.clone(), delta_qty, fill_price)
-                    }
-                    OrderSide::Sell => tracker.on_sell(&symbol, delta_qty),
-                }
-            }
+        if is_complete {
+            // All effects and pending removal are durable before relinquishing
+            // this exact receipt. A crash before this step only retains evidence.
+            self.prune_completed_ownership_receipt(
+                &pending,
+                cumulative_filled,
+                cumulative_notional,
+            )
+            .await?;
         }
 
         if let Some(discord) = &self.discord {
@@ -471,6 +606,7 @@ fn cumulative_fill_delta(
     })
 }
 
+#[cfg(test)]
 fn cumulative_fill_delta_price(
     previous_notional: u128,
     cumulative_filled: u64,

@@ -38,12 +38,15 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | Live 52주 완료 일봉 준비 | `commands/trading/daily_history.rs`, `daily_history/jobs.rs` | `trading/strategy/manager/live_history.rs`, `src/shared/ui/LiveDailyHistoryPanel.tsx`, TradingStatus |
 | 전략 | `src-tauri/src/trading/strategy/` | `commands/strategy.rs`, `commands/strategy_preview.rs`, Strategy UI |
 | 전략 설정 저장·보유 보호 | `src-tauri/src/trading/configuration.rs` | `trading/order/configuration.rs`, `trading/strategy/manager/configuration.rs`, 각 전략의 `reconfigure_tests.rs`, IPC/Web 전략 수정 facade |
-| 잔고 조회·tracker 게시·계좌별 캐시 | `src-tauri/src/trading/order/holdings.rs`, `holdings/fetch.rs` | `trading/position.rs`, `commands/accounts.rs`, `commands/trading/positions.rs`, `server/{market,trading}.rs`, `src/api/{accountHooks,backendEvents}.ts` |
+| 잔고 조회·tracker 게시·계좌별 캐시 | `src-tauri/src/trading/order/holdings.rs`, `holdings/{fetch,parse}.rs` | `trading/position.rs`, `commands/accounts.rs`, `commands/trading/positions.rs`, `server/{market,trading}.rs`, `src/api/{accountHooks,backendEvents}.ts` |
 | 수동·자동 주문 | `src-tauri/src/trading/order/submission.rs` | `order/execution_run.rs`, `submission/{positions,prepare,provider,records}.rs`, `commands/orders.rs` |
 | 실행 변경·지연 결과 폐기 | `commands/trading/daemon/fence.rs`, `trading/order/execution_run.rs` | IPC/Web start/stop·전략 수정·프로파일 적용, `submission/run_tests.rs` |
 | 주문 전 검증 | `src-tauri/src/trading/preflight.rs`, `trading/guard.rs` | broker별 preflight command, `trading/risk.rs` |
 | 리스크 | `src-tauri/src/trading/risk.rs` | `commands/risk.rs`, `storage/risk_store.rs`, restore tests |
 | pending/체결 | `trading/order/fills.rs`, `order/fills/reconciliation.rs` | `order/{pending,health}.rs`, `fills/{collector,provider_mode}.rs`, `storage/{pending_order_store,order_store,trade_store}.rs` |
+| 전략 소유 수량·체결 피드백 | `trading/order/{ownership,feedback}.rs` | `ownership/runtime.rs`, `submission/owned.rs`, `fills/ownership.rs`, `trading/strategy/{core,manager}.rs`, 각 `live_feedback_tests.rs` |
+| 체결 손익·재시도 영수증 | `trading/order/fills/ownership.rs`, `trading/risk/fill_accounting.rs` | `fills/collector/notional.rs`, `commands/trading/risk_restore.rs`, `storage/pending_order_store.rs`, `order/ownership/` |
+| Toss 소액 검증·수수료율 표시 | `commands/toss/small_order.rs`, `trading/preflight.rs` | `small_order/tests.rs`, `src/pages/trading/ui/tossPanels.tsx`, `tests/e2e/toss-commission-ratio.spec.ts` |
 | 저장 backend | `src-tauri/src/storage/mod.rs`, `database.rs` | 각 `*_store.rs`, DB contract tests |
 | 데몬/앱 초기화 | `src-tauri/src/lib.rs` | `commands.rs::AppState`, `server/mod.rs` |
 | 릴리스/CI | `package.json`, root `Cargo.toml` | `.github/workflows/*.yml`, `docs/release-security.md` |
@@ -95,7 +98,9 @@ BrokerScope + profile/account
 → 고정 provider adapter/client (재시도 포함)
 → pending/order persistence
 → scope/profile/인증 + 저장 주문의 투자 모드 출처 재검증 후 fill reconciliation
+→ 정확한 소유 key의 누적 체결·원가·손익 원장 / 체결 이벤트 영수증
 → trade/stats/risk persistence
+→ manager → OrderManager 아래 소유 전략 피드백 / 계좌 전체 잔고 재조회
 ```
 
 시작·정지와 daemon의 전략 변경은 running → StrategyManager → OrderManager 순서로
@@ -117,6 +122,23 @@ identity를 검사한다. 프론트 잔고 캐시는 profile/broker/account/모�
 KIS pending의 저장 TR-ID가 현재 실전/모의 모드와 다르거나 출처를 확인할 수
 없으면 조회·직접 체결·체결 조회의 종료 상태와 예산 반영을 보류하고 체결 동기화
 health에 남긴다.
+
+계좌 전체 tracker는 증권사 잔고의 관측값이며 체결 delta를 다시 더하지 않는다.
+`ownership.rs`는 profile·투자 모드·broker/account·strategy·market·symbol별로
+확인된 소유 수량과 원가를 기록한다. 시작 복원과 daemon 피드백은 정확한 전략에
+소유 원장의 수량만 전달하고 다른 전략·수동 보유를 모든 전략에 broadcast하지
+않는다. LTH 최고가·보유 관측 수는 별도 metadata로 보존한다. 원장 세대·누적
+영수증·저장 검증 실패는 주문 차단 경계로 전달한다.
+
+`holdings/parse.rs`는 일반 갱신·시작·수동 주문에서 같은 잔고 검증을 적용한다.
+Toss 응답의 broker/account·시장/통화·중복 종목과 수치 범위를 확인하고 소수 잔량을
+정수 주문 수량으로 올리지 않는다. 리스크 복원은 계좌와 투자 모드를 검증한 후보를
+저장한 뒤 공개한다. 구현·검증 범위는 [P1-FILL 작업 기록](tasks/strategy-fill-ownership-20261018.md)을 따른다.
+
+`fills/collector/notional.rs`는 provider 누적 체결금액을 원·cents의 정수로 변환한다.
+Toss의 명시 금액과 누락을 구분하고 실제 평균가 대체 계산도 총액 변환 뒤 한 번만
+반올림한다. 소액 검증의 즉시 체결은 원 주문 식별자·종목·매수 방향·통화·1주와
+명시 체결대금이 일치해야 하며, 미확정 자료를 체결로 만들어내지 않는다.
 
 공용 타입·IPC·주문·리스크의 다중 참조 추적에는 필요할 때 Serena를 선택한다. Graphify는 위 구조 자체를 이동·통합하는 리팩터링 때만 사용한다.
 

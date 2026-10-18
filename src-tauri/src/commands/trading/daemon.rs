@@ -234,6 +234,20 @@ async fn poll_symbols_tick(
                 if configuration_pending {
                     return TickCycleResult::ConfigurationPending;
                 }
+                match OrderManager::checkpoint_strategy_positions_shared(
+                    order_mgr,
+                    strategy_mgr,
+                    expected,
+                )
+                .await
+                {
+                    Ok(true) => {}
+                    Ok(false) => return TickCycleResult::Stopped,
+                    Err(error) => {
+                        tracing::warn!("전략 보호 상태 저장 실패: {error}");
+                        return TickCycleResult::Stopped;
+                    }
+                }
                 let mut remaining_signals = signals.into_iter();
                 while let Some(strategy_signal) = remaining_signals.next() {
                     let unsubmitted_signal = strategy_signal.clone();
@@ -245,10 +259,31 @@ async fn poll_symbols_tick(
                         return TickCycleResult::Stopped;
                     };
                     let symbol_name = symbol_name.unwrap_or_else(|| symbol.clone());
+                    let market = if is_domestic_symbol(symbol) {
+                        BrokerMarket::Kr
+                    } else {
+                        BrokerMarket::Us
+                    };
+                    let Some(position_metadata) = fence
+                        .with_current(|manager| {
+                            manager.owned_position_metadata_for_strategy(
+                                &signal_strategy_id,
+                                &expected.broker_scope,
+                                market,
+                                symbol,
+                            )
+                        })
+                        .await
+                    else {
+                        return TickCycleResult::Stopped;
+                    };
                     let submit_result = crate::trading::order::OrderManager::submit_signal_shared(
                         order_mgr,
                         expected.clone(),
-                        strategy_signal,
+                        crate::trading::order::OwnedStrategySignal {
+                            signal: strategy_signal,
+                            position_metadata,
+                        },
                         symbol_name,
                         total_balance_krw,
                         exchange_opt.clone(),
@@ -261,6 +296,13 @@ async fn poll_symbols_tick(
                         }) => {
                             fence
                                 .with_current(|manager| {
+                                    manager.note_order_pending(
+                                        &signal_strategy_id,
+                                        &expected.broker_scope,
+                                        market,
+                                        symbol,
+                                        true,
+                                    );
                                     manager.complete_signal(
                                         &signal_strategy_id,
                                         symbol,
@@ -381,7 +423,8 @@ pub async fn run_trading_daemon(
         let is_running = *is_trading.lock().await;
 
         // pending reconciliation은 자동매매 on/off와 무관하게 계속 수행한다.
-        if let Err(error) = OrderManager::confirm_pending_fills_from_broker_shared(&order_mgr).await
+        if let Err(error) =
+            OrderManager::reconcile_strategy_state_shared(&order_mgr, &strategy_mgr).await
         {
             tracing::warn!("provider 미체결 주문 대조 실패: {}", error);
         }

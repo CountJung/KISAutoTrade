@@ -760,7 +760,7 @@ pub async fn check_toss_order_preflight_for_profile(
         &OrderPreflightConstraints {
             buying_power: buying_power.clone(),
             sellable_quantity: sellable_quantity.clone(),
-            commission_rate_percent: commission_rate.clone(),
+            commission_rate_ratio: commission_rate.clone(),
         },
     );
 
