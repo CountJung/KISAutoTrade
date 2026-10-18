@@ -90,6 +90,7 @@ ESLint나 별도 스크립트를 추가하기 전까지는 수동으로 아래�
 
 ## 현재 점진 구조
 
+- `src/api/hooks.ts`는 도메인별 `*Hooks.ts`와 기존 event/database/budget API의 호환 facade다. 이번 책임 분리는 legacy 위치에서 수행하며 전면 FSD 이전과 섞지 않는다. domain query의 향후 `entities/*/api`, 행동 mutation의 `features/*/api` 이동은 별도 구조 작업이다. 새 hook 모듈은 facade를 역참조하지 않는다.
 - `src/shared/api`가 Tauri IPC/Web REST wrapper와 Rust 타입 미러의 기준 위치다. 기존 `src/api/{commands,transport,types}.ts`는 호환 re-export로 유지한다.
 - `src/shared/config/{theme,scheduler}`와 `src/shared/ui`를 공통 설정/UI 기준 위치로 사용한다.
 - Zustand store는 `src/entities/{account,settings,trading}/model`로 이동했고 기존 `src/store/*`는 호환 re-export다.
@@ -98,4 +99,4 @@ ESLint나 별도 스크립트를 추가하기 전까지는 수동으로 아래�
 - Strategy의 route 전용 연구 UI는 `src/pages/strategy/ui/strategyResearchPanel.tsx`, A/B localStorage 모델은 `src/pages/strategy/model/experimentStore.ts`에 둔다. replay/backtest IPC 미러 타입은 `src/shared/api/strategyResearchTypes.ts`로 분리하고 `types.ts`에서 호환 re-export한다.
 - FSD 경계 검증은 `npm run check:fsd`로 실행한다. 스크립트는 `scripts/check-fsd-imports.mjs`에 있으며 `shared → entities → features → widgets → pages → app` 역방향 import를 실패 처리한다.
 
-> 마지막 업데이트: 2026-10-18T10:02:23+09:00
+> 마지막 업데이트: 2026-10-18T11:18:40+09:00

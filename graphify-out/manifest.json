@@ -50,8 +50,8 @@
     "semantic_hash": "b28f848ed605405cfb60792c4699799f"
   },
   "scripts/verify-toss-openapi.mjs": {
-    "mtime": 1789120030.43,
-    "ast_hash": "647af5055e9c5aa015a7a6f3d62d29eb",
+    "mtime": 1792289868.4785116,
+    "ast_hash": "68edaf5d9724b318767036408f99c1d2",
     "semantic_hash": ""
   },
   "secure_config.example.json": {
@@ -560,8 +560,8 @@
     "semantic_hash": "94e803252bb9d46b8af2348dca4db687"
   },
   "src/api/hooks.ts": {
-    "mtime": 1789086245.2,
-    "ast_hash": "f426e018c9fe90fa8ec552bea9a2bd74",
+    "mtime": 1792288905.6873333,
+    "ast_hash": "3dd849f9c7d5a2651a39149e274bddf8",
     "semantic_hash": ""
   },
   "src/api/queryKeys.ts": {
@@ -1417,6 +1417,46 @@
   "src-tauri/src/commands/trading/risk_restore.rs": {
     "mtime": 1792288663.0985198,
     "ast_hash": "4e3b77a80c05b61eb4b19ce05a4319b6",
+    "semantic_hash": ""
+  },
+  "src/api/accountHooks.ts": {
+    "mtime": 1792288905.6862423,
+    "ast_hash": "9f30e86d8b798d056cb2d05a3e8d026d",
+    "semantic_hash": ""
+  },
+  "src/api/historyHooks.ts": {
+    "mtime": 1792288905.6869264,
+    "ast_hash": "05ebeeb9bc982a0bff001dd8851378e8",
+    "semantic_hash": ""
+  },
+  "src/api/logHooks.ts": {
+    "mtime": 1792288905.687114,
+    "ast_hash": "acb13009d0732296bdead74818100dd7",
+    "semantic_hash": ""
+  },
+  "src/api/marketHooks.ts": {
+    "mtime": 1792288905.6864924,
+    "ast_hash": "d9aa05c1525b97e8cdbe8095537df2fb",
+    "semantic_hash": ""
+  },
+  "src/api/orderHooks.ts": {
+    "mtime": 1792288905.686634,
+    "ast_hash": "4ec9465f8472aa4521e1c6bf8397e6ca",
+    "semantic_hash": ""
+  },
+  "src/api/settingsHooks.ts": {
+    "mtime": 1792288905.6868253,
+    "ast_hash": "bd7fe6b91894a63c64a19f22f81ef52b",
+    "semantic_hash": ""
+  },
+  "src/api/strategyHooks.ts": {
+    "mtime": 1792288905.6867235,
+    "ast_hash": "3118ae00306b6dc36e125b08fc8fbbd6",
+    "semantic_hash": ""
+  },
+  "src/api/tradingHooks.ts": {
+    "mtime": 1792288905.687025,
+    "ast_hash": "bcf9beb9daebf1cb5b1833e0338fabb1",
     "semantic_hash": ""
   }
 }

@@ -86,6 +86,7 @@ SOXQ 연구에서 확인한 시뮬레이션 정확성 과제는 아래에 기록
 - [ ] **🟢 자동 구현** **SOXQ-P2-13 — 가격조건:** 전일 종가 고정·익절5%·손절3% 연구 설정에서 중앙값 +0.2847%, 완료117회, 비용 부호 반전3창. 완료 조건: 평가 전 고정 기준가 유지, 손절 직후 재진입·공통 cooldown/최소 기대수익·회전율을 두 비용과 복수 구간에서 비교; guard 완화나 사후 최적화 금지.
 - [ ] **🟢 자동 구현** **SOXQ-P2-17 — provider별 사전자료 페이지 조회를 연결한다.**
   - 현재 generic UI는 KIS 단일 응답, Toss 커맨드 최대 200봉 안에서 평가봉을 우선 보존한다. 252봉 이전 자료가 부족하면 기간을 줄이지 않고 부족 상태를 표시한다.
+  - [공식 계약 조사](tasks/provider-candle-contract-20261018.md): Toss inclusive nextBefore/분봉 종료시각, KIS 국내100건 및 해외TR-ID 불일치를 확인했다. 요청 fixture·차트 모듈 분리·공통 page·UI/live 연결은 자동 구현으로 이어간다.
   - 완료 조건: 공통 candle page/cursor 계약과 Tauri·웹 경로 동기화, 중복/겹침/미래 자료 제거, provider scope·rate limit 유지, 완료 일봉 확인과 live 신고가 최신 봉 제외 경계 유지, 200/252봉 확보 또는 명확한 부족 사유.
 - [ ] **🟢 자동 구현** **SOXQ-P2-14 — 체결 가능성과 장중 손절을 별도로 모델링한다.**
   - 현재 종가 신호가 동일 종가+슬리피지에 체결된다. next-bar-open 체결 모드, 신호/체결 시각과 봉 종가 공개 시각 구분, 장중 경로 미확인 상태를 추가한다. 비용에 따른 실제 체결가 피드백이 청산 경로를 바꾸는 QQQ2026Q3 평균회귀 사례도 회귀 fixture로 고정한다.
@@ -116,7 +117,7 @@ SOXQ 연구에서 확인한 시뮬레이션 정확성 과제는 아래에 기록
 - [ ] **🟢 자동 구현** 1,000라인 초과 파일을 책임 단위로 분리한다.
   - [x] `src-tauri/src/commands/trading.rs`: lifecycle469/positions329/balance96/risk_restore96/daemon527/history281행으로 분리. IPC4개·scope·복원/시작 순서 보존, lib212개와 독립 본문 감사 통과. [기록](tasks/trading-module-split-20261018.md).
   - `src/pages/trading/ui/Page.tsx`: broker별 orchestration과 공통 order form 분리.
-  - `src/api/hooks.ts`: account/market/order/strategy/settings query 모듈 분리 후 public API 유지.
+  - [x] `src/api/hooks.ts`: 19행 facade와 account/market/order/strategy/settings/history/trading/log 모듈49~255행으로 분리, 공개export87개/선언74개 동일. [기록](tasks/frontend-hooks-split-20261018.md).
   - `src-tauri/src/commands/toss.rs`: diagnostic/preflight/orders surface 분리.
   - `src-tauri/src/trading/order/submission.rs`: provider request builder와 submission persistence/test 분리.
   - `src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx`: ticker picker/preview UI 분리.

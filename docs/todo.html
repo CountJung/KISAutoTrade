@@ -193,10 +193,11 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-17 — provider별 사전자료 페이지 조회를 연결한다.</strong></h2>
 <ul><li>현재 generic UI는 KIS 단일 응답, Toss 커맨드 최대 200봉 안에서 평가봉을 우선 보존한다. 252봉 이전 자료가 부족하면 기간을 줄이지 않고 부족 상태를 표시한다.</li>
+<li><a href="tasks/provider-candle-contract-20261018.md">공식 계약 조사</a>: Toss inclusive nextBefore/분봉 종료시각, KIS 국내100건 및 해외TR-ID 불일치를 확인했다. 요청 fixture·차트 모듈 분리·공통 page·UI/live 연결은 자동 구현으로 이어간다.</li>
 <li>완료 조건: 공통 candle page/cursor 계약과 Tauri·웹 경로 동기화, 중복/겹침/미래 자료 제거, provider scope·rate limit 유지, 완료 일봉 확인과 live 신고가 최신 봉 제외 경계 유지, 200/252봉 확보 또는 명확한 부족 사유.</li></ul>
 <a class="permalink" href="#soxq-p2-17" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-14" data-status="implementation" data-source-line="90">
+<article class="task implementation" id="soxq-p2-14" data-status="implementation" data-source-line="91">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-14 — 체결 가능성과 장중 손절을 별도로 모델링한다.</strong></h2>
@@ -204,7 +205,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>완료 조건: 익일 갭 fixture; 같은 봉에서 손절·익절이 함께 닿을 때 순서 불명/보수적 처리; close-only와 next-open 결과 비교.</li></ul>
 <a class="permalink" href="#soxq-p2-14" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-15" data-status="implementation" data-source-line="93">
+<article class="task implementation" id="soxq-p2-15" data-status="implementation" data-source-line="94">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-15 — 비용·배당·환율·청산 가정과 비교 기준을 명시한다.</strong></h2>
@@ -212,7 +213,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>완료 조건: 같은 수량/노출·실제 평균 투자비중 비교, 실현손익과 비용 포함 잔여 평가손익 분리, 기말 가정 청산 비용 표시, broker 실제 비용 입력·배당/환율 시나리오 지원. 부분 분기/겹침 창과 평가이익·실현손실 역부호를 명시한다.</li></ul>
 <a class="permalink" href="#soxq-p2-15" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-16" data-status="implementation" data-source-line="96">
+<article class="task implementation" id="soxq-p2-16" data-status="implementation" data-source-line="97">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-16 — ATR을 true range로 계산하고 표본 부족을 성과와 구분한다.</strong></h2>
@@ -220,7 +221,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>완료 조건: 이전 종가 포함 TR·사전 ATR warmup·봉 간격 유지; 표본 수/신뢰 부족 표시; 70/30 구간을 기간 정규화 없이 과최적화 확정에 사용하지 않고 별도 walk-forward 평가.</li></ul>
 <a class="permalink" href="#soxq-p2-16" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-18" data-status="implementation" data-source-line="101">
+<article class="task implementation" id="soxq-p2-18" data-status="implementation" data-source-line="102">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-18 — 연속 운용 검증의 포지션·guard·risk 상태를 보존한다.</strong></h2>
@@ -228,27 +229,27 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>완료 조건: 엄격한 이전 warmup 이후 시간순 공급을 이어 포지션·쿨다운·일일 risk/손실 상태를 보존하고 분할/단일 공급 결과 일치; 미래봉 불변 fixture·범위 상한 유지. 같은 전일 결정 수량·비용·동일 노출 benchmark로 연속 실행과 분기 리셋을 별도 비교하며 분기 수익을 합성하지 않는다.</li></ul>
 <a class="permalink" href="#soxq-p2-18" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-f4140a9e27" data-status="implementation" data-source-line="111">
+<article class="task implementation" id="task-f4140a9e27" data-status="implementation" data-source-line="112">
 <p class="section">자동매매 예산·볼린저 보강 검증 기록 (2026-09-11)</p>
 <p class="badge">🟢 자동 구현</p>
 <h2>실제 provider 응답 불명 주문의 운영자 대조/복구 UI: 현재는 자동 해제 없이 예산을 보류한다. 주문번호/clientOrderId 대조 및 멱등 승인 흐름으로 확장할 것.</h2>
 
 <a class="permalink" href="#task-f4140a9e27" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="task-e353185411" data-status="validation" data-source-line="112">
+<article class="task validation" id="task-e353185411" data-status="validation" data-source-line="113">
 <p class="section">자동매매 예산·볼린저 보강 검증 기록 (2026-09-11)</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2>LTH 보강의 일봉 성과 미리보기: 일봉 context와 분봉 지표는 분리했지만 장중 경로를 일봉에서 복원하지 않는다. 현재 일봉은 평가 불가 진단이며 활성 볼린저 옵션의 성과 표본은 1분봉만 허용한다. 실제 장중 자료·시장 시간 검증은 P1-05 잔여 조건이다.</h2>
 
 <a class="permalink" href="#task-e353185411" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-a322b97c93" data-status="implementation" data-source-line="116">
+<article class="task implementation" id="task-a322b97c93" data-status="implementation" data-source-line="117">
 <p class="section">P3 — 유지보수·품질 게이트</p>
 <p class="badge">🟢 자동 구현</p>
 <h2>1,000라인 초과 파일을 책임 단위로 분리한다.</h2>
 <ul><li class="subtask"><span aria-label="완료">☑</span> <code>src-tauri/src/commands/trading.rs</code>: lifecycle469/positions329/balance96/risk_restore96/daemon527/history281행으로 분리. IPC4개·scope·복원/시작 순서 보존, lib212개와 독립 본문 감사 통과. <a href="tasks/trading-module-split-20261018.md">기록</a>.</li>
 <li><code>src/pages/trading/ui/Page.tsx</code>: broker별 orchestration과 공통 order form 분리.</li>
-<li><code>src/api/hooks.ts</code>: account/market/order/strategy/settings query 모듈 분리 후 public API 유지.</li>
+<li class="subtask"><span aria-label="완료">☑</span> <code>src/api/hooks.ts</code>: 19행 facade와 account/market/order/strategy/settings/history/trading/log 모듈49~255행으로 분리, 공개export87개/선언74개 동일. <a href="tasks/frontend-hooks-split-20261018.md">기록</a>.</li>
 <li><code>src-tauri/src/commands/toss.rs</code>: diagnostic/preflight/orders surface 분리.</li>
 <li><code>src-tauri/src/trading/order/submission.rs</code>: provider request builder와 submission persistence/test 분리.</li>
 <li><code>src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx</code>: ticker picker/preview UI 분리.</li>
@@ -256,7 +257,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>검증: 변경 파일과 신규 파일은 1,000라인 아래, FSD/API public surface와 IPC 이름은 유지한다.</li></ul>
 <a class="permalink" href="#task-a322b97c93" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-ffa0458c56" data-status="decision" data-source-line="140">
+<article class="task decision" id="task-ffa0458c56" data-status="decision" data-source-line="141">
 <p class="section">P3 — 유지보수·품질 게이트</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2>플랫폼 코드 서명·updater 서명 강제를 위한 배포 키 준비.</h2>
@@ -264,7 +265,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <a class="permalink" href="#task-ffa0458c56" aria-label="이 할일 링크">#</a>
 </article></section>
 <p id="empty" hidden>일치하는 열린 할일이 없습니다. 검색어나 상태를 바꿔 주세요.</p>
-<footer>원본 SHA-256: 32b26bbd45b018f2159be69d35c853925d19d3c523419355e4df4ed1969e192d<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
+<footer>원본 SHA-256: 2baf616c270dfc70a0919a4adeafcb114fed9b1bb95d6164f07c4417ae4e306b<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
 </main>
 <script>
 const status = document.getElementById('status');

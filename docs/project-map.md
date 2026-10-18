@@ -140,7 +140,9 @@ KISAutoTrade/
 │   │   ├── appledouble-and-soxq-p1-03.md
 │   │   ├── autonomous-backlog-20261018.md
 │   │   ├── documentation-layout-20261018.md
+│   │   ├── frontend-hooks-split-20261018.md
 │   │   ├── project-health-and-soxq-p1-01.md
+│   │   ├── provider-candle-contract-20261018.md
 │   │   ├── soxq-p1-04.md
 │   │   ├── soxq-p1-05.md
 │   │   ├── strategy-review-20261018.md
@@ -179,12 +181,20 @@ KISAutoTrade/
 │   └── verify-toss-openapi.mjs
 ├── src/
 │   ├── api/
+│   │   ├── accountHooks.ts
 │   │   ├── backendEvents.ts
 │   │   ├── budgetHooks.ts
 │   │   ├── commands.ts
 │   │   ├── databaseHooks.ts
+│   │   ├── historyHooks.ts
 │   │   ├── hooks.ts
+│   │   ├── logHooks.ts
+│   │   ├── marketHooks.ts
+│   │   ├── orderHooks.ts
 │   │   ├── queryKeys.ts
+│   │   ├── settingsHooks.ts
+│   │   ├── strategyHooks.ts
+│   │   ├── tradingHooks.ts
 │   │   ├── transport.ts
 │   │   └── types.ts
 │   ├── components/
@@ -607,7 +617,15 @@ KISAutoTrade/
 | `shared/config/theme/` | 앱 테마 생성과 theme mode 타입 |
 | `shared/config/scheduler/` | TanStack Query 공통 폴링 주기 |
 | `entities/*/model/` | Zustand 전역 상태 (계좌, 매매, 설정) |
-| `api/hooks.ts` | TanStack Query 훅 legacy entry (`KEYS`, `useBackendEvents` re-export 유지) |
+| `api/hooks.ts` | 기존 import를 유지하는 TanStack Query 훅 facade. 도메인별 hook 모듈과 기존 budget/database hook, `KEYS`, `useBackendEvents`를 re-export하며 훅 구현을 직접 소유하지 않음 |
+| `api/accountHooks.ts` | 앱 계정 설정·설정 확인·국내/해외/broker 잔고·프로파일 CRUD/전환·거래 환경 감지·Toss 연결/계좌 조회 hook |
+| `api/marketHooks.ts` | 국내/해외/Toss 시세·차트·검색·종목 목록 갱신·시장 일정/유의사항·환율 hook과 해외 차트 preset. 갱신 설정은 `settingsHooks.ts::useRefreshConfig`를 직접 참조 |
+| `api/orderHooks.ts` | 국내/해외 수동 주문·Toss 주문 전 검증/정정·소액 검증·미체결 조회 hook과 주문 후 관련 query 무효화 |
+| `api/strategyHooks.ts` | scope별 전략 목록·수정, 일반 replay와 LTH preview mutation hook |
+| `api/settingsHooks.ts` | 업데이트 확인·웹 설정·갱신 주기/상세 설정·broker rate-limit 상태·Discord 테스트 hook |
+| `api/historyHooks.ts` | 당일/기간별 provider 체결·로컬 거래·통계와 거래 보관 설정/현황 hook |
+| `api/tradingHooks.ts` | 자동매매 상태·시작/정지·매수 정지 해제·포지션·리스크 설정·비상정지 hook |
+| `api/logHooks.ts` | 로그 설정·최근 로그 조회·프런트 로그 기록 hook과 `frontendLogger` |
 | `api/queryKeys.ts` | TanStack Query `KEYS` 단일 원천 (`hooks.ts`에서 하위 호환 re-export) |
 | `api/backendEvents.ts` | Tauri backend event 구독 → 환율/잔고 Query 캐시 갱신 |
 | `api/budgetHooks.ts` | broker/account별 자동매매 예산 조회·폴링과 저장 후 해당 scope Query 캐시 갱신 |
@@ -739,6 +757,7 @@ KISAutoTrade/
 |---|---|
 | `scripts/render-todo.mjs` | `docs/todo.md`의 상태가 명시된 열린 최상위 항목을 `docs/todo.html`로 생성하고 원본 hash·상태별 색상·검색·필터를 제공한다. `npm run check:todo`는 원본과 생성물의 동기화를 검사 |
 | `scripts/render-todo.test.mjs` | 열린 항목 보존·상태 분류·escaping·freshness와 실제 Chromium의 좁은 화면·키보드 필터·JavaScript 없는 읽기를 검증 |
+| `scripts/verify-toss-openapi.mjs` | 공식 Toss OpenAPI의 예상 경로 목록을 검사하며 sector 목록·순위·상세·주식·ETF 경로도 포함. 이 목록의 확인을 앱 adapter 구현 또는 장기 분봉 자료 확보와 혼동하지 않음 |
 | `tests/e2e/strategy-atr-readiness.spec.ts` | ATR 토글 기본값·연구 요청 가정·자료 부족/평가 중 준비·과거 응답 미확인·비활성 상태와 LTH 평가 불가 우선 표시를 mock replay로 검증 |
 | `docs/research/autonomous-corrections-20261018/compare.py` | 기존 동결 입력의 수정 전후 생산 replay trace를 비교하고 trace hash·변화 행·기술 통계를 `comparison.json`에 보관. 원래 연구 JSON/CSV는 변경하지 않으며 전체 trace는 `.cache/`에 유지 |
 

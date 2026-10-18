@@ -1142,7 +1142,6 @@ if is_rate_limit && attempt < MAX_RETRIES - 1 {
 }
 ```
 
-> 마지막 업데이트: 2026-07-01T16:33:25
 
 ---
 
@@ -1658,7 +1657,6 @@ let trade_record = TradeRecord::new_overseas(
 
 `DailyStats`와 `RiskManager`는 원화 기준이므로 해외 매도 손익은 체결 시점 환율로 KRW 환산한 값을 반영한다.
 
-> 마지막 업데이트: 2026-07-02T16:45:00
 
 
 ---
@@ -1731,4 +1729,10 @@ UI에서 해외 종목 추가 시 `is_overseas: market === 'US'` 자동 설정 (
 
 기존 주문 응답의 `rt_cd != "0"` 분기는 `KisOrderRejected` 내부 타입으로 전달해, 네트워크/응답 파싱 오류와 구분한다. 예산 예약 해제는 이 확정 거절에만 적용한다. wire 필드·TR-ID는 변경하지 않는다. 자동매수는 지정가, 기존 매도 유형은 유지한다.
 
-마지막 업데이트: 2026-09-11
+
+## 기간별 차트 요청 공식 계약 재확인 (2026-10-18)
+
+- [공식 해외 dailyprice 샘플](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/overseas_stock/dailyprice/dailyprice.py)은 `HHDFS76240000`을 사용한다. 현재 `api/rest.rs`의 `HHDFS76200200`과 불일치하므로 요청 fixture·TR-ID 정합성 수정은 P2-17 선행 자동 구현 과제다. 이번 조사만으로 코드 수정을 완료했다고 표시하지 않는다.
+- 국내 `inquire-daily-itemchartprice` 공식 샘플은 `FHKST03010100`, 호출당100건과 날짜1/2를 명시한다. 해외 `BYMD`/`tr_cont`와 국내 날짜 구간을 혼합하지 않는다. 페이지 상한·중복·무진전 검증과 실제 완료 일봉/252봉 부족 경계는 `docs/tasks/provider-candle-contract-20261018.md`를 따른다.
+
+> 마지막 업데이트: 2026-10-18T11:20:42+09:00

@@ -81,7 +81,7 @@ export const useBalance = () =>
   useQuery({ queryKey: KEYS.balance, queryFn: getBalance, refetchInterval: 60_000 });
 ```
 
-새 훅은 반드시 `src/api/hooks.ts`에 추가하고, query key는 `src/api/queryKeys.ts`의 `KEYS`에 등록합니다. 기존 소비자는 `src/api/hooks.ts`에서 `KEYS`를 re-export하므로 import 호환을 유지합니다.
+새 훅은 `src/api/{account,market,order,strategy,settings,history,trading,log}Hooks.ts` 중 책임에 맞는 모듈에 구현하고 `src/api/hooks.ts` facade로 공개합니다. query key는 `src/api/queryKeys.ts`의 동일 `KEYS`를 사용합니다. 각 모듈이 facade를 다시 import하지 않으며, 환율 훅은 `marketHooks`에서 `settingsHooks.useRefreshConfig`를 직접 참조합니다. 기존 소비자의 import·캐시 키·polling·retry·무효화·이벤트 계약을 유지합니다.
 
 파라미터가 결과를 바꾸는 query는 반드시 queryKey에도 그 파라미터를 포함한다.
 예: 최근 로그 조회는 `recentLogs(count)`처럼 `count`별 key를 사용한다.
@@ -247,7 +247,6 @@ export function useBackendEvents() {
 }
 ```
 
-> 마지막 업데이트: 2026-07-04T12:25:10
 
 ---
 
@@ -354,7 +353,6 @@ tokio::spawn(async move {
 
 ---
 
-> 마지막 업데이트: 2026-04-07T17:48:01
 
 ---
 
@@ -511,4 +509,4 @@ const savedGeometry = useMemo(() => {
 > ResizableDialog는 현재 SPA 세션 캐시만 지원합니다.  
 > localStorage 영속이 필요하면 `storageKey`를 기반으로 별도 save/restore 로직을 추가합니다.
 
-> 마지막 업데이트: 2026-07-07T18:10:00+09:00
+> 마지막 업데이트: 2026-10-18T11:20:42+09:00

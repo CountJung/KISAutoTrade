@@ -2,16 +2,16 @@
 
 > Source of truth: `https://openapi.tossinvest.com/openapi-docs/latest/openapi.json`
 
-마지막 확인: 2026-09-11
+마지막 확인: 2026-10-18
 
 ## 공식 스펙 스냅샷
 
 | 항목 | 값 |
 |------|----|
 | OpenAPI title | `토스증권 Open API` |
-| version | `1.2.15` |
+| version | `1.2.24` |
 | base URL | `https://openapi.tossinvest.com` |
-| paths | 33 |
+| paths | 38 |
 | 인증 | OAuth2 Client Credentials Grant |
 
 ## 구현 전 검증
@@ -37,6 +37,12 @@ npm run verify:toss-openapi
 | Market Data | GET | `/api/v1/price-limits` | 상하한가 |
 | Market Data | GET | `/api/v1/candles` | 캔들, 별도 rate-limit group |
 | Stock Info | GET | `/api/v1/stocks` | 종목 기본 정보 |
+| Stock Info | GET | `/api/v1/stocks/all` | 공개 스펙 inventory, 앱 기능 미구현 |
+| Stock Info | GET | `/api/v1/stocks/{symbol}/investor-trading` | 공개 스펙 inventory, 앱 기능 미구현 |
+| Stock Info | GET | `/api/v1/stocks/{symbol}/program-trades` | 공개 스펙 inventory, 앱 기능 미구현 |
+| Stock Info | GET | `/api/v1/stocks/{symbol}/short-selling` | 공개 스펙 inventory, 앱 기능 미구현 |
+| Stock Info | GET | `/api/v1/stocks/{symbol}/credit-trades` | 공개 스펙 inventory, 앱 기능 미구현 |
+| Stock Info | GET | `/api/v1/stocks/{symbol}/securities-lending` | 공개 스펙 inventory, 앱 기능 미구현 |
 | Stock Info | GET | `/api/v1/stocks/{symbol}/warnings` | 투자경고/거래 제한 후보 |
 | Market Info | GET | `/api/v1/exchange-rate` | KRW/USD 참고 환율 |
 | Market Info | GET | `/api/v1/market-calendar/KR` | 국내 시장 캘린더 |
@@ -45,6 +51,11 @@ npm run verify:toss-openapi
 | Market Indicator | GET | `/api/v1/market-indicators/prices` | 시장 지표 현재가 |
 | Market Indicator | GET | `/api/v1/market-indicators/{symbol}/candles` | 시장 지표 캔들 |
 | Market Indicator | GET | `/api/v1/market-indicators/{symbol}/investor-trading` | 시장 지표 투자자 매매 |
+| Sector | GET | `/api/v1/sectors` | 공개 스펙 확인, 앱 기능 미구현 |
+| Sector | GET | `/api/v1/sectors/rankings` | 공개 스펙 확인, 앱 기능 미구현 |
+| Sector | GET | `/api/v1/sectors/{sectorId}` | 공개 스펙 확인, 앱 기능 미구현 |
+| Sector | GET | `/api/v1/sectors/{sectorId}/stocks` | 공개 스펙 확인, 앱 기능 미구현 |
+| Sector | GET | `/api/v1/sectors/{sectorId}/etfs` | 공개 스펙 확인, 앱 기능 미구현 |
 | Account | GET | `/api/v1/accounts` | accountSeq 조회 진입점 |
 | Asset | GET | `/api/v1/holdings` | `X-Tossinvest-Account` 필요 |
 | Order | GET, POST | `/api/v1/orders` | 주문 목록/생성, `clientOrderId` 지원 |
@@ -110,3 +121,7 @@ npm run verify:toss-openapi
 2026-09-11 공식 스펙 검증: v1.2.15, 33 paths. 기존 27개에 `/api/v1/stocks/all` 및 `/api/v1/stocks/{symbol}/investor-trading`, `program-trades`, `short-selling`, `credit-trades`, `securities-lending` GET 경로가 추가되어 inventory 검증 기준을 갱신했다. 추가 경로의 앱 기능은 이 변경에 포함하지 않는다.
 
 자동매매 예산: Toss HTTP 오류는 상태 코드를 보존하는 내부 타입으로 전달한다. 400/401/403/404/405/422만 확정 거절로 예약을 해제하며 408/409/429/5xx, transport/응답 파싱 실패는 보류한다. 자동 예산 주문은 정정 차단, 자동매수 지정가, 수동/자동 소유수량 분리를 유지한다.
+
+2026-10-18: [공식 OpenAPI](https://openapi.tossinvest.com/openapi-docs/latest/openapi.json) v1.2.24에서 섹터 GET5개가 추가되어38개 inventory로 검증했다. 기존 인증·오류·rate-limit 헤더 검사는 유지한다. 계좌/주문 호출은 하지 않았다.
+
+캔들 cursor·봉 시각과 KIS 요청 불일치의 구현 잔여는 [공개 계약 조사](tasks/provider-candle-contract-20261018.md)를 따른다.
