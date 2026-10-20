@@ -40,6 +40,7 @@ import {
 } from '../model/experimentStore'
 import { AccountingResults, ComparisonResults, AccountingAssumptionSummary, accountingComparisonKey, SimulationAccountingEditor } from './strategyAccountingPanel'
 import { calculationModeLabel, ContinuityResults } from './continuousReplayPanel'
+import { DeviationPolicySummary } from './deviationControls'
 import { MomentumEntrySummary } from './momentumEntryControls'
 import { ConsecutiveEntrySummary } from './consecutiveEntryControls'
 import { ConsecutiveEntryPreparation } from './consecutiveEntryPreparation'
@@ -472,6 +473,7 @@ export function StrategyResearchResults({
 
       {assessmentNotice}
       {metadata}
+      {strategyId.startsWith('deviation') && <DeviationPolicySummary params={params} />}
       {strategyId.startsWith('momentum') && <MomentumEntrySummary params={params} />}
       {strategyId.startsWith('consecutive_move') && <ConsecutiveEntryPreparation value={entryFilterPreparation} params={params} />}
       <AtrPreparationNotice report={report} />
@@ -532,6 +534,7 @@ export function StrategyResearchResults({
           {!comparable && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 데이터 source/봉/기간이 달라 직접 비교할 수 없습니다.</Alert>}
           {strategyId.startsWith('consecutive_move') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 전략 파라미터가 다릅니다. 진입 필터 조건을 함께 확인하세요.</Alert>}
           {strategyId.startsWith('momentum') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 Momentum 파라미터가 다릅니다. 진입 모드·재무장 간격을 확인하세요.</Alert>}
+          {strategyId.startsWith('deviation') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 Deviation 파라미터가 다릅니다. 진입·추세·보유 관측·손절 조건을 확인하세요.</Alert>}
           {differentExecution && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 엔진 또는 체결 가정이 다릅니다. 아래 조건 차이를 함께 확인하세요.</Alert>}
           <Typography variant="caption" display="block" sx={{ mb: 1 }}>같은 기간/겹친 기간의 A/B는 독립 검증이 아닙니다. 부분기간의 결과를 전체 분기나 연속 운용 성과로 합산하지 마세요.</Typography>
           <Grid container spacing={1}>
@@ -549,6 +552,7 @@ export function StrategyResearchResults({
                       <ConsecutiveEntryPreparation value={saved.entryFilterPreparation} params={saved.params} compact />
                     </>}
                     {saved?.strategyId.startsWith('momentum') && <MomentumEntrySummary params={saved.params} />}
+                    {saved?.strategyId.startsWith('deviation') && <DeviationPolicySummary params={saved.params} />}
                     {saved && <AccountingAssumptionSummary value={saved.backtest.assumptions} />}
                     {savedUnavailable ? (
                       <Typography variant="body2" color="text.secondary">평가 모델 정보 부족 · 성과 비교 불가</Typography>

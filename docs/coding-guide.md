@@ -873,3 +873,10 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 classic/momentum.rs는 bounded prices/previous_momentum/armed/retry_candidate와 실제 owned_quantity를 분리한다. raw on_tick/live관측은 보유량을 만들지 않고 exact owner sync만 수량을 갱신한다. Buy는flat, Sell은owned>0이며 exit level은 진입 mode와 독립이다. nextOpen process_close 뒤 같은수량 피드백이 올 수 있고 live manager는 pending중에도 관측을 전진시키므로 이를 체결/거절로 추정해 교차를 소모하지 않는다. warmup은 관측 상태만 seed하고 reconfigure는 같은identity의 소유량/관측을 유지한다.
 
 entry_mode/entry_hysteresis_pct는 저장·short/continuous 경계에서 엄격 검증하고 legacy 기간/임계값을 신규필드 오류로 덮지 않는다. inclusive 경계·1%p 재무장·동일0피드백/partial/거절·미래 prefix/청크 불변을 확인한다. 신호 qty는 기존 config 계약을 유지하며 최종 실제 매도는 prepare_ownership/prepare_sell_submission이 현재 소유량으로 제한한다. 새 DTO/IPC는 없고 계약 정본은 [v14 IPC](ipc-commands.md)다.
+
+
+## Deviation v15 소유·진입·보유 관측
+
+classic/deviation.rs와 params/state 모듈은 실제 owned quantity/native avg·관측 나이를 가격/교차/장기 추세 관측과 분리한다. sync와 exact owner metadata만 보유 보호를 복원하며 raw 후보와 같은0수량/pending은 체결이 아니다. 기본 MA는 현재 포함, 선택 장기 MA는 현재 제외 이전 가격이다. live 최초 진입은 장기 context를 새로 모아 warmup cadence 혼합을 방지한다.
+
+보유 관측은 옵션 off 중에도 기록하고 같은qty·부분체결·warmup·reconfigure로 줄이지 않는다. 나이 불명 복원은 한도 활성 시 보수적 후보이며 보호 exit는 잔량 전량, legacy level exit는 config수량이다. 지표 준비가 부족해도 보유 stop/maxHold은 평가한다. strict params 저장/두 preview·raw UI/A-B와 미래 prefix/분할 불변을 함께 검증한다. 정본은 [v15 IPC 계약](ipc-commands.md)이다.

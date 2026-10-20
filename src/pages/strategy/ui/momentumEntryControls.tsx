@@ -5,14 +5,14 @@ import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { parseDecimalDraft } from '../../../shared/lib'
+import { isFiniteNumberInRange, parseDecimalDraft } from '../../../shared/lib'
 
 export function isMomentumEntryParam(key: string) { return key === 'entry_mode' || key === 'entry_hysteresis_pct' }
 const modeOf = (params: Record<string, unknown>) => params.entry_mode === undefined ? 'level' : params.entry_mode
 const hysteresisOf = (params: Record<string, unknown>) => params.entry_hysteresis_pct === undefined ? 0 : params.entry_hysteresis_pct
 const thresholdOf = (params: Record<string, unknown>) => params.threshold_pct === undefined ? 5 : params.threshold_pct
 function hysteresisError(value: unknown) {
-  return typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100 ? '재무장 간격은 0~100의 유한한 숫자(%p)로 입력하세요.' : null
+  return !isFiniteNumberInRange(value, { min: 0, max: 100 }) ? '재무장 간격은 0~100의 유한한 숫자(%p)로 입력하세요.' : null
 }
 export function momentumEntryParamError(params: Record<string, unknown>): string | null {
   const mode = modeOf(params), hysteresis = hysteresisOf(params), threshold = thresholdOf(params)

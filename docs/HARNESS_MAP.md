@@ -200,3 +200,10 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 - `cargo test --workspace --lib momentum --locked`: 실제 소유 상태, inclusive 경계, strict warmup/무장, 후보 취소/동일0/pending 재시도, 부분/복원·재설정, 두 preview strict/분할·미래 prefix와 실제 저장 거부를 확인한다. 실행 건수와 전체 결과는 [작업 기록](tasks/momentum-feedback-20261020.md)에 구분한다.
 - `npx playwright test tests/e2e/strategy-momentum-entry.spec.ts tests/e2e/strategy-consecutive-entry-filters.spec.ts`: 두 controls의 공유 십진 초안 해석·실제 키보드 입력, 도메인별 유효성, 잘못된 stored enum/null/string, level 미사용 간격, 저장 실패/재시도·활성 잠금, 두 preview·이전응답 폐기·AB·모바일을 확인한다. tsc/FSD/lockfiles/build와 전체 회귀를 함께 사용한다.
 - 연구의 archived86a9829와 current v14 생산 라이브러리는 분리한다. 비모멘텀1122회 report/signals exact와 Momentum102창의 경제 경로/부적합 raw차이를 구분하며 실패한 모형을 강제로 기존 수치에 맞추지 않는다. [재현·사전조건·기각 결과](research/momentum-feedback-20261020/report.md)를 따른다.
+
+
+## P2-04 Deviation 실제 소유·단독 후보
+
+- `cargo test --workspace --locked deviation`와 `cargo test --workspace --locked live_feedback`: 실제 소유/교차 재시도·동일0/nextOpen/partial·strict params/저장·생산 preview·미래 prefix/두 체결 모델/분할 불변·live 전용 trend 준비·기록 나이/unknown/metadata·실제 exact owner coordinator 복원·manager 신호를 확인한다. 전체 Rust와 Clippy를 함께 실행하고 옛 stateless 분류의 Deviation 포함을 새 소유 계약으로 정정한다.
+- `npx playwright test tests/e2e/strategy-deviation-policy.spec.ts`: 새4필드의 raw/stored 타입·경계·실제 키 입력·활성 잠금·저장/두 preview·A/B·모바일, 저장 실패/재시도와 일반/PC/LTH 지연 응답 뒤 새 초안 보존을 검증한다. scope epoch는 A→B→A의 과거 callback과 현재 초안을 구분한다. 인접 Momentum/Consecutive 및 전체 브라우저를 함께 확인한다.
+- `python3 docs/research/deviation-policy-20261020/validate.py`: archived bca6601/현재 v15의 비이격도1122 exact·이격도102 delta,36연속/36분할/432별도 분기의 기록 장부를 대사한다. filled reason-only 차이와 실제 경제 경로 차이를 분리한다. [사전 선언·재현·기각과 한계](research/deviation-policy-20261020/report.md), [검증 기록](tasks/deviation-policy-20261020.md)을 따른다.

@@ -5,7 +5,7 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { STRATEGY_PARAM_META, type StrategyParamMeta } from './strategyMetadata'
-import { parseDecimalDraft } from '../../../shared/lib'
+import { isFiniteNumberInRange, parseDecimalDraft } from '../../../shared/lib'
 
 const fields = STRATEGY_PARAM_META.consecutive_move.slice(2)
 export function consecutiveEntryFiltersDisabled(params: Record<string, unknown>) { return fields.every(({ key }) => params[key] === undefined || params[key] === 0) }
@@ -14,7 +14,7 @@ export function isConsecutiveEntryParam(key: string) { return fields.some((field
 function fieldError(key: string, value: unknown) {
   const field = fields.find((item) => item.key === key)
   if (!field || value === undefined) return null
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < field.min || value > field.max || (key === 'long_trend_period' && !Number.isInteger(value))) {
+  if (!isFiniteNumberInRange(value, { min: field.min, max: field.max, integer: key === 'long_trend_period' })) {
     return `${field.label}: ${field.min}~${field.max}${key === 'long_trend_period' ? ' 정수' : ' 유한한 숫자'}를 입력하세요. 0은 비활성입니다.`
   }
   return null

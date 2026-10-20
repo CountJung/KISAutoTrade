@@ -274,3 +274,6 @@ v13 Consecutive는 가격 관측열/확정 보유와 `sequence/consecutive/conte
 
 
 v14 Momentum은 classic/momentum.rs의 owned_quantity를 가격 관측/previous momentum/무장/미체결 후보와 분리한다. raw tick으로 소유량을 선반영하지 않으며 exact owner 피드백에서만 갱신한다. 기본 level은 flat Buy/held Sell, crossing/간격%p는 entry-only이고 보유 negative level은 유지한다. 같은0수량·nextOpen pending과 부분체결에서 후보/청산을 잃지 않으며 설정이 바뀌면 보유/잔존가격을 유지하고 관측 상태를 재seed한다. 기존 save/short/continuous validator와 UI params/AB를 사용해 새endpoint/DTO를 만들지 않는다. 숫자 lexical draft는 shared/lib 공개 parser를 사용하고 전략 범위/mode 관계는 controls에 남긴다. 계약은 [IPC v14](ipc-commands.md), 생산 대조는 [P2-03 연구](research/momentum-feedback-20261020/report.md)다.
+
+
+v15 Deviation은 classic/deviation.rs와 params/state 모듈에서 관측·하향 교차 후보·live 전용 추세 버퍼를 exact owner 수량/평균가/보유 나이와 분리한다. 기존 guard/risk·owner clamp 경계를 유지하고 metadata를 통해 보호 관측을 복원한다. generic warmup과 live 추세 cadence를 혼합하지 않으며 진입 준비 부족 중에도 held stop/maxHold을 평가한다. 기존 params 저장/두 preview/UI/A-B를 사용하고 새 endpoint/DTO는 없다. [계약](ipc-commands.md), [연구](research/deviation-policy-20261020/report.md), [작업 기록](tasks/deviation-policy-20261020.md)을 참조한다.

@@ -26,6 +26,9 @@ export const STRATEGY_PARAM_META: Record<string, StrategyParamMeta[]> = {
     { key: 'ma_period', label: 'MA 기간', min: 5, max: 120, description: '이격도 기준 이동평균 기간 (기본 20)' },
     { key: 'buy_threshold_pct', label: '매수 이격 (%)', min: -20, max: -1, step: 0.1, description: '현재가가 MA 대비 이 % 이하이면 매수 (기본 -5.0, 음수)' },
     { key: 'sell_threshold_pct', label: '매도 이격 (%)', min: 1, max: 20, step: 0.1, description: '현재가가 MA 대비 이 % 이상이면 매도 (기본 5.0)' },
+    { key: 'long_trend_period', label: '진입 추세 MA 관측 수', min: 0, max: 512, step: 1, description: '0 비활성 · 현재 가격 > 같은 주기의 직전 N가격 MA, 현재 관측 제외. 실시간 시작 후 N관측 준비' },
+    { key: 'max_hold_observations', label: '최대 보유 관측 수', min: 0, max: 1000000, step: 1, description: '0 비활성 · 실제 보유 확인 후 가격 관측 수. 일봉 63관측과 실시간 63관측의 기간은 다름' },
+    { key: 'stop_loss_pct', label: '보유 손절 기준 (%)', min: 0, max: 100, step: 0.1, description: '0 비활성 · 실제 native 평균가 대비 현재 관측가의 손실률 이상에서 매도 후보. 갭/체결 모델 영향 있음' },
   ],
   fifty_two_week_high: [
     { key: 'lookback_days', label: '조회 기간 (거래일)', min: 60, max: 504, step: 1, description: '52주 신고가 계산을 위한 과거 거래일 수 (기본 252 ≈ 1년)' },
@@ -67,7 +70,7 @@ export const STRATEGY_DESCRIPTION: Record<string, string> = {
   ma_cross: '단기 MA가 장기 MA를 상향 돌파(골든크로스) 시 매수, 하향 돌파(데드크로스) 시 매도.',
   rsi: 'RSI가 과매도 기준 이하에서 반등하면 매수, 과매수 기준 이상에서 하락하면 매도.',
   momentum: 'N관측 전 대비 변화율의 기본 level 진입과 선택 crossing 상향 돌파. 재무장 간격은 %p 단위이며 level에서는 미사용이다. 실제 보유는 두 모드 모두 음의 임계값 이하 시 청산하고 실시간 약10초 관측과 replay 봉 종가를 구분한다.',
-  deviation: '현재가가 이동평균 대비 일정 % 이하이면 매수(저평가), 일정 % 이상이면 매도(고평가).',
+  deviation: '기본 MA20·매수 -5%·매도 +5%의 level 진입과 보유 청산. 선택 하향 crossing·이전 가격 MA 진입 확인·최대 보유 관측 수·실제 평균가 손절을 비교할 수 있다. 관측 수를 일수로 해석하지 않는다.',
   fifty_two_week_high: '최근 252 거래일(1년) 최고가를 재돌파하면 매수. 매수 후 지정 % 하락 시 손절. 자동매매 시작 시 KIS 차트 API로 초기화됨.',
   consecutive_move: 'N회 연속 가격관측 상승 시 매수, M회 연속 하락 시 매도. 실시간은 약10초 관측, replay는 선택 봉 종가이며 N일을 뜻하지 않는다. 선택 진입 필터는 모두 충족해야 하며 기존 보유 청산에는 적용하지 않는다.',
   failed_breakout: '최근 N일 전고점을 버퍼% 이상 돌파하면 매수. 이후 가격이 전고점 이하로 내려오면 돌파 실패로 판단하여 즉시 매도.',

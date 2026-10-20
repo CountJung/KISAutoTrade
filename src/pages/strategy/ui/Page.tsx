@@ -1,3 +1,4 @@
+import { removeDraftIfUnchanged } from '../../../shared/lib'
 import Typography from '@mui/material/Typography'
 import Paper from '@mui/material/Paper'
 import Box from '@mui/material/Box'
@@ -39,6 +40,7 @@ import {
 import { StrategyPreviewPanel } from './strategyPreviewPanel'
 import { ConsecutiveEntryControls, consecutiveEntryParamError, isConsecutiveEntryParam } from './consecutiveEntryControls'
 import { MomentumEntryControls, isMomentumEntryParam, momentumEntryParamError } from './momentumEntryControls'
+import { DeviationControls, isDeviationPolicyParam, deviationPolicyError } from './deviationControls'
 import { PriceConditionEditorPanel } from './priceConditionEditorPanel'
 import {
   STRATEGY_DESCRIPTION,
@@ -151,6 +153,8 @@ export default function Strategy() {
   const activeScopeKey = appConfig?.active_profile_id
     ? `${appConfig.active_profile_id}:${appConfig.active_broker_id}:${appConfig.active_broker_account_id ?? ''}`
     : null
+  const scopeEpoch = useRef({ key: activeScopeKey, value: 0 })
+  if (scopeEpoch.current.key !== activeScopeKey) scopeEpoch.current = { key: activeScopeKey, value: scopeEpoch.current.value + 1 }
   const {
     data: strategies,
     isLoading,
@@ -294,7 +298,7 @@ export default function Strategy() {
     if (editMap[id]) return editMap[id]
     const numericParams: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(s.params)) {
-      numericParams[k] = (id.startsWith('consecutive_move') && isConsecutiveEntryParam(k)) || (id.startsWith('momentum') && isMomentumEntryParam(k)) ? v : typeof v === 'number' ? v : Number(v)
+      numericParams[k] = (id.startsWith('consecutive_move') && isConsecutiveEntryParam(k)) || (id.startsWith('momentum') && isMomentumEntryParam(k)) || (id.startsWith('deviation') && isDeviationPolicyParam(k)) ? v : typeof v === 'number' ? v : Number(v)
     }
     return { symbols: s.targetSymbols, quantity: s.orderQuantity, params: numericParams }
   }
@@ -362,6 +366,7 @@ export default function Strategy() {
 
   const handleSave = (id: string, strategy: { params: Record<string, unknown> }) => {
     if (!expectedScope) return
+    const submittedEpoch = scopeEpoch.current.value
     const edit = editMap[id]
     const session = getTossSession(id, strategy.params)
     const mergedParams = edit
@@ -376,8 +381,9 @@ export default function Strategy() {
       } satisfies UpdateStrategyInput,
       {
         onSuccess: () => {
-          setEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
-          setTossSessionEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
+          if (scopeEpoch.current.value !== submittedEpoch) return
+          setEditMap(prev => removeDraftIfUnchanged(prev, id, edit))
+          setTossSessionEditMap(prev => removeDraftIfUnchanged(prev, id, session))
         },
       },
     )
@@ -389,6 +395,7 @@ export default function Strategy() {
     initialSymbols: PriceConditionSymbolConfig[],
   ) => {
     if (!expectedScope) return
+    const submittedEpoch = scopeEpoch.current.value
     const pcSymbols = pcEditMap[id] ?? initialSymbols
     const session = getTossSession(id, params)
     updateStrategy(
@@ -400,8 +407,9 @@ export default function Strategy() {
       } satisfies UpdateStrategyInput,
       {
         onSuccess: () => {
-          setPcEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
-          setTossSessionEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
+          if (scopeEpoch.current.value !== submittedEpoch) return
+          setPcEditMap(prev => removeDraftIfUnchanged(prev, id, pcSymbols))
+          setTossSessionEditMap(prev => removeDraftIfUnchanged(prev, id, session))
         },
       },
     )
@@ -409,6 +417,8 @@ export default function Strategy() {
 
   const handleSaveLth = (id: string, params: Record<string, unknown>, initialEntries: LeveragedTrendHoldEntry[]) => {
     if (!expectedScope) return
+    const submittedEpoch = scopeEpoch.current.value
+    const session = getTossSession(id, lthParamEditMap[id] ?? params)
     const entries = lthEditMap[id] ?? initialEntries
     const nextParams = lthParamEditMap[id] ?? params
     if (hasInvalidLthEntries(entries)) return
@@ -420,14 +430,15 @@ export default function Strategy() {
         targetSymbols,
         params: withTossUsSessionParam(
           { ...nextParams, entries },
-          getTossSession(id, nextParams),
+          session,
         ),
       } satisfies UpdateStrategyInput,
       {
         onSuccess: () => {
-          setLthEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
-          setLthParamEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
-          setTossSessionEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
+          if (scopeEpoch.current.value !== submittedEpoch) return
+          setLthEditMap(prev => removeDraftIfUnchanged(prev, id, entries))
+          setLthParamEditMap(prev => removeDraftIfUnchanged(prev, id, nextParams))
+          setTossSessionEditMap(prev => removeDraftIfUnchanged(prev, id, session))
         },
       },
     )
@@ -673,8 +684,8 @@ export default function Strategy() {
         {(strategies ?? []).map((s) => {
           const edit = getEdit(s.id, s)
           const sType = getStrategyType(s.id)
-          const paramMetas = (STRATEGY_PARAM_META[sType] ?? []).filter((meta) => (sType !== 'consecutive_move' || !isConsecutiveEntryParam(meta.key)) && (sType !== 'momentum' || !isMomentumEntryParam(meta.key)))
-          const entryError = sType === 'consecutive_move' ? consecutiveEntryParamError(edit.params) : sType === 'momentum' ? momentumEntryParamError(edit.params) : null
+          const paramMetas = (STRATEGY_PARAM_META[sType] ?? []).filter((meta) => (sType !== 'consecutive_move' || !isConsecutiveEntryParam(meta.key)) && (sType !== 'momentum' || !isMomentumEntryParam(meta.key)) && (sType !== 'deviation' || !isDeviationPolicyParam(meta.key)))
+          const entryError = sType === 'consecutive_move' ? consecutiveEntryParamError(edit.params) : sType === 'momentum' ? momentumEntryParamError(edit.params) : sType === 'deviation' ? deviationPolicyError(edit.params) : null
           const stratDesc = STRATEGY_DESCRIPTION[sType]
           const pcInitialSymbols = (s.params['symbols'] as PriceConditionSymbolConfig[] | undefined) ?? []
           const lthInitialEntries = (s.params['entries'] as LeveragedTrendHoldEntry[] | undefined) ?? []
@@ -937,6 +948,7 @@ export default function Strategy() {
                       </Grid>
                     ))}
                   </Grid>
+                  {sType === 'deviation' && <DeviationControls params={edit.params} disabled={s.enabled} onChange={(key, value) => setParam(s.id, s, key, value)} />}
                   {sType === 'momentum' && <MomentumEntryControls params={edit.params} disabled={s.enabled} onChange={(key, value) => setParam(s.id, s, key, value)} />}
                   {sType === 'consecutive_move' && <ConsecutiveEntryControls params={edit.params} disabled={s.enabled} onChange={(key, value) => setParam(s.id, s, key, value)} />}
                   <StrategyPreviewPanel

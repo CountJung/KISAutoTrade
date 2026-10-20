@@ -1,10 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
-use super::{
-    state::{bounded_window, bounded_window_with_extra},
-    HistoryReadiness, Signal, Strategy, StrategyConfig,
-};
+use super::{state::bounded_window_with_extra, HistoryReadiness, Signal, Strategy, StrategyConfig};
 
 // ────────────────────────────────────────────────────────────────────
 // RSI 전략 (Relative Strength Index)
@@ -190,171 +187,10 @@ pub use momentum::{
     validate_momentum_entry_params, MomentumEntryMode, MomentumParams, MomentumStrategy,
 };
 
-// ────────────────────────────────────────────────────────────────────
-// 이격도 전략 (Deviation Ratio from Moving Average)
-// ────────────────────────────────────────────────────────────────────
-
-/// 이격도 전략 파라미터
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DeviationParams {
-    /// 기준 이동평균 기간 (기본 20)
-    pub ma_period: usize,
-    /// 매수 발동 이격 기준 % — 현재가가 MA 대비 이 % 이하이면 매수 (기본 -5.0, 음수)
-    pub buy_threshold_pct: f64,
-    /// 매도 발동 이격 기준 % — 현재가가 MA 대비 이 % 이상이면 매도 (기본 5.0, 양수)
-    pub sell_threshold_pct: f64,
-}
-
-impl Default for DeviationParams {
-    fn default() -> Self {
-        Self {
-            ma_period: 20,
-            buy_threshold_pct: -5.0,
-            sell_threshold_pct: 5.0,
-        }
-    }
-}
-
-pub struct DeviationStrategy {
-    config: StrategyConfig,
-    params: DeviationParams,
-    /// 종목코드 → 가격 이력
-    states: std::collections::HashMap<String, VecDeque<u64>>,
-}
-
-impl DeviationStrategy {
-    pub fn new(config: StrategyConfig) -> Self {
-        let params: DeviationParams =
-            serde_json::from_value(config.params.clone()).unwrap_or_default();
-        Self {
-            config,
-            params,
-            states: std::collections::HashMap::new(),
-        }
-    }
-}
-
-impl Strategy for DeviationStrategy {
-    fn id(&self) -> &str {
-        &self.config.id
-    }
-    fn name(&self) -> &str {
-        &self.config.name
-    }
-    fn config(&self) -> &StrategyConfig {
-        &self.config
-    }
-    fn config_mut(&mut self) -> &mut StrategyConfig {
-        &mut self.config
-    }
-    fn is_enabled(&self) -> bool {
-        self.config.enabled
-    }
-    fn set_enabled(&mut self, enabled: bool) {
-        self.config.enabled = enabled;
-    }
-
-    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
-        if !self.config.same_identity(&config) {
-            return false;
-        }
-        let mut replacement = Self::new(config);
-        for (symbol, state) in &self.states {
-            let prices: Vec<_> = state.iter().copied().collect();
-            replacement.initialize_historical(symbol, &prices);
-        }
-        *self = replacement;
-        true
-    }
-
-    fn initialize_historical(&mut self, symbol: &str, prices: &[u64]) {
-        if !self.config.targets_symbol(symbol) {
-            return;
-        }
-        let cap = bounded_window(self.params.ma_period);
-        self.states.insert(
-            symbol.to_string(),
-            prices[prices.len().saturating_sub(cap)..]
-                .iter()
-                .copied()
-                .collect(),
-        );
-    }
-
-    fn initialize_intraday_prices(&mut self, symbol: &str, prices: &[u64]) {
-        self.initialize_historical(symbol, prices);
-    }
-
-    fn history_readiness(&self, symbol: &str) -> Option<HistoryReadiness> {
-        let required_bars = bounded_window(self.params.ma_period);
-        let state = self.states.get(symbol);
-        Some(HistoryReadiness {
-            required_bars,
-            available_bars: state.map_or(0, VecDeque::len),
-            ready: state.is_some_and(|prices| {
-                prices.len() >= required_bars && prices.iter().any(|price| *price > 0)
-            }),
-        })
-    }
-
-    // 현재 평가 가격을 추가한 뒤 지표를 계산하므로 마지막 준비 봉도 평가할 수 있다.
-    fn can_evaluate_next_tick(&self, symbol: &str) -> Option<bool> {
-        let required_bars = bounded_window(self.params.ma_period);
-        let available_bars = self.states.get(symbol).map_or(0, VecDeque::len);
-        Some(available_bars.saturating_add(1) >= required_bars)
-    }
-
-    fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
-        if !self.config.enabled {
-            return Signal::Hold;
-        }
-        if !self.config.targets_symbol(symbol) {
-            return Signal::Hold;
-        }
-
-        let cap = bounded_window(self.params.ma_period);
-        let prices = self
-            .states
-            .entry(symbol.to_string())
-            .or_insert_with(|| VecDeque::with_capacity(cap));
-
-        prices.push_back(price);
-        if prices.len() > cap {
-            prices.pop_front();
-        }
-
-        if prices.len() < cap {
-            return Signal::Hold;
-        }
-
-        let ma: f64 = prices.iter().sum::<u64>() as f64 / prices.len() as f64;
-        if ma == 0.0 {
-            return Signal::Hold;
-        }
-
-        let deviation_pct = (price as f64 / ma - 1.0) * 100.0;
-
-        if deviation_pct <= self.params.buy_threshold_pct {
-            Signal::Buy {
-                symbol: symbol.to_string(),
-                quantity: self.config.order_quantity,
-                reason: format!("이격도 저점 {:.1}% (MA {:.0}원)", deviation_pct, ma),
-            }
-        } else if deviation_pct >= self.params.sell_threshold_pct {
-            Signal::Sell {
-                symbol: symbol.to_string(),
-                quantity: self.config.order_quantity,
-                reason: format!("이격도 고점 +{:.1}% (MA {:.0}원)", deviation_pct, ma),
-            }
-        } else {
-            Signal::Hold
-        }
-    }
-
-    fn reset(&mut self) {
-        self.states.clear();
-    }
-}
+mod deviation;
+pub use deviation::{
+    validate_deviation_entry_params, DeviationEntryMode, DeviationParams, DeviationStrategy,
+};
 
 #[cfg(test)]
 mod history_tests {
@@ -406,14 +242,14 @@ mod history_tests {
             "ma_period": 3, "buy_threshold_pct": -5.0, "sell_threshold_pct": 5.0,
         })));
         strategy.initialize_historical("SOXQ", &vec![100; 1000]);
-        assert_eq!(strategy.states["SOXQ"].len(), 3);
+        assert_eq!(strategy.states["SOXQ"].prices.len(), 3);
         assert!(strategy.history_readiness("SOXQ").unwrap().ready);
         assert!(matches!(
             strategy.on_tick("SOXQ", 50, 0),
             Signal::Buy { .. }
         ));
         strategy.initialize_intraday_prices("SOXQ", &[20, 20]);
-        assert_eq!(strategy.states["SOXQ"].front(), Some(&20));
+        assert_eq!(strategy.states["SOXQ"].prices.front(), Some(&20));
         assert!(!strategy.history_readiness("SOXQ").unwrap().ready);
     }
     #[test]

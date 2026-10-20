@@ -75,6 +75,7 @@ fn reconfigure_deviation_applies_new_threshold_to_retained_observations() {
         "ma_period": 3, "buy_threshold_pct": -20.0, "sell_threshold_pct": 50.0,
     })));
     strategy.initialize_historical("SOXQ", &[100, 100, 100]);
+    strategy.sync_position("SOXQ", 2, 100);
     reject_identity_changes(&mut strategy);
     let mut next = strategy.config().clone();
     next.params = serde_json::json!({ "ma_period": 2, "buy_threshold_pct": -20.0, "sell_threshold_pct": 5.0 });

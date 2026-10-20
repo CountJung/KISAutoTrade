@@ -451,7 +451,7 @@ fn reset(&mut self) {
 | MA교차(1) | `MaCrossState` | `prev_short_ma`, `prev_long_ma` |
 | RSI(2) | 인라인 튜플 | `(VecDeque<u64>, Option<f64>)` |
 | 모멘텀(3) | `MomentumState` | `prices`, `owned_quantity`, `previous_momentum`, `armed`, `retry_candidate` |
-| 이격도(4) | 인라인 | `VecDeque<u64>` |
+| 이격도(4) | `DeviationState` | 가격/추세 버퍼, 실제 수량·평균가, 보유 관측·교차 후보 |
 | 52주신고가(5) | `FiftyTwoWeekState` | `prev_price`, `high_52w`, `buy_price` |
 | 연속상승(6) | `ConsecutiveMoveState` | `prices`, `in_position` |
 | 돌파실패(7) | `FailedBreakoutState` | `breakout_prev_high` |
@@ -1277,3 +1277,14 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - strict warmup/reconfigure는 가상 신호·보유를 만들지 않고 동일설정은 이전m/무장/후보를 보존하고 설정이 바뀌면 실제소유와 잔존가격을 유지하면서 관측으로 이전m/무장을 재seed하고 후보를 해제한다. 새optional 설정은default를두고 invalidruntime은매수만failclosed, save/preview는거부한다. 비모멘텀1122회실행호환과Momentum raw/filled/현금 차이를 분리해검증하며 raw감소를수익개선으로해석하지않는다. 정본은 docs/ipc-commands.md, 연구는 docs/research/momentum-feedback-20261020/report.md다.
 
 > 마지막 업데이트: 2026-10-20T19:49:11+09:00
+
+
+## Deviation v15 실제 소유·관측 청산
+
+- 기본 현재 포함 MA·inclusive 매수/매도 임계값을 유지하되 실제 소유량으로 flat Buy/held Sell을 제한한다. 신규 optional 필드는 개별 검증하며 손상된 필드로 custom legacy exit를 덮지 않는다. 저장/두 preview는 엄격 거부, runtime 신규 진입은 fail closed하고 유효 보유 보호는 평가한다.
+- crossing은 이전d>buyT→현재d<=buyT의 하향 진입이다. 후보는 <=T 중 동일0/pending/거절에도 유지하고 >T면 취소하며 양수 실제 체결로 소모한다. strict history는 가상 후보/나이를 만들지 않는다.
+- 장기 추세는 현재 제외 직전N관측 평균과 엄격 current>mean이다. live 첫 관측에서 별도 context를 비우고 실제 live 관측으로 준비한다. 공통 daily/1분 warmup을10초 관측이라고 간주하지 않는다. legacy MA warmup은 보존한다.
+- 보유 나이는 실제 체결 뒤 관측이며 off 중에도 기록하고 같은qty/partial/warmup/설정 변경으로 리셋하지 않는다. exact owner metadata가 없고 진입 후보도 없는 positive 복원은 unknown이다. maxHold 활성 시 다음 관측에 보수적 매도 후보를 내며 날짜/체결 한도로 표현하지 않는다.
+- 손절→관측한도→고이격 level 순서다. 보호 후보는 실제 잔량 전량, legacy level은 config수량을 유지하고 공통 clamp/guard/risk를 우회하지 않는다. native 평균가·관측 손절은 장중 손실 상한이 아니다. 새 DTO 없이 UI·저장·두 preview·A/B를 동기화한다. 정본은 docs/ipc-commands.md, 연구는 docs/research/deviation-policy-20261020/report.md다.
+
+> 마지막 업데이트: 2026-10-20T21:51:20+09:00

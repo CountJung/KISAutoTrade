@@ -25,7 +25,7 @@ mod atr;
 pub use atr::AtrPreparationView;
 use atr::AtrWindow;
 
-pub const REPLAY_ENGINE_VERSION: &str = "strategy-replay-v14";
+pub const REPLAY_ENGINE_VERSION: &str = "strategy-replay-v15";
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]

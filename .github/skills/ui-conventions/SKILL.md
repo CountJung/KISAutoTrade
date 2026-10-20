@@ -678,6 +678,19 @@ UI 규칙:
 
 > 마지막 업데이트: 2026-10-20T19:42:13+09:00
 
-숫자 초안의 공통 문자열 해석은 `src/shared/lib/numberDraft.ts::parseDecimalDraft`를 shared/lib 공개 진입점으로 사용한다. 빈칸·단독 부호/점·잘못된 문자열·비유한수는 raw를 보존하고 유한한 십진 입력만 숫자로 바꾼다. 전략별 범위·정수·mode 관계와 input raw-state 보존은 각 controls에 남긴다. Graphify 후보/Serena 실제 caller와 도메인 차이를 확인한 뒤 승격한 범위이며, 소유/가격 anchor 같은 전략 상태와 혼합하지 않는다.
+숫자 초안의 공통 문자열 해석은 `src/shared/lib/numberDraft.ts::parseDecimalDraft`를 shared/lib 공개 진입점으로 사용한다. 빈칸·단독 부호/점·잘못된 문자열·비유한수는 raw를 보존하고 유한한 십진 입력만 숫자로 바꾼다. 공통 `isFiniteNumberInRange`는 타입 강제 변환 없는 유한수·양끝 포함 범위·선택 정수 판정을 담당한다. 필드별 범위·기본값·mode 관계·오류 문구와 input raw-state 보존은 각 controls에 남긴다. Graphify 후보/Serena 실제 caller와 도메인 차이를 확인한 뒤 승격한 범위이며, 소유/가격 anchor 같은 전략 상태와 혼합하지 않는다.
 
 > 마지막 업데이트: 2026-10-20T19:49:11+09:00
+
+
+## Deviation v15 선택 진입·보유 보호 UI
+
+- entry_mode와 세 숫자 optional 필드의 stored enum/null/string 초안을 보존하며 유한수·범위·정수 조건을 엄격 검증한다. 기존 shared/lib parseDecimalDraft로 문자열을 해석하고 isFiniteNumberInRange로 공통 숫자 판정을 사용한다. 필드별 기본값·허용 범위·mode 관계·오류 문구는 controls에 유지한다. 오류 초안은 저장·단기/연속 preview와 이전 응답을 무효화한다.
+- 기본 level/다른옵션0, crossing 하향 진입과 미체결 재시도·현재 제외 장기 MA를 안내한다. live 약10초/선택 봉 차이와 live 추세 N관측 준비를 숨기지 않는다. 보유 관측 한도·나이 불명 복원·보호 전량 후보·nextOpen 갭/부분체결을 체결 보장이나 장중 손실 한도로 표현하지 않는다.
+- 현재/A-B에 모드와 장기 관측·보유 관측·손절 %를 보존·표시한다. 실제 키보드 숫자 입력·저장 실패/재시도·활성 잠금·두 payload·잘못된 stored 값 복구·모바일 overflow를 검증한다. 신규 계좌 query/polling/DTO를 추가하지 않는다.
+
+> 마지막 업데이트: 2026-10-20T21:51:20+09:00
+
+전략 설정 저장 응답은 shared/lib/draftMap.ts의 removeDraftIfUnchanged로 전송 당시 immutable 초안과 같은 항목만 정리한다. 일반·가격조건·LTH의 저장 중 새 편집은 보존하며 Page의 scope epoch로 A→B→A 이전 응답도 현재 초안을 지우지 못하게 한다. payload merge/종목 산출·세션 기본값/검증은 각 handler에 유지한다.
+
+> 마지막 업데이트: 2026-10-20T22:04:21+09:00
