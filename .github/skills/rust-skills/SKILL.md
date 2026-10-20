@@ -450,7 +450,7 @@ fn reset(&mut self) {
 |------|------------|--------------|
 | MA교차(1) | `MaCrossState` | `prev_short_ma`, `prev_long_ma` |
 | RSI(2) | 인라인 튜플 | `(VecDeque<u64>, Option<f64>)` |
-| 모멘텀(3) | `MomentumState` | `last_buy_price`, `last_sell_price` |
+| 모멘텀(3) | `MomentumState` | `prices`, `owned_quantity`, `previous_momentum`, `armed`, `retry_candidate` |
 | 이격도(4) | 인라인 | `VecDeque<u64>` |
 | 52주신고가(5) | `FiftyTwoWeekState` | `prev_price`, `high_52w`, `buy_price` |
 | 연속상승(6) | `ConsecutiveMoveState` | `prices`, `in_position` |
@@ -1267,3 +1267,13 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - ❌ quote 관측열을 일봉 ATR/MA로 계산하거나 일봉 재조회로 streak/보유를 초기화하면 시간 간격과 청산 계약이 깨진다. ✅ 별도 bounded 완료 일봉 context와 기존 방향 상태를 유지한다. DTO 정본은 docs/ipc-commands.md, 연구는 docs/research/consecutive-filters-20261018/report.md다.
 
 > 마지막 업데이트: 2026-10-18T16:31:45+09:00
+
+
+## Momentum v14 소유 피드백과 진입 무장
+
+- Momentum raw 관측은 확정 보유를 변경하지 않는다. owned_quantity는 exact owner sync로만 갱신하며 flat Buy/held Sell을 적용한다. 이전 last_sell_price를 같은0피드백마다 지우는 억제 anchor에 보유 여부를 맡기지 않는다.
+- 기본 inclusive >=T/<=−T를 유지하고 entry-only crossing(previous<T,current>=T)/간격%p를 별도 선택으로 둔다. 후보는 condition<T에서 취소, 재무장은 condition<=T−band에서만 한다. 1pp deadband의 중간 구간을 재무장으로 처리하면 안 된다.
+- nextOpen pending/동일0qty를 체결로 추측하지 않는다. 무체결 후보는 조건 유지 중 재시도하고 실제positiveownedqty로 소모한다. heldnegativelevel은 provider/guard거절·부분매도 뒤에도 평가한다. 요청q와 소유q의 최종min 제한은 공통 submission에 유지한다.
+- strict warmup/reconfigure는 가상 신호·보유를 만들지 않고 동일설정은 이전m/무장/후보를 보존하고 설정이 바뀌면 실제소유와 잔존가격을 유지하면서 관측으로 이전m/무장을 재seed하고 후보를 해제한다. 새optional 설정은default를두고 invalidruntime은매수만failclosed, save/preview는거부한다. 비모멘텀1122회실행호환과Momentum raw/filled/현금 차이를 분리해검증하며 raw감소를수익개선으로해석하지않는다. 정본은 docs/ipc-commands.md, 연구는 docs/research/momentum-feedback-20261020/report.md다.
+
+> 마지막 업데이트: 2026-10-20T19:49:11+09:00

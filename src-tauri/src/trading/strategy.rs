@@ -14,7 +14,8 @@ pub use breakout::{
     VolatilityExpansionParams, VolatilityExpansionStrategy,
 };
 pub use classic::{
-    DeviationParams, DeviationStrategy, MomentumParams, MomentumStrategy, RsiParams, RsiStrategy,
+    validate_momentum_entry_params, DeviationParams, DeviationStrategy, MomentumEntryMode,
+    MomentumParams, MomentumStrategy, RsiParams, RsiStrategy,
 };
 pub use core::{
     initialize_strategy_warmup, BrokerPositionSnapshot, EntryFilterPreparation, HistoryReadiness,

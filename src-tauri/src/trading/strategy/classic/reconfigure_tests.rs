@@ -44,25 +44,25 @@ fn reconfigure_rsi_recomputes_baseline_with_new_period_and_keeps_targets_separat
 }
 
 #[test]
-fn reconfigure_momentum_keeps_actual_entry_and_repeat_sell_state() {
+fn reconfigure_momentum_keeps_owned_quantity_and_retries_unfilled_exits() {
     let mut strategy = MomentumStrategy::new(config(serde_json::json!({
         "lookback_period": 3, "threshold_pct": 50.0,
     })));
     strategy.initialize_historical("SOXQ", &[100, 100, 100, 100]);
     strategy.sync_position("SOXQ", 2, 105);
-    strategy.states.get_mut("SOXQ").unwrap().last_sell_price = Some(130);
     reject_identity_changes(&mut strategy);
     let mut next = strategy.config().clone();
     next.params = serde_json::json!({ "lookback_period": 2, "threshold_pct": 5.0 });
     next.target_symbols.push("NEW".into());
     next.order_quantity = 7;
     assert!(strategy.reconfigure_preserving_position(next));
-    assert_eq!(strategy.states["SOXQ"].last_buy_price, Some(105));
-    assert_eq!(strategy.states["SOXQ"].last_sell_price, Some(130));
+    assert_eq!(strategy.states["SOXQ"].owned_quantity, 2);
     assert!(!strategy.states.contains_key("NEW"));
-    // Existing repeat-sell suppression is retained rather than re-armed.
-    assert!(matches!(strategy.on_tick("SOXQ", 90, 0), Signal::Hold));
-    strategy.states.get_mut("SOXQ").unwrap().last_sell_price = None;
+    // A raw sell is not a fill: negative level remains eligible while owned.
+    assert!(matches!(
+        strategy.on_tick("SOXQ", 90, 0),
+        Signal::Sell { .. }
+    ));
     assert!(matches!(
         strategy.on_tick("SOXQ", 80, 0),
         Signal::Sell { quantity: 7, .. }

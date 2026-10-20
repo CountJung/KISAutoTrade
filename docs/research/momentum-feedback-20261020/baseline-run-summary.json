@@ -1,0 +1,70 @@
+{
+  "baselineCommit": "86a9829",
+  "continuousRuns": 6,
+  "elapsedSeconds": 5.984934459,
+  "flatRuns": 1224,
+  "partitionEquivalenceRuns": 6,
+  "partitions": [
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "e16e8e96574bfe17",
+      "inputHash": "7dd2638c026b02e0",
+      "quarterChunks": 12,
+      "strategyId": "momentum",
+      "symbol": "SOXQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "07f271e892c398ef",
+      "inputHash": "be3220344bcf6a02",
+      "quarterChunks": 12,
+      "strategyId": "momentum",
+      "symbol": "SOXQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "23cdc2598390505d",
+      "inputHash": "88faa39307246250",
+      "quarterChunks": 12,
+      "strategyId": "momentum",
+      "symbol": "SPY",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "fbfdd6f2850f8439",
+      "inputHash": "fe3a248c03a8141a",
+      "quarterChunks": 12,
+      "strategyId": "momentum",
+      "symbol": "SPY",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "1ecd4de46e2c087a",
+      "inputHash": "f91e44ce17d8abc7",
+      "quarterChunks": 12,
+      "strategyId": "momentum",
+      "symbol": "QQQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "8c74ea9a40c25e80",
+      "inputHash": "584c93fd0fedaf45",
+      "quarterChunks": 12,
+      "strategyId": "momentum",
+      "symbol": "QQQ",
+      "variant": "legacy"
+    }
+  ],
+  "quarterResetRuns": 72
+}

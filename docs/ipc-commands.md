@@ -95,7 +95,7 @@
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v13`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v14`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
 전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
@@ -299,3 +299,14 @@ v9 generic 1m 입력은 RFC3339 offset을 실제 순간으로 해석하고 고�
 | passedCandidates | 필터 통과 raw 매수 수; 실제 주문·체결 수와 다름 |
 
 live는 약10초 quote 관측열과 별도로 범위·세대·시장 날짜가 확인된 완료 일봉 context를 사용한다. context 갱신·실패·시장 날짜 전환은 관측열과 확정 보유를 보존하며 준비 부족과 0 ATR은 신규 매수만 보류한다. replay는 현재 후보 종가 평가와 체결 피드백 후 해당 OHLC를 다음 판단의 완료 자료로 게시한다. A/B는 요청 params와 이 선택 진단을 함께 보존한다. 단위 문구 두 개 외 기본 전체 report/signals 호환과 한계는 [P2-06 연구](research/consecutive-filters-20261018/report.md)에 기록한다.
+
+
+### Replay v14 Momentum 소유 피드백과 선택 진입 교차
+
+`momentum` params에 `entry_mode`=`level`(기본)/`crossing`, `entry_hysteresis_pct`=유한0..100(기본0, %p)를 추가했다. 누락은 기본값으로 읽고 기존 custom `lookback_period`/`threshold_pct`를 보존한다. 새 필드의 잘못된 enum/null/문자열/범위는 기존 설정 저장·short/continuous preview에서 `INVALID_STRATEGY_PARAMS`로 거부한다. crossing에서는 간격이 기존 threshold_pct 이하여야 한다. level에서는 유효한 간격 값을 보관하지만 사용하지 않으며 UI에 미사용을 표시한다. 저장된 optional 필드가 손상되면 runtime 신규 매수는 보류하되 legacy 기간/임계값과 보유 매도 평가를 보존한다.
+
+모멘텀은 N관측 전 가격 대비 변화율이며 live는 약10초 quote 관측, replay는 선택 봉 종가다. 기존 경계인 매수 `m>=T`, 매도 `m<=−T`를 유지한다. 새 기본 level은 실제 소유량0일 때 매수, 양수일 때 매도만 만든다. raw 신호로 확정 소유량을 바꾸지 않으며 기존 guard/risk와 실제 체결·소유 피드백을 사용한다.
+
+crossing은 이전m<T→현재m>=T에서 신규 진입 후보를 만든다. m<=T−간격에서 무장하고, 후보가 활성화된 뒤 m<T이면 취소한다. T5/간격1%p이면 m<=4에서만 재무장하며 4<m<5는 후보 취소만 가능하다. 엄격한 사전자료는 이전m/무장 상태를 seed하되 가상 후보·체결을 만들지 않는다. 동일0수량 게시와 nextOpen 대기는 실제 체결이 아니며, 유효 후보는 m>=T 동안 미체결 재시도가 가능하다. 실제 양수 소유량 확인으로 후보를 소모한다. 두 모드 모두 보유 negative level 청산을 유지해 거절·실패·부분매도 후 잔여 양수 수량의 청산을 계속 평가한다. 실제 provider 매도 수량은 기존 공통 경계에서 요청량과 현재 소유량의 최솟값으로 제한한다.
+
+새 endpoint/응답 DTO는 없다. 기존 params 전송·preview key 무효화·A/B 저장에 두 필드를 보존하고 화면에 모드/재무장 %p와 차이를 표시한다. 단기/연속 입력 상한·LTH 평가 불가·기존 Consecutive 진입 진단 계약은 유지한다. 비모멘텀1122회 exact호환, Momentum102창과 고정3년/별도분기의 raw 억제·체결/원가 대조 및 한계는 [P2-03 연구](research/momentum-feedback-20261020/report.md)에 기록한다.

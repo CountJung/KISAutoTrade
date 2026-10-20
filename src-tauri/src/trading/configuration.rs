@@ -186,6 +186,8 @@ where
         }
         super::strategy::validate_consecutive_entry_params(&candidate.id, &candidate.params)
             .map_err(|message| ConfigurationUpdateError::new("INVALID_STRATEGY_PARAMS", message))?;
+        super::strategy::validate_momentum_entry_params(&candidate.id, &candidate.params)
+            .map_err(|message| ConfigurationUpdateError::new("INVALID_STRATEGY_PARAMS", message))?;
         let candidate = build_strategy(candidate).config().clone();
         manager.validate_configuration_targets(&candidate)?;
         let symbols = previous

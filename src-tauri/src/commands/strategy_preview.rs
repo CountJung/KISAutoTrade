@@ -799,3 +799,7 @@ mod daily_event_tests;
 #[cfg(test)]
 #[path = "strategy_preview/entry_filter_tests.rs"]
 mod entry_filter_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/momentum_entry_tests.rs"]
+mod momentum_entry_tests;

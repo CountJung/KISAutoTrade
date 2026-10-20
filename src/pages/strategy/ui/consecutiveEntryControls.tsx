@@ -5,6 +5,7 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { STRATEGY_PARAM_META, type StrategyParamMeta } from './strategyMetadata'
+import { parseDecimalDraft } from '../../../shared/lib'
 
 const fields = STRATEGY_PARAM_META.consecutive_move.slice(2)
 export function consecutiveEntryFiltersDisabled(params: Record<string, unknown>) { return fields.every(({ key }) => params[key] === undefined || params[key] === 0) }
@@ -22,8 +23,8 @@ export function consecutiveEntryParamError(params: Record<string, unknown>) {
   return fields.map((field) => fieldError(field.key, params[field.key])).find(Boolean) ?? null
 }
 function parsedDraft(key: string, raw: string): number | string {
-  const numeric = raw.trim() !== '' && /^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw) ? Number(raw) : NaN
-  return fieldError(key, numeric) ? raw : numeric
+  const numeric = parseDecimalDraft(raw)
+  return typeof numeric === 'number' && !fieldError(key, numeric) ? numeric : raw
 }
 function ConsecutiveEntryField({ field, value, disabled, onChange }: {
   field: StrategyParamMeta; value: unknown; disabled: boolean; onChange: (key: string, value: number | string) => void

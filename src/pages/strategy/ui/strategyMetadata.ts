@@ -19,7 +19,8 @@ export const STRATEGY_PARAM_META: Record<string, StrategyParamMeta[]> = {
   ],
   momentum: [
     { key: 'lookback_period', label: '비교 기간', min: 5, max: 60, description: 'N기간 전 가격 대비 변화율 계산 기간 (기본 20)' },
-    { key: 'threshold_pct', label: '임계값 (%)', min: 1, max: 20, step: 0.1, description: '매매 발동 최소 변화율 % (기본 5.0)' },
+    { key: 'threshold_pct', label: '임계값 (%)', min: 1, max: 20, step: 0.1, description: '진입은 양의 임계값 이상, 보유 청산은 음의 임계값 이하 (기본 5.0)' },
+    { key: 'entry_hysteresis_pct', label: '재무장 간격 (%p)', min: 0, max: 100, step: 0.1, description: 'crossing 전용 재무장 간격, 기본 0. level에서는 미사용하며 crossing에서는 임계값 이하' },
   ],
   deviation: [
     { key: 'ma_period', label: 'MA 기간', min: 5, max: 120, description: '이격도 기준 이동평균 기간 (기본 20)' },
@@ -65,7 +66,7 @@ export const STRATEGY_PARAM_META: Record<string, StrategyParamMeta[]> = {
 export const STRATEGY_DESCRIPTION: Record<string, string> = {
   ma_cross: '단기 MA가 장기 MA를 상향 돌파(골든크로스) 시 매수, 하향 돌파(데드크로스) 시 매도.',
   rsi: 'RSI가 과매도 기준 이하에서 반등하면 매수, 과매수 기준 이상에서 하락하면 매도.',
-  momentum: 'N기간 전 가격 대비 현재가 변화율이 임계값 이상이면 매수, 이하이면 매도 (추세 추종).',
+  momentum: 'N관측 전 대비 변화율의 기본 level 진입과 선택 crossing 상향 돌파. 재무장 간격은 %p 단위이며 level에서는 미사용이다. 실제 보유는 두 모드 모두 음의 임계값 이하 시 청산하고 실시간 약10초 관측과 replay 봉 종가를 구분한다.',
   deviation: '현재가가 이동평균 대비 일정 % 이하이면 매수(저평가), 일정 % 이상이면 매도(고평가).',
   fifty_two_week_high: '최근 252 거래일(1년) 최고가를 재돌파하면 매수. 매수 후 지정 % 하락 시 손절. 자동매매 시작 시 KIS 차트 API로 초기화됨.',
   consecutive_move: 'N회 연속 가격관측 상승 시 매수, M회 연속 하락 시 매도. 실시간은 약10초 관측, replay는 선택 봉 종가이며 N일을 뜻하지 않는다. 선택 진입 필터는 모두 충족해야 하며 기존 보유 청산에는 적용하지 않는다.',

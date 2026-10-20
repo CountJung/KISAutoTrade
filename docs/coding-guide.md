@@ -866,3 +866,10 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 `sequence/consecutive.rs`는 기존 방향 관측/확정 보유를 유지하고 별도 `context.rs`가 bounded 완료 OHLC와 진입 진단을 관리한다. `Strategy::required_completed_daily_bars`는 opt-in이다. coordinator의 apply/invalidate/readiness 훅을 통해 context만 교체하고 실패·시장 날짜 전환·재설정으로 관측열과 보유 청산을 초기화하지 않는다. 기본 훅은 기존 52주 고가 동작을 보존한다. legacy 초기화 자료를 검증된 live 완료 일봉으로 추정하지 않도록 별도 검증 경계를 사용한다.
 
 필터 params는 0으로 opt-in하며 저장·short/continuous preview에서 엄격히 검증한다. 선택 `entryFilterPreparation`은 실제 주문 수와 수량 조절 ATR을 대신하지 않는다. 기본/오류·준비 부족·보유 청산·미래 봉 불변·live 갱신·비용별 매도 경로와 분할 무관 결과를 함께 검증한다. 상세 정본은 [v13 IPC 계약](ipc-commands.md)이다.
+
+
+## Momentum v14 실제 소유와 교차 상태
+
+classic/momentum.rs는 bounded prices/previous_momentum/armed/retry_candidate와 실제 owned_quantity를 분리한다. raw on_tick/live관측은 보유량을 만들지 않고 exact owner sync만 수량을 갱신한다. Buy는flat, Sell은owned>0이며 exit level은 진입 mode와 독립이다. nextOpen process_close 뒤 같은수량 피드백이 올 수 있고 live manager는 pending중에도 관측을 전진시키므로 이를 체결/거절로 추정해 교차를 소모하지 않는다. warmup은 관측 상태만 seed하고 reconfigure는 같은identity의 소유량/관측을 유지한다.
+
+entry_mode/entry_hysteresis_pct는 저장·short/continuous 경계에서 엄격 검증하고 legacy 기간/임계값을 신규필드 오류로 덮지 않는다. inclusive 경계·1%p 재무장·동일0피드백/partial/거절·미래 prefix/청크 불변을 확인한다. 신호 qty는 기존 config 계약을 유지하며 최종 실제 매도는 prepare_ownership/prepare_sell_submission이 현재 소유량으로 제한한다. 새 DTO/IPC는 없고 계약 정본은 [v14 IPC](ipc-commands.md)다.

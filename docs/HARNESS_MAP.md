@@ -193,3 +193,10 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 - `npx playwright test tests/e2e/strategy-consecutive-entry-filters.spec.ts`: strict raw draft·실제 소수 키입력·저장 실패/재시도·활성 잠금·short/continuous payload·이전 응답 폐기·A/B 준비 진단/모두0/활성 legacy unknown·수량 ATR 분리·모바일 overflow를 확인한다.
 - `npm run build:web`는 warnings0이어야 한다. 차트 라이브러리 chunk를 분리한 뒤에는 실제 vite preview의 전략/차트 회귀를 실행해 production 초기화를 확인한다.
 - 동결 입력·생산 실행·독립 기록 산술은 [연구 재현](research/consecutive-filters-20261018/report.md)과 [작업 기록](tasks/consecutive-entry-filters-20261018.md)에 구분한다. 필터 통과를 체결이나 운용 우수성으로 해석하지 않는다.
+
+
+## P2-03 Momentum 소유 피드백·교차
+
+- `cargo test --workspace --lib momentum --locked`: 실제 소유 상태, inclusive 경계, strict warmup/무장, 후보 취소/동일0/pending 재시도, 부분/복원·재설정, 두 preview strict/분할·미래 prefix와 실제 저장 거부를 확인한다. 실행 건수와 전체 결과는 [작업 기록](tasks/momentum-feedback-20261020.md)에 구분한다.
+- `npx playwright test tests/e2e/strategy-momentum-entry.spec.ts tests/e2e/strategy-consecutive-entry-filters.spec.ts`: 두 controls의 공유 십진 초안 해석·실제 키보드 입력, 도메인별 유효성, 잘못된 stored enum/null/string, level 미사용 간격, 저장 실패/재시도·활성 잠금, 두 preview·이전응답 폐기·AB·모바일을 확인한다. tsc/FSD/lockfiles/build와 전체 회귀를 함께 사용한다.
+- 연구의 archived86a9829와 current v14 생산 라이브러리는 분리한다. 비모멘텀1122회 report/signals exact와 Momentum102창의 경제 경로/부적합 raw차이를 구분하며 실패한 모형을 강제로 기존 수치에 맞추지 않는다. [재현·사전조건·기각 결과](research/momentum-feedback-20261020/report.md)를 따른다.

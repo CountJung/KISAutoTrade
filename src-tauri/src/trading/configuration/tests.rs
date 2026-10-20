@@ -552,3 +552,69 @@ async fn invalid_consecutive_optional_params_are_rejected_before_persistence_or_
         assert_eq!(published.params["sell_days"], 4);
     }
 }
+
+#[tokio::test]
+async fn momentum_entry_fields_are_rejected_before_save_and_valid_modes_roundtrip() {
+    let f = Fixture::new("http://127.0.0.1:1".into()).await;
+    let s = state(&f, false).await;
+    let id = "momentum_configuration";
+    let original = StrategyConfig::new(
+        id,
+        "fixture",
+        true,
+        vec!["005930".into()],
+        1,
+        serde_json::json!({"lookback_period":3,"threshold_pct":5.0}),
+    )
+    .with_scope(f.profile.broker_id, Some(f.profile.account_no.clone()));
+    {
+        let mut manager = s.strategies.lock().await;
+        *manager = StrategyManager::new();
+        manager.add(build_strategy(original.clone()));
+        manager.set_history_execution_identity(
+            test_support::scope(&f.profile),
+            Some(f.profile.id.clone()),
+        );
+    }
+    let calls = Arc::new(AtomicUsize::new(0));
+    for extra in [
+        serde_json::json!({"entry_mode":"unknown"}),
+        serde_json::json!({"entry_mode":null}),
+        serde_json::json!({"entry_hysteresis_pct":"1"}),
+        serde_json::json!({"entry_hysteresis_pct":101}),
+        serde_json::json!({"entry_mode":"crossing","entry_hysteresis_pct":6}),
+    ] {
+        let mut params = original.params.clone();
+        params
+            .as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        let mut update = request(&f);
+        update.id = id.into();
+        update.params = Some(params);
+        let c = calls.clone();
+        let error = run_update(s.clone(), update, move |_, _| {
+            c.fetch_add(1, Ordering::SeqCst);
+            async { Ok(()) }
+        })
+        .await
+        .unwrap_err();
+        assert_eq!(error.code, "INVALID_STRATEGY_PARAMS");
+        assert_eq!(config(&s).await.params, original.params);
+    }
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    for (mode, hysteresis) in [("level", 100.0), ("crossing", 1.0)] {
+        let mut params = original.params.clone();
+        params["entry_mode"] = serde_json::json!(mode);
+        params["entry_hysteresis_pct"] = serde_json::json!(hysteresis);
+        let mut update = request(&f);
+        update.id = id.into();
+        update.params = Some(params.clone());
+        let published = update_strategy_configuration(s.clone(), update)
+            .await
+            .unwrap();
+        assert_eq!(published.params, params);
+        assert_eq!(s.store.load(&f.profile.id).await.unwrap()[0].params, params);
+    }
+    assert!(!s.strategies.lock().await.configuration_edit_active());
+}

@@ -668,3 +668,16 @@ UI 규칙:
 - 모든 필터가 유효 숫자0/누락인 요청·A/B 기록은 비활성으로 중립 표시한다. 활성 필터의 entryFilterPreparation 없는 legacy만 준비 정보 없음이며 통과를 실제 체결로 표시하지 않는다. A/B에 서버 진단과 params를 보존하고 전 필터0에서는 기존 기본 경로를 유지한다. 정본은 docs/ipc-commands.md의 v13 계약이다.
 
 > 마지막 업데이트: 2026-10-18T16:31:45+09:00
+
+
+## Momentum v14 진입 교차 UI
+
+- entry_mode level/crossing 문자열을 일반 numeric param 변환으로 훼손하지 않는다. 새두필드의 stored enum/null/string 원형을 보존해 엄격히 검증하고 저장/두preview를 차단한다. 실제 소수 키 입력·실패 재시도·활성 잠금·이전 응답 폐기와 모바일을 확인한다.
+- 간격은 %p이고0..100/crossing에서threshold이하이다. level에서는 유효값을보관하되미사용을명시한다. 기존>=T/<=−T와entrycross이전<T→현재>=T,재무장<=T−band를안내한다. 보유청산은모드와독립이며 신호·pending을확정소유/체결로표시하지않는다.
+- A/B는서버성과와함께params의모드/%p를보존·표시하고차이를알린다. live약10초와선택봉관측차이를숨기지않는다. 새DTO/계좌query/polling을추가하지않는다.
+
+> 마지막 업데이트: 2026-10-20T19:42:13+09:00
+
+숫자 초안의 공통 문자열 해석은 `src/shared/lib/numberDraft.ts::parseDecimalDraft`를 shared/lib 공개 진입점으로 사용한다. 빈칸·단독 부호/점·잘못된 문자열·비유한수는 raw를 보존하고 유한한 십진 입력만 숫자로 바꾼다. 전략별 범위·정수·mode 관계와 input raw-state 보존은 각 controls에 남긴다. Graphify 후보/Serena 실제 caller와 도메인 차이를 확인한 뒤 승격한 범위이며, 소유/가격 anchor 같은 전략 상태와 혼합하지 않는다.
+
+> 마지막 업데이트: 2026-10-20T19:49:11+09:00
