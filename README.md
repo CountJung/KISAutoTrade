@@ -2,14 +2,14 @@
 
 한국투자증권 **KIS Open API**와 **토스증권 Open API**를 연결하는 개인용 주식 매매 앱입니다. Tauri v2/Rust 백엔드와 React 18/TypeScript 화면을 사용하며 Windows와 macOS를 대상으로 합니다.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](docs/LICENSE)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-blue.svg)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-18-blue.svg)](https://react.dev/)
 [![Release](https://img.shields.io/github/v/release/CountJung/KISAutoTrade?include_prereleases)](https://github.com/CountJung/KISAutoTrade/releases)
 
 ## 프로젝트 문서
 
-처음 사용하는 경우 [사용 가이드](docs/user-guide.md)를 읽으세요. 운영·설계·할일 문서는 `docs/`, 작업 기록은 `docs/tasks/`에 두고 루트에는 이 문서와 에이전트 진입 문서를 둡니다.
+처음 사용하는 경우 [사용 가이드](docs/user-guide.md)를 읽으세요. 운영·설계·할일·라이선스 문서는 `docs/`, 작업 기록은 `docs/tasks/`에 두고 루트 문서는 `README.md`, `AGENTS.md`, `CLAUDE.md`만 유지합니다. 도구가 요구하는 설정·스킬과 빌드 진입 파일은 해당 경로에 유지합니다.
 
 | 문서 | 위치 |
 |---|---|
@@ -98,4 +98,4 @@ KIS 키 발급은 [공식 개발자 포털](https://apiportal.koreainvestment.co
 
 ## 라이선스
 
-[MIT License](LICENSE). 실제 거래 손익과 운용 판단은 사용자에게 있습니다. 모의·실제 자료·fixture·평가 불가 결과를 구분해서 사용하세요.
+[MIT License](docs/LICENSE). 실제 거래 손익과 운용 판단은 사용자에게 있습니다. 모의·실제 자료·fixture·평가 불가 결과를 구분해서 사용하세요.

@@ -209,6 +209,7 @@ KISAutoTrade/
 │   │   ├── provider-candle-contract-20261018.md
 │   │   ├── replay-accounting-20261018.md
 │   │   ├── replay-execution-model-20261018.md
+│   │   ├── root-documents-20261020.md
 │   │   ├── soxq-p1-04.md
 │   │   ├── soxq-p1-05.md
 │   │   ├── strategy-configuration-preservation-20261018.md
@@ -217,6 +218,7 @@ KISAutoTrade/
 │   │   └── trading-module-split-20261018.md
 │   ├── ARCHITECTURE.md
 │   ├── HARNESS_MAP.md
+│   ├── LICENSE
 │   ├── MASTER_PLAN.html
 │   ├── MasterPlan.md
 │   ├── PROJECT_MAP.md
@@ -768,7 +770,6 @@ KISAutoTrade/
 ├── CLAUDE.md
 ├── Cargo.lock
 ├── Cargo.toml
-├── LICENSE
 ├── README.md
 ├── index.html
 ├── package-lock.json
@@ -785,14 +786,15 @@ KISAutoTrade/
 
 ### 문서 위치와 책임
 
-루트에는 `README.md`, `AGENTS.md`, `CLAUDE.md`를 문서 진입점으로 유지한다.
+루트에는 `README.md`, `AGENTS.md`, `CLAUDE.md`를 문서 진입점으로 유지한다. 라이선스 정본은 [`docs/LICENSE`](LICENSE)에 두고 README 배지/본문에서 연결한다.
 일반 운영·설계·할일 문서는 `docs/`, 작업 기록은 `docs/tasks/`에 모은다.
 도구가 요구하는 `.github/`, `.codex/`, `.claude/`, `.serena/` 설정·스킬과
-빌드 설정·라이선스·앱 진입 파일은 각 기존 위치를 유지한다.
+빌드 설정·앱 진입 파일·Graphify 생성 산출물은 각 기존 위치를 유지한다.
 
 | 문서 | 책임 |
 |---|---|
 | `README.md` | 프로젝트 소개·실행과 운영 문서로의 루트 진입점 |
+| `docs/LICENSE` | 원문을 유지한 MIT 라이선스 정본. README 배지·본문에서 연결 |
 | `AGENTS.md`, `CLAUDE.md` | 에이전트 작업 규칙과 호환 진입점 |
 | `docs/MASTER_PLAN.html` | 사람용 단계 계획과 금융 안전 게이트 |
 | `docs/PROJECT_MAP.md` | 작업별 수정 시작점과 주요 동기화 묶음의 수동 탐색 지도 |
