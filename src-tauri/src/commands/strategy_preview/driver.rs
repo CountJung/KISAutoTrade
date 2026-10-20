@@ -29,6 +29,11 @@ pub(super) fn run_prepared_preview(
             code: "INVALID_STRATEGY_PARAMS".into(),
             message,
         })?;
+    crate::trading::strategy::validate_mean_reversion_params(&input.strategy_id, &input.params)
+        .map_err(|message| CmdError {
+            code: "INVALID_STRATEGY_PARAMS".into(),
+            message,
+        })?;
     if input.strategy_id.starts_with("consecutive_move")
         && !daily
         && ["min_move_atr_multiplier", "long_trend_period"]

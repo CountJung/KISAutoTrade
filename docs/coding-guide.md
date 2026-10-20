@@ -880,3 +880,10 @@ entry_mode/entry_hysteresis_pct는 저장·short/continuous 경계에서 엄격 
 classic/deviation.rs와 params/state 모듈은 실제 owned quantity/native avg·관측 나이를 가격/교차/장기 추세 관측과 분리한다. sync와 exact owner metadata만 보유 보호를 복원하며 raw 후보와 같은0수량/pending은 체결이 아니다. 기본 MA는 현재 포함, 선택 장기 MA는 현재 제외 이전 가격이다. live 최초 진입은 장기 context를 새로 모아 warmup cadence 혼합을 방지한다.
 
 보유 관측은 옵션 off 중에도 기록하고 같은qty·부분체결·warmup·reconfigure로 줄이지 않는다. 나이 불명 복원은 한도 활성 시 보수적 후보이며 보호 exit는 잔량 전량, legacy level exit는 config수량이다. 지표 준비가 부족해도 보유 stop/maxHold은 평가한다. strict params 저장/두 preview·raw UI/A-B와 미래 prefix/분할 불변을 함께 검증한다. 정본은 [v15 IPC 계약](ipc-commands.md)이다.
+
+
+## MeanReversion v16과 공통 관측 경계
+
+mean_trend.rs는 TrendFilter와 MeanReversion 공개 경로를 유지하고 mean_trend/mean_reversion.rs가 band/stop/exit_mode·보유/준비를 관리한다. 기존 QQQ4개 경로와1분 warmup no-op/reset가격 유지·손절0 활성은 전략 계약이다. actual q/native entry는 raw신호로 바꾸지 않는다.
+
+observation.rs의8개 내부 함수는 검증된 age/candidate 전이·kind codec·이전N추세·정수판정만 공유한다. codec은 순수 검증 후 age/candidate를 반환하고 caller가 게시하며 소유 q/avg·대상/scope와 전략별 정책은 caller에 남긴다. 신규 params는 save/two preview·raw UI/A-B와 함께 갱신한다. [v16 정본](ipc-commands.md), [연구](research/mean-reversion-policy-20261020/report.md)를 따른다.

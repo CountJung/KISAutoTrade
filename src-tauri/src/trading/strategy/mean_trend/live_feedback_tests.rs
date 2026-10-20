@@ -15,13 +15,13 @@ fn live_feedback_mean_reversion_keeps_entry_and_tick_history_on_sell() {
         strategy.on_live_tick("SOXQ", 90, 0),
         Signal::Sell { .. }
     ));
-    assert!(strategy.states["SOXQ"].in_position);
+    assert!(strategy.states["SOXQ"].owned_quantity > 0);
     assert_eq!(strategy.states["SOXQ"].entry_price, Some(100));
     assert_eq!(strategy.states["SOXQ"].prices.back(), Some(&90));
     strategy.sync_owned_position("SOXQ", 1, 100);
-    assert!(strategy.states["SOXQ"].in_position);
+    assert!(strategy.states["SOXQ"].owned_quantity > 0);
     strategy.sync_owned_position("SOXQ", 0, 0);
-    assert!(!strategy.states["SOXQ"].in_position);
+    assert!(strategy.states["SOXQ"].owned_quantity == 0);
 }
 
 #[test]

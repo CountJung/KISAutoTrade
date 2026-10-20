@@ -1,0 +1,630 @@
+{
+  "declaredBeforeContinuousRuns": false,
+  "baselineCommit": "474aa06",
+  "plannedEngineVersion": "strategy-replay-v16",
+  "source": "../strategy-review-20261018/input.json",
+  "sourceSha256": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+  "evaluationStart": "20230103",
+  "evaluationEnd": "20251231",
+  "evaluationBarsPerSymbol": 752,
+  "historyBars": 252,
+  "costBps": [
+    10,
+    20
+  ],
+  "initialCapitalKrw": 10000000,
+  "exchangeRateKrw": 1450,
+  "taxBps": 0,
+  "executionModel": "nextOpen",
+  "dividendScenario": [],
+  "fxScenario": [],
+  "stopLossPct": 0,
+  "takeProfitPct": 0,
+  "partitions": [
+    "12 calendar-quarter chunks",
+    "500+252 bars"
+  ],
+  "expectedContinuousRuns": 36,
+  "expectedAlternatePartitionRuns": 36,
+  "expectedIndependentQuarterResetRuns": 432,
+  "matchedPathReference": "Fixed accepted share quantities/timing; previous close to current open gap PnL plus current open to close PnL at fixed FX. Equals final equity plus recorded fees/tax/slippage. Not an independent signal benchmark, cost-free rerun or same percentage exposure.",
+  "limitations": [
+    "Retrospective diagnostics on already observed frozen prices; no return-optimized threshold or grid search. A single maxHold21 exploratory candidate was added after Stage A; not whole-protocol preregistration.",
+    "Three correlated selected ETFs; calendar/corporate-action coverage not independently verified",
+    "Same original 2023Q1 quantity including original 10bp cost-buffer sizing, frozen across both costs and every quarter; target15% differs from actual integer-share exposure",
+    "Quarter reset rows are separate10000000KRW accounts, never summed or compounded into continuous performance",
+    "2026 prices are excluded from candidate performance comparison but fixed legacy compatibility/frozen QQQ regression includes2026. Neither is unseen out-of-sample significance evidence.",
+    "maxHold63 means63 daily close observations in this study, not63 trading days guaranteed in live10s cadence. Single-factor candidates only, no combined winner/optimization."
+  ],
+  "configs": [
+    {
+      "symbol": "SOXQ",
+      "strategyId": "mean_reversion",
+      "orderQuantity": 51,
+      "params": {
+        "period": 20,
+        "std_dev": 2.0,
+        "stop_loss_pct": 5.0
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "19.91"
+    },
+    {
+      "symbol": "SPY",
+      "strategyId": "mean_reversion",
+      "orderQuantity": 2,
+      "params": {
+        "period": 20,
+        "std_dev": 2.0,
+        "stop_loss_pct": 5.0
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "382.43"
+    },
+    {
+      "symbol": "QQQ",
+      "strategyId": "mean_reversion",
+      "orderQuantity": 3,
+      "params": {
+        "period": 20,
+        "std_dev": 2.0,
+        "stop_loss_pct": 5.0
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "266.28"
+    }
+  ],
+  "declaredBeforeCandidateRuns": false,
+  "variants": [
+    {
+      "id": "legacy",
+      "engine": "archived474aa06",
+      "params": {}
+    },
+    {
+      "id": "confirmedUpper",
+      "engine": "current",
+      "params": {}
+    },
+    {
+      "id": "middleBand",
+      "engine": "current",
+      "params": {
+        "exit_mode": "middleBand"
+      }
+    },
+    {
+      "id": "trend200",
+      "engine": "current",
+      "params": {
+        "long_trend_period": 200
+      }
+    },
+    {
+      "id": "maxHold63",
+      "engine": "current",
+      "params": {
+        "max_hold_observations": 63
+      }
+    },
+    {
+      "id": "maxHold21",
+      "engine": "current",
+      "params": {
+        "max_hold_observations": 21
+      },
+      "protocolStage": "followup",
+      "declaredAt": "2026-10-20T22:30:35+09:00"
+    }
+  ],
+  "entryPolicy": {
+    "legacyBands": "Current-inclusive most recent20 prices, population variance(ddof0), std multiplier2. Strict current<lower Buy and current>upper Sell. No new entry crossing/hysteresis",
+    "confirmedUpper": "Actual native owned quantity and average from exact owner feedback only, no speculative ownership changes from raw signals. Default upperBand and existing stop preserved; do not assume signal reduction because legacy already had ownership bool and actual avg feedback",
+    "middleBand": "Independent single-factor exit_mode middleBand: strict current>mean of same current-inclusive period20 window; existing stop has priority",
+    "trend200": "Independent entry-only filter current strictly>mean(previous200 observations,current excluded). Replay strict daily history seeds. Live first observation clears separate trend seed and then gathers real live observations; legacy daily/minute warmup never treated as verified10s cadence",
+    "maxHold63": "Independent exit at tracked owned observations>=63 after actual positive fill; count even when option off. Same quantity, partial sell, warmup and reconfiguration do not reset. Valid exact owner metadata restores known count; positive restoration without emitted entry origin or known checkpoint is age unknown and triggers conservative candidate on next observation if cap enabled",
+    "stop": "Existing ((nativeAvg-current)/nativeAvg*100)>=stop_loss_pct formula and default5 preserved. stop_loss_pct0 is NOT off: it triggers at/below native avg. Current close signal, nextOpen execution, not intrabar or5% total-loss cap; original configured order quantity retained",
+    "exitPriority": "Existing native stop then maxHold then selected upper/middle band. Stop/band preserve configured quantity and common clamp; maxHold requests all actual owned shares. Partial/rejected/pending exits retain ownership and are reevaluated",
+    "warmup": "Preserve daily close seeding and legacy initialize_intraday_prices/ohlc no-op. New1m history seeding must not silently alter default legacy behavior. Warmup creates no orders/position/age",
+    "reset": "Preserve legacy reset price buffer retention while clearing position/protection, distinct from Deviation states.clear()",
+    "reconfiguration": "Same params retain observations/position/retry origin; changed params preserve actual native quantity/avg/age and live trend provenance while rebuilding only bounded indicators",
+    "metadata": "Exact owner kind mean_reversion rejects other strategies checkpoints. Existing pending/cold/after-observation persistence failure gates retained; no new IPC/schema",
+    "safety": "No broker/account/private data, orders or autotrading. Existing TradeGuard/RiskManager/owner clamps remain and replay overlay stop/take profit remain0"
+  },
+  "compatibility": {
+    "unchangedStrategies": 1122,
+    "meanReversionChangedWindows": 102,
+    "description": "Non-MeanReversion entire backtest/signals exact against474aa06. MeanReversion102 windows measured separately; default equality proved from actual records, never forced to match. Keep frozen QQQ1-share/252+64bar four cost/model regression unchanged."
+  },
+  "declaredAt": "2026-10-20T22:14:08+09:00",
+  "stageA": {
+    "originalDesign": {
+      "declaredBeforeContinuousRuns": true,
+      "baselineCommit": "474aa06",
+      "plannedEngineVersion": "strategy-replay-v16",
+      "source": "../strategy-review-20261018/input.json",
+      "sourceSha256": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+      "evaluationStart": "20230103",
+      "evaluationEnd": "20251231",
+      "evaluationBarsPerSymbol": 752,
+      "historyBars": 252,
+      "costBps": [
+        10,
+        20
+      ],
+      "initialCapitalKrw": 10000000,
+      "exchangeRateKrw": 1450,
+      "taxBps": 0,
+      "executionModel": "nextOpen",
+      "dividendScenario": [],
+      "fxScenario": [],
+      "stopLossPct": 0,
+      "takeProfitPct": 0,
+      "partitions": [
+        "12 calendar-quarter chunks",
+        "500+252 bars"
+      ],
+      "expectedContinuousRuns": 30,
+      "expectedAlternatePartitionRuns": 30,
+      "expectedIndependentQuarterResetRuns": 360,
+      "matchedPathReference": "Fixed accepted share quantities/timing; previous close to current open gap PnL plus current open to close PnL at fixed FX. Equals final equity plus recorded fees/tax/slippage. Not an independent signal benchmark, cost-free rerun or same percentage exposure.",
+      "limitations": [
+        "Retrospective diagnostics on already observed frozen prices; no parameter selection/optimization",
+        "Three correlated selected ETFs; calendar/corporate-action coverage not independently verified",
+        "Same original 2023Q1 quantity including original 10bp cost-buffer sizing, frozen across both costs and every quarter; target15% differs from actual integer-share exposure",
+        "Quarter reset rows are separate10000000KRW accounts, never summed or compounded into continuous performance",
+        "2026 prices are excluded from candidate performance comparison but fixed legacy compatibility/frozen QQQ regression includes2026. Neither is unseen out-of-sample significance evidence.",
+        "maxHold63 means63 daily close observations in this study, not63 trading days guaranteed in live10s cadence. Single-factor candidates only, no combined winner/optimization."
+      ],
+      "configs": [
+        {
+          "symbol": "SOXQ",
+          "strategyId": "mean_reversion",
+          "orderQuantity": 51,
+          "params": {
+            "period": 20,
+            "std_dev": 2.0,
+            "stop_loss_pct": 5.0
+          },
+          "historyStart": 52,
+          "evaluationStart": 304,
+          "evaluationEndExclusive": 1056,
+          "quantityReferenceDate": "20221230",
+          "quantityReferenceClose": "19.91"
+        },
+        {
+          "symbol": "SPY",
+          "strategyId": "mean_reversion",
+          "orderQuantity": 2,
+          "params": {
+            "period": 20,
+            "std_dev": 2.0,
+            "stop_loss_pct": 5.0
+          },
+          "historyStart": 52,
+          "evaluationStart": 304,
+          "evaluationEndExclusive": 1056,
+          "quantityReferenceDate": "20221230",
+          "quantityReferenceClose": "382.43"
+        },
+        {
+          "symbol": "QQQ",
+          "strategyId": "mean_reversion",
+          "orderQuantity": 3,
+          "params": {
+            "period": 20,
+            "std_dev": 2.0,
+            "stop_loss_pct": 5.0
+          },
+          "historyStart": 52,
+          "evaluationStart": 304,
+          "evaluationEndExclusive": 1056,
+          "quantityReferenceDate": "20221230",
+          "quantityReferenceClose": "266.28"
+        }
+      ],
+      "declaredBeforeCandidateRuns": true,
+      "variants": [
+        {
+          "id": "legacy",
+          "engine": "archived474aa06",
+          "params": {}
+        },
+        {
+          "id": "confirmedUpper",
+          "engine": "current",
+          "params": {}
+        },
+        {
+          "id": "middleBand",
+          "engine": "current",
+          "params": {
+            "exit_mode": "middleBand"
+          }
+        },
+        {
+          "id": "trend200",
+          "engine": "current",
+          "params": {
+            "long_trend_period": 200
+          }
+        },
+        {
+          "id": "maxHold63",
+          "engine": "current",
+          "params": {
+            "max_hold_observations": 63
+          }
+        }
+      ],
+      "entryPolicy": {
+        "legacyBands": "Current-inclusive most recent20 prices, population variance(ddof0), std multiplier2. Strict current<lower Buy and current>upper Sell. No new entry crossing/hysteresis",
+        "confirmedUpper": "Actual native owned quantity and average from exact owner feedback only, no speculative ownership changes from raw signals. Default upperBand and existing stop preserved; do not assume signal reduction because legacy already had ownership bool and actual avg feedback",
+        "middleBand": "Independent single-factor exit_mode middleBand: strict current>mean of same current-inclusive period20 window; existing stop has priority",
+        "trend200": "Independent entry-only filter current strictly>mean(previous200 observations,current excluded). Replay strict daily history seeds. Live first observation clears separate trend seed and then gathers real live observations; legacy daily/minute warmup never treated as verified10s cadence",
+        "maxHold63": "Independent exit at tracked owned observations>=63 after actual positive fill; count even when option off. Same quantity, partial sell, warmup and reconfiguration do not reset. Valid exact owner metadata restores known count; positive restoration without emitted entry origin or known checkpoint is age unknown and triggers conservative candidate on next observation if cap enabled",
+        "stop": "Existing ((nativeAvg-current)/nativeAvg*100)>=stop_loss_pct formula and default5 preserved. stop_loss_pct0 is NOT off: it triggers at/below native avg. Current close signal, nextOpen execution, not intrabar or5% total-loss cap; original configured order quantity retained",
+        "exitPriority": "Existing native stop then maxHold then selected upper/middle band. Stop/band preserve configured quantity and common clamp; maxHold requests all actual owned shares. Partial/rejected/pending exits retain ownership and are reevaluated",
+        "warmup": "Preserve daily close seeding and legacy initialize_intraday_prices/ohlc no-op. New1m history seeding must not silently alter default legacy behavior. Warmup creates no orders/position/age",
+        "reset": "Preserve legacy reset price buffer retention while clearing position/protection, distinct from Deviation states.clear()",
+        "reconfiguration": "Same params retain observations/position/retry origin; changed params preserve actual native quantity/avg/age and live trend provenance while rebuilding only bounded indicators",
+        "metadata": "Exact owner kind mean_reversion rejects other strategies checkpoints. Existing pending/cold/after-observation persistence failure gates retained; no new IPC/schema",
+        "safety": "No broker/account/private data, orders or autotrading. Existing TradeGuard/RiskManager/owner clamps remain and replay overlay stop/take profit remain0"
+      },
+      "compatibility": {
+        "unchangedStrategies": 1122,
+        "meanReversionChangedWindows": 102,
+        "description": "Non-MeanReversion entire backtest/signals exact against474aa06. MeanReversion102 windows measured separately; default equality proved from actual records, never forced to match. Keep frozen QQQ1-share/252+64bar four cost/model regression unchanged."
+      },
+      "declaredAt": "2026-10-20T22:14:08+09:00"
+    },
+    "originalDesignSha256": "0988cf4a1b278aa51e76608d4a9fc63bf4914c1f443aa9f5af95925657ff3efd",
+    "runSummary": {
+      "baselineCommit": "474aa06",
+      "continuousRuns": 30,
+      "elapsedSeconds": 11.52673825,
+      "independentQuarterResetRuns": 360,
+      "meanReversionChangedWindowComparisons": 102,
+      "note": "Quarter-reset returns are separate accounts and are never aggregated into continuous performance",
+      "partitionEquivalenceRuns": 30,
+      "partitions": [
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "bac9b04af2c36903",
+          "inputHash": "7b25a6d03f12dae2",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SOXQ",
+          "variant": "legacy"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "7c43023d6e94324f",
+          "inputHash": "2bf5d9437f5aa8ac",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SOXQ",
+          "variant": "legacy"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "02e27ffb050e41e0",
+          "inputHash": "6fae9b24201f6ca4",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SPY",
+          "variant": "legacy"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "2cba330a8363a019",
+          "inputHash": "fec8ac6c896eb3de",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SPY",
+          "variant": "legacy"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "1aed56d7ea9576d0",
+          "inputHash": "2d66bcc8dba15dc7",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "QQQ",
+          "variant": "legacy"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "22dc4dd3b30e58b1",
+          "inputHash": "8c950bf7d3b66145",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "QQQ",
+          "variant": "legacy"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "bac9b04af2c36903",
+          "inputHash": "106d2236b80455cc",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SOXQ",
+          "variant": "confirmedUpper"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "7c43023d6e94324f",
+          "inputHash": "12698a1d7200f61e",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SOXQ",
+          "variant": "confirmedUpper"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "dcac27e36de1b7ee",
+          "inputHash": "08099f05b1ec376e",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SOXQ",
+          "variant": "middleBand"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "f59e0b6becbe2d5e",
+          "inputHash": "b43aab95b1e9a0d8",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SOXQ",
+          "variant": "middleBand"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "b315caadd0f43d93",
+          "inputHash": "24684e6b3904e3fe",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SOXQ",
+          "variant": "trend200"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "f0b6e5ede0816c74",
+          "inputHash": "c278791a82ac1ba8",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SOXQ",
+          "variant": "trend200"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "bac9b04af2c36903",
+          "inputHash": "4981a9c7bfb97697",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SOXQ",
+          "variant": "maxHold63"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "7c43023d6e94324f",
+          "inputHash": "18c54c8527812311",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SOXQ",
+          "variant": "maxHold63"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "02e27ffb050e41e0",
+          "inputHash": "b712a3858830c926",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SPY",
+          "variant": "confirmedUpper"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "2cba330a8363a019",
+          "inputHash": "791eaa24db3253c8",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SPY",
+          "variant": "confirmedUpper"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "2e4265beb5df2a23",
+          "inputHash": "8bf244568e630bfa",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SPY",
+          "variant": "middleBand"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "6c803d2dc10442b4",
+          "inputHash": "e0b6aba64b3bfb1c",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SPY",
+          "variant": "middleBand"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "ed4257579952074a",
+          "inputHash": "211fe2bde46bf870",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SPY",
+          "variant": "trend200"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "510a7e9f5a382475",
+          "inputHash": "9e1d25bd3ab24aba",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SPY",
+          "variant": "trend200"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "02e27ffb050e41e0",
+          "inputHash": "343620b1ad132a35",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SPY",
+          "variant": "maxHold63"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "2cba330a8363a019",
+          "inputHash": "5785c4ea3e419f17",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "SPY",
+          "variant": "maxHold63"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "1aed56d7ea9576d0",
+          "inputHash": "89eab0a901111509",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "QQQ",
+          "variant": "confirmedUpper"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "22dc4dd3b30e58b1",
+          "inputHash": "9433a5e33be118cf",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "QQQ",
+          "variant": "confirmedUpper"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "9b46e81f35cb838e",
+          "inputHash": "c142ed97fabb7a6f",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "QQQ",
+          "variant": "middleBand"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "a5dcd0b95c1b5c11",
+          "inputHash": "a89bbde82de3544d",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "QQQ",
+          "variant": "middleBand"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "4d087abf1d514149",
+          "inputHash": "eaf6e7d016c14ceb",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "QQQ",
+          "variant": "trend200"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "e282f110a106b1ef",
+          "inputHash": "331f96d1e01b60f9",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "QQQ",
+          "variant": "trend200"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "1aed56d7ea9576d0",
+          "inputHash": "282d29303f094c10",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "QQQ",
+          "variant": "maxHold63"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "22dc4dd3b30e58b1",
+          "inputHash": "ed1ee144a256edfe",
+          "quarterChunks": 12,
+          "strategyId": "mean_reversion",
+          "symbol": "QQQ",
+          "variant": "maxHold63"
+        }
+      ],
+      "unchangedStrategyFullReportAndSignalParityRuns": 1122
+    },
+    "recordedArithmeticChecks": 62216,
+    "independentAuditChecks": 175490,
+    "archives": {
+      "continuous-results.jsonl.gz": {
+        "uncompressedSha256": "2addf3ef86009375b952008647fe7a43a776c249050854a14391b071f4d93412",
+        "uncompressedBytes": 4826847,
+        "compressedBytes": 795139
+      },
+      "reset-results.jsonl.gz": {
+        "uncompressedSha256": "c04abe0f05becb8ecef8b21ec5b2c2dde5a0d39899ba3506b8ec11d997d01388",
+        "uncompressedBytes": 6946306,
+        "compressedBytes": 810693
+      }
+    },
+    "finding": "maxHold63 never activated: maximum observed holding was55 in legacy78 accounts. This did not evaluate an active holding cap."
+  },
+  "followup": {
+    "declaredAt": "2026-10-20T22:30:35+09:00",
+    "id": "maxHold21",
+    "declaredAfterStageA": true,
+    "declaredBeforeItsCandidateRuns": true,
+    "reason": "Evaluate an active fixed holding-cap hypothesis after63-observation cap had no observed activations.21 is a single fixed roughly monthly observation heuristic, not a return-optimized threshold or calendar-day promise. No grid/combination/winner selection. All prices already observed; exploratory follow-up, not preregistered out-of-sample evidence.",
+    "newContinuousRuns": 6,
+    "newAlternatePartitionRuns": 6,
+    "newSeparateQuarterResetRuns": 72,
+    "controls": "Rerun all original30 continuous/partition controls and confirm input/economic hashes exactly unchanged. Source/configs/costs fixed."
+  }
+}

@@ -764,3 +764,6 @@ async fn deviation_feedback_pending_fill_partial_and_restart_preserve_exact_owne
             .persistence_blocked
     );
 }
+
+#[path = "tests/mean_reversion.rs"]
+mod mean_reversion;

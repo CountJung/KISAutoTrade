@@ -457,7 +457,7 @@ fn reset(&mut self) {
 | 돌파실패(7) | `FailedBreakoutState` | `breakout_prev_high` |
 | 강한종가(8) | `StrongCloseState` | `pending_buy`, `entry_price` |
 | 변동성확장(9) | `VolatilityExpansionState` | `avg_range` (reset 후 유지) |
-| 평균회귀(10) | `MeanReversionState` | `prices` (reset 후 유지) |
+| 평균회귀(10) | `MeanReversionState` | `prices`(reset 후 유지), actual q/native entry, 보유 age/candidate, live trend |
 | 추세필터(11) | `TrendFilterState` | `prices` (reset 후 유지) |
 
 ---
@@ -1288,3 +1288,15 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 손절→관측한도→고이격 level 순서다. 보호 후보는 실제 잔량 전량, legacy level은 config수량을 유지하고 공통 clamp/guard/risk를 우회하지 않는다. native 평균가·관측 손절은 장중 손실 상한이 아니다. 새 DTO 없이 UI·저장·두 preview·A/B를 동기화한다. 정본은 docs/ipc-commands.md, 연구는 docs/research/deviation-policy-20261020/report.md다.
 
 > 마지막 업데이트: 2026-10-20T21:51:20+09:00
+
+
+## MeanReversion v16 실제 소유·선택 청산·공통 관측
+
+- 현재 포함 period20 모집단 분산/std2, strict price<lower/price>upper와 기존 native 손절 계산식/기본5를 보존한다. 손절0은 off가 아니고 원가 이하 손절이며 Deviation의0off와 다르다. 선택 middleBand는 같은 current-inclusive mean을 strict 상회한다.
+- q/nativeavg는 exact owner sync에서만 갱신하고 raw signal로 선반영하지 않는다. stop/band는 configuredq, maxHold은 소유 잔량 전량 후보다. stop→maxHold→band 순서·거절/partial/pending·지표 준비 전 보유 보호를 유지한다.
+- longtrend는 이전N관측/current제외이고 live 첫 관측에만 seed를 비운다. Mean의 legacy 분봉 warmup no-op과 reset 가격 유지, Deviation의 분봉 seed/resetclear를 합치지 않는다. 미확인 분봉 history를 충분한 준비로 표시하지 않는다.
+- 실제 체결 뒤 나이는 off 중에도 세고 sameqty/partial/warmup/params 변경으로 초기화하지 않는다. candidate/pending 또는 kind가 맞는 known checkpoint로 복원하며 나이 불명에 한도 활성은 보수적 매도 후보다. 날짜/장중손실 한도로 주장하지 않는다.
+- `strategy/observation.rs`는 bounded_optional_integer, advance/sync_owned_age, encode/decode_owned_observation, trend_allows/observe_trend/begin_live_trend의8개 pub(super) 함수다. 두 kind를 엄격 분리하고 decode 성공 뒤 caller만 상태를 게시한다. q/avg/symbol/scope·각 전략 판정은 포함하지 않는다. Graphify 후보와 Serena 실제 refs·기계적 동등성 검증 후 승격하며 원래 API/원장 JSON을 보존한다.
+- 저장/두 preview strict validation과 UI raw/A-B·단위 안내를 동기화한다. 기존 frozen QQQ1주·비용/체결4경로는 그대로 유지하고 새3주후보/OOS에 합치지 않는다. 계약은 docs/ipc-commands.md, 연구는 docs/research/mean-reversion-policy-20261020/report.md다.
+
+> 마지막 업데이트: 2026-10-20T22:32:26+09:00

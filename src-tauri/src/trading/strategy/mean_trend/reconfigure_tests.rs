@@ -29,7 +29,7 @@ fn reconfigure_mean_reversion_keeps_stop_active_before_larger_window_is_ready() 
     next.target_symbols.push("NEW".into());
     next.order_quantity = 7;
     assert!(strategy.reconfigure_preserving_position(next));
-    assert!(strategy.states["SOXQ"].in_position);
+    assert!(strategy.states["SOXQ"].owned_quantity > 0);
     assert_eq!(strategy.states["SOXQ"].entry_price, Some(100));
     assert!(!strategy.states.contains_key("NEW"));
     assert!(!strategy.history_readiness("SOXQ").unwrap().ready);

@@ -807,3 +807,7 @@ mod momentum_entry_tests;
 #[cfg(test)]
 #[path = "strategy_preview/deviation_entry_tests.rs"]
 mod deviation_entry_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/mean_reversion_entry_tests.rs"]
+mod mean_reversion_entry_tests;

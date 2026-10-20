@@ -1,3 +1,4 @@
+use super::super::super::observation::bounded_optional_integer;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -36,15 +37,6 @@ impl Default for DeviationParams {
         }
     }
 }
-fn integer(value: Option<&serde_json::Value>, max: u64) -> Option<u64> {
-    match value {
-        None => Some(0),
-        Some(v) => v
-            .as_f64()
-            .filter(|n| n.is_finite() && *n >= 0.0 && *n <= max as f64 && n.fract() == 0.0)
-            .map(|n| n as u64),
-    }
-}
 pub fn validate_deviation_entry_params(id: &str, value: &serde_json::Value) -> Result<(), String> {
     if !id.starts_with("deviation") {
         return Ok(());
@@ -59,7 +51,7 @@ pub fn validate_deviation_entry_params(id: &str, value: &serde_json::Value) -> R
         ("long_trend_period", 512),
         ("max_hold_observations", 1_000_000),
     ] {
-        if integer(value.get(key), max).is_none() {
+        if bounded_optional_integer(value.get(key), max).is_none() {
             return Err(format!("{key}는 0..{max} 정수여야 합니다."));
         }
     }
@@ -88,8 +80,10 @@ pub(super) fn parse(value: &serde_json::Value) -> DeviationParams {
     if value.get("entry_mode").and_then(serde_json::Value::as_str) == Some("crossing") {
         p.entry_mode = DeviationEntryMode::Crossing;
     }
-    p.long_trend_period = integer(value.get("long_trend_period"), 512).unwrap_or(0) as usize;
-    p.max_hold_observations = integer(value.get("max_hold_observations"), 1_000_000).unwrap_or(0);
+    p.long_trend_period =
+        bounded_optional_integer(value.get("long_trend_period"), 512).unwrap_or(0) as usize;
+    p.max_hold_observations =
+        bounded_optional_integer(value.get("max_hold_observations"), 1_000_000).unwrap_or(0);
     p.stop_loss_pct = value
         .get("stop_loss_pct")
         .and_then(serde_json::Value::as_f64)

@@ -694,3 +694,12 @@ UI 규칙:
 전략 설정 저장 응답은 shared/lib/draftMap.ts의 removeDraftIfUnchanged로 전송 당시 immutable 초안과 같은 항목만 정리한다. 일반·가격조건·LTH의 저장 중 새 편집은 보존하며 Page의 scope epoch로 A→B→A 이전 응답도 현재 초안을 지우지 못하게 한다. payload merge/종목 산출·세션 기본값/검증은 각 handler에 유지한다.
 
 > 마지막 업데이트: 2026-10-20T22:04:21+09:00
+
+
+## MeanReversion v16 선택 청산 UI
+
+- exit_mode upperBand/middleBand와 두 정수 관측 옵션의 raw/stored 타입을 보존한다. shared parseDecimalDraft/isFiniteNumberInRange로 공통 해석·유한수/범위/정수를 검사하고 필드별 기본값/모드/문구/raw state는 local 유지한다. invalid edit는 저장/두 preview와 이전 응답을 무효화한다.
+- 현재 포함 strict 밴드·middleBand strict 현재>mean·기존 손절0 활성과 새0off 옵션을 구분한다. liveN관측/일봉N봉의 기간 차이, live 별도 추세 준비와 legacy1분 history no-op·나이불명 보수적 보호를 숨기지 않는다. 손절/밴드 configq vsmaxHold잔량 후보·nextOpen/갭을 체결/손실 한도 보장으로 표현하지 않는다.
+- current/A-B의 mode/trend/maxHold·손절 가정을 함께 보존·표시하고 차이를 알린다. 실제 키 입력·stored 복구·경계·실패 재시도·잠금·두payload·지연 저장 초안 보존·모바일을 확인한다. 새 DTO/query/polling은 추가하지 않는다.
+
+> 마지막 업데이트: 2026-10-20T22:32:26+09:00

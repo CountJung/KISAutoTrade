@@ -57,7 +57,9 @@ export const STRATEGY_PARAM_META: Record<string, StrategyParamMeta[]> = {
   mean_reversion: [
     { key: 'period', label: '볼린저 밴드 기간', min: 5, max: 120, step: 1, description: '이동평균과 표준편차 계산 기간 (기본 20)' },
     { key: 'std_dev', label: '표준편차 배율', min: 0.5, max: 4, step: 0.1, description: '상/하단 밴드 너비 조정 (기본 2.0 = ±2시그마)' },
-    { key: 'stop_loss_pct', label: '손절 기준 (%)', min: 1, max: 15, step: 0.1, description: '매수가 대비 이 % 이상 하락 시 손절 (기본 5.0)' },
+    { key: 'stop_loss_pct', label: '손절 기준 (%)', min: 0, max: 15, step: 0.1, description: '실제 native 평균가 대비 관측가 손절 (기본 5.0). 0도 비활성이 아니라 원가 이하 손절' },
+    { key: 'long_trend_period', label: '진입 추세 MA 관측 수', min: 0, max: 512, step: 1, description: '0 비활성 · 현재 가격 > 같은 주기의 직전 N가격 MA, 현재 관측 제외. 실시간 시작 후 N관측 준비' },
+    { key: 'max_hold_observations', label: '최대 보유 관측 수', min: 0, max: 1000000, step: 1, description: '0 비활성 · 실제 양수 보유 후 가격 관측 수. 일봉 63봉과 실시간 63관측은 기간이 다름' },
   ],
   trend_filter: [
     { key: 'long_period', label: '장기 MA 기간', min: 50, max: 500, step: 1, description: '장기 추세 판단 기준 이동평균 기간 (기본 200일)' },
@@ -76,7 +78,7 @@ export const STRATEGY_DESCRIPTION: Record<string, string> = {
   failed_breakout: '최근 N일 전고점을 버퍼% 이상 돌파하면 매수. 이후 가격이 전고점 이하로 내려오면 돌파 실패로 판단하여 즉시 매도.',
   strong_close: '자동매매 시작 시 전일 종가가 고가 대비 N% 이내여서 강하게 마감하면 당일 첫 틱에 매수. 매수 후 지정 % 하락 시 손절.',
   volatility_expansion: '당일 변동폭(고-저)이 최근 N거래일 평균 변동폭의 K배 이상이며 현재가 > 시가인 경우 매수. 장중 변동성 폭발 구간에 상승 방향으로 편승. 매수 후 지정 % 하락 시 손절.',
-  mean_reversion: '현재가가 볼린저 밴드 하단(mean - Nσ) 아래로 바운스하면 매수(과매도). 현재가 상단 밴드 돌파 시 익절 매도, 손절 기준 % 이상 하락 시 손절. 자동매매 시작 시 과거 N일 종가로 버퍼 적재.',
+  mean_reversion: '현재 관측을 포함한 볼린저 하단 미만에서 매수하고 기본 상단 초과 또는 선택 중심선 초과에서 보유 청산. 기본 기간20·표준편차2·손절5를 유지한다. 선택 추세·보유 상한의 0만 비활성이며 기존 손절 0은 원가 이하 손절이다.',
   trend_filter: '장기 MA(기본 200일) 위에서 단기 MA(5일)가 중기 MA(20일)를 상회할 때만 매수(이중 추세 확인). 현재가가 장기 MA 아래로 하락하면 추세 반전으로 판단하여 청산. 자동매매 시작 시 과거 종가로 버퍼 적재.',
   leveraged_trend_hold: '선택한 레버리지 ETF 자체의 상승 추세에서는 매수하고, 고점 대비 하락·EMA 이탈·RSI 약화·장마감 전에는 청산한다. 롱/숏 ETF 모두 같은 방식으로 다룬다.',
   price_condition: '지정가 이하에서 자동 매수. 매수 후 지정가 또는 설정 % 이상 상승 시 익절 매도, 손절 % 이하 하락 시 손절. 가격/비율 조건을 각각 설정하거나 조합해서 사용 가능. 0은 해당 조건 비활성.',

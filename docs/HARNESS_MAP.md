@@ -207,3 +207,10 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 - `cargo test --workspace --locked deviation`와 `cargo test --workspace --locked live_feedback`: 실제 소유/교차 재시도·동일0/nextOpen/partial·strict params/저장·생산 preview·미래 prefix/두 체결 모델/분할 불변·live 전용 trend 준비·기록 나이/unknown/metadata·실제 exact owner coordinator 복원·manager 신호를 확인한다. 전체 Rust와 Clippy를 함께 실행하고 옛 stateless 분류의 Deviation 포함을 새 소유 계약으로 정정한다.
 - `npx playwright test tests/e2e/strategy-deviation-policy.spec.ts`: 새4필드의 raw/stored 타입·경계·실제 키 입력·활성 잠금·저장/두 preview·A/B·모바일, 저장 실패/재시도와 일반/PC/LTH 지연 응답 뒤 새 초안 보존을 검증한다. scope epoch는 A→B→A의 과거 callback과 현재 초안을 구분한다. 인접 Momentum/Consecutive 및 전체 브라우저를 함께 확인한다.
 - `python3 docs/research/deviation-policy-20261020/validate.py`: archived bca6601/현재 v15의 비이격도1122 exact·이격도102 delta,36연속/36분할/432별도 분기의 기록 장부를 대사한다. filled reason-only 차이와 실제 경제 경로 차이를 분리한다. [사전 선언·재현·기각과 한계](research/deviation-policy-20261020/report.md), [검증 기록](tasks/deviation-policy-20261020.md)을 따른다.
+
+
+## P2-10 MeanReversion 단독 청산 후보
+
+- `cargo test --workspace --locked strategy::`와 `cargo test --workspace --locked strategy_preview`로 내부 공통helper와 기존전략·준비·strict선택params·두모델/분할/미래prefix·frozenQQQ1주4경로를 확인한다. 실제coordinator/strictsave는 order::feedback와configuration 회귀 및 전체Rust로 확인한다. stop0/off차이·resetprice/intradayno-op·unknownage와cold/pending/partial/오염metadata를 포함한다.
+- `npx playwright test tests/e2e/strategy-mean-reversion-policy.spec.ts`: raw/stored type·실제정수키입력·stop0의미·legacy/default·활성잠금·저장실패재시도·두payload/A-B·late결과/저장초안·모바일을 확인한다.1분history무사용한계문구를포함한최종focused와전체UI를구분기록한다.
+- `python3 docs/research/mean-reversion-policy-20261020/validate.py`: 고정입력·유일factorial·partition대응·signalClose→nextObservedOpen·방향별slippage·기록장부/노출/기말/경로비용참조를 검증한다. [사전단계와후속탐색·재현·한계](research/mean-reversion-policy-20261020/report.md), [전체게이트](tasks/mean-reversion-policy-20261020.md)를 따른다. maxHold63미발동을 효과 없음으로 확정하지 않고 후속21관측은 사후탐색 단계로 구분한다.

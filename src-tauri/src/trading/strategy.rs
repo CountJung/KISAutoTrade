@@ -5,6 +5,7 @@ mod leveraged_trend_hold;
 mod ma_cross;
 mod manager;
 mod mean_trend;
+mod observation;
 mod price_condition;
 mod sequence;
 mod state;
@@ -29,7 +30,8 @@ pub use leveraged_trend_hold::{
 pub use ma_cross::{MaCrossParams, MovingAverageCrossStrategy};
 pub use manager::{build_strategy, DailyHistoryStatus, DailyHistoryTicket, StrategyManager};
 pub use mean_trend::{
-    MeanReversionParams, MeanReversionStrategy, TrendFilterParams, TrendFilterStrategy,
+    validate_mean_reversion_params, MeanReversionExitMode, MeanReversionParams,
+    MeanReversionStrategy, TrendFilterParams, TrendFilterStrategy,
 };
 pub use price_condition::{
     PriceConditionParams, PriceConditionStrategy, PriceConditionSymbolConfig,

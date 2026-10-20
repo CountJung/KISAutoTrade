@@ -395,3 +395,138 @@ fn live_feedback_deviation_manager_observations_match_replay_and_ownership_requi
         );
     }
 }
+
+#[test]
+fn live_feedback_mean_reversion_manager_observations_match_replay_and_ownership_requires_feedback()
+{
+    let id = "mean_reversion_manager";
+    let cfg = StrategyConfig::new(
+        id,
+        "fixture",
+        true,
+        vec!["SOXQ".into()],
+        1,
+        serde_json::json!({"period":3,"std_dev":1.0,"stop_loss_pct":50.0}),
+    )
+    .with_scope(BrokerId::Kis, Some("A".into()));
+    let mut live = StrategyManager::new();
+    live.add(build_strategy(cfg.clone()));
+    live.set_history_execution_identity(scope("A"), None);
+    let mut replay = StrategyManager::new();
+    replay.add(build_strategy(cfg));
+    live.initialize_historical("SOXQ", &[100, 110, 120, 110]);
+    replay.initialize_historical("SOXQ", &[100, 110, 120, 110]);
+    let mut entries = 0;
+    for price in [90, 80, 100, 130, 120] {
+        let a = live
+            .on_tick("SOXQ", price, 0)
+            .into_iter()
+            .map(|s| s.signal)
+            .collect::<Vec<_>>();
+        let b = replay
+            .on_tick("SOXQ", price, 0)
+            .into_iter()
+            .map(|s| s.signal)
+            .collect::<Vec<_>>();
+        assert_eq!(a, b, "flat observation {price}");
+        assert!(
+            a.iter().all(|s| matches!(s, Signal::Buy { .. })),
+            "flat owner cannot Sell"
+        );
+        entries += a.len();
+        assert_eq!(live.strategies[0].has_held_position("SOXQ"), Some(false));
+        assert_eq!(replay.strategies[0].has_held_position("SOXQ"), Some(false));
+        // Settle each raw signal so the live coordinator's pending fence does
+        // not hide the next observation when comparing production semantics.
+        live.complete_signal(id, "SOXQ", live.history_generation());
+    }
+    assert!(entries > 0);
+    assert!(!live.sync_owned_position_for_strategy(
+        id,
+        &scope("B"),
+        BrokerMarket::Us,
+        "SOXQ",
+        9,
+        999
+    ));
+    assert_eq!(live.strategies[0].has_held_position("SOXQ"), Some(false));
+    for manager in [&mut live, &mut replay] {
+        assert!(manager.sync_owned_position_for_strategy(
+            id,
+            &scope("A"),
+            BrokerMarket::Us,
+            "SOXQ",
+            5,
+            110
+        ));
+        manager.initialize_historical("SOXQ", &[100, 100, 100]);
+        assert_eq!(manager.strategies[0].has_held_position("SOXQ"), Some(true));
+    }
+    for price in [80, 60] {
+        assert!(
+            live.on_tick("SOXQ", price, 0).is_empty(),
+            "held owner cannot Buy"
+        );
+        assert!(replay.on_tick("SOXQ", price, 0).is_empty());
+    }
+    let a = live.on_tick("SOXQ", 120, 0);
+    let b = replay.on_tick("SOXQ", 120, 0);
+    assert_eq!(a.len(), 1);
+    assert_eq!(b.len(), 1);
+    assert_eq!(a[0].signal, b[0].signal);
+    assert!(matches!(a[0].signal, Signal::Sell { quantity: 1, .. }));
+    for manager in [&mut live, &mut replay] {
+        assert_eq!(
+            manager.strategies[0].has_held_position("SOXQ"),
+            Some(true),
+            "raw Sell is not a fill"
+        );
+        let before = manager
+            .owned_position_metadata_for_strategy(id, &scope("A"), BrokerMarket::Us, "SOXQ")
+            .unwrap();
+        assert_eq!(before["heldObservations"], 3);
+        assert!(manager.sync_owned_position_for_strategy(
+            id,
+            &scope("A"),
+            BrokerMarket::Us,
+            "SOXQ",
+            2,
+            105
+        ));
+        assert!(manager.sync_owned_position_for_strategy(
+            id,
+            &scope("A"),
+            BrokerMarket::Us,
+            "SOXQ",
+            2,
+            105
+        ));
+        let after = manager
+            .owned_position_metadata_for_strategy(id, &scope("A"), BrokerMarket::Us, "SOXQ")
+            .unwrap();
+        assert_eq!(after, before, "same/partial feedback preserves held age");
+    }
+    live.complete_signal(id, "SOXQ", live.history_generation());
+    let a = live.on_tick("SOXQ", 160, 0);
+    let b = replay.on_tick("SOXQ", 160, 0);
+    assert_eq!(a.len(), 1);
+    assert_eq!(b.len(), 1);
+    assert_eq!(a[0].signal, b[0].signal);
+    assert!(matches!(a[0].signal, Signal::Sell { quantity: 1, .. }));
+    live.complete_signal(id, "SOXQ", live.history_generation());
+    for manager in [&mut live, &mut replay] {
+        assert!(manager.sync_owned_position_for_strategy(
+            id,
+            &scope("A"),
+            BrokerMarket::Us,
+            "SOXQ",
+            0,
+            0
+        ));
+        assert_eq!(manager.strategies[0].has_held_position("SOXQ"), Some(false));
+        assert!(
+            manager.on_tick("SOXQ", 200, 0).is_empty(),
+            "confirmed flat owner cannot Sell"
+        );
+    }
+}

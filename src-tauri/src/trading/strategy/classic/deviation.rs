@@ -1,4 +1,8 @@
 //! Confirmed ownership and protective age advance independently of observations.
+use super::super::observation::{
+    advance_owned_age, begin_live_trend, decode_owned_observation, encode_owned_observation,
+    sync_owned_age,
+};
 use super::super::{HistoryReadiness, Signal, Strategy, StrategyConfig};
 use std::collections::HashMap;
 mod params;
@@ -146,12 +150,11 @@ impl Strategy for DeviationStrategy {
             return Signal::Hold;
         }
         let state = self.states.entry(symbol.into()).or_default();
-        if !state.live_started {
-            // Daily/minute warmup is not a live-tick cadence history.
-            state.live_started = true;
-            state.trend_prices.clear();
-            state.trend_observations = 0;
-        }
+        begin_live_trend(
+            &mut state.live_started,
+            &mut state.trend_prices,
+            &mut state.trend_observations,
+        );
         self.on_tick(symbol, price, volume)
     }
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
@@ -159,9 +162,7 @@ impl Strategy for DeviationStrategy {
             return Signal::Hold;
         }
         let state = self.states.entry(symbol.into()).or_default();
-        if state.owned_quantity > 0 {
-            state.held_observations = state.held_observations.map(|n| n.saturating_add(1));
-        }
+        advance_owned_age(state.owned_quantity, &mut state.held_observations);
         let observation = state.observe(price, &self.params, self.entry_params_valid, true);
         if state.owned_quantity > 0 {
             let reason = if self.params.stop_loss_pct > 0.0
@@ -222,26 +223,25 @@ impl Strategy for DeviationStrategy {
             return;
         }
         let state = self.states.entry(symbol.into()).or_default();
+        sync_owned_age(
+            state.owned_quantity,
+            quantity,
+            &mut state.held_observations,
+            &mut state.entry_candidate,
+        );
         if quantity > 0 {
-            if state.owned_quantity == 0 {
-                state.held_observations = state.entry_candidate.then_some(0);
-            }
             state.retry_candidate = false;
-            state.entry_candidate = false;
-        } else if state.owned_quantity > 0 {
-            state.held_observations = None;
-            state.entry_candidate = false;
         }
         state.owned_quantity = quantity;
         state.avg_price = if quantity > 0 { avg_price } else { 0 };
     }
     fn owned_position_metadata(&self, symbol: &str) -> Option<serde_json::Value> {
         let s = self.states.get(symbol)?;
-        if s.owned_quantity == 0 && !s.entry_candidate {
-            return None;
-        }
-        Some(
-            serde_json::json!({"version":1,"kind":"deviation","ageKnown":s.held_observations.is_some(),"heldObservations":s.held_observations.unwrap_or(0),"candidateEntry":s.entry_candidate}),
+        encode_owned_observation(
+            "deviation",
+            s.owned_quantity,
+            s.held_observations,
+            s.entry_candidate,
         )
     }
     fn restore_owned_position_metadata(
@@ -249,41 +249,15 @@ impl Strategy for DeviationStrategy {
         symbol: &str,
         metadata: &serde_json::Value,
     ) -> Result<(), String> {
-        #[derive(serde::Deserialize)]
-        #[serde(rename_all = "camelCase", deny_unknown_fields)]
-        struct Protection {
-            version: u64,
-            kind: String,
-            age_known: bool,
-            held_observations: u64,
-            candidate_entry: bool,
-        }
-        let p: Protection = serde_json::from_value(metadata.clone())
-            .map_err(|e| format!("Invalid deviation protection checkpoint: {e}"))?;
-        if p.version != 1
-            || p.kind != "deviation"
-            || (!p.age_known && p.held_observations != 0)
-            || (p.age_known && p.candidate_entry)
-        {
-            return Err("Invalid deviation protection checkpoint identity or age".into());
-        }
         let s = self
             .states
             .get_mut(symbol)
             .ok_or("Cannot restore deviation protection without a target position")?;
+        let (age, candidate) = decode_owned_observation("deviation", s.owned_quantity, metadata)?;
         if s.owned_quantity > 0 {
-            s.held_observations = if p.candidate_entry {
-                Some(0)
-            } else {
-                p.age_known.then_some(p.held_observations)
-            };
-            s.entry_candidate = false;
-        } else {
-            if p.age_known || !p.candidate_entry {
-                return Err("Confirmed deviation age requires owned quantity".into());
-            }
-            s.entry_candidate = true;
+            s.held_observations = age;
         }
+        s.entry_candidate = candidate;
         Ok(())
     }
     fn reset(&mut self) {
