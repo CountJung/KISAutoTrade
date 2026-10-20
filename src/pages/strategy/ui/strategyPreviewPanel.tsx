@@ -20,6 +20,7 @@ import type {
   ReplayCalculationMode,
 } from '../../../api/types'
 import { collectPreviewCandles, collectContinuousCandles, continuousRangeError, type CandleCollection, type ContinuousCandleCollection, type ContinuousCollectionProgress } from '../model/candlePageCollector'
+import { maCrossEntryFiltersDisabled } from './maCrossEntryControls'
 import { defaultContinuousRange, ReplayRangeControls, ContinuousCollectionNotice } from './continuousReplayPanel'
 import { StrategyPreviewChart } from './leveragedTrendHoldPreviewChart'
 import {
@@ -114,7 +115,8 @@ export function StrategyPreviewPanel({
   const rangeError = calculationMode === 'continuous' ? continuousRangeError(continuousRange.start, continuousRange.end) : null
   const [selectedSymbol, setSelectedSymbol] = useState(symbols[0] ?? '')
   const [previewInterval, setPreviewInterval] = useState<PreviewInterval>('D')
-  const filterCadenceError = strategyId.startsWith('consecutive_move') && calculationMode !== 'continuous' && previewInterval !== 'D' && (Number(params.min_move_atr_multiplier ?? 0) > 0 || Number(params.long_trend_period ?? 0) > 0) ? 'ATR·장기 MA 진입 필터는 이전 완료 일봉이 필요합니다. 일봉을 선택하세요.' : null
+  const maCadenceError = strategyId.startsWith('ma_cross') && !maCrossEntryFiltersDisabled(params) && calculationMode !== 'continuous' && previewInterval !== 'D' ? 'MA 교차 진입 필터는 이전 완료 일봉이 필요합니다. 일봉을 선택하세요.' : null
+  const filterCadenceError = maCadenceError ?? (strategyId.startsWith('consecutive_move') && calculationMode !== 'continuous' && previewInterval !== 'D' && (Number(params.min_move_atr_multiplier ?? 0) > 0 || Number(params.long_trend_period ?? 0) > 0) ? 'ATR·장기 MA 진입 필터는 이전 완료 일봉이 필요합니다. 일봉을 선택하세요.' : null)
   const [previewCount, setPreviewCount] = useState<PreviewCount>(50)
   const [preview, setPreview] = useState<StrategyPreviewView | null>(null)
   const initialIsOverseas = !isDomesticSymbol(symbols[0] ?? '')

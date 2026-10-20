@@ -214,3 +214,11 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 - `cargo test --workspace --locked strategy::`와 `cargo test --workspace --locked strategy_preview`로 내부 공통helper와 기존전략·준비·strict선택params·두모델/분할/미래prefix·frozenQQQ1주4경로를 확인한다. 실제coordinator/strictsave는 order::feedback와configuration 회귀 및 전체Rust로 확인한다. stop0/off차이·resetprice/intradayno-op·unknownage와cold/pending/partial/오염metadata를 포함한다.
 - `npx playwright test tests/e2e/strategy-mean-reversion-policy.spec.ts`: raw/stored type·실제정수키입력·stop0의미·legacy/default·활성잠금·저장실패재시도·두payload/A-B·late결과/저장초안·모바일을 확인한다.1분history무사용한계문구를포함한최종focused와전체UI를구분기록한다.
 - `python3 docs/research/mean-reversion-policy-20261020/validate.py`: 고정입력·유일factorial·partition대응·signalClose→nextObservedOpen·방향별slippage·기록장부/노출/기말/경로비용참조를 검증한다. [사전단계와후속탐색·재현·한계](research/mean-reversion-policy-20261020/report.md), [전체게이트](tasks/mean-reversion-policy-20261020.md)를 따른다. maxHold63미발동을 효과 없음으로 확정하지 않고 후속21관측은 사후탐색 단계로 구분한다.
+
+
+## P2-01 이동평균 교차 진입 필터
+
+- `cargo test -p kis-auto-trade ma_cross` 및 관련 configuration/preview focused: 이전 완료 일봉·현재봉 미포함, 교차 소비·Sell 비차단·재조회/실패/재설정·strict 입력과 분봉 거부를 검증한다.
+- `cargo test -p kis-auto-trade consecutive`와 공유 completed_daily 계약: pure helper 이동 뒤 갭/분수/zeroAtr·이전종가평균 의미를 보존한다.
+- `npx playwright test tests/e2e/strategy-ma-cross-filters.spec.ts`: 네 raw/stored 입력·저장/재조회/실패 재시도·preview/A-B·진단 없음·활성 잠금·모바일을 mock으로 검증한다.
+- [사전 설계](research/ma-cross-filters-20261020/design.json)와 production runners: archived327739a/default1224호환, Stage A36연속/36분할/432분기와 사후 ATR2/폭10 추가 최종48연속/48분할/576별도분기를 구분해 대조한다. Python은 기록 fill/cash/노출을 정산하고 신호를 재생성하지 않는다. [작업 기록](tasks/ma-cross-filters-20261020.md).

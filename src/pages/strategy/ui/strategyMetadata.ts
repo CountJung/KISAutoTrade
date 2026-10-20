@@ -9,8 +9,12 @@ export interface StrategyParamMeta {
 
 export const STRATEGY_PARAM_META: Record<string, StrategyParamMeta[]> = {
   ma_cross: [
-    { key: 'short_period', label: '단기 MA', min: 2, max: 50, description: '단기 이동평균 기간' },
-    { key: 'long_period', label: '장기 MA', min: 5, max: 200, description: '장기 이동평균 기간' },
+    { key: 'short_period', label: '단기 MA', min: 2, max: 50, description: '단기 이동평균 입력 관측 수 (기본 5, 실시간 약10초/선택 봉)' },
+    { key: 'long_period', label: '장기 MA', min: 5, max: 200, description: '장기 이동평균 입력 관측 수 (기본 20, 완료 일봉 필터와 별개)' },
+    { key: 'long_trend_period', label: '진입 완료 일봉 추세 MA 기간', min: 0, max: 512, step: 1, description: '0 비활성 · 현재 후보 가격 > 이전 완료 일봉 N종가 평균. 이전 N봉 필요' },
+    { key: 'min_long_ma_slope_pct', label: '최소 장기 일봉 MA 기울기 (%)', min: 0, max: 100, step: 0.1, description: '0 비활성 · 이전 장기 MA / 한 일봉 전 장기 MA의 변화율 이상. long_period+1 이전 일봉 필요' },
+    { key: 'min_atr_pct', label: '최소 일봉 ATR 비율 (%)', min: 0, max: 100, step: 0.1, description: '0 비활성 · 이전 완료 OHLC 15봉의 TR14 산술평균 / 이전 종가 ×100 이상' },
+    { key: 'min_bandwidth_pct', label: '최소 일봉 볼린저 밴드폭 (%)', min: 0, max: 1000, step: 0.1, description: '0 비활성 · 이전 20종가의 4×모집단 표준편차 / 평균 ×100 이상' },
   ],
   rsi: [
     { key: 'period', label: 'RSI 기간', min: 5, max: 50, description: 'RSI 계산 기간 (기본 14)' },
@@ -69,7 +73,7 @@ export const STRATEGY_PARAM_META: Record<string, StrategyParamMeta[]> = {
 }
 
 export const STRATEGY_DESCRIPTION: Record<string, string> = {
-  ma_cross: '단기 MA가 장기 MA를 상향 돌파(골든크로스) 시 매수, 하향 돌파(데드크로스) 시 매도.',
+  ma_cross: '입력 관측의 단기/장기 MA 골든크로스 매수, 데드크로스 매도. 기본 5/20은 실시간 약10초 또는 선택 봉 관측 수이며 5/20일이 아니다. 선택 신규 진입 확인은 별도의 이전 완료 일봉 추세·기울기·ATR·밴드폭을 사용한다.',
   rsi: 'RSI가 과매도 기준 이하에서 반등하면 매수, 과매수 기준 이상에서 하락하면 매도.',
   momentum: 'N관측 전 대비 변화율의 기본 level 진입과 선택 crossing 상향 돌파. 재무장 간격은 %p 단위이며 level에서는 미사용이다. 실제 보유는 두 모드 모두 음의 임계값 이하 시 청산하고 실시간 약10초 관측과 replay 봉 종가를 구분한다.',
   deviation: '기본 MA20·매수 -5%·매도 +5%의 level 진입과 보유 청산. 선택 하향 crossing·이전 가격 MA 진입 확인·최대 보유 관측 수·실제 평균가 손절을 비교할 수 있다. 관측 수를 일수로 해석하지 않는다.',

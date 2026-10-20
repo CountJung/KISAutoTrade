@@ -1,4 +1,5 @@
 //! Prior completed DAILY context only. Quote observations never manufacture OHLC.
+use super::super::super::completed_daily::{atr14, mean_close, valid_ohlc};
 use super::*;
 
 #[derive(Default)]
@@ -81,13 +82,10 @@ impl EntryContext {
         self.verified = false;
         self.awaiting_completion = false;
     }
-    fn valid(c: &OhlcCandle) -> bool {
-        c.low > 0 && c.low <= c.open.min(c.close) && c.high >= c.open.max(c.close)
-    }
     pub(super) fn replace(&mut self, candles: &[OhlcCandle], required: usize) {
         self.invalidate();
         self.seen_ohlc = true;
-        if !candles.iter().all(Self::valid) {
+        if !candles.iter().all(valid_ohlc) {
             return;
         }
         self.bars = candles[candles.len().saturating_sub(required)..]
@@ -104,7 +102,7 @@ impl EntryContext {
         if required == 0 {
             return;
         }
-        if !Self::valid(&candle) {
+        if !valid_ohlc(&candle) {
             self.invalidate();
             return;
         }
@@ -114,39 +112,10 @@ impl EntryContext {
         self.trim(required);
     }
     fn atr(&self) -> Option<f64> {
-        if self.bars.len() < 15 {
-            return None;
-        }
-        let bars = self
-            .bars
-            .iter()
-            .skip(self.bars.len() - 15)
-            .collect::<Vec<_>>();
-        let total = bars
-            .windows(2)
-            .map(|w| {
-                let (p, c) = (w[0], w[1]);
-                (c.high - c.low)
-                    .max(c.high.abs_diff(p.close))
-                    .max(c.low.abs_diff(p.close)) as f64
-            })
-            .sum::<f64>();
-        let atr = total / 14.0;
-        (atr > 0.0).then_some(atr)
+        atr14(&self.bars)
     }
     fn ma(&self, period: usize) -> Option<f64> {
-        if period == 0 || self.bars.len() < period {
-            return None;
-        }
-        Some(
-            self.bars
-                .iter()
-                .rev()
-                .take(period)
-                .map(|c| c.close as u128)
-                .sum::<u128>() as f64
-                / period as f64,
-        )
+        mean_close(&self.bars, period)
     }
     pub(super) fn preparation(
         &self,
@@ -184,6 +153,8 @@ impl EntryContext {
             atr_rejections: self.counters.atr,
             trend_rejections: self.counters.trend,
             passed_candidates: self.counters.passed,
+            slope_rejections: None,
+            bandwidth_rejections: None,
         }
     }
     pub(super) fn accept_candidate(

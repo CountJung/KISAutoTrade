@@ -448,7 +448,7 @@ fn reset(&mut self) {
 
 | 전략 | State 구조체 | 핵심 유지 필드 |
 |------|------------|--------------|
-| MA교차(1) | `MaCrossState` | `prev_short_ma`, `prev_long_ma` |
+| MA교차(1) | `MaCrossState` | `prices`, `prev_short_ma`, `prev_long_ma`, 별도 완료 일봉 `context` |
 | RSI(2) | 인라인 튜플 | `(VecDeque<u64>, Option<f64>)` |
 | 모멘텀(3) | `MomentumState` | `prices`, `owned_quantity`, `previous_momentum`, `armed`, `retry_candidate` |
 | 이격도(4) | `DeviationState` | 가격/추세 버퍼, 실제 수량·평균가, 보유 관측·교차 후보 |
@@ -1300,3 +1300,14 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 저장/두 preview strict validation과 UI raw/A-B·단위 안내를 동기화한다. 기존 frozen QQQ1주·비용/체결4경로는 그대로 유지하고 새3주후보/OOS에 합치지 않는다. 계약은 docs/ipc-commands.md, 연구는 docs/research/mean-reversion-policy-20261020/report.md다.
 
 > 마지막 업데이트: 2026-10-20T22:32:26+09:00
+
+
+## MA cross v17 완료 일봉 진입 필터
+
+- 기본5/20 입력관측 교차/Sell/prevMA 갱신을 유지한다. 선택 추세·기울기·ATR%·밴드폭%는 이전 완료 DAILY OHLC로 Buy 후보만 확인하며0은 비활성이다. 거절한 교차를 뒤늦게 되살리지 않는다.
+- 맥락은 최대512봉, apply/invalidate 완료자료는 기존 cross열과 독립이다. 현재일봉은 판단 뒤에만 적재하며 live10초/분봉 OHLC로 일봉을 합성하지 않는다. 활성옵션 비일봉 preview는 명시 거부한다.
+- strict params/save/two preview·실제raw UI를 동기화한다. 손상optional runtime은 기존 custom periods/Sell을 보존하고 Buy만 failclosed. slope활성은 long_period1..511, 필요한 이전일봉은N/L+1/15/20이다.
+- completed_daily의 OHLC유효성/u128종가평균/양수14TRmean만 공유하고 lifecycle/counter는 각 전략에 남긴다. 충분한ATR0에서 MA는 ready+임계값거부, Consecutive는 기존zeroAtr준비차단을 유지한다. optional slope/bandwidth rejection은MA만직렬화하고Consecutive는생략한다.
+- 후보 수는 raw golden cross이며 실제 소유/체결이 아니다. 기본 전체1224호환·분할 불변·공통guard/리스크 유지·독립 비용/노출 감사와 [P2-01 연구](../../../docs/research/ma-cross-filters-20261020/report.md)를 확인한다.
+
+> 마지막 업데이트: 2026-10-20T23:11:46+09:00

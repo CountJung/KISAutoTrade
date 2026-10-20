@@ -240,6 +240,8 @@ export interface EntryFilterPreparation {
   minMoveRejections: number
   atrRejections: number
   trendRejections: number
+  slopeRejections?: number
+  bandwidthRejections?: number
   passedCandidates: number
 }
 

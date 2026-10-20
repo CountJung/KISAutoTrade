@@ -95,7 +95,7 @@
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v16`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v17`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
 전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
@@ -353,3 +353,14 @@ UI는 네 필드의 raw 초안·유효성·활성 잠금·저장/두 preview 차
 보유 나이는 off 중에도 실제 양수 체결 뒤 관측을 기록하고 sameqty/partial/warmup/reconfigure로 줄이지 않는다. exact owner metadata의 kind=mean_reversion을 엄격 검증하며 다른 전략 checkpoint를 거부한다. pending origin은 체결0나이로, 유효 known checkpoint는 기록 나이로 복원한다. 둘 다 없는 positive 복원은 unknown이며 활성 한도에서 다음 관측 보수적 매도 후보다. 관측수는 live/선택봉마다 기간이 다르다.
 
 공통 `strategy/observation.rs`는 두 전략에서 동등성이 확인된8개 내부 함수(정수·age 전이·codec·이전N추세·bounded/live초기화)만 제공한다. q/avg·symbol/scope 검사·전략별 판정/초기화/재설정/손절0 의미는 caller에 남는다. codec은 검증 성공 뒤 caller가 게시하므로 malformed에서 상태를 보존한다. 기존 frozen QQQ의 비용/체결4경로를 유지하고 [P2-10 사전 선언·단독 비교·한계](research/mean-reversion-policy-20261020/report.md)에 기본 호환과 선택 효과를 구분한다. UI는 raw 필드·유효성·활성 잠금·저장/두 preview 차단·현재/A-B params를 함께 표시한다.
+
+
+### Replay v17 MA 교차의 이전 완료 일봉 진입 확인
+
+`ma_cross*`의 기존 `short_period=5`, `long_period=20` 교차는 입력 가격 관측 기준이며 기본 live 약10초 관측과 일봉/분봉 replay를 구분한다. 선택 params는 모두0 기본이고 Buy 후보에만 적용한다. `long_trend_period`는0..512 정수, `min_long_ma_slope_pct`·`min_atr_pct`는0..100 유한수, `min_bandwidth_pct`는0..1000 유한수다. 기울기 활성시 `long_period`는1..511이어야 한다. null/string/비유한수·범위·분수 정수를 save와 단기/연속 preview에서 `INVALID_STRATEGY_PARAMS`로 거부한다. 손상 optional runtime은 기존 custom 교차 기간·Sell을 유지하며 Buy만 차단한다.
+
+필터는 strict 이전 완료 DAILY OHLC를 사용한다. 추세는 현재 후보가격>이전N 종가MA, 기울기는 `(직전 long_period일 MA / 한 일봉 전 MA−1)×100`, ATR%는 이전15OHLC의14TR 산술평균/직전완료종가×100, 밴드폭%는 이전20종가의4×모집단표준편차/평균×100이다. 추세는 strict>, 나머지 활성 양수 임계값은 >=다. 필요한 일봉 수는 각각N/L+1/15/20의 최댓값이며512 이하다. 충분한 유효자료의 ATR0/폭0은 준비 완료·양수 임계값 미달이다.
+
+현재 일봉 OHLC는 후보 판단 후에만 게시한다. apply/invalidate 완료 일봉 hook은 기존 가격 관측열·prevMA·Sell을 건드리지 않으며 scoped live daily coordinator를 재사용한다. 활성 옵션의1분 preview는 필요한 일봉 맥락을 증명할 수 없어 명시 거부하고, 옵션0은 기존 분봉 경로를 유지한다. 거절된 골든크로스에도 prevMA를 갱신하므로 이후 필터가 통과했다는 이유로 과거 교차를 되살리지 않는다. 기존 무보유Sell/보유Buy 후보와 공통guard/소유clamp/risk는 유지한다.
+
+기존 선택 `entryFilterPreparation`에 MA 전용 `slopeRejections?: number`, `bandwidthRejections?: number`를 추가한다. Consecutive 응답에서는 생략해 기존 JSON을 보존한다. MA `cadence=priorCompletedDailyOhlc`, status는 기존 ready/invalidParams/unsupportedObservation/insufficientHistory를 사용한다. `minMoveRejections`는0이며 UI는 추세/기울기/ATR/폭 거부를 각각 표시한다. candidates는 소유 검사 전 raw 골든크로스 후보, 거부 사유는 중복 가능하고 passed는 체결 수가 아니다. 설정과 진단을 A/B 슬롯에도 보존한다. 수량 산정 ATR과 별개다. [연구](research/ma-cross-filters-20261020/report.md).

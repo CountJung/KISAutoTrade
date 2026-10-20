@@ -1,51 +1,43 @@
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
-use super::{state::bounded_window_with_extra, HistoryReadiness, Signal, Strategy, StrategyConfig};
+use super::{
+    state::bounded_window_with_extra, EntryFilterPreparation, HistoryReadiness, OhlcCandle, Signal,
+    Strategy, StrategyConfig,
+};
 
 // ────────────────────────────────────────────────────────────────────
 // 이동평균 교차 전략 (Golden Cross / Death Cross)
 // ────────────────────────────────────────────────────────────────────
 
-/// MA 교차 전략 파라미터
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MaCrossParams {
-    /// 단기 이동평균 기간
-    pub short_period: usize,
-    /// 장기 이동평균 기간
-    pub long_period: usize,
-}
-
-impl Default for MaCrossParams {
-    fn default() -> Self {
-        Self {
-            short_period: 5,
-            long_period: 20,
-        }
-    }
-}
+mod context;
+mod params;
+use context::EntryContext;
+pub use params::{validate_ma_cross_entry_params, MaCrossParams};
 
 /// 종목별 MA교차 상태
 struct MaCrossState {
     prices: VecDeque<u64>,
     prev_short_ma: Option<f64>,
     prev_long_ma: Option<f64>,
+    context: EntryContext,
 }
 
 pub struct MovingAverageCrossStrategy {
     config: StrategyConfig,
     params: MaCrossParams,
+    entry_params_valid: bool,
     /// 종목코드 → 개별 상태 (다중 종목 지원)
     states: std::collections::HashMap<String, MaCrossState>,
 }
 
 impl MovingAverageCrossStrategy {
     pub fn new(config: StrategyConfig) -> Self {
-        let params: MaCrossParams =
-            serde_json::from_value(config.params.clone()).unwrap_or_default();
+        let (params, entry_params_valid) = MaCrossParams::parse(&config.params);
         Self {
             config,
             params,
+            entry_params_valid,
             states: std::collections::HashMap::new(),
         }
     }
@@ -88,6 +80,12 @@ impl Strategy for MovingAverageCrossStrategy {
             let prices: Vec<_> = state.prices.iter().copied().collect();
             replacement.initialize_historical(symbol, &prices);
         }
+        for (symbol, old) in &mut self.states {
+            if let Some(state) = replacement.states.get_mut(symbol) {
+                state.context = std::mem::take(&mut old.context);
+                state.context.reset_counters();
+            }
+        }
         *self = replacement;
         true
     }
@@ -109,23 +107,126 @@ impl Strategy for MovingAverageCrossStrategy {
                 prices: VecDeque::with_capacity(cap),
                 prev_short_ma: None,
                 prev_long_ma: None,
+                context: EntryContext::default(),
             });
+        state.context.invalidate();
         state.prices = history;
         state.prev_short_ma = Self::moving_average(&state.prices, self.params.short_period);
         state.prev_long_ma = Self::moving_average(&state.prices, self.params.long_period);
     }
 
     fn initialize_intraday_prices(&mut self, symbol: &str, prices: &[u64]) {
+        // Intraday seed affects native cross observations, never DAILY context.
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        let context = self
+            .states
+            .get_mut(symbol)
+            .map(|s| std::mem::take(&mut s.context));
         self.initialize_historical(symbol, prices);
+        if let Some(context) = context {
+            self.states.get_mut(symbol).unwrap().context = context;
+        }
+    }
+
+    fn initialize_ohlc(&mut self, symbol: &str, candles: &[OhlcCandle]) {
+        self.initialize_historical(symbol, &candles.iter().map(|c| c.close).collect::<Vec<_>>());
+        self.apply_completed_daily_history(symbol, candles);
+    }
+
+    fn required_completed_daily_bars(&self) -> Option<usize> {
+        (self.entry_params_valid && self.params.required_completed() > 0)
+            .then(|| self.params.required_completed())
+    }
+    fn legacy_warmup_requires_daily_verification(&self) -> bool {
+        self.params.required_completed() > 0
+    }
+    fn apply_completed_daily_history(&mut self, symbol: &str, candles: &[OhlcCandle]) {
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        let cap =
+            bounded_window_with_extra(self.params.long_period.max(self.params.short_period), 1);
+        self.states
+            .entry(symbol.into())
+            .or_insert_with(|| MaCrossState {
+                prices: VecDeque::with_capacity(cap),
+                prev_short_ma: None,
+                prev_long_ma: None,
+                context: EntryContext::default(),
+            })
+            .context
+            .replace(candles);
+    }
+    fn invalidate_completed_daily_history(&mut self, symbol: &str) {
+        if let Some(state) = self.states.get_mut(symbol) {
+            state.context.invalidate();
+        }
+    }
+    fn completed_daily_history_readiness(&self, symbol: &str) -> Option<HistoryReadiness> {
+        let context = self.states.get(symbol).map(|s| &s.context);
+        Some(HistoryReadiness {
+            required_bars: self.params.required_completed(),
+            available_bars: context.map_or(0, EntryContext::available),
+            ready: context.map_or_else(
+                || {
+                    EntryContext::default()
+                        .preparation(&self.params, self.entry_params_valid)
+                        .ready
+                },
+                |c| c.preparation(&self.params, self.entry_params_valid).ready,
+            ),
+        })
+    }
+    fn entry_filter_preparation(&self, symbol: &str) -> Option<EntryFilterPreparation> {
+        if self.entry_params_valid && !self.params.enabled() {
+            return None;
+        }
+        Some(self.states.get(symbol).map_or_else(
+            || EntryContext::default().preparation(&self.params, self.entry_params_valid),
+            |s| s.context.preparation(&self.params, self.entry_params_valid),
+        ))
+    }
+    fn on_trading_day_start(&mut self, symbol: &str, _open: u64) {
+        if !self.config.targets_symbol(symbol) {
+            return;
+        }
+        if !self.states.contains_key(symbol) {
+            self.apply_completed_daily_history(symbol, &[]);
+        }
+        self.states
+            .get_mut(symbol)
+            .unwrap()
+            .context
+            .awaiting_completion = true;
+    }
+    fn on_completed_candle(&mut self, symbol: &str, candle: &OhlcCandle) {
+        if let Some(state) = self.states.get_mut(symbol) {
+            state.context.complete(*candle);
+        }
     }
 
     fn history_readiness(&self, symbol: &str) -> Option<HistoryReadiness> {
         let state = self.states.get(symbol);
         Some(HistoryReadiness {
-            required_bars: self.params.short_period.max(self.params.long_period),
-            available_bars: state.map_or(0, |state| state.prices.len()),
+            required_bars: self
+                .params
+                .short_period
+                .max(self.params.long_period)
+                .max(self.params.required_completed()),
+            available_bars: state.map_or(0, |state| {
+                state.prices.len().max(if self.params.enabled() {
+                    state.context.available()
+                } else {
+                    0
+                })
+            }),
             ready: state
-                .is_some_and(|state| state.prev_short_ma.is_some() && state.prev_long_ma.is_some()),
+                .is_some_and(|state| state.prev_short_ma.is_some() && state.prev_long_ma.is_some())
+                && self
+                    .completed_daily_history_readiness(symbol)
+                    .is_some_and(|r| r.ready),
         })
     }
 
@@ -146,6 +247,7 @@ impl Strategy for MovingAverageCrossStrategy {
                 prices: VecDeque::with_capacity(cap),
                 prev_short_ma: None,
                 prev_long_ma: None,
+                context: EntryContext::default(),
             });
 
         state.prices.push_back(price);
@@ -159,10 +261,17 @@ impl Strategy for MovingAverageCrossStrategy {
         let signal = match (state.prev_short_ma, state.prev_long_ma, short_ma, long_ma) {
             (Some(ps), Some(pl), Some(cs), Some(cl)) => {
                 if ps <= pl && cs > cl {
-                    Signal::Buy {
-                        symbol: symbol.to_string(),
-                        quantity: self.config.order_quantity,
-                        reason: format!("골든크로스 S{:.0} > L{:.0}", cs, cl),
+                    if !state
+                        .context
+                        .accept_candidate(&self.params, self.entry_params_valid, price)
+                    {
+                        Signal::Hold
+                    } else {
+                        Signal::Buy {
+                            symbol: symbol.to_string(),
+                            quantity: self.config.order_quantity,
+                            reason: format!("골든크로스 S{:.0} > L{:.0}", cs, cl),
+                        }
                     }
                 } else if ps >= pl && cs < cl {
                     Signal::Sell {
@@ -233,3 +342,6 @@ mod history_tests {
 
 #[cfg(test)]
 mod reconfigure_tests;
+
+#[cfg(test)]
+mod entry_tests;

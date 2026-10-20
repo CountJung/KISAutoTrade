@@ -887,3 +887,10 @@ classic/deviation.rs와 params/state 모듈은 실제 owned quantity/native avg�
 mean_trend.rs는 TrendFilter와 MeanReversion 공개 경로를 유지하고 mean_trend/mean_reversion.rs가 band/stop/exit_mode·보유/준비를 관리한다. 기존 QQQ4개 경로와1분 warmup no-op/reset가격 유지·손절0 활성은 전략 계약이다. actual q/native entry는 raw신호로 바꾸지 않는다.
 
 observation.rs의8개 내부 함수는 검증된 age/candidate 전이·kind codec·이전N추세·정수판정만 공유한다. codec은 순수 검증 후 age/candidate를 반환하고 caller가 게시하며 소유 q/avg·대상/scope와 전략별 정책은 caller에 남긴다. 신규 params는 save/two preview·raw UI/A-B와 함께 갱신한다. [v16 정본](ipc-commands.md), [연구](research/mean-reversion-policy-20261020/report.md)를 따른다.
+
+
+## MA cross v17 진입 맥락
+
+MA5/20의 기존 가격 관측·prevMA와 별도 이전 완료 DAILY context를 유지한다. 필터0이어도 검증된 맥락은 최대512봉 보존하며 required는 준비 판정에 사용한다. 재조회/실패는 교차열을 초기화하지 않고 현재 OHLC는 판단 뒤 반영한다. optional 잘못된 입력은 save/two preview에서 거부하고 runtime Buy만 차단한다. 이전 교차를 재무장하지 않는다.
+
+`completed_daily.rs`는 valid OHLC·u128 close mean·양수14TR 산술평균의 순수 함수만 공유한다. Consecutive의 zeroAtr 준비 차단과 MA의 충분자료 ATR0 임계값 거부 차이는 각 호출자에 남긴다. lifecycle/verified/counter와 정책을 합치지 않는다. [IPC v17](ipc-commands.md), [P2-01 연구](research/ma-cross-filters-20261020/report.md).

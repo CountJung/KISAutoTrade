@@ -40,6 +40,8 @@ import {
 } from '../model/experimentStore'
 import { AccountingResults, ComparisonResults, AccountingAssumptionSummary, accountingComparisonKey, SimulationAccountingEditor } from './strategyAccountingPanel'
 import { calculationModeLabel, ContinuityResults } from './continuousReplayPanel'
+import { MaCrossEntrySummary } from './maCrossEntryControls'
+import { MaCrossEntryPreparation } from './maCrossEntryPreparation'
 import { MeanReversionPolicySummary } from './meanReversionControls'
 import { DeviationPolicySummary } from './deviationControls'
 import { MomentumEntrySummary } from './momentumEntryControls'
@@ -474,6 +476,7 @@ export function StrategyResearchResults({
 
       {assessmentNotice}
       {metadata}
+      {strategyId.startsWith('ma_cross') && <><MaCrossEntrySummary params={params} /><MaCrossEntryPreparation value={entryFilterPreparation} params={params} /></>}
       {strategyId.startsWith('mean_reversion') && <MeanReversionPolicySummary params={params} />}
       {strategyId.startsWith('deviation') && <DeviationPolicySummary params={params} />}
       {strategyId.startsWith('momentum') && <MomentumEntrySummary params={params} />}
@@ -534,6 +537,7 @@ export function StrategyResearchResults({
         <Box sx={{ p: 1.25, border: 1, borderColor: 'divider', borderRadius: 1 }} data-testid="strategy-ab-comparison">
           <Typography variant="caption" fontWeight={700} display="block" sx={{ mb: 0.75 }}>저장된 A/B 실험 비교</Typography>
           {!comparable && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 데이터 source/봉/기간이 달라 직접 비교할 수 없습니다.</Alert>}
+          {strategyId.startsWith('ma_cross') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 MA 교차 파라미터가 다릅니다. 입력 관측 MA와 완료 일봉 진입 조건을 함께 확인하세요.</Alert>}
           {strategyId.startsWith('consecutive_move') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 전략 파라미터가 다릅니다. 진입 필터 조건을 함께 확인하세요.</Alert>}
           {strategyId.startsWith('momentum') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 Momentum 파라미터가 다릅니다. 진입 모드·재무장 간격을 확인하세요.</Alert>}
           {strategyId.startsWith('mean_reversion') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 MeanReversion 파라미터가 다릅니다. 청산 모드·추세·보유 관측 상한을 확인하세요.</Alert>}
@@ -550,6 +554,7 @@ export function StrategyResearchResults({
                     <Typography variant="caption" fontWeight={700}>실험 결과 {slot}</Typography>
                     {saved && <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }}>엔진 {saved.replay.engineVersion} · {executionAssumptionsLabel(saved.backtest.assumptions)}</Typography>}
                     {saved && <Typography variant="caption" display="block">{calculationModeLabel(saved.calculationMode)}{saved.continuity ? ` · 공급 ${saved.continuity.chunkCount}묶음 / 평가 ${saved.continuity.evaluationBars}봉 / 사전 ${saved.continuity.historyBars}봉 1회` : ''}</Typography>}
+                    {saved?.strategyId.startsWith('ma_cross') && <><MaCrossEntrySummary params={saved.params} /><MaCrossEntryPreparation value={saved.entryFilterPreparation} params={saved.params} compact /></>}
                     {saved?.strategyId.startsWith('consecutive_move') && <>
                       <ConsecutiveEntrySummary params={saved.params} />
                       <ConsecutiveEntryPreparation value={saved.entryFilterPreparation} params={saved.params} compact />

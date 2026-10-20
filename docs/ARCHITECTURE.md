@@ -280,3 +280,6 @@ v15 Deviation은 classic/deviation.rs와 params/state 모듈에서 관측·하�
 
 
 v16 MeanReversion은 mean_trend facade 아래 독립 모듈로 분리하고 actual q/native avg·기록 나이와 현재 포함 band/선택 청산·live전용 trend를 구분한다. TrendFilter 원형을 유지하며 observation.rs가 두 전략의 동등한8개 기계 동작만 제공한다. kind/scope/대상·stop0/strict/inclusive·reset/warmup 차이는 전략에 남는다. 기존 owner ledger/관측후 checkpoint·pending복원/저장실패 차단과 save/two preview/UI-A-B를 사용하며 새IPC/DTO/schema는 없다. [계약](ipc-commands.md), [작업](tasks/mean-reversion-policy-20261020.md).
+
+
+v17 MA cross는 기존 관측 교차를 보존하고 별도 bounded512 완료 일봉 context로 Buy 후보만 확인한다. 기존 scoped daily coordinator와 apply/invalidate hook을 재사용하며 현재봉 after-decision, 일봉 재조회와 교차열 분리를 유지한다. 순수 일봉 지표3개만 completed_daily.rs에서 Consecutive와 공유한다. EntryFilterPreparation의 MA 전용 선택 slope/bandwidth 거부 수는 Consecutive에서 생략한다. 실제 소유·주문·provider/리스크 경계는 기존 그대로다. [계약](ipc-commands.md), [작업](tasks/ma-cross-filters-20261020.md).

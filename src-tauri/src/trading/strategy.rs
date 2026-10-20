@@ -1,5 +1,6 @@
 mod breakout;
 mod classic;
+mod completed_daily;
 mod core;
 mod leveraged_trend_hold;
 mod ma_cross;
@@ -27,7 +28,7 @@ pub use leveraged_trend_hold::{
     LeveragedTrendHoldEntry, LeveragedTrendHoldParams, LeveragedTrendHoldPreviewSignal,
     LeveragedTrendHoldPreviewStep, LeveragedTrendHoldStrategy, LeveragedTrendHoldTimedCandle,
 };
-pub use ma_cross::{MaCrossParams, MovingAverageCrossStrategy};
+pub use ma_cross::{validate_ma_cross_entry_params, MaCrossParams, MovingAverageCrossStrategy};
 pub use manager::{build_strategy, DailyHistoryStatus, DailyHistoryTicket, StrategyManager};
 pub use mean_trend::{
     validate_mean_reversion_params, MeanReversionExitMode, MeanReversionParams,

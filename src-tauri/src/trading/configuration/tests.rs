@@ -769,3 +769,68 @@ async fn mean_reversion_options_reject_before_save_and_integer_float_values_roun
     }
     assert!(!s.strategies.lock().await.configuration_edit_active());
 }
+
+#[tokio::test]
+async fn ma_cross_entry_options_reject_before_save_and_valid_values_roundtrip() {
+    let f = Fixture::new("http://127.0.0.1:1".into()).await;
+    let s = state(&f, false).await;
+    let id = "ma_cross_configuration";
+    let original = StrategyConfig::new(
+        id,
+        "fixture",
+        true,
+        vec!["005930".into()],
+        1,
+        serde_json::json!({"short_period":2,"long_period":3}),
+    )
+    .with_scope(f.profile.broker_id, Some(f.profile.account_no.clone()));
+    {
+        let mut manager = s.strategies.lock().await;
+        *manager = StrategyManager::new();
+        manager.add(build_strategy(original.clone()));
+        manager.set_history_execution_identity(
+            test_support::scope(&f.profile),
+            Some(f.profile.id.clone()),
+        );
+    }
+    let calls = Arc::new(AtomicUsize::new(0));
+    for extra in [
+        serde_json::json!({"long_trend_period":0.5}),
+        serde_json::json!({"long_trend_period":513}),
+        serde_json::json!({"min_long_ma_slope_pct":null}),
+        serde_json::json!({"min_long_ma_slope_pct":0.1,"long_period":512}),
+        serde_json::json!({"min_long_ma_slope_pct":0.1,"long_period":"512"}),
+        serde_json::json!({"min_atr_pct":"1"}),
+        serde_json::json!({"min_atr_pct":101}),
+        serde_json::json!({"min_bandwidth_pct":1001}),
+    ] {
+        let mut params = original.params.clone();
+        params
+            .as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        let mut update = request(&f);
+        update.id = id.into();
+        update.params = Some(params);
+        let c = calls.clone();
+        let error = run_update(s.clone(), update, move |_, _| {
+            c.fetch_add(1, Ordering::SeqCst);
+            async { Ok(()) }
+        })
+        .await
+        .unwrap_err();
+        assert_eq!(error.code, "INVALID_STRATEGY_PARAMS");
+        assert_eq!(config(&s).await.params, original.params);
+    }
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    let params = serde_json::json!({"short_period":2,"long_period":3,"long_trend_period":512.0,"min_long_ma_slope_pct":0.1,"min_atr_pct":0.5,"min_bandwidth_pct":2.0});
+    let mut update = request(&f);
+    update.id = id.into();
+    update.params = Some(params.clone());
+    let published = update_strategy_configuration(s.clone(), update)
+        .await
+        .unwrap();
+    assert_eq!(published.params, params);
+    assert_eq!(s.store.load(&f.profile.id).await.unwrap()[0].params, params);
+    assert!(!s.strategies.lock().await.configuration_edit_active());
+}

@@ -264,6 +264,7 @@ fn cross_and_breakout_seed_only_final_bars_are_not_conditions_not_met() {
             serde_json::to_value(MaCrossParams {
                 short_period: 2,
                 long_period: 3,
+                ..Default::default()
             })
             .unwrap(),
             3,

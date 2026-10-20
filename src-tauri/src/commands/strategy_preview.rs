@@ -811,3 +811,7 @@ mod deviation_entry_tests;
 #[cfg(test)]
 #[path = "strategy_preview/mean_reversion_entry_tests.rs"]
 mod mean_reversion_entry_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/ma_cross_entry_tests.rs"]
+mod ma_cross_entry_tests;

@@ -143,6 +143,10 @@ pub struct EntryFilterPreparation {
     pub atr_rejections: u64,
     pub trend_rejections: u64,
     pub passed_candidates: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub slope_rejections: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bandwidth_rejections: Option<u64>,
 }
 
 /// 전략 trait — 모든 자동매매 전략이 구현해야 함
