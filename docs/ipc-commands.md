@@ -95,7 +95,7 @@
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v17`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v17`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations, minuteTiming?}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
 전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
@@ -364,3 +364,11 @@ UI는 네 필드의 raw 초안·유효성·활성 잠금·저장/두 preview 차
 현재 일봉 OHLC는 후보 판단 후에만 게시한다. apply/invalidate 완료 일봉 hook은 기존 가격 관측열·prevMA·Sell을 건드리지 않으며 scoped live daily coordinator를 재사용한다. 활성 옵션의1분 preview는 필요한 일봉 맥락을 증명할 수 없어 명시 거부하고, 옵션0은 기존 분봉 경로를 유지한다. 거절된 골든크로스에도 prevMA를 갱신하므로 이후 필터가 통과했다는 이유로 과거 교차를 되살리지 않는다. 기존 무보유Sell/보유Buy 후보와 공통guard/소유clamp/risk는 유지한다.
 
 기존 선택 `entryFilterPreparation`에 MA 전용 `slopeRejections?: number`, `bandwidthRejections?: number`를 추가한다. Consecutive 응답에서는 생략해 기존 JSON을 보존한다. MA `cadence=priorCompletedDailyOhlc`, status는 기존 ready/invalidParams/unsupportedObservation/insufficientHistory를 사용한다. `minMoveRejections`는0이며 UI는 추세/기울기/ATR/폭 거부를 각각 표시한다. candidates는 소유 검사 전 raw 골든크로스 후보, 거부 사유는 중복 가능하고 passed는 체결 수가 아니다. 설정과 진단을 A/B 슬롯에도 보존한다. 수량 산정 ATR과 별개다. [연구](research/ma-cross-filters-20261020/report.md).
+
+### LTH 분봉 시각 진단 v1 (2026-10-22)
+
+전용 `1m`의 `replay.assessment.minuteTiming`은 선택 객체이며 `diagnosticVersion=lth-minute-timing-v1`이다. `1d`/generic에는 생략한다. 기존 engine v17/LTH v4·입력 hash·시계·신호·정산은 유지한다. 요청 시작의 `referenceAsOf`를 고정하고, 준비된 실행 label을 읽기만 한다. sourceRows/selectedRows/usedRows/priceExcludedRows는 provider 결과/기존 lexical tail 선택/유효 가격 관측/가격 제외를 구분한다. 진단 처리 상한512행·label64바이트·날짜8개·예시6개이며 inputTruncated/omittedDayRows를 반환한다. 전체 합계는 처리한 입력 범위에서 계산하고 날짜 목록만 줄인다.
+
+RFC3339는 실제 순간을 America/New_York 또는 Asia/Seoul로 변환한다. compact12/14는 기존 KST 가정으로 별도 집계한다. `labelConvention=barClose`인 Toss는 label−60초/label을 봉 시작/종가 공개 가능 시각 모델로 제공한다. 내부 barStart fixture는 label/label+60초, unknown은 세션·공개 가능 시각·공백 판정을 하지 않는다. `firstMarketLocal/lastMarketLocal`은 원본 label 순간의 시간순 경계이며, 원본 실행 순서를 바꾸지 않는다. duplicateInstants/outOfOrderRows/nonMinuteAlignedRows/unfinishedRows는 동일 순간/실제 순간 역순/초·소수초/기준시각 뒤 종가를 센다. 진단 때문에 실행 관측을 제외하지 않는다.
+
+일별 days는 일반 평일 정규 시간창 안의 정렬된 고유 분 격자를 산술 비교한다. interiorUnobservedSlots/maxInteriorGapSlots는 같은 관측 날짜 내부이며, 앞뒤 시간창과 무관측 날짜·야간·주말을 실제 누락으로 확정하지 않는다. regularRows는 중복·초단위도 포함한 시간창 분류 수, regularUniqueBars는 분 경계의 고유 격자 수다. 달력·자료 완전성·요청 기간·실제 발행/수신 검증 flag4개는 false다. legacySessionPolicy=legacyFixedKstUnverified, sampleOnly/notEvaluable·timestamp/session unverified·lookAheadSafe=false를 유지한다. UI/A-B는 객체를 보존하고 이전 응답의 객체 부재·미지원/손상 형식을 경고하며 봉 표기·시간대·진단 버전·검증 가정 차이를 따로 표시한다. 실제3개월 검증은 P1-05/P2-12에 남는다.

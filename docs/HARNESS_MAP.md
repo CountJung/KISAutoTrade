@@ -222,3 +222,9 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 - `cargo test -p kis-auto-trade consecutive`와 공유 completed_daily 계약: pure helper 이동 뒤 갭/분수/zeroAtr·이전종가평균 의미를 보존한다.
 - `npx playwright test tests/e2e/strategy-ma-cross-filters.spec.ts`: 네 raw/stored 입력·저장/재조회/실패 재시도·preview/A-B·진단 없음·활성 잠금·모바일을 mock으로 검증한다.
 - [사전 설계](research/ma-cross-filters-20261020/design.json)와 production runners: archived327739a/default1224호환, Stage A36연속/36분할/432분기와 사후 ATR2/폭10 추가 최종48연속/48분할/576별도분기를 구분해 대조한다. Python은 기록 fill/cash/노출을 정산하고 신호를 재생성하지 않는다. [작업 기록](tasks/ma-cross-filters-20261020.md).
+
+## LTH 분봉 시각 진단 (2026-10-22)
+
+- `cargo test --offline -p kis-auto-trade minute_timing`: pure20개와 command5개의 합성 fixture. RFC3339/compact·DST·동일순간 alias/역순·barClose/barStart/unknown·초 경계·휴일 미인증·내부 gap/야간/주말·512행/64바이트/8일/6예시·asOf를 확인한다. command fixture는 기존 signals/backtest/hash와 실제 비어있지 않은 신호·체결을 비교하며 daily skipNone/empty notEvaluable을 확인한다.
+- `npx playwright test tests/e2e/lth-minute-timing.spec.ts tests/e2e/strategy-replay-assessment.spec.ts`: 현재/저장/복원·다른봉표기 비교·legacy/미지원/손상 컬렉션·빈자료/일봉 성과숨김·모바일과 compact 날짜수를 mock으로 검증한다. fixture는 LTH lookAheadSafe=false를 유지한다.
+- 공용 timestamp 구문 추출은 기존 generic 정규화·회계 시나리오 정렬 회귀와 전체 Rust 검증으로 확인한다. 입력 시계·신호·정산은 기존 `lth_replay_clock`을 함께 통과한다. 실제 provider/3개월 coverage 검증으로 확대하지 않는다. [결과와 한계](tasks/lth-minute-timing-20261022.md).

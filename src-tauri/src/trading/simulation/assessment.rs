@@ -11,12 +11,15 @@ pub struct ReplayAssessmentView {
     pub timestamp_status: String,
     pub session_status: String,
     pub limitations: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub minute_timing: Option<super::LthMinuteTimingView>,
 }
 
 impl ReplayAssessmentView {
     pub fn lth(interval: &str, daily_context_bars: usize, intraday_bars: usize) -> Self {
         let daily = interval != "1m";
         Self {
+            minute_timing: None,
             model: if daily {
                 "dailyDiagnostic"
             } else {

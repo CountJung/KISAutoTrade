@@ -894,3 +894,9 @@ observation.rs의8개 내부 함수는 검증된 age/candidate 전이·kind code
 MA5/20의 기존 가격 관측·prevMA와 별도 이전 완료 DAILY context를 유지한다. 필터0이어도 검증된 맥락은 최대512봉 보존하며 required는 준비 판정에 사용한다. 재조회/실패는 교차열을 초기화하지 않고 현재 OHLC는 판단 뒤 반영한다. optional 잘못된 입력은 save/two preview에서 거부하고 runtime Buy만 차단한다. 이전 교차를 재무장하지 않는다.
 
 `completed_daily.rs`는 valid OHLC·u128 close mean·양수14TR 산술평균의 순수 함수만 공유한다. Consecutive의 zeroAtr 준비 차단과 MA의 충분자료 ATR0 임계값 거부 차이는 각 호출자에 남긴다. lifecycle/verified/counter와 정책을 합치지 않는다. [IPC v17](ipc-commands.md), [P2-01 연구](research/ma-cross-filters-20261020/report.md).
+
+## LTH 분봉 시각 진단의 분리
+
+`simulation/minute_timing.rs`는 bounded 순수 진단이며 `commands/strategy_preview.rs::lth_preview_assessment`가 기존 실행에 준비된 원본 label만 전달한다. 진단의 timezone 변환 결과를 기존 LTH clock·정렬·신호·정산·hash에 되먹이지 않는다. 공통 `simulation/minute_time.rs::parse_minute_instant`는 RFC3339/compact KST 구문만 공유하고 기존 generic Nanos UTC 출력은 유지한다. 일봉/host Local/epoch fallback을 가진 risk parser나 RFC3339 전용 provider page parser와 합치지 않는다.
+
+응답/목록 상한·시각/공백 의미는 [IPC 계약](ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22)을 따른다. `lthMinuteTimingPanel.tsx`는 current/A-B/legacy/손상 데이터와 compact2일·기본8일을 구분한다. 시간 진단 성공을 실제 coverage나 성과 적합성으로 승격하지 않는다. [작업 검증](tasks/lth-minute-timing-20261022.md).

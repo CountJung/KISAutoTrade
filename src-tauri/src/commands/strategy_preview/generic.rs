@@ -104,32 +104,11 @@ pub(super) fn signal_to_preview_view(
 pub(super) type PreviewRow = (ChartCandle, OhlcCandle, u64);
 
 pub(super) fn normalize_minute_time(value: &str) -> Option<String> {
-    use chrono::{FixedOffset, NaiveDateTime, SecondsFormat, TimeZone, Utc};
+    use chrono::SecondsFormat;
 
-    let instant = chrono::DateTime::parse_from_rfc3339(value)
-        .ok()
-        .or_else(|| {
-            // Legacy compact minute timestamps represent KST, as in the preview chart.
-            // Do not infer a market offset or use the host's configured timezone.
-            if !value.bytes().all(|byte| byte.is_ascii_digit()) {
-                return None;
-            }
-            let compact = match value.len() {
-                12 => format!("{value}00"),
-                14 => value.to_string(),
-                _ => return None,
-            };
-            let naive = NaiveDateTime::parse_from_str(&compact, "%Y%m%d%H%M%S").ok()?;
-            FixedOffset::east_opt(9 * 60 * 60)?
-                .from_local_datetime(&naive)
-                .single()
-        })?;
-    // Fixed precision makes string order and duplicate/overlap checks instant based.
-    Some(
-        instant
-            .with_timezone(&Utc)
-            .to_rfc3339_opts(SecondsFormat::Nanos, true),
-    )
+    // Preserve the legacy canonical output byte for byte.
+    crate::trading::simulation::minute_time::parse_minute_instant(value)
+        .map(|instant| instant.to_rfc3339_opts(SecondsFormat::Nanos, true))
 }
 
 pub(super) fn normalize_rows(

@@ -19,6 +19,10 @@ pub use accounting::{
 };
 mod session;
 pub use session::ReplaySession;
+pub(crate) mod minute_time;
+mod minute_timing;
+pub(crate) use minute_timing::{diagnose_minute_timing, MinuteTimingInput};
+pub use minute_timing::{LthMinuteTimingView, MinuteLabelConvention, TimingMarket};
 mod assessment;
 pub use assessment::ReplayAssessmentView;
 mod atr;

@@ -99,6 +99,64 @@ export interface SimulationAssumptions {
   dividendScenario?: DividendScenarioPoint[]
 }
 
+export interface LthMinuteTimingDay {
+  marketDate: string
+  utcOffsetMinutes: number
+  regularUniqueBars: number
+  firstCloseMarketLocal: string
+  lastCloseMarketLocal: string
+  ordinaryWindowExpectedSlots: number
+  interiorUnobservedSlots: number
+  maxInteriorGapSlots: number
+  leadingUnobservedWindowSlots: number
+  trailingUnobservedWindowSlots: number
+}
+
+export interface LthMinuteTiming {
+  diagnosticVersion: string
+  labelConvention: 'barClose' | 'barStart' | 'unknown'
+  market: 'us' | 'kr'
+  exchangeTimezone: string
+  referenceAsOf: string
+  legacySessionPolicy: string
+  sourceRows: number
+  selectedRows: number
+  usedRows: number
+  priceExcludedRows: number
+  inputLimit: number
+  processedRows: number
+  inputTruncated: boolean
+  parsedRows: number
+  invalidRows: number
+  assumedKstRows: number
+  duplicateInstants: number
+  outOfOrderRows: number
+  nonMinuteAlignedRows: number
+  regularRows: number
+  offSessionRows: number
+  weekendRows: number
+  unfinishedRows: number
+  marketUtcOffsetsMinutes: number[]
+  firstBarStartUtc: string | null
+  lastBarStartUtc: string | null
+  firstCloseAvailableAtUtc: string | null
+  lastCloseAvailableAtUtc: string | null
+  firstMarketLocal: string | null
+  lastMarketLocal: string | null
+  observedDaysCount: number
+  dayRowLimit: number
+  omittedDayRows: number
+  interiorUnobservedSlots: number
+  maxInteriorGapSlots: number
+  days: LthMinuteTimingDay[]
+  examples: { kind: string; label: string }[]
+  calendarVerified: boolean
+  providerCoverageVerified: boolean
+  requestedPeriodCoverageVerified: boolean
+  actualPublicationVerified: boolean
+  limitations: string[]
+}
+
 export interface ReplayAssessment {
   model: 'dailyDiagnostic' | 'intradaySample'
   performanceStatus: 'notEvaluable' | 'sampleOnly'
@@ -107,6 +165,7 @@ export interface ReplayAssessment {
   timestampStatus: 'unverified'
   sessionStatus: 'unverified'
   limitations: string[]
+  minuteTiming?: LthMinuteTiming
 }
 
 export interface ReplayMetadata {

@@ -283,3 +283,7 @@ v16 MeanReversion은 mean_trend facade 아래 독립 모듈로 분리하고 actu
 
 
 v17 MA cross는 기존 관측 교차를 보존하고 별도 bounded512 완료 일봉 context로 Buy 후보만 확인한다. 기존 scoped daily coordinator와 apply/invalidate hook을 재사용하며 현재봉 after-decision, 일봉 재조회와 교차열 분리를 유지한다. 순수 일봉 지표3개만 completed_daily.rs에서 Consecutive와 공유한다. EntryFilterPreparation의 MA 전용 선택 slope/bandwidth 거부 수는 Consecutive에서 생략한다. 실제 소유·주문·provider/리스크 경계는 기존 그대로다. [계약](ipc-commands.md), [작업](tasks/ma-cross-filters-20261020.md).
+
+## LTH minute timing 진단 경계
+
+`strategy_preview → lth_preview_assessment → simulation/minute_timing`은 기존 준비된 분봉 label의 별도 읽기 전용 경로다. 실제 순간의 거래소 timezone 변환·봉 시작/종가 가능 시각·일별 정규 시간창의 미관측 슬롯을 bounded metadata로 만든다. 원본 label 및 기존 fixed KST 실행시계·매매 신호·회계·hash는 유지한다. 구문 파서만 `simulation/minute_time`에서 generic 분봉 정규화와 공유한다. `assessment.minuteTiming`은 전용1m만 제공하고 UI와 저장A/B에 같은 진단을 표시한다. 달력/실제 발행/coverage·성과 적합성은 인증하지 않으며 [IPC 계약](ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22)과 [작업 기록](tasks/lth-minute-timing-20261022.md)을 따른다.

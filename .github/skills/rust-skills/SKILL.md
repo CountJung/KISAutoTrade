@@ -1311,3 +1311,11 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 후보 수는 raw golden cross이며 실제 소유/체결이 아니다. 기본 전체1224호환·분할 불변·공통guard/리스크 유지·독립 비용/노출 감사와 [P2-01 연구](../../../docs/research/ma-cross-filters-20261020/report.md)를 확인한다.
 
 > 마지막 업데이트: 2026-10-20T23:11:46+09:00
+
+## LTH minute timing v1 진단 분리
+
+- `simulation/minute_timing`은 기존 준비 label만 읽는 pure metadata다. RFC3339 실제 순간→시장 timezone, compact12/14=KST 가정을 구분하며 Toss barClose는 label−60초/label이다. 요청 시작 asOf를 명시하고 일반 평일창을 실제 달력으로 표현하지 않는다.
+- 입력512·label64byte·날짜8·예시6 상한과 산술 gap만 사용한다. 분 경계 고유 관측과 raw 시간창 분류를 구분하고 내부 미관측 슬롯을 공급원 누락으로 확정하지 않는다. 야간·주말·무관측 날짜와 tail 앞뒤를 누락으로 합산하지 않는다. flag4개는 미검증false이며 성과 적합성을 승격하지 않는다.
+- `minute_time::parse_minute_instant`는 generic 기존 문법/UTC Nanos 출력 보존을 위해 syntax만 공유한다. risk/daily/hostLocal/epoch 또는 provider page parser와 합치지 않는다. 진단 결과로 기존 LTH fixed KST 시계·선택순서·신호·정산·입력hash를 바꾸지 않는다. daily skipNone, empty notEvaluable, 실제 nonempty 신호/체결의 전후 동일성을 검증한다. [상세](../../../docs/tasks/lth-minute-timing-20261022.md).
+
+> 마지막 업데이트: 2026-10-22T20:33:31+09:00

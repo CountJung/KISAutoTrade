@@ -4,8 +4,9 @@ mod continuous;
 mod driver;
 mod generic;
 use crate::trading::simulation::{
-    replay_input_hash, BacktestReportView, ReplayAssessmentView, ReplayMetadataView, ReplaySession,
-    SimulationAssumptions, SimulationEvent, REPLAY_ENGINE_VERSION,
+    diagnose_minute_timing, replay_input_hash, BacktestReportView, MinuteLabelConvention,
+    MinuteTimingInput, ReplayAssessmentView, ReplayMetadataView, ReplaySession,
+    SimulationAssumptions, SimulationEvent, TimingMarket, REPLAY_ENGINE_VERSION,
 };
 use crate::trading::strategy::{
     LeveragedTrendHoldPreviewSignal, LeveragedTrendHoldPreviewStep, LeveragedTrendHoldTimedCandle,
@@ -249,6 +250,38 @@ fn broker_candles_to_timed_ohlc(
     timed
 }
 
+/// Descriptive assessment of exactly the prepared rows. Does not influence replay execution.
+fn lth_preview_assessment(
+    interval: &str,
+    daily_context_bars: usize,
+    source_rows: usize,
+    count: u16,
+    timed: &[LeveragedTrendHoldTimedCandle],
+    is_overseas: bool,
+    reference_as_of: chrono::DateTime<chrono::Utc>,
+) -> ReplayAssessmentView {
+    let mut assessment = ReplayAssessmentView::lth(interval, daily_context_bars, timed.len());
+    if interval == "1m" {
+        let labels = timed
+            .iter()
+            .map(|row| row.time.as_str())
+            .collect::<Vec<_>>();
+        assessment.minute_timing = Some(diagnose_minute_timing(MinuteTimingInput {
+            labels: &labels,
+            source_rows,
+            selected_rows: source_rows.min(count as usize),
+            market: if is_overseas {
+                TimingMarket::Us
+            } else {
+                TimingMarket::Kr
+            },
+            label_convention: MinuteLabelConvention::BarClose,
+            reference_as_of,
+        }));
+    }
+    assessment
+}
+
 fn daily_chart_time(value: &str, close_day_offset: i64) -> String {
     let normalized = normalize_preview_chart_time(value, "1d");
     if close_day_offset == 0 {
@@ -411,6 +444,8 @@ pub async fn preview_leveraged_trend_hold_for_profile(
     input: LeveragedTrendHoldPreviewInput,
     profile: AccountProfile,
 ) -> CmdResult<LeveragedTrendHoldPreviewView> {
+    // Freeze diagnostics before provider I/O; fixtures inject their own reference instant.
+    let reference_as_of = chrono::Utc::now();
     if profile.broker_id != BrokerId::Toss {
         return Err(CmdError {
             code: "BROKER_NOT_SUPPORTED".into(),
@@ -735,10 +770,14 @@ pub async fn preview_leveraged_trend_hold_for_profile(
         // Provider time/DST/session coverage has not been independently validated.
         look_ahead_safe: false,
         input_hash,
-        assessment: Some(ReplayAssessmentView::lth(
+        assessment: Some(lth_preview_assessment(
             interval,
             ohlc.len(),
-            if interval == "1m" { timed.len() } else { 0 },
+            simulation_candles.len(),
+            count,
+            &timed,
+            entry_is_overseas,
+            reference_as_of,
         )),
     };
     let mut backtest = session.finish();
@@ -815,3 +854,7 @@ mod mean_reversion_entry_tests;
 #[cfg(test)]
 #[path = "strategy_preview/ma_cross_entry_tests.rs"]
 mod ma_cross_entry_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/minute_timing_tests.rs"]
+mod minute_timing_tests;

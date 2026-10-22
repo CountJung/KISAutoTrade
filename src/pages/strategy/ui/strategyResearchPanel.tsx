@@ -47,6 +47,7 @@ import { DeviationPolicySummary } from './deviationControls'
 import { MomentumEntrySummary } from './momentumEntryControls'
 import { ConsecutiveEntrySummary } from './consecutiveEntryControls'
 import { ConsecutiveEntryPreparation } from './consecutiveEntryPreparation'
+import { LthMinuteTimingPanel, lthTimingComparisonKey } from './lthMinuteTimingPanel'
 import { fmtRoundedKrw as fmtMoney } from '../../../shared/lib/formatters'
 
 export function defaultSimulationAssumptions(isOverseas: boolean): SimulationAssumptions {
@@ -403,6 +404,7 @@ export function StrategyResearchResults({
       && slots.A.replay.dataEnd === slots.B.replay.dataEnd
       && slots.A.replay.assessment?.model === slots.B.replay.assessment?.model
     : true
+  const differentTiming = slots.A && slots.B && lthTimingComparisonKey(slots.A.replay.assessment?.minuteTiming) !== lthTimingComparisonKey(slots.B.replay.assessment?.minuteTiming)
   const differentExecution = slots.A && slots.B && (
     slots.A.replay.engineVersion !== slots.B.replay.engineVersion
     || slots.A.calculationMode !== slots.B.calculationMode
@@ -450,6 +452,7 @@ export function StrategyResearchResults({
       {assessment?.limitations.map((limitation, index) => (
         <Typography key={`${index}:${limitation}`} variant="caption" display="block">{limitation}</Typography>
       ))}
+      {isLeveragedReplay && replay.sourceInterval === '1m' && <LthMinuteTimingPanel value={assessment?.minuteTiming} />}
     </Alert>
   )
 
@@ -537,6 +540,7 @@ export function StrategyResearchResults({
         <Box sx={{ p: 1.25, border: 1, borderColor: 'divider', borderRadius: 1 }} data-testid="strategy-ab-comparison">
           <Typography variant="caption" fontWeight={700} display="block" sx={{ mb: 0.75 }}>저장된 A/B 실험 비교</Typography>
           {!comparable && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 데이터 source/봉/기간이 달라 직접 비교할 수 없습니다.</Alert>}
+          {differentTiming && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 시각 진단 버전·봉 표기·시간대 또는 검증 가정이 다릅니다. 진단 정보가 없는 이전 결과와 직접 비교하지 마세요.</Alert>}
           {strategyId.startsWith('ma_cross') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 MA 교차 파라미터가 다릅니다. 입력 관측 MA와 완료 일봉 진입 조건을 함께 확인하세요.</Alert>}
           {strategyId.startsWith('consecutive_move') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 전략 파라미터가 다릅니다. 진입 필터 조건을 함께 확인하세요.</Alert>}
           {strategyId.startsWith('momentum') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 Momentum 파라미터가 다릅니다. 진입 모드·재무장 간격을 확인하세요.</Alert>}
@@ -563,6 +567,7 @@ export function StrategyResearchResults({
                     {saved?.strategyId.startsWith('mean_reversion') && <MeanReversionPolicySummary params={saved.params} />}
                     {saved?.strategyId.startsWith('deviation') && <DeviationPolicySummary params={saved.params} />}
                     {saved && <AccountingAssumptionSummary value={saved.backtest.assumptions} />}
+                    {saved && isLeveragedReplay && saved.replay.sourceInterval === '1m' && <LthMinuteTimingPanel value={saved.replay.assessment?.minuteTiming} compact />}
                     {savedUnavailable ? (
                       <Typography variant="body2" color="text.secondary">평가 모델 정보 부족 · 성과 비교 불가</Typography>
                     ) : saved ? (

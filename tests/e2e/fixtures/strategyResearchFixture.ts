@@ -91,6 +91,7 @@ type MockOptions = {
   leveragedPreviewDelayMs?: number
   leveragedLegacy?: boolean
   leveragedZero?: boolean
+  leveragedTiming?: import('../../../src/api/types').LthMinuteTiming
   activeBroker?: 'kis' | 'toss'
   previewRequests?: unknown[]
   genericPreviewRequests?: unknown[]
@@ -494,10 +495,12 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
           ...mockResearchResult(body, String(body.interval ?? '1m')),
           replay: {
             ...mockResearchResult(body, String(body.interval ?? '1m')).replay,
+            lookAheadSafe: false,
             ...(!options.leveragedLegacy ? { assessment: {
               model: body.interval === '1d' ? 'dailyDiagnostic' : 'intradaySample',
               performanceStatus: body.interval === '1d' || options.leveragedZero ? 'notEvaluable' : 'sampleOnly',
               dailyContextBars: body.interval === '1d' ? 3 : 0, intradayBars: body.interval === '1d' || options.leveragedZero ? 0 : 3,
+              ...(body.interval !== '1d' && options.leveragedTiming ? { minuteTiming: options.leveragedTiming } : {}),
               timestampStatus: 'unverified', sessionStatus: 'unverified', limitations: ['시각·세션 검증 전 표본'],
             } } : {}),
           },
