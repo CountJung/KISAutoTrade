@@ -910,3 +910,7 @@ RSI는 exact전략소유수량/원가·known/unknown age와pending진입origin�
 CompletedDailyBar의 OHLC·Option volume는 같은 완료 봉으로 전달한다. raw 검증 전에 legacy0 변환을 거친 값에서 유효성을 복원하지 않는다. 완료 history의 scope/date/generation·512 상한과 기본 hooks의 정확한1회 forwarding을 보존한다. 현재 일봉 결정·실제 체결 피드백 뒤 완료 자료를 게시하며 다른 전략의 지표를 중복 초기화하지 않는다.
 
 실패 anchor는 fill 평균가·buffer 문턱과 다르다. nextOpen 신호 뒤0 snapshot을 anchor 삭제로 해석하지 않고 첫 실제 체결에서 후보를 확정한다. pending 해제보다 체결 동기화를 먼저 처리한다. v1/v2·unknown·옵션과 진단은 [IPC](ipc-commands.md#v19-돌파-실패-완료-자료와-실제-소유-보호)를 따른다. 공용 TR 추출은 기존 positive atr14 wrapper와 합산 순서를 유지한다.
+
+### StrongClose의 완료 시장일과 소유 보호
+
+기본1봉 또는 추세N봉을 기존 coordinator에 요청한다. `ticket.market_date`는 검증된 시장 평가일이며 OHLC 동일성·봉 수·호스트 날짜로 대신하지 않는다. 새 dated 기본 hook은 기존 완료자료 hook을 한 번만 전달하고 StrongClose만 새날 seed와 같은 날 context 교체를 구분한다. 자료 invalidation/late legacy는 날짜 소비·실수량/원가·보유 나이/peak/armed를 지우거나 소비된 후보를 재무장하지 않는다. 현재 완료봉은 실제 체결 피드백 이후 다음 조건에만 게시한다. [IPC v20](ipc-commands.md#v20-강한-종가-실제-소유와-이전-완료-일봉)·[작업](tasks/strong-close-policy-20261022.md).

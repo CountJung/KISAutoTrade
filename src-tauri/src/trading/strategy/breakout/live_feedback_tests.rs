@@ -43,7 +43,7 @@ fn live_feedback_strong_close_consumes_candidate_only_after_buy_fill() {
         strategy.on_live_tick("SOXQ", 100, 0),
         Signal::Buy { .. }
     ));
-    assert!(!strategy.states["SOXQ"].in_position);
+    assert!(strategy.states["SOXQ"].owned_quantity == 0);
     assert!(strategy.states["SOXQ"].pending_buy);
     assert!(matches!(
         strategy.on_live_tick("SOXQ", 101, 0),
@@ -55,8 +55,8 @@ fn live_feedback_strong_close_consumes_candidate_only_after_buy_fill() {
         strategy.on_live_tick("SOXQ", 90, 0),
         Signal::Sell { .. }
     ));
-    assert!(strategy.states["SOXQ"].in_position);
-    assert_eq!(strategy.states["SOXQ"].entry_price, Some(100));
+    assert!(strategy.states["SOXQ"].owned_quantity > 0);
+    assert_eq!(strategy.states["SOXQ"].avg_price, 100);
 }
 
 #[test]

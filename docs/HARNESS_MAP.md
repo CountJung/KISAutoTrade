@@ -240,3 +240,7 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 전략·driver·완료 history/manager·owner/configuration의 focused 테스트와 전체 Rust를 확인한다. 가격 관측/완료 고가·미래 HLCV 불변, TR gap/0/마지막15, volume unknown/실0/평균0/ratio 경계, atomic1회 forwarding, nextOpen0→첫실fill anchor 승격·거절/부분/v1v2·age/peak·scope/저장 실패를 검증한다.
 
 `npx playwright test tests/e2e/strategy-failed-breakout-policy.spec.ts`는 기본·엄격 입력/쌍설정·두 preview/A-B·준비 진단·일봉 필터의 분봉 거부/보호만 분봉 허용·재시도/늦은 응답/새 초안·모바일을 mock으로 검증한다. [설계](research/failed-breakout-policy-20261022/design.json)의42연속/42동일경로분할/504독립분기와 부모·독립 정산은 [연구](research/failed-breakout-policy-20261022/report.md)·[작업](tasks/failed-breakout-policy-20261022.md)에 기록하며 실제 주문/provider 검증으로 확대하지 않는다.
+
+### P2-08 강한 종가
+
+`cargo test --offline strong_close`의 실수량/원가/잔량·기본 stop0·복원/거절/부분/재설정·preview prefix/분할과 manager 새날/같은 날/실패/late legacy·stale scope/generation fixture를 확인한다. dated 기본 hook의 타 전략1회 전달도 검증한다. `tests/e2e/strategy-strong-close-policy.spec.ts`에서 raw/쌍·저장/두 preview/A-B·daily-only·늦은 응답/취소·활성 잠금/새 초안·모바일을 확인하고 전체 Rust/UI·타입/빌드/FSD·graph/map/TODO 게이트를 유지한다. [사전 설계](research/strong-close-policy-20261022/design.json)는30연속/30분할/360분기이며 실운용·미관측 OOS로 승격하지 않는다.

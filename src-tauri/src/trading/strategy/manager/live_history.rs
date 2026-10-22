@@ -308,7 +308,11 @@ impl StrategyManager {
         let Some(strategy) = strategy else {
             return false;
         };
-        strategy.apply_completed_daily_bars(&ticket.symbol, &valid);
+        strategy.apply_completed_daily_bars_for_market_day(
+            &ticket.symbol,
+            &ticket.market_date.to_string(),
+            &valid,
+        );
         let readiness = strategy.completed_daily_history_readiness(&ticket.symbol);
         let entry = self
             .daily_history

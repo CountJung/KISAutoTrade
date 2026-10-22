@@ -51,14 +51,15 @@ fn reconfigure_strong_close_preserves_stop_but_discards_old_entry_candidate() {
     next.order_quantity = 7;
     next.target_symbols.push("NEW".into());
     assert!(strategy.reconfigure_preserving_position(next));
-    assert!(strategy.states["SOXQ"].in_position);
-    assert_eq!(strategy.states["SOXQ"].entry_price, Some(100));
+    assert!(strategy.states["SOXQ"].owned_quantity > 0);
+    assert_eq!(strategy.states["SOXQ"].avg_price, 100);
     assert!(!strategy.states["SOXQ"].pending_buy);
     assert!(!strategy.states.contains_key("NEW"));
     assert!(matches!(
         strategy.on_tick("SOXQ", 97, 0),
-        Signal::Sell { quantity: 7, .. }
+        Signal::Sell { quantity: 2, .. }
     ));
+    strategy.sync_position("SOXQ", 0, 0);
     strategy.initialize_candles("SOXQ", &[(100, 100)]);
     assert!(strategy.states["SOXQ"].pending_buy);
     let next = strategy.config().clone();

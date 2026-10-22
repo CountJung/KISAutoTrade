@@ -1,0 +1,130 @@
+{
+  "source": "../strategy-review-20261018/input.json",
+  "sourceSha256": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+  "evaluationStart": "20230103",
+  "evaluationEnd": "20251231",
+  "evaluationBarsPerSymbol": 752,
+  "historyBars": 252,
+  "costBps": [
+    10,
+    20
+  ],
+  "initialCapitalKrw": 10000000,
+  "exchangeRateKrw": 1450,
+  "taxBps": 0,
+  "executionModel": "nextOpen",
+  "dividendScenario": [],
+  "fxScenario": [],
+  "stopLossPct": 0,
+  "takeProfitPct": 0,
+  "partitions": [
+    "12 calendar-quarter chunks",
+    "500+252 bars"
+  ],
+  "matchedPathReference": "Fixed accepted share quantities/timing; previous close to current open gap PnL plus current open to close PnL at fixed FX. Equals final equity plus recorded fees/tax/slippage. Not an independent signal benchmark, cost-free rerun or same percentage exposure.",
+  "declaredAt": "2026-10-22T22:04:55.240943+09:00",
+  "declaredBeforeCandidateRuns": true,
+  "baselineCommit": "ac9d7d0e432b2e992aba58fce68187de18777fa5",
+  "plannedEngineVersion": "strategy-replay-v20",
+  "configs": [
+    {
+      "symbol": "SOXQ",
+      "strategyId": "strong_close",
+      "orderQuantity": 51,
+      "params": {
+        "threshold_pct": 3.0,
+        "stop_loss_pct": 3.0
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "19.91"
+    },
+    {
+      "symbol": "SPY",
+      "strategyId": "strong_close",
+      "orderQuantity": 2,
+      "params": {
+        "threshold_pct": 3.0,
+        "stop_loss_pct": 3.0
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "382.43"
+    },
+    {
+      "symbol": "QQQ",
+      "strategyId": "strong_close",
+      "orderQuantity": 3,
+      "params": {
+        "threshold_pct": 3.0,
+        "stop_loss_pct": 3.0
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "266.28"
+    }
+  ],
+  "variants": [
+    {
+      "id": "legacy",
+      "engine": "baseline",
+      "params": {}
+    },
+    {
+      "id": "owned",
+      "engine": "current",
+      "params": {}
+    },
+    {
+      "id": "trend200",
+      "engine": "current",
+      "params": {
+        "long_trend_period": 200
+      }
+    },
+    {
+      "id": "profit5trail3",
+      "engine": "current",
+      "params": {
+        "profit_activation_pct": 5.0,
+        "profit_trailing_pct": 3.0
+      }
+    },
+    {
+      "id": "hold63",
+      "engine": "current",
+      "params": {
+        "max_hold_observations": 63
+      }
+    }
+  ],
+  "expectedContinuousRuns": 30,
+  "expectedAlternatePartitionRuns": 30,
+  "expectedIndependentQuarterResetRuns": 360,
+  "policy": {
+    "defaults": "threshold_pct3/stop_loss_pct3 unchanged. Prior high-close distance (H-C)/H*100<=threshold; valid flat high=close qualifies, no bullish body/volume implication. Original stop0 is active at/below actual average, never disabled. New four optional numbers omitted/0disabled. No operating settings changed.",
+    "owned": "Actual confirmed remaining quantity/native average only, no optimistic state changes on signals. All Sell use actual remaining q. Original pending condition retries on unfilled/guard refusal/live pending suppression; consume on first positive actual fill. Separate original prior-condition pending and physical-order/entry-age proof. Reset clears all, reconfigure preserves held protections but discards old entry eligibility as before; physical pending proof must survive. Exact owner/account/market boundaries unchanged.",
+    "publication": "Daily D-1 completed H/C condition -> D close observation signal -> D+1 next observed open fill. Not next-day opening entry. Keep P1-03 current-bar publication after actual fill feedback. Live first eligible quote can be earlier, so replay/live cadence not identical.",
+    "trend": "long_trend_period0..512 integer, candidate observed price strictly greater than arithmetic mean of prior N completed DAILY closes; current candidate H/L/C/V never enter prior context. Use completed_daily::mean_close. Context max512; held exits continue if context unavailable. Original pending eligible condition required in addition to trend. No observation quote/intraday seed masquerading as completed DAILY.",
+    "profit": "profit_activation_pct finite0..1000/profit_trailing_pct finite0..99.9; both0off or bothpositive. Actual average +5% observed price arms once. Keep armed until actualflat; observed peak only owned quote/close observations, not pre-entry/current-bar high. Sell actualremaining at price<=owned observed peak*(1-trail/100). Sameq/partial/warmup/reconfigure/known checkpoint preserve peak/armed.",
+    "age": "max_hold_observations integer0..1000000. Actual first fill age0, following owned observation1. Age counted while disabled, preserve sameq/partial/warmup/reconfigure/known restore. Cold existing owned without age proof unknown; active cap next-owned observation offers conservative exit, never fabricated age0. Observation limit not days/guaranteed actual holding-time bound.",
+    "priority": "Original actual-native stop -> profit pullback -> age cap. Preserve original lossPct>=stopPct including stop0. Sustained condition after actual order guard refusal/partial, shared guard/clamp/risk unchanged.",
+    "metadata": "New strict version1 kindstrongClose metadata for known/unknown age, candidate first-fill proof, observedPeak/profitArmed; require exact fields/kind/types/contradiction checks before atomic publication. No previous StrongClose metadata format exists. Never derive old age/peak/arm from average or historical high. Market-day identity belongs to live source context, not the owner quantity authority.",
+    "liveDailyCorrection": "Separate accuracy fix, not an economic candidate/OOS/live approval. Always opt into completed daily coordinator with required max(1,trendN). Invalidated/failed/stale/legacy unverified history blocks Buy only. New default apply_completed_daily_bars_for_market_day(symbol,marketDay,bars) forwards existing apply_completed_daily_bars exactly once for all other strategies; manager calls only after existing scope/profile/account/market/date/generation/OHLC/freshness guards. Only StrongClose uses verified ticket.market_date identity. New marketDay reseeds prior completed H/C eligibility while same-day refresh replaces context without rearming consumed eligibility or erasing unfilled original proof. Keep last market day/consumption/owned protections across invalidation, failure and late legacy warmup; no OHLC-hash/host-day inference. Unverified legacy initialize_candles must not overwrite a known dated entry decision. No new daily trade quota/flat restart limit; do not claim persistence of flat-day quota.",
+    "validation": "New optional fields strict save/bounded/continuous; reject null/string/bool/fractional integer/NaN/out-of-range/unpaired protection. Damaged optional runtime blocks Buy but preserves valid custom legacy fields and held exits. Existing strong_close daily-only generic restriction preserved. Optional trend entry preparation uses existing DTO/cadence/status; no new broker/API/order/IPC command.",
+    "fixtures": "Default high-close boundary/flat/invalid bar and stop0 semantics; actual ownership vs configuredq/partial/native avg; original live unfilled retries and same-zero; first fill proof/pending restore; rejection sustained exits; reconfigure/reset/unknown metadata; long200 current exclusion/insufficient history; owned-only peak/arm; priority/cap; future prefix/partition; manager new day/same-day refresh/failure/legacy invalidation/late stale profile/scope/generation; default hook exactly once for non-target strategies; common guard/ATR sizing unchanged; strictsave/bothpreview/UI currentAB/raw unknown/lock/cancel/late/save-draft/mobile."
+  },
+  "limitations": [
+    "Retrospective diagnostic on previously inspected frozen prices, not unseen OOS or preregistration. Thresholds fixed before this candidate run; no grid/combinations or retuning after observing returns.",
+    "3correlated ETFs, small trades, fixedFX/no dividends, uncertified market calendar/corporate actions. Same requested quantities need not match actual exposure.",
+    "Continuous2023-2025 and12reset quarters are different capital/state experiments, never add/compound reset accounts. 2026default1224 compatibility includes observed future study data, not candidate OOS.",
+    "Actual production Rust strategy/replay only; synthetic fixtures separate; no broker/account/order calls.",
+    "Live day-coordinator correction is covered by synthetic scope/day fixtures only; no live provider or account verification. Original daily replay D-1 to D-close to D+1-open retained."
+  ]
+}

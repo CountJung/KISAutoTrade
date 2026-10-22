@@ -12,8 +12,8 @@ mod sequence;
 mod state;
 
 pub use breakout::{
-    FiftyTwoWeekHighParams, FiftyTwoWeekHighStrategy, StrongCloseParams, StrongCloseStrategy,
-    VolatilityExpansionParams, VolatilityExpansionStrategy,
+    validate_strong_close_params, FiftyTwoWeekHighParams, FiftyTwoWeekHighStrategy,
+    StrongCloseParams, StrongCloseStrategy, VolatilityExpansionParams, VolatilityExpansionStrategy,
 };
 pub use classic::{
     validate_deviation_entry_params, validate_momentum_entry_params, validate_rsi_params,

@@ -58,8 +58,12 @@ export const STRATEGY_PARAM_META: Record<string, StrategyParamMeta[]> = {
     { key: 'max_hold_observations', label: '돌파 최대 보유 관측 수', min: 0, max: 1000000, step: 1, description: '0 비활성 · 실제 양수 체결 뒤 관측 수. 일수나 보장 보유시간이 아님' },
   ],
   strong_close: [
-    { key: 'threshold_pct', label: '강한 종가 기준 (%)', min: 0.5, max: 10, step: 0.1, description: '종가가 고가 대비 이 % 이내이면 실제로 강한 종가로 판단 (기본 3.0)' },
-    { key: 'stop_loss_pct', label: '손절 기준 (%)', min: 1, max: 10, step: 0.1, description: '매수가 대비 이 % 이상 하락 시 손절 (기본 3.0)' },
+    { key: 'threshold_pct', label: '강한 종가 기준 (%)', min: 0.5, max: 10, step: 0.1, description: '이전 완료 일봉 (고가−종가)/고가×100 ≤ 기준 (기본 3.0). 양봉·상승률 조건 아님' },
+    { key: 'stop_loss_pct', label: '손절 기준 (%)', min: 0, max: 10, step: 0.1, description: '실제 종목 통화 평균가 대비 관측 손실률 ≥ 기준 (기본 3.0). 0도 평균가 이하 청산' },
+    { key: 'long_trend_period', label: '강한 종가 진입 완료 일봉 추세 MA 기간', min: 0, max: 512, step: 1, description: '0 비활성 · 현재 후보 가격 > 이전 완료 일봉 N종가의 산술평균, 현재 관측 제외' },
+    { key: 'profit_activation_pct', label: '강한 종가 수익 보호 시작 (%)', min: 0, max: 1000, step: 0.1, description: '실제 평균 매수가 대비 이익률 이상에서 한 번 무장. 되밀림과 함께 양수 또는 둘 다 0' },
+    { key: 'profit_trailing_pct', label: '강한 종가 수익 보호 되밀림 (%)', min: 0, max: 99.9, step: 0.1, description: '실제 보유 중 관측 최고가 대비 되밀림률 이상이면 실제 잔량 전량 매도 후보' },
+    { key: 'max_hold_observations', label: '강한 종가 최대 보유 관측 수', min: 0, max: 1000000, step: 1, description: '0 비활성 · 실제 양수 체결 뒤 관측 횟수. 일수·보장 보유시간이 아님' },
   ],
   volatility_expansion: [
     { key: 'lookback_days', label: '평균 기간 (거래일)', min: 3, max: 60, step: 1, description: '평균 변동폭 계산에 사용할 과거 거래일 수 (기본 10)' },
@@ -88,7 +92,7 @@ export const STRATEGY_DESCRIPTION: Record<string, string> = {
   fifty_two_week_high: '최근 252 거래일(1년) 최고가를 재돌파하면 매수. 매수 후 지정 % 하락 시 손절. 자동매매 시작 시 KIS 차트 API로 초기화됨.',
   consecutive_move: 'N회 연속 가격관측 상승 시 매수, M회 연속 하락 시 매도. 실시간은 약10초 관측, replay는 선택 봉 종가이며 N일을 뜻하지 않는다. 선택 진입 필터는 모두 충족해야 하며 기존 보유 청산에는 적용하지 않는다.',
   failed_breakout: '기본은 이전 N가격관측 최대값 돌파 매수, 실제 보유에서 진입 전 기준 고점 미만이면 잔량 매도 후보. 선택 이전 완료 일봉 고가·ATR·거래량과 수익 보호·보유 관측 상한은 기본 비활성이다. 신호는 체결이 아니며 관측 수는 일수가 아니다.',
-  strong_close: '자동매매 시작 시 전일 종가가 고가 대비 N% 이내여서 강하게 마감하면 당일 첫 틱에 매수. 매수 후 지정 % 하락 시 손절.',
+  strong_close: '이전 완료 일봉의 (고가−종가)/고가×100 ≤ 기준에서 미보유 매수 후보. 양봉·상승률 조건이 아니며 고가=종가도 통과한다. 실제 평균가 손절과 선택 완료 일봉 추세·수익 보호·보유 관측 상한을 확인한다. 기본 기준3·손절3을 유지하며 새 네 옵션만 누락/0 비활성이다.',
   volatility_expansion: '당일 변동폭(고-저)이 최근 N거래일 평균 변동폭의 K배 이상이며 현재가 > 시가인 경우 매수. 장중 변동성 폭발 구간에 상승 방향으로 편승. 매수 후 지정 % 하락 시 손절.',
   mean_reversion: '현재 관측을 포함한 볼린저 하단 미만에서 매수하고 기본 상단 초과 또는 선택 중심선 초과에서 보유 청산. 기본 기간20·표준편차2·손절5를 유지한다. 선택 추세·보유 상한의 0만 비활성이며 기존 손절 0은 원가 이하 손절이다.',
   trend_filter: '장기 MA(기본 200일) 위에서 단기 MA(5일)가 중기 MA(20일)를 상회할 때만 매수(이중 추세 확인). 현재가가 장기 MA 아래로 하락하면 추세 반전으로 판단하여 청산. 자동매매 시작 시 과거 종가로 버퍼 적재.',

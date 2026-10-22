@@ -455,7 +455,7 @@ fn reset(&mut self) {
 | 52주신고가(5) | `FiftyTwoWeekState` | `prev_price`, `high_52w`, `buy_price` |
 | 연속상승(6) | `ConsecutiveMoveState` | `prices`, `in_position` |
 | 돌파실패(7) | `FailedBreakoutState` | 실제 수량·원가, 후보/확정 anchor, 관측 나이·최고가·수익 무장, 완료 OHLCV 맥락 |
-| 강한종가(8) | `StrongCloseState` | `pending_buy`, `entry_price` |
+| 강한종가(8) | `StrongCloseState` | 실제 수량·원가, 이전 H/C 후보·시장일·준비, 보유 나이·관측 최고가·무장 |
 | 변동성확장(9) | `VolatilityExpansionState` | `avg_range` (reset 후 유지) |
 | 평균회귀(10) | `MeanReversionState` | `prices`(reset 후 유지), actual q/native entry, 보유 age/candidate, live trend |
 | 추세필터(11) | `TrendFilterState` | `prices` (reset 후 유지) |
@@ -1336,3 +1336,11 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - observation bounded integer/advance/sync age만 재사용하고 anchor/armed/v2 정책은 FailedBreakout에 남긴다. 실제 원가·보유 관측 peak만 사용하고 failure→profit→cap·거절시 지속 후보·unknown age/단위를 UI와 동기화한다. [작업](../../../docs/tasks/failed-breakout-policy-20261022.md)·[연구](../../../docs/research/failed-breakout-policy-20261022/report.md).
 
 > 마지막 업데이트: 2026-10-22T21:22:25+09:00
+
+## StrongClose v20 실제 소유·완료 날짜·선택 보호
+
+- 기본 threshold3/stop3·`(H-C)/H*100<=threshold`와 stop0의 원가 이하 청산을 보존한다. 실제 q/native avg와 잔량 Sell을 사용하며 원래 조건 재제안과 실제 fill 소비를 구분한다.
+- 추세는 이전 완료 N일봉 종가 평균의 엄격 상회다. always-required1 또는 N coordinator는 검증된 시장 날짜를 전달하고 same-day 재조회/new-day seed를 분리한다. invalidation/late legacy는 날짜 소비·미체결 증거·보유 보호를 지우거나 후보를 재무장하지 않는다. dated 기본 hook은 기존 hook1회 전달이다.
+- 정수/advance/sync age와 완료 mean만 공유한다. peak는 실제 보유 관측이며 stop→profit→cap, unknown은 unknown으로 둔다. strict kindstrongClose checkpoint와 저장/두 preview/UI를 동기화한다. 새 선택0과 원래 stop0 활성 의미를 혼동하지 않는다. [작업](../../../docs/tasks/strong-close-policy-20261022.md)·[연구](../../../docs/research/strong-close-policy-20261022/report.md).
+
+> 마지막 업데이트: 2026-10-22T22:15:36+09:00

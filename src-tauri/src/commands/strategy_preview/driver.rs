@@ -22,6 +22,11 @@ pub(super) fn run_prepared_preview(
             code: "INVALID_STRATEGY_PARAMS".into(),
             message,
         })?;
+    crate::trading::strategy::validate_strong_close_params(&input.strategy_id, &input.params)
+        .map_err(|message| CmdError {
+            code: "INVALID_STRATEGY_PARAMS".into(),
+            message,
+        })?;
     if input.strategy_id.starts_with("failed_breakout")
         && !daily
         && (input
@@ -247,7 +252,9 @@ pub(super) fn run_prepared_preview(
                 strategy.sync_position(&symbol, snapshot.0, snapshot.1);
                 synchronized_position = snapshot;
             }
-            if input.strategy_id.starts_with("failed_breakout") {
+            if input.strategy_id.starts_with("failed_breakout")
+                || input.strategy_id.starts_with("strong_close")
+            {
                 strategy.set_order_pending(&symbol, session.has_pending_signal());
             }
             if daily {
@@ -268,7 +275,9 @@ pub(super) fn run_prepared_preview(
                 strategy.sync_position(&symbol, snapshot.0, snapshot.1);
                 synchronized_position = snapshot;
             }
-            if input.strategy_id.starts_with("failed_breakout") {
+            if input.strategy_id.starts_with("failed_breakout")
+                || input.strategy_id.starts_with("strong_close")
+            {
                 strategy.set_order_pending(&symbol, session.has_pending_signal());
             }
             simulation_events.push(event);

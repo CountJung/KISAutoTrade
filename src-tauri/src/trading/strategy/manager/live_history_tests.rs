@@ -735,3 +735,5 @@ fn completed_volume_history_is_atomic_scoped_and_does_not_change_owned_protectio
         Signal::Sell { quantity: 5, .. }
     ));
 }
+#[path = "strong_close_history_tests.rs"]
+mod strong_close;

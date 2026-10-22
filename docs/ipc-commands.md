@@ -95,7 +95,7 @@
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v19`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations, minuteTiming?}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v20`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations, minuteTiming?}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
 전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
@@ -392,3 +392,13 @@ completedHigh는 이전N 완료 일봉 고가다. ATR 문턱은 기존 % 문턱�
 entryFilterPreparation의 선택 breakoutBasis/volumeRejections/priorVolumeRatio/priorAtr는 FailedBreakout에만 제공한다. status unverifiedVolume/zeroReferenceVolume와 기존 준비 상태를 구분한다. candidates는 미보유에서 선택 anchor의 원래 % 문턱을 넘은 수이며, 고가 미준비 때 가격 anchor는 unready 집계에만 사용한다. 통과는 체결이 아니다.
 
 실제 평균가 대비 activation 상승에서 한 번 무장한 뒤 실보유 관측 peak 대비 trailing 되밀림에서 청산 후보를 낸다. failure→profit→cap 순서, 조건 지속·실잔량에서는 재후보이며 거절을 체결로 취급하지 않는다. known age는 실제 fill뒤0/다음 관측1, 미상 age는 활성 cap에서 다음 보유 관측 보수적 후보로 남는다. 관측은 일수·실제 보유시간 상한이 아니며 수익 보호도 손익을 보장하지 않는다. [작업](tasks/failed-breakout-policy-20261022.md), [단독 비교](research/failed-breakout-policy-20261022/report.md).
+
+### v20 강한 종가: 실제 소유와 이전 완료 일봉
+
+기존 `threshold_pct=3`, `stop_loss_pct=3`을 유지한다. 조건은 이전 완료 고가 대비 종가 거리 `(H-C)/H*100<=threshold_pct`이며 평탄봉도 포함한다. `stop_loss_pct=0`은 비활성이 아니라 실제 평균가 이하 청산이다. 모든 매도 후보는 실제 잔량을 사용하고 신호로 보유·원가를 선반영하지 않는다.
+
+새 선택값은 `long_trend_period` 정수0..512, `profit_activation_pct` 유한수0..1000, `profit_trailing_pct` 유한수0..99.9, `max_hold_observations` 정수0..1000000이다. 생략/0은 비활성이며 수익 보호 두 값은 모두0 또는 모두 양수다. 저장·두 preview는 raw 타입/범위를 엄격히 검사한다. 손상된 선택값은 runtime Buy만 보류하고 유효 기존 손절·실보유 보호를 유지한다. 기존 일봉 전용 제한을 유지한다.
+
+추세는 현재 제외 이전 완료 N일봉 종가 평균을 관측가가 엄격히 상회하는지 확인한다. 활성 추세의 `entryFilterPreparation`는 기존 cadence/상태·필요/확보 일봉·후보/준비 보류/추세 거부/통과를 사용하고 sizing ATR과 구분한다. 실제 원가 대비 관측 수익으로 한 번 무장한 뒤 실제 보유 관측 최고가의 되밀림을 평가한다. 진입 전/현재 봉 전체 high는 peak가 아니다. 손절→수익 보호→관측 한도 순서이며 unknown 나이에 활성 한도는 다음 관측의 보수적 후보를 낸다. 거절/부분/동량·warmup/재설정이 보유 보호를 초기화하지 않는다. 새 strict metadata `kind=strongClose`는 기원 미확인을 꾸미지 않는다.
+
+일봉 nextOpen은 D-1 조건→D종가 신호→D+1 관측 시가 체결이며 live 첫 eligible quote와 다르다. live coordinator의 유효 시장일에서만 이전 H/C를 seed하고 같은 날 재조회는 소비 후보를 재무장하지 않는다. 지연·조회 실패·미검증 legacy는 Buy만 보류하며 held 보호는 유지한다. 새 하루 전체 quota나 flat 재시작 제한을 뜻하지 않는다. [작업](tasks/strong-close-policy-20261022.md)·[연구](research/strong-close-policy-20261022/report.md).

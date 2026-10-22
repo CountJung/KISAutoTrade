@@ -840,3 +840,5 @@ mod rsi;
 
 #[path = "tests/failed_breakout.rs"]
 mod failed_breakout;
+#[path = "tests/strong_close.rs"]
+mod strong_close;

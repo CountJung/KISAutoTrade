@@ -59,8 +59,8 @@ fn strong_close_completed_day_uses_actual_position_and_keeps_stop_loss() {
     let mut strategy = StrongCloseStrategy::new(config(serde_json::json!({})));
     strategy.sync_position("SOXQ", 1, 100);
     strategy.on_completed_candle("SOXQ", &candle(95, 100, 90, 99));
-    assert!(strategy.states["SOXQ"].in_position);
-    assert_eq!(strategy.states["SOXQ"].entry_price, Some(100));
+    assert!(strategy.states["SOXQ"].owned_quantity > 0);
+    assert_eq!(strategy.states["SOXQ"].avg_price, 100);
     assert!(!strategy.states["SOXQ"].pending_buy);
     strategy.on_trading_day_start("SOXQ", 95);
     assert!(matches!(
@@ -71,7 +71,7 @@ fn strong_close_completed_day_uses_actual_position_and_keeps_stop_loss() {
     strategy.sync_position("SOXQ", 1, 100);
     strategy.on_completed_candle("SOXQ", &candle(94, 94, 94, 94));
     assert!(!strategy.states["SOXQ"].pending_buy);
-    assert_eq!(strategy.states["SOXQ"].entry_price, Some(100));
+    assert_eq!(strategy.states["SOXQ"].avg_price, 100);
 }
 
 #[test]

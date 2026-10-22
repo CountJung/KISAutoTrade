@@ -259,6 +259,15 @@ pub trait Strategy: Send + Sync {
             &bars.iter().map(|b| b.ohlc).collect::<Vec<_>>(),
         );
     }
+    /// Verified market-day identity is supplied only after coordinator ticket guards.
+    fn apply_completed_daily_bars_for_market_day(
+        &mut self,
+        symbol: &str,
+        _market_day: &str,
+        bars: &[CompletedDailyBar],
+    ) {
+        self.apply_completed_daily_bars(symbol, bars);
+    }
     fn on_completed_daily_bar(&mut self, symbol: &str, bar: &CompletedDailyBar) {
         self.on_completed_candle(symbol, &bar.ohlc);
     }

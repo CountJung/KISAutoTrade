@@ -38,6 +38,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | Live 완료 일봉 준비·거래량 | `commands/trading/daily_history.rs`, `daily_history/jobs.rs` | `trading/strategy/{core,manager/live_history}.rs`, `src/shared/ui/LiveDailyHistoryPanel.tsx`, TradingStatus |
 | 전략 | `src-tauri/src/trading/strategy/` | `commands/strategy.rs`, `commands/strategy_preview.rs`, Strategy UI |
 | RSI 실제 소유·선택 보호 | `trading/strategy/classic/rsi.rs`, `classic/rsi/params.rs` | `strategy/observation.rs`, `configuration/tests/rsi.rs`, `order/feedback/tests/rsi.rs`, `strategy_preview/rsi_entry_tests.rs`, `rsiControls.tsx`, `docs/research/rsi-policy-20261022/` |
+| 강한 종가 완료 시장일·실제 소유·선택 보호 | `trading/strategy/breakout/strong_close.rs`, `strong_close/{params,context,protection}.rs` | `strategy/{core,manager/live_history}.rs`, `manager/strong_close_history_tests.rs`, `configuration/tests/strong_close.rs`, `strategy_preview/strong_close_entry_tests.rs`, `strongClose{Controls,Preparation}.tsx`, `tests/e2e/strategy-strong-close-policy.spec.ts`, `docs/research/strong-close-policy-20261022/` |
 | 돌파 실패 실제 소유·선택 진입/보호 | `trading/strategy/sequence/failed_breakout.rs`, `failed_breakout/{params,context,protection}.rs` | `strategy/{core,completed_daily,manager/live_history}.rs`, `configuration/tests/failed_breakout.rs`, `strategy_preview/failed_breakout_entry_tests.rs`, `failedBreakout{Controls,Preparation}.tsx`, `tests/e2e/strategy-failed-breakout-policy.spec.ts`, `docs/research/failed-breakout-policy-20261022/` |
 | Replay 체결 모델·연구 보호 청산 | `trading/simulation/{session,execution_tests}.rs`, `simulation.rs` | `commands/strategy_preview{,/generic}.rs`, `strategy/leveraged_trend_hold/preview.rs`, `strategyResearchPanel.tsx`, `tests/e2e/strategy-execution-model.spec.ts` |
 | Replay 손익·현금흐름·비교 | `trading/simulation/{accounting,comparison}.rs`, `simulation/session/accounting.rs` | `simulation/accounting_tests.rs`, `src/shared/api/strategyResearchTypes.ts`, `strategyAccountingPanel.tsx`, `tests/e2e/strategy-accounting.spec.ts`, `docs/research/replay-accounting-20261018/` |
@@ -168,10 +169,44 @@ replay history 초기화→종가 판단/피드백→완료봉 게시가 같은 
 관측 한도 순으로 실제 잔량 Sell 후보를 내고, 미제출/거절·부분 체결·같은 scope
 설정 변경은 확정 기준과 알려진 보호 상태를 보존한다. `protection.rs`는 v2
 나이/관측 최고가/무장을 원자적으로 복원하고 v1의 미확인 값을 추정하지 않는다.
-두 preview는 v19 driver를 공유하며 완료 고가/ATR/거래량 활성 비일봉을 거부하고,
+두 preview는 현재 v20 driver를 공유하며 완료 고가/ATR/거래량 활성 비일봉을 거부하고,
 거래량 필터 활성 hash는 미확인과 검증된0을 구분한다. UI controls는 raw 초안과
 수익 보호 쌍을 검증하고 preparation은 현재/A-B에서 준비 미확인·거래량0·기준
 평균0·후보 통과를 구분한다. 통과는 실제 체결이 아니다.
+
+### 강한 종가의 완료 시장일·실제 소유와 선택 보호
+
+`strategy/breakout.rs`는 공개 facade이며 실제 StrongClose는
+`breakout/strong_close.rs`와 `strong_close/{params,context,protection}.rs`다.
+기존 기준3/손절3·(고가−종가)/고가 조건과 평탄봉 통과를 유지한다. 손절0은
+평균가 이하 청산이고 새 추세/수익 보호 쌍/보유 관측4옵션만 누락/0 비활성이다.
+추세는 현재가가 이전 N완료 일봉 종가 평균보다 엄격히 높은지 검사하며 최대512개
+context에 현재봉을 미리 게시하지 않는다.
+
+StrongClose는 항상 max(1,추세N) 완료 일봉을 요구한다. live jobs의 자료가 기존
+scope/profile/config/generation/시장 날짜·OHLC/freshness를 통과하면 manager가
+검증된 ticket 시장일을 `core.rs`의 dated apply 훅에 전달한다. 기본 훅은 다른
+전략의 기존 apply로 한 번 위임하고 StrongClose만 새 시장일의 전일 조건을
+seed한다. 같은 날 재조회는 context만 교체하며 소비한 조건을 재무장하지 않는다.
+실패/무효화/늦은 legacy 초기화에도 날짜 소비와 보유 보호를 유지하고 신규 Buy만
+보류한다. OHLC 동일성·호스트 날짜로 시장일을 추측하거나 flat 재시작 quota를
+추가하지 않는다.
+
+실제 소유 q/native 평균가와 pending 후보를 분리하며 원래 손절→보유 관측
+최고가의 수익 보호→보유 관측 cap 순으로 실제 잔량 Sell 후보를 낸다. 거절·부분
+체결·같은 scope 설정은 알려진 나이/고점/무장을 보존한다. strict v1
+kind=strongClose metadata는 미확인 나이/고점/무장을 만들어내지 않으며 나이
+미확인·cap 활성은 다음 보유 관측에 보수적 청산 후보를 낸다.
+
+v20 공통 driver는 선택 params를 strict 검증하고 기존 일봉 전용·실제 체결 피드백
+뒤 완료봉 게시 순서를 유지한다. D-1조건→D종가 신호→D+1관측 시가(nextOpen)는
+live 첫 적격 관측과 다르다. controls/preparation은 raw/stored 편집·수익 보호 쌍과
+현재/A-B 준비/후보 진단·legacy 미확인을 표시한다. 생산 실행기·기록 정산·작동
+집계와 `independent-audit.json`의 기록390원장 독립 정산은
+`docs/research/strong-close-policy-20261022/`에 둔다. 분할30개는 생산 assertion·입력
+hash 연결이며 미저장 대체 원장 독립 정산과 구분하고 live 날짜 fixture도 과거
+연구 성과와 분리한다. [작업](tasks/strong-close-policy-20261022.md)과
+[연구](research/strong-close-policy-20261022/report.md)에서 최종 검증 범위를 확인한다.
 
 ### RSI 소유 피드백·관측과 교차
 

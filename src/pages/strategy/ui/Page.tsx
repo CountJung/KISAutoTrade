@@ -42,6 +42,7 @@ import { ConsecutiveEntryControls, consecutiveEntryParamError, isConsecutiveEntr
 import { MomentumEntryControls, isMomentumEntryParam, momentumEntryParamError } from './momentumEntryControls'
 import { FailedBreakoutControls, isFailedBreakoutPolicyParam, failedBreakoutPolicyError } from './failedBreakoutControls'
 import { RsiControls, isRsiPolicyParam, rsiPolicyError } from './rsiControls'
+import { StrongCloseControls, isStrongClosePolicyParam, strongClosePolicyError } from './strongCloseControls'
 import { MaCrossEntryControls, isMaCrossEntryParam, maCrossEntryParamError } from './maCrossEntryControls'
 import { MeanReversionControls, isMeanReversionPolicyParam, meanReversionPolicyError } from './meanReversionControls'
 import { DeviationControls, isDeviationPolicyParam, deviationPolicyError } from './deviationControls'
@@ -302,7 +303,7 @@ export default function Strategy() {
     if (editMap[id]) return editMap[id]
     const numericParams: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(s.params)) {
-      numericParams[k] = (id.startsWith('failed_breakout') && isFailedBreakoutPolicyParam(k)) || (id.startsWith('rsi') && isRsiPolicyParam(k)) || (id.startsWith('ma_cross') && (isMaCrossEntryParam(k) || k === 'short_period' || k === 'long_period')) || (id.startsWith('consecutive_move') && isConsecutiveEntryParam(k)) || (id.startsWith('momentum') && isMomentumEntryParam(k)) || (id.startsWith('deviation') && isDeviationPolicyParam(k)) || (id.startsWith('mean_reversion') && isMeanReversionPolicyParam(k)) ? v : typeof v === 'number' ? v : Number(v)
+      numericParams[k] = (id.startsWith('failed_breakout') && isFailedBreakoutPolicyParam(k)) || (id.startsWith('rsi') && isRsiPolicyParam(k)) || (id.startsWith('strong_close') && isStrongClosePolicyParam(k)) || (id.startsWith('ma_cross') && (isMaCrossEntryParam(k) || k === 'short_period' || k === 'long_period')) || (id.startsWith('consecutive_move') && isConsecutiveEntryParam(k)) || (id.startsWith('momentum') && isMomentumEntryParam(k)) || (id.startsWith('deviation') && isDeviationPolicyParam(k)) || (id.startsWith('mean_reversion') && isMeanReversionPolicyParam(k)) ? v : typeof v === 'number' ? v : Number(v)
     }
     return { symbols: s.targetSymbols, quantity: s.orderQuantity, params: numericParams }
   }
@@ -688,8 +689,8 @@ export default function Strategy() {
         {(strategies ?? []).map((s) => {
           const edit = getEdit(s.id, s)
           const sType = getStrategyType(s.id)
-          const paramMetas = (STRATEGY_PARAM_META[sType] ?? []).filter((meta) => (sType !== 'failed_breakout' || !isFailedBreakoutPolicyParam(meta.key)) && (sType !== 'rsi' || !isRsiPolicyParam(meta.key)) && (sType !== 'ma_cross' || !isMaCrossEntryParam(meta.key)) && (sType !== 'consecutive_move' || !isConsecutiveEntryParam(meta.key)) && (sType !== 'momentum' || !isMomentumEntryParam(meta.key)) && (sType !== 'deviation' || !isDeviationPolicyParam(meta.key)) && (sType !== 'mean_reversion' || !isMeanReversionPolicyParam(meta.key)))
-          const entryError = sType === 'failed_breakout' ? failedBreakoutPolicyError(edit.params) : sType === 'rsi' ? rsiPolicyError(edit.params) : sType === 'ma_cross' ? maCrossEntryParamError(edit.params) : sType === 'consecutive_move' ? consecutiveEntryParamError(edit.params) : sType === 'momentum' ? momentumEntryParamError(edit.params) : sType === 'deviation' ? deviationPolicyError(edit.params) : sType === 'mean_reversion' ? meanReversionPolicyError(edit.params) : null
+          const paramMetas = (STRATEGY_PARAM_META[sType] ?? []).filter((meta) => (sType !== 'failed_breakout' || !isFailedBreakoutPolicyParam(meta.key)) && (sType !== 'rsi' || !isRsiPolicyParam(meta.key)) && (sType !== 'strong_close' || !isStrongClosePolicyParam(meta.key)) && (sType !== 'ma_cross' || !isMaCrossEntryParam(meta.key)) && (sType !== 'consecutive_move' || !isConsecutiveEntryParam(meta.key)) && (sType !== 'momentum' || !isMomentumEntryParam(meta.key)) && (sType !== 'deviation' || !isDeviationPolicyParam(meta.key)) && (sType !== 'mean_reversion' || !isMeanReversionPolicyParam(meta.key)))
+          const entryError = sType === 'failed_breakout' ? failedBreakoutPolicyError(edit.params) : sType === 'strong_close' ? strongClosePolicyError(edit.params) : sType === 'rsi' ? rsiPolicyError(edit.params) : sType === 'ma_cross' ? maCrossEntryParamError(edit.params) : sType === 'consecutive_move' ? consecutiveEntryParamError(edit.params) : sType === 'momentum' ? momentumEntryParamError(edit.params) : sType === 'deviation' ? deviationPolicyError(edit.params) : sType === 'mean_reversion' ? meanReversionPolicyError(edit.params) : null
           const stratDesc = STRATEGY_DESCRIPTION[sType]
           const pcInitialSymbols = (s.params['symbols'] as PriceConditionSymbolConfig[] | undefined) ?? []
           const lthInitialEntries = (s.params['entries'] as LeveragedTrendHoldEntry[] | undefined) ?? []
@@ -942,7 +943,7 @@ export default function Strategy() {
                           label={meta.label}
                           type="number"
                           title={meta.description}
-                          value={edit.params[meta.key] ?? 0}
+                          value={edit.params[meta.key] ?? (sType === 'strong_close' ? 3 : 0)}
                           onChange={(e) => setParam(s.id, s, meta.key, Number(e.target.value))}
                           size="small"
                           fullWidth
@@ -953,6 +954,7 @@ export default function Strategy() {
                     ))}
                   </Grid>
                   {sType === 'failed_breakout' && <FailedBreakoutControls params={edit.params} disabled={s.enabled} onChange={(key, value) => setParam(s.id, s, key, value)} />}
+                  {sType === 'strong_close' && <StrongCloseControls params={edit.params} disabled={s.enabled} onChange={(key, value) => setParam(s.id, s, key, value)} />}
                   {sType === 'rsi' && <RsiControls params={edit.params} disabled={s.enabled} onChange={(key, value) => setParam(s.id, s, key, value)} />}
                   {sType === 'ma_cross' && <MaCrossEntryControls params={edit.params} disabled={s.enabled} onChange={(key, value) => setParam(s.id, s, key, value)} />}
                   {sType === 'mean_reversion' && <MeanReversionControls params={edit.params} disabled={s.enabled} onChange={(key, value) => setParam(s.id, s, key, value)} />}
