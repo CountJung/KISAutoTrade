@@ -155,6 +155,10 @@ impl EntryContext {
             passed_candidates: self.counters.passed,
             slope_rejections: None,
             bandwidth_rejections: None,
+            volume_rejections: None,
+            breakout_basis: None,
+            prior_volume_ratio: None,
+            prior_atr: None,
         }
     }
     pub(super) fn accept_candidate(

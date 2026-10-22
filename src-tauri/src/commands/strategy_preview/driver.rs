@@ -3,7 +3,10 @@ use super::continuous::ChunkContinuityView;
 use super::generic::{signal_to_preview_view, PreviewRow};
 use super::*;
 use crate::trading::simulation::ExecutionModel;
-use crate::trading::strategy::{build_strategy, initialize_strategy_warmup};
+use crate::trading::strategy::{
+    build_strategy, initialize_strategy_warmup_with_daily_bars, parse_completed_daily_volume,
+    CompletedDailyBar,
+};
 
 pub(super) fn run_prepared_preview(
     input: StrategyPreviewInput,
@@ -14,6 +17,35 @@ pub(super) fn run_prepared_preview(
 ) -> CmdResult<(StrategyPreviewView, Vec<ChunkContinuityView>)> {
     let interval = input.interval.as_deref().unwrap_or("1d").to_string();
     let daily = matches!(interval.as_str(), "D" | "1d");
+    crate::trading::strategy::validate_failed_breakout_params(&input.strategy_id, &input.params)
+        .map_err(|message| CmdError {
+            code: "INVALID_STRATEGY_PARAMS".into(),
+            message,
+        })?;
+    if input.strategy_id.starts_with("failed_breakout")
+        && !daily
+        && (input
+            .params
+            .get("breakout_basis")
+            .and_then(serde_json::Value::as_str)
+            == Some("completedHigh")
+            || ["atr_buffer_multiplier", "min_volume_ratio"]
+                .iter()
+                .any(|key| {
+                    input
+                        .params
+                        .get(*key)
+                        .and_then(serde_json::Value::as_f64)
+                        .is_some_and(|v| v > 0.0)
+                }))
+    {
+        return Err(CmdError {
+            code: "UNSUPPORTED_ENTRY_FILTER_INTERVAL".into(),
+            message:
+                "돌파 진입 확인은 이전 완료 일봉 자료를 요구합니다. 일봉(D/1d) replay를 선택하세요."
+                    .into(),
+        });
+    }
     crate::trading::strategy::validate_rsi_params(&input.strategy_id, &input.params).map_err(
         |message| CmdError {
             code: "INVALID_STRATEGY_PARAMS".into(),
@@ -83,6 +115,12 @@ pub(super) fn run_prepared_preview(
     {
         return Err(CmdError {code:"UNSUPPORTED_ENTRY_FILTER_INTERVAL".into(), message:"ATR/장기 MA 진입 확인은 직전 완료 일봉 맥락을 요구합니다. 일봉(D/1d) replay를 선택하세요.".into()});
     }
+    let hash_daily_volume = input.strategy_id.starts_with("failed_breakout")
+        && input
+            .params
+            .get("min_volume_ratio")
+            .and_then(serde_json::Value::as_f64)
+            .is_some_and(|v| v > 0.0);
     let data_source = input
         .data_source
         .clone()
@@ -147,9 +185,16 @@ pub(super) fn run_prepared_preview(
             .map(|(_, ohlc, _)| *ohlc)
             .collect::<Vec<_>>();
         if matches!(interval.as_str(), "1m" | "M1") {
-            initialize_strategy_warmup(strategy.as_mut(), &symbol, &[], &ohlc);
+            initialize_strategy_warmup_with_daily_bars(strategy.as_mut(), &symbol, &[], &ohlc);
         } else {
-            initialize_strategy_warmup(strategy.as_mut(), &symbol, &ohlc, &[]);
+            let bars = history_rows
+                .iter()
+                .map(|(candle, ohlc, _)| CompletedDailyBar {
+                    ohlc: *ohlc,
+                    volume: parse_completed_daily_volume(&candle.volume),
+                })
+                .collect::<Vec<_>>();
+            initialize_strategy_warmup_with_daily_bars(strategy.as_mut(), &symbol, &bars, &[]);
         }
     }
 
@@ -202,6 +247,9 @@ pub(super) fn run_prepared_preview(
                 strategy.sync_position(&symbol, snapshot.0, snapshot.1);
                 synchronized_position = snapshot;
             }
+            if input.strategy_id.starts_with("failed_breakout") {
+                strategy.set_order_pending(&symbol, session.has_pending_signal());
+            }
             if daily {
                 strategy.on_trading_day_start(&symbol, ohlc.open);
             }
@@ -220,9 +268,18 @@ pub(super) fn run_prepared_preview(
                 strategy.sync_position(&symbol, snapshot.0, snapshot.1);
                 synchronized_position = snapshot;
             }
+            if input.strategy_id.starts_with("failed_breakout") {
+                strategy.set_order_pending(&symbol, session.has_pending_signal());
+            }
             simulation_events.push(event);
             if daily {
-                strategy.on_completed_candle(&symbol, ohlc);
+                strategy.on_completed_daily_bar(
+                    &symbol,
+                    &CompletedDailyBar {
+                        ohlc: *ohlc,
+                        volume: parse_completed_daily_volume(&candle.volume),
+                    },
+                );
             }
             if strategy
                 .history_readiness(&symbol)
@@ -270,10 +327,19 @@ pub(super) fn run_prepared_preview(
         .iter()
         .chain(replay_chunks.iter().flatten())
         .map(|(candle, ohlc, volume)| {
-            format!(
+            let base = format!(
                 "{}:{}:{}:{}:{}:{}",
                 candle.date, ohlc.open, ohlc.high, ohlc.low, ohlc.close, volume
-            )
+            );
+            if hash_daily_volume {
+                format!(
+                    "{base}:dailyVolume={}",
+                    parse_completed_daily_volume(&candle.volume)
+                        .map_or_else(|| "unknown".into(), |v| v.to_string())
+                )
+            } else {
+                base
+            }
         })
         .collect::<Vec<_>>()
         .join("|");

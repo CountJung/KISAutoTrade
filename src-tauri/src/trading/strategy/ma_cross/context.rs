@@ -91,6 +91,10 @@ impl EntryContext {
             trend_rejections: self.counters.trend,
             slope_rejections: Some(self.counters.slope),
             bandwidth_rejections: Some(self.counters.bandwidth),
+            volume_rejections: None,
+            breakout_basis: None,
+            prior_volume_ratio: None,
+            prior_atr: None,
             passed_candidates: self.counters.passed,
         }
     }

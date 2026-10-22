@@ -4,7 +4,7 @@ import type { EntryFilterPreparation } from '../../../api/types'
 import { maCrossEntryFiltersDisabled } from './maCrossEntryControls'
 
 const statusLabels: Record<EntryFilterPreparation['status'], string> = {
-  ready: '준비 완료', insufficientHistory: '완료 자료 부족', invalidParams: '잘못된 설정', unsupportedObservation: '관측 형식 미지원', zeroAtr: 'ATR 0 상태 · 응답 확인 필요',
+  unverifiedVolume: '완료 거래량 미확인', zeroReferenceVolume: '기준 거래량 평균 0', ready: '준비 완료', insufficientHistory: '완료 자료 부족', invalidParams: '잘못된 설정', unsupportedObservation: '관측 형식 미지원', zeroAtr: 'ATR 0 상태 · 응답 확인 필요',
 }
 export function MaCrossEntryPreparation({ value, params, compact = false }: { value?: EntryFilterPreparation; params: Record<string, unknown>; compact?: boolean }) {
   if (!value && maCrossEntryFiltersDisabled(params)) return <Alert severity="info" sx={{ py: 0.5 }} data-testid="ma-cross-entry-preparation">

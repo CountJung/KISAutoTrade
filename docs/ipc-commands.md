@@ -95,7 +95,7 @@
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v18`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations, minuteTiming?}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v19`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations, minuteTiming?}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
 전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
@@ -380,3 +380,15 @@ RSI는 기존 period14/oversold30/overbought70 단순평균 계산과 교차 기
 선택 `long_trend_period`는 정수0..512, `stop_loss_pct`는 유한0..99.9, `max_hold_observations`는 정수0..1000000이다. 누락/0은 비활성이며 null/문자열/bool/소수정수/범위초과는 저장과 공통 bounded/continuous driver에서 거부한다. runtime optional 손상은 custom legacy RSI와 보유 청산을 보존하며 신규 Buy만 차단한다. 추세는 현재제외 이전N 입력가격 평균을 현재가가 엄격히 상회해야 한다. live 첫 관측의 새 추세 사전자료만 비우므로 입력관측N은 일수N이 아니다.
 
 청산은 실제평균가 손실≥손절률 → 알려진보유관측≥한도/미상나이 보수적후보 → 기존 과매수 하향교차 순서다. stop/cap은 차단/부분체결뒤 조건지속·잔량양수에서 다시후보를내며 공통guard/리스크를유지한다. 최초양수체결뒤age0/다음관측1, 같은수량·부분매도·warmup·reconfigure는age를지우지않는다. origin없는복원은unknown, 정확한owner v1 kind=rsi metadata로만알려진age를복원한다. RSI준비/추세부족은기존보유보호를막지않는다. UI/current/A-B는실제params와관측단위·기본0·미확인보관결과를표시한다. [작업](tasks/rsi-policy-20261022.md), [단독 비교](research/rsi-policy-20261022/report.md).
+
+### v19 돌파 실패: 완료 자료와 실제 소유 보호
+
+기존 lookback20/buffer0.5·이전 가격 최대·floor % 문턱과 실패 price<anchor를 유지한다. 실제 수량·원가와 후보/확정 anchor를 구분하고, 미체결 0 snapshot·거절·부분체결·재설정이 실제 flat 전에 확정 anchor를 지우지 않는다. 모든 Sell은 실제 잔량이며 기존 guard/clamp/risk를 유지한다. 원래 v1 failedBreakout anchor 읽기를 보존하고 v2 age·관측 peak·profit armed는 별도로 검증한다. v1에 없는 보호 증거를 만들어내지 않는다.
+
+선택 params는 breakout_basis=priceObservations|completedHigh(기본 priceObservations), atr_buffer_multiplier 유한0..20, min_volume_ratio 유한0..100, profit_activation_pct 유한0..1000, profit_trailing_pct 유한0..99.9, max_hold_observations 정수0..1000000이다. 숫자 누락/0은 off이며 profit 두 값은 둘0 또는 둘 양수여야 한다. 저장·두 preview에서 null/string/bool/소수 정수·범위를 엄격 검증한다. runtime 손상은 custom legacy와 유효 보유 청산을 보존하며 새 Buy를 차단한다. 완료 DAILY 옵션 활성 비일봉 preview는 거부하며 보호만 활성은 원래 주기를 유지한다.
+
+completedHigh는 이전N 완료 일봉 고가다. ATR 문턱은 기존 % 문턱과 anchor+이전14TR평균×배수의 max이며, 0ATR도 정상 준비 값이다. volume는 직전 완료 일봉량÷그 이전20 완료 일봉평균으로 21개 prior가 필요하다. atomic CompletedDailyBar는 OHLC와 raw에서 파싱한 Option volume를 같은 봉으로 보존한다. unknown과 정상0, 평균0을 구분하고 현재 봉 HLCV나 live 누적량을 과거 자료로 사용하지 않는다. 새 기본 hooks는 기존 warmup/apply/complete를 정확히1회 forward한다.
+
+entryFilterPreparation의 선택 breakoutBasis/volumeRejections/priorVolumeRatio/priorAtr는 FailedBreakout에만 제공한다. status unverifiedVolume/zeroReferenceVolume와 기존 준비 상태를 구분한다. candidates는 미보유에서 선택 anchor의 원래 % 문턱을 넘은 수이며, 고가 미준비 때 가격 anchor는 unready 집계에만 사용한다. 통과는 체결이 아니다.
+
+실제 평균가 대비 activation 상승에서 한 번 무장한 뒤 실보유 관측 peak 대비 trailing 되밀림에서 청산 후보를 낸다. failure→profit→cap 순서, 조건 지속·실잔량에서는 재후보이며 거절을 체결로 취급하지 않는다. known age는 실제 fill뒤0/다음 관측1, 미상 age는 활성 cap에서 다음 보유 관측 보수적 후보로 남는다. 관측은 일수·실제 보유시간 상한이 아니며 수익 보호도 손익을 보장하지 않는다. [작업](tasks/failed-breakout-policy-20261022.md), [단독 비교](research/failed-breakout-policy-20261022/report.md).

@@ -42,11 +42,14 @@ async fn targets(manager: &Arc<Mutex<StrategyManager>>) -> Vec<DailyHistoryTicke
 fn history(count: usize) -> CollectedDailyHistory {
     CollectedDailyHistory {
         candles: vec![
-            OhlcCandle {
-                open: 9_000,
-                high: 10_000,
-                low: 8_000,
-                close: 9_000
+            crate::trading::strategy::CompletedDailyBar {
+                ohlc: OhlcCandle {
+                    open: 9_000,
+                    high: 10_000,
+                    low: 8_000,
+                    close: 9_000
+                },
+                volume: None
             };
             count
         ],

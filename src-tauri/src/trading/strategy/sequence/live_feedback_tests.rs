@@ -35,7 +35,7 @@ fn live_feedback_breakout_freezes_pending_signal_anchor_until_first_fill() {
         strategy.on_live_tick("SOXQ", 101, 0),
         Signal::Buy { .. }
     ));
-    assert!(!strategy.states["SOXQ"].in_position);
+    assert_eq!(strategy.states["SOXQ"].owned_quantity, 0);
     assert_eq!(strategy.states["SOXQ"].candidate_prev_high, Some(100));
     strategy.set_order_pending("SOXQ", true);
     strategy.on_live_tick("SOXQ", 110, 0);
@@ -47,7 +47,7 @@ fn live_feedback_breakout_freezes_pending_signal_anchor_until_first_fill() {
         strategy.on_live_tick("SOXQ", 99, 0),
         Signal::Sell { .. }
     ));
-    assert!(strategy.states["SOXQ"].in_position);
+    assert!(strategy.states["SOXQ"].owned_quantity > 0);
     assert_eq!(strategy.states["SOXQ"].breakout_prev_high, Some(100));
     strategy.sync_owned_position("SOXQ", 1, 108);
     assert_eq!(strategy.states["SOXQ"].breakout_prev_high, Some(100));

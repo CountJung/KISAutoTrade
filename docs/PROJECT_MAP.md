@@ -35,9 +35,10 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | broker 공통 계약 | `src-tauri/src/broker/domain.rs`, `adapter.rs` | `kis.rs`, `toss/adapter.rs`, `rate_limit.rs` |
 | 캔들 페이지/일반 preview 사전자료 | `src-tauri/src/commands/candles.rs`, `broker/candles.rs` | `api/rest/chart.rs`, `src/shared/api/candlePageTypes.ts`, `pages/strategy/model/candlePageCollector.ts`, `server/market.rs` |
 | 자동매매 시작/데몬 | `src-tauri/src/commands/trading.rs` / `commands/trading/daemon.rs` | `daemon/{fence,flow}.rs`, `commands/trading/{positions,balance,risk_restore,history,daily_history}.rs`, `lib.rs` |
-| Live 52주 완료 일봉 준비 | `commands/trading/daily_history.rs`, `daily_history/jobs.rs` | `trading/strategy/manager/live_history.rs`, `src/shared/ui/LiveDailyHistoryPanel.tsx`, TradingStatus |
+| Live 완료 일봉 준비·거래량 | `commands/trading/daily_history.rs`, `daily_history/jobs.rs` | `trading/strategy/{core,manager/live_history}.rs`, `src/shared/ui/LiveDailyHistoryPanel.tsx`, TradingStatus |
 | 전략 | `src-tauri/src/trading/strategy/` | `commands/strategy.rs`, `commands/strategy_preview.rs`, Strategy UI |
 | RSI 실제 소유·선택 보호 | `trading/strategy/classic/rsi.rs`, `classic/rsi/params.rs` | `strategy/observation.rs`, `configuration/tests/rsi.rs`, `order/feedback/tests/rsi.rs`, `strategy_preview/rsi_entry_tests.rs`, `rsiControls.tsx`, `docs/research/rsi-policy-20261022/` |
+| 돌파 실패 실제 소유·선택 진입/보호 | `trading/strategy/sequence/failed_breakout.rs`, `failed_breakout/{params,context,protection}.rs` | `strategy/{core,completed_daily,manager/live_history}.rs`, `configuration/tests/failed_breakout.rs`, `strategy_preview/failed_breakout_entry_tests.rs`, `failedBreakout{Controls,Preparation}.tsx`, `tests/e2e/strategy-failed-breakout-policy.spec.ts`, `docs/research/failed-breakout-policy-20261022/` |
 | Replay 체결 모델·연구 보호 청산 | `trading/simulation/{session,execution_tests}.rs`, `simulation.rs` | `commands/strategy_preview{,/generic}.rs`, `strategy/leveraged_trend_hold/preview.rs`, `strategyResearchPanel.tsx`, `tests/e2e/strategy-execution-model.spec.ts` |
 | Replay 손익·현금흐름·비교 | `trading/simulation/{accounting,comparison}.rs`, `simulation/session/accounting.rs` | `simulation/accounting_tests.rs`, `src/shared/api/strategyResearchTypes.ts`, `strategyAccountingPanel.tsx`, `tests/e2e/strategy-accounting.spec.ts`, `docs/research/replay-accounting-20261018/` |
 | 연속 replay·분기 리셋 비교 | `commands/strategy_preview/{continuous,driver}.rs` | `continuous_tests.rs`, `simulation/session.rs`, `continuousReplayPanel.tsx`, `candlePageCollector.ts`, `docs/research/continuous-replay-20261018/` |
@@ -146,6 +147,31 @@ Toss의 명시 금액과 누락을 구분하고 실제 평균가 대체 계산�
 명시 체결대금이 일치해야 하며, 미확정 자료를 체결로 만들어내지 않는다.
 
 공용 타입·IPC·주문·리스크의 다중 참조 추적에는 필요할 때 Serena를 선택한다. Graphify는 위 구조 자체를 이동·통합하는 리팩터링 때만 사용한다.
+
+### 돌파 실패의 가격관측·완료 일봉과 소유 보호
+
+`strategy/sequence.rs`는 공개 facade이고 `sequence/failed_breakout.rs`가
+기본 이전 N가격관측 최대값과 선택 이전 N완료 일봉 고가를 구분한다.
+`failed_breakout/params.rs`는 선택 기준·ATR/거래량·수익 보호 쌍·보유 관측
+한도를 검증하고, `context.rs`는 이전 완료 일봉 최대512개와 준비/후보 진단을
+소유한다. ATR은 이전15봉의 TR14, 거래량은 직전 완료량/그 이전20봉 평균이며
+현재 봉 고가·저가·거래량이나 live 누적량을 자신의 진입 확인에 쓰지 않는다.
+
+`core.rs`의 `CompletedDailyBar`는 OHLC와 `Option<u64>` 거래량을 함께
+전달한다. live 수집→jobs→manager의 ticket/freshness 검증→전략 apply와
+replay history 초기화→종가 판단/피드백→완료봉 게시가 같은 훅을 사용한다.
+기존 전략의 기본 훅은 OHLC 경로로 한 번 위임하고 거래량 미확인을0으로 만들지
+않는다. 공통 `completed_daily.rs`는0을 허용하는 TR14와 기존 양수 ATR14
+계약을 나누며 준비 정책은 전략 context에 남긴다.
+
+실제 양수 체결 피드백이 pending 진입 기준을 확정한다. 실패→수익 보호→보유
+관측 한도 순으로 실제 잔량 Sell 후보를 내고, 미제출/거절·부분 체결·같은 scope
+설정 변경은 확정 기준과 알려진 보호 상태를 보존한다. `protection.rs`는 v2
+나이/관측 최고가/무장을 원자적으로 복원하고 v1의 미확인 값을 추정하지 않는다.
+두 preview는 v19 driver를 공유하며 완료 고가/ATR/거래량 활성 비일봉을 거부하고,
+거래량 필터 활성 hash는 미확인과 검증된0을 구분한다. UI controls는 raw 초안과
+수익 보호 쌍을 검증하고 preparation은 현재/A-B에서 준비 미확인·거래량0·기준
+평균0·후보 통과를 구분한다. 통과는 실제 체결이 아니다.
 
 ### RSI 소유 피드백·관측과 교차
 

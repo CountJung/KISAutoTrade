@@ -75,7 +75,7 @@ fn live_feedback_manager_protection_metadata_requires_exact_owner_and_valid_chec
         Signal::Sell { .. }
     ));
     let mut malformed = checkpoint;
-    malformed["version"] = serde_json::json!(2);
+    malformed["version"] = serde_json::json!(3);
     assert!(after
         .restore_owned_position_metadata_for_strategy(
             "failed_breakout_fixture",

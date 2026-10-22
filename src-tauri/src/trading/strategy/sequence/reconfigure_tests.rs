@@ -47,6 +47,7 @@ fn reconfigure_failed_breakout_keeps_exact_reference_when_new_history_is_short()
         strategy.on_tick("SOXQ", 110, 0),
         Signal::Buy { .. }
     ));
+    strategy.sync_position("SOXQ", 7, 110);
     reject_scope_changes(&mut strategy);
     let mut next = strategy.config().clone();
     next.params = serde_json::json!({ "lookback_days": 100, "buffer_pct": 1.0 });
@@ -54,7 +55,7 @@ fn reconfigure_failed_breakout_keeps_exact_reference_when_new_history_is_short()
     next.order_quantity = 7;
     assert!(strategy.reconfigure_preserving_position(next));
     assert_eq!(strategy.states["SOXQ"].breakout_prev_high, Some(100));
-    assert!(strategy.states["SOXQ"].in_position);
+    assert!(strategy.states["SOXQ"].owned_quantity > 0);
     assert!(!strategy.states.contains_key("NEW"));
     assert!(matches!(
         strategy.on_tick("SOXQ", 99, 0),

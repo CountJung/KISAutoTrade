@@ -291,3 +291,7 @@ v17 MA cross는 기존 관측 교차를 보존하고 별도 bounded512 완료 �
 ## RSI 소유 피드백
 
 RSI의가격/이전RSI 상태에 exact전략소유 수량·원가와pending/known age를결합한다. 기존manager/주문피드백 경계로만소유를갱신하고공유계좌잔고를전략소유로합치지않는다. 기존교차조건의prev기준은매관측갱신하고추세는current제외이전입력가격을사용한다. 선택손절/보유한도는실잔량에후보를계속낼수있지만기존공통guard/risk·nextOpen이실제청산을결정한다. 세부옵션/복원/단위·기본값은[IPC](ipc-commands.md#rsi-v18-실제-소유선택-보호)와[연구](research/rsi-policy-20261022/report.md)를따른다.
+
+## 돌파 실패의 완료 자료·소유 보호
+
+기존 완료 일봉 수집/jobs/manager의 검증 ticket을 통해 atomic CompletedDailyBar(OHLC+Option volume)를 전달한다. 기본 forwarding은 타전략 warmup/완료 처리를 한 번만 호출한다. 선택 고가·ATR·거래량은 현재 봉이나 live 누적량을 미리 사용하지 않는다. 후보/확정 anchor와 실제 소유는 자료 context와 분리하고 실제 flat 전 거절·부분·재설정이 보호를 지우지 않는다. 원래 v1 anchor와 새 v2 age/peak/armed의 근거를 구분한다. [IPC 계약](ipc-commands.md#v19-돌파-실패-완료-자료와-실제-소유-보호)과 [연구](research/failed-breakout-policy-20261022/report.md)를 따른다.

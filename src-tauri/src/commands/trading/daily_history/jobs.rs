@@ -178,7 +178,7 @@ impl DailyHistoryJobs {
             for ticket in &entry.tickets {
                 match &result {
                     Ok(history) => {
-                        let accepted = manager.apply_daily_history(
+                        let accepted = manager.apply_daily_history_with_volume(
                             ticket,
                             &history.candles,
                             history.source.clone(),

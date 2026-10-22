@@ -454,7 +454,7 @@ fn reset(&mut self) {
 | 이격도(4) | `DeviationState` | 가격/추세 버퍼, 실제 수량·평균가, 보유 관측·교차 후보 |
 | 52주신고가(5) | `FiftyTwoWeekState` | `prev_price`, `high_52w`, `buy_price` |
 | 연속상승(6) | `ConsecutiveMoveState` | `prices`, `in_position` |
-| 돌파실패(7) | `FailedBreakoutState` | `breakout_prev_high` |
+| 돌파실패(7) | `FailedBreakoutState` | 실제 수량·원가, 후보/확정 anchor, 관측 나이·최고가·수익 무장, 완료 OHLCV 맥락 |
 | 강한종가(8) | `StrongCloseState` | `pending_buy`, `entry_price` |
 | 변동성확장(9) | `VolatilityExpansionState` | `avg_range` (reset 후 유지) |
 | 평균회귀(10) | `MeanReversionState` | `prices`(reset 후 유지), actual q/native entry, 보유 age/candidate, live trend |
@@ -1328,3 +1328,11 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 실filled/원가·평가자산/비용경로와rawsignal/blocked감소를분리한다. 선택3%/63관측은실제손실/보유시간보장아니다. [검증·기각](../../../docs/research/rsi-policy-20261022/report.md)과[작업](../../../docs/tasks/rsi-policy-20261022.md)을확인한다.
 
 > 마지막 업데이트: 2026-10-22T20:47:35+09:00
+
+## FailedBreakout v19 완료 자료·확정 anchor
+
+- 기존20/0.5/current 제외 가격max·floor%>=/실패price<anchor를 보존한다. 신호로 소유·확정 anchor를 바꾸지 않고 미체결0→첫actualfill 승격을 구분한다. 실제 flat 전 거절·부분·재설정이 anchor를 지우지 않는다. 실제 잔량 Sell·공통 guard/risk·v1 읽기와 v2 unknown 보호를 유지한다.
+- CompletedDailyBar의 OHLC/Option volume와 기본1회 forwarding·scope/date/generation/512 상한을 유지한다. 현재 봉HLCV/live누적량을 prior DAILY로 쓰지 않고 raw 유효성·unknown/실0/평균0을 구분한다. mean_true_range14는 마지막15/14TR 합산 순서를 유지하며 0허용, 기존 atr14는 positive wrapper로 MA/Consecutive 동등성을 유지한다.
+- observation bounded integer/advance/sync age만 재사용하고 anchor/armed/v2 정책은 FailedBreakout에 남긴다. 실제 원가·보유 관측 peak만 사용하고 failure→profit→cap·거절시 지속 후보·unknown age/단위를 UI와 동기화한다. [작업](../../../docs/tasks/failed-breakout-policy-20261022.md)·[연구](../../../docs/research/failed-breakout-policy-20261022/report.md).
+
+> 마지막 업데이트: 2026-10-22T21:22:25+09:00

@@ -4,7 +4,7 @@ import type { EntryFilterPreparation } from '../../../api/types'
 import { consecutiveEntryFiltersDisabled } from './consecutiveEntryControls'
 
 const statusLabels: Record<EntryFilterPreparation['status'], string> = {
-  ready: '준비 완료',
+  unverifiedVolume: '완료 거래량 미확인', zeroReferenceVolume: '기준 거래량 평균 0', ready: '준비 완료',
   insufficientHistory: '완료 자료 부족',
   invalidParams: '잘못된 설정',
   unsupportedObservation: '관측 형식 미지원',

@@ -147,6 +147,25 @@ KISAutoTrade/
 │   │   │   ├── summary.csv
 │   │   │   ├── validate.py
 │   │   │   └── validation.json
+│   │   ├── failed-breakout-policy-20261022/
+│   │   │   ├── aggregate.json
+│   │   │   ├── analyze.py
+│   │   │   ├── baseline-hashes.json
+│   │   │   ├── baseline-run-summary.json
+│   │   │   ├── baseline-source-validation.json
+│   │   │   ├── baseline_runner.rs
+│   │   │   ├── continuous-results.jsonl.gz
+│   │   │   ├── design.json
+│   │   │   ├── flat-failed-breakout-deltas.json
+│   │   │   ├── independent-audit.json
+│   │   │   ├── policy-observations.json
+│   │   │   ├── report.md
+│   │   │   ├── reset-results.jsonl.gz
+│   │   │   ├── run-summary.json
+│   │   │   ├── runner.rs
+│   │   │   ├── summary.csv
+│   │   │   ├── validate.py
+│   │   │   └── validation.json
 │   │   ├── ma-cross-filters-20261020/
 │   │   │   ├── aggregate.json
 │   │   │   ├── baseline-hashes.json
@@ -265,6 +284,7 @@ KISAutoTrade/
 │   │   ├── deviation-policy-20261020.md
 │   │   ├── documentation-layout-20261018.md
 │   │   ├── execution-run-reservation-20261018.md
+│   │   ├── failed-breakout-policy-20261022.md
 │   │   ├── frontend-hooks-split-20261018.md
 │   │   ├── holdings-publication-fence-20261018.md
 │   │   ├── live-completed-daily-history-20261018.md
@@ -408,6 +428,8 @@ KISAutoTrade/
 │   │   │   │   ├── consecutiveEntryPreparation.tsx
 │   │   │   │   ├── continuousReplayPanel.tsx
 │   │   │   │   ├── deviationControls.tsx
+│   │   │   │   ├── failedBreakoutControls.tsx
+│   │   │   │   ├── failedBreakoutPreparation.tsx
 │   │   │   │   ├── leveragedTrendHoldEditorPanel.tsx
 │   │   │   │   ├── leveragedTrendHoldPreviewChart.tsx
 │   │   │   │   ├── lthMinuteTimingPanel.tsx
@@ -585,6 +607,7 @@ KISAutoTrade/
 │   │   │   │   ├── deviation_entry_tests.rs
 │   │   │   │   ├── driver.rs
 │   │   │   │   ├── entry_filter_tests.rs
+│   │   │   │   ├── failed_breakout_entry_tests.rs
 │   │   │   │   ├── generic.rs
 │   │   │   │   ├── generic_tests.rs
 │   │   │   │   ├── ma_cross_entry_tests.rs
@@ -681,6 +704,7 @@ KISAutoTrade/
 │   │   ├── trading/
 │   │   │   ├── configuration/
 │   │   │   │   ├── tests/
+│   │   │   │   │   ├── failed_breakout.rs
 │   │   │   │   │   └── rsi.rs
 │   │   │   │   └── tests.rs
 │   │   │   ├── order/
@@ -816,7 +840,13 @@ KISAutoTrade/
 │   │   │   │   │   ├── consecutive/
 │   │   │   │   │   │   ├── context.rs
 │   │   │   │   │   │   └── tests.rs
+│   │   │   │   │   ├── failed_breakout/
+│   │   │   │   │   │   ├── context.rs
+│   │   │   │   │   │   ├── params.rs
+│   │   │   │   │   │   ├── protection.rs
+│   │   │   │   │   │   └── tests.rs
 │   │   │   │   │   ├── consecutive.rs
+│   │   │   │   │   ├── failed_breakout.rs
 │   │   │   │   │   ├── live_feedback_tests.rs
 │   │   │   │   │   └── reconfigure_tests.rs
 │   │   │   │   ├── breakout.rs
@@ -869,6 +899,7 @@ KISAutoTrade/
 │       ├── strategy-continuous-replay.spec.ts
 │       ├── strategy-deviation-policy.spec.ts
 │       ├── strategy-execution-model.spec.ts
+│       ├── strategy-failed-breakout-policy.spec.ts
 │       ├── strategy-ma-cross-filters.spec.ts
 │       ├── strategy-mean-reversion-policy.spec.ts
 │       ├── strategy-momentum-entry.spec.ts
@@ -982,8 +1013,10 @@ KISAutoTrade/
 | `pages/trading/ui/tossPanels.tsx` | 활성 Toss 프로파일의 holdings/시세 snapshot/차트/종목 유의사항/장 운영 상태, 주문 전 검증, 접수 주문 목록과 정정 UI |
 | `pages/strategy/ui/Page.tsx` | 활성 broker scope, 전략별 저장 broker/account scope 표시, 전략 활성화/대상 종목/전체 너비 카드/카드별 미리보기 route 조립. 일반·가격조건·LTH 저장 성공은 제출한 immutable 초안과 현재 초안의 identity가 같을 때만 정리하고 scope epoch가 달라진 응답은 현재 편집 상태에 적용하지 않음 |
 | `pages/strategy/ui/priceConditionEditorPanel.tsx` | 가격조건 전략의 종목별 수량·매수가·익절가·익절률·손절률 편집 테이블 |
-| `pages/strategy/ui/strategyMetadata.ts` | 일반 전략 파라미터 입력 메타, 전략 설명, strategy id 기반 타입 판별. Consecutive의 관측 횟수와 선택 진입3필드, Momentum 기본 level/선택 crossing·재무장 %p와 Deviation 진입 모드·장기/보유 관측 수·native 손절률, MeanReversion 청산 모드·장기/보유 관측 수와 기존 손절0, MA 교차의 기존 관측 기간과 완료 일봉 필터4개, RSI의 기존14/30/70 단순평균·진입 추세/손절/보유 관측3개의 단위·상한 설명을 소유 |
+| `pages/strategy/ui/strategyMetadata.ts` | 일반 전략 파라미터 입력 메타, 전략 설명, strategy id 기반 타입 판별. FailedBreakout의 기존20/0.5와 선택 기준·ATR/거래량·수익 보호 쌍·보유 관측, Consecutive의 관측 횟수와 선택 진입3필드, Momentum 기본 level/선택 crossing·재무장 %p와 Deviation 진입 모드·장기/보유 관측 수·native 손절률, MeanReversion 청산 모드·장기/보유 관측 수와 기존 손절0, MA 교차의 기존 관측 기간과 완료 일봉 필터4개, RSI의 기존14/30/70 단순평균·진입 추세/손절/보유 관측3개의 단위·상한 설명을 소유 |
 | `pages/strategy/ui/deviationControls.tsx` | 기본 level/선택 하향 crossing·직전 N관측 추세·보유 관측 한도·native 손절률 편집과 현재/A-B 요약. stored 타입·raw 소수 초안을 보존하며 엄격 유효성으로 저장/두 preview를 차단. live 약10초와 선택 replay 봉, live 추세 별도 준비·나이 불명 복원·보호 잔량 전량·nextOpen 갭을 안내 |
+| `pages/strategy/ui/failedBreakoutControls.tsx` | 기본 이전 가격관측/선택 완료 고가와 ATR·거래량·수익 보호 쌍·보유 관측의 raw/stored 편집·엄격 검증과 현재/A-B 요약. shared decimal/유한수 helper를 재사용하고 잘못된 타입·enum·쌍을 보존해 저장/두 preview를 차단. 실제 소유·실패 기준 보존·관측 단위·일봉 전용 필터·v1 복원 미확인을 안내 |
+| `pages/strategy/ui/failedBreakoutPreparation.tsx` | 현재/A-B의 이전 완료 OHLC·거래량 준비와 ATR/거래량 거부·후보 통과를 표시. 미확인 거래량·검증된0·기준 평균0·ATR0 준비를 구분하고 활성 legacy 진단 누락/미지원 형식은 미확인으로 유지. 수량 산정 ATR과 실제 체결 여부를 별도 안내 |
 | `pages/strategy/ui/rsiControls.tsx` | RSI 선택 추세 관측·native 손절률·최대 보유 관측의 raw/stored 초안·엄격 유효성 및 현재/A-B 요약. 기존 단순평균14/30/70·횡보 zero-loss100, 실제 소유와 Sell잔량, 원래 교차 소비/선택 보호 재시도·live 최초 추세 seed 분리·ageunknown·관측 단위/손실 상한 한계를 안내. shared decimal/유한수 helper를 사용하며 과거 엔진 요약을 보호 적용/체결 증거로 표시하지 않음 |
 | `pages/strategy/ui/meanReversionControls.tsx` | 기본 upperBand/선택 middleBand, 직전 N관측 추세·최대 보유 관측의 편집·엄격 검증과 현재/A-B 요약. stored enum/null/string·숫자 raw 초안을 보존해 저장/두 preview를 차단하고 shared decimal/유한수 helper를 재사용. strict 현재 포함 밴드, 기존 손절0, 실제 소유·부분 체결, live/일봉/1분 warmup 차이·관측 단위·청산 수량과 갭 한계를 안내 |
 | `pages/strategy/ui/momentumEntryControls.tsx` | 기본 level/선택 crossing과 재무장 %p 편집·현재/A-B 요약. stored enum/null/string을 원형 보존해 엄격 검증하고 crossing의 간격≤임계값을 확인. level에서는 유효 간격 초안을 보존하되 미사용을 표시하며 소수 raw state·필드 범위·crossing 관계는 local, decimal 파싱과 비강제 유한수/범위 판정은 shared helper를 사용 |
@@ -992,13 +1025,13 @@ KISAutoTrade/
 | `pages/strategy/ui/consecutiveEntryControls.tsx` | Consecutive 진입 필터 편집·가시 안내와 params 요약. 잘못된 stored 타입·빈칸·유한수/범위/정수 위반을 보존해 저장/preview를 차단하고, 로컬 raw state로 소수점 키보드 입력을 유지하며 유효값만 숫자로 전달 |
 | `pages/strategy/ui/consecutiveEntryPreparation.tsx` | 선택 진입 준비·완료 OHLC/TR 수·후보/거부/통과 진단을 수량 산정 ATR과 별도로 표시. current/saved params가 모두0이면 중립 비활성, 활성 필터의 진단 누락은 미확인 경고로 구분하며 통과를 체결로 세지 않음 |
 | `pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx` | 레버리지 추세 보유 전략의 ETF 검색/편집, 진입·반등·청산 파라미터, Toss 1분/일봉·50/100/200봉 preview와 계좌 scope/stale 응답 차단 |
-| `pages/strategy/ui/strategyPreviewPanel.tsx` | 일반/가격조건 전략 카드에서 `candlePageCollector`로 KIS 일/주/월봉 또는 Toss 1분/일봉을 순차 조회하고 요청 평가봉과 그 이전 사전자료를 나눠 편집값·비용 가정과 함께 `preview_strategy`에 전달. 실제 페이지 수·종료 사유·미완료/무효/중복 제외 수와 확보한 사전자료를 표시한다. 강한 종가·변동성 확장은 일봉 선택만 제공하고 날짜 이벤트와 선택한 연구 체결 모델의 가정을 안내한다. 실제 평가 기간·사전자료 수·준비 상태·평가 불가/조건 불충족/무체결을 표시하고 티커/봉/구간/파라미터/수량/broker/account/가정 변경 시 결과 무효화. 연속 일봉은 별도 수집/preview_strategy_continuous를 사용하고 응답 청크·평가/사전자료 수를 검증하며 가정·날짜·계좌 변경 또는 취소 뒤 오래된 결과를 게시하지 않는다. Consecutive ATR/MA 또는 MA 교차4필터 활성 비일봉과 잘못된 진입 필터 draft는 계산을 차단하며 entryFilterPreparation을 공통 결과에 전달 |
+| `pages/strategy/ui/strategyPreviewPanel.tsx` | 일반/가격조건 전략 카드에서 `candlePageCollector`로 KIS 일/주/월봉 또는 Toss 1분/일봉을 순차 조회하고 요청 평가봉과 그 이전 사전자료를 나눠 편집값·비용 가정과 함께 `preview_strategy`에 전달. 실제 페이지 수·종료 사유·미완료/무효/중복 제외 수와 확보한 사전자료를 표시한다. 강한 종가·변동성 확장은 일봉 선택만 제공하고 날짜 이벤트와 선택한 연구 체결 모델의 가정을 안내한다. 실제 평가 기간·사전자료 수·준비 상태·평가 불가/조건 불충족/무체결을 표시하고 티커/봉/구간/파라미터/수량/broker/account/가정 변경 시 결과 무효화. 연속 일봉은 별도 수집/preview_strategy_continuous를 사용하고 응답 청크·평가/사전자료 수를 검증하며 가정·날짜·계좌 변경 또는 취소 뒤 오래된 결과를 게시하지 않는다. FailedBreakout 완료 고가/ATR/거래량·Consecutive ATR/MA 또는 MA 교차4필터 활성 비일봉과 잘못된 진입 필터 draft는 계산을 차단하며 entryFilterPreparation을 공통 결과에 전달 |
 | `pages/strategy/ui/continuousReplayPanel.tsx` | 단기/연속 날짜 범위 선택·기본 최근 3년 요청과 자료 수집 진행/보류·실제 범위·누락 한계 표시. 연속 API가 반환한 청크별 시작/종료 수량·대기 신호를 공급 경계로 표시하며 분기 리셋·독립 실험으로 해석하지 않음 |
-| `pages/strategy/ui/strategyResearchPanel.tsx` | 초기자본·수수료·세금·슬리피지·환율·리스크·학습구간 입력, 수익률/MDD/승률/손익비/turnover/exposure, 원시 신호와 주문 가능/체결 구분, equity curve, 거래 목록, in/out-of-sample, A/B 비교 UI. LTH assessment에 따라 일봉·관측 부족·과거 평가 정보 없는 결과의 성과 표시와 저장/비교를 차단하고, 분봉은 기간 전체 성과와 구분한 표본으로 안내. 연구 전용 ATR 수량 산정 토글·위험 예산·손절 배수 입력과 전략 지표 준비와 별도인 ATR 준비/미준비·과거 응답의 미확인 상태를 표시. sameClose/nextOpen, 봉 내부 미검증/손절 우선, 연구 손절·익절 가정과 신호 공개/체결 단계·미체결·동시 도달 진단을 표시한다. 이전 응답의 누락 정보는 미확인으로 유지하고 A/B에 엔진·가정 차이를 안내하며 운용 설정을 변경하지 않음. Consecutive 선택 진입 진단과 params를 A/B에 보존하고 진입 조건 차이·활성 legacy 진단 누락을 표시. Momentum은 두 진입 params와 모드/간격 요약·조건 차이를 현재 결과/A-B에 보존하고 표시. Deviation은 진입·추세·보유 관측·손절 params와 요약·조건 차이를 현재 결과/A-B에 보존하고 표시. MeanReversion은 청산 모드·추세·보유 관측·기존 손절 params 요약과 A/B 조건 차이를 표시. MA 교차는 params·선택 진입 준비/거부 진단·조건 차이를 현재 결과/A-B에 보존하고 표시. RSI는 기존 core·선택3params를 현재/A-B에 요약하고 조건 차이를 경고한다. 전용 LTH1분의 선택 minuteTiming을 현재/A-B에 표시하고 버전·봉 표기·시간대·검증 가정 차이를 경고하며 기존 assessment 성과 gate는 유지 |
+| `pages/strategy/ui/strategyResearchPanel.tsx` | 초기자본·수수료·세금·슬리피지·환율·리스크·학습구간 입력, 수익률/MDD/승률/손익비/turnover/exposure, 원시 신호와 주문 가능/체결 구분, equity curve, 거래 목록, in/out-of-sample, A/B 비교 UI. LTH assessment에 따라 일봉·관측 부족·과거 평가 정보 없는 결과의 성과 표시와 저장/비교를 차단하고, 분봉은 기간 전체 성과와 구분한 표본으로 안내. 연구 전용 ATR 수량 산정 토글·위험 예산·손절 배수 입력과 전략 지표 준비와 별도인 ATR 준비/미준비·과거 응답의 미확인 상태를 표시. sameClose/nextOpen, 봉 내부 미검증/손절 우선, 연구 손절·익절 가정과 신호 공개/체결 단계·미체결·동시 도달 진단을 표시한다. 이전 응답의 누락 정보는 미확인으로 유지하고 A/B에 엔진·가정 차이를 안내하며 운용 설정을 변경하지 않음. Consecutive 선택 진입 진단과 params를 A/B에 보존하고 진입 조건 차이·활성 legacy 진단 누락을 표시. Momentum은 두 진입 params와 모드/간격 요약·조건 차이를 현재 결과/A-B에 보존하고 표시. Deviation은 진입·추세·보유 관측·손절 params와 요약·조건 차이를 현재 결과/A-B에 보존하고 표시. MeanReversion은 청산 모드·추세·보유 관측·기존 손절 params 요약과 A/B 조건 차이를 표시. MA 교차는 params·선택 진입 준비/거부 진단·조건 차이를 현재 결과/A-B에 보존하고 표시. RSI는 기존 core·선택3params를 현재/A-B에 요약하고 조건 차이를 경고한다. FailedBreakout은 기준·선택5숫자 params와 준비/거부 진단을 현재/A-B에 보존하고 조건 차이를 경고한다. 전용 LTH1분의 선택 minuteTiming을 현재/A-B에 표시하고 버전·봉 표기·시간대·검증 가정 차이를 경고하며 기존 assessment 성과 gate는 유지 |
 | `pages/strategy/ui/lthMinuteTimingPanel.tsx` | LTH1분 라벨의 공급/선택/실행/가격 제외·bounded 진단 수, UTC/현지 시각·DST offset·정규 시간창/주말/미완료·같은 날짜 내부 미관측 슬롯을 표시. 날짜8개·예시6개·A/B compact2일로 제한하고 legacy 누락/미지원 버전을 미확인으로 유지. 진단 비교 key는 별도 버전·봉 표기·시간대·legacy 시계/검증 가정을 사용하며 성과·달력/coverage 인증으로 승격하지 않음 |
 | `pages/strategy/ui/strategyAccountingPanel.tsx` | 일반·LTH 공통 연구 비용/현금흐름 입력과 결과 표시. 방향별·최소 수수료와 수동 출처, bounded 환율·배당 JSON·배당 가격 조정 선언을 검증하고 오류 초안은 실행을 차단하며 이전 성과를 무효화. 실현/잔여·가격/환율·배당·종료 가상 청산·관측 봉말 투자 비중·동일 요청 수량 보유/기록 비용 환급 비교와 한계를 표시. 과거 응답의 누락 회계를 0으로 추정하지 않음 |
-| `shared/api/strategyResearchTypes.ts` | 일반/LTH replay의 가정·회계/비교 DTO와 typed 연속 chunk/input/continuity 계약. A/B의 calculationMode/continuity와 과거 저장 결과의 새 회계 필드는 optional로 유지하며 누락을 미확인으로 표시. 단기/연속 공통 EntryFilterPreparation과 A/B 보관 필드는 선택적이며 비활성 기본값과 활성 필터의 진단 누락을 구분. MA 전용 slopeRejections/bandwidthRejections는 optional이며 Consecutive 응답의 생략과 과거 누락을 보존. ReplayAssessment.minuteTiming은 선택 LthMinuteTiming DTO로 시각/세션/관측 슬롯·출처 수·상한·미검증 플래그를 미러하며 과거 응답 누락은 정보 없음 |
-| `shared/lib/numberDraft.ts` | `parseDecimalDraft(raw)`는 명시 decimal 문법과 finite 숫자 변환을 소유하고 빈칸·문법 불일치·비유한 입력은 원문 문자열로 반환. `isFiniteNumberInRange`는 타입을 변환하지 않고 유한수·상하한·선택 정수 조건만 판정. public export를 통해 Consecutive/Momentum/Deviation/MeanReversion/MA 교차/RSI가 재사용하며 필드별 범위·기본값·오류 문구·crossing 관계와 raw state는 local에 유지 |
+| `shared/api/strategyResearchTypes.ts` | 일반/LTH replay의 가정·회계/비교 DTO와 typed 연속 chunk/input/continuity 계약. A/B의 calculationMode/continuity와 과거 저장 결과의 새 회계 필드는 optional로 유지하며 누락을 미확인으로 표시. 단기/연속 공통 EntryFilterPreparation과 A/B 보관 필드는 선택적이며 비활성 기본값과 활성 필터의 진단 누락을 구분. FailedBreakout의 volumeRejections/breakoutBasis/priorVolumeRatio/priorAtr도 optional로 미확인·검증된0을 보존한다. MA 전용 slopeRejections/bandwidthRejections는 optional이며 Consecutive 응답의 생략과 과거 누락을 보존. ReplayAssessment.minuteTiming은 선택 LthMinuteTiming DTO로 시각/세션/관측 슬롯·출처 수·상한·미검증 플래그를 미러하며 과거 응답 누락은 정보 없음 |
+| `shared/lib/numberDraft.ts` | `parseDecimalDraft(raw)`는 명시 decimal 문법과 finite 숫자 변환을 소유하고 빈칸·문법 불일치·비유한 입력은 원문 문자열로 반환. `isFiniteNumberInRange`는 타입을 변환하지 않고 유한수·상하한·선택 정수 조건만 판정. public export를 통해 Consecutive/Momentum/Deviation/MeanReversion/MA 교차/RSI/FailedBreakout이 재사용하며 필드별 범위·기본값·오류 문구·crossing 관계와 raw state는 local에 유지 |
 | `shared/lib/draftMap.ts` | `removeDraftIfUnchanged`는 저장 당시 초안과 현재 항목이 Object.is로 같을 때만 immutable map에서 제거. 이후 편집을 보존하는 순수 helper이며 broker scope epoch와 저장 성공 정책은 Page가 소유 |
 | `shared/lib/formatters.ts` | 공통 숫자·금액 표시. 연구 화면의 `fmtRoundedKrw(number)`는 기존 Math.round→ko-KR→원 순서를 보존하며 일반/회계 패널이 alias로 재사용한다. BrokerMoneyView의 통화·누락·decimal 문자열 처리를 하는 `fmtBrokerMoney`와 음수 절반 반올림 의미가 달라 별도 유지 |
 | `pages/strategy/model/candlePageCollector.ts` | 단기 모드는 최대 8회 요청·500봉을 유지하고 평가 50/100/200봉과 이전 최대 252봉을 나눈다. 별도 연속 일봉 수집은 명시 날짜 범위·최대 48회 요청·4608봉 보관·평가 4096봉·엄격한 이전 252봉을 요구하고 준비 실패 시 계산을 보류한다. scope/asOf/source 검증·중복/커서 무진전·provider 오류와 첫 성공 이전 KIS 거래소 fallback을 공유한다. 연속 모드의 시작/종료 차이·관측 간격 7달력일 제한은 보수적 앱 경계이며 coverageVerified=false를 유지한다 |
@@ -1027,7 +1060,8 @@ KISAutoTrade/
 | `commands/settings.rs` | app config/check_config, refresh interval, log/web 설정, USD/KRW 환율 IPC |
 | `commands/strategy_preview.rs` | 기존 단기 generic과 새 continuous 공개 surface/IPC를 re-export하고 공통 변환·현금흐름 가정 검증 및 Toss LTH preview를 유지한다. LTH는 활성 profile/account·분봉 시작 이전 완료 일봉 맥락을 검증하고 일봉 합성 장중 관측을 실행하지 않는다. 분봉 Open/Signal/Close를 ReplaySession에 연결하며 assessment의 진단/표본/시각·세션 미검증 경계를 유지한다. provider I/O 전 referenceAsOf를 고정하고 실행용 lexical tail/가격 필터를 지난 원본 timed 라벨만 별도 minuteTiming으로 진단해 시그널·정산·입력 hash와 분리 |
 | `commands/strategy_preview/generic.rs` | 기존 단기 입력 DTO·신호/준비 view와 공통 OHLC/시각 정규화. history+평가 합계 500봉, legacy warmupCount와 strictly-prior history 경계를 보존한 뒤 공통 driver에 한 청크로 위임한다. 기존 flat 입력 정렬은 유지하고 연속 입력에는 별도 엄격 시간순 정규화를 제공한다. generic LTH 및 강한 종가/변동성 확장의 비일봉 거부 유지. 분봉 RFC3339/compact KST 구문 해석만 minute_time::parse_minute_instant에 위임하고 기존 고정 정밀도 UTC 정규화 출력은 유지 |
-| `commands/strategy_preview/driver.rs` | 단기/연속이 공유하는 생산 전략 driver. 과거 warmup·ReplaySession을 한 번 만들고 모든 청크를 시간순으로 공급해 전략 지표·실제 포지션 피드백·guard/risk·pending·ATR을 보존하며 끝에서 한 번만 finish/비교한다. 정규화 현금흐름 검증·전역 준비/분할 지표·결과 조립과 mode를 포함하고 청크 분할은 제외한 입력 hash를 소유. factory 전에 Consecutive/Momentum/Deviation/MeanReversion/MA 교차/RSI 새 params와 Consecutive ATR/MA·MA 교차4필터의 일봉 간격을 검증하고 평가 후 선택 진입 준비/후보 진단을 최상위 응답에 추가. Momentum/Deviation/MeanReversion 옵션은 기존 params로 전송하며 새 응답 DTO를 만들지 않음 |
+| `commands/strategy_preview/driver.rs` | 단기/연속이 공유하는 생산 전략 driver. 과거 warmup·ReplaySession을 한 번 만들고 모든 청크를 시간순으로 공급해 전략 지표·실제 포지션 피드백·guard/risk·pending·ATR을 보존하며 끝에서 한 번만 finish/비교한다. 정규화 현금흐름 검증·전역 준비/분할 지표·결과 조립과 mode를 포함하고 청크 분할은 제외한 입력 hash를 소유. factory 전에 FailedBreakout/Consecutive/Momentum/Deviation/MeanReversion/MA 교차/RSI 새 params와 FailedBreakout 완료 고가/ATR/거래량·Consecutive ATR/MA·MA 교차4필터의 일봉 간격을 검증하고 평가 후 선택 진입 준비/후보 진단을 최상위 응답에 추가. CompletedDailyBar로 history와 판단 후 완료봉의 OHLC·선택 거래량을 전달하고 FailedBreakout에 실제 pending을 피드백. 거래량 필터 활성 hash는 원문 거래량 미확인과 검증된0을 구분. Momentum/Deviation/MeanReversion 옵션은 기존 params로 전송하며 새 응답 DTO를 만들지 않음 |
+| `commands/strategy_preview/failed_breakout_entry_tests.rs` | 두 preview의 엄격 params/비일봉 거부·nextOpen 원래 기준 승계, 청크/미래 suffix 인과성·현재 OHLC/거래량 배제·미확인/0 hash, 실제 guard 거절 후 cap/수익 보호 재후보와 공통 ATR 수량 산정/잔량 Sell 회귀 |
 | `commands/strategy_preview/continuous.rs` | 공급 자료만 사용하는 단일 요청 연속 API. 1~16청크·각 1~500봉·평가 총4096봉·history 최대512봉을 제한하고 청크 안/사이의 시간 역전·중복과 평가/history 겹침을 실행 전에 거부한다. 서버 세션 저장 없이 공통 driver 한 인스턴스를 사용하며 기존 preview JSON에 continuity ledger를 함께 반환 |
 | `commands/strategy_preview/minute_timing_tests.rs` | 합성 BrokerCandle로 실제 준비 lexical tail/count200·가격 제외와 실행 라벨 일치, daily 진단 생략/빈1분 평가불가, 공용 parser wrapper byte 호환 및 진단 유무/asOf 차이가 생산 신호·정산·입력 hash를 바꾸지 않는 경계를 검증 |
 | `commands/strategy_preview/rsi_entry_tests.rs` | 실제 단기/연속 preview의 optional strict 거부, nextOpen 실제 체결 원가/손절·체결 뒤 보유 나이/청크 경계, 분할 일치·미래 suffix 인과성, 거절 교차 비재생·flatSell/heldBuy 제거와 최소수익 guard 거부 뒤 cap 재후보를 합성 입력으로 검증 |
@@ -1057,8 +1091,8 @@ KISAutoTrade/
 | `commands/trading/daemon/fence.rs` | running → StrategyManager → OrderManager 잠금 순서의 실행 snapshot 캡처·현재 context 검사. provider await는 잠금 밖에서 수행하고 전략 tick/복원은 현재 epoch·revision일 때만 적용. 잔고 동기화 상태·일 초기화도 실행 범위 검증 후 반영 |
 | `commands/trading/daemon/fence/tests.rs` | quote·종목명·포지션 대기, 설정 변경·정지/재시작과 stale 전략 상태 복원 경계의 합성 회귀 검증 |
 | `commands/trading/daemon/flow.rs` | 설정 편집 대기와 실제 시장 종료를 구분하고, 장 종료로 제출하지 않은 신호 묶음의 실제 포지션 복원·현재 revision 정산을 연결. 설정 저장 대기는 짧게 재확인하여 장 종료의 긴 대기로 바꾸지 않음 |
-| `commands/trading/daily_history.rs` | 공통 완료 페이지로 live 52주 및 opt-in Consecutive/MA 교차 확인용 일봉 사전자료 수집. 작업당 최대 8회 요청·512봉 유지, 이전 시장 날짜·OHLC·scope/asOf/source 검증과 거래소 fallback·중복·커서 무진전·부분 오류 종료. 마지막 완료봉을 다시 제외하지 않으며 preview의 500봉 상한과 분리 |
-| `commands/trading/daily_history/jobs.rs` | 실행 프로파일에 고정한 background scheduler. 같은 profile/종목의 여러 설정을 최대 요구량 1회 조회로 공유하고 동시 2작업만 실행. 완료 handle만 수거하며 제거/새 generation/config/scope/시장 날짜의 과거 작업 취소. 실패/부족은 30~900초 backoff, 정지/drop 시 작업 중단 |
+| `commands/trading/daily_history.rs` | 공통 완료 페이지로 live 52주 및 opt-in Consecutive/MA 교차/FailedBreakout 확인용 일봉 사전자료 수집. 작업당 최대 8회 요청·512봉 유지, 이전 시장 날짜·OHLC·scope/asOf/source 검증과 거래소 fallback·중복·커서 무진전·부분 오류 종료. CompletedDailyBar에 OHLC·엄격 파싱한 Option 거래량을 함께 보존하고 마지막 완료봉을 다시 제외하지 않으며 preview의 500봉 상한과 분리 |
+| `commands/trading/daily_history/jobs.rs` | 실행 프로파일에 고정한 background scheduler. 같은 profile/종목의 여러 설정을 최대 요구량 1회 조회로 공유하고 동시 2작업만 실행. 완료 handle만 수거해 apply_daily_history_with_volume에 전달하며 제거/새 generation/config/scope/시장 날짜의 과거 작업 취소. 실패/부족은 30~900초 backoff, 정지/drop 시 작업 중단 |
 | `commands/trading/daily_history/{tests.rs,jobs/tests.rs}` | 합성 DTO/fetch로 실제 252/512봉·중복/미완료/오류·scope drift·수집 상한, 공유 조회·동시 2작업·backoff·대기 중 손절·정지/재시작 결과 폐기 검증 |
 | `commands/strategy.rs` | 포지션 조회, 전략 목록/수정 IPC. 공통 `trading/configuration.rs`에 검증·저장·보유 상태 보존과 revision 게시를 위임하며 전략 view는 `trading/views.rs::build_strategy_view()` 재사용 |
 | `commands/risk.rs` | 리스크 설정/비상정지 IPC와 pending 주문 view |
@@ -1078,16 +1112,17 @@ KISAutoTrade/
 | `trading/strategy/mean_trend/mean_reversion/params.rs` | 기존 period/std_dev/stop_loss_pct를 보존하는 청산 모드·장기 관측0..512·보유 관측0..1000000 파싱/엄격 검증. optional 손상은 runtime 신규 진입만 차단하고 유효 legacy 밴드/손절을 덮지 않음 |
 | `trading/strategy/mean_trend/mean_reversion/state.rs` | bounded 가격열과 실제 owner 수량/native 평균가, 보유 나이/진입 origin 후보, live 전용 이전 관측 추세를 분리. 공통 observation helper에 추세 산술/버퍼 동작만 위임 |
 | `trading/strategy/mean_trend/mean_reversion/tests.rs` | strict 밴드·기존 손절0·청산 우선순위와 수량, actual/부분/동일0 피드백·나이 불명/metadata·재시작/재구성/reset 가격 보존, live seed 격리·512추세 상한과 513관측 준비·손상 optional/legacy 청산 회귀 |
-| `trading/strategy/observation.rs` | Deviation/MeanReversion/RSI가 공유하는 pub(super) helper8개: optional 정수 범위 판정, 보유 나이 증가/동기화, kind를 검증하는 v1 metadata encode/decode, 직전 N추세 판정·512개 버퍼 갱신·최초 live seed 정리. 전략별 밴드/손절·후보 취소·reset·1분 warmup 정책은 소유하지 않으며 kind가 다른 checkpoint를 거부 |
-| `trading/strategy/core.rs` | `Signal`, `StrategySignal`, `BrokerPositionSnapshot`, `StrategyConfig`, `HistoryReadiness`, `EntryFilterPreparation`, `Strategy` trait와 live/preview 공통 `initialize_strategy_warmup()`. live의 관측 평가·확인된 소유 수량·pending·미제출 신호 폐기·보호 metadata 훅을 replay와 구분한다. 일봉 OHLC 초기화 기본 훅은 종가를 historical initializer에 전달한다. replay 날짜 시작·완료봉 훅은 기본 no-op, 종가 평가 훅은 기존 `on_tick()` 위임이다. 준비·평가 가능 상태와 내부 보유 여부의 미지원 값은 `None`이다. 기본 false인 `reconfigure_preserving_position` opt-in으로 같은 ID/broker/account 설정 변경의 보유 상태 보존 계약 제공. opt-in required/apply/invalidate/readiness 완료 일봉 훅으로 검증된 live context를 legacy initializer와 구분 |
+| `trading/strategy/observation.rs` | Deviation/MeanReversion/RSI가 공유하고 FailedBreakout이 선택 정수·보유 나이 기계를 재사용하는 pub(super) helper8개: optional 정수 범위 판정, 보유 나이 증가/동기화, kind를 검증하는 v1 metadata encode/decode, 직전 N추세 판정·512개 버퍼 갱신·최초 live seed 정리. 전략별 밴드/손절·후보 취소·reset·1분 warmup 정책은 소유하지 않으며 kind가 다른 checkpoint를 거부 |
+| `trading/strategy/core.rs` | `Signal`, `StrategySignal`, `BrokerPositionSnapshot`, `StrategyConfig`, `HistoryReadiness`, `EntryFilterPreparation`, `Strategy` trait와 live/preview 공통 warmup. `CompletedDailyBar`와 엄격 거래량 파서는 OHLC와 Option 거래량을 보존하고 initialize/apply/on_completed_daily_bar 기본 훅은 기존 OHLC 훅에 한 번 위임한다. `initialize_strategy_warmup_with_daily_bars`는 거래량을 보존하며 기존 warmup은 거래량 None으로 연결한다. live의 관측 평가·확인된 소유 수량·pending·미제출 신호 폐기·보호 metadata 훅을 replay와 구분한다. 일봉 OHLC 초기화 기본 훅은 종가를 historical initializer에 전달한다. replay 날짜 시작·완료봉 훅은 기본 no-op, 종가 평가 훅은 기존 `on_tick()` 위임이다. 준비·평가 가능 상태와 내부 보유 여부의 미지원 값은 `None`이다. 기본 false인 `reconfigure_preserving_position` opt-in으로 같은 ID/broker/account 설정 변경의 보유 상태 보존 계약 제공. opt-in required/apply/invalidate/readiness 완료 일봉 훅으로 검증된 live context를 legacy initializer와 구분 |
 | `trading/strategy/manager.rs` | `StrategyManager`, `build_strategy()`, config 적용과 live warmup dispatch. live 관측·pending 신호 억제와 exact 전략/scope/시장 소유 피드백·metadata 훅을 연결한다. legacy warmup의 최신 1봉 제외는 유지하되 새 52주 live 실행은 완료 페이지 경계로 준비. config 변경·복원·reset은 일봉 generation 무효화. Consecutive legacy warmup은 방향 관측만 준비하며 늦게 도착해도 완료 일봉 검증 상태를 무효화해 새 scoped 수집을 요구한다. 13개 전략은 같은 ID/scope 설정 변경 시 opt-in 훅으로 보유 상태와 유효한 관측을 보존한다. 프로파일 게시 경로는 같은 계좌 문자열이어도 새 인스턴스를 구성 |
 | `trading/strategy/manager/configuration.rs` | 설정 편집 Weak 예약의 활성 여부 관리, 현재 revision의 미완료 신호 확인·정산과 미제출 신호 복원. 전략 내부 보유 보호 중인 대상 제거·시장 변경을 저장 전에 거부 |
 | `trading/configuration.rs` | IPC/Web 공통 설정 변경 서비스. 작업 소유 task와 `strategy_update_lock`으로 호출자 취소와 동시 저장을 제어한다. 생산 constructor로 대상 정규화 후 manager → OrderManager에서 편집 예약을 만들고 잠금 밖에서 저장. 성공 후 identity 재검증·보유 상태 보존·revision 게시, 사후 검증 실패 시 원본 저장값 복구와 복구 실패의 영속화 차단. Consecutive/Momentum/Deviation/MeanReversion/MA 교차/RSI 신규 params 오류를 저장 전에 명시 거부 |
 | `trading/configuration/tests/rsi.rs` | 실제 manager/store와 합성 소유 fixture로 RSI optional 검증의 저장 전 거부/정수float roundtrip, 교체 후 저장 실패 rollback의 실제 원가·나이 보존, 보유 대상 제거 거부와 성공 편집의 나이 보존을 검증 |
+| `trading/configuration/tests/failed_breakout.rs` | 실제 설정 저장 경계에서 선택 파라미터 엄격 검증·legacy 사용자 값과 보유 보호·저장 실패 원자성 회귀 |
 | `trading/configuration/tests.rs` | 실제 manager/store와 합성 주문 fixture로 저장 실패·지연·호출자 취소·보유 대상 제거·프로파일 변경·사후 복구 경계를 검증 |
 | `trading/strategy/{classic,breakout,mean_trend,sequence,ma_cross,price_condition,leveraged_trend_hold}/reconfigure_tests.rs` | 전략별 설정 변경의 보유·손절·관측 보존, 파라미터 재해석과 다른 ID/scope 상태 격리를 검증 |
 | `trading/strategy/{classic,breakout,mean_trend,sequence,price_condition,leveraged_trend_hold,manager}/live_feedback_tests.rs` | live 평가가 확인된 보유를 미리 변경하지 않는 경계, exact 전략 피드백·미제출/부분 체결·pending 보호와 LTH 상태 metadata 회귀 fixture |
-| `trading/strategy/manager/live_history.rs` | run generation·전체 config fingerprint·profile/broker/account·종목·서울/뉴욕 시장 날짜 ticket 검증과 opt-in 전략별 완료 OHLC 적용(52주 고가·Consecutive/MA 교차 별도 진입 context). 실제 대상 511개+초과 진단 1행 상한, 준비 무효화·실패/부족/재시도 상태 및 최신 완료봉의 1~10일 freshness 관리. 보유 청산을 유지하고 Consecutive/MA 교차의 가격 관측열을 지우지 않으며 LTH 분봉 initializer 미호출 |
+| `trading/strategy/manager/live_history.rs` | run generation·전체 config fingerprint·profile/broker/account·종목·서울/뉴욕 시장 날짜 ticket 검증과 opt-in 전략별 CompletedDailyBar 적용(52주 고가·Consecutive/MA 교차/FailedBreakout 별도 진입 context). 기존 apply_daily_history는 거래량 None으로 연결하고 새 apply_daily_history_with_volume는 미확인과 검증된0을 보존. 실제 대상 511개+초과 진단 1행 상한, 준비 무효화·실패/부족/재시도 상태 및 최신 완료봉의 1~10일 freshness 관리. 보유 청산을 유지하고 Consecutive/MA 교차/FailedBreakout의 가격 관측열·확정 보호를 지우지 않으며 LTH 분봉 initializer 미호출 |
 | `trading/strategy/manager/live_history_tests.rs` | 마지막 완료 high/close·다음날 고가 만료·252/512봉·대상 cap·재시작/config ABA·scope/profile 변경·quote 중 자정·DST·실패 중 손절·동일 scope 설정/rollback 보유 보존·무관 전략 불변 fixture. Consecutive context 갱신/무효화·15/512봉 요구량·이전 tick 관측과 기존 청산 보존도 검증 |
 | `trading/simulation.rs` | deterministic simulated portfolio, 공통 TradeGuard/RiskManager 기반 주문 가능 판정, 비용·환율·equity·MDD·turnover·exposure·고정 chronological in/out-of-sample 지표. `run_backtest`/`run_backtest_with_history`는 ReplaySession을 구동하는 batch facade다. 동일 주기 과거 관측으로 위험 지표만 준비하고 주문·equity는 평가 구간에서만 만든다. ATR 미준비·변동폭 0 또는 거래당 위험 예산 0이면 선택적 ATR 수량 산정의 신규 매수를 차단하고 보유분 매도는 유지한다. preview command가 engine/strategy/source/scope/params/가정/warmup 경계와 실제 replay OHLCV fingerprint를 hash한다. v9 replay 시각은 RFC3339 offset의 실제 instant를 우선 사용한다. |
 | `trading/simulation/session.rs` | 공통 ReplaySession 회계·리스크·포지션·보류 신호 상태. begin_bar에서 해당 봉 FX와 직전 보유 수량의 배당을 적용한 후 전일 손실 상태 갱신·이전 신호 시가 체결·연구 보호 청산을 처리하고 process_close에서 ATR·종가 신호·mark/equity·관측 투자 비중을 반영. native 평균 체결가와 진입 KRW 원가를 분리하고 sameClose/nextOpen, 원시 신호·보호 주문·마지막 미체결을 구분 |
@@ -1103,7 +1138,7 @@ KISAutoTrade/
 | `trading/simulation/atr.rs` | 이전 종가를 포함한 True Range 14개를 bounded ring에 보관하고 단순 평균 ATR을 계산한다. 같은 주기 관측 15봉을 요구하며 갭을 보존하고 누락 봉을 보간하지 않는다. `AtrPreparationView`로 사전 관측 수·시작/종료 준비·최초 준비 시각·미준비 평가봉 수를 제공 |
 | `trading/simulation/tests.rs` | 비용·리스크·실행 차단, 날짜별 손실 상태, ATR 준비·위험 예산·실제 포지션과 동일 replay/report/hash 회귀 fixture |
 | `trading/strategy/state.rs` | per-symbol 전략 버퍼 상한 helper. user-param 기반 `VecDeque` OOM 방지 |
-| `trading/strategy/completed_daily.rs` | 검증된 완료 일봉의 OHLC 유효성·u128 종가 평균·이전 종가를 포함한 양수 TR14 산술평균의 순수 함수3개만 pub(super)로 제공. Consecutive/MA 교차가 공유하고 verified/lifecycle/counter·ATR0 준비 정책은 각 context가 소유 |
+| `trading/strategy/completed_daily.rs` | 검증된 완료 일봉의 OHLC 유효성·u128 종가 평균·이전 종가를 포함한 TR14 산술평균의 순수 함수4개만 pub(super)로 제공. 0을 포함한 mean_true_range14와 양수만 허용하는 기존 atr14 계약을 분리해 FailedBreakout/Consecutive/MA 교차가 공유하고 verified/lifecycle/counter·ATR0 준비 정책은 각 context가 소유 |
 | `trading/strategy/{classic,breakout,mean_trend}.rs` | 분리된 RSI/모멘텀/이격도 공개 경로, 돌파 계열, 평균회귀/추세필터 전략 구현. `breakout.rs`의 52주 신고가는 완료 일봉 고가의 bounded ring에서 이전 기간 최고가를 구하며 날짜 경계 뒤 완료봉 1개만 적재해 오래된 고가를 만료한다. 반복 tick·분봉 초기화로 일봉을 전진시키지 않고, 강한 종가는 완료일 조건을 다음 평가일에 사용하며 변동성 확장은 보유 상태를 유지한 채 당일 OHLC와 이전 N개 완료 범위(0 포함)의 bounded ring을 구분한다. `mean_trend.rs`는 추세필터와 분리된 평균회귀 공개 경로를 유지하며 각 일봉 historical initializer는 기본 훅이 전달한 종가로 초기화한다. 평균회귀의 legacy 분봉 initializer no-op은 별도 유지한다. |
 | `trading/strategy/breakout/high_tests.rs` | 52주 고가의 전체 준비 창·오래된 최고가 만료·신규 완료 고가·미래 참조 방지·반복 tick/분봉 초기화 불변·종목별 경계·보유 손절 보존 회귀 검증 |
 | `trading/strategy/breakout/day_event_tests.rs` | 강한 종가·변동성 확장 event 훅의 날짜별 독립 상태, 차단 피드백·실제 보유 손절, 범위 ring 상한과 flat-day 회귀 검증 |
@@ -1112,10 +1147,15 @@ KISAutoTrade/
 | `trading/strategy/ma_cross/context.rs` | 현재 제외 완료 일봉 OHLC 최대512개와 verified/seen/awaiting·후보 집계. 추세 엄격 현재>이전N평균·장기MA 1일변화율·ATR14/이전종가·20종가2σ밴드폭을 AND 판정. 충분자료 ATR/폭0은 ready 후 양수 임계값에서 거부하며 현재봉은 판단 뒤 게시 |
 | `trading/strategy/ma_cross/context/tests.rs` | 완료 일봉의 범위/갭·분수 계산·strict 추세/기울기·현재봉 제외·ATR/폭0 준비 정책·준비/후보 집계와 잘못된 OHLC 거부 회귀 |
 | `trading/strategy/ma_cross/entry_tests.rs` | 기본0/legacy 기간·잘못된 optional Buy 차단/Sell 보존, 거절 교차 소비·warmup/설정 재구성과 검증 일봉 context·native 관측 분리를 합성 가격으로 검증 |
-| `trading/strategy/sequence.rs` | 분리된 Consecutive 모듈의 공개 타입·검증 facade와 기존 돌파 실패 전략. 사전 초기화에서 가상 매매를 만들지 않는 기존 계약을 유지 |
+| `trading/strategy/sequence.rs` | 분리된 Consecutive/FailedBreakout 모듈의 공개 타입·검증 facade. 사전 초기화에서 가상 매매를 만들지 않는 기존 계약을 유지 |
 | `trading/strategy/sequence/consecutive.rs` | 연속 가격관측 방향·확정 보유와 기존 buy_days/sell_days를 유지하며 선택3필터를 신규 진입에만 AND 적용. 설정 재해석·보유 피드백·별도 완료 일봉 훅과 관측 후 완료봉 게시를 연결하고 손상된 새 params는 진입만 차단 |
 | `trading/strategy/sequence/consecutive/context.rs` | 유한수/범위/정수 params 검증, bounded 이전 완료 OHLC의 ATR14·종가 MA와 준비·후보/거부/통과 카운터. 가격 tick을 일봉으로 합성하지 않고 context 무효화와 가격 방향/확정 보유를 분리 |
 | `trading/strategy/sequence/consecutive/tests.rs` | 기본0·legacy 사용자 횟수, 누적/ATR/MA 경계, 가격-only·현재 OHLC 배제와 준비 부족, 손상 params·보유 청산·재설정/재구성·live 완료 context 보존 회귀 |
+| `trading/strategy/sequence/failed_breakout.rs` | 이전 N가격관측/선택 완료 고가의 돌파 후보와 실제 소유·pending 진입 기준을 분리. 실제 체결 뒤 기준을 확정하고 실패→수익 보호→보유 관측 한도 순으로 실제 잔량 Sell 후보를 유지. 같은 scope 설정·부분 체결·완료 자료 재조회는 확정 기준과 알려진 보호 상태를 보존 |
+| `trading/strategy/sequence/failed_breakout/params.rs` | 기본20/0.5와 선택 basis·ATR/거래량·수익 보호 쌍·관측 cap 파싱/엄격 검증. 완료 고가 lookback·ATR15봉·거래량21봉 중 최대 완료 자료 요구량을 산정하고 손상 선택 params의 신규 진입 차단을 지원 |
+| `trading/strategy/sequence/failed_breakout/context.rs` | 이전 완료 OHLC·Option 거래량 최대512개와 검증/날짜 lifecycle·준비/후보 집계. 이전 고가·TR14와 % 문턱의 큰 폭·직전 완료량/그 이전20봉 평균을 판정. 미확인·검증된0·기준 평균0을 구분하고 현재봉은 판단 후 한 번 게시 |
+| `trading/strategy/sequence/failed_breakout/protection.rs` | failedBreakout v2의 확정/후보 기준·나이·관측 최고가·수익 무장 metadata를 검증 후 원자 복원. v1 기준은 읽되 나이/최고가/무장을 추정하지 않으며 잘못된 kind/버전/조합은 상태 변경 전 거부 |
+| `trading/strategy/sequence/failed_breakout/tests.rs` | 기본 floor 문턱·실패 strict 경계, 현재봉/거래량 배제·ATR0/갭·거래량 결측/0/평균0, 실제 소유/거절/부분 체결·보호 우선순위·재설정·v1/v2 원자 복원 회귀 |
 | `trading/strategy/leveraged_trend_hold.rs` | 레버리지 전략 공개 타입·config·상태와 bounded buffer 상한을 소유하는 facade. 일봉 맥락과 분봉 지표/반등·실제 보유 상태를 분리하고 하위 모듈의 live/timed 구현을 연결 |
 | `trading/strategy/price_condition.rs` | 종목별 가격 조건 전략 구현 |
 | `trading/strategy/leveraged_trend_hold/live.rs` | `Strategy` 구현과 live tick/소유 포지션 동기화. 확인된 보유와 신호 후보·pending을 구분하고 high-water/보유 관측 수를 metadata로 checkpoint/복원한다. 일봉 초기화는 별도 bounded 맥락 ring만 교체하고, 분봉 초기화는 분봉·반등·볼린저 snapshot을 교체하며 실제 보유 포지션은 유지 |
@@ -1220,6 +1260,7 @@ KISAutoTrade/
 | `scripts/verify-toss-openapi.mjs` | 공식 Toss OpenAPI의 예상 경로 목록을 검사하며 sector 목록·순위·상세·주식·ETF 경로도 포함. 이 목록의 확인을 앱 adapter 구현 또는 장기 분봉 자료 확보와 혼동하지 않음 |
 | `tests/e2e/live-daily-history.spec.ts` | 기존 상태 polling의 pending→ready, 부족/실패/legacy/mismatch와 계좌 범위, 512항목 요약·3행 페이지·모바일 표시를 mock 상태로 검증. 주문·자동매매 시작/정지 요청 없이 UI 검사 |
 | `tests/e2e/candle-pagination.spec.ts` | 페이지 중복·종료·무진전·상한·계좌 scope 변경·오류, 평가 200봉+이전 252봉 분리와 Web query cursor encoding을 mock provider/page 응답으로 검증 |
+| `tests/e2e/strategy-failed-breakout-policy.spec.ts` | mock transport로 기본/legacy params·선택 설정의 scope 저장/재조회·실패 재시도·raw/strict/쌍 검증, 두 preview params/일봉 gate·준비 상태/거래량0·A/B 보존·stale 응답·활성 잠금·모바일 폭을 검증 |
 | `tests/e2e/lth-minute-timing.spec.ts` | mock LTH1분의 봉 종료/DST offset·공급/가격 제외/미관측 진단과 A/B 저장/재조회·봉 표기 차이, legacy 누락/미지원 버전·빈1분 평가불가/일봉 미노출·모바일 상한 표시를 검증. 실제 provider 시각/coverage 또는 주문 실행 검증과 구분 |
 | `tests/e2e/strategy-rsi-policy.spec.ts` | 기존 custom14/30/70·누락/0, optional strict stored/raw·숫자 키보드/상한·scope 저장/재조회/실패·활성 잠금·지연 저장 초안/응답·모바일, 단기/연속 params와 A/B 요약/차이·과거 설정의 적용 미확인을 mock transport로 검증 |
 | `docs/research/rsi-policy-20261022/{design.json,baseline_runner.rs,runner.rs}` | 고정978640c/v17 baseline 원본·주요 소스 byte 대사와 v18 실제 소유/단독 추세200·손절3·보유63 생산 비교를 실행. 비RSI1122 전체 backtest/signals 호환·RSI102 finalEquity/accounting 동일과100개 raw/report 변화를 구분하고30연속/30분할/360별도분기(390원장)를 보관. owned78개의 실제 경제 경로는 legacy와 같으며 부적합 신호 감소를 수익 개선으로 표현하지 않음. 추세/손절 단독 후보는 기본 채택 기각, hold63은 미발동·효능 미평가로 구분하고14/30/70·옵션0을 유지 |
@@ -1314,19 +1355,20 @@ CandlePageView: 고정 scope/asOf + nextCursor + 완료 정책·제외 수
 기존 Vec 차트 API와 전용 LTH 자료 조회는 유지되며 이 수집기는 live 완료
 일봉 갱신을 제공하지 않는다.
 
-### Live 완료 일봉 갱신(52주·Consecutive/MA 교차 진입 확인)
+### Live 완료 일봉 갱신(52주·Consecutive/MA 교차/FailedBreakout 진입 확인)
 
 ```text
 IPC/Web start 준비 완료 → manager generation + 실행 identity → 실행 플래그
     ↓ daemon: 시장 대기 전 DailyHistoryJobs::maintain
 prepare_daily_history_targets: config/profile/scope/종목/시장 날짜 ticket
     ↓ 같은 종목 설정 공유 / 동시 2작업 / 작업당 8회 요청·512봉 유지
-공통 완료 일봉 페이지 → 종료 사유·실제 완료 OHLC
+공통 완료 일봉 페이지 → 종료 사유·CompletedDailyBar (OHLC + Option 거래량)
     ↓ 완료 handle 수거 / 현재 ticket 재검증
-manager/live_history.rs → opt-in apply_completed_daily_history (마지막 완료봉 포함)
+manager/live_history.rs → apply_daily_history_with_volume → opt-in apply_completed_daily_bars (마지막 완료봉 포함)
     ├ 52주: 완료 고가/준비 버퍼
     ├ Consecutive: 별도 진입 OHLC context (가격 관측열·확정 보유 유지)
-    └ MA 교차: 별도 진입 OHLC context (기존 관측 교차열·Sell 유지)
+    ├ MA 교차: 별도 진입 OHLC context (기존 관측 교차열·Sell 유지)
+    └ FailedBreakout: 별도 고가/ATR/거래량 context (가격 관측·확정 기준·보호 유지)
     ↓ dailyHistory 상태 (대상 511 + 초과 진단 1)
 TradingStatus IPC/Web → Dashboard/Strategy LiveDailyHistoryPanel (3행씩)
 ```
@@ -1405,12 +1447,48 @@ historical 가격-only 초기화는 일봉 인증을 무효화하고 native 분�
 가격을 재해석한 뒤 기존 context를 넘겨 진단 카운터를 재설정하고 실제
 설정 게시의 generation 변경은 별도 일봉 재검증을 요구한다.
 
-공통 completed_daily3함수는 순수 계산만 소유하고 각 전략의 lifecycle과
+공통 completed_daily4함수는 순수 계산만 소유하고 각 전략의 lifecycle과
 후보 정책을 합치지 않는다. 선택 slope/bandwidth 거부 필드는 MA에서만
 직렬화하고 Consecutive는 생략한다. UI는 과거 누락을0으로 추정하지 않고
 비활성/활성 진단 미확인을 구분하며 수량 산정 ATR과 분리한다. 계약은
 [IPC v17](ipc-commands.md), 사전 설계와 실제 실행 상태·한계는
 [연구 보고서](research/ma-cross-filters-20261020/report.md)를 따른다.
+
+### FailedBreakout의 이전 완료 자료와 실제 소유 보호
+
+```text
+strategyMetadata.ts → failedBreakoutControls.tsx: 기준·선택5숫자·raw/수익 보호 쌍 검증
+    ├ configuration.rs: 같은 scope 설정 검증·저장/게시·보유 보호 보존
+    └ short/continuous → driver.rs: 엄격 params·완료 고가/ATR/거래량 일봉 gate
+history CompletedDailyBar → initialize_daily_bars: 가격 seed와 별도 완료 context
+    ↓ on_tick: 이전 가격관측/완료 고가 + ATR/거래량 진입 확인
+ReplaySession 실제 소유·pending / live exact 소유 피드백 → 후보 기준 확정
+    ↓ 실패 → 관측 최고가 수익 보호 → 보유 관측 한도: 실제 잔량 Sell 후보
+판단·체결 피드백 뒤 on_completed_daily_bar → 다음 판단의 완료 context
+    ↓ entryFilterPreparation
+strategyResearchPanel.tsx → failedBreakoutPreparation.tsx / current·A/B 요약
+```
+
+기본20/0.5의 이전 가격관측 최대값과 floor 문턱·포함 비교를 유지한다.
+선택 완료 고가는 이전 N완료 일봉 고가이며, ATR은 이전15봉의 TR14 평균과
+기존 % 문턱 중 큰 폭을 적용한다. 충분한 자료의 ATR0은 준비 완료다.
+거래량은 직전 완료량/그 이전20봉 평균으로 이전21봉이 필요하며 현재 봉의
+고가·저가·거래량과 실시간 누적량을 자신의 진입 확인에 쓰지 않는다.
+엄격 파서가 보존한 `None`은 검증된0과 다르며 평균0은 별도 미준비다.
+
+가격 관측·실제 소유·pending 후보·완료 자료는 별도 상태다. live 조회 실패나
+시장 날짜 변경은 완료 context를 무효화하고 보유 청산을 유지한다. 같은 scope
+재구성은 확정 기준·나이·관측 최고가·무장을 보존하며 완전 청산 때 보호 상태를
+비운다. `protection.rs`의 v2 checkpoint는 이 상태를 원자 복원하고 v1의
+미확인 나이/고점/무장을 꾸미지 않는다. 보유 관측 cap 활성 상태에서 나이를
+모르면 다음 보유 관측에 보수적 Sell 후보를 낸다.
+
+공통 driver의 engine은 v19다. 거래량 필터가 활성일 때 원문 거래량의
+미확인/검증된0을 event fingerprint에 추가한다. 기존 전략/비활성 입력의
+event fingerprint 구성은 유지하며 최종 inputHash에는 v19도 포함한다.
+controls와 preparation은 진입 준비 ATR·수량 산정 ATR·후보 통과·실제 체결을
+구분하며 저장 결과에 진단이 없거나 지원하지 않는 형식이면 미확인으로 표시한다.
+일봉 연구의 관측 수와 live 입력 관측 수를 같은 보유시간으로 해석하지 않는다.
 
 ### RSI 실제 소유·선택 추세와 보유 보호
 
@@ -1418,7 +1496,7 @@ historical 가격-only 초기화는 일봉 인증을 무효화하고 native 분�
 rsiControls.tsx → shared decimal/유한수 helper + local3필드 타입/범위/raw 검증
     ↓ Page.tsx optional 원형 보존·저장/두 preview 차단
     ├ configuration.rs → strict 검증·기존 보유 보존 저장/게시
-    └ driver.rs → strict 검증·동일 ReplaySession (engine v18)
+    └ driver.rs → strict 검증·동일 ReplaySession (engine v19)
 classic.rs 공개 facade → classic/rsi.rs + params
     ↓ 기존 simple RSI/prevRSI 매 관측 갱신·이전 입력가격 추세
     ↓ flat30상향 Buy / held stop → cap → 원래70하향 Sell (실제 잔량 전량)

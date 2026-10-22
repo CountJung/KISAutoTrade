@@ -21,8 +21,10 @@ pub use classic::{
     MomentumStrategy, RsiParams, RsiStrategy,
 };
 pub use core::{
-    initialize_strategy_warmup, BrokerPositionSnapshot, EntryFilterPreparation, HistoryReadiness,
-    OhlcCandle, Signal, Strategy, StrategyConfig, StrategySignal,
+    initialize_strategy_warmup, initialize_strategy_warmup_with_daily_bars,
+    parse_completed_daily_volume, BrokerPositionSnapshot, CompletedDailyBar,
+    EntryFilterPreparation, HistoryReadiness, OhlcCandle, Signal, Strategy, StrategyConfig,
+    StrategySignal,
 };
 pub use leveraged_trend_hold::{
     LeveragedTrendHoldEntry, LeveragedTrendHoldParams, LeveragedTrendHoldPreviewSignal,
@@ -38,8 +40,8 @@ pub use price_condition::{
     PriceConditionParams, PriceConditionStrategy, PriceConditionSymbolConfig,
 };
 pub use sequence::{
-    validate_consecutive_entry_params, ConsecutiveMoveParams, ConsecutiveMoveStrategy,
-    FailedBreakoutParams, FailedBreakoutStrategy,
+    validate_consecutive_entry_params, validate_failed_breakout_params, ConsecutiveMoveParams,
+    ConsecutiveMoveStrategy, FailedBreakoutBasis, FailedBreakoutParams, FailedBreakoutStrategy,
 };
 
 #[cfg(test)]

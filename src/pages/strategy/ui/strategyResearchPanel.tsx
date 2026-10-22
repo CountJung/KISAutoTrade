@@ -40,6 +40,8 @@ import {
 } from '../model/experimentStore'
 import { AccountingResults, ComparisonResults, AccountingAssumptionSummary, accountingComparisonKey, SimulationAccountingEditor } from './strategyAccountingPanel'
 import { calculationModeLabel, ContinuityResults } from './continuousReplayPanel'
+import { FailedBreakoutPolicySummary } from './failedBreakoutControls'
+import { FailedBreakoutPreparation } from './failedBreakoutPreparation'
 import { RsiPolicySummary } from './rsiControls'
 import { MaCrossEntrySummary } from './maCrossEntryControls'
 import { MaCrossEntryPreparation } from './maCrossEntryPreparation'
@@ -480,6 +482,7 @@ export function StrategyResearchResults({
 
       {assessmentNotice}
       {metadata}
+      {strategyId.startsWith('failed_breakout') && <><FailedBreakoutPolicySummary params={params} /><FailedBreakoutPreparation value={entryFilterPreparation} params={params} /></>}
       {strategyId.startsWith('rsi') && <RsiPolicySummary params={params} />}
       {strategyId.startsWith('ma_cross') && <><MaCrossEntrySummary params={params} /><MaCrossEntryPreparation value={entryFilterPreparation} params={params} /></>}
       {strategyId.startsWith('mean_reversion') && <MeanReversionPolicySummary params={params} />}
@@ -543,6 +546,7 @@ export function StrategyResearchResults({
           <Typography variant="caption" fontWeight={700} display="block" sx={{ mb: 0.75 }}>저장된 A/B 실험 비교</Typography>
           {!comparable && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 데이터 source/봉/기간이 달라 직접 비교할 수 없습니다.</Alert>}
           {differentTiming && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 시각 진단 버전·봉 표기·시간대 또는 검증 가정이 다릅니다. 진단 정보가 없는 이전 결과와 직접 비교하지 마세요.</Alert>}
+          {strategyId.startsWith('failed_breakout') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 돌파 파라미터가 다릅니다. 기준 가격·완료 일봉 조건·수익 보호·보유 관측 상한을 확인하세요.</Alert>}
           {strategyId.startsWith('rsi') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 RSI 파라미터가 다릅니다. 반등 교차·추세·손절·보유 관측 조건을 확인하세요.</Alert>}
           {strategyId.startsWith('ma_cross') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 MA 교차 파라미터가 다릅니다. 입력 관측 MA와 완료 일봉 진입 조건을 함께 확인하세요.</Alert>}
           {strategyId.startsWith('consecutive_move') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 전략 파라미터가 다릅니다. 진입 필터 조건을 함께 확인하세요.</Alert>}
@@ -561,6 +565,7 @@ export function StrategyResearchResults({
                     <Typography variant="caption" fontWeight={700}>실험 결과 {slot}</Typography>
                     {saved && <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }}>엔진 {saved.replay.engineVersion} · {executionAssumptionsLabel(saved.backtest.assumptions)}</Typography>}
                     {saved && <Typography variant="caption" display="block">{calculationModeLabel(saved.calculationMode)}{saved.continuity ? ` · 공급 ${saved.continuity.chunkCount}묶음 / 평가 ${saved.continuity.evaluationBars}봉 / 사전 ${saved.continuity.historyBars}봉 1회` : ''}</Typography>}
+                    {saved?.strategyId.startsWith('failed_breakout') && <><FailedBreakoutPolicySummary params={saved.params} /><FailedBreakoutPreparation value={saved.entryFilterPreparation} params={saved.params} compact /></>}
                     {saved?.strategyId.startsWith('rsi') && <RsiPolicySummary params={saved.params} />}
                     {saved?.strategyId.startsWith('ma_cross') && <><MaCrossEntrySummary params={saved.params} /><MaCrossEntryPreparation value={saved.entryFilterPreparation} params={saved.params} compact /></>}
                     {saved?.strategyId.startsWith('consecutive_move') && <>

@@ -234,3 +234,9 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 `cargo test --offline -p kis-auto-trade rsi`는 단순RSI·기존교차·strict옵션·실제수량/원가·부분/미체결·나이/metadata·범위/재설정·분할을검증한다. `npx playwright test tests/e2e/strategy-rsi-policy.spec.ts`로원형입력·저장/재조회·두preview/A-B·손상값·late response·저장중새초안·모바일을mock으로확인한다. 전체Rust/UI와지도/그래프를함께검증한다.
 
 연구 [설계](research/rsi-policy-20261022/design.json)·[runner](research/rsi-policy-20261022/runner.rs)·[정산](research/rsi-policy-20261022/validate.py)은기존동결가격과실제Rust preview만사용한다. baseline978640c flat1224/continuous6/reset72, current비RSI1122exact와RSI102변화·연속30/분할30/별도분기360을구분한다. 결과와한계는[작업](tasks/rsi-policy-20261022.md)·[연구](research/rsi-policy-20261022/report.md)에서확인한다. 실제계좌/API/주문검증으로확대하지않는다.
+
+## P2-07 돌파 실패 검증
+
+전략·driver·완료 history/manager·owner/configuration의 focused 테스트와 전체 Rust를 확인한다. 가격 관측/완료 고가·미래 HLCV 불변, TR gap/0/마지막15, volume unknown/실0/평균0/ratio 경계, atomic1회 forwarding, nextOpen0→첫실fill anchor 승격·거절/부분/v1v2·age/peak·scope/저장 실패를 검증한다.
+
+`npx playwright test tests/e2e/strategy-failed-breakout-policy.spec.ts`는 기본·엄격 입력/쌍설정·두 preview/A-B·준비 진단·일봉 필터의 분봉 거부/보호만 분봉 허용·재시도/늦은 응답/새 초안·모바일을 mock으로 검증한다. [설계](research/failed-breakout-policy-20261022/design.json)의42연속/42동일경로분할/504독립분기와 부모·독립 정산은 [연구](research/failed-breakout-policy-20261022/report.md)·[작업](tasks/failed-breakout-policy-20261022.md)에 기록하며 실제 주문/provider 검증으로 확대하지 않는다.

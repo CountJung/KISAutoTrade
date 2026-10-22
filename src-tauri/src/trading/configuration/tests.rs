@@ -837,3 +837,6 @@ async fn ma_cross_entry_options_reject_before_save_and_valid_values_roundtrip() 
 
 #[path = "tests/rsi.rs"]
 mod rsi;
+
+#[path = "tests/failed_breakout.rs"]
+mod failed_breakout;

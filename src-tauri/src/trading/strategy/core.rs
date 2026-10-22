@@ -110,12 +110,38 @@ impl StrategyConfig {
 }
 
 /// 전략 초기화용 OHLC 캔들.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OhlcCandle {
     pub open: u64,
     pub high: u64,
     pub low: u64,
     pub close: u64,
+}
+
+/// Atomic completed DAILY observation; unknown volume is distinct from verified zero.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompletedDailyBar {
+    pub ohlc: OhlcCandle,
+    pub volume: Option<u64>,
+}
+
+/// No fractional/negative/scientific values or fabricated zero for missing data.
+pub fn parse_completed_daily_volume(raw: &str) -> Option<u64> {
+    let raw = raw.trim();
+    if raw.is_empty() || raw.len() > 64 {
+        return None;
+    }
+    if raw.contains(',') {
+        let parts = raw.split(',').collect::<Vec<_>>();
+        if !(1..=3).contains(&parts[0].len()) || parts[1..].iter().any(|s| s.len() != 3) {
+            return None;
+        }
+    }
+    let digits = raw.replace(',', "");
+    if !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    digits.parse().ok()
 }
 
 /// 전략 상태에서 읽은 실제 지표 준비 상태. 가격 단위가 아닌 관측 봉 수다.
@@ -147,6 +173,14 @@ pub struct EntryFilterPreparation {
     pub slope_rejections: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bandwidth_rejections: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub volume_rejections: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub breakout_basis: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prior_volume_ratio: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prior_atr: Option<f64>,
 }
 
 /// 전략 trait — 모든 자동매매 전략이 구현해야 함
@@ -215,6 +249,19 @@ pub trait Strategy: Send + Sync {
             .collect::<Vec<_>>();
         self.initialize_historical(symbol, &closes);
     }
+    /// Defaults forward the established hook exactly once for existing strategies.
+    fn initialize_daily_bars(&mut self, symbol: &str, bars: &[CompletedDailyBar]) {
+        self.initialize_ohlc(symbol, &bars.iter().map(|b| b.ohlc).collect::<Vec<_>>());
+    }
+    fn apply_completed_daily_bars(&mut self, symbol: &str, bars: &[CompletedDailyBar]) {
+        self.apply_completed_daily_history(
+            symbol,
+            &bars.iter().map(|b| b.ohlc).collect::<Vec<_>>(),
+        );
+    }
+    fn on_completed_daily_bar(&mut self, symbol: &str, bar: &CompletedDailyBar) {
+        self.on_completed_candle(symbol, &bar.ohlc);
+    }
     /// 전략 시작 시 장중 가격 배열로 초기화. 실시간 틱 기반 반동/매수세 판단이 필요한 전략에서 재정의.
     fn initialize_intraday_prices(&mut self, _symbol: &str, _prices: &[u64]) {}
     /// 전략 시작 시 장중 OHLC 배열로 초기화. 미리보기와 실시간 전략의 1분봉 판단을 맞춰야 하는 전략에서 재정의.
@@ -269,17 +316,33 @@ pub fn initialize_strategy_warmup(
     daily_ohlc: &[OhlcCandle],
     intraday_ohlc: &[OhlcCandle],
 ) {
+    let bars = daily_ohlc
+        .iter()
+        .map(|ohlc| CompletedDailyBar {
+            ohlc: *ohlc,
+            volume: None,
+        })
+        .collect::<Vec<_>>();
+    initialize_strategy_warmup_with_daily_bars(strategy, symbol, &bars, intraday_ohlc);
+}
+
+pub fn initialize_strategy_warmup_with_daily_bars(
+    strategy: &mut dyn Strategy,
+    symbol: &str,
+    daily_ohlc: &[CompletedDailyBar],
+    intraday_ohlc: &[OhlcCandle],
+) {
     if !daily_ohlc.is_empty() {
         let high_close = daily_ohlc
             .iter()
-            .map(|candle| (candle.high, candle.close))
+            .map(|candle| (candle.ohlc.high, candle.ohlc.close))
             .collect::<Vec<_>>();
         let ranges = daily_ohlc
             .iter()
-            .map(|candle| candle.high.saturating_sub(candle.low))
+            .map(|candle| candle.ohlc.high.saturating_sub(candle.ohlc.low))
             .collect::<Vec<_>>();
         strategy.initialize_candles(symbol, &high_close);
-        strategy.initialize_ohlc(symbol, daily_ohlc);
+        strategy.initialize_daily_bars(symbol, daily_ohlc);
         strategy.initialize_range_data(symbol, &ranges);
     }
     if !intraday_ohlc.is_empty() {

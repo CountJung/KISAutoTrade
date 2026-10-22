@@ -904,3 +904,9 @@ MA5/20의 기존 가격 관측·prevMA와 별도 이전 완료 DAILY context를 
 ## RSI 소유와 관측 보호
 
 RSI는 exact전략소유수량/원가·known/unknown age와pending진입origin을기존피드백/metadata 경계에서보존한다. 신호에서소유를먼저바꾸지않고기존단순RSI/매관측교차baseline을유지한다. 순수 age/추세/metadata 구문은검증된 `strategy/observation.rs`를kind=rsi로재사용하며손절0비활성·기존reset전체clear는RSI에서별도로유지한다. 저장·공통두preview strict옵션과UI원형타입을동기화하고추세현재관측을평균에미리넣지않는다. 옵션/체결모델·단위·미상나이정책은[IPC](ipc-commands.md#rsi-v18-실제-소유선택-보호)를따른다.
+
+## 돌파 실패의 자료·소유 경계
+
+CompletedDailyBar의 OHLC·Option volume는 같은 완료 봉으로 전달한다. raw 검증 전에 legacy0 변환을 거친 값에서 유효성을 복원하지 않는다. 완료 history의 scope/date/generation·512 상한과 기본 hooks의 정확한1회 forwarding을 보존한다. 현재 일봉 결정·실제 체결 피드백 뒤 완료 자료를 게시하며 다른 전략의 지표를 중복 초기화하지 않는다.
+
+실패 anchor는 fill 평균가·buffer 문턱과 다르다. nextOpen 신호 뒤0 snapshot을 anchor 삭제로 해석하지 않고 첫 실제 체결에서 후보를 확정한다. pending 해제보다 체결 동기화를 먼저 처리한다. v1/v2·unknown·옵션과 진단은 [IPC](ipc-commands.md#v19-돌파-실패-완료-자료와-실제-소유-보호)를 따른다. 공용 TR 추출은 기존 positive atr14 wrapper와 합산 순서를 유지한다.

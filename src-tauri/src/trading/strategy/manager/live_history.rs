@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 
 use crate::broker::{candles::candle_market_date, BrokerId, BrokerMarket, BrokerScope};
 
-use super::super::{OhlcCandle, StrategyConfig};
+use super::super::{CompletedDailyBar, OhlcCandle, StrategyConfig};
 use super::StrategyManager;
 
 /// At most 511 fetch targets plus one visible capacity diagnostic are retained.
@@ -258,6 +258,24 @@ impl StrategyManager {
         last_completed_date: Option<String>,
         now: DateTime<Utc>,
     ) -> bool {
+        let bars = candles
+            .iter()
+            .map(|ohlc| CompletedDailyBar {
+                ohlc: *ohlc,
+                volume: None,
+            })
+            .collect::<Vec<_>>();
+        self.apply_daily_history_with_volume(ticket, &bars, source, last_completed_date, now)
+    }
+
+    pub fn apply_daily_history_with_volume(
+        &mut self,
+        ticket: &DailyHistoryTicket,
+        candles: &[CompletedDailyBar],
+        source: String,
+        last_completed_date: Option<String>,
+        now: DateTime<Utc>,
+    ) -> bool {
         // A missing-profile diagnostic ticket can report failure but never accept data.
         if ticket.profile_id.is_empty() || !self.valid_daily_history_ticket(ticket, now) {
             return false;
@@ -277,7 +295,10 @@ impl StrategyManager {
             .iter()
             .copied()
             .filter(|c| {
-                fresh && c.low > 0 && c.high >= c.open.max(c.close) && c.low <= c.open.min(c.close)
+                fresh
+                    && c.ohlc.low > 0
+                    && c.ohlc.high >= c.ohlc.open.max(c.ohlc.close)
+                    && c.ohlc.low <= c.ohlc.open.min(c.ohlc.close)
             })
             .collect::<Vec<_>>();
         let strategy = self
@@ -287,7 +308,7 @@ impl StrategyManager {
         let Some(strategy) = strategy else {
             return false;
         };
-        strategy.apply_completed_daily_history(&ticket.symbol, &valid);
+        strategy.apply_completed_daily_bars(&ticket.symbol, &valid);
         let readiness = strategy.completed_daily_history_readiness(&ticket.symbol);
         let entry = self
             .daily_history

@@ -184,6 +184,8 @@ where
         if let Some(value) = request.params {
             candidate.params = value;
         }
+        super::strategy::validate_failed_breakout_params(&candidate.id, &candidate.params)
+            .map_err(|message| ConfigurationUpdateError::new("INVALID_STRATEGY_PARAMS", message))?;
         super::strategy::validate_rsi_params(&candidate.id, &candidate.params)
             .map_err(|message| ConfigurationUpdateError::new("INVALID_STRATEGY_PARAMS", message))?;
         super::strategy::validate_ma_cross_entry_params(&candidate.id, &candidate.params)

@@ -95,8 +95,8 @@ async fn collects_252_actual_completed_highs_without_dropping_the_last_completed
     .unwrap();
     assert_eq!(requests.len(), 3);
     assert_eq!(result.candles.len(), 252);
-    assert_eq!(result.candles.last().unwrap().high, 200);
-    assert_eq!(result.candles.last().unwrap().close, 110);
+    assert_eq!(result.candles.last().unwrap().ohlc.high, 200);
+    assert_eq!(result.candles.last().unwrap().ohlc.close, 110);
     assert_eq!(result.last_completed_date.as_deref(), Some("2026-10-18"));
     assert!(requests
         .iter()
@@ -205,7 +205,7 @@ async fn only_first_provider_failure_changes_exchange_and_later_failure_is_expli
         requests,
         [Some("NAS".into()), Some("NYS".into()), Some("NYS".into())]
     );
-    assert_eq!(result.candles[0].high, 20_000);
+    assert_eq!(result.candles[0].ohlc.high, 20_000);
     assert!(result.end_reason.contains("일부 페이지 조회 실패"));
     let mut calls = 0;
     assert!(collect_pages(&ticket(true), |_| {
@@ -241,4 +241,31 @@ async fn scope_or_cutoff_drift_discards_partial_history_and_oversized_pages_fail
         assert!(result.is_err(), "{kind}");
         assert_eq!(calls, 2);
     }
+}
+
+#[tokio::test]
+async fn collector_preserves_raw_volume_on_its_exact_completed_ohlc_row() {
+    let mut t = ticket(false);
+    t.strategy_id = "failed_breakout_volume".into();
+    t.required_bars = 3;
+    let result = collect_pages(&t, |input| {
+        let mut rows = vec![bar(0), bar(1), bar(2)];
+        rows[0].volume = "0".into();
+        rows[0].high = "999".into();
+        rows[1].volume = "invalid".into();
+        rows[1].high = "888".into();
+        rows[2].volume = "1,000".into();
+        rows[2].high = "777".into();
+        std::future::ready(Ok(page(&input, rows, None)))
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        result
+            .candles
+            .iter()
+            .map(|b| (b.ohlc.high, b.volume))
+            .collect::<Vec<_>>(),
+        [(777, Some(1000)), (888, None), (999, Some(0))]
+    );
 }

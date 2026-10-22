@@ -862,3 +862,7 @@ mod minute_timing_tests;
 #[cfg(test)]
 #[path = "strategy_preview/rsi_entry_tests.rs"]
 mod rsi_entry_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/failed_breakout_entry_tests.rs"]
+mod failed_breakout_entry_tests;

@@ -289,8 +289,8 @@ export interface ReplayContinuityView {
 export interface EntryFilterPreparation {
   enabled: boolean
   ready: boolean
-  status: 'ready' | 'insufficientHistory' | 'invalidParams' | 'unsupportedObservation' | 'zeroAtr'
-  cadence: 'priceObservations' | 'priorCompletedDailyOhlc'
+  status: 'ready' | 'insufficientHistory' | 'invalidParams' | 'unsupportedObservation' | 'zeroAtr' | 'unverifiedVolume' | 'zeroReferenceVolume'
+  cadence: 'priceObservations' | 'priorCompletedDailyOhlc' | 'priorCompletedDailyOhlcv'
   requiredCompletedBars: number
   availableCompletedBars: number
   trueRangeSamples: number
@@ -301,6 +301,10 @@ export interface EntryFilterPreparation {
   trendRejections: number
   slopeRejections?: number
   bandwidthRejections?: number
+  volumeRejections?: number
+  breakoutBasis?: 'priceObservations' | 'completedHigh'
+  priorVolumeRatio?: number
+  priorAtr?: number
   passedCandidates: number
 }
 

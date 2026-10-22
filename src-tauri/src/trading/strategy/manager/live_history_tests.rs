@@ -661,3 +661,77 @@ fn consecutive_pending_failure_midnight_and_config_refresh_preserve_held_exit_st
         .can_evaluate_next_tick("SOXQ")
         .unwrap());
 }
+
+#[test]
+fn completed_volume_history_is_atomic_scoped_and_does_not_change_owned_protection() {
+    use crate::trading::strategy::CompletedDailyBar;
+    let mut m = StrategyManager::new();
+    let id = "failed_breakout_volume";
+    let cfg = StrategyConfig::new(
+        id,
+        "fixture",
+        true,
+        vec!["SOXQ".into()],
+        2,
+        serde_json::json!({"lookback_days":3,"buffer_pct":0.5,"min_volume_ratio":1.5}),
+    )
+    .with_scope(BrokerId::Kis, Some("fixture-account".into()));
+    m.add(build_strategy(cfg));
+    m.set_history_execution_identity(scope(), Some("fixture-profile".into()));
+    m.initialize_historical("SOXQ", &[9000; 3]);
+    let ticket = prepare(&mut m, now());
+    assert_eq!(ticket.required_bars, 21);
+    let mut bars = vec![
+        CompletedDailyBar {
+            ohlc: OhlcCandle {
+                open: 9000,
+                high: 10000,
+                low: 8000,
+                close: 9000
+            },
+            volume: Some(100)
+        };
+        21
+    ];
+    bars[20].volume = Some(150);
+    assert!(m.apply_daily_history_with_volume(
+        &ticket,
+        &bars,
+        "fixture".into(),
+        Some("20261018".into()),
+        now()
+    ));
+    assert_eq!(m.daily_history_status()[0].state, "ready");
+    assert_eq!(m.on_tick("SOXQ", 9100, u64::MAX).len(), 1);
+    m.sync_position("SOXQ", 5, 9100);
+    m.complete_signal(id, "SOXQ", m.history_generation());
+    let metadata = m
+        .owned_position_metadata_for_strategy(id, &scope(), BrokerMarket::Us, "SOXQ")
+        .unwrap();
+    let mut stale = ticket.clone();
+    stale.profile_id = "other".into();
+    assert!(!m.apply_daily_history_with_volume(
+        &stale,
+        &bars,
+        "bad".into(),
+        Some("20261018".into()),
+        now()
+    ));
+    bars[20].volume = None;
+    assert!(m.apply_daily_history_with_volume(
+        &ticket,
+        &bars,
+        "fixture".into(),
+        Some("20261018".into()),
+        now()
+    ));
+    assert_eq!(m.daily_history_status()[0].state, "insufficient");
+    assert_eq!(
+        m.owned_position_metadata_for_strategy(id, &scope(), BrokerMarket::Us, "SOXQ"),
+        Some(metadata)
+    );
+    assert!(matches!(
+        m.on_tick("SOXQ", 8900, 0)[0].signal,
+        Signal::Sell { quantity: 5, .. }
+    ));
+}

@@ -1,0 +1,432 @@
+{
+  "baselineCommit": "13c5fd3",
+  "continuousRuns": 42,
+  "elapsedSeconds": 16.397566333,
+  "failedBreakoutChangedWindowComparisons": 102,
+  "independentQuarterResetRuns": 504,
+  "note": "Quarter-reset returns are separate accounts and are never aggregated into continuous performance",
+  "partitionEquivalenceRuns": 42,
+  "partitions": [
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "459fc6438bd26533",
+      "inputHash": "072c4a8fce628f3d",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "27786b9144a31ce6",
+      "inputHash": "1e12a3a52a0015d7",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "b5a7e14d68d75a36",
+      "inputHash": "de0c5c024507d755",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "80564b00323dd2fe",
+      "inputHash": "ec757d74797f3d37",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "9f8a89877bac9984",
+      "inputHash": "033b77f37cb391a2",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "26298af31fb15d6d",
+      "inputHash": "7254810a7249c7e0",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "ab5b40e083da7d86",
+      "inputHash": "089a73ac5de8a39d",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ",
+      "variant": "owned"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "850bed98af2a51a8",
+      "inputHash": "92170831e70f9d37",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ",
+      "variant": "owned"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "2b0e2cacab0ede20",
+      "inputHash": "3ad3a2998201b7ac",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ",
+      "variant": "completedHigh"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "75f3d6c85b772d78",
+      "inputHash": "027137de8998df7e",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ",
+      "variant": "completedHigh"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "282508f2c7ca32aa",
+      "inputHash": "d396605842355c22",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ",
+      "variant": "atr0_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "aa9cace6e75a439e",
+      "inputHash": "e9d40a930434b4ec",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ",
+      "variant": "atr0_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "229ff08931558a85",
+      "inputHash": "970b073753aa55c6",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ",
+      "variant": "volume1_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "4c154729ebf4b8ec",
+      "inputHash": "c11c506861cf5c88",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ",
+      "variant": "volume1_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "204c4150e2646cc2",
+      "inputHash": "a792b05bac531533",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ",
+      "variant": "profit5trail3"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "f4263b5549b9d068",
+      "inputHash": "dc94f7102a5894bd",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ",
+      "variant": "profit5trail3"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "e28db31a084408e7",
+      "inputHash": "55e7dbbe084d350a",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ",
+      "variant": "hold63"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "48aca49cfdfb4043",
+      "inputHash": "8996a8616cfde2d4",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SOXQ",
+      "variant": "hold63"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "976d4dc1209eacd7",
+      "inputHash": "24107a34ba896ff5",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY",
+      "variant": "owned"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "450d0b8b890f83c9",
+      "inputHash": "bcbd40feee550bd7",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY",
+      "variant": "owned"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "dae86131a4169768",
+      "inputHash": "6230539e9413553c",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY",
+      "variant": "completedHigh"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "0aa8a0decaecbda5",
+      "inputHash": "f774e01d2767a536",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY",
+      "variant": "completedHigh"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "015ff8e931d853cc",
+      "inputHash": "7559e4237dc39e40",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY",
+      "variant": "atr0_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "ed0d44678b305537",
+      "inputHash": "413d53a93b24898a",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY",
+      "variant": "atr0_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "95e0a5a0f0ecefa7",
+      "inputHash": "d34d69117eb170e7",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY",
+      "variant": "volume1_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "65fe8df52a91e905",
+      "inputHash": "197bfcffb20d9599",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY",
+      "variant": "volume1_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "7df3b06bf3159016",
+      "inputHash": "cdcfa725deaa0c4f",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY",
+      "variant": "profit5trail3"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "624260c5635274fa",
+      "inputHash": "164ddf696bcd07a1",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY",
+      "variant": "profit5trail3"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "ca6c24574fba2f20",
+      "inputHash": "86de5a9595dc18f2",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY",
+      "variant": "hold63"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "b600c833d712d030",
+      "inputHash": "db683e6c7467b9f4",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "SPY",
+      "variant": "hold63"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "9f8a89877bac9984",
+      "inputHash": "11b3593a7182d842",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ",
+      "variant": "owned"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "26298af31fb15d6d",
+      "inputHash": "710ae6650cb9fb80",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ",
+      "variant": "owned"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "b2a18ee847b5f60b",
+      "inputHash": "2635c15731aeec79",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ",
+      "variant": "completedHigh"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "ca6334701aa35f36",
+      "inputHash": "bd5ef5713d611a3f",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ",
+      "variant": "completedHigh"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "7471f9ceb84d4c1f",
+      "inputHash": "8db1b42b067457bf",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ",
+      "variant": "atr0_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "57498dc8ef58f5f4",
+      "inputHash": "2708a66c12ea709d",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ",
+      "variant": "atr0_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "b55c87b7a3a16cc4",
+      "inputHash": "253743b4947a42ad",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ",
+      "variant": "volume1_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "425c47d9f5014d35",
+      "inputHash": "93b140f66a026767",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ",
+      "variant": "volume1_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "faeb6142e44ad779",
+      "inputHash": "f505eed63276c99c",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ",
+      "variant": "profit5trail3"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "f4d11526b7a3fd2f",
+      "inputHash": "c9e7a692a8b61cba",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ",
+      "variant": "profit5trail3"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "f24066b9dd02390f",
+      "inputHash": "5a5ebea85fa5580b",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ",
+      "variant": "hold63"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "722c9ab521ce22a8",
+      "inputHash": "da87c23268d87e19",
+      "quarterChunks": 12,
+      "strategyId": "failed_breakout",
+      "symbol": "QQQ",
+      "variant": "hold63"
+    }
+  ],
+  "unchangedStrategyFullReportAndSignalParityRuns": 1122
+}

@@ -9,7 +9,9 @@ use crate::{
     commands::{get_candle_page_for_profile, CandlePageInput, CandlePageView, CmdError},
     config::AccountProfile,
     market_hours::is_domestic_symbol,
-    trading::strategy::{DailyHistoryTicket, OhlcCandle},
+    trading::strategy::{
+        parse_completed_daily_volume, CompletedDailyBar, DailyHistoryTicket, OhlcCandle,
+    },
 };
 
 mod jobs;
@@ -21,7 +23,7 @@ const MAX_RETAINED: usize = 512;
 
 #[derive(Debug)]
 pub(super) struct CollectedDailyHistory {
-    pub candles: Vec<OhlcCandle>,
+    pub candles: Vec<CompletedDailyBar>,
     pub source: String,
     pub last_completed_date: Option<String>,
     pub end_reason: String,
@@ -34,15 +36,19 @@ fn price(value: &str, overseas: bool) -> Option<u64> {
         .then(|| units.round() as u64)
 }
 
-fn completed_bar(bar: &crate::api::rest::ChartCandle, overseas: bool) -> Option<OhlcCandle> {
+fn completed_bar(bar: &crate::api::rest::ChartCandle, overseas: bool) -> Option<CompletedDailyBar> {
     let ohlc = OhlcCandle {
         open: price(&bar.open, overseas)?,
         high: price(&bar.high, overseas)?,
         low: price(&bar.low, overseas)?,
         close: price(&bar.close, overseas)?,
     };
-    (ohlc.high >= ohlc.open.max(ohlc.close) && ohlc.low <= ohlc.open.min(ohlc.close))
-        .then_some(ohlc)
+    (ohlc.high >= ohlc.open.max(ohlc.close) && ohlc.low <= ohlc.open.min(ohlc.close)).then_some(
+        CompletedDailyBar {
+            ohlc,
+            volume: parse_completed_daily_volume(&bar.volume),
+        },
+    )
 }
 
 pub(super) async fn collect_daily_history(

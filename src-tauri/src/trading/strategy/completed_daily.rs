@@ -20,8 +20,8 @@ pub(super) fn mean_close(bars: &VecDeque<OhlcCandle>, period: usize) -> Option<f
     )
 }
 
-/// Positive ATR14; strategies choose their own readiness policy for zero ranges.
-pub(super) fn atr14(bars: &VecDeque<OhlcCandle>) -> Option<f64> {
+/// Arithmetic mean of 14 true ranges; zero is a valid observed value.
+pub(super) fn mean_true_range14(bars: &VecDeque<OhlcCandle>) -> Option<f64> {
     if bars.len() < 15 {
         return None;
     }
@@ -36,5 +36,10 @@ pub(super) fn atr14(bars: &VecDeque<OhlcCandle>) -> Option<f64> {
         })
         .sum::<f64>();
     let atr = total / 14.0;
-    (atr > 0.0).then_some(atr)
+    Some(atr)
+}
+
+/// Preserve the existing positive-only contract for MA and Consecutive.
+pub(super) fn atr14(bars: &VecDeque<OhlcCandle>) -> Option<f64> {
+    mean_true_range14(bars).filter(|atr| *atr > 0.0)
 }
