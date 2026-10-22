@@ -1,0 +1,312 @@
+{
+  "baselineCommit": "978640c",
+  "continuousRuns": 30,
+  "elapsedSeconds": 13.223154166,
+  "independentQuarterResetRuns": 360,
+  "note": "Quarter-reset returns are separate accounts and are never aggregated into continuous performance",
+  "partitionEquivalenceRuns": 30,
+  "partitions": [
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "beb7e963b5fd0e4e",
+      "inputHash": "ae399606b522d0fd",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SOXQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "e725e34d803bf7e5",
+      "inputHash": "3cf6100e589c6d97",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SOXQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "c8acf209674ae17a",
+      "inputHash": "52bc3166ee98ce7d",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SPY",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "9727e13972ed170e",
+      "inputHash": "271be2d295bab0ff",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SPY",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "c395026954da16b2",
+      "inputHash": "495d84ab2317b6f0",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "QQQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "34e974a2cd2937e7",
+      "inputHash": "f1cefd288281195e",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "QQQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "634facc656cb6d0e",
+      "inputHash": "b83a3739ead69d4d",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SOXQ",
+      "variant": "owned"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "fae8251296b31705",
+      "inputHash": "1a3a937815b07927",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SOXQ",
+      "variant": "owned"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "f4cbf6111165ce0d",
+      "inputHash": "bfc4785dce32f823",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SOXQ",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "e03d7fd69f2ccd07",
+      "inputHash": "5efca05442e65fad",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SOXQ",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "a70014271ca67404",
+      "inputHash": "62e3b9833f362e54",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SOXQ",
+      "variant": "stop3"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "5213e36859a340fa",
+      "inputHash": "edc6ac7b3e11dec6",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SOXQ",
+      "variant": "stop3"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "634facc656cb6d0e",
+      "inputHash": "960d52c58f1f92e8",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SOXQ",
+      "variant": "hold63"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "fae8251296b31705",
+      "inputHash": "edcf2b5cb8a602ea",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SOXQ",
+      "variant": "hold63"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "775383e01fea08dd",
+      "inputHash": "bd37836086a4bded",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SPY",
+      "variant": "owned"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "836f554f736c9f9b",
+      "inputHash": "34500a684c5e9aaf",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SPY",
+      "variant": "owned"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "8f08aff826c60800",
+      "inputHash": "22b6ef539e3f9473",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SPY",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "843ecbd7bb822bfa",
+      "inputHash": "502006598f93e155",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SPY",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "aa7398814a758b27",
+      "inputHash": "8bcf28b11416b9ba",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SPY",
+      "variant": "stop3"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "1cebbbbb95c91d09",
+      "inputHash": "9911fcbfd216a1dc",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SPY",
+      "variant": "stop3"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "775383e01fea08dd",
+      "inputHash": "36fae2f728328394",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SPY",
+      "variant": "hold63"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "836f554f736c9f9b",
+      "inputHash": "3d1e16bcbaa8a68e",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SPY",
+      "variant": "hold63"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "47708d294dc82732",
+      "inputHash": "1e7cfefc17bb4360",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "QQQ",
+      "variant": "owned"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "29f5f1d6cf4a6547",
+      "inputHash": "fc7c9b3849453cce",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "QQQ",
+      "variant": "owned"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "c7eb721653eefe44",
+      "inputHash": "b6a5a28c6689f4b2",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "QQQ",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "08d4faca752ee83f",
+      "inputHash": "8a5ec37f7fbf0930",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "QQQ",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "5afa7f4a5dafe9c4",
+      "inputHash": "58e7deff4436f6bb",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "QQQ",
+      "variant": "stop3"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "f418029b41dc5d1d",
+      "inputHash": "598caf43d1eb1049",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "QQQ",
+      "variant": "stop3"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "47708d294dc82732",
+      "inputHash": "19e63e13d41d2ecf",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "QQQ",
+      "variant": "hold63"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "29f5f1d6cf4a6547",
+      "inputHash": "bc74760084f4252d",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "QQQ",
+      "variant": "hold63"
+    }
+  ],
+  "rsiChangedWindowComparisons": 102,
+  "unchangedStrategyFullReportAndSignalParityRuns": 1122
+}

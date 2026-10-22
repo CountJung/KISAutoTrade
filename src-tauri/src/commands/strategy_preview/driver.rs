@@ -14,6 +14,12 @@ pub(super) fn run_prepared_preview(
 ) -> CmdResult<(StrategyPreviewView, Vec<ChunkContinuityView>)> {
     let interval = input.interval.as_deref().unwrap_or("1d").to_string();
     let daily = matches!(interval.as_str(), "D" | "1d");
+    crate::trading::strategy::validate_rsi_params(&input.strategy_id, &input.params).map_err(
+        |message| CmdError {
+            code: "INVALID_STRATEGY_PARAMS".into(),
+            message,
+        },
+    )?;
     crate::trading::strategy::validate_ma_cross_entry_params(&input.strategy_id, &input.params)
         .map_err(|message| CmdError {
             code: "INVALID_STRATEGY_PARAMS".into(),

@@ -37,6 +37,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | 자동매매 시작/데몬 | `src-tauri/src/commands/trading.rs` / `commands/trading/daemon.rs` | `daemon/{fence,flow}.rs`, `commands/trading/{positions,balance,risk_restore,history,daily_history}.rs`, `lib.rs` |
 | Live 52주 완료 일봉 준비 | `commands/trading/daily_history.rs`, `daily_history/jobs.rs` | `trading/strategy/manager/live_history.rs`, `src/shared/ui/LiveDailyHistoryPanel.tsx`, TradingStatus |
 | 전략 | `src-tauri/src/trading/strategy/` | `commands/strategy.rs`, `commands/strategy_preview.rs`, Strategy UI |
+| RSI 실제 소유·선택 보호 | `trading/strategy/classic/rsi.rs`, `classic/rsi/params.rs` | `strategy/observation.rs`, `configuration/tests/rsi.rs`, `order/feedback/tests/rsi.rs`, `strategy_preview/rsi_entry_tests.rs`, `rsiControls.tsx`, `docs/research/rsi-policy-20261022/` |
 | Replay 체결 모델·연구 보호 청산 | `trading/simulation/{session,execution_tests}.rs`, `simulation.rs` | `commands/strategy_preview{,/generic}.rs`, `strategy/leveraged_trend_hold/preview.rs`, `strategyResearchPanel.tsx`, `tests/e2e/strategy-execution-model.spec.ts` |
 | Replay 손익·현금흐름·비교 | `trading/simulation/{accounting,comparison}.rs`, `simulation/session/accounting.rs` | `simulation/accounting_tests.rs`, `src/shared/api/strategyResearchTypes.ts`, `strategyAccountingPanel.tsx`, `tests/e2e/strategy-accounting.spec.ts`, `docs/research/replay-accounting-20261018/` |
 | 연속 replay·분기 리셋 비교 | `commands/strategy_preview/{continuous,driver}.rs` | `continuous_tests.rs`, `simulation/session.rs`, `continuousReplayPanel.tsx`, `candlePageCollector.ts`, `docs/research/continuous-replay-20261018/` |
@@ -145,6 +146,25 @@ Toss의 명시 금액과 누락을 구분하고 실제 평균가 대체 계산�
 명시 체결대금이 일치해야 하며, 미확정 자료를 체결로 만들어내지 않는다.
 
 공용 타입·IPC·주문·리스크의 다중 참조 추적에는 필요할 때 Serena를 선택한다. Graphify는 위 구조 자체를 이동·통합하는 리팩터링 때만 사용한다.
+
+### RSI 소유 피드백·관측과 교차
+
+`strategy/classic.rs`는 공개 경로를 유지하는 facade이며 실제 RSI 구현은
+`classic/rsi.rs`와 `rsi/params.rs`다. 기존14/30/70 단순평균·매 관측 교차 기준
+갱신과 별도 실제 소유 q/native 평균가·기록 나이/origin을 구분한다. 선택 추세는
+현재 제외 이전 입력가격으로, live 첫 추세 seed만 정리하고 기존 RSI warmup을
+지우지 않는다. 원래 교차는 거절 뒤 재시도하지 않고 손절/관측 cap만 조건 지속
+중 잔량 청산 후보를 다시 낸다. 모든 held Sell은 실제 잔량 전량을 요청한다.
+
+params 변경은 공통 configuration strict 저장/게시와 두 preview driver의 검증,
+`rsiControls.tsx`의 raw/타입·단위·기본0 및 current/A-B 요약을 함께 확인한다.
+보유 나이/metadata 기계 동작만 기존 `strategy/observation.rs`의8함수를 재사용하고
+RSI 계산·교차·손절/추세 의미는 전략에 남긴다. 고정 생산30연속/30분할/
+360별도분기 비교에서 실제 소유 기본의78개 경제 경로는 legacy와 같았다.
+부적합 신호 감소를 수익 개선으로 해석하지 않고 선택 추세/손절 기각과
+보유63 미발동·효능 미평가를 구분한다. 실제 실행·감사 범위와 해석은
+[작업](tasks/rsi-policy-20261022.md), [연구](research/rsi-policy-20261022/report.md),
+[IPC 계약](ipc-commands.md#rsi-v18-실제-소유선택-보호)을 따른다.
 
 ### Replay 회계·체결 피드백
 

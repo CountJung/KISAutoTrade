@@ -235,7 +235,7 @@ fn live_feedback_manager_pending_and_unsettled_suppress_only_outward_signal_acro
 }
 
 #[test]
-fn live_feedback_stateless_rsi_and_ma_share_exact_replay_observations() {
+fn live_feedback_rsi_unfilled_and_ma_share_exact_replay_observations() {
     for (id, params) in [
         (
             "rsi",
@@ -258,7 +258,10 @@ fn live_feedback_stateless_rsi_and_ma_share_exact_replay_observations() {
                 "{id}"
             );
         }
-        assert_eq!(live.has_held_position("SOXQ"), None);
+        assert_eq!(
+            live.has_held_position("SOXQ"),
+            if id == "rsi" { Some(false) } else { None }
+        );
     }
 }
 

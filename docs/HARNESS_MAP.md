@@ -228,3 +228,9 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 - `cargo test --offline -p kis-auto-trade minute_timing`: pure20개와 command5개의 합성 fixture. RFC3339/compact·DST·동일순간 alias/역순·barClose/barStart/unknown·초 경계·휴일 미인증·내부 gap/야간/주말·512행/64바이트/8일/6예시·asOf를 확인한다. command fixture는 기존 signals/backtest/hash와 실제 비어있지 않은 신호·체결을 비교하며 daily skipNone/empty notEvaluable을 확인한다.
 - `npx playwright test tests/e2e/lth-minute-timing.spec.ts tests/e2e/strategy-replay-assessment.spec.ts`: 현재/저장/복원·다른봉표기 비교·legacy/미지원/손상 컬렉션·빈자료/일봉 성과숨김·모바일과 compact 날짜수를 mock으로 검증한다. fixture는 LTH lookAheadSafe=false를 유지한다.
 - 공용 timestamp 구문 추출은 기존 generic 정규화·회계 시나리오 정렬 회귀와 전체 Rust 검증으로 확인한다. 입력 시계·신호·정산은 기존 `lth_replay_clock`을 함께 통과한다. 실제 provider/3개월 coverage 검증으로 확대하지 않는다. [결과와 한계](tasks/lth-minute-timing-20261022.md).
+
+## RSI 소유·선택 진입/청산 (2026-10-22)
+
+`cargo test --offline -p kis-auto-trade rsi`는 단순RSI·기존교차·strict옵션·실제수량/원가·부분/미체결·나이/metadata·범위/재설정·분할을검증한다. `npx playwright test tests/e2e/strategy-rsi-policy.spec.ts`로원형입력·저장/재조회·두preview/A-B·손상값·late response·저장중새초안·모바일을mock으로확인한다. 전체Rust/UI와지도/그래프를함께검증한다.
+
+연구 [설계](research/rsi-policy-20261022/design.json)·[runner](research/rsi-policy-20261022/runner.rs)·[정산](research/rsi-policy-20261022/validate.py)은기존동결가격과실제Rust preview만사용한다. baseline978640c flat1224/continuous6/reset72, current비RSI1122exact와RSI102변화·연속30/분할30/별도분기360을구분한다. 결과와한계는[작업](tasks/rsi-policy-20261022.md)·[연구](research/rsi-policy-20261022/report.md)에서확인한다. 실제계좌/API/주문검증으로확대하지않는다.

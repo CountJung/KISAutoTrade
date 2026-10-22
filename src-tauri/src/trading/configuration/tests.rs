@@ -834,3 +834,6 @@ async fn ma_cross_entry_options_reject_before_save_and_valid_values_roundtrip() 
     assert_eq!(s.store.load(&f.profile.id).await.unwrap()[0].params, params);
     assert!(!s.strategies.lock().await.configuration_edit_active());
 }
+
+#[path = "tests/rsi.rs"]
+mod rsi;

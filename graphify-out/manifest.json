@@ -220,8 +220,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/strategy_preview.rs": {
-    "mtime": 1792668329.6091146,
-    "ast_hash": "486d4c0d67ed9619ce4828f0647f372a",
+    "mtime": 1792669685.693342,
+    "ast_hash": "40c9663df1c883f4f0d1cc793cf0e204",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/strategy_preview/tests.rs": {
@@ -470,13 +470,13 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/simulation.rs": {
-    "mtime": 1792668329.7456095,
-    "ast_hash": "f8f836a3a8158a94d108ecb6d73493c7",
+    "mtime": 1792669411.0855525,
+    "ast_hash": "18e2ae7ae0cc51928f7a0865cf054889",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/strategy.rs": {
-    "mtime": 1792504274.0428426,
-    "ast_hash": "f76b57abf66107828b57540071ec4e35",
+    "mtime": 1792669576.74776,
+    "ast_hash": "7a6206d610ac406a095e112606901a4a",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/strategy/breakout.rs": {
@@ -485,8 +485,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/strategy/classic.rs": {
-    "mtime": 1792500542.9406853,
-    "ast_hash": "41cde5d0bd03b18de04507bf3b56c31e",
+    "mtime": 1792669483.7331593,
+    "ast_hash": "4e8cb25f888b75680d008b34899b3b30",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/strategy/core.rs": {
@@ -760,8 +760,8 @@
     "semantic_hash": "59b76fc1faedff9ea62d9770d8a76ee8"
   },
   "src/pages/strategy/ui/Page.tsx": {
-    "mtime": 1792505404.6914227,
-    "ast_hash": "f3e5c7a254d53d2cde0e81733184e7b0",
+    "mtime": 1792669455.2062874,
+    "ast_hash": "d7bd6efeaf30b85d8b65e21660f4999f",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx": {
@@ -780,8 +780,8 @@
     "semantic_hash": "d3cdc80601e703ee68639d81ab3c53eb"
   },
   "src/pages/strategy/ui/strategyMetadata.ts": {
-    "mtime": 1792504241.643537,
-    "ast_hash": "bbccc230bd9a31eb6ecdf490abf25f12",
+    "mtime": 1792669567.8822057,
+    "ast_hash": "302e4d4a677abe415ee4358067ca3d13",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/strategyPreviewPanel.tsx": {
@@ -790,8 +790,8 @@
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/strategyResearchPanel.tsx": {
-    "mtime": 1792668251.4156835,
-    "ast_hash": "aa1df359906d2589a2d200af97a0bbe8",
+    "mtime": 1792669455.206449,
+    "ast_hash": "05891846d6766cfde585b304bf8576b0",
     "semantic_hash": ""
   },
   "src/pages/trading/index.ts": {
@@ -1630,13 +1630,13 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/configuration.rs": {
-    "mtime": 1792504273.6424415,
-    "ast_hash": "a7e9408be85eda32a4e32ee63f92a912",
+    "mtime": 1792669483.7327762,
+    "ast_hash": "1f1504344ee9fdeadf70f07d0b7892b9",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/configuration/tests.rs": {
-    "mtime": 1792504495.044787,
-    "ast_hash": "26705d86d2cdd14de950796d4398e059",
+    "mtime": 1792669744.0525417,
+    "ast_hash": "5cce6f64b476ed2becf532de0dc0eeca",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/order/configuration.rs": {
@@ -1745,8 +1745,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/order/feedback/tests.rs": {
-    "mtime": 1792502258.0913088,
-    "ast_hash": "dd47fb77dbfc43e5ba2a6fa69382f791",
+    "mtime": 1792669631.5637083,
+    "ast_hash": "2399b48b2b57251627dd749009ea0176",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/order/fills/collector/notional.rs": {
@@ -1835,8 +1835,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/strategy/manager/live_feedback_tests.rs": {
-    "mtime": 1792502298.8940187,
-    "ast_hash": "aff062841fde9e2f03f731e9145d9d24",
+    "mtime": 1792669576.7267106,
+    "ast_hash": "76d3548825d836bc10faf066606c3f05",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/strategy/mean_trend/live_feedback_tests.rs": {
@@ -1940,8 +1940,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/strategy_preview/driver.rs": {
-    "mtime": 1792504273.845421,
-    "ast_hash": "5838eb04985d7e0701269bbd886b75da",
+    "mtime": 1792669576.5335777,
+    "ast_hash": "3192fe557507ab5baa7fd1f19e8d7c25",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/continuousReplayPanel.tsx": {
@@ -2150,8 +2150,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/strategy_preview/minute_timing_tests.rs": {
-    "mtime": 1792668422.8357456,
-    "ast_hash": "c41289cc005373c877a9fa9303faec92",
+    "mtime": 1792669411.0858898,
+    "ast_hash": "030ce8cadfea5ddc0f41b226530a7930",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/simulation/minute_time.rs": {
@@ -2177,6 +2177,46 @@
   "tests/e2e/lth-minute-timing.spec.ts": {
     "mtime": 1792668708.3840714,
     "ast_hash": "e92e403278bbcb4931218753e9a2490c",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/commands/strategy_preview/rsi_entry_tests.rs": {
+    "mtime": 1792669945.161789,
+    "ast_hash": "8b8f9f3f2824a04253ed185e6c10b244",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/trading/configuration/tests/rsi.rs": {
+    "mtime": 1792669814.9399352,
+    "ast_hash": "282873e97789f1d389719e6fe9e2523a",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/trading/order/feedback/tests/rsi.rs": {
+    "mtime": 1792669686.6159127,
+    "ast_hash": "005d5a201543eee717a574c9a2ea3cac",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/trading/strategy/classic/rsi.rs": {
+    "mtime": 1792669576.7079647,
+    "ast_hash": "2269688a6452005268bc2ebbbb3e49b2",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/trading/strategy/classic/rsi/params.rs": {
+    "mtime": 1792669576.7050378,
+    "ast_hash": "17bcadc642a6e78eeef3d80430410652",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/trading/strategy/classic/rsi/tests.rs": {
+    "mtime": 1792669631.5631752,
+    "ast_hash": "022f154d07e31bfa32e454b0243b413a",
+    "semantic_hash": ""
+  },
+  "src/pages/strategy/ui/rsiControls.tsx": {
+    "mtime": 1792669567.8819807,
+    "ast_hash": "d0a1c3e10ba5d51829307d39a86b4030",
+    "semantic_hash": ""
+  },
+  "tests/e2e/strategy-rsi-policy.spec.ts": {
+    "mtime": 1792669611.0626993,
+    "ast_hash": "6833f507057d02524a6c5db5fea3adfc",
     "semantic_hash": ""
   }
 }

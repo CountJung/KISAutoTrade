@@ -287,3 +287,7 @@ v17 MA cross는 기존 관측 교차를 보존하고 별도 bounded512 완료 �
 ## LTH minute timing 진단 경계
 
 `strategy_preview → lth_preview_assessment → simulation/minute_timing`은 기존 준비된 분봉 label의 별도 읽기 전용 경로다. 실제 순간의 거래소 timezone 변환·봉 시작/종가 가능 시각·일별 정규 시간창의 미관측 슬롯을 bounded metadata로 만든다. 원본 label 및 기존 fixed KST 실행시계·매매 신호·회계·hash는 유지한다. 구문 파서만 `simulation/minute_time`에서 generic 분봉 정규화와 공유한다. `assessment.minuteTiming`은 전용1m만 제공하고 UI와 저장A/B에 같은 진단을 표시한다. 달력/실제 발행/coverage·성과 적합성은 인증하지 않으며 [IPC 계약](ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22)과 [작업 기록](tasks/lth-minute-timing-20261022.md)을 따른다.
+
+## RSI 소유 피드백
+
+RSI의가격/이전RSI 상태에 exact전략소유 수량·원가와pending/known age를결합한다. 기존manager/주문피드백 경계로만소유를갱신하고공유계좌잔고를전략소유로합치지않는다. 기존교차조건의prev기준은매관측갱신하고추세는current제외이전입력가격을사용한다. 선택손절/보유한도는실잔량에후보를계속낼수있지만기존공통guard/risk·nextOpen이실제청산을결정한다. 세부옵션/복원/단위·기본값은[IPC](ipc-commands.md#rsi-v18-실제-소유선택-보호)와[연구](research/rsi-policy-20261022/report.md)를따른다.

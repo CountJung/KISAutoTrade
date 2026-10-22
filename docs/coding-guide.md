@@ -900,3 +900,7 @@ MA5/20의 기존 가격 관측·prevMA와 별도 이전 완료 DAILY context를 
 `simulation/minute_timing.rs`는 bounded 순수 진단이며 `commands/strategy_preview.rs::lth_preview_assessment`가 기존 실행에 준비된 원본 label만 전달한다. 진단의 timezone 변환 결과를 기존 LTH clock·정렬·신호·정산·hash에 되먹이지 않는다. 공통 `simulation/minute_time.rs::parse_minute_instant`는 RFC3339/compact KST 구문만 공유하고 기존 generic Nanos UTC 출력은 유지한다. 일봉/host Local/epoch fallback을 가진 risk parser나 RFC3339 전용 provider page parser와 합치지 않는다.
 
 응답/목록 상한·시각/공백 의미는 [IPC 계약](ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22)을 따른다. `lthMinuteTimingPanel.tsx`는 current/A-B/legacy/손상 데이터와 compact2일·기본8일을 구분한다. 시간 진단 성공을 실제 coverage나 성과 적합성으로 승격하지 않는다. [작업 검증](tasks/lth-minute-timing-20261022.md).
+
+## RSI 소유와 관측 보호
+
+RSI는 exact전략소유수량/원가·known/unknown age와pending진입origin을기존피드백/metadata 경계에서보존한다. 신호에서소유를먼저바꾸지않고기존단순RSI/매관측교차baseline을유지한다. 순수 age/추세/metadata 구문은검증된 `strategy/observation.rs`를kind=rsi로재사용하며손절0비활성·기존reset전체clear는RSI에서별도로유지한다. 저장·공통두preview strict옵션과UI원형타입을동기화하고추세현재관측을평균에미리넣지않는다. 옵션/체결모델·단위·미상나이정책은[IPC](ipc-commands.md#rsi-v18-실제-소유선택-보호)를따른다.

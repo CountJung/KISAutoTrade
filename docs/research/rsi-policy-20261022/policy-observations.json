@@ -1,0 +1,88 @@
+{
+  "byVariant": {
+    "hold63": {
+      "runs": 78,
+      "readyAtStart": 78,
+      "noSignals": 20,
+      "noCompletedExit": 36,
+      "terminalHeld": 18,
+      "stopSignals": 0,
+      "capSignals": 0,
+      "flatSellSignals": 0,
+      "heldBuySignals": 0,
+      "rawSignals": 192,
+      "blockedOrders": 10
+    },
+    "legacy": {
+      "runs": 78,
+      "readyAtStart": 78,
+      "noSignals": 0,
+      "noCompletedExit": 36,
+      "terminalHeld": 18,
+      "stopSignals": 0,
+      "capSignals": 0,
+      "flatSellSignals": 386,
+      "heldBuySignals": 70,
+      "rawSignals": 648,
+      "blockedOrders": 462
+    },
+    "owned": {
+      "runs": 78,
+      "readyAtStart": 78,
+      "noSignals": 20,
+      "noCompletedExit": 36,
+      "terminalHeld": 18,
+      "stopSignals": 0,
+      "capSignals": 0,
+      "flatSellSignals": 0,
+      "heldBuySignals": 0,
+      "rawSignals": 192,
+      "blockedOrders": 10
+    },
+    "stop3": {
+      "runs": 78,
+      "readyAtStart": 78,
+      "noSignals": 20,
+      "noCompletedExit": 23,
+      "terminalHeld": 13,
+      "stopSignals": 78,
+      "capSignals": 0,
+      "flatSellSignals": 0,
+      "heldBuySignals": 0,
+      "rawSignals": 313,
+      "blockedOrders": 6
+    },
+    "trend200": {
+      "runs": 78,
+      "readyAtStart": 78,
+      "noSignals": 34,
+      "noCompletedExit": 48,
+      "terminalHeld": 14,
+      "stopSignals": 0,
+      "capSignals": 0,
+      "flatSellSignals": 0,
+      "heldBuySignals": 0,
+      "rawSignals": 144,
+      "blockedOrders": 10
+    }
+  },
+  "longestOwnedCloseObservationsBySymbol": {
+    "SOXQ": 54,
+    "SPY": 57,
+    "QQQ": 46
+  },
+  "inertHold63ExactReportAndSignals": 78,
+  "costSignFlipRecords": [
+    {
+      "kind": "continuous",
+      "variant": "stop3",
+      "symbol": "SOXQ",
+      "quarter": "2023-2025",
+      "returns": {
+        "10": 1.5038,
+        "20": -0.6202
+      }
+    }
+  ],
+  "scope": "Recorded production fills and close observations only; no missing bars/calendar inference, no independently generated RSI decisions. Aggregate totals combine continuous/reset experiments for mechanics counts only, never portfolio returns or independent samples."
+}

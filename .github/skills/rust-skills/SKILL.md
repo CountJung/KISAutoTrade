@@ -449,7 +449,7 @@ fn reset(&mut self) {
 | 전략 | State 구조체 | 핵심 유지 필드 |
 |------|------------|--------------|
 | MA교차(1) | `MaCrossState` | `prices`, `prev_short_ma`, `prev_long_ma`, 별도 완료 일봉 `context` |
-| RSI(2) | 인라인 튜플 | `(VecDeque<u64>, Option<f64>)` |
+| RSI(2) | `RsiState` | 가격/이전RSI, actual q/native avg, 보유 age/origin·live trend |
 | 모멘텀(3) | `MomentumState` | `prices`, `owned_quantity`, `previous_momentum`, `armed`, `retry_candidate` |
 | 이격도(4) | `DeviationState` | 가격/추세 버퍼, 실제 수량·평균가, 보유 관측·교차 후보 |
 | 52주신고가(5) | `FiftyTwoWeekState` | `prev_price`, `high_52w`, `buy_price` |
@@ -1296,7 +1296,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - q/nativeavg는 exact owner sync에서만 갱신하고 raw signal로 선반영하지 않는다. stop/band는 configuredq, maxHold은 소유 잔량 전량 후보다. stop→maxHold→band 순서·거절/partial/pending·지표 준비 전 보유 보호를 유지한다.
 - longtrend는 이전N관측/current제외이고 live 첫 관측에만 seed를 비운다. Mean의 legacy 분봉 warmup no-op과 reset 가격 유지, Deviation의 분봉 seed/resetclear를 합치지 않는다. 미확인 분봉 history를 충분한 준비로 표시하지 않는다.
 - 실제 체결 뒤 나이는 off 중에도 세고 sameqty/partial/warmup/params 변경으로 초기화하지 않는다. candidate/pending 또는 kind가 맞는 known checkpoint로 복원하며 나이 불명에 한도 활성은 보수적 매도 후보다. 날짜/장중손실 한도로 주장하지 않는다.
-- `strategy/observation.rs`는 bounded_optional_integer, advance/sync_owned_age, encode/decode_owned_observation, trend_allows/observe_trend/begin_live_trend의8개 pub(super) 함수다. 두 kind를 엄격 분리하고 decode 성공 뒤 caller만 상태를 게시한다. q/avg/symbol/scope·각 전략 판정은 포함하지 않는다. Graphify 후보와 Serena 실제 refs·기계적 동등성 검증 후 승격하며 원래 API/원장 JSON을 보존한다.
+- `strategy/observation.rs`는 bounded_optional_integer, advance/sync_owned_age, encode/decode_owned_observation, trend_allows/observe_trend/begin_live_trend의8개 pub(super) 함수다. 전략 kind를 엄격 분리하고 decode 성공 뒤 caller만 상태를 게시한다. q/avg/symbol/scope·각 전략 판정은 포함하지 않는다. Graphify 후보와 Serena 실제 refs·기계적 동등성 검증 후 승격하며 원래 API/원장 JSON을 보존한다.
 - 저장/두 preview strict validation과 UI raw/A-B·단위 안내를 동기화한다. 기존 frozen QQQ1주·비용/체결4경로는 그대로 유지하고 새3주후보/OOS에 합치지 않는다. 계약은 docs/ipc-commands.md, 연구는 docs/research/mean-reversion-policy-20261020/report.md다.
 
 > 마지막 업데이트: 2026-10-20T22:32:26+09:00
@@ -1319,3 +1319,12 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - `minute_time::parse_minute_instant`는 generic 기존 문법/UTC Nanos 출력 보존을 위해 syntax만 공유한다. risk/daily/hostLocal/epoch 또는 provider page parser와 합치지 않는다. 진단 결과로 기존 LTH fixed KST 시계·선택순서·신호·정산·입력hash를 바꾸지 않는다. daily skipNone, empty notEvaluable, 실제 nonempty 신호/체결의 전후 동일성을 검증한다. [상세](../../../docs/tasks/lth-minute-timing-20261022.md).
 
 > 마지막 업데이트: 2026-10-22T20:33:31+09:00
+
+## RSI v18 소유·선택 보호
+
+- 기존14변화simpleRSI/zero-loss100·prev≤30→cur>30 Buy 및prev≥70→cur<70 Sell과매관측baseline갱신을보존한다. flatBuy/heldSell만허용하며실제owned수량/native원가를feedback으로만변경한다. 기존cross는거절뒤래치재시도없음, Sell은실잔여전량이다.
+- long_trend_period0..512/stop_loss_pct0..99.9/max_hold_observations0..1000000은생략/0disabled이다. strictsave/공통preview·runtimeoptional손상Buyfailclosed를연결하고customlegacy RSI와실보유청산을보존한다. Mean의stop0활성정책을복사하지않는다.
+- observation의integer/age/metadata(kindrsi)/trend8함수만그대로재사용한다. stop→cap→cross우선, RSI/추세준비부족은보유보호를막지않는다. sameqty/partial/warmup/reconfigure age보존·coldunknown과exactownercheckpoint를구분한다. live최초새trendseed만clear·current제외관측단위·reset전체clear를유지한다.
+- 실filled/원가·평가자산/비용경로와rawsignal/blocked감소를분리한다. 선택3%/63관측은실제손실/보유시간보장아니다. [검증·기각](../../../docs/research/rsi-policy-20261022/report.md)과[작업](../../../docs/tasks/rsi-policy-20261022.md)을확인한다.
+
+> 마지막 업데이트: 2026-10-22T20:47:35+09:00

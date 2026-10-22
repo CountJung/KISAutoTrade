@@ -1,186 +1,8 @@
-use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
+#[cfg(test)]
+use super::{Signal, Strategy, StrategyConfig};
 
-use super::{state::bounded_window_with_extra, HistoryReadiness, Signal, Strategy, StrategyConfig};
-
-// ────────────────────────────────────────────────────────────────────
-// RSI 전략 (Relative Strength Index)
-// ────────────────────────────────────────────────────────────────────
-
-/// RSI 전략 파라미터
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RsiParams {
-    /// RSI 계산 기간 (기본 14)
-    pub period: usize,
-    /// 과매도 기준선 (기본 30) — RSI가 이 이하 → 이 이상으로 올라올 때 매수
-    pub oversold: f64,
-    /// 과매수 기준선 (기본 70) — RSI가 이 이상 → 이 이하로 떨어질 때 매도
-    pub overbought: f64,
-}
-
-impl Default for RsiParams {
-    fn default() -> Self {
-        Self {
-            period: 14,
-            oversold: 30.0,
-            overbought: 70.0,
-        }
-    }
-}
-
-pub struct RsiStrategy {
-    config: StrategyConfig,
-    params: RsiParams,
-    /// 종목코드 → (가격 이력, 이전 RSI)
-    states: std::collections::HashMap<String, (VecDeque<u64>, Option<f64>)>,
-}
-
-impl RsiStrategy {
-    pub fn new(config: StrategyConfig) -> Self {
-        let params: RsiParams = serde_json::from_value(config.params.clone()).unwrap_or_default();
-        Self {
-            config,
-            params,
-            states: std::collections::HashMap::new(),
-        }
-    }
-
-    /// 단순 이동평균 방식 RSI 계산
-    fn calc_rsi(prices: &VecDeque<u64>, period: usize) -> Option<f64> {
-        if period == 0 || prices.len() < period.saturating_add(1) {
-            return None;
-        }
-        // 최신순으로 period+1개 추출
-        let recent: Vec<u64> = prices.iter().rev().take(period + 1).cloned().collect();
-        let mut gain_sum = 0.0f64;
-        let mut loss_sum = 0.0f64;
-        for i in 0..period {
-            let diff = recent[i] as f64 - recent[i + 1] as f64;
-            if diff > 0.0 {
-                gain_sum += diff;
-            } else {
-                loss_sum += -diff;
-            }
-        }
-        let avg_gain = gain_sum / period as f64;
-        let avg_loss = loss_sum / period as f64;
-        if avg_loss == 0.0 {
-            return Some(100.0);
-        }
-        let rs = avg_gain / avg_loss;
-        Some(100.0 - 100.0 / (1.0 + rs))
-    }
-}
-
-impl Strategy for RsiStrategy {
-    fn id(&self) -> &str {
-        &self.config.id
-    }
-    fn name(&self) -> &str {
-        &self.config.name
-    }
-    fn config(&self) -> &StrategyConfig {
-        &self.config
-    }
-    fn config_mut(&mut self) -> &mut StrategyConfig {
-        &mut self.config
-    }
-    fn is_enabled(&self) -> bool {
-        self.config.enabled
-    }
-    fn set_enabled(&mut self, enabled: bool) {
-        self.config.enabled = enabled;
-    }
-
-    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
-        if !self.config.same_identity(&config) {
-            return false;
-        }
-        let mut replacement = Self::new(config);
-        for (symbol, state) in &self.states {
-            let prices: Vec<_> = state.0.iter().copied().collect();
-            replacement.initialize_historical(symbol, &prices);
-        }
-        *self = replacement;
-        true
-    }
-
-    fn initialize_historical(&mut self, symbol: &str, prices: &[u64]) {
-        if !self.config.targets_symbol(symbol) {
-            return;
-        }
-        let cap = bounded_window_with_extra(self.params.period, 2);
-        let history = prices[prices.len().saturating_sub(cap)..]
-            .iter()
-            .copied()
-            .collect();
-        let prev_rsi = Self::calc_rsi(&history, self.params.period);
-        self.states.insert(symbol.to_string(), (history, prev_rsi));
-    }
-
-    fn initialize_intraday_prices(&mut self, symbol: &str, prices: &[u64]) {
-        self.initialize_historical(symbol, prices);
-    }
-
-    fn history_readiness(&self, symbol: &str) -> Option<HistoryReadiness> {
-        let state = self.states.get(symbol);
-        Some(HistoryReadiness {
-            required_bars: self.params.period.saturating_add(1),
-            available_bars: state.map_or(0, |(prices, _)| prices.len()),
-            ready: state.is_some_and(|(_, prev_rsi)| prev_rsi.is_some()),
-        })
-    }
-
-    fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
-        if !self.config.enabled {
-            return Signal::Hold;
-        }
-        if !self.config.targets_symbol(symbol) {
-            return Signal::Hold;
-        }
-
-        let cap = bounded_window_with_extra(self.params.period, 2);
-        let (prices, prev_rsi) = self
-            .states
-            .entry(symbol.to_string())
-            .or_insert_with(|| (VecDeque::with_capacity(cap), None));
-
-        prices.push_back(price);
-        if prices.len() > cap {
-            prices.pop_front();
-        }
-
-        let rsi = Self::calc_rsi(prices, self.params.period);
-
-        let signal = match (*prev_rsi, rsi) {
-            (Some(prev), Some(cur)) => {
-                if prev <= self.params.oversold && cur > self.params.oversold {
-                    Signal::Buy {
-                        symbol: symbol.to_string(),
-                        quantity: self.config.order_quantity,
-                        reason: format!("RSI 과매도 반등 {:.1}", cur),
-                    }
-                } else if prev >= self.params.overbought && cur < self.params.overbought {
-                    Signal::Sell {
-                        symbol: symbol.to_string(),
-                        quantity: self.config.order_quantity,
-                        reason: format!("RSI 과매수 하락 {:.1}", cur),
-                    }
-                } else {
-                    Signal::Hold
-                }
-            }
-            _ => Signal::Hold,
-        };
-
-        *prev_rsi = rsi;
-        signal
-    }
-
-    fn reset(&mut self) {
-        self.states.clear();
-    }
-}
+mod rsi;
+pub use rsi::{validate_rsi_params, RsiParams, RsiStrategy};
 
 mod momentum;
 pub use momentum::{
@@ -206,7 +28,7 @@ mod history_tests {
             "period": 3, "oversold": 30.0, "overbought": 70.0,
         })));
         strategy.initialize_historical("SOXQ", &[100, 90, 80, 70]);
-        assert_eq!(strategy.states["SOXQ"].1, Some(0.0));
+        assert_eq!(strategy.states["SOXQ"].previous_rsi, Some(0.0));
         assert!(strategy.history_readiness("SOXQ").unwrap().ready);
         assert!(matches!(
             strategy.on_tick("SOXQ", 120, 0),
@@ -214,7 +36,7 @@ mod history_tests {
         ));
         strategy.initialize_historical("SOXQ", &[100, 90, 80]);
         assert!(!strategy.history_readiness("SOXQ").unwrap().ready);
-        assert_eq!(strategy.states["SOXQ"].1, None);
+        assert_eq!(strategy.states["SOXQ"].previous_rsi, None);
     }
 
     #[test]

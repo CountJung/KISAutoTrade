@@ -720,3 +720,9 @@ UI 규칙:
 - `tests/e2e/lth-minute-timing.spec.ts`의 mock으로 저장/복원·손상 배열·다른가정·legacy·일봉/빈자료·375px overflow/compact수를 확인한다. [작업 기록](../../../docs/tasks/lth-minute-timing-20261022.md).
 
 > 마지막 업데이트: 2026-10-22T20:33:31+09:00
+
+## RSI 선택 보호 UI
+
+RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저장타입을보존한다. 누락0만비활성이고null/string/bool/소수정수는원형오류상태로고쳐야한다. 새필드검증/disabled를save와두preview에동일적용하고decimal초안은공용numberDraft를사용한다. current/A-B에는실제coreparams·선택값/기본0·미확인을표시하고이전엔진결과가새보호를적용했다고주장하지않는다. 실시간관측과일봉기간, 실제평균매수가손절·미상나이·한도/손절후보의주문제한과다음시가한계를간결히설명한다. 저장중새초안/계좌전환/실패재시도·keyboard·mobile을mock검증한다.
+
+> 마지막 업데이트: 2026-10-22T20:47:35+09:00

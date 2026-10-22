@@ -17,9 +17,12 @@ export const STRATEGY_PARAM_META: Record<string, StrategyParamMeta[]> = {
     { key: 'min_bandwidth_pct', label: '최소 일봉 볼린저 밴드폭 (%)', min: 0, max: 1000, step: 0.1, description: '0 비활성 · 이전 20종가의 4×모집단 표준편차 / 평균 ×100 이상' },
   ],
   rsi: [
-    { key: 'period', label: 'RSI 기간', min: 5, max: 50, description: 'RSI 계산 기간 (기본 14)' },
-    { key: 'oversold', label: '과매도 기준', min: 10, max: 40, step: 1, description: 'RSI가 이 이하 → 이 이상 시 매수 신호 (기본 30)' },
-    { key: 'overbought', label: '과매수 기준', min: 60, max: 90, step: 1, description: 'RSI가 이 이상 → 이 이하 시 매도 신호 (기본 70)' },
+    { key: 'period', label: 'RSI 기간', min: 5, max: 50, description: '입력 가격 변화의 단순평균 RSI 기간 (기본 14, Wilder 아님)' },
+    { key: 'oversold', label: '과매도 기준', min: 10, max: 40, step: 1, description: '이전 RSI <= 기준 → 현재 RSI > 기준에서 미보유 매수 후보 (기본 30)' },
+    { key: 'overbought', label: '과매수 기준', min: 60, max: 90, step: 1, description: '이전 RSI >= 기준 → 현재 RSI < 기준에서 실제 보유 잔량 매도 후보 (기본 70)' },
+    { key: 'long_trend_period', label: 'RSI 진입 추세 MA 관측 수', min: 0, max: 512, step: 1, description: '0 비활성 · 미보유 반등 교차 후보의 현재 가격 > 같은 주기의 직전 N가격 평균, 현재 관측 제외' },
+    { key: 'stop_loss_pct', label: 'RSI 보유 손절 기준 (%)', min: 0, max: 99.9, step: 0.1, description: '0 비활성 · 종목 통화 기준 실제 평균 매수가 대비 관측 손실률이 입력 이상이면 잔량 전량 매도 후보' },
+    { key: 'max_hold_observations', label: 'RSI 최대 보유 관측 수', min: 0, max: 1000000, step: 1, description: '0 비활성 · 실제 양수 체결 후 관측 횟수. 일수/보장 보유시간과 다름' },
   ],
   momentum: [
     { key: 'lookback_period', label: '비교 기간', min: 5, max: 60, description: 'N기간 전 가격 대비 변화율 계산 기간 (기본 20)' },
@@ -74,7 +77,7 @@ export const STRATEGY_PARAM_META: Record<string, StrategyParamMeta[]> = {
 
 export const STRATEGY_DESCRIPTION: Record<string, string> = {
   ma_cross: '입력 관측의 단기/장기 MA 골든크로스 매수, 데드크로스 매도. 기본 5/20은 실시간 약10초 또는 선택 봉 관측 수이며 5/20일이 아니다. 선택 신규 진입 확인은 별도의 이전 완료 일봉 추세·기울기·ATR·밴드폭을 사용한다.',
-  rsi: 'RSI가 과매도 기준 이하에서 반등하면 매수, 과매수 기준 이상에서 하락하면 매도.',
+  rsi: '가격 변화 단순평균 RSI의 과매도 반등 교차는 미보유 매수, 과매수 하락 교차는 실제 보유 잔량 청산 후보. 기존 기간14·30/70을 유지하며 선택 추세·손절·보유 관측 상한은 0 비활성이다. 관측 수를 일수로 해석하지 않는다.',
   momentum: 'N관측 전 대비 변화율의 기본 level 진입과 선택 crossing 상향 돌파. 재무장 간격은 %p 단위이며 level에서는 미사용이다. 실제 보유는 두 모드 모두 음의 임계값 이하 시 청산하고 실시간 약10초 관측과 replay 봉 종가를 구분한다.',
   deviation: '기본 MA20·매수 -5%·매도 +5%의 level 진입과 보유 청산. 선택 하향 crossing·이전 가격 MA 진입 확인·최대 보유 관측 수·실제 평균가 손절을 비교할 수 있다. 관측 수를 일수로 해석하지 않는다.',
   fifty_two_week_high: '최근 252 거래일(1년) 최고가를 재돌파하면 매수. 매수 후 지정 % 하락 시 손절. 자동매매 시작 시 KIS 차트 API로 초기화됨.',

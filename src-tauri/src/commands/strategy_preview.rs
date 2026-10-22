@@ -858,3 +858,7 @@ mod ma_cross_entry_tests;
 #[cfg(test)]
 #[path = "strategy_preview/minute_timing_tests.rs"]
 mod minute_timing_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/rsi_entry_tests.rs"]
+mod rsi_entry_tests;
