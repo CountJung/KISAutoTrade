@@ -99,24 +99,26 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-11 — 추세 필터:</strong> 중앙값 +0.4886%, 최악 -4.1022%/MDD5.5534%, 완료22회 모두 손실·기말 보유39/45창. 최근248봉 SOXQ +9.6300%도 완료0회 평가손익이다. 완료 조건: 실제 청산이 있는 복수 구간에서 장기 추세 이탈·수익 보호·최대 보유 후보와 노출을 비교하고 실현/잔여 손익을 분리; 200봉 기준 유지.</h2>
-<ul><li>P2-18 SOXQ연속20bp 총+9.5760%지만 실현−240553.37/잔여+1198152.86원·MDD16.2171%·평균투자21.2574%다. 실제 청산/수익보호·노출 비교를 함께 요구한다.</li></ul>
+<ul><li>P2-18 SOXQ연속20bp 총+9.5760%지만 실현−240553.37/잔여+1198152.86원·MDD16.2171%·평균투자21.2574%다. 실제 청산/수익보호·노출 비교를 함께 요구한다.</li>
+<li>사전 설계 준비: 원래200/5/20·현재 포함/strict·확인 기본1을 유지하고 legacy/owned/이탈확인2/수익5·되밀림3/보유63의 단독5종·30연속/30분할/360별도분기를 고정했다. <a href="research/trend-filter-policy-20261023/design.json">설계</a>, <a href="research/trend-filter-policy-20261023/protocol.md">연구 계약</a>, <a href="tasks/trend-filter-policy-20261023.md">작업 기록</a>.</li>
+<li><a href="research/trend-filter-policy-20261023/existing-ledger-audit.json">기존 원장 감사</a>는 저장된v12 연속6/분기72에42,958검사·오류0, 두 재실행JSON동일·원본연결hash·변조4건 탐지를 확인했다. 각 비용 연속완료19회(이익5/손실14), 별도분기완료16회 모두손실·기말보유30/36이며 비용별비교0주3개·실현/잔여·노출을 구분한다. 현재81fa00d/v21 재실행이나 새 후보 결과가 아니며 미저장 대체분할 원장/benchmark guard결정/당시바이너리는 미검증이다. 구현·새 생산 비교·효능 판정은 계속 미완료다. <a href="research/trend-filter-policy-20261023/report.md">6연속 표·반올림 한계·우선순위·후속 조건</a>.</li></ul>
 <a class="permalink" href="#soxq-p2-11" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="soxq-p2-12" data-status="validation" data-source-line="135">
+<article class="task validation" id="soxq-p2-12" data-status="validation" data-source-line="137">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>SOXQ-P2-12 — 레버리지 추세 보유(LTH):</strong> 최근 실제 분봉2,318개/7날짜의 기본·볼린저 활성×비용2종 네 진단은 신호0이다. null OHLCV412개·정규장 밖1개는 제거했고 합성하지 않았다. 고정KST/auto 세션·봉 종료 표기의 시작·종가 공개 가능 시각 모델·10초 관측 차이·누락/기간 coverage 미검증이라 0% 성과/볼린저 효과 없음으로 해석하지 않는다. 완료 조건: P1-05 실제3개월 원본·DST/거래일/세션·gap·진입/마감 창 검증 후 옵션별 비교. generic 거부·일봉 평가 불가 유지.</h2>
 
 <a class="permalink" href="#soxq-p2-12" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-13" data-status="implementation" data-source-line="139">
+<article class="task implementation" id="soxq-p2-13" data-status="implementation" data-source-line="141">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-13 — 가격조건:</strong> 전일 종가 고정·익절5%·손절3% 연구 설정에서 중앙값 +0.2847%, 완료117회, 비용 부호 반전3창. 완료 조건: 평가 전 고정 기준가 유지, 손절 직후 재진입·공통 cooldown/최소 기대수익·회전율을 두 비용과 복수 구간에서 비교; guard 완화나 사후 최적화 금지.</h2>
 <ul><li>P2-18 최초2022기준가 고정 모델은20bp 각ETF 청산1회·평균초기자본비중0.0806/0.2430/0.1259%다. 희소노출로 해석하고 비교 도중 분기마다 기준가를 바꾸지 않는다.</li></ul>
 <a class="permalink" href="#soxq-p2-13" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-16" data-status="implementation" data-source-line="148">
+<article class="task implementation" id="soxq-p2-16" data-status="implementation" data-source-line="150">
 <p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-16 — ATR을 true range로 계산하고 표본 부족을 성과와 구분한다.</strong></h2>
@@ -124,21 +126,21 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>완료 조건: 이전 종가 포함 TR·사전 ATR warmup·봉 간격 유지; 표본 수/신뢰 부족 표시; 70/30 구간을 기간 정규화 없이 과최적화 확정에 사용하지 않고 별도 walk-forward 평가.</li></ul>
 <a class="permalink" href="#soxq-p2-16" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-f4140a9e27" data-status="implementation" data-source-line="163">
+<article class="task implementation" id="task-f4140a9e27" data-status="implementation" data-source-line="165">
 <p class="section">자동매매 예산·볼린저 보강 검증 기록 (2026-09-11)</p>
 <p class="badge">🟢 자동 구현</p>
 <h2>실제 provider 응답 불명 주문의 운영자 대조/복구 UI: 현재는 자동 해제 없이 예산을 보류한다. 주문번호/clientOrderId 대조 및 멱등 승인 흐름으로 확장할 것.</h2>
 
 <a class="permalink" href="#task-f4140a9e27" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="task-e353185411" data-status="validation" data-source-line="164">
+<article class="task validation" id="task-e353185411" data-status="validation" data-source-line="166">
 <p class="section">자동매매 예산·볼린저 보강 검증 기록 (2026-09-11)</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2>LTH 보강의 일봉 성과 미리보기: 일봉 context와 분봉 지표는 분리했지만 장중 경로를 일봉에서 복원하지 않는다. 현재 일봉은 평가 불가 진단이며 활성 볼린저 옵션의 성과 표본은 1분봉만 허용한다. 실제 장중 자료·시장 시간 검증은 P1-05 잔여 조건이다.</h2>
 
 <a class="permalink" href="#task-e353185411" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-a322b97c93" data-status="implementation" data-source-line="168">
+<article class="task implementation" id="task-a322b97c93" data-status="implementation" data-source-line="170">
 <p class="section">P3 — 유지보수·품질 게이트</p>
 <p class="badge">🟢 자동 구현</p>
 <h2>1,000라인 초과 파일을 책임 단위로 분리한다.</h2>
@@ -152,7 +154,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>검증: 변경 파일과 신규 파일은 1,000라인 아래, FSD/API public surface와 IPC 이름은 유지한다.</li></ul>
 <a class="permalink" href="#task-a322b97c93" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-ffa0458c56" data-status="decision" data-source-line="192">
+<article class="task decision" id="task-ffa0458c56" data-status="decision" data-source-line="194">
 <p class="section">P3 — 유지보수·품질 게이트</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2>플랫폼 코드 서명·updater 서명 강제를 위한 배포 키 준비.</h2>
@@ -160,7 +162,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <a class="permalink" href="#task-ffa0458c56" aria-label="이 할일 링크">#</a>
 </article></section>
 <p id="empty" hidden>일치하는 열린 할일이 없습니다. 검색어나 상태를 바꿔 주세요.</p>
-<footer>원본 SHA-256: 4776eac69947905915c87a2e0c6d507821362aea2d8dacdcd0d629497cf58b46<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
+<footer>원본 SHA-256: 27ffd16a3ca3e3f85866f5122ae2fce72653ca576efec7beddee4ad9992d30dc<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
 </main>
 <script>
 const status = document.getElementById('status');

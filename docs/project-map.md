@@ -293,6 +293,12 @@ KISAutoTrade/
 │   │   │   ├── summary.csv
 │   │   │   ├── validate.py
 │   │   │   └── validation.json
+│   │   ├── trend-filter-policy-20261023/
+│   │   │   ├── design.json
+│   │   │   ├── existing-ledger-audit.json
+│   │   │   ├── existing-ledger-audit.py
+│   │   │   ├── protocol.md
+│   │   │   └── report.md
 │   │   └── volatility-expansion-policy-20261022/
 │   │       ├── aggregate.json
 │   │       ├── analyze.py
@@ -343,6 +349,7 @@ KISAutoTrade/
 │   │   ├── strategy-review-20261018.md
 │   │   ├── strong-close-policy-20261022.md
 │   │   ├── trading-module-split-20261018.md
+│   │   ├── trend-filter-policy-20261023.md
 │   │   └── volatility-expansion-policy-20261022.md
 │   ├── ARCHITECTURE.md
 │   ├── HARNESS_MAP.md
@@ -1338,6 +1345,10 @@ KISAutoTrade/
 
 | 경로 | 책임 |
 |---|---|
+| `docs/research/trend-filter-policy-20261023/design.json` | P2-11의 기존200/5/20·현재 포함 MA를 유지한 실제 소유/이탈 확인2·수익5/되밀림3·보유63 단독 후보와 입력 hash·자료 출처·비용·연속/대체 분할/별도 분기 비교 계획을 생산 실행 전에 선언. declaredNotRun 상태이며 예정 v22·30/30/360건을 구현/실행 결과로 취급하지 않음 |
+| `docs/research/trend-filter-policy-20261023/{protocol.md,report.md}` | 후보의 상태·시점·준비/체결·노출·출처와 객관적 완료 조건을 고정하고 기존 연구 근거와 새 후보 미실행 표를 분리. 이탈 연속값 복원0은 설계 결정이며 소유 checkpoint 세부·strict 범위·생산 코드/UI·harness 구현과 후보 효능은 아직 미완료 |
+| `docs/research/trend-filter-policy-20261023/existing-ledger-audit.py` | 기존 v12 추세 필터 연속6개·별도 분기72개의 기록 fill과 원본 OHLC를 Decimal로 재정산해 현금·원가·비용·매봉 자산/MDD·실현/잔여·기말·노출·갭/장중 경로를 대사하고 JSON 감사 결과를 생성. 전략·guard 판단이나 생산 harness를 재실행하지 않으며 대체 분할은 저장 요약/inputHash 연결만 확인 |
+| `docs/research/trend-filter-policy-20261023/existing-ledger-audit.json` | 기존 기록 원장의 식별·출처 hash·행별 독립 정산·검사 수/오류·한계를 담는 감사 산출물. 통과 여부는 파일의 status/errorCount로 확인하며 새 후보 실행·수익 보호 구현이나 당시 v12 실행 바이너리 재현 증거로 확대하지 않음 |
 | `scripts/database-tls-contract.mjs` | 로컬 Docker socket의 실행별 PostgreSQL16 TLS/비TLS fixture·임시 CA를 생성하고 일반 계약 3개와 독립 TLS/복구 계약 2개를 실행. 생성물은 Git 제외 `.cache/database-tls-contract/<UUID>/`에만 두며 소유 라벨 확인 후 컨테이너/볼륨·개인키를 정리 |
 | `scripts/render-todo.mjs` | `docs/todo.md`의 상태가 명시된 열린 최상위 항목을 `docs/todo.html`로 생성하고 원본 hash·상태별 색상·검색·필터를 제공한다. `npm run check:todo`는 원본과 생성물의 동기화를 검사 |
 | `scripts/render-todo.test.mjs` | 열린 항목 보존·상태 분류·escaping·freshness와 실제 Chromium의 좁은 화면·키보드 필터·JavaScript 없는 읽기를 검증 |
@@ -2080,6 +2091,13 @@ report.md / validation.json → docs/todo.md의 근거·우선순위·완료 조
 분기별 포지션 초기화 결과와 겹치는 최근 기간은 따로 집계하며, 분봉 표본을
 3개월 시장 검증으로 승격하지 않는다. 이 흐름은 앱 IPC·UI·데몬 경로를 변경하지
 않고 주문 실행이나 사용자 계정 설정 변경 없이 연구 파일과 TODO를 남긴다.
+
+P2-11의 별도 준비 진입점은 `research/trend-filter-policy-20261023/`다.
+`design.json`과 `protocol.md`는 앞으로 실행할 생산 후보의 계획을 고정하고,
+`existing-ledger-audit.py`는 기존 v12 기록만 재정산해 JSON으로 남긴다.
+두 경로를 `report.md`와 `tasks/trend-filter-policy-20261023.md`에서 구분하며
+신규 후보 harness·생산 보호 기능·UI는 아직 구현/검증 완료로 표시하지 않는다.
+이미 본 자료의 준비 문서와 과거 정산 감사만으로 기존 P2-11을 닫지 않는다.
 
 ### 확인된 체결과 전략 소유권 피드백
 
