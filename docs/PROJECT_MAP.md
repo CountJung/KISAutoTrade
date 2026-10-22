@@ -38,6 +38,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | Live 완료 일봉 준비·거래량 | `commands/trading/daily_history.rs`, `daily_history/jobs.rs` | `trading/strategy/{core,manager/live_history}.rs`, `src/shared/ui/LiveDailyHistoryPanel.tsx`, TradingStatus |
 | 전략 | `src-tauri/src/trading/strategy/` | `commands/strategy.rs`, `commands/strategy_preview.rs`, Strategy UI |
 | RSI 실제 소유·선택 보호 | `trading/strategy/classic/rsi.rs`, `classic/rsi/params.rs` | `strategy/observation.rs`, `configuration/tests/rsi.rs`, `order/feedback/tests/rsi.rs`, `strategy_preview/rsi_entry_tests.rs`, `rsiControls.tsx`, `docs/research/rsi-policy-20261022/` |
+| 변동성 확장 이전 범위·시장일 관측·실제 소유 | `trading/strategy/breakout/volatility_expansion.rs`, `volatility_expansion/{params,context,protection}.rs` | `strategy/{core,manager/live_history}.rs`, `manager/volatility_history_tests.rs`, `configuration/tests/volatility.rs`, `strategy_preview/volatility_entry_tests.rs`, `src/shared/api/strategyResearchTypes.ts`, `volatilityExpansion{Controls,Preparation}.tsx`, `tests/e2e/strategy-volatility-expansion-policy.spec.ts`, `docs/research/volatility-expansion-policy-20261022/` |
 | 강한 종가 완료 시장일·실제 소유·선택 보호 | `trading/strategy/breakout/strong_close.rs`, `strong_close/{params,context,protection}.rs` | `strategy/{core,manager/live_history}.rs`, `manager/strong_close_history_tests.rs`, `configuration/tests/strong_close.rs`, `strategy_preview/strong_close_entry_tests.rs`, `strongClose{Controls,Preparation}.tsx`, `tests/e2e/strategy-strong-close-policy.spec.ts`, `docs/research/strong-close-policy-20261022/` |
 | 돌파 실패 실제 소유·선택 진입/보호 | `trading/strategy/sequence/failed_breakout.rs`, `failed_breakout/{params,context,protection}.rs` | `strategy/{core,completed_daily,manager/live_history}.rs`, `configuration/tests/failed_breakout.rs`, `strategy_preview/failed_breakout_entry_tests.rs`, `failedBreakout{Controls,Preparation}.tsx`, `tests/e2e/strategy-failed-breakout-policy.spec.ts`, `docs/research/failed-breakout-policy-20261022/` |
 | Replay 체결 모델·연구 보호 청산 | `trading/simulation/{session,execution_tests}.rs`, `simulation.rs` | `commands/strategy_preview{,/generic}.rs`, `strategy/leveraged_trend_hold/preview.rs`, `strategyResearchPanel.tsx`, `tests/e2e/strategy-execution-model.spec.ts` |
@@ -174,6 +175,41 @@ replay history 초기화→종가 판단/피드백→완료봉 게시가 같은 
 수익 보호 쌍을 검증하고 preparation은 현재/A-B에서 준비 미확인·거래량0·기준
 평균0·후보 통과를 구분한다. 통과는 실제 체결이 아니다.
 
+### 변동성 확장의 이전 완료 범위·시장일 관측과 실제 소유
+
+`strategy/breakout.rs`는 공개 facade이며 구현은 `breakout/volatility_expansion.rs`와
+`volatility_expansion/{params,context,protection}.rs`로 나뉜다. params는 기존10/2/3과
+선택 수익 보호 쌍/보유 관측3개의 strict 검증을 소유하고, context는 최대512개 이전
+완료 고저 범위·0 포함 산술평균과 당일 관측 범위를 분리한다. 원래 진입은 당일 범위가
+이전 N완료 범위 평균×배수보다 엄격히 크고 현재가도 당일 시가보다 엄격히 커야 한다.
+배수0도 양의 범위가 필요하며 손절0은 평균가 이하 청산이다.
+
+live daily coordinator의 scope/profile/config/generation/시장일·OHLC/freshness 검증 뒤
+N완료봉을 dated 훅에 전달한다. 검증된 새 시장일의 충분한 자료만 당일 관측을
+초기화하며 같은 날 재조회·실패·늦은 legacy warmup은 이미 관측한 범위와 보유 보호를
+지우지 않는다. live 시가는 검증된 날 첫 관측 가격의 대용값이며 고저도 관측 가격
+범위다. 일봉 replay의 D 완성 OHLC/D종가 신호→다음 관측 시가(nextOpen)와 구분한다.
+현재 완료 범위는 판단·체결 피드백 뒤에 게시한다.
+
+실제 q/native 평균가와 후보/pending은 별개이며 원래 손절→보유 관측 최고가의 수익
+보호→보유 관측 cap 순으로 실제 잔량 Sell 후보를 낸다. strict v1
+kind=volatilityExpansion metadata는 미확인 나이/고점/무장을 추정하지 않는다.
+거절·부분 체결·같은 scope 설정은 알려진 보호를 보존하며 미확인 나이와 활성 cap은
+다음 보유 관측에서 보수적 청산 후보를 낸다.
+
+v21 공통 driver의 두 preview와 저장 경계는 같은6필드를 strict 검증하고 기존 일봉
+전용을 유지한다. `core.rs`의 전용12필드 `VolatilityExpansionPreparation`은 평가=보유+
+미보유 후보, 후보=미준비+범위 거부+방향 거부+통과로 분류한다. 선택 응답 필드→TS
+미러→preview/research panel→현재/A-B로 보존하며 controls/preparation은 raw/stored
+초안·합계/형식 검증·누락/손상 미확인을 표시한다. 수량 산정 ATR·후보 통과·실제
+체결을 구분한다. 고정47fc10b/v20 baseline과 v21 후보를 포함한36연속/432별도분기 기록468원장,
+v21 전용390진단·249412검사의 독립 감사는 같은 연구 경로의 gzip2개·summary/aggregate/
+validation·independent-audit.json으로 연결한다. 분할36개는 생산 assertion과 저장 원장
+hash 연결만 확인했으며 미저장 대체 원장 독립 재정산이나 새 표본으로 세지 않는다.
+[연구](research/volatility-expansion-policy-20261022/report.md)와
+[작업](tasks/volatility-expansion-policy-20261022.md)에서 자동 구현·일봉 연구의 검증 범위를
+확인한다. 실제 장중 최초 발동/체결 자료 게이트는 미완료다.
+
 ### 강한 종가의 완료 시장일·실제 소유와 선택 보호
 
 `strategy/breakout.rs`는 공개 facade이며 실제 StrongClose는
@@ -185,9 +221,11 @@ context에 현재봉을 미리 게시하지 않는다.
 
 StrongClose는 항상 max(1,추세N) 완료 일봉을 요구한다. live jobs의 자료가 기존
 scope/profile/config/generation/시장 날짜·OHLC/freshness를 통과하면 manager가
-검증된 ticket 시장일을 `core.rs`의 dated apply 훅에 전달한다. 기본 훅은 다른
-전략의 기존 apply로 한 번 위임하고 StrongClose만 새 시장일의 전일 조건을
-seed한다. 같은 날 재조회는 context만 교체하며 소비한 조건을 재무장하지 않는다.
+검증된 ticket 시장일을 `core.rs`의 dated apply 훅에 전달한다. 기본 훅은 기존
+apply로 한 번 위임하며 StrongClose와 VolatilityExpansion은 각각 override한다.
+StrongClose는 새 시장일의 전일 조건을 seed하고 소비를 관리하며 VolatilityExpansion은
+새 시장일 당일 관측 open/high/low를 초기화하고 같은 날 범위를 보존한다. StrongClose의
+같은 날 재조회는 context만 교체하며 소비한 조건을 재무장하지 않는다.
 실패/무효화/늦은 legacy 초기화에도 날짜 소비와 보유 보호를 유지하고 신규 Buy만
 보류한다. OHLC 동일성·호스트 날짜로 시장일을 추측하거나 flat 재시작 quota를
 추가하지 않는다.
@@ -198,7 +236,7 @@ seed한다. 같은 날 재조회는 context만 교체하며 소비한 조건을 
 kind=strongClose metadata는 미확인 나이/고점/무장을 만들어내지 않으며 나이
 미확인·cap 활성은 다음 보유 관측에 보수적 청산 후보를 낸다.
 
-v20 공통 driver는 선택 params를 strict 검증하고 기존 일봉 전용·실제 체결 피드백
+v21 공통 driver는 선택 params를 strict 검증하고 기존 일봉 전용·실제 체결 피드백
 뒤 완료봉 게시 순서를 유지한다. D-1조건→D종가 신호→D+1관측 시가(nextOpen)는
 live 첫 적격 관측과 다르다. controls/preparation은 raw/stored 편집·수익 보호 쌍과
 현재/A-B 준비/후보 진단·legacy 미확인을 표시한다. 생산 실행기·기록 정산·작동

@@ -737,3 +737,6 @@ fn completed_volume_history_is_atomic_scoped_and_does_not_change_owned_protectio
 }
 #[path = "strong_close_history_tests.rs"]
 mod strong_close;
+
+#[path = "volatility_history_tests.rs"]
+mod volatility_history_tests;

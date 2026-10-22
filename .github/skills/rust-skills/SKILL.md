@@ -456,7 +456,7 @@ fn reset(&mut self) {
 | 연속상승(6) | `ConsecutiveMoveState` | `prices`, `in_position` |
 | 돌파실패(7) | `FailedBreakoutState` | 실제 수량·원가, 후보/확정 anchor, 관측 나이·최고가·수익 무장, 완료 OHLCV 맥락 |
 | 강한종가(8) | `StrongCloseState` | 실제 수량·원가, 이전 H/C 후보·시장일·준비, 보유 나이·관측 최고가·무장 |
-| 변동성확장(9) | `VolatilityExpansionState` | `avg_range` (reset 후 유지) |
+| 변동성확장(9) | `VolatilityExpansionState` | 실제 수량/native 평균·pending 기원·보유 나이/peak/무장·검증 시장일/관측 범위·완료 범위/평균(명시 reset 후 범위 유지) |
 | 평균회귀(10) | `MeanReversionState` | `prices`(reset 후 유지), actual q/native entry, 보유 age/candidate, live trend |
 | 추세필터(11) | `TrendFilterState` | `prices` (reset 후 유지) |
 
@@ -1344,3 +1344,12 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 정수/advance/sync age와 완료 mean만 공유한다. peak는 실제 보유 관측이며 stop→profit→cap, unknown은 unknown으로 둔다. strict kindstrongClose checkpoint와 저장/두 preview/UI를 동기화한다. 새 선택0과 원래 stop0 활성 의미를 혼동하지 않는다. [작업](../../../docs/tasks/strong-close-policy-20261022.md)·[연구](../../../docs/research/strong-close-policy-20261022/report.md).
 
 > 마지막 업데이트: 2026-10-22T22:15:36+09:00
+
+## VolatilityExpansion v21 실제 소유·범위/날짜 진단
+
+- 기존10/2/손절3·당일range > priorNmean×factor AND price > dayOpen의 엄격 경계·0범위 평균 포함·평균0에서양수범위 허용을 유지한다. 현재 일봉 OHLC는 종가 판단과 실제 소유 피드백 뒤 이전 범위에 게시한다.
+- 실수량/native원가·잔량Sell과 pending/기원을 분리한다. integer/age순수helper만 재사용하고 peak/armed·새 strict kindvolatilityExpansion checkpoint·범위/날짜 수명주기는 별도로 유지한다. 거절/부분/재설정/unknown 나이와 stop0활성·새선택0off를 구분한다.
+- always-requiredN 완료 일봉·검증된 dated시장일은 새날 관측open/high/low만 나눈다. 같은날교체·invalidation·latelegacy는 관측일/보호를 지우지 않고 Buy만 보류한다. 첫 quote 시가대용과 전체장중범위 미확인을 숨기지 않는다.
+- 범위 진단은 전용 volatilityExpansionPreparation로 준비/평가·보유·미보유·범위/방향·통과를 나누고 기존EntryFilterPreparation와혼합하지않는다. strict저장/두preview·TS미러/current-A-B/legacy를동기화하고 실제장중최초발동/체결은 별도자료게이트다. [작업](../../../docs/tasks/volatility-expansion-policy-20261022.md)·[연구](../../../docs/research/volatility-expansion-policy-20261022/report.md).
+
+> 마지막 업데이트: 2026-10-22T22:51:29.542193+09:00

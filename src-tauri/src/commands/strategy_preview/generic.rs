@@ -48,6 +48,9 @@ pub struct StrategyPreviewView {
     pub preparation: StrategyPreparationView,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub entry_filter_preparation: Option<crate::trading::strategy::EntryFilterPreparation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub volatility_expansion_preparation:
+        Option<crate::trading::strategy::VolatilityExpansionPreparation>,
 }
 
 #[derive(Debug, Serialize)]

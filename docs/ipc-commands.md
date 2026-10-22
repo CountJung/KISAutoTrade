@@ -95,7 +95,7 @@
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v20`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations, minuteTiming?}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v21`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations, minuteTiming?}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
 전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
@@ -402,3 +402,13 @@ entryFilterPreparation의 선택 breakoutBasis/volumeRejections/priorVolumeRatio
 추세는 현재 제외 이전 완료 N일봉 종가 평균을 관측가가 엄격히 상회하는지 확인한다. 활성 추세의 `entryFilterPreparation`는 기존 cadence/상태·필요/확보 일봉·후보/준비 보류/추세 거부/통과를 사용하고 sizing ATR과 구분한다. 실제 원가 대비 관측 수익으로 한 번 무장한 뒤 실제 보유 관측 최고가의 되밀림을 평가한다. 진입 전/현재 봉 전체 high는 peak가 아니다. 손절→수익 보호→관측 한도 순서이며 unknown 나이에 활성 한도는 다음 관측의 보수적 후보를 낸다. 거절/부분/동량·warmup/재설정이 보유 보호를 초기화하지 않는다. 새 strict metadata `kind=strongClose`는 기원 미확인을 꾸미지 않는다.
 
 일봉 nextOpen은 D-1 조건→D종가 신호→D+1 관측 시가 체결이며 live 첫 eligible quote와 다르다. live coordinator의 유효 시장일에서만 이전 H/C를 seed하고 같은 날 재조회는 소비 후보를 재무장하지 않는다. 지연·조회 실패·미검증 legacy는 Buy만 보류하며 held 보호는 유지한다. 새 하루 전체 quota나 flat 재시작 제한을 뜻하지 않는다. [작업](tasks/strong-close-policy-20261022.md)·[연구](research/strong-close-policy-20261022/report.md).
+
+### v21 변동성 확장: 실제 소유·범위 빈도·관측 보호
+
+기존 `lookback_days=10`, `expansion_factor=2`, `stop_loss_pct=3`을 유지한다. 당일 고가−저가가 현재를 제외한 이전N완료 일봉 범위 산술평균×배수보다 엄격히 크고, 현재가가 당일 시가보다 엄격히 커야 한다. 0범위도 평균의 일수에 포함하며 평균0은 양의 당일 범위·상승 방향의 후보를 허용한다. 손절0은 비활성이 아니라 실제 native 평균가 이하 청산이다. Sell은 실제 잔량으로 제안한다.
+
+core 입력 범위는 lookback 정수1..512, factor 유한0..1000, stop 유한0..99.9다. 선택 수익 보호 시작0..1000·되밀림0..99.9는 둘다0 또는 둘다양수이며, 최대 보유 관측은 정수0..1000000이다. 선택0/누락은 비활성이다. raw null/string/bool/NaN·분수 정수·범위/쌍 위반은 저장·두 preview에서 거부하고, 손상 runtime은 유효 기존 손절·보유 보호를 유지하며 Buy를 보류한다. 수익 보호는 실제 평균가로 무장하고 실제 보유 관측 peak만 사용한다. 손절→수익 보호→보유 관측 한도 순이며 거절/부분 체결·설정 변경이 보호를 지우지 않는다. 기원 미상 나이는 미상으로 유지하고 활성 한도는 다음 관측에 보수적 후보를 낸다.
+
+새 선택 `volatilityExpansionPreparation`는 변동성 전략에만 제공한다. `ready/status/cadence/requiredCompletedBars/availableCompletedBars/evaluatedObservations/ownedObservations/candidateObservations/unreadyCandidates/rangeRejections/directionRejections/passedCandidates`를 구분한다. 준비 상태는 ready/insufficientHistory/invalidParams/unsupportedObservation이며 주기는 dailyCloseRange/observedLiveQuotes/unverified다. enabled·대상·유효 가격 관측을 평가 수로 세고 보유 관측은 진입 후보에서 제외한다. 미보유 후보는 준비→범위→방향 순서로 한 번만 분류하며 통과가 실제 주문/체결을 뜻하지 않는다. 기존 ATR/추세 `entryFilterPreparation`에 범위 거부를 섞지 않는다. 과거 저장 슬롯의 진단 부재는0이 아닌 미확인이다.
+
+일봉은 D완성 OHLC를 D종가에서 판단한 뒤 이전 범위에 게시하고 nextOpen은 다음 관측 시가 체결 가정이다. live는 기존 scope/profile/account/market/date/generation/freshness를 검증한 시장일 ticket으로만 새날 관측 시가/고저를 초기화한다. 같은날 재조회는 당일 범위를 보존하며 실패/지연/late legacy는 Buy만 보류한다. 첫 검증 후 quote는 시가 대용이고 전체 장중 고저가 아니므로 실제 장중 최초 발동·체결 가능성은 미검증으로 남긴다. [작업](tasks/volatility-expansion-policy-20261022.md)·[설계와 비교](research/volatility-expansion-policy-20261022/report.md)를 따른다.

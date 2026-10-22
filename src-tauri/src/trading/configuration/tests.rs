@@ -842,3 +842,6 @@ mod rsi;
 mod failed_breakout;
 #[path = "tests/strong_close.rs"]
 mod strong_close;
+
+#[path = "tests/volatility.rs"]
+mod volatility;

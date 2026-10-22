@@ -1,0 +1,35 @@
+{
+  "commit": "47fc10ba744223ec069edc71d77a4d05f425ff19",
+  "files": [
+    {
+      "path": "Cargo.toml",
+      "sha256": "55c8962a32bda2fec9d653b9fc00575c80108fb36a649c404e9a42fd9b5bd0f6",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "b9e526c8fa3bcca291aa28237b06d996b2cdb7c28cc115f04e96923ef7f3d628",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "src-tauri/Cargo.toml",
+      "sha256": "65faf6ad04b2c27408721ec232390012069e06bb39b305b09648c1bf553a8844",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "src-tauri/src/trading/strategy/breakout.rs",
+      "sha256": "7ab53edcccd709b85017f6df08a6fea62f671abac816d925025edb75211d8db0",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "src-tauri/src/commands/strategy_preview/driver.rs",
+      "sha256": "fe1a40dbc24dabf96c012cf09dbfc79cc519a6522e0b7cb9d9ff7bd1a3a24b3a",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "src-tauri/src/trading/simulation.rs",
+      "sha256": "16bd90e96aefcde0706b94b3ff85d390917a5dbbfb6e1c0b12264378403bbd9b",
+      "sameAsGitObject": true
+    }
+  ]
+}

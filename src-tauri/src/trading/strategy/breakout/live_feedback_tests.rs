@@ -64,20 +64,32 @@ fn live_feedback_volatility_keeps_intraday_extremes_and_confirmed_position() {
     let mut strategy = VolatilityExpansionStrategy::new(config(
         serde_json::json!({"lookback_days":2,"expansion_factor":1.0,"stop_loss_pct":3.0}),
     ));
-    strategy.initialize_range_data("SOXQ", &[5, 5]);
+    strategy.apply_completed_daily_bars_for_market_day(
+        "SOXQ",
+        "2026-10-22",
+        &[super::super::CompletedDailyBar {
+            ohlc: OhlcCandle {
+                open: 100,
+                high: 105,
+                low: 100,
+                close: 100,
+            },
+            volume: None,
+        }; 2],
+    );
     strategy.on_trading_day_start("SOXQ", 100);
     assert!(matches!(
         strategy.on_live_tick("SOXQ", 110, 0),
         Signal::Buy { .. }
     ));
-    assert!(!strategy.states["SOXQ"].in_position);
+    assert_eq!(strategy.states["SOXQ"].owned_quantity, 0);
     assert_eq!(strategy.states["SOXQ"].day_high, 110);
     strategy.sync_owned_position("SOXQ", 2, 110);
     assert!(matches!(
         strategy.on_live_tick("SOXQ", 90, 0),
         Signal::Sell { .. }
     ));
-    assert!(strategy.states["SOXQ"].in_position);
+    assert!(strategy.states["SOXQ"].owned_quantity > 0);
     assert_eq!(strategy.states["SOXQ"].day_low, 90);
     assert_eq!(strategy.states["SOXQ"].day_high, 110);
 }

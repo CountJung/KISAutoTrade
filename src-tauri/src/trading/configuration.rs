@@ -186,6 +186,8 @@ where
         }
         super::strategy::validate_failed_breakout_params(&candidate.id, &candidate.params)
             .map_err(|message| ConfigurationUpdateError::new("INVALID_STRATEGY_PARAMS", message))?;
+        super::strategy::validate_volatility_expansion_params(&candidate.id, &candidate.params)
+            .map_err(|message| ConfigurationUpdateError::new("INVALID_STRATEGY_PARAMS", message))?;
         super::strategy::validate_strong_close_params(&candidate.id, &candidate.params)
             .map_err(|message| ConfigurationUpdateError::new("INVALID_STRATEGY_PARAMS", message))?;
         super::strategy::validate_rsi_params(&candidate.id, &candidate.params)

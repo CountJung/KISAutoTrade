@@ -913,4 +913,8 @@ CompletedDailyBar의 OHLC·Option volume는 같은 완료 봉으로 전달한다
 
 ### StrongClose의 완료 시장일과 소유 보호
 
-기본1봉 또는 추세N봉을 기존 coordinator에 요청한다. `ticket.market_date`는 검증된 시장 평가일이며 OHLC 동일성·봉 수·호스트 날짜로 대신하지 않는다. 새 dated 기본 hook은 기존 완료자료 hook을 한 번만 전달하고 StrongClose만 새날 seed와 같은 날 context 교체를 구분한다. 자료 invalidation/late legacy는 날짜 소비·실수량/원가·보유 나이/peak/armed를 지우거나 소비된 후보를 재무장하지 않는다. 현재 완료봉은 실제 체결 피드백 이후 다음 조건에만 게시한다. [IPC v20](ipc-commands.md#v20-강한-종가-실제-소유와-이전-완료-일봉)·[작업](tasks/strong-close-policy-20261022.md).
+기본1봉 또는 추세N봉을 기존 coordinator에 요청한다. `ticket.market_date`는 검증된 시장 평가일이며 OHLC 동일성·봉 수·호스트 날짜로 대신하지 않는다. dated 기본 hook은 기존 완료자료 hook을 한 번만 전달한다. StrongClose는 개별 구현에서 새날 seed와 같은 날 context 교체를 구분하며, VolatilityExpansion은 새 시장일 관측 시가/고저와 같은 날 범위 보존을 별도로 다룬다. 자료 invalidation/late legacy는 날짜 소비·실수량/원가·보유 나이/peak/armed를 지우거나 소비된 후보를 재무장하지 않는다. 현재 완료봉은 실제 체결 피드백 이후 다음 조건에만 게시한다. [IPC v20](ipc-commands.md#v20-강한-종가-실제-소유와-이전-완료-일봉)·[작업](tasks/strong-close-policy-20261022.md).
+
+### VolatilityExpansion의 완료 범위·관측일과 실제 소유
+
+이전N완료 일봉 범위 평균에 0범위를 포함하고 당일 범위는 종가 판단/실제 체결 피드백 뒤 게시한다. 정수 합산/범위 상한과 current 제외를 보존한다. 기존 dated hook의 검증된 시장일에서 새날 관측 open/high/low만 초기화하며 같은날 재조회·late legacy는 관측일과 보유 보호를 지우지 않는다. 관측 quote를 거래소 전체 OHLC로 표현하지 않는다. 실제 수량·원가·보호 기원과 제안 신호/pending을 분리하고 물리 pending 중 억제된 후보에서 새 기원을 만들지 않는다. 범위 진단은 전용 optional DTO로, 기존 ATR/추세 필터와 독립이다. [IPC v21](ipc-commands.md#v21-변동성-확장-실제-소유범위-빈도관측-보호)을 확인한다.

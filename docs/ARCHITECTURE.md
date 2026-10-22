@@ -299,3 +299,7 @@ RSI의가격/이전RSI 상태에 exact전략소유 수량·원가와pending/know
 ### StrongClose의 완료 시장일
 
 StrongClose의 live 이전 일봉은 기존 coordinator의 target·scope/profile/account·market/date·generation/freshness 검증 후 공급된다. dated 기본 hook은 기존 자료 hook을 한 번만 호출해 타 전략을 보존한다. StrongClose는 새날 seed와 같은 날 context 교체를 나누며, 준비 무효화는 실제 소유 보호·날짜 소비를 지우지 않는다. replay 종가 신호와 live 첫 quote의 시점 차이, 날짜 교정 fixture와 실제 운용 성과를 구분한다. [P2-08](research/strong-close-policy-20261022/report.md).
+
+### 변동성 확장의 완료 범위와 관측 시장일
+
+변동성 전략은 완료N일봉 coordinator에 참여하고 검증된 ticket의 시장일로 새날의 관측 시가/고저를 나눈다. 같은날 history 교체는 해당 관측 범위를 초기화하지 않고 자료 실패·늦은 초기화가 실제 소유 보호를 지우지 않는다. replay는 당일 완성 OHLC→종가 신호→실제 체결 피드백→완료범위 게시 순서를 유지한다. 전용 범위 빈도 optional DTO는 준비/보유·미보유·범위/방향·통과를 구분해 기존 preview와 A/B에 보존한다. 실제 장중 관측과 완료 일봉의 공개 시점·전체 범위·실제 체결 검증은 별도다. [P2-09](research/volatility-expansion-policy-20261022/report.md).

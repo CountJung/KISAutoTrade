@@ -183,6 +183,24 @@ pub struct EntryFilterPreparation {
     pub prior_atr: Option<f64>,
 }
 
+/// Volatility-specific observation counts; passing a condition is not a fill.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VolatilityExpansionPreparation {
+    pub ready: bool,
+    pub status: String,
+    pub cadence: String,
+    pub required_completed_bars: usize,
+    pub available_completed_bars: usize,
+    pub evaluated_observations: u64,
+    pub owned_observations: u64,
+    pub candidate_observations: u64,
+    pub unready_candidates: u64,
+    pub range_rejections: u64,
+    pub direction_rejections: u64,
+    pub passed_candidates: u64,
+}
+
 /// 전략 trait — 모든 자동매매 전략이 구현해야 함
 pub trait Strategy: Send + Sync {
     fn id(&self) -> &str;
@@ -292,6 +310,12 @@ pub trait Strategy: Send + Sync {
     }
     fn legacy_warmup_requires_daily_verification(&self) -> bool {
         false
+    }
+    fn volatility_expansion_preparation(
+        &self,
+        _symbol: &str,
+    ) -> Option<VolatilityExpansionPreparation> {
+        None
     }
     fn entry_filter_preparation(&self, _symbol: &str) -> Option<EntryFilterPreparation> {
         None

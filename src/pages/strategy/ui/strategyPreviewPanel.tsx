@@ -419,6 +419,7 @@ export function StrategyPreviewPanel({
               calculationMode={preview.continuity ? 'continuous' : 'boundedWindow'}
               continuity={preview.continuity}
               entryFilterPreparation={preview.entryFilterPreparation}
+              volatilityExpansionPreparation={preview.volatilityExpansionPreparation}
               replay={preview.replay}
               strategyId={strategyId}
               brokerId={brokerId}

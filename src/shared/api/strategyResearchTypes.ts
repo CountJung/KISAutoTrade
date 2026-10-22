@@ -308,6 +308,21 @@ export interface EntryFilterPreparation {
   passedCandidates: number
 }
 
+export interface VolatilityExpansionPreparation {
+  ready: boolean
+  status: 'ready' | 'insufficientHistory' | 'invalidParams' | 'unsupportedObservation'
+  cadence: 'dailyCloseRange' | 'observedLiveQuotes' | 'unverified'
+  requiredCompletedBars: number
+  availableCompletedBars: number
+  evaluatedObservations: number
+  ownedObservations: number
+  candidateObservations: number
+  unreadyCandidates: number
+  rangeRejections: number
+  directionRejections: number
+  passedCandidates: number
+}
+
 export interface StrategyExperimentSnapshot {
   id: string
   slot: 'A' | 'B'
@@ -324,6 +339,7 @@ export interface StrategyExperimentSnapshot {
   calculationMode?: ReplayCalculationMode
   continuity?: ReplayContinuityView
   entryFilterPreparation?: EntryFilterPreparation
+  volatilityExpansionPreparation?: VolatilityExpansionPreparation
 }
 
 export interface LeveragedTrendHoldPreviewInput {
@@ -408,6 +424,7 @@ export interface StrategyPreviewView {
   preparation?: StrategyPreviewPreparation
   continuity?: ReplayContinuityView
   entryFilterPreparation?: EntryFilterPreparation
+  volatilityExpansionPreparation?: VolatilityExpansionPreparation
 }
 
 export interface StrategyPreviewPreparation {

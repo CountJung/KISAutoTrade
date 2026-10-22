@@ -84,13 +84,13 @@ fn reconfigure_volatility_recomputes_range_without_losing_held_stop_or_day() {
     next.target_symbols.push("NEW".into());
     assert!(strategy.reconfigure_preserving_position(next));
     let state = &strategy.states["SOXQ"];
-    assert!(state.in_position);
-    assert_eq!(state.entry_price, Some(100));
+    assert!(state.owned_quantity > 0);
+    assert_eq!(state.avg_price, 100);
     assert_eq!(state.day_open, Some(105));
     assert_eq!(state.avg_range, Some(25.0));
     assert!(!strategy.states.contains_key("NEW"));
     assert!(matches!(
         strategy.on_tick("SOXQ", 97, 0),
-        Signal::Sell { quantity: 7, .. }
+        Signal::Sell { quantity: 2, .. }
     ));
 }

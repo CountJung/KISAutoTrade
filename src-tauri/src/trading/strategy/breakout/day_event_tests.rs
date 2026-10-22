@@ -94,7 +94,7 @@ fn volatility_compares_current_full_range_against_prior_completed_window() {
     assert_eq!(strategy.states["SOXQ"].avg_range, Some(17.5));
     assert_eq!(
         strategy.states["SOXQ"].completed_ranges,
-        VecDeque::from([10, 25])
+        VecDeque::from([10, 10, 25])
     );
 }
 
@@ -141,10 +141,10 @@ fn volatility_zero_range_days_count_and_window_rolls_with_bounded_length() {
     assert_eq!(strategy.states["SOXQ"].avg_range, Some(3.0));
     strategy.on_completed_candle("SOXQ", &candle(100, 100, 100, 100));
     assert_eq!(strategy.states["SOXQ"].avg_range, Some(2.0));
-    assert_eq!(strategy.states["SOXQ"].history_bars, 2);
+    assert_eq!(strategy.states["SOXQ"].history_bars, 5);
     assert_eq!(
         strategy.states["SOXQ"].completed_ranges,
-        VecDeque::from([4, 0])
+        VecDeque::from([0, 0, 2, 4, 0])
     );
 }
 
@@ -177,13 +177,13 @@ fn volatility_day_start_completion_and_reinitialization_preserve_position() {
     strategy.sync_position("SOXQ", 1, 100);
     strategy.on_trading_day_start("SOXQ", 99);
     strategy.on_completed_candle("SOXQ", &candle(99, 101, 95, 99));
-    assert!(strategy.states["SOXQ"].in_position);
-    assert_eq!(strategy.states["SOXQ"].entry_price, Some(100));
+    assert!(strategy.states["SOXQ"].owned_quantity > 0);
+    assert_eq!(strategy.states["SOXQ"].avg_price, 100);
     strategy.initialize_range_data("SOXQ", &[]);
     assert!(!strategy.history_readiness("SOXQ").unwrap().ready);
     assert!(strategy.states["SOXQ"].completed_ranges.is_empty());
     strategy.on_trading_day_start("SOXQ", 95);
-    assert!(strategy.states["SOXQ"].in_position);
+    assert!(strategy.states["SOXQ"].owned_quantity > 0);
     assert!(matches!(
         strategy.on_daily_close_tick("SOXQ", &candle(95, 96, 90, 94), 1),
         Signal::Sell { .. }

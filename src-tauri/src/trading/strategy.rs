@@ -12,8 +12,9 @@ mod sequence;
 mod state;
 
 pub use breakout::{
-    validate_strong_close_params, FiftyTwoWeekHighParams, FiftyTwoWeekHighStrategy,
-    StrongCloseParams, StrongCloseStrategy, VolatilityExpansionParams, VolatilityExpansionStrategy,
+    validate_strong_close_params, validate_volatility_expansion_params, FiftyTwoWeekHighParams,
+    FiftyTwoWeekHighStrategy, StrongCloseParams, StrongCloseStrategy, VolatilityExpansionParams,
+    VolatilityExpansionStrategy,
 };
 pub use classic::{
     validate_deviation_entry_params, validate_momentum_entry_params, validate_rsi_params,
@@ -24,7 +25,7 @@ pub use core::{
     initialize_strategy_warmup, initialize_strategy_warmup_with_daily_bars,
     parse_completed_daily_volume, BrokerPositionSnapshot, CompletedDailyBar,
     EntryFilterPreparation, HistoryReadiness, OhlcCandle, Signal, Strategy, StrategyConfig,
-    StrategySignal,
+    StrategySignal, VolatilityExpansionPreparation,
 };
 pub use leveraged_trend_hold::{
     LeveragedTrendHoldEntry, LeveragedTrendHoldParams, LeveragedTrendHoldPreviewSignal,

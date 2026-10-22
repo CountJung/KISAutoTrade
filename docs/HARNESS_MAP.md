@@ -244,3 +244,7 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 ### P2-08 강한 종가
 
 `cargo test --offline strong_close`의 실수량/원가/잔량·기본 stop0·복원/거절/부분/재설정·preview prefix/분할과 manager 새날/같은 날/실패/late legacy·stale scope/generation fixture를 확인한다. dated 기본 hook의 타 전략1회 전달도 검증한다. `tests/e2e/strategy-strong-close-policy.spec.ts`에서 raw/쌍·저장/두 preview/A-B·daily-only·늦은 응답/취소·활성 잠금/새 초안·모바일을 확인하고 전체 Rust/UI·타입/빌드/FSD·graph/map/TODO 게이트를 유지한다. [사전 설계](research/strong-close-policy-20261022/design.json)는30연속/30분할/360분기이며 실운용·미관측 OOS로 승격하지 않는다.
+
+### P2-09 변동성 확장
+
+`cargo test --offline volatility`로 이전N범위/당일OHLC·0범위/평균0/엄격 경계·실수량/원가·부분/거절/기원/pending·재설정/메타데이터·scope/date/freshness fixture를 확인한다. 두 preview의 current 제외/미래 prefix·분할·진단 빈도와 strict 입력을 함께 검증한다. 변동성 전용 focused Playwright는 저장/두 preview·현재/A-B·raw/쌍·과거/손상 진단·활성 잠금·지연 응답/저장 중 초안·모바일을 mock으로 확인한다. 전체 Rust/UI·타입/빌드/FSD/graph/map/TODO 게이트를 유지한다. [설계](research/volatility-expansion-policy-20261022/design.json)의36연속/36분할/432분기 정산은 [작업](tasks/volatility-expansion-policy-20261022.md)에 기록하며 실제 장중 최초 발동/체결은 검증된 장중 자료 확보까지 열린 조건이다.

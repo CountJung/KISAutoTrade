@@ -22,6 +22,14 @@ pub(super) fn run_prepared_preview(
             code: "INVALID_STRATEGY_PARAMS".into(),
             message,
         })?;
+    crate::trading::strategy::validate_volatility_expansion_params(
+        &input.strategy_id,
+        &input.params,
+    )
+    .map_err(|message| CmdError {
+        code: "INVALID_STRATEGY_PARAMS".into(),
+        message,
+    })?;
     crate::trading::strategy::validate_strong_close_params(&input.strategy_id, &input.params)
         .map_err(|message| CmdError {
             code: "INVALID_STRATEGY_PARAMS".into(),
@@ -254,6 +262,7 @@ pub(super) fn run_prepared_preview(
             }
             if input.strategy_id.starts_with("failed_breakout")
                 || input.strategy_id.starts_with("strong_close")
+                || input.strategy_id.starts_with("volatility_expansion")
             {
                 strategy.set_order_pending(&symbol, session.has_pending_signal());
             }
@@ -277,6 +286,7 @@ pub(super) fn run_prepared_preview(
             }
             if input.strategy_id.starts_with("failed_breakout")
                 || input.strategy_id.starts_with("strong_close")
+                || input.strategy_id.starts_with("volatility_expansion")
             {
                 strategy.set_order_pending(&symbol, session.has_pending_signal());
             }
@@ -402,6 +412,7 @@ pub(super) fn run_prepared_preview(
         &simulation_events,
     );
     let final_readiness = strategy.history_readiness(&symbol);
+    let volatility_expansion_preparation = strategy.volatility_expansion_preparation(&symbol);
     let entry_filter_preparation = strategy.entry_filter_preparation(&symbol);
     let history_status = match initial_readiness {
         None => "unsupported",
@@ -466,6 +477,7 @@ pub(super) fn run_prepared_preview(
             backtest,
             preparation,
             entry_filter_preparation,
+            volatility_expansion_preparation,
         },
         chunk_ledger,
     ))
