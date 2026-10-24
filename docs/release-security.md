@@ -88,7 +88,7 @@ CI의 190 passed에는 DB 환경이 없으면 즉시 반환하는 PostgreSQL con
 
 ### 선행 수정과 병합 순서
 
-1. 기존 `0812c715e66860ca837273b1a7c14d7cbfe278ba`의 lockfile 보안 수정만 재사용한다: rustls 0.23.45, webpki 0.103.15, seroval 1.6.8, nanoid 3.3.20, source-map-js 1.2.2. 뒤따르는 Windows 저장·전략 기능 변경은 섞지 않는다. 최소 환경 선언과 Toss sector 경로 목록도 교정한다. 기존 보안 예외와 검사는 유지한다.
+1. 기존 `0812c715e66860ca837273b1a7c14d7cbfe278ba`의 최소 lockfile 보안 수정을 재사용하고 최신 advisory에 맞춰 rustls 0.23.46, rustls-webpki 0.103.16, webpki-roots 1.0.10, quinn-proto 0.11.18까지 좁게 갱신한다. npm은 seroval 1.6.8, nanoid 3.3.20, source-map-js 1.2.2를 유지한다. 뒤따르는 Windows 저장·전략 기능 변경은 섞지 않는다. 최소 환경 선언과 Toss sector 경로 목록도 교정한다. 기존 보안 예외와 검사는 유지한다.
 2. 선행 수정 통과 후 #13을 최신 main에 통합해 Rust 1.90/stable check·test·strict clippy, 보안 정책, 기존 프런트엔드 조합과 native smoke를 확인한다. 그 뒤 #13만 병합한다.
 3. #11을 그 main에 갱신해 Node 20.19와 개발 환경의 타입·production build·보안 정책·30개 이상 mock E2E를 확인한다. 최종 새 backend/새 frontend 조합의 IPC·세션·차트·WS fixture 통과 후 #11을 병합한다.
 
@@ -99,3 +99,15 @@ CI의 190 passed에는 DB 환경이 없으면 즉시 반환하는 PostgreSQL con
 `review/dependabot-prerequisites-20261024`에서 npm ci, TypeScript, FSD, project-map, 웹 production build, Cargo metadata --locked --no-deps, Toss 38개 경로 검사가 통과했다. npm audit --omit=dev --audit-level=high는 운영 취약점 0으로, 전체 --audit-level=critical도 통과했다. 전체 감사에는 개발용 Vite high 1개/esbuild moderate 1개가 남는다. Vite major 업데이트는 별도 검토 대상이며 이번 수정에서 보안 임계값을 낮추지 않았다.
 
 docs-canon 형식 검사와 별도 read-only diff/문서 검토를 수행했다. 깨진 상대 링크·표 열 오류는 없고 기존 TODO 완료 이력 경고는 유지했다. HARNESS_MAP에서 이 정본으로 연결해 도달성을 보완했다. Rust 빌드/테스트/clippy·최소 환경 컴파일·native 앱·실제 DB·실계좌 검증은 이 수정의 로컬 통과 항목에 포함하지 않는다.
+
+### 최신 감사와 결합 점검
+
+선행 초안 PR #14의 최초 SHA `00ce3c981ad13a7ed1c0ddff94799ba8500ea778`에 대한 [Dependency Security 40065354394](https://github.com/CountJung/KISAutoTrade/actions/runs/40065354394)에서 npm 정책은 통과했지만, 10월 11일 로그 이후 발행된 11개 Rust advisory로 감사가 실패했다. 기존 rustls 0.23.45 패치만으로 현재 보안 검사를 통과한다고 해석하면 안 된다.
+
+- quinn-proto 0.11.15→0.11.18: RUSTSEC-2026-0338/0339/0340/0341/0342. quinn의 기존 semver 제약을 유지하지만 해당 패치가 요구하는 rand 0.10.3/rand_core 0.10.1/rand_pcg 0.10.2 및 chacha20/cpufeatures 전이 변경도 포함된다.
+- rustls 0.23.45→0.23.46: RUSTSEC-2026-0346/0347/0348/0349.
+- rustls-webpki 0.103.15→0.103.16 및 webpki-roots 1.0.6→1.0.10: RUSTSEC-2026-0382/0381 인증서 신뢰 교정.
+
+공식 근거: [Rustls](https://rustsec.org/advisories/RUSTSEC-2026-0346.html), [Quinn](https://rustsec.org/advisories/RUSTSEC-2026-0340.html), [WebPKI](https://rustsec.org/advisories/RUSTSEC-2026-0382.html), [Roots](https://rustsec.org/advisories/RUSTSEC-2026-0381.html). 새 예외는 추가하지 않는다. Tokio 1.50의 RUSTSEC-2026-0386을 포함한 기존 경고도 임의로 숨기지 않으며 #13 및 후속 검토에서 다시 확인한다.
+
+최초 선행 수정 SHA에 #13→#11의 원본 diff를 3-way 적용한 별도 작업본은 충돌 없이 통합됐고 npm ci/TypeScript/웹 빌드/lockfiles/FSD/project-map 및 전체 Cargo metadata를 통과했다. #11과 결합 빌드에는 MUI chunk 크기 경고가 남았다. 이 결과는 위 최신 TLS·QUIC 후속 갱신 이전의 결합 검사이며 최종 통합 SHA의 검증을 대체하지 않는다.
