@@ -1,7 +1,7 @@
 {
   "Cargo.toml": "55c8962a32bda2fec9d653b9fc00575c80108fb36a649c404e9a42fd9b5bd0f6",
   "package.json": "099cef8d02f51e4d3b71cd2fcafd068ac6f9816c479dd443f19b6e9c5cb5e783",
-  "playwright.config.ts": "4c43dbaa9f836683084c7342791ff8789e3e9e2fdf167ef9812a7a7039eec50a",
+  "playwright.config.ts": "0d547b41270da5eb825296c74c99a54746e8c26131b3694aa4dc8044c7cf7eb1",
   "scripts/check-fsd-imports.mjs": "b92e5a10f1b0545fe8d4a16b5bc2ada992667ec94514ad3129d47670a36472ad",
   "scripts/database-tls-contract.mjs": "97fee90d402f2b8e5ec1d9ee0a7dca21656ca1f18919939612b4947b76c83504",
   "scripts/graphify.mjs": "5b96a7d70046bd41228982a959717637ea0dbad9d31b1bf2173677d1ab867250",

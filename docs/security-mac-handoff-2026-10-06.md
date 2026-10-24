@@ -146,6 +146,8 @@ Cargo는 기존 semver 범위와 MSRV 1.90 fallback을 사용했다. 갱신 후 
 | production dist + Vite preview 집중 E2E | PASS 설정 DB·전략 assessment 8/8, 3.9초; mock transport |
 | Linux / Mac production 집중 E2E, 모바일 수정 후 | 각각 PASS 60/60, 1.4분 / 51초; 같은 관련 spec 조합 |
 | Linux 375px 모바일 집중 검사 | PASS 3/3, 5.2초 |
+| 최종 CI 구성 Linux 전체 E2E | PASS 308/308, 4.9분; UI production 276개 + source dev 32개 |
+| Linux / Mac source harness 집중 E2E | 각각 PASS 32/32, 37초 / 26.3초 |
 | 공식 Toss OpenAPI | PASS v1.2.24, 38개 path; 계좌·주문 호출 없음 |
 | FSD / lockfiles / project-map / todo freshness | PASS |
 | node --test scripts/render-todo.test.mjs | PASS 3/3 |
@@ -162,8 +164,10 @@ production 집중 검증은 임시 설정의 작업 경로 오류를 고친 뒤 
 
 실패 중 26개는 dev 환경의 13개 전략 카드 초기화에서 assertion 5초 제한에 걸렸고, 초기화 성능이 원인이라는 판단은 아직 가설이다. mock 누락이 입증된 것은 아니다. 나머지 모바일 3개는 Linux에서 카드 너비 298px·scrollWidth 346px의 실제 가로 넘침을 재현했다. `src/pages/strategy/ui/Page.tsx`의 제목 왼쪽 flex 영역에 `minWidth: 0`·`flex: 1`, 제목에 `overflowWrap: anywhere`를 적용했다. 수정 후 Linux와 Mac의 관련 production spec 60개가 각각 모두 통과했고 Linux 375px 모바일 3개도 통과했다. 기존 Docker daemon에서 공식 Playwright 1.64.1-noble 이미지와 금융 파일 없는 git archive 격리 snapshot만 사용했으며 기존 컨테이너·서비스는 변경하지 않았다.
 
-CI E2E job은 web build 후 production preview를 검사하도록 변경했다. 테스트·assertion 제한은 늘리지 않았고, 기존 기본 list reporter에서 빠졌던 HTML 보고서를 생성하며 실패 trace·screenshot을 `test-results/`와 함께 artifact로 보존한다. 로컬 dev 실행은 유지한다. **이 후속 수정의 최종 커밋·푸시·전체 CI는 이 기록 시점에 대기 중**이다. 최종 상태는 후속 Git 로그·원격 SHA와 해당 SHA의 CI 결과를 기준으로 확인한다.
+후속 커밋 `beebe01d58f0ec943812eb01200628183aa6ca10`도 일반 푸시·원격 SHA 일치를 확인했다. 동일 SHA의 [Dependency Security](https://github.com/CountJung/KISAutoTrade/actions/runs/40072375163)는 PASS, [Release Gate](https://github.com/CountJung/KISAutoTrade/actions/runs/40072373714)는 Rust·frontend·Toss PASS였으나 E2E는 6.1분에 **293 통과·15 실패**였다. 앞선 29개 실패는 해소됐지만, 모든 검사를 preview로 바꾼 harness 설정이 세 spec의 `/src` 모듈 가로채기 전제를 놓친 실수였다.
 
-로컬 증거는 `/tmp/kis-{lib-test,clock-test,clippy,build,web-build,e2e,production-e2e,graphify,npm-ci}.log`, `/tmp/kis-{linux-mobile-before,linux-overflow,linux-after,mac-final-e2e,linux-375,web-build-final,graphify-final,toss-openapi}.log`, `/tmp/kis-{npm,cargo}-audit-{before,after}.json`, `/tmp/kis-metadata-after.json`에 있다. `/tmp` 로그는 임시 근거이며 저장소 추적 산출물이 아니다. `origin/review/dependabot-prerequisites-20261024`의 `638cf064d88344f003f53699bca340683fd0194f` 보안 변경과 겹치는 부분이 있으므로 후속 통합에서 같은 수정을 중복 cherry-pick하지 않는다.
+최종 CI 구성은 UI 276개를 production preview 1431, `balance-events.spec.ts`·`toss-commission-ratio.spec.ts`·`strategy-deviation-policy.spec.ts`의 source harness 32개를 dev 1430에서 실행한다. `--list`로 22파일·308개의 중복·누락 없음을 확인했고 testspec 수정·전역 제외·시간 제한 완화는 하지 않았다. Linux 전체 308개가 4.9분에 통과했으며 Linux source 32개 37초·Mac source 32개 26.3초 집중 실행도 통과했다. 로컬 기본은 기존 dev 1430 전체 308개다. CI의 HTML 보고서와 실패 trace·screenshot artifact 보존은 유지한다. **이 최종 harness 수정의 커밋·푸시·해당 SHA의 전체 CI는 이 기록 시점에 대기 중**이다. 최종 상태는 후속 Git 로그·원격 SHA와 해당 SHA의 CI 결과를 기준으로 확인한다.
+
+로컬 증거는 `/tmp/kis-{lib-test,clock-test,clippy,build,web-build,e2e,production-e2e,graphify,npm-ci}.log`, `/tmp/kis-{linux-mobile-before,linux-overflow,linux-after,mac-final-e2e,linux-375,web-build-final,graphify-final,toss-openapi}.log`, `/tmp/kis-{linux-source-harness,mac-source-harness,linux-full-final}.log`, `/tmp/kis-{npm,cargo}-audit-{before,after}.json`, `/tmp/kis-metadata-after.json`에 있다. `/tmp` 로그는 임시 근거이며 저장소 추적 산출물이 아니다. `origin/review/dependabot-prerequisites-20261024`의 `638cf064d88344f003f53699bca340683fd0194f` 보안 변경과 겹치는 부분이 있으므로 후속 통합에서 같은 수정을 중복 cherry-pick하지 않는다.
 
 실행 중인 거래 프로세스는 발견되지 않았다. Chrome Remote Desktop과 LM Studio의 기존 프로세스는 유지했다. 실앱 실행, 주문·취소·포지션 변경, 거래 엔진 재시작, 실제 금융 API·운영 DB 접속, 사용자 거래 데이터 수정은 수행하지 않았다. 계정·네트워크·보안 설정도 변경하지 않았다. 로컬 `~/.codex/memories`는 비어 있고 관련 `memory_summary`를 찾지 못했으며 메모리를 수정하지 않았다. macOS/CLT 설치·재부팅·새 약관 동의는 실행하지 않았고 이번에 적용한 도구 업데이트로 재부팅하지 않았다. 실제 desktop·provider·운영 환경 검증은 별도 범위다.
