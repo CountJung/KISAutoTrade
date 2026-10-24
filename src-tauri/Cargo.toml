@@ -7,7 +7,7 @@ license = "MIT"
 repository = ""
 default-run = "kis-auto-trade"
 edition = "2021"
-rust-version = "1.78.0"
+rust-version = "1.90.0"
 
 [lib]
 name = "kis_auto_trade_lib"

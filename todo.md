@@ -85,6 +85,11 @@ SOXQ 연구에서 확인한 시뮬레이션 정확성 과제는 아래에 기록
 
 ## P3 — 유지보수·품질 게이트
 
+- [ ] **DEP-20261024 — Dependabot #13/#11 순차 통합 검증.**
+  - 기존 최소 보안 수정 재사용과 환경 선언·공식 Toss 경로 목록 교정 후 #13 → #11 순으로 각각 검증한다.
+  - 완료 조건: 정확한 통합 SHA의 보안 정책·Rust check/test/strict clippy·TypeScript·웹 빌드·mock Playwright 통과, Rust 1.90 및 Node 20.19 최소 환경 검증. 실거래는 제외한다.
+  - [분석·검증·미검증 경계](docs/release-security.md#dependabot-1311-검토-2026-10-24)를 기준으로 하며 기존 개발 브랜치의 과거 검증을 이번 PR의 결과로 옮기지 않는다.
+
 - [ ] 1,000라인 초과 파일을 책임 단위로 분리한다.
   - `src-tauri/src/commands/trading.rs`: lifecycle/reconciliation/price-source/daemon cycle 분리.
   - `src/pages/trading/ui/Page.tsx`: broker별 orchestration과 공통 order form 분리.
