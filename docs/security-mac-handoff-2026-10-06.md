@@ -88,3 +88,73 @@ cargo audit --file Cargo.lock --ignore RUSTSEC-2023-0071
 이 명령들은 DB·매매 API를 요구하지 않는다. Linux 실행은 이번 Mac 결과로 대체하지 않으며 Linux GTK 잔여 경고를 별도로 확인해야 한다. 실제 Tauri 데스크톱 창 검증은 디스플레이가 필요한 별도 범위다.
 
 실측 용량(작업 중 2026-10-06): 코드·문서 약 25MB, Git 6.4MB, node_modules 271~283MB, 새 target 약 6GB, 기존 Mac target 13GB, 테스트 산출물 4KB, dist 1.1MB, 프로젝트 임시 도구·로그 약 25MB, 공유 Playwright 브라우저 1.1GB. 공유 Cargo registry 1.3GB, Rust toolchain 1.5GB, npm cache 2.2GB는 다른 프로젝트와 공용이다. 그래프 재생성으로 추적 파일 크기는 달라질 수 있다. 신규 Linux 용량은 실측하지 않았다. 이 Mac 실측에 기초한 개발 공간 추정은 캐시를 포함해 약 20GB 이상, 여유 포함 30GB 수준이며 OS·클라우드 서비스 기본 설치 공간은 별도다. 캐시는 원격 동기화 대상이 아니므로 코드 저장소만 clone하고 Linux에서 다시 생성한다.
+
+
+## 2026-10-24 안정 업데이트 재검증
+
+### 실제 대상과 버전
+
+실제 원본 `/Users/jsjmac/Workspace/MacWorking/KISAutoTrade`에서 시작했다. 시작 상태는 clean, 브랜치 `fix/mac-security-storage-2026-10-06`, HEAD `04f3b047b14a4046ffd9ebbf6be0776d861fc9fe`였다. 과거 검증 복제본의 사용자 미커밋 변경은 그대로 보존했다. 아래 값은 이번 실제 적용·lockfile 비교이며 위 10월 6일 실측을 대체하지 않는다.
+
+| 대상 | 이전 | 적용 후 |
+| --- | --- | --- |
+| Rust stable / rustup | 1.99.0 / 1.29.1 | 1.99.1 / 1.29.2 |
+| Mac 기본 Node / npm | 26.3.0 / 11.16.0 | 26.12.1 / 11.20.0 |
+| 프로젝트 Node / npm | .nvmrc 25.9.0 | .nvmrc 24.22.1 LTS / npm 11.19.1; keg-only 추가 설치 |
+| Homebrew | 7.0.7 | 7.0.10 |
+| macOS | 27.0.1 (26A434) | 유지; softwareupdate 조회에서 업데이트 없음 |
+| Xcode / CLT | 27.0 (27A266a) / 27.0 | 유지; Xcode 27.1 설치 미실행 |
+| tauri / tauri-build / tauri-utils | 2.12.1 / 2.7.1 / 2.10.1 | 2.12.5 / 2.7.4 / 2.10.2 |
+| tokio / serde / serde_json | 1.50.0 / 1.0.228 / 1.0.149 | 1.54.1 / 1.0.229 / 1.0.154 |
+| rustls / rustls-webpki | 0.23.45 / 0.103.15 | 0.23.46 / 0.103.16 |
+| webpki-roots / quinn-proto | 1.0.6 / 0.11.15 | 1.0.11 / 0.11.19 |
+| 직접 reqwest / tokio-tungstenite / axum | 0.12.28 / 0.24.0 / 0.7.9 | 유지 |
+| 직접 tower-http / SQLx / keyring | 0.5.2 / 0.8.6 / 3.6.3 | 유지 |
+| TanStack Query / Router | 5.96.1 / 1.168.10 | 5.104.5 / 1.170.46 |
+| Tauri JS API / CLI | 2.10.1 / 2.10.1 | 2.12.4 / 2.12.4 |
+| zustand / lightweight-charts / react-grid-layout | 5.0.12 / 5.1.0 / 1.5.3 | 5.0.16 / 5.2.1 / 1.5.4 |
+| Vite / Playwright | 6.4.4 / 1.61.1 | 6.4.5 / 1.64.1 |
+| React / MUI / TypeScript / React plugin | 18.3.1 / 6.5.0 / 5.9.3 / 4.7.0 | 유지 |
+
+Cargo는 기존 semver 범위와 MSRV 1.90 fallback을 사용했다. 갱신 후 metadata에서 선언된 `rust_version`이 1.90을 넘는 패키지는 없었다. **Rust 1.90 toolchain 자체의 실행 검증은 하지 않았으며**, 실제 check/test/build는 stable 1.99.1 결과다. 직접 manifest의 major는 유지했다. 이미 있던 간접 reqwest 0.13.2→0.13.5, tower-http 0.6.8→0.6.11, thiserror 2.0.18→2.0.21은 해당 경로 안에서 갱신했다.
+
+공식 확인 기준: [Rust stable 배포 manifest](https://static.rust-lang.org/dist/channel-rust-stable.toml), [Node 10월 보안 릴리스](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases), [Node 배포 목록](https://nodejs.org/dist/index.json), [crates.io 레지스트리](https://crates.io/), [npm 레지스트리](https://registry.npmjs.org/), [Homebrew 공식 formula API](https://formulae.brew.sh/api/formula.json), [Apple 공식 Xcode 릴리스](https://developer.apple.com/news/releases/), [App Store 공식 조회](https://itunes.apple.com/lookup?id=497799835&country=kr), [Apple macOS 업데이트](https://support.apple.com/en-us/100100). npm/Cargo 최신 후보와 보안 공지는 이 날짜에 확인했으며 베타·nightly를 채택하지 않았다.
+
+### 적용과 보류
+
+- Cargo/npm lockfile을 안정 호환 범위 안에서 갱신하고 `npm ci --ignore-scripts`로 재설치했다. 프로젝트·CI Node는 24.22.1 LTS로 맞췄다. Mac 기본 Node 26 계열도 별도로 보안 패치를 적용했다.
+- MUI와 Emotion의 production chunk를 분리해 MUI 505.12→478.24kB로 줄이고 Vite 크기 경고를 해소했다. 거래·IPC·계정 정책을 변경하지 않았다.
+- SQLx 0.9는 MSRV 1.94와 API·인증 정책 검토가 필요해 보류했다. 직접 reqwest 0.13, tokio-tungstenite 0.30, axum 0.8, tower-http 0.7, keyring 4, sha2 0.11, thiserror 2도 별도 major 호환 작업으로 남겼다. 해당 직접 의존성을 일괄 교체하지 않았다.
+- React 19, MUI 9, Vite 8, React plugin 6, TypeScript 7, react-grid-layout 2는 UI·타입·번들 호환 검증 범위가 커서 보류했다. npm 12와 pnpm 12도 채택하지 않았으며 프로젝트의 패키지매니저는 npm을 유지했다.
+- Homebrew는 관련 개발 도구와 그 의존성만 갱신하고 자동 cleanup·의존 앱 재검사를 끄고 진행했다. 무관한 앱 일괄 upgrade는 수행하지 않았다.
+- Apple 공식 Xcode 27.1 (27A9275), 약 3.083GB, macOS 26.6 이상 요구를 확인했다. App Store UI 조회가 Mac 잠금 상태로 차단되어 설치는 실행하지 않았다. 업데이트 없음은 `softwareupdate --list`의 OS/CLT 조회 결과이며 Xcode 최신판 설치 완료를 뜻하지 않는다. 별도 승인 ID는 대상 매핑이 확인되지 않아 특정 설치의 승인으로 해석하지 않았다.
+
+### 이번 검증과 남은 경계
+
+테스트는 합성·오프라인 모드이며 금융 자격증명을 사용하지 않았다. DB 접속 환경을 제거했다. 웹 build/E2E에는 저장소 `.env`를 읽지 않도록 빈 `envDir`를 쓰는 Git 제외 `.cache/offline-vite.config.mts`와 `.cache/offline-playwright.config.ts`를 사용했다.
+
+| 검사 | 이번 결과 |
+| --- | --- |
+| Cargo metadata / check --workspace --all-targets --locked | PASS; workspace/MSRV metadata 확인, 컴파일 경고 0 |
+| cargo test --workspace --lib --locked | PASS 775; DB contract 5개는 환경 미설정 즉시 반환, 실질 오프라인 770개 |
+| cargo test --workspace --test lth_replay_clock --locked | PASS 4/4 |
+| cargo clippy --workspace --all-targets --all-features --locked -- -D warnings | PASS |
+| cargo fmt --all -- --check | PASS |
+| cargo build --workspace --features custom-protocol --locked | PASS; 생성 바이너리 실행 안 함 |
+| TypeScript / Web production build | PASS, Node 24.22.1; Vite 빌드 경고 0 |
+| npm run test:e2e -- --config .cache/offline-playwright.config.ts --workers=2 | PASS Chromium mock 308/308, 7.9분 |
+| production dist + Vite preview 집중 E2E | PASS 설정 DB·전략 assessment 8/8, 3.9초; mock transport |
+| FSD / lockfiles / project-map / todo freshness | PASS |
+| node --test scripts/render-todo.test.mjs | PASS 3/3 |
+| Graphify update / freshness | PASS; AST topology 변경 없음, manifest·source hash만 갱신 |
+| npm audit 변경 전후 | 전체 0→0 |
+| cargo audit 변경 전후 | 취약점 12→1, Tokio 경고 해소; RSA 1개와 Linux 경고 2개 잔여 |
+| 기존 RSA ignore를 적용한 정책 감사 | PASS; 예외·필터 추가 없음 |
+
+E2E 로그의 `NO_COLOR`/`FORCE_COLOR` 안내와 Graphify JSON 설정 4개의 zero-node 안내는 남아 있으며 Rust/Vite 컴파일 경고와 구분한다. 보안 잔여의 상세 정책은 [현재 보안 게이트](release-security.md)를 따른다. 이번 DB 즉시 반환을 실제 DB 검증으로 집계하지 않는다. 10월 18일의 별도 로컬 TLS·단절·복구 완료 이력도 이번 재실행 결과로 주장하지 않는다.
+
+production 집중 검증은 임시 설정의 작업 경로 오류를 고친 뒤 `.cache/offline-production-playwright.config.ts`로 `settings-database.spec.ts`와 `strategy-replay-assessment.spec.ts`를 실행했다. dev 서버 결과와 별도로 실제 dist의 MUI/Emotion 초기화·상호작용을 확인했으며 앱·브로커 실행 검증은 아니다.
+
+로컬 증거는 `/tmp/kis-{lib-test,clock-test,clippy,build,web-build,e2e,production-e2e,graphify,npm-ci}.log`, `/tmp/kis-{npm,cargo}-audit-{before,after}.json`, `/tmp/kis-metadata-after.json`에 있다. `/tmp` 로그는 임시 근거이며 저장소 추적 산출물이 아니다. 이 절을 작성한 시점에는 커밋·푸시·exact SHA CI 확인이 아직 대기 중이다. 최종 상태는 후속 Git 로그·원격 SHA와 해당 SHA의 CI 결과를 기준으로 확인한다. `origin/review/dependabot-prerequisites-20261024`의 `638cf064d88344f003f53699bca340683fd0194f` 보안 변경과 겹치는 부분이 있으므로 후속 통합에서 같은 수정을 중복 cherry-pick하지 않는다.
+
+실행 중인 거래 프로세스는 발견되지 않았다. Chrome Remote Desktop과 LM Studio의 기존 프로세스는 유지했다. 실앱 실행, 주문·취소·포지션 변경, 거래 엔진 재시작, 실제 금융 API·운영 DB 접속, 사용자 거래 데이터 수정은 수행하지 않았다. 계정·네트워크·보안 설정도 변경하지 않았다. 로컬 `~/.codex/memories`는 비어 있고 관련 `memory_summary`를 찾지 못했으며 메모리를 수정하지 않았다. macOS/CLT 설치·재부팅·새 약관 동의는 실행하지 않았고 이번에 적용한 도구 업데이트로 재부팅하지 않았다. 실제 desktop·provider·운영 환경 검증은 별도 범위다.

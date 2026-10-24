@@ -33,7 +33,8 @@ export default defineConfig(async () => ({
     rollupOptions: {
       output: {
         manualChunks: {
-          mui: ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+          mui: ['@mui/material', '@mui/icons-material'],
+          emotion: ['@emotion/react', '@emotion/styled'],
           tanstack: ['@tanstack/react-query', '@tanstack/react-router'],
           charts: ['lightweight-charts'],
         },

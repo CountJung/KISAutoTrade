@@ -420,5 +420,5 @@
   "tests/e2e/toss-commission-ratio.spec.ts": "1f7bc246220f77123fea084b45ac680f8dcda1dc6983d4b7f27213a3c6996a5b",
   "tsconfig.json": "13b3e3f0049c5fbdf04193baf7b4c917d47f6a28d64572881746f10d80941365",
   "tsconfig.node.json": "9e2abb169ea87b7190613a1d4da57ca608463a453bd4231fa3aeee5e308370dd",
-  "vite.config.ts": "8a02919a0b25dc654f92367a333c8833219b78ac6349a7be2a0314b836be2a8d"
+  "vite.config.ts": "6d3213d13120d9ade91bf75bec247ef66ec1e2270684afe397eed7cb410d3642"
 }
