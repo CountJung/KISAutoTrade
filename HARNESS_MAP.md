@@ -4,9 +4,11 @@
 
 ## 1. 환경 기준
 
-- Node.js `>=20`, npm `>=10` (`package.json`, `.nvmrc`)
-- Rust `>=1.78`, workspace member `src-tauri` (root `Cargo.toml`)
+- Node.js `>=20.19.0`, npm `>=10` (`package.json`); `.nvmrc`는 개발용 선택 버전이며 최소 버전 검증을 대신하지 않는다.
+- Rust `>=1.90.0`, workspace member `src-tauri` (`src-tauri/Cargo.toml`). Tauri 2.12 계열의 crate 메타데이터 기준이며 최소 버전의 실제 컴파일 통과 여부는 별도 기록한다.
 - 재현 가능한 의존성 검증은 npm `ci`와 Cargo `--locked`를 우선한다.
+
+의존성 변경의 검증 결과·병합 조건은 [릴리스·의존성 보안 게이트](docs/release-security.md)를 확인한다.
 
 ```bash
 npm ci --ignore-scripts
