@@ -126,8 +126,8 @@ Cargo는 기존 semver 범위와 MSRV 1.90 fallback을 사용했다. 갱신 후 
 - MUI와 Emotion의 production chunk를 분리해 MUI 505.12→478.24kB로 줄이고 Vite 크기 경고를 해소했다. 거래·IPC·계정 정책을 변경하지 않았다.
 - SQLx 0.9는 MSRV 1.94와 API·인증 정책 검토가 필요해 보류했다. 직접 reqwest 0.13, tokio-tungstenite 0.30, axum 0.8, tower-http 0.7, keyring 4, sha2 0.11, thiserror 2도 별도 major 호환 작업으로 남겼다. 해당 직접 의존성을 일괄 교체하지 않았다.
 - React 19, MUI 9, Vite 8, React plugin 6, TypeScript 7, react-grid-layout 2는 UI·타입·번들 호환 검증 범위가 커서 보류했다. npm 12와 pnpm 12도 채택하지 않았으며 프로젝트의 패키지매니저는 npm을 유지했다.
-- Homebrew는 관련 개발 도구와 그 의존성만 갱신하고 자동 cleanup·의존 앱 재검사를 끄고 진행했다. 무관한 앱 일괄 upgrade는 수행하지 않았다.
-- Apple 공식 Xcode 27.1 (27A9275), 약 3.083GB, macOS 26.6 이상 요구를 확인했다. App Store UI 조회가 Mac 잠금 상태로 차단되어 설치는 실행하지 않았다. 업데이트 없음은 `softwareupdate --list`의 OS/CLT 조회 결과이며 Xcode 최신판 설치 완료를 뜻하지 않는다. 별도 승인 ID는 대상 매핑이 확인되지 않아 특정 설치의 승인으로 해석하지 않았다.
+- Homebrew는 관련 개발 도구와 그 의존성만 갱신하고 자동 cleanup·의존 앱 재검사를 끄고 진행했다. Node 의존성으로 OpenSSL 4.0.3이 추가됐고 `/opt/homebrew/bin/openssl`도 4.0.3을 가리킨다. 기존 `openssl@3` 3.6.4_1은 보존했으며 macOS 키체인·보안 설정은 변경하지 않았다. 무관한 앱 일괄 upgrade는 수행하지 않았다.
+- Apple 공식 Xcode 27.1 (27A9275), 약 3.083GB, macOS 26.6 이상 요구를 확인했다. App Store UI 조회는 Mac 잠금 상태로 차단됐고, 이후 사용자가 나머지 작업 진행을 선택해 Xcode 27.1 설치를 명시 보류했다. 기존 27.0을 유지했다. 업데이트 없음은 `softwareupdate --list`의 OS/CLT 조회 결과이며 Xcode 최신판 설치 완료를 뜻하지 않는다.
 
 ### 이번 검증과 남은 경계
 
@@ -144,6 +144,9 @@ Cargo는 기존 semver 범위와 MSRV 1.90 fallback을 사용했다. 갱신 후 
 | TypeScript / Web production build | PASS, Node 24.22.1; Vite 빌드 경고 0 |
 | npm run test:e2e -- --config .cache/offline-playwright.config.ts --workers=2 | PASS Chromium mock 308/308, 7.9분 |
 | production dist + Vite preview 집중 E2E | PASS 설정 DB·전략 assessment 8/8, 3.9초; mock transport |
+| Linux / Mac production 집중 E2E, 모바일 수정 후 | 각각 PASS 60/60, 1.4분 / 51초; 같은 관련 spec 조합 |
+| Linux 375px 모바일 집중 검사 | PASS 3/3, 5.2초 |
+| 공식 Toss OpenAPI | PASS v1.2.24, 38개 path; 계좌·주문 호출 없음 |
 | FSD / lockfiles / project-map / todo freshness | PASS |
 | node --test scripts/render-todo.test.mjs | PASS 3/3 |
 | Graphify update / freshness | PASS; AST topology 변경 없음, manifest·source hash만 갱신 |
@@ -155,6 +158,12 @@ E2E 로그의 `NO_COLOR`/`FORCE_COLOR` 안내와 Graphify JSON 설정 4개의 ze
 
 production 집중 검증은 임시 설정의 작업 경로 오류를 고친 뒤 `.cache/offline-production-playwright.config.ts`로 `settings-database.spec.ts`와 `strategy-replay-assessment.spec.ts`를 실행했다. dev 서버 결과와 별도로 실제 dist의 MUI/Emotion 초기화·상호작용을 확인했으며 앱·브로커 실행 검증은 아니다.
 
-로컬 증거는 `/tmp/kis-{lib-test,clock-test,clippy,build,web-build,e2e,production-e2e,graphify,npm-ci}.log`, `/tmp/kis-{npm,cargo}-audit-{before,after}.json`, `/tmp/kis-metadata-after.json`에 있다. `/tmp` 로그는 임시 근거이며 저장소 추적 산출물이 아니다. 이 절을 작성한 시점에는 커밋·푸시·exact SHA CI 확인이 아직 대기 중이다. 최종 상태는 후속 Git 로그·원격 SHA와 해당 SHA의 CI 결과를 기준으로 확인한다. `origin/review/dependabot-prerequisites-20261024`의 `638cf064d88344f003f53699bca340683fd0194f` 보안 변경과 겹치는 부분이 있으므로 후속 통합에서 같은 수정을 중복 cherry-pick하지 않는다.
+첫 코드 커밋 `64ed2b60edcef54c6306f8266fb86afc973f1642`를 일반 푸시하고 원격 SHA 일치·당시 clean 상태를 확인했다. 동일 SHA의 [Dependency Security](https://github.com/CountJung/KISAutoTrade/actions/runs/40070512158)는 PASS였다. [Release Gate](https://github.com/CountJung/KISAutoTrade/actions/runs/40070510752)는 Rust·frontend·Toss PASS, E2E는 14.8분에 **279 통과·29 실패**였다. 이를 전체 CI 통과로 보고하지 않는다.
+
+실패 중 26개는 dev 환경의 13개 전략 카드 초기화에서 assertion 5초 제한에 걸렸고, 초기화 성능이 원인이라는 판단은 아직 가설이다. mock 누락이 입증된 것은 아니다. 나머지 모바일 3개는 Linux에서 카드 너비 298px·scrollWidth 346px의 실제 가로 넘침을 재현했다. `src/pages/strategy/ui/Page.tsx`의 제목 왼쪽 flex 영역에 `minWidth: 0`·`flex: 1`, 제목에 `overflowWrap: anywhere`를 적용했다. 수정 후 Linux와 Mac의 관련 production spec 60개가 각각 모두 통과했고 Linux 375px 모바일 3개도 통과했다. 기존 Docker daemon에서 공식 Playwright 1.64.1-noble 이미지와 금융 파일 없는 git archive 격리 snapshot만 사용했으며 기존 컨테이너·서비스는 변경하지 않았다.
+
+CI E2E job은 web build 후 production preview를 검사하도록 변경했다. 테스트·assertion 제한은 늘리지 않았고, 기존 기본 list reporter에서 빠졌던 HTML 보고서를 생성하며 실패 trace·screenshot을 `test-results/`와 함께 artifact로 보존한다. 로컬 dev 실행은 유지한다. **이 후속 수정의 최종 커밋·푸시·전체 CI는 이 기록 시점에 대기 중**이다. 최종 상태는 후속 Git 로그·원격 SHA와 해당 SHA의 CI 결과를 기준으로 확인한다.
+
+로컬 증거는 `/tmp/kis-{lib-test,clock-test,clippy,build,web-build,e2e,production-e2e,graphify,npm-ci}.log`, `/tmp/kis-{linux-mobile-before,linux-overflow,linux-after,mac-final-e2e,linux-375,web-build-final,graphify-final,toss-openapi}.log`, `/tmp/kis-{npm,cargo}-audit-{before,after}.json`, `/tmp/kis-metadata-after.json`에 있다. `/tmp` 로그는 임시 근거이며 저장소 추적 산출물이 아니다. `origin/review/dependabot-prerequisites-20261024`의 `638cf064d88344f003f53699bca340683fd0194f` 보안 변경과 겹치는 부분이 있으므로 후속 통합에서 같은 수정을 중복 cherry-pick하지 않는다.
 
 실행 중인 거래 프로세스는 발견되지 않았다. Chrome Remote Desktop과 LM Studio의 기존 프로세스는 유지했다. 실앱 실행, 주문·취소·포지션 변경, 거래 엔진 재시작, 실제 금융 API·운영 DB 접속, 사용자 거래 데이터 수정은 수행하지 않았다. 계정·네트워크·보안 설정도 변경하지 않았다. 로컬 `~/.codex/memories`는 비어 있고 관련 `memory_summary`를 찾지 못했으며 메모리를 수정하지 않았다. macOS/CLT 설치·재부팅·새 약관 동의는 실행하지 않았고 이번에 적용한 도구 업데이트로 재부팅하지 않았다. 실제 desktop·provider·운영 환경 검증은 별도 범위다.

@@ -20,8 +20,8 @@
     "semantic_hash": ""
   },
   "playwright.config.ts": {
-    "mtime": 1789120030.43,
-    "ast_hash": "a58b33ac97fe2f7ac4b3096176a25080",
+    "mtime": 1792824755.6628842,
+    "ast_hash": "37c4c70e0a3fe9fc4fd58d4071bffa74",
     "semantic_hash": ""
   },
   "scripts/check-fsd-imports.mjs": {
@@ -760,8 +760,8 @@
     "semantic_hash": "59b76fc1faedff9ea62d9770d8a76ee8"
   },
   "src/pages/strategy/ui/Page.tsx": {
-    "mtime": 1792676645.8755217,
-    "ast_hash": "09d22315601a34e1754db07c867f8b52",
+    "mtime": 1792824867.2037506,
+    "ast_hash": "8f4ad5110ba1aaaf4acb6cef6c93fdba",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx": {

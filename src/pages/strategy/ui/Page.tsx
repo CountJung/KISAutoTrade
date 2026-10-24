@@ -748,8 +748,8 @@ export default function Strategy() {
             <Grid item xs={12} key={`${activeScopeKey}:${s.id}`} data-testid="strategy-card-grid">
               <Paper sx={{ p: { xs: 2, sm: 3 } }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1, gap: 1.5 }}>
-                  <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap">
-                    <Typography variant="subtitle1" fontWeight={600}>{s.name}</Typography>
+                  <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap" sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ minWidth: 0, maxWidth: '100%', overflowWrap: 'anywhere' }}>{s.name}</Typography>
                     <Chip
                       size="small"
                       label={`${brokerLabel(s.brokerId)}${s.brokerAccountId ? ` · ${s.brokerAccountId}` : ''}`}

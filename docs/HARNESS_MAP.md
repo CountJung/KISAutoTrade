@@ -78,7 +78,7 @@ npm run test:database-tls-contract
 
 ## 5. Playwright
 
-설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. Vite를 `127.0.0.1:1430`에서 띄우며 현재 spec은 mock transport를 이용한 설정 DB와 전략 스크롤바 회귀를 다룬다.
+설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 Vite dev, `CI` 실행은 먼저 `npm run build:web`로 생성한 dist의 Vite preview를 `127.0.0.1:1430`에서 검증한다. spec은 mock transport를 사용하며 실제 Tauri IPC·provider 주문 검증과 구분한다. 테스트 30초·assertion 5초 제한은 유지한다. CI는 list와 HTML reporter를 함께 생성하고 실패 trace·screenshot을 보존한다.
 
 ```bash
 npm run test:e2e
@@ -125,9 +125,9 @@ npm run build:app
 
 `.github/workflows/release-gate.yml`은 다음 job을 실행한다.
 
-- frontend: npm ci, lockfiles, TypeScript, FSD, project map
+- frontend: npm ci, lockfiles, TypeScript, FSD, project map, todo freshness
 - rust: Cargo metadata/check/lib test with lock
-- e2e: Chromium Playwright
+- e2e: Chromium 설치, todo renderer 테스트, `npm run build:web`, production preview 대상 Playwright. 실패하면 `playwright-report/`와 `test-results/`를 artifact로 7일 보관한다.
 - toss-openapi: Toss spec 검증
 
 로컬 완료 보고에는 CI가 나중에 수행할 것이라고만 쓰지 말고, 변경 범위의 최소 게이트를 직접 실행한 결과를 남긴다.

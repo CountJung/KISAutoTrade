@@ -1,7 +1,7 @@
 {
   "Cargo.toml": "55c8962a32bda2fec9d653b9fc00575c80108fb36a649c404e9a42fd9b5bd0f6",
   "package.json": "099cef8d02f51e4d3b71cd2fcafd068ac6f9816c479dd443f19b6e9c5cb5e783",
-  "playwright.config.ts": "bd8d3385214593128af0e5989bf032f2d50c7d9a9f48c0ace7007e9ee9f873dd",
+  "playwright.config.ts": "4c43dbaa9f836683084c7342791ff8789e3e9e2fdf167ef9812a7a7039eec50a",
   "scripts/check-fsd-imports.mjs": "b92e5a10f1b0545fe8d4a16b5bc2ada992667ec94514ad3129d47670a36472ad",
   "scripts/database-tls-contract.mjs": "97fee90d402f2b8e5ec1d9ee0a7dca21656ca1f18919939612b4947b76c83504",
   "scripts/graphify.mjs": "5b96a7d70046bd41228982a959717637ea0dbad9d31b1bf2173677d1ab867250",
@@ -331,7 +331,7 @@
   "src/pages/strategy/index.ts": "6f24c8d178a044601a5db7a0a83692c55d905d35666f029795f691375327f255",
   "src/pages/strategy/model/candlePageCollector.ts": "97fead17065cb75eefb0b833e1b6fdc497993a0e4660312eb755fb8e9c5f5248",
   "src/pages/strategy/model/experimentStore.ts": "b709740cb61652b33166152b4ad39139ba96b1fd47099bcf48246be620ea94fc",
-  "src/pages/strategy/ui/Page.tsx": "4934b31959458a47f165fbce009cc28fe46f60567635b13cdddebce300cc7a31",
+  "src/pages/strategy/ui/Page.tsx": "204bc251d019b3b50c55079e3b306291af017d826ca3adb998a59065c8f9c1f6",
   "src/pages/strategy/ui/bollingerControls.tsx": "214e7b8118c2261a7dff847e182b8598c1c42ce9459e6db2d820d8bdef21b943",
   "src/pages/strategy/ui/consecutiveEntryControls.tsx": "a965bdb4897fcf20e3439f5e4382119bbfd657cc7bb4e3e68883a9a486a43728",
   "src/pages/strategy/ui/consecutiveEntryPreparation.tsx": "319d2efbd375dea284888bfdc05901b2f82941dda0e6bc0fb5a4a3d3d6a1a109",
