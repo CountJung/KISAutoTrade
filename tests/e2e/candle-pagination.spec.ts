@@ -100,12 +100,19 @@ for (const scenario of ['scopeKey', 'profileId', 'asOf', 'scopeError'] as const)
 test('cancel during a page request prevents later pages and replay', async ({ page }) => {
   const requests: string[] = []
   const previews: unknown[] = []
-  await mockApi(page, { chartRequests: requests, genericPreviewRequests: previews, chartCandles: historyFixture(452), candlePageDelayMs: 250 })
+  let releasePage!: () => void
+  const firstPageResponse = new Promise<void>((resolve) => { releasePage = resolve })
+  await mockApi(page, { chartRequests: requests, genericPreviewRequests: previews, chartCandles: historyFixture(452), candlePageGate: firstPageResponse })
   const card = await genericCard(page)
-  await card.getByRole('button', { name: '미리보기 계산' }).click()
-  await expect.poll(() => requests.length).toBe(1)
-  await card.getByRole('button', { name: '취소', exact: true }).click()
-  await expect(card.getByText('미리보기 계산을 취소했습니다.')).toBeVisible()
+  // Hold the first response until the UI action completes, independently of runner speed.
+  try {
+    await card.getByRole('button', { name: '미리보기 계산' }).click()
+    await expect.poll(() => requests.length).toBe(1)
+    await card.getByRole('button', { name: '취소', exact: true }).click()
+    await expect(card.getByText('미리보기 계산을 취소했습니다.')).toBeVisible()
+  } finally {
+    releasePage()
+  }
   await page.waitForTimeout(350)
   expect(requests).toHaveLength(1)
   expect(previews).toHaveLength(0)
@@ -114,11 +121,18 @@ test('cancel during a page request prevents later pages and replay', async ({ pa
 test('parameter change during collection stops subsequent pages and discards the response', async ({ page }) => {
   const requests: string[] = []
   const previews: unknown[] = []
-  await mockApi(page, { chartRequests: requests, genericPreviewRequests: previews, chartCandles: historyFixture(452), candlePageDelayMs: 250 })
+  let releasePage!: () => void
+  const firstPageResponse = new Promise<void>((resolve) => { releasePage = resolve })
+  await mockApi(page, { chartRequests: requests, genericPreviewRequests: previews, chartCandles: historyFixture(452), candlePageGate: firstPageResponse })
   const card = await genericCard(page)
-  await card.getByRole('button', { name: '미리보기 계산' }).click()
-  await expect.poll(() => requests.length).toBe(1)
-  await card.getByRole('spinbutton', { name: '단기 MA', exact: true }).fill('7')
+  // Hold the first response until the UI action completes, independently of runner speed.
+  try {
+    await card.getByRole('button', { name: '미리보기 계산' }).click()
+    await expect.poll(() => requests.length).toBe(1)
+    await card.getByRole('spinbutton', { name: '단기 MA', exact: true }).fill('7')
+  } finally {
+    releasePage()
+  }
   await page.waitForTimeout(350)
   expect(requests).toHaveLength(1)
   expect(previews).toHaveLength(0)

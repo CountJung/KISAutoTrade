@@ -1365,8 +1365,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/fixtures/strategyResearchFixture.ts": {
-    "mtime": 1792668670.2110631,
-    "ast_hash": "731fb81a1cb5d793df7586e4f9b06995",
+    "mtime": 1792827266.7891142,
+    "ast_hash": "c1742f5f15bf1911f08c1b0dd78ff17b",
     "semantic_hash": ""
   },
   "tests/e2e/strategy-replay-assessment.spec.ts": {
@@ -1500,8 +1500,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/candle-pagination.spec.ts": {
-    "mtime": 1792291138.6619067,
-    "ast_hash": "11e2c16d9012a2718b8c0c0e0ae131ca",
+    "mtime": 1792827266.789688,
+    "ast_hash": "a2f85538d447088cb61be108c3905990",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/trading/daily_history.rs": {

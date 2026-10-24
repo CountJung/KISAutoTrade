@@ -98,7 +98,7 @@ type MockOptions = {
   chartRequests?: string[]
   chartCandles?: ChartCandle[]
   candlePages?: Array<Partial<CandlePageView>>
-  candlePageDelayMs?: number
+  candlePageGate?: Promise<void>
   candlePageError?: { page: number; code: string }
   genericPreparation?: StrategyPreviewPreparation
   genericSignals?: StrategyPreviewSignal[]
@@ -372,7 +372,7 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
     if (url.pathname === '/api/candles/page') {
       options.chartRequests?.push(url.toString())
       const pageIndex = candlePageIndex++
-      if (options.candlePageDelayMs) await new Promise((resolve) => setTimeout(resolve, options.candlePageDelayMs))
+      if (options.candlePageGate) await options.candlePageGate
       if (options.candlePageError?.page === pageIndex) {
         await route.fulfill({ status: 409, json: { error: 'mock page failure', code: options.candlePageError.code } })
         return
