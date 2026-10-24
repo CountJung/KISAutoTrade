@@ -194,6 +194,44 @@ SOXQ 연구에서 확인한 시뮬레이션 정확성 과제는 아래에 기록
 - [ ] **🟠 사용자 판단 대기** 플랫폼 코드 서명·updater 서명 강제를 위한 배포 키 준비.
   - **필요한 사용자 판단:** 배포 대상 플랫폼과 키/인증서 관리 주체를 정하고 GitHub Environment에 키를 준비한다. 자동화된 checksum/attestation과 signature 검사 구현은 완료되어 있다. 키 준비 후 `REQUIRE_RELEASE_SIGNATURES=true`를 적용하고 실제 서명 artifact를 검증한다. [보안·서명 게이트](release-security.md).
 
+### 보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)
+
+아래 현재→검토 버전은 2026-10-24 직전 읽기 검토값이며 최신 버전의 영구 고정값이 아니다. 각 작업 착수 시 공식 릴리스·레지스트리·보안 공지와 열린 Dependabot PR #13·#11의 현재 상태를 재확인하고 중복 변경을 피한다. [적용·보류 및 기존 검증 정본](security-mac-handoff-2026-10-06.md), [잔여 RSA·보안 정책 정본](release-security.md)을 따른다. 아래 작업은 모두 미완료이며 이번에는 문서만 기록했다.
+
+권장 순서: **DEP-P3-01 → 02 → 03 → 04 → 05 → 06**, 기타 후보는 **07·08**에서 개별 판단한다. 우선순위는 이 P3 목록 내부 순서이며 기존 P1/P2를 대체하지 않는다. 검증은 금융 자격증명·실거래 연결 없이 합성/mock·격리 fixture로 한다. 운영 DB·거래 데이터·실행 중 서비스와 주문/취소/포지션·엔진 재시작·배포를 건드리지 않는다. Xcode 27.0→27.1은 사용자 보류 상태를 유지한다.
+
+- [ ] **🟠 사용자 판단 대기** **DEP-P3-01 — 격리 DB 검증환경과 프로젝트 MSRV 기준을 결정한다.** 우선순위 1, SQLx 전환의 선행조건.
+  - **확인:** 프로젝트 선언 MSRV 1.90.0→SQLx 0.9.0 요구 최소 1.94.0 결정이 필요하다. Mac Rust 1.99.1은 이미 요구를 충족한다. 기존 갱신 검증은 1.99.1 결과이며 1.90 실행 검증은 하지 않았다. DB 계약 5개는 환경 미설정으로 즉시 반환했으므로 실제 DB 통과가 아니다.
+  - **남은 일·완료 조건:** 실제 계정·운영 자료 없는 임시 PostgreSQL/MariaDB fixture와 합성 전용 접속정보를 마련하고 CI에서 DB 테스트가 실제 실행됐음을 구분한다. 최소 1.94로 상향할지 사용자와 지원 기준을 확정하고 선언·CI를 일치시킨 뒤 선택한 최소 버전 및 stable의 check/test를 통과한다. 판단 전에도 격리 검증 설계는 진행할 수 있다.
+
+- [ ] **🟢 자동 구현** **DEP-P3-02 — SQLx 0.8.6→0.9.0의 SQL·DB 인증·잔여 RSA를 분리 검증한다.** 우선순위 2, DEP-P3-01 완료 후 전환.
+  - **실제 코드 영향 확인:** `storage/database_schema.rs`·`database_projection.rs`의 동적 `query(&query)`/`query(&format!(…))`는 새 SqlSafeStr/AssertSqlSafe 경계 검토·수정 대상이다. 0.9의 비TLS MySQL RSA 인증은 `mysql-rsa` 기능을 별도 요구한다. PostgreSQL/MariaDB 저장·타입/문자열·transaction·실패 복구도 재검증한다. 이 경로는 모두 `src-tauri/src/` 아래다.
+  - **완료 조건:** 허용된 테이블 식별자와 bind 경계를 보존하고 격리 DB의 schema/import/export·transaction rollback·TLS 및 지원 인증 계약을 통과한다. `cargo fmt --all -- --check` 및 `--locked` check/test/strict clippy/build와 최소 Rust/stable CI를 확인한다. RUSTSEC-2023-0071은 별도 dependency tree/audit로 재평가하고 SQLx 상승만으로 해소됐다고 처리하지 않는다. 기존 비TLS 지원 제거·인증 정책 변경은 별도 사용자 결정 없이 하지 않는다. [공식 0.9 변경](https://raw.githubusercontent.com/transact-rs/sqlx/v0.9.0/CHANGELOG.md).
+
+- [ ] **🟢 자동 구현** **DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다.** 우선순위 3, DEP-P3-02 다음; 두 전환의 diff·검증은 분리한다.
+  - **실제 코드 영향 확인:** Cargo의 `rustls-tls`→`rustls` 및 명시 `query` 기능, `api/rest/chart.rs`의 `.query()` 사용을 반영한다. `api/websocket.rs` 승인·구독의 `Message::Text(String)`는 Utf8Bytes 변환 대상이다. TLS 루트/crypto provider·수신/종료 payload와 버퍼 기본값은 별도 호환 확인 대상이며 실제 실패를 재현한 것은 아니다.
+  - **완료 조건:** 합성 HTTP/TLS 서버에서 차트 query·헤더·JSON·쿠키·오류 처리를 확인하고 mock WebSocket에서 승인·구독·수신·ping/pong·종료·재연결을 검증한다. 실제 KIS/Toss 인증 없이 Rust format/strict clippy/check/test/build와 해당 CI를 통과한다. [reqwest 변경](https://github.com/seanmonstar/reqwest/releases/tag/v0.13.0), [WebSocket 변경](https://raw.githubusercontent.com/snapview/tungstenite-rs/v0.30.0/CHANGELOG.md).
+
+- [ ] **🟢 자동 구현** **DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다.** 우선순위 4, DEP-P3-03 다음.
+  - **확인/미검증 구분:** `server/mod.rs`의 `/:symbol`·`/:id`는 새 `/{symbol}`·`/{id}` 문법으로 바꿔야 한다. tower-http는 현재 CORS 사용 경로의 별도 후보이며 프로젝트에서 구체적 API 실패를 확인하지 않았다. 이미 존재하는 간접 tower-http 0.6.11을 직접 의존성 전환 완료로 취급하지 않는다.
+  - **완료 조건:** 주문·계정 provider를 mock으로 격리하고 기존 모든 route의 경로/상태·인증 거부·CORS·오류 응답·Tauri IPC와 REST view 계약을 회귀 검증한다. Rust format/strict clippy/check/test/build 및 CI 통과. [axum 변경](https://github.com/tokio-rs/axum/blob/axum-v0.8.0/axum/CHANGELOG.md).
+
+- [ ] **🟢 자동 구현** **DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다.** 우선순위 5, DEP-P3-04 다음.
+  - **실제 코드 영향 확인:** 대시보드·전략의 MUI `Grid item xs`는 `size` API로, 전략 입력의 `InputProps`는 `slotProps.input`으로 이전 대상이다. React는 이미 createRoot/새 JSX 변환을 사용한다. React DOM·타입/ref·오류 처리·주변 라이브러리 호환은 미검증 후보이며 이번에 React 교체 실패를 확인한 것은 아니다.
+  - **완료 조건:** React/DOM/타입과 MUI 관련 패키지의 지원 조합을 공식 가이드로 정하고 분리된 변경으로 타입·FSD·production build를 통과한다. 금융 mock E2E에서 전략/설정/대시보드·좁은 화면·입력/메뉴/버튼·테마·차트를 검증하고 Mac/Linux 결과를 구분한다. [React 이전](https://react.dev/blog/2024/04/25/react-19-upgrade-guide), [MUI 이전](https://mui.com/material-ui/migration/upgrade-to-v9/).
+
+- [ ] **🟢 자동 구현** **DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다.** 우선순위 6, DEP-P3-05 다음.
+  - **확인/미검증 구분:** Rollup/esbuild→Rolldown/Oxc 전환에 맞춰 `vite.config.ts`의 `minify: 'esbuild'`, MUI/Emotion 등의 manualChunks·Tauri pre-bundling 제외 설정을 검토한다. 현재 설정이 모두 실패한다고 입증한 것은 아니다. 명시된 WebView target을 기본 browser target 변화와 혼동하지 않는다.
+  - **완료 조건:** 공식 단계별 migration과 Node/plugin 지원 범위를 확인하고 production chunk 초기화·Tauri custom-protocol native build·WebView 호환을 금융 연결 없이 검증한다. 타입/FSD/build·production UI E2E와 source harness를 통과하며 경고 억제나 크기 제한 완화로 대체하지 않는다. 안전하게 앱을 기동할 수 없으면 해당 런타임 검증은 미완료로 남긴다. [Vite 이전](https://vite.dev/guide/migration).
+
+- [ ] **🟢 자동 구현** **DEP-P3-07 — 나머지 Rust·UI 의존성 후보의 실제 필요와 영향부터 확인한다.** DEP-P3-06 이후 개별 우선순위를 정한다.
+  - **미검증 후보:** keyring 3.6.3→4.2.0(DB 암호 저장·mock), sha2 0.10.9→0.11.1(체크섬/이벤트 식별값), thiserror 1.0.69→2.0.21(오류 derive), react-grid-layout 1.5.4→2.3.0(새 API/내장 타입 및 legacy 호환 경로). 모두 확정 대규모 수정으로 판단한 것은 아니다. 이미 간접 thiserror 2.0.21이 있어도 직접 전환 완료는 아니다.
+  - **완료 조건:** manifest/실제 참조·공식 breaking change·지원 target을 대조해 각 후보를 전환/유지/제거 검토로 결정한다. react-grid-layout은 당시 `src` 직접 import가 없었으므로 사용·CSS·동적 참조를 먼저 확인하며 이번에는 삭제하지 않는다. 전환 시 keyring은 mock만, sha2는 기존 fixture hash 불변, 오류 타입은 변환/메시지 회귀, UI는 사용 경로의 타입/build/E2E를 검증한다.
+
+- [ ] **🟢 자동 구현** **DEP-P3-08 — TypeScript·패키지매니저 major 후보를 개별 평가한다.** DEP-P3-06·07 검토 이후, 필요성이 확인된 항목만 전환한다.
+  - **미검증 후보:** TypeScript 5.9.3→7.0.2, Mac 기본 npm 11.20.0→12.2.1, pnpm 10.30.3→12.15.0. 프로젝트 Node 24.22.1 LTS의 npm은 11.19.1이며 기본 Node의 npm과 구분한다. 프로젝트는 npm을 사용하고 pnpm은 이번에 채택하지 않았다. 개별 프로젝트 실패는 미확인이다.
+  - **완료 조건:** 공식 compiler/Node engines·peer 지원과 설치/lockfile 변화를 확인한다. TypeScript는 strict 타입·FSD/build, npm은 금융 파일 없는 깨끗한 snapshot의 `npm ci --ignore-scripts`·lockfile 재현·감사·CI를 통과한다. pnpm은 프로젝트 사용 필요부터 확인하고 불필요하면 미채택 결정을 남기며, 전환·lockfile 병행을 자동 도입하지 않는다.
+
 ## 완료 기준
 
 - 각 항목은 코드, 실패/복구 테스트, 사용자-visible 상태, 관련 문서가 함께 반영되어야 닫는다.
