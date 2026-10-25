@@ -152,17 +152,22 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>SOXQ-P2-16 — ATR을 true range로 계산하고 표본 부족을 성과와 구분한다.</strong></h2>
 <ul><li>v8 replay는 이전 종가 포함 TR14·동일 interval 사전 ATR warmup·준비 진단을 구현했다. 연구 UI는 기본 비활성 수량 산정과 위험bps/배수를 제공하고 부족·0범위·0bps 매수 차단을 표시한다. LTH는 실제 잔여수량/평균가 피드백으로 확대·축소·부분매도 보호를 검증했다. 최신45창의 작은 완료 표본과 자산/기간 상관·무거래 창은 여전히 구분해야 한다.</li>
-<li>완료 조건: 이전 종가 포함 TR·사전 ATR warmup·봉 간격 유지; 표본 수/신뢰 부족 표시; 70/30 구간을 기간 정규화 없이 과최적화 확정에 사용하지 않고 별도 walk-forward 평가.</li></ul>
+<li>완료 조건: 이전 종가 포함 TR·사전 ATR warmup·봉 간격 유지; 표본 수/신뢰 부족 표시; 70/30 구간을 기간 정규화 없이 과최적화 확정에 사용하지 않고 별도 walk-forward 평가.</li>
+<li><strong>현재 판정 근거:</strong> 같은 ReplaySession 상태가 이어지는 70/30은 분리 학습·독립 OOS가 아니다. <code>phase_summaries</code>는 완료매도가 체결된 phase에 전체 배분 원가의 손익을 귀속한다. <code>overfit_warning</code>은 전반 수익&gt;0에서 후반&lt;=0 또는 후반&lt;전반×0.5만 검사하며 구간 길이·완료 수를 보지 않는다. session의 최종 판정식을 continuous 경로는 유지하고 문구만 완화한다. <a href="../src-tauri/src/trading/simulation.rs">구간 집계·판정식</a>, <a href="../src-tauri/src/trading/simulation/session.rs">최종 호출</a>, <a href="../src-tauri/src/commands/strategy_preview/continuous.rs">연속 문구 치환</a>.</li>
+<li><strong>기존 원장 진단:</strong> v12 연속 72원장은 526/226봉이며 후반 양수·전반 절반 미만 26건, 전반 양수·후반 음수 16건/정확히 0인 6건, 한쪽 완료청산 0인 32건이다. 별도 분기 864원장은 각각 52/132/53/786건이다. SOXQ PC 10bp의 2023Q1은 전반 +0.7526%·완료1/후반 0%·완료0인데 flat 경고는 후반을 “검증 구간은 손실”로 표시한다. 비용쌍·상관 ETF·겹치는 창은 독립 표본이 아니다. 앞선 감사와 동일 SHA의 기존 원장이며 새 v22 실행 결과가 아니다. <a href="research/continuous-replay-20261018/continuous-results.jsonl.gz">연속 원장</a>, <a href="research/continuous-replay-20261018/reset-results.jsonl.gz">별도 분기 원장</a>, <a href="research/continuous-replay-20261018/design.json">고정 설계</a>.</li>
+<li><strong>남은 자동 구현 우선순위:</strong> 누적수익 절반 조건으로 과최적화·학습/OOS를 단정하는 경고와 0%=손실 문구를 교정한다. 같은 finish를 쓰는 LTH 전용 preview를 포함해 flat/LTH/continuous·현재/A-B·legacy의 구간 길이·완료청산 표본·연속 상태 설명을 일치시킨다. 현재 flat/LTH UI의 “학습 구간(%) / 나머지는 out-of-sample 검증”·학습/In-sample/Out-of-sample 제목·표와 continuous의 앞/뒤·독립검증 아님 표현을 함께 정리한다. <code>BacktestPhaseView</code>/<code>BacktestPhase</code>에 관측수·노출·실현/잔여·경계보유 정보가 없으므로 필요한 설명/진단 계약을 보완하되 기존 회계·체결·원시 구간값은 보존한다. 길이가 다른 구간·후반0/손실·완료0/부분청산 fixture와 기본 거래/report·회계 불변을 검증하고 기존 TR·사전 ATR warmup·봉 간격 계약 및 LTH 평가불가/자료 gate를 유지한다. <a href="../src/pages/strategy/ui/strategyResearchPanel.tsx">현재 연구 UI</a>, <a href="../src/shared/api/strategyResearchTypes.ts">구간 TS 계약</a>.</li>
+<li><strong>별도 walk-forward 완료 기준:</strong> 생산 Rust API로 자료를 읽기 전 창·이전 정보·고정 후보·두 비용·설정 선택·warmup·수량·경계 보유 처리와 비중/노출·실현/잔여·MDD·차단·회전 기준을 선언한다. 과거 자료 재검토를 새 OOS로 부르지 않으며, 이어지는 장부의 사후 70/30과 분리한다.</li>
+<li><strong>해석 위험·검증 의존성:</strong> 경고 없음을 신뢰 충분으로, 청산0을 성과 우수로 해석하지 않는다. 생산 Rust 구현·fixture와 검증 가능한 자료·사전 선언에 의존하며, 로컬 자동 구현/검증에 새 사용자 승인 게이트를 추가하지 않는다.</li></ul>
 <a class="permalink" href="#soxq-p2-16" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-f4140a9e27" data-status="implementation" data-source-line="195">
+<article class="task implementation" id="task-f4140a9e27" data-status="implementation" data-source-line="200">
 <p class="section">자동매매 예산·볼린저 보강 검증 기록 (2026-09-11)</p>
 <p class="badge">🟢 자동 구현</p>
 <h2>실제 provider 응답 불명 주문의 운영자 대조/복구 UI: 현재는 자동 해제 없이 예산을 보류한다. 주문번호/clientOrderId 대조 및 멱등 승인 흐름으로 확장할 것.</h2>
 
 <a class="permalink" href="#task-f4140a9e27" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-a322b97c93" data-status="implementation" data-source-line="200">
+<article class="task implementation" id="task-a322b97c93" data-status="implementation" data-source-line="205">
 <p class="section">P3 — 유지보수·품질 게이트</p>
 <p class="badge">🟢 자동 구현</p>
 <h2>1,000라인 초과 파일을 책임 단위로 분리한다.</h2>
@@ -176,7 +181,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>검증: 변경 파일과 신규 파일은 1,000라인 아래, FSD/API public surface와 IPC 이름은 유지한다.</li></ul>
 <a class="permalink" href="#task-a322b97c93" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-ffa0458c56" data-status="decision" data-source-line="224">
+<article class="task decision" id="task-ffa0458c56" data-status="decision" data-source-line="229">
 <p class="section">P3 — 유지보수·품질 게이트</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2>플랫폼 코드 서명·updater 서명 강제를 위한 배포 키 준비.</h2>
@@ -187,7 +192,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>객관적 완료 기준:</strong> 대상 artifact의 유효한 플랫폼/updater 서명을 확인하고 서명 누락·변조·불일치가 release를 차단함을 검증한다. checksum/attestation을 코드/updater 서명의 대체물로 취급하지 않는다. <a href="release-security.md">현재 게이트와 제한</a>.</li></ul>
 <a class="permalink" href="#task-ffa0458c56" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-f1e74cc052" data-status="decision" data-source-line="237">
+<article class="task decision" id="task-f1e74cc052" data-status="decision" data-source-line="242">
 <p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2><strong>DEP-P3-01 — 격리 DB 검증환경과 프로젝트 MSRV 기준을 결정한다.</strong> 우선순위 1, SQLx 전환의 선행조건.</h2>
@@ -199,7 +204,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>객관적 완료 기준:</strong> 선택한 최소 Rust와 stable의 check/test, 지원 DB matrix별 실제 계약 실행 건수와 성공/거부를 기록한다. 즉시 반환·미실행을 통과로 세지 않고 schema/transaction·TLS·인증·복구를 확인한다. RSA 해소 판정은 별도 audit/의존성 근거로만 한다. <a href="security-mac-handoff-2026-10-06.md">2026-10-24 검증·보류</a>, <a href="release-security.md">정책·RSA 잔여</a>.</li></ul>
 <a class="permalink" href="#task-f1e74cc052" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-5b7108079d" data-status="implementation" data-source-line="245">
+<article class="task implementation" id="task-5b7108079d" data-status="implementation" data-source-line="250">
 <p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>DEP-P3-02 — SQLx 0.8.6→0.9.0의 SQL·DB 인증·잔여 RSA를 분리 검증한다.</strong> 우선순위 2, DEP-P3-01 완료 후 전환.</h2>
@@ -207,7 +212,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>완료 조건:</strong> 허용된 테이블 식별자와 bind 경계를 보존하고 격리 DB의 schema/import/export·transaction rollback·TLS 및 지원 인증 계약을 통과한다. <code>cargo fmt --all -- --check</code> 및 <code>--locked</code> check/test/strict clippy/build와 최소 Rust/stable CI를 확인한다. RUSTSEC-2023-0071은 별도 dependency tree/audit로 재평가하고 SQLx 상승만으로 해소됐다고 처리하지 않는다. 기존 비TLS 지원 제거·인증 정책 변경은 별도 사용자 결정 없이 하지 않는다. <a href="https://raw.githubusercontent.com/transact-rs/sqlx/v0.9.0/CHANGELOG.md">공식 0.9 변경</a>.</li></ul>
 <a class="permalink" href="#task-5b7108079d" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-9b9191cd53" data-status="implementation" data-source-line="249">
+<article class="task implementation" id="task-9b9191cd53" data-status="implementation" data-source-line="254">
 <p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다.</strong> 우선순위 3, DEP-P3-02 다음; 두 전환의 diff·검증은 분리한다.</h2>
@@ -215,7 +220,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>완료 조건:</strong> 합성 HTTP/TLS 서버에서 차트 query·헤더·JSON·쿠키·오류 처리를 확인하고 mock WebSocket에서 승인·구독·수신·ping/pong·종료·재연결을 검증한다. 실제 KIS/Toss 인증 없이 Rust format/strict clippy/check/test/build와 해당 CI를 통과한다. <a href="https://github.com/seanmonstar/reqwest/releases/tag/v0.13.0">reqwest 변경</a>, <a href="https://raw.githubusercontent.com/snapview/tungstenite-rs/v0.30.0/CHANGELOG.md">WebSocket 변경</a>.</li></ul>
 <a class="permalink" href="#task-9b9191cd53" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-4686c2c738" data-status="implementation" data-source-line="253">
+<article class="task implementation" id="task-4686c2c738" data-status="implementation" data-source-line="258">
 <p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다.</strong> 우선순위 4, DEP-P3-03 다음.</h2>
@@ -223,7 +228,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>완료 조건:</strong> 주문·계정 provider를 mock으로 격리하고 기존 모든 route의 경로/상태·인증 거부·CORS·오류 응답·Tauri IPC와 REST view 계약을 회귀 검증한다. Rust format/strict clippy/check/test/build 및 CI 통과. <a href="https://github.com/tokio-rs/axum/blob/axum-v0.8.0/axum/CHANGELOG.md">axum 변경</a>.</li></ul>
 <a class="permalink" href="#task-4686c2c738" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-8f6637aa71" data-status="implementation" data-source-line="257">
+<article class="task implementation" id="task-8f6637aa71" data-status="implementation" data-source-line="262">
 <p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다.</strong> 우선순위 5, DEP-P3-04 다음.</h2>
@@ -231,7 +236,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>완료 조건:</strong> React/DOM/타입과 MUI 관련 패키지의 지원 조합을 공식 가이드로 정하고 분리된 변경으로 타입·FSD·production build를 통과한다. 금융 mock E2E에서 전략/설정/대시보드·좁은 화면·입력/메뉴/버튼·테마·차트를 검증하고 Mac/Linux 결과를 구분한다. <a href="https://react.dev/blog/2024/04/25/react-19-upgrade-guide">React 이전</a>, <a href="https://mui.com/material-ui/migration/upgrade-to-v9/">MUI 이전</a>.</li></ul>
 <a class="permalink" href="#task-8f6637aa71" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-28743a36d9" data-status="implementation" data-source-line="261">
+<article class="task implementation" id="task-28743a36d9" data-status="implementation" data-source-line="266">
 <p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다.</strong> 우선순위 6, DEP-P3-05 다음.</h2>
@@ -239,7 +244,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>완료 조건:</strong> 공식 단계별 migration과 Node/plugin 지원 범위를 확인하고 production chunk 초기화·Tauri custom-protocol native build·WebView 호환을 금융 연결 없이 검증한다. 타입/FSD/build·production UI E2E와 source harness를 통과하며 경고 억제나 크기 제한 완화로 대체하지 않는다. 안전하게 앱을 기동할 수 없으면 해당 런타임 검증은 미완료로 남긴다. <a href="https://vite.dev/guide/migration">Vite 이전</a>.</li></ul>
 <a class="permalink" href="#task-28743a36d9" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-3e72354d71" data-status="implementation" data-source-line="265">
+<article class="task implementation" id="task-3e72354d71" data-status="implementation" data-source-line="270">
 <p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>DEP-P3-07 — 나머지 Rust·UI 의존성 후보의 실제 필요와 영향부터 확인한다.</strong> DEP-P3-06 이후 개별 우선순위를 정한다.</h2>
@@ -247,7 +252,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>완료 조건:</strong> manifest/실제 참조·공식 breaking change·지원 target을 대조해 각 후보를 전환/유지/제거 검토로 결정한다. react-grid-layout은 당시 <code>src</code> 직접 import가 없었으므로 사용·CSS·동적 참조를 먼저 확인하며 이번에는 삭제하지 않는다. 전환 시 keyring은 mock만, sha2는 기존 fixture hash 불변, 오류 타입은 변환/메시지 회귀, UI는 사용 경로의 타입/build/E2E를 검증한다.</li></ul>
 <a class="permalink" href="#task-3e72354d71" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-abc44d00a3" data-status="implementation" data-source-line="269">
+<article class="task implementation" id="task-abc44d00a3" data-status="implementation" data-source-line="274">
 <p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>DEP-P3-08 — TypeScript·패키지매니저 major 후보를 개별 평가한다.</strong> DEP-P3-06·07 검토 이후, 필요성이 확인된 항목만 전환한다.</h2>
@@ -256,7 +261,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <a class="permalink" href="#task-abc44d00a3" aria-label="이 할일 링크">#</a>
 </article></section>
 <p id="empty" hidden>일치하는 열린 할일이 없습니다. 검색어나 상태를 바꿔 주세요.</p>
-<footer>원본 SHA-256: 81c267951e2da00b727ec509654fac9fe9fcfe75b74bd4cacd91a0936f821c32<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
+<footer>원본 SHA-256: 140b0afab7861b722c5ae9b3201291f073aa3e58e7489339a36c80a0edd82001<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
 </main>
 <script>
 const status = document.getElementById('status');
