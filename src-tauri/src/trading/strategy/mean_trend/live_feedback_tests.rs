@@ -34,12 +34,12 @@ fn live_feedback_trend_filter_keeps_confirmation_and_updates_indicators() {
         strategy.on_live_tick("SOXQ", 130, 0),
         Signal::Buy { .. }
     ));
-    assert!(!strategy.states["SOXQ"].in_position);
+    assert!(!(strategy.states["SOXQ"].owned_quantity > 0));
     assert_eq!(strategy.states["SOXQ"].prices.back(), Some(&130));
     strategy.sync_owned_position("SOXQ", 1, 130);
     assert!(matches!(
         strategy.on_live_tick("SOXQ", 90, 0),
         Signal::Sell { .. }
     ));
-    assert!(strategy.states["SOXQ"].in_position);
+    assert!((strategy.states["SOXQ"].owned_quantity > 0));
 }

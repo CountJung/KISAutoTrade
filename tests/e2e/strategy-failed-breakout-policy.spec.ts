@@ -237,7 +237,10 @@ test('decimal keyboard drafts and inclusive limits save as numeric values', asyn
   const { updates } = await setup(page)
   const input = card(page).getByLabel(labels[0], { exact: true })
   await input.fill(''); await input.pressSequentially('0.'); await expect(input).toHaveValue('0.'); await input.pressSequentially('5'); await expect(input).toHaveValue('0.5')
-  await saveButton(page).click(); await expect.poll(() => updates.length).toBe(1); expect(updates[0].params.atr_buffer_multiplier).toBe(0.5)
+  // 경계 입력 검증은 첫 저장의 canonical 응답까지 완료한 상태에서 시작한다.
+  const saved = page.waitForResponse((res) => res.url().endsWith('/api/strategies/failed_breakout_default'))
+  await saveButton(page).click(); await (await saved).finished(); await expect(saveButton(page)).toHaveCount(0)
+  expect(updates[0].params.atr_buffer_multiplier).toBe(0.5)
   for (const [index, value] of ['20', '100', '1000', '99.9', '1000000'].entries()) await card(page).getByLabel(labels[index], { exact: true }).fill(value)
   await saveButton(page).click(); await expect.poll(() => updates.length).toBe(2)
   expect(updates[1].params).toMatchObject({ atr_buffer_multiplier: 20, min_volume_ratio: 100, profit_activation_pct: 1000, profit_trailing_pct: 99.9, max_hold_observations: 1000000 })

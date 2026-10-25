@@ -34,8 +34,8 @@ pub use leveraged_trend_hold::{
 pub use ma_cross::{validate_ma_cross_entry_params, MaCrossParams, MovingAverageCrossStrategy};
 pub use manager::{build_strategy, DailyHistoryStatus, DailyHistoryTicket, StrategyManager};
 pub use mean_trend::{
-    validate_mean_reversion_params, MeanReversionExitMode, MeanReversionParams,
-    MeanReversionStrategy, TrendFilterParams, TrendFilterStrategy,
+    validate_mean_reversion_params, validate_trend_filter_params, MeanReversionExitMode,
+    MeanReversionParams, MeanReversionStrategy, TrendFilterParams, TrendFilterStrategy,
 };
 pub use price_condition::{
     PriceConditionParams, PriceConditionStrategy, PriceConditionSymbolConfig,

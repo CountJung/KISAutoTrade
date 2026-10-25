@@ -845,3 +845,5 @@ mod strong_close;
 
 #[path = "tests/volatility.rs"]
 mod volatility;
+
+mod trend_filter;

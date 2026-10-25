@@ -1,3 +1,4 @@
+import { TrendFilterSummary } from './trendFilterControls'
 import { useEffect, useMemo, useState } from 'react'
 
 import Alert from '@mui/material/Alert'
@@ -493,6 +494,7 @@ export function StrategyResearchResults({
       {strategyId.startsWith('failed_breakout') && <><FailedBreakoutPolicySummary params={params} /><FailedBreakoutPreparation value={entryFilterPreparation} params={params} /></>}
       {strategyId.startsWith('volatility_expansion') && <><VolatilityExpansionSummary params={params} /><VolatilityPreparation value={volatilityExpansionPreparation} /></>}
       {strategyId.startsWith('strong_close') && <><StrongClosePolicySummary params={params} /><StrongClosePreparation value={entryFilterPreparation} params={params} /></>}
+      {strategyId.startsWith('trend_filter') && <TrendFilterSummary params={params} engineVersion={replay.engineVersion} />}
       {strategyId.startsWith('rsi') && <RsiPolicySummary params={params} />}
       {strategyId.startsWith('ma_cross') && <><MaCrossEntrySummary params={params} /><MaCrossEntryPreparation value={entryFilterPreparation} params={params} /></>}
       {strategyId.startsWith('mean_reversion') && <MeanReversionPolicySummary params={params} />}
@@ -559,6 +561,7 @@ export function StrategyResearchResults({
           {strategyId.startsWith('failed_breakout') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 돌파 파라미터가 다릅니다. 기준 가격·완료 일봉 조건·수익 보호·보유 관측 상한을 확인하세요.</Alert>}
           {strategyId.startsWith('volatility_expansion') && slots.A && slots.B && (JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) || slots.A.volatilityExpansionPreparation?.cadence !== slots.B.volatilityExpansionPreparation?.cadence) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 변동성 확장 조건 또는 관측 주기가 다릅니다. 이전 완료 범위·배수·기존 손절과 선택 수익 보호·보유 관측 한도를 확인하세요.</Alert>}
           {strategyId.startsWith('strong_close') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 강한 종가 파라미터가 다릅니다. 이전 완료 일봉 추세·수익 보호·보유 관측 상한과 기존 손절을 확인하세요.</Alert>}
+          {strategyId.startsWith('trend_filter') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 추세 필터 파라미터가 다릅니다. MA 기간·이탈 연속 확인·수익 보호·보유 관측 한도를 확인하세요.</Alert>}
           {strategyId.startsWith('rsi') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 RSI 파라미터가 다릅니다. 반등 교차·추세·손절·보유 관측 조건을 확인하세요.</Alert>}
           {strategyId.startsWith('ma_cross') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 MA 교차 파라미터가 다릅니다. 입력 관측 MA와 완료 일봉 진입 조건을 함께 확인하세요.</Alert>}
           {strategyId.startsWith('consecutive_move') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 전략 파라미터가 다릅니다. 진입 필터 조건을 함께 확인하세요.</Alert>}
@@ -580,6 +583,7 @@ export function StrategyResearchResults({
                     {saved?.strategyId.startsWith('failed_breakout') && <><FailedBreakoutPolicySummary params={saved.params} /><FailedBreakoutPreparation value={saved.entryFilterPreparation} params={saved.params} compact /></>}
                     {saved?.strategyId.startsWith('volatility_expansion') && <><VolatilityExpansionSummary params={saved.params} /><VolatilityPreparation value={saved.volatilityExpansionPreparation} compact /></>}
                     {saved?.strategyId.startsWith('strong_close') && <><StrongClosePolicySummary params={saved.params} /><StrongClosePreparation value={saved.entryFilterPreparation} params={saved.params} compact /></>}
+                    {saved?.strategyId.startsWith('trend_filter') && <TrendFilterSummary params={saved.params} engineVersion={saved.replay.engineVersion} />}
                     {saved?.strategyId.startsWith('rsi') && <RsiPolicySummary params={saved.params} />}
                     {saved?.strategyId.startsWith('ma_cross') && <><MaCrossEntrySummary params={saved.params} /><MaCrossEntryPreparation value={saved.entryFilterPreparation} params={saved.params} compact /></>}
                     {saved?.strategyId.startsWith('consecutive_move') && <>

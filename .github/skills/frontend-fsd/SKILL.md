@@ -100,3 +100,8 @@ ESLint나 별도 스크립트를 추가하기 전까지는 수동으로 아래�
 - FSD 경계 검증은 `npm run check:fsd`로 실행한다. 스크립트는 `scripts/check-fsd-imports.mjs`에 있으며 `shared → entities → features → widgets → pages → app` 역방향 import를 실패 처리한다.
 
 > 마지막 업데이트: 2026-10-18T11:18:40+09:00
+
+
+- Strategy의 `ui/strategyPolicyControls.tsx`는 전략별 controls·필드분류·raw보존·오류검증의page-local조립이다. 필드범위/기본/초안과전략상태는각controls/생산전략에유지하며 이page전용조립을shared로이동하지않는다. Page982행으로일반설정 orchestration과연구panel의기존경계를유지한다.
+
+> 마지막 업데이트: 2026-10-25T20:23:25+09:00

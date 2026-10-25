@@ -78,7 +78,7 @@ npm run test:database-tls-contract
 
 ## 5. Playwright
 
-설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 기존 Vite dev `127.0.0.1:1430`에서 전체 308개를 실행한다. CI는 먼저 `npm run build:web`를 수행하고 두 서버·프로젝트를 사용한다. UI 276개는 `chromium`의 production preview `127.0.0.1:1431`, 소스 모듈 가로채기를 요구하는 `balance-events.spec.ts`, `toss-commission-ratio.spec.ts`, `strategy-deviation-policy.spec.ts`의 32개는 `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 검사한다. 전체 22파일·308개를 중복·누락 없이 유지한다.
+설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 기존 Vite dev `127.0.0.1:1430`에서 전체 322개를 실행한다. CI는 먼저 `npm run build:web`를 수행하고 두 서버·프로젝트를 사용한다. UI 290개는 `chromium`의 production preview `127.0.0.1:1431`, 소스 모듈 가로채기를 요구하는 `balance-events.spec.ts`, `toss-commission-ratio.spec.ts`, `strategy-deviation-policy.spec.ts`의 32개는 `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 검사한다. 전체 23파일·322개를 중복·누락 없이 유지한다.
 
 spec은 mock transport를 사용하며 실제 Tauri IPC·provider 주문 검증과 구분한다. 테스트 30초·assertion 5초 제한은 유지한다. CI는 list와 HTML reporter를 함께 생성하고 실패 trace·screenshot을 보존한다.
 
@@ -129,7 +129,7 @@ npm run build:app
 
 - frontend: npm ci, lockfiles, TypeScript, FSD, project map, todo freshness
 - rust: Cargo metadata/check/lib test with lock
-- e2e: Chromium 설치, todo renderer 테스트, `npm run build:web`, UI production 276개와 source dev 32개의 Playwright 검사. 실패하면 `playwright-report/`와 `test-results/`를 artifact로 7일 보관한다.
+- e2e: Chromium 설치, todo renderer 테스트, `npm run build:web`, UI production 290개와 source dev 32개의 Playwright 검사. 실패하면 `playwright-report/`와 `test-results/`를 artifact로 7일 보관한다.
 - toss-openapi: Toss spec 검증
 
 로컬 완료 보고에는 CI가 나중에 수행할 것이라고만 쓰지 말고, 변경 범위의 최소 게이트를 직접 실행한 결과를 남긴다.
@@ -250,3 +250,11 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 ### P2-09 변동성 확장
 
 `cargo test --offline volatility`로 이전N범위/당일OHLC·0범위/평균0/엄격 경계·실수량/원가·부분/거절/기원/pending·재설정/메타데이터·scope/date/freshness fixture를 확인한다. 두 preview의 current 제외/미래 prefix·분할·진단 빈도와 strict 입력을 함께 검증한다. 변동성 전용 focused Playwright는 저장/두 preview·현재/A-B·raw/쌍·과거/손상 진단·활성 잠금·지연 응답/저장 중 초안·모바일을 mock으로 확인한다. 전체 Rust/UI·타입/빌드/FSD/graph/map/TODO 게이트를 유지한다. [설계](research/volatility-expansion-policy-20261022/design.json)의36연속/36분할/432분기 정산은 [작업](tasks/volatility-expansion-policy-20261022.md)에 기록하며 실제 장중 최초 발동/체결은 검증된 장중 자료 확보까지 열린 조건이다.
+
+
+## P2-11 추세 필터 v22
+
+- `cargo test --offline --workspace --lib trend_filter --locked`: 소유/나이/peak/strict checkpoint·실제 feedback caller·저장·두 preview·분할/prefix/guard fixture. 전체 lib는789개다.
+- `npx playwright test tests/e2e/strategy-trend-filter-policy.spec.ts tests/e2e/strategy-strong-close-policy.spec.ts tests/e2e/strategy-volatility-expansion-policy.spec.ts --workers=1`: 새14개와이웃/조립회귀70개, 총84개mock검증이다. 실제 주문/계좌/API 검증이아니다. Page의정책조립추출에는전체322개도실행한다.
+- `python3 docs/research/trend-filter-policy-20261023/validate.py`와 `independent-audit.py`: 고정설계/동결입력·30연속/360분기압축원장을재정산한다. Rust실행기의30대체분할검사와기록원장감사를구분한다. 실행기/사전설계/의존성한계는같은폴더보고서를참조한다.
+- loopbackmock서버가EPERM이면test실패를코드통과로간주하지않고허용된환경에서전체를다시실행한다. 운영provider/계좌또는실제자동매매로대체하지않는다.

@@ -109,6 +109,11 @@ pub(super) fn run_prepared_preview(
             code: "INVALID_STRATEGY_PARAMS".into(),
             message,
         })?;
+    crate::trading::strategy::validate_trend_filter_params(&input.strategy_id, &input.params)
+        .map_err(|message| CmdError {
+            code: "INVALID_STRATEGY_PARAMS".into(),
+            message,
+        })?;
     crate::trading::strategy::validate_mean_reversion_params(&input.strategy_id, &input.params)
         .map_err(|message| CmdError {
             code: "INVALID_STRATEGY_PARAMS".into(),
@@ -263,6 +268,7 @@ pub(super) fn run_prepared_preview(
             if input.strategy_id.starts_with("failed_breakout")
                 || input.strategy_id.starts_with("strong_close")
                 || input.strategy_id.starts_with("volatility_expansion")
+                || input.strategy_id.starts_with("trend_filter")
             {
                 strategy.set_order_pending(&symbol, session.has_pending_signal());
             }
@@ -287,6 +293,7 @@ pub(super) fn run_prepared_preview(
             if input.strategy_id.starts_with("failed_breakout")
                 || input.strategy_id.starts_with("strong_close")
                 || input.strategy_id.starts_with("volatility_expansion")
+                || input.strategy_id.starts_with("trend_filter")
             {
                 strategy.set_order_pending(&symbol, session.has_pending_signal());
             }

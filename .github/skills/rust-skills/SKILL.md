@@ -1353,3 +1353,13 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 범위 진단은 전용 volatilityExpansionPreparation로 준비/평가·보유·미보유·범위/방향·통과를 나누고 기존EntryFilterPreparation와혼합하지않는다. strict저장/두preview·TS미러/current-A-B/legacy를동기화하고 실제장중최초발동/체결은 별도자료게이트다. [작업](../../../docs/tasks/volatility-expansion-policy-20261022.md)·[연구](../../../docs/research/volatility-expansion-policy-20261022/report.md).
 
 > 마지막 업데이트: 2026-10-22T22:51:29.542193+09:00
+
+
+## TrendFilter v22 실제 소유·현재 포함 MA·관측 청산
+
+- 기본200/5/20·확인1/수익·보유0, 현재 포함 산술 MA와strict price>long/short>mid 진입·price<long 청산을 유지한다. 원래 청산은 비정렬 기간에서도 세MA 모두 준비돼야 하며 단기/중기 역전만으로 청산하지 않는다. 합만u128로 overflow를 없애고 합→f64→나눗셈 순서를 보존한다.
+- 실수량/native평균·나이/peak/무장을 확인 feedback과 분리하고 Sell은실잔량이다. observation의 bounded integer/advance/sync age만 공유하며 별도kindtrendFilter strict7필드 checkpoint를 유지한다. 양수unknown도Some을 반환해야 실제caller의had_metadata→sync→pending→조건부restore에서 동량갱신이 확인streak를 지우지 않는다.
+- 이탈확인→수익보호→보유관측한도이며 선택보호는MA부족에도 평가한다. pending중새기원금지·실제첫fill0/다음보유관측1·미상나이한도보수후보를 유지한다. 동량/부분/선택변경은보호·streak보존, core기간/과거지표재적재/reset/복원은streak0재관측이다. warmup은소유/나이/peak/무장을만들지않고reset가격버퍼보존을유지한다.
+- strict raw저장/두preview·UI/current-A-B를동기화한다. 손상runtime은필드별유효기간/보호를보존하고Buy차단·설정불명잔량후보로조용한보호해제를피한다. interval의기존분봉지원과공통guard/risk를유지한다. [계약](../../../docs/ipc-commands.md), [연구](../../../docs/research/trend-filter-policy-20261023/report.md).
+
+> 마지막 업데이트: 2026-10-25T20:23:25+09:00

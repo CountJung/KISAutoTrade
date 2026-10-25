@@ -279,7 +279,7 @@ v14 Momentum은 classic/momentum.rs의 owned_quantity를 가격 관측/previous 
 v15 Deviation은 classic/deviation.rs와 params/state 모듈에서 관측·하향 교차 후보·live 전용 추세 버퍼를 exact owner 수량/평균가/보유 나이와 분리한다. 기존 guard/risk·owner clamp 경계를 유지하고 metadata를 통해 보호 관측을 복원한다. generic warmup과 live 추세 cadence를 혼합하지 않으며 진입 준비 부족 중에도 held stop/maxHold을 평가한다. 기존 params 저장/두 preview/UI/A-B를 사용하고 새 endpoint/DTO는 없다. [계약](ipc-commands.md), [연구](research/deviation-policy-20261020/report.md), [작업 기록](tasks/deviation-policy-20261020.md)을 참조한다.
 
 
-v16 MeanReversion은 mean_trend facade 아래 독립 모듈로 분리하고 actual q/native avg·기록 나이와 현재 포함 band/선택 청산·live전용 trend를 구분한다. TrendFilter 원형을 유지하며 observation.rs가 두 전략의 동등한8개 기계 동작만 제공한다. kind/scope/대상·stop0/strict/inclusive·reset/warmup 차이는 전략에 남는다. 기존 owner ledger/관측후 checkpoint·pending복원/저장실패 차단과 save/two preview/UI-A-B를 사용하며 새IPC/DTO/schema는 없다. [계약](ipc-commands.md), [작업](tasks/mean-reversion-policy-20261020.md).
+v16 MeanReversion은 mean_trend facade 아래 독립 모듈로 분리하고 actual q/native avg·기록 나이와 현재 포함 band/선택 청산·live전용 trend를 구분한다. 당시 TrendFilter 원형을 유지하며 observation.rs가 두 전략의 동등한8개 기계 동작만 제공한다. 이후 TrendFilter의 실제 소유·선택 보호 경계는 아래 절을 따른다. kind/scope/대상·stop0/strict/inclusive·reset/warmup 차이는 전략에 남는다. 기존 owner ledger/관측후 checkpoint·pending복원/저장실패 차단과 save/two preview/UI-A-B를 사용하며 새IPC/DTO/schema는 없다. [계약](ipc-commands.md), [작업](tasks/mean-reversion-policy-20261020.md).
 
 
 v17 MA cross는 기존 관측 교차를 보존하고 별도 bounded512 완료 일봉 context로 Buy 후보만 확인한다. 기존 scoped daily coordinator와 apply/invalidate hook을 재사용하며 현재봉 after-decision, 일봉 재조회와 교차열 분리를 유지한다. 순수 일봉 지표3개만 completed_daily.rs에서 Consecutive와 공유한다. EntryFilterPreparation의 MA 전용 선택 slope/bandwidth 거부 수는 Consecutive에서 생략한다. 실제 소유·주문·provider/리스크 경계는 기존 그대로다. [계약](ipc-commands.md), [작업](tasks/ma-cross-filters-20261020.md).
@@ -303,3 +303,9 @@ StrongClose의 live 이전 일봉은 기존 coordinator의 target·scope/profile
 ### 변동성 확장의 완료 범위와 관측 시장일
 
 변동성 전략은 완료N일봉 coordinator에 참여하고 검증된 ticket의 시장일로 새날의 관측 시가/고저를 나눈다. 같은날 history 교체는 해당 관측 범위를 초기화하지 않고 자료 실패·늦은 초기화가 실제 소유 보호를 지우지 않는다. replay는 당일 완성 OHLC→종가 신호→실제 체결 피드백→완료범위 게시 순서를 유지한다. 전용 범위 빈도 optional DTO는 준비/보유·미보유·범위/방향·통과를 구분해 기존 preview와 A/B에 보존한다. 실제 장중 관측과 완료 일봉의 공개 시점·전체 범위·실제 체결 검증은 별도다. [P2-09](research/volatility-expansion-policy-20261022/report.md).
+
+### TrendFilter의 현재 포함 지표와 소유 증거
+
+`mean_trend.rs`는 현재 포함 MA 200/5/20·strict 진입과 세 MA 준비 뒤 장기 이탈을 유지하면서 exact 소유 수량/native 평균·pending·관측 나이/최고가/수익 무장을 분리한다. 장기 이탈 확인·수익 되밀림·보유 한도 순서로 실제 잔량 전량 후보를 내며 선택 수익/보유 보호는 지표 미준비에도 평가한다. warmup은 지표만 준비하고 reset은 가격 버퍼를 보존한다. 이탈 연속값은 재시작·과거 재적재·핵심 MA 기간 변경에서0, 동일 프로세스 청크·동량/부분 매도에서 보존한다.
+
+`trend_filter_params`는 저장/단기·연속 preview의 strict 범위를, `trend_filter_protection`은7필드 v1 checkpoint의 원자적 검증을 소유한다. 양수 보유는 나이 불명이어도 metadata를 반환해 기존 OrderManager caller의 반복 소유 갱신에서 cold restore가 반복되지 않게 한다. `strategyPolicyControls`는 페이지 조립만 맡고 `trendFilterControls`는7필드 raw/stored 초안·현재/A-B·단위·legacy 미확인을 유지한다. 고정 기준81fa00d/v21과 v22의 생산 실행·기록 정산은 [P2-11 연구](research/trend-filter-policy-20261023/report.md)에 두고 주문·계좌·운영 DB를 호출하지 않는다.

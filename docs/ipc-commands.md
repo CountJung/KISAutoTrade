@@ -95,7 +95,7 @@
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v21`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations, minuteTiming?}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v22`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations, minuteTiming?}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
 전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
@@ -412,3 +412,18 @@ core 입력 범위는 lookback 정수1..512, factor 유한0..1000, stop 유한0.
 새 선택 `volatilityExpansionPreparation`는 변동성 전략에만 제공한다. `ready/status/cadence/requiredCompletedBars/availableCompletedBars/evaluatedObservations/ownedObservations/candidateObservations/unreadyCandidates/rangeRejections/directionRejections/passedCandidates`를 구분한다. 준비 상태는 ready/insufficientHistory/invalidParams/unsupportedObservation이며 주기는 dailyCloseRange/observedLiveQuotes/unverified다. enabled·대상·유효 가격 관측을 평가 수로 세고 보유 관측은 진입 후보에서 제외한다. 미보유 후보는 준비→범위→방향 순서로 한 번만 분류하며 통과가 실제 주문/체결을 뜻하지 않는다. 기존 ATR/추세 `entryFilterPreparation`에 범위 거부를 섞지 않는다. 과거 저장 슬롯의 진단 부재는0이 아닌 미확인이다.
 
 일봉은 D완성 OHLC를 D종가에서 판단한 뒤 이전 범위에 게시하고 nextOpen은 다음 관측 시가 체결 가정이다. live는 기존 scope/profile/account/market/date/generation/freshness를 검증한 시장일 ticket으로만 새날 관측 시가/고저를 초기화한다. 같은날 재조회는 당일 범위를 보존하며 실패/지연/late legacy는 Buy만 보류한다. 첫 검증 후 quote는 시가 대용이고 전체 장중 고저가 아니므로 실제 장중 최초 발동·체결 가능성은 미검증으로 남긴다. [작업](tasks/volatility-expansion-policy-20261022.md)·[설계와 비교](research/volatility-expansion-policy-20261022/report.md)를 따른다.
+
+
+### v22 추세 필터: 실제 잔량·현재 포함 MA·선택 청산
+
+기존 전략ID와 저장/두 preview API를 유지한다. `TrendFilterParams`의 누락 기본은 long_period200/short_period5/mid_period20·exit_confirm_observations1·profit_activation_pct0/profit_trailing_pct0/max_hold_observations0이다. 세 MA 기간은1..512 정수이며 순서를 강제하지 않는다. 확인은1..1000000 정수로0불가, 보유는0..1000000 정수, 수익 시작은0..1000/되밀림은0..99.9 유한수이며 둘다0 또는 둘다양수다. 저장과 bounded/continuous 공통 driver는 raw null/string/bool/분수 정수·범위/조합 위반을 `INVALID_STRATEGY_PARAMS`로 거부한다. 신규 DTO/IPC/query/polling은 없다.
+
+현재 가격을 먼저 적재한 산술 MA와 strict 진입 `price>longMA AND shortMA>midMA`, 원래 이탈 `price<longMA`를 유지한다. 원래 이탈은 세 MA 모두 준비된 뒤 평가하며 `shortMA<=midMA`만으로 청산하지 않는다. 합만u128로 overflow를 제거하고 기존 합→f64→나눗셈 순서를 유지한다. 선택 수익/보유 보호는 MA 부족에도 평가한다. 장기이탈확인→수익보호→보유관측한도 순이며 모든 Sell은 실제 소유 잔량이다.
+
+실제 소유 수량/native 평균은 확인 feedback만 바꾸고 신호/pending/거절은 소유를 만들지 않는다. 후보가 있고 실제 첫 fill이면 나이0, 다음 보유 관측은1이다. 옵션 off 중에도 나이/peak를 기록하고 동량/부분매도/선택 설정 변경은 보존한다. 수익은 실제 native 평균 대비 무장 뒤 실제 보유 중 관측 peak의 되밀림이며 진입 전 가격·현재 봉 전체 high를 쓰지 않는다. 출처 미상 positive 복원은 unknown이며 활성 한도에서 다음 보유 관측에 보수적 매도 후보를 낸다.
+
+이탈 확인은 `price>=longMA` 또는 세 MA 미준비에서0이다. 동일 프로세스 청크·동량/부분매도에서는 보존하고 실제0주·핵심 기간 변경·과거 지표 재적재·reset·영속 복원에서는0부터 재관측한다. warmup은 소유/나이/peak/무장을 만들지 않는다. reset의 기존 가격 버퍼 보존과 비정렬 기간 지원을 유지한다. 손상된 runtime은 개별 유효 기간·보호를 유지하고 신규 진입을 차단하며 정상 보호가 미발동이면 설정 불명 잔량 청산 후보를 내어 보호를 조용히 끄지 않는다.
+
+소유 metadata는 version1/kind=`trendFilter`이며 정확히 `version/kind/ageKnown/heldObservations/candidateEntry/observedPeak/profitArmed`7필드다. 누락/미지필드/타입/모순을 전부 검증한 뒤 원자적으로 게시한다. 이탈 연속값은 영속화하지 않는다. 양수 보유는 나이/peak unknown이어도Some이다. 실제 OrderManager caller가 sync 전에 had_metadata를 읽으므로 이것이 반복 동일수량 feedback의 불필요한 restore와 streak초기화를 막는다. cold restore/동량/부분 fixture를 실제 caller로 검증한다. 물리 pending은 기존 공통 경계를 유지하고 두 preview driver도 pending 증거를 전달한다.
+
+UI는 일곱 필드 raw 초안을 유지하고 오류에서 저장·두 preview·늦은 결과를 차단한다. current/A-B에 기간·확인·수익·보유를 보존·표시하고 v22 이전/미확인 엔진의 새 소유·보호 적용을 추정하지 않는다. live 약10초 quote와 선택 일봉/분봉의 관측 기간을 구분하며 관측 한도를 일수/체결·손실 보장으로 표현하지 않는다. 단기/연속의 기존 interval 지원은 유지하며 StrongClose/Volatility의 일봉 전용 제한을 복사하지 않는다. [연구 결과](research/trend-filter-policy-20261023/report.md), [작업 검증](tasks/trend-filter-policy-20261023.md).

@@ -81,9 +81,13 @@ export const STRATEGY_PARAM_META: Record<string, StrategyParamMeta[]> = {
     { key: 'max_hold_observations', label: '최대 보유 관측 수', min: 0, max: 1000000, step: 1, description: '0 비활성 · 실제 양수 보유 후 가격 관측 수. 일봉 63봉과 실시간 63관측은 기간이 다름' },
   ],
   trend_filter: [
-    { key: 'long_period', label: '장기 MA 기간', min: 50, max: 500, step: 1, description: '장기 추세 판단 기준 이동평균 기간 (기본 200일)' },
-    { key: 'short_period', label: '단기 MA 기간', min: 2, max: 30, step: 1, description: '단기 모멘텀 판단 이동평균 기간 (기본 5일)' },
-    { key: 'mid_period', label: '중기 MA 기간', min: 5, max: 60, step: 1, description: '중기 추세 비교 이동평균 기간 (기본 20일)' },
+    { key: 'long_period', label: '장기 MA 관측 수', min: 1, max: 512, step: 1, description: '현재 포함 산술평균 · 기본 200관측' },
+    { key: 'short_period', label: '단기 MA 관측 수', min: 1, max: 512, step: 1, description: '현재 포함 산술평균 · 기본 5관측' },
+    { key: 'mid_period', label: '중기 MA 관측 수', min: 1, max: 512, step: 1, description: '현재 포함 산술평균 · 기본 20관측' },
+    { key: 'exit_confirm_observations', label: '장기 MA 이탈 연속 확인 수', min: 1, max: 1000000, step: 1, description: '기본 1 · 현재가 < 장기 MA 연속 관측 · 0 불가' },
+    { key: 'profit_activation_pct', label: '수익 보호 시작 (%)', min: 0, max: 1000, step: 0.1, description: '실제 native 평균가 대비 무장 이익률 · 0 비활성' },
+    { key: 'profit_trailing_pct', label: '수익 보호 되밀림 (%)', min: 0, max: 99.9, step: 0.1, description: '보유 관측 최고가 대비 되밀림 · 시작과 둘 다 0 또는 양수' },
+    { key: 'max_hold_observations', label: '최대 보유 관측 수', min: 0, max: 1000000, step: 1, description: '실제 체결 뒤 관측 수 · 0 비활성 · 일수/체결 보장 아님' },
   ],
 }
 
@@ -98,7 +102,7 @@ export const STRATEGY_DESCRIPTION: Record<string, string> = {
   strong_close: '이전 완료 일봉의 (고가−종가)/고가×100 ≤ 기준에서 미보유 매수 후보. 양봉·상승률 조건이 아니며 고가=종가도 통과한다. 실제 평균가 손절과 선택 완료 일봉 추세·수익 보호·보유 관측 상한을 확인한다. 기본 기준3·손절3을 유지하며 새 네 옵션만 누락/0 비활성이다.',
   volatility_expansion: '당일 고가−저가 > 이전 N완료 일봉 범위 산술평균 × 배수와 현재가 > 당일 시가를 모두 충족하면 미보유 매수 후보. 0범위도 평균에 포함한다. 기본 10봉·2배·손절3을 유지하며 손절0도 평균가 이하 청산이다. 새 수익 보호·보유 관측 한도만 누락/0 비활성이다.',
   mean_reversion: '현재 관측을 포함한 볼린저 하단 미만에서 매수하고 기본 상단 초과 또는 선택 중심선 초과에서 보유 청산. 기본 기간20·표준편차2·손절5를 유지한다. 선택 추세·보유 상한의 0만 비활성이며 기존 손절 0은 원가 이하 손절이다.',
-  trend_filter: '장기 MA(기본 200일) 위에서 단기 MA(5일)가 중기 MA(20일)를 상회할 때만 매수(이중 추세 확인). 현재가가 장기 MA 아래로 하락하면 추세 반전으로 판단하여 청산. 자동매매 시작 시 과거 종가로 버퍼 적재.',
+  trend_filter: '현재 포함 200/5/20관측 산술 MA의 strict 추세 진입과 장기 MA 이탈 청산. 실제 소유 잔량·평균가와 선택 연속 확인·수익 보호·보유 관측 한도를 사용합니다. 실시간 관측 수는 일수가 아닙니다.',
   leveraged_trend_hold: '선택한 레버리지 ETF 자체의 상승 추세에서는 매수하고, 고점 대비 하락·EMA 이탈·RSI 약화·장마감 전에는 청산한다. 롱/숏 ETF 모두 같은 방식으로 다룬다.',
   price_condition: '지정가 이하에서 자동 매수. 매수 후 지정가 또는 설정 % 이상 상승 시 익절 매도, 손절 % 이하 하락 시 손절. 가격/비율 조건을 각각 설정하거나 조합해서 사용 가능. 0은 해당 조건 비활성.',
 }

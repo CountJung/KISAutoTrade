@@ -319,6 +319,7 @@ fn unordered_trend_periods_use_the_largest_actual_window() {
         long_period: 50,
         mid_period: 52,
         short_period: 5,
+        ..Default::default()
     })
     .unwrap();
     fixture.candles = rows("20260101", 60);

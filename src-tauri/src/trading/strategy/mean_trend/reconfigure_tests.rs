@@ -40,7 +40,7 @@ fn reconfigure_mean_reversion_keeps_stop_active_before_larger_window_is_ready() 
 }
 
 #[test]
-fn reconfigure_trend_filter_retains_held_flag_and_uses_new_period_for_exit() {
+fn reconfigure_trend_filter_retains_owned_quantity_and_uses_new_period_for_exit() {
     let mut strategy = TrendFilterStrategy::new(config(serde_json::json!({
         "long_period": 3, "mid_period": 2, "short_period": 1,
     })));
@@ -52,10 +52,10 @@ fn reconfigure_trend_filter_retains_held_flag_and_uses_new_period_for_exit() {
     next.target_symbols.push("NEW".into());
     next.order_quantity = 7;
     assert!(strategy.reconfigure_preserving_position(next));
-    assert!(strategy.states["SOXQ"].in_position);
+    assert!((strategy.states["SOXQ"].owned_quantity > 0));
     assert!(!strategy.states.contains_key("NEW"));
     assert!(matches!(
         strategy.on_tick("SOXQ", 90, 0),
-        Signal::Sell { quantity: 7, .. }
+        Signal::Sell { quantity: 2, .. }
     ));
 }

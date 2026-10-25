@@ -253,6 +253,6 @@ fn timing_assessment_cannot_change_production_signals_settlement_or_input_hash()
         timed.len()
     );
     assert_eq!(run(), before);
-    assert_eq!(REPLAY_ENGINE_VERSION, "strategy-replay-v21");
+    assert_eq!(REPLAY_ENGINE_VERSION, "strategy-replay-v22");
     assert_eq!(LTH_PREVIEW_STRATEGY_VERSION, "leveraged-trend-hold-v4");
 }

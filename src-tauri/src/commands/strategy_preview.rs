@@ -874,3 +874,7 @@ mod strong_close_entry_tests;
 #[cfg(test)]
 #[path = "strategy_preview/volatility_entry_tests.rs"]
 mod volatility_entry_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/trend_filter_tests.rs"]
+mod trend_filter_tests;

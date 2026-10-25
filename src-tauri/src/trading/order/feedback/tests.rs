@@ -769,3 +769,5 @@ async fn deviation_feedback_pending_fill_partial_and_restart_preserve_exact_owne
 mod mean_reversion;
 
 mod rsi;
+
+mod trend_filter;

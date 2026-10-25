@@ -37,7 +37,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | 자동매매 시작/데몬 | `src-tauri/src/commands/trading.rs` / `commands/trading/daemon.rs` | `daemon/{fence,flow}.rs`, `commands/trading/{positions,balance,risk_restore,history,daily_history}.rs`, `lib.rs` |
 | Live 완료 일봉 준비·거래량 | `commands/trading/daily_history.rs`, `daily_history/jobs.rs` | `trading/strategy/{core,manager/live_history}.rs`, `src/shared/ui/LiveDailyHistoryPanel.tsx`, TradingStatus |
 | 전략 | `src-tauri/src/trading/strategy/` | `commands/strategy.rs`, `commands/strategy_preview.rs`, Strategy UI |
-| 추세 필터 P2-11 연구 준비 | `docs/research/trend-filter-policy-20261023/{design.json,protocol.md,report.md}` | `existing-ledger-audit.{py,json}`, `docs/tasks/trend-filter-policy-20261023.md`, `src-tauri/src/trading/strategy/mean_trend.rs`, `docs/research/continuous-replay-20261018/`; 신규 후보 구현·생산 실행 전 선언과 기존 기록 정산을 구분하며 P2-11은 미완료 |
+| 추세 필터 P2-11 소유·선택 보호 | `src-tauri/src/trading/strategy/mean_trend.rs`, `mean_trend/trend_filter_{params,protection,tests}.rs` | `src/pages/strategy/ui/{strategyPolicyControls,trendFilterControls}.tsx`, `docs/research/trend-filter-policy-20261023/{runner.rs,baseline_runner.rs,report.md}`, `docs/tasks/trend-filter-policy-20261023.md`; 실제 소유/잔량·strict checkpoint·저장/두 preview/UI와 고정81fa00d/v21→v22 생산 실행·독립 대사를 구분 |
 | RSI 실제 소유·선택 보호 | `trading/strategy/classic/rsi.rs`, `classic/rsi/params.rs` | `strategy/observation.rs`, `configuration/tests/rsi.rs`, `order/feedback/tests/rsi.rs`, `strategy_preview/rsi_entry_tests.rs`, `rsiControls.tsx`, `docs/research/rsi-policy-20261022/` |
 | 변동성 확장 이전 범위·시장일 관측·실제 소유 | `trading/strategy/breakout/volatility_expansion.rs`, `volatility_expansion/{params,context,protection}.rs` | `strategy/{core,manager/live_history}.rs`, `manager/volatility_history_tests.rs`, `configuration/tests/volatility.rs`, `strategy_preview/volatility_entry_tests.rs`, `src/shared/api/strategyResearchTypes.ts`, `volatilityExpansion{Controls,Preparation}.tsx`, `tests/e2e/strategy-volatility-expansion-policy.spec.ts`, `docs/research/volatility-expansion-policy-20261022/` |
 | 강한 종가 완료 시장일·실제 소유·선택 보호 | `trading/strategy/breakout/strong_close.rs`, `strong_close/{params,context,protection}.rs` | `strategy/{core,manager/live_history}.rs`, `manager/strong_close_history_tests.rs`, `configuration/tests/strong_close.rs`, `strategy_preview/strong_close_entry_tests.rs`, `strongClose{Controls,Preparation}.tsx`, `tests/e2e/strategy-strong-close-policy.spec.ts`, `docs/research/strong-close-policy-20261022/` |
@@ -198,7 +198,7 @@ kind=volatilityExpansion metadata는 미확인 나이/고점/무장을 추정하
 거절·부분 체결·같은 scope 설정은 알려진 보호를 보존하며 미확인 나이와 활성 cap은
 다음 보유 관측에서 보수적 청산 후보를 낸다.
 
-v21 공통 driver의 두 preview와 저장 경계는 같은6필드를 strict 검증하고 기존 일봉
+현재 v22 공통 driver의 두 preview와 저장 경계는 같은6필드를 strict 검증하고 기존 일봉
 전용을 유지한다. `core.rs`의 전용12필드 `VolatilityExpansionPreparation`은 평가=보유+
 미보유 후보, 후보=미준비+범위 거부+방향 거부+통과로 분류한다. 선택 응답 필드→TS
 미러→preview/research panel→현재/A-B로 보존하며 controls/preparation은 raw/stored
@@ -237,7 +237,7 @@ StrongClose는 새 시장일의 전일 조건을 seed하고 소비를 관리하�
 kind=strongClose metadata는 미확인 나이/고점/무장을 만들어내지 않으며 나이
 미확인·cap 활성은 다음 보유 관측에 보수적 청산 후보를 낸다.
 
-v21 공통 driver는 선택 params를 strict 검증하고 기존 일봉 전용·실제 체결 피드백
+현재 v22 공통 driver는 선택 params를 strict 검증하고 기존 일봉 전용·실제 체결 피드백
 뒤 완료봉 게시 순서를 유지한다. D-1조건→D종가 신호→D+1관측 시가(nextOpen)는
 live 첫 적격 관측과 다르다. controls/preparation은 raw/stored 편집·수익 보호 쌍과
 현재/A-B 준비/후보 진단·legacy 미확인을 표시한다. 생산 실행기·기록 정산·작동
