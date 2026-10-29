@@ -14,7 +14,7 @@
 | 5 | DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다. | HTTP·WS 구현/검증·CI 완료 | 5A `0dead386`·5B `270296db` 원격 일치; 각 Gate/Security 성공 |
 | 6 | DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다. | 구현·검증·CI 완료 | `653377ce` 원격 일치, Gate45·Security52 성공 |
 | 7 | DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다. | 구현·검증·CI 완료 | UI `f15f192`·명세보정 `99b85eb`, Gate47·Security54 성공 |
-| 8 | DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다. | 로컬 구현·검증 완료/게시·CI 대기 | 시작 `99b85eb`; 전체UI349·격리WK차트/종료·재실행 확인 |
+| 8 | DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다. | 구현·검증·CI 완료 | `06a84fe` 원격 일치, Gate48·Security55 성공 |
 | 9 | DEP-P3-07 — 나머지 Rust·UI 의존성 후보의 실제 필요와 영향부터 확인한다. | 대기 | — |
 | 10 | DEP-P3-08 — TypeScript·패키지매니저 major 후보를 개별 평가한다. | 대기 | — |
 
@@ -316,9 +316,13 @@ macOS27.0.1/arm64·Rust1.99.1 환경에서 2026-10-29 11:15 UTC부터 CUA로 다
 
 첫 실행과 재실행의 report/PNG는 후보의 `verified-first-run/`, `verified-restart/`에 보존한다. 재실행 캡처는 실제 생성된01번 한 장만 유효하다. 독립 리뷰가 같은 output 재사용으로 섞인 이전02~06번을 발견해 `stale-previous-run/`으로 보존·분리했고 `run-artifacts.json`에 현재 report와 유효 파일 해시/시각을 명시했다. 이전 파일을 재실행 성공 증거로 중복 집계하지 않는다. 과거 장시간 idle run의 ledger overflow는 성공으로 재사용하지 않았다. bare WKWebView 결과를 원래 Tauri startup/IPC·실제 broker·DB·Windows·macOS12 실행으로 확대하지 않는다. CSP negative control과 한글 IME는 별도 미검증이다. 2초 관측 사이 화면 변화·실패 캡처 자동 재시도는 지원하지 않는다.
 
-### 게시 전 남은 게이트
+### 게시·CI 완료
 
-신규 harness 지도·문서와 그래프를 동기화하고 final 리뷰를 마친 뒤 8회차를 커밋·정상 푸시한다. Release Gate frontend에는 앱과 별도의 config 타입 검사 및 순수VM4개를 추가해 재현한다. 같은 SHA의 Gate/Security 결과를 확인할 때까지 DEP-P3-06은 열린 상태다. 9·10회차는 현재 입력으로 읽기 계획만 재점검했으며 구현하지 않았다.
+신규 harness 지도·문서·그래프 동기화와 최종 독립 리뷰를 완료했다. 발견된 재실행 증거 혼입 P2를 provenance manifest·이전 자료 분리로 해소했고 잔여 P0/P1/P2는 없었다. 26개 파일을 `06a84fe32fa37dd0f31a13c21f13efb6dc4e8ac1`로 커밋·정상 푸시해 원격 SHA와 당시 clean 상태·GitHub 회차 문서를 대조했다.
+
+같은 코드 SHA의 [Release Gate48](https://github.com/CountJung/KISAutoTrade/actions/runs/40865460605)·[Security55](https://github.com/CountJung/KISAutoTrade/actions/runs/40865594891)를 각각 한 번 실행해 성공을 확인했다. Linux Rust873/873·frontend의 별도 config 타입/순수VM4개·공개 Toss39경로·전체UI349/349를 실제 로그로 확인했다. 플랫폼/모드별 결과와 앞의 제외 범위를 유지한다. 이 최종 상태 기록은 문서만 바꾸며 06a84fe의 검증된 소스/lock/workflow와 동등하다.
+
+DEP-P3-06을 완료 이력으로 이관했다. 남은12개는 자동3+판단4+자료5, 즉시 구역은 DEP-P3-07·08 두 개다. 다음은 9회차 후보별 평가이며 아직 구현하지 않았다. keyring/RGL 유지 사유와 sha2/thiserror의 기존 byte·오류 계약을 먼저 고정한다. 10회차도 현재 Node24/React19/MUI9/Vite8 기준으로 읽기 계획만 보정했다.
 
 
 - 게시 전 정적 게이트: 별도 config 타입 검사, 순수VM4개, lock/TODO13/지도/diff 검사를 통과했다. Graphify는7034노드/15465간선으로 갱신했다. 새 fixture를 포함한 데이터 JSON5개는 AST 노드를 만들지 않는 도구 안내가 남으며 소스 컴파일 경고와 구분한다. 보관 검증 근거는 `.cache/vite-migration-20261029/native/`로도 복사했다.

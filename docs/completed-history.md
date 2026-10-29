@@ -386,3 +386,8 @@ Toss32개item의속성/시그니처/본문byte동일, Trading56문장/7helper·L
 ## DEP-P3-05 — React·MUI 전환 완료
 
 2026-10-29 UI 전환 `f15f192fee105600d79468291334fb10f1495e9f`와 공개 Toss 명세 CI 보정 `99b85eb3cdc63deceb7ec60c325559607f98f8ce`를 정상 푸시·원격 SHA 대조했다. 최종 SHA의 Release Gate47·Security54가 모두 성공해 TODO 상위 ID를 닫았다. React19→MUI7→9 단계별 합성UI·최종349개와 개발QA5개, Rust 통합 빌드 및 Linux CI 검증을 구분해 기록했다. 원래 앱 startup·계좌·실거래·Windows/native 실동작 전체를 검증한 결과는 아니다. [CI 링크와 정확 범위](tasks/immediate-backlog-20261029.md).
+
+
+## DEP-P3-06 — Vite·React plugin 전환 완료
+
+2026-10-29 Vite6→7→8.3.5/plugin-react6.1.2·Oxc/Rolldown 전환을 `06a84fe32fa37dd0f31a13c21f13efb6dc4e8ac1`로 정상 푸시·원격 SHA 대조했다. clean 설치·target/debug4조합·전체UI349와 Tauri custom-protocol 빌드, 승인된 별도 WKWebView 차트·테마·입력·종료/재실행을 검증했다. 같은 코드 SHA의 Gate48·Security55도 성공했다. 알려진 calendar fixture 차단1건, 원래 Tauri startup/IPC·Windows·macOS12·CSP negative control 등의 제외 범위와 캡처 provenance는 [회차 기록](tasks/immediate-backlog-20261029.md)에 보존한다. 실제 계정·운영 DB·거래 검증이 아니다.
