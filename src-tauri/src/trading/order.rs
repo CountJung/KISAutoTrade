@@ -46,7 +46,9 @@ mod holdings;
 mod ownership;
 pub(crate) use holdings::{HoldingsMarkets, HoldingsUpdate};
 mod conflicts;
-pub use budget::{AutoTradingBudgetView, BudgetCurrencyView};
+pub use budget::{
+    ApproveBudgetRecoveryInput, AutoTradingBudgetView, BudgetCurrencyView, BudgetRecoveryView,
+};
 mod execution_run;
 mod fills;
 pub use execution_run::ExecutionRunContext;

@@ -333,6 +333,11 @@ impl TradeStore {
     }
 
     /// 특정 날짜의 체결 기록 조회
+    /// Recovery inspects every retained primary history, without backup fallback.
+    pub(crate) async fn recovery_records(&self) -> Result<Vec<TradeRecord>> {
+        super::database::recovery_history::records(&self.data_dir, "trades").await
+    }
+
     pub async fn get_by_date(&self, date: NaiveDate) -> Result<Vec<TradeRecord>> {
         let path = build_daily_path(&self.data_dir, "trades", date, "trades.json");
         read_json_or_default(&path).await

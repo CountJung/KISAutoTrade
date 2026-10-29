@@ -164,6 +164,11 @@ impl OrderStore {
         Ok(())
     }
 
+    /// Recovery inspects every retained primary history, without backup fallback.
+    pub(crate) async fn recovery_records(&self) -> Result<Vec<OrderRecord>> {
+        super::database::recovery_history::records(&self.data_dir, "orders").await
+    }
+
     pub async fn get_by_date(&self, date: chrono::NaiveDate) -> Result<Vec<OrderRecord>> {
         read_json_or_default(&self.path_for(date)).await
     }

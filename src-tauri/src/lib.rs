@@ -509,6 +509,8 @@ pub fn run() {
             commands::place_overseas_order,
             commands::get_risk_config,
             commands::get_auto_trading_budget,
+            commands::get_budget_recovery,
+            commands::approve_budget_recovery,
             commands::update_auto_trading_budget,
             commands::update_risk_config,
             commands::clear_emergency_stop,

@@ -38,6 +38,22 @@
 - 활성 계좌와 요청 scope 불일치는 `BUDGET_SCOPE_CHANGED`, 계좌 미선택은 `BUDGET_SCOPE_REQUIRED`, 실행 중 변경은 `TRADING_RUNNING`, 원장/예산 거부는 `AUTO_TRADING_BUDGET_ERROR`.
 - 원장 기본 배정액 0: 자동매수 차단. 리스크 사용 토글과 독립. Settings의 자동매매 전용 예산에서 조회/변경한다.
 
+## 응답 불명 주문 복구 (Tauri 데스크톱 전용)
+
+| Command | 입력 / 반환 |
+|---|---|
+| `get_budget_recovery` | `input: { brokerId, brokerAccountId }` → `BudgetRecoveryView` |
+| `approve_budget_recovery` | 같은 scope + `reservationId`, `snapshotRevision`, `providerOrderId`, `clientOrderId: string/null`, `evidenceReference`, `confirmed: true` → 저장 후 view |
+
+- 인증 없는 LAN REST에는 연결하지 않는다. 조회/승인 모두 현재 계좌를 확인하며, 승인은 자동매매·주문 제출·정정이 정지된 상태에서만 허용한다.
+- view는 `scope`, `items`, `totalCount`다. 항목에는 예약 ID, 시장/거래소/통화/종목/방향/수량/주문가격, 누적체결/대금/예약액, 원래 시각/프로파일/투자 모드/clientOrderId, 연결한 providerOrderId, 저장된 evidenceReference, snapshotRevision, state, blockedReason이 있다. KRW 원/USD 센트 정수를 유지한다.
+- state는 `unresolved`, `awaitingReconciliation`, `resolved`다. 최대100개 표시와 전체 개수를 구분한다. 스냅샷 없는 기존 예약, identity/generation 불일치, 일부 체결 뒤 pending 유실은 추정 복구하지 않는다.
+- 신규 자동 주문은 provider 호출 전에 비민감 원래 소유권·세대·scope·주문 snapshot을 저장한다. 운영자 승인은 같은 주문이라는 수동 대조 확인이며 자동 provider 사실 검증이 아니다. Toss 조회 DTO에는 clientOrderId가 없어 사용자의 원본 대조를 요구한다.
+- 승인 영수증을 먼저 저장하고 원래 예약 ID의 pending을 복원한다. 저장된 승인 의도는 같은 주문번호·clientOrderId·근거 참조로만 재시도한다. UI는 재시작 시 저장된 근거를 복원하되 확인 체크는 새로 받는다. 서로 다른 승인, 이미 사용한 주문번호와 충돌, 오래된 revision은 거부한다.
+- 승인된 주문의 재진입 방어는 원래 제출 시각·사유·예약 ID에서 멱등 복원한다. 손절일/매도 후 cooldown을 승인 시각으로 연장하지 않고 더 최신 guard 기록을 과거 값으로 덮지 않는다. 예산 원장 조회/저장 시 terminal receipt도 복원하므로 앱 재시작 뒤 신규 주문 guard 평가보다 먼저 적용된다. 실제 체결/risk 카운터와 별개다.
+- 승인 자체는 재주문·체결 합성·현금/소유량 수정·예약 해제를 수행하지 않는다. 실제 확인은 기존 미체결 reconciliation과 terminal 저장 경로가 처리하며 영속화 장애 차단도 해제하지 않는다. 영수증256개 한도 초과는 보류한다. retained orders/trades primary는 category별 2,048문서·16MiB·50,000행 이내에서 검사하며, 오류·한도 초과·primary 없이 backup/격리본만 존재하면 보류한다. 보관기간 밖·별도 archive의 과거 주문 사용 여부는 자동으로 입증하지 못한다.
+- 구현·합성 검증 범위와 실제 provider 미검증은 [회차 기록](tasks/immediate-backlog-20261029.md)에서 구분한다.
+
 ## 데이터베이스 관리 (Tauri 데스크톱 전용)
 
 > DB 자격증명과 파괴적 작업은 인증되지 않은 axum/LAN REST에 노출하지 않는다.

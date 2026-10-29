@@ -1363,3 +1363,15 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - strict raw저장/두preview·UI/current-A-B를동기화한다. 손상runtime은필드별유효기간/보호를보존하고Buy차단·설정불명잔량후보로조용한보호해제를피한다. interval의기존분봉지원과공통guard/risk를유지한다. [계약](../../../docs/ipc-commands.md), [연구](../../../docs/research/trend-filter-policy-20261023/report.md).
 
 > 마지막 업데이트: 2026-10-25T20:23:25+09:00
+
+
+## 응답 불명 자동 주문의 운영자 복구 (2026-10-29)
+
+- `trading/order/submission/recovery.rs`는 provider 호출 전 비민감 PendingOrder snapshot을 예산 원장에 저장한다. 원래 reservation ID·exact owner/generation·프로파일/모드·시장·주문 시각·clientOrderId를 보존하고 현재 설정으로 과거 소유를 추정하지 않는다.
+- `trading/order/budget/recovery.rs`는 desktop IPC의 운영자 대조 승인만 담당한다. 영수증 intent 저장→원래 pending 복원 순서와 동일 입력 재시도, terminal 재생성 금지, 원장 backup 자동 복구 금지를 유지한다. receipt 없이 legacy unknown을 승인하지 않는다.
+- 승인 전에 기존 pending·복구 receipt·정상 주문/체결 이력의 provider ID 충돌을 확인한다. 다른 local ID의 체결을 새 예약으로 재반영해서는 안 된다. 원래 pending intent가 없는 부분 체결/ownership watermark는 보류한다.
+- 저장된 `evidenceReference`와 provider ID를 view에 돌려 재시작 후 같은 intent를 재개할 수 있게 한다. UI 재확인 없이 자동 승인하지 않는다. 대조 참조에는 비밀정보를 넣지 않는다.
+- `trading/guard/recovery.rs`는 receipt의 원래 제출 시각을 live Local 정책으로 환산하고 예약 ID당 한 번 복원한다. 같은 승인 재시도는 whipsaw 횟수/cooldown을 늘리지 않으며 last-side/손절일은 최신값을 보존한다. 예산 load/save에서 terminal receipt까지 재구성하고 신규 shared 주문의 guard 평가 전에 수행한다. 보호 복원은 체결/risk 실적을 만드는 동작이 아니다.
+- 수동 대조를 provider 검증으로 표시하지 않는다. 예약 해제·현금·소유량 처리는 기존 fill/terminal 경로만 사용하며 `persistence_blocked`는 복구 승인으로 해제하지 않는다. 상세 계약은 [IPC 문서](../../../docs/ipc-commands.md)를 따른다.
+
+> 마지막 업데이트: 2026-10-29T05:55:34Z

@@ -3,12 +3,17 @@
 use super::*;
 use std::collections::BTreeMap;
 
+mod recovery;
+pub use recovery::{ApproveBudgetRecoveryInput, BudgetRecoveryView};
+
 const MAX_AMOUNT: u64 = 9_007_199_254_740_991;
 const FEE_BPS: u32 = 100;
 
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub(super) struct BudgetLedger {
     accounts: Vec<BudgetAccount>,
+    #[serde(default)]
+    recovery_receipts: BTreeMap<String, recovery::RecoveryReceipt>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 struct BudgetAccount {
@@ -36,6 +41,8 @@ struct BudgetReservation {
     accepted: bool,
     #[serde(default)]
     terminal: bool,
+    #[serde(default)]
+    recovery_snapshot: Option<recovery::RecoverySnapshot>,
 }
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -158,6 +165,12 @@ impl OrderManager {
             .await;
             match loaded {
                 Ok(mut ledger) => {
+                    if let Err(error) = self.restore_budget_guards(&ledger) {
+                        self.block_for_persistence_failure(format!(
+                            "복구 주문 보호 기록 복원 실패: {error}"
+                        ));
+                        return Err(error);
+                    }
                     let ledger: &mut BudgetLedger = &mut ledger;
                     for a in &mut ledger.accounts {
                         for c in [&mut a.krw, &mut a.usd] {
@@ -203,6 +216,10 @@ impl OrderManager {
             crate::storage::write_json(&self.pending_order_store.budget_path(), &ledger).await
         {
             self.block_for_persistence_failure(format!("자동매매 예산 원장 저장 실패: {error}"));
+            return Err(error);
+        }
+        if let Err(error) = self.restore_budget_guards(&ledger) {
+            self.block_for_persistence_failure(format!("복구 주문 보호 기록 복원 실패: {error}"));
             return Err(error);
         }
         self.budget = Some(ledger);
@@ -320,6 +337,7 @@ impl OrderManager {
                 reserved,
                 accepted: false,
                 terminal: false,
+                recovery_snapshot: None,
             },
         );
         self.save_budget(ledger).await?;
@@ -363,9 +381,21 @@ impl OrderManager {
             pending.exchange.is_some()
                 || !crate::market_hours::is_domestic_symbol(&pending.record.symbol),
         );
-        if let Some(reservation) = c.reservations.get_mut(&pending.record.id) {
-            reservation.terminal = true;
-            reservation.reserved = 0;
+        let completed = c
+            .reservations
+            .get_mut(&pending.record.id)
+            .map(|reservation| {
+                reservation.terminal = true;
+                reservation.reserved = 0;
+                (reservation.filled, reservation.notional)
+            });
+        if let (Some((filled, notional)), Some(receipt)) = (
+            completed,
+            ledger.recovery_receipts.get_mut(&pending.record.id),
+        ) {
+            receipt.resolved = true;
+            receipt.filled_quantity = filled;
+            receipt.filled_notional = notional;
         }
         self.save_budget(ledger).await
     }

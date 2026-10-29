@@ -91,3 +91,45 @@ pub async fn update_auto_trading_budget(
         .await
         .map_err(budget_error)
 }
+
+/// Desktop IPC only: the unauthenticated LAN server must not expose recovery.
+#[tauri::command]
+pub async fn get_budget_recovery(
+    input: AutoTradingBudgetInput,
+    state: State<'_, AppState>,
+) -> CmdResult<crate::trading::order::BudgetRecoveryView> {
+    let _maintenance = state.storage_maintenance.lock().await;
+    let _profile_change = state.strategy_update_lock.lock().await;
+    let scope =
+        checked_budget_scope(&state.profiles, input.broker_id, &input.broker_account_id).await?;
+    state
+        .order_manager
+        .lock()
+        .await
+        .budget_recovery(&scope)
+        .await
+        .map_err(budget_error)
+}
+#[tauri::command]
+pub async fn approve_budget_recovery(
+    input: crate::trading::order::ApproveBudgetRecoveryInput,
+    state: State<'_, AppState>,
+) -> CmdResult<crate::trading::order::BudgetRecoveryView> {
+    let _maintenance = state.storage_maintenance.lock().await;
+    let _profile_change = state.strategy_update_lock.lock().await;
+    if *state.is_trading.lock().await {
+        return Err(CmdError {
+            code: "TRADING_RUNNING".into(),
+            message: "자동매매를 정지한 후 복구를 승인하세요.".into(),
+        });
+    }
+    let scope =
+        checked_budget_scope(&state.profiles, input.broker_id, &input.broker_account_id).await?;
+    state
+        .order_manager
+        .lock()
+        .await
+        .approve_budget_recovery(&scope, &input)
+        .await
+        .map_err(budget_error)
+}

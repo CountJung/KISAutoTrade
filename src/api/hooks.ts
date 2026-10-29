@@ -17,3 +17,5 @@ export * from './settingsHooks'
 export * from './historyHooks'
 export * from './tradingHooks'
 export * from './logHooks'
+
+export * from './budgetRecoveryHooks'

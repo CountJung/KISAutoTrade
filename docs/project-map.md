@@ -349,6 +349,7 @@ KISAutoTrade/
 │   │   ├── failed-breakout-policy-20261022.md
 │   │   ├── frontend-hooks-split-20261018.md
 │   │   ├── holdings-publication-fence-20261018.md
+│   │   ├── immediate-backlog-20261029.md
 │   │   ├── live-completed-daily-history-20261018.md
 │   │   ├── lth-minute-timing-20261022.md
 │   │   ├── ma-cross-filters-20261020.md
@@ -409,6 +410,7 @@ KISAutoTrade/
 │   │   ├── accountHooks.ts
 │   │   ├── backendEvents.ts
 │   │   ├── budgetHooks.ts
+│   │   ├── budgetRecoveryHooks.ts
 │   │   ├── commands.ts
 │   │   ├── databaseHooks.ts
 │   │   ├── historyHooks.ts
@@ -478,6 +480,7 @@ KISAutoTrade/
 │   │   │   │   ├── accountProfiles.tsx
 │   │   │   │   ├── autoTradingBudgetSection.tsx
 │   │   │   │   ├── brokerRateLimitSection.tsx
+│   │   │   │   ├── budgetRecoverySection.tsx
 │   │   │   │   ├── databaseManagementSection.tsx
 │   │   │   │   ├── profileDialogs.tsx
 │   │   │   │   ├── profileUtils.ts
@@ -528,6 +531,8 @@ KISAutoTrade/
 │   │   └── index.ts
 │   ├── shared/
 │   │   ├── api/
+│   │   │   ├── budgetRecoveryCommands.ts
+│   │   │   ├── budgetRecoveryTypes.ts
 │   │   │   ├── candlePageTypes.ts
 │   │   │   ├── commands.ts
 │   │   │   ├── databaseCommands.ts
@@ -756,6 +761,7 @@ KISAutoTrade/
 │   │   │   ├── database/
 │   │   │   │   ├── configuration.rs
 │   │   │   │   ├── connection.rs
+│   │   │   │   ├── recovery_history.rs
 │   │   │   │   └── tests.rs
 │   │   │   ├── database_contract_tests/
 │   │   │   │   └── tls_restart.rs
@@ -785,7 +791,16 @@ KISAutoTrade/
 │   │   │   │   │   ├── trend_filter.rs
 │   │   │   │   │   └── volatility.rs
 │   │   │   │   └── tests.rs
+│   │   │   ├── guard/
+│   │   │   │   ├── recovery/
+│   │   │   │   │   └── tests.rs
+│   │   │   │   └── recovery.rs
 │   │   │   ├── order/
+│   │   │   │   ├── budget/
+│   │   │   │   │   ├── recovery/
+│   │   │   │   │   │   ├── history.rs
+│   │   │   │   │   │   └── tests.rs
+│   │   │   │   │   └── recovery.rs
 │   │   │   │   ├── configuration/
 │   │   │   │   │   └── tests.rs
 │   │   │   │   ├── feedback/
@@ -828,6 +843,7 @@ KISAutoTrade/
 │   │   │   │   │   ├── prepare.rs
 │   │   │   │   │   ├── provider.rs
 │   │   │   │   │   ├── records.rs
+│   │   │   │   │   ├── recovery.rs
 │   │   │   │   │   └── run_tests.rs
 │   │   │   │   ├── budget.rs
 │   │   │   │   ├── configuration.rs
@@ -984,6 +1000,7 @@ KISAutoTrade/
 │       ├── fixtures/
 │       │   └── strategyResearchFixture.ts
 │       ├── balance-events.spec.ts
+│       ├── budget-recovery.spec.ts
 │       ├── candle-pagination.spec.ts
 │       ├── live-daily-history.spec.ts
 │       ├── lth-minute-timing.spec.ts
@@ -1095,11 +1112,14 @@ KISAutoTrade/
 | `api/queryKeys.ts` | TanStack Query `KEYS` 단일 원천 (`hooks.ts`에서 하위 호환 re-export) |
 | `api/backendEvents.ts` | Tauri backend event 구독. 환율은 전역 캐시를 갱신하고 잔고 이벤트는 payload를 대입하지 않고 현재 계좌 query를 무효화하여 재조회. listener 등록/해제 지연과 실패 및 unmount 뒤 callback을 처리 |
 | `api/budgetHooks.ts` | broker/account별 자동매매 예산 조회·폴링과 저장 후 해당 scope Query 캐시 갱신 |
+| `api/budgetRecoveryHooks.ts` | 복구 목록을 broker/account/profile/투자 모드별로 조회. 창 재진입 자동 갱신 없이 명시적 재조회하고, 승인 뒤 원래 scope의 복구·예산 및 pending query를 무효화 |
+| `shared/api/budgetRecovery{Types,Commands}.ts` | 복구 항목·승인 요청의 Rust 미러와 데스크톱 IPC 래퍼. 운영자 근거 대조와 실제 체결 확인을 구분하며 웹 REST 복구 경로는 제공하지 않음 |
 | `api/databaseHooks.ts` | DB 설정/상태/이관 Tauri-only TanStack Query hooks |
 | `widgets/app-shell/` | 전체 앱 레이아웃, ThemeProvider, responsive navigation, 좌측 사이드바 자동매매 시작/정지 전역 조작 |
 | `widgets/stock-chart/` | 국내/해외/Toss 캔들 차트 |
 | `pages/settings/ui/Page.tsx` | 테마, 데이터 갱신 주기, 로그/체결 보관, 웹 포트, 종목 목록, 리스크, Discord 설정 route 조립 |
 | `pages/settings/ui/autoTradingBudgetSection.tsx` | 선택 계좌의 KRW/USD 자동매매 배정액·현금·예약액·사용 가능액·차단 사유 표시와 정지 상태 예산 편집 |
+| `pages/settings/ui/budgetRecoverySection.tsx` | 예산 설정 안의 응답 불명 주문 대조·복구 UI. 원래 주문·체결 누적값·보류 사유·승인 영수증을 표시하고, 명시 확인 후 pending 복원을 요청. 실행 중·재조회/조회 실패·identity 불일치·legacy/종결 기록의 승인을 막고 웹에서는 안내만 표시 |
 | `pages/settings/ui/databaseManagementSection.tsx` | PostgreSQL/MariaDB 연결, 고정 앱 테이블 관리, JSON↔DB 이관, backend 전환. 웹 모드에서는 보안 안내만 표시 |
 | `pages/settings/ui/accountProfiles.tsx` | 활성 broker/profile 요약, KIS/Toss 프로파일 목록, 연결 진단, 프로파일 삭제 확인 |
 | `pages/settings/ui/profileDialogs.tsx` | KIS/Toss 프로파일 추가/편집, 실전/모의 감지, Toss accountSeq 조회. secret 입력 상태는 이 파일 안에만 보관 |
@@ -1156,7 +1176,7 @@ KISAutoTrade/
 | `commands.rs` | AppState + IPC command facade, 공통 helper |
 | `commands/accounts.rs` | 계좌 프로파일 CRUD/활성화, KIS 국내·해외 잔고, broker holdings view. KIS 잔고는 공통 holdings fetch/publish 서비스를 사용하고 broker holdings 읽기 응답은 ReadOnly identity gate로 검증. 프로파일 적용 전 실행을 무효화하고 자료 로드 뒤 manager → OrderManager 잠금에서 scope·client 교체·tracker 초기화·전략 복원을 함께 게시 |
 | `commands/archive.rs` | 거래 파일 보관 설정, 보관 통계, 오래된 trade/log 파일 purge IPC |
-| `commands/budget.rs` | 활성 broker/account 검증, 자동매매 전용 예산 조회·변경 IPC. 변경은 자동매매 정지와 저장소/프로파일 변경 잠금 경계에서 수행 |
+| `commands/budget.rs` | 활성 broker/account 검증, 자동매매 전용 예산 조회·변경과 데스크톱 복구 조회·승인 IPC. 변경은 자동매매 정지와 저장소/프로파일 변경 잠금 경계에서 수행하며 복구는 인증 없는 LAN REST에 노출하지 않음 |
 | `commands/database.rs` | 인증 없는 REST에는 노출하지 않는 Tauri-only DB 관리/이관 IPC |
 | `commands/market.rs` | KIS 국내/해외 시세, 차트, 종목 검색, 해외 주문 사전 검증 IPC |
 | `commands/candles.rs` | 공통 읽기 전용 페이지 IPC와 Web 공유 서비스. 활성 profile/broker/account와 KIS client 일치, 커서의 scope/asOf/provider를 검증한다. OHLCV·통화를 검증하고 서울/뉴욕 현재 시장 기간보다 이전인 일/주/월봉 또는 asOf 이하 종료 시각의 분봉만 정렬·중복 제거해 반환한다. 완료 정책과 미완료/무효 제외 수를 노출하며 기존 Vec 차트 IPC는 유지 |
@@ -1314,6 +1334,8 @@ KISAutoTrade/
 | `api/websocket.rs` | 실시간 시세 수신, 체결 콜백 |
 | `trading/mod.rs` | 전략 루프 실행, 장 시간 감지 |
 | `trading/views.rs` | `StrategyConfig` → camelCase `StrategyView` 공용 builder. IPC/REST가 같은 view를 사용하며 종목명 조회 전 manager lock을 해제 |
+| `trading/guard/recovery.rs` | 복구 예약 ID별 최대256개 멱등 기록으로 원래 제출 시각의 동일 방향 cooldown·손절일·유효 whipsaw 관측을 복원. live Local 달력 정책과 최신 보호값을 보존하고 승인 시각으로 보호 창을 연장하거나 만료 관측을 되살리지 않음 |
+| `trading/guard/recovery/tests.rs` | 원래 손절일/다음 날 cooldown, 재승인 시각 불변·whipsaw 중복 방지, 과거 주문 복원 시 최신 보호 유지, Local 달력·ID 충돌·상한 검증 |
 | `trading/order.rs` | OrderManager facade와 공유 상태·provider trace. health·pending·legacy·execution_run·configuration·holdings·ownership·feedback·submission·fills의 하위 책임을 연결 |
 | `trading/order/ownership.rs` | profile/투자 모드/broker/account/소유 전략/시장/종목 key의 확인된 수량·원가와 주문별 누적 체결 영수증. 고정 세대·상한·엄격한 역직렬화·동일 intent 검증, 부분 매도 원가·손익 계산과 보호 metadata 보관 |
 | `trading/order/ownership/runtime.rs` | managed storage의 `position_ownership.json`과 generation manifest를 읽고 세대 연속성 검증·저장. manifest가 남은 원장 유실, 오염·세대 교체·저장 실패를 persistence block으로 전달 |
@@ -1341,7 +1363,11 @@ KISAutoTrade/
 | `trading/order/submission/provider.rs` | 준비 요청 전송. KIS 국내/해외 재시도는 최초 snapshot의 같은 client를 사용하고 Toss 요청은 고정 profile을 사용 |
 | `trading/order/submission/records.rs` | 접수·실패 주문과 pending record 생성, provider trace·원래 broker scope 보존 |
 | `trading/order/submission/run_tests.rs`, `trading/order/test_support.rs` | 합성 profile·캐시 토큰·localhost provider로 실행 context, 준비/예약 경합, 예약 후 client 고정과 pending 추적 검증. 실제 계좌/provider 검증과 분리 |
-| `trading/order/budget.rs` | broker/account와 KRW/USD별 전용 현금·자동매매 소유수량·주문 예약 원장. 주문 전 예약 저장, 접수/체결/종료 반영, 미확인 주문·저장 실패 시 차단 |
+| `trading/order/budget.rs` | broker/account와 KRW/USD별 전용 현금·자동매매 소유수량·주문 예약 원장. 주문 전 예약 저장, 접수/체결/종료 반영, 미확인 주문·저장 실패 시 차단. load/save에서 종결 영수증까지 TradeGuard 보호를 복원하며 복원 오류도 영속화 차단으로 전달 |
+| `trading/order/budget/recovery.rs` | 원래 주문 snapshot·승인 영수증과 bounded 복구 view. 계좌/profile/모드·revision·client ID·소유 세대·pending 충돌을 검증하고 승인 intent 저장 뒤 pending을 복원. 주문 재제출·공급자 사실 확인·체결 합성·직접 예산 해제는 수행하지 않음 |
+| `trading/order/budget/recovery/history.rs` | 보관된 모든 primary 주문·체결 이력에서 scope/provider ID 재사용과 이미 반영된 기록을 검사. scope 출처가 불명확한 legacy도 보수적으로 대조하며 broker 사실 확인으로 해석하지 않음 |
+| `trading/order/budget/recovery/tests.rs` | 합성 주문 fixture의 제출 전 snapshot, 중복 승인·재시작·부분/역순/종결·legacy·불일치·저장 실패·view/영수증 상한을 검증 |
+| `trading/order/submission/recovery.rs` | 준비된 자동 주문에서 원래 scope·소유 key/세대·전략 metadata·provider trace를 비민감 pending snapshot으로 구성. 제출 경로가 예산 예약 뒤, provider 호출 전에 영속화 |
 | `trading/order/fills.rs` | 누적 체결 intent와 소유 원장·예산·리스크·통계·TradeStore의 반영 순서 조정. 실제 계좌 tracker에는 delta를 더하지 않고 조회 버전 무효화와 재조회 필요 상태를 남김 |
 | `trading/order/fills/ownership.rs` | 저장 주문의 소유 key·세대·누적 영수증 검증과 확인 체결의 원가/손익 준비. 재시도 시 기존 손익 영수증을 재사용하고 초기 보유 metadata를 보존하며 종료된 소유 영수증 정리를 담당 |
 | `trading/order/{ownership/tests.rs,ownership/runtime/tests.rs,fills/ownership/tests.rs}` | 원장 입력·상한·세대·저장 오류, 누적/부분 체결·재시도·소유 격리·확인된 원가와 보호 metadata 경계의 회귀 fixture |
@@ -1369,6 +1395,7 @@ KISAutoTrade/
 | `storage/stats_store.rs` | `data/stats/YYYY/MM/daily_stats.json` |
 | `storage/strategy_store.rs` | `data/strategies/{profile_id}/strategies.json` (`StrategyConfig`에 broker/account scope 저장) |
 | `storage/database.rs` | DatabaseManager facade, PostgreSQL/MariaDB 문서 계층, schema v2 projection, transaction import/retention, JSON export와 fail-closed backend 전환. 상태는 같은 설정/pool snapshot으로 생성 |
+| `storage/database/recovery_history.rs` | OrderStore/TradeStore의 복구 전용 읽기. 활성 JSON/DB의 보관된 orders/trades 일별 primary 문서만 strict 경로로 조회하며 category별2,048문서·총16MiB·50,000행과 로컬20,000항목/깊이 한도를 검사. symlink·손상·유실·한도 초과는 오류로 반환하고 backup/JSON fallback이나 민감 설정 탐색을 하지 않음 |
 | `storage/database/configuration.rs` | 설정 로드·검증·파일/OS keychain 저장·원복과 메모리 게시. 내구성 recovery 표시와 manager의 runtime latch로 취소·불확실 복구 시 다음 저장/연결을 차단 |
 | `storage/database/connection.rs` | provider별 TLS 옵션과 관리자 DB 생성, pool 생성 직렬화와 fingerprint 재검증. 늦게 완료된 이전 설정의 pool을 닫고 현재 설정/pool snapshot을 반환 |
 | `storage/database/tests.rs` | 문서/export 경로·inventory·비밀 없는 view와 합성 keychain 저장·이전 회귀. 설정 복구/경합 회귀는 해당 configuration/connection 모듈에도 포함 |
@@ -1382,6 +1409,8 @@ KISAutoTrade/
 
 | 경로 | 책임 |
 |---|---|
+| `docs/tasks/immediate-backlog-20261029.md` | 즉시 작업의 고정 ID·순서·회차별 범위와 검증·커밋 근거. P1-RECOVERY-01의 로컬 구현과 P1-PROVIDER-01의 실제 운용 검증을 구분 |
+| `tests/e2e/budget-recovery.spec.ts` | mock 데스크톱 복구의 근거 대조·명시 확인·저장 실패/재시도·legacy/종결·실행 중·모바일과 웹 복구 요청 부재를 검증 |
 | `docs/research/trend-filter-policy-20261023/design.json` | 기존200/5/20·현재 포함 MA와 legacy/owned/exit2/profit5trail3/hold63, 고정 입력 hash·자료·비용·30연속/30대체 분할/360별도 분기 계획의 사전 선언. 원본 declaredNotRun을 보존하고 실제 실행 여부는 run-summary·압축 원장·validation으로 확인 |
 | `docs/research/trend-filter-policy-20261023/{protocol.md,report.md}` | 사전 상태·시점·준비/체결·노출·출처·완료 조건과 실제 생산 실행·감사 근거/후보 판단. 기존 v12 원장 감사·v21 기준 실행·v22 후보를 구분하고 상관된3ETF/겹침·분기 초기화를 독립 OOS로 해석하지 않음 |
 | `docs/research/trend-filter-policy-20261023/{baseline_runner,runner}.rs` | 고정81fa00d/v21 생산 라이브러리 기준과 현재 v22 생산 단기/연속 API 실행. 비대상1122건 전체 report·signal 호환/TrendFilter102건 변화, 5종30연속·30대체분할·360별도분기를 기록하며 별도 전략이나 운영 계정·주문을 사용하지 않음 |
@@ -2213,6 +2242,7 @@ OrderManager → trading/order/budget.rs
 data/orders/auto_trading_budget.json (JSON 또는 DB document)
 
 자동 주문 → submission.rs → 전용 현금/소유수량 확인과 예약 영속화
+    ↓ submission/recovery.rs → 원래 주문 snapshot 영속화
     ↓ provider 접수 → pending 저장 및 예약 접수 상태 반영
 fills.rs → 누적 체결을 원장 현금·소유수량·잔여 예약에 반영
     ↓ 주문 완료 → 잔여 예약 해제
@@ -2222,6 +2252,34 @@ fills.rs → 누적 체결을 원장 현금·소유수량·잔여 예약에 반�
 자동매매 소유수량으로 제한하고, 수동매도는 해당 수량을 제외한다.
 접수 여부가 불명확한 예약은 예산 사용을 차단하며, 원장 저장 실패는
 OrderManager의 영속화 오류 차단 경계로 전달한다.
+
+응답 불명 주문의 복구는 `budgetRecoverySection.tsx` →
+`budgetRecoveryHooks.ts` → 데스크톱 IPC `commands/budget.rs` →
+`budget/recovery.rs`로 이어진다. 운영자가 원래 주문 식별자와 비민감 근거를
+대조한 뒤 명시 승인하면, `budget/recovery/history.rs`가 OrderStore/TradeStore와
+`storage/database/recovery_history.rs`를 통해 보관된 모든 primary 주문·체결
+이력을 읽어 scope/provider ID 충돌을 확인한다. 이후 원장에 승인 intent를
+먼저 저장하고 원래 snapshot의
+pending을 복원·영속화한다. 같은 승인 재시도는 기존 영수증과 일치해야 하며
+자동매매·제출·정정 중, scope/profile/모드·revision·소유 세대 불일치,
+증거 없는 legacy나 부분 반영 후 pending 유실은 보류한다.
+
+`budget/recovery.rs::restore_budget_guards`는 예산 load/save에서 종결된 승인
+영수증도 포함해 `trading/guard/recovery.rs`로 원래 제출 시각·방향·손절 사유를
+복원한다. 공통 주문 제출은 `submission.rs` → `budget_owned` → `load_budget`의
+간접 경로로 보호를 먼저 읽고 `reserve_submission`의 TradeGuard 평가를 수행한다.
+복구 ID별 멱등 기록은 날짜 초기화 뒤에도 유지하며 같은 승인 재시도가 cooldown이나
+whipsaw 관측을 중복 연장하지 않는다. 오래된 기록은 최신 방향별 시각·손절일을
+덮어쓰지 않고, live Local 날짜 정책을 유지한다. 체결·리스크·포지션 수량은 이
+제출 보호 복원에서 변경하지 않는다.
+
+승인은 주문 재제출이나 체결·종결 확정, 직접 예산 해제가 아니다. 복원한
+pending은 기존 체결 대조·정산 경계를 따르며 저장 실패의 차단을 자동 해제하지
+않는다. 조회는 최대100개 항목과 전체 개수를 반환하고 승인 영수증은 최대256개로
+제한한다. 이력 읽기는 orders/trades 각 category의2,048문서·총16MiB·50,000행과
+로컬 디렉터리20,000항목/깊이 한도를 검사한다. JSON/DB의 strict primary 읽기
+오류를 과거 backup이나 JSON fallback으로 숨기지 않는다. 실제 provider 사례 대조는 별도 P1-PROVIDER-01로 남긴다. 구현과
+검증 기록은 [즉시 작업 기록](tasks/immediate-backlog-20261029.md)을 따른다.
 
 ### 실시간 데이터 Push (백그라운드 데몬 → 프론트)
 

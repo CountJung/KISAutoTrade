@@ -21,6 +21,7 @@ mod positions;
 mod prepare;
 mod provider;
 mod records;
+mod recovery;
 
 use positions::{current_position_snapshot, refresh_manual_positions};
 use prepare::prepare_order_submission;
@@ -514,7 +515,20 @@ impl OrderManager {
                             )
                             .await
                         {
-                            Ok(id) => prepared.submission.budget_id = Some(id),
+                            Ok(id) => {
+                                prepared.submission.budget_id = Some(id);
+                                if let Err(error) = manager
+                                    .capture_budget_recovery(recovery::snapshot(&prepared, &deps))
+                                    .await
+                                {
+                                    manager.finish_submission_failure(
+                                        &reservation,
+                                        false,
+                                        &error.to_string(),
+                                    );
+                                    return Err(error);
+                                }
+                            }
                             Err(error) => {
                                 manager.finish_submission_failure(
                                     &reservation,

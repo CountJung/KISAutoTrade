@@ -10,6 +10,16 @@
 - 부분 완료 항목은 아래 별도 절에 보관하고, 원래 열린 상위 ID는 현재 TODO에 유지한다.
 - 원문 줄 번호는 위 고정 커밋 기준이다. 기존 ID가 없는 열린 항목에는 이번에 추적 ID만 부여했다.
 
+## 2026-10-29 즉시 작업 완료
+
+<a id="p1-recovery-01"></a>
+### P1-RECOVERY-01 — 운영자 대조·복구 UI
+
+- **완료 범위:** desktop IPC/UI, 신규 제출 전 원래 주문 snapshot, 대조 승인 receipt→기존 pending 복원, 원래 시각의 멱등 TradeGuard 복원. 승인 자체는 재주문·체결 합성·예약 해제를 하지 않는다.
+- **검증:** Rust 전체807개, 복구 focused19개, 제출 focused15개, format/check/strict clippy 경고0. TypeScript/FSD·production 웹빌드, 최종 production 복구11+Settings4=15개 mock UI 통과. 독립 안전감사에서 지적한 중복 provider ID·재시작/재조회 재시도·유실 primary·손절 guard 누락 수정 후 새 P0/P1/P2 지적 없음.
+- **한계:** legacy 원래 소유 근거가 없거나 부분체결 pending intent가 유실된 경우 보류한다. 실제 provider·운영자 원본 대조, 보관기간 밖 이력, 실제 계좌/주문 검증은 수행하지 않았으며 P1-PROVIDER-01이 남는다. [회차별 범위·검증 기록](tasks/immediate-backlog-20261029.md).
+- **원래 조건 보존:** `5437c07bc6c2bf0876c0ddc211ddeabb6cd632d7`의 TODO P1-RECOVERY-01에서 이관했다. 대조 근거·scope·주문 식별값·누적 체결/보류 예산 표시와 상태 전이, 중복 승인·역순/부분 체결·불일치·저장 실패·재시작 fixture, mock 대조→승인→영속화→재시작 일치와 확인 불가 보류가 완료 기준이었다. [기존 소유·체결 경계](tasks/strategy-fill-ownership-20261018.md), [예산 원장 구조](ARCHITECTURE.md) 의존성을 보존한다.
+
 ## 기존 기록·운영 참고 색인
 
 아래는 기존 문서의 진입 링크다. 기록의 원래 날짜·검증 범위와 미완료 조건은 각 문서를 따른다.
@@ -25,14 +35,14 @@
 | 현재 LTH 파라미터 안내 | [파라미터 가이드](leveraged-trend-hold-parameter-guide.md) |
 | 별도 승인 범위의 운영 검증 절차 | [모의 검증 체크리스트](mock-trading-e2e-checklist.md) · [Toss read-only·소액 검증](toss-readonly-small-order-checklist.md) |
 
-## 열린 항목의 ID 대응
+## 문서 재편 당시 열린 항목의 ID 대응
 
 | 기존 제목 | 현재 ID | 처리 |
 |---|---|---|
 | MariaDB contract fixture와 지원 버전 matrix 검증. | P1-DB-01 | 미완료 유지·분류 이동 |
 | 여러 broker/account 포지션과 pending을 동시에 상주·대조하는 multi-scope runtime. | P1-SCOPE-01 | 미완료 유지·분류 이동 |
 | KIS/Toss 기존 운영 원장과 실제 정정·취소 응답의 최종 검증. | P1-PROVIDER-01 | 미완료 유지·분류 이동 |
-| 실제 provider 응답 불명 주문의 운영자 대조/복구 UI: 현재는 자동 해제 없이 예산을 보류한다. 주문번호/clientOrderId 대조 및 멱등 승인 흐름으로 확장할 것. | P1-RECOVERY-01 | 미완료 유지·분류 이동 |
+| 실제 provider 응답 불명 주문의 운영자 대조/복구 UI: 현재는 자동 해제 없이 예산을 보류한다. 주문번호/clientOrderId 대조 및 멱등 승인 흐름으로 확장할 것. | P1-RECOVERY-01 | 재편 당시 미완료 → [2026-10-29 로컬 완료](#p1-recovery-01) |
 | 1,000라인 초과 파일을 책임 단위로 분리한다. | P3-REFACTOR-01 | 미완료 유지·분류 이동 |
 | 플랫폼 코드 서명·updater 서명 강제를 위한 배포 키 준비. | P3-SIGN-01 | 미완료 유지·분류 이동 |
 

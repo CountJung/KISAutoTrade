@@ -973,6 +973,8 @@ fn inventory_from_documents(documents: &[LocalDocument]) -> JsonStorageInventory
     }
 }
 
+pub(crate) mod recovery_history;
+
 mod configuration;
 mod connection;
 

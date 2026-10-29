@@ -5,6 +5,8 @@ use chrono::{DateTime, Duration, FixedOffset, Local, NaiveDate, TimeZone};
 use crate::broker::BrokerScope;
 use crate::trading::strategy::Signal;
 
+mod recovery;
+
 type ScopedSymbol = (BrokerScope, String);
 type RecentSideHistory = VecDeque<(DateTime<FixedOffset>, GuardSide)>;
 
@@ -51,6 +53,7 @@ impl Default for TradeGuardConfig {
 
 pub struct TradeGuard {
     config: TradeGuardConfig,
+    recovered_submissions: HashMap<String, recovery::RecoveredSubmission>,
     last_order_at: HashMap<(BrokerScope, String, GuardSide), DateTime<FixedOffset>>,
     recent_sides: HashMap<ScopedSymbol, RecentSideHistory>,
     cooldown_until: HashMap<ScopedSymbol, DateTime<FixedOffset>>,
@@ -61,6 +64,7 @@ impl TradeGuard {
     pub fn new(config: TradeGuardConfig) -> Self {
         Self {
             config,
+            recovered_submissions: HashMap::new(),
             last_order_at: HashMap::new(),
             recent_sides: HashMap::new(),
             cooldown_until: HashMap::new(),

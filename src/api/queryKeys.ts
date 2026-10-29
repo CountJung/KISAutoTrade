@@ -43,6 +43,8 @@ export const KEYS = {
   riskConfig: ['riskConfig'] as const,
   autoTradingBudget: (brokerId?: string, accountId?: string) =>
     ['autoTradingBudget', brokerId ?? '', accountId ?? ''] as const,
+  budgetRecovery: (brokerId?: string, accountId?: string, profileId?: string | null, isPaper?: boolean) =>
+    ['budgetRecovery', brokerId ?? '', accountId ?? '', profileId ?? '', isPaper ?? null] as const,
   pendingOrders: ['pendingOrders'] as const,
   tradeArchiveConfig: ['tradeArchiveConfig'] as const,
   tradeArchiveStats: ['tradeArchiveStats'] as const,

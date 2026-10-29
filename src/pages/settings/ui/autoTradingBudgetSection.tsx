@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography'
 import { useAppConfig, useAutoTradingBudget, useTradingStatus, useUpdateAutoTradingBudget } from '../../../api/hooks'
 import type { AutoTradingBudgetInput, AutoTradingBudgetView, BudgetCurrencyView } from '../../../api/types'
 import { Section } from './section'
+import { BudgetRecoverySection } from './budgetRecoverySection'
 
 function amount(text: string, decimals: number): number | undefined {
   if (!(decimals ? /^\d+(\.\d{1,2})?$/ : /^\d+$/).test(text)) return undefined
@@ -93,6 +94,8 @@ export function AutoTradingBudgetSection() {
         {budget.error && <Alert severity="error">{budget.error.message || '예산을 불러오지 못했습니다.'}</Alert>}
         {scope && budget.data && budget.data.scope?.brokerId === scope.brokerId && budget.data.scope?.accountId === scope.brokerAccountId &&
           <BudgetEditor key={`${scope.brokerId}:${scope.brokerAccountId}`} scope={scope} data={budget.data} running={trading?.isRunning !== false} />}
+        <BudgetRecoverySection scope={scope} identity={{ profileId: config?.active_profile_id ?? null,
+          isPaper: config?.active_broker_id === 'kis' && config.kis_is_paper_trading }} running={trading?.isRunning !== false} />
       </Stack>
     </Section>
   )
