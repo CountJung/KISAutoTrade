@@ -247,12 +247,18 @@ fn timing_assessment_cannot_change_production_signals_settlement_or_input_hash()
         "fixture must exercise actual LTH signals"
     );
     assert!(before.1["summary"]["filledOrderCount"].as_u64().unwrap() > 0);
+    assert_eq!(
+        before.1["phases"][0]["diagnostics"]["policy"],
+        "sameLedgerObservationSplit"
+    );
+    assert_eq!(before.1["phases"][0]["diagnostics"]["observedBars"], 4);
+    assert_eq!(before.1["phases"][1]["diagnostics"]["observedBars"], 2);
     let assessment = lth_preview_assessment("1m", 0, timed.len(), 200, &timed, true, as_of());
     assert_eq!(
         assessment.minute_timing.unwrap().unfinished_rows,
         timed.len()
     );
     assert_eq!(run(), before);
-    assert_eq!(REPLAY_ENGINE_VERSION, "strategy-replay-v22");
+    assert_eq!(REPLAY_ENGINE_VERSION, "strategy-replay-v23");
     assert_eq!(LTH_PREVIEW_STRATEGY_VERSION, "leveraged-trend-hold-v4");
 }

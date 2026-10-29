@@ -149,11 +149,8 @@ pub fn preview_strategy_continuous_from_candles(
         broker_account_id: input.broker_account_id,
         assumptions: input.assumptions,
     };
-    let (mut preview, ledger) =
+    let (preview, ledger) =
         super::driver::run_prepared_preview(meta, symbol, history_rows, chunks, "continuous")?;
-    if preview.backtest.overfit_warning.is_some() {
-        preview.backtest.overfit_warning = Some("연속 장부의 앞/뒤 구간 수익이 약화되었습니다. 포지션·원가·리스크가 이어지므로 독립적인 학습/검증 표본으로 해석하지 마세요.".into());
-    }
     Ok(ContinuousStrategyPreviewView {
         preview,
         continuity: ReplayContinuityView {

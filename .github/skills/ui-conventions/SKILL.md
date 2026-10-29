@@ -753,3 +753,8 @@ RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저
 전략별검증·기본값·rawstate는각controls에남기고 `strategyPolicyControls.tsx`는기존9전략과Trend의조립만담당한다. 의미가다른입력/보호전체를shared로승격하지않는다. [작업](../../../docs/tasks/trend-filter-policy-20261023.md).
 
 > 마지막 업데이트: 2026-10-25T20:23:25+09:00
+
+
+## v23 구간 관측 진단
+
+구간 비율은 평가 관측 봉 수 기준이며 동일 장부 앞/뒤를 독립 학습/OOS로 표시하지 않는다. 현재/A-B 공통 `strategyPhaseResults.tsx`로 관측·종가보유·경계 잔량/pending·원가 귀속을 보여준다. version/policy/유한수/개수/boolean이 맞지 않는 진단은 미확인이고0으로 만들지 않는다. 작은 완료 매도 표본·부분매도 집계와 수량별 배분원가를 명시하며 legacy 경고를 새판정처럼 재표시하지 않는다. LTH 평가불가 gate 유지, A/B 축약 뒤 서버 진단 보존·복원과375px overflow를 검증한다. [계약](../../../docs/ipc-commands.md#v23-동일-장부-구간-관측-진단).

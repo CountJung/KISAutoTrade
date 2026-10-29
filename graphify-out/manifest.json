@@ -470,8 +470,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/simulation.rs": {
-    "mtime": 1792905604.5545502,
-    "ast_hash": "16c13596d6dbdcdd50a5206e9a05f808",
+    "mtime": 1793255975.182028,
+    "ast_hash": "d54b6ece599856d938f4f273c945617a",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/strategy.rs": {
@@ -790,8 +790,8 @@
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/strategyResearchPanel.tsx": {
-    "mtime": 1792905787.1982582,
-    "ast_hash": "20edfc52c01b61aceccb7321c0c595d5",
+    "mtime": 1793256204.8331153,
+    "ast_hash": "70ef347d5d6a034cd5c4dc8ed0b1a34e",
     "semantic_hash": ""
   },
   "src/pages/trading/index.ts": {
@@ -845,8 +845,8 @@
     "semantic_hash": "340d63126d0e2cb94608d7bb4cbb3671"
   },
   "src/shared/api/strategyResearchTypes.ts": {
-    "mtime": 1792676645.804667,
-    "ast_hash": "947baa40ff450787d9c2b4849640b00a",
+    "mtime": 1793256204.832759,
+    "ast_hash": "c713a177476e9ee3624b853ce1578500",
     "semantic_hash": ""
   },
   "src/shared/api/transport.ts": {
@@ -1365,13 +1365,13 @@
     "semantic_hash": ""
   },
   "tests/e2e/fixtures/strategyResearchFixture.ts": {
-    "mtime": 1792827266.7891142,
-    "ast_hash": "c1742f5f15bf1911f08c1b0dd78ff17b",
+    "mtime": 1793256349.604377,
+    "ast_hash": "765d9101953caaceb6dc3caa4c3dcb98",
     "semantic_hash": ""
   },
   "tests/e2e/strategy-replay-assessment.spec.ts": {
-    "mtime": 1791211935.8723273,
-    "ast_hash": "6de8e07778ae26e352a20ea2b10fb687",
+    "mtime": 1793256373.641366,
+    "ast_hash": "ad8b79cfc15bc74a79f28fb40488d475",
     "semantic_hash": ""
   },
   "scripts/render-todo.mjs": {
@@ -1890,8 +1890,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/simulation/session.rs": {
-    "mtime": 1792306667.6249967,
-    "ast_hash": "f3e1af10faa5ca7a62f0f3587664f53e",
+    "mtime": 1793255875.8546953,
+    "ast_hash": "6030fefef93b9648187e8f2f45a0ab6b",
     "semantic_hash": ""
   },
   "tests/e2e/strategy-execution-model.spec.ts": {
@@ -1930,13 +1930,13 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/strategy_preview/continuous.rs": {
-    "mtime": 1792306914.645381,
-    "ast_hash": "81fd0364febc7f6464b20e3b01c1e131",
+    "mtime": 1793255875.855148,
+    "ast_hash": "0073ff292571b3d856998fe55414eff8",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/strategy_preview/continuous_tests.rs": {
-    "mtime": 1792307146.621721,
-    "ast_hash": "51068a8c930e75ddf89f3b5c59e2ca93",
+    "mtime": 1793256089.7531927,
+    "ast_hash": "7cfeefe538ed780b75854e282c72c57f",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/strategy_preview/driver.rs": {
@@ -1950,8 +1950,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/strategy-continuous-replay.spec.ts": {
-    "mtime": 1792307156.216096,
-    "ast_hash": "93dd42bc0098549cf66a191858e0ec94",
+    "mtime": 1793256204.8333914,
+    "ast_hash": "96a8191bf7899312820225a625147613",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/strategy_preview/entry_filter_tests.rs": {
@@ -2150,8 +2150,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/strategy_preview/minute_timing_tests.rs": {
-    "mtime": 1792905604.5550575,
-    "ast_hash": "1bf420665b33dc7a5b2f7ed8060b8605",
+    "mtime": 1793255989.7533166,
+    "ast_hash": "a31ab1388bb256e37021855362bbeba6",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/simulation/minute_time.rs": {
@@ -2492,6 +2492,26 @@
   "src-tauri/src/trading/order/feedback/tests/price_condition.rs": {
     "mtime": 1793254978.3019733,
     "ast_hash": "33e985e0ca6fc1c5017410a9dcc1135f",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/trading/simulation/phase_diagnostics_tests.rs": {
+    "mtime": 1793255989.731084,
+    "ast_hash": "860775ad606ce20e42a1daadd15595c1",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/trading/simulation/session/phase_diagnostics.rs": {
+    "mtime": 1793255989.732413,
+    "ast_hash": "9a54ca810520bec9b1b11f6637c05a0e",
+    "semantic_hash": ""
+  },
+  "src/pages/strategy/ui/strategyPhaseResults.tsx": {
+    "mtime": 1793256373.6406906,
+    "ast_hash": "46bf4896e032d0618aa5a6211fe99f07",
+    "semantic_hash": ""
+  },
+  "tests/e2e/strategy-phase-diagnostics.spec.ts": {
+    "mtime": 1793256373.6408749,
+    "ast_hash": "8cb52dc3c0cd442fc571d80859776add",
     "semantic_hash": ""
   }
 }

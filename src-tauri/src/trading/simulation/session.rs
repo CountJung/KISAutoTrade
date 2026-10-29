@@ -2,6 +2,9 @@
 use super::*;
 mod accounting;
 use accounting::SaleProjection;
+mod phase_diagnostics;
+pub use phase_diagnostics::PhaseDiagnosticsView;
+use phase_diagnostics::PhaseObservation;
 
 struct PendingSignal {
     signal: Signal,
@@ -45,6 +48,8 @@ pub struct ReplaySession {
     applied_fx_points: usize,
     applied_dividend_points: usize,
     invalid_scenarios: bool,
+    realized_pnl: f64,
+    phase_observations: [Option<PhaseObservation>; 2],
 }
 
 impl ReplaySession {
@@ -127,6 +132,8 @@ impl ReplaySession {
             execution_warnings.push(format!("시나리오 평가 불가: {error}"));
         }
         Self {
+            realized_pnl: 0.0,
+            phase_observations: [None, None],
             current_fx: if is_overseas {
                 assumptions.exchange_rate_krw
             } else {
@@ -180,6 +187,7 @@ impl ReplaySession {
         if self.invalid_scenarios {
             return;
         }
+        self.begin_phase_observation();
         if let Some(point) = self
             .assumptions
             .fx_scenario
@@ -313,6 +321,7 @@ impl ReplaySession {
             drawdown_pct: round_metric(drawdown),
             phase: self.phase(),
         });
+        self.end_phase_observation(equity);
         self.index += 1;
     }
 
@@ -542,6 +551,7 @@ impl ReplaySession {
                         &self.symbol,
                         pnl.round() as i64,
                     );
+                    self.realized_pnl += pnl;
                     self.completed_pnls.push((event.time.clone(), pnl, phase));
                     trade.fill_price =
                         Some(krw_to_display(fill_krw, self.is_overseas, self.current_fx));
@@ -666,11 +676,13 @@ impl ReplaySession {
             .iter()
             .map(|(_, pnl, _)| pnl.min(0.0).abs())
             .sum();
-        let phases = phase_summaries(
+        let mut phases = phase_summaries(
             &self.equity_curve,
             &self.completed_pnls,
             self.assumptions.initial_capital_krw,
         );
+        self.attach_phase_diagnostics(&mut phases);
+        self.execution_warnings.push("앞/뒤 구간은 같은 연속 장부를 관측 봉 수로 나눈 것입니다. 포지션·원가·대기 신호·리스크가 이어지며 분리 학습·독립 OOS·walk-forward 검증이 아닙니다. 구간 수익률은 기간 정규화하지 않습니다.".into());
         self.atr_preparation.ready_at_end = self.atr_window.ready();
         let accounting = self.finish_accounting(final_equity);
 

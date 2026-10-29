@@ -18,7 +18,7 @@ pub use accounting::{
     CostSource, DividendPriceBasis, DividendScenarioPoint, FxScenarioPoint, ReplayAccountingView,
 };
 mod session;
-pub use session::ReplaySession;
+pub use session::{PhaseDiagnosticsView, ReplaySession};
 pub(crate) mod minute_time;
 mod minute_timing;
 pub(crate) use minute_timing::{diagnose_minute_timing, MinuteTimingInput};
@@ -29,7 +29,7 @@ mod atr;
 pub use atr::AtrPreparationView;
 use atr::AtrWindow;
 
-pub const REPLAY_ENGINE_VERSION: &str = "strategy-replay-v22";
+pub const REPLAY_ENGINE_VERSION: &str = "strategy-replay-v23";
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -309,6 +309,8 @@ pub struct EquityPointView {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BacktestPhaseView {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub diagnostics: Option<PhaseDiagnosticsView>,
     pub phase: String,
     pub start: String,
     pub end: String,
@@ -623,6 +625,7 @@ fn phase_summaries(
                 }
             }
             Some(BacktestPhaseView {
+                diagnostics: None,
                 phase: phase.to_string(),
                 start: first.time.clone(),
                 end: last.time.clone(),
@@ -638,13 +641,10 @@ fn phase_summaries(
 fn overfit_warning(phases: &[BacktestPhaseView]) -> Option<String> {
     let in_sample = phases.iter().find(|phase| phase.phase == "inSample")?;
     let out_of_sample = phases.iter().find(|phase| phase.phase == "outOfSample")?;
-    if in_sample.return_pct > 0.0 && out_of_sample.return_pct <= 0.0 {
-        Some(
-            "학습 구간은 수익이지만 검증 구간은 손실입니다. 파라미터 과최적화 가능성을 확인하세요."
-                .into(),
-        )
-    } else if in_sample.return_pct > 0.0 && out_of_sample.return_pct < in_sample.return_pct * 0.5 {
-        Some("검증 구간 수익률이 학습 구간의 절반 미만입니다. out-of-sample 안정성이 낮을 수 있습니다.".into())
+    if in_sample.return_pct > 0.0 && out_of_sample.return_pct < 0.0 {
+        Some("같은 연속 장부의 전반은 수익, 후반은 손실로 관측되었습니다. 포지션·원가·리스크가 이어지는 구간이며 독립 OOS 검증이나 과최적화 판정이 아닙니다.".into())
+    } else if in_sample.return_pct > 0.0 && out_of_sample.return_pct == 0.0 {
+        Some("같은 연속 장부의 전반은 수익, 후반은 표시 정밀도에서 보합으로 관측되었습니다. 구간 길이·노출·완료 청산 수를 함께 확인하세요. 독립 OOS 검증이나 과최적화 판정이 아닙니다.".into())
     } else {
         None
     }
@@ -696,3 +696,7 @@ mod execution_tests;
 #[cfg(test)]
 #[path = "simulation/accounting_tests.rs"]
 mod accounting_tests;
+
+#[cfg(test)]
+#[path = "simulation/phase_diagnostics_tests.rs"]
+mod phase_diagnostics_tests;

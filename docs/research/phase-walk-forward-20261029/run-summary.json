@@ -1,0 +1,816 @@
+{
+  "comparisonTarget": "Round2 archived PC economic reports; no fresh previous-commit build",
+  "contextRuns": 792,
+  "design": {
+    "assumptions": {
+      "dailyLossLimitKrw": 1000000,
+      "dividendScenario": [],
+      "exchangeRateKrw": 1450,
+      "executionModel": "nextOpen",
+      "fxScenario": [],
+      "inSamplePercent": 70,
+      "initialCapitalKrw": 10000000,
+      "intrabarExitPolicy": "unverified",
+      "maxPositionRatio": 0.3,
+      "stopLossPct": 0,
+      "takeProfitPct": 0,
+      "taxBps": 0,
+      "volatilitySizingEnabled": false
+    },
+    "baselineCommit": "00ea198ad021836862ad345d58f618660fae6d0b",
+    "comparisonPolicy": "Same requested-quantity buyHold production comparator and accepted-path cost refund have different exposure/meaning; no same-exposure alpha inference. Old PC compatibility ignores only phase diagnostics, overfitWarning and executionWarnings; compare full remaining backtest, signals and preparation with archived round2 rows. No fresh previous-commit build.",
+    "contextAndEvaluationPolicy": "Separate fresh production strategy, cash, holdings, pending, guard, risk and ATR lifecycle for context and evaluation; prior 252 real completed observations independently warm each window. Evaluation history may include previous context prices but never its filled portfolio/protection. No future history.",
+    "costBps": [
+      10,
+      20
+    ],
+    "costMeaning": "Fee and slippage each 10bp or each 20bp on each side; approximate round-trip 40/80bp, not 10/20bp. Same frozen quantity under both costs.",
+    "declaredAt": "2026-10-29T06:44:43.969239+00:00",
+    "declaredBeforeRuns": true,
+    "executionModel": "nextOpen",
+    "expected": {
+      "contextRuns": 792,
+      "evaluationRuns": 792,
+      "partitionCompatibilityRuns": 6,
+      "pcCompatibilityRuns": 78,
+      "totalWalkForwardRuns": 1584
+    },
+    "folds": [
+      {
+        "contextQuarterCount": 4,
+        "evaluationQuarterCount": 1,
+        "id": "2024Q1",
+        "symbols": [
+          {
+            "contextBars": 250,
+            "contextEndExclusive": 554,
+            "contextFirstDate": "20230103",
+            "contextLastDate": "20231229",
+            "contextStart": 304,
+            "evaluationBars": 61,
+            "evaluationEndExclusive": 615,
+            "evaluationFirstDate": "20240102",
+            "evaluationLastDate": "20240328",
+            "evaluationStart": 554,
+            "orderQuantity": 51,
+            "quantityReferenceClose": "19.91",
+            "quantityReferenceDate": "20221230",
+            "symbol": "SOXQ"
+          },
+          {
+            "contextBars": 250,
+            "contextEndExclusive": 554,
+            "contextFirstDate": "20230103",
+            "contextLastDate": "20231229",
+            "contextStart": 304,
+            "evaluationBars": 61,
+            "evaluationEndExclusive": 615,
+            "evaluationFirstDate": "20240102",
+            "evaluationLastDate": "20240328",
+            "evaluationStart": 554,
+            "orderQuantity": 2,
+            "quantityReferenceClose": "382.43",
+            "quantityReferenceDate": "20221230",
+            "symbol": "SPY"
+          },
+          {
+            "contextBars": 250,
+            "contextEndExclusive": 554,
+            "contextFirstDate": "20230103",
+            "contextLastDate": "20231229",
+            "contextStart": 304,
+            "evaluationBars": 61,
+            "evaluationEndExclusive": 615,
+            "evaluationFirstDate": "20240102",
+            "evaluationLastDate": "20240328",
+            "evaluationStart": 554,
+            "orderQuantity": 3,
+            "quantityReferenceClose": "266.28",
+            "quantityReferenceDate": "20221230",
+            "symbol": "QQQ"
+          }
+        ]
+      },
+      {
+        "contextQuarterCount": 4,
+        "evaluationQuarterCount": 1,
+        "id": "2024Q2",
+        "symbols": [
+          {
+            "contextBars": 249,
+            "contextEndExclusive": 615,
+            "contextFirstDate": "20230403",
+            "contextLastDate": "20240328",
+            "contextStart": 366,
+            "evaluationBars": 63,
+            "evaluationEndExclusive": 678,
+            "evaluationFirstDate": "20240401",
+            "evaluationLastDate": "20240628",
+            "evaluationStart": 615,
+            "orderQuantity": 40,
+            "quantityReferenceClose": "25.45",
+            "quantityReferenceDate": "20230331",
+            "symbol": "SOXQ"
+          },
+          {
+            "contextBars": 249,
+            "contextEndExclusive": 615,
+            "contextFirstDate": "20230403",
+            "contextLastDate": "20240328",
+            "contextStart": 366,
+            "evaluationBars": 63,
+            "evaluationEndExclusive": 678,
+            "evaluationFirstDate": "20240401",
+            "evaluationLastDate": "20240628",
+            "evaluationStart": 615,
+            "orderQuantity": 2,
+            "quantityReferenceClose": "409.39",
+            "quantityReferenceDate": "20230331",
+            "symbol": "SPY"
+          },
+          {
+            "contextBars": 249,
+            "contextEndExclusive": 615,
+            "contextFirstDate": "20230403",
+            "contextLastDate": "20240328",
+            "contextStart": 366,
+            "evaluationBars": 63,
+            "evaluationEndExclusive": 678,
+            "evaluationFirstDate": "20240401",
+            "evaluationLastDate": "20240628",
+            "evaluationStart": 615,
+            "orderQuantity": 3,
+            "quantityReferenceClose": "320.93",
+            "quantityReferenceDate": "20230331",
+            "symbol": "QQQ"
+          }
+        ]
+      },
+      {
+        "contextQuarterCount": 4,
+        "evaluationQuarterCount": 1,
+        "id": "2024Q3",
+        "symbols": [
+          {
+            "contextBars": 250,
+            "contextEndExclusive": 678,
+            "contextFirstDate": "20230703",
+            "contextLastDate": "20240628",
+            "contextStart": 428,
+            "evaluationBars": 64,
+            "evaluationEndExclusive": 742,
+            "evaluationFirstDate": "20240701",
+            "evaluationLastDate": "20240930",
+            "evaluationStart": 678,
+            "orderQuantity": 35,
+            "quantityReferenceClose": "28.93",
+            "quantityReferenceDate": "20230630",
+            "symbol": "SOXQ"
+          },
+          {
+            "contextBars": 250,
+            "contextEndExclusive": 678,
+            "contextFirstDate": "20230703",
+            "contextLastDate": "20240628",
+            "contextStart": 428,
+            "evaluationBars": 64,
+            "evaluationEndExclusive": 742,
+            "evaluationFirstDate": "20240701",
+            "evaluationLastDate": "20240930",
+            "evaluationStart": 678,
+            "orderQuantity": 2,
+            "quantityReferenceClose": "443.28",
+            "quantityReferenceDate": "20230630",
+            "symbol": "SPY"
+          },
+          {
+            "contextBars": 250,
+            "contextEndExclusive": 678,
+            "contextFirstDate": "20230703",
+            "contextLastDate": "20240628",
+            "contextStart": 428,
+            "evaluationBars": 64,
+            "evaluationEndExclusive": 742,
+            "evaluationFirstDate": "20240701",
+            "evaluationLastDate": "20240930",
+            "evaluationStart": 678,
+            "orderQuantity": 2,
+            "quantityReferenceClose": "369.42",
+            "quantityReferenceDate": "20230630",
+            "symbol": "QQQ"
+          }
+        ]
+      },
+      {
+        "contextQuarterCount": 4,
+        "evaluationQuarterCount": 1,
+        "id": "2024Q4",
+        "symbols": [
+          {
+            "contextBars": 251,
+            "contextEndExclusive": 742,
+            "contextFirstDate": "20231002",
+            "contextLastDate": "20240930",
+            "contextStart": 491,
+            "evaluationBars": 64,
+            "evaluationEndExclusive": 806,
+            "evaluationFirstDate": "20241001",
+            "evaluationLastDate": "20241231",
+            "evaluationStart": 742,
+            "orderQuantity": 38,
+            "quantityReferenceClose": "27.05",
+            "quantityReferenceDate": "20230929",
+            "symbol": "SOXQ"
+          },
+          {
+            "contextBars": 251,
+            "contextEndExclusive": 742,
+            "contextFirstDate": "20231002",
+            "contextLastDate": "20240930",
+            "contextStart": 491,
+            "evaluationBars": 64,
+            "evaluationEndExclusive": 806,
+            "evaluationFirstDate": "20241001",
+            "evaluationLastDate": "20241231",
+            "evaluationStart": 742,
+            "orderQuantity": 2,
+            "quantityReferenceClose": "427.48",
+            "quantityReferenceDate": "20230929",
+            "symbol": "SPY"
+          },
+          {
+            "contextBars": 251,
+            "contextEndExclusive": 742,
+            "contextFirstDate": "20231002",
+            "contextLastDate": "20240930",
+            "contextStart": 491,
+            "evaluationBars": 64,
+            "evaluationEndExclusive": 806,
+            "evaluationFirstDate": "20241001",
+            "evaluationLastDate": "20241231",
+            "evaluationStart": 742,
+            "orderQuantity": 2,
+            "quantityReferenceClose": "358.27",
+            "quantityReferenceDate": "20230929",
+            "symbol": "QQQ"
+          }
+        ]
+      },
+      {
+        "contextQuarterCount": 4,
+        "evaluationQuarterCount": 1,
+        "id": "2025Q1",
+        "symbols": [
+          {
+            "contextBars": 252,
+            "contextEndExclusive": 806,
+            "contextFirstDate": "20240102",
+            "contextLastDate": "20241231",
+            "contextStart": 554,
+            "evaluationBars": 60,
+            "evaluationEndExclusive": 866,
+            "evaluationFirstDate": "20250102",
+            "evaluationLastDate": "20250331",
+            "evaluationStart": 806,
+            "orderQuantity": 31,
+            "quantityReferenceClose": "32.86",
+            "quantityReferenceDate": "20231229",
+            "symbol": "SOXQ"
+          },
+          {
+            "contextBars": 252,
+            "contextEndExclusive": 806,
+            "contextFirstDate": "20240102",
+            "contextLastDate": "20241231",
+            "contextStart": 554,
+            "evaluationBars": 60,
+            "evaluationEndExclusive": 866,
+            "evaluationFirstDate": "20250102",
+            "evaluationLastDate": "20250331",
+            "evaluationStart": 806,
+            "orderQuantity": 2,
+            "quantityReferenceClose": "475.31",
+            "quantityReferenceDate": "20231229",
+            "symbol": "SPY"
+          },
+          {
+            "contextBars": 252,
+            "contextEndExclusive": 806,
+            "contextFirstDate": "20240102",
+            "contextLastDate": "20241231",
+            "contextStart": 554,
+            "evaluationBars": 60,
+            "evaluationEndExclusive": 866,
+            "evaluationFirstDate": "20250102",
+            "evaluationLastDate": "20250331",
+            "evaluationStart": 806,
+            "orderQuantity": 2,
+            "quantityReferenceClose": "409.52",
+            "quantityReferenceDate": "20231229",
+            "symbol": "QQQ"
+          }
+        ]
+      },
+      {
+        "contextQuarterCount": 4,
+        "evaluationQuarterCount": 1,
+        "id": "2025Q2",
+        "symbols": [
+          {
+            "contextBars": 251,
+            "contextEndExclusive": 866,
+            "contextFirstDate": "20240401",
+            "contextLastDate": "20250331",
+            "contextStart": 615,
+            "evaluationBars": 62,
+            "evaluationEndExclusive": 928,
+            "evaluationFirstDate": "20250401",
+            "evaluationLastDate": "20250630",
+            "evaluationStart": 866,
+            "orderQuantity": 26,
+            "quantityReferenceClose": "38.59",
+            "quantityReferenceDate": "20240328",
+            "symbol": "SOXQ"
+          },
+          {
+            "contextBars": 251,
+            "contextEndExclusive": 866,
+            "contextFirstDate": "20240401",
+            "contextLastDate": "20250331",
+            "contextStart": 615,
+            "evaluationBars": 62,
+            "evaluationEndExclusive": 928,
+            "evaluationFirstDate": "20250401",
+            "evaluationLastDate": "20250630",
+            "evaluationStart": 866,
+            "orderQuantity": 1,
+            "quantityReferenceClose": "523.07",
+            "quantityReferenceDate": "20240328",
+            "symbol": "SPY"
+          },
+          {
+            "contextBars": 251,
+            "contextEndExclusive": 866,
+            "contextFirstDate": "20240401",
+            "contextLastDate": "20250331",
+            "contextStart": 615,
+            "evaluationBars": 62,
+            "evaluationEndExclusive": 928,
+            "evaluationFirstDate": "20250401",
+            "evaluationLastDate": "20250630",
+            "evaluationStart": 866,
+            "orderQuantity": 2,
+            "quantityReferenceClose": "444.01",
+            "quantityReferenceDate": "20240328",
+            "symbol": "QQQ"
+          }
+        ]
+      },
+      {
+        "contextQuarterCount": 4,
+        "evaluationQuarterCount": 1,
+        "id": "2025Q3",
+        "symbols": [
+          {
+            "contextBars": 250,
+            "contextEndExclusive": 928,
+            "contextFirstDate": "20240701",
+            "contextLastDate": "20250630",
+            "contextStart": 678,
+            "evaluationBars": 64,
+            "evaluationEndExclusive": 992,
+            "evaluationFirstDate": "20250701",
+            "evaluationLastDate": "20250930",
+            "evaluationStart": 928,
+            "orderQuantity": 23,
+            "quantityReferenceClose": "43.09",
+            "quantityReferenceDate": "20240628",
+            "symbol": "SOXQ"
+          },
+          {
+            "contextBars": 250,
+            "contextEndExclusive": 928,
+            "contextFirstDate": "20240701",
+            "contextLastDate": "20250630",
+            "contextStart": 678,
+            "evaluationBars": 64,
+            "evaluationEndExclusive": 992,
+            "evaluationFirstDate": "20250701",
+            "evaluationLastDate": "20250930",
+            "evaluationStart": 928,
+            "orderQuantity": 1,
+            "quantityReferenceClose": "544.22",
+            "quantityReferenceDate": "20240628",
+            "symbol": "SPY"
+          },
+          {
+            "contextBars": 250,
+            "contextEndExclusive": 928,
+            "contextFirstDate": "20240701",
+            "contextLastDate": "20250630",
+            "contextStart": 678,
+            "evaluationBars": 64,
+            "evaluationEndExclusive": 992,
+            "evaluationFirstDate": "20250701",
+            "evaluationLastDate": "20250930",
+            "evaluationStart": 928,
+            "orderQuantity": 2,
+            "quantityReferenceClose": "479.11",
+            "quantityReferenceDate": "20240628",
+            "symbol": "QQQ"
+          }
+        ]
+      },
+      {
+        "contextQuarterCount": 4,
+        "evaluationQuarterCount": 1,
+        "id": "2025Q4",
+        "symbols": [
+          {
+            "contextBars": 250,
+            "contextEndExclusive": 992,
+            "contextFirstDate": "20241001",
+            "contextLastDate": "20250930",
+            "contextStart": 742,
+            "evaluationBars": 64,
+            "evaluationEndExclusive": 1056,
+            "evaluationFirstDate": "20251001",
+            "evaluationLastDate": "20251231",
+            "evaluationStart": 992,
+            "orderQuantity": 25,
+            "quantityReferenceClose": "40.73",
+            "quantityReferenceDate": "20240930",
+            "symbol": "SOXQ"
+          },
+          {
+            "contextBars": 250,
+            "contextEndExclusive": 992,
+            "contextFirstDate": "20241001",
+            "contextLastDate": "20250930",
+            "contextStart": 742,
+            "evaluationBars": 64,
+            "evaluationEndExclusive": 1056,
+            "evaluationFirstDate": "20251001",
+            "evaluationLastDate": "20251231",
+            "evaluationStart": 992,
+            "orderQuantity": 1,
+            "quantityReferenceClose": "573.76",
+            "quantityReferenceDate": "20240930",
+            "symbol": "SPY"
+          },
+          {
+            "contextBars": 250,
+            "contextEndExclusive": 992,
+            "contextFirstDate": "20241001",
+            "contextLastDate": "20250930",
+            "contextStart": 742,
+            "evaluationBars": 64,
+            "evaluationEndExclusive": 1056,
+            "evaluationFirstDate": "20251001",
+            "evaluationLastDate": "20251231",
+            "evaluationStart": 992,
+            "orderQuantity": 2,
+            "quantityReferenceClose": "488.07",
+            "quantityReferenceDate": "20240930",
+            "symbol": "QQQ"
+          }
+        ]
+      },
+      {
+        "contextQuarterCount": 4,
+        "evaluationQuarterCount": 1,
+        "id": "2026Q1",
+        "symbols": [
+          {
+            "contextBars": 250,
+            "contextEndExclusive": 1056,
+            "contextFirstDate": "20250102",
+            "contextLastDate": "20251231",
+            "contextStart": 806,
+            "evaluationBars": 61,
+            "evaluationEndExclusive": 1117,
+            "evaluationFirstDate": "20260102",
+            "evaluationLastDate": "20260331",
+            "evaluationStart": 1056,
+            "orderQuantity": 26,
+            "quantityReferenceClose": "39.22",
+            "quantityReferenceDate": "20241231",
+            "symbol": "SOXQ"
+          },
+          {
+            "contextBars": 250,
+            "contextEndExclusive": 1056,
+            "contextFirstDate": "20250102",
+            "contextLastDate": "20251231",
+            "contextStart": 806,
+            "evaluationBars": 61,
+            "evaluationEndExclusive": 1117,
+            "evaluationFirstDate": "20260102",
+            "evaluationLastDate": "20260331",
+            "evaluationStart": 1056,
+            "orderQuantity": 1,
+            "quantityReferenceClose": "586.08",
+            "quantityReferenceDate": "20241231",
+            "symbol": "SPY"
+          },
+          {
+            "contextBars": 250,
+            "contextEndExclusive": 1056,
+            "contextFirstDate": "20250102",
+            "contextLastDate": "20251231",
+            "contextStart": 806,
+            "evaluationBars": 61,
+            "evaluationEndExclusive": 1117,
+            "evaluationFirstDate": "20260102",
+            "evaluationLastDate": "20260331",
+            "evaluationStart": 1056,
+            "orderQuantity": 2,
+            "quantityReferenceClose": "511.23",
+            "quantityReferenceDate": "20241231",
+            "symbol": "QQQ"
+          }
+        ]
+      },
+      {
+        "contextQuarterCount": 4,
+        "evaluationQuarterCount": 1,
+        "id": "2026Q2",
+        "symbols": [
+          {
+            "contextBars": 251,
+            "contextEndExclusive": 1117,
+            "contextFirstDate": "20250401",
+            "contextLastDate": "20260331",
+            "contextStart": 866,
+            "evaluationBars": 62,
+            "evaluationEndExclusive": 1179,
+            "evaluationFirstDate": "20260401",
+            "evaluationLastDate": "20260630",
+            "evaluationStart": 1117,
+            "orderQuantity": 30,
+            "quantityReferenceClose": "33.65",
+            "quantityReferenceDate": "20250331",
+            "symbol": "SOXQ"
+          },
+          {
+            "contextBars": 251,
+            "contextEndExclusive": 1117,
+            "contextFirstDate": "20250401",
+            "contextLastDate": "20260331",
+            "contextStart": 866,
+            "evaluationBars": 62,
+            "evaluationEndExclusive": 1179,
+            "evaluationFirstDate": "20260401",
+            "evaluationLastDate": "20260630",
+            "evaluationStart": 1117,
+            "orderQuantity": 1,
+            "quantityReferenceClose": "559.39",
+            "quantityReferenceDate": "20250331",
+            "symbol": "SPY"
+          },
+          {
+            "contextBars": 251,
+            "contextEndExclusive": 1117,
+            "contextFirstDate": "20250401",
+            "contextLastDate": "20260331",
+            "contextStart": 866,
+            "evaluationBars": 62,
+            "evaluationEndExclusive": 1179,
+            "evaluationFirstDate": "20260401",
+            "evaluationLastDate": "20260630",
+            "evaluationStart": 1117,
+            "orderQuantity": 2,
+            "quantityReferenceClose": "468.92",
+            "quantityReferenceDate": "20250331",
+            "symbol": "QQQ"
+          }
+        ]
+      },
+      {
+        "contextQuarterCount": 4,
+        "evaluationQuarterCount": 1,
+        "id": "2026Q3",
+        "symbols": [
+          {
+            "contextBars": 251,
+            "contextEndExclusive": 1179,
+            "contextFirstDate": "20250701",
+            "contextLastDate": "20260630",
+            "contextStart": 928,
+            "evaluationBars": 64,
+            "evaluationEndExclusive": 1243,
+            "evaluationFirstDate": "20260701",
+            "evaluationLastDate": "20260930",
+            "evaluationStart": 1179,
+            "orderQuantity": 23,
+            "quantityReferenceClose": "43.66",
+            "quantityReferenceDate": "20250630",
+            "symbol": "SOXQ"
+          },
+          {
+            "contextBars": 251,
+            "contextEndExclusive": 1179,
+            "contextFirstDate": "20250701",
+            "contextLastDate": "20260630",
+            "contextStart": 928,
+            "evaluationBars": 64,
+            "evaluationEndExclusive": 1243,
+            "evaluationFirstDate": "20260701",
+            "evaluationLastDate": "20260930",
+            "evaluationStart": 1179,
+            "orderQuantity": 1,
+            "quantityReferenceClose": "617.85",
+            "quantityReferenceDate": "20250630",
+            "symbol": "SPY"
+          },
+          {
+            "contextBars": 251,
+            "contextEndExclusive": 1179,
+            "contextFirstDate": "20250701",
+            "contextLastDate": "20260630",
+            "contextStart": 928,
+            "evaluationBars": 64,
+            "evaluationEndExclusive": 1243,
+            "evaluationFirstDate": "20260701",
+            "evaluationLastDate": "20260930",
+            "evaluationStart": 1179,
+            "orderQuantity": 1,
+            "quantityReferenceClose": "551.64",
+            "quantityReferenceDate": "20250630",
+            "symbol": "QQQ"
+          }
+        ]
+      }
+    ],
+    "historyBars": 252,
+    "limitations": [
+      "Yahoo provider adjusted-close unused; original source/normalization metadata preserved; exchange calendar/corporate-action completeness not newly certified.",
+      "Daily OHLC has no intraday order/quote/liquidity and cannot establish minute cooldown efficacy. No missing-bar synthesis.",
+      "LTH excluded because generic daily replay unsupported/notEvaluable. Its actual intraday data gate remains open.",
+      "2026 prices already inspected in earlier research; no reserved/unseen holdout claim.",
+      "All outcomes describe separately reset accounts; no learned parameter selected, no statistically calibrated sample threshold.",
+      "Current v23 source includes concurrent phase interpretation changes. Execution records actual engine version and source hashes; source baselineCommit is a provenance pointer, not a separately rebuilt baseline."
+    ],
+    "partitionPolicy": "Context and evaluation use the same bounded continuous production API, chunks <=500, independent history252, <=16chunks and <=4096 evaluation observations. Chunk boundaries never reset one window; context/evaluation boundaries always create a new account.",
+    "phasePolicy": "Internal 70/30 within each window remains one ledger observation split, not the walk-forward context/evaluation separation. Validate phase bars, exposure, boundary ownership, pending and realized+residual-change+dividend equity identity.",
+    "plannedEngineVersion": "strategy-replay-v23",
+    "quantityRule": "floor(0.15 * 10000000 / (context-first-date prior completed close USD * 1450 * 1.002)); frozen for context/evaluation and both costs within fold. PC trigger, internal quantity and native 5%/3% fixed from the same information. No refresh at evaluation start.",
+    "researchId": "phase-walk-forward-20261029",
+    "selectionRule": "All 12 fixed generic strategies are evaluated for every fold. No ranking/filtering/parameter selection using context or evaluation returns. Context is a separate descriptive replay, never training a model.",
+    "source": "../strategy-review-20261018/input.json",
+    "sourcePolicy": "Previously observed frozen daily data, retrospective procedural walk-forward only; no unseen OOS, parameter optimization, independent samples or deployment-safety claim.",
+    "sourceSha256": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+    "statusAtDeclaration": "notRun",
+    "strategies": [
+      {
+        "params": {
+          "long_period": 20,
+          "short_period": 5
+        },
+        "strategyId": "ma_cross"
+      },
+      {
+        "params": {
+          "overbought": 70.0,
+          "oversold": 30.0,
+          "period": 14
+        },
+        "strategyId": "rsi"
+      },
+      {
+        "params": {
+          "lookback_period": 20,
+          "threshold_pct": 5.0
+        },
+        "strategyId": "momentum"
+      },
+      {
+        "params": {
+          "buy_threshold_pct": -5.0,
+          "ma_period": 20,
+          "sell_threshold_pct": 5.0
+        },
+        "strategyId": "deviation"
+      },
+      {
+        "params": {
+          "lookback_days": 252,
+          "stop_loss_pct": 3.0
+        },
+        "strategyId": "fifty_two_week_high"
+      },
+      {
+        "params": {
+          "buy_days": 3,
+          "sell_days": 3
+        },
+        "strategyId": "consecutive_move"
+      },
+      {
+        "params": {
+          "buffer_pct": 0.5,
+          "lookback_days": 20
+        },
+        "strategyId": "failed_breakout"
+      },
+      {
+        "params": {
+          "stop_loss_pct": 3.0,
+          "threshold_pct": 3.0
+        },
+        "strategyId": "strong_close"
+      },
+      {
+        "params": {
+          "expansion_factor": 2.0,
+          "lookback_days": 10,
+          "stop_loss_pct": 3.0
+        },
+        "strategyId": "volatility_expansion"
+      },
+      {
+        "params": {
+          "period": 20,
+          "std_dev": 2.0,
+          "stop_loss_pct": 5.0
+        },
+        "strategyId": "mean_reversion"
+      },
+      {
+        "params": {
+          "long_period": 200,
+          "mid_period": 20,
+          "short_period": 5
+        },
+        "strategyId": "trend_filter"
+      },
+      {
+        "params": {
+          "symbols": [
+            {
+              "buy_trigger_price": 19.91,
+              "is_overseas": true,
+              "quantity": 51,
+              "stop_loss_pct": 3.0,
+              "symbol": "SOXQ",
+              "take_profit_pct": 5.0
+            }
+          ]
+        },
+        "strategyId": "price_condition"
+      }
+    ],
+    "terminalPolicy": "Last nextOpen signal stays unfilled. End holdings are marked with residual PnL; optional terminal liquidation is report-only. No carry or forced actual liquidation between independent windows. Never sum/compound window percentage returns.",
+    "todoId": "SOXQ-P2-16",
+    "universe": [
+      "SOXQ",
+      "SPY",
+      "QQQ"
+    ],
+    "validationPolicy": "Read source hashes and strict history/window ordering; independently reconstruct recorded fills, proportional basis and buy fees, cash/equity, MDD, exposure, turnover, pending ownership and each phase identity. Report zero-completed and <20-completed windows explicitly. Context overlaps and ETF/cost/strategy pairs are not independent samples."
+  },
+  "designReplayHash": "e24b3c0b16dd7c8c",
+  "elapsedSeconds": 10.727398458,
+  "evaluationRuns": 792,
+  "partitionCompatibilityRuns": 6,
+  "partitions": [
+    {
+      "costBps": 10,
+      "economicHash": "a4598e3e23ca03ed",
+      "inputHash": "06388eb63595082d",
+      "symbol": "SOXQ"
+    },
+    {
+      "costBps": 20,
+      "economicHash": "99d0717c74b78beb",
+      "inputHash": "aa991a7141b2d307",
+      "symbol": "SOXQ"
+    },
+    {
+      "costBps": 10,
+      "economicHash": "3508e511ee14fbc2",
+      "inputHash": "1b507957003de978",
+      "symbol": "SPY"
+    },
+    {
+      "costBps": 20,
+      "economicHash": "0777a63280393a02",
+      "inputHash": "8f81119508aed042",
+      "symbol": "SPY"
+    },
+    {
+      "costBps": 10,
+      "economicHash": "09644cae80d0dbe8",
+      "inputHash": "24fe537b5a6f821b",
+      "symbol": "QQQ"
+    },
+    {
+      "costBps": 20,
+      "economicHash": "7382589524032c4d",
+      "inputHash": "77334adf073c57a9",
+      "symbol": "QQQ"
+    }
+  ],
+  "pcCompatibilityRuns": 78,
+  "totalWalkForwardRuns": 1584
+}

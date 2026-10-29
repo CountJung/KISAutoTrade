@@ -456,7 +456,7 @@ fn continuous_phase_warning_discloses_one_ledger_instead_of_independent_training
     let report = preview_strategy_continuous_from_candles(r).unwrap();
     let warning = report.preview.backtest.overfit_warning.unwrap();
     assert!(warning.contains("연속 장부"));
-    assert!(warning.contains("독립적인 학습/검증 표본으로 해석하지"));
+    assert!(warning.contains("독립 OOS 검증이나 과최적화 판정이 아닙니다"));
 }
 
 #[test]
@@ -500,4 +500,43 @@ fn consecutive_realized_losses_preserve_the_strategy_symbol_block_across_chunks(
     let last = split.preview.backtest.trades.last().unwrap();
     assert_eq!(last.status, "blocked");
     assert!(last.blocked_reason.as_ref().unwrap().contains("연속 손실"));
+}
+
+#[test]
+fn common_phase_diagnostics_and_warning_match_flat_single_and_partitioned_replays() {
+    let bars = daily(
+        &[
+            900., 1300., 1300., 1300., 1300., 1300., 1300., 1300., 1300., 1300.,
+        ],
+        "20261001",
+    );
+    let prepare = |chunks| {
+        let mut input = request(chunks, "1d");
+        input.assumptions.in_sample_percent = 70;
+        input
+    };
+    let flat = preview_strategy_from_candles(flat_input(prepare(vec![bars.clone()]))).unwrap();
+    let single = preview_strategy_continuous_from_candles(prepare(vec![bars.clone()])).unwrap();
+    let split = preview_strategy_continuous_from_candles(prepare(vec![
+        bars[..2].to_vec(),
+        bars[2..7].to_vec(),
+        bars[7..].to_vec(),
+    ]))
+    .unwrap();
+    assert_eq!(report_json(&flat), report_json(&single.preview));
+    assert_eq!(report_json(&flat), report_json(&split.preview));
+    assert_eq!(
+        single.preview.replay.input_hash,
+        split.preview.replay.input_hash
+    );
+    let phases = &split.preview.backtest.phases;
+    assert_eq!(phases[0].diagnostics.as_ref().unwrap().observed_bars, 7);
+    assert_eq!(phases[1].diagnostics.as_ref().unwrap().observed_bars, 3);
+    assert!(split
+        .preview
+        .backtest
+        .overfit_warning
+        .as_ref()
+        .unwrap()
+        .contains("보합"));
 }

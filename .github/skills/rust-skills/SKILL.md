@@ -1385,3 +1385,8 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - `order/feedback/tests/price_condition.rs`와 `commands/strategy_preview/pc_replay_tests.rs`를 사용해 실제생산·loopback/합성 조건을 검증한다. 시장일/DST synthetic 통과는 실제 세션/coverage나 장중 효능 인증이 아니다. [고정 일봉 재현·한계](../../../docs/research/price-condition-contracts-20261029/report.md)를 따른다.
 
 > 마지막 업데이트: 2026-10-29T06:31:54+00:00
+
+
+## v23 phase 관측 회계
+
+구간 진단은 동일 ReplaySession의 경제 동작을 바꾸지 않는 snapshot이다. 경계 첫 begin_bar에서 FX/배당/pending open 전에 시작값을 잡고 process_close 뒤 종료값을 잡는다. 매봉 전체 accounting 재계산을 추가하지 않는다. 자산 증감=실현+잔여평가증감+배당을 FX/배당/부분매도/경계pending fixture로 검증하고 원래 phase 수익·완료 매도 집계는 보존한다. 양수절반 경고를 독립 OOS 판정으로 되살리지 않는다. [계약](../../../docs/ipc-commands.md#v23-동일-장부-구간-관측-진단).

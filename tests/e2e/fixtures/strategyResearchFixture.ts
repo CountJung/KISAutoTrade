@@ -109,7 +109,7 @@ type MockOptions = {
   scopeController?: { current: 'A' | 'B' }
 }
 
-function mockResearchResult(body: Record<string, unknown>, interval: string) {
+export function mockResearchResult(body: Record<string, unknown>, interval: string) {
   const assumptions = body.assumptions ?? {
     initialCapitalKrw: 10_000_000,
     feeBps: 1.5,

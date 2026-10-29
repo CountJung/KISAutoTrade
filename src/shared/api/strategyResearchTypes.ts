@@ -214,8 +214,26 @@ export interface EquityPoint {
   phase: 'inSample' | 'outOfSample'
 }
 
+export interface BacktestPhaseDiagnostics {
+  version: 1
+  policy: 'sameLedgerObservationSplit'
+  observedBars: number
+  heldBars: number
+  exposurePct: number
+  startQuantity: number
+  endQuantity: number
+  pendingAtStart: boolean
+  pendingAtEnd: boolean
+  realizedPnlKrw: number
+  startResidualUnrealizedPnlKrw: number
+  endResidualUnrealizedPnlKrw: number
+  dividendNetKrw: number
+  equityChangeKrw: number
+}
+
 export interface BacktestPhase {
   phase: 'inSample' | 'outOfSample'
+  diagnostics?: BacktestPhaseDiagnostics
   start: string
   end: string
   returnPct: number

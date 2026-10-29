@@ -111,7 +111,7 @@
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v22`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations, minuteTiming?}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v23`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations, minuteTiming?}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
 전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
@@ -443,3 +443,12 @@ core 입력 범위는 lookback 정수1..512, factor 유한0..1000, stop 유한0.
 소유 metadata는 version1/kind=`trendFilter`이며 정확히 `version/kind/ageKnown/heldObservations/candidateEntry/observedPeak/profitArmed`7필드다. 누락/미지필드/타입/모순을 전부 검증한 뒤 원자적으로 게시한다. 이탈 연속값은 영속화하지 않는다. 양수 보유는 나이/peak unknown이어도Some이다. 실제 OrderManager caller가 sync 전에 had_metadata를 읽으므로 이것이 반복 동일수량 feedback의 불필요한 restore와 streak초기화를 막는다. cold restore/동량/부분 fixture를 실제 caller로 검증한다. 물리 pending은 기존 공통 경계를 유지하고 두 preview driver도 pending 증거를 전달한다.
 
 UI는 일곱 필드 raw 초안을 유지하고 오류에서 저장·두 preview·늦은 결과를 차단한다. current/A-B에 기간·확인·수익·보유를 보존·표시하고 v22 이전/미확인 엔진의 새 소유·보호 적용을 추정하지 않는다. live 약10초 quote와 선택 일봉/분봉의 관측 기간을 구분하며 관측 한도를 일수/체결·손실 보장으로 표현하지 않는다. 단기/연속의 기존 interval 지원은 유지하며 StrongClose/Volatility의 일봉 전용 제한을 복사하지 않는다. [연구 결과](research/trend-filter-policy-20261023/report.md), [작업 검증](tasks/trend-filter-policy-20261023.md).
+
+
+### v23 동일 장부 구간 관측 진단
+
+`BacktestPhaseView.diagnostics`/`BacktestPhase.diagnostics`는 선택 계약이다. version=1, policy=`sameLedgerObservationSplit`, observedBars/heldBars/exposurePct, startQuantity/endQuantity, pendingAtStart/pendingAtEnd, realizedPnlKrw, startResidualUnrealizedPnlKrw/endResidualUnrealizedPnlKrw, dividendNetKrw, equityChangeKrw를 제공한다. 관측 봉 수의 기존 floor 분할을 유지하고 경계 첫 봉의 환율·배당·시가 체결 전부터 마지막 종가 처리 후까지 같은 장부를 관측한다. heldBars는 종가 처리 후 양수 잔량인 봉 수다.
+
+구간 자산 증감은 실현손익 + 잔여 평가손익 증감 + 순배당이다(표시 금액 반올림 오차 가능). 부분매도를 포함한 각 양수 수량 매도의 원래 배분 진입원가·매수비용은 매도 구간 실현손익에 귀속된다. 기존 raw return/MDD/완료 수·신호·회계·guard는 유지한다. 전반 양수에서 후반0은 보합, 음수는 손실 관측으로 안내하고 양수 수익 절반 조건의 과최적화 경고는 제거한다. 경고 없음은 신뢰 충분이나 독립 검증을 뜻하지 않는다.
+
+flat/전용 LTH/continuous 및 현재/A-B는 같은 설명과 서버 진단을 사용한다. 누락·손상·미지원 진단은 미확인이고 축약 저장된 거래/곡선으로 재계산하지 않는다. LTH 일봉·평가불가·legacy gate는 유지한다. v23은 버전이 포함된 inputHash가 바뀌며 hash 알고리즘은 바꾸지 않는다. [회차 검증](tasks/immediate-backlog-20261029.md).

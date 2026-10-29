@@ -265,3 +265,10 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 `cargo test --locked --lib pc_live_`는 실제 PC→공유제출/loopback→누적체결→exact owner 피드백6개를 검증한다. `cargo test --locked --lib pc_replay_tests`는 native 평균가/FX·손절·시장일/DST·실제수량/설정수량·overlay·두비용/분할9개를 검증한다. 계좌 전체 preflight 값과 소유 원장, 접수와 체결, 잔량 상태 보존과 실제 청산 성공을 구분한다.
 
 [고정 설계와 재현](research/price-condition-contracts-20261029/report.md)의6연속+6대체분할+72별도분기 및 기록체결 정산은 기존 일봉 입력 재분석이며 실제 장중 손절 효능 검증이 아니다. 전체 Rust와 strict clippy, 문서·지도·그래프 게이트 결과는 [회차 기록](tasks/immediate-backlog-20261029.md)에 보존한다.
+
+
+## P2-16 동일 장부 구간 진단·별도 walk-forward
+
+- `cargo test --offline --lib trading::simulation`와 `cargo test --offline --lib commands::strategy_preview`: 경계잔량/pending·부분매도·FX/배당/원가·0/1봉/100%·양수절반/보합/음수·분할불변·기존TR/ATR/LTHgate를 확인한다. 최종 전체lib831 및 strict clippy 통과 근거는 [회차 기록](tasks/immediate-backlog-20261029.md).
+- production `build:web` 후 `CI=1 npx playwright test tests/e2e/strategy-phase-diagnostics.spec.ts tests/e2e/strategy-continuous-replay.spec.ts tests/e2e/strategy-replay-assessment.spec.ts`:20개. 회계·ATR·scrollbar인접3spec:37개. A/B진단 보존·legacy/손상 미확인·375px overflow·LTH성과숨김을 검증한다.
+- [연구 재현법](research/phase-walk-forward-20261029/report.md)은 동결일봉/생산API와 독립 기록산술을 사용한다. 별도reset평가·사전고정 설정을 같은장부70/30과 구분하고 이미본자료를 새OOS로 부르지 않는다.

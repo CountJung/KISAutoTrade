@@ -44,6 +44,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | 강한 종가 완료 시장일·실제 소유·선택 보호 | `trading/strategy/breakout/strong_close.rs`, `strong_close/{params,context,protection}.rs` | `strategy/{core,manager/live_history}.rs`, `manager/strong_close_history_tests.rs`, `configuration/tests/strong_close.rs`, `strategy_preview/strong_close_entry_tests.rs`, `strongClose{Controls,Preparation}.tsx`, `tests/e2e/strategy-strong-close-policy.spec.ts`, `docs/research/strong-close-policy-20261022/` |
 | 돌파 실패 실제 소유·선택 진입/보호 | `trading/strategy/sequence/failed_breakout.rs`, `failed_breakout/{params,context,protection}.rs` | `strategy/{core,completed_daily,manager/live_history}.rs`, `configuration/tests/failed_breakout.rs`, `strategy_preview/failed_breakout_entry_tests.rs`, `failedBreakout{Controls,Preparation}.tsx`, `tests/e2e/strategy-failed-breakout-policy.spec.ts`, `docs/research/failed-breakout-policy-20261022/` |
 | Replay 체결 모델·연구 보호 청산 | `trading/simulation/{session,execution_tests}.rs`, `simulation.rs` | `commands/strategy_preview{,/generic}.rs`, `strategy/leveraged_trend_hold/preview.rs`, `strategyResearchPanel.tsx`, `tests/e2e/strategy-execution-model.spec.ts` |
+| Replay 동일 장부 구간 진단 | `trading/simulation/session/phase_diagnostics.rs`, `simulation/phase_diagnostics_tests.rs` | `simulation.rs`, `src/shared/api/strategyResearchTypes.ts`, `src/pages/strategy/ui/strategyPhaseResults.tsx`, `strategyResearchPanel.tsx`, `tests/e2e/strategy-phase-diagnostics.spec.ts`. v23/진단v1 관측·경계·손익 귀속이며 별도 walk-forward와 구분 |
 | Replay 손익·현금흐름·비교 | `trading/simulation/{accounting,comparison}.rs`, `simulation/session/accounting.rs` | `simulation/accounting_tests.rs`, `src/shared/api/strategyResearchTypes.ts`, `strategyAccountingPanel.tsx`, `tests/e2e/strategy-accounting.spec.ts`, `docs/research/replay-accounting-20261018/` |
 | 연속 replay·분기 리셋 비교 | `commands/strategy_preview/{continuous,driver}.rs` | `continuous_tests.rs`, `simulation/session.rs`, `continuousReplayPanel.tsx`, `candlePageCollector.ts`, `docs/research/continuous-replay-20261018/` |
 | 전략 설정 저장·보유 보호 | `src-tauri/src/trading/configuration.rs` | `trading/order/configuration.rs`, `trading/strategy/manager/configuration.rs`, 각 전략의 `reconfigure_tests.rs`, IPC/Web 전략 수정 facade |
@@ -200,7 +201,7 @@ kind=volatilityExpansion metadata는 미확인 나이/고점/무장을 추정하
 거절·부분 체결·같은 scope 설정은 알려진 보호를 보존하며 미확인 나이와 활성 cap은
 다음 보유 관측에서 보수적 청산 후보를 낸다.
 
-현재 v22 공통 driver의 두 preview와 저장 경계는 같은6필드를 strict 검증하고 기존 일봉
+현재 v23 공통 driver의 두 preview와 저장 경계는 같은6필드를 strict 검증하고 기존 일봉
 전용을 유지한다. `core.rs`의 전용12필드 `VolatilityExpansionPreparation`은 평가=보유+
 미보유 후보, 후보=미준비+범위 거부+방향 거부+통과로 분류한다. 선택 응답 필드→TS
 미러→preview/research panel→현재/A-B로 보존하며 controls/preparation은 raw/stored
@@ -239,7 +240,7 @@ StrongClose는 새 시장일의 전일 조건을 seed하고 소비를 관리하�
 kind=strongClose metadata는 미확인 나이/고점/무장을 만들어내지 않으며 나이
 미확인·cap 활성은 다음 보유 관측에 보수적 청산 후보를 낸다.
 
-현재 v22 공통 driver는 선택 params를 strict 검증하고 기존 일봉 전용·실제 체결 피드백
+현재 v23 공통 driver는 선택 params를 strict 검증하고 기존 일봉 전용·실제 체결 피드백
 뒤 완료봉 게시 순서를 유지한다. D-1조건→D종가 신호→D+1관측 시가(nextOpen)는
 live 첫 적격 관측과 다르다. controls/preparation은 raw/stored 편집·수익 보호 쌍과
 현재/A-B 준비/후보 진단·legacy 미확인을 표시한다. 생산 실행기·기록 정산·작동
@@ -282,6 +283,19 @@ RSI 계산·교차·손절/추세 의미는 전략에 남긴다. 고정 생산30
 가정 차이를 표시한다. 이전 결과의 누락 metadata는 미확인으로 남긴다. 동결 자료를
 생산 엔진으로 비교하는 진입점은 `docs/research/replay-execution-20261018/runner.rs`다.
 이 경로는 사용자 운용 설정·실제 주문을 변경하지 않는다. [연구 비교](research/replay-execution-20261018/report.md)와 [작업 기록](tasks/replay-execution-model-20261018.md)에서 검증 범위를 확인한다.
+
+### 동일 장부의 앞/뒤 구간 관측
+
+`session/phase_diagnostics.rs`는 v23 ReplaySession에서 두 구간의 시작/끝
+snapshot과 관측·종가 보유봉을 기록한다. 시작 snapshot은 해당 봉의 FX·배당·
+시가 체결 전이며, 실현손익·잔여 평가손익 변화·순배당을 자산 증감과 연결한다.
+장부·보유·대기 주문·guard/risk는 경계를 넘어 유지하고 기존 구간값은 보존한다.
+선택 `diagnostics`의 v1/sameLedgerObservationSplit은 TS 미러를 거쳐
+`strategyPhaseResults.tsx`의 flat/LTH/continuous·현재/A-B에 전달한다. 누락·
+손상·미지원 버전은 미확인으로 표시하고 저장 축약 자료로 다시 계산하지 않는다.
+보합과 손실을 구분하며 길이·노출·부분매도 포함 완료 표본이 다른 누적수익을
+과최적화나 독립 OOS로 판정하지 않는다. 별도 생산 walk-forward 설계는
+`docs/research/phase-walk-forward-20261029/`에서 관리하며 이 관측 진단과 구분한다.
 
 ### Replay 손익·현금흐름과 비교
 

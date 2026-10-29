@@ -1,3 +1,4 @@
+import { StrategyPhaseResults } from './strategyPhaseResults'
 import { TrendFilterSummary } from './trendFilterControls'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -128,10 +129,10 @@ const assumptionFields: Array<{
   { key: 'exchangeRateKrw', label: 'USD/KRW 환율', min: 100, max: 10_000, step: 1 },
   { key: 'maxPositionRatio', label: '종목 최대 비중', min: 0.01, max: 1, step: 0.01, helper: '0.3 = 자본의 30%' },
   { key: 'dailyLossLimitKrw', label: '일일 손실 한도(원)', min: 0, max: 1_000_000_000_000, step: 10_000 },
-  { key: 'inSamplePercent', label: '학습 구간(%)', min: 50, max: 100, step: 5, helper: '나머지는 out-of-sample 검증' },
+  { key: 'inSamplePercent', label: '앞 구간 비율(%)', min: 50, max: 100, step: 5, helper: '평가 관측 봉 수 기준 · 동일 장부의 앞/뒤 구간' },
 ]
 
-export function SimulationAssumptionsEditor({ value, onChange, disabled, isOverseas, onValidationChange, onDraftChange, continuousMode = false }: AssumptionsProps) {
+export function SimulationAssumptionsEditor({ value, onChange, disabled, isOverseas, onValidationChange, onDraftChange }: AssumptionsProps) {
   const updateNumber = (key: keyof SimulationAssumptions, next: number) => {
     onChange({ ...value, [key]: Number.isFinite(next) ? next : 0 })
   }
@@ -183,12 +184,12 @@ export function SimulationAssumptionsEditor({ value, onChange, disabled, isOvers
             <TextField
               size="small"
               type="number"
-              label={continuousMode && field.key === 'inSamplePercent' ? '연속 구간 경계(%)' : field.label}
+              label={field.label}
               value={value[field.key] as number}
               onChange={(event) => updateNumber(field.key, Number(event.target.value))}
               disabled={disabled}
               fullWidth
-              helperText={continuousMode && field.key === 'inSamplePercent' ? '동일 장부의 전후 구간 · 독립 학습/검증 아님' : field.helper}
+              helperText={field.helper}
               inputProps={{ min: field.min, max: field.max, step: field.step }}
             />
           </Grid>
@@ -512,7 +513,6 @@ export function StrategyResearchResults({
         {(report.executionWarnings ?? []).map((warning, index) => <Typography key={`${index}:${warning}`} variant="body2">{warning}</Typography>)}
         {!report.executionWarnings && <Typography variant="body2">이전 응답에는 체결 진단 정보가 없습니다. 다시 계산해 확인하세요.</Typography>}
       </Alert>
-      {report.overfitWarning && <Alert severity="warning" sx={{ py: 0.5 }}>{report.overfitWarning}</Alert>}
 
       <Grid container spacing={1}>
         <Grid item xs={6} sm={4} md={2}><Metric label="누적 수익률" value={fmtPct(summary.cumulativeReturnPct)} tone={summary.cumulativeReturnPct >= 0 ? 'positive' : 'negative'} /></Grid>
@@ -529,29 +529,11 @@ export function StrategyResearchResults({
       </Alert>
 
       {continuity && <ContinuityResults value={continuity} />}
-      {calculationMode === 'continuous' && <Alert severity="warning" data-testid="continuous-phase-policy">앞/뒤 구간은 현금·보유·대기 주문·guard·risk를 보존한 한 연속 장부의 구간 표시입니다. 경계에서 재학습/리셋하지 않으며 후반을 독립 검증 성과로 해석하지 않습니다.</Alert>}
       <AccountingResults report={report} />
       <ComparisonResults report={report} />
       <EquityCurve report={report} />
 
-      {report.phases.length > 0 && (
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small" aria-label={calculationMode === 'continuous' ? '연속 장부 구간 성과' : '학습 및 검증 구간 성과'}>
-            <TableHead><TableRow><TableCell>구간</TableCell><TableCell>기간</TableCell><TableCell align="right">수익률</TableCell><TableCell align="right">MDD</TableCell><TableCell align="right">거래/승률</TableCell></TableRow></TableHead>
-            <TableBody>
-              {report.phases.map((phase) => (
-                <TableRow key={phase.phase}>
-                  <TableCell>{calculationMode === 'continuous' ? phase.phase === 'inSample' ? '앞 구간 · 동일 장부' : '뒤 구간 · 동일 장부' : phase.phase === 'inSample' ? 'In-sample' : 'Out-of-sample'}</TableCell>
-                  <TableCell>{phase.start} → {phase.end}</TableCell>
-                  <TableCell align="right">{fmtPct(phase.returnPct)}</TableCell>
-                  <TableCell align="right">{phase.mddPct.toFixed(2)}%</TableCell>
-                  <TableCell align="right">{phase.completedTrades}회 / {phase.winRatePct.toFixed(1)}%</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      <StrategyPhaseResults report={report} />
 
       {(slots.A || slots.B) && (
         <Box sx={{ p: 1.25, border: 1, borderColor: 'divider', borderRadius: 1 }} data-testid="strategy-ab-comparison">
@@ -603,7 +585,7 @@ export function StrategyResearchResults({
                         {fmtPct(saved.backtest.summary.cumulativeReturnPct)} · MDD {saved.backtest.summary.mddPct.toFixed(2)}% · {saved.replay.dataStart}~{saved.replay.dataEnd}
                       </Typography>
                     ) : <Typography variant="body2" color="text.secondary">저장된 결과 없음</Typography>}
-                    {saved && !savedUnavailable && <AccountingResults report={saved.backtest} compact />}
+                    {saved && !savedUnavailable && <><AccountingResults report={saved.backtest} compact /><StrategyPhaseResults report={saved.backtest} /></>}
                   </Paper>
                 </Grid>
               )
