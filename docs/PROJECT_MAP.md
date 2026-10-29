@@ -69,6 +69,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | 서버용 격리 저장 fixture | `src-tauri/src/storage/database/test_support.rs` | `server/test_support.rs`가 사용하는 `cfg(test)` JSON 전용 manager. 설정 로드·keychain 접근·전역 DB 설치 없이 조립 |
 | DB TLS·강제 단절·재접속 계약 | `scripts/database-tls-contract.mjs` | `storage/database_contract_tests/tls_restart.rs`, `docs/tasks/database-tls-reconnect-20261018.md`, `docs/HARNESS_MAP.md` |
 | 데몬/앱 초기화 | `src-tauri/src/lib.rs` | `commands.rs::AppState`, `server/mod.rs` |
+| Rust 의존성 hash·오류 호환 | `src-tauri/Cargo.toml`, `src-tauri/src/{api,broker,commands,storage,trading}/`의 dependency 계약 leaf | [상세 지도·등록부](project-map.md#rust-의존성의-hash오류-계약)의 10개 leaf·14개 합성 계약. sha2.11/hex0.4의 소문자 출력 6표현·raw 프로파일 배열과 thiserror2 오류 경계를 구분. [명령·한계](HARNESS_MAP.md), [9회차 고정 입력·단계 결과/유지 판단](tasks/immediate-backlog-20261029.md) 참조 |
 | 릴리스/CI | `package.json`, root `Cargo.toml` | `.github/workflows/*.yml`, `docs/release-security.md` |
 
 ## 3. Frontend 경계

@@ -198,3 +198,7 @@ fn bounded_receipts_and_numeric_overflow_reject_without_partial_mutation() {
     risk.reset_daily();
     assert!(apply(&mut risk, "after-reset", -10).unwrap());
 }
+
+#[cfg(test)]
+#[path = "dependency_contract_tests.rs"]
+mod dependency_contract_tests;

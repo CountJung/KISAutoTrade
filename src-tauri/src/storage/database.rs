@@ -289,7 +289,7 @@ impl DatabaseManager {
             skipped: 0,
             size_bytes,
             output_path: None,
-            checksum: format!("{:x}", checksum.finalize()),
+            checksum: hex::encode(checksum.finalize()),
             completed_at: chrono::Utc::now().to_rfc3339(),
             message: format!("JSON {}개 문서를 DB에 저장했습니다.", documents.len()),
         })
@@ -313,7 +313,7 @@ impl DatabaseManager {
             checksum.update(document.payload.as_bytes());
             size_bytes = size_bytes.saturating_add(document.size_bytes);
         }
-        let checksum = format!("{:x}", checksum.finalize());
+        let checksum = hex::encode(checksum.finalize());
         let manifest = serde_json::json!({
             "formatVersion": 1,
             "generatedAt": chrono::Utc::now().to_rfc3339(),

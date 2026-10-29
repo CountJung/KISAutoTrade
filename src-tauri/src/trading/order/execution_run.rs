@@ -179,3 +179,7 @@ pub(super) fn profile_fingerprint(profile: &AccountProfile) -> [u8; 32] {
     ]);
     hash.finalize().into()
 }
+
+#[cfg(test)]
+#[path = "execution_run_dependency_contract_tests.rs"]
+mod dependency_contract_tests;

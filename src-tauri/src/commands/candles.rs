@@ -123,7 +123,7 @@ fn scope_key(input: &CandlePageInput, profile: &AccountProfile) -> String {
         input.exchange,
         input.count.unwrap_or(200)
     ]);
-    format!("{:x}", Sha256::digest(contract.to_string().as_bytes()))
+    hex::encode(Sha256::digest(contract.to_string().as_bytes()))
 }
 
 fn decode_cursor(

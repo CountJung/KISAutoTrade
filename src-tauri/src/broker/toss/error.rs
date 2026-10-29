@@ -73,3 +73,7 @@ pub(super) fn format_toss_error(
     }
     .into()
 }
+
+#[cfg(test)]
+#[path = "error_dependency_contract_tests.rs"]
+mod dependency_contract_tests;

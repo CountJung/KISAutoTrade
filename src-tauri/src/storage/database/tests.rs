@@ -121,3 +121,7 @@ async fn legacy_file_password_migrates_to_keychain_on_load() {
         Some("legacy-file-password")
     );
 }
+
+#[cfg(test)]
+#[path = "checksum_dependency_contract_tests.rs"]
+mod dependency_contract_tests;

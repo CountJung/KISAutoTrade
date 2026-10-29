@@ -860,3 +860,7 @@ impl KisRestClient {
             .ok_or_else(|| anyhow::anyhow!("현재가 응답 없음"))
     }
 }
+
+#[cfg(test)]
+#[path = "rest/dependency_contract_tests.rs"]
+mod dependency_contract_tests;

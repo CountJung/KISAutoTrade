@@ -319,3 +319,7 @@ fn completed_provider_minute_page_runs_through_production_replay() {
     assert_eq!(result.preparation.evaluated_bars, Some(2));
     assert!(result.replay.deterministic);
 }
+
+#[cfg(test)]
+#[path = "dependency_contract_tests.rs"]
+mod dependency_contract_tests;

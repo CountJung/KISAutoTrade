@@ -740,3 +740,7 @@ mod strong_close;
 
 #[path = "volatility_history_tests.rs"]
 mod volatility_history_tests;
+
+#[cfg(test)]
+#[path = "live_history_dependency_contract_tests.rs"]
+mod dependency_contract_tests;

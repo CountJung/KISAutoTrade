@@ -314,3 +314,10 @@ Vite6→7→8/plugin6 전환에서는 명시한 Safari13/Chrome105 target과 pro
 `node --test scripts/webview-smoke/bootstrap.test.mjs`는 네 개의 순수 Node VM 계약이다. `node scripts/webview-smoke/driver.mjs --build`는 macOS에서 동결 dist를 복사하고 독립 Wry/Tao workspace를 offline으로 빌드한다. Cargo registry cache가 필요하며 GUI 실행 명령은 없다. 격리 목적상 일회성 결과는 일반 `.cache/` 대신 고유 `/tmp/kis-webview-smoke-8-*/`에 둔다. `snapshot.json`, `isolation.json`, `build-result.json`의 소스·자산·실행 파일 해시를 확인한 뒤 별도로 승인된 CUA 실행만 수행한다. `launched:false`는 빌드 시점 기록이다. 같은 실행 파일을 재실행하면 고정 output 이름을 재사용하므로 이전 PNG가 남을 수 있다. 각 실행을 별도 보관하고 현재 report의 snapshotCount·파일 시각·sidecar와 대조한 유효 산출물 manifest를 둔다. 이전 회차의 더 큰 번호 파일을 새 캡처로 집계하지 않는다.
 
 이 창은 IPC와 생산 앱 crate 없이 비영속 WK store·고정 합성 transport를 사용한다. 알려진 GET/순수 preview만 허용하고 저장·주문·외부 전송은 차단한다. 읽기 전용 화면 상태 변화 시 자기 WebView만 최대12회 캡처하며 `snapshot-NN.json`의 성공과 PNG를 함께 확인한다. report의 rootChildren·canvas paint·오류·denied·overflow·정책 ledger가 실제 관측돼야 하며 null/누락을 통과로 해석하지 않는다. 실제 종료 후 프로세스 부재, 명시 재실행 뒤 marker의 initiallyAbsent/readbackMatches를 확인한다. bare Wry 성공은 원래 Tauri startup/IPC·운영 DB·계정·Windows·macOS 최소버전 검증이 아니다. CSP 설치와 실제 negative control 검증도 구분한다.
+
+
+## SHA·오류 의존성 계약
+
+`cargo test --offline --locked --lib dependency_contract_tests`는 생산 scope/profile/receipt/config 지문과 실제 DB scanner, 다섯 오류 타입의 고정 계약14개다. 기존 버전에서 입력 bytes·기대값을 먼저 고정하고 전환 후 같은 literal을 쓴다. sha2.11 Output은 LowerHex가 없으므로 기존 hex0.4.3의 소문자·leading-zero 출력을 사용한다. DB checksum fixture는 scanner와 입력/알고리즘 계약이며 production import/export roundtrip은 아니다.
+
+`cargo test --workspace --lib --locked -- --skip storage::database_contract_tests`는 실제 DB 계약 module을 명시 제외한 lib 회귀다. 접속 환경 값은 조회하지 않고 자식에서 제거하며, filtered5를 성공한 DB 테스트로 세지 않는다. 실제 PostgreSQL/TLS fixture는 앞의 별도 명령과 사용자 결정 범위를 따른다. focused·통합 결과, 원본/호환 baseline·동등성·유지 판단은 [9회차 기록](tasks/immediate-backlog-20261029.md)에 보존한다. thiserror 전환에서는 Display/From/source/downcast와 확정거절/불명 결과를 함께 확인하고 HTTP trust·보안 예외를 변경하지 않는다.

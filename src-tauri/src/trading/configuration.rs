@@ -287,3 +287,7 @@ where
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+#[path = "configuration/dependency_contract_tests.rs"]
+mod dependency_contract_tests;

@@ -54,7 +54,7 @@ pub(super) struct DailyHistoryEntry {
 
 fn fingerprint(config: &StrategyConfig) -> String {
     let bytes = serde_json::to_vec(config).unwrap_or_default();
-    format!("{:x}", Sha256::digest(bytes))
+    hex::encode(Sha256::digest(bytes))
 }
 
 fn pending_status(ticket: &DailyHistoryTicket) -> DailyHistoryStatus {

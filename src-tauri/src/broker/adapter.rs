@@ -135,3 +135,7 @@ mod tests {
         ));
     }
 }
+
+#[cfg(test)]
+#[path = "adapter_dependency_contract_tests.rs"]
+mod dependency_contract_tests;

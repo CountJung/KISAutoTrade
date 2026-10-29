@@ -1411,3 +1411,12 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - `server/test_support.rs`는 cfg(test) 합성 상태·localhost·임시 데이터만 구성한다. 운영 AppState 생성·config load·keychain·전역 DATABASE_MANAGER 설치를 fixture에 사용하지 않는다. JSON-only 테스트 생성자를 실제 DB 검증 성공으로 해석하지 않는다.
 - 전체 route 등록·인증 거부와 provider 성공 검증을 구분한다. 실제 외부 호출이나 운영 설정 저장에 도달하는 handler는 합성 격리가 확인되기 전 실행하지 않는다. CORS feature 선언을 실제 CorsLayer 사용으로 보고하지 않는다.
 - axum0.8은 JSON 뒤 trailing content를 framework에서400으로 거부한다. 자체 오류의 기존 status/JSON 계약과 이 upstream 해석 거부를 구분하고, 허용 범위를 되돌려 기준 테스트에 맞추지 않는다.
+
+
+## Hash·오류 라이브러리 전환 계약 (2026-10-29)
+
+sha2 소비자의 입력 bytes·serde 순서·UTF-8 길이 prefix·raw 배열/소문자 hex를 먼저 고정한다. sha2.11 Output은 LowerHex를 구현하지 않아 소문자 문자열 출력6표현은 기존 hex0.4.3을 재사용한다. 새 값으로 snapshot을 덮어 호환 실패를 숨기지 않는다. DB scanner/stream 테스트를 DB import/export 실행으로 확대하지 않는다.
+
+thiserror 전환은 오류 정의를 그대로 두고 Display/From/source/downcast와 typed 확정거절 분류를 확인한다. keyring은 현재3의 mock/backend를 유지하며 v4의 core/store 초기화를 단순 API 이름만으로 교체하지 않는다. [재현 명령과 실행 경계](../../../docs/HARNESS_MAP.md)를 따른다.
+
+> 마지막 업데이트: 2026-10-29T12:01:40+00:00

@@ -15,7 +15,7 @@
 | 6 | DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다. | 구현·검증·CI 완료 | `653377ce` 원격 일치, Gate45·Security52 성공 |
 | 7 | DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다. | 구현·검증·CI 완료 | UI `f15f192`·명세보정 `99b85eb`, Gate47·Security54 성공 |
 | 8 | DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다. | 구현·검증·CI 완료 | `06a84fe` 원격 일치, Gate48·Security55 성공 |
-| 9 | DEP-P3-07 — 나머지 Rust·UI 의존성 후보의 실제 필요와 영향부터 확인한다. | 대기 | — |
+| 9 | DEP-P3-07 — 나머지 Rust·UI 의존성 후보의 실제 필요와 영향부터 확인한다. | 로컬 구현·검증 완료/게시·CI 대기 | sha2/thiserror 전환·keyring/RGL 유지; Rust882/DB5제외·UI349 |
 | 10 | DEP-P3-08 — TypeScript·패키지매니저 major 후보를 개별 평가한다. | 대기 | — |
 
 ## 1회차 — P1-RECOVERY-01
@@ -326,3 +326,41 @@ DEP-P3-06을 완료 이력으로 이관했다. 남은12개는 자동3+판단4+�
 
 
 - 게시 전 정적 게이트: 별도 config 타입 검사, 순수VM4개, lock/TODO13/지도/diff 검사를 통과했다. Graphify는7034노드/15465간선으로 갱신했다. 새 fixture를 포함한 데이터 JSON5개는 AST 노드를 만들지 않는 도구 안내가 남으며 소스 컴파일 경고와 구분한다. 보관 검증 근거는 `.cache/vite-migration-20261029/native/`로도 복사했다.
+
+
+## 9회차 — DEP-P3-07
+
+### 후보별 판정
+
+시작 기준은 8회차 완료 이관 `c89fa0725aedeaa2521d145cd5734df808949a75`다. React19/MUI9/Vite8·TS5.9와 프런트 소스를 그대로 유지했다.
+
+| 후보 | 판정 | 구체 근거와 범위 |
+| --- | --- | --- |
+| sha2 0.10.9→0.11.1 | 전환 | 실제 다섯 소비자의 고정 byte/hash 계약 보존, AArch64 upstream 수정·선언MSRV1.88. LowerHex API 차이는 기존 hex0.4.3으로 소문자 출력6곳만 호환 |
+| thiserror 1.0.69→2.0.21 | 전환 | 다섯 오류 타입의 Display/From/source/downcast·확정거절 분류와 기존 API envelope를 보존. v2는 기존 lock에 있었음 |
+| keyring 3.6.3→4.2.0 | 3 유지 | core/store·초기화·mock/Linux backend 전환에 비해 현재 기능 이익이 확인되지 않음. 실제 OS store에 접근하지 않았고 기존 feature 유지 |
+| react-grid-layout 1.5.4→2.3.0 | 1 유지·삭제 없음 | src/CSS/동적 참조 소비 경로가 없고 새 major API/type의 현재 이익이 없음. 미사용 RGL의 React19 런타임 호환을 검증했다는 뜻은 아님 |
+
+[sha2 manifest](https://raw.githubusercontent.com/RustCrypto/hashes/sha2-v0.11.1/sha2/Cargo.toml)·[thiserror manifest](https://raw.githubusercontent.com/dtolnay/thiserror/2.0.21/Cargo.toml)·[v2 변경](https://github.com/dtolnay/thiserror/releases/tag/2.0.0)과 실제 참조를 대조했다. keyring/RGL 버전을 일괄 상승시키거나 새 보안/금융 정책을 추가하지 않았다.
+
+### 고정 계약과 단계별 결과
+
+구버전 sha2.10/thiserror1에서 원본14파일·manifest/lock을 보존했다. 합성20개 입력의23개 SHA를 독립 Python hashlib와 Rust 생산 경로로 대조했고, 신규 leaf10개/테스트14개의 literal과 source SHA를 고정한 뒤 두 번14/14를 통과했다. 입력은 UTF-8·u64 little-endian prefix·정확 JSON과 원문 payload를 포함하며 실제 프로파일/키를 읽지 않았다.
+
+첫 sha2.11 시도는 hybrid-array Output의 LowerHex 미구현으로9개 E0277(생산6표현+primitive test3) 컴파일 실패가 났다. 실패 로그를 보존하고 기존 공용 hex helper가 없음을 참조/그래프로 확인했다. 이미 lock에 있는 hex0.4.3을 직접 명시해 출력 표현만 `hex::encode`로 바꿨다. 이 API의 소문자·leading zero·byte당2자리 계약도 source로 감사했다.
+
+호환 표현을 구버전에 적용해14/14, rustfmt 뒤 구버전14/14를 재통과한 상태의 source SHA를 다시 고정했다. 그 **같은 입력·기대 literal·10개 test source**로 sha2.11 단독14/14, 이어 thiserror2 단독14/14를 통과했다. 기대 hash를 새 출력으로 재생성하지 않았다. 최종14개와 중복을 제외한 기존 관련90개(캔들9·리스크7·이력34·실행10·설정29·오류wire1)도 통과했다. 최종 고유104개는 아래 lib882개에 모두 포함되며, 반복 실행174건이나 focused 결과를882개에 더하지 않는다.
+
+생산 수정은 DB import/export checksum2, risk event/payload2, StrategyConfig fingerprint1, candle scope1의 hex 표현6곳이다. raw32byte profile fingerprint와 입력·serde·순서·오류 정의/문구·거절 정책은 그대로다. cfg(test) 등록부와 명시 adapter/관련 rustfmt 표현만 역정규화하면 원본14파일 본문이 전부 byte동일하다. 기존 라이브러리 hex/thiserror2는 재사용했고 lock의 새 package는 sha2.11.1 하나, 무관한 버전 bump/제거는0이다. 간접 sha2.10/thiserror1은 다른 소비자에 남는다.
+
+live_history hash는 candle 내용이 아닌 StrategyConfig 지문이다. DB 새 테스트는 실제 tmp scanner의 key 정렬·원문 payload와 checksum 입력 stream을 확인하고 update loop만 재현한다. **production import/export 전체 실행이나 DB roundtrip 검증이 아니다.** 테스트 편의를 위해 pool·자격증명 경계를 우회하지 않았다.
+
+### 통합 검증·미검증
+
+- Mac Rust1.99.1의 전체 target check, `storage::database_contract_tests` 모듈의 테스트5개를 명시 제외한 lib882/882(16.85초), all-target/all-feature strict clippy·custom-protocol build와 fmt/diff가 경고0으로 통과했다. 제외한 PostgreSQL/TLS5개를 통과로 세지 않는다. 자식 process의 관련 접속 env는 값을 조회하지 않고 제거했다.
+- Node24.22.1의 앱/config 타입·FSD·VM4·production build와 전체 UI349/349(생산317+source32,1.5분)를 통과했다. `.env`를 읽지 않는 Git 제외 offline config·loopback mock으로 실행했고 동결 dist10개 해시는8회차와 동일하다. 실제 앱을 다시 기동하지 않았다.
+- 선언을 제공한 crate 중 rust-version>1.90은0개이고 프로젝트1.90 선언을 유지했다. MSRV 미선언151개가 있으며 실제1.90·Windows/macOS Intel 실행은 하지 않았다. 최신 stable CI를 최소Rust 실행으로 표현하지 않는다.
+- 로컬 cargo-audit은 설치되지 않아 새 로컬 감사 성공을 주장하지 않는다. 같은 SHA의 Dependency Security를 게시 후 확인한다. 기존 RSA 예외와 Linux 경고2건은 이 전환으로 해결되지 않았다.
+- mapper/hex 영향/baseline 독립 감사와 그래프7060노드/15520간선 갱신을 수행했다. Graphify의 데이터 JSON5개 zero-node 안내는 컴파일 경고와 구분한다. 최종 코드 리뷰는 신규 P0/P1/P2 없이 통과했다. 문서 게이트·커밋/푸시·동일 SHA CI를 완료하기 전까지 상위ID를 열어 둔다.
+
+단계별 원본·metadata/features·입력/고정 source hash·최초 실패/후속 성공 로그·동등성은 Git 제외 `.cache/dependency-migration-20261029/rust-stages/`, 루트 통합/UI 로그는 같은 캐시에 보존한다. 명령과 책임 경계는 [HARNESS](../HARNESS_MAP.md)·[지도](../project-map.md)에 둔다. 운영 계정·DB·키체인·실제 provider/주문은 검증하지 않았다. 10회차는 공식 TS6.0.3 bridge metadata까지 읽기 준비만 했으며 설치/구현하지 않았다.

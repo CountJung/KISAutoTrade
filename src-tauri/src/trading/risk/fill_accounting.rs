@@ -32,14 +32,12 @@ impl RiskManager {
             !event_id.is_empty(),
             "체결 리스크 이벤트 ID가 비어 있습니다"
         );
-        let event_key = format!(
-            "{:x}",
-            Sha256::digest(serde_json::to_vec(&(scope, event_id))?)
-        );
-        let payload = format!(
-            "{:x}",
-            Sha256::digest(serde_json::to_vec(&(strategy_id, symbol, pnl))?)
-        );
+        let event_key = hex::encode(Sha256::digest(serde_json::to_vec(&(scope, event_id))?));
+        let payload = hex::encode(Sha256::digest(serde_json::to_vec(&(
+            strategy_id,
+            symbol,
+            pnl,
+        ))?));
         if let Some(previous) = self.processed_fill_pnl.get(&event_key) {
             anyhow::ensure!(
                 previous == &payload,

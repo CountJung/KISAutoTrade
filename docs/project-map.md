@@ -685,11 +685,13 @@ KISAutoTrade/
 │   │   │   ├── rest/
 │   │   │   │   ├── chart.rs
 │   │   │   │   ├── chart_tests.rs
+│   │   │   │   ├── dependency_contract_tests.rs
 │   │   │   │   ├── exchange.rs
 │   │   │   │   └── types.rs
 │   │   │   ├── websocket/
 │   │   │   │   └── tests.rs
 │   │   │   ├── detect.rs
+│   │   │   ├── detect_dependency_contract_tests.rs
 │   │   │   ├── mod.rs
 │   │   │   ├── rest.rs
 │   │   │   ├── token.rs
@@ -699,6 +701,7 @@ KISAutoTrade/
 │   │   │   │   ├── adapter.rs
 │   │   │   │   ├── client.rs
 │   │   │   │   ├── error.rs
+│   │   │   │   ├── error_dependency_contract_tests.rs
 │   │   │   │   ├── http.rs
 │   │   │   │   ├── mod.rs
 │   │   │   │   ├── orders.rs
@@ -706,6 +709,7 @@ KISAutoTrade/
 │   │   │   │   ├── tests.rs
 │   │   │   │   └── types.rs
 │   │   │   ├── adapter.rs
+│   │   │   ├── adapter_dependency_contract_tests.rs
 │   │   │   ├── candles.rs
 │   │   │   ├── domain.rs
 │   │   │   ├── kis.rs
@@ -713,6 +717,7 @@ KISAutoTrade/
 │   │   │   └── rate_limit.rs
 │   │   ├── commands/
 │   │   │   ├── candles/
+│   │   │   │   ├── dependency_contract_tests.rs
 │   │   │   │   └── tests.rs
 │   │   │   ├── strategy_preview/
 │   │   │   │   ├── continuous.rs
@@ -814,6 +819,7 @@ KISAutoTrade/
 │   │   │   └── view_contract_tests.rs
 │   │   ├── storage/
 │   │   │   ├── database/
+│   │   │   │   ├── checksum_dependency_contract_tests.rs
 │   │   │   │   ├── configuration.rs
 │   │   │   │   ├── connection.rs
 │   │   │   │   ├── recovery_history.rs
@@ -846,6 +852,7 @@ KISAutoTrade/
 │   │   │   │   │   ├── strong_close.rs
 │   │   │   │   │   ├── trend_filter.rs
 │   │   │   │   │   └── volatility.rs
+│   │   │   │   ├── dependency_contract_tests.rs
 │   │   │   │   └── tests.rs
 │   │   │   ├── guard/
 │   │   │   │   ├── recovery/
@@ -906,6 +913,7 @@ KISAutoTrade/
 │   │   │   │   ├── configuration.rs
 │   │   │   │   ├── conflicts.rs
 │   │   │   │   ├── execution_run.rs
+│   │   │   │   ├── execution_run_dependency_contract_tests.rs
 │   │   │   │   ├── feedback.rs
 │   │   │   │   ├── fills.rs
 │   │   │   │   ├── health.rs
@@ -917,6 +925,7 @@ KISAutoTrade/
 │   │   │   │   └── test_support.rs
 │   │   │   ├── risk/
 │   │   │   │   ├── fill_accounting/
+│   │   │   │   │   ├── dependency_contract_tests.rs
 │   │   │   │   │   └── tests.rs
 │   │   │   │   └── fill_accounting.rs
 │   │   │   ├── simulation/
@@ -990,6 +999,7 @@ KISAutoTrade/
 │   │   │   │   │   ├── configuration.rs
 │   │   │   │   │   ├── live_feedback_tests.rs
 │   │   │   │   │   ├── live_history.rs
+│   │   │   │   │   ├── live_history_dependency_contract_tests.rs
 │   │   │   │   │   ├── live_history_tests.rs
 │   │   │   │   │   ├── strong_close_history_tests.rs
 │   │   │   │   │   └── volatility_history_tests.rs
@@ -1492,6 +1502,39 @@ KISAutoTrade/
 | `storage/database_contract_tests/tls_restart.rs` | 독립 테스트 프로세스에서 합성 PostgreSQL 인증서/hostname 검증, 실제 pool 경합·socket 종료·서버 강제 종료/재시작, managed store 오류와 commit 자료 보존 계약 |
 | `notifications/discord.rs` | Discord Bot 알림 |
 | `config/mod.rs` | `secure_config.json` + `.env` 로드 |
+
+---
+
+### Rust 의존성의 hash·오류 계약
+
+직접 의존성 `sha2 0.11.1`의 digest는 `hex 0.4.3`의 `hex::encode()`로
+소문자 문자열을 만든다. 생산 적용은 `storage/database.rs`의 import/export checksum,
+`trading/risk/fill_accounting.rs`의 event key/payload, `commands/candles.rs`의 cursor scope,
+`trading/strategy/manager/live_history.rs`의 StrategyConfig fingerprint 6표현이다.
+각 도메인의 입력·serde·순서와 함수 signature를 유지하고,
+`trading/order/execution_run.rs`의 프로파일 fingerprint는 `[u8; 32]` 출력을 유지한다.
+`thiserror 2.0.21` 전환은 기존 오류 타입의 Display/From/source·typed identity 계약을 따른다.
+
+아래 10개 leaf는 `cfg(test)` 등록으로 14개 합성 계약 테스트를 구성한다.
+경로는 `src-tauri/src/` 기준이며 실행 성공 여부를 이 표만으로 판정하지 않는다.
+
+| 계약 leaf | 등록부 | 책임 |
+|---|---|---|
+| `api/detect_dependency_contract_tests.rs` | `api/detect.rs` | 감지 오류의 고정 Display·로컬 builder 오류 From/source |
+| `api/rest/dependency_contract_tests.rs` | `api/rest.rs` | KIS 주문 거절의 메시지·typed anyhow identity와 chain |
+| `broker/adapter_dependency_contract_tests.rs` | `broker/adapter.rs` | named/tuple/transparent adapter 오류의 Display·From/source·chain |
+| `broker/toss/error_dependency_contract_tests.rs` | `broker/toss/error.rs` | structured/fallback 오류 literal·typed rejection의 기존 HTTP status 경계 |
+| `commands/candles/dependency_contract_tests.rs` | `commands/candles/tests.rs` | cursor scope의 고정 JSON/hex와 count 기본·포함/제외 identity 필드 |
+| `storage/database/checksum_dependency_contract_tests.rs` | `storage/database/tests.rs` | scanner의 key 정렬·원본 payload와 checksum loop 입력, SHA 고정 vector·split update. DB roundtrip은 실행하지 않음 |
+| `trading/configuration/dependency_contract_tests.rs` | `trading/configuration.rs` | 전략 설정 오류의 code/message·Display·typed anyhow identity |
+| `trading/order/execution_run_dependency_contract_tests.rs` | `trading/order/execution_run.rs` | 프로파일 UTF-8 길이 prefix·flag·고정 raw32byte와 identity 필드 경계 |
+| `trading/risk/fill_accounting/dependency_contract_tests.rs` | `trading/risk/fill_accounting/tests.rs` | 영속 리스크 영수증의 고정 key/payload와 복원 후 중복·내용 변경 거절 |
+| `trading/strategy/manager/live_history_dependency_contract_tests.rs` | `trading/strategy/manager/live_history_tests.rs` | 캔들 내용과 구분한 StrategyConfig의 exact JSON·fingerprint·설정 변경 |
+
+고정 입력/hash 수와 구버전→hex 호환→sha2→thiserror 단계별 결과,
+keyring/RGL 유지·미삭제 판단은 [9회차 기록](tasks/immediate-backlog-20261029.md)을 따른다.
+명령과 full DB·실계좌·실제 keychain 접근을 포함하지 않는 검증 경계는
+[검증 지도](HARNESS_MAP.md)와 해당 회차 기록에서 확인한다.
 
 ---
 
