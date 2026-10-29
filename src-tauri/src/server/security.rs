@@ -16,6 +16,14 @@ pub(super) struct WebSecurity {
 }
 
 impl WebSecurity {
+    #[cfg(test)]
+    pub(super) fn fixture(token: &str) -> Self {
+        Self {
+            token: Arc::from(token),
+            allow_lan: false,
+        }
+    }
+
     pub(super) fn from_environment() -> Self {
         Self {
             token: std::env::var("WEB_API_TOKEN").unwrap_or_default().into(),

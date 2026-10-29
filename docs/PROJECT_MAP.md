@@ -31,7 +31,8 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | 공용 IPC 타입 | `src/shared/api/types.ts` | `src/api/types.ts` re-export/legacy surface, Rust serde view |
 | DB IPC | `src/api/databaseHooks.ts` | `src/shared/api/databaseCommands.ts`, `commands/database.rs` |
 | Tauri command 추가 | `src-tauri/src/commands/<domain>.rs` | `commands.rs`, `lib.rs::generate_handler!`, `docs/ipc-commands.md` |
-| Web REST 대응 | `src-tauri/src/server/mod.rs` | `server/{market,profiles,records,toss,trading}.rs`, transport route map |
+| Web REST 대응 | `src-tauri/src/server/router.rs`, `server/mod.rs` | router는 생산 route·보안 middleware 조립, mod는 상태·환경·바인딩과 SPA/정적 파일 처리. `server/{market,profiles,records,toss,trading,budget}.rs`, transport route map |
+| Web REST route·응답 계약 | `src-tauri/src/server/route_cases.rs`, `server/router_tests.rs` | `server/{extractor_tests,view_contract_tests,provider_contract_tests,test_support}.rs`. 고정74 binding/70 URL/13 capture 경로를 생산 router로 대조하며 자체 Origin/token 정책·입력 거절·IPC view·loopback 합성 KIS 경계를 확인. 실제 provider 운용 검증과 구분 |
 | 공통 HTTP·TLS 정책 | `src-tauri/src/http.rs`, `http/tests.rs` | `http/testdata/*.der`, `api/{rest,token}.rs`, `broker/toss/http.rs`, `commands/settings.rs`, `market/mod.rs`, `notifications/discord.rs`, `server/profiles.rs`. reqwest 생성14곳의 번들 roots·client별 ring/HTTP1을 공유하고 호출자 정책과 WS0.30/native roots 경계는 유지 |
 | WebSocket 구독·상태·종료 | `src-tauri/src/api/websocket.rs`, `api/websocket/tests.rs` | private connect_stream/websocket_config(4096)·start_subscription/send_subscription/publish_status, `http/testdata/*.der`.0.30/native roots 유지, Close flush·전송 실패 flag 복원, 합성 WS/WSS와 실제 운용 검증 구분; 자동 재연결 없음 |
 | KIS 연동 | `src-tauri/src/api/rest.rs`, `api/rest/*` | `api/token.rs`, `api/websocket.rs`, `broker/kis.rs` |
@@ -63,6 +64,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | 체결 손익·재시도 영수증 | `trading/order/fills/ownership.rs`, `trading/risk/fill_accounting.rs` | `fills/collector/notional.rs`, `commands/trading/risk_restore.rs`, `storage/pending_order_store.rs`, `order/ownership/` |
 | Toss 소액 검증·수수료율 표시 | `commands/toss/small_order.rs`, `trading/preflight.rs` | `small_order/tests.rs`, `src/pages/trading/ui/tossPanels.tsx`, `tests/e2e/toss-commission-ratio.spec.ts` |
 | 저장 backend·설정 복구 | `src-tauri/src/storage/mod.rs`, `database.rs` | `storage/database/{configuration,connection,tests}.rs`, 각 `*_store.rs` |
+| 서버용 격리 저장 fixture | `src-tauri/src/storage/database/test_support.rs` | `server/test_support.rs`가 사용하는 `cfg(test)` JSON 전용 manager. 설정 로드·keychain 접근·전역 DB 설치 없이 조립 |
 | DB TLS·강제 단절·재접속 계약 | `scripts/database-tls-contract.mjs` | `storage/database_contract_tests/tls_restart.rs`, `docs/tasks/database-tls-reconnect-20261018.md`, `docs/HARNESS_MAP.md` |
 | 데몬/앱 초기화 | `src-tauri/src/lib.rs` | `commands.rs::AppState`, `server/mod.rs` |
 | 릴리스/CI | `package.json`, root `Cargo.toml` | `.github/workflows/*.yml`, `docs/release-security.md` |

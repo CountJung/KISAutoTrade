@@ -11,10 +11,10 @@
 | 전략 연구·해석 | 가격조건 계약·구간 진단·별도 회고 walk-forward 완료; 장중 효능 대기 | 2개: SOXQ-P2-13·09 | 가격조건/변동성 실제 장중 근거 | 장중 자료 2 |
 | LTH 실제 장중 평가 | 일봉 평가불가·분봉 시각 진단 구현 완료; 실제 기간 평가 대기 | 2개: SOXQ-P1-05, SOXQ-P2-12 | 실제 3개월 원본/coverage·DST 검증 후 옵션 비교 | 같은 원본 자료 공유·검증 2 |
 | DB 지원·호환 전환 | PostgreSQL 로컬 TLS 기록 존재; MariaDB/MSRV 정책 미확정 | 3개: P1-DB-01, DEP-P3-01·02 | 지원 matrix·최소 Rust 결정 후 SQLx/DB/RSA 검증 | 정책 결정 2; SQLx 착수 의존 |
-| 구조·의존성 유지보수 | 대상 세 파일·HTTP 전환과 CI 완료; WS 로컬 검증·CI 대기 | 6개: DEP-P3-03~08 | HTTP/WS·서버·UI·빌드·도구 검토 | 독립 검토 가능; Xcode 보류 유지 |
+| 구조·의존성 유지보수 | 대상 세 파일·HTTP/WS 전환과 각 CI 완료 | 5개: DEP-P3-04~08 | 서버 CI 확인, UI·빌드·도구 검토 | 독립 검토 가능; Xcode 보류 유지 |
 | 릴리스 서명 | checksum/attestation·기본 게이트 완료; 실제 서명 미완료 | 1개: P3-SIGN-01 | 플랫폼·키 관리 결정과 서명 검증 | 사용자 결정·관리자 준비 1 |
 
-**미완료 16개 = 자동 구현 7개 + 사용자 판단 4개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현 7개 중 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
+**미완료 15개 = 자동 구현 6개 + 사용자 판단 4개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현 6개 중 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
 
 [완료·경과 이력](completed-history.md) · [색상·필터 보기](todo.html) · [운영 계획](MASTER_PLAN.html) · [검증 지도](HARNESS_MAP.md)
 
@@ -34,17 +34,11 @@
 
 권장 순서: **DEP-P3-01 → 02 → 03 → 04 → 05 → 06**, 기타 후보는 **07·08**에서 개별 판단한다. **DEP-P3-01의 MSRV·격리 DB 지원정책 결정은 DEP-P3-02 SQLx 전환의 실제 선행조건**이다. DEP-P3-03~08의 “다음/이후”는 검토 우선순위이며 앞 번호 전체 완료가 기술상 필수라는 뜻은 아니다. 각 항목의 실제 API·peer·toolchain 의존성이 확인되면 그 근거에 따라 순서를 조정한다. 우선순위는 이 P3 목록 내부 순서이며 기존 P1/P2를 대체하지 않는다. 검증은 금융 자격증명·실거래 연결 없이 합성/mock·격리 fixture로 한다. 운영 DB·거래 데이터·실행 중 서비스와 주문/취소/포지션·엔진 재시작·배포를 건드리지 않는다. Xcode 27.0→27.1은 사용자 보류 상태를 유지한다.
 
-DEP-P3-01·02는 아래 선행 결정 구역에서 관리한다. 아래 03~08은 앞 번호 전체 완료를 기다려야 하는 일괄 차단 목록이 아니다. 버전 표기는 당시 검토값이므로 착수 시 공식 자료로 다시 확인한다.
-
-- [ ] **🟢 자동 구현** **DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다.** 우선순위 3, DEP-P3-02 다음; 두 전환의 diff·검증은 분리한다.
-  - **5A HTTP 로컬 완료:** reqwest 0.13.5의 `query`·`form`·`rustls-no-provider`와 공통 builder로 기존 Mozilla roots/ring/TLS1.2·1.3/HTTP1.1을 보존했다. 합성 HTTP/TLS10개·전체 Rust841 검증과 보안 잔여는 [회차 기록](tasks/immediate-backlog-20261029.md)을 따른다. 전체 ID는 아직 미완료다.
-  - **5B 로컬 완료·CI 대기:** WS0.30의 Utf8Bytes·native roots/ring·4KiB read buffer와 합성 WS/WSS14개를 검증했다. 기존0.24에서 재현한 Close 응답·송신 실패 상태 정리도 수정했다. 자동 재연결은 추가하지 않았으며 명시 재구독만 검증했다. HTTP의 Release Gate43·Security50은 성공했고, 별도 WS 커밋의 CI 결과 확인이 남는다.
-  - **완료 조건:** 합성 HTTP/TLS 서버에서 차트 query·헤더·JSON·쿠키·오류 처리를 확인하고 mock WebSocket에서 승인·구독·수신·ping/pong·종료·명시 재연결/재구독을 검증한다. 실제 KIS/Toss 인증 없이 Rust format/strict clippy/check/test/build와 해당 CI를 통과한다. [reqwest 변경](https://github.com/seanmonstar/reqwest/releases/tag/v0.13.0), [WebSocket 변경](https://raw.githubusercontent.com/snapview/tungstenite-rs/v0.30.0/CHANGELOG.md).
-
-  - **착수 의존성:** 앞 번호는 검토 권장 순서다. 실제 API·peer·toolchain 의존성을 확인해 범위를 고정하며 DEP-P3-01 결정 대기를 이 항목의 일괄 차단으로 확대하지 않는다.
+DEP-P3-01·02는 아래 선행 결정 구역에서 관리한다. 아래 04~08은 앞 번호 전체 완료를 기다려야 하는 일괄 차단 목록이 아니다. 버전 표기는 당시 검토값이므로 착수 시 공식 자료로 다시 확인한다.
 
 - [ ] **🟢 자동 구현** **DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다.** 우선순위 4, DEP-P3-03 다음.
-  - **확인/미검증 구분:** `server/mod.rs`의 `/:symbol`·`/:id`는 새 `/{symbol}`·`/{id}` 문법으로 바꿔야 한다. tower-http는 현재 CORS 사용 경로의 별도 후보이며 프로젝트에서 구체적 API 실패를 확인하지 않았다. 이미 존재하는 간접 tower-http 0.6.11을 직접 의존성 전환 완료로 취급하지 않는다.
+  - **로컬 완료·CI 대기:** axum과 tower-http를 별도 단계로 전환하고 각 서버24개·전체 Rust873개, check/strict clippy/custom-protocol build를 통과했다. 70 URL/74 binding과 자체 Origin/token 정책을 보존했다. [회차 기록](tasks/immediate-backlog-20261029.md)의 합성·미실행 범위를 따르며 해당 SHA CI 확인 전까지 열린 상태다.
+  - **확인/미검증 구분:** `server/router.rs`로 분리한 13개 capture를 새 `{name}` 문법으로 변경했다. tower-http의 cors feature는 선언돼 있으나 실제 CorsLayer 호출은 없다. 현재 origin/token 정책은 자체 middleware이며 전환 중 새 CORS 정책을 추가하지 않는다. 이미 존재하는 간접 tower-http 0.6.11을 직접 의존성 전환 완료로 취급하지 않는다.
   - **완료 조건:** 주문·계정 provider를 mock으로 격리하고 기존 모든 route의 경로/상태·인증 거부·CORS·오류 응답·Tauri IPC와 REST view 계약을 회귀 검증한다. Rust format/strict clippy/check/test/build 및 CI 통과. [axum 변경](https://github.com/tokio-rs/axum/blob/axum-v0.8.0/axum/CHANGELOG.md).
 
   - **착수 의존성:** 앞 번호는 검토 권장 순서다. 실제 API·peer·toolchain 의존성을 확인해 범위를 고정하며 DEP-P3-01 결정 대기를 이 항목의 일괄 차단으로 확대하지 않는다.

@@ -78,7 +78,7 @@ npm run test:database-tls-contract
 
 ## 5. Playwright
 
-설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 기존 Vite dev `127.0.0.1:1430`에서 전체 322개를 실행한다. CI는 먼저 `npm run build:web`를 수행하고 두 서버·프로젝트를 사용한다. UI 290개는 `chromium`의 production preview `127.0.0.1:1431`, 소스 모듈 가로채기를 요구하는 `balance-events.spec.ts`, `toss-commission-ratio.spec.ts`, `strategy-deviation-policy.spec.ts`의 32개는 `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 검사한다. 전체 23파일·322개를 중복·누락 없이 유지한다.
+설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 기존 Vite dev `127.0.0.1:1430`에서 전체 344개를 실행한다. CI는 먼저 `npm run build:web`를 수행하고 두 서버·프로젝트를 사용한다. UI 312개는 `chromium`의 production preview `127.0.0.1:1431`, 소스 모듈 가로채기를 요구하는 `balance-events.spec.ts`, `toss-commission-ratio.spec.ts`, `strategy-deviation-policy.spec.ts`의 32개는 `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 검사한다. 전체 26파일·344개를 중복·누락 없이 유지한다.
 
 spec은 mock transport를 사용하며 실제 Tauri IPC·provider 주문 검증과 구분한다. 테스트 30초·assertion 5초 제한은 유지한다. CI는 list와 HTML reporter를 함께 생성하고 실패 trace·screenshot을 보존한다.
 
@@ -129,7 +129,7 @@ npm run build:app
 
 - frontend: npm ci, lockfiles, TypeScript, FSD, project map, todo freshness
 - rust: Cargo metadata/check/lib test with lock
-- e2e: Chromium 설치, todo renderer 테스트, `npm run build:web`, UI production 290개와 source dev 32개의 Playwright 검사. 실패하면 `playwright-report/`와 `test-results/`를 artifact로 7일 보관한다.
+- e2e: Chromium 설치, todo renderer 테스트, `npm run build:web`, UI production 312개와 source dev 32개의 Playwright 검사. 실패하면 `playwright-report/`와 `test-results/`를 artifact로 7일 보관한다.
 - toss-openapi: Toss spec 검증
 
 로컬 완료 보고에는 CI가 나중에 수행할 것이라고만 쓰지 말고, 변경 범위의 최소 게이트를 직접 실행한 결과를 남긴다.
@@ -289,3 +289,10 @@ Trading/LTH의 state/effect/closure는 각 `use*Model`을 parent에서 한 번 �
 ## WebSocket 의존성 전환 계약
 
 `cargo test --offline --locked --lib api::websocket::tests`: 생산 private transport helper의 합성 WS/WSS14개로 승인/구독 wire·수신·자동Pong·Close echo·오류상태·명시재구독·4KiB버퍼/20KiB메시지·TLS1.2/1.3 신뢰/거부를 확인한다. `http/testdata`의 공개 fixture만 재사용하고 실제 KIS나 OS native-root 연결을 실행하지 않는다. 기존 native roots/ring·금융 payload를 유지한다. 자동 재연결 검증으로 해석하지 않는다. [5B 회차 기록](tasks/immediate-backlog-20261029.md).
+
+
+## Axum router 계약과 격리 fixture (2026-10-29)
+
+`cargo test --offline --locked --lib server::`는 기존6개와 신규18개, 총24개다. production `server/router.rs`의 70 URL/74 명시 method binding, 13개 capture, POST 토큰 거부140건, HEAD/Origin/OPTIONS·405/Allow·SPA fallback, JSON/query/path 거부, IPC와 REST view 값·케이싱, KIS loopback4경로를 검사한다. 0.7 baseline→0.8.9/tower0.5→0.8.9/tower0.7.1에서 각각 통과했다. 최종 trailing JSON은 framework의400 거부를 단정한다.
+
+fixture는 임시 경로와 합성 token/profile만 사용하고 `DatabaseManager::isolated_json_for_tests`로 config·키체인·전역 DB 설치를 피한다. 전체 route 등록/차단 검사가 모든 handler의 성공 경로 검증을 뜻하지 않는다. Toss는 미설정/없는 profile 오류, 웹 설정 저장·종목 목록 갱신·거래 시작은 차단 또는 입력 거부까지만 실행한다. 실제 provider·운영 앱·계좌 접근을 추가하지 않는다. tower-http cors feature는 선언돼 있지만 실제 CorsLayer 사용은 없으며 기존 자체 Origin 정책을 유지한다. [회차 근거·제약](tasks/immediate-backlog-20261029.md).

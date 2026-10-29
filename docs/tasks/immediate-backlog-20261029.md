@@ -11,8 +11,8 @@
 | 2 | SOXQ-P2-13 — 가격조건의 실제 소유·손절 후 재진입과 공통 guard를 검증한다. | 로컬 완료·실자료 조건 이관 | `00ea198ad021836862ad345d58f618660fae6d0b` 원격 SHA 일치; 전체 ID는 열린 상태 |
 | 3 | SOXQ-P2-16 — 구간 경고·표본 해석을 교정하고 별도 walk-forward를 평가한다. | 구현·검증 완료 | `15b53286109f599242d27e5314ea2c0105ac453e` 원격 SHA·GitHub 문서 확인 |
 | 4 | P3-REFACTOR-01 — 1,000라인 초과 파일을 책임 단위로 분리한다. | 구현·검증 완료 | `4a9e250236e8773f0b1fe3194339cc0978a8a5a8` 원격 SHA 일치 |
-| 5 | DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다. | 5A HTTP·CI 완료·5B WS 로컬 완료/CI 대기 | 5A `0dead386` 원격 일치; Release Gate43·Security50 성공 |
-| 6 | DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다. | 대기 | — |
+| 5 | DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다. | HTTP·WS 구현/검증·CI 완료 | 5A `0dead386`·5B `270296db` 원격 일치; 각 Gate/Security 성공 |
+| 6 | DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다. | 로컬 구현·검증 완료/CI 대기 | 아래 6회차 결과; 커밋 후 같은 SHA CI 확인 |
 | 7 | DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다. | 대기 | — |
 | 8 | DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다. | 대기 | — |
 | 9 | DEP-P3-07 — 나머지 Rust·UI 의존성 후보의 실제 필요와 영향부터 확인한다. | 대기 | — |
@@ -165,3 +165,45 @@
 - 5B docs-canon `--changed`117문서의 상대링크·표·도달성·앵커·완료TODO 경고0, TODO16·project-map·graph freshness·diff 검사 통과.
 
 - 별도 내용 감사: HTTP SHA CI성공과 WS 로컬855/CI대기·TODO16·합성/실환경 한계가 정합, 차단할 drift 없음. 완료 조건의 재연결은 기존 명시 재연결/재구독을 뜻하도록 명확히 했으며 새 자동재연결을 추가하지 않았다.
+
+
+### 5B 원격 게시·CI 및 5회차 종료
+
+- 커밋·원격 SHA: `270296db196ee7191e5c4848b1346095b1061dc7`. 정상 push·ls-remote 일치·clean 및 GitHub 해당 SHA 문서 게시를 확인했다.
+- [Release Gate #44](https://github.com/CountJung/KISAutoTrade/actions/runs/40837592217): 같은 SHA의 rust·frontend·toss-openapi·e2e 전부 성공. Linux Rust **855/855**, UI **344/344**(9.4분, 07:56:55 UTC 로그). 이전 실행을 재사용하지 않았고 중복 dispatch하지 않았다.
+- [Dependency Security #51](https://github.com/CountJung/KISAutoTrade/actions/runs/40839169041): 08:01 UTC 같은 브랜치·SHA로 실행했고 cargo-audit·npm-audit 모두 성공(22초). 기존 RSA 예외·Linux RustSec 경고2개는 별도 잔여로 유지하며 감사 정책을 완화하지 않았다. Actions v4 Node20 안내2개와 Ubuntu runner 이전 notice2개는 소스 검사 경고와 구분한다.
+- 07:47~07:54 UTC에 Mac mini 연결이 일시 중단됐다. 기존 환경에서 상태 확인이 다시 성공했고, 08:01:42 UTC에도 `git status --short` 출력 없음·HEAD 일치를 확인했다. 다른 환경/새 작업으로 전환하지 않았다. 이후 브라우저의 Page.getFrameTree 10초 지연은 다음 상태 읽기에서 복구됐으며 이미 제출한 Security51을 재실행하지 않았다.
+- DEP-P3-03의 로컬/CI 완료 조건을 충족해 이력으로 이관했다. 남은 최상위15개는 자동6+판단4+자료5이며 즉시 구역에는 DEP-P3-04~08 다섯 개가 남는다. 실제 provider·금융거래·배포 검증 완료를 뜻하지 않는다.
+
+## 6회차 — DEP-P3-04
+
+시작 `270296db196ee7191e5c4848b1346095b1061dc7`의 clean 상태와 5B CI 성공을 확인했다. 기존 production router의 70 URL/74 명시 method-handler와 자체 origin/token 정책을 기준으로 axum0.7 baseline→0.8.9→tower-http0.7.1 순서로 별도 영향을 검증한다. 선언된 tower-http cors feature에는 실제 CorsLayer 호출이 없으므로 새 CORS 정책을 추가하지 않는다. 격리 fixture는 keychain·운영 config·실계좌·외부 provider·운영 앱을 시작하지 않는다. 구현·검증 결과는 후속 기록한다.
+
+
+### 6회차 구현·검증 결과
+
+- production 조립을 `server/router.rs`로 추출하고 13개 capture를 `:name`→`{name}`으로 변경했다. 이전/현재 전체식 기계 대조와 독립 리뷰에서 70 URL·74 명시 method-handler, fallback·보안 layer·state의 동등성을 확인했다. 실제 handler6파일과 HTTP/WS 코드의 hash는 동일하다. 새 IPC·보안 정책·CORS layer는 추가하지 않았다.
+- axum0.7.9/tower-http0.5.2 기준 → axum0.8.9/tower-http0.5.2 → axum0.8.9/tower-http0.7.1을 순서대로 각각 **서버24/24** 검사했다. 신규18개와 기존6개이며 세 실행 수를 합쳐 별개 테스트 수로 세지 않는다. 초기 fixture의 응답 예상값 교정은 별도 실패 로그를 보존했고 생산 로직은 바꾸지 않았다.
+- 실제 production Router로 74 binding·13 capture, POST35개×token거부4종=140건, 70 URL의405/Allow, HEAD·Origin·OPTIONS·fallback·body/query/path 거부를 확인했다. profile/pending/risk/strategy/preview의 IPC view, KIS loopback4경로의 query/header/두 capture·오류 전달을 확인했다. 최종 0.8은 trailing JSON을 framework에서400으로 거부하며 0.7의 semantic guard 도달과 구분해 회귀를 고정했다.
+- cfg(test) ServerState와 JSON-only DatabaseManager는 합성 profile/token·localhost·UUID 임시 경로만 사용한다. 운영 config·keychain·전역 DB 설치·실계좌·앱 시작은 없다. Toss는 미설정/없는 profile의 early error 범위이며 모든 성공 handler를 실행했다고 주장하지 않는다. 운영 설정 저장·외부 종목 갱신·거래 시작은 실제 허용 동작을 실행하지 않았다.
+- lock 변화는 axum0.8.9/core0.5.6/matchit0.8.4/tower-http0.7.1 네 패키지 교체다. reqwest의 간접 tower-http0.6.11은 별도 유지된다. metadata상 MSRV1.90 초과 선언은 없으며 matchit은 미선언이다. 실제 검증 도구는 **Rust1.99.1**이고 Rust1.90 실행 성공을 주장하지 않는다.
+
+| 검사 | 실제 결과 |
+|---|---|
+| Rust 전체 | workspace/alltargets check, 전체lib **873/873**, alltargets/allfeatures strict clippy, custom-protocol build, fmt 모두 통과·소스 경고0 |
+| 프런트 | TypeScript·FSD·production 웹 빌드 통과. 현재 목록은344개/26파일(312production·32source harness)이며 이번 로컬 회차에서 전체 UI를 재실행한 것은 아니다. 같은 SHA CI에서 실행한다 |
+| 보안 | 저장소의 기존 `.cache/audit-tools/bin/cargo-audit`로 기존 RSA 예외만 적용해 exit0. DB revision `40f5be6fb12ed93fc591bf4ab23b7d793b3f2239`, Linux RustSec 경고2개 유지. PATH의 bare cargo audit는 미설치 오류였고 기존 도구의 명시 경로로 해결했다 |
+| 리뷰 | 최종 코드 읽기 감사에서 P0/P1/P2 없음. 전체식·lock·fixture 안전 경계와 trailing 거부 강화 확인 |
+| 구조 | mapper 인벤토리/책임표 통과. Graphify6,976노드/15,390edge·source freshness 갱신, 기존 JSON설정4개 zero-node 안내는 도구 한계로 분리 |
+
+DEP-P3-04는 로컬 구현·검증 완료이며 커밋·푸시 후 해당 SHA의 CI 확인 전까지 TODO에 열린 상태로 유지한다. 다음 순서는 DEP-P3-05다. 실제 계좌/금융거래·운영배포·OS 보안설정 변경은 수행하지 않았다.
+
+
+- 6회차 문서 게이트: docs-canon `--changed`117문서의 상대링크·표·도달성·앵커·완료TODO 경고0. TODO15·project-map·Graphify freshness·lockfile·diff 검사 통과. 별도 내용 리뷰에서 TODO의 이전 파일 위치/미래형 한 문장을 현재 router13개 변경 완료로 교정했다. 문서 수정으로 테스트 실행 수치를 새로 만들지 않았다.
+
+
+### 6회차 게시 차단 — 2026-10-29 08:28 UTC
+
+검증된 27개 파일을 명시하여 git add→commit→`git push origin HEAD:fix/mac-security-storage-2026-10-06`→원격 SHA/clean 확인을 요청했으나 명령 생성 전에 자동 승인 검토가 거절했다. 사유는 이번 구체적인 코드 변경과 대상 브랜치에 대한 명확한 사용자 승인 부족이었다. 우회나 반복 실행은 하지 않았다. 후속 읽기 확인에서 HEAD는 `270296db196ee7191e5c4848b1346095b1061dc7`, staged diff는 비어 있고 6회차 변경은 unstaged/untracked로 보존돼 있다. 따라서 6회차 커밋·푸시·해당 SHA CI는 모두 미실행이다.
+
+원래 순차 요청에 따라 다음 구현을 섞지 않고 게시 단계의 재승인 근거를 기다린다. 독립적인 7·8회차 읽기 전용 준비는 완료했으며 실제 구현/설치는 시작하지 않았다. 5B의 Release Gate44·Security51 성공은 확정된 별도 결과다. 이 거절은 환경 연결 장애나 테스트 실패가 아니다.

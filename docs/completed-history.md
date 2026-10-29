@@ -353,9 +353,21 @@ Toss32개item의속성/시그니처/본문byte동일, Trading56문장/7helper·L
 
 ## DEP-P3-03 — 5A HTTP 부분 완료
 
-2026-10-29 시작 `4a9e250236e8773f0b1fe3194339cc0978a8a5a8`에서 reqwest0.12.28→0.13.5를 분리 전환했다. 8파일14생성점의 기존 TLS trust/provider와 호출부 옵션을 공통 builder로 보존했고 합성 HTTP/TLS10·전체lib841이 통과했다. RustSec 기존RSA1·Linux경고2는 남는다. WS0.24→0.30과 각 SHA CI 조건은 아직 미완료이므로 TODO의 같은 ID를 닫지 않는다. [구현·검사·제약 정본](tasks/immediate-backlog-20261029.md).
+2026-10-29 시작 `4a9e250236e8773f0b1fe3194339cc0978a8a5a8`에서 reqwest0.12.28→0.13.5를 분리 전환했다. 8파일14생성점의 기존 TLS trust/provider와 호출부 옵션을 공통 builder로 보존했고 합성 HTTP/TLS10·전체lib841이 통과했다. RustSec 기존RSA1·Linux경고2는 남는다. 당시 WS0.24→0.30과 각 SHA CI 조건은 미완료였으며 아래 최종 기록에서 후속 완료를 확인한다. [구현·검사·제약 정본](tasks/immediate-backlog-20261029.md).
 
 
 ## DEP-P3-03 — 5B WebSocket 로컬 부분 완료
 
-2026-10-29 HTTP `0dead386`의 Release Gate43(Rust841/UI344)·Security50 성공을 확인한 뒤 WS0.24→0.30을 별도 전환했다. 기존 wire/native roots/ring과4KiB read chunk를 유지하고, 교체 전 재현한 Close 응답 누락·송신 실패 연결 플래그 잔류를 수정했다. 합성WS/WSS14개가 통과했으며 자동 재연결·실계좌 연결은 추가하지 않았다. WS 커밋 CI 확인 전이므로 상위ID는 열린 상태다. [최종 검사·게시 정본](tasks/immediate-backlog-20261029.md).
+2026-10-29 HTTP `0dead386`의 Release Gate43(Rust841/UI344)·Security50 성공을 확인한 뒤 WS0.24→0.30을 별도 전환했다. 기존 wire/native roots/ring과4KiB read chunk를 유지하고, 교체 전 재현한 Close 응답 누락·송신 실패 연결 플래그 잔류를 수정했다. 합성WS/WSS14개가 통과했으며 자동 재연결·실계좌 연결은 추가하지 않았다. 이 기록 시점에는 WS 커밋 CI 확인 전이었으며 최종 결과는 아래와 같다. [최종 검사·게시 정본](tasks/immediate-backlog-20261029.md).
+
+
+## DEP-P3-03 — HTTP·WebSocket 전환 완료
+
+2026-10-29 두 전환을 별도 커밋과 검사로 완료했다. 5A `0dead386aa0e1270cff4092009b253dc0f37e8e5`는 Release Gate43·Security50 성공, 5B `270296db196ee7191e5c4848b1346095b1061dc7`는 [Release Gate44](https://github.com/CountJung/KISAutoTrade/actions/runs/40837592217)·[Security51](https://github.com/CountJung/KISAutoTrade/actions/runs/40839169041) 성공이다. 5B에서 Linux Rust855개·UI344개와 frontend/Toss OpenAPI 검사를 통과했다. 기존 RSA 예외와 Linux RustSec 경고2개는 유지한다.
+
+원래 완료 조건인 합성 HTTP/TLS의 query·헤더·JSON·쿠키·오류와 mock WS의 승인·구독·수신·ping/pong·종료·명시 재연결/재구독, Rust fmt/strict clippy/check/test/build 및 해당 CI를 확인했다. 실제 KIS/Toss 인증·실계좌·자동 재연결·OS 신뢰 변경은 수행하지 않았다. 완료 근거와 미실행 세부 경계는 [회차 기록](tasks/immediate-backlog-20261029.md)을 따른다. 다음 즉시 항목은 DEP-P3-04이며 전체 요청 완료는 아니다.
+
+
+## DEP-P3-04 — 서버 전환 로컬 부분 완료
+
+2026-10-29 `270296db` 이후 axum0.7.9→0.8.9, tower-http0.5.2→0.7.1을 별도 단계로 전환했다. production 라우터의 70 URL/74 binding과 보안·handler 계약을 유지하며 13 capture 문법을 변경했다. 각 단계 서버24개와 최종 전체 Rust873개, strict clippy/check/fmt/custom-protocol build·타입/FSD/웹 빌드를 통과했다. 실제 provider와 모든 handler 성공 경로의 실행은 아니며 [회차 기록의 범위](tasks/immediate-backlog-20261029.md)를 따른다. 같은 SHA의 CI 확인 전까지 TODO 상위 ID를 유지한다.

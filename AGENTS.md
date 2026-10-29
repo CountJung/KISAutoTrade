@@ -84,11 +84,11 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 | 날짜 | 한줄 요약 |
 |------|----------|
-| 2026-10-29 | WS0.30 전환·Close/송신실패 상태 정리, 합성WS/WSS14 검증; HTTP CI Rust841/UI344 성공 |
+| 2026-10-29 | Axum0.8/tower-http0.7 전환, production router·격리 fixture와 70URL/74binding 계약 검증 |
+| 2026-10-29 | WS0.30 전환·Close/송신실패 상태 정리, WS/WSS14·Rust855/UI344 및 HTTP/WS 각 CI 성공 |
 | 2026-10-29 | reqwest0.13.5를 기존 Mozilla roots/ring으로 전환, HTTP/TLS10·Rust841 검증; WS/CI는 별도 |
 | 2026-10-29 | 거래화면·Toss명령·LTH편집을 책임 분리, 본문/JSX동등·Rust831/mock UI47 검증 |
 | 2026-10-29 | v23 동일 장부 구간 진단·공통 UI와 별도1,584회 회고 walk-forward, Rust831/UI57 검증 |
-| 2026-10-29 | 가격조건 생산 live6/replay9·고정 일봉78원장 재현/정산 검증, 실제 장중 조건은 같은 ID로 자료 구역에 유지 |
 
 ## 운영 문서 스택
 

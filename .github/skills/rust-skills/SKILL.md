@@ -1403,3 +1403,11 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - tokio-tungstenite0.30 Text는 Utf8Bytes로 변환하고 기존 native roots/ring을 유지한다. HTTP bundled roots와 WS native roots를 섞지 않는다. read buffer4096은 이전 chunk 용량을 보존하며 메시지/프레임 상한과 별개다.
 - peer Close는 큐에 쌓인 응답을 bounded flush한 뒤 연결 false를 발행한다. 승인/구독 송신 오류도 false를 정리하고 자동 재제출하지 않는다. Ping은 라이브러리 자동Pong을 사용하며 중복 응답을 추가하지 않는다. 현재 명시 재구독과 미구현 자동재연결을 구분한다.
 - AppHandle adapter와 같은 생산 transport helper를 합성 WS/WSS에서 검증한다. 테스트 custom CA가 성공한 것을 실제 OS root·KIS 계정 인증 검증으로 보고하지 않는다.
+
+
+## Axum route 전환과 안전한 서버 테스트 (2026-10-29)
+
+- production 라우트 조립은 `server/router.rs` 한 곳을 사용한다. axum0.8의 `{name}` capture를 사용하고 이전 `:name` 검사를 우회하지 않는다. method/handler·Origin/token middleware·fallback 순서를 함께 대조한다.
+- `server/test_support.rs`는 cfg(test) 합성 상태·localhost·임시 데이터만 구성한다. 운영 AppState 생성·config load·keychain·전역 DATABASE_MANAGER 설치를 fixture에 사용하지 않는다. JSON-only 테스트 생성자를 실제 DB 검증 성공으로 해석하지 않는다.
+- 전체 route 등록·인증 거부와 provider 성공 검증을 구분한다. 실제 외부 호출이나 운영 설정 저장에 도달하는 handler는 합성 격리가 확인되기 전 실행하지 않는다. CORS feature 선언을 실제 CorsLayer 사용으로 보고하지 않는다.
+- axum0.8은 JSON 뒤 trailing content를 framework에서400으로 거부한다. 자체 오류의 기존 status/JSON 계약과 이 upstream 해석 거부를 구분하고, 허용 범위를 되돌려 기준 테스트에 맞추지 않는다.

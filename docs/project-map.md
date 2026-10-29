@@ -791,18 +791,26 @@ KISAutoTrade/
 │   │   │   └── types.rs
 │   │   ├── server/
 │   │   │   ├── budget.rs
+│   │   │   ├── extractor_tests.rs
 │   │   │   ├── market.rs
 │   │   │   ├── mod.rs
 │   │   │   ├── profiles.rs
+│   │   │   ├── provider_contract_tests.rs
 │   │   │   ├── records.rs
+│   │   │   ├── route_cases.rs
+│   │   │   ├── router.rs
+│   │   │   ├── router_tests.rs
 │   │   │   ├── security.rs
+│   │   │   ├── test_support.rs
 │   │   │   ├── toss.rs
-│   │   │   └── trading.rs
+│   │   │   ├── trading.rs
+│   │   │   └── view_contract_tests.rs
 │   │   ├── storage/
 │   │   │   ├── database/
 │   │   │   │   ├── configuration.rs
 │   │   │   │   ├── connection.rs
 │   │   │   │   ├── recovery_history.rs
+│   │   │   │   ├── test_support.rs
 │   │   │   │   └── tests.rs
 │   │   │   ├── database_contract_tests/
 │   │   │   │   └── tls_restart.rs
@@ -1448,7 +1456,15 @@ KISAutoTrade/
 | `trading/risk/fill_accounting/tests.rs` | 체결 손익 중복·이벤트 변경·날짜·산술 상한과 runtime 복원 경계의 회귀 fixture |
 | `tests/e2e/toss-commission-ratio.spec.ts` | 실제 Toss preflight 패널의 소수 비율→퍼센트 표시와 수수료 포함 필요 현금·잔고 부족 표시를 합성 자료로 검증 |
 | `market_hours.rs` | 시장 개장 여부 (KRX 09:00-15:30 / US 22:00-07:00 KST) |
-| `server/mod.rs` | axum 웹 서버 route table, ServeDir fallback |
+| `server/mod.rs` | 웹 서버 상태·환경 조립과 socket 바인딩, 공통 handler 및 SPA/정적 파일 fallback 처리. route 조립은 `router::build_router()`에 위임 |
+| `server/router.rs` | 생산 route table·SPA fallback·상태·자체 보안 middleware 조립. 앱 기동·환경 로드·socket 바인딩과 분리하며 테스트도 동일 `build_router()` 사용 |
+| `server/security.rs` | Origin/Host 일치와 변경 요청의 Bearer token 검사, LAN 바인딩 정책. `CorsLayer` 없이 자체 정책을 적용 |
+| `server/route_cases.rs` | 의존성 전환 전 공개 경로의 고정 테스트 계약: 74개 method/route binding·70개 URL·13개 capture 경로 |
+| `server/router_tests.rs` | 생산 route 매칭, token/Origin 거절·무부작용, HEAD/OPTIONS·405/Allow, SPA/정적 파일과 격리 socket 계약 |
+| `server/extractor_tests.rs` | 생산 JSON/Query/Path 입력 거절과 본문 한도, percent decoding·경로 세그먼트·trailing JSON의 handler 이전 거절 계약 |
+| `server/view_contract_tests.rs` | 실제 IPC view builder·제공 캔들 preview 계산과 REST 응답 대조, casing/타입·민감 token 비노출·오류 status/envelope 계약 |
+| `server/provider_contract_tests.rs` | loopback 합성 KIS의 capture/query/header·응답 mapping/오류 envelope와 Toss·제어 route의 안전 오류 계약. 실제 provider 접속·엔진 시작과 구분 |
+| `server/test_support.rs` | `cfg(test)` 생산 router fixture·요청/본문 helper. 임시 JSON 저장소·loopback 합성 provider·명시적 보안값을 조립하며 앱/환경/설정 로드·keychain·전역 DB 설치를 하지 않음 |
 | `server/budget.rs` | `/api/auto-trading-budget` GET/POST. IPC와 같은 scope 검증·정지 조건·예산 view를 사용 |
 | `server/market.rs` | 웹 REST KIS 잔고/해외잔고, broker holdings, 현재가, 주문, 차트, 종목 검색/갱신. 잔고 읽기 응답은 공통 holdings ReadOnly identity gate를 거쳐 반환하며 tracker 게시를 만들지 않음. 공통 캔들 페이지 GET은 `commands/candles.rs`의 동일 서비스와 camelCase view를 재사용 |
 | `server/records.rs` | 웹 REST 포지션, 통계/체결 조회, pending 주문, 로그 설정/최근 로그, 체결 보관 설정/통계, 프론트엔드 로그. REST 보관 설정 변경도 IPC와 같이 즉시 purge를 예약 |
@@ -1464,6 +1480,7 @@ KISAutoTrade/
 | `storage/database/configuration.rs` | 설정 로드·검증·파일/OS keychain 저장·원복과 메모리 게시. 내구성 recovery 표시와 manager의 runtime latch로 취소·불확실 복구 시 다음 저장/연결을 차단 |
 | `storage/database/connection.rs` | provider별 TLS 옵션과 관리자 DB 생성, pool 생성 직렬화와 fingerprint 재검증. 늦게 완료된 이전 설정의 pool을 닫고 현재 설정/pool snapshot을 반환 |
 | `storage/database/tests.rs` | 문서/export 경로·inventory·비밀 없는 view와 합성 keychain 저장·이전 회귀. 설정 복구/경합 회귀는 해당 configuration/connection 모듈에도 포함 |
+| `storage/database/test_support.rs` | `cfg(test)`의 `DatabaseManager::isolated_json_for_tests()` 제공. 설정 로드·keychain 접근·전역 설치 없이 기본 JSON backend와 빈 pool을 가진 격리 manager 조립 |
 | `storage/database_contract_tests/tls_restart.rs` | 독립 테스트 프로세스에서 합성 PostgreSQL 인증서/hostname 검증, 실제 pool 경합·socket 종료·서버 강제 종료/재시작, managed store 오류와 commit 자료 보존 계약 |
 | `notifications/discord.rs` | Discord Bot 알림 |
 | `config/mod.rs` | `secure_config.json` + `.env` 로드 |
