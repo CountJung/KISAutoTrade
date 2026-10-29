@@ -13,8 +13,8 @@
 | 4 | P3-REFACTOR-01 — 1,000라인 초과 파일을 책임 단위로 분리한다. | 구현·검증 완료 | `4a9e250236e8773f0b1fe3194339cc0978a8a5a8` 원격 SHA 일치 |
 | 5 | DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다. | HTTP·WS 구현/검증·CI 완료 | 5A `0dead386`·5B `270296db` 원격 일치; 각 Gate/Security 성공 |
 | 6 | DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다. | 구현·검증·CI 완료 | `653377ce` 원격 일치, Gate45·Security52 성공 |
-| 7 | DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다. | 로컬 구현·검증 완료/CI 대기 | 전체349·devQA5 통과; 커밋 후 같은 SHA CI 확인 |
-| 8 | DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다. | 대기 | — |
+| 7 | DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다. | 구현·검증·CI 완료 | UI `f15f192`·명세보정 `99b85eb`, Gate47·Security54 성공 |
+| 8 | DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다. | 로컬 구현·검증 완료/게시·CI 대기 | 시작 `99b85eb`; 전체UI349·격리WK차트/종료·재실행 확인 |
 | 9 | DEP-P3-07 — 나머지 Rust·UI 의존성 후보의 실제 필요와 영향부터 확인한다. | 대기 | — |
 | 10 | DEP-P3-08 — TypeScript·패키지매니저 major 후보를 개별 평가한다. | 대기 | — |
 
@@ -274,3 +274,51 @@ DEP-P3-04는 로컬 구현·검증 완료이며 커밋·푸시 후 해당 SHA의
 
 
 - 7회차 첫 SHA의 실제 CI 결과: Linux Rust873/873·UI349/349(9.8분, 09:24:36 UTC)·frontend 성공, 공개 명세 목록만 실패했다. 보정된 검증기와 문서의 독립 감사에서 검사 완화/앱 변경0을 확인했고 새 행의 공식 Ranking 태그도 맞췄다. 보정 후 공개 검증 exit0, docs-canon117 경고0·TODO14/지도/그래프/diff 검사 통과다. 09:28:59 UTC 동일 환경 상태 확인도 성공했으며 다른 환경으로 이동하지 않았다.
+
+
+- 공개 명세 보정 커밋 `99b85eb3cdc63deceb7ec60c325559607f98f8ce`를 정상 푸시·원격 SHA/clean·GitHub 문서로 확인했다. 같은 SHA의 Release Gate47 `40850458276`와 Dependency Security54 `40850527418`을 각1회 실행했다. Toss OpenAPI·frontend·Security54는 성공했으며 전체Gate 결과는 계속 확인한다. 원래 실패 SHA를 무작정 재실행하지 않았다.
+
+
+### 7회차 최종 완료·다음 재개 지점
+
+보정 SHA `99b85eb3cdc63deceb7ec60c325559607f98f8ce`의 [Release Gate47](https://github.com/CountJung/KISAutoTrade/actions/runs/40850458276)·[Security54](https://github.com/CountJung/KISAutoTrade/actions/runs/40850527418)가 모두 성공했다. Linux Rust873/873·frontend·공개 Toss39경로·전체UI 검증을 확인했다. 7회차는 주 변경 `f15f192`와 공개명세 보정 `99b85eb` 두 커밋으로 완료했다. 승인/연결 차단은 현재 없으며 원격 CI 중복 실행도 없다.
+
+7회차 종료 시점의 재개 메모: DEP-P3-05를 완료 이력으로 이관했다. 당시 남은13개는 자동4+판단4+자료5이며 즉시 구역은 DEP-P3-06~08 세 개다. 다음 구현은 **8회차 DEP-P3-06**이다. Vite6→7→8/plugin6 단계·Node24·5개vendor그룹·cold/warm source harness 및 안전한 WebView 보강 계획을 읽기 전용으로 준비했으며 아직8회차 설치/구현은 시작하지 않았다. 9·10회차도 읽기 계획만 준비됐다. 같은 저장소·브랜치에서 이어가며 현재 완료 기록 문서는 다음 회차 커밋에 포함한다.
+
+
+## 8회차 — DEP-P3-06
+
+### 구현·프런트 검증
+
+7회차 최종 `99b85eb3cdc63deceb7ec60c325559607f98f8ce`와 Gate47/Security54 성공을 기준으로 시작했다. Vite6.4.5→7.3.6→8.3.5/plugin-react6.1.2로 단계 전환했다. React19/MUI9·TS5.9·금융 src와 기존 source harness는 수정하지 않았다. `rolldownOptions.output.codeSplitting.groups`의 React/MUI/Emotion/TanStack/charts 다섯 경계와 Oxc를 사용하며 target·debug·sourcemap·Tauri optimizer/server/HMR 의미를 보존했다. Node engine은 공식 `^20.19.0 || >=22.12.0`로 맞췄고 실제 실행은 Node24.22.1/npm11.19.1이다. 기존 config 별도 타입 오류를 재현한 뒤 @types/node24.19.2·명시 Promise<UserConfig>·node types만 보강했다.
+
+- baseline64, Vite7 cold64/warm source32, Vite8 cold64/warm source32를 각 실행에서 통과했다. 최종 clean 설치 뒤 전체349/349(생산317+source32,2.9분), 타입/config 타입/FSD/lock/build·audit0을 확인했다. 실행 건수를 합쳐 하나의 실행으로 세지 않는다.
+- Safari13/Chrome105 × production/debug 네 조합 모두 빌드 경고0이다. production vendor는 각각500kB 미만이고 debug는 minify=false여서 더 크다. 경고 threshold·target·검증 기대값을 완화하지 않았다. 최종 lock SHA256은 `1c3cecf4a35ea56bfe32d7e880e8d8ccb8dd9d798d388ef5614c40a2098c5d90`이다.
+- 중간 Vite7 audit high와 임시 matrix probe의 개발 NODE_ENV·deprecated envFile 옵션 오류는 최종 제품 실패와 구분해 보존했다. probe를 교정한 네 조합과 정상 CLI dist 해시 일치를 확인했다. 최종 Vite8 audit0이며 esbuild/Rollup은 lock에서 제거됐다.
+- 8회차 `cargo check --workspace --all-targets --locked` 및 Tauri `custom-protocol` 빌드를 실제 실행해 경고0으로 통과했다. 원래 운영 앱 startup을 실행한 결과는 아니다.
+
+프런트 원본 로그·단계 patch·matrix chunk 소유권·동결 dist10개 해시는 Git 제외 `.cache/vite-migration-20261029/`에 보존한다. frontend 독립 리뷰에서 신규 P0/P1/P2는 없었다.
+
+### 승인된 격리 WebView 실제 확인
+
+원래 앱은 DB/계정 초기화에 들어가므로 기동하지 않았다. `scripts/webview-smoke/`의 build-only driver가 동일 dist10파일(1,338,474bytes)을 별도 Wry0.57.1/Tao0.37.2 앱에 동결한다. 생산 crate·Tauri IPC·DB/keyring/reqwest 의존성은 없다. 비영속 WK store를 확인한 뒤 private tmp 규칙을 설치하고 자기 asset protocol만 연다. 합성 GET/순수 preview 외 변경·외부 요청은 차단한다. 실제 운영 자료나 자격증명은 사용하지 않았다.
+
+초기 후보를 여는 CUA 호출이 약2,157초 지연된 뒤 반환했다. F8 캡처가 동작하지 않아 성공으로 처리하지 않았고, 소스 리뷰 후 화면 상태 변화에 따른 읽기 전용 최대12회 자기 WebView 캡처로 바꿨다. 사용자에게 수정 앱 실행·종료·재실행을 확인했고 “검증을 마치고 이어서 진행해줘” 승인을 전달받아 재개했다. 이전 실행 증거는 별도 보존했다.
+
+수정 후보 `/private/tmp/kis-webview-smoke-8-UKLMbZ/`의 source·실행 파일·asset 해시를 독립 감사와 루트에서 대조했다. executable SHA256은 `0aa7ec947e20a0ecac873491eb3fa2535136e3302e61a5cad36b1f37ced18a26`이다. offline build/strict clippy/rustfmt/Node 구문 및 순수VM4개를 통과했다.
+
+macOS27.0.1/arm64·Rust1.99.1 환경에서 2026-10-29 11:15 UTC부터 CUA로 다음을 실제 확인했다.
+
+1. Dashboard·Strategy 화면과 순수 합성 preview를 열어 캔들/선/매수·매도 표식의 paint를 확인했다. body 테마·캔버스 크기/색상 관측과 실제 PNG를 대조했다.
+2. Settings 라이트 전환, 계좌 추가 dialog의 합성 이름 입력, Tab의 빈 APP KEY 포커스, Escape 닫기와 추가 버튼 포커스 복귀를 확인했다. 계좌·키를 입력하거나 제출하지 않았다.
+3. native snapshot6개는 sidecar success=true와 PNG를 확인했다. console error/warning·CSP ledger0, overflow=false다. `GET /api/toss-market-calendar`는 고정 fixture가 없어1건 차단됐으며 해당 조회 성공은 검증하지 않았다. 주문/거래 시작·저장 경로는 실행하지 않았다.
+4. 창 종료 후 정확한 테스트 실행 파일 process가 없음을 확인했다. 11:17:21 UTC 같은 앱을 명시 재실행해 새 PID20090·Dashboard와 임시 marker initiallyAbsent/readbackMatches=true를 확인했다. 라이트 설정도 남지 않았다. 다시 종료한 뒤 process 부재를 확인했다.
+
+첫 실행과 재실행의 report/PNG는 후보의 `verified-first-run/`, `verified-restart/`에 보존한다. 재실행 캡처는 실제 생성된01번 한 장만 유효하다. 독립 리뷰가 같은 output 재사용으로 섞인 이전02~06번을 발견해 `stale-previous-run/`으로 보존·분리했고 `run-artifacts.json`에 현재 report와 유효 파일 해시/시각을 명시했다. 이전 파일을 재실행 성공 증거로 중복 집계하지 않는다. 과거 장시간 idle run의 ledger overflow는 성공으로 재사용하지 않았다. bare WKWebView 결과를 원래 Tauri startup/IPC·실제 broker·DB·Windows·macOS12 실행으로 확대하지 않는다. CSP negative control과 한글 IME는 별도 미검증이다. 2초 관측 사이 화면 변화·실패 캡처 자동 재시도는 지원하지 않는다.
+
+### 게시 전 남은 게이트
+
+신규 harness 지도·문서와 그래프를 동기화하고 final 리뷰를 마친 뒤 8회차를 커밋·정상 푸시한다. Release Gate frontend에는 앱과 별도의 config 타입 검사 및 순수VM4개를 추가해 재현한다. 같은 SHA의 Gate/Security 결과를 확인할 때까지 DEP-P3-06은 열린 상태다. 9·10회차는 현재 입력으로 읽기 계획만 재점검했으며 구현하지 않았다.
+
+
+- 게시 전 정적 게이트: 별도 config 타입 검사, 순수VM4개, lock/TODO13/지도/diff 검사를 통과했다. Graphify는7034노드/15465간선으로 갱신했다. 새 fixture를 포함한 데이터 JSON5개는 AST 노드를 만들지 않는 도구 안내가 남으며 소스 컴파일 경고와 구분한다. 보관 검증 근거는 `.cache/vite-migration-20261029/native/`로도 복사했다.

@@ -415,6 +415,13 @@ KISAutoTrade/
 │   ├── toss-readonly-small-order-checklist.md
 │   └── user-guide.md
 ├── scripts/
+│   ├── webview-smoke/
+│   │   ├── bootstrap.js
+│   │   ├── bootstrap.test.mjs
+│   │   ├── driver.mjs
+│   │   ├── fixtures.json
+│   │   ├── host.rs
+│   │   └── native.rs
 │   ├── check-fsd-imports.mjs
 │   ├── database-tls-contract.mjs
 │   ├── graphify.mjs
@@ -1498,6 +1505,12 @@ KISAutoTrade/
 | `docs/research/price-condition-contracts-20261029/{report.md,run-summary.json,summary.csv,aggregate.json,validation.json,continuous-results.jsonl.gz,reset-results.jsonl.gz}` | 생산 실행수·분할 hash·78개 원장·비용별 요약/독립 대사와 한계 보관. 무손실 압축 원장은 연속6개와 별도분기72개를 구분하며 손절 미발동·희소노출을 실제 장중 재진입/손실 제한 효능으로 확대하지 않음 |
 | `tests/e2e/strategy-phase-diagnostics.spec.ts` | mock 구간 관측·귀속·작은/무완료 표본, 저장 A/B 축약·재조회와 legacy 혼합, 빈 결과와375px 표 스크롤 검증 |
 | `docs/research/phase-walk-forward-20261029/{design.json,runner.rs}` | 기존 관측된 동결 일봉의12개 고정 전략·별도 장부 fold를 생산 API로 평가하는 사전 설계와 실행기. 같은 장부70/30 진단과 분리하며 새 OOS·파라미터 선택/학습·독립 표본의 증거로 해석하지 않음. 실행 완료/검증은 해당 연구의 최종 산출물로 별도 확인 |
+| `scripts/webview-smoke/driver.mjs` | dist hash snapshot·독립 임시 workspace·의존성 격리 확인과 offline build-only. `/tmp/kis-webview-smoke-8-*`에 준비·빌드 근거를 남기며 앱을 기동하지 않음 |
+| `scripts/webview-smoke/host.rs` | 생산 앱을 링크하지 않는 Wry/Tao 창과 고정 asset protocol·관측 ledger·자체 WebView snapshot. 실제 조작은 승인된 CUA에서 수행하며 IPC handler를 등록하지 않음 |
+| `scripts/webview-smoke/native.rs` | macOS WK store의 비영속 확인, 자체 임시 content-rule store와 asset 로드 전 규칙 설치, 해당 WebView만 snapshot |
+| `scripts/webview-smoke/bootstrap.js` | document-start 고정 합성 transport, 허용 GET/순수 preview 응답과 외부·금융 변경 요청 차단, bounded 화면·오류·ephemeral marker 관측 |
+| `scripts/webview-smoke/fixtures.json` | 격리 smoke용 고정 합성 응답·전략·캔들·신호. 실제 provider 자료나 전체 REST 기능을 나타내지 않음 |
+| `scripts/webview-smoke/bootstrap.test.mjs` | Node VM의 source-level 합성 transport·차단·상한·관측 계약 4개. 실제 WKWebView GUI/lifecycle 검증과 구분 |
 | `tests/e2e/ui-dependency-contract.spec.ts` | mock API 기반 React/MUI UI 계약. 프로파일 Dialog의 데스크톱/좁은 화면·focus trap/Escape 복귀, Settings Select의 키보드 저장·취소, Dashboard 페이지 크기와 focus, 차트의 라이트/다크·좁은 폭·SPA 재진입 후 실제 canvas 렌더링을 확인. console/page 오류·외부 요청도 검사하며 실계좌/실제 provider 검증과 구분 |
 | `tests/e2e/trading-form-contract.spec.ts` | mock KIS 국내 지정가/시장가·미국 거래소/모의 매도 제한, Toss preflight·명시 세션 차단/자동 payload, 실패 초안 보존·성공 초기화·시장 전환·좁은 화면의 주문 폼 계약 회귀 |
 | `tests/e2e/budget-recovery.spec.ts` | mock 데스크톱 복구의 근거 대조·명시 확인·저장 실패/재시도·legacy/종결·실행 중·모바일과 웹 복구 요청 부재를 검증 |
@@ -1556,6 +1569,11 @@ KISAutoTrade/
 | `docs/research/replay-execution-20261018/runner.rs` | 기존 동결 input/results를 실제 preview/회계 엔진에 전달해 작업 시작 HEAD baseline과 sameClose 신호·보고 hash를 비교하고 과거 연구 summary 차이는 별도 집계. QQQ 일부 전략·비용별 sameClose/nextOpen 및 같은 모델 단순보유 비교를 results.json에 저장하며 운영 계정·provider·주문 API를 사용하지 않음 |
 | `tests/e2e/strategy-atr-readiness.spec.ts` | ATR 토글 기본값·연구 요청 가정·자료 부족/평가 중 준비·과거 응답 미확인·비활성 상태와 LTH 평가 불가 우선 표시를 mock replay로 검증 |
 | `docs/research/autonomous-corrections-20261018/compare.py` | 기존 동결 입력의 수정 전후 생산 replay trace를 비교하고 trace hash·변화 행·기술 통계를 `comparison.json`에 보관. 원래 연구 JSON/CSV는 변경하지 않으며 전체 trace는 `.cache/`에 유지 |
+
+격리 Wry smoke는 source VM 검사, driver의 build-only, 승인 후 실제 Wry UI·종료/재실행
+검증을 구분한다. 실제 실행 범위·미검증 기능과 근거는 [8회차 기록](tasks/immediate-backlog-20261029.md),
+명령·실행 경계는 [검증 지도](HARNESS_MAP.md)를 따른다. 원래 Tauri 앱 startup/IPC나
+Windows·최소 OS·보안 차단 전체를 이 smoke 결과로 검증했다고 판단하지 않는다.
 
 `docs/todo.md`를 수정한 뒤 `npm run todo:render`로 HTML을 갱신한다.
 생성 HTML은 원본을 대신 편집하는 위치가 아니며, 앱 화면·자동매매 실행과

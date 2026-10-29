@@ -26,6 +26,8 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run check:lockfiles
       - run: npx tsc --noEmit
+      - run: npx tsc --noEmit --project tsconfig.node.json --tsBuildInfoFile node_modules/.cache/kis-vite-config.tsbuildinfo
+      - run: node --test scripts/webview-smoke/bootstrap.test.mjs
       - run: npm run check:fsd
       - run: npm run check:project-map
       - run: npm run check:todo

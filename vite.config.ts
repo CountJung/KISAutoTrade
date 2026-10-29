@@ -1,9 +1,9 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type UserConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 const host = process.env.TAURI_DEV_HOST
 
-export default defineConfig(async () => ({
+export default defineConfig(async (): Promise<UserConfig> => ({
   plugins: [react()],
   clearScreen: false,
   // @tauri-apps/api를 Vite pre-bundling에서 제외
@@ -28,16 +28,18 @@ export default defineConfig(async () => ({
   build: {
     target:
       process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome105' : 'safari13',
-    minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
+    minify: !process.env.TAURI_ENV_DEBUG ? 'oxc' : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          react: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime'],
-          mui: ['@mui/material', '@mui/icons-material'],
-          emotion: ['@emotion/react', '@emotion/styled'],
-          tanstack: ['@tanstack/react-query', '@tanstack/react-router'],
-          charts: ['lightweight-charts'],
+        codeSplitting: {
+          groups: [
+            { name: 'react', priority: 20, test: /[/\\]node_modules[/\\](?:react|react-dom|scheduler)(?:[/\\]|$)/ },
+            { name: 'mui', test: /[/\\]node_modules[/\\]@mui[/\\]/ },
+            { name: 'emotion', priority: 10, test: /[/\\]node_modules[/\\]@emotion[/\\]/ },
+            { name: 'tanstack', test: /[/\\]node_modules[/\\]@tanstack[/\\]/ },
+            { name: 'charts', test: /[/\\]node_modules[/\\]lightweight-charts[/\\]/ },
+          ],
         },
       },
     },

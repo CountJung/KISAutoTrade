@@ -4,7 +4,7 @@
 
 ## 1. 환경 기준
 
-- Node.js `>=20`, npm `>=10` (`package.json`); 권장 검증 버전은 `.nvmrc`의 Node `24.22.1` LTS다. 세 CI workflow도 `node-version-file: .nvmrc`로 같은 버전을 사용한다.
+- Node.js `^20.19.0 || >=22.12.0`, npm `>=10` (`package.json`); 권장 검증 버전은 `.nvmrc`의 Node `24.22.1` LTS다. 세 CI workflow도 `node-version-file: .nvmrc`로 같은 버전을 사용한다.
 - Rust `>=1.90`, workspace member `src-tauri` (root `Cargo.toml`); Tauri 2.12 의존성의 최소 버전
 - 재현 가능한 의존성 검증은 npm `ci`와 Cargo `--locked`를 우선한다.
 
@@ -22,6 +22,8 @@ cargo metadata --locked --format-version 1 --no-deps
 | 목적 | 실제 명령 | 근거 |
 |---|---|---|
 | TypeScript 타입 | `npx tsc --noEmit` | release-gate frontend |
+| Vite config 타입 | `npx tsc --noEmit --project tsconfig.node.json --tsBuildInfoFile node_modules/.cache/kis-vite-config.tsbuildinfo` | 앱 src 검사와 별도 |
+| 격리 WebView bootstrap | `node --test scripts/webview-smoke/bootstrap.test.mjs` | Node VM 합성 계약; GUI 실행 없음 |
 | Frontend FSD import | `npm run check:fsd` | `package.json` |
 | Rust 전체 target check | `cargo check --workspace --all-targets --locked` | release-gate rust |
 | Rust lib tests | `cargo test --workspace --lib --locked` | release-gate rust |
@@ -127,7 +129,7 @@ npm run build:app
 
 `.github/workflows/release-gate.yml`은 다음 job을 실행한다.
 
-- frontend: npm ci, lockfiles, TypeScript, FSD, project map, todo freshness
+- frontend: npm ci, lockfiles, 앱 및 Vite config TypeScript, 합성 WebView bootstrap VM, FSD, project map, todo freshness
 - rust: Cargo metadata/check/lib test with lock
 - e2e: Chromium 설치, todo renderer 테스트, `npm run build:web`, UI production 317개와 source dev 32개의 Playwright 검사. 실패하면 `playwright-report/`와 `test-results/`를 artifact로 7일 보관한다.
 - toss-openapi: Toss spec 검증
@@ -303,3 +305,12 @@ fixture는 임시 경로와 합성 token/profile만 사용하고 `DatabaseManage
 `CI=1 npx playwright test tests/e2e/ui-dependency-contract.spec.ts`는 production preview의 합성 UI5개를 검사한다. dialog focus·Escape 복귀, Select 키보드·mock 저장, 좁은 Dashboard 표, painted chart의 theme/resize/SPA재진입을 다룬다. external origin·browser warning/error와 숨김 상태의 차트 중복을 검사한다. Drawer transition 때 aria-hidden을 CSS display와 혼동하지 않으며 정상 접근 가능/route/닫힘을 기다린다. 강제 클릭으로 동기화를 대체하지 않는다.
 
 Switch는 MUI7 이상에서 role=switch이며 실제 Checkbox와 구분한다. MUI9 Alert는 variant/severity의 분리된 정확 class 토큰과 내용으로 검증한다. React vendor는 react·react-dom/client·JSX runtime 진입점을 포함하고 최종 production chunk의 초기화/순환과 경고를 함께 확인한다. 단계별·전체 실행과 actual native runtime을 구분한다. [회차 기록](tasks/immediate-backlog-20261029.md).
+
+
+## Vite8 및 독립 macOS WebView 확인
+
+Vite6→7→8/plugin6 전환에서는 명시한 Safari13/Chrome105 target과 production/debug 네 조합, Rolldown 다섯 vendor 그룹·Oxc, cold/warm source harness와 production UI를 구분해 확인한다. syntax target 빌드는 실제 지원 OS/브라우저 실행을 뜻하지 않는다. 단계별 검증과 현재 결과는 [회차 기록](tasks/immediate-backlog-20261029.md)의 DEP-P3-06에 둔다.
+
+`node --test scripts/webview-smoke/bootstrap.test.mjs`는 네 개의 순수 Node VM 계약이다. `node scripts/webview-smoke/driver.mjs --build`는 macOS에서 동결 dist를 복사하고 독립 Wry/Tao workspace를 offline으로 빌드한다. Cargo registry cache가 필요하며 GUI 실행 명령은 없다. 격리 목적상 일회성 결과는 일반 `.cache/` 대신 고유 `/tmp/kis-webview-smoke-8-*/`에 둔다. `snapshot.json`, `isolation.json`, `build-result.json`의 소스·자산·실행 파일 해시를 확인한 뒤 별도로 승인된 CUA 실행만 수행한다. `launched:false`는 빌드 시점 기록이다. 같은 실행 파일을 재실행하면 고정 output 이름을 재사용하므로 이전 PNG가 남을 수 있다. 각 실행을 별도 보관하고 현재 report의 snapshotCount·파일 시각·sidecar와 대조한 유효 산출물 manifest를 둔다. 이전 회차의 더 큰 번호 파일을 새 캡처로 집계하지 않는다.
+
+이 창은 IPC와 생산 앱 crate 없이 비영속 WK store·고정 합성 transport를 사용한다. 알려진 GET/순수 preview만 허용하고 저장·주문·외부 전송은 차단한다. 읽기 전용 화면 상태 변화 시 자기 WebView만 최대12회 캡처하며 `snapshot-NN.json`의 성공과 PNG를 함께 확인한다. report의 rootChildren·canvas paint·오류·denied·overflow·정책 ledger가 실제 관측돼야 하며 null/누락을 통과로 해석하지 않는다. 실제 종료 후 프로세스 부재, 명시 재실행 뒤 marker의 initiallyAbsent/readbackMatches를 확인한다. bare Wry 성공은 원래 Tauri startup/IPC·운영 DB·계정·Windows·macOS 최소버전 검증이 아니다. CSP 설치와 실제 negative control 검증도 구분한다.

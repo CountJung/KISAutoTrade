@@ -1,6 +1,6 @@
 {
   "Cargo.toml": "55c8962a32bda2fec9d653b9fc00575c80108fb36a649c404e9a42fd9b5bd0f6",
-  "package.json": "cb647308ff48728ef0c42dde751ba2eb00b3e71574522040cc410951fdd70475",
+  "package.json": "9e79c893f588114bf933fbc11240e8ba33ccbbce19eb61b783eca98941973cb7",
   "playwright.config.ts": "0d547b41270da5eb825296c74c99a54746e8c26131b3694aa4dc8044c7cf7eb1",
   "scripts/check-fsd-imports.mjs": "b92e5a10f1b0545fe8d4a16b5bc2ada992667ec94514ad3129d47670a36472ad",
   "scripts/database-tls-contract.mjs": "97fee90d402f2b8e5ec1d9ee0a7dca21656ca1f18919939612b4947b76c83504",
@@ -13,6 +13,12 @@
   "scripts/verify-lockfiles.mjs": "28f0f9d2242b6fd09dff996ff159c42227744c6fcb088a78ac9823ef150e8216",
   "scripts/verify-release-artifacts.mjs": "e6da4f208d10b33d5668bcb6430e91c5ce381e0528328ba202dddcd8511c9a28",
   "scripts/verify-toss-openapi.mjs": "1ac6da97dcbf4792f8f8144014471fcb1b1f67e69f539575cd32cc964023389e",
+  "scripts/webview-smoke/bootstrap.js": "db4c8d5a95efe7300e6ce9dc1923cf1cfccc60cdb725b7f2f10c7cc2b51fbedf",
+  "scripts/webview-smoke/bootstrap.test.mjs": "42019411aeb4ddec6cb70a84a97becd7e2d7d042084a1188df20386ed1111a0d",
+  "scripts/webview-smoke/driver.mjs": "4f6f200e859166ebb90e950bc9db96cd235f26a6e4144988b1c07f60e3d68ecd",
+  "scripts/webview-smoke/fixtures.json": "61607d023d7b39a8b0df88ac524a5cac5e8b2d0a49ed9e1645d046e0c44fc067",
+  "scripts/webview-smoke/host.rs": "7ed315874197b57884238a1d4b7dbd9d50430514fc4886e9b16b79cbb12f7d71",
+  "scripts/webview-smoke/native.rs": "4b3c8a94b93bc5adb02794310a5ca6eca353a656e466867a187b3521aef1349e",
   "src-tauri/Cargo.toml": "4bbe46882cabc3b0550442597f85b99389d8445dd585180f30c00f7213502759",
   "src-tauri/build.rs": "487059eaf8a947b80f20a9aacac038a5047b2ad69d2401b827376c67d6fe847f",
   "src-tauri/src/api/detect.rs": "04da4ef970ba671df58ef786791c0982d97ae866673377edb4270f743a263ac2",
@@ -468,6 +474,6 @@
   "tests/e2e/trading-form-contract.spec.ts": "dac70ba8ddd6364344d22661ea730c4025c558481eac8dcdc25176502d49d366",
   "tests/e2e/ui-dependency-contract.spec.ts": "9dac3e8579e5ddcdba0556831943f35ea9c688eac10e64d604284ab236b0640e",
   "tsconfig.json": "13b3e3f0049c5fbdf04193baf7b4c917d47f6a28d64572881746f10d80941365",
-  "tsconfig.node.json": "9e2abb169ea87b7190613a1d4da57ca608463a453bd4231fa3aeee5e308370dd",
-  "vite.config.ts": "1bf8481d23ed66f5d568c95a17a60dd900cada7343d4ef9172e91e21a653874d"
+  "tsconfig.node.json": "ac6745290097c1a24c4c70cf35947d656eccd865589392031aac0883696d7643",
+  "vite.config.ts": "763a9d77e244cd5486625576d6f6865229e4312ea6615c01f72e6c7e5bf68392"
 }

@@ -380,4 +380,9 @@ Toss32개item의속성/시그니처/본문byte동일, Trading56문장/7helper·L
 
 ## DEP-P3-05 — React·MUI 전환 로컬 부분 완료
 
-2026-10-29 `653377ce` 뒤 React19.3.1/types19.3.0→MUI7.3.11→MUI9.5.0을 단계적으로 전환했다. Grid/slot/system sx 변환 밖 금융 AST·콜백·scope/preview 정책을 보존했다. 타입/FSD/clean lock 설치·경고 없는 production build와 전체UI349개, 별도 개발UI5개·Tauri custom-protocol build를 통과했다. 같은 SHA의 원격 CI 확인 전까지 상위ID를 TODO에 유지한다. [단계별 근거·실행 경계](tasks/immediate-backlog-20261029.md).
+2026-10-29 `653377ce` 뒤 React19.3.1/types19.3.0→MUI7.3.11→MUI9.5.0을 단계적으로 전환했다. Grid/slot/system sx 변환 밖 금융 AST·콜백·scope/preview 정책을 보존했다. 타입/FSD/clean lock 설치·경고 없는 production build와 전체UI349개, 별도 개발UI5개·Tauri custom-protocol build를 통과했다. 당시 같은 SHA의 원격 CI 확인을 남겨 상위ID를 TODO에 유지했다. 최종 완료는 아래 절을 따른다. [단계별 근거·실행 경계](tasks/immediate-backlog-20261029.md).
+
+
+## DEP-P3-05 — React·MUI 전환 완료
+
+2026-10-29 UI 전환 `f15f192fee105600d79468291334fb10f1495e9f`와 공개 Toss 명세 CI 보정 `99b85eb3cdc63deceb7ec60c325559607f98f8ce`를 정상 푸시·원격 SHA 대조했다. 최종 SHA의 Release Gate47·Security54가 모두 성공해 TODO 상위 ID를 닫았다. React19→MUI7→9 단계별 합성UI·최종349개와 개발QA5개, Rust 통합 빌드 및 Linux CI 검증을 구분해 기록했다. 원래 앱 startup·계좌·실거래·Windows/native 실동작 전체를 검증한 결과는 아니다. [CI 링크와 정확 범위](tasks/immediate-backlog-20261029.md).

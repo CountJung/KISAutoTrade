@@ -40,7 +40,7 @@
 
 ## 설치와 개발
 
-저장소의 `package.json` 기준 Node.js 20 이상/npm 10 이상, `src-tauri/Cargo.toml` 기준 Rust 1.90 이상이 필요합니다. Windows는 C++ Build Tools와 WebView2, macOS는 Xcode Command Line Tools가 필요하며 앱의 macOS 최소 버전은 12.0입니다.
+저장소의 `package.json` 기준 Node.js `^20.19.0 || >=22.12.0`/npm 10 이상 (권장·CI: Node24.22.1 LTS), `src-tauri/Cargo.toml` 기준 Rust 1.90 이상이 필요합니다. Windows는 C++ Build Tools와 WebView2, macOS는 Xcode Command Line Tools가 필요하며 앱의 macOS 최소 버전은 12.0입니다.
 
 ```bash
 git clone https://github.com/CountJung/KISAutoTrade.git
