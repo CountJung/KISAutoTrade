@@ -174,7 +174,7 @@ test('entry OHLC readiness and candidate diagnostics stay separate from sizing A
     sizingPreparation: { period: 14, historyBars: 252, readyAtStart: true, readyAtEnd: true, firstReadyTime: '20250101', unreadyEvaluationBars: 0, rangePolicy: 'observedBarsWithPreviousCloseNoInterpolation' },
   })
   const panel = card(page)
-  await panel.getByRole('checkbox', { name: '백테스트 ATR 기반 수량 산정', exact: true }).check()
+  await panel.getByRole('switch', { name: '백테스트 ATR 기반 수량 산정', exact: true }).check()
   await panel.getByRole('button', { name: '미리보기 계산', exact: true }).click()
   const entry = panel.getByTestId('entry-filter-preparation').first()
   await expect(entry).toContainText('신규 진입 필터 준비 · 완료 자료 부족')
@@ -235,7 +235,8 @@ test('known disabled legacy defaults omit unused preparation without an unknown 
   const notices = panel.getByTestId('entry-filter-preparation')
   await expect(notices).toHaveCount(1)
   await expect(notices).toContainText('신규 진입 필터 비활성')
-  await expect(notices).toHaveClass(/MuiAlert-standardInfo/)
+  await expect(notices).toHaveClass(/(?:^|\s)MuiAlert-standard(?:\s|$)/)
+  await expect(notices).toHaveClass(/(?:^|\s)MuiAlert-colorInfo(?:\s|$)/)
   await panel.getByRole('button', { name: '현재 결과를 A로 저장', exact: true }).click()
   await expect(notices).toHaveCount(2)
   await expect(notices.nth(1)).toContainText('신규 진입 필터 비활성')

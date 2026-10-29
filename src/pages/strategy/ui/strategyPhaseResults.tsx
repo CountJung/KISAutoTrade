@@ -49,7 +49,7 @@ export function StrategyPhaseResults({ report }: { report: BacktestReport }) {
       {phases.map((phase) => {
         const d = phase.diagnostics
         return <Paper key={phase.phase} variant="outlined" sx={{ p: 1, overflowWrap: 'anywhere' }}>
-          <Typography variant="caption" fontWeight={700}>{phaseName(phase.phase)} 진단</Typography>
+          <Typography variant="caption" sx={{ fontWeight: 700 }}>{phaseName(phase.phase)} 진단</Typography>
           {!validDiagnostics(d) ? <Alert severity="warning">구간 진단 정보 없음 · 이전 또는 지원하지 않는 결과입니다. 재계산 전에는 표본·경계·손익 귀속을 확인할 수 없습니다.</Alert> : <>
             <Typography variant="body2">관측 {d.observedBars}봉 · 종가 보유 {d.heldBars}봉 · 보유 관측 비율 {d.exposurePct.toFixed(2)}%</Typography>
             <Typography variant="body2">경계 보유 {d.startQuantity} → {d.endQuantity}주 · 대기 주문 {d.pendingAtStart ? '있음' : '없음'} → {d.pendingAtEnd ? '있음' : '없음'}</Typography>

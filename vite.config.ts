@@ -33,6 +33,7 @@ export default defineConfig(async () => ({
     rollupOptions: {
       output: {
         manualChunks: {
+          react: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime'],
           mui: ['@mui/material', '@mui/icons-material'],
           emotion: ['@emotion/react', '@emotion/styled'],
           tanstack: ['@tanstack/react-query', '@tanstack/react-router'],

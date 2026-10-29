@@ -81,12 +81,12 @@ export default function Log() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Typography variant="h5" fontWeight={700} mb={2}>
+      <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
         Log
       </Typography>
 
       {/* 필터 */}
-      <Stack direction="row" spacing={1} mb={2} alignItems="center" flexWrap="wrap" gap={1} useFlexGap>
+      <Stack direction="row" spacing={1} sx={{ mb: 2, alignItems: "center", flexWrap: "wrap", gap: 1 }} useFlexGap>
         <ToggleButtonGroup
           value={level}
           exclusive

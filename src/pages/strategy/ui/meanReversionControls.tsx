@@ -30,7 +30,7 @@ function MeanReversionNumericField({ field, value, disabled, onChange }: {
   useEffect(() => { setRaw((previous) => Object.is(parseDecimalDraft(previous), value) ? previous : value === undefined ? '0' : String(value)) }, [value])
   const error = fieldError(field, value)
   return <TextField fullWidth size="small" label={field.label} value={raw} disabled={disabled} error={!!error}
-    helperText={error ?? field.description} inputProps={{ inputMode: 'numeric' }}
+    helperText={error ?? field.description} slotProps={{ htmlInput: { inputMode: 'numeric' } }}
     onChange={(event) => { setRaw(event.target.value); onChange(field.key, parseDecimalDraft(event.target.value)) }} />
 }
 export function MeanReversionControls({ params, disabled, onChange }: {
@@ -44,7 +44,7 @@ export function MeanReversionControls({ params, disabled, onChange }: {
       보유는 실제 양수 수량·native 평균가로 확인합니다. 신호만으로 보유를 바꾸지 않으며 차단·pending·부분 체결 뒤에도 실제 잔량의 청산을 계속 평가합니다.
     </Alert>
     <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid size={{ xs: 12, sm: 6, md: 4 }}>
         <TextField fullWidth select size="small" label="MeanReversion 청산 모드" value={validMode ? mode : 'invalid'} disabled={disabled}
           error={!validMode} helperText={!validMode ? meanReversionPolicyError(params) : '기본 상단 초과 또는 선택 중심선 초과에서 청산합니다. 같은 값은 제외합니다.'}
           onChange={(event) => onChange('exit_mode', event.target.value)}>
@@ -52,7 +52,7 @@ export function MeanReversionControls({ params, disabled, onChange }: {
           <MenuItem value="upperBand">upperBand · 상단 초과 (기본)</MenuItem><MenuItem value="middleBand">middleBand · 중심선 초과</MenuItem>
         </TextField>
       </Grid>
-      {fields.map((field) => <Grid item xs={12} sm={6} md={4} key={field.key}>
+      {fields.map((field) => <Grid size={{ xs: 12, sm: 6, md: 4 }} key={field.key}>
         <MeanReversionNumericField field={field} value={params[field.key]} disabled={disabled} onChange={onChange} />
       </Grid>)}
     </Grid>
@@ -68,7 +68,7 @@ export function MeanReversionControls({ params, disabled, onChange }: {
 }
 export function MeanReversionPolicySummary({ params }: { params: Record<string, unknown> }) {
   const mode = modeOf(params)
-  return <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }}>
+  return <Typography variant="caption" sx={{ display: "block", overflowWrap: 'anywhere'  }}>
     MeanReversion 청산 · {mode === 'upperBand' || mode === 'middleBand' ? mode : '모드 확인 필요'}{params.exit_mode === undefined ? ' (기본 upperBand)' : ''}
     {' · '}추세 MA {String(params.long_trend_period === undefined ? 0 : params.long_trend_period)}관측
     {' · '}최대 보유 {String(params.max_hold_observations === undefined ? 0 : params.max_hold_observations)}관측 · 새 숫자 옵션 0 비활성

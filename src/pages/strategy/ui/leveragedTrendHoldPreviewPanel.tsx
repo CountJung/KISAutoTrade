@@ -34,10 +34,10 @@ export function LeveragedTrendHoldPreviewPanel({ model }: { model: LeveragedTren
           onChange={setAssumptions}
           disabled={previewMutation.isPending}
         />
-        <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between" gap={1}>
+        <Stack direction={{ xs: 'column', md: 'row' }} sx={{ alignItems: { xs: 'stretch', md: 'center' }, justifyContent: "space-between", gap: 1 }}>
           <Stack spacing={0.25}>
-            <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap">
-              <Typography variant="caption" color="text.secondary" fontWeight={700}>
+            <Stack direction="row" sx={{ alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
                 전략 미리보기
               </Typography>
               <Chip
@@ -51,7 +51,7 @@ export function LeveragedTrendHoldPreviewPanel({ model }: { model: LeveragedTren
               현재 편집 중인 파라미터를 기준으로 매수/청산 신호를 읽기 전용으로 재계산합니다.
             </Typography>
           </Stack>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
             <TextField
               select
               label="시뮬레이션 티커"

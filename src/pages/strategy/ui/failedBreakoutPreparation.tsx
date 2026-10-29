@@ -22,19 +22,19 @@ export function FailedBreakoutPreparation({ value, params, compact = false }: {
     돌파 진입 준비 형식 미지원 · 이전/알 수 없는 진단 응답의 준비 상태를 확정하지 않습니다.
   </Alert>
   return <Alert severity={value.ready ? 'info' : 'warning'} sx={{ py: 0.5, minWidth: 0, overflowWrap: 'anywhere', '& .MuiAlert-message': { minWidth: 0 } }} data-testid="failed-breakout-preparation">
-    <Typography variant="body2" fontWeight={700}>돌파 진입 준비 · {value.enabled ? statusLabels[value.status] : '비활성'}</Typography>
-    <Typography variant="caption" display="block">
+    <Typography variant="body2" sx={{ fontWeight: 700 }}>돌파 진입 준비 · {value.enabled ? statusLabels[value.status] : '비활성'}</Typography>
+    <Typography variant="caption" sx={{ display: "block" }}>
       {value.breakoutBasis === 'completedHigh' ? '이전 완료 일봉 고가' : '이전 가격관측 최대값'} · {value.cadence === 'priorCompletedDailyOhlcv' ? '이전 완료 일봉 OHLC·거래량 확인' : '가격관측 확인'}
       {' · '}필요 완료봉 {value.requiredCompletedBars} · 확보 {value.availableCompletedBars} · 실제 TR {value.trueRangeSamples}개
     </Typography>
-    <Typography variant="caption" display="block">
+    <Typography variant="caption" sx={{ display: "block" }}>
       이전 ATR {typeof value.priorAtr === 'number' && Number.isFinite(value.priorAtr) ? value.priorAtr : '미확인'}
       {' · '}직전 완료 거래량 비율 {typeof value.priorVolumeRatio === 'number' && Number.isFinite(value.priorVolumeRatio) ? `${value.priorVolumeRatio}배${value.priorVolumeRatio === 0 ? ' (검증된 0)' : ''}` : '미확인'}
     </Typography>
-    <Typography variant="caption" display="block">
+    <Typography variant="caption" sx={{ display: "block" }}>
       돌파 후보 {value.candidates} · 준비 미확인 보류 {value.unreadyCandidates} · ATR 거부 {value.atrRejections} · 거래량 거부 {value.volumeRejections ?? '정보 없음'} · 후보 통과 {value.passedCandidates}
     </Typography>
-    {!compact && <Typography variant="caption" display="block">
+    {!compact && <Typography variant="caption" sx={{ display: "block" }}>
       ATR 0은 자료가 충분하면 준비 완료입니다. 검증된 거래량 0은 양수 기준 평균에서 유효한 비율 0이며, 기준 평균 0이나 거래량 미확인과 다릅니다.
       후보 통과는 주문 제한·수량 제한 전 확인이며 실제 체결이 아닙니다. 수량 산정용 ATR 준비와 별도이고 현재 봉·누적 거래량을 미리 사용하지 않습니다.
     </Typography>}

@@ -39,7 +39,7 @@ function BreakoutNumericField({ field, params, disabled, onChange }: {
   useEffect(() => { setRaw((previous) => Object.is(parseDecimalDraft(previous), value) ? previous : value === undefined ? '0' : String(value)) }, [value])
   const error = fieldError(field, value) ?? (field.key.startsWith('profit_') ? profitPairError(params) : null)
   return <TextField fullWidth size="small" label={field.label} value={raw} disabled={disabled} error={!!error}
-    helperText={error ?? field.description} inputProps={{ inputMode: field.key === 'max_hold_observations' ? 'numeric' : 'decimal' }}
+    helperText={error ?? field.description} slotProps={{ htmlInput: { inputMode: field.key === 'max_hold_observations' ? 'numeric' : 'decimal' } }}
     onChange={(event) => { setRaw(event.target.value); onChange(field.key, parseDecimalDraft(event.target.value)) }} />
 }
 export function FailedBreakoutControls({ params, disabled, onChange }: {
@@ -54,14 +54,14 @@ export function FailedBreakoutControls({ params, disabled, onChange }: {
       실제 청산 전에는 주문 거절·부분 체결·설정 변경으로 이 기준을 지우지 않습니다. 신호는 체결이 아니며 공통 주문 제한·실제 잔량 제한을 유지합니다.
     </Alert>
     <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
-      <Grid item xs={12} sm={6}>
+      <Grid size={{ xs: 12, sm: 6 }}>
         <TextField fullWidth select size="small" label="돌파 기준" value={valid ? basis : 'invalid'} disabled={disabled} error={!valid}
           helperText={!valid ? failedBreakoutPolicyError(params) : '기본 이전 가격관측 최대값 또는 선택 이전 완료 일봉 고가'} onChange={(event) => onChange('breakout_basis', event.target.value)}>
           {!valid && <MenuItem value="invalid" disabled>저장된 잘못된 기준: {String(basis)}</MenuItem>}
           <MenuItem value="priceObservations">이전 가격관측 최대값 (기본)</MenuItem><MenuItem value="completedHigh">이전 완료 일봉 고가</MenuItem>
         </TextField>
       </Grid>
-      {fields.map((field) => <Grid item xs={12} sm={6} key={field.key}><BreakoutNumericField field={field} params={params} disabled={disabled} onChange={onChange} /></Grid>)}
+      {fields.map((field) => <Grid size={{ xs: 12, sm: 6 }} key={field.key}><BreakoutNumericField field={field} params={params} disabled={disabled} onChange={onChange} /></Grid>)}
     </Grid>
     <Alert severity="info" sx={{ py: 0.5, overflowWrap: 'anywhere', '& .MuiAlert-message': { minWidth: 0 } }}>
       새 숫자 옵션은 누락/0 비활성입니다. ATR 버퍼 문턱은 기존 비율 문턱(정수 내림)과 기준 고점 + 이전 완료 15일봉의 TR14 산술평균×배수 중 큰 가격입니다. 추가 ATR 문턱은 정수가격에서 올림 효과로 비교합니다. ATR 0도 자료가 충분하면 준비 완료입니다.
@@ -81,7 +81,7 @@ function numericLabel(params: Record<string, unknown>, field: StrategyParamMeta,
 export function FailedBreakoutPolicySummary({ params }: { params: Record<string, unknown> }) {
   const basis = basisOf(params)
   const core = (key: string, fallback: number) => params[key] === undefined ? `${fallback} (기본)` : typeof params[key] === 'number' && Number.isFinite(params[key]) ? String(params[key]) : '확인 필요'
-  return <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }} data-testid="failed-breakout-policy-summary">
+  return <Typography variant="caption" sx={{ display: "block", overflowWrap: 'anywhere'  }} data-testid="failed-breakout-policy-summary">
     돌파 기준 {basis === 'priceObservations' ? '이전 가격관측 최대값' : basis === 'completedHigh' ? '이전 완료 일봉 고가' : `확인 필요 (${String(basis)})`}{params.breakout_basis === undefined ? ' (누락 · 기본)' : ''}
     {' · '}기간 {core('lookback_days', 20)}관측/봉 · 버퍼 {core('buffer_pct', 0.5)}%
     {' · '}ATR 버퍼 {numericLabel(params, fields[0], '배')} · 거래량 {numericLabel(params, fields[1], '배')}

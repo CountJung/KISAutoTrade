@@ -109,7 +109,7 @@ export default function History() {
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <Typography variant="h5" fontWeight={700}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>
           History
         </Typography>
         <BrokerScopeIndicator appConfig={appConfig} compact />
@@ -124,7 +124,7 @@ export default function History() {
             value={from}
             onChange={(e) => setFrom(e.target.value)}
             size="small"
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
           />
           <TextField
             label="종료일"
@@ -132,7 +132,7 @@ export default function History() {
             value={to}
             onChange={(e) => setTo(e.target.value)}
             size="small"
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
           />
           <Button variant="contained" onClick={handleSearch}>
             조회
@@ -142,16 +142,16 @@ export default function History() {
 
       {/* ── 자동매매 체결 기록 ──────────────────────────────────── */}
       {query && (
-        <Grid container spacing={2} mb={2}>
+        <Grid container spacing={2} sx={{ mb: 2 }}>
           {[
             { label: '기간 순손익', value: (totalNetProfit >= 0 ? '+' : '') + fmt(totalNetProfit) + '원' },
             { label: '총 거래 수', value: `${fmt(totalTrades)}건` },
             { label: '평균 승률', value: `${(avgWinRate * 100).toFixed(1)}%` },
           ].map(({ label, value }) => (
-            <Grid item xs={12} sm={4} key={label}>
+            <Grid size={{ xs: 12, sm: 4 }} key={label}>
               <Paper sx={{ p: 2 }}>
                 <Typography variant="caption" color="text.secondary">{label}</Typography>
-                <Typography variant="h6" fontWeight={700}>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
                   {statsLoading ? <CircularProgress size={16} /> : value}
                 </Typography>
               </Paper>
@@ -161,7 +161,7 @@ export default function History() {
       )}
 
       <Paper sx={{ p: 2.5 }}>
-        <Typography variant="subtitle1" fontWeight={600} mb={2}>자동매매 체결 기록</Typography>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>자동매매 체결 기록</Typography>
         <Divider sx={{ mb: 2 }} />
         {!query && (
           <Typography variant="body2" color="text.secondary">

@@ -11,10 +11,10 @@
 | 전략 연구·해석 | 가격조건 계약·구간 진단·별도 회고 walk-forward 완료; 장중 효능 대기 | 2개: SOXQ-P2-13·09 | 가격조건/변동성 실제 장중 근거 | 장중 자료 2 |
 | LTH 실제 장중 평가 | 일봉 평가불가·분봉 시각 진단 구현 완료; 실제 기간 평가 대기 | 2개: SOXQ-P1-05, SOXQ-P2-12 | 실제 3개월 원본/coverage·DST 검증 후 옵션 비교 | 같은 원본 자료 공유·검증 2 |
 | DB 지원·호환 전환 | PostgreSQL 로컬 TLS 기록 존재; MariaDB/MSRV 정책 미확정 | 3개: P1-DB-01, DEP-P3-01·02 | 지원 matrix·최소 Rust 결정 후 SQLx/DB/RSA 검증 | 정책 결정 2; SQLx 착수 의존 |
-| 구조·의존성 유지보수 | 대상 세 파일·HTTP/WS 전환과 각 CI 완료 | 5개: DEP-P3-04~08 | 서버 CI 확인, UI·빌드·도구 검토 | 독립 검토 가능; Xcode 보류 유지 |
+| 구조·의존성 유지보수 | 대상 세 파일·HTTP/WS·서버 전환과 각 CI 완료 | 4개: DEP-P3-05~08 | UI·빌드·도구 검토 | 독립 검토 가능; Xcode 보류 유지 |
 | 릴리스 서명 | checksum/attestation·기본 게이트 완료; 실제 서명 미완료 | 1개: P3-SIGN-01 | 플랫폼·키 관리 결정과 서명 검증 | 사용자 결정·관리자 준비 1 |
 
-**미완료 15개 = 자동 구현 6개 + 사용자 판단 4개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현 6개 중 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
+**미완료 14개 = 자동 구현 5개 + 사용자 판단 4개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현 5개 중 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
 
 [완료·경과 이력](completed-history.md) · [색상·필터 보기](todo.html) · [운영 계획](MASTER_PLAN.html) · [검증 지도](HARNESS_MAP.md)
 
@@ -34,17 +34,11 @@
 
 권장 순서: **DEP-P3-01 → 02 → 03 → 04 → 05 → 06**, 기타 후보는 **07·08**에서 개별 판단한다. **DEP-P3-01의 MSRV·격리 DB 지원정책 결정은 DEP-P3-02 SQLx 전환의 실제 선행조건**이다. DEP-P3-03~08의 “다음/이후”는 검토 우선순위이며 앞 번호 전체 완료가 기술상 필수라는 뜻은 아니다. 각 항목의 실제 API·peer·toolchain 의존성이 확인되면 그 근거에 따라 순서를 조정한다. 우선순위는 이 P3 목록 내부 순서이며 기존 P1/P2를 대체하지 않는다. 검증은 금융 자격증명·실거래 연결 없이 합성/mock·격리 fixture로 한다. 운영 DB·거래 데이터·실행 중 서비스와 주문/취소/포지션·엔진 재시작·배포를 건드리지 않는다. Xcode 27.0→27.1은 사용자 보류 상태를 유지한다.
 
-DEP-P3-01·02는 아래 선행 결정 구역에서 관리한다. 아래 04~08은 앞 번호 전체 완료를 기다려야 하는 일괄 차단 목록이 아니다. 버전 표기는 당시 검토값이므로 착수 시 공식 자료로 다시 확인한다.
-
-- [ ] **🟢 자동 구현** **DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다.** 우선순위 4, DEP-P3-03 다음.
-  - **로컬 완료·CI 대기:** axum과 tower-http를 별도 단계로 전환하고 각 서버24개·전체 Rust873개, check/strict clippy/custom-protocol build를 통과했다. 70 URL/74 binding과 자체 Origin/token 정책을 보존했다. [회차 기록](tasks/immediate-backlog-20261029.md)의 합성·미실행 범위를 따르며 해당 SHA CI 확인 전까지 열린 상태다.
-  - **확인/미검증 구분:** `server/router.rs`로 분리한 13개 capture를 새 `{name}` 문법으로 변경했다. tower-http의 cors feature는 선언돼 있으나 실제 CorsLayer 호출은 없다. 현재 origin/token 정책은 자체 middleware이며 전환 중 새 CORS 정책을 추가하지 않는다. 이미 존재하는 간접 tower-http 0.6.11을 직접 의존성 전환 완료로 취급하지 않는다.
-  - **완료 조건:** 주문·계정 provider를 mock으로 격리하고 기존 모든 route의 경로/상태·인증 거부·CORS·오류 응답·Tauri IPC와 REST view 계약을 회귀 검증한다. Rust format/strict clippy/check/test/build 및 CI 통과. [axum 변경](https://github.com/tokio-rs/axum/blob/axum-v0.8.0/axum/CHANGELOG.md).
-
-  - **착수 의존성:** 앞 번호는 검토 권장 순서다. 실제 API·peer·toolchain 의존성을 확인해 범위를 고정하며 DEP-P3-01 결정 대기를 이 항목의 일괄 차단으로 확대하지 않는다.
+DEP-P3-01·02는 아래 선행 결정 구역에서 관리한다. 아래 05~08은 앞 번호 전체 완료를 기다려야 하는 일괄 차단 목록이 아니다. 버전 표기는 당시 검토값이므로 착수 시 공식 자료로 다시 확인한다.
 
 - [ ] **🟢 자동 구현** **DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다.** 우선순위 5, DEP-P3-04 다음.
-  - **실제 코드 영향 확인:** 대시보드·전략의 MUI `Grid item xs`는 `size` API로, 전략 입력의 `InputProps`는 `slotProps.input`으로 이전 대상이다. React는 이미 createRoot/새 JSX 변환을 사용한다. React DOM·타입/ref·오류 처리·주변 라이브러리 호환은 미검증 후보이며 이번에 React 교체 실패를 확인한 것은 아니다.
+  - **진행:** React19 단독→MUI7→MUI9를 전환하고 타입/FSD/build·단계별 mock UI를 통과했다. 최종 전체349개도 통과했으며 해당 SHA CI 확인 전까지 열린 상태다. [회차 기록](tasks/immediate-backlog-20261029.md)의 검증 범위를 따른다.
+  - **실제 코드 영향 확인:** Grid의 `size`와 입력의 `slotProps` 전환을 완료했고 React/DOM/types peer·타입·production mock UI를 검증했다. 금융 모델·preview 세대와 native 입력 속성은 보존했다. 실제 WKWebView·Windows 앱 실행은 이번 로컬 결과에 포함하지 않는다.
   - **완료 조건:** React/DOM/타입과 MUI 관련 패키지의 지원 조합을 공식 가이드로 정하고 분리된 변경으로 타입·FSD·production build를 통과한다. 금융 mock E2E에서 전략/설정/대시보드·좁은 화면·입력/메뉴/버튼·테마·차트를 검증하고 Mac/Linux 결과를 구분한다. [React 이전](https://react.dev/blog/2024/04/25/react-19-upgrade-guide), [MUI 이전](https://mui.com/material-ui/migration/upgrade-to-v9/).
 
   - **착수 의존성:** 앞 번호는 검토 권장 순서다. 실제 API·peer·toolchain 의존성을 확인해 범위를 고정하며 DEP-P3-01 결정 대기를 이 항목의 일괄 차단으로 확대하지 않는다.

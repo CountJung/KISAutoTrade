@@ -5,7 +5,7 @@
 ## 1. 런타임 한눈에 보기
 
 ```text
-React 18 + TypeScript + MUI
+React 19 + TypeScript + MUI 9
   pages/features/widgets/entities/shared
        ↓ TanStack Query hooks
   src/api/commands.ts
@@ -26,6 +26,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | 앱 라우트/화면 | `src/router/index.ts`, `src/pages/*/ui/Page.tsx` | `src/widgets/`, `src/features/`, `src/shared/ui/` |
 | 수동 주문 화면 | `src/pages/trading/ui/Page.tsx`, `useTradingOrderModel.ts` | `tradingOrderForm.tsx`, `kisPanels.tsx`, `tossPanels.tsx`, `tests/e2e/trading-form-contract.spec.ts`. Page는 조립, 모델은 상태·조회·제출, 폼은 공유 모델 UI를 소유 |
 | LTH 편집·종목 선택·preview | `src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx`, `useLeveragedTrendHoldEditorModel.ts` | `leveragedTrendHoldTickerPicker.tsx`, `leveragedTrendHoldPreviewPanel.tsx`, `leveragedTrendHoldPreviewChart.tsx`, `strategyResearchPanel.tsx`. 기존 공개 entry·검증 export와 계좌/입력 generation·평가불가 경계를 보존 |
+| UI 의존성·키보드/반응형 계약 | `tests/e2e/ui-dependency-contract.spec.ts` | Settings Dialog/Select, Dashboard 페이지 크기, LTH 차트의 테마·resize·SPA 재진입을 mock API로 확인. focus 복귀·canvas 렌더링·console/page 오류·외부 요청 경계 포함 |
 | 전역 UI 상태 | `src/entities/*/model/*Store.ts` | 하위 호환 `src/store/*.ts` re-export |
 | 서버 상태 조회/변경 | `src/api/hooks.ts`, `src/api/queryKeys.ts` | `src/api/commands.ts`, `src/shared/api/transport.ts` |
 | 공용 IPC 타입 | `src/shared/api/types.ts` | `src/api/types.ts` re-export/legacy surface, Rust serde view |

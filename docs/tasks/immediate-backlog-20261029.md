@@ -12,8 +12,8 @@
 | 3 | SOXQ-P2-16 — 구간 경고·표본 해석을 교정하고 별도 walk-forward를 평가한다. | 구현·검증 완료 | `15b53286109f599242d27e5314ea2c0105ac453e` 원격 SHA·GitHub 문서 확인 |
 | 4 | P3-REFACTOR-01 — 1,000라인 초과 파일을 책임 단위로 분리한다. | 구현·검증 완료 | `4a9e250236e8773f0b1fe3194339cc0978a8a5a8` 원격 SHA 일치 |
 | 5 | DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다. | HTTP·WS 구현/검증·CI 완료 | 5A `0dead386`·5B `270296db` 원격 일치; 각 Gate/Security 성공 |
-| 6 | DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다. | 로컬 구현·검증 완료/CI 대기 | 아래 6회차 결과; 커밋 후 같은 SHA CI 확인 |
-| 7 | DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다. | 대기 | — |
+| 6 | DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다. | 구현·검증·CI 완료 | `653377ce` 원격 일치, Gate45·Security52 성공 |
+| 7 | DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다. | 로컬 구현·검증 완료/CI 대기 | 전체349·devQA5 통과; 커밋 후 같은 SHA CI 확인 |
 | 8 | DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다. | 대기 | — |
 | 9 | DEP-P3-07 — 나머지 Rust·UI 의존성 후보의 실제 필요와 영향부터 확인한다. | 대기 | — |
 | 10 | DEP-P3-08 — TypeScript·패키지매니저 major 후보를 개별 평가한다. | 대기 | — |
@@ -207,3 +207,55 @@ DEP-P3-04는 로컬 구현·검증 완료이며 커밋·푸시 후 해당 SHA의
 검증된 27개 파일을 명시하여 git add→commit→`git push origin HEAD:fix/mac-security-storage-2026-10-06`→원격 SHA/clean 확인을 요청했으나 명령 생성 전에 자동 승인 검토가 거절했다. 사유는 이번 구체적인 코드 변경과 대상 브랜치에 대한 명확한 사용자 승인 부족이었다. 우회나 반복 실행은 하지 않았다. 후속 읽기 확인에서 HEAD는 `270296db196ee7191e5c4848b1346095b1061dc7`, staged diff는 비어 있고 6회차 변경은 unstaged/untracked로 보존돼 있다. 따라서 6회차 커밋·푸시·해당 SHA CI는 모두 미실행이다.
 
 원래 순차 요청에 따라 다음 구현을 섞지 않고 게시 단계의 재승인 근거를 기다린다. 독립적인 7·8회차 읽기 전용 준비는 완료했으며 실제 구현/설치는 시작하지 않았다. 5B의 Release Gate44·Security51 성공은 확정된 별도 결과다. 이 거절은 환경 연결 장애나 테스트 실패가 아니다.
+
+
+### 6회차 게시 재개
+
+부모 대화가 사용자의 원래 순차 커밋·푸시 요청과 사용자 제공 AGENTS 지침 원문을 이번27개 파일·대상 브랜치에 연결한 추가 승인 근거를 전달했다. 거절된 명령이 미실행임을 HEAD/staged diff로 확인하고 같은 게시 작업을 승인 검토에 한 번 재요청했으며 승인됐다. 커밋 `653377ce4ba49bc679d1762fe0f5d6ec2409fb74`를 정상 푸시했고 ls-remote 일치·clean 및 GitHub 해당 SHA 문서 게시를 확인했다. 기존 거절을 우회하지 않았다.
+
+같은 SHA의 Release Gate45 `40842772362`를 한 번 실행했으며 결과 확인 중이다. Dependency Security도 같은 브랜치로 한 번 제출했다. 새 금융/API/자격증명·서명·운영 배포 범위는 추가하지 않았다.
+
+
+- 6회차 CI 중간 확인: Release Gate45 `40842772362`는 frontend·Toss OpenAPI와 Linux Rust1.99.1의 전체873/873 성공을 확인했다(08:36:53 UTC). UI는 계속 실행 중이다. Dependency Security52 `40842954656`은 같은 SHA의 cargo-audit·npm-audit 모두 성공했다. 최종 UI 결과 전에는 전체 Gate 성공으로 표시하지 않는다.
+
+
+### 6회차 최종 CI 완료
+
+커밋 `653377ce4ba49bc679d1762fe0f5d6ec2409fb74`의 [Release Gate45](https://github.com/CountJung/KISAutoTrade/actions/runs/40842772362)와 [Dependency Security52](https://github.com/CountJung/KISAutoTrade/actions/runs/40842954656)가 모두 성공했다. Linux Rust873·frontend·Toss OpenAPI·UI344/344(7.3분, 08:39:55 UTC)를 완료했다. 게시 승인 차단은 추가 근거에 대한 정상 재검토로 해소됐으며 새 차단은 없다. DEP-P3-04를 이력으로 이관하고 남은14개=자동5+판단4+자료5로 갱신했다. 다음 고정ID는 DEP-P3-05다.
+
+## 7회차 — DEP-P3-05
+
+6회차 SHA·CI 완료를 확인한 뒤 React19 단독→MUI7→MUI9 순서로 전환한다. 프로젝트 Node24.22.1/npm11.19.1을 사용하며 각 단계 peer/타입/FSD/build와 금융 mock UI를 확인한다. 금융 모델·IPC/파라미터·scope/guard 정책은 유지한다. 실제 운영 앱은 시작하지 않고 WebView 미실행 경계를 따로 기록한다.
+
+
+### 7회차 단계별 구현·검증
+
+프로젝트 Node24.22.1/npm11.19.1과 빈 임시 npm user/global 설정·독립 cache·공개 registry를 사용했다. React/DOM19.3.1·types19.3.0 → MUI7.3.11 → MUI9.5.0을 따로 전환하고 각 단계 manifest/lock/증가 diff를 보존했다. Vite6.4.5·React plugin4.7.0·TS5.9.3·Emotion11.14.0/11.14.1·chart5.2.1은 그대로다. 실제 lock 버전 변경은 React/DOM/types/scheduler·MUI 계열13개이며 패키지 제거는 없다.
+
+| 단계 | 실제 확인한 결과 |
+|---|---|
+| React18/MUI6 기준 | 기존 거래/스크롤bar27개와 별도 신규UI5개 통과. 기준 dist·합성 화면6장을 보존 |
+| React19/MUI6 | UI 소스 변경0, 최종 peer 오류0, 타입/FSD/build 및 기존27개 통과. 설치 도중 임시 peer 안내와 최종해석을 구분 |
+| React19/MUI7 | 타입/FSD/build·기존47개와 별도 신규5개 통과. Switch의 공식 역할 변경에 맞춰 checked/요청 값과 정확한 switch 역할을 검증 |
+| React19/MUI9 | focused64개·독립UI5개 통과. clean npm ci 뒤 peer/타입/FSD/lock/build와 확대집중100개 통과. 전체349/349(2.7분, production317+source harness32, 실패/skip0)도 통과 |
+
+- UI52개 TSX의2,297개 JSX를 대조했다. slot65·Grid68·system 스타일432 전환을 정규화하면 나머지 AST가 같다. native input min/step/aria-label, 기존 sx의 배열/함수 우선순위와 Typography.color189개를 보존했다. query/API/model/theme·chart effect·scope/손절/preview generation은 바꾸지 않았다. 독립 리뷰에서도 순서·JSX spread 충돌·비속성 구조를 확인했고 소스는 모두1,000행 미만이다.
+- MUI9에서 제거된 DeleteOutline import는 DeleteOutlined로 바꿨다. 독립 리뷰가 공식 이전 SVG와 현재 SVG를 좌표 정규화해 같은 도형임을 확인했다. [이전 공식 소스](https://raw.githubusercontent.com/mui/material-ui/v6.5.0/packages/mui-icons-material/lib/DeleteOutline.js).
+- baseline 빌드는 경고가 없었으나 React19에서 entry635.20kB 경고가 새로 생겼다. React·DOM·client·JSX runtime을 react chunk로 분리해 최종entry424.75/mui362.82/react209.67kB, 빌드·순환 경고0을 확인했다. threshold·target·minifier·Tauri optimizer 제외는 바꾸지 않았다. 전체 전송량/성능 개선을 측정한 결과는 아니다.
+- MUI7 Switch 역할과 MUI9 Alert 복합 CSS class 제거는 공식 출력 변화다. 실제 Checkbox는 유지하고 Alert의 variant/severity를 각각 정확한 class 토큰으로 검사했다. 기존 실패 로그를 보존했다. 새QA 초안의 inputmode/닫힌 preview 가정은 제품 기준과 달랐으며 제거 후 독립 spec을 채택했다.
+- `ui-dependency-contract.spec.ts`5개는 dialog focus/Escape 복귀·Select 키보드/저장1회·좁은 Dashboard pagination·차트 paint/theme/resize/unmount/re-entry를 검사한다. 같은 최종 spec이 기준/MUI7/MUI9에서 각각5/5이며 브라우저 경고·오류·외부 origin0이다. Drawer 닫힘 중 aria-hidden을 데스크톱으로 오판한 테스트 경합은 CSS visibility와 정상 접근 가능·route/닫힘 대기로 교정했고 강제click·sleep·기대 완화는 없다. 최초 baseline 초안 raw로그 유실은 별도 QA 기록에 명시했다.
+- Rust alltargets check와 최종 번들을 포함한 custom-protocol build 통과·경고0. Rust 소스/manifest/lock 변경은 없다. 이 회차에서 Rust 전체 테스트를 로컬 재실행한 결과로 주장하지 않으며 해당 SHA CI에서 확인한다.
+- Node24/npm11의 운영 high/critical 및 전체 critical npm audit 모두 exit0, 양쪽 취약점0이다. Cargo 보안 잔여는 기존 RSA 예외·Linux2경고로 유지된다.
+- Mac Chromium 합성 화면과 build는 실제 WKWebView·Windows WebView2·macOS12 실행 성공이 아니다. MUI9 기본 지원과 현재 제품 OS/번들 target을 구분하고 실제 native runtime 경계는 다음 빌드 회차에서도 따로 검증한다. 운영 앱·계좌·keychain·실제 provider·주문·배포를 시작하지 않았다.
+
+
+- 7회차 최종 로컬 결과: clean install 뒤 전체349/349, 개발모드 독립UI5/5도 통과했다. 독립코드리뷰의 신규P0/P1/P2는 없으며 query/API/model/금융정책·sx우선순위·peer·icon도형·chunk초기화를 확인했다. Mac 실제 native app은 실행하지 않았다. 커밋 후 같은 SHA의 Linux CI는 후속 확인한다.
+
+
+- 7회차 구조 게이트: mapper 인벤토리/책임표와 Graphify6,981노드/15,397edge를 갱신했다. 기존 JSON설정4개 zero-node 안내와 Node프로세스의 NO_COLOR/FORCE_COLOR 안내는 소스 빌드·브라우저 console 경고와 구분한다. 실제 전체349개 결과를 이 안내 때문에 소스 경고0/브라우저0보다 넓게 해석하지 않는다.
+
+
+- 7회차 docs-canon `--changed`117문서의 상대링크·표·도달성·앵커·완료TODO 경고0. TODO14·mapper·Graphify freshness·lock·diff 검사 통과. 별도 내용 감사에서 상단표의 로컬완료/CI대기 상태를 본문349개 결과에 맞췄다.
+
+
+- 최종 문서 내용 감사: 기존 UI스킬의 제거된 Grid/system props 예제와 MUI6 설명을 MUI9로 교정했고, HARNESS의789/322는 당시 수치로 명시했다. 읽기 재감사에서 P2가 해소됐으며 남은 문서 차단은 없다. 7회차 변경은 최종 커밋·푸시 뒤 같은 SHA CI로 확인한다.

@@ -20,7 +20,7 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined'
 
 import type {
@@ -139,34 +139,34 @@ export function SimulationAssumptionsEditor({ value, onChange, disabled, isOvers
 
   return (
     <Box sx={{ p: 1.5, border: 1, borderColor: 'divider', borderRadius: 1 }}>
-      <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 1.25 }}>
+      <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", mb: 1.25  }}>
         <ScienceOutlinedIcon fontSize="small" color="primary" />
-        <Typography variant="caption" fontWeight={700}>백테스트 실행 가정</Typography>
+        <Typography variant="caption" sx={{ fontWeight: 700 }}>백테스트 실행 가정</Typography>
       </Stack>
       <Grid container spacing={1.25} sx={{ mb: 1.25 }}>
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <TextField select size="small" label="체결 모델" value={value.executionModel ?? 'sameClose'} fullWidth disabled={disabled}
             onChange={(event) => onChange({ ...value, executionModel: event.target.value as SimulationAssumptions['executionModel'] })}>
             <MenuItem value="sameClose">신호 봉 종가 체결 가정</MenuItem>
             <MenuItem value="nextOpen">다음 관측 봉 시가 체결 가정</MenuItem>
           </TextField>
         </Grid>
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <TextField select size="small" label="봉 내부 청산 정책" value={value.intrabarExitPolicy ?? 'unverified'} fullWidth disabled={disabled}
             onChange={(event) => onChange({ ...value, intrabarExitPolicy: event.target.value as SimulationAssumptions['intrabarExitPolicy'] })}>
             <MenuItem value="unverified">봉 내부 경로 미검증 · 시가 갭 청산만</MenuItem>
             <MenuItem value="stopFirst">손절 우선 · 보수적 모의 청산</MenuItem>
           </TextField>
         </Grid>
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <TextField size="small" type="number" label="연구 손절(%)" value={value.stopLossPct ?? 0} fullWidth disabled={disabled}
             onChange={(event) => updateNumber('stopLossPct', Number(event.target.value))}
-            inputProps={{ min: 0, max: 99.9, step: 0.1 }} helperText="0 = 비활성 · 백테스트 전용" />
+            slotProps={{ htmlInput: { min: 0, max: 99.9, step: 0.1 } }} helperText="0 = 비활성 · 백테스트 전용" />
         </Grid>
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <TextField size="small" type="number" label="연구 익절(%)" value={value.takeProfitPct ?? 0} fullWidth disabled={disabled}
             onChange={(event) => updateNumber('takeProfitPct', Number(event.target.value))}
-            inputProps={{ min: 0, max: 1000, step: 0.1 }} helperText="0 = 비활성 · 백테스트 전용" />
+            slotProps={{ htmlInput: { min: 0, max: 1000, step: 0.1 } }} helperText="0 = 비활성 · 백테스트 전용" />
         </Grid>
       </Grid>
       <Alert severity="info" sx={{ mb: 1.25 }}>
@@ -180,7 +180,7 @@ export function SimulationAssumptionsEditor({ value, onChange, disabled, isOvers
       </Alert>
       <Grid container spacing={1.25}>
         {assumptionFields.map((field) => (
-          <Grid item xs={12} sm={6} md={3} key={field.key}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }} key={field.key}>
             <TextField
               size="small"
               type="number"
@@ -190,7 +190,7 @@ export function SimulationAssumptionsEditor({ value, onChange, disabled, isOvers
               disabled={disabled}
               fullWidth
               helperText={field.helper}
-              inputProps={{ min: field.min, max: field.max, step: field.step }}
+              slotProps={{ htmlInput: { min: field.min, max: field.max, step: field.step } }}
             />
           </Grid>
         ))}
@@ -202,13 +202,13 @@ export function SimulationAssumptionsEditor({ value, onChange, disabled, isOvers
       />
       {value.volatilitySizingEnabled && (
         <Grid container spacing={1.25}>
-          <Grid item xs={12} sm={6}>
-            <TextField size="small" type="number" label="거래당 위험(bps)" value={value.riskPerTradeBps} onChange={(event) => updateNumber('riskPerTradeBps', Number(event.target.value))} disabled={disabled} fullWidth inputProps={{ min: 0, max: 10000, step: 1 }} />
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField size="small" type="number" label="거래당 위험(bps)" value={value.riskPerTradeBps} onChange={(event) => updateNumber('riskPerTradeBps', Number(event.target.value))} disabled={disabled} fullWidth slotProps={{ htmlInput: { min: 0, max: 10000, step: 1 } }} />
           </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField size="small" type="number" label="ATR 손절 배수" value={value.atrStopMultiplier} onChange={(event) => updateNumber('atrStopMultiplier', Number(event.target.value))} disabled={disabled} fullWidth inputProps={{ min: 0.1, max: 20, step: 0.1 }} />
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField size="small" type="number" label="ATR 손절 배수" value={value.atrStopMultiplier} onChange={(event) => updateNumber('atrStopMultiplier', Number(event.target.value))} disabled={disabled} fullWidth slotProps={{ htmlInput: { min: 0.1, max: 20, step: 0.1 } }} />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Typography variant="caption" color="text.secondary">
               이 백테스트에만 적용합니다. 같은 주기의 관측 15봉으로 이전 종가를 포함한 True Range 14개를 준비합니다.
               자료 부족 또는 ATR 0이면 신규 매수를 차단하며, 보유분 매도는 ATR 준비로 차단하지 않습니다. 누락 봉을 보간하지 않습니다.
@@ -216,7 +216,7 @@ export function SimulationAssumptionsEditor({ value, onChange, disabled, isOvers
           </Grid>
         </Grid>
       )}
-      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1  }}>
         신호 수와 별도로 공통 cooldown·손절 재진입 금지·포지션 비중·비용·현금 조건을 통과한 주문/체결만 성과에 반영합니다.
       </Typography>
     </Box>
@@ -256,10 +256,10 @@ function fmtPct(value: number) {
 function Metric({ label, value, tone }: { label: string; value: string; tone?: 'positive' | 'negative' }) {
   return (
     <Paper variant="outlined" sx={{ p: 1.25, height: '100%' }}>
-      <Typography variant="caption" color="text.secondary" display="block">{label}</Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{label}</Typography>
       <Typography
         variant="subtitle2"
-        fontWeight={700}
+        sx={{ fontWeight: 700 }}
         color={tone === 'positive' ? 'success.main' : tone === 'negative' ? 'error.main' : 'text.primary'}
       >
         {value}
@@ -311,14 +311,14 @@ function AtrPreparationNotice({ report }: { report: BacktestReport }) {
   const hadUnreadyBars = !preparation.readyAtStart || !preparation.readyAtEnd || preparation.unreadyEvaluationBars > 0
   return (
     <Alert severity={hadUnreadyBars ? 'warning' : 'info'} data-testid="backtest-atr-preparation">
-      <Typography variant="body2" fontWeight={700}>ATR 기반 수량 산정 준비</Typography>
+      <Typography variant="body2" sx={{ fontWeight: 700 }}>ATR 기반 수량 산정 준비</Typography>
       <Typography variant="body2">
         ATR 기간 {preparation.period} · 사전 관측 {preparation.historyBars}봉 · 시작 {preparation.readyAtStart ? '준비' : '미준비'} · 종료 {preparation.readyAtEnd ? '준비' : '미준비'}
       </Typography>
       <Typography variant="body2">
         ATR 미준비 평가 {preparation.unreadyEvaluationBars}봉 · 최초 준비 {preparation.firstReadyTime ?? '확인되지 않음'}
       </Typography>
-      <Typography variant="caption" display="block">
+      <Typography variant="caption" sx={{ display: "block" }}>
         전략 지표 준비 상태와 별도입니다. 자료 부족 또는 ATR 0이면 신규 매수를 차단하며 보유분 매도는 ATR 준비로 차단하지 않습니다.
         True Range는 이전 종가와 관측 OHLC로 계산하고 누락 봉은 보간하지 않습니다.
       </Typography>
@@ -429,7 +429,7 @@ export function StrategyResearchResults({
   )
   const summary = report.summary
   const metadata = (
-    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+    <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }} useFlexGap>
       <Chip size="small" label={calculationModeLabel(calculationMode)} color={calculationMode === 'continuous' ? 'primary' : 'default'} variant="outlined" />
       <Chip size="small" label={`엔진 ${replay.engineVersion}`} variant="outlined" />
       <Chip size="small" label={`체결 ${executionModelLabel(report.assumptions)}`} color="primary" variant="outlined" sx={{ maxWidth: '100%', height: 'auto', '& .MuiChip-label': { whiteSpace: 'normal', py: 0.5 } }} />
@@ -442,7 +442,7 @@ export function StrategyResearchResults({
   )
   const assessmentNotice = (assessment || performanceUnavailable) && (
     <Alert severity="warning" data-testid="replay-assessment-notice" sx={{ py: 0.75 }}>
-      <Typography variant="body2" fontWeight={700}>
+      <Typography variant="body2" sx={{ fontWeight: 700 }}>
         {performanceUnavailable
           ? assessment?.model === 'intradaySample' ? '성과 평가 불가 · 분봉 자료 진단' : '성과 평가 불가 · 일봉/자료 진단'
           : '분봉 표본 모의 결과'}
@@ -463,7 +463,7 @@ export function StrategyResearchResults({
         </Typography>
       )}
       {assessment?.limitations.map((limitation, index) => (
-        <Typography key={`${index}:${limitation}`} variant="caption" display="block">{limitation}</Typography>
+        <Typography key={`${index}:${limitation}`} variant="caption" sx={{ display: "block" }}>{limitation}</Typography>
       ))}
       {isLeveragedReplay && replay.sourceInterval === '1m' && <LthMinuteTimingPanel value={assessment?.minuteTiming} />}
     </Alert>
@@ -480,8 +480,8 @@ export function StrategyResearchResults({
 
   return (
     <Stack spacing={1.5} data-testid="strategy-backtest-results">
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
-        <Typography variant="subtitle2" fontWeight={700} sx={{ mr: 'auto' }}>{isIntradaySample ? '분봉 표본 모의 결과' : '주문 가능성 반영 백테스트'}</Typography>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mr: 'auto'  }}>{isIntradaySample ? '분봉 표본 모의 결과' : '주문 가능성 반영 백테스트'}</Typography>
         <Button size="small" variant="outlined" onClick={() => saveSlot('A')}>현재 결과를 A로 저장</Button>
         <Button size="small" variant="outlined" onClick={() => saveSlot('B')}>현재 결과를 B로 저장</Button>
         {(slots.A || slots.B) && (
@@ -506,7 +506,7 @@ export function StrategyResearchResults({
 
       <Alert severity="warning" sx={{ py: 0.5 }} data-testid="backtest-execution-assumptions">
         <Typography variant="body2">{executionAssumptionsLabel(report.assumptions)}</Typography>
-        <Typography variant="caption" display="block">
+        <Typography variant="caption" sx={{ display: "block" }}>
           신호 확인과 체결 시점은 봉 라벨과 시가·종가·봉 내부 단계로 표시하며 정확한 거래소 체결 시각을 뜻하지 않습니다.
           실제 10초 관측, 봉 내부 가격 경로, provider pending·체결 지연은 검증하지 않습니다. 슬리피지는 가격 영향만 근사합니다.
         </Typography>
@@ -515,12 +515,12 @@ export function StrategyResearchResults({
       </Alert>
 
       <Grid container spacing={1}>
-        <Grid item xs={6} sm={4} md={2}><Metric label="누적 수익률" value={fmtPct(summary.cumulativeReturnPct)} tone={summary.cumulativeReturnPct >= 0 ? 'positive' : 'negative'} /></Grid>
-        <Grid item xs={6} sm={4} md={2}><Metric label="MDD" value={fmtPct(-summary.mddPct)} tone="negative" /></Grid>
-        <Grid item xs={6} sm={4} md={2}><Metric label="승률" value={`${summary.winRatePct.toFixed(1)}%`} /></Grid>
-        <Grid item xs={6} sm={4} md={2}><Metric label="손익비" value={summary.profitFactor == null ? '—' : summary.profitFactor.toFixed(2)} /></Grid>
-        <Grid item xs={6} sm={4} md={2}><Metric label="Turnover" value={`${summary.turnoverPct.toFixed(1)}%`} /></Grid>
-        <Grid item xs={6} sm={4} md={2}><Metric label="보유 관측 봉 비율" value={`${summary.exposurePct.toFixed(1)}%`} /></Grid>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}><Metric label="누적 수익률" value={fmtPct(summary.cumulativeReturnPct)} tone={summary.cumulativeReturnPct >= 0 ? 'positive' : 'negative'} /></Grid>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}><Metric label="MDD" value={fmtPct(-summary.mddPct)} tone="negative" /></Grid>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}><Metric label="승률" value={`${summary.winRatePct.toFixed(1)}%`} /></Grid>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}><Metric label="손익비" value={summary.profitFactor == null ? '—' : summary.profitFactor.toFixed(2)} /></Grid>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}><Metric label="Turnover" value={`${summary.turnoverPct.toFixed(1)}%`} /></Grid>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}><Metric label="보유 관측 봉 비율" value={`${summary.exposurePct.toFixed(1)}%`} /></Grid>
       </Grid>
 
       <Alert severity={summary.blockedOrderCount > 0 || (summary.unfilledOrderCount ?? 0) > 0 || (summary.ambiguousBarCount ?? 0) > 0 ? 'warning' : 'success'} sx={{ py: 0.5 }}>
@@ -537,7 +537,7 @@ export function StrategyResearchResults({
 
       {(slots.A || slots.B) && (
         <Box sx={{ p: 1.25, border: 1, borderColor: 'divider', borderRadius: 1 }} data-testid="strategy-ab-comparison">
-          <Typography variant="caption" fontWeight={700} display="block" sx={{ mb: 0.75 }}>저장된 A/B 실험 비교</Typography>
+          <Typography variant="caption" sx={{ fontWeight: 700, display: "block", mb: 0.75  }}>저장된 A/B 실험 비교</Typography>
           {!comparable && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 데이터 source/봉/기간이 달라 직접 비교할 수 없습니다.</Alert>}
           {differentTiming && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 시각 진단 버전·봉 표기·시간대 또는 검증 가정이 다릅니다. 진단 정보가 없는 이전 결과와 직접 비교하지 마세요.</Alert>}
           {strategyId.startsWith('failed_breakout') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 돌파 파라미터가 다릅니다. 기준 가격·완료 일봉 조건·수익 보호·보유 관측 상한을 확인하세요.</Alert>}
@@ -551,17 +551,17 @@ export function StrategyResearchResults({
           {strategyId.startsWith('mean_reversion') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 MeanReversion 파라미터가 다릅니다. 청산 모드·추세·보유 관측 상한을 확인하세요.</Alert>}
           {strategyId.startsWith('deviation') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 Deviation 파라미터가 다릅니다. 진입·추세·보유 관측·손절 조건을 확인하세요.</Alert>}
           {differentExecution && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 엔진 또는 체결 가정이 다릅니다. 아래 조건 차이를 함께 확인하세요.</Alert>}
-          <Typography variant="caption" display="block" sx={{ mb: 1 }}>같은 기간/겹친 기간의 A/B는 독립 검증이 아닙니다. 부분기간의 결과를 전체 분기나 연속 운용 성과로 합산하지 마세요.</Typography>
+          <Typography variant="caption" sx={{ display: "block", mb: 1  }}>같은 기간/겹친 기간의 A/B는 독립 검증이 아닙니다. 부분기간의 결과를 전체 분기나 연속 운용 성과로 합산하지 마세요.</Typography>
           <Grid container spacing={1}>
             {(['A', 'B'] as const).map((slot) => {
               const saved = slots[slot]
               const savedUnavailable = saved && (saved.replay.assessment?.model === 'dailyDiagnostic' || saved.replay.assessment?.performanceStatus === 'notEvaluable' || (isLeveragedReplay && !saved.replay.assessment))
               return (
-                <Grid item xs={12} sm={6} key={slot}>
+                <Grid size={{ xs: 12, sm: 6 }} key={slot}>
                   <Paper variant="outlined" sx={{ p: 1 }}>
-                    <Typography variant="caption" fontWeight={700}>실험 결과 {slot}</Typography>
-                    {saved && <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }}>엔진 {saved.replay.engineVersion} · {executionAssumptionsLabel(saved.backtest.assumptions)}</Typography>}
-                    {saved && <Typography variant="caption" display="block">{calculationModeLabel(saved.calculationMode)}{saved.continuity ? ` · 공급 ${saved.continuity.chunkCount}묶음 / 평가 ${saved.continuity.evaluationBars}봉 / 사전 ${saved.continuity.historyBars}봉 1회` : ''}</Typography>}
+                    <Typography variant="caption" sx={{ fontWeight: 700 }}>실험 결과 {slot}</Typography>
+                    {saved && <Typography variant="caption" sx={{ display: "block", overflowWrap: 'anywhere'  }}>엔진 {saved.replay.engineVersion} · {executionAssumptionsLabel(saved.backtest.assumptions)}</Typography>}
+                    {saved && <Typography variant="caption" sx={{ display: "block" }}>{calculationModeLabel(saved.calculationMode)}{saved.continuity ? ` · 공급 ${saved.continuity.chunkCount}묶음 / 평가 ${saved.continuity.evaluationBars}봉 / 사전 ${saved.continuity.historyBars}봉 1회` : ''}</Typography>}
                     {saved?.strategyId.startsWith('failed_breakout') && <><FailedBreakoutPolicySummary params={saved.params} /><FailedBreakoutPreparation value={saved.entryFilterPreparation} params={saved.params} compact /></>}
                     {saved?.strategyId.startsWith('volatility_expansion') && <><VolatilityExpansionSummary params={saved.params} /><VolatilityPreparation value={saved.volatilityExpansionPreparation} compact /></>}
                     {saved?.strategyId.startsWith('strong_close') && <><StrongClosePolicySummary params={saved.params} /><StrongClosePreparation value={saved.entryFilterPreparation} params={saved.params} compact /></>}
@@ -606,10 +606,10 @@ export function StrategyResearchResults({
                 <TableCell><Chip size="small" label={trade.status === 'filled' ? '체결 가정' : trade.status === 'unfilled' ? '미체결' : '차단'} color={trade.status === 'filled' ? 'success' : 'warning'} variant="outlined" /></TableCell>
                 <TableCell>{trade.side === 'buy' ? '매수' : '매도'}</TableCell>
                 <TableCell align="right">{trade.quantity.toLocaleString('ko-KR')}</TableCell>
-                <TableCell align="right">{trade.fillPrice == null ? '—' : trade.fillPrice.toLocaleString('ko-KR')}<Typography variant="caption" display="block">체결 기준가 {trade.executionReferencePrice ?? '정보 없음'} · 환율 {trade.exchangeRateKrw ?? '정보 없음'}</Typography></TableCell>
-                <TableCell align="right">{fmtMoney(trade.costKrw)}<Typography variant="caption" display="block">수수료 {trade.feeKrw == null ? '정보 없음' : fmtMoney(trade.feeKrw)} · 거래세 {trade.taxKrw == null ? '정보 없음' : fmtMoney(trade.taxKrw)} · 슬리피지 영향 {trade.slippageKrw == null ? '정보 없음' : fmtMoney(trade.slippageKrw)}</Typography></TableCell>
+                <TableCell align="right">{trade.fillPrice == null ? '—' : trade.fillPrice.toLocaleString('ko-KR')}<Typography variant="caption" sx={{ display: "block" }}>체결 기준가 {trade.executionReferencePrice ?? '정보 없음'} · 환율 {trade.exchangeRateKrw ?? '정보 없음'}</Typography></TableCell>
+                <TableCell align="right">{fmtMoney(trade.costKrw)}<Typography variant="caption" sx={{ display: "block" }}>수수료 {trade.feeKrw == null ? '정보 없음' : fmtMoney(trade.feeKrw)} · 거래세 {trade.taxKrw == null ? '정보 없음' : fmtMoney(trade.taxKrw)} · 슬리피지 영향 {trade.slippageKrw == null ? '정보 없음' : fmtMoney(trade.slippageKrw)}</Typography></TableCell>
                 <TableCell align="right">{trade.realizedPnlKrw == null ? '—' : fmtMoney(trade.realizedPnlKrw)}</TableCell>
-                <TableCell>{trade.blockedReason ?? trade.reason}{trade.intrabarPathStatus && <Typography variant="caption" display="block">봉 내부 경로: {intrabarPathLabel(trade.intrabarPathStatus)}</Typography>}</TableCell>
+                <TableCell>{trade.blockedReason ?? trade.reason}{trade.intrabarPathStatus && <Typography variant="caption" sx={{ display: "block" }}>봉 내부 경로: {intrabarPathLabel(trade.intrabarPathStatus)}</Typography>}</TableCell>
               </TableRow>
             ))}
             {report.trades.length === 0 && <TableRow><TableCell colSpan={10}>거래 신호가 없습니다.</TableCell></TableRow>}

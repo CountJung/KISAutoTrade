@@ -119,7 +119,7 @@ function SliderWithInput({
       <Typography variant="body2" gutterBottom>
         {label}: <strong>{value}{unit}</strong>
       </Typography>
-      <Stack direction="row" alignItems="center" spacing={2}>
+      <Stack direction="row" sx={{ alignItems: "center" }} spacing={2}>
         <Slider
           value={value}
           min={min}
@@ -203,9 +203,9 @@ function RiskSection() {
     <Section title="리스크 관리">
       <Stack spacing={2}>
         {/* 활성화 토글 */}
-        <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
+        <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between" }}>
           <Box>
-            <Typography variant="body2" fontWeight={600}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
               리스크 관리 사용
             </Typography>
             <Typography variant="caption" color="text.secondary">
@@ -227,27 +227,27 @@ function RiskSection() {
 
             {/* 오늘 현황 요약 */}
             <Box>
-              <Typography variant="body2" fontWeight={600} gutterBottom>
+              <Typography variant="body2" sx={{ fontWeight: 600 }} gutterBottom>
                 오늘 현황
               </Typography>
               <Stack direction="row" spacing={1.5}>
                 <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, flex: 1, textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" display="block">총 손실</Typography>
-                  <Typography variant="body2" fontWeight={700} color="error.main">
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>총 손실</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }} color="error.main">
                     -{fmt(Math.abs(risk.currentLoss))}원
                   </Typography>
                 </Box>
                 <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, flex: 1, textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" display="block">당일 수익</Typography>
-                  <Typography variant="body2" fontWeight={700} color="success.main">
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>당일 수익</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }} color="success.main">
                     +{fmt(risk.dailyProfit)}원
                   </Typography>
                 </Box>
                 <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, flex: 1, textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" display="block">순 손실</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>순 손실</Typography>
                   <Typography
                     variant="body2"
-                    fontWeight={700}
+                    sx={{ fontWeight: 700 }}
                     color={risk.netLoss > 0 ? 'warning.main' : 'text.primary'}
                   >
                     {fmt(risk.netLoss)}원
@@ -257,9 +257,9 @@ function RiskSection() {
 
               {/* 순손실 진행바 */}
               <Box sx={{ mt: 1.5 }}>
-                <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                <Stack direction="row" sx={{ justifyContent: "space-between", mb: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">순손실 소진율</Typography>
-                  <Typography variant="caption" fontWeight={700} color={`${barColor}.main`}>
+                  <Typography variant="caption" sx={{ fontWeight: 700 }} color={`${barColor}.main`}>
                     {netLossPct.toFixed(1)}%
                   </Typography>
                 </Stack>
@@ -293,7 +293,7 @@ function RiskSection() {
 
             {/* 한도 설정 슬라이더 */}
             <Box>
-              <Typography variant="body2" fontWeight={600} gutterBottom>
+              <Typography variant="body2" sx={{ fontWeight: 600 }} gutterBottom>
                 한도 설정
               </Typography>
               <Stack spacing={2}>
@@ -345,9 +345,9 @@ function RiskSection() {
                   onChangeCommitted={(v) => { setLossBlockLimit(v); setDirty(true) }}
                 />
                 <Divider />
-                <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
+                <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between" }}>
                   <Box>
-                    <Typography variant="body2" fontWeight={600}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       변동성 기반 주문 수량
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
@@ -490,7 +490,7 @@ export default function Settings() {
 
   return (
     <Box>
-      <Typography variant="h5" fontWeight={700} mb={3}>
+      <Typography variant="h5" sx={{ fontWeight: 700, mb: 3 }}>
         Settings
       </Typography>
 
@@ -656,7 +656,7 @@ export default function Settings() {
               접속 URL: <code>{webConfig?.accessUrl ?? `http://localhost:7474`}</code>
             </Typography>
 
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }} useFlexGap>
               <Chip
                 size="small"
                 label={webConfig?.lanEnabled ? 'LAN 공개 예정' : 'localhost 전용'}
@@ -689,7 +689,7 @@ export default function Settings() {
               </Stack>
             ) : (
               <Box>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'center' } }}>
                   <TextField
                     label="현재 웹 API token"
                     type="password"
@@ -719,7 +719,7 @@ export default function Settings() {
             {webConfig && (
               webConfig.distFound === false ? (
                 <Alert severity="warning">
-                  <Typography variant="body2" fontWeight={600} mb={0.5}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
                     프론트엔드 빌드 파일 없음
                   </Typography>
                   <Typography variant="body2">
@@ -738,14 +738,14 @@ export default function Settings() {
 
             {/* 포트 설정 */}
             <Box>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 <TextField
                   label="웹 서버 포트"
                   value={webPortInput}
                   onChange={(e) => { setWebPortInput(e.target.value); setWebSaveResult(null) }}
                   size="small"
                   type="number"
-                  inputProps={{ min: 1024, max: 65535 }}
+                  slotProps={{ htmlInput: { min: 1024, max: 65535 } }}
                   sx={{ width: 140 }}
                 />
                 <Button

@@ -27,7 +27,7 @@ function RsiNumericField({ field, value, disabled, onChange }: {
   useEffect(() => { setRaw((previous) => Object.is(parseDecimalDraft(previous), value) ? previous : value === undefined ? '0' : String(value)) }, [value])
   const error = fieldError(field, value)
   return <TextField fullWidth size="small" label={field.label} value={raw} disabled={disabled} error={!!error}
-    helperText={error ?? field.description} inputProps={{ inputMode: field.key === 'stop_loss_pct' ? 'decimal' : 'numeric' }}
+    helperText={error ?? field.description} slotProps={{ htmlInput: { inputMode: field.key === 'stop_loss_pct' ? 'decimal' : 'numeric' } }}
     onChange={(event) => { setRaw(event.target.value); onChange(field.key, parseDecimalDraft(event.target.value)) }} />
 }
 export function RsiControls({ params, disabled, onChange }: {
@@ -40,7 +40,7 @@ export function RsiControls({ params, disabled, onChange }: {
       신호만으로 보유를 바꾸지 않습니다. 실제 보유 수량·종목 통화 기준 평균 매수가로 보유를 확인하며 공통 주문 제한·소유 수량 제한을 유지합니다. 후보 통과·신호는 체결이 아닙니다.
     </Alert>
     <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
-      {fields.map((field) => <Grid item xs={12} sm={6} md={4} key={field.key}>
+      {fields.map((field) => <Grid size={{ xs: 12, sm: 6, md: 4 }} key={field.key}>
         <RsiNumericField field={field} value={params[field.key]} disabled={disabled} onChange={onChange} />
       </Grid>)}
     </Grid>
@@ -63,7 +63,7 @@ function policyLabel(params: Record<string, unknown>, field: StrategyParamMeta, 
 }
 export function RsiPolicySummary({ params }: { params: Record<string, unknown> }) {
   const core = (key: string, fallback: number) => params[key] === undefined ? `${fallback} (기본)` : typeof params[key] === 'number' && Number.isFinite(params[key]) ? String(params[key]) : '확인 필요'
-  return <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }} data-testid="rsi-policy-summary">
+  return <Typography variant="caption" sx={{ display: "block", overflowWrap: 'anywhere'  }} data-testid="rsi-policy-summary">
     RSI 단순평균 · 기간 {core('period', 14)}관측 · 과매도 {core('oversold', 30)} / 과매수 {core('overbought', 70)}
     {' · '}진입 추세 {policyLabel(params, fields[0], '관측')}
     {' · '}보유 손절 {policyLabel(params, fields[1], '%')}

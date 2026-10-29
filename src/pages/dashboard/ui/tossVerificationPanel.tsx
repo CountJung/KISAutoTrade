@@ -27,8 +27,8 @@ export function DashboardTossVerificationPanel({
 
   return (
     <Paper sx={{ p: 2.5, mb: 2 }}>
-      <Stack direction="row" alignItems="center" spacing={1} mb={1.5} flexWrap="wrap">
-        <Typography variant="subtitle1" fontWeight={600}>
+      <Stack direction="row" sx={{ alignItems: "center", mb: 1.5, flexWrap: "wrap" }} spacing={1}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
           Toss 소액매매 검증
         </Typography>
         <Chip

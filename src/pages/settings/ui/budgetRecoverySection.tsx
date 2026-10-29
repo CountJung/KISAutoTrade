@@ -41,7 +41,7 @@ function RecoveryCard({ item, scope, identity, running, refreshing }: {
     <Box component="article" aria-label={`${item.symbol} 불명 주문 ${item.reservationId}`}
       sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
       <Stack spacing={1.5}>
-        <Typography fontWeight={700}>{item.symbol} · {item.side === 'buy' ? '매수' : '매도'} {item.quantity}주 · {item.currency}</Typography>
+        <Typography sx={{ fontWeight: 700 }}>{item.symbol} · {item.side === 'buy' ? '매수' : '매도'} {item.quantity}주 · {item.currency}</Typography>
         <Typography variant="body2">예약 ID: {item.reservationId}</Typography>
         <Typography variant="body2">원래 프로파일: {item.profileId ?? '미확인'} · 시장: {item.market === 'kr' ? '국내' : item.market === 'us' ? '미국' : '미확인'} · 거래소: {item.exchange ?? '별도 코드 없음'}</Typography>
         <Typography variant="body2">제출 시각: {item.submittedAt || '기존 기록에 없음'} · {item.isPaper === null ? '투자 모드 미확인' : item.isPaper ? '모의' : '실전'}</Typography>
@@ -56,10 +56,10 @@ function RecoveryCard({ item, scope, identity, running, refreshing }: {
         {editable && <>
           {resuming && <Alert severity="info">저장된 대조 승인이 있습니다. 아래 원래 근거를 다시 확인한 뒤 같은 승인으로 미체결 복원을 재시도하세요.</Alert>}
           <TextField fullWidth label="대조한 증권사 주문번호" value={providerId} disabled={disabled || resuming}
-            inputProps={{ maxLength: 128 }} onChange={(event) => { setProviderId(event.target.value); change() }} />
+            slotProps={{ htmlInput: { maxLength: 128 } }} onChange={(event) => { setProviderId(event.target.value); change() }} />
           {item.clientOrderId && <TextField fullWidth label="원본과 대조한 clientOrderId" value={clientId} disabled={disabled || resuming}
-            inputProps={{ maxLength: 128 }} onChange={(event) => { setClientId(event.target.value); change() }} />}
-          <TextField fullWidth label="대조 근거 참조" value={reference} disabled={disabled || resuming} inputProps={{ maxLength: 120 }}
+            slotProps={{ htmlInput: { maxLength: 128 } }} onChange={(event) => { setClientId(event.target.value); change() }} />}
+          <TextField fullWidth label="대조 근거 참조" value={reference} disabled={disabled || resuming} slotProps={{ htmlInput: { maxLength: 120 } }}
             helperText="비민감 자료의 참조명만 적으세요. API 키·계좌 원문·응답 원문은 입력하지 마세요. 최대 120자·UTF-8 256바이트입니다."
             onChange={(event) => { setReference(event.target.value); change() }} />
           <FormControlLabel sx={{ alignItems: 'flex-start', m: 0 }} control={<Checkbox checked={confirmed} disabled={disabled || !valid}
@@ -89,7 +89,7 @@ export function BudgetRecoverySection({ scope, identity, running }: {
   const sameScope = scope && recovery.data?.scope.brokerId === scope.brokerId && recovery.data.scope.accountId === scope.brokerAccountId
   return (
     <Stack spacing={2}>
-      <Typography variant="subtitle1" fontWeight={700}>응답 불명 주문 대조·복구</Typography>
+      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>응답 불명 주문 대조·복구</Typography>
       <Typography variant="body2">예약을 자동 해제하거나 주문을 다시 제출하지 않습니다. 운영자가 원래 주문 근거를 대조한 뒤 미체결 처리 경로에 연결합니다. 이 승인만으로 증권사 사실 확인이나 체결 정산이 완료되지는 않습니다.</Typography>
       {!desktop ? <Alert severity="info">불명 주문 복구는 Tauri 데스크톱 앱에서만 사용할 수 있습니다.</Alert> : <>
         {!scope && <Alert severity="info">계좌 프로파일을 먼저 선택하세요.</Alert>}

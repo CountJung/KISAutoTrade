@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography'
 export function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Paper sx={{ p: 3 }}>
-      <Typography variant="subtitle1" fontWeight={600} mb={2}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
         {title}
       </Typography>
       {children}

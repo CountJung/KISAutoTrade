@@ -266,7 +266,7 @@ export function DatabaseManagementSection() {
         <Stack spacing={2.5}>
           {configQuery.isError && <Alert severity="error">DB 설정을 불러오지 못했습니다: {errorMessage(configQuery.error)}</Alert>}
           {inventoryQuery.isError && <Alert severity="error">JSON 저장 현황을 불러오지 못했습니다: {errorMessage(inventoryQuery.error)}</Alert>}
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }} useFlexGap>
             <Chip
               icon={<StorageIcon />}
               label={`현재 저장: ${activeBackend === 'database' ? 'Database' : 'JSON'}`}
@@ -282,9 +282,9 @@ export function DatabaseManagementSection() {
           </Stack>
 
           <Box>
-            <Typography variant="subtitle2" fontWeight={700} mb={1}>1. 연결 설정</Typography>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>1. 연결 설정</Typography>
             <Grid container spacing={1.5}>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <FormControl size="small" fullWidth>
                   <InputLabel>DB 종류</InputLabel>
                   <Select
@@ -306,16 +306,16 @@ export function DatabaseManagementSection() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6} md={5}>
+              <Grid size={{ xs: 12, sm: 6, md: 5 }}>
                 <TextField label="Host" size="small" fullWidth value={form.host} disabled={busy || tradingRunning} onChange={(event) => setForm((current) => ({ ...current, host: event.target.value }))} />
               </Grid>
-              <Grid item xs={12} sm={6} md={2}>
-                <TextField label="Port" type="number" size="small" fullWidth value={form.port} disabled={busy || tradingRunning} inputProps={{ min: 1, max: 65535 }} onChange={(event) => setForm((current) => ({ ...current, port: Number(event.target.value) }))} />
+              <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                <TextField label="Port" type="number" size="small" fullWidth value={form.port} disabled={busy || tradingRunning} slotProps={{ htmlInput: { min: 1, max: 65535 } }} onChange={(event) => setForm((current) => ({ ...current, port: Number(event.target.value) }))} />
               </Grid>
-              <Grid item xs={12} sm={6} md={2}>
-                <TextField label="최대 연결" type="number" size="small" fullWidth value={form.maxConnections} disabled={busy || tradingRunning} inputProps={{ min: 1, max: 20 }} onChange={(event) => setForm((current) => ({ ...current, maxConnections: Number(event.target.value) }))} />
+              <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                <TextField label="최대 연결" type="number" size="small" fullWidth value={form.maxConnections} disabled={busy || tradingRunning} slotProps={{ htmlInput: { min: 1, max: 20 } }} onChange={(event) => setForm((current) => ({ ...current, maxConnections: Number(event.target.value) }))} />
               </Grid>
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                 <TextField
                   label="Database"
                   size="small"
@@ -326,10 +326,10 @@ export function DatabaseManagementSection() {
                   onChange={(event) => setForm((current) => ({ ...current, database: event.target.value }))}
                 />
               </Grid>
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                 <TextField label="Username" size="small" fullWidth value={form.username} disabled={busy || tradingRunning} autoComplete="username" onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))} />
               </Grid>
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                 <TextField
                   label="Password"
                   type="password"
@@ -342,7 +342,7 @@ export function DatabaseManagementSection() {
                   onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
                 />
               </Grid>
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                 <FormControl size="small" fullWidth>
                   <InputLabel>TLS</InputLabel>
                   <Select label="TLS" value={form.tlsMode} disabled={busy || tradingRunning} onChange={(event) => setForm((current) => ({ ...current, tlsMode: event.target.value as DatabaseTlsMode }))}>
@@ -353,7 +353,7 @@ export function DatabaseManagementSection() {
                 </FormControl>
               </Grid>
             </Grid>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} mt={1.5}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 1.5 }}>
               <Button variant="contained" startIcon={saveMutation.isPending ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />} disabled={busy || tradingRunning || connectionLocked} onClick={saveConfig}>설정 저장</Button>
               <Button variant="outlined" startIcon={testMutation.isPending ? <CircularProgress size={16} /> : <DnsIcon />} disabled={busy || tradingRunning || !config.configured || configDirty} onClick={testConnection}>연결 테스트</Button>
             </Stack>
@@ -364,7 +364,7 @@ export function DatabaseManagementSection() {
           <Divider />
 
           <Box>
-            <Typography variant="subtitle2" fontWeight={700} mb={1}>2. 앱 테이블 관리</Typography>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>2. 앱 테이블 관리</Typography>
             {status ? (
               <Stack spacing={1.25}>
                 <Alert severity={schemaReady ? 'success' : 'warning'}>
@@ -387,7 +387,7 @@ export function DatabaseManagementSection() {
             ) : (
               <Alert severity="info">연결 테스트를 실행하면 서버·스키마·테이블 상태를 표시합니다.</Alert>
             )}
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} mt={1.5} flexWrap="wrap" useFlexGap>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 1.5, flexWrap: "wrap" }} useFlexGap>
               <Button variant="outlined" disabled={busy || tradingRunning || configDirty || !status?.connected} onClick={createTables}>테이블 생성/업그레이드</Button>
               <Button color="warning" variant="outlined" disabled={busy || tradingRunning || configDirty || activeBackend === 'database' || !status?.tables.some((table) => table.exists)} onClick={() => setDestructiveAction('clear')}>데이터 비우기</Button>
               <Button color="error" variant="outlined" startIcon={<DeleteForeverIcon />} disabled={busy || tradingRunning || configDirty || activeBackend === 'database' || !status?.tables.some((table) => table.exists)} onClick={() => setDestructiveAction('drop')}>앱 테이블 삭제</Button>
@@ -397,9 +397,9 @@ export function DatabaseManagementSection() {
           <Divider />
 
           <Box>
-            <Typography variant="subtitle2" fontWeight={700} mb={1}>3. JSON 가져오기·DB 반출·저장 전환</Typography>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>3. JSON 가져오기·DB 반출·저장 전환</Typography>
             {inventoryQuery.data ? (
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap mb={1.5}>
+              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", mb: 1.5 }} useFlexGap>
                 <Chip label={`JSON ${inventoryQuery.data.fileCount}개`} variant="outlined" />
                 <Chip label={formatBytes(inventoryQuery.data.sizeBytes)} variant="outlined" />
                 {inventoryQuery.data.categories.map((category) => (
@@ -407,7 +407,7 @@ export function DatabaseManagementSection() {
                 ))}
               </Stack>
             ) : <Alert severity="info" sx={{ mb: 1.5 }}>JSON 저장 현황을 확인 중입니다.</Alert>}
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} flexWrap="wrap" useFlexGap>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ flexWrap: "wrap" }} useFlexGap>
               <Button variant="outlined" startIcon={importMutation.isPending ? <CircularProgress size={16} /> : <UploadFileIcon />} disabled={busy || tradingRunning || configDirty || !schemaReady || activeBackend === 'database'} onClick={importJson}>JSON → DB 가져오기</Button>
               <Button variant="outlined" startIcon={exportMutation.isPending ? <CircularProgress size={16} /> : <DownloadIcon />} disabled={busy || tradingRunning || configDirty || !schemaReady} onClick={exportJson}>DB → JSON 스냅샷 반출</Button>
               <Button variant={activeBackend === 'json' ? 'contained' : 'outlined'} disabled={busy || tradingRunning || activeBackend === 'json'} onClick={() => setBackend('json')}>JSON 저장 사용</Button>
@@ -416,7 +416,7 @@ export function DatabaseManagementSection() {
             {transfer && (
               <Alert severity="success" sx={{ mt: 1.5 }}>
                 {transfer.message} · {formatBytes(transfer.sizeBytes)} · SHA-256 {transfer.checksum.slice(0, 16)}…
-                {transfer.outputPath && <Typography variant="caption" display="block">반출 경로: <code>{transfer.outputPath}</code></Typography>}
+                {transfer.outputPath && <Typography variant="caption" sx={{ display: "block" }}>반출 경로: <code>{transfer.outputPath}</code></Typography>}
               </Alert>
             )}
           </Box>
@@ -428,7 +428,7 @@ export function DatabaseManagementSection() {
       <Dialog open={destructiveAction !== null} onClose={() => !busy && closeDestructiveDialog()} maxWidth="sm" fullWidth>
         <DialogTitle>{destructiveAction === 'drop' ? 'KISAutoTrade 앱 테이블 삭제' : 'DB 문서 데이터 비우기'}</DialogTitle>
         <DialogContent>
-          <Stack spacing={2} mt={1}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
             <Alert severity="error">
               이 작업은 되돌릴 수 없습니다. 먼저 “DB → JSON 스냅샷 반출”을 실행하세요. 계좌 자격증명과 로그는 대상에 포함되지 않습니다.
             </Alert>

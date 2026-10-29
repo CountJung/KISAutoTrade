@@ -37,7 +37,7 @@ function ConsecutiveEntryField({ field, value, disabled, onChange }: {
   const error = fieldError(field.key, value)
   return <TextField fullWidth size="small" label={field.label} value={raw}
     disabled={disabled} error={!!error} helperText={error ?? field.description}
-    inputProps={{ inputMode: field.key === 'long_trend_period' ? 'numeric' : 'decimal' }}
+    slotProps={{ htmlInput: { inputMode: field.key === 'long_trend_period' ? 'numeric' : 'decimal' } }}
     onChange={(event) => { setRaw(event.target.value); onChange(field.key, parsedDraft(field.key, event.target.value)) }} />
 }
 export function ConsecutiveEntryControls({ params, disabled, onChange }: {
@@ -50,7 +50,7 @@ export function ConsecutiveEntryControls({ params, disabled, onChange }: {
       ATR은 실제 완료 OHLC 15봉의 TR14가 필요하며 가격 tick만으로 준비되지 않습니다. ATR·MA 사용 시 일봉 replay만 지원합니다.
     </Alert>
     <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
-      {fields.map((field) => <Grid item xs={12} sm={6} md={4} key={field.key}>
+      {fields.map((field) => <Grid size={{ xs: 12, sm: 6, md: 4 }} key={field.key}>
         <ConsecutiveEntryField field={field} value={params[field.key]} disabled={disabled} onChange={onChange} />
       </Grid>)}
     </Grid>
@@ -58,7 +58,7 @@ export function ConsecutiveEntryControls({ params, disabled, onChange }: {
 }
 
 export function ConsecutiveEntrySummary({ params }: { params: Record<string, unknown> }) {
-  return <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }}>
+  return <Typography variant="caption" sx={{ display: "block", overflowWrap: 'anywhere'  }}>
     신규 진입 필터 · 누적 상승률 {String(params.min_cumulative_move_pct ?? 0)}% · ATR {String(params.min_move_atr_multiplier ?? 0)}배 · 완료 종가 MA {String(params.long_trend_period ?? 0)}봉 · 0 비활성
   </Typography>
 }

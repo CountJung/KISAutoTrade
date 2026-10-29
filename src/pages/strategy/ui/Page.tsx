@@ -473,7 +473,7 @@ export default function Strategy() {
         <Alert severity="info" sx={{ mb: 2 }}>현재 계좌 범위에 등록된 전략이 없습니다.</Alert>
       )}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <Typography variant="h5" fontWeight={700}>Strategy</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>Strategy</Typography>
         <Chip
           label={`${activeCount}개 활성`}
           color={activeCount > 0 ? 'success' : 'default'}
@@ -500,8 +500,8 @@ export default function Strategy() {
 
       {/* ── 0. 종목 선택 패널 ─────────────────────────────────────── */}
       <Paper sx={{ p: { xs: 1.5, sm: 2.5 }, mb: 2 }}>
-        <Typography variant="subtitle1" fontWeight={600} mb={0.5}>종목 선택</Typography>
-        <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>종목 선택</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
           종목을 검색하여 선택한 후, 각 전략 카드의 "추가" 버튼으로 전략에 등록하세요
         </Typography>
 
@@ -539,7 +539,7 @@ export default function Strategy() {
                 }}
                 size="small"
                 fullWidth
-                InputProps={{
+                slotProps={{ input: {
                   endAdornment: (
                     <InputAdornment position="end">
                       {isFetchingSearch && <CircularProgress size={14} color="inherit" sx={{ mr: 0.5 }} />}
@@ -552,7 +552,7 @@ export default function Strategy() {
                       </IconButton>
                     </InputAdornment>
                   ),
-                }}
+                } }}
                 helperText={
                   selectedStock
                     ? `선택됨: ${selectedStock.prdt_name} (${selectedStock.pdno})`
@@ -637,7 +637,7 @@ export default function Strategy() {
                   onKeyDown={(e) => { if (e.key === 'Enter') handleUsSearch() }}
                   size="small"
                   fullWidth
-                  inputProps={{ style: { textTransform: 'uppercase' } }}
+                  slotProps={{ htmlInput: { style: { textTransform: 'uppercase' } } }}
                   helperText={
                     selectedStock
                       ? `선택됨: ${selectedStock.prdt_name} (${selectedStock.pdno})`
@@ -737,11 +737,11 @@ export default function Strategy() {
             ) : null
           )
           return (
-            <Grid item xs={12} key={`${activeScopeKey}:${s.id}`} data-testid="strategy-card-grid">
+            <Grid size={{ xs: 12 }} key={`${activeScopeKey}:${s.id}`} data-testid="strategy-card-grid">
               <Paper sx={{ p: { xs: 2, sm: 3 } }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1, gap: 1.5 }}>
-                  <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap" sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography variant="subtitle1" fontWeight={600} sx={{ minWidth: 0, maxWidth: '100%', overflowWrap: 'anywhere' }}>{s.name}</Typography>
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 0.75, flexWrap: "wrap", minWidth: 0, flex: 1  }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, minWidth: 0, maxWidth: '100%', overflowWrap: 'anywhere'  }}>{s.name}</Typography>
                     <Chip
                       size="small"
                       label={`${brokerLabel(s.brokerId)}${s.brokerAccountId ? ` · ${s.brokerAccountId}` : ''}`}
@@ -752,9 +752,8 @@ export default function Strategy() {
                   </Stack>
                   <Stack
                     direction={{ xs: 'column', sm: 'row' }}
-                    alignItems={{ xs: 'flex-end', sm: 'center' }}
                     spacing={1}
-                    sx={{ flexShrink: 0 }}
+                    sx={{ alignItems: { xs: 'flex-end', sm: 'center' }, flexShrink: 0  }}
                   >
                     {saveAction}
                     <FormControlLabel
@@ -785,8 +784,8 @@ export default function Strategy() {
                         bgcolor: 'action.hover',
                       }}
                     >
-                      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
-                        <Typography variant="caption" fontWeight={700}>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between", mb: 1  }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700 }}>
                           Toss 미국 자동매매 세션
                         </Typography>
                         <Chip
@@ -860,8 +859,8 @@ export default function Strategy() {
                     <>
                       {/* 종목 목록 테이블 */}
                   <Box>
-                    <Stack direction="row" alignItems="center" justifyContent="space-between" mb={0.5}>
-                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                    <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
                         대상 종목 ({edit.symbols.length}개)
                       </Typography>
                       <Button
@@ -918,7 +917,7 @@ export default function Strategy() {
                     )}
                   </Box>
                   <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6} md={4}>
+                    <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                       <TextField
                         label="1회 수량"
                         type="number"
@@ -927,11 +926,11 @@ export default function Strategy() {
                         size="small"
                         fullWidth
                         disabled={s.enabled}
-                        inputProps={{ min: 1 }}
+                        slotProps={{ htmlInput: { min: 1 } }}
                       />
                     </Grid>
                     {paramMetas.map((meta) => (
-                      <Grid item xs={12} sm={6} md={4} key={meta.key}>
+                      <Grid size={{ xs: 12, sm: 6, md: 4 }} key={meta.key}>
                         <TextField
                           label={meta.label}
                           type="number"
@@ -941,7 +940,7 @@ export default function Strategy() {
                           size="small"
                           fullWidth
                           disabled={s.enabled}
-                          inputProps={{ min: meta.min, max: meta.max, step: meta.step ?? 1 }}
+                          slotProps={{ htmlInput: { min: meta.min, max: meta.max, step: meta.step ?? 1 } }}
                         />
                       </Grid>
                     ))}
@@ -965,7 +964,7 @@ export default function Strategy() {
 
                 {stratDesc && sType !== 'price_condition' && sType !== 'leveraged_trend_hold' && (
                   <Tooltip title={stratDesc} arrow placement="bottom-start">
-                    <Stack direction="row" alignItems="center" gap={0.5} sx={{ mt: 1.5, cursor: 'help', width: 'fit-content' }}>
+                    <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 1.5, cursor: 'help', width: 'fit-content'  }}>
                       <InfoOutlinedIcon sx={{ fontSize: 13, color: 'text.disabled' }} />
                       <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.65rem' }}>전략 설명 보기</Typography>
                     </Stack>

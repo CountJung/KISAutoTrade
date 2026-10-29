@@ -371,3 +371,13 @@ Toss32개item의속성/시그니처/본문byte동일, Trading56문장/7helper·L
 ## DEP-P3-04 — 서버 전환 로컬 부분 완료
 
 2026-10-29 `270296db` 이후 axum0.7.9→0.8.9, tower-http0.5.2→0.7.1을 별도 단계로 전환했다. production 라우터의 70 URL/74 binding과 보안·handler 계약을 유지하며 13 capture 문법을 변경했다. 각 단계 서버24개와 최종 전체 Rust873개, strict clippy/check/fmt/custom-protocol build·타입/FSD/웹 빌드를 통과했다. 실제 provider와 모든 handler 성공 경로의 실행은 아니며 [회차 기록의 범위](tasks/immediate-backlog-20261029.md)를 따른다. 같은 SHA의 CI 확인 전까지 TODO 상위 ID를 유지한다.
+
+
+## DEP-P3-04 — 서버 전환 완료
+
+2026-10-29 커밋 `653377ce4ba49bc679d1762fe0f5d6ec2409fb74`를 정상 푸시·원격 SHA 대조하고 같은 SHA의 Release Gate45·Security52 성공을 확인했다. 위 로컬 계약 검증과 Linux Rust873·frontend·Toss OpenAPI·UI CI를 완료해 TODO 상위 ID를 닫았다. 실제 provider/계좌·운영 배포를 수행한 결과는 아니다. [최종 CI 링크와 범위](tasks/immediate-backlog-20261029.md).
+
+
+## DEP-P3-05 — React·MUI 전환 로컬 부분 완료
+
+2026-10-29 `653377ce` 뒤 React19.3.1/types19.3.0→MUI7.3.11→MUI9.5.0을 단계적으로 전환했다. Grid/slot/system sx 변환 밖 금융 AST·콜백·scope/preview 정책을 보존했다. 타입/FSD/clean lock 설치·경고 없는 production build와 전체UI349개, 별도 개발UI5개·Tauri custom-protocol build를 통과했다. 같은 SHA의 원격 CI 확인 전까지 상위ID를 TODO에 유지한다. [단계별 근거·실행 경계](tasks/immediate-backlog-20261029.md).

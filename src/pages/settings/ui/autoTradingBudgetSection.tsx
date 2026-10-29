@@ -21,11 +21,11 @@ function CurrencyStatus({ value, currency }: { value: BudgetCurrencyView; curren
   const display = (n: number) => new Intl.NumberFormat('ko-KR', { style: 'currency', currency }).format(currency === 'USD' ? n / 100 : n)
   return (
     <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1, minWidth: 0, flex: 1 }}>
-      <Typography fontWeight={600}>{currency === 'KRW' ? '원화' : '달러'}</Typography>
+      <Typography sx={{ fontWeight: 600 }}>{currency === 'KRW' ? '원화' : '달러'}</Typography>
       <Typography variant="body2">배정액: {display(value.allocatedAmount)}</Typography>
       <Typography variant="body2">전용 현금: {display(value.cashAmount)}</Typography>
       <Typography variant="body2">주문 예약액: {display(value.reservedAmount)}</Typography>
-      <Typography variant="body2" fontWeight={700}>사용 가능액: {display(value.availableAmount)}</Typography>
+      <Typography variant="body2" sx={{ fontWeight: 700 }}>사용 가능액: {display(value.availableAmount)}</Typography>
       <Typography variant="caption" color="text.secondary">자동매매 보유 {value.ownedPositionCount}종목 · 비용 여유분 {value.feeBufferBps / 100}%</Typography>
       {value.blockedReason && <Alert severity="error" sx={{ mt: 1 }}>{value.blockedReason}</Alert>}
     </Box>
@@ -56,11 +56,11 @@ function BudgetEditor({ scope, data, running }: { scope: AutoTradingBudgetInput;
       </Typography>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
         <TextField fullWidth label="자동매매 원화 배정액 (원)" value={krw} disabled={disabled}
-          inputProps={{ inputMode: 'numeric' }} error={krwAmount === undefined}
+          slotProps={{ htmlInput: { inputMode: 'numeric' } }} error={krwAmount === undefined}
           helperText={krwAmount === undefined ? '0 이상의 정수 금액을 입력하세요.' : '원 단위'}
           onChange={(event) => setDraft({ krw: event.target.value, usd })} />
         <TextField fullWidth label="자동매매 달러 배정액 (USD)" value={usd} disabled={disabled}
-          inputProps={{ inputMode: 'decimal' }} error={usdAmount === undefined}
+          slotProps={{ htmlInput: { inputMode: 'decimal' } }} error={usdAmount === undefined}
           helperText={usdAmount === undefined ? '소수 둘째 자리까지 입력하세요.' : '달러 단위 (예: 100.50)'}
           onChange={(event) => setDraft({ krw, usd: event.target.value })} />
       </Stack>

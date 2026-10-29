@@ -1,6 +1,6 @@
 ---
 name: ui-conventions
-description: "AutoConditionTrade 프로젝트 UI 컨벤션. MUI v6 컴포넌트 사용 규칙, 차트(lightweight-charts v5) 패턴, 레이아웃 규칙, 색상 시스템, 금융 데이터 표시 규칙. Keywords: MUI, chart, lightweight-charts, 차트, 레이아웃, 색상, 금융, React, Trading, StockChart"
+description: "AutoConditionTrade 프로젝트 UI 컨벤션. MUI v9 컴포넌트 사용 규칙, 차트(lightweight-charts v5) 패턴, 레이아웃 규칙, 색상 시스템, 금융 데이터 표시 규칙. Keywords: MUI, chart, lightweight-charts, 차트, 레이아웃, 색상, 금융, React, Trading, StockChart"
 ---
 # UI 컨벤션 스킬 — AutoConditionTrade
 
@@ -40,7 +40,7 @@ description: "AutoConditionTrade 프로젝트 UI 컨벤션. MUI v6 컴포넌트 
 export default function MyPage() {
   return (
     <Box>
-      <Typography variant="h5" fontWeight={700} mb={3}>
+      <Typography variant="h5" sx={{ fontWeight: 700, mb: 3 }}>
         페이지 제목
       </Typography>
       {/* 콘텐츠 */}
@@ -54,12 +54,12 @@ export default function MyPage() {
 ```tsx
 <Grid container spacing={2}>
   {/* 좌: 좁은 작업 패널 */}
-  <Grid item xs={12} md={4}>
+  <Grid size={{ xs: 12, md: 4 }}>
     <Paper sx={{ p: 3, height: '100%' }}>...</Paper>
   </Grid>
 
   {/* 우: 넓은 데이터/차트 패널 */}
-  <Grid item xs={12} md={8}>
+  <Grid size={{ xs: 12, md: 8 }}>
     <Paper sx={{ overflow: 'hidden' }}>...</Paper>
   </Grid>
 </Grid>
@@ -373,7 +373,7 @@ TextField에 `helperText`가 있으면 컴포넌트 전체 높이가 늘어나 `
 ```tsx
 // ✅ 권장 패턴
 <Box>
-  <Stack direction="row" spacing={1} alignItems="center">
+  <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
     <TextField
       label="레이블"
       size="small"
@@ -389,7 +389,7 @@ TextField에 `helperText`가 있으면 컴포넌트 전체 높이가 늘어나 `
 </Box>
 
 // ❌ 잘못된 패턴 — helperText가 포함된 상태로 alignItems="center"
-<Box display="flex" alignItems="center">
+<Box sx={{ display: 'flex', alignItems: 'center' }}>
   <TextField helperText="..." />  {/* Button이 입력 필드보다 낮게 표시됨 */}
   <Button>저장</Button>
 </Box>
@@ -532,8 +532,8 @@ const { data: stats } = useTodayStats({ refetchInterval: intervalMs })
 <Collapse in={expanded}><RiskPanel /></Collapse>
 
 // ✅ 올바른 패턴 — 항상 펼쳐서 표시, 기능은 버튼으로 제어
-<Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
-  <Typography variant="subtitle1" fontWeight={600}>리스크 관리</Typography>
+<Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1.5 }}>
+  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>리스크 관리</Typography>
   <Tooltip title="..."><InfoOutlinedIcon /></Tooltip>
 </Stack>
 <Divider sx={{ mb: 1.5 }} />
@@ -543,7 +543,7 @@ const { data: stats } = useTodayStats({ refetchInterval: intervalMs })
 비상정지 상태 토글 버튼 패턴:
 ```tsx
 // 비상정지 상태에 따라 다른 버튼 표시
-<Stack direction="row" justifyContent="space-between" alignItems="center" mt={1.5}>
+<Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mt: 1.5 }}>
   <Typography variant="caption" color={
     risk.isEmergencyStop ? 'error.main' : risk.canTrade ? 'success.main' : 'warning.main'
   }>
@@ -584,8 +584,8 @@ UI 규칙:
 
 ## 전략 카드 연구 작업 공간
 
-- Strategy 페이지의 모든 전략 카드는 데스크톱에서도 `Grid item xs={12}` 전체 너비를 사용한다. 일반 전략만 `md={6}`으로 줄이면 파라미터와 미리보기 차트를 동시에 읽기 어렵다.
-- 일반 전략 파라미터는 `xs={12} sm={6} md={4}`로 배치하고 TextField에 `fullWidth`를 적용한다.
+- Strategy 페이지의 모든 전략 카드는 데스크톱에서도 `Grid size={12}` 전체 너비를 사용한다. 일반 전략만 `size={{ md: 6 }}`으로 줄이면 파라미터와 미리보기 차트를 동시에 읽기 어렵다.
+- 일반 전략 파라미터는 `size={{ xs: 12, sm: 6, md: 4 }}`로 배치하고 TextField에 `fullWidth`를 적용한다.
 - 미리보기 티커 Select와 계산 버튼은 좁은 화면에서 세로로 쌓고, 데스크톱에서만 가로로 배치한다.
 - 단기 구간 미리보기는 KIS 일/주/월봉, Toss 1분/일봉을 제공하고 분석 구간은 최근 50/100/200봉으로 분리한다. `봉 단위`와 `분석 구간`을 한 프리셋 이름으로 합쳐 사용자가 일봉과 1년 범위를 혼동하게 하지 않는다.
 - 강한 종가·변동성 확장의 generic 미리보기는 일봉만 선택할 수 있다. 전일 조건→다음 평가일과 당일 OHLC→이전 N일 평균 범위의 차이를 안내하고, 같은 종가/다음 관측 시가 실행 모델과 장중 순서 미검증을 표시하며 실제 체결 재현으로 표현하지 않는다.
@@ -758,3 +758,11 @@ RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저
 ## v23 구간 관측 진단
 
 구간 비율은 평가 관측 봉 수 기준이며 동일 장부 앞/뒤를 독립 학습/OOS로 표시하지 않는다. 현재/A-B 공통 `strategyPhaseResults.tsx`로 관측·종가보유·경계 잔량/pending·원가 귀속을 보여준다. version/policy/유한수/개수/boolean이 맞지 않는 진단은 미확인이고0으로 만들지 않는다. 작은 완료 매도 표본·부분매도 집계와 수량별 배분원가를 명시하며 legacy 경고를 새판정처럼 재표시하지 않는다. LTH 평가불가 gate 유지, A/B 축약 뒤 서버 진단 보존·복원과375px overflow를 검증한다. [계약](../../../docs/ipc-commands.md#v23-동일-장부-구간-관측-진단).
+
+
+## MUI9 호환 UI 계약 (2026-10-29)
+
+- Grid는 item/breakpoint props 대신 size를 사용한다. TextField slotProps.input은 InputAdornment 등 컴포넌트 옵션, slotProps.htmlInput은 native min/step/aria-label을 담당한다. Switch native 옵션은 slotProps.input이다.
+- 제거된 system props는 기존 sx보다 앞선 base style로 옮기며 배열/callback의 caller 우선순위를 유지한다. Typography.color처럼 남아 있는 own API를 일괄 제거하지 않는다.
+- Switch의 role=switch와 실제 Checkbox를 구분하고 Alert의 variant/severity class를 각각 정확한 토큰으로 확인한다. utility class 변경을 금융 동작 변경으로 오인하거나 검증을 느슨하게 하지 않는다.
+- 모바일 Drawer 닫힘 중 aria-hidden과 CSS visibility를 구분한다. 정상 role 접근 가능·route 전환·닫힘 완료를 기다리고 강제click/sleep으로 대체하지 않는다. 새UI계약5개는 HARNESS_MAP을 따른다.

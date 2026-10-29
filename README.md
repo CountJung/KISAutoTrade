@@ -1,6 +1,6 @@
 # KISAutoTrade
 
-한국투자증권 **KIS Open API**와 **토스증권 Open API**를 연결하는 개인용 주식 매매 앱입니다. Tauri v2/Rust 백엔드와 React 18/TypeScript 화면을 사용하며 Windows와 macOS를 대상으로 합니다.
+한국투자증권 **KIS Open API**와 **토스증권 Open API**를 연결하는 개인용 주식 매매 앱입니다. Tauri v2/Rust 백엔드와 React 19/TypeScript 화면을 사용하며 Windows와 macOS를 대상으로 합니다.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](docs/LICENSE)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-blue.svg)](https://tauri.app/)

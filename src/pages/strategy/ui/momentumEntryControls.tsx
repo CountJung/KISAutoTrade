@@ -42,7 +42,7 @@ export function MomentumEntryControls({ params, disabled, onChange }: {
       미체결 후보는 조건 유지 중 재시도할 수 있고 하회하면 취소합니다. 실시간은 약10초 가격관측, replay는 선택 봉 종가입니다.
     </Alert>
     <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid size={{ xs: 12, sm: 6, md: 4 }}>
         <TextField fullWidth select size="small" label="Momentum 진입 모드" value={validMode ? mode : 'invalid'} disabled={disabled}
           error={!validMode} helperText={!validMode ? error : 'level은 기본 동작, crossing은 상향 돌파와 재무장 조건을 사용합니다.'}
           onChange={(event) => onChange('entry_mode', event.target.value)}>
@@ -51,17 +51,17 @@ export function MomentumEntryControls({ params, disabled, onChange }: {
           <MenuItem value="crossing">crossing · 상향 돌파</MenuItem>
         </TextField>
       </Grid>
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid size={{ xs: 12, sm: 6, md: 4 }}>
         <TextField fullWidth size="small" label="재무장 간격 (%p)" value={raw} disabled={disabled} error={!!error}
           helperText={error ?? (mode === 'level' ? 'level에서는 미사용입니다. 입력값은 보존하며 0~100 범위를 검증합니다.' : 'crossing에서 모멘텀 ≤ 임계값−간격이면 재무장합니다. 간격은 임계값 이하여야 합니다.')}
-          inputProps={{ inputMode: 'decimal' }} onChange={(event) => { setRaw(event.target.value); onChange('entry_hysteresis_pct', parsedDraft(event.target.value)) }} />
+          slotProps={{ htmlInput: { inputMode: 'decimal' } }} onChange={(event) => { setRaw(event.target.value); onChange('entry_hysteresis_pct', parsedDraft(event.target.value)) }} />
       </Grid>
     </Grid>
   </Stack>
 }
 export function MomentumEntrySummary({ params }: { params: Record<string, unknown> }) {
   const mode = modeOf(params), hysteresis = hysteresisOf(params), error = momentumEntryParamError(params)
-  return <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }}>
+  return <Typography variant="caption" sx={{ display: "block", overflowWrap: 'anywhere'  }}>
     Momentum 진입 모드 · {error ? '설정 확인 필요' : String(mode)}{params.entry_mode === undefined ? ' (기본 level)' : ''}
     {' · '}재무장 간격 {String(hysteresis)}%p{mode === 'level' ? ' · level에서 미사용' : ''}
   </Typography>

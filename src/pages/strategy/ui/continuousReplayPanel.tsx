@@ -39,8 +39,8 @@ export function ReplayRangeControls({ mode, onModeChange, range, onRangeChange, 
     </TextField>
     {mode === 'continuous' && <>
       <Grid container spacing={1}>
-        <Grid item xs={12} sm={6}><TextField fullWidth size="small" type="date" label="연속 시작일" value={range.start} disabled={disabled} onChange={(event) => onRangeChange({ ...range, start: event.target.value })} InputLabelProps={{ shrink: true }} /></Grid>
-        <Grid item xs={12} sm={6}><TextField fullWidth size="small" type="date" label="연속 종료일" value={range.end} disabled={disabled} onChange={(event) => onRangeChange({ ...range, end: event.target.value })} InputLabelProps={{ shrink: true }} /></Grid>
+        <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth size="small" type="date" label="연속 시작일" value={range.start} disabled={disabled} onChange={(event) => onRangeChange({ ...range, start: event.target.value })} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
+        <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth size="small" type="date" label="연속 종료일" value={range.end} disabled={disabled} onChange={(event) => onRangeChange({ ...range, end: event.target.value })} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
       </Grid>
       <Alert severity="info" sx={{ py: 0.5 }}>
         기본 요청은 최근 3년의 완료 일봉입니다. 시작일 이전 사전자료 252봉을 한 번 준비한 뒤 관측을 시간순으로 이어 계산합니다.
@@ -58,9 +58,9 @@ export function ContinuousCollectionNotice({ progress, collection }: { progress:
     <Typography variant="body2">연속 자료 수집 {collection?.pages ?? progress?.pages ?? 0}페이지 · 평가 {collection?.evaluationBars ?? progress?.evaluationBars ?? 0}봉 · 엄격한 이전 사전자료 {collection?.historyBars ?? progress?.historyBars ?? 0}/252봉</Typography>
     {collection && <>
       <Typography variant="body2">요청 {collection.requestedStart}~{collection.requestedEnd} · 실제 관측 {collection.actualStart ?? '없음'}~{collection.actualEnd ?? '없음'} · {collection.ready ? '계산 입력 준비' : '계산 보류'}</Typography>
-      <Typography variant="caption" display="block">조회 기준 {collection.asOf ?? '정보 없음'}</Typography>
-      <Typography variant="caption" display="block">미완료 제외 {collection.excludedUnfinishedBars} · 무효 제외 {collection.excludedInvalidBars} · 중복 제외 {collection.duplicateBars} · 최대 관측 간 달력 간격 {collection.maximumCalendarGapDays}일</Typography>
-      <Typography variant="caption" display="block">coverageVerified=false · 거래소 휴장·중간 누락과 기간 coverage는 자동 검증되지 않았습니다. 없는 봉을 합성하거나 부분기간을 3년 성과로 표시하지 않습니다. 시작/종료 차이 또는 관측 간격 7달력일 상한은 앱의 보수적 자료 경계이며 검증된 거래소 달력이 아닙니다. 긴 휴장도 계산이 보류될 수 있습니다.</Typography>
+      <Typography variant="caption" sx={{ display: "block" }}>조회 기준 {collection.asOf ?? '정보 없음'}</Typography>
+      <Typography variant="caption" sx={{ display: "block" }}>미완료 제외 {collection.excludedUnfinishedBars} · 무효 제외 {collection.excludedInvalidBars} · 중복 제외 {collection.duplicateBars} · 최대 관측 간 달력 간격 {collection.maximumCalendarGapDays}일</Typography>
+      <Typography variant="caption" sx={{ display: "block" }}>coverageVerified=false · 거래소 휴장·중간 누락과 기간 coverage는 자동 검증되지 않았습니다. 없는 봉을 합성하거나 부분기간을 3년 성과로 표시하지 않습니다. 시작/종료 차이 또는 관측 간격 7달력일 상한은 앱의 보수적 자료 경계이며 검증된 거래소 달력이 아닙니다. 긴 휴장도 계산이 보류될 수 있습니다.</Typography>
       {collection.issues.map((issue, index) => <Typography variant="body2" key={`${index}:${issue}`}>{issue}</Typography>)}
     </>}
   </Alert>

@@ -1077,7 +1077,8 @@ KISAutoTrade/
 │       ├── strategy-trend-filter-policy.spec.ts
 │       ├── strategy-volatility-expansion-policy.spec.ts
 │       ├── toss-commission-ratio.spec.ts
-│       └── trading-form-contract.spec.ts
+│       ├── trading-form-contract.spec.ts
+│       └── ui-dependency-contract.spec.ts
 ├── .env.example
 ├── .gitignore
 ├── .graphifyignore
@@ -1142,7 +1143,7 @@ KISAutoTrade/
 
 ## 3. 핵심 모듈 책임 요약
 
-### Frontend
+### Frontend (React 19·MUI 9)
 
 | 모듈 | 책임 |
 |------|------|
@@ -1497,6 +1498,7 @@ KISAutoTrade/
 | `docs/research/price-condition-contracts-20261029/{report.md,run-summary.json,summary.csv,aggregate.json,validation.json,continuous-results.jsonl.gz,reset-results.jsonl.gz}` | 생산 실행수·분할 hash·78개 원장·비용별 요약/독립 대사와 한계 보관. 무손실 압축 원장은 연속6개와 별도분기72개를 구분하며 손절 미발동·희소노출을 실제 장중 재진입/손실 제한 효능으로 확대하지 않음 |
 | `tests/e2e/strategy-phase-diagnostics.spec.ts` | mock 구간 관측·귀속·작은/무완료 표본, 저장 A/B 축약·재조회와 legacy 혼합, 빈 결과와375px 표 스크롤 검증 |
 | `docs/research/phase-walk-forward-20261029/{design.json,runner.rs}` | 기존 관측된 동결 일봉의12개 고정 전략·별도 장부 fold를 생산 API로 평가하는 사전 설계와 실행기. 같은 장부70/30 진단과 분리하며 새 OOS·파라미터 선택/학습·독립 표본의 증거로 해석하지 않음. 실행 완료/검증은 해당 연구의 최종 산출물로 별도 확인 |
+| `tests/e2e/ui-dependency-contract.spec.ts` | mock API 기반 React/MUI UI 계약. 프로파일 Dialog의 데스크톱/좁은 화면·focus trap/Escape 복귀, Settings Select의 키보드 저장·취소, Dashboard 페이지 크기와 focus, 차트의 라이트/다크·좁은 폭·SPA 재진입 후 실제 canvas 렌더링을 확인. console/page 오류·외부 요청도 검사하며 실계좌/실제 provider 검증과 구분 |
 | `tests/e2e/trading-form-contract.spec.ts` | mock KIS 국내 지정가/시장가·미국 거래소/모의 매도 제한, Toss preflight·명시 세션 차단/자동 payload, 실패 초안 보존·성공 초기화·시장 전환·좁은 화면의 주문 폼 계약 회귀 |
 | `tests/e2e/budget-recovery.spec.ts` | mock 데스크톱 복구의 근거 대조·명시 확인·저장 실패/재시도·legacy/종결·실행 중·모바일과 웹 복구 요청 부재를 검증 |
 | `docs/research/trend-filter-policy-20261023/design.json` | 기존200/5/20·현재 포함 MA와 legacy/owned/exit2/profit5trail3/hold63, 고정 입력 hash·자료·비용·30연속/30대체 분할/360별도 분기 계획의 사전 선언. 원본 declaredNotRun을 보존하고 실제 실행 여부는 run-summary·압축 원장·validation으로 확인 |

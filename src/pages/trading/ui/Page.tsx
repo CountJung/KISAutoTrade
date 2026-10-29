@@ -54,19 +54,18 @@ export default function Trading() {
   } = model
   return (
     <Box>
-      <Stack direction="row" alignItems="center" gap={1.5} mb={2} flexWrap="wrap">
-        <Typography variant="h5" fontWeight={700}>Trading</Typography>
+      <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>Trading</Typography>
         <BrokerScopeIndicator appConfig={appConfig} compact />
       </Stack>
 
       {/* 1. 보유 종목 */}
       <Paper sx={{ p: { xs: 1.5, sm: 2.5 }, mb: 2 }}>
         <Stack
-          direction="row" alignItems="center" justifyContent="space-between"
-          mb={1.5} flexWrap="wrap" gap={1}
+          direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1.5, flexWrap: "wrap", gap: 1 }}
         >
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            <Typography variant="subtitle1" fontWeight={600}>보유 종목</Typography>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>보유 종목</Typography>
             {isTossActive && (
               <Chip
                 size="small"
@@ -123,7 +122,7 @@ export default function Trading() {
                         onClick={() => handleSelectBrokerHolding(item)}
                       >
                         <TableCell>
-                          <Typography variant="body2" fontWeight={500}>{item.symbolName || item.symbol}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>{item.symbolName || item.symbol}</Typography>
                           <Typography variant="caption" color="text.secondary">
                             {item.symbol} · {tossMarketLabel(item.market)}
                           </Typography>
@@ -151,14 +150,14 @@ export default function Trading() {
         ) : (
           <>
             {/* 국내 보유 */}
-            <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, display: 'block'  }}>
               🇰🇷 국내
             </Typography>
             <HoldingsTable items={balance?.items ?? []} onSelect={handleSelectHolding} />
 
             {/* 해외 보유 */}
             <Box sx={{ mt: 2 }}>
-              <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, display: 'block'  }}>
                 🇺🇸 해외 — 클릭하면 US 매도 폼 자동 완성
               </Typography>
               <OverseasHoldingsTable
@@ -172,8 +171,8 @@ export default function Trading() {
 
       {/* 2. 종목 검색 패널 */}
       <Paper sx={{ p: { xs: 1.5, sm: 2.5 }, mb: 2 }}>
-        <Stack direction="row" alignItems="center" spacing={1} mb={1.5} flexWrap="wrap" gap={1}>
-          <Typography variant="subtitle1" fontWeight={600}>종목 검색</Typography>
+        <Stack direction="row" sx={{ alignItems: "center", mb: 1.5, flexWrap: "wrap", gap: 1 }} spacing={1}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>종목 검색</Typography>
           <ToggleButtonGroup
             value={market} exclusive onChange={(_, v) => v && setMarket(v)} size="small"
           >
@@ -228,7 +227,7 @@ export default function Trading() {
               }}
               size="small"
               fullWidth
-              InputProps={{
+              slotProps={{ input: {
                 endAdornment: (
                   <InputAdornment position="end">
                     {isFetchingSearch && (
@@ -252,7 +251,7 @@ export default function Trading() {
                     </Tooltip>
                   </InputAdornment>
                 ),
-              }}
+              } }}
               helperText={
                 symbol
                   ? `선택됨: ${symbol}`
@@ -325,7 +324,7 @@ export default function Trading() {
             {showResults && !isFetchingSearch && searchQuery.length >= 2 && (searchResults.length === 0 || isStockListEmpty) && (
               <Box sx={{ mt: 0.5, px: 1.5, py: 1 }}>
                 {isStockListEmpty ? (
-                  <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                  <Stack direction="row" sx={{ alignItems: "center", flexWrap: "wrap" }} spacing={1}>
                     <Alert
                       severity="warning"
                       sx={{ flex: 1, py: 0.5, '& .MuiAlert-message': { display: 'flex', alignItems: 'center', gap: 1 } }}
@@ -357,7 +356,7 @@ export default function Trading() {
             )}
           </Box>
         ) : (
-          <Stack direction="row" spacing={1} alignItems="flex-start">
+          <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
             <TextField
               label="티커 (AAPL, TSLA …)"
               value={inputValue}
@@ -369,7 +368,7 @@ export default function Trading() {
               onKeyDown={(e) => { if (e.key === 'Enter' && inputValue) void handleUsSearch() }}
               size="small"
               fullWidth
-              InputProps={{
+              slotProps={{ input: {
                 endAdornment: (
                   <InputAdornment position="end">
                     {usSearching
@@ -386,7 +385,7 @@ export default function Trading() {
                     }
                   </InputAdornment>
                 ),
-              }}
+              } }}
               helperText={isTossActive ? 'Enter 또는 검색 버튼 — Toss 시세와 주문 전 검증 조회' : 'Enter 또는 검색 버튼 — 나스닥·뉴욕·AMEX 자동 감지'}
             />
             {symbol && (
@@ -431,11 +430,11 @@ export default function Trading() {
 
       {/* 3. 주문 + 차트 */}
       <Grid container spacing={2}>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <TradingOrderForm model={model} />
         </Grid>
 
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Paper sx={{ overflow: 'hidden' }}>
             {symbol && (market === 'KR' ? symbol.length === 6 : true) ? (
               <>

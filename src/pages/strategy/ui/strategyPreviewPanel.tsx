@@ -58,21 +58,21 @@ function PreparationStatus({ value }: { value: StrategyPreviewPreparation }) {
   return (
     <Alert severity={severity} data-testid="strategy-preparation-status" sx={{ py: 0.75 }}>
       <Typography variant="body2">{historyLabel} · {indicatorLabel} · {outcomeLabel}</Typography>
-      <Typography variant="caption" display="block">
+      <Typography variant="caption" sx={{ display: "block" }}>
         사전 자료 {value.providedHistoryBars}봉 / {value.requiredHistoryBars == null ? '요구량 미지원' : `필요 ${value.requiredHistoryBars}봉`}
         {' · '}지표 버퍼 {value.availableHistoryBars == null ? '미지원' : `${value.availableHistoryBars}봉`}
         {' · '}시작 준비 {value.readyAtStart == null ? '미지원' : value.readyAtStart ? '완료' : '미완료'}
         {' · '}종료 준비 {value.readyAtEnd == null ? '미지원' : value.readyAtEnd ? '완료' : '미완료'}
       </Typography>
-      <Typography variant="caption" display="block">
+      <Typography variant="caption" sx={{ display: "block" }}>
         {value.evaluatedBars == null ? '조건 평가 확인 미지원' : `실제 조건 평가 ${value.evaluatedBars}봉`}
       </Typography>
       {value.unreadyEvaluationBars > 0 && (
-        <Typography variant="caption" display="block">
+        <Typography variant="caption" sx={{ display: "block" }}>
           평가 구간 중 봉 처리 후 지표 준비 미확인 {value.unreadyEvaluationBars}봉
         </Typography>
       )}
-      {value.firstReadyTime && <Typography variant="caption" display="block">봉 처리 후 첫 준비 완료 시점 {value.firstReadyTime}</Typography>}
+      {value.firstReadyTime && <Typography variant="caption" sx={{ display: "block" }}>봉 처리 후 첫 준비 완료 시점 {value.firstReadyTime}</Typography>}
     </Alert>
   )
 }
@@ -278,23 +278,21 @@ export function StrategyPreviewPanel({
       />
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
-        alignItems={{ xs: 'stretch', sm: 'center' }}
-        justifyContent="space-between"
         spacing={1}
-        sx={{ my: 1 }}
+        sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: "space-between", my: 1  }}
       >
         <Box>
-          <Typography variant="caption" fontWeight={700}>
+          <Typography variant="caption" sx={{ fontWeight: 700 }}>
             전략 미리보기
           </Typography>
-          <Typography variant="caption" color="text.secondary" display="block">
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
             저장 전 편집값으로 선택한 봉 단위와 분석 구간의 매수/청산 신호를 재계산합니다.
           </Typography>
         </Box>
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={1}
-          alignItems={{ xs: 'stretch', sm: 'center' }}
+          sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}
         >
           <TextField
             select
@@ -367,7 +365,7 @@ export function StrategyPreviewPanel({
         </Stack>
       </Stack>
 
-      {calculationMode === 'boundedWindow' && <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+      {calculationMode === 'boundedWindow' && <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1  }}>
         요청 분석 구간 최근 {previewCount}봉을 평가하고, 그 이전 봉만 사전 자료로 사용합니다.
         {' '}{brokerId === 'toss' ? 'Toss는 한 페이지 최대 200봉' : 'KIS는 한 페이지 최대 100봉'}으로 사전 자료 252봉까지 순차 조회합니다.
         최대 8페이지·보관 500봉이며, 제공 자료가 끝나면 실제 확보량과 부족 사유를 표시합니다.
@@ -383,7 +381,7 @@ export function StrategyPreviewPanel({
 
       {calculationMode === 'continuous' && <ContinuousCollectionNotice progress={continuousProgress} collection={continuousCollection} />}
       {dailyEventStrategy && (
-        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }} data-testid="daily-event-replay-note">
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1  }} data-testid="daily-event-replay-note">
           강한 종가는 전일 완료봉으로 다음 평가일을 판단하고, 변동성 확장은 이전 일봉 범위와 당일 OHLC를 비교합니다.
           {' '}일봉만 지원하며 선택한 같은 종가/다음 관측 시가 체결 가정을 적용합니다. 실제 장중 순서·체결은 검증하지 않습니다.
         </Typography>

@@ -32,7 +32,7 @@ function NumericField({ field, params, disabled, onChange }: Props & { field: St
   useEffect(() => { setRaw((old) => Object.is(parseDecimalDraft(old), value) ? old : value === undefined ? fallback : String(value)) }, [value, fallback])
   const error = fieldError(field, value) ?? (field.key.startsWith('profit_') ? pairError(params) : null)
   return <TextField fullWidth size="small" label={field.label} value={raw} disabled={disabled} error={!!error}
-    helperText={error ?? field.description} inputProps={{ inputMode: field.key.startsWith('profit_') ? 'decimal' : 'numeric' }}
+    helperText={error ?? field.description} slotProps={{ htmlInput: { inputMode: field.key.startsWith('profit_') ? 'decimal' : 'numeric' } }}
     onChange={(e) => { setRaw(e.target.value); onChange(field.key, parseDecimalDraft(e.target.value)) }} />
 }
 type Props = { params: Record<string, unknown>; disabled: boolean; onChange: (key: string, value: number | string) => void }
@@ -43,7 +43,7 @@ export function TrendFilterControls(props: Props) {
       원래 청산은 세 MA가 모두 준비된 뒤 현재가 &lt; 장기 MA인 연속 관측입니다. 현재가 ≥ 장기 MA 또는 준비 부족이면 확인값은 0입니다. 단기 MA 하락만으로 청산하지 않으며 별도 원가 손절은 없습니다.
       실시간 약10초 quote와 선택 일봉/분봉의 관측 주기가 다릅니다. MA 200관측은 완료 일봉 200일을 보장하지 않습니다. 기간 순서는 강제하지 않습니다.
     </Alert>
-    <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>{fields.map((field) => <Grid item xs={12} sm={6} key={field.key}><NumericField field={field} {...props} /></Grid>)}</Grid>
+    <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>{fields.map((field) => <Grid size={{ xs: 12, sm: 6 }} key={field.key}><NumericField field={field} {...props} /></Grid>)}</Grid>
     <Alert severity="info" sx={{ py: 0.5, overflowWrap: 'anywhere', '& .MuiAlert-message': { minWidth: 0 } }}>
       이탈 확인은 최소 1이며 0으로 끌 수 없습니다. 수익 보호 쌍·보유 한도만 누락/0 비활성입니다. 실제 native 평균 매수가 대비 시작 %에서 한 번 무장하고 실제 보유 중 관측 최고가 대비 되밀림에서 청산 후보를 냅니다. 진입 전 가격·현재 봉 전체 고가는 사용하지 않습니다.
       실제 첫 체결의 보유 나이는 0, 다음 보유 관측은 1입니다. 옵션이 꺼져 있어도 세며 나이 불명 복원은 활성 한도에서 다음 보유 관측에 보수적으로 청산 후보를 냅니다. 선택 수익·보유 보호는 MA 준비 부족에도 평가합니다.
@@ -58,7 +58,7 @@ export function TrendFilterSummary({ params, engineVersion }: { params: Record<s
     return v === undefined ? `${defaults[field.key] ?? 0} (기본)` : fieldError(field, v) ? `확인 필요 (${String(v)})` : String(v)
   }
   return <Stack spacing={0.5} data-testid="trend-filter-policy-summary">
-    <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }}>
+    <Typography variant="caption" sx={{ display: "block", overflowWrap: 'anywhere'  }}>
       추세 필터 현재 포함 MA 장기/단기/중기 {fields.slice(0, 3).map(label).join('/')}관측 · 이탈 확인 {label(fields[3])}연속 관측
       {' · '}수익 보호 시작 {label(fields[4])}% / 되밀림 {label(fields[5])}%{pairError(params) ? ' (조합 확인 필요)' : ''} · 최대 보유 {label(fields[6])}관측 (수익·보유만 0 비활성)
       {' · '}설정 요약이며 실제 소유·무장·체결을 증명하지 않습니다. 일봉 종가 신호 → 다음 관측 시가(nextOpen), 실시간 약10초 관측과 기간이 다릅니다.

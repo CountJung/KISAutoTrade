@@ -255,7 +255,7 @@ test('Leveraged strategy preview runs selected ticker and renders signal chart',
   await expect(card.getByText('mock preview signals')).toBeVisible()
   await expect(card.getByTestId('lth-preview-chart')).toBeVisible()
   await expect(card.getByTestId('lth-preview-chart').locator('canvas').first()).toBeVisible()
-  await expect(card.getByRole('checkbox', { name: '종가 선 그래프 표시' })).toBeChecked()
+  await expect(card.getByRole('switch', { name: '종가 선 그래프 표시' })).toBeChecked()
   await expect(card.getByText('종가 선 그래프')).toBeVisible()
   await expect(card.getByText('한 손가락 좌우 이동 · 두 손가락 확대/축소')).toBeVisible()
   await expect(card.getByRole('button', { name: '차트 확대' })).toBeVisible()

@@ -24,8 +24,8 @@ export function TradingHealthPanel({ health }: { health: TradingHealthStatus }) 
   const unknown = !health.lastHoldingsSyncAt || !health.lastReconciliationAt
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
-        <Typography variant="subtitle2" fontWeight={700}>자동매매 건강 상태</Typography>
+      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>자동매매 건강 상태</Typography>
         <Chip
           size="small"
           color={problem ? 'error' : unknown ? 'warning' : 'success'}
@@ -42,12 +42,12 @@ export function TradingHealthPanel({ health }: { health: TradingHealthStatus }) 
         <Typography variant="body2">데몬 연속 실패: {health.daemonConsecutiveFailures}회</Typography>
       </Box>
       {health.persistenceBlocked && (
-        <Typography variant="caption" color="text.secondary" display="block" mt={1.5}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>
           저장소 연결과 쓰기 권한을 복구한 뒤 앱을 재시작해야 신규 주문 차단이 해제됩니다.
         </Typography>
       )}
       {!health.persistenceBlocked && (health.lastHoldingsSyncError || health.lastReconciliationError) && (
-        <Typography variant="caption" color="text.secondary" display="block" mt={1.5}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>
           broker 연결·계좌 인증을 확인하세요. 다음 polling 성공 시 해당 동기화 오류는 자동으로 해제됩니다.
         </Typography>
       )}

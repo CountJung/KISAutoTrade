@@ -284,7 +284,7 @@ export function AppShell() {
               >
                 <MenuIcon fontSize="small" />
               </IconButton>
-              <Typography variant="subtitle2" fontWeight={700} color="primary" noWrap>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }} color="primary" noWrap>
                 KISAutoTrade
               </Typography>
             </Toolbar>

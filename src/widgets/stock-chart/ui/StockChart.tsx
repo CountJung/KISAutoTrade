@@ -398,9 +398,9 @@ export function StockChart({ symbol, stockName, source = 'kis' }: StockChartProp
   return (
     <Box>
       {/* 툴바 */}
-      <Stack direction="row" alignItems="center" spacing={1} mb={1} flexWrap="wrap">
+      <Stack direction="row" sx={{ alignItems: "center", mb: 1, flexWrap: "wrap" }} spacing={1}>
         {stockName && (
-          <Typography variant="subtitle2" fontWeight={600} sx={{ mr: 1 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mr: 1  }}>
             {stockName}
           </Typography>
         )}

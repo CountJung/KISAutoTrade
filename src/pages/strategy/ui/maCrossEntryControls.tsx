@@ -32,7 +32,7 @@ function MaCrossEntryField({ field, value, disabled, onChange }: {
   useEffect(() => { setRaw((previous) => Object.is(parseDecimalDraft(previous), value) ? previous : value === undefined ? '0' : String(value)) }, [value])
   const error = fieldError(field, value)
   return <TextField fullWidth size="small" label={field.label} value={raw} disabled={disabled} error={!!error}
-    helperText={error ?? field.description} inputProps={{ inputMode: field.key === 'long_trend_period' ? 'numeric' : 'decimal' }}
+    helperText={error ?? field.description} slotProps={{ htmlInput: { inputMode: field.key === 'long_trend_period' ? 'numeric' : 'decimal' } }}
     onChange={(event) => { setRaw(event.target.value); onChange(field.key, parseDecimalDraft(event.target.value)) }} />
 }
 export function MaCrossEntryControls({ params, disabled, onChange }: {
@@ -44,7 +44,7 @@ export function MaCrossEntryControls({ params, disabled, onChange }: {
       기존 단기5·장기20 MA는 입력 관측 수입니다. 실시간은 약10초 가격관측, replay는 선택 봉 종가이므로 5/20일을 뜻하지 않습니다.
     </Alert>
     <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
-      {fields.map((field) => <Grid item xs={12} sm={6} key={field.key}>
+      {fields.map((field) => <Grid size={{ xs: 12, sm: 6 }} key={field.key}>
         <MaCrossEntryField field={field} value={params[field.key]} disabled={disabled} onChange={onChange} />
       </Grid>)}
     </Grid>
@@ -57,7 +57,7 @@ export function MaCrossEntryControls({ params, disabled, onChange }: {
   </Stack>
 }
 export function MaCrossEntrySummary({ params }: { params: Record<string, unknown> }) {
-  return <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }}>
+  return <Typography variant="caption" sx={{ display: "block", overflowWrap: 'anywhere'  }}>
     MA 교차 진입 확인 · 기존 MA {String(params.short_period === undefined ? 5 : params.short_period)}/{String(params.long_period === undefined ? 20 : params.long_period)} 입력 관측
     {' · '}이전 일봉 추세 {String(params.long_trend_period === undefined ? 0 : params.long_trend_period)}봉
     {' · '}장기 일봉 MA 기울기 {String(params.min_long_ma_slope_pct === undefined ? 0 : params.min_long_ma_slope_pct)}%

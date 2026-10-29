@@ -19,10 +19,10 @@ export function StrongClosePreparation({ value, params, compact = false }: {
     강한 종가 진입 준비 형식 미지원 · 이전/알 수 없는 진단 응답의 준비 상태를 확정하지 않습니다.
   </Alert>
   return <Alert severity={value.ready ? 'info' : 'warning'} sx={{ py: 0.5, minWidth: 0, overflowWrap: 'anywhere', '& .MuiAlert-message': { minWidth: 0 } }} data-testid="strong-close-preparation">
-    <Typography variant="body2" fontWeight={700}>강한 종가 진입 준비 · {value.enabled ? statusLabels[value.status] : '비활성'}</Typography>
-    <Typography variant="caption" display="block">이전 완료 일봉 OHLC 확인 · 필요 완료봉 {value.requiredCompletedBars} · 확보 {value.availableCompletedBars}</Typography>
-    <Typography variant="caption" display="block">전일 조건 후보 {value.candidates} · 준비 미확인 보류 {value.unreadyCandidates} · 추세 거부 {value.trendRejections} · 후보 통과 {value.passedCandidates}</Typography>
-    {!compact && <Typography variant="caption" display="block">
+    <Typography variant="body2" sx={{ fontWeight: 700 }}>강한 종가 진입 준비 · {value.enabled ? statusLabels[value.status] : '비활성'}</Typography>
+    <Typography variant="caption" sx={{ display: "block" }}>이전 완료 일봉 OHLC 확인 · 필요 완료봉 {value.requiredCompletedBars} · 확보 {value.availableCompletedBars}</Typography>
+    <Typography variant="caption" sx={{ display: "block" }}>전일 조건 후보 {value.candidates} · 준비 미확인 보류 {value.unreadyCandidates} · 추세 거부 {value.trendRejections} · 후보 통과 {value.passedCandidates}</Typography>
+    {!compact && <Typography variant="caption" sx={{ display: "block" }}>
       현재 후보 가격이 이전 N완료 일봉 종가 평균보다 엄격히 높아야 합니다. 현재 봉 OHLC는 이 평균에 미리 들어가지 않습니다.
       후보 통과는 공통 주문 제한·실제 소유·수량 검사 전 확인이며 실제 체결이 아닙니다. 수량 산정용 ATR 준비와 별도입니다.
     </Typography>}

@@ -112,9 +112,9 @@ function ProfileCard({
         bgcolor: profile.is_active ? 'action.selected' : undefined,
       }}
     >
-      <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
-        <Stack spacing={0.5} flex={1}>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+      <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between" }}>
+        <Stack spacing={0.5} sx={{ flex: 1 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
             {profile.is_active ? (
               <RadioButtonCheckedIcon color="primary" fontSize="small" />
             ) : (
@@ -131,7 +131,7 @@ function ProfileCard({
                 </span>
               </Tooltip>
             )}
-            <Typography variant="body1" fontWeight={600}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
               {profile.name}
             </Typography>
             <Chip
@@ -259,18 +259,18 @@ function ProfileCard({
               </Tooltip>
             )}
           </Stack>
-          <Typography variant="body2" color="text.secondary" pl={3.5}>
+          <Typography variant="body2" color="text.secondary" sx={{ pl: 3.5 }}>
             KEY: <code>{profile.app_key_masked}</code>
             &nbsp;&nbsp;계좌: <code>{profile.account_no || '(미설정)'}</code>
             &nbsp;&nbsp;Broker 계좌: <code>{profile.broker_account_id || '(미설정)'}</code>
           </Typography>
           {detectError && (
-            <Typography variant="caption" color="error" pl={3.5}>
+            <Typography variant="caption" color="error" sx={{ pl: 3.5 }}>
               {detectError}
             </Typography>
           )}
           {tossDiagnostic && (
-            <Box pl={3.5} mt={1}>
+            <Box sx={{ pl: 3.5, mt: 1 }}>
               <Alert
                 severity={tossDiagnostic.is_ready ? 'success' : 'warning'}
                 sx={{ py: 0.75 }}
@@ -294,7 +294,7 @@ function ProfileCard({
                       ? ` · 수수료 ${tossDiagnostic.commissions_count}개`
                       : ''}
                   </Typography>
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                  <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }} useFlexGap>
                     {tossDiagnostic.steps.map((step) => (
                       <Chip
                         key={step.id}
@@ -316,7 +316,7 @@ function ProfileCard({
           )}
         </Stack>
 
-        <Stack direction="row" spacing={0.5} alignItems="center">
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
           <Tooltip title="편집">
             <IconButton size="small" onClick={() => onEdit(profile)}>
               <EditIcon fontSize="small" />
@@ -403,7 +403,7 @@ export function AccountProfilesSection() {
     <>
       <Section title="활성 증권사 프로파일">
         <Stack spacing={2}>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
             {appConfig ? (
               <>
                 <Chip
@@ -449,7 +449,7 @@ export function AccountProfilesSection() {
 
           {diag && diag.issues.length > 0 && (
             <Alert severity="warning">
-              <Typography variant="body2" fontWeight={600} mb={0.5}>
+              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
                 설정 문제 감지됨
               </Typography>
               {diag.issues.map((issue, i) => (

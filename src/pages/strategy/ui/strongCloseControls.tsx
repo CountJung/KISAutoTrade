@@ -35,7 +35,7 @@ function StrongCloseNumericField({ field, params, disabled, onChange }: {
   useEffect(() => { setRaw((previous) => Object.is(parseDecimalDraft(previous), value) ? previous : value === undefined ? '0' : String(value)) }, [value])
   const error = fieldError(field, value) ?? (field.key.startsWith('profit_') ? profitPairError(params) : null)
   return <TextField fullWidth size="small" label={field.label} value={raw} disabled={disabled} error={!!error}
-    helperText={error ?? field.description} inputProps={{ inputMode: field.key.startsWith('profit_') ? 'decimal' : 'numeric' }}
+    helperText={error ?? field.description} slotProps={{ htmlInput: { inputMode: field.key.startsWith('profit_') ? 'decimal' : 'numeric' } }}
     onChange={(event) => { setRaw(event.target.value); onChange(field.key, parseDecimalDraft(event.target.value)) }} />
 }
 export function StrongCloseControls({ params, disabled, onChange }: {
@@ -49,7 +49,7 @@ export function StrongCloseControls({ params, disabled, onChange }: {
       원래 손절은 실제 평균가 대비 관측 손실률 ≥ 기준이며 손절0도 평균가 이하 청산입니다. 비활성으로 해석하지 않습니다.
     </Alert>
     <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
-      {fields.map((field) => <Grid item xs={12} sm={6} key={field.key}><StrongCloseNumericField field={field} params={params} disabled={disabled} onChange={onChange} /></Grid>)}
+      {fields.map((field) => <Grid size={{ xs: 12, sm: 6 }} key={field.key}><StrongCloseNumericField field={field} params={params} disabled={disabled} onChange={onChange} /></Grid>)}
     </Grid>
     <Alert severity="info" sx={{ py: 0.5, overflowWrap: 'anywhere', '& .MuiAlert-message': { minWidth: 0 } }}>
       새 네 옵션만 누락/0 비활성입니다. 추세는 현재 후보 가격 &gt; 이전 N완료 일봉 종가의 산술평균이며 현재 관측을 제외합니다. 원래 전일 조건도 함께 필요하고 자료 부족은 신규 매수만 보류합니다.
@@ -68,7 +68,7 @@ function numericLabel(params: Record<string, unknown>, field: StrategyParamMeta,
 }
 export function StrongClosePolicySummary({ params }: { params: Record<string, unknown> }) {
   const core = (key: string) => params[key] === undefined ? '3 (기본)' : typeof params[key] === 'number' && Number.isFinite(params[key]) ? String(params[key]) : '확인 필요'
-  return <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }} data-testid="strong-close-policy-summary">
+  return <Typography variant="caption" sx={{ display: "block", overflowWrap: 'anywhere'  }} data-testid="strong-close-policy-summary">
     강한 종가 (이전 고가−종가)/고가×100 ≤ {core('threshold_pct')}% · 손절 {core('stop_loss_pct')}% (0도 평균가 이하 청산)
     {' · '}이전 완료 일봉 추세 {numericLabel(params, fields[0], '봉')}
     {' · '}수익 보호 시작 {numericLabel(params, fields[1], '%')} / 되밀림 {numericLabel(params, fields[2], '%')}{profitPairError(params) ? ' (조합 확인 필요)' : ''}

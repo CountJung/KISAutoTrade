@@ -517,3 +517,8 @@ const savedGeometry = useMemo(() => {
 `vite.config.ts`의 manualChunks는 MUI·TanStack과 별도로 lightweight-charts를 charts chunk로 둔다. 전략 연구 UI 확장 때 main chunk가 500kB를 넘으면 warning limit를 높여 숨기지 않고 안정된 라이브러리 경계를 분리한다. production build 경고0과 실제 vite preview에서 차트/전략 화면의 로딩·초기화 회귀를 확인한다. dev-server E2E만으로 production chunk 초기화 검증을 대신하지 않는다.
 
 > 마지막 업데이트: 2026-10-18T16:38:45+09:00
+
+
+## React19과 production bundle 검증 (2026-10-29)
+
+React/DOM/types를 같은 지원 major로 맞추고 실제 peer/clean lock 설치를 확인한다. 기존 callback·query/scope·preview generation과 chart cleanup 책임을 UI library props 변환과 섞지 않는다. ReactDOM client와 JSX runtime의 실제 진입점까지 vendor 경계를 확인하며 warning threshold를 높이지 않는다. 최종 production preview에서 chart paint·theme/resize·unmount/re-entry·dialog focus/keyboard를 mock으로 검사한다. native WebView 실행 여부는 브라우저 성공과 별도로 기록한다.

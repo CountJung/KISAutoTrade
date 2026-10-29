@@ -32,8 +32,8 @@ export function TradingOrderForm({ model }: { model: TradingOrderModel }) {
   } = model
   return (
     <Paper sx={{ p: { xs: 2, sm: 3 }, height: '100%' }}>
-      <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-        <Typography variant="subtitle1" fontWeight={600}>수동 주문</Typography>
+      <Stack direction="row" sx={{ alignItems: "center", mb: 2 }} spacing={1}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>수동 주문</Typography>
         {symbol && (
           <Chip
             label={isTossActive ? `${symbol} (Toss)` : market === 'KR' ? symbol : symbol + ' (' + usExchange + ')'}
@@ -48,7 +48,7 @@ export function TradingOrderForm({ model }: { model: TradingOrderModel }) {
         value={side} exclusive onChange={(_, v) => v && setSide(v)}
         fullWidth size="small" sx={{ mb: 2 }}
       >
-        <ToggleButton value="Buy"  color="primary">매수</ToggleButton>
+        <ToggleButton value="Buy" color="primary">매수</ToggleButton>
         <ToggleButton value="Sell" color="error">매도</ToggleButton>
       </ToggleButtonGroup>
 
@@ -73,8 +73,8 @@ export function TradingOrderForm({ model }: { model: TradingOrderModel }) {
             bgcolor: 'action.hover',
           }}
         >
-          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
-            <Typography variant="caption" fontWeight={700}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between", mb: 1  }}>
+            <Typography variant="caption" sx={{ fontWeight: 700 }}>
               Toss 미국 거래 세션
             </Typography>
             {tossSession !== 'auto' && (
@@ -128,7 +128,7 @@ export function TradingOrderForm({ model }: { model: TradingOrderModel }) {
           value={price}
           onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ''))}
           fullWidth size="small" sx={{ mb: 1.5 }}
-          InputProps={{
+          slotProps={{ input: {
             endAdornment: (
               <InputAdornment position="end">
                 <Tooltip title="현재가 자동 입력">
@@ -144,7 +144,7 @@ export function TradingOrderForm({ model }: { model: TradingOrderModel }) {
                 </Tooltip>
               </InputAdornment>
             ),
-          }}
+          } }}
         />
       )}
 
@@ -183,7 +183,7 @@ export function TradingOrderForm({ model }: { model: TradingOrderModel }) {
       )}
 
       {result   && <Alert severity="success" sx={{ mb: 1.5 }}>{result}</Alert>}
-      {errorMsg && <Alert severity="error"   sx={{ mb: 1.5 }}>{errorMsg}</Alert>}
+      {errorMsg && <Alert severity="error" sx={{ mb: 1.5 }}>{errorMsg}</Alert>}
 
       {market === 'US' && isPaperTrading && (
         <Alert severity={isPaperUnsupportedUsSell ? 'warning' : 'info'} sx={{ mb: 1.5 }}>

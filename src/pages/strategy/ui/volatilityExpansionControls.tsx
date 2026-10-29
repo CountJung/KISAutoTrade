@@ -34,7 +34,7 @@ function VolatilityNumericField({ field, params, disabled, onChange }: {
   useEffect(() => { setRaw((previous) => Object.is(parseDecimalDraft(previous), value) ? previous : value === undefined ? fallback : String(value)) }, [value, fallback])
   const error = fieldError(field, value) ?? (field.key.startsWith('profit_') ? profitPairError(params) : null)
   return <TextField fullWidth size="small" label={field.label} value={raw} disabled={disabled} error={!!error}
-    helperText={error ?? field.description} inputProps={{ inputMode: field.key === 'lookback_days' || field.key === 'max_hold_observations' ? 'numeric' : 'decimal' }}
+    helperText={error ?? field.description} slotProps={{ htmlInput: { inputMode: field.key === 'lookback_days' || field.key === 'max_hold_observations' ? 'numeric' : 'decimal' } }}
     onChange={(event) => { setRaw(event.target.value); onChange(field.key, parseDecimalDraft(event.target.value)) }} />
 }
 export function VolatilityExpansionControls({ params, disabled, onChange }: {
@@ -48,7 +48,7 @@ export function VolatilityExpansionControls({ params, disabled, onChange }: {
       실제 보유 수량·종목 통화 기준 평균 매수가를 확인하며 미보유에서만 매수합니다. 매도는 실제 잔량 전량 후보이고 신호는 체결이 아닙니다. 원래 손절0도 평균가 이하 청산이며 비활성이 아닙니다.
     </Alert>
     <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
-      {fields.map((field) => <Grid item xs={12} sm={6} key={field.key}><VolatilityNumericField field={field} params={params} disabled={disabled} onChange={onChange} /></Grid>)}
+      {fields.map((field) => <Grid size={{ xs: 12, sm: 6 }} key={field.key}><VolatilityNumericField field={field} params={params} disabled={disabled} onChange={onChange} /></Grid>)}
     </Grid>
     <Alert severity="info" sx={{ py: 0.5, overflowWrap: 'anywhere', '& .MuiAlert-message': { minWidth: 0 } }}>
       새 세 옵션만 누락/0 비활성입니다. 수익 보호는 실제 평균 매수가 대비 시작 이익률에서 한 번 무장한 뒤 실제 보유 중 관측 최고가의 되밀림에서 잔량 전량 매도 후보를 냅니다. 진입 전 고가·현재 봉 전체 고가를 최고가로 쓰지 않습니다.
@@ -64,7 +64,7 @@ function numericLabel(params: Record<string, unknown>, field: StrategyParamMeta,
     : fieldError(field, value) ? `확인 필요 (${String(value)})` : `${value}${unit}`
 }
 export function VolatilityExpansionSummary({ params }: { params: Record<string, unknown> }) {
-  return <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }} data-testid="volatility-expansion-summary">
+  return <Typography variant="caption" sx={{ display: "block", overflowWrap: 'anywhere'  }} data-testid="volatility-expansion-summary">
     변동성 확장 이전 {numericLabel(params, fields[0], '완료봉')} 범위 평균 × {numericLabel(params, fields[1], '배')} 초과 · 현재가 &gt; 당일 시가
     {' · '}손절 {numericLabel(params, fields[2], '%')} (0도 평균가 이하 청산)
     {' · '}수익 보호 시작 {numericLabel(params, fields[3], '%')} / 되밀림 {numericLabel(params, fields[4], '%')}{profitPairError(params) ? ' (조합 확인 필요)' : ''}

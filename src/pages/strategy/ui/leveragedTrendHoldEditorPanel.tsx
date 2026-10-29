@@ -44,9 +44,9 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
   } = model
   return (
     <Stack spacing={1.5}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
-        <Stack direction="row" alignItems="center" gap={0.5}>
-          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+      <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
+        <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
             레버리지 대상 ETF ({entries.length}개)
           </Typography>
           <Tooltip
@@ -72,7 +72,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
         <Stack spacing={1}>
           <LeveragedTrendHoldTickerPicker model={model} />
 
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ xs: 'stretch', md: 'center' }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', md: 'center' } }}>
             <TextField
               label="진입 민감도"
               type="number"
@@ -80,7 +80,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
               disabled={stratEnabled}
               size="small"
               onChange={(e) => handleSensitivityChange(Number(e.target.value))}
-              inputProps={{ min: 1, max: 5, step: 0.1 }}
+              slotProps={{ htmlInput: { min: 1, max: 5, step: 0.1 } }}
               sx={{ width: { xs: '100%', md: 140 } }}
             />
             <Typography variant="caption" color="text.secondary">
@@ -99,7 +99,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled}
                   size="small"
                   onChange={(e) => updateNumericParam('initial_stop_loss_pct', Number(e.target.value), 0.1, 20)}
-                  inputProps={{ min: 0.1, max: 20, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0.1, max: 20, step: 0.1 } }}
                   sx={{ width: { xs: '100%', md: 140 } }}
                 />
                 <TextField
@@ -109,7 +109,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled}
                   size="small"
                   onChange={(e) => updateIntegerParam('entry_failure_observations', Number(e.target.value), 1, 60)}
-                  inputProps={{ min: 1, max: 60, step: 1 }}
+                  slotProps={{ htmlInput: { min: 1, max: 60, step: 1 } }}
                   sx={{ width: { xs: '100%', md: 160 } }}
                 />
                 <TextField
@@ -119,7 +119,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled}
                   size="small"
                   onChange={(e) => updateNumericParam('trailing_stop_pct', Number(e.target.value), 0.5, 20)}
-                  inputProps={{ min: 0.5, max: 20, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0.5, max: 20, step: 0.1 } }}
                   sx={{ width: { xs: '100%', md: 140 } }}
                 />
                 <TextField
@@ -129,7 +129,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled}
                   size="small"
                   onChange={(e) => updateNumericParam('trailing_activation_profit_pct', Number(e.target.value), 0.1, 20)}
-                  inputProps={{ min: 0.1, max: 20, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0.1, max: 20, step: 0.1 } }}
                   sx={{ width: { xs: '100%', md: 160 } }}
                 />
                 <TextField
@@ -139,7 +139,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled}
                   size="small"
                   onChange={(e) => updateNumericParam('breakeven_buffer_pct', Number(e.target.value), 0, 10)}
-                  inputProps={{ min: 0, max: 10, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0, max: 10, step: 0.1 } }}
                   sx={{ width: { xs: '100%', md: 160 } }}
                 />
                 <TextField
@@ -149,7 +149,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled}
                   size="small"
                   onChange={(e) => updateIntegerParam('min_hold_observations', Number(e.target.value), 0, 60)}
-                  inputProps={{ min: 0, max: 60, step: 1 }}
+                  slotProps={{ htmlInput: { min: 0, max: 60, step: 1 } }}
                   sx={{ width: { xs: '100%', md: 150 } }}
                 />
               </Stack>
@@ -174,7 +174,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   />
                 }
                 label={
-                  <Typography variant="caption" fontWeight={600}>
+                  <Typography variant="caption" sx={{ fontWeight: 600 }}>
                     급반등 단독 진입 사용
                   </Typography>
                 }
@@ -187,7 +187,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled || !rapidReboundEnabled}
                   size="small"
                   onChange={(e) => updateIntegerParam('rapid_rebound_lookback_ticks', Number(e.target.value), 3, 120)}
-                  inputProps={{ min: 3, max: 120, step: 1 }}
+                  slotProps={{ htmlInput: { min: 3, max: 120, step: 1 } }}
                   sx={{ width: { xs: '100%', md: 130 } }}
                 />
                 <TextField
@@ -197,7 +197,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled || !rapidReboundEnabled}
                   size="small"
                   onChange={(e) => updateNumericParam('rapid_rebound_drop_pct', Number(e.target.value), 0.5, 30)}
-                  inputProps={{ min: 0.5, max: 30, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0.5, max: 30, step: 0.1 } }}
                   sx={{ width: { xs: '100%', md: 130 } }}
                 />
                 <TextField
@@ -207,7 +207,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled || !rapidReboundEnabled}
                   size="small"
                   onChange={(e) => updateNumericParam('rapid_rebound_recovery_pct', Number(e.target.value), 0.5, 30)}
-                  inputProps={{ min: 0.5, max: 30, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0.5, max: 30, step: 0.1 } }}
                   sx={{ width: { xs: '100%', md: 130 } }}
                 />
                 <TextField
@@ -217,7 +217,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled || !rapidReboundEnabled}
                   size="small"
                   onChange={(e) => updateIntegerParam('rapid_rebound_max_low_age_ticks', Number(e.target.value), 1, 30)}
-                  inputProps={{ min: 1, max: 30, step: 1 }}
+                  slotProps={{ htmlInput: { min: 1, max: 30, step: 1 } }}
                   sx={{ width: { xs: '100%', md: 170 } }}
                 />
               </Stack>
@@ -242,7 +242,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   />
                 }
                 label={
-                  <Typography variant="caption" fontWeight={600}>
+                  <Typography variant="caption" sx={{ fontWeight: 600 }}>
                     장중 반동 진입 사용
                   </Typography>
                 }
@@ -255,7 +255,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled || !reboundEnabled}
                   size="small"
                   onChange={(e) => updateIntegerParam('rebound_baseline_ticks', Number(e.target.value), 2, 120)}
-                  inputProps={{ min: 2, max: 120, step: 1 }}
+                  slotProps={{ htmlInput: { min: 2, max: 120, step: 1 } }}
                   sx={{ width: { xs: '100%', md: 130 } }}
                 />
                 <TextField
@@ -265,7 +265,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled || !reboundEnabled}
                   size="small"
                   onChange={(e) => updateIntegerParam('rebound_confirm_ticks', Number(e.target.value), 2, 60)}
-                  inputProps={{ min: 2, max: 60, step: 1 }}
+                  slotProps={{ htmlInput: { min: 2, max: 60, step: 1 } }}
                   sx={{ width: { xs: '100%', md: 130 } }}
                 />
                 <TextField
@@ -275,7 +275,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled || !reboundEnabled}
                   size="small"
                   onChange={(e) => updateNumericParam('rebound_pullback_pct', Number(e.target.value), 0.5, 30)}
-                  inputProps={{ min: 0.5, max: 30, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0.5, max: 30, step: 0.1 } }}
                   sx={{ width: { xs: '100%', md: 130 } }}
                 />
                 <TextField
@@ -285,7 +285,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled || !reboundEnabled}
                   size="small"
                   onChange={(e) => updateNumericParam('rebound_buy_pressure_pct', Number(e.target.value), 0.5, 30)}
-                  inputProps={{ min: 0.5, max: 30, step: 0.1 }}
+                  slotProps={{ htmlInput: { min: 0.5, max: 30, step: 0.1 } }}
                   sx={{ width: { xs: '100%', md: 130 } }}
                 />
                 <TextField
@@ -295,7 +295,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                   disabled={stratEnabled || !reboundEnabled}
                   size="small"
                   onChange={(e) => updateNumericParam('rebound_rsi_min', Number(e.target.value), 0, 70)}
-                  inputProps={{ min: 0, max: 70, step: 1 }}
+                  slotProps={{ htmlInput: { min: 0, max: 70, step: 1 } }}
                   sx={{ width: { xs: '100%', md: 140 } }}
                 />
               </Stack>
@@ -367,7 +367,7 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                     />
                   </TableCell>
                   <TableCell sx={{ py: 0.75 }}>
-                    <Typography variant="caption" color="primary.main" fontWeight={700}>
+                    <Typography variant="caption" color="primary.main" sx={{ fontWeight: 700 }}>
                       {entry.leveraged_symbol}
                     </Typography>
                   </TableCell>
@@ -383,12 +383,12 @@ export function LeveragedTrendHoldEditorPanel(props: LeveragedTrendHoldEditorPan
                       disabled={stratEnabled}
                       size="small"
                       onChange={(e) => handleQuantity(entry.leveraged_symbol, Number(e.target.value))}
-                      inputProps={{
+                      slotProps={{ htmlInput: {
                         'aria-label': `${entry.leveraged_symbol} 수량`,
                         min: 1,
                         step: 1,
                         style: { padding: '4px 4px', fontSize: '0.75rem', textAlign: 'right' },
-                      }}
+                      } }}
                       sx={{ width: 80, '& .MuiInputBase-root': { fontSize: '0.75rem' } }}
                     />
                   </TableCell>

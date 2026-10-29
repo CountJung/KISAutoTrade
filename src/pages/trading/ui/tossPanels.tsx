@@ -100,45 +100,45 @@ export function TossMarketSnapshotCard({ symbol }: { symbol: string }) {
 
   return (
     <Box sx={{ px: { xs: 1.5, sm: 2.5 }, py: 1.5 }}>
-      <Stack direction="row" spacing={1.5} alignItems="baseline" flexWrap="wrap" mb={1}>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: "baseline", flexWrap: "wrap", mb: 1 }}>
         <Box>
-          <Stack direction="row" alignItems="center" spacing={0.75}>
-            <Typography variant="subtitle2" fontWeight={700}>{symbol}</Typography>
+          <Stack direction="row" sx={{ alignItems: "center" }} spacing={0.75}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{symbol}</Typography>
             <Chip size="small" label={`Toss · ${tossMarketLabel(data.market)}`} sx={{ height: 18, fontSize: '0.65rem' }} />
           </Stack>
           {data.timestamp && (
             <Typography variant="caption" color="text.secondary">{new Date(data.timestamp).toLocaleString('ko-KR')}</Typography>
           )}
         </Box>
-        <Typography variant="h5" fontWeight={700}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>
           {fmtTossMoney(data.price.amount, data.price.currency)}
         </Typography>
       </Stack>
 
       <Grid container spacing={1.5}>
-        <Grid item xs={6} sm={3}>
-          <Typography variant="caption" color="text.secondary" display="block">매도 1호가</Typography>
-          <Typography variant="caption" fontWeight={600} color="error.main">
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>매도 1호가</Typography>
+          <Typography variant="caption" sx={{ fontWeight: 600 }} color="error.main">
             {bestAsk ? fmtTossMoney(bestAsk.price, data.orderbook.currency) : '-'}
           </Typography>
-          {bestAsk && <Typography variant="caption" color="text.secondary" display="block">잔량 {fmtDecimalString(bestAsk.volume, 4)}</Typography>}
+          {bestAsk && <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>잔량 {fmtDecimalString(bestAsk.volume, 4)}</Typography>}
         </Grid>
-        <Grid item xs={6} sm={3}>
-          <Typography variant="caption" color="text.secondary" display="block">매수 1호가</Typography>
-          <Typography variant="caption" fontWeight={600} color="primary.main">
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>매수 1호가</Typography>
+          <Typography variant="caption" sx={{ fontWeight: 600 }} color="primary.main">
             {bestBid ? fmtTossMoney(bestBid.price, data.orderbook.currency) : '-'}
           </Typography>
-          {bestBid && <Typography variant="caption" color="text.secondary" display="block">잔량 {fmtDecimalString(bestBid.volume, 4)}</Typography>}
+          {bestBid && <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>잔량 {fmtDecimalString(bestBid.volume, 4)}</Typography>}
         </Grid>
-        <Grid item xs={6} sm={3}>
-          <Typography variant="caption" color="text.secondary" display="block">상한가</Typography>
-          <Typography variant="caption" fontWeight={600} color="error.main">
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>상한가</Typography>
+          <Typography variant="caption" sx={{ fontWeight: 600 }} color="error.main">
             {data.priceLimits.upperLimitPrice ? fmtTossMoney(data.priceLimits.upperLimitPrice, data.priceLimits.currency) : '-'}
           </Typography>
         </Grid>
-        <Grid item xs={6} sm={3}>
-          <Typography variant="caption" color="text.secondary" display="block">하한가</Typography>
-          <Typography variant="caption" fontWeight={600} color="primary.main">
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>하한가</Typography>
+          <Typography variant="caption" sx={{ fontWeight: 600 }} color="primary.main">
             {data.priceLimits.lowerLimitPrice ? fmtTossMoney(data.priceLimits.lowerLimitPrice, data.priceLimits.currency) : '-'}
           </Typography>
         </Grid>
@@ -146,8 +146,8 @@ export function TossMarketSnapshotCard({ symbol }: { symbol: string }) {
 
       {latestTrade && (
         <Box sx={{ mt: 1.25 }}>
-          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>최근 체결</Typography>
-          <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5  }}>최근 체결</Typography>
+          <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }} useFlexGap>
             {data.trades.slice(0, 3).map((trade) => (
               <Typography key={`${trade.timestamp}:${trade.price}:${trade.volume}`} variant="caption">
                 {fmtTossMoney(trade.price, trade.currency)} · {fmtDecimalString(trade.volume, 4)}
@@ -190,7 +190,7 @@ export function TossStockSafetyCard({
 
   return (
     <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pb: 1.5 }}>
-      <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: data.warnings.length ? 1 : 0 }}>
+      <Stack direction="row" spacing={0.75} useFlexGap sx={{ flexWrap: "wrap", mb: data.warnings.length ? 1 : 0  }}>
         {info && (
           <>
             <Chip size="small" label={info.name || info.symbol} variant="outlined" sx={{ height: 22, fontSize: '0.7rem' }} />
@@ -213,10 +213,10 @@ export function TossStockSafetyCard({
       {data.warnings.length > 0 ? (
         <Alert severity={data.buyBlocked ? 'warning' : 'info'} sx={{ py: 0.5 }}>
           <Stack spacing={0.5}>
-            <Typography variant="caption" fontWeight={600}>
+            <Typography variant="caption" sx={{ fontWeight: 600 }}>
               Toss 매수 유의사항 {data.warnings.length}건
             </Typography>
-            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }} useFlexGap>
               {data.warnings.map((warning) => (
                 <Chip
                   key={`${warning.warningType}:${warning.exchange ?? ''}:${warning.startDate ?? ''}`}
@@ -257,7 +257,7 @@ export function TossMarketCalendarStrip({
   if (isError || !data) return null
 
   return (
-    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ px: { xs: 1.5, sm: 2.5 }, pt: 1.5 }}>
+    <Stack direction="row" spacing={0.75} useFlexGap sx={{ flexWrap: "wrap", px: { xs: 1.5, sm: 2.5 }, pt: 1.5  }}>
       {tossSessionChip('KRX 정규장', data.kr.regularSession, data.kr.isRegularOpen)}
       {tossSessionChip('US 데이', data.us.daySession, data.us.isDayOpen)}
       {tossSessionChip('US 프리', data.us.preSession, data.us.isPreOpen)}
@@ -281,7 +281,7 @@ export function TossOrderPreflightPanel({
   if (isLoading) {
     return (
       <Box sx={{ mb: 1.5, p: 1.25, bgcolor: 'action.hover', borderRadius: 1 }}>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <CircularProgress size={14} />
           <Typography variant="caption" color="text.secondary">Toss 주문 전 검증 중</Typography>
         </Stack>
@@ -304,8 +304,8 @@ export function TossOrderPreflightPanel({
 
   return (
     <Box sx={{ mb: 1.5, p: 1.25, bgcolor: 'action.hover', borderRadius: 1 }}>
-      <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" mb={1}>
-        <Typography variant="subtitle2" fontWeight={700}>Toss 주문 전 검증</Typography>
+      <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", flexWrap: "wrap", mb: 1 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Toss 주문 전 검증</Typography>
         <Chip
           size="small"
           label={data.liquidityOk ? '가능금액 확인' : '가능금액 부족'}
@@ -343,14 +343,14 @@ export function TossOrderPreflightPanel({
         )}
       </Stack>
       {(data.blockedReasons.length > 0 || data.warnings.length > 0) && (
-        <Stack spacing={0.25} mt={0.75}>
+        <Stack spacing={0.25} sx={{ mt: 0.75 }}>
           {data.blockedReasons.map((reason) => (
-            <Typography key={reason} variant="caption" color="warning.main" display="block">
+            <Typography key={reason} variant="caption" color="warning.main" sx={{ display: "block" }}>
               {reason}
             </Typography>
           ))}
           {data.warnings.map((warning) => (
-            <Typography key={warning} variant="caption" color="text.secondary" display="block">
+            <Typography key={warning} variant="caption" color="text.secondary" sx={{ display: "block" }}>
               {warning}
             </Typography>
           ))}
@@ -424,8 +424,8 @@ export function TossOpenOrdersPanel({ symbol }: { symbol?: string }) {
 
   return (
     <Box sx={{ mt: 2 }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} mb={1}>
-        <Typography variant="subtitle2" fontWeight={700}>
+      <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1 }} spacing={1}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
           Toss 접수 주문
         </Typography>
         {isLoading && <CircularProgress size={16} />}
@@ -461,10 +461,10 @@ export function TossOpenOrdersPanel({ symbol }: { symbol?: string }) {
                 }}
               >
                 <Stack spacing={1}>
-                  <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1}>
+                  <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between" }} spacing={1}>
                     <Box sx={{ minWidth: 0 }}>
-                      <Stack direction="row" alignItems="center" spacing={0.75} flexWrap="wrap" useFlexGap>
-                        <Typography variant="body2" fontWeight={700}>
+                      <Stack direction="row" sx={{ alignItems: "center", flexWrap: "wrap" }} spacing={0.75} useFlexGap>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
                           {order.symbol}
                         </Typography>
                         <Chip
@@ -500,22 +500,22 @@ export function TossOpenOrdersPanel({ symbol }: { symbol?: string }) {
                   </Stack>
 
                   <Grid container spacing={0.75}>
-                    <Grid item xs={6}>
-                      <Typography variant="caption" color="text.secondary" display="block">주문가</Typography>
-                      <Typography variant="body2" fontWeight={700}>
+                    <Grid size={{ xs: 6 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>주문가</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
                         {order.price ? fmtTossMoney(order.price, order.currency) : '-'}
                       </Typography>
                     </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="caption" color="text.secondary" display="block">주문수량</Typography>
+                    <Grid size={{ xs: 6 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>주문수량</Typography>
                       <Typography variant="body2">{fmtDecimalString(order.quantity, 6)}</Typography>
                     </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="caption" color="text.secondary" display="block">체결수량</Typography>
+                    <Grid size={{ xs: 6 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>체결수량</Typography>
                       <Typography variant="body2">{fmtDecimalString(order.filledQuantity, 6)}</Typography>
                     </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="caption" color="text.secondary" display="block">평균체결가</Typography>
+                    <Grid size={{ xs: 6 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>평균체결가</Typography>
                       <Typography variant="body2">
                         {order.averageFilledPrice ? fmtTossMoney(order.averageFilledPrice, order.currency) : '-'}
                       </Typography>

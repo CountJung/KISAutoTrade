@@ -72,11 +72,11 @@ function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; on
     <Box sx={{ width: drawerWidth, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* 로고 영역 */}
       <Box sx={{ px: 2, py: 2, overflow: 'hidden' }}>
-        <Typography variant="subtitle2" color="primary" fontWeight={700} noWrap>
+        <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 700 }} noWrap>
           AutoConditionTrade
         </Typography>
         {appConfig?.active_profile_name ? (
-          <Stack direction="row" spacing={0.5} alignItems="center" mt={0.5}>
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", mt: 0.5 }}>
             <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1, minWidth: 0 }}>
               {appConfig.active_profile_name}
             </Typography>
@@ -100,7 +100,7 @@ function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; on
           </Typography>
         )}
         {/* 자동매매 실행 상태 */}
-        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.75, minWidth: 0 }}>
+        <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", mt: 0.75, minWidth: 0  }}>
           <Chip
             icon={
               <FiberManualRecordIcon

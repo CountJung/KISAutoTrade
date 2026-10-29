@@ -37,8 +37,8 @@ export function BrokerRateLimitSection() {
           const failing = scope.groups.some((group) => group.consecutiveFailures >= 3)
           return (
             <Paper key={scope.scope} variant="outlined" sx={{ p: 1.5 }}>
-              <Stack direction="row" spacing={1} alignItems="center" mb={1} flexWrap="wrap" useFlexGap>
-                <Typography variant="body2" fontWeight={600} sx={{ wordBreak: 'break-all' }}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1, flexWrap: "wrap" }} useFlexGap>
+                <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-all'  }}>
                   {scope.scope}
                 </Typography>
                 {paused && <Chip size="small" color="warning" label="rate limit pause 중" />}

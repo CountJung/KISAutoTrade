@@ -90,38 +90,38 @@ export function SimulationAccountingEditor({ value, onChange, isOverseas, disabl
   }
   return (
     <Stack spacing={1.25} sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: 'divider', minWidth: 0, overflowWrap: 'anywhere' }} data-testid="simulation-accounting-editor">
-      <Typography variant="caption" fontWeight={700}>비용 출처와 현금흐름 연구 가정</Typography>
+      <Typography variant="caption" sx={{ fontWeight: 700 }}>비용 출처와 현금흐름 연구 가정</Typography>
       <Grid container spacing={1.25}>
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <TextField select fullWidth size="small" label="비용 출처" value={value.costSource ?? 'estimated'} disabled={disabled} onChange={(event) => onChange({ ...value, costSource: event.target.value as SimulationAssumptions['costSource'] })}>
             <MenuItem value="estimated">추정 비용</MenuItem>
             <MenuItem value="brokerVerifiedManual">브로커 조건 사용자 수동 확인</MenuItem>
           </TextField>
         </Grid>
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <TextField fullWidth size="small" label="비용 출처 메모" value={value.costNote ?? ''} disabled={disabled} onChange={(event) => onChange({ ...value, costNote: event.target.value })} helperText="수동 확인 시 필수 · 최대 120자" />
         </Grid>
-        <Grid item xs={12} sm={4}>
-          <TextField fullWidth size="small" type="number" label="매수 수수료(bps)" value={value.buyFeeBps ?? ''} disabled={disabled} onChange={(event) => changeFee('buyFeeBps', event.target.value)} helperText="빈칸 = 공통 수수료 사용" inputProps={{ min: 0, max: 1000, step: 0.1 }} />
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <TextField fullWidth size="small" type="number" label="매수 수수료(bps)" value={value.buyFeeBps ?? ''} disabled={disabled} onChange={(event) => changeFee('buyFeeBps', event.target.value)} helperText="빈칸 = 공통 수수료 사용" slotProps={{ htmlInput: { min: 0, max: 1000, step: 0.1 } }} />
         </Grid>
-        <Grid item xs={12} sm={4}>
-          <TextField fullWidth size="small" type="number" label="매도 수수료(bps)" value={value.sellFeeBps ?? ''} disabled={disabled} onChange={(event) => changeFee('sellFeeBps', event.target.value)} helperText="빈칸 = 공통 수수료 사용" inputProps={{ min: 0, max: 1000, step: 0.1 }} />
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <TextField fullWidth size="small" type="number" label="매도 수수료(bps)" value={value.sellFeeBps ?? ''} disabled={disabled} onChange={(event) => changeFee('sellFeeBps', event.target.value)} helperText="빈칸 = 공통 수수료 사용" slotProps={{ htmlInput: { min: 0, max: 1000, step: 0.1 } }} />
         </Grid>
-        <Grid item xs={12} sm={4}>
-          <TextField fullWidth size="small" type="number" label={`체결당 최소 수수료(${isOverseas ? 'USD' : '원'})`} value={Number.isNaN(value.minimumFeeNative) ? '' : value.minimumFeeNative ?? 0} disabled={disabled} onChange={(event) => changeFee('minimumFeeNative', event.target.value)} inputProps={{ min: 0, max: 100_000_000, step: isOverseas ? 0.01 : 1 }} />
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <TextField fullWidth size="small" type="number" label={`체결당 최소 수수료(${isOverseas ? 'USD' : '원'})`} value={Number.isNaN(value.minimumFeeNative) ? '' : value.minimumFeeNative ?? 0} disabled={disabled} onChange={(event) => changeFee('minimumFeeNative', event.target.value)} slotProps={{ htmlInput: { min: 0, max: 100_000_000, step: isOverseas ? 0.01 : 1 } }} />
         </Grid>
       </Grid>
       <Alert severity="info" sx={{ py: 0.5 }}>
         수동 확인은 사용자가 확인한 조건을 기록하는 기능이며 앱이 브로커 API로 검증한 값은 아닙니다. 계좌별 할인·실제 최소 수수료·거래세를 자동 반영하지 않습니다.
         {' '}기본 환율은 고정 시나리오이고 유휴 현금은 원화로 유지합니다. 환전 수수료·해외 양도소득세는 별도입니다.
       </Alert>
-      <TextField multiline minRows={2} maxRows={7} fullWidth size="small" label="환율 시나리오 JSON" value={fxDraft} disabled={disabled} onChange={(event) => changeScenario('fx', event.target.value)} inputProps={{ maxLength: MAX_DRAFT_LENGTH + 1 }} helperText={'최대 64개 · 예: [{"barTime":"20260702","rateKrw":1400}] · 국내 종목은 []'} />
+      <TextField multiline minRows={2} maxRows={7} fullWidth size="small" label="환율 시나리오 JSON" value={fxDraft} disabled={disabled} onChange={(event) => changeScenario('fx', event.target.value)} slotProps={{ htmlInput: { maxLength: MAX_DRAFT_LENGTH + 1 } }} helperText={'최대 64개 · 예: [{"barTime":"20260702","rateKrw":1400}] · 국내 종목은 []'} />
       <TextField select fullWidth size="small" label="가격 자료의 배당 반영" value={value.dividendPriceBasis ?? 'unverified'} disabled={disabled} onChange={(event) => onChange({ ...value, dividendPriceBasis: event.target.value as SimulationAssumptions['dividendPriceBasis'] })}>
         <MenuItem value="unverified">배당 조정 여부 미확인</MenuItem>
         <MenuItem value="unadjusted">배당 미조정 가격 · 사용자 선언</MenuItem>
         <MenuItem value="dividendAdjusted">배당 조정 가격 · 사용자 선언</MenuItem>
       </TextField>
-      <TextField multiline minRows={2} maxRows={7} fullWidth size="small" label="배당 시나리오 JSON" value={dividendDraft} disabled={disabled} onChange={(event) => changeScenario('dividend', event.target.value)} inputProps={{ maxLength: MAX_DRAFT_LENGTH + 1 }} helperText={'최대 64개 · 예: [{"barTime":"20260703","amountPerShare":1,"withholdingTaxBps":1500}]'} />
+      <TextField multiline minRows={2} maxRows={7} fullWidth size="small" label="배당 시나리오 JSON" value={dividendDraft} disabled={disabled} onChange={(event) => changeScenario('dividend', event.target.value)} slotProps={{ htmlInput: { maxLength: MAX_DRAFT_LENGTH + 1 } }} helperText={'최대 64개 · 예: [{"barTime":"20260703","amountPerShare":1,"withholdingTaxBps":1500}]'} />
       <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
         평가 구간에 실제 존재하는 봉 라벨만 허용합니다. 환율은 지정 봉의 시작부터 이후 봉으로 이어지며 과거로 소급하지 않습니다.
         배당은 지정 봉 시가 직전 보유 수량에 주당 금액(국내 원·해외 USD)을 배분하고 같은 봉에 원천징수 후 원화 현금으로 입금하는 연구 가정입니다. 실제 배당락·지급일·기업행동 자료와 다릅니다.
@@ -145,7 +145,7 @@ export function accountingComparisonKey(value: SimulationAssumptions) {
 
 export function AccountingAssumptionSummary({ value }: { value: SimulationAssumptions }) {
   return <Box sx={{ minWidth: 0, overflowWrap: 'anywhere' }}>
-    <Typography variant="caption" display="block">{accountingAssumptionsLabel(value)}</Typography>
+    <Typography variant="caption" sx={{ display: "block" }}>{accountingAssumptionsLabel(value)}</Typography>
     {((value.fxScenario?.length ?? 0) > 0 || (value.dividendScenario?.length ?? 0) > 0) && <details><summary>저장된 환율·배당 가정 보기</summary><Typography component="pre" variant="caption" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{JSON.stringify({ fxScenario: value.fxScenario, dividendScenario: value.dividendScenario }, null, 2)}</Typography></details>}
   </Box>
 }
@@ -153,7 +153,7 @@ export function AccountingAssumptionSummary({ value }: { value: SimulationAssump
 export function AccountingResults({ report, compact = false }: { report: BacktestReport; compact?: boolean }) {
   const accounting = report.accounting
   if (!accounting) return <Alert severity="warning" data-testid="backtest-accounting-unknown">이전 결과에는 손익 분해 정보가 없습니다. 실현·잔여 평가손익, 비용과 배당은 0으로 추정하지 않습니다. 다시 계산하세요.</Alert>
-  if (compact) return <Typography variant="caption" display="block">실현 {money(accounting.realizedPnlKrw)} · 잔여 평가 {money(accounting.residualUnrealizedPnlKrw)} · 순배당 {money(accounting.dividendNetKrw)}</Typography>
+  if (compact) return <Typography variant="caption" sx={{ display: "block" }}>실현 {money(accounting.realizedPnlKrw)} · 잔여 평가 {money(accounting.residualUnrealizedPnlKrw)} · 순배당 {money(accounting.dividendNetKrw)}</Typography>
   const cells: [string, string][] = [
     ['실현손익 · 매도 확정', money(accounting.realizedPnlKrw)],
     ['잔여 평가손익 · 매도 전', money(accounting.residualUnrealizedPnlKrw)],
@@ -173,7 +173,7 @@ export function AccountingResults({ report, compact = false }: { report: Backtes
   ]
   return (
     <Stack spacing={1.25} data-testid="backtest-accounting-results" sx={{ minWidth: 0 }}>
-      <Typography variant="subtitle2" fontWeight={700}>손익과 현금흐름 분해</Typography>
+      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>손익과 현금흐름 분해</Typography>
       <Typography variant="caption" sx={{ overflowWrap: 'anywhere' }}>{accountingAssumptionsLabel(report.assumptions)}</Typography>
       <Alert severity={accounting.realizedEquitySignMismatch ? 'warning' : 'info'} data-testid="backtest-accounting-sample">
         완료 거래 표본 {report.summary.completedTrades}회 · 보유 관측 봉 비율 {percent(report.summary.exposurePct)}
@@ -181,7 +181,7 @@ export function AccountingResults({ report, compact = false }: { report: Backtes
       </Alert>
       <Typography variant="caption">전체 자산 손익 = 실현손익 + 잔여 평가손익 + 순배당입니다. 가격 효과는 진입 환율로 평가하고, 환율 효과는 종료 가격에 환율 변화를 적용합니다. 실현·잔여 순손익에는 해당 수수료와 세금 배분이 포함됩니다.</Typography>
       <Grid container spacing={1}>
-        {cells.map(([label, value]) => <Grid key={label} item xs={12} sm={6} md={4}><Paper variant="outlined" sx={{ p: 1 }}><Typography variant="caption" color="text.secondary" display="block">{label}</Typography><Typography variant="body2">{value}</Typography></Paper></Grid>)}
+        {cells.map(([label, value]) => <Grid key={label} size={{ xs: 12, sm: 6, md: 4 }}><Paper variant="outlined" sx={{ p: 1 }}><Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{label}</Typography><Typography variant="body2">{value}</Typography></Paper></Grid>)}
       </Grid>
       <Box sx={{ p: 1.25, border: 1, borderColor: 'divider', borderRadius: 1 }} data-testid="backtest-capital-observations">
         <Typography variant="body2">봉말 평균 보유 평가액 {money(accounting.averageInvestedNotionalKrw)} · 초기자본 대비 {percent(accounting.averageInvestedCapitalPct)} · 당시 자산 대비 {percent(accounting.averageInvestedEquityPct)}</Typography>
@@ -189,7 +189,7 @@ export function AccountingResults({ report, compact = false }: { report: Backtes
         <Typography variant="caption">봉마다 관측한 값의 단순 평균입니다. 실제 보유 시간으로 가중한 수익률이나 연환산 수익률이 아닙니다.</Typography>
       </Box>
       <Alert severity="info" data-testid="backtest-terminal-liquidation">
-        <Typography variant="body2" fontWeight={700}>종료 시 가상 청산 · 실제 거래에 미포함</Typography>
+        <Typography variant="body2" sx={{ fontWeight: 700 }}>종료 시 가상 청산 · 실제 거래에 미포함</Typography>
         <Typography variant="body2">잔여분을 종료 시점에 매도한다고 가정한 자산 {money(accounting.terminalLiquidationEquityKrw)} · 수익률 {percent(accounting.terminalLiquidationReturnPct)}</Typography>
         <Typography variant="body2">추가 매도 수수료 {money(accounting.terminalExitFeeKrw)} · 거래세 {money(accounting.terminalExitTaxKrw)} · 슬리피지 {money(accounting.terminalExitSlippageKrw)}</Typography>
         <Typography variant="caption">위 실현손익·실제 체결 수·현금흐름에는 가상 청산을 더하지 않습니다. 슬리피지는 가격에 포함된 영향이며 비용을 다시 차감하지 않습니다.</Typography>
@@ -206,9 +206,9 @@ export function ComparisonResults({ report }: { report: BacktestReport }) {
   const hold = comparison.sameInputQuantityBuyHold
   const reference = comparison.sameExecutionPathCostReference
   return <Stack spacing={1.25} data-testid="backtest-accounting-comparison" sx={{ minWidth: 0 }}>
-    <Typography variant="subtitle2" fontWeight={700}>단순 보유와 비용 영향 참고 비교</Typography>
+    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>단순 보유와 비용 영향 참고 비교</Typography>
     <Paper variant="outlined" sx={{ p: 1.25 }}>
-      <Typography variant="body2" fontWeight={700}>동일 입력 수량의 단순 보유</Typography>
+      <Typography variant="body2" sx={{ fontWeight: 700 }}>동일 입력 수량의 단순 보유</Typography>
       <Typography variant="body2">요청 {hold.requestedQuantity}주 · 실제 진입 {hold.actualEntryQuantity}주 · 종료 보유 {hold.remainingQuantity}주</Typography>
       <Typography variant="body2">전체 자산 {money(hold.finalEquityKrw)} · 수익률 {percent(hold.cumulativeReturnPct)} · MDD {percent(hold.mddPct)} · 종료 가상 청산 수익률 {percent(hold.terminalLiquidationReturnPct)}</Typography>
       <Typography variant="body2">실현 {money(hold.realizedPnlKrw)} · 잔여 평가 {money(hold.residualUnrealizedPnlKrw)} · 순배당 {money(hold.dividendNetKrw)}</Typography>
@@ -219,7 +219,7 @@ export function ComparisonResults({ report }: { report: BacktestReport }) {
     </Paper>
     <Typography variant="body2">전략 − 단순 보유 · 평균 초기자본 투자 비중 차이 {percent(comparison.capitalExposureDifferencePct)}p · 보유 관측 봉 차이 {percent(comparison.holdingBarDifferencePct)}p</Typography>
     <Alert severity="info">
-      <Typography variant="body2" fontWeight={700}>동일 체결 경로의 비용 제거 참고값</Typography>
+      <Typography variant="body2" sx={{ fontWeight: 700 }}>동일 체결 경로의 비용 제거 참고값</Typography>
       <Typography variant="body2">복원 비용 영향 {money(reference.restoredCostKrw)} · 참고 자산 {money(reference.finalEquityKrw)} · 참고 수익률 {percent(reference.cumulativeReturnPct)}</Typography>
       <Typography variant="caption">실제 계산에서 체결한 수량·시점·노출을 고정하고 발생 당시 환율로 기록한 원화 비용을 산술적으로 복원합니다. 원가나 환율 기여를 다시 분해하지 않습니다. 비용이 없는 전략을 다시 실행한 성과나 실제 거래 결과가 아닙니다.</Typography>
     </Alert>

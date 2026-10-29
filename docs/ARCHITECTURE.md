@@ -4,7 +4,7 @@
 
 ## 1. 시스템 경계
 
-KISAutoTrade는 React 18 UI와 Rust backend가 결합된 Tauri v2 애플리케이션이다. 같은 Rust 상태와 도메인 서비스 일부를 Axum 웹 서버도 노출한다.
+KISAutoTrade는 React 19 UI와 Rust backend가 결합된 Tauri v2 애플리케이션이다. 같은 Rust 상태와 도메인 서비스 일부를 Axum 웹 서버도 노출한다.
 
 ```text
 ┌ React / TypeScript ───────────────────────────────────────┐

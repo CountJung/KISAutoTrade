@@ -138,13 +138,13 @@ function RiskPanel() {
 
       {/* 순손실 한도 진행바 */}
       <Box sx={{ mb: 2 }}>
-        <Stack direction="row" justifyContent="space-between" mb={0.5}>
+        <Stack direction="row" sx={{ justifyContent: "space-between", mb: 0.5 }}>
           <Typography variant="caption" color="text.secondary">
             순손실 소진율
           </Typography>
           <Typography
             variant="caption"
-            fontWeight={700}
+            sx={{ fontWeight: 700 }}
             color={`${barColor}.main`}
           >
             {fmt(risk.netLoss)}원 / {fmt(risk.dailyLossLimit)}원
@@ -159,7 +159,7 @@ function RiskPanel() {
         />
         {/* 당일 수익 반영 표시 */}
         {risk.dailyProfit > 0 && (
-          <Stack direction="row" justifyContent="flex-end" mt={0.5}>
+          <Stack direction="row" sx={{ justifyContent: "flex-end", mt: 0.5 }}>
             <Typography variant="caption" color="success.main">
               당일 수익 +{fmt(risk.dailyProfit)}원 반영됨 (총손실 {fmt(Math.abs(risk.currentLoss))}원 - 수익 {fmt(risk.dailyProfit)}원)
             </Typography>
@@ -169,23 +169,23 @@ function RiskPanel() {
 
       {/* 현재 설정값 표시 */}
       <Grid container spacing={1.5} sx={{ mb: 2 }}>
-        <Grid item xs={6}>
+        <Grid size={{ xs: 6 }}>
           <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, textAlign: 'center' }}>
-            <Typography variant="caption" color="text.secondary" display="block">일일 손실 한도</Typography>
-            <Typography variant="body1" fontWeight={700}>{fmt(risk.dailyLossLimit)}원</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>일일 손실 한도</Typography>
+            <Typography variant="body1" sx={{ fontWeight: 700 }}>{fmt(risk.dailyLossLimit)}원</Typography>
           </Box>
         </Grid>
-        <Grid item xs={6}>
+        <Grid size={{ xs: 6 }}>
           <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, textAlign: 'center' }}>
-            <Typography variant="caption" color="text.secondary" display="block">종목당 최대 비중</Typography>
-            <Typography variant="body1" fontWeight={700}>{(risk.maxPositionRatio * 100).toFixed(0)}%</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>종목당 최대 비중</Typography>
+            <Typography variant="body1" sx={{ fontWeight: 700 }}>{(risk.maxPositionRatio * 100).toFixed(0)}%</Typography>
           </Box>
         </Grid>
       </Grid>
 
       {/* 설정 변경 입력 */}
-      <Grid container spacing={1.5} alignItems="flex-end">
-        <Grid item xs={12} sm={5}>
+      <Grid container spacing={1.5} sx={{ alignItems: "flex-end" }}>
+        <Grid size={{ xs: 12, sm: 5 }}>
           <Tooltip
             title="하루 최대 허용 손실 금액(원). 이 금액을 초과하면 비상 정지됩니다."
             arrow placement="top"
@@ -197,11 +197,11 @@ function RiskPanel() {
               onChange={(e) => { setLimitInput(e.target.value.replace(/[^\d,]/g, '')); setDirty(true) }}
               size="small"
               fullWidth
-              InputProps={{ endAdornment: <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.disabled' }} /> }}
+              slotProps={{ input: { endAdornment: <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.disabled' }} /> } }}
             />
           </Tooltip>
         </Grid>
-        <Grid item xs={12} sm={5}>
+        <Grid size={{ xs: 12, sm: 5 }}>
           <Tooltip
             title="단일 종목에 투자할 수 있는 최대 비중(%). 예: 20 → 총 잔고의 20%까지."
             arrow placement="top"
@@ -213,11 +213,11 @@ function RiskPanel() {
               onChange={(e) => { setRatioInput(e.target.value.replace(/[^\d.]/g, '')); setDirty(true) }}
               size="small"
               fullWidth
-              InputProps={{ endAdornment: <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.disabled' }} /> }}
+              slotProps={{ input: { endAdornment: <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.disabled' }} /> } }}
             />
           </Tooltip>
         </Grid>
-        <Grid item xs={12} sm={2}>
+        <Grid size={{ xs: 12, sm: 2 }}>
           <Button
             variant="contained"
             size="small"
@@ -232,7 +232,7 @@ function RiskPanel() {
       </Grid>
 
       {/* 거래 상태 + 비상정지 수동 발동 버튼 */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mt={1.5}>
+      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mt: 1.5 }}>
         <Typography
           variant="caption"
           color={risk.isEmergencyStop ? 'error.main' : risk.canTrade ? 'success.main' : 'warning.main'}
@@ -270,8 +270,8 @@ function RiskPanelWrapper() {
   if (!risk?.enabled) return null
   return (
     <Paper sx={{ p: 2.5 }}>
-      <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
-        <Typography variant="subtitle1" fontWeight={600}>리스크 관리</Typography>
+      <Stack direction="row" sx={{ alignItems: "center", mb: 1.5 }} spacing={1}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>리스크 관리</Typography>
         <Tooltip
           title="일일 순손실(총손실 - 당일수익)이 한도를 초과하면 자동매매가 중단됩니다. 설정 페이지에서 활성화/비활성화할 수 있습니다."
           arrow
@@ -300,14 +300,14 @@ function StatCard({
 }) {
   return (
     <Paper sx={{ p: 2.5, height: '100%' }}>
-      <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+      <Typography variant="caption" color="text.secondary" gutterBottom sx={{ display: "block" }}>
         {label}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         {loading ? (
           <CircularProgress size={20} />
         ) : (
-          <Typography variant="h5" fontWeight={700}>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
             {value}
           </Typography>
         )}
@@ -319,7 +319,7 @@ function StatCard({
           ))}
       </Box>
       {sub && (
-        <Typography variant="body2" color="text.secondary" mt={0.5}>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
           {sub}
         </Typography>
       )}
@@ -454,7 +454,7 @@ export default function Dashboard() {
       )}
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <Typography variant="h5" fontWeight={700}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>
           Dashboard
         </Typography>
         <Chip
@@ -532,8 +532,8 @@ export default function Dashboard() {
       {/* ── 국내 보유주식 (잔고 API 직접) ───────────────────────── */}
       {!isTossActive && (
       <Paper sx={{ p: 2.5, mb: 2 }}>
-        <Stack direction="row" alignItems="center" spacing={1} mb={1.5} flexWrap="wrap">
-          <Typography variant="subtitle1" fontWeight={600}>국내 보유주식</Typography>
+        <Stack direction="row" sx={{ alignItems: "center", mb: 1.5, flexWrap: "wrap" }} spacing={1}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>국내 보유주식</Typography>
           <Chip
             size="small"
             label={`${domesticItems.length}종목`}
@@ -584,7 +584,7 @@ export default function Dashboard() {
                   return (
                     <TableRow key={item.pdno} hover>
                       <TableCell>
-                        <Typography variant="body2" fontWeight={500}>{item.prdt_name}</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{item.prdt_name}</Typography>
                         <Typography variant="caption" color="text.secondary">{item.pdno}</Typography>
                       </TableCell>
                       <TableCell align="right">{fmt(parseInt(item.hldg_qty))}</TableCell>
@@ -619,8 +619,8 @@ export default function Dashboard() {
       {/* ── 해외 보유주식 ──────────────────────────────────────────── */}
       {!isTossActive && (
       <Paper sx={{ p: 2.5, mb: 2 }}>
-        <Stack direction="row" alignItems="center" spacing={1} mb={1.5} flexWrap="wrap">
-          <Typography variant="subtitle1" fontWeight={600}>해외 보유주식</Typography>
+        <Stack direction="row" sx={{ alignItems: "center", mb: 1.5, flexWrap: "wrap" }} spacing={1}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>해외 보유주식</Typography>
           {exchangeRateStatus && (
             <Tooltip title={exchangeRateStatus.message}>
               <Chip
@@ -708,7 +708,7 @@ export default function Dashboard() {
                   return (
                     <TableRow key={item.ovrs_pdno} hover>
                       <TableCell>
-                        <Typography variant="body2" fontWeight={500}>{item.ovrs_item_name}</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{item.ovrs_item_name}</Typography>
                         <Typography variant="caption" color="text.secondary">
                           {item.ovrs_pdno} · {item.ovrs_excg_cd}
                         </Typography>
@@ -744,8 +744,8 @@ export default function Dashboard() {
 
       {isTossActive && (
         <Paper sx={{ p: 2.5, mb: 2 }}>
-          <Stack direction="row" alignItems="center" spacing={1} mb={1.5} flexWrap="wrap">
-            <Typography variant="subtitle1" fontWeight={600}>Toss 보유종목</Typography>
+          <Stack direction="row" sx={{ alignItems: "center", mb: 1.5, flexWrap: "wrap" }} spacing={1}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Toss 보유종목</Typography>
             <Chip
               size="small"
               label={`${brokerHoldings.length}종목`}
@@ -790,7 +790,7 @@ export default function Dashboard() {
                     return (
                       <TableRow key={`${item.brokerId}:${item.market}:${item.symbol}`} hover>
                         <TableCell>
-                          <Typography variant="body2" fontWeight={500}>{item.symbolName || item.symbol}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>{item.symbolName || item.symbol}</Typography>
                           <Typography variant="caption" color="text.secondary">
                             {item.symbol} · {brokerMarketLabel(item.market)}
                           </Typography>
@@ -823,8 +823,8 @@ export default function Dashboard() {
       )}
 
       {/* ── 요약 통계 카드 ──────────────────────────────────────── */}
-      <Grid container spacing={2} mb={3}>
-        <Grid item xs={12} sm={6} md={3}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
             label={isTossActive ? 'Toss 평가금액' : '총 평가금액 (합산)'}
             value={fmt(isTossActive ? tossTotalKrw : combinedTotalKrw) + '원'}
@@ -836,7 +836,7 @@ export default function Dashboard() {
             loading={isTossActive ? brokerHoldingsLoading : balanceLoading || overseasLoading}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
             label={isTossActive ? 'Toss 계좌' : '예수금'}
             value={isTossActive
@@ -857,7 +857,7 @@ export default function Dashboard() {
             loading={isTossActive ? false : balanceLoading}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
             label="당일 순손익 (수수료 차감)"
             value={(profitPositive ? '+' : '') + fmt(netProfit) + '원'}
@@ -866,7 +866,7 @@ export default function Dashboard() {
             loading={statsLoading}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
             label="미실현 손익"
             value={isTossActive
@@ -886,8 +886,8 @@ export default function Dashboard() {
 
       {/* 미체결 주문 (자동매매) */}
       <Paper sx={{ p: 2.5, mb: 2 }}>
-        <Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
-          <Typography variant="subtitle1" fontWeight={600}>미체결 주문</Typography>
+        <Stack direction="row" sx={{ alignItems: "center", mb: 1.5 }} spacing={1}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>미체결 주문</Typography>
           <Tooltip
             title="자동 매매 엔진이 KIS API에 접수했으나 아직 체결되지 않은 주문 목록입니다. 5초마다 갱신됩니다."
             arrow
@@ -901,7 +901,7 @@ export default function Dashboard() {
 
       {/* 자동매매 체결 내역 */}
       <Paper sx={{ p: 2.5, mb: 2 }}>
-        <Typography variant="subtitle1" fontWeight={600} mb={1.5}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
           체결 내역 (자동매매)
         </Typography>
         <Divider sx={{ mb: 2 }} />

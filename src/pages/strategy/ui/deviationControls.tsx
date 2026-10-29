@@ -31,7 +31,7 @@ function DeviationNumericField({ field, value, disabled, onChange }: {
   useEffect(() => { setRaw((previous) => Object.is(parseDecimalDraft(previous), value) ? previous : value === undefined ? '0' : String(value)) }, [value])
   const error = fieldError(field, value)
   return <TextField fullWidth size="small" label={field.label} value={raw} disabled={disabled} error={!!error}
-    helperText={error ?? field.description} inputProps={{ inputMode: field.key === 'stop_loss_pct' ? 'decimal' : 'numeric' }}
+    helperText={error ?? field.description} slotProps={{ htmlInput: { inputMode: field.key === 'stop_loss_pct' ? 'decimal' : 'numeric' } }}
     onChange={(event) => { setRaw(event.target.value); onChange(field.key, parseDecimalDraft(event.target.value)) }} />
 }
 export function DeviationControls({ params, disabled, onChange }: {
@@ -44,7 +44,7 @@ export function DeviationControls({ params, disabled, onChange }: {
       crossing은 이전 이격도 &gt; 매수 기준, 현재 이격도 ≤ 매수 기준의 하향 교차입니다. 미체결 후보는 ≤ 조건 중 재시도하고 기준을 초과하면 취소합니다. 차단·pending은 체결과 구분합니다.
     </Alert>
     <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid size={{ xs: 12, sm: 6, md: 4 }}>
         <TextField fullWidth select size="small" label="Deviation 진입 모드" value={validMode ? mode : 'invalid'} disabled={disabled}
           error={!validMode} helperText={!validMode ? deviationPolicyError(params) : 'level은 기본 상태 조건, crossing은 하향 교차 후보를 사용합니다.'}
           onChange={(event) => onChange('entry_mode', event.target.value)}>
@@ -52,7 +52,7 @@ export function DeviationControls({ params, disabled, onChange }: {
           <MenuItem value="level">level · 이격 상태 (기본)</MenuItem><MenuItem value="crossing">crossing · 하향 교차</MenuItem>
         </TextField>
       </Grid>
-      {fields.map((field) => <Grid item xs={12} sm={6} md={4} key={field.key}>
+      {fields.map((field) => <Grid size={{ xs: 12, sm: 6, md: 4 }} key={field.key}>
         <DeviationNumericField field={field} value={params[field.key]} disabled={disabled} onChange={onChange} />
       </Grid>)}
     </Grid>
@@ -67,7 +67,7 @@ export function DeviationControls({ params, disabled, onChange }: {
 }
 export function DeviationPolicySummary({ params }: { params: Record<string, unknown> }) {
   const mode = modeOf(params)
-  return <Typography variant="caption" display="block" sx={{ overflowWrap: 'anywhere' }}>
+  return <Typography variant="caption" sx={{ display: "block", overflowWrap: 'anywhere'  }}>
     Deviation 진입 · {mode === 'level' || mode === 'crossing' ? mode : '모드 확인 필요'}{params.entry_mode === undefined ? ' (기본 level)' : ''}
     {' · '}추세 MA {String(params.long_trend_period === undefined ? 0 : params.long_trend_period)}관측
     {' · '}최대 보유 {String(params.max_hold_observations === undefined ? 0 : params.max_hold_observations)}관측

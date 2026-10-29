@@ -272,7 +272,7 @@ export function AddProfileDialog({
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>{brokerLabel(brokerId)} 계좌 프로파일 추가</DialogTitle>
       <DialogContent>
-        <Stack spacing={2} mt={1}>
+        <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <Chip
             size="small"
@@ -294,7 +294,7 @@ export function AddProfileDialog({
                   />
                 }
                 label={
-                  <Stack direction="row" spacing={1} alignItems="center">
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                     <Chip
                       size="small"
                       label={form.live_trading_consent ? '실거래 동의 저장' : '실거래 동의 없음'}
@@ -341,7 +341,7 @@ export function AddProfileDialog({
 
           {/* ── 자동 감지 영역 ─────────────────────────────── */}
           {isKisProfile && (
-            <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Stack direction="row" sx={{ alignItems: "center" }} spacing={1.5}>
               <Button
                 size="small"
                 variant="outlined"
@@ -387,7 +387,7 @@ export function AddProfileDialog({
                 />
               }
               label={
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   <Chip
                     size="small"
                     label={form.is_paper_trading ? '모의투자' : '실전투자'}
@@ -613,7 +613,7 @@ export function EditProfileDialog({
     <Dialog open={!!profile} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>프로파일 편집 — {profile?.name}</DialogTitle>
       <DialogContent>
-        <Stack spacing={2} mt={1}>
+        <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <Chip
             size="small"
@@ -635,7 +635,7 @@ export function EditProfileDialog({
                   />
                 }
                 label={
-                  <Stack direction="row" spacing={1} alignItems="center">
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                     <Chip
                       size="small"
                       label={form.live_trading_consent ? '실거래 동의 저장' : '실거래 동의 없음'}
@@ -683,7 +683,7 @@ export function EditProfileDialog({
 
           {/* ── 자동 감지 영역 (새 키 입력 시) ──────────────── */}
           {isKisProfile && (
-            <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Stack direction="row" sx={{ alignItems: "center" }} spacing={1.5}>
               <Button
                 size="small"
                 variant="outlined"
@@ -729,7 +729,7 @@ export function EditProfileDialog({
                 />
               }
               label={
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   <Chip
                     size="small"
                     label={form.is_paper_trading ? '모의투자' : '실전투자'}

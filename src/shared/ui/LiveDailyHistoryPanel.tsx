@@ -32,18 +32,18 @@ function retryTime(value: string | null) {
 function HistoryRow({ value }: { value: LiveDailyHistoryStatus }) {
   return (
     <Box data-testid="live-daily-history-row" sx={{ minWidth: 0, borderTop: 1, borderColor: 'divider', pt: 1 }}>
-      <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap">
-        <Typography variant="body2" fontWeight={700} sx={{ overflowWrap: 'anywhere' }}>{value.symbol}</Typography>
+      <Stack direction="row" sx={{ alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
+        <Typography variant="body2" sx={{ fontWeight: 700, overflowWrap: 'anywhere'  }}>{value.symbol}</Typography>
         <Chip size="small" label={STATE_LABELS[value.state] ?? '상태 확인 필요'}
           color={value.state === 'ready' ? 'success' : value.state === 'failed' ? 'error' : 'warning'} />
         <Typography variant="body2">확보 {value.availableBars}봉 / 필요 {value.requiredBars}봉</Typography>
       </Stack>
-      <Typography variant="caption" display="block">전략 {value.strategyId}</Typography>
-      <Typography variant="caption" display="block">
+      <Typography variant="caption" sx={{ display: "block" }}>전략 {value.strategyId}</Typography>
+      <Typography variant="caption" sx={{ display: "block" }}>
         시장 기준일 {value.marketDate} · 마지막 완료 일봉 {value.lastCompletedDate ?? '미확인'}
       </Typography>
-      <Typography variant="caption" display="block">출처 {value.source ?? '미확인'} · 재시도 {retryTime(value.nextRetryAt)}</Typography>
-      {value.lastError && <Typography variant="caption" display="block" color="warning.main">사유: {value.lastError}</Typography>}
+      <Typography variant="caption" sx={{ display: "block" }}>출처 {value.source ?? '미확인'} · 재시도 {retryTime(value.nextRetryAt)}</Typography>
+      {value.lastError && <Typography variant="caption" sx={{ display: "block" }} color="warning.main">사유: {value.lastError}</Typography>}
     </Box>
   )
 }
@@ -77,7 +77,7 @@ export function LiveDailyHistoryPanel({ status, appConfig }: Props) {
           : rows.length === 0 ? '현재 실행 범위에 표시할 일봉 준비 대상이 없습니다.' : null
   return (
     <Paper variant="outlined" data-testid="live-daily-history-panel" sx={{ p: 1.5, mb: 2, minWidth: 0, overflowWrap: 'anywhere' }}>
-      <Typography variant="subtitle2" fontWeight={700}>실시간 전략 일봉 준비</Typography>
+      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>실시간 전략 일봉 준비</Typography>
       {neutral ? <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>{neutral}</Typography> : (
         <Stack spacing={1} sx={{ minWidth: 0 }}>
           <Typography variant="caption" data-testid="live-daily-history-scope">
@@ -99,7 +99,7 @@ export function LiveDailyHistoryPanel({ status, appConfig }: Props) {
             {' '}마지막 완료봉이 시장 기준일보다 10일을 초과해 오래되면 신규 매수를 보류합니다. 장기 휴장도 포함하는 보수적 기준이며 거래 달력을 확정하는 검사는 아닙니다.
           </Typography>
           {visible.map((row) => <HistoryRow key={`${row.strategyId}:${row.symbol}:${row.marketDate}`} value={row} />)}
-          <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap">
+          <Stack direction="row" sx={{ alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
             <Typography variant="caption">{start + 1}~{Math.min(start + PAGE_SIZE, rows.length)} / 전체 {rows.length}개 상태 항목</Typography>
             {rows.length > PAGE_SIZE && <>
               <Button size="small" disabled={visiblePage === 0} onClick={() => setPage(visiblePage - 1)}>이전 일봉 상태</Button>

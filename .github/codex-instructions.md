@@ -1,6 +1,6 @@
 # KISAutoTrade — Codex 프로젝트 지침
 
-개인용 자동 주식 매매 시스템. **Rust (Tauri v2) + React 18 + TypeScript** 풀스택.  
+개인용 자동 주식 매매 시스템. **Rust (Tauri v2) + React 19 + TypeScript** 풀스택.
 작업 전 반드시 `AGENTS.md`를 읽어 현재 구조를 파악한다.
 
 ---
@@ -278,7 +278,7 @@ Use the repository at <repo>. Compare the current diff against AGENTS.md, docs/i
 | Rust 데이터 구조, trait, 에러 처리, serde | `.github/skills/rust-skills/SKILL.md` |
 | KIS API 인증, REST/WS 호출, tr_id, 에러코드 | `.github/skills/kis-api/SKILL.md` |
 | 토스증권 OpenAPI, OAuth2, 계좌 헤더, rate limit, REST adapter | `.github/skills/toss-api/SKILL.md` |
-| MUI v6 컴포넌트, 차트, 색상, 금융 UI 컨벤션 | `.github/skills/ui-conventions/SKILL.md` |
+| MUI v9 컴포넌트, 차트, 색상, 금융 UI 컨벤션 | `.github/skills/ui-conventions/SKILL.md` |
 
 Codex 환경에서는 프로젝트 루트의 `.codex/skills/kisautotrade-*` 브리지 스킬이 현재 작업 저장소 루트 기준으로 위 원본 스킬을 다시 읽도록 구성되어 있다. Codex 런타임이 계정 스킬만 읽는 경우 `scripts/sync-codex-skills.ps1`로 `~/.codex/skills`에 동기화한다. 브리지 스킬은 자동 트리거용 얇은 연결 파일이므로, 규칙 변경 시 반드시 저장소의 `.github/skills/**/SKILL.md`를 수정한다.
 

@@ -32,7 +32,7 @@ export function LeveragedTrendHoldTickerPicker({ model }: { model: LeveragedTren
   } = model
   return (
     <>
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ xs: 'stretch', md: 'center' }}>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', md: 'center' } }}>
         <ToggleButtonGroup
           value={pickerMarket}
           exclusive
@@ -73,8 +73,7 @@ export function LeveragedTrendHoldTickerPicker({ model }: { model: LeveragedTren
             size="small"
             fullWidth
             disabled={stratEnabled}
-            inputProps={{ style: { textTransform: pickerMarket === 'US' ? 'uppercase' : 'none' } }}
-            InputProps={{
+            slotProps={{ htmlInput: { style: { textTransform: pickerMarket === 'US' ? 'uppercase' : 'none' } }, input: {
               endAdornment: (
                 <InputAdornment position="end">
                   {(pickerFetching || pickerSearching) && <CircularProgress size={14} color="inherit" sx={{ mr: 0.5 }} />}
@@ -95,7 +94,7 @@ export function LeveragedTrendHoldTickerPicker({ model }: { model: LeveragedTren
                   </IconButton>
                 </InputAdornment>
               ),
-            }}
+            } }}
           />
 
           {pickerMarket === 'KR' && pickerOpen && (pickerResults.length > 0 || pickerFetching) && (
@@ -138,7 +137,7 @@ export function LeveragedTrendHoldTickerPicker({ model }: { model: LeveragedTren
         </Box>
       </Stack>
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ xs: 'stretch', md: 'center' }}>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', md: 'center' } }}>
         <TextField
           label="1회 수량"
           type="number"
@@ -146,7 +145,7 @@ export function LeveragedTrendHoldTickerPicker({ model }: { model: LeveragedTren
           disabled={stratEnabled}
           size="small"
           onChange={(e) => setDraftQuantity(Math.max(1, Number(e.target.value)))}
-          inputProps={{ min: 1, step: 1 }}
+          slotProps={{ htmlInput: { min: 1, step: 1 } }}
           sx={{ width: { xs: '100%', md: 120 } }}
         />
         <Button
