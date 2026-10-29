@@ -396,3 +396,8 @@ Toss32개item의속성/시그니처/본문byte동일, Trading56문장/7helper·L
 ## DEP-P3-07 — 나머지 의존성 평가·선별 전환 완료
 
 2026-10-29 `fe3a3f8a8836c7c20745b3a7c7ea7e09e68ccda4`로 sha2.11.1/thiserror2.0.21과 기존 hex0.4.3 재사용을 정상 푸시·원격 SHA 대조했다. keyring3/RGL1은 실제 초기화/backend·사용 이익을 검토해 유지·삭제 없음으로 판정했다. 구버전 및 호환 baseline과 새 버전의 같은 literal14개, 로컬 Rust882(실DB5제외)·전체UI349·strict clippy/build를 통과했다. 같은 코드 SHA의 Gate49·Security56도 성공했다. 최초 LowerHex 실패, 입력/생산 본문 동등성, 실제 DB/최소Rust/타플랫폼 제외는 [9회차 기록](tasks/immediate-backlog-20261029.md)에 보존한다.
+
+
+## DEP-P3-08 — TypeScript·패키지매니저 평가 완료
+
+2026-10-29 `adf0e5a4e4635e1e3cea9540df3016e6f60b070d`로 TypeScript7.0.2를 정상 푸시·원격 SHA 대조했다. TS5.9→6.0.3→7을 격리 비교해 원문130개·node1개 검사 범위와 strict·동일dist를 유지했다. npm11 유지·pnpm 미채택을 독립 판정했고 global 도구는 바꾸지 않았다. clean 설치/타입·UI349와 후속 짧은 loader 검증을 구분하고 Gate50·Security57 성공을 확인했다. 같은 프로젝트의 warm5회 앱 검사 중앙값은 TS6 2.1884→7 0.5722초이며 전체CI·순수CPU·설치크기 개선으로 확대하지 않는다. 초기 도구 안내·수정·지원환경 미검증은 [10회차 기록](tasks/immediate-backlog-20261029.md)에 보존한다.

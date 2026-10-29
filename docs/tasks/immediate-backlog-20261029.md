@@ -16,7 +16,7 @@
 | 7 | DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다. | 구현·검증·CI 완료 | UI `f15f192`·명세보정 `99b85eb`, Gate47·Security54 성공 |
 | 8 | DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다. | 구현·검증·CI 완료 | `06a84fe` 원격 일치, Gate48·Security55 성공 |
 | 9 | DEP-P3-07 — 나머지 Rust·UI 의존성 후보의 실제 필요와 영향부터 확인한다. | 구현·검증·CI 완료 | `fe3a3f8` 원격 일치, Gate49·Security56 성공 |
-| 10 | DEP-P3-08 — TypeScript·패키지매니저 major 후보를 개별 평가한다. | 로컬 구현·검증 완료/게시·CI 대기 | TS7·원문130/동일dist·UI349, loader 안내 해소 |
+| 10 | DEP-P3-08 — TypeScript·패키지매니저 major 후보를 개별 평가한다. | 구현·평가·검증·CI 완료 | `adf0e5a` 원격 일치, Gate50·Security57 성공 |
 
 ## 1회차 — P1-RECOVERY-01
 
@@ -406,7 +406,7 @@ compiler logical 크기는5 약23.63MB/6 약24.35MB/7 root+Mac native 약30MB다
 ### 실제 로컬 검증과 도구 교정 경계
 
 - 세 snapshot에서 npm ci ignore-scripts·정확 root/node 명령·peer/audit/FSD/Oxc build 통과. 실제 프로젝트도 clean 설치134패키지/135 audit·취약점0·peer0·lock 재현을 확인했다. 최종 lock SHA256은 `d1503d9e833fe5014c5483ea349927e6c9292ad74cec6f99fbd0313212f5d2ae`다.
-- 실제 Mac27.0.1/arm64의 native7 CLI와 검사 성공을 확인했다. Mach-O minos12.0/sdk12.0은 metadata이며 Mac12 실행 성공이 아니다. Windows/editor LSP 실행은 하지 않았고 Linux 실제 실행은 게시 후 CI에서 확인한다. CLI 사용과 구형 JS compiler API 소비0을 구분하며 기존 npx tsc 명령은 그대로 사용한다.
+- 실제 Mac27.0.1/arm64의 native7 CLI와 검사 성공을 확인했다. Mach-O minos12.0/sdk12.0은 metadata이며 Mac12 실행 성공이 아니다. Windows/editor LSP 실행은 하지 않았고 Linux 실제 실행은 뒤의 같은 SHA CI에서 확인했다. CLI 사용과 구형 JS compiler API 소비0을 구분하며 기존 npx tsc 명령은 그대로 사용한다.
 - 원래 앱 tsconfig의 명시 strict/noUnused/noEmit/ES2020·DOM/bundler/JSX와 node의 명시 types/composite 범위를 보존했다. TS6/7 defaults 차이는 effective config·실제 입력 목록으로 기록했다. Node pin/engine과 npm engine은 변경하지 않았다.
 - 최초 /tmp wrapper의 Vite 절대 index.js import가 Vite 자체를 번들해 optional import3개 안내를 냈다. 당시 source32/전체349 통과는 이 안내가 있었던 실행으로 보존했다.
 - repo 캐시의 bare-vite wrapper로 교정한 뒤 build/source32(31.8초)/전체349(2.8분,생산317+source32)가 통과했고 UNRESOLVED_IMPORT·large/circular·deprecation·TS error는0이었다. 당시 extensionless base import의 미래 configLoader 안내가 남아 있어 **이 전체 suite를 포괄 경고0으로 기록하지 않는다**. 이 원본을 보존하고 뒤의 명시 .ts import 후속 짧은 검증으로 안내를 해소했다. 전체349와 추가32를 합산하지 않는다.
@@ -421,11 +421,20 @@ compiler logical 크기는5 약23.63MB/6 약24.35MB/7 root+Mac native 약30MB다
 
 근거는 Git 제외 `.cache/toolchain-migration-20261029/`의 단계별 effective config/listFiles/진단·source SHA·native metadata·warm 벤치·clean lock·UI 원본에 보존한다. 단기 tmp snapshot은 재실행 가능한170파일 manifest와 시작 commit·버전으로 추적한다. 9회차 캐시의 `build.log`는 Rust native 로그이며 초기 로컬 frontend log가 archive 이름 충돌로 남지 않았다. `artifact-index.json`에 이를 밝히고 실제 CI49 원본 build:web 그룹을 `ci-frontend-build.log`로 보존했다. 9회차 UI 원본의 색상/extensionless 안내도 성공 결과와 별개로 남긴다.
 
-loader 교정의 짧은 검증과 코드/기록 재감사는 완료했다. 최종 문서 게이트·정상 커밋/푸시·동일 SHA Gate/Security 확인 전까지 DEP-P3-08을 열어 둔다. 제외된 사용자 판단4·실자료5·SQLx 선행결정은 이번 회차에서도 대신 완료하지 않는다.
+loader 교정의 짧은 검증과 코드/기록 재감사는 완료했다. 최종 문서 게이트·정상 커밋/푸시·동일 SHA Gate/Security 확인을 마쳐 DEP-P3-08을 완료 이력으로 이관했다. 제외된 사용자 판단4·실자료5·SQLx 선행결정은 이번 회차에서도 대신 완료하지 않는다.
 
 
 ### 명시 확장자 후속 검증·최종 로컬 게이트
 
 남은 loader 안내는 임시 wrapper base import를 `../../vite.config.ts`로만 명시해 해소했다. 기존 build/source/full 원본은 `*-with-loader-notice.log`로 보존했다. 별도 UTC시각·wrapper 전후SHA·명령/시간·dist10SHA를 기록한 `followup-explicit-extension.json`의 기본 build와 native configLoader build가 모두 통과했고, native-loader dev의 main.tsx(2840bytes)/strategyHooks.ts(4541bytes)가 HTTP200으로 응답했다. 후속 세 로그의 안내/경고0과 같은 lock/dist SHA를 확인했다. 실제 resolved module·앱 소스·번들이 그대로여서 전체349는 추가 반복하지 않았다.
 
-초회 optional import 안내, 다음 전체349의 extensionless 안내, 마지막 짧은 무경고 실행을 같은 실행으로 합치지 않는다. 원본을 보존한 문구 교정과 실제 짧은 증거를 독립 재감사해 기록 P2를 해소했고, 현재 잔여 P0/P1/P2는 없다. 문서 형식·내용 게이트와 정상 커밋/푸시·같은 SHA CI는 아직 남아 있어 상위ID는 열린 상태다.
+초회 optional import 안내, 다음 전체349의 extensionless 안내, 마지막 짧은 무경고 실행을 같은 실행으로 합치지 않는다. 원본을 보존한 문구 교정과 실제 짧은 증거를 독립 재감사해 기록 P2를 해소했고, 현재 잔여 P0/P1/P2는 없다. 당시 남긴 문서·게시·CI 게이트는 아래 최종 확인으로 완료했다.
+
+
+### 최종 게시·CI와 전체 즉시 구역 종결
+
+검증된 변경10개를 `adf0e5a4e4635e1e3cea9540df3016e6f60b070d`로 커밋·정상 푸시해 원격 SHA/당시 clean·GitHub 문서를 확인했다. 사용량 제한 후 재개 시 HEAD/원격/미커밋을 먼저 대조해 이미 끝난 긴 검증과 게시를 중복하지 않았다.
+
+같은 코드 SHA의 [Release Gate50](https://github.com/CountJung/KISAutoTrade/actions/runs/40878379947)·[Security57](https://github.com/CountJung/KISAutoTrade/actions/runs/40878433020)를 각각 한 번 실행해 성공을 확인했다. Linux의 clean ignore-scripts 설치·native7 앱/config 검사·VM4·공개Toss39경로·Rust887/887·전체UI349/349가 통과했다. CI Rust887에는 실제 DB 환경이 없어 조기 반환한5개가 포함되며 실제DB 검증으로 세지 않는다. npm 감사0과 기존 RSA 예외·Linux 경고2건, npm의 기존 도구 안내를 구분한다.
+
+DEP-P3-08을 완료 이력으로 이관해 최초 고정한10회차의 승인된 즉시 코드·평가 범위를 모두 처리했다. SOXQ-P2-13의 상위 실제자료 조건은 여전히 열려 있다. 현재 남은10개는 선행결정 후 SQLx 코드1 + 사용자 판단4 + 사용자 검증·실자료5다. 운영계정·실거래·키체인·운영배포·Xcode 보류를 임의로 실행하거나 해제하지 않았다. 이 마지막 상태 문서는 검증된 adf0e5a의 source/lock/workflow와 동일한 문서 변경만 포함한다.
