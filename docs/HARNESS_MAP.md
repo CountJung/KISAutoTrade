@@ -279,3 +279,8 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 Trading/LTH의 state/effect/closure는 각 `use*Model`을 parent에서 한 번 호출해 보존하고 표시는 child panel로 분리한다. Toss는 기존 facade/command macro re-export와 서버caller 계약을 유지한다. [동등성/행수/회차검증](tasks/immediate-backlog-20261029.md).
 
 `CI=1 npx playwright test tests/e2e/trading-form-contract.spec.ts tests/e2e/strategy-scrollbar.spec.ts tests/e2e/lth-minute-timing.spec.ts tests/e2e/strategy-configuration-errors.spec.ts tests/e2e/strategy-replay-assessment.spec.ts tests/e2e/toss-commission-ratio.spec.ts`를 production build 후 실행한다.47개(46production+1sourceharness) mock검증이며 실제주문/계좌연결아니다. Rust 전체lib와 strictclippy/check/fmt,TS/FSD도확인한다.
+
+
+## HTTP 의존성 전환 계약
+
+`cargo test --offline --locked --lib http::tests`: 합성 HTTP/TLS10개로 query/form/JSON/header·쿠키/redirect·timeout/proxy·오류·응답 유실 POST 재제출 없음·TLS1.2/1.3/SNI/ALPN·CA/hostname 거부를 검사한다. `http/testdata`는 공개 합성 fixture이며 OS trust에 등록하지 않는다. caller는 `crate::http::client_builder()`로 기존 Mozilla roots/ring을 유지한다. 실제 provider 접속·MSRV 실행·다른 플랫폼 검증과 구분한다. [5A 회차 근거와 한계](tasks/immediate-backlog-20261029.md).

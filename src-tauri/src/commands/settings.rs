@@ -449,7 +449,7 @@ pub async fn set_log_config(
 // ── 업데이트 확인 ────────────────────────────────────────────────
 #[tauri::command]
 pub async fn check_for_update() -> CmdResult<crate::updater::UpdateInfo> {
-    let client = reqwest::Client::new();
+    let client = crate::http::client();
     crate::updater::check(&client)
         .await
         .map_err(|message| CmdError {
@@ -649,7 +649,7 @@ pub async fn detect_trading_type(
         });
     }
 
-    let client = reqwest::Client::builder()
+    let client = crate::http::client_builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
         .map_err(|e| CmdError {
@@ -726,7 +726,7 @@ pub async fn detect_profile_trading_type(
         (p.app_key.clone(), p.app_secret.clone())
     };
 
-    let client = reqwest::Client::builder()
+    let client = crate::http::client_builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
         .map_err(|e| CmdError {

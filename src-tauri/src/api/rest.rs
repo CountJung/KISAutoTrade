@@ -37,7 +37,7 @@ fn kis_read_min_interval(is_paper: bool) -> Duration {
 }
 
 fn kis_http_client() -> Client {
-    Client::builder()
+    crate::http::client_builder()
         .connect_timeout(KIS_CONNECT_TIMEOUT)
         .timeout(KIS_HTTP_TIMEOUT)
         .build()

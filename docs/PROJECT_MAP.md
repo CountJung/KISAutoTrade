@@ -32,6 +32,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | DB IPC | `src/api/databaseHooks.ts` | `src/shared/api/databaseCommands.ts`, `commands/database.rs` |
 | Tauri command 추가 | `src-tauri/src/commands/<domain>.rs` | `commands.rs`, `lib.rs::generate_handler!`, `docs/ipc-commands.md` |
 | Web REST 대응 | `src-tauri/src/server/mod.rs` | `server/{market,profiles,records,toss,trading}.rs`, transport route map |
+| 공통 HTTP·TLS 정책 | `src-tauri/src/http.rs`, `http/tests.rs` | `http/testdata/*.der`, `api/{rest,token}.rs`, `broker/toss/http.rs`, `commands/settings.rs`, `market/mod.rs`, `notifications/discord.rs`, `server/profiles.rs`. reqwest 생성14곳의 번들 roots·client별 ring/HTTP1을 공유하고 호출자 정책과 WS0.24/native roots 경계는 유지 |
 | KIS 연동 | `src-tauri/src/api/rest.rs`, `api/rest/*` | `api/token.rs`, `api/websocket.rs`, `broker/kis.rs` |
 | Toss 연동 | `src-tauri/src/broker/toss/` | `commands/toss.rs` facade → `toss/{accounts,diagnostics,preflight,orders,small_order}.rs`, `commands/toss_market.rs`, `server/toss.rs`; 기존 공개 경로·IPC/REST 계약 유지 |
 | broker 공통 계약 | `src-tauri/src/broker/domain.rs`, `adapter.rs` | `kis.rs`, `toss/adapter.rs`, `rate_limit.rs` |

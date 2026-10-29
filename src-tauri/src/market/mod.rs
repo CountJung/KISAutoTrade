@@ -4,7 +4,6 @@
 /// 로컬 JSON 파일로 캐시합니다. 24시간마다 자동 갱신.
 /// KRX 접근 불가 시 NAVER Finance 자동완성 API로 실시간 검색 폴백.
 use anyhow::{anyhow, Result};
-use reqwest::Client;
 use serde::Deserialize;
 use std::path::Path;
 
@@ -35,7 +34,7 @@ impl StockList {
     /// KRX 데이터시스템에서 KOSPI + KOSDAQ 전체 목록 다운로드
     /// POST https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd
     pub async fn fetch_from_krx() -> Result<Vec<StockSearchItem>> {
-        let client = Client::builder()
+        let client = crate::http::client_builder()
             .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             // KRX는 JSESSIONID 쿠키 세션이 없으면 "LOGOUT" 응답을 반환함
             // cookie_store를 활성화하면 초기화 요청의 쿠키를 이후 AJAX 요청에서 재사용
@@ -242,7 +241,7 @@ struct YahooSearchRaw {
 /// URL: https://query1.finance.yahoo.com/v1/finance/search?q=005930.KS&lang=ko&region=KR
 pub async fn lookup_name_by_code(code: &str) -> Result<String> {
     let symbol = format!("{}.KS", code);
-    let client = Client::builder()
+    let client = crate::http::client_builder()
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         .timeout(std::time::Duration::from_secs(5))
         .build()?;
@@ -295,7 +294,7 @@ pub async fn lookup_name_by_code(code: &str) -> Result<String> {
 /// - KRX 캐시가 비어있을 때 폴백으로 사용
 /// - 브라우저 없이도 접근 가능한 공개 API
 pub async fn search_naver_live(query: &str) -> Result<Vec<StockSearchItem>> {
-    let client = Client::builder()
+    let client = crate::http::client_builder()
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .timeout(std::time::Duration::from_secs(5))
         .build()?;
@@ -367,7 +366,7 @@ struct KrxProxySearchResponse {
 /// - 시장 구분(KOSPI/KOSDAQ/KONEX) 포함 반환
 /// - KRX data.krx.co.kr WAF 차단 우회 가능
 pub async fn search_krx_proxy(query: &str, limit: usize) -> Result<Vec<StockSearchItem>> {
-    let client = Client::builder()
+    let client = crate::http::client_builder()
         .user_agent("Mozilla/5.0 (compatible; KISAutoTrade)")
         .timeout(std::time::Duration::from_secs(8))
         .build()?;

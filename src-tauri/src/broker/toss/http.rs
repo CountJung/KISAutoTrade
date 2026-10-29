@@ -7,7 +7,7 @@ pub(super) const TOSS_HTTP_TIMEOUT: StdDuration = StdDuration::from_secs(15);
 pub(super) const TOSS_MAX_RESPONSE_BYTES: usize = 4 * 1024 * 1024;
 
 pub(super) fn toss_http_client() -> Client {
-    Client::builder()
+    crate::http::client_builder()
         .timeout(TOSS_HTTP_TIMEOUT)
         .build()
         .expect("Toss reqwest client with timeout should build")

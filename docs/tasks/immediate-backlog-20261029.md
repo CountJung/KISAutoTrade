@@ -10,8 +10,8 @@
 | 1 | P1-RECOVERY-01 — 응답 불명 주문의 운영자 대조·복구 UI를 구현한다. | 로컬 구현·검증 완료 | 아래 최종 게이트; `ac3eb564ea678fe99722bbc5f3f040b4c50b1773` 원격 SHA 일치 |
 | 2 | SOXQ-P2-13 — 가격조건의 실제 소유·손절 후 재진입과 공통 guard를 검증한다. | 로컬 완료·실자료 조건 이관 | `00ea198ad021836862ad345d58f618660fae6d0b` 원격 SHA 일치; 전체 ID는 열린 상태 |
 | 3 | SOXQ-P2-16 — 구간 경고·표본 해석을 교정하고 별도 walk-forward를 평가한다. | 구현·검증 완료 | `15b53286109f599242d27e5314ea2c0105ac453e` 원격 SHA·GitHub 문서 확인 |
-| 4 | P3-REFACTOR-01 — 1,000라인 초과 파일을 책임 단위로 분리한다. | 구현·검증 완료 | 아래 최종 게이트; 원격 SHA는 후속 회차에 기록 |
-| 5 | DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다. | 대기 | — |
+| 4 | P3-REFACTOR-01 — 1,000라인 초과 파일을 책임 단위로 분리한다. | 구현·검증 완료 | `4a9e250236e8773f0b1fe3194339cc0978a8a5a8` 원격 SHA 일치 |
+| 5 | DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다. | 5A HTTP 로컬 완료·5B WS 대기 | 아래 분리 검증; CI는 커밋별 후속 기록 |
 | 6 | DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다. | 대기 | — |
 | 7 | DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다. | 대기 | — |
 | 8 | DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다. | 대기 | — |
@@ -120,3 +120,24 @@
 - 원본/변경파일만읽었으며 실주문·취소·계좌·키·DB·운영배포를실행하지않았다. 현재남은16개=자동7+판단4+자료5. 다음고정ID는 **DEP-P3-03**이며 전체10회차중4회차까지다.
 
 - 최종 독립리뷰: 별도Rust item/TS AST·재확장JSX 대조까지 통과, 새P0/P1/P2 없음. docs-canon `--changed`117문서의 링크/표/도달성/앵커/완료TODO경고0, 별도내용검토에서 책임포인터·진행수·미검증경계확인. mapper·TODO16·Graphifyfreshness·diff통과. Graphify6,802노드/14,973edge, 기존JSON설정4개zero-node안내만있으며소스경고와구분한다.
+
+
+## 5회차 — DEP-P3-03
+
+시작 `4a9e250236e8773f0b1fe3194339cc0978a8a5a8`. TODO의 별도 diff·검증 조건에 따라 **5A HTTP → 5B WebSocket**을 각 커밋으로 나눈다. 고정10개 순서는 유지한다. 공식 reqwest0.13.5/tokio-tungstenite0.30.0을 재확인했고 열린 Dependabot #13(Rust minor/patch), #11(frontend minor/patch)은 읽기만 했으며 변경하지 않았다.
+
+### 5A — reqwest 0.13.5
+
+- [공식 0.13 변경](https://github.com/seanmonstar/reqwest/releases/tag/v0.13.0)의 기본 platform verifier/aws-lc 전환을 그대로 적용하면 기존 신뢰 정책과 달라진다. 따라서 `default-features=false`, `json/cookies/query/form/rustls-no-provider`, 명시 ring과 **기존과 같은 webpki-roots1.0.11**로 만든 preconfigured TLS를 사용한다. 시스템 CA를 읽거나 전역 crypto provider를 설치하지 않으며 인증서/호스트명 검증을 유지한다. rustls0.23.46·TLS1.2/1.3·HTTP1.1 ALPN도 보존했다.
+- `http.rs`의 공통 builder를 기존8파일14생성점이 사용한다. 호출부 timeout·cookie·proxy·header·redirect 설정을 보존했다. Toss OAuth의 `.form()`과 차트 `.query()` 기능을 명시했다. 기존 WS0.24의 lock entry는 동일하다. reqwest0.12 중복은 제거됐다.
+- 새 HTTP/TLS **10/10**: query/header/JSON/form, cookie/redirect, HTTP503 metadata/count1, timeout/명시proxy, TLS12/13·SNI·ALPN, 미신뢰CA/잘못된hostname 거부, WS provider 공존, same/cross-origin 민감헤더, auth/order POST본문 완전 수신 후 무응답 단절 시 각각 전송1회·transport error를 검증했다. 합성 loopback만 사용하고 fixture DER/key는 공개 테스트 전용이며 OS trust에 설치하지 않았다.
+- upstream retry classifier의 행동 코드는 기존과 같고 HTTP2/3는 활성화하지 않았다. reqwest0.13의 scheme 변경 redirect 민감헤더 제거는 upstream 보안 변경으로 유지한다. 동일 host/port HTTPS→HTTP fixture는 미실행이며 다른 port origin 제거 테스트와 혼동하지 않는다.
+- 전체lib **841/841**, check·strict clippy alltargets/allfeatures·fmt 경고0, TypeScript·FSD 통과. `cargo build --offline --workspace --locked --features custom-protocol`도 통과했다. docs-canon `--changed`117문서의 링크·표·도달성·앵커·완료TODO 경고0, mapper·TODO16·graph freshness·diff 검사도 통과했다. 앱 실행·실제 provider/계좌/키/주문·배포는 하지 않았다.
+- all-target dependency metadata에서 새 crate 선언 MSRV는 최대1.85이며 프로젝트1.90을 넘지 않는다. 실제 실행은 설치된 Rust1.95이며 Rust1.90·다른 플랫폼·모바일 실동작 검증이 아니다. Tauri의 직접 reqwest builder는 dev+mobile 조건의 경로이며 desktop 활성 경로와 구분했다.
+- RustSec DB `40f5be6fb12ed93fc591bf4ab23b7d793b3f2239`(2026-10-28)에서 raw audit는 기존 RSA 예외 `RUSTSEC-2023-0071` 때문에 exit1, 기존 예외만 적용하면 exit0. Linux 경고 `RUSTSEC-2024-0429`·`RUSTSEC-2024-0370` 2개가 남는다. 추가 ignore·경고 억제 없음. [보안 정본](../release-security.md).
+- 독립 코드 감사: 생성점14·root/provider·TLS·feature graph·POST단절 fixture·metadata를 별도 확인했고 새 P0/P1/P2 없음. 기존 사용자 변경은 없었다.
+- CI 경과: 초기 브라우저 로그아웃/dispatch 도구 미지원으로 실행하지 못했다. 사용자가 직접 로그인한 뒤 CountJung 로그인과 Run workflow 버튼을 확인했다. `release-gate.yml`·`security.yml`은 read-only contents, mock 테스트/빌드·감사이며 배포/릴리스 게시/서명키/계좌 호출이 없다. 커밋·푸시 후 해당 SHA로 실행하고 결과를 후속 기록한다. `release.yml`은 실행하지 않는다.
+
+- 5A 지도·그래프: mapper 책임표/인벤토리와 check 통과. Graphify6,849노드/15,113edge, 기존 JSON설정4개 zero-node 안내만 남으며 소스 경고와 구분한다.
+
+- 별도 문서 내용 감사에서 보안 정본의 이전 점검일을 과거 기록으로 바로잡았다. 현재 검증 수치·부분 완료·CI 대기와 신뢰 경계가 정합하며 추가 문서 차단 없음.

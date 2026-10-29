@@ -13,7 +13,7 @@
 
 ## 남은 RustSec 예외와 경고
 
-현재 점검일은 **2026-10-24**다. Mac 원본의 기존 semver 범위 안에서 lockfile을 갱신해 Cargo 취약점 12개 중 quinn-proto·rustls·webpki 계열 11개를 해소했다. Tokio unsound 경고도 해소했으며 아래 RSA 예외 1개와 Linux 경고 2개는 남는다. CI에는 기존 RSA 예외 하나만 유지하며 추가 ignore나 경고 필터를 두지 않는다. 2026-10-06의 quick-xml 예외 2개 해제는 기존 완료 이력이다.
+**2026-10-24 점검**에서는 Mac 원본의 기존 semver 범위 안에서 lockfile을 갱신해 Cargo 취약점 12개 중 quinn-proto·rustls·webpki 계열 11개를 해소했다. Tokio unsound 경고도 해소했으며 아래 RSA 예외 1개와 Linux 경고 2개는 남는다. CI에는 기존 RSA 예외 하나만 유지하며 추가 ignore나 경고 필터를 두지 않는다. 2026-10-06의 quick-xml 예외 2개 해제는 기존 완료 이력이다.
 
 | 항목 | 실제 경로와 잔여 이유 | 해제 조건 |
 | --- | --- | --- |
@@ -24,6 +24,8 @@
 [RSA 공식 공지](https://rustsec.org/advisories/RUSTSEC-2023-0071.html), [GLib 공식 공지](https://rustsec.org/advisories/RUSTSEC-2024-0429.html), [매크로 공식 공지](https://rustsec.org/advisories/RUSTSEC-2024-0370.html). 담당자는 저장소 maintainer이며 Dependabot 주간 검토와 매 릴리스 전에 upstream 상태를 재확인한다. 예외 없는 `cargo audit`는 RSA 때문에 실패하고 기존 예외를 적용한 감사도 경고 두 개를 표시한다. 보안 경고 0개 달성으로 보고하지 않는다.
 
 2026-10-06의 경고 12개 해소 이력과 2026-10-24의 취약점 12→1·버전·Mac 검증 근거는 [Mac 보안·동기화 보고서](security-mac-handoff-2026-10-06.md)에 날짜를 나누어 기록한다. 2026-10-24 npm 운영·개발 전체 감사는 변경 전후 모두 취약점 0개였으며 기존 차단 기준을 유지한다.
+
+2026-10-29 reqwest0.13.5 분리 전환 후에도 raw 감사는 위 RSA1개로 실패했고 기존 예외만 적용한 감사는 통과했다. Linux 경고2개는 그대로이며 추가 ignore는 없다. RustSec DB revision과 실행 범위는 [즉시 작업5A 기록](tasks/immediate-backlog-20261029.md)을 따른다. 기존 HTTP의 Mozilla roots/ring을 보존했으며 시스템 신뢰 범위나 인증서 검증 정책을 변경하지 않았다.
 
 ## 릴리스 artifact 무결성
 

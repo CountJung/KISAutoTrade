@@ -349,3 +349,8 @@ Toss32개item의속성/시그니처/본문byte동일, Trading56문장/7helper·L
 - HTML 검사: `node --test scripts/render-todo.test.mjs` 3개 통과. 초기 sandbox에서는 Chromium MachPort 권한 제한으로 브라우저가 시작되지 않았고, 허용된 로컬 환경에서 재실행해 전체 통과했다. 375px 화면의 전체 항목·키보드 검색/상태 필터·무스크립트 읽기·오버플로·브라우저 오류를 검사했다.
 - 내용 검토: 별도 문서 감사로 집계·의존성·원래 ID/근거·실자료 미완료 경계의 보존을 확인했다. 이동 전 “아래 자동 구현 항목” 표현은 P1-RECOVERY-01 참조로 수정했다.
 - 미실행 범위: 문서 harness에 따라 거래 앱/Rust 전체·전략 replay·실자료/실계좌 검증은 실행하지 않았다. 기존 기록의 테스트 수치를 이번 실행으로 주장하지 않는다. Git 커밋/원격 반영은 저장소 이력에서 확인한다.
+
+
+## DEP-P3-03 — 5A HTTP 부분 완료
+
+2026-10-29 시작 `4a9e250236e8773f0b1fe3194339cc0978a8a5a8`에서 reqwest0.12.28→0.13.5를 분리 전환했다. 8파일14생성점의 기존 TLS trust/provider와 호출부 옵션을 공통 builder로 보존했고 합성 HTTP/TLS10·전체lib841이 통과했다. RustSec 기존RSA1·Linux경고2는 남는다. WS0.24→0.30과 각 SHA CI 조건은 아직 미완료이므로 TODO의 같은 ID를 닫지 않는다. [구현·검사·제약 정본](tasks/immediate-backlog-20261029.md).

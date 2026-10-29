@@ -40,7 +40,7 @@ pub struct TokenManager {
 impl TokenManager {
     pub fn new(config: Arc<AppConfig>) -> Self {
         Self {
-            client: Client::builder()
+            client: crate::http::client_builder()
                 .timeout(StdDuration::from_secs(15))
                 .build()
                 .expect("KIS reqwest client with timeout should build"),

@@ -1390,3 +1390,9 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 ## v23 phase 관측 회계
 
 구간 진단은 동일 ReplaySession의 경제 동작을 바꾸지 않는 snapshot이다. 경계 첫 begin_bar에서 FX/배당/pending open 전에 시작값을 잡고 process_close 뒤 종료값을 잡는다. 매봉 전체 accounting 재계산을 추가하지 않는다. 자산 증감=실현+잔여평가증감+배당을 FX/배당/부분매도/경계pending fixture로 검증하고 원래 phase 수익·완료 매도 집계는 보존한다. 양수절반 경고를 독립 OOS 판정으로 되살리지 않는다. [계약](../../../docs/ipc-commands.md#v23-동일-장부-구간-관측-진단).
+
+
+## HTTP TLS 정책 보존 (2026-10-29)
+
+- reqwest0.13의 기본 platform verifier/aws-lc를 앱의 기존 정책으로 오인하지 않는다. 앱 HTTP 생성은 `crate::http::client_builder()` 또는 `client()`를 사용해 기존 bundled Mozilla roots·ring·TLS1.2/1.3·HTTP1.1 ALPN을 보존한다. 전역 provider 설치·OS CA 읽기·인증서 검증 해제는 추가하지 않는다.
+- query와 form은 명시 feature다. 호출부 timeout/cookie/proxy/header/redirect를 유지하며 POST 응답 유실을 재주문으로 복구하지 않는다. HTTP/TLS 합성 테스트와 실제 계좌/인증 검증을 구분한다. 상세 검증은 `docs/HARNESS_MAP.md`와 `docs/tasks/immediate-backlog-20261029.md`를 따른다.

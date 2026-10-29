@@ -312,7 +312,7 @@ pub(super) async fn detect_trading_type_handler(
     if body.app_key.trim().is_empty() || body.app_secret.trim().is_empty() {
         return Json(serde_json::json!({ "error": "APP KEY와 APP SECRET을 모두 입력하세요." }));
     }
-    let client = match reqwest::Client::builder()
+    let client = match crate::http::client_builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
     {
@@ -369,7 +369,7 @@ pub(super) async fn detect_profile_handler(
             }
         }
     };
-    let client = match reqwest::Client::builder()
+    let client = match crate::http::client_builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
     {

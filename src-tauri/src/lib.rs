@@ -2,6 +2,7 @@ pub mod api;
 pub mod broker;
 pub mod commands;
 pub mod config;
+pub(crate) mod http;
 pub mod logging;
 pub mod market;
 pub mod market_hours;

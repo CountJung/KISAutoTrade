@@ -773,6 +773,12 @@ KISAutoTrade/
 │   │   │   └── trading.rs
 │   │   ├── config/
 │   │   │   └── mod.rs
+│   │   ├── http/
+│   │   │   ├── testdata/
+│   │   │   │   ├── ca.der
+│   │   │   │   ├── server-key.der
+│   │   │   │   └── server.der
+│   │   │   └── tests.rs
 │   │   ├── logging/
 │   │   │   └── mod.rs
 │   │   ├── market/
@@ -1023,6 +1029,7 @@ KISAutoTrade/
 │   │   ├── updater/
 │   │   │   └── mod.rs
 │   │   ├── commands.rs
+│   │   ├── http.rs
 │   │   ├── lib.rs
 │   │   ├── main.rs
 │   │   └── market_hours.rs
@@ -1367,6 +1374,9 @@ KISAutoTrade/
 | `trading/strategy/leveraged_trend_hold/bollinger.rs` | 레버리지 전략의 볼린저 스퀴즈·추세 돌파 진입 확인과 중심선/ATR 청산 조건. 마지막 미확정 봉을 제외하고 종목별 캔들 버퍼를 512개로 제한 |
 | `tests/lth_replay_clock.rs` | `cfg(test)` live clock 대역 없이 production library의 LTH timed replay를 검증하는 통합 테스트. 입력 시각 기반 세션·blackout·장마감, 비어 있지 않은 반복 신호/체결과 미래 봉 변경 불변 fixture |
 | `api/detect.rs` | KIS 토큰 응답 기반 실전/모의 앱키 자동 감지 |
+| `http.rs` | 공통 reqwest0.13 HTTP client/client_builder. 번들 Mozilla webpki roots와 client별 ring·TLS1.2/1.3·HTTP/1.1 ALPN을 지정해 기존 HTTP 신뢰 경계를 유지. OS 인증서 저장소나 전역 crypto provider는 변경하지 않고 timeout·쿠키·proxy·헤더·redirect·retry는 호출자에 남김 |
+| `http/tests.rs` | loopback HTTP/TLS 합성 계약: query·헤더·JSON/OAuth form, 쿠키·redirect/교차 origin 민감 헤더, 오류·timeout·proxy, TLS1.2/1.3·SNI·ALPN·미신뢰 CA/hostname 거부, 응답 단절 후 인증/주문 POST 재전송 부재와 기존 WS 기본 ring builder 호환 확인 |
+| `http/testdata/{ca.der,server.der,server-key.der}` | localhost TLS 계약 전용 합성 CA·서버 인증서·시험 개인키 fixture. 운영 인증서나 계좌 credential이 아니며 테스트의 별도 trust store에만 사용 |
 | `api/rest.rs` | KIS REST client facade. rate-limit group을 거쳐 잔고/주문/체결/시세/차트 요청 수행 |
 | `api/rest/chart.rs` | 기존 KIS 국내/해외 일·주·월봉 메서드의 request/response 처리. facade의 공통 인증·rate limit·timeout·응답 크기 제한을 재사용하며 국내/해외 차트별 TR-ID와 date anchor를 설정 |
 | `api/rest/chart_tests.rs` | 합성 인증값으로 production 차트 request/response recipe, Unicode 오류와 HTTP body cap을 검증하는 build-only/localhost fixture. 실제 provider 응답 검증과 구분 |
@@ -1377,7 +1387,7 @@ KISAutoTrade/
 | `broker/toss/mod.rs` | Toss 공개 surface re-export. 내부 DTO/helper는 외부로 직접 노출하지 않음 |
 | `broker/toss/adapter.rs` | `TossBrokerAdapter` 구현과 broker 공통 타입 매핑 |
 | `broker/toss/client.rs` | OAuth2 token, accounts/holdings/market/order REST 호출과 401 1회 재시도 |
-| `broker/toss/http.rs` | reqwest client timeout, base URL/query encoding, response body streaming cap |
+| `broker/toss/http.rs` | 공통 http::client_builder를 사용하는 Toss timeout·base URL/query encoding·response body streaming cap. provider 요청·오류 처리 경계는 기존 모듈에 유지 |
 | `broker/toss/error.rs` | Toss error envelope와 provider request id/error snippet formatting |
 | `broker/toss/support.rs` | rate-limit group, currency/market 변환, 주문 입력 validation/clientOrderId helper |
 | `broker/toss/types.rs` | Toss read-only/account/market DTO와 broker domain 변환 |
@@ -1543,6 +1553,18 @@ KISAutoTrade/
 ---
 
 ## 5. 데이터 흐름
+
+### 공통 HTTP 생성과 TLS 신뢰 경계
+
+`http.rs`는 reqwest0.13의 HTTP client 생성만 공유한다. KIS REST·token,
+공개 환율, Toss HTTP, Settings 업데이트/투자 모드 감지, 종목 조회4경로,
+Discord와 Web profile 감지의 기존14개 생성점이 이 helper를 사용한다.
+각 호출자는 기존 timeout·쿠키·헤더·proxy·redirect·재시도 정책을 유지한다.
+HTTP는 번들 Mozilla roots와 client별 ring·TLS1.2/1.3·HTTP/1.1 ALPN을
+명시하며 OS 인증서 저장소와 프로세스 전역 crypto provider를 바꾸지 않는다.
+`http/tests.rs`는 합성 DER fixture와 loopback 서버로 wire/TLS·실패 계약을
+확인한다. 이번 연결은 tokio-tungstenite0.24의 WebSocket 코드·native roots
+경계를 이전하거나 실제 provider 검증을 완료한 것으로 해석하지 않는다.
 
 ### DB 설정 게시·연결·단절 복구
 
