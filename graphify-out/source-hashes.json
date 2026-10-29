@@ -1,6 +1,6 @@
 {
   "Cargo.toml": "55c8962a32bda2fec9d653b9fc00575c80108fb36a649c404e9a42fd9b5bd0f6",
-  "package.json": "9e79c893f588114bf933fbc11240e8ba33ccbbce19eb61b783eca98941973cb7",
+  "package.json": "98ac5e66c24edb83c7c0f68b9654bc24c7b604e9a4a454c6d6cfb39eca504b39",
   "playwright.config.ts": "0d547b41270da5eb825296c74c99a54746e8c26131b3694aa4dc8044c7cf7eb1",
   "scripts/check-fsd-imports.mjs": "b92e5a10f1b0545fe8d4a16b5bc2ada992667ec94514ad3129d47670a36472ad",
   "scripts/database-tls-contract.mjs": "97fee90d402f2b8e5ec1d9ee0a7dca21656ca1f18919939612b4947b76c83504",

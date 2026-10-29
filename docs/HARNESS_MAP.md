@@ -321,3 +321,18 @@ Vite6→7→8/plugin6 전환에서는 명시한 Safari13/Chrome105 target과 pro
 `cargo test --offline --locked --lib dependency_contract_tests`는 생산 scope/profile/receipt/config 지문과 실제 DB scanner, 다섯 오류 타입의 고정 계약14개다. 기존 버전에서 입력 bytes·기대값을 먼저 고정하고 전환 후 같은 literal을 쓴다. sha2.11 Output은 LowerHex가 없으므로 기존 hex0.4.3의 소문자·leading-zero 출력을 사용한다. DB checksum fixture는 scanner와 입력/알고리즘 계약이며 production import/export roundtrip은 아니다.
 
 `cargo test --workspace --lib --locked -- --skip storage::database_contract_tests`는 실제 DB 계약 module을 명시 제외한 lib 회귀다. 접속 환경 값은 조회하지 않고 자식에서 제거하며, filtered5를 성공한 DB 테스트로 세지 않는다. 실제 PostgreSQL/TLS fixture는 앞의 별도 명령과 사용자 결정 범위를 따른다. focused·통합 결과, 원본/호환 baseline·동등성·유지 판단은 [9회차 기록](tasks/immediate-backlog-20261029.md)에 보존한다. thiserror 전환에서는 Display/From/source/downcast와 확정거절/불명 결과를 함께 확인하고 HTTP trust·보안 예외를 변경하지 않는다.
+
+
+## TypeScript native CLI와 오프라인 검증 설정
+
+현재 프로젝트 compiler는 package.json/lock의 TypeScript7 native CLI다. 기존 `npx tsc --noEmit`과 별도 node config 검사 명령을 그대로 쓰며 구형 JS compiler API의 존재를 가정하지 않는다. API 소비가 필요해지면 실제 호출부부터 확인한다. 원문 source/config의 입력 집합과 defaults·OS별 native 준비를 함께 대조하고 compiler host와 배포 앱 최소 OS를 구분한다. [단계 비교·벤치·지원 범위](tasks/immediate-backlog-20261029.md)는10회차 기록을 따른다.
+
+개인 환경 파일을 읽지 않는 임시 Vite 설정은 repo Git 제외 캐시에 두고 bare package와 명시된 source 확장자를 사용한다. 다음은 `.cache/toolchain-migration-20261029/offline-vite.config.mts`의 패턴이다.
+
+```ts
+import { defineConfig, mergeConfig } from 'vite'
+import base from '../../vite.config.ts'
+export default defineConfig(async (env) => mergeConfig(await base(env), { envDir: false }))
+```
+
+Vite의 절대 내부 index.js를 직접 묶으면 선택 의존성 경고를 만들 수 있고 source 확장자를 생략하면 향후 native config loader 안내가 남는다. 제품 target·chunk 기준·엄격성을 바꾸거나 경고 억제 환경 변수로 대체하지 않는다. 교정 이전 UI 통과와 후속 짧은 loader/build 검증의 시점·안내를 구분한다. 같은 resolved module·source·dist byte가 유지되면 안내 수정만으로 전체 UI를 반복하지 않는다.

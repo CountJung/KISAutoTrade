@@ -16,7 +16,7 @@
 | 7 | DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다. | 구현·검증·CI 완료 | UI `f15f192`·명세보정 `99b85eb`, Gate47·Security54 성공 |
 | 8 | DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다. | 구현·검증·CI 완료 | `06a84fe` 원격 일치, Gate48·Security55 성공 |
 | 9 | DEP-P3-07 — 나머지 Rust·UI 의존성 후보의 실제 필요와 영향부터 확인한다. | 구현·검증·CI 완료 | `fe3a3f8` 원격 일치, Gate49·Security56 성공 |
-| 10 | DEP-P3-08 — TypeScript·패키지매니저 major 후보를 개별 평가한다. | 대기 | — |
+| 10 | DEP-P3-08 — TypeScript·패키지매니저 major 후보를 개별 평가한다. | 로컬 구현·검증 완료/게시·CI 대기 | TS7·원문130/동일dist·UI349, loader 안내 해소 |
 
 ## 1회차 — P1-RECOVERY-01
 
@@ -373,3 +373,59 @@ live_history hash는 candle 내용이 아닌 StrategyConfig 지문이다. DB 새
 Linux Rust887/887·frontend·공개 Toss39경로·전체UI349/349를 실제 로그로 확인했다. CI의887개에는 환경 미설정으로 조기 반환한 실DB5개가 포함돼 있으며 DB 검증 성공으로 세지 않는다. 로컬은 해당 모듈의5개를 아예 제외해882개를 실행했다. 보안 CI의 기존 RSA 예외·Linux2경고 경계는 그대로다.
 
 DEP-P3-07을 완료 이력으로 이관했다. 남은11개는 자동2+판단4+자료5이고 즉시 구역은 DEP-P3-08 한 개다. 다음10회차는 공식 TS6.0.3 bridge→TS7.0.2를 독립 평가하고 npm11 유지·pnpm 미채택 근거를 검토한다. 아직 설치·구현을 시작하지 않았다. 이 상태 기록은 문서만 변경하며 검증된 fe3a3f8의 source/lock/workflow와 동일하다.
+
+
+## 10회차 — DEP-P3-08
+
+### 후보별 로컬 판정
+
+시작 기준은 9회차 완료 이관 `1c8a73204a44885a9178e49454c5e127ba7c857b`다. 같은 Node24.22.1/npm11.19.1의 허용목록170파일 snapshot으로 TypeScript5.9.3→bridge6.0.3→native7.0.2를 비교했다.
+
+| 후보 | 판정 | 근거 |
+| --- | --- | --- |
+| TypeScript5.9.3→7.0.2 | 7.0.2 채택 | 세 버전 모두 원문 source/config의 정확한 앱·node 검사와 peer/audit/FSD/Oxc build 통과. 실제 검사 시간 이익·native 준비·runtime byte 동등성 확인 |
+| npm11.19.1→12.2.1 | 11 유지 | 현재 clean 설치/lock/native/감사 정상, 새 기능 필요나 재현 실패 없음. npm12는 현재 Node24에서 실행 가능하지만 기존 프로젝트 engine 허용 범위 전체를 덮지 않아 전환 비용을 추가할 이유 없음 |
+| pnpm12 | 미채택 | 기존 사용/workspace/lock/설치 병목 필요 없음. 단일 npm lock·version 자동화·cache/optional 해석을 불필요하게 바꾸지 않음 |
+
+실제 변경은 `package.json`의 TypeScript exact7.0.2 한 줄과 npm lock뿐이다. 기존 TypeScript1항목의 버전을 바꾸고 platform optional20항목을 추가했으며 무관한 dependency 버전 변경0이다. src·tsconfig·Vite config·source harness·기대값·Cargo·전략/금융 JS 본문은 수정하지 않았다. 엄격성 완화·ignoreDeprecations·any/@ts-ignore·구형 compiler alias를 추가하지 않았다.
+
+### 입력 범위·실측
+
+세 버전 모두 프로젝트 source130개와 node config의 vite.config.ts 한 개를 정확히 검사했다. 원문 SHA와 missing/extra0을 확인했다. root 전체 입력1188→1068은 자동 ambient/라이브러리120개 감소이며 node214→246은 TS lib32개 증가다. 소스를 검사에서 빼 성능을 만든 것이 아니다. TS6/7의 정규화된 파일명 집합은 같지만 compiler lib6개는 주석/매개변수명 차이가 있어 전체 입력 byte동일이나 순수 CPU 효과라고 주장하지 않는다.
+
+| compiler | 앱 검사 중앙값(초) | node 검사 중앙값(초) |
+| --- | --- | --- |
+|5.9.3|2.2667|0.4102|
+|6.0.3|2.1884|0.4235|
+|7.0.2|0.5722|0.2019|
+
+같은 source/config·정확한 CI npx 명령·고유 buildinfo로 warmup1회 뒤 정/역 순서를 번갈아5회 측정했다. npm executor overhead 포함이며 OS cache purge/RSS·설치/Vite 속도는 측정하지 않았다. 5→7 약3.96배에는 ambient 입력 감소도 포함된다. 파일명 집합이 같은6→7은 앱 약3.82배/1.6161초, node 약2.10배/0.2217초 감소했다. 전체 CI나 앱의 거래 성능이 이 비율로 빨라졌다는 뜻은 아니다.
+
+compiler logical 크기는5 약23.63MB/6 약24.35MB/7 root+Mac native 약30MB다. 크기 감소나 통제하지 않은 install 시간 개선을 주장하지 않는다. 작은 절대 시간이지만 반복되는 개발 게이트의 측정 오차를 넘는 이익과 source/config 무변경 호환을 채택 근거로 삼았다.
+
+### 실제 로컬 검증과 도구 교정 경계
+
+- 세 snapshot에서 npm ci ignore-scripts·정확 root/node 명령·peer/audit/FSD/Oxc build 통과. 실제 프로젝트도 clean 설치134패키지/135 audit·취약점0·peer0·lock 재현을 확인했다. 최종 lock SHA256은 `d1503d9e833fe5014c5483ea349927e6c9292ad74cec6f99fbd0313212f5d2ae`다.
+- 실제 Mac27.0.1/arm64의 native7 CLI와 검사 성공을 확인했다. Mach-O minos12.0/sdk12.0은 metadata이며 Mac12 실행 성공이 아니다. Windows/editor LSP 실행은 하지 않았고 Linux 실제 실행은 게시 후 CI에서 확인한다. CLI 사용과 구형 JS compiler API 소비0을 구분하며 기존 npx tsc 명령은 그대로 사용한다.
+- 원래 앱 tsconfig의 명시 strict/noUnused/noEmit/ES2020·DOM/bundler/JSX와 node의 명시 types/composite 범위를 보존했다. TS6/7 defaults 차이는 effective config·실제 입력 목록으로 기록했다. Node pin/engine과 npm engine은 변경하지 않았다.
+- 최초 /tmp wrapper의 Vite 절대 index.js import가 Vite 자체를 번들해 optional import3개 안내를 냈다. 당시 source32/전체349 통과는 이 안내가 있었던 실행으로 보존했다.
+- repo 캐시의 bare-vite wrapper로 교정한 뒤 build/source32(31.8초)/전체349(2.8분,생산317+source32)가 통과했고 UNRESOLVED_IMPORT·large/circular·deprecation·TS error는0이었다. 당시 extensionless base import의 미래 configLoader 안내가 남아 있어 **이 전체 suite를 포괄 경고0으로 기록하지 않는다**. 이 원본을 보존하고 뒤의 명시 .ts import 후속 짧은 검증으로 안내를 해소했다. 전체349와 추가32를 합산하지 않는다.
+- 세 snapshot·실제 프로젝트·wrapper 교정 전후의 dist10개 SHA가 동일하며8회차 동결 dist와도 같다. 새 운영 앱 startup/금융 연결 검증으로 확대하지 않는다. Rust 전체 target check도1.99.1에서 경고0으로 통과했다. Rust source/lock은9회차 그대로라 같은 local lib882를 불필요하게 반복하지 않았다.
+- npm11의 기존 Linux DEP0169 안내는 compiler/제품 소스 경고와 별도다. Mac에서는 재현되지 않았지만 Linux 해소나 npm12가 이를 고친다고 주장하지 않는다. npm12/pnpm·Corepack/Homebrew/글로벌 설치·업데이트0이며 경고 억제 옵션도 쓰지 않았다.
+
+현재 로컬 source·lock/입력·speed 독립 감사에서 구현 P0/P1/P2는 없었다. 기록 P2인 loader 안내는 아래 후속 짧은 실행과 문구 교정으로 해소를 확인했다. 지도는 새 파일/모듈 추가가 없어 read-only drift 검사만 통과했고 Graphify 일반 update는 topology를 바꾸지 않고 manifest/source hash만 갱신했다. 데이터 JSON5개 zero-node 안내는 기존 추출 한계다.
+
+### 근거·게시 전 남은 일
+
+공식 [TS7 발표](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/)·[레지스트리](https://registry.npmjs.org/typescript/latest)와 npm/pnpm metadata를 확인했다. 초기 runner 경로/임시 경로 정규화 오류와 검증 wrapper 안내는 제품 compiler 진단 실패와 구분한다. source/config를 손대거나 검사 파일을 빼서 통과시키지 않았다.
+
+근거는 Git 제외 `.cache/toolchain-migration-20261029/`의 단계별 effective config/listFiles/진단·source SHA·native metadata·warm 벤치·clean lock·UI 원본에 보존한다. 단기 tmp snapshot은 재실행 가능한170파일 manifest와 시작 commit·버전으로 추적한다. 9회차 캐시의 `build.log`는 Rust native 로그이며 초기 로컬 frontend log가 archive 이름 충돌로 남지 않았다. `artifact-index.json`에 이를 밝히고 실제 CI49 원본 build:web 그룹을 `ci-frontend-build.log`로 보존했다. 9회차 UI 원본의 색상/extensionless 안내도 성공 결과와 별개로 남긴다.
+
+loader 교정의 짧은 검증과 코드/기록 재감사는 완료했다. 최종 문서 게이트·정상 커밋/푸시·동일 SHA Gate/Security 확인 전까지 DEP-P3-08을 열어 둔다. 제외된 사용자 판단4·실자료5·SQLx 선행결정은 이번 회차에서도 대신 완료하지 않는다.
+
+
+### 명시 확장자 후속 검증·최종 로컬 게이트
+
+남은 loader 안내는 임시 wrapper base import를 `../../vite.config.ts`로만 명시해 해소했다. 기존 build/source/full 원본은 `*-with-loader-notice.log`로 보존했다. 별도 UTC시각·wrapper 전후SHA·명령/시간·dist10SHA를 기록한 `followup-explicit-extension.json`의 기본 build와 native configLoader build가 모두 통과했고, native-loader dev의 main.tsx(2840bytes)/strategyHooks.ts(4541bytes)가 HTTP200으로 응답했다. 후속 세 로그의 안내/경고0과 같은 lock/dist SHA를 확인했다. 실제 resolved module·앱 소스·번들이 그대로여서 전체349는 추가 반복하지 않았다.
+
+초회 optional import 안내, 다음 전체349의 extensionless 안내, 마지막 짧은 무경고 실행을 같은 실행으로 합치지 않는다. 원본을 보존한 문구 교정과 실제 짧은 증거를 독립 재감사해 기록 P2를 해소했고, 현재 잔여 P0/P1/P2는 없다. 문서 형식·내용 게이트와 정상 커밋/푸시·같은 SHA CI는 아직 남아 있어 상위ID는 열린 상태다.

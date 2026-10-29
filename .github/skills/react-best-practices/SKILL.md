@@ -522,3 +522,10 @@ const savedGeometry = useMemo(() => {
 ## React19과 production bundle 검증 (2026-10-29)
 
 React/DOM/types를 같은 지원 major로 맞추고 실제 peer/clean lock 설치를 확인한다. 기존 callback·query/scope·preview generation과 chart cleanup 책임을 UI library props 변환과 섞지 않는다. ReactDOM client와 JSX runtime의 실제 진입점까지 vendor 경계를 확인하며 warning threshold를 높이지 않는다. 최종 production preview에서 chart paint·theme/resize·unmount/re-entry·dialog focus/keyboard를 mock으로 검사한다. native WebView 실행 여부는 브라우저 성공과 별도로 기록한다.
+
+
+## 임시 Vite 검증 설정
+
+오프라인 wrapper는 repo 캐시의 bare vite import와 명시 .ts source 경로로 원래 config를 재사용한다. Vite 내부 절대 index.js를 묶거나 경고 억제로 초기화 문제를 가리지 않는다. [명령·안내·재검증 범위](../../../docs/HARNESS_MAP.md)를 따른다.
+
+> 마지막 업데이트: 2026-10-29T12:53:42+00:00

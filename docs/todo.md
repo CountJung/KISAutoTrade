@@ -37,7 +37,8 @@
 DEP-P3-01·02는 아래 선행 결정 구역에서 관리한다. 아래 08은 앞 번호 전체 완료를 기다려야 하는 일괄 차단 목록이 아니다. 버전 표기는 당시 검토값이므로 착수 시 공식 자료로 다시 확인한다.
 
 - [ ] **🟢 자동 구현** **DEP-P3-08 — TypeScript·패키지매니저 major 후보를 개별 평가한다.** DEP-P3-06·07 검토 이후, 필요성이 확인된 항목만 전환한다.
-  - **미검증 후보:** TypeScript 5.9.3→7.0.2, Mac 기본 npm 11.20.0→12.2.1, pnpm 10.30.3→12.15.0. 프로젝트 Node 24.22.1 LTS의 npm은 11.19.1이며 기본 Node의 npm과 구분한다. 프로젝트는 npm을 사용하고 pnpm은 이번에 채택하지 않았다. 개별 프로젝트 실패는 미확인이다.
+  - **진행:** TypeScript5→6.0.3→7.0.2를 같은 입력으로 비교하고7을 채택했다. src/config/harness 변경 없이 clean 설치·타입·전체UI349와 동일 dist를 확인했다. npm11 유지·pnpm 미채택으로 판정했으며 임시 loader 안내는 후속 짧은 검증으로 해소했으며 최종 게시·동일 SHA CI 확인을 남겼다. [실측과 경계](tasks/immediate-backlog-20261029.md).
+  - **후보별 판정:** TypeScript7.0.2 채택, 프로젝트 npm11.19.1 유지, pnpm12.16.1 미채택이다. Mac 기본 npm/글로벌 도구는 변경하지 않았다. npm12는 실제 Node24에서 engine을 충족하지만 현재 필요와 프로젝트 전체 지원 범위를 이유로 유지했다. 공식 metadata와 실제 실행·미실행은 회차 기록을 구분한다.
   - **완료 조건:** 공식 compiler/Node engines·peer 지원과 설치/lockfile 변화를 확인한다. TypeScript는 strict 타입·FSD/build, npm은 금융 파일 없는 깨끗한 snapshot의 `npm ci --ignore-scripts`·lockfile 재현·감사·CI를 통과한다. pnpm은 프로젝트 사용 필요부터 확인하고 불필요하면 미채택 결정을 남기며, 전환·lockfile 병행을 자동 도입하지 않는다.
 
   - **착수 의존성:** 앞 번호는 검토 권장 순서다. 실제 API·peer·toolchain 의존성을 확인해 범위를 고정하며 DEP-P3-01 결정 대기를 이 항목의 일괄 차단으로 확대하지 않는다.
