@@ -1375,3 +1375,13 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 수동 대조를 provider 검증으로 표시하지 않는다. 예약 해제·현금·소유량 처리는 기존 fill/terminal 경로만 사용하며 `persistence_blocked`는 복구 승인으로 해제하지 않는다. 상세 계약은 [IPC 문서](../../../docs/ipc-commands.md)를 따른다.
 
 > 마지막 업데이트: 2026-10-29T05:55:34Z
+
+
+## 가격조건 생산 소유·손절 검증 경계 (2026-10-29)
+
+- PC raw Sell은 종목 설정수량이고 actual/exact owner clamp는 제출/실행 경로가 맡는다. 내부 bool 상태만으로 초과매도를 단정하거나 raw Sell을 임의 전량청산으로 바꾸지 않는다. actual>config 잔량에서는 live 일일매도 제한이 일반 TradeGuard보다 먼저 후속 청산을 막을 수 있다. 잔량·평균가 보존을 손실 제한/청산 성공으로 주장하지 않는다.
+- live feedback은 exact owner native 원가/수량을 올림하며 replay는 실제 native 평균체결가를 반올림한다. 현재 FX로 원화 원가를 역환산해 native 기준을 바꾸지 않는다. Buy preflight의 account held/avg는 전략 소유 원장과 다르다.
+- 접수 전 차단/즉시 거절, 접수 성공 후 pending·부분·취소·거절을 구분한다. 후자는 접수 guard를 취소하지 않는다. native 손절은 공통 guard, 연구 overlay는 별도 보호 경로이며 양쪽 후속 risk/execution 조건을 보존한다.
+- `order/feedback/tests/price_condition.rs`와 `commands/strategy_preview/pc_replay_tests.rs`를 사용해 실제생산·loopback/합성 조건을 검증한다. 시장일/DST synthetic 통과는 실제 세션/coverage나 장중 효능 인증이 아니다. [고정 일봉 재현·한계](../../../docs/research/price-condition-contracts-20261029/report.md)를 따른다.
+
+> 마지막 업데이트: 2026-10-29T06:31:54+00:00

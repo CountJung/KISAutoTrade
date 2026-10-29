@@ -1,0 +1,111 @@
+{
+  "declaredBeforeContinuousRuns": true,
+  "baselineCommit": "ac3eb564ea678fe99722bbc5f3f040b4c50b1773",
+  "plannedEngineVersion": "strategy-replay-v22",
+  "source": "../strategy-review-20261018/input.json",
+  "sourceSha256": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+  "evaluationStart": "20230103",
+  "evaluationEnd": "20251231",
+  "evaluationBarsPerSymbol": 752,
+  "historyBars": 252,
+  "costBps": [
+    10,
+    20
+  ],
+  "initialCapitalKrw": 10000000,
+  "exchangeRateKrw": 1450,
+  "taxBps": 0,
+  "executionModel": "nextOpen",
+  "dividendScenario": [],
+  "fxScenario": [],
+  "stopLossPct": 0,
+  "takeProfitPct": 0,
+  "partitions": [
+    "12 calendar-quarter chunks",
+    "500+252 bars"
+  ],
+  "expectedContinuousRuns": 6,
+  "expectedAlternatePartitionRuns": 6,
+  "expectedIndependentQuarterResetRuns": 72,
+  "configs": [
+    {
+      "symbol": "SOXQ",
+      "strategyId": "price_condition",
+      "orderQuantity": 51,
+      "params": {
+        "symbols": [
+          {
+            "buy_trigger_price": 19.91,
+            "is_overseas": true,
+            "quantity": 51,
+            "stop_loss_pct": 3.0,
+            "symbol": "SOXQ",
+            "take_profit_pct": 5.0
+          }
+        ]
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "19.91"
+    },
+    {
+      "symbol": "SPY",
+      "strategyId": "price_condition",
+      "orderQuantity": 2,
+      "params": {
+        "symbols": [
+          {
+            "buy_trigger_price": 382.43,
+            "is_overseas": true,
+            "quantity": 2,
+            "stop_loss_pct": 3.0,
+            "symbol": "SPY",
+            "take_profit_pct": 5.0
+          }
+        ]
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "382.43"
+    },
+    {
+      "symbol": "QQQ",
+      "strategyId": "price_condition",
+      "orderQuantity": 3,
+      "params": {
+        "symbols": [
+          {
+            "buy_trigger_price": 266.28,
+            "is_overseas": true,
+            "quantity": 3,
+            "stop_loss_pct": 3.0,
+            "symbol": "QQQ",
+            "take_profit_pct": 5.0
+          }
+        ]
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "266.28"
+    }
+  ],
+  "matchedPathReference": "Fixed accepted share quantities/timing; previous close to current open gap PnL plus current open to close PnL at fixed FX. Equals final equity plus recorded fees/tax/slippage. Not an independent signal benchmark, cost-free rerun or same percentage exposure.",
+  "limitations": [
+    "Retrospective diagnostics on already observed frozen prices; no parameter selection/optimization",
+    "2026 observations excluded from this reproduction; previously observed, not an unseen holdout and not used in this run; this is not out-of-sample significance evidence",
+    "Three correlated selected ETFs; calendar/corporate-action coverage not independently verified",
+    "Same original 2023Q1 quantity including original 10bp cost-buffer sizing, frozen across both costs and every quarter; target15% differs from actual integer-share exposure",
+    "Price-condition trigger and internal quantity fixed from original2023Q1 params, never refreshed from later quarter prices",
+    "Quarter reset rows are separate10000000KRW accounts, never summed or compounded into continuous performance"
+  ],
+  "purpose": "Reproduce the existing fixed PC daily design; synthetic production fixtures separately verify stop/reentry contracts. No unseen OOS or intraday efficacy claim.",
+  "declaredAt": "2026-10-29T06:17:41.913474+00:00",
+  "originalDesign": "../continuous-replay-20261018/design.json",
+  "comparisonTarget": "78 archived PC ledgers in continuous-replay-20261018; baselineCommit identifies current pre-round source, not a fresh replay of that commit"
+}

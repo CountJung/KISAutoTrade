@@ -771,3 +771,5 @@ mod mean_reversion;
 mod rsi;
 
 mod trend_filter;
+
+mod price_condition;

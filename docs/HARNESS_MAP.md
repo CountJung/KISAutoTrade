@@ -258,3 +258,10 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 - `npx playwright test tests/e2e/strategy-trend-filter-policy.spec.ts tests/e2e/strategy-strong-close-policy.spec.ts tests/e2e/strategy-volatility-expansion-policy.spec.ts --workers=1`: 새14개와이웃/조립회귀70개, 총84개mock검증이다. 실제 주문/계좌/API 검증이아니다. Page의정책조립추출에는전체322개도실행한다.
 - `python3 docs/research/trend-filter-policy-20261023/validate.py`와 `independent-audit.py`: 고정설계/동결입력·30연속/360분기압축원장을재정산한다. Rust실행기의30대체분할검사와기록원장감사를구분한다. 실행기/사전설계/의존성한계는같은폴더보고서를참조한다.
 - loopbackmock서버가EPERM이면test실패를코드통과로간주하지않고허용된환경에서전체를다시실행한다. 운영provider/계좌또는실제자동매매로대체하지않는다.
+
+
+## P2-13 가격조건 생산 계약 (2026-10-29)
+
+`cargo test --locked --lib pc_live_`는 실제 PC→공유제출/loopback→누적체결→exact owner 피드백6개를 검증한다. `cargo test --locked --lib pc_replay_tests`는 native 평균가/FX·손절·시장일/DST·실제수량/설정수량·overlay·두비용/분할9개를 검증한다. 계좌 전체 preflight 값과 소유 원장, 접수와 체결, 잔량 상태 보존과 실제 청산 성공을 구분한다.
+
+[고정 설계와 재현](research/price-condition-contracts-20261029/report.md)의6연속+6대체분할+72별도분기 및 기록체결 정산은 기존 일봉 입력 재분석이며 실제 장중 손절 효능 검증이 아니다. 전체 Rust와 strict clippy, 문서·지도·그래프 게이트 결과는 [회차 기록](tasks/immediate-backlog-20261029.md)에 보존한다.

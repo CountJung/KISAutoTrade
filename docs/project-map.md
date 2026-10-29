@@ -210,6 +210,17 @@ KISAutoTrade/
 │   │   │   ├── summary.csv
 │   │   │   ├── validate.py
 │   │   │   └── validation.json
+│   │   ├── price-condition-contracts-20261029/
+│   │   │   ├── aggregate.json
+│   │   │   ├── continuous-results.jsonl.gz
+│   │   │   ├── design.json
+│   │   │   ├── report.md
+│   │   │   ├── reset-results.jsonl.gz
+│   │   │   ├── run-summary.json
+│   │   │   ├── runner.rs
+│   │   │   ├── summary.csv
+│   │   │   ├── validate.py
+│   │   │   └── validation.json
 │   │   ├── replay-accounting-20261018/
 │   │   │   ├── baseline-hashes.json
 │   │   │   ├── baseline_runner.rs
@@ -691,6 +702,7 @@ KISAutoTrade/
 │   │   │   │   ├── mean_reversion_entry_tests.rs
 │   │   │   │   ├── minute_timing_tests.rs
 │   │   │   │   ├── momentum_entry_tests.rs
+│   │   │   │   ├── pc_replay_tests.rs
 │   │   │   │   ├── preparation_tests.rs
 │   │   │   │   ├── rsi_entry_tests.rs
 │   │   │   │   ├── strong_close_entry_tests.rs
@@ -806,6 +818,7 @@ KISAutoTrade/
 │   │   │   │   ├── feedback/
 │   │   │   │   │   ├── tests/
 │   │   │   │   │   │   ├── mean_reversion.rs
+│   │   │   │   │   │   ├── price_condition.rs
 │   │   │   │   │   │   ├── rsi.rs
 │   │   │   │   │   │   └── trend_filter.rs
 │   │   │   │   │   └── tests.rs
@@ -1306,6 +1319,8 @@ KISAutoTrade/
 | `trading/strategy/sequence/failed_breakout/tests.rs` | 기본 floor 문턱·실패 strict 경계, 현재봉/거래량 배제·ATR0/갭·거래량 결측/0/평균0, 실제 소유/거절/부분 체결·보호 우선순위·재설정·v1/v2 원자 복원 회귀 |
 | `trading/strategy/leveraged_trend_hold.rs` | 레버리지 전략 공개 타입·config·상태와 bounded buffer 상한을 소유하는 facade. 일봉 맥락과 분봉 지표/반등·실제 보유 상태를 분리하고 하위 모듈의 live/timed 구현을 연결 |
 | `trading/strategy/price_condition.rs` | 종목별 가격 조건 전략 구현 |
+| `commands/strategy_preview/pc_replay_tests.rs` | 생산 preview의 PC 합성 회귀9개. nextOpen native 평균가/FX·손절 임계값·마지막 pending·시장일/UTC/DST cooldown·실제/설정 수량·native/overlay·두 비용·청크 분할 불변을 검증. 실제 장중 효능이나 거래소 session/coverage를 인증하지 않음 |
+| `trading/order/feedback/tests/price_condition.rs` | 실제 StrategyManager→공유 제출→loopback 응답→누적 체결→exact owner의 PC 합성 회귀6개. 거절/미체결·부분수량·평균가·체결 재적용·scope guard를 검증하며 live 일일 매도 제한과 잔량 보존을 청산 성공으로 해석하지 않음 |
 | `trading/strategy/leveraged_trend_hold/live.rs` | `Strategy` 구현과 live tick/소유 포지션 동기화. 확인된 보유와 신호 후보·pending을 구분하고 high-water/보유 관측 수를 metadata로 checkpoint/복원한다. 일봉 초기화는 별도 bounded 맥락 ring만 교체하고, 분봉 초기화는 분봉·반등·볼린저 snapshot을 교체하며 실제 보유 포지션은 유지 |
 | `trading/strategy/leveraged_trend_hold/preview.rs` | 입력 timestamp 기반 timed replay와 Open/Signal/Close driver callback으로 공통 session의 체결 포지션을 피드백. 실제 잔여 수량·평균 체결가 snapshot을 사용한다. 부분 청산 뒤 잔량과 가격 기준을 보존하며 bool callback 호환 경로도 유지한다. EMA/RSI/ADX·반등·볼린저는 실제 장중 관측만 적재하고 일봉 맥락으로 분봉 준비 상태를 만들지 않음 |
 | `trading/strategy/leveraged_trend_hold/indicators.rs` | 장중 버퍼 기반 EMA/RSI/ADX와 진입·단계/급반등 조건 계산 |
@@ -1409,7 +1424,10 @@ KISAutoTrade/
 
 | 경로 | 책임 |
 |---|---|
-| `docs/tasks/immediate-backlog-20261029.md` | 즉시 작업의 고정 ID·순서·회차별 범위와 검증·커밋 근거. P1-RECOVERY-01의 로컬 구현과 P1-PROVIDER-01의 실제 운용 검증을 구분 |
+| `docs/tasks/immediate-backlog-20261029.md` | 즉시 작업의 고정 ID·순서·회차별 범위와 검증·커밋 근거. P1-RECOVERY-01의 로컬 복구와 P1-PROVIDER-01 실제 운용, SOXQ-P2-13의 합성 계약·고정 일봉 재현과 실제 장중 효능 미완료를 구분 |
+| `docs/research/price-condition-contracts-20261029/{design.json,runner.rs}` | 기존 PC 고정 기준가·수량·2023~2025 일봉·두 비용·nextOpen 설계를 현재 v22 생산 API로6연속/6대체분할/72별도분기 재현. 선언은 이번 실행 전 고정이며 이미 관측한 자료의 재현으로, baselineCommit의 별도 빌드나 새 OOS가 아님 |
+| `docs/research/price-condition-contracts-20261029/validate.py` | 동결 입력 hash와 기록 fill의 현금·원가·비용·손익·노출·기말·가격경로를 독립 산술 대사하고 보관 PC78원장과 현재78원장 backtest/signals/preparation을 비교. 전략 신호를 다시 생성하지 않음 |
+| `docs/research/price-condition-contracts-20261029/{report.md,run-summary.json,summary.csv,aggregate.json,validation.json,continuous-results.jsonl.gz,reset-results.jsonl.gz}` | 생산 실행수·분할 hash·78개 원장·비용별 요약/독립 대사와 한계 보관. 무손실 압축 원장은 연속6개와 별도분기72개를 구분하며 손절 미발동·희소노출을 실제 장중 재진입/손실 제한 효능으로 확대하지 않음 |
 | `tests/e2e/budget-recovery.spec.ts` | mock 데스크톱 복구의 근거 대조·명시 확인·저장 실패/재시도·legacy/종결·실행 중·모바일과 웹 복구 요청 부재를 검증 |
 | `docs/research/trend-filter-policy-20261023/design.json` | 기존200/5/20·현재 포함 MA와 legacy/owned/exit2/profit5trail3/hold63, 고정 입력 hash·자료·비용·30연속/30대체 분할/360별도 분기 계획의 사전 선언. 원본 declaredNotRun을 보존하고 실제 실행 여부는 run-summary·압축 원장·validation으로 확인 |
 | `docs/research/trend-filter-policy-20261023/{protocol.md,report.md}` | 사전 상태·시점·준비/체결·노출·출처·완료 조건과 실제 생산 실행·감사 근거/후보 판단. 기존 v12 원장 감사·v21 기준 실행·v22 후보를 구분하고 상관된3ETF/겹침·분기 초기화를 독립 OOS로 해석하지 않음 |

@@ -878,3 +878,7 @@ mod volatility_entry_tests;
 #[cfg(test)]
 #[path = "strategy_preview/trend_filter_tests.rs"]
 mod trend_filter_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/pc_replay_tests.rs"]
+mod pc_replay_tests;

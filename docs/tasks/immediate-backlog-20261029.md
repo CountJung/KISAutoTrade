@@ -7,8 +7,8 @@
 
 | 회차 | 고정 ID·제목 | 상태 | 검증·커밋 근거 |
 |---|---|---|---|
-| 1 | P1-RECOVERY-01 — 응답 불명 주문의 운영자 대조·복구 UI를 구현한다. | 로컬 구현·검증 완료 | 아래 최종 게이트; 이 기록 도입 커밋 |
-| 2 | SOXQ-P2-13 — 가격조건의 실제 소유·손절 후 재진입과 공통 guard를 검증한다. | 대기 | — |
+| 1 | P1-RECOVERY-01 — 응답 불명 주문의 운영자 대조·복구 UI를 구현한다. | 로컬 구현·검증 완료 | 아래 최종 게이트; `ac3eb564ea678fe99722bbc5f3f040b4c50b1773` 원격 SHA 일치 |
+| 2 | SOXQ-P2-13 — 가격조건의 실제 소유·손절 후 재진입과 공통 guard를 검증한다. | 로컬 완료·실자료 조건 이관 | live6/replay9, 보관78일치·정산10,536; 전체 ID는 열린 상태 |
 | 3 | SOXQ-P2-16 — 구간 경고·표본 해석을 교정하고 별도 walk-forward를 평가한다. | 대기 | — |
 | 4 | P3-REFACTOR-01 — 1,000라인 초과 파일을 책임 단위로 분리한다. | 대기 | — |
 | 5 | DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다. | 대기 | — |
@@ -50,6 +50,26 @@
 | 지도·생성물 | project_mapper 책임표/인벤토리 pass, Graphify source freshness 갱신. JSON 설정 예제4개 zero-node 안내는 실행코드 추출 실패가 아니며 Graphify 한계로 기록 |
 
 - 코드 근거: [복구 경로](../../src-tauri/src/trading/order/budget/recovery.rs), [이력 충돌](../../src-tauri/src/trading/order/budget/recovery/history.rs), [guard 복원](../../src-tauri/src/trading/guard/recovery.rs), [UI](../../src/pages/settings/ui/budgetRecoverySection.tsx).
-- 2~10회차는 아직 실행 완료되지 않았다. 다음 ID는 **SOXQ-P2-13**이며 실제 장중 효능과 생산 fixture 완료를 분리한다.
+- 1회차 종료 시 다음 ID는 SOXQ-P2-13이었다. 이후 회차 결과는 아래 절을 따른다.
 
 - Graphify 생성기 한계: 기본 HTML 5,000노드 한도로 시각화가 생략됐고 cluster-only 재로딩이 노드를 축소했다. 최초 갱신된 6,669노드·14,678edge·567community JSON을 보존한 뒤 동일 Graphify HTML/report 렌더러에 직접 전달해 세 산출물을 일치시켰다. source freshness 통과, LLM/API 라벨링 미사용. 다음 갱신에서는 기존 규모에 맞는 HTML 한도를 먼저 지정한다.
+
+
+## 2회차 — SOXQ-P2-13
+
+- 기존 PC 매도는 설정수량이고 exact owner 제출 경로가 실제 수량으로 제한한다. 이 계약과 live/replay 평균가 반올림, native 일반 guard/연구 overlay 별도 경계를 유지한다. 수량 정책·기본 guard·실거래 설정을 바꾸지 않는다.
+- 실거래 없이 live 제출/거절/pending/부분체결/확정 소유 피드백, production preview의 실제 native 원가·손절/재진입·비용·분할불변 fixture를 먼저 보강한다.
+- [재현 설계](../research/price-condition-contracts-20261029/design.json)는 기존2023~2025 일봉 연구의 PC3종목·원래 기준가/수량·익절5%/손절3%·두비용·guard를 그대로 고정한다. 현재 생산API6연속+6대체분할+72독립분기의 코드 호환성 재현이며 새로운 OOS나 장중 효능 평가가 아니다. 과거 원본/결과는 덮어쓰지 않는다.
+- 실제 장중 자료의 시각/시장일/DST/세션/coverage와 실제 접수·체결 사례는 여전히 별도 미완료 조건이다.
+
+
+### 2회차 결과·검증
+
+- 생산 정책 변경0, 테스트 등록6줄과 live/replay 신규 leaf만 추가했다. live6개·replay9개 통과; replay34합성호출/12분할쌍은 실제 시장 표본 수가 아니다.
+- 초기 live fixture의 mut 누락과 지정가보다 높은 매수 fill 입력을 수정했다. 기존 예산 보호를 완화하지 않았다. 실제 잔량 후속 매도는 기본 일일매도 제한이 먼저 막고 일반 guard도 별도 적용함을 확인했다.
+- `cargo fmt --all -- --check`, `cargo check --offline --workspace --locked`, 전체lib **822/822**, strict clippy 경고0. 리뷰 후 FX실적용 단정 추가→해당1개 재실행 통과·fmt/strict clippy 재확인. 전체822 실행과 후속1 실행을 하나의 새전체실행으로 합치지 않는다. `npx tsc --noEmit`, FSD통과. UI/IPC 변경없음으로 UI E2E는 다시 실행하지 않았다.
+- 현재 생산API **6연속+6대체분할+72독립분기**, 기존 보관78개 전체 report/signals/preparation일치와 독립 기록체결 산술**10,536건** 통과. [원장/재현/해석 정본](../research/price-condition-contracts-20261029/report.md). 이전commit별도빌드대조나 새OOS/실제장중평가가 아니다.
+- stock_analyst가 압축SHA·78고유키·전체대조·현금/비용/손익/회전·CSV/aggregate를 읽기전용으로 독립 확인했다. 코드리뷰 새P0/P1/P2없음. FX시나리오가 실제정산에 적용되는지 추가단정을 반영했다.
+- SOXQ-P2-13 전체는 **미완료**다. 로컬 구현 가능한 검증은 이력에 보존하고 실제 장중 자료/효능 조건을 같은ID의 TODO4구역으로 이관했다. 현재 남은18개는 자동9+판단4+자료5이며 다음 즉시항목은 **SOXQ-P2-16**이다.
+
+- 최종 문서/생성물: docs-canon 링크·표·도달성·앵커·완료TODO 경고0, 내용 감사 이상없음. project_mapper 책임/인벤토리 pass, TODO18개·project-map·Graphify freshness·diff 검사 통과. Graphify6727노드/14821edge, JSON설정4개 zero-node 안내는 기존 도구 한계로 구분했다.
