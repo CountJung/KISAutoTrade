@@ -2149,7 +2149,7 @@
       "label": "fail()",
       "file_type": "code",
       "source_file": "scripts/verify-toss-openapi.mjs",
-      "source_location": "L47",
+      "source_location": "L48",
       "_origin": "ast",
       "id": "scripts_verify_toss_openapi_fail",
       "community": 213,
@@ -2160,7 +2160,7 @@
       "label": "paths",
       "file_type": "code",
       "source_file": "scripts/verify-toss-openapi.mjs",
-      "source_location": "L79",
+      "source_location": "L80",
       "_origin": "ast",
       "id": "scripts_verify_toss_openapi_paths",
       "community": 213,
@@ -2171,7 +2171,7 @@
       "label": "servers",
       "file_type": "code",
       "source_file": "scripts/verify-toss-openapi.mjs",
-      "source_location": "L80",
+      "source_location": "L81",
       "_origin": "ast",
       "id": "scripts_verify_toss_openapi_servers",
       "community": 213,
@@ -2182,7 +2182,7 @@
       "label": "missingPaths",
       "file_type": "code",
       "source_file": "scripts/verify-toss-openapi.mjs",
-      "source_location": "L81",
+      "source_location": "L82",
       "_origin": "ast",
       "id": "scripts_verify_toss_openapi_missingpaths",
       "community": 213,
@@ -2193,7 +2193,7 @@
       "label": "hasRateLimitHeaders",
       "file_type": "code",
       "source_file": "scripts/verify-toss-openapi.mjs",
-      "source_location": "L83",
+      "source_location": "L84",
       "_origin": "ast",
       "id": "scripts_verify_toss_openapi_hasratelimitheaders",
       "community": 213,
@@ -2204,7 +2204,7 @@
       "label": "endpointInventory",
       "file_type": "code",
       "source_file": "scripts/verify-toss-openapi.mjs",
-      "source_location": "L122",
+      "source_location": "L123",
       "_origin": "ast",
       "id": "scripts_verify_toss_openapi_endpointinventory",
       "community": 213,
@@ -44326,8 +44326,8 @@
       "source_location": "L561",
       "_origin": "ast",
       "id": "src_tauri_src_trading_simulation_apply_slippage",
-      "community": 90,
-      "community_name": "simulation/accounting.rs",
+      "community": 364,
+      "community_name": "attach_comparison",
       "norm_label": "apply_slippage()"
     },
     {
@@ -44337,8 +44337,8 @@
       "source_location": "L570",
       "_origin": "ast",
       "id": "src_tauri_src_trading_simulation_bps_cost",
-      "community": 90,
-      "community_name": "simulation/accounting.rs",
+      "community": 364,
+      "community_name": "attach_comparison",
       "norm_label": "bps_cost()"
     },
     {
@@ -44392,8 +44392,8 @@
       "source_location": "L653",
       "_origin": "ast",
       "id": "src_tauri_src_trading_simulation_return_pct",
-      "community": 90,
-      "community_name": "simulation/accounting.rs",
+      "community": 364,
+      "community_name": "attach_comparison",
       "norm_label": "return_pct()"
     },
     {
@@ -44414,8 +44414,8 @@
       "source_location": "L669",
       "_origin": "ast",
       "id": "src_tauri_src_trading_simulation_round_money",
-      "community": 51,
-      "community_name": "ReplaySession",
+      "community": 364,
+      "community_name": "attach_comparison",
       "norm_label": "round_money()"
     },
     {
@@ -44425,8 +44425,8 @@
       "source_location": "L672",
       "_origin": "ast",
       "id": "src_tauri_src_trading_simulation_round_metric",
-      "community": 56,
-      "community_name": "simulation.rs",
+      "community": 364,
+      "community_name": "attach_comparison",
       "norm_label": "round_metric()"
     },
     {
@@ -44568,8 +44568,8 @@
       "source_location": "L137",
       "_origin": "ast",
       "id": "src_tauri_src_trading_simulation_accounting_simulationassumptions_fee",
-      "community": 90,
-      "community_name": "simulation/accounting.rs",
+      "community": 364,
+      "community_name": "attach_comparison",
       "norm_label": ".fee()"
     },
     {
@@ -46559,8 +46559,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_tauri_src_trading_simulation_session_accounting",
-      "community": 90,
-      "community_name": "simulation/accounting.rs",
+      "community": 364,
+      "community_name": "attach_comparison",
       "norm_label": "session/accounting.rs"
     },
     {
@@ -46570,8 +46570,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "src_tauri_src_trading_simulation_session_accounting_saleprojection",
-      "community": 90,
-      "community_name": "simulation/accounting.rs",
+      "community": 364,
+      "community_name": "attach_comparison",
       "norm_label": "saleprojection"
     },
     {
@@ -46581,8 +46581,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "src_tauri_src_trading_simulation_session_accounting_replaysession",
-      "community": 90,
-      "community_name": "simulation/accounting.rs",
+      "community": 364,
+      "community_name": "attach_comparison",
       "norm_label": "replaysession"
     },
     {
@@ -46592,8 +46592,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "src_tauri_src_trading_simulation_session_accounting_replaysession_project_sale",
-      "community": 90,
-      "community_name": "simulation/accounting.rs",
+      "community": 364,
+      "community_name": "attach_comparison",
       "norm_label": ".project_sale()"
     },
     {
@@ -46603,8 +46603,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "src_tauri_src_trading_simulation_session_accounting_replaysession_minimum_fee_profit_block_reason",
-      "community": 90,
-      "community_name": "simulation/accounting.rs",
+      "community": 364,
+      "community_name": "attach_comparison",
       "norm_label": ".minimum_fee_profit_block_reason()"
     },
     {
@@ -46614,8 +46614,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_simulation_session_accounting_rs_option",
-      "community": 90,
-      "community_name": "simulation/accounting.rs",
+      "community": 364,
+      "community_name": "attach_comparison",
       "norm_label": "option"
     },
     {
@@ -46625,8 +46625,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_tauri_src_trading_simulation_session_accounting_rs_string",
-      "community": 90,
-      "community_name": "simulation/accounting.rs",
+      "community": 364,
+      "community_name": "attach_comparison",
       "norm_label": "string"
     },
     {
@@ -46636,8 +46636,8 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "src_tauri_src_trading_simulation_session_accounting_replaysession_finish_accounting",
-      "community": 90,
-      "community_name": "simulation/accounting.rs",
+      "community": 364,
+      "community_name": "attach_comparison",
       "norm_label": ".finish_accounting()"
     },
     {
@@ -46746,8 +46746,8 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "src_tauri_src_trading_simulation_session_phase_diagnostics_replaysession_attach_phase_diagnostics",
-      "community": 56,
-      "community_name": "simulation.rs",
+      "community": 364,
+      "community_name": "attach_comparison",
       "norm_label": ".attach_phase_diagnostics()"
     },
     {
@@ -52345,8 +52345,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "src_tauri_src_trading_strategy_core_signal",
-      "community": 59,
-      "community_name": "OrderManager",
+      "community": 35,
+      "community_name": ".submit_order_shared",
       "norm_label": "signal"
     },
     {
@@ -64434,8 +64434,8 @@
       "source_location": "L233",
       "_origin": "ast",
       "id": "src_api_markethooks_usetossmarketcalendar",
-      "community": 30,
-      "community_name": "strategy/ui/Page.tsx",
+      "community": 48,
+      "community_name": "autoTradingBudgetSection.tsx",
       "norm_label": "usetossmarketcalendar()"
     },
     {
@@ -79564,7 +79564,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scripts/verify-toss-openapi.mjs",
-      "source_location": "L122",
+      "source_location": "L123",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_verify_toss_openapi",
@@ -79586,7 +79586,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scripts/verify-toss-openapi.mjs",
-      "source_location": "L47",
+      "source_location": "L48",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_verify_toss_openapi",
@@ -79597,7 +79597,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scripts/verify-toss-openapi.mjs",
-      "source_location": "L83",
+      "source_location": "L84",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_verify_toss_openapi",
@@ -79608,7 +79608,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scripts/verify-toss-openapi.mjs",
-      "source_location": "L81",
+      "source_location": "L82",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_verify_toss_openapi",
@@ -79619,7 +79619,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scripts/verify-toss-openapi.mjs",
-      "source_location": "L79",
+      "source_location": "L80",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_verify_toss_openapi",
@@ -79630,7 +79630,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scripts/verify-toss-openapi.mjs",
-      "source_location": "L80",
+      "source_location": "L81",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_verify_toss_openapi",
@@ -256438,5 +256438,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "653377ce4ba49bc679d1762fe0f5d6ec2409fb74"
+  "built_at_commit": "f15f192fee105600d79468291334fb10f1495e9f"
 }

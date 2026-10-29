@@ -22,6 +22,7 @@ const EXPECTED_PATHS = [
   '/api/v1/market-calendar/KR',
   '/api/v1/market-calendar/US',
   '/api/v1/rankings',
+  '/api/v1/rankings/investor-trading',
   '/api/v1/market-indicators/prices',
   '/api/v1/market-indicators/{symbol}/candles',
   '/api/v1/market-indicators/{symbol}/investor-trading',

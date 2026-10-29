@@ -259,3 +259,18 @@ DEP-P3-04는 로컬 구현·검증 완료이며 커밋·푸시 후 해당 SHA의
 
 
 - 최종 문서 내용 감사: 기존 UI스킬의 제거된 Grid/system props 예제와 MUI6 설명을 MUI9로 교정했고, HARNESS의789/322는 당시 수치로 명시했다. 읽기 재감사에서 P2가 해소됐으며 남은 문서 차단은 없다. 7회차 변경은 최종 커밋·푸시 뒤 같은 SHA CI로 확인한다.
+
+
+### 7회차 원격 게시·CI 시작
+
+커밋 `f15f192fee105600d79468291334fb10f1495e9f`의77개 파일을 정상 푸시하고 ls-remote SHA 일치·clean 및 GitHub 해당 SHA 문서 게시를 확인했다. 같은 SHA의 Release Gate46 `40848005302`와 Dependency Security53 `40848005873`을 각1회 실행했다. 결과 확인 전까지 DEP-P3-05는 열린 상태다. 다음 고정 항목은 DEP-P3-06이다.
+
+
+### 7회차 CI 공개 명세 변경 보정
+
+첫 Gate46의 frontend·Linux Rust·UI는 성공했으나 Toss OpenAPI가 v1.2.28의39 paths와 기존고정38개 불일치로 실패했다. Security53은 성공했다. 독립 공개 명세 감사에서 기존38개 삭제0·새 `GET /api/v1/rankings/investor-trading`1개 추가, 나머지 기존 검사 predicate 충족을 확인했다. 과거 명세 JSON이 없어 전체 schema byte불변으로 해석하지 않는다.
+
+검증기 변경은 정확한 expected 목록1줄 추가뿐이며 나머지 byte는 같다. 기존 title/base·전체경로수·누락경로·계좌/오류/rate-limit 검사를 유지하고 공개 CLI 검증39개가 통과했다. API 정본/원본스킬의 현재표·신규GET 설명을 갱신하고 과거33/38 이력은 보존했다. REST 명세의 별도AsyncAPI 안내를 실제 Toss WS 구현으로 확대하지 않았다. 실제 token/계좌/시세/주문 endpoint는 호출하지 않았다. 이 보정은 별도 CI수정 커밋·푸시와 같은 SHA 재검증으로 마무리한다.
+
+
+- 7회차 첫 SHA의 실제 CI 결과: Linux Rust873/873·UI349/349(9.8분, 09:24:36 UTC)·frontend 성공, 공개 명세 목록만 실패했다. 보정된 검증기와 문서의 독립 감사에서 검사 완화/앱 변경0을 확인했고 새 행의 공식 Ranking 태그도 맞췄다. 보정 후 공개 검증 exit0, docs-canon117 경고0·TODO14/지도/그래프/diff 검사 통과다. 09:28:59 UTC 동일 환경 상태 확인도 성공했으며 다른 환경으로 이동하지 않았다.

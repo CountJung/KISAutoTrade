@@ -50,8 +50,8 @@
     "semantic_hash": "b28f848ed605405cfb60792c4699799f"
   },
   "scripts/verify-toss-openapi.mjs": {
-    "mtime": 1792289868.4785116,
-    "ast_hash": "68edaf5d9724b318767036408f99c1d2",
+    "mtime": 1793265721.9733832,
+    "ast_hash": "05394e9626bc37cc2c94608bf77020ab",
     "semantic_hash": ""
   },
   "secure_config.example.json": {

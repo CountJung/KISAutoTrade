@@ -1,7 +1,7 @@
 # Graph Report - KISAutoTrade  (2026-10-29)
 
 ## Corpus Check
-- 475 files · ~337,670 words
+- 475 files · ~337,671 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `653377ce`
+- Built from commit: `f15f192f`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -678,7 +678,7 @@ Nodes (54): apply(), bars(), completed_252_keeps_final_high_and_uses_high_instea
 
 ### Community 30 - "strategy/ui/Page.tsx"
 Cohesion: 0.07
-Nodes (47): useTossMarketCalendar(), useStrategies(), useUpdateStrategy(), hasInvalidLthEntries(), addSymbol(), brokerLabel(), EditState, EXCHANGE_SEARCH_ORDER (+39 more)
+Nodes (46): useStrategies(), useUpdateStrategy(), hasInvalidLthEntries(), addSymbol(), brokerLabel(), EditState, EXCHANGE_SEARCH_ORDER, fmtTossSessionWindow() (+38 more)
 
 ### Community 31 - "accounts.rs"
 Cohesion: 0.12
@@ -698,7 +698,7 @@ Nodes (19): bytes(), checked_quantity_cost_and_signed_profit_overflows_are_atomi
 
 ### Community 35 - ".submit_order_shared"
 Cohesion: 0.13
-Nodes (26): order_side_label(), OrderManager, OwnedStrategySignal, PendingOrder, ProviderOrderResponse, ReservationDecision, Arc, From (+18 more)
+Nodes (27): order_side_label(), OrderManager, OwnedStrategySignal, PendingOrder, ProviderOrderResponse, ReservationDecision, Arc, From (+19 more)
 
 ### Community 36 - "strategy_preview.rs"
 Cohesion: 0.13
@@ -750,7 +750,7 @@ Nodes (7): DiscordNotifier, Client, Result, Self, String, NotificationEvent, Not
 
 ### Community 48 - "autoTradingBudgetSection.tsx"
 Cohesion: 0.06
-Nodes (64): OVERSEAS_CHART_PRESETS, useCandlePage(), useOverseasPrice(), usePrice(), useRefreshStockList(), useStockSearch(), useTossMarketSnapshot(), useTossStockSafety() (+56 more)
+Nodes (65): OVERSEAS_CHART_PRESETS, useCandlePage(), useOverseasPrice(), usePrice(), useRefreshStockList(), useStockSearch(), useTossMarketCalendar(), useTossMarketSnapshot() (+57 more)
 
 ### Community 49 - "FailedBreakoutStrategy"
 Cohesion: 0.09
@@ -762,7 +762,7 @@ Nodes (13): OverseasPosition, OverseasPositionTracker, Position, PositionSnapsho
 
 ### Community 51 - "ReplaySession"
 Cohesion: 0.13
-Nodes (16): parse_replay_time(), replay_time_preserves_rfc3339_instant_and_subseconds(), round_money(), DateTime, FixedOffset, PendingSignal, ReplaySession, Option (+8 more)
+Nodes (15): parse_replay_time(), replay_time_preserves_rfc3339_instant_and_subseconds(), DateTime, FixedOffset, PendingSignal, ReplaySession, Option, RiskManager (+7 more)
 
 ### Community 52 - "leveraged_trend_hold.rs"
 Cohesion: 0.11
@@ -782,7 +782,7 @@ Nodes (11): Default, HashMap, Option, Result, Self, String, Value, VecDeque (+3 
 
 ### Community 56 - "simulation.rs"
 Cohesion: 0.10
-Nodes (43): DividendScenarioPoint, FxScenarioPoint, DividendPriceBasis, BacktestPhaseView, BacktestReportView, BacktestSummaryView, BacktestTradeView, current_equity() (+35 more)
+Nodes (42): DividendScenarioPoint, FxScenarioPoint, DividendPriceBasis, BacktestPhaseView, BacktestReportView, BacktestSummaryView, BacktestTradeView, current_equity() (+34 more)
 
 ### Community 57 - "BrokerSymbol"
 Cohesion: 0.08
@@ -794,7 +794,7 @@ Nodes (22): BudgetCurrencyView, allocation_cannot_withdraw_committed_cash_or_ove
 
 ### Community 59 - "OrderManager"
 Cohesion: 0.10
-Nodes (25): Barrier, daily_order_limit_key(), estimate_order_amount_krw(), is_insufficient_balance_error(), is_paper_unsupported_error(), OrderManager, PendingOrder, Arc (+17 more)
+Nodes (24): Barrier, daily_order_limit_key(), estimate_order_amount_krw(), is_insufficient_balance_error(), is_paper_unsupported_error(), OrderManager, PendingOrder, Arc (+16 more)
 
 ### Community 60 - "OrderRecord"
 Cohesion: 0.18
@@ -917,8 +917,8 @@ Cohesion: 0.19
 Nodes (17): DomesticHoldings, OverseasHoldings, ExpectedSource, HoldingsMarkets, HoldingsQuery, HoldingsUpdate, normalize_overseas_order_exchange(), OrderManager (+9 more)
 
 ### Community 90 - "simulation/accounting.rs"
-Cohesion: 0.11
-Nodes (20): CostSource, DividendScenarioPoint, FxScenarioPoint, ReplayAccountingView, HashSet, Item, Iterator, Result (+12 more)
+Cohesion: 0.20
+Nodes (13): CostSource, DividendScenarioPoint, FxScenarioPoint, ReplayAccountingView, HashSet, Item, Iterator, Result (+5 more)
 
 ### Community 91 - "TradeStore"
 Cohesion: 0.15
@@ -1529,8 +1529,8 @@ Cohesion: 0.10
 Nodes (15): default_strategy_broker_id(), EntryFilterPreparation, parse_completed_daily_volume(), BrokerId, Into, Option, Self, String (+7 more)
 
 ### Community 364 - "attach_comparison"
-Cohesion: 0.33
-Nodes (8): attach_comparison(), BuyHoldComparisonView, comparator_preserves_actual_trades_and_discloses_final_pending(), CostRestoredReferenceView, ReplayComparisonView, String, Vec, same_quantity_reference_discloses_exposure_and_restores_only_recorded_costs()
+Cohesion: 0.12
+Nodes (17): apply_slippage(), bps_cost(), attach_comparison(), BuyHoldComparisonView, comparator_preserves_actual_trades_and_discloses_final_pending(), CostRestoredReferenceView, ReplayComparisonView, String (+9 more)
 
 ### Community 365 - "current_position_snapshot"
 Cohesion: 0.32

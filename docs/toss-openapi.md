@@ -2,16 +2,16 @@
 
 > Source of truth: `https://openapi.tossinvest.com/openapi-docs/latest/openapi.json`
 
-마지막 확인: 2026-10-18
+마지막 확인: 2026-10-29
 
 ## 공식 스펙 스냅샷
 
 | 항목 | 값 |
 |------|----|
 | OpenAPI title | `토스증권 Open API` |
-| version | `1.2.24` |
+| version | `1.2.28` |
 | base URL | `https://openapi.tossinvest.com` |
-| paths | 38 |
+| paths | 39 |
 | 인증 | OAuth2 Client Credentials Grant |
 
 ## 구현 전 검증
@@ -48,6 +48,7 @@ npm run verify:toss-openapi
 | Market Info | GET | `/api/v1/market-calendar/KR` | 국내 시장 캘린더 |
 | Market Info | GET | `/api/v1/market-calendar/US` | 미국 시장 캘린더 |
 | Market Data | GET | `/api/v1/rankings` | 랭킹 |
+| Ranking | GET | `/api/v1/rankings/investor-trading` | 투자자 매매 순위, 공개 명세 확인·앱 기능 미구현 |
 | Market Indicator | GET | `/api/v1/market-indicators/prices` | 시장 지표 현재가 |
 | Market Indicator | GET | `/api/v1/market-indicators/{symbol}/candles` | 시장 지표 캔들 |
 | Market Indicator | GET | `/api/v1/market-indicators/{symbol}/investor-trading` | 시장 지표 투자자 매매 |
@@ -76,7 +77,7 @@ npm run verify:toss-openapi
 - 앱은 Toss token을 `base_url + client_id` 단위 프로세스 공유 캐시에 저장한다. 새 `TossBrokerAdapter`를 만들더라도 같은 client는 기존 token을 재사용하고, 만료 5분 전 또는 401 응답에서만 1회 재발급한다. 요청별 adapter 생성이 요청별 토큰 발급으로 이어지면 병렬 호출이 서로의 token을 무효화할 수 있으므로 금지한다.
 - 계좌·자산·주문·주문 정보 API는 `Authorization: Bearer {access_token}` 외에 `X-Tossinvest-Account` 헤더가 필요하다.
 - `accountSeq`는 임의 순번 입력값이 아니라 `GET /api/v1/accounts` 응답에서 받은 계좌 식별자다. Settings는 KIS/Toss 계좌 프로파일 섹션을 분리하고, Toss 섹션의 Add/Edit 다이얼로그에서 `list_toss_accounts`/`list_toss_profile_accounts`로 계좌 목록을 조회해 마스킹된 드롭다운에서 `accountSeq`를 선택하게 한다.
-- 공식 태그 설명 기준 WebSocket은 아직 지원 대상이 아니며 REST 중심으로 설계한다.
+- 현재 앱의 Toss 연결은 REST 중심이다. v1.2.28 REST 명세는 별도 AsyncAPI3 명세를 안내하며, 이번 검증은 REST inventory만 확인했다. 실제 Toss WebSocket 구현·연결은 이 결과에 포함하지 않는다.
 - 공통 성공 응답은 `ApiResponse` + `result`, 실패 응답은 `ErrorResponse { error: ApiError }` envelope를 기준으로 처리한다.
 - 429 응답은 `Retry-After`, `X-RateLimit-*` 헤더를 읽어 broker 공통 throttler로 넘긴다.
 - 주문 생성은 `clientOrderId`를 발급해 중복 주문과 `request-in-progress`류 응답을 추적한다.
@@ -143,3 +144,8 @@ npm run verify:toss-openapi
 앱의 누적금액 정책: `filledAmount` 명시값이 우선이다. 누락에만 실제 `averageFilledPrice` 원문×확정 정수 수량을 총액에서 한번 반올림한다. 명시0/오염·시장 통화 불일치를 주문가나 신호가로 대체하지 않는다. 소액 검증 즉시 fill은 명시금액이 있어야 하며 원 주문 ID·symbol·BUY·통화·정수1주를 검증한다. 누락 금액은 즉시 적용 없이 pending을 유지해 정규 대조로 넘긴다.
 
 > 마지막 업데이트: 2026-10-18T14:40:06+09:00
+
+
+## 2026-10-29 공개 REST 명세 변경
+
+[공식 JSON](https://openapi.tossinvest.com/openapi-docs/latest/openapi.json) v1.2.28은39 paths/42 operations다. 이전 검증 목록38개는 모두 존재하고 `GET /api/v1/rankings/investor-trading` 한 경로가 추가됐다. 선택 count는1~100/default100, OAuth2 Bearer이며 계좌 헤더는 없다. 이 API를 호출하거나 앱 기능으로 구현하지 않았다. 원래 인증·오류·rate-limit·정확한 inventory 검사를 유지했다. 공개 JSON SHA256은 `18fdc96fdf632e4869c765ed0cb169049c5310a1c48e10b40e47a71f52aa7a45`다.

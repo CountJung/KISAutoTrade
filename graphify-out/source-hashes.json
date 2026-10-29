@@ -12,7 +12,7 @@
   "scripts/setup-local.sh": "f7cf1306b35f28d00e044a5c5face88277ca4ae8e983eb3be5a8ee37e344e40b",
   "scripts/verify-lockfiles.mjs": "28f0f9d2242b6fd09dff996ff159c42227744c6fcb088a78ac9823ef150e8216",
   "scripts/verify-release-artifacts.mjs": "e6da4f208d10b33d5668bcb6430e91c5ce381e0528328ba202dddcd8511c9a28",
-  "scripts/verify-toss-openapi.mjs": "bd5063b5649bc4c9be5c48ad6baa46dd98ddd7bc950a3a7be11d9d6f7ea733c4",
+  "scripts/verify-toss-openapi.mjs": "1ac6da97dcbf4792f8f8144014471fcb1b1f67e69f539575cd32cc964023389e",
   "src-tauri/Cargo.toml": "4bbe46882cabc3b0550442597f85b99389d8445dd585180f30c00f7213502759",
   "src-tauri/build.rs": "487059eaf8a947b80f20a9aacac038a5047b2ad69d2401b827376c67d6fe847f",
   "src-tauri/src/api/detect.rs": "04da4ef970ba671df58ef786791c0982d97ae866673377edb4270f743a263ac2",
