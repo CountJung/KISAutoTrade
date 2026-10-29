@@ -17,7 +17,7 @@
 | 단계 계획 | [MASTER_PLAN.html](docs/MASTER_PLAN.html) |
 | 작업별 탐색 / 전체 파일 지도 | [PROJECT_MAP.md](docs/PROJECT_MAP.md) / [project-map.md](docs/project-map.md) |
 | 아키텍처 / 검증 명령 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) / [HARNESS_MAP.md](docs/HARNESS_MAP.md) |
-| 개선 할일 / 작업 기록 템플릿 | [todo.md](docs/todo.md) · [상태·색상 보기](docs/todo.html) / [TASK_TEMPLATE.md](docs/tasks/TASK_TEMPLATE.md) |
+| 개선 할일 / 작업 기록 템플릿 | [todo.md](docs/todo.md) · [상태·색상 보기](docs/todo.html) · [완료·경과 이력](docs/completed-history.md) / [TASK_TEMPLATE.md](docs/tasks/TASK_TEMPLATE.md) |
 | API 계약 / Toss 연동 | [ipc-commands.md](docs/ipc-commands.md) / [toss-openapi.md](docs/toss-openapi.md) |
 | Discord 설정 / 릴리스 보안 | [discord-setup-guide.md](docs/discord-setup-guide.md) / [release-security.md](docs/release-security.md) |
 | 에이전트 진입 | [AGENTS.md](AGENTS.md) / [CLAUDE.md](CLAUDE.md) |

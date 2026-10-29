@@ -11,7 +11,8 @@
 |------|------|
 | 디렉토리 맵 + 아키텍처 | `docs/project-map.md` |
 | 에이전트 코드 탐색 도구 운영 | `docs/agent-tooling.md` |
-| 개선 백로그 | `docs/todo.md` |
+| 개선 백로그 | [docs/todo.md](docs/todo.md) |
+| 완료·경과 이력 | [docs/completed-history.md](docs/completed-history.md) |
 | IPC 커맨드 목록 (35개+) | `docs/ipc-commands.md` |
 | 코딩 가이드 (AppState·IPC·데몬) | `docs/coding-guide.md` |
 | KIS API 스킬 | `.github/skills/kis-api/SKILL.md` |
@@ -83,11 +84,11 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-10-29 | TODO를 남은 19개 작업·대분류 현황표로 재편하고 완료/부분 완료·과거 연구 근거를 별도 이력으로 이관 |
 | 2026-10-25 | 추세 필터 실제 소유·선택 청산/UI, 30연속/360분기·독립 정산과 기본 승격 기각 |
 | 2026-10-25 | P2-16의 연속70/30 경고·표본 해석 근거와 문구/fixture·별도 walk-forward 잔여 구현 정리 |
 | 2026-10-25 | 가격조건의 고정 기준가·희소노출 원장과 손절 미발동 한계, native/overlay 경계·후속 fixture 조건 정리 |
 | 2026-10-25 | 열린 항목의 대기 사유·비식별 자료/결정·재개/완료 기준 재정리, LTH 중복 미완료 조건을 P1-05에 통합 |
-| 2026-10-23 | 추세 필터 사전 설계·기존 원장 감사 범위 정리, 구현·후보 실행 미완료 |
 
 ## 운영 문서 스택
 

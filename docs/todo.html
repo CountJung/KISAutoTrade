@@ -51,140 +51,127 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 </form>
 <p id="result" role="status" aria-live="polite">전체 19개 표시</p>
 <noscript><p>JavaScript 없이도 모든 열린 할일을 읽을 수 있습니다. 상태 필터와 검색은 JavaScript가 필요합니다.</p></noscript>
-<section id="tasks" aria-label="열린 할일 목록"><article class="task validation" id="soxq-p1-05" data-status="validation" data-source-line="48">
-<p class="section">SOXQ 3개월 연구에서 확인한 P1 과제 (2026-10-03)</p>
-<p class="badge">🟠 사용자 검증·자료 대기</p>
-<h2><strong>SOXQ-P1-05 — LTH 일봉 근사와 실제 장중 평가를 구분한다.</strong></h2>
-<ul><li class="subtask"><span aria-label="완료">☑</span> v7/LTH v3에서 일봉 context를 bounded 별도 버퍼로 분리했다. 분봉 EMA/RSI/ADX·반동·볼린저에 일봉을 넣지 않으며, 분봉 OHLC 재초기화는 OHLC·반동·볼린저 snapshot, 가격 재초기화는 반동 snapshot만 교체한다. 일봉 재초기화는 분봉·보유 상태를 유지한다.</li>
-<li class="subtask"><span aria-label="완료">☑</span> 전용 일봉 경로는 시가를 장중 진입 가격으로 합성하지 않고 <code>dailyDiagnostic/notEvaluable</code> 자료 진단만 반환한다. UI는 수익률·거래 성과·A/B 저장을 숨기며 assessment 없는 기존 LTH 응답도 평가 불가로 표시한다.</li>
-<li class="subtask"><span aria-label="완료">☑</span> 현재 최대 200봉의 실제 분봉은 <code>intradaySample/sampleOnly</code>, 유효 분봉 0개는 <code>notEvaluable</code>로 표시한다. 일봉 context 수와 실제 장중 관측 수를 분리하고 시간대·DST·세션 미검증, 고정 KST 근사와 3개월 대표성 부족을 명시한다.</li>
-<li><strong>현재 미완료:</strong> 2026-07-06~10-02 SOXQ 실제 분봉 원본, 거래소 시간대·DST·실제 거래일/조기마감·세션·기간 전체 coverage 검증과 생산 replay 재실행이 남아 있다. 2026-10-22의 시간/미관측 슬롯 진단은 합성 fixture·mock 검증이며 실제 공급원·발행/수신 시각·전체 달력을 확인한 것은 아니다.</li>
-<li><strong>진행할 수 없는 사유:</strong> 보관한 짧은 실제 분봉 표본과 일봉으로는 요청한 3개월의 장중 경로·누락 원인을 복원할 수 없다. 사용 가능한 해당 기간 원본/이용 권한이 확인되지 않았으며 일봉 보간이나 합성 fixture로 대체하지 않는다.</li>
-<li><strong>필요한 비식별 자료:</strong> 원본 파일 경로 또는 사용 가능한 공급원과 자료 이용 범위, feed·가격 조정 여부·봉 시작/종료 표기·요청 기간·수집 시각 metadata를 제공한다. API key·계좌번호·개인 계정 파일은 문서나 에이전트에 전달하지 않는다.</li>
-<li><strong>재개 조건:</strong> 원본과 이용 범위가 확인되면 원본 hash·누락/중복·거래소 달력·공개 가능 시각을 먼저 고정하고, 기존 fixed KST 실행 모델과 검증된 시장 시각의 차이를 해결한 뒤 재실행한다. 파싱 진단 통과만으로 <code>lookAheadSafe</code>나 성과 상태를 승격하지 않는다.</li>
-<li class="subtask"><span aria-label="미완료">☐</span> <strong>객관적 완료 기준:</strong> 요청 기간의 원본·출처·hash·세션별 coverage/제외 사유를 보관하고, DST·휴장/조기마감·gap·진입/마감 창 및 생산 신호/체결·독립 정산을 재현 가능하게 검증한다. 미확인 구간은 평가 불가로 남긴다.</li>
-<li><strong>중복 미완료 조건 통합:</strong> 기존 제목 <strong>“LTH 보강의 일봉 성과 미리보기”</strong>의 근거와 잔여 조건을 이 항목에 통합했다. 일봉 context/분봉 지표 분리와 일봉 <code>notEvaluable</code>는 이미 구현되었고, 일봉에서 장중 성과를 복원하는 새 기능을 약속하지 않는다. 활성 볼린저 성과는 실제 1분봉·시장 시간 검증 후에만 평가하며 옵션별 비교 결과는 별도 P2-12에 남긴다. 통합은 삭제나 완료 처리가 아니다. <a href="tasks/lth-minute-timing-20261022.md">시간 진단의 검증 범위</a>.</li>
-<li>대상: <code>commands/strategy_preview.rs</code>, <code>trading/strategy/leveraged_trend_hold/{live,preview,indicators}.rs</code>, <code>trading/simulation/assessment.rs</code>. <a href="tasks/soxq-p1-05.md">작업 기록</a>, <a href="research/soxq-3m-20261003/p1-05-validation.md">v7 검증</a>.</li></ul>
-<a class="permalink" href="#soxq-p1-05" aria-label="이 할일 링크">#</a>
-</article>
-<article class="task decision" id="task-42dde58d63" data-status="decision" data-source-line="62">
-<p class="section">P1 — 보류 사항</p>
-<p class="badge">🟠 사용자 판단 대기</p>
-<h2>MariaDB contract fixture와 지원 버전 matrix 검증.</h2>
-<ul><li><strong>현재 미완료:</strong> MariaDB 실제 서버의 contract fixture와 지원 버전별 schema/import/export·transaction·실패/재접속·인증 matrix 검증이다. adapter·DDL은 유지하며 PostgreSQL16 로컬 TLS/재접속 성공을 MariaDB 성공으로 확대하지 않는다.</li>
-<li><strong>진행할 수 없는 사유:</strong> 실제 서버 fixture는 기존 사용자 결정으로 보류되었고 지원할 MariaDB 버전·인증 범위가 확정되지 않았다. 임의로 보류를 해제하거나 비TLS 인증 지원을 제거하지 않는다.</li>
-<li><strong>필요한 사용자 판단:</strong> 보류 해제 여부, 지원 버전과 인증/TLS 범위를 결정한다. 운영 계정/DB 자료 대신 격리된 합성 fixture를 사용한다.</li>
-<li><strong>재개 조건:</strong> 범위가 정해지면 운영 서비스와 분리한 일회용 서버·합성 접속정보로 테스트를 실제 실행한다. 환경 미설정으로 즉시 반환한 테스트는 통과로 세지 않는다.</li>
-<li><strong>객관적 완료 기준:</strong> 지원 matrix의 각 조합에서 계약 실행 건수·성공/거부·rollback·재접속과 비밀정보 비노출을 기록하고 CI 실행/미실행을 구분한다. <a href="tasks/database-tls-reconnect-20261018.md">기존 PostgreSQL 검증과 제외 범위</a>, SQLx 전환 정책은 DEP-P3-01·02에서 별도 관리한다.</li></ul>
-<a class="permalink" href="#task-42dde58d63" aria-label="이 할일 링크">#</a>
-</article>
-<article class="task decision" id="task-991db0eb09" data-status="decision" data-source-line="68">
-<p class="section">P1 — 보류 사항</p>
-<p class="badge">🟠 사용자 판단 대기</p>
-<h2>여러 broker/account 포지션과 pending을 동시에 상주·대조하는 multi-scope runtime.</h2>
-<ul><li><strong>현재 미완료:</strong> 여러 broker/account의 포지션·pending을 동시에 상주시켜 scope별로 대조하는 runtime이다. 현재의 단일 활성 scope·owner 원장·계좌 전환 경합 보호는 구현했으며 동시 다계좌 운용과 다르다.</li>
-<li><strong>진행할 수 없는 사유:</strong> 동시 다계좌 운용의 제품 채택 여부와 scope별 실행·정지·리스크 한도가 정해지지 않았다. 현재 불변식을 임의로 바꾸면 주문·잔고·복원 경계가 달라진다.</li>
-<li><strong>필요한 사용자 판단:</strong> 동시 운용 채택 여부, 지원 broker/시장 조합, 계좌별·전체 리스크/비상정지 범위를 결정한다. 실제 credential·계좌 파일 제공은 이 결정에 필요하지 않다.</li>
-<li><strong>재개 조건:</strong> 제품 범위가 확정되면 <code>(broker, account, market, symbol)</code> tracker와 scope별 credential reconciliation 설계를 고정하고 mock부터 구현한다.</li>
-<li><strong>객관적 완료 기준:</strong> 동시 scope의 주문/체결/pending·캐시·소유 원가·재시작·부분 실패가 서로 침범하지 않으며 scope별/전체 정지·리스크를 실패 fixture와 UI에서 검증한다. 실제 계좌 운용은 별도 승인 검증으로 남긴다. <a href="ARCHITECTURE.md">현재 소유·scope 경계</a>, <a href="tasks/strategy-fill-ownership-20261018.md">기존 소유 피드백 검증</a>.</li></ul>
-<a class="permalink" href="#task-991db0eb09" aria-label="이 할일 링크">#</a>
-</article>
-<article class="task validation" id="task-bc92c530af" data-status="validation" data-source-line="92">
-<p class="section">P1 — 통합 검증과 실제 provider 확인</p>
-<p class="badge">🟠 사용자 검증·자료 대기</p>
-<h2>KIS/Toss 기존 운영 원장과 실제 정정·취소 응답의 최종 검증.</h2>
-<ul><li><strong>현재 미완료:</strong> 실제 KIS/Toss 정정·취소의 old/new order ID·거부/만료 의미와 도입 이전 보유·기존 체결의 전략/프로파일 귀속·원가·투자모드를 실제 원본에 대조하는 검증이다. 공통 상태·직렬화·exact owner·로컬 합성 재시작/체결은 검증했으며 운영 원장 검증과 구분한다.</li>
-<li><strong>진행할 수 없는 사유:</strong> 실제 사례의 비식별 원본과 운영자 귀속 확인이 없고 계좌 조회·소액 주문의 별도 승인이 없다. 새 원장에 계좌 전체 보유를 자동 편입하거나 확인 불가 기록의 주문 차단을 해제할 수 없다.</li>
-<li><strong>필요한 비식별 자료/판단:</strong> 식별값을 일관되게 치환한 요청·응답·시간순 상태·누적 수량/대금/비용 사례와 도입 이전 보유 귀속 대조 결과를 제공한다. 운영 연결이 필요하면 read-only 범위를 먼저 정하고 소액 주문은 별도로 명시 승인한다. key·계좌 원문·개인 계정 파일은 받지 않는다.</li>
-<li><strong>재개 조건:</strong> 비식별 fixture로 mapping·중복/역순·부분체결/정정/취소/거부/만료를 먼저 재현한다. read-only 대조 후에도 불충분한 실제 주문 검증만 별도 승인 범위에서 진행한다.</li>
-<li><strong>객관적 완료 기준:</strong> provider별 원래/새 주문 연결·최종 상태·수량/원가/모드·소유 귀속을 원본 근거와 대사하고 불명확 사례의 fail-closed·재시도 멱등성을 입증한다. 운영자 대조/복구 UI 구현은 아래 자동 구현 항목에서 계속 진행한다. <a href="tasks/strategy-fill-ownership-20261018.md">로컬 검증과 운영 제외 범위</a>.</li></ul>
-<a class="permalink" href="#task-bc92c530af" aria-label="이 할일 링크">#</a>
-</article>
-<article class="task validation" id="soxq-p2-09" data-status="validation" data-source-line="138">
-<p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
-<p class="badge">🟠 사용자 검증·자료 대기</p>
-<h2><strong>SOXQ-P2-09 — 변동성 확장의 실제 장중 근거 검증.</strong> 테스트 가능한 구현·일봉 비교는 완료했으며 최초 장중 발동·실제 체결 가능성 조건은 열린 상태다. <a href="tasks/volatility-expansion-policy-20261022.md">작업</a>, <a href="research/volatility-expansion-policy-20261022/report.md">사전 설계·비교·한계</a>, <a href="research/volatility-expansion-policy-20261022/independent-audit.json">독립 감사</a>.</h2>
-<ul><li class="subtask"><span aria-label="완료">☑</span> v21 실제 수량/native 원가·잔량 청산·pending 기원·거절/부분/재설정/복원 보호, 이전N완료 범위와 당일OHLC·0범위/평균0·엄격 초과를 검증했다. live 유효 시장일의 관측 시가/고저·같은날 재조회/실패/latelegacy를 나누고 strict 저장·두 preview·전용 조건 빈도·현재/A-B·모바일을 동기화했다.</li>
-<li class="subtask"><span aria-label="완료">☑</span> 비대상1122개·기존102창·owned78원장의 기본 backtest/signals 호환, 고정36연속/36분할/432별도분기·부모70828개/독립249412개 정산과 현재390개 진단을 확인했다. 대체분할36개는 생산 경제 hash·입력연결이며 미저장 대체 원장 독립 재정산과 구분한다.</li>
-<li class="subtask"><span aria-label="완료">☑</span> 기간20은 연속4악화/2동일, 배수1.5는4개 개선/2동일이지만 모두 완료0·잔여평가다. 수익 보호/보유63은6개 모두 수익하락·회전증가, cap분기0·72개 동일이며 QQQ hold63은10/20bp +0.1099/−0.4609%다. 기본10/2/손절3·선택0·공통guard를 유지한다. 비교 보유0주36개·준비완료 무신호32/72개를 우수성/자료부족으로 오해하지 않는다.</li>
-<li><strong>현재 미완료:</strong> 최초 장중 조건 발동·주문 가능 시각·체결/차단·청산 창의 실제 자료 검증이다. 위 일봉/fixture·현재 UI 진단의 완료를 실제 장중 체결 가능성 확인으로 확대하지 않는다.</li>
-<li><strong>진행할 수 없는 사유:</strong> 관측 시가 대용인 live 첫 quote와 일봉 nextOpen은 실제 거래소 시가·봉 내부 순서·유동성을 입증하지 못한다. 해당 구간의 출처/공개 시각·세션·누락/coverage가 검증된 장중 자료가 없다.</li>
-<li><strong>필요한 비식별 자료:</strong> 장중 파일 경로 또는 공급원/이용 범위와 시장 timezone·봉 표기·발행/수신 시각·가격 조정·누락 metadata를 제공한다. 실제 체결 가능성까지 판단하려면 그 판단을 뒷받침하는 호가/체결 근거가 필요하며 OHLC만 있으면 그 한계를 남긴다.</li>
-<li><strong>재개 조건:</strong> 결과를 보기 전 동일 장중 창·자본·비용·단독 후보를 고정하고 coverage/공개 시각을 검증한 자료를 생산 엔진에 입력한다. 실제 계좌 연결·주문 없이 재현할 수 있는 검증은 그대로 자동 진행한다.</li>
-<li class="subtask"><span aria-label="미완료">☐</span> <strong>객관적 완료 기준:</strong> 최초 발동→주문 가능→체결/차단→청산의 시점·실현/잔여·비용/노출을 독립 대조하고, 미확인 장중 순서·유동성은 평가 불가로 분리한다. live 첫 quote/일봉 nextOpen 가정을 실제 장중 증거로 바꾸어 부르지 않는다.</li>
-<li>과거45창 중앙값0%·완료8·무완료38·무신호20은 별도 연구 관측으로 보존하며 이번 연속/분기 결과와 합산하지 않는다. P1-03의 완료봉·0범위/이전평균 계약도 유지한다.</li></ul>
-<a class="permalink" href="#soxq-p2-09" aria-label="이 할일 링크">#</a>
-</article>
-<article class="task validation" id="soxq-p2-12" data-status="validation" data-source-line="159">
-<p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
-<p class="badge">🟠 사용자 검증·자료 대기</p>
-<h2><strong>SOXQ-P2-12 — 레버리지 추세 보유(LTH):</strong> 최근 실제 분봉2,318개/7날짜의 기본·볼린저 활성×비용2종 네 진단은 신호0이다. null OHLCV412개·정규장 밖1개는 제거했고 합성하지 않았다. 고정KST/auto 세션·봉 종료 표기의 시작·종가 공개 가능 시각 모델·10초 관측 차이·누락/기간 coverage 미검증이라 0% 성과/볼린저 효과 없음으로 해석하지 않는다. 완료 조건: P1-05 실제3개월 원본·DST/거래일/세션·gap·진입/마감 창 검증 후 옵션별 비교. generic 거부·일봉 평가 불가 유지.</h2>
-<ul><li><strong>현재 미완료:</strong> P1-05의 검증된 실제 3개월 분봉을 사용한 기본/볼린저 옵션별 생산 비교 결과다. 짧은 표본의 신호0과 시간 진단 fixture는 옵션 효과의 근거가 아니다.</li>
-<li><strong>진행할 수 없는 사유:</strong> 검증된 전체 기간 자료·시장 달력/세션·공개 시각과 실행 시계의 일치가 확보되지 않았다. P1-05의 자료 준비와 이 항목의 옵션별 비교는 서로 다른 결과물이다.</li>
-<li><strong>필요한 비식별 자료:</strong> P1-05의 원본 경로·출처/이용 범위·시각/조정/coverage metadata를 공유한다. 같은 자료를 중복 요청하거나 별도 계좌 credential을 요구하지 않는다.</li>
-<li><strong>재개 조건:</strong> P1-05의 자료·시간 검증을 마친 뒤 결과를 보기 전 옵션·창·수량·비용을 고정하고 실제 장중 경로에서 비교한다.</li>
-<li><strong>객관적 완료 기준:</strong> 기본/볼린저 각 결과의 신호·체결/차단·완료 표본·실현/잔여·MDD·회전·노출을 독립 대조하고 무신호/자료부족/평가불가를 구분한다. generic LTH 거부·일봉 notEvaluable를 유지하고 짧은 신호0을 효과 없음으로 단정하지 않는다. <a href="research/strategy-review-20261018/report.md">표본 연구</a>, <a href="tasks/lth-minute-timing-20261022.md">시장 시각 진단의 한계</a>.</li></ul>
-<a class="permalink" href="#soxq-p2-12" aria-label="이 할일 링크">#</a>
-</article>
-<article class="task implementation" id="soxq-p2-13" data-status="implementation" data-source-line="168">
-<p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
+<section id="tasks" aria-label="열린 할일 목록"><article class="task implementation" id="task-77c4a7f280" data-status="implementation" data-source-line="34">
+<p class="section">P1 — 불명 주문 복구</p>
 <p class="badge">🟢 자동 구현</p>
-<h2><strong>SOXQ-P2-13 — 가격조건:</strong> 전일 종가 고정·익절5%·손절3% 연구 설정에서 중앙값 +0.2847%, 완료117회, 비용 부호 반전3창. 완료 조건: 평가 전 고정 기준가 유지, 손절 직후 재진입·공통 cooldown/최소 기대수익·회전율을 두 비용과 복수 구간에서 비교; guard 완화나 사후 최적화 금지.</h2>
-<ul><li><strong>기존 원장 근거:</strong> P2-18의 2023-01-03~2025-12-31 nextOpen 연속 평가는 비용별 3건·완료매도 3회·rawStopSignals 0·완료손절 0·guard 차단 0·기말보유 0이다. 별도 분기 초기화는 비용별 36건·완료매도 3회·33건 완료청산 없음·손절/차단 0이다. 원래 45창 sameClose 통계와 합산하지 않는다. <a href="research/continuous-replay-20261018/design.json">고정 설계</a>, <a href="research/continuous-replay-20261018/continuous-results.jsonl.gz">연속 원장</a>, <a href="research/continuous-replay-20261018/reset-results.jsonl.gz">별도 분기 원장</a>, <a href="research/continuous-replay-20261018/summary.csv">요약</a>.</li>
-<li><strong>평가 범위:</strong> 2022-12-30 기준가 SOXQ 19.91/SPY 382.43/QQQ 266.28, 수량 51/2/3, native 익절 5%·손절 3%, 수수료와 슬리피지 각각 10/20bp를 고정했다. 평균 초기자본 비중 0.0806/0.2430/0.1259%의 희소노출이며 손절 후 재진입·cooldown·최소 기대순익 gate의 효과를 이 표본으로 평가할 수 없다. 자료 준비 실패·코드 오류·전략 효능 0%라는 뜻이 아니다. 비교 도중 분기별 기준가 변경·사후 조정·guard 완화를 하지 않는다.</li>
+<h2><strong>P1-RECOVERY-01 — 응답 불명 주문의 운영자 대조·복구 UI를 구현한다.</strong></h2>
+<ul><li><strong>현재/남은 일:</strong> provider 응답 불명 시 자동 해제 없이 예산을 보류한다. 주문번호/clientOrderId 대조와 멱등 승인 흐름·불명확 상태 표시를 추가한다.</li>
+<li class="subtask"><span aria-label="미완료">☐</span> 대조 근거·scope·주문 식별값·누적 체결/보류 예산을 보여주는 UI와 복구 상태 전이를 설계한다.</li>
+<li class="subtask"><span aria-label="미완료">☐</span> 중복 승인·역순/부분 체결·불일치·저장 실패·재시작 fixture에서 오해제/중복 반영을 차단한다.</li>
+<li><strong>완료 기준:</strong> mock에서 대조→승인→영속화→재시작이 같은 결과를 내고, 확인 불가 사례는 보류한다. 실제 운영자 대조 완료는 P1-PROVIDER-01로 별도 검증한다.</li>
+<li><strong>의존성/근거:</strong> 로컬 UI·fixture 구현은 지금 가능하다. 실제 사례는 P1-PROVIDER-01과 연결하며 계좌 전체 보유를 자동 편입하지 않는다. <a href="tasks/strategy-fill-ownership-20261018.md">기존 소유·체결 경계</a>, <a href="ARCHITECTURE.md">예산 원장 구조</a>.</li></ul>
+<a class="permalink" href="#task-77c4a7f280" aria-label="이 할일 링크">#</a>
+</article>
+<article class="task implementation" id="soxq-p2-13" data-status="implementation" data-source-line="44">
+<p class="section">P2 — 가격조건·연구 해석</p>
+<p class="badge">🟢 자동 구현</p>
+<h2><strong>SOXQ-P2-13 — 가격조건의 실제 소유·손절 후 재진입과 공통 guard를 검증한다.</strong></h2>
+<ul><li><strong>의존성:</strong> 로컬 생산 fixture부터 진행한다. 고정 기준가·수량·두 비용과 희소노출/손절 미발동의 <a href="completed-history.md#soxq-p2-13">기존 평가 범위</a>를 유지하고, 실제 장중 효능은 자료 검증 뒤 별도 판정한다.</li>
 <li><strong>구현 경계:</strong> PC native 손절은 일반 TradeGuard 검사 대상이고 연구 overlay는 TradeGuard를 우회하는 별도 경로다. exact owner 제출수량 clamp가 있으므로 내부 bool 보유 모델만으로 초과매도 사고를 단정하지 않는다. 실제 소유 수량·native 평균 원가·부분보유/설정수량 차이·거절 피드백과 두 경로를 분리해 검증한다. <a href="../src-tauri/src/trading/strategy/price_condition.rs">PC native 신호</a>, <a href="../src-tauri/src/trading/order/submission/owned.rs">exact owner 제출수량</a>, <a href="../src-tauri/src/trading/simulation/session.rs">연구 정산·overlay 경로</a>.</li>
 <li><strong>남은 완료 조건:</strong> 위 고정 기준가·두 비용·공통 guard를 유지한 채 손절 접수 전후·차단된 손절·같은 날/다음 날·DST·계좌 분리 fixture를 추가하고 부분 체결/보유·거절·실제 native 평균가와 재진입/회전·순손익을 대조한다. 분 단위 cooldown/재진입 효능은 일봉만으로 입증하지 않으며 fixture 검증과 실제 장중 자료의 평가 범위를 구분한다.</li>
-<li><strong>기존 검증 범위:</strong> <code>cargo test --offline --workspace --lib price_condition --locked</code> 8개 통과·0개 실패·781개 제외는 기존 동작 검증이다. 위 새 조건의 구현·연구 결과나 P2-13 완료 증거가 아니며 이 항목은 자동 구현으로 열린 상태를 유지한다.</li>
 <li><strong>해석 위험·검증 의존성:</strong> 손절이 미발동한 일봉 표본을 재진입/손절 효능으로 확대하는 해석을 피한다. 생산 Rust fixture와 시각/시장일·체결 정보가 확인된 장중 자료가 검증 근거이며, fixture 완료와 실제 자료 검증의 범위를 구분한다.</li></ul>
 <a class="permalink" href="#soxq-p2-13" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="soxq-p2-16" data-status="implementation" data-source-line="182">
-<p class="section">P2 — 전략 시뮬레이션과 연구 워크플로</p>
+<article class="task implementation" id="soxq-p2-16" data-status="implementation" data-source-line="50">
+<p class="section">P2 — 가격조건·연구 해석</p>
 <p class="badge">🟢 자동 구현</p>
-<h2><strong>SOXQ-P2-16 — ATR을 true range로 계산하고 표본 부족을 성과와 구분한다.</strong></h2>
-<ul><li>v8 replay는 이전 종가 포함 TR14·동일 interval 사전 ATR warmup·준비 진단을 구현했다. 연구 UI는 기본 비활성 수량 산정과 위험bps/배수를 제공하고 부족·0범위·0bps 매수 차단을 표시한다. LTH는 실제 잔여수량/평균가 피드백으로 확대·축소·부분매도 보호를 검증했다. 최신45창의 작은 완료 표본과 자산/기간 상관·무거래 창은 여전히 구분해야 한다.</li>
+<h2><strong>SOXQ-P2-16 — 구간 경고·표본 해석을 교정하고 별도 walk-forward를 평가한다.</strong></h2>
+<ul><li><strong>의존성:</strong> 기존 TR14·사전 ATR warmup·LTH 평가불가 gate는 보존한다. 경고/설명·fixture 교정은 즉시 가능하며 walk-forward는 생산 API·검증 자료·사전 선언에 의존한다. 과거 수치와 구현 근거는 <a href="completed-history.md#soxq-p2-16">부분 완료 이력</a>에 보존했다.</li>
 <li>완료 조건: 이전 종가 포함 TR·사전 ATR warmup·봉 간격 유지; 표본 수/신뢰 부족 표시; 70/30 구간을 기간 정규화 없이 과최적화 확정에 사용하지 않고 별도 walk-forward 평가.</li>
 <li><strong>현재 판정 근거:</strong> 같은 ReplaySession 상태가 이어지는 70/30은 분리 학습·독립 OOS가 아니다. <code>phase_summaries</code>는 완료매도가 체결된 phase에 전체 배분 원가의 손익을 귀속한다. <code>overfit_warning</code>은 전반 수익&gt;0에서 후반&lt;=0 또는 후반&lt;전반×0.5만 검사하며 구간 길이·완료 수를 보지 않는다. session의 최종 판정식을 continuous 경로는 유지하고 문구만 완화한다. <a href="../src-tauri/src/trading/simulation.rs">구간 집계·판정식</a>, <a href="../src-tauri/src/trading/simulation/session.rs">최종 호출</a>, <a href="../src-tauri/src/commands/strategy_preview/continuous.rs">연속 문구 치환</a>.</li>
-<li><strong>기존 원장 진단:</strong> v12 연속 72원장은 526/226봉이며 후반 양수·전반 절반 미만 26건, 전반 양수·후반 음수 16건/정확히 0인 6건, 한쪽 완료청산 0인 32건이다. 별도 분기 864원장은 각각 52/132/53/786건이다. SOXQ PC 10bp의 2023Q1은 전반 +0.7526%·완료1/후반 0%·완료0인데 flat 경고는 후반을 “검증 구간은 손실”로 표시한다. 비용쌍·상관 ETF·겹치는 창은 독립 표본이 아니다. 앞선 감사와 동일 SHA의 기존 원장이며 새 v22 실행 결과가 아니다. <a href="research/continuous-replay-20261018/continuous-results.jsonl.gz">연속 원장</a>, <a href="research/continuous-replay-20261018/reset-results.jsonl.gz">별도 분기 원장</a>, <a href="research/continuous-replay-20261018/design.json">고정 설계</a>.</li>
 <li><strong>남은 자동 구현 우선순위:</strong> 누적수익 절반 조건으로 과최적화·학습/OOS를 단정하는 경고와 0%=손실 문구를 교정한다. 같은 finish를 쓰는 LTH 전용 preview를 포함해 flat/LTH/continuous·현재/A-B·legacy의 구간 길이·완료청산 표본·연속 상태 설명을 일치시킨다. 현재 flat/LTH UI의 “학습 구간(%) / 나머지는 out-of-sample 검증”·학습/In-sample/Out-of-sample 제목·표와 continuous의 앞/뒤·독립검증 아님 표현을 함께 정리한다. <code>BacktestPhaseView</code>/<code>BacktestPhase</code>에 관측수·노출·실현/잔여·경계보유 정보가 없으므로 필요한 설명/진단 계약을 보완하되 기존 회계·체결·원시 구간값은 보존한다. 길이가 다른 구간·후반0/손실·완료0/부분청산 fixture와 기본 거래/report·회계 불변을 검증하고 기존 TR·사전 ATR warmup·봉 간격 계약 및 LTH 평가불가/자료 gate를 유지한다. <a href="../src/pages/strategy/ui/strategyResearchPanel.tsx">현재 연구 UI</a>, <a href="../src/shared/api/strategyResearchTypes.ts">구간 TS 계약</a>.</li>
 <li><strong>별도 walk-forward 완료 기준:</strong> 생산 Rust API로 자료를 읽기 전 창·이전 정보·고정 후보·두 비용·설정 선택·warmup·수량·경계 보유 처리와 비중/노출·실현/잔여·MDD·차단·회전 기준을 선언한다. 과거 자료 재검토를 새 OOS로 부르지 않으며, 이어지는 장부의 사후 70/30과 분리한다.</li>
 <li><strong>해석 위험·검증 의존성:</strong> 경고 없음을 신뢰 충분으로, 청산0을 성과 우수로 해석하지 않는다. 생산 Rust 구현·fixture와 검증 가능한 자료·사전 선언에 의존하며, 로컬 자동 구현/검증에 새 사용자 승인 게이트를 추가하지 않는다.</li></ul>
 <a class="permalink" href="#soxq-p2-16" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-f4140a9e27" data-status="implementation" data-source-line="202">
-<p class="section">자동매매 예산·볼린저 보강 검증 기록 (2026-09-11)</p>
+<article class="task implementation" id="task-cf91060c9e" data-status="implementation" data-source-line="61">
+<p class="section">P3 — 남은 파일 분리</p>
 <p class="badge">🟢 자동 구현</p>
-<h2>실제 provider 응답 불명 주문의 운영자 대조/복구 UI: 현재는 자동 해제 없이 예산을 보류한다. 주문번호/clientOrderId 대조 및 멱등 승인 흐름으로 확장할 것.</h2>
-
-<a class="permalink" href="#task-f4140a9e27" aria-label="이 할일 링크">#</a>
+<h2><strong>P3-REFACTOR-01 — 1,000라인 초과 파일을 책임 단위로 분리한다.</strong></h2>
+<ul><li class="subtask"><span aria-label="미완료">☐</span> <code>src/pages/trading/ui/Page.tsx</code>: broker별 orchestration과 공통 order form 분리.</li>
+<li class="subtask"><span aria-label="미완료">☐</span> <code>src-tauri/src/commands/toss.rs</code>: diagnostic/preflight/orders surface 분리.</li>
+<li class="subtask"><span aria-label="미완료">☐</span> <code>src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx</code>: ticker picker/preview UI 분리.</li>
+<li>검증: 변경 파일과 신규 파일은 1,000라인 아래, FSD/API public surface와 IPC 이름은 유지한다.</li>
+<li><strong>의존성/근거:</strong> 파일별 독립 변경으로 진행하며 소유·scope·공개 API 계약을 보존한다. <a href="PROJECT_MAP.md">탐색 지도</a>, <a href="HARNESS_MAP.md">변경 범위별 검증</a>.</li>
+<li><strong>완료된 부분의 근거:</strong> <a href="completed-history.md#p3-refactor-01">이관 기록</a>을 참고한다. 상위 완료 조건은 유지한다.</li></ul>
+<a class="permalink" href="#task-cf91060c9e" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-a322b97c93" data-status="implementation" data-source-line="207">
-<p class="section">P3 — 유지보수·품질 게이트</p>
+<article class="task implementation" id="task-9b9191cd53" data-status="implementation" data-source-line="79">
+<p class="section">P3 — 독립 검토 가능한 호환 업데이트</p>
 <p class="badge">🟢 자동 구현</p>
-<h2>1,000라인 초과 파일을 책임 단위로 분리한다.</h2>
-<ul><li class="subtask"><span aria-label="완료">☑</span> <code>src-tauri/src/commands/trading.rs</code>: lifecycle469/positions329/balance96/risk_restore96/daemon527/history281행으로 분리. IPC4개·scope·복원/시작 순서 보존, lib212개와 독립 본문 감사 통과. <a href="tasks/trading-module-split-20261018.md">기록</a>.</li>
-<li><code>src/pages/trading/ui/Page.tsx</code>: broker별 orchestration과 공통 order form 분리.</li>
-<li class="subtask"><span aria-label="완료">☑</span> <code>src/api/hooks.ts</code>: 19행 facade와 account/market/order/strategy/settings/history/trading/log 모듈49~255행으로 분리, 공개export87개/선언74개 동일. <a href="tasks/frontend-hooks-split-20261018.md">기록</a>.</li>
-<li><code>src-tauri/src/commands/toss.rs</code>: diagnostic/preflight/orders surface 분리.</li>
-<li class="subtask"><span aria-label="완료">☑</span> <code>src-tauri/src/trading/order/submission.rs</code>: positions/prepare/provider/records와 run 회귀로 분리. 예약·scope·manual API 경계를 검증했다. <a href="tasks/execution-run-reservation-20261018.md">기록</a>.</li>
-<li><code>src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx</code>: ticker picker/preview UI 분리.</li>
-<li class="subtask"><span aria-label="완료">☑</span> <code>src-tauri/src/trading/order.rs</code>: facade·health·pending·legacy·execution run으로 분리하고 1050행 fills도 적용/collector/reconciliation/provider mode로 나눴다. <a href="tasks/execution-run-reservation-20261018.md">기록</a>.</li>
-<li>검증: 변경 파일과 신규 파일은 1,000라인 아래, FSD/API public surface와 IPC 이름은 유지한다.</li></ul>
-<a class="permalink" href="#task-a322b97c93" aria-label="이 할일 링크">#</a>
+<h2><strong>DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다.</strong> 우선순위 3, DEP-P3-02 다음; 두 전환의 diff·검증은 분리한다.</h2>
+<ul><li><strong>실제 코드 영향 확인:</strong> Cargo의 <code>rustls-tls</code>→<code>rustls</code> 및 명시 <code>query</code> 기능, <code>api/rest/chart.rs</code>의 <code>.query()</code> 사용을 반영한다. <code>api/websocket.rs</code> 승인·구독의 <code>Message::Text(String)</code>는 Utf8Bytes 변환 대상이다. TLS 루트/crypto provider·수신/종료 payload와 버퍼 기본값은 별도 호환 확인 대상이며 실제 실패를 재현한 것은 아니다.</li>
+<li><strong>완료 조건:</strong> 합성 HTTP/TLS 서버에서 차트 query·헤더·JSON·쿠키·오류 처리를 확인하고 mock WebSocket에서 승인·구독·수신·ping/pong·종료·재연결을 검증한다. 실제 KIS/Toss 인증 없이 Rust format/strict clippy/check/test/build와 해당 CI를 통과한다. <a href="https://github.com/seanmonstar/reqwest/releases/tag/v0.13.0">reqwest 변경</a>, <a href="https://raw.githubusercontent.com/snapview/tungstenite-rs/v0.30.0/CHANGELOG.md">WebSocket 변경</a>.</li>
+<li><strong>착수 의존성:</strong> 앞 번호는 검토 권장 순서다. 실제 API·peer·toolchain 의존성을 확인해 범위를 고정하며 DEP-P3-01 결정 대기를 이 항목의 일괄 차단으로 확대하지 않는다.</li></ul>
+<a class="permalink" href="#task-9b9191cd53" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-ffa0458c56" data-status="decision" data-source-line="231">
-<p class="section">P3 — 유지보수·품질 게이트</p>
+<article class="task implementation" id="task-4686c2c738" data-status="implementation" data-source-line="85">
+<p class="section">P3 — 독립 검토 가능한 호환 업데이트</p>
+<p class="badge">🟢 자동 구현</p>
+<h2><strong>DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다.</strong> 우선순위 4, DEP-P3-03 다음.</h2>
+<ul><li><strong>확인/미검증 구분:</strong> <code>server/mod.rs</code>의 <code>/:symbol</code>·<code>/:id</code>는 새 <code>/{symbol}</code>·<code>/{id}</code> 문법으로 바꿔야 한다. tower-http는 현재 CORS 사용 경로의 별도 후보이며 프로젝트에서 구체적 API 실패를 확인하지 않았다. 이미 존재하는 간접 tower-http 0.6.11을 직접 의존성 전환 완료로 취급하지 않는다.</li>
+<li><strong>완료 조건:</strong> 주문·계정 provider를 mock으로 격리하고 기존 모든 route의 경로/상태·인증 거부·CORS·오류 응답·Tauri IPC와 REST view 계약을 회귀 검증한다. Rust format/strict clippy/check/test/build 및 CI 통과. <a href="https://github.com/tokio-rs/axum/blob/axum-v0.8.0/axum/CHANGELOG.md">axum 변경</a>.</li>
+<li><strong>착수 의존성:</strong> 앞 번호는 검토 권장 순서다. 실제 API·peer·toolchain 의존성을 확인해 범위를 고정하며 DEP-P3-01 결정 대기를 이 항목의 일괄 차단으로 확대하지 않는다.</li></ul>
+<a class="permalink" href="#task-4686c2c738" aria-label="이 할일 링크">#</a>
+</article>
+<article class="task implementation" id="task-8f6637aa71" data-status="implementation" data-source-line="91">
+<p class="section">P3 — 독립 검토 가능한 호환 업데이트</p>
+<p class="badge">🟢 자동 구현</p>
+<h2><strong>DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다.</strong> 우선순위 5, DEP-P3-04 다음.</h2>
+<ul><li><strong>실제 코드 영향 확인:</strong> 대시보드·전략의 MUI <code>Grid item xs</code>는 <code>size</code> API로, 전략 입력의 <code>InputProps</code>는 <code>slotProps.input</code>으로 이전 대상이다. React는 이미 createRoot/새 JSX 변환을 사용한다. React DOM·타입/ref·오류 처리·주변 라이브러리 호환은 미검증 후보이며 이번에 React 교체 실패를 확인한 것은 아니다.</li>
+<li><strong>완료 조건:</strong> React/DOM/타입과 MUI 관련 패키지의 지원 조합을 공식 가이드로 정하고 분리된 변경으로 타입·FSD·production build를 통과한다. 금융 mock E2E에서 전략/설정/대시보드·좁은 화면·입력/메뉴/버튼·테마·차트를 검증하고 Mac/Linux 결과를 구분한다. <a href="https://react.dev/blog/2024/04/25/react-19-upgrade-guide">React 이전</a>, <a href="https://mui.com/material-ui/migration/upgrade-to-v9/">MUI 이전</a>.</li>
+<li><strong>착수 의존성:</strong> 앞 번호는 검토 권장 순서다. 실제 API·peer·toolchain 의존성을 확인해 범위를 고정하며 DEP-P3-01 결정 대기를 이 항목의 일괄 차단으로 확대하지 않는다.</li></ul>
+<a class="permalink" href="#task-8f6637aa71" aria-label="이 할일 링크">#</a>
+</article>
+<article class="task implementation" id="task-28743a36d9" data-status="implementation" data-source-line="97">
+<p class="section">P3 — 독립 검토 가능한 호환 업데이트</p>
+<p class="badge">🟢 자동 구현</p>
+<h2><strong>DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다.</strong> 우선순위 6, DEP-P3-05 다음.</h2>
+<ul><li><strong>확인/미검증 구분:</strong> Rollup/esbuild→Rolldown/Oxc 전환에 맞춰 <code>vite.config.ts</code>의 <code>minify: &#39;esbuild&#39;</code>, MUI/Emotion 등의 manualChunks·Tauri pre-bundling 제외 설정을 검토한다. 현재 설정이 모두 실패한다고 입증한 것은 아니다. 명시된 WebView target을 기본 browser target 변화와 혼동하지 않는다.</li>
+<li><strong>완료 조건:</strong> 공식 단계별 migration과 Node/plugin 지원 범위를 확인하고 production chunk 초기화·Tauri custom-protocol native build·WebView 호환을 금융 연결 없이 검증한다. 타입/FSD/build·production UI E2E와 source harness를 통과하며 경고 억제나 크기 제한 완화로 대체하지 않는다. 안전하게 앱을 기동할 수 없으면 해당 런타임 검증은 미완료로 남긴다. <a href="https://vite.dev/guide/migration">Vite 이전</a>.</li>
+<li><strong>착수 의존성:</strong> 앞 번호는 검토 권장 순서다. 실제 API·peer·toolchain 의존성을 확인해 범위를 고정하며 DEP-P3-01 결정 대기를 이 항목의 일괄 차단으로 확대하지 않는다.</li></ul>
+<a class="permalink" href="#task-28743a36d9" aria-label="이 할일 링크">#</a>
+</article>
+<article class="task implementation" id="task-3e72354d71" data-status="implementation" data-source-line="103">
+<p class="section">P3 — 독립 검토 가능한 호환 업데이트</p>
+<p class="badge">🟢 자동 구현</p>
+<h2><strong>DEP-P3-07 — 나머지 Rust·UI 의존성 후보의 실제 필요와 영향부터 확인한다.</strong> DEP-P3-06 이후 개별 우선순위를 정한다.</h2>
+<ul><li><strong>미검증 후보:</strong> keyring 3.6.3→4.2.0(DB 암호 저장·mock), sha2 0.10.9→0.11.1(체크섬/이벤트 식별값), thiserror 1.0.69→2.0.21(오류 derive), react-grid-layout 1.5.4→2.3.0(새 API/내장 타입 및 legacy 호환 경로). 모두 확정 대규모 수정으로 판단한 것은 아니다. 이미 간접 thiserror 2.0.21이 있어도 직접 전환 완료는 아니다.</li>
+<li><strong>완료 조건:</strong> manifest/실제 참조·공식 breaking change·지원 target을 대조해 각 후보를 전환/유지/제거 검토로 결정한다. react-grid-layout은 당시 <code>src</code> 직접 import가 없었으므로 사용·CSS·동적 참조를 먼저 확인하며 이번에는 삭제하지 않는다. 전환 시 keyring은 mock만, sha2는 기존 fixture hash 불변, 오류 타입은 변환/메시지 회귀, UI는 사용 경로의 타입/build/E2E를 검증한다.</li>
+<li><strong>착수 의존성:</strong> 앞 번호는 검토 권장 순서다. 실제 API·peer·toolchain 의존성을 확인해 범위를 고정하며 DEP-P3-01 결정 대기를 이 항목의 일괄 차단으로 확대하지 않는다.</li></ul>
+<a class="permalink" href="#task-3e72354d71" aria-label="이 할일 링크">#</a>
+</article>
+<article class="task implementation" id="task-abc44d00a3" data-status="implementation" data-source-line="109">
+<p class="section">P3 — 독립 검토 가능한 호환 업데이트</p>
+<p class="badge">🟢 자동 구현</p>
+<h2><strong>DEP-P3-08 — TypeScript·패키지매니저 major 후보를 개별 평가한다.</strong> DEP-P3-06·07 검토 이후, 필요성이 확인된 항목만 전환한다.</h2>
+<ul><li><strong>미검증 후보:</strong> TypeScript 5.9.3→7.0.2, Mac 기본 npm 11.20.0→12.2.1, pnpm 10.30.3→12.15.0. 프로젝트 Node 24.22.1 LTS의 npm은 11.19.1이며 기본 Node의 npm과 구분한다. 프로젝트는 npm을 사용하고 pnpm은 이번에 채택하지 않았다. 개별 프로젝트 실패는 미확인이다.</li>
+<li><strong>완료 조건:</strong> 공식 compiler/Node engines·peer 지원과 설치/lockfile 변화를 확인한다. TypeScript는 strict 타입·FSD/build, npm은 금융 파일 없는 깨끗한 snapshot의 <code>npm ci --ignore-scripts</code>·lockfile 재현·감사·CI를 통과한다. pnpm은 프로젝트 사용 필요부터 확인하고 불필요하면 미채택 결정을 남기며, 전환·lockfile 병행을 자동 도입하지 않는다.</li>
+<li><strong>착수 의존성:</strong> 앞 번호는 검토 권장 순서다. 실제 API·peer·toolchain 의존성을 확인해 범위를 고정하며 DEP-P3-01 결정 대기를 이 항목의 일괄 차단으로 확대하지 않는다.</li></ul>
+<a class="permalink" href="#task-abc44d00a3" aria-label="이 할일 링크">#</a>
+</article>
+<article class="task implementation" id="task-5b7108079d" data-status="implementation" data-source-line="118">
+<p class="section">2. 선행 결정 후 진행할 코드 작업</p>
+<p class="badge">🟢 자동 구현</p>
+<h2><strong>DEP-P3-02 — SQLx 0.8.6→0.9.0의 SQL·DB 인증·잔여 RSA를 분리 검증한다.</strong> 우선순위 2, DEP-P3-01 완료 후 전환.</h2>
+<ul><li><strong>실제 코드 영향 확인:</strong> <code>storage/database_schema.rs</code>·<code>database_projection.rs</code>의 동적 <code>query(&amp;query)</code>/<code>query(&amp;format!(…))</code>는 새 SqlSafeStr/AssertSqlSafe 경계 검토·수정 대상이다. 0.9의 비TLS MySQL RSA 인증은 <code>mysql-rsa</code> 기능을 별도 요구한다. PostgreSQL/MariaDB 저장·타입/문자열·transaction·실패 복구도 재검증한다. 이 경로는 모두 <code>src-tauri/src/</code> 아래다.</li>
+<li><strong>완료 조건:</strong> 허용된 테이블 식별자와 bind 경계를 보존하고 격리 DB의 schema/import/export·transaction rollback·TLS 및 지원 인증 계약을 통과한다. <code>cargo fmt --all -- --check</code> 및 <code>--locked</code> check/test/strict clippy/build와 최소 Rust/stable CI를 확인한다. RUSTSEC-2023-0071은 별도 dependency tree/audit로 재평가하고 SQLx 상승만으로 해소됐다고 처리하지 않는다. 기존 비TLS 지원 제거·인증 정책 변경은 별도 사용자 결정 없이 하지 않는다. <a href="https://raw.githubusercontent.com/transact-rs/sqlx/v0.9.0/CHANGELOG.md">공식 0.9 변경</a>.</li></ul>
+<a class="permalink" href="#task-5b7108079d" aria-label="이 할일 링크">#</a>
+</article>
+<article class="task decision" id="task-f86c78f20a" data-status="decision" data-source-line="125">
+<p class="section">3. 사용자 판단·준비가 필요한 항목</p>
 <p class="badge">🟠 사용자 판단 대기</p>
-<h2>플랫폼 코드 서명·updater 서명 강제를 위한 배포 키 준비.</h2>
-<ul><li><strong>현재 미완료:</strong> 대상 플랫폼의 실제 코드 서명·updater 서명 생성과 서명 강제 release artifact 검증이다. checksum/attestation·sidecar 존재/비어 있지 않음·강제 옵션 검사는 구현했으며 암호학적 서명 검증이나 실제 서명 릴리스와 다르다.</li>
-<li><strong>진행할 수 없는 사유:</strong> 대상 플랫폼·키/인증서 관리 주체와 GitHub Environment의 서명 준비가 확정되지 않았다. 없는 키를 생성/등록한 것으로 가정하거나 서명 강제 변수만 먼저 켤 수 없다.</li>
-<li><strong>필요한 사용자 판단:</strong> 배포 플랫폼·서명 주체·키 보관/회전 정책과 승인할 release 환경을 정하고 관리자가 해당 환경에 키를 준비한다. 에이전트에는 비밀값 대신 준비 여부·키 식별용 비밀 아닌 metadata만 제공한다.</li>
-<li><strong>재개 조건:</strong> 환경의 서명 생성 단계와 필요한 키가 준비되면 별도 승인된 release 절차에서 <code>REQUIRE_RELEASE_SIGNATURES=true</code>를 적용한다. 로컬 verifier·mock의 자동 검증은 계속 가능하다.</li>
-<li><strong>객관적 완료 기준:</strong> 대상 artifact의 유효한 플랫폼/updater 서명을 확인하고 서명 누락·변조·불일치가 release를 차단함을 검증한다. checksum/attestation을 코드/updater 서명의 대체물로 취급하지 않는다. <a href="release-security.md">현재 게이트와 제한</a>.</li></ul>
-<a class="permalink" href="#task-ffa0458c56" aria-label="이 할일 링크">#</a>
+<h2><strong>P1-DB-01 — MariaDB contract fixture와 지원 버전 matrix 검증.</strong></h2>
+<ul><li><strong>현재 미완료:</strong> MariaDB 실제 서버의 contract fixture와 지원 버전별 schema/import/export·transaction·실패/재접속·인증 matrix 검증이다. adapter·DDL은 유지하며 PostgreSQL16 로컬 TLS/재접속 성공을 MariaDB 성공으로 확대하지 않는다.</li>
+<li><strong>진행할 수 없는 사유:</strong> 실제 서버 fixture는 기존 사용자 결정으로 보류되었고 지원할 MariaDB 버전·인증 범위가 확정되지 않았다. 임의로 보류를 해제하거나 비TLS 인증 지원을 제거하지 않는다.</li>
+<li><strong>필요한 사용자 판단:</strong> 보류 해제 여부, 지원 버전과 인증/TLS 범위를 결정한다. 운영 계정/DB 자료 대신 격리된 합성 fixture를 사용한다.</li>
+<li><strong>재개 조건:</strong> 범위가 정해지면 운영 서비스와 분리한 일회용 서버·합성 접속정보로 테스트를 실제 실행한다. 환경 미설정으로 즉시 반환한 테스트는 통과로 세지 않는다.</li>
+<li><strong>객관적 완료 기준:</strong> 지원 matrix의 각 조합에서 계약 실행 건수·성공/거부·rollback·재접속과 비밀정보 비노출을 기록하고 CI 실행/미실행을 구분한다. <a href="tasks/database-tls-reconnect-20261018.md">기존 PostgreSQL 검증과 제외 범위</a>, SQLx 전환 정책은 DEP-P3-01·02에서 별도 관리한다.</li>
+<li><strong>의존성:</strong> DEP-P3-01과 같은 DB 지원정책을 공유한다. 보류 해제와 matrix의 실제 실행을 별도 확인한다.</li></ul>
+<a class="permalink" href="#task-f86c78f20a" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-f1e74cc052" data-status="decision" data-source-line="244">
-<p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
+<article class="task decision" id="task-f1e74cc052" data-status="decision" data-source-line="133">
+<p class="section">3. 사용자 판단·준비가 필요한 항목</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2><strong>DEP-P3-01 — 격리 DB 검증환경과 프로젝트 MSRV 기준을 결정한다.</strong> 우선순위 1, SQLx 전환의 선행조건.</h2>
 <ul><li><strong>확인:</strong> 프로젝트 선언 MSRV 1.90.0→SQLx 0.9.0 요구 최소 1.94.0 결정이 필요하다. Mac Rust 1.99.1은 이미 요구를 충족한다. 기존 갱신 검증은 1.99.1 결과이며 1.90 실행 검증은 하지 않았다. DB 계약 5개는 환경 미설정으로 즉시 반환했으므로 실제 DB 통과가 아니다.</li>
@@ -195,64 +182,81 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>객관적 완료 기준:</strong> 선택한 최소 Rust와 stable의 check/test, 지원 DB matrix별 실제 계약 실행 건수와 성공/거부를 기록한다. 즉시 반환·미실행을 통과로 세지 않고 schema/transaction·TLS·인증·복구를 확인한다. RSA 해소 판정은 별도 audit/의존성 근거로만 한다. <a href="security-mac-handoff-2026-10-06.md">2026-10-24 검증·보류</a>, <a href="release-security.md">정책·RSA 잔여</a>.</li></ul>
 <a class="permalink" href="#task-f1e74cc052" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-5b7108079d" data-status="implementation" data-source-line="252">
-<p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
-<p class="badge">🟢 자동 구현</p>
-<h2><strong>DEP-P3-02 — SQLx 0.8.6→0.9.0의 SQL·DB 인증·잔여 RSA를 분리 검증한다.</strong> 우선순위 2, DEP-P3-01 완료 후 전환.</h2>
-<ul><li><strong>실제 코드 영향 확인:</strong> <code>storage/database_schema.rs</code>·<code>database_projection.rs</code>의 동적 <code>query(&amp;query)</code>/<code>query(&amp;format!(…))</code>는 새 SqlSafeStr/AssertSqlSafe 경계 검토·수정 대상이다. 0.9의 비TLS MySQL RSA 인증은 <code>mysql-rsa</code> 기능을 별도 요구한다. PostgreSQL/MariaDB 저장·타입/문자열·transaction·실패 복구도 재검증한다. 이 경로는 모두 <code>src-tauri/src/</code> 아래다.</li>
-<li><strong>완료 조건:</strong> 허용된 테이블 식별자와 bind 경계를 보존하고 격리 DB의 schema/import/export·transaction rollback·TLS 및 지원 인증 계약을 통과한다. <code>cargo fmt --all -- --check</code> 및 <code>--locked</code> check/test/strict clippy/build와 최소 Rust/stable CI를 확인한다. RUSTSEC-2023-0071은 별도 dependency tree/audit로 재평가하고 SQLx 상승만으로 해소됐다고 처리하지 않는다. 기존 비TLS 지원 제거·인증 정책 변경은 별도 사용자 결정 없이 하지 않는다. <a href="https://raw.githubusercontent.com/transact-rs/sqlx/v0.9.0/CHANGELOG.md">공식 0.9 변경</a>.</li></ul>
-<a class="permalink" href="#task-5b7108079d" aria-label="이 할일 링크">#</a>
+<article class="task decision" id="task-b2beeba529" data-status="decision" data-source-line="141">
+<p class="section">3. 사용자 판단·준비가 필요한 항목</p>
+<p class="badge">🟠 사용자 판단 대기</p>
+<h2><strong>P1-SCOPE-01 — 여러 broker/account 포지션과 pending을 동시에 상주·대조하는 multi-scope runtime.</strong></h2>
+<ul><li><strong>현재 미완료:</strong> 여러 broker/account의 포지션·pending을 동시에 상주시켜 scope별로 대조하는 runtime이다. 현재의 단일 활성 scope·owner 원장·계좌 전환 경합 보호는 구현했으며 동시 다계좌 운용과 다르다.</li>
+<li><strong>진행할 수 없는 사유:</strong> 동시 다계좌 운용의 제품 채택 여부와 scope별 실행·정지·리스크 한도가 정해지지 않았다. 현재 불변식을 임의로 바꾸면 주문·잔고·복원 경계가 달라진다.</li>
+<li><strong>필요한 사용자 판단:</strong> 동시 운용 채택 여부, 지원 broker/시장 조합, 계좌별·전체 리스크/비상정지 범위를 결정한다. 실제 credential·계좌 파일 제공은 이 결정에 필요하지 않다.</li>
+<li><strong>재개 조건:</strong> 제품 범위가 확정되면 <code>(broker, account, market, symbol)</code> tracker와 scope별 credential reconciliation 설계를 고정하고 mock부터 구현한다.</li>
+<li><strong>객관적 완료 기준:</strong> 동시 scope의 주문/체결/pending·캐시·소유 원가·재시작·부분 실패가 서로 침범하지 않으며 scope별/전체 정지·리스크를 실패 fixture와 UI에서 검증한다. 실제 계좌 운용은 별도 승인 검증으로 남긴다. <a href="ARCHITECTURE.md">현재 소유·scope 경계</a>, <a href="tasks/strategy-fill-ownership-20261018.md">기존 소유 피드백 검증</a>.</li></ul>
+<a class="permalink" href="#task-b2beeba529" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-9b9191cd53" data-status="implementation" data-source-line="256">
-<p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
-<p class="badge">🟢 자동 구현</p>
-<h2><strong>DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다.</strong> 우선순위 3, DEP-P3-02 다음; 두 전환의 diff·검증은 분리한다.</h2>
-<ul><li><strong>실제 코드 영향 확인:</strong> Cargo의 <code>rustls-tls</code>→<code>rustls</code> 및 명시 <code>query</code> 기능, <code>api/rest/chart.rs</code>의 <code>.query()</code> 사용을 반영한다. <code>api/websocket.rs</code> 승인·구독의 <code>Message::Text(String)</code>는 Utf8Bytes 변환 대상이다. TLS 루트/crypto provider·수신/종료 payload와 버퍼 기본값은 별도 호환 확인 대상이며 실제 실패를 재현한 것은 아니다.</li>
-<li><strong>완료 조건:</strong> 합성 HTTP/TLS 서버에서 차트 query·헤더·JSON·쿠키·오류 처리를 확인하고 mock WebSocket에서 승인·구독·수신·ping/pong·종료·재연결을 검증한다. 실제 KIS/Toss 인증 없이 Rust format/strict clippy/check/test/build와 해당 CI를 통과한다. <a href="https://github.com/seanmonstar/reqwest/releases/tag/v0.13.0">reqwest 변경</a>, <a href="https://raw.githubusercontent.com/snapview/tungstenite-rs/v0.30.0/CHANGELOG.md">WebSocket 변경</a>.</li></ul>
-<a class="permalink" href="#task-9b9191cd53" aria-label="이 할일 링크">#</a>
+<article class="task decision" id="task-aee6a0d21e" data-status="decision" data-source-line="148">
+<p class="section">3. 사용자 판단·준비가 필요한 항목</p>
+<p class="badge">🟠 사용자 판단 대기</p>
+<h2><strong>P3-SIGN-01 — 플랫폼 코드 서명·updater 서명 강제를 위한 배포 키 준비.</strong></h2>
+<ul><li><strong>현재 미완료:</strong> 대상 플랫폼의 실제 코드 서명·updater 서명 생성과 서명 강제 release artifact 검증이다. checksum/attestation·sidecar 존재/비어 있지 않음·강제 옵션 검사는 구현했으며 암호학적 서명 검증이나 실제 서명 릴리스와 다르다.</li>
+<li><strong>진행할 수 없는 사유:</strong> 대상 플랫폼·키/인증서 관리 주체와 GitHub Environment의 서명 준비가 확정되지 않았다. 없는 키를 생성/등록한 것으로 가정하거나 서명 강제 변수만 먼저 켤 수 없다.</li>
+<li><strong>필요한 사용자 판단:</strong> 배포 플랫폼·서명 주체·키 보관/회전 정책과 승인할 release 환경을 정하고 관리자가 해당 환경에 키를 준비한다. 에이전트에는 비밀값 대신 준비 여부·키 식별용 비밀 아닌 metadata만 제공한다.</li>
+<li><strong>재개 조건:</strong> 환경의 서명 생성 단계와 필요한 키가 준비되면 별도 승인된 release 절차에서 <code>REQUIRE_RELEASE_SIGNATURES=true</code>를 적용한다. 로컬 verifier·mock의 자동 검증은 계속 가능하다.</li>
+<li><strong>객관적 완료 기준:</strong> 대상 artifact의 유효한 플랫폼/updater 서명을 확인하고 서명 누락·변조·불일치가 release를 차단함을 검증한다. checksum/attestation을 코드/updater 서명의 대체물로 취급하지 않는다. <a href="release-security.md">현재 게이트와 제한</a>.</li>
+<li><strong>의존성:</strong> 플랫폼/키 관리 결정과 관리자 준비가 먼저다. 구현 완료된 checksum·attestation과 실제 서명 검증을 구분한다.</li></ul>
+<a class="permalink" href="#task-aee6a0d21e" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-4686c2c738" data-status="implementation" data-source-line="260">
-<p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
-<p class="badge">🟢 자동 구현</p>
-<h2><strong>DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다.</strong> 우선순위 4, DEP-P3-03 다음.</h2>
-<ul><li><strong>확인/미검증 구분:</strong> <code>server/mod.rs</code>의 <code>/:symbol</code>·<code>/:id</code>는 새 <code>/{symbol}</code>·<code>/{id}</code> 문법으로 바꿔야 한다. tower-http는 현재 CORS 사용 경로의 별도 후보이며 프로젝트에서 구체적 API 실패를 확인하지 않았다. 이미 존재하는 간접 tower-http 0.6.11을 직접 의존성 전환 완료로 취급하지 않는다.</li>
-<li><strong>완료 조건:</strong> 주문·계정 provider를 mock으로 격리하고 기존 모든 route의 경로/상태·인증 거부·CORS·오류 응답·Tauri IPC와 REST view 계약을 회귀 검증한다. Rust format/strict clippy/check/test/build 및 CI 통과. <a href="https://github.com/tokio-rs/axum/blob/axum-v0.8.0/axum/CHANGELOG.md">axum 변경</a>.</li></ul>
-<a class="permalink" href="#task-4686c2c738" aria-label="이 할일 링크">#</a>
+<article class="task validation" id="task-179a40026c" data-status="validation" data-source-line="160">
+<p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
+<p class="badge">🟠 사용자 검증·자료 대기</p>
+<h2><strong>P1-PROVIDER-01 — KIS/Toss 기존 운영 원장과 실제 정정·취소 응답의 최종 검증.</strong></h2>
+<ul><li><strong>현재 미완료:</strong> 실제 KIS/Toss 정정·취소의 old/new order ID·거부/만료 의미와 도입 이전 보유·기존 체결의 전략/프로파일 귀속·원가·투자모드를 실제 원본에 대조하는 검증이다. 공통 상태·직렬화·exact owner·로컬 합성 재시작/체결은 검증했으며 운영 원장 검증과 구분한다.</li>
+<li><strong>진행할 수 없는 사유:</strong> 실제 사례의 비식별 원본과 운영자 귀속 확인이 없고 계좌 조회·소액 주문의 별도 승인이 없다. 새 원장에 계좌 전체 보유를 자동 편입하거나 확인 불가 기록의 주문 차단을 해제할 수 없다.</li>
+<li><strong>필요한 비식별 자료/판단:</strong> 식별값을 일관되게 치환한 요청·응답·시간순 상태·누적 수량/대금/비용 사례와 도입 이전 보유 귀속 대조 결과를 제공한다. 운영 연결이 필요하면 read-only 범위를 먼저 정하고 소액 주문은 별도로 명시 승인한다. key·계좌 원문·개인 계정 파일은 받지 않는다.</li>
+<li><strong>재개 조건:</strong> 비식별 fixture로 mapping·중복/역순·부분체결/정정/취소/거부/만료를 먼저 재현한다. read-only 대조 후에도 불충분한 실제 주문 검증만 별도 승인 범위에서 진행한다.</li>
+<li><strong>객관적 완료 기준:</strong> provider별 원래/새 주문 연결·최종 상태·수량/원가/모드·소유 귀속을 원본 근거와 대사하고 불명확 사례의 fail-closed·재시도 멱등성을 입증한다. 운영자 대조/복구 UI 구현은 P1-RECOVERY-01에서 계속 진행한다. <a href="tasks/strategy-fill-ownership-20261018.md">로컬 검증과 운영 제외 범위</a>.</li>
+<li><strong>관련 자동 작업:</strong> P1-RECOVERY-01의 UI·fixture 구현은 이 대기와 독립적으로 진행할 수 있다.</li></ul>
+<a class="permalink" href="#task-179a40026c" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-8f6637aa71" data-status="implementation" data-source-line="264">
-<p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
-<p class="badge">🟢 자동 구현</p>
-<h2><strong>DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다.</strong> 우선순위 5, DEP-P3-04 다음.</h2>
-<ul><li><strong>실제 코드 영향 확인:</strong> 대시보드·전략의 MUI <code>Grid item xs</code>는 <code>size</code> API로, 전략 입력의 <code>InputProps</code>는 <code>slotProps.input</code>으로 이전 대상이다. React는 이미 createRoot/새 JSX 변환을 사용한다. React DOM·타입/ref·오류 처리·주변 라이브러리 호환은 미검증 후보이며 이번에 React 교체 실패를 확인한 것은 아니다.</li>
-<li><strong>완료 조건:</strong> React/DOM/타입과 MUI 관련 패키지의 지원 조합을 공식 가이드로 정하고 분리된 변경으로 타입·FSD·production build를 통과한다. 금융 mock E2E에서 전략/설정/대시보드·좁은 화면·입력/메뉴/버튼·테마·차트를 검증하고 Mac/Linux 결과를 구분한다. <a href="https://react.dev/blog/2024/04/25/react-19-upgrade-guide">React 이전</a>, <a href="https://mui.com/material-ui/migration/upgrade-to-v9/">MUI 이전</a>.</li></ul>
-<a class="permalink" href="#task-8f6637aa71" aria-label="이 할일 링크">#</a>
+<article class="task validation" id="soxq-p1-05" data-status="validation" data-source-line="169">
+<p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
+<p class="badge">🟠 사용자 검증·자료 대기</p>
+<h2><strong>SOXQ-P1-05 — LTH 일봉 근사와 실제 장중 평가를 구분한다.</strong></h2>
+<ul><li><strong>현재 미완료:</strong> 2026-07-06~10-02 SOXQ 실제 분봉 원본, 거래소 시간대·DST·실제 거래일/조기마감·세션·기간 전체 coverage 검증과 생산 replay 재실행이 남아 있다. 2026-10-22의 시간/미관측 슬롯 진단은 합성 fixture·mock 검증이며 실제 공급원·발행/수신 시각·전체 달력을 확인한 것은 아니다.</li>
+<li><strong>진행할 수 없는 사유:</strong> 보관한 짧은 실제 분봉 표본과 일봉으로는 요청한 3개월의 장중 경로·누락 원인을 복원할 수 없다. 사용 가능한 해당 기간 원본/이용 권한이 확인되지 않았으며 일봉 보간이나 합성 fixture로 대체하지 않는다.</li>
+<li><strong>필요한 비식별 자료:</strong> 원본 파일 경로 또는 사용 가능한 공급원과 자료 이용 범위, feed·가격 조정 여부·봉 시작/종료 표기·요청 기간·수집 시각 metadata를 제공한다. API key·계좌번호·개인 계정 파일은 문서나 에이전트에 전달하지 않는다.</li>
+<li><strong>재개 조건:</strong> 원본과 이용 범위가 확인되면 원본 hash·누락/중복·거래소 달력·공개 가능 시각을 먼저 고정하고, 기존 fixed KST 실행 모델과 검증된 시장 시각의 차이를 해결한 뒤 재실행한다. 파싱 진단 통과만으로 <code>lookAheadSafe</code>나 성과 상태를 승격하지 않는다.</li>
+<li class="subtask"><span aria-label="미완료">☐</span> <strong>객관적 완료 기준:</strong> 요청 기간의 원본·출처·hash·세션별 coverage/제외 사유를 보관하고, DST·휴장/조기마감·gap·진입/마감 창 및 생산 신호/체결·독립 정산을 재현 가능하게 검증한다. 미확인 구간은 평가 불가로 남긴다.</li>
+<li><strong>중복 미완료 조건 통합:</strong> 기존 제목 <strong>“LTH 보강의 일봉 성과 미리보기”</strong>의 근거와 잔여 조건을 이 항목에 통합했다. 일봉 context/분봉 지표 분리와 일봉 <code>notEvaluable</code>는 이미 구현되었고, 일봉에서 장중 성과를 복원하는 새 기능을 약속하지 않는다. 활성 볼린저 성과는 실제 1분봉·시장 시간 검증 후에만 평가하며 옵션별 비교 결과는 별도 P2-12에 남긴다. 통합은 삭제나 완료 처리가 아니다. <a href="tasks/lth-minute-timing-20261022.md">시간 진단의 검증 범위</a>.</li>
+<li>대상: <code>commands/strategy_preview.rs</code>, <code>trading/strategy/leveraged_trend_hold/{live,preview,indicators}.rs</code>, <code>trading/simulation/assessment.rs</code>. <a href="tasks/soxq-p1-05.md">작업 기록</a>, <a href="research/soxq-3m-20261003/p1-05-validation.md">v7 검증</a>.</li>
+<li><strong>완료된 부분의 근거:</strong> <a href="completed-history.md#soxq-p1-05">이관 기록</a>을 참고한다. 상위 완료 조건은 유지한다.</li></ul>
+<a class="permalink" href="#soxq-p1-05" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-28743a36d9" data-status="implementation" data-source-line="268">
-<p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
-<p class="badge">🟢 자동 구현</p>
-<h2><strong>DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다.</strong> 우선순위 6, DEP-P3-05 다음.</h2>
-<ul><li><strong>확인/미검증 구분:</strong> Rollup/esbuild→Rolldown/Oxc 전환에 맞춰 <code>vite.config.ts</code>의 <code>minify: &#39;esbuild&#39;</code>, MUI/Emotion 등의 manualChunks·Tauri pre-bundling 제외 설정을 검토한다. 현재 설정이 모두 실패한다고 입증한 것은 아니다. 명시된 WebView target을 기본 browser target 변화와 혼동하지 않는다.</li>
-<li><strong>완료 조건:</strong> 공식 단계별 migration과 Node/plugin 지원 범위를 확인하고 production chunk 초기화·Tauri custom-protocol native build·WebView 호환을 금융 연결 없이 검증한다. 타입/FSD/build·production UI E2E와 source harness를 통과하며 경고 억제나 크기 제한 완화로 대체하지 않는다. 안전하게 앱을 기동할 수 없으면 해당 런타임 검증은 미완료로 남긴다. <a href="https://vite.dev/guide/migration">Vite 이전</a>.</li></ul>
-<a class="permalink" href="#task-28743a36d9" aria-label="이 할일 링크">#</a>
+<article class="task validation" id="soxq-p2-12" data-status="validation" data-source-line="180">
+<p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
+<p class="badge">🟠 사용자 검증·자료 대기</p>
+<h2><strong>SOXQ-P2-12 — 검증된 LTH 분봉의 기본·볼린저 옵션별 비교.</strong></h2>
+<ul><li><strong>현재 미완료:</strong> P1-05의 검증된 실제 3개월 분봉을 사용한 기본/볼린저 옵션별 생산 비교 결과다. 짧은 표본의 신호0과 시간 진단 fixture는 옵션 효과의 근거가 아니다.</li>
+<li><strong>진행할 수 없는 사유:</strong> 검증된 전체 기간 자료·시장 달력/세션·공개 시각과 실행 시계의 일치가 확보되지 않았다. P1-05의 자료 준비와 이 항목의 옵션별 비교는 서로 다른 결과물이다.</li>
+<li><strong>필요한 비식별 자료:</strong> P1-05의 원본 경로·출처/이용 범위·시각/조정/coverage metadata를 공유한다. 같은 자료를 중복 요청하거나 별도 계좌 credential을 요구하지 않는다.</li>
+<li><strong>재개 조건:</strong> P1-05의 자료·시간 검증을 마친 뒤 결과를 보기 전 옵션·창·수량·비용을 고정하고 실제 장중 경로에서 비교한다.</li>
+<li><strong>객관적 완료 기준:</strong> 기본/볼린저 각 결과의 신호·체결/차단·완료 표본·실현/잔여·MDD·회전·노출을 독립 대조하고 무신호/자료부족/평가불가를 구분한다. generic LTH 거부·일봉 notEvaluable를 유지하고 짧은 신호0을 효과 없음으로 단정하지 않는다. <a href="research/strategy-review-20261018/report.md">표본 연구</a>, <a href="tasks/lth-minute-timing-20261022.md">시장 시각 진단의 한계</a>.</li>
+<li><strong>완료된 부분의 근거:</strong> <a href="completed-history.md#soxq-p2-12">이관 기록</a>을 참고한다. 상위 완료 조건은 유지한다.</li></ul>
+<a class="permalink" href="#soxq-p2-12" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-3e72354d71" data-status="implementation" data-source-line="272">
-<p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
-<p class="badge">🟢 자동 구현</p>
-<h2><strong>DEP-P3-07 — 나머지 Rust·UI 의존성 후보의 실제 필요와 영향부터 확인한다.</strong> DEP-P3-06 이후 개별 우선순위를 정한다.</h2>
-<ul><li><strong>미검증 후보:</strong> keyring 3.6.3→4.2.0(DB 암호 저장·mock), sha2 0.10.9→0.11.1(체크섬/이벤트 식별값), thiserror 1.0.69→2.0.21(오류 derive), react-grid-layout 1.5.4→2.3.0(새 API/내장 타입 및 legacy 호환 경로). 모두 확정 대규모 수정으로 판단한 것은 아니다. 이미 간접 thiserror 2.0.21이 있어도 직접 전환 완료는 아니다.</li>
-<li><strong>완료 조건:</strong> manifest/실제 참조·공식 breaking change·지원 target을 대조해 각 후보를 전환/유지/제거 검토로 결정한다. react-grid-layout은 당시 <code>src</code> 직접 import가 없었으므로 사용·CSS·동적 참조를 먼저 확인하며 이번에는 삭제하지 않는다. 전환 시 keyring은 mock만, sha2는 기존 fixture hash 불변, 오류 타입은 변환/메시지 회귀, UI는 사용 경로의 타입/build/E2E를 검증한다.</li></ul>
-<a class="permalink" href="#task-3e72354d71" aria-label="이 할일 링크">#</a>
-</article>
-<article class="task implementation" id="task-abc44d00a3" data-status="implementation" data-source-line="276">
-<p class="section">보류한 호환 업데이트 후속 작업 (2026-10-24 검토 기준)</p>
-<p class="badge">🟢 자동 구현</p>
-<h2><strong>DEP-P3-08 — TypeScript·패키지매니저 major 후보를 개별 평가한다.</strong> DEP-P3-06·07 검토 이후, 필요성이 확인된 항목만 전환한다.</h2>
-<ul><li><strong>미검증 후보:</strong> TypeScript 5.9.3→7.0.2, Mac 기본 npm 11.20.0→12.2.1, pnpm 10.30.3→12.15.0. 프로젝트 Node 24.22.1 LTS의 npm은 11.19.1이며 기본 Node의 npm과 구분한다. 프로젝트는 npm을 사용하고 pnpm은 이번에 채택하지 않았다. 개별 프로젝트 실패는 미확인이다.</li>
-<li><strong>완료 조건:</strong> 공식 compiler/Node engines·peer 지원과 설치/lockfile 변화를 확인한다. TypeScript는 strict 타입·FSD/build, npm은 금융 파일 없는 깨끗한 snapshot의 <code>npm ci --ignore-scripts</code>·lockfile 재현·감사·CI를 통과한다. pnpm은 프로젝트 사용 필요부터 확인하고 불필요하면 미채택 결정을 남기며, 전환·lockfile 병행을 자동 도입하지 않는다.</li></ul>
-<a class="permalink" href="#task-abc44d00a3" aria-label="이 할일 링크">#</a>
+<article class="task validation" id="soxq-p2-09" data-status="validation" data-source-line="188">
+<p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
+<p class="badge">🟠 사용자 검증·자료 대기</p>
+<h2><strong>SOXQ-P2-09 — 변동성 확장의 실제 장중 근거 검증.</strong> 테스트 가능한 구현·일봉 비교는 완료했으며 최초 장중 발동·실제 체결 가능성 조건은 열린 상태다. <a href="tasks/volatility-expansion-policy-20261022.md">작업</a>, <a href="research/volatility-expansion-policy-20261022/report.md">사전 설계·비교·한계</a>, <a href="research/volatility-expansion-policy-20261022/independent-audit.json">독립 감사</a>.</h2>
+<ul><li><strong>현재 미완료:</strong> 최초 장중 조건 발동·주문 가능 시각·체결/차단·청산 창의 실제 자료 검증이다. 위 일봉/fixture·현재 UI 진단의 완료를 실제 장중 체결 가능성 확인으로 확대하지 않는다.</li>
+<li><strong>진행할 수 없는 사유:</strong> 관측 시가 대용인 live 첫 quote와 일봉 nextOpen은 실제 거래소 시가·봉 내부 순서·유동성을 입증하지 못한다. 해당 구간의 출처/공개 시각·세션·누락/coverage가 검증된 장중 자료가 없다.</li>
+<li><strong>필요한 비식별 자료:</strong> 장중 파일 경로 또는 공급원/이용 범위와 시장 timezone·봉 표기·발행/수신 시각·가격 조정·누락 metadata를 제공한다. 실제 체결 가능성까지 판단하려면 그 판단을 뒷받침하는 호가/체결 근거가 필요하며 OHLC만 있으면 그 한계를 남긴다.</li>
+<li><strong>재개 조건:</strong> 결과를 보기 전 동일 장중 창·자본·비용·단독 후보를 고정하고 coverage/공개 시각을 검증한 자료를 생산 엔진에 입력한다. 실제 계좌 연결·주문 없이 재현할 수 있는 검증은 그대로 자동 진행한다.</li>
+<li class="subtask"><span aria-label="미완료">☐</span> <strong>객관적 완료 기준:</strong> 최초 발동→주문 가능→체결/차단→청산의 시점·실현/잔여·비용/노출을 독립 대조하고, 미확인 장중 순서·유동성은 평가 불가로 분리한다. live 첫 quote/일봉 nextOpen 가정을 실제 장중 증거로 바꾸어 부르지 않는다.</li>
+<li><strong>완료된 부분의 근거:</strong> <a href="completed-history.md#soxq-p2-09">이관 기록</a>을 참고한다. 상위 완료 조건은 유지한다.</li></ul>
+<a class="permalink" href="#soxq-p2-09" aria-label="이 할일 링크">#</a>
 </article></section>
 <p id="empty" hidden>일치하는 열린 할일이 없습니다. 검색어나 상태를 바꿔 주세요.</p>
-<footer>원본 SHA-256: 600b3d712ac4098162b742425f05c011e424776c32d594857851b2281d881ceb<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
+<footer>원본 SHA-256: 30cb65b700005e2b6e9731026baec459a94b2077c7d54c268d769f0a2cefa533<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
 </main>
 <script>
 const status = document.getElementById('status');

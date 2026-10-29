@@ -377,6 +377,7 @@ KISAutoTrade/
 │   ├── PROJECT_MAP.md
 │   ├── agent-tooling.md
 │   ├── coding-guide.md
+│   ├── completed-history.md
 │   ├── discord-setup-guide.md
 │   ├── ipc-commands.md
 │   ├── leveraged-trend-hold-parameter-guide.md
@@ -1044,7 +1045,8 @@ KISAutoTrade/
 | `docs/project-map.md` | 이 문서: 자동 생성 전체 인벤토리와 상세 모듈 책임·데이터 흐름 |
 | `docs/ARCHITECTURE.md` | 현재 구현된 런타임·주문·리스크·저장 경계 |
 | `docs/HARNESS_MAP.md` | 변경 유형별 검증 명령과 완료 게이트 |
-| `docs/todo.md` | 상태·근거·위험·완료 조건이 있는 개선 백로그의 원본 |
+| `docs/todo.md` | 남은 작업의 정본: 대분류 현황표, 실행·선행 결정·사용자 판단·실자료 검증, ID·완료 기준·의존성 |
+| `docs/completed-history.md` | TODO에서 이관한 완료·부분 완료·과거 연구·기각 기록. 원래 ID/날짜·검증 근거·한계 및 현재 TODO 연결을 보존 |
 | `docs/todo.html` | 원본의 열린 항목을 상태별 색상·검색·필터로 읽는 자동 생성 문서 |
 | `docs/tasks/` | 작업별 범위·실행·검증·전달 기록, `TASK_TEMPLATE.md` 템플릿 |
 
