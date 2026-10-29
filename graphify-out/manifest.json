@@ -230,8 +230,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/toss.rs": {
-    "mtime": 1792301083.470455,
-    "ast_hash": "44f3595bba7777018ca26ac971cb65a3",
+    "mtime": 1793257087.6084018,
+    "ast_hash": "cda1e20162db664b79a86346accfffdf",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/toss/small_order.rs": {
@@ -765,8 +765,8 @@
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx": {
-    "mtime": 1792305117.7647789,
-    "ast_hash": "ffbd4149dcc3ff3211064d8b520e2191",
+    "mtime": 1793257267.7025158,
+    "ast_hash": "2dc31ffae3d895e61d9aa0281af1a4ad",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/leveragedTrendHoldPreviewChart.tsx": {
@@ -800,9 +800,9 @@
     "semantic_hash": "e1e05929b9d6e9a67816e0b8739875f0"
   },
   "src/pages/trading/ui/Page.tsx": {
-    "mtime": 1783404433.4,
-    "ast_hash": "a9f33f1b1379ee99609245747ebc6407",
-    "semantic_hash": "a9f33f1b1379ee99609245747ebc6407"
+    "mtime": 1793257267.701821,
+    "ast_hash": "38a853f892c05b53eb2db75dd5ddc25b",
+    "semantic_hash": ""
   },
   "src/pages/trading/ui/kisPanels.tsx": {
     "mtime": 1783134827.85,
@@ -2512,6 +2512,56 @@
   "tests/e2e/strategy-phase-diagnostics.spec.ts": {
     "mtime": 1793256373.6408749,
     "ast_hash": "8cb52dc3c0cd442fc571d80859776add",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/commands/toss/accounts.rs": {
+    "mtime": 1793257087.6078842,
+    "ast_hash": "3ad2d0183a8fd9664d4b9611b2632ee5",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/commands/toss/diagnostics.rs": {
+    "mtime": 1793257087.6080074,
+    "ast_hash": "0bfaf9deedf745f112b0dcaf0227f761",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/commands/toss/orders.rs": {
+    "mtime": 1793257087.6081784,
+    "ast_hash": "6b8a0622182a4116a3381488e9586b86",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/commands/toss/preflight.rs": {
+    "mtime": 1793257087.6080978,
+    "ast_hash": "f0006d27ca8f1d3ad5ce2c9e50b992de",
+    "semantic_hash": ""
+  },
+  "src/pages/strategy/ui/leveragedTrendHoldPreviewPanel.tsx": {
+    "mtime": 1793257267.7028608,
+    "ast_hash": "b8673a07b5255db97b9155d7828171f1",
+    "semantic_hash": ""
+  },
+  "src/pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx": {
+    "mtime": 1793257267.7026925,
+    "ast_hash": "6edf1012b77661a917d15b3e7e06c877",
+    "semantic_hash": ""
+  },
+  "src/pages/strategy/ui/useLeveragedTrendHoldEditorModel.ts": {
+    "mtime": 1793257267.7030773,
+    "ast_hash": "16d1ecc8423d287019ceb4a35e6850dd",
+    "semantic_hash": ""
+  },
+  "src/pages/trading/ui/tradingOrderForm.tsx": {
+    "mtime": 1793257267.7021618,
+    "ast_hash": "576ffdf341c54b011bea81bb5e276006",
+    "semantic_hash": ""
+  },
+  "src/pages/trading/ui/useTradingOrderModel.ts": {
+    "mtime": 1793257267.702365,
+    "ast_hash": "485bbefa52b361046aa10064984c8b32",
+    "semantic_hash": ""
+  },
+  "tests/e2e/trading-form-contract.spec.ts": {
+    "mtime": 1793257224.5958636,
+    "ast_hash": "5bb773df41b066dd39b54dde41efc92a",
     "semantic_hash": ""
   }
 }

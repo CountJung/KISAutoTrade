@@ -272,3 +272,10 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 - `cargo test --offline --lib trading::simulation`와 `cargo test --offline --lib commands::strategy_preview`: 경계잔량/pending·부분매도·FX/배당/원가·0/1봉/100%·양수절반/보합/음수·분할불변·기존TR/ATR/LTHgate를 확인한다. 최종 전체lib831 및 strict clippy 통과 근거는 [회차 기록](tasks/immediate-backlog-20261029.md).
 - production `build:web` 후 `CI=1 npx playwright test tests/e2e/strategy-phase-diagnostics.spec.ts tests/e2e/strategy-continuous-replay.spec.ts tests/e2e/strategy-replay-assessment.spec.ts`:20개. 회계·ATR·scrollbar인접3spec:37개. A/B진단 보존·legacy/손상 미확인·375px overflow·LTH성과숨김을 검증한다.
 - [연구 재현법](research/phase-walk-forward-20261029/report.md)은 동결일봉/생산API와 독립 기록산술을 사용한다. 별도reset평가·사전고정 설정을 같은장부70/30과 구분하고 이미본자료를 새OOS로 부르지 않는다.
+
+
+## P3 대형 모듈 책임 분리
+
+Trading/LTH의 state/effect/closure는 각 `use*Model`을 parent에서 한 번 호출해 보존하고 표시는 child panel로 분리한다. Toss는 기존 facade/command macro re-export와 서버caller 계약을 유지한다. [동등성/행수/회차검증](tasks/immediate-backlog-20261029.md).
+
+`CI=1 npx playwright test tests/e2e/trading-form-contract.spec.ts tests/e2e/strategy-scrollbar.spec.ts tests/e2e/lth-minute-timing.spec.ts tests/e2e/strategy-configuration-errors.spec.ts tests/e2e/strategy-replay-assessment.spec.ts tests/e2e/toss-commission-ratio.spec.ts`를 production build 후 실행한다.47개(46production+1sourceharness) mock검증이며 실제주문/계좌연결아니다. Rust 전체lib와 strictclippy/check/fmt,TS/FSD도확인한다.

@@ -328,12 +328,16 @@ SOXQ 연구에서 확인한 시뮬레이션 정확성 과제는 아래에 기록
 
 ### P3-REFACTOR-01
 
-원문 207–216행의 부분 완료/과거 관측이다. 상위 작업은 [현재 TODO](todo.md)에서 미완료로 유지한다.
+원문 207–216행의 부분 완료/과거 관측을 보존한다. 남은 세 대상도 아래 2026-10-29 회차에서 분리·검증했다.
 
   - [x] `src-tauri/src/commands/trading.rs`: lifecycle469/positions329/balance96/risk_restore96/daemon527/history281행으로 분리. IPC4개·scope·복원/시작 순서 보존, lib212개와 독립 본문 감사 통과. [기록](tasks/trading-module-split-20261018.md).
   - [x] `src/api/hooks.ts`: 19행 facade와 account/market/order/strategy/settings/history/trading/log 모듈49~255행으로 분리, 공개export87개/선언74개 동일. [기록](tasks/frontend-hooks-split-20261018.md).
   - [x] `src-tauri/src/trading/order/submission.rs`: positions/prepare/provider/records와 run 회귀로 분리. 예약·scope·manual API 경계를 검증했다. [기록](tasks/execution-run-reservation-20261018.md).
   - [x] `src-tauri/src/trading/order.rs`: facade·health·pending·legacy·execution run으로 분리하고 1050행 fills도 적용/collector/reconciliation/provider mode로 나눴다. [기록](tasks/execution-run-reservation-20261018.md).
+
+**2026-10-29 완료:** Trading Page1056→474행·주문 model414/form234, Toss facade1093→13행·accounts111/diagnostics379/preflight236/orders371, LTHeditor993→413행·model343/picker177/preview161로 책임을 분리했다. LTH는 시작시 이미1000미만이었지만 요청된 책임 분리를 수행했다. 모든 변경/신규 코드파일1000미만, IPC/public API·query·state/effect/closure·JSX 동작을 보존했다.
+
+Toss32개item의속성/시그니처/본문byte동일, Trading56문장/7helper·LTH68문장/5helper 및 재확장JSX AST동등을 확인했다. Rust831/strictclippy·TS/FSD/build와 분리전 합성거래5개, 분리후47개 UI검증이 통과했다. 실제 주문/계좌/키 접근은 없다. [정본 회차 기록](tasks/immediate-backlog-20261029.md).
 
 ## 2026-10-29 문서 재편 검증
 

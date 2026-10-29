@@ -9,8 +9,8 @@
 |---|---|---|---|
 | 1 | P1-RECOVERY-01 — 응답 불명 주문의 운영자 대조·복구 UI를 구현한다. | 로컬 구현·검증 완료 | 아래 최종 게이트; `ac3eb564ea678fe99722bbc5f3f040b4c50b1773` 원격 SHA 일치 |
 | 2 | SOXQ-P2-13 — 가격조건의 실제 소유·손절 후 재진입과 공통 guard를 검증한다. | 로컬 완료·실자료 조건 이관 | `00ea198ad021836862ad345d58f618660fae6d0b` 원격 SHA 일치; 전체 ID는 열린 상태 |
-| 3 | SOXQ-P2-16 — 구간 경고·표본 해석을 교정하고 별도 walk-forward를 평가한다. | 구현·검증 완료 | 아래 최종 게이트; 원격 SHA는 후속 회차에 기록 |
-| 4 | P3-REFACTOR-01 — 1,000라인 초과 파일을 책임 단위로 분리한다. | 대기 | — |
+| 3 | SOXQ-P2-16 — 구간 경고·표본 해석을 교정하고 별도 walk-forward를 평가한다. | 구현·검증 완료 | `15b53286109f599242d27e5314ea2c0105ac453e` 원격 SHA·GitHub 문서 확인 |
+| 4 | P3-REFACTOR-01 — 1,000라인 초과 파일을 책임 단위로 분리한다. | 구현·검증 완료 | 아래 최종 게이트; 원격 SHA는 후속 회차에 기록 |
 | 5 | DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다. | 대기 | — |
 | 6 | DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다. | 대기 | — |
 | 7 | DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다. | 대기 | — |
@@ -98,3 +98,25 @@
 - P2-16 로컬 수용조건을 완료 이력으로 이관했다. 남은17개는 자동8+판단4+자료5, 다음 즉시ID는 **P3-REFACTOR-01**이다. 고정10회차 중3회까지 진행했으며 전체 작업 완료는 아니다.
 
 - 문서 최종 형식 검사: docs-canon `--changed` 117문서, 상대링크·표·도달성·앵커·완료TODO 경고0. 별도 내용 검토에서 현재 계약·회고 연구 한계·남은 작업 포인터를 확인했다. project-map·TODO17개·Graphify freshness·diff 검사 통과.
+
+
+## 4회차 — P3-REFACTOR-01
+
+시작 `15b53286109f599242d27e5314ea2c0105ac453e`의 깨끗한 작업 트리. 실제 LTHeditor는993행이었지만 요청된 ticker picker/preview 책임분리를 유지했다. 동작개선·API변경·정책변경을 섞지 않았다. Serena사용불가로 symbol 역할의 rg참조추적을 위임했다.
+
+| 대상 | 이전→현재 | 분리 책임·현재 행수 |
+|---|---|---|
+| Trading Page | 1056→474 | `useTradingOrderModel.ts`414: broker별query gate·state/effect/주문closure, `tradingOrderForm.tsx`234: 공통 주문 표시 |
+| Toss commands | 1093→13 | `accounts.rs`111, `diagnostics.rs`379, `preflight.rs`236, `orders.rs`371; 기존small_order·pub re-export유지 |
+| LTH editor | 993→413 | `useLeveragedTrendHoldEditorModel.ts`343, `leveragedTrendHoldTickerPicker.tsx`177, `leveragedTrendHoldPreviewPanel.tsx`161 |
+
+### 동등성·검증 근거
+
+- Toss 원래32fn/struct를 attrs/signature/visibility/body포함 byte비교해32/32동일. commands.rs/lib.rs/서버3caller/small_order본체·테스트7파일 무변경이며 기존commands::*와Tauri7등록을 check로확인했다. 독립리뷰도별도추출대조했다.
+- 프런트 원래 Trading56statement/7helper, LTH68statement/5helper AST동일. 추출패널 재확장JSX도 공백/투명fragment정규화후동일. 상태는 parent의customhook1회에남겨effect순서/비동기closure/key/query/IPC를보존했다. 공개page entry와hasInvalidLthEntries도유지했다.
+- `cargo check --locked`, 전체lib **831/831**, strictclippy alltargets/allfeatures 경고0, fmt통과. 기존Toss합성2개도통과. TypeScript/FSD/production build통과.
+- 신규거래폼mock5개는 분리전production번들에서5/5통과했고 분리후전체선택47개에도포함된다. 최초해외차트mock이잘못된{}를반환해발생한fixture실패를[]로교정했다. 실제API실패나제품로직수정이아니다.
+- 분리후 `trading-form-contract`, `strategy-scrollbar`, `lth-minute-timing`, `strategy-configuration-errors`, `strategy-replay-assessment`, `toss-commission-ratio` **47/47**.46개production+1개기존sourceharness, 모두금융mock. 입력검증/거절후초안/성공정리/시장가0/해외거래소/모의매도제한/Toss사전·닫힌세션·auto payload/모바일·LTH지연응답/설정/평가gate검증.
+- 원본/변경파일만읽었으며 실주문·취소·계좌·키·DB·운영배포를실행하지않았다. 현재남은16개=자동7+판단4+자료5. 다음고정ID는 **DEP-P3-03**이며 전체10회차중4회차까지다.
+
+- 최종 독립리뷰: 별도Rust item/TS AST·재확장JSX 대조까지 통과, 새P0/P1/P2 없음. docs-canon `--changed`117문서의 링크/표/도달성/앵커/완료TODO경고0, 별도내용검토에서 책임포인터·진행수·미검증경계확인. mapper·TODO16·Graphifyfreshness·diff통과. Graphify6,802노드/14,973edge, 기존JSON설정4개zero-node안내만있으며소스경고와구분한다.

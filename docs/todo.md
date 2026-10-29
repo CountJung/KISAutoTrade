@@ -11,10 +11,10 @@
 | 전략 연구·해석 | 가격조건 계약·구간 진단·별도 회고 walk-forward 완료; 장중 효능 대기 | 2개: SOXQ-P2-13·09 | 가격조건/변동성 실제 장중 근거 | 장중 자료 2 |
 | LTH 실제 장중 평가 | 일봉 평가불가·분봉 시각 진단 구현 완료; 실제 기간 평가 대기 | 2개: SOXQ-P1-05, SOXQ-P2-12 | 실제 3개월 원본/coverage·DST 검증 후 옵션 비교 | 같은 원본 자료 공유·검증 2 |
 | DB 지원·호환 전환 | PostgreSQL 로컬 TLS 기록 존재; MariaDB/MSRV 정책 미확정 | 3개: P1-DB-01, DEP-P3-01·02 | 지원 matrix·최소 Rust 결정 후 SQLx/DB/RSA 검증 | 정책 결정 2; SQLx 착수 의존 |
-| 구조·의존성 유지보수 | 완료 분리는 이력 보존; 남은 파일·호환 후보 검토 | 7개: P3-REFACTOR-01, DEP-P3-03~08 | 세 파일 분리, HTTP/WS·서버·UI·빌드·도구 검토 | 독립 검토 가능; Xcode 보류 유지 |
+| 구조·의존성 유지보수 | 대상 세 파일 책임 분리·동등성 검증 완료; 호환 후보 검토 | 6개: DEP-P3-03~08 | HTTP/WS·서버·UI·빌드·도구 검토 | 독립 검토 가능; Xcode 보류 유지 |
 | 릴리스 서명 | checksum/attestation·기본 게이트 완료; 실제 서명 미완료 | 1개: P3-SIGN-01 | 플랫폼·키 관리 결정과 서명 검증 | 사용자 결정·관리자 준비 1 |
 
-**미완료 17개 = 자동 구현 8개 + 사용자 판단 4개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현 8개 중 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
+**미완료 16개 = 자동 구현 7개 + 사용자 판단 4개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현 7개 중 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
 
 [완료·경과 이력](completed-history.md) · [색상·필터 보기](todo.html) · [운영 계획](MASTER_PLAN.html) · [검증 지도](HARNESS_MAP.md)
 
@@ -27,18 +27,6 @@
 대기는 미완료다. 실제 연결·주문·전략 기본값 변경은 이 목록 정리로 승인된 것이 아니다. 각 항목의 완료 기준과 검증 범위를 구분한다.
 
 ## 1. 바로 진행할 코드·개선 작업
-
-### P3 — 남은 파일 분리
-
-- [ ] **🟢 자동 구현** **P3-REFACTOR-01 — 1,000라인 초과 파일을 책임 단위로 분리한다.**
-  - [ ] `src/pages/trading/ui/Page.tsx`: broker별 orchestration과 공통 order form 분리.
-  - [ ] `src-tauri/src/commands/toss.rs`: diagnostic/preflight/orders surface 분리.
-  - [ ] `src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx`: ticker picker/preview UI 분리.
-  - 검증: 변경 파일과 신규 파일은 1,000라인 아래, FSD/API public surface와 IPC 이름은 유지한다.
-
-  - **의존성/근거:** 파일별 독립 변경으로 진행하며 소유·scope·공개 API 계약을 보존한다. [탐색 지도](PROJECT_MAP.md), [변경 범위별 검증](HARNESS_MAP.md).
-  - **완료된 부분의 근거:** [이관 기록](completed-history.md#p3-refactor-01)을 참고한다. 상위 완료 조건은 유지한다.
-
 
 ### P3 — 독립 검토 가능한 호환 업데이트
 

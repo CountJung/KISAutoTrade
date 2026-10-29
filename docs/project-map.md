@@ -523,6 +523,8 @@ KISAutoTrade/
 │   │   │   │   ├── failedBreakoutPreparation.tsx
 │   │   │   │   ├── leveragedTrendHoldEditorPanel.tsx
 │   │   │   │   ├── leveragedTrendHoldPreviewChart.tsx
+│   │   │   │   ├── leveragedTrendHoldPreviewPanel.tsx
+│   │   │   │   ├── leveragedTrendHoldTickerPicker.tsx
 │   │   │   │   ├── lthMinuteTimingPanel.tsx
 │   │   │   │   ├── maCrossEntryControls.tsx
 │   │   │   │   ├── maCrossEntryPreparation.tsx
@@ -539,6 +541,7 @@ KISAutoTrade/
 │   │   │   │   ├── strongCloseControls.tsx
 │   │   │   │   ├── strongClosePreparation.tsx
 │   │   │   │   ├── trendFilterControls.tsx
+│   │   │   │   ├── useLeveragedTrendHoldEditorModel.ts
 │   │   │   │   ├── volatilityExpansionControls.tsx
 │   │   │   │   └── volatilityExpansionPreparation.tsx
 │   │   │   └── index.ts
@@ -546,7 +549,9 @@ KISAutoTrade/
 │   │       ├── ui/
 │   │       │   ├── Page.tsx
 │   │       │   ├── kisPanels.tsx
-│   │       │   └── tossPanels.tsx
+│   │       │   ├── tossPanels.tsx
+│   │       │   ├── tradingOrderForm.tsx
+│   │       │   └── useTradingOrderModel.ts
 │   │       └── index.ts
 │   ├── router/
 │   │   └── index.ts
@@ -724,6 +729,10 @@ KISAutoTrade/
 │   │   │   ├── toss/
 │   │   │   │   ├── small_order/
 │   │   │   │   │   └── tests.rs
+│   │   │   │   ├── accounts.rs
+│   │   │   │   ├── diagnostics.rs
+│   │   │   │   ├── orders.rs
+│   │   │   │   ├── preflight.rs
 │   │   │   │   └── small_order.rs
 │   │   │   ├── trading/
 │   │   │   │   ├── daemon/
@@ -1050,7 +1059,8 @@ KISAutoTrade/
 │       ├── strategy-strong-close-policy.spec.ts
 │       ├── strategy-trend-filter-policy.spec.ts
 │       ├── strategy-volatility-expansion-policy.spec.ts
-│       └── toss-commission-ratio.spec.ts
+│       ├── toss-commission-ratio.spec.ts
+│       └── trading-form-contract.spec.ts
 ├── .env.example
 ├── .gitignore
 ├── .graphifyignore
@@ -1156,7 +1166,9 @@ KISAutoTrade/
 | `pages/dashboard/ui/Page.tsx` | 활성 broker scope, KIS 국내/해외 잔고, 활성 Toss broker 보유 종목/평가 요약, Toss 자동매매 시작, 소액매매 검증 안내, USD/KRW 환율 출처 chip, 수익 카드, 리스크, Dashboard 라우트 조립 |
 | `pages/dashboard/ui/orderPanels.tsx` | Dashboard 미체결 주문과 체결 내역 필터/정렬/페이지네이션 패널 |
 | `pages/dashboard/ui/tossVerificationPanel.tsx` | 활성 Toss 프로파일의 실거래 동의 상태를 표시하고 실제 주문 검증을 수행하는 수동거래 페이지로 안내 |
-| `pages/trading/ui/Page.tsx` | 활성 broker scope, KIS/Toss 수동 주문, Toss 주문 전 검증, 차트와 Trading 라우트 조립 (`kisPanels.tsx`, `tossPanels.tsx`로 세부 패널 분리) |
+| `pages/trading/ui/Page.tsx` | 기존 Trading route 공개 진입점. useTradingOrderModel을 한 번 호출하고 holdings·종목 검색·차트·broker 패널과 TradingOrderForm을 조립 |
+| `pages/trading/ui/useTradingOrderModel.ts` | KIS/Toss 주문 화면의 입력 상태·시장 전환·검색/선택·조회 hook·preflight/세션·주문 payload/제출·성공/실패 초안을 소유. 기존 정책과 hook 실행 순서를 보존한 페이지 내부 모델 |
+| `pages/trading/ui/tradingOrderForm.tsx` | 공유 TradingOrderModel을 받아 방향·유형·가격/수량·Toss 세션·preflight·제출/상태 UI를 표시. 별도 모델 인스턴스나 주문 정책을 만들지 않음 |
 | `pages/trading/ui/kisPanels.tsx` | KIS 국내/해외 보유 테이블과 KIS 현재가 카드 |
 | `pages/trading/ui/tossPanels.tsx` | 활성 Toss 프로파일의 holdings/시세 snapshot/차트/종목 유의사항/장 운영 상태, 주문 전 검증, 접수 주문 목록과 정정 UI |
 | `pages/strategy/ui/Page.tsx` | 활성 broker scope, 전략별 저장 broker/account scope 표시, 전략 활성화/대상 종목/전체 너비 카드/카드별 미리보기 route 조립과 strategyPolicyControls의 정책 UI 연결. 일반·가격조건·LTH 저장 성공은 제출한 immutable 초안과 현재 초안의 identity가 같을 때만 정리하고 scope epoch가 달라진 응답은 현재 편집 상태에 적용하지 않음 |
@@ -1178,7 +1190,10 @@ KISAutoTrade/
 | `pages/strategy/ui/maCrossEntryPreparation.tsx` | 기본 누락/0은 중립 비활성, 활성 필터의 legacy 진단 누락은 준비 미확인 경고로 표시. 완료 일봉/TR 수·골든크로스 후보/미준비·추세/기울기/ATR/폭 거부·통과를 수량 산정 ATR과 구분하고 선택 slope/bandwidth 누락을 정보 없음으로 유지. 현재 결과와 A/B에서 재사용 |
 | `pages/strategy/ui/consecutiveEntryControls.tsx` | Consecutive 진입 필터 편집·가시 안내와 params 요약. 잘못된 stored 타입·빈칸·유한수/범위/정수 위반을 보존해 저장/preview를 차단하고, 로컬 raw state로 소수점 키보드 입력을 유지하며 유효값만 숫자로 전달 |
 | `pages/strategy/ui/consecutiveEntryPreparation.tsx` | 선택 진입 준비·완료 OHLC/TR 수·후보/거부/통과 진단을 수량 산정 ATR과 별도로 표시. current/saved params가 모두0이면 중립 비활성, 활성 필터의 진단 누락은 미확인 경고로 구분하며 통과를 체결로 세지 않음 |
-| `pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx` | 레버리지 추세 보유 전략의 ETF 검색/편집, 진입·반등·청산 파라미터, Toss 1분/일봉·50/100/200봉 preview와 계좌 scope/stale 응답 차단 |
+| `pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx` | 기존 LTH 편집 공개 진입점과 hasInvalidLthEntries export 유지. 모델을 한 번 호출하고 ticker picker·진입/반등/청산 파라미터·preview panel을 조립 |
+| `pages/strategy/ui/useLeveragedTrendHoldEditorModel.ts` | LTH 대상 초안·검색/추가/삭제·파라미터 변경·Toss preview 입력/요청/결과 상태 소유. 1분/일봉·50/100/200봉, 계좌/profile와 직렬화 입력의 generation 무효화·늦은 응답 차단을 보존 |
+| `pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx` | 공유 LTH 모델의 국내/미국 ticker 검색·선택·수량·대상 목록 UI. 기존 입력/중복 대상·편집 상태와 이벤트를 모델에 위임 |
+| `pages/strategy/ui/leveragedTrendHoldPreviewPanel.tsx` | 공유 LTH 모델의 종목·봉 간격/수·회계 가정·preview 요청/차트·연구 결과 UI. 평가불가/표본·계좌 범위와 저장 A/B 경계는 기존 공통 연구 컴포넌트에 연결 |
 | `pages/strategy/ui/strategyPreviewPanel.tsx` | 일반/가격조건 전략 카드에서 `candlePageCollector`로 KIS 일/주/월봉 또는 Toss 1분/일봉을 순차 조회하고 요청 평가봉과 그 이전 사전자료를 나눠 편집값·비용 가정과 함께 `preview_strategy`에 전달. 실제 페이지 수·종료 사유·미완료/무효/중복 제외 수와 확보한 사전자료를 표시한다. 강한 종가·변동성 확장은 일봉 선택만 제공하고 날짜 이벤트와 선택한 연구 체결 모델의 가정을 안내한다. 실제 평가 기간·사전자료 수·준비 상태·평가 불가/조건 불충족/무체결을 표시하고 티커/봉/구간/파라미터/수량/broker/account/가정 변경 시 결과 무효화. 연속 일봉은 별도 수집/preview_strategy_continuous를 사용하고 응답 청크·평가/사전자료 수를 검증하며 가정·날짜·계좌 변경 또는 취소 뒤 오래된 결과를 게시하지 않는다. FailedBreakout 완료 고가/ATR/거래량·Consecutive ATR/MA 또는 MA 교차4필터 활성 비일봉과 잘못된 진입 필터 draft는 계산을 차단하며 entryFilterPreparation과 변동성 확장 전용 volatilityExpansionPreparation을 공통 결과에 전달 |
 | `pages/strategy/ui/continuousReplayPanel.tsx` | 단기/연속 날짜 범위 선택·기본 최근 3년 요청과 자료 수집 진행/보류·실제 범위·누락 한계 표시. 연속 API가 반환한 청크별 시작/종료 수량·대기 신호를 공급 경계로 표시하며 분기 리셋·독립 실험으로 해석하지 않음 |
 | `pages/strategy/ui/strategyResearchPanel.tsx` | 초기자본·수수료·세금·슬리피지·환율·리스크·앞 구간 관측 비율 입력, 수익률/MDD/승률/손익비/turnover/exposure, 원시 신호와 주문 가능/체결 구분, equity curve, 거래 목록, 동일 장부 앞/뒤 구간 관측, A/B 비교 UI. 구간 표·진단은 strategyPhaseResults에 위임한다. LTH assessment에 따라 일봉·관측 부족·과거 평가 정보 없는 결과의 성과 표시와 저장/비교를 차단하고, 분봉은 기간 전체 성과와 구분한 표본으로 안내. 연구 전용 ATR 수량 산정 토글·위험 예산·손절 배수 입력과 전략 지표 준비와 별도인 ATR 준비/미준비·과거 응답의 미확인 상태를 표시. sameClose/nextOpen, 봉 내부 미검증/손절 우선, 연구 손절·익절 가정과 신호 공개/체결 단계·미체결·동시 도달 진단을 표시한다. 이전 응답의 누락 정보는 미확인으로 유지하고 A/B에 엔진·가정 차이를 안내하며 운용 설정을 변경하지 않음. Consecutive 선택 진입 진단과 params를 A/B에 보존하고 진입 조건 차이·활성 legacy 진단 누락을 표시. Momentum은 두 진입 params와 모드/간격 요약·조건 차이를 현재 결과/A-B에 보존하고 표시. Deviation은 진입·추세·보유 관측·손절 params와 요약·조건 차이를 현재 결과/A-B에 보존하고 표시. MeanReversion은 청산 모드·추세·보유 관측·기존 손절 params 요약과 A/B 조건 차이를 표시. MA 교차는 params·선택 진입 준비/거부 진단·조건 차이를 현재 결과/A-B에 보존하고 표시. RSI는 기존 core·선택3params를 현재/A-B에 요약하고 조건 차이를 경고한다. FailedBreakout은 기준·선택5숫자 params와 준비/거부 진단을 현재/A-B에 보존하고 조건 차이를 경고한다. StrongClose는 기존 core·선택4params·완료 일봉 추세 준비/거부 진단을 현재/A-B에 보존하고 조건 차이·과거 엔진 적용 미확인을 안내한다. VolatilityExpansion의 기존/선택 params와 전용 준비 진단을 현재/A-B에 보존하고 조건·관측 주기 차이·과거 진단 미확인을 표시한다. TrendFilter의7params와 현재/A-B 요약·조건 차이·v22 이전/미확인 엔진의 보호 적용 미확인을 표시한다. 전용 LTH1분의 선택 minuteTiming을 현재/A-B에 표시하고 버전·봉 표기·시간대·검증 가정 차이를 경고하며 기존 assessment 성과 gate는 유지 |
@@ -1234,7 +1249,11 @@ KISAutoTrade/
 | `commands/strategy_preview/tests.rs` | 일봉 정보 공개 시점, session 경계, 미래 봉 변경이 이전 신호에 영향을 주지 않는 deterministic fixture |
 | `commands/strategy_preview/preparation_tests.rs` | 동일 평가 기간, 사전자료 겹침·중복 입력 거부, 지표 준비 상태·실제 조건 평가봉 수와 사전자료 부족 fixture. generic LTH의 기본/접미 ID·간격·history 조합과 malformed 입력의 factory 이전 명시 거부 검증 |
 | `commands/strategy_preview/daily_event_tests.rs` | generic 일봉의 전일 조건·이전 범위, 실행 차단 피드백, 평가 중 준비, 미래 봉 변경 불변과 비일봉 거부 회귀 검증 |
-| `commands/toss.rs` | Toss accountSeq 조회, 연결 진단, 주문 전 preflight view facade, 접수 주문 목록 조회와 정정 command |
+| `commands/toss.rs` | accounts/diagnostics/preflight/orders/small_order 구현을 재노출하는 Toss IPC facade. 기존 공개 타입·함수 경로와 IPC 등록/REST 호출 계약 유지 |
+| `commands/toss/accounts.rs` | accountSeq 선택용 계좌 view·계좌번호 마스킹·입력 및 저장 프로파일 기반 계좌 목록 조회 |
+| `commands/toss/diagnostics.rs` | Toss 연결 단계/결과 DTO와 OpenAPI·토큰·계좌·보유·매수가능금액·수수료·매도가능수량의 순차 준비 진단 |
+| `commands/toss/preflight.rs` | 주문 전 입력/view, 방향·시장·수수료 선택과 프로파일 고정 사전검증. 기존 유동성·안전성·제출 가능 판정을 유지 |
+| `commands/toss/orders.rs` | 접수 주문 목록·정정 입력/view와 프로파일 고정 구현. 기존 주문 상태·scope·pending·provider 호출 경계를 유지 |
 | `commands/toss/small_order.rs` | 호환용 Toss 1주 소액매매 검증 endpoint. 실거래 동의/최종 확인/최대 허용금액/preflight/open-order scan 후 시장가 매수 제출. 즉시 체결은 원 주문 ID·종목·BUY·통화·정수 1주·명시 체결대금과 체결일자(미제공 시 주문일)를 확인해 일반 fill 경계에 전달하고 미확정 자료는 대조 대상으로 유지. 현재 UI는 일반 수동주문 경로를 사용 |
 | `commands/toss/small_order/tests.rs` | 원 주문과 다른 응답의 ID·종목·방향·통화·수량 거부, 금액 누락/실제 0수량 보류 및 주문가·평균가로 체결대금을 만들지 않는 회귀 fixture |
 | `commands/toss_market.rs` | Toss 시세 snapshot, 종목 유의사항, market-calendar override, candles chart command |
@@ -1448,6 +1467,7 @@ KISAutoTrade/
 | `docs/research/price-condition-contracts-20261029/{report.md,run-summary.json,summary.csv,aggregate.json,validation.json,continuous-results.jsonl.gz,reset-results.jsonl.gz}` | 생산 실행수·분할 hash·78개 원장·비용별 요약/독립 대사와 한계 보관. 무손실 압축 원장은 연속6개와 별도분기72개를 구분하며 손절 미발동·희소노출을 실제 장중 재진입/손실 제한 효능으로 확대하지 않음 |
 | `tests/e2e/strategy-phase-diagnostics.spec.ts` | mock 구간 관측·귀속·작은/무완료 표본, 저장 A/B 축약·재조회와 legacy 혼합, 빈 결과와375px 표 스크롤 검증 |
 | `docs/research/phase-walk-forward-20261029/{design.json,runner.rs}` | 기존 관측된 동결 일봉의12개 고정 전략·별도 장부 fold를 생산 API로 평가하는 사전 설계와 실행기. 같은 장부70/30 진단과 분리하며 새 OOS·파라미터 선택/학습·독립 표본의 증거로 해석하지 않음. 실행 완료/검증은 해당 연구의 최종 산출물로 별도 확인 |
+| `tests/e2e/trading-form-contract.spec.ts` | mock KIS 국내 지정가/시장가·미국 거래소/모의 매도 제한, Toss preflight·명시 세션 차단/자동 payload, 실패 초안 보존·성공 초기화·시장 전환·좁은 화면의 주문 폼 계약 회귀 |
 | `tests/e2e/budget-recovery.spec.ts` | mock 데스크톱 복구의 근거 대조·명시 확인·저장 실패/재시도·legacy/종결·실행 중·모바일과 웹 복구 요청 부재를 검증 |
 | `docs/research/trend-filter-policy-20261023/design.json` | 기존200/5/20·현재 포함 MA와 legacy/owned/exit2/profit5trail3/hold63, 고정 입력 hash·자료·비용·30연속/30대체 분할/360별도 분기 계획의 사전 선언. 원본 declaredNotRun을 보존하고 실제 실행 여부는 run-summary·압축 원장·validation으로 확인 |
 | `docs/research/trend-filter-policy-20261023/{protocol.md,report.md}` | 사전 상태·시점·준비/체결·노출·출처·완료 조건과 실제 생산 실행·감사 근거/후보 판단. 기존 v12 원장 감사·v21 기준 실행·v22 후보를 구분하고 상관된3ETF/겹침·분기 초기화를 독립 OOS로 해석하지 않음 |
@@ -2079,7 +2099,8 @@ Generic LTH는 기본/접미 ID 모두 factory 실행 전에 명시 거부한다
 ### LTH 분봉 표본과 일봉 진단
 
 ```text
-leveragedTrendHoldEditorPanel.tsx → preview_leveraged_trend_hold
+leveragedTrendHoldEditorPanel.tsx → useLeveragedTrendHoldEditorModel.ts
+    ↓ leveragedTrendHoldPreviewPanel.tsx의 요청 동작 → preview_leveraged_trend_hold
     ↓ Toss profile/account 검증 및 차트 자료 조회
 1d → 가격 차트 진단 (합성 장중 tick·전략 실행 없음)
 1m → 이전 완료 일봉 맥락 / 실제 분봉 관측 분리

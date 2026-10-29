@@ -24,6 +24,8 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | 작업 | 먼저 읽을 곳 | 같이 확인할 곳 |
 |---|---|---|
 | 앱 라우트/화면 | `src/router/index.ts`, `src/pages/*/ui/Page.tsx` | `src/widgets/`, `src/features/`, `src/shared/ui/` |
+| 수동 주문 화면 | `src/pages/trading/ui/Page.tsx`, `useTradingOrderModel.ts` | `tradingOrderForm.tsx`, `kisPanels.tsx`, `tossPanels.tsx`, `tests/e2e/trading-form-contract.spec.ts`. Page는 조립, 모델은 상태·조회·제출, 폼은 공유 모델 UI를 소유 |
+| LTH 편집·종목 선택·preview | `src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx`, `useLeveragedTrendHoldEditorModel.ts` | `leveragedTrendHoldTickerPicker.tsx`, `leveragedTrendHoldPreviewPanel.tsx`, `leveragedTrendHoldPreviewChart.tsx`, `strategyResearchPanel.tsx`. 기존 공개 entry·검증 export와 계좌/입력 generation·평가불가 경계를 보존 |
 | 전역 UI 상태 | `src/entities/*/model/*Store.ts` | 하위 호환 `src/store/*.ts` re-export |
 | 서버 상태 조회/변경 | `src/api/hooks.ts`, `src/api/queryKeys.ts` | `src/api/commands.ts`, `src/shared/api/transport.ts` |
 | 공용 IPC 타입 | `src/shared/api/types.ts` | `src/api/types.ts` re-export/legacy surface, Rust serde view |
@@ -31,7 +33,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | Tauri command 추가 | `src-tauri/src/commands/<domain>.rs` | `commands.rs`, `lib.rs::generate_handler!`, `docs/ipc-commands.md` |
 | Web REST 대응 | `src-tauri/src/server/mod.rs` | `server/{market,profiles,records,toss,trading}.rs`, transport route map |
 | KIS 연동 | `src-tauri/src/api/rest.rs`, `api/rest/*` | `api/token.rs`, `api/websocket.rs`, `broker/kis.rs` |
-| Toss 연동 | `src-tauri/src/broker/toss/` | `commands/toss*.rs`, `server/toss.rs` |
+| Toss 연동 | `src-tauri/src/broker/toss/` | `commands/toss.rs` facade → `toss/{accounts,diagnostics,preflight,orders,small_order}.rs`, `commands/toss_market.rs`, `server/toss.rs`; 기존 공개 경로·IPC/REST 계약 유지 |
 | broker 공통 계약 | `src-tauri/src/broker/domain.rs`, `adapter.rs` | `kis.rs`, `toss/adapter.rs`, `rate_limit.rs` |
 | 캔들 페이지/일반 preview 사전자료 | `src-tauri/src/commands/candles.rs`, `broker/candles.rs` | `api/rest/chart.rs`, `src/shared/api/candlePageTypes.ts`, `pages/strategy/model/candlePageCollector.ts`, `server/market.rs` |
 | 자동매매 시작/데몬 | `src-tauri/src/commands/trading.rs` / `commands/trading/daemon.rs` | `daemon/{fence,flow}.rs`, `commands/trading/{positions,balance,risk_restore,history,daily_history}.rs`, `lib.rs` |

@@ -1024,7 +1024,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 | 수동 주문 IPC | `src-tauri/src/commands/orders.rs` |
 | 체결/통계/로그 IPC | `src-tauri/src/commands/records.rs` |
 | trade archive IPC | `src-tauri/src/commands/archive.rs` |
-| Toss 진단/preflight IPC | `src-tauri/src/commands/toss.rs` |
+| Toss 진단/preflight IPC | `src-tauri/src/commands/toss.rs` facade; `toss/{accounts,diagnostics,preflight,orders}.rs` 구현 |
 | Toss read-only 시세/장운영 IPC | `src-tauri/src/commands/toss_market.rs` |
 | KIS market/order REST 핸들러 | `src-tauri/src/server/market.rs` |
 | 기록/로그/보관 REST 핸들러 | `src-tauri/src/server/records.rs` |
