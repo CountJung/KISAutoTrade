@@ -391,3 +391,8 @@ Toss32개item의속성/시그니처/본문byte동일, Trading56문장/7helper·L
 ## DEP-P3-06 — Vite·React plugin 전환 완료
 
 2026-10-29 Vite6→7→8.3.5/plugin-react6.1.2·Oxc/Rolldown 전환을 `06a84fe32fa37dd0f31a13c21f13efb6dc4e8ac1`로 정상 푸시·원격 SHA 대조했다. clean 설치·target/debug4조합·전체UI349와 Tauri custom-protocol 빌드, 승인된 별도 WKWebView 차트·테마·입력·종료/재실행을 검증했다. 같은 코드 SHA의 Gate48·Security55도 성공했다. 알려진 calendar fixture 차단1건, 원래 Tauri startup/IPC·Windows·macOS12·CSP negative control 등의 제외 범위와 캡처 provenance는 [회차 기록](tasks/immediate-backlog-20261029.md)에 보존한다. 실제 계정·운영 DB·거래 검증이 아니다.
+
+
+## DEP-P3-07 — 나머지 의존성 평가·선별 전환 완료
+
+2026-10-29 `fe3a3f8a8836c7c20745b3a7c7ea7e09e68ccda4`로 sha2.11.1/thiserror2.0.21과 기존 hex0.4.3 재사용을 정상 푸시·원격 SHA 대조했다. keyring3/RGL1은 실제 초기화/backend·사용 이익을 검토해 유지·삭제 없음으로 판정했다. 구버전 및 호환 baseline과 새 버전의 같은 literal14개, 로컬 Rust882(실DB5제외)·전체UI349·strict clippy/build를 통과했다. 같은 코드 SHA의 Gate49·Security56도 성공했다. 최초 LowerHex 실패, 입력/생산 본문 동등성, 실제 DB/최소Rust/타플랫폼 제외는 [9회차 기록](tasks/immediate-backlog-20261029.md)에 보존한다.

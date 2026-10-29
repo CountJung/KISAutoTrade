@@ -15,7 +15,7 @@
 | 6 | DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다. | 구현·검증·CI 완료 | `653377ce` 원격 일치, Gate45·Security52 성공 |
 | 7 | DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다. | 구현·검증·CI 완료 | UI `f15f192`·명세보정 `99b85eb`, Gate47·Security54 성공 |
 | 8 | DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다. | 구현·검증·CI 완료 | `06a84fe` 원격 일치, Gate48·Security55 성공 |
-| 9 | DEP-P3-07 — 나머지 Rust·UI 의존성 후보의 실제 필요와 영향부터 확인한다. | 로컬 구현·검증 완료/게시·CI 대기 | sha2/thiserror 전환·keyring/RGL 유지; Rust882/DB5제외·UI349 |
+| 9 | DEP-P3-07 — 나머지 Rust·UI 의존성 후보의 실제 필요와 영향부터 확인한다. | 구현·검증·CI 완료 | `fe3a3f8` 원격 일치, Gate49·Security56 성공 |
 | 10 | DEP-P3-08 — TypeScript·패키지매니저 major 후보를 개별 평가한다. | 대기 | — |
 
 ## 1회차 — P1-RECOVERY-01
@@ -361,6 +361,15 @@ live_history hash는 candle 내용이 아닌 StrategyConfig 지문이다. DB 새
 - Node24.22.1의 앱/config 타입·FSD·VM4·production build와 전체 UI349/349(생산317+source32,1.5분)를 통과했다. `.env`를 읽지 않는 Git 제외 offline config·loopback mock으로 실행했고 동결 dist10개 해시는8회차와 동일하다. 실제 앱을 다시 기동하지 않았다.
 - 선언을 제공한 crate 중 rust-version>1.90은0개이고 프로젝트1.90 선언을 유지했다. MSRV 미선언151개가 있으며 실제1.90·Windows/macOS Intel 실행은 하지 않았다. 최신 stable CI를 최소Rust 실행으로 표현하지 않는다.
 - 로컬 cargo-audit은 설치되지 않아 새 로컬 감사 성공을 주장하지 않는다. 같은 SHA의 Dependency Security를 게시 후 확인한다. 기존 RSA 예외와 Linux 경고2건은 이 전환으로 해결되지 않았다.
-- mapper/hex 영향/baseline 독립 감사와 그래프7060노드/15520간선 갱신을 수행했다. Graphify의 데이터 JSON5개 zero-node 안내는 컴파일 경고와 구분한다. 최종 코드 리뷰는 신규 P0/P1/P2 없이 통과했다. 문서 게이트·커밋/푸시·동일 SHA CI를 완료하기 전까지 상위ID를 열어 둔다.
+- mapper/hex 영향/baseline 독립 감사와 그래프7060노드/15520간선 갱신을 수행했다. Graphify의 데이터 JSON5개 zero-node 안내는 컴파일 경고와 구분한다. 최종 코드 리뷰는 신규 P0/P1/P2 없이 통과했다. 문서 형식·내용 검토도 통과했고 뒤의 동일 코드 SHA CI 성공 후 상위ID를 닫았다.
 
 단계별 원본·metadata/features·입력/고정 source hash·최초 실패/후속 성공 로그·동등성은 Git 제외 `.cache/dependency-migration-20261029/rust-stages/`, 루트 통합/UI 로그는 같은 캐시에 보존한다. 명령과 책임 경계는 [HARNESS](../HARNESS_MAP.md)·[지도](../project-map.md)에 둔다. 운영 계정·DB·키체인·실제 provider/주문은 검증하지 않았다. 10회차는 공식 TS6.0.3 bridge metadata까지 읽기 준비만 했으며 설치/구현하지 않았다.
+
+
+### 게시·CI 완료
+
+39개 파일을 `fe3a3f8a8836c7c20745b3a7c7ea7e09e68ccda4`로 커밋·정상 푸시하고 원격 SHA/당시 clean 및 GitHub 문서를 확인했다. [Release Gate49](https://github.com/CountJung/KISAutoTrade/actions/runs/40870260236)·[Security56](https://github.com/CountJung/KISAutoTrade/actions/runs/40870322283)를 각각 한 번 실행해 성공했다. 브라우저의 기존 탭 조회가 지연됐을 때 실행0을 원격에서 확인한 뒤 같은 Chrome 새 탭으로 복구했으며 CI를 중복 제출하지 않았다.
+
+Linux Rust887/887·frontend·공개 Toss39경로·전체UI349/349를 실제 로그로 확인했다. CI의887개에는 환경 미설정으로 조기 반환한 실DB5개가 포함돼 있으며 DB 검증 성공으로 세지 않는다. 로컬은 해당 모듈의5개를 아예 제외해882개를 실행했다. 보안 CI의 기존 RSA 예외·Linux2경고 경계는 그대로다.
+
+DEP-P3-07을 완료 이력으로 이관했다. 남은11개는 자동2+판단4+자료5이고 즉시 구역은 DEP-P3-08 한 개다. 다음10회차는 공식 TS6.0.3 bridge→TS7.0.2를 독립 평가하고 npm11 유지·pnpm 미채택 근거를 검토한다. 아직 설치·구현을 시작하지 않았다. 이 상태 기록은 문서만 변경하며 검증된 fe3a3f8의 source/lock/workflow와 동일하다.
