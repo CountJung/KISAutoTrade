@@ -30,7 +30,7 @@ tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.13.5", features = ["json", "cookies", "query", "form", "rustls-no-provider"], default-features = false }
 rustls = { version = "0.23", features = ["ring", "std", "tls12"], default-features = false }
 webpki-roots = "1"
-tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"] }
+tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-native-roots"] }
 futures-util = "0.3"
 tracing = "0.1"
 tracing-appender = "0.2"

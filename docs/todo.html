@@ -56,8 +56,8 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다.</strong> 우선순위 3, DEP-P3-02 다음; 두 전환의 diff·검증은 분리한다.</h2>
 <ul><li><strong>5A HTTP 로컬 완료:</strong> reqwest 0.13.5의 <code>query</code>·<code>form</code>·<code>rustls-no-provider</code>와 공통 builder로 기존 Mozilla roots/ring/TLS1.2·1.3/HTTP1.1을 보존했다. 합성 HTTP/TLS10개·전체 Rust841 검증과 보안 잔여는 <a href="tasks/immediate-backlog-20261029.md">회차 기록</a>을 따른다. 전체 ID는 아직 미완료다.</li>
-<li><strong>남은 5B·CI:</strong> WS0.24는 그대로이며 <code>Message::Text</code>의 Utf8Bytes·native roots/provider·수신/종료·버퍼·수동 재구독을 검증한다. 두 전환을 별도 커밋하고 각 SHA의 CI 결과를 기록한다.</li>
-<li><strong>완료 조건:</strong> 합성 HTTP/TLS 서버에서 차트 query·헤더·JSON·쿠키·오류 처리를 확인하고 mock WebSocket에서 승인·구독·수신·ping/pong·종료·재연결을 검증한다. 실제 KIS/Toss 인증 없이 Rust format/strict clippy/check/test/build와 해당 CI를 통과한다. <a href="https://github.com/seanmonstar/reqwest/releases/tag/v0.13.0">reqwest 변경</a>, <a href="https://raw.githubusercontent.com/snapview/tungstenite-rs/v0.30.0/CHANGELOG.md">WebSocket 변경</a>.</li>
+<li><strong>5B 로컬 완료·CI 대기:</strong> WS0.30의 Utf8Bytes·native roots/ring·4KiB read buffer와 합성 WS/WSS14개를 검증했다. 기존0.24에서 재현한 Close 응답·송신 실패 상태 정리도 수정했다. 자동 재연결은 추가하지 않았으며 명시 재구독만 검증했다. HTTP의 Release Gate43·Security50은 성공했고, 별도 WS 커밋의 CI 결과 확인이 남는다.</li>
+<li><strong>완료 조건:</strong> 합성 HTTP/TLS 서버에서 차트 query·헤더·JSON·쿠키·오류 처리를 확인하고 mock WebSocket에서 승인·구독·수신·ping/pong·종료·명시 재연결/재구독을 검증한다. 실제 KIS/Toss 인증 없이 Rust format/strict clippy/check/test/build와 해당 CI를 통과한다. <a href="https://github.com/seanmonstar/reqwest/releases/tag/v0.13.0">reqwest 변경</a>, <a href="https://raw.githubusercontent.com/snapview/tungstenite-rs/v0.30.0/CHANGELOG.md">WebSocket 변경</a>.</li>
 <li><strong>착수 의존성:</strong> 앞 번호는 검토 권장 순서다. 실제 API·peer·toolchain 의존성을 확인해 범위를 고정하며 DEP-P3-01 결정 대기를 이 항목의 일괄 차단으로 확대하지 않는다.</li></ul>
 <a class="permalink" href="#task-9b9191cd53" aria-label="이 할일 링크">#</a>
 </article>
@@ -224,7 +224,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <a class="permalink" href="#soxq-p2-09" aria-label="이 할일 링크">#</a>
 </article></section>
 <p id="empty" hidden>일치하는 열린 할일이 없습니다. 검색어나 상태를 바꿔 주세요.</p>
-<footer>원본 SHA-256: 59d5c8b7b0fd6583651628861c38e1b6af0ee7b722fb8b7fa37701bfc3b89a4b<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
+<footer>원본 SHA-256: 63933852e1c0706540ab65ee177ffcad823f13e2944abcfc0540f5fbfc27f95b<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
 </main>
 <script>
 const status = document.getElementById('status');

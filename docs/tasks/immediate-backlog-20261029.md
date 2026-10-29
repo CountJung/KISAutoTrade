@@ -11,7 +11,7 @@
 | 2 | SOXQ-P2-13 — 가격조건의 실제 소유·손절 후 재진입과 공통 guard를 검증한다. | 로컬 완료·실자료 조건 이관 | `00ea198ad021836862ad345d58f618660fae6d0b` 원격 SHA 일치; 전체 ID는 열린 상태 |
 | 3 | SOXQ-P2-16 — 구간 경고·표본 해석을 교정하고 별도 walk-forward를 평가한다. | 구현·검증 완료 | `15b53286109f599242d27e5314ea2c0105ac453e` 원격 SHA·GitHub 문서 확인 |
 | 4 | P3-REFACTOR-01 — 1,000라인 초과 파일을 책임 단위로 분리한다. | 구현·검증 완료 | `4a9e250236e8773f0b1fe3194339cc0978a8a5a8` 원격 SHA 일치 |
-| 5 | DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다. | 5A HTTP 로컬 완료·5B WS 대기 | 아래 분리 검증; CI는 커밋별 후속 기록 |
+| 5 | DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다. | 5A HTTP·CI 완료·5B WS 로컬 완료/CI 대기 | 5A `0dead386` 원격 일치; Release Gate43·Security50 성공 |
 | 6 | DEP-P3-04 — axum 0.7.9→0.8.9와 tower-http 0.5.2→0.7.1의 서버 호환성을 검증한다. | 대기 | — |
 | 7 | DEP-P3-05 — React 18.3.1→19.3.1·MUI 6.5.0→9.5.0을 단계적으로 이전한다. | 대기 | — |
 | 8 | DEP-P3-06 — Vite 6.4.5→8.3.5·React plugin 4.7.0→6.1.2의 빌드 호환성을 검증한다. | 대기 | — |
@@ -141,3 +141,27 @@
 - 5A 지도·그래프: mapper 책임표/인벤토리와 check 통과. Graphify6,849노드/15,113edge, 기존 JSON설정4개 zero-node 안내만 남으며 소스 경고와 구분한다.
 
 - 별도 문서 내용 감사에서 보안 정본의 이전 점검일을 과거 기록으로 바로잡았다. 현재 검증 수치·부분 완료·CI 대기와 신뢰 경계가 정합하며 추가 문서 차단 없음.
+
+
+### 5A 원격 게시·CI
+
+- 커밋·원격 SHA: `0dead386aa0e1270cff4092009b253dc0f37e8e5`. 정상 push 후 ls-remote 일치·clean을 확인했고 GitHub의 해당 SHA 문서도 읽어 게시를 확인했다.
+- [Release Gate #43](https://github.com/CountJung/KISAutoTrade/actions/runs/40835993472): 이 SHA로 2026-10-29T07:31Z 수동 실행. **성공(6분46초)**. frontend·toss-openapi, Linux stable1.99.1의 check·Rust841/841, UI344/344 통과. Actions v4 Node20 안내4개·runner 이전 notice4개는 별도이며 소스 검사 경고0과 구분한다.
+- [Dependency Security #50](https://github.com/CountJung/KISAutoTrade/actions/runs/40836234313): 같은 SHA로 07:33Z 실행, **성공(24초)**. npm-audit·cargo-audit 둘 다 통과. Rust stable1.99.1/Ubuntu24.04.5. 기존 RSA 예외와 Linux RustSec2경고는 유지하며 Actions v4의 Node20 폐기예정 안내2개·Ubuntu runner 이전 notice2개는 별도 인프라 안내다. 경고를 숨기거나 CI 설정을 완화하지 않았다.
+
+
+### 5B — tokio-tungstenite 0.30.0
+
+- 5A `0dead386aa0e1270cff4092009b253dc0f37e8e5` 이후 별도 diff. 공개 subscribe/이벤트 DTO·기존 token/URL·승인/구독 JSON·parser·broadcast256을 유지하고 AppHandle adapter 밖의 private transport helper를 합성 테스트에 재사용한다. Text만 Utf8Bytes로 변환했다.
+- [공식 변경](https://raw.githubusercontent.com/snapview/tungstenite-rs/v0.30.0/CHANGELOG.md)의 128KiB eager read buffer 대신 기존0.24의 `READ_BUFFER_CHUNK_SIZE=4096`에 맞춰4KiB를 명시했다. 메시지64MiB/프레임16MiB/write128KiB와 나머지 보안 기본값은 유지하며20KiB 정상 수신으로 read buffer와 메시지 크기 상한을 구분했다.
+- 버전 교체 전0.24의 동일 생산 helper에서 **2개 실패를 재현**했다: peer Close 응답이 flush되지 않아 ResetWithoutClosingHandshake, 승인 send BrokenPipe 뒤 connected=true 잔류. Close 응답은2초 상한으로 flush하고 송신 실패는 false를 발행하도록 최소 수정했다. 자동 재시도/재연결·새 운용 endpoint는 추가하지 않았다.
+- 합성 WS/WSS **14/14**: exact 승인/두 구독 JSON·순서/가격 필드, JSON/잘못된TR/부족필드/Binary/Pong 무시, 자동Pong중복 없음, UTF8 Close echo, EOF/잘못된UTF8·send 실패·HTTP403, 명시 두 번째 구독,4KiB/20KiB, TLS1.2·1.3 신뢰/미신뢰 거부. WSS는5A 공개 DER와 테스트 전용 root connector이며 OS trust를 변경하지 않았다. 실제 KIS 승인·OS native-root 접속을 검증한 것은 아니다.
+- 0.24와0.30 upstream connect와 rustls native-root 경로를 대조했고 기존 native roots/ring을 유지했다. AWS-LC·전역 provider 설치 없음. 추가/갱신12crate의 선언 MSRV1.85는 앱1.90 이하이나 실제1.90 실행 검증은 아니다. 5A HTTP helper·DER 변경0, 기존 sha2 직접 의존성은 유지한다.
+- check alltargets·strict clippy alltargets/allfeatures·fmt 통과·소스 경고0. 전체lib **855/855** 및 `cargo build --offline --workspace --locked --features custom-protocol` 통과했다. 프런트 변경이 없어5A의 타입/FSD와 원격UI344 결과를 근거로 유지하며 WS SHA의 CI는 별도 실행한다. RustSec는 기존 RSA 예외만 적용한 감사 exit0, 기존 Linux2경고 유지다.
+- 독립 리뷰에서 신규 P0/P1/P2 없음. Close flush2초 상한은 코드로 확인했고 stalled-write timeout 전용 fixture는 별도 실행하지 않았다. 실거래·계좌·API키·provider·OS trust·운영배포 접근 없음.
+
+- 5B 최종 구조 검사: mapper 인벤토리/책임표 통과, Graphify6,911노드/15,287edge 갱신. 기존 JSON설정4개의zero-node 안내는 소스 경고와 구분한다. lock에는 platform-verifier의 windows-sys 허용 범위 참조가0.52→0.61로 재해석된 변화도 있으며 Windows 실동작을 검증한 것으로 주장하지 않는다.
+
+- 5B docs-canon `--changed`117문서의 상대링크·표·도달성·앵커·완료TODO 경고0, TODO16·project-map·graph freshness·diff 검사 통과.
+
+- 별도 내용 감사: HTTP SHA CI성공과 WS 로컬855/CI대기·TODO16·합성/실환경 한계가 정합, 차단할 drift 없음. 완료 조건의 재연결은 기존 명시 재연결/재구독을 뜻하도록 명확히 했으며 새 자동재연결을 추가하지 않았다.

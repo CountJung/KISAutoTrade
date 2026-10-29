@@ -354,3 +354,8 @@ Toss32개item의속성/시그니처/본문byte동일, Trading56문장/7helper·L
 ## DEP-P3-03 — 5A HTTP 부분 완료
 
 2026-10-29 시작 `4a9e250236e8773f0b1fe3194339cc0978a8a5a8`에서 reqwest0.12.28→0.13.5를 분리 전환했다. 8파일14생성점의 기존 TLS trust/provider와 호출부 옵션을 공통 builder로 보존했고 합성 HTTP/TLS10·전체lib841이 통과했다. RustSec 기존RSA1·Linux경고2는 남는다. WS0.24→0.30과 각 SHA CI 조건은 아직 미완료이므로 TODO의 같은 ID를 닫지 않는다. [구현·검사·제약 정본](tasks/immediate-backlog-20261029.md).
+
+
+## DEP-P3-03 — 5B WebSocket 로컬 부분 완료
+
+2026-10-29 HTTP `0dead386`의 Release Gate43(Rust841/UI344)·Security50 성공을 확인한 뒤 WS0.24→0.30을 별도 전환했다. 기존 wire/native roots/ring과4KiB read chunk를 유지하고, 교체 전 재현한 Close 응답 누락·송신 실패 연결 플래그 잔류를 수정했다. 합성WS/WSS14개가 통과했으며 자동 재연결·실계좌 연결은 추가하지 않았다. WS 커밋 CI 확인 전이므로 상위ID는 열린 상태다. [최종 검사·게시 정본](tasks/immediate-backlog-20261029.md).

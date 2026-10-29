@@ -11,7 +11,7 @@
 | 전략 연구·해석 | 가격조건 계약·구간 진단·별도 회고 walk-forward 완료; 장중 효능 대기 | 2개: SOXQ-P2-13·09 | 가격조건/변동성 실제 장중 근거 | 장중 자료 2 |
 | LTH 실제 장중 평가 | 일봉 평가불가·분봉 시각 진단 구현 완료; 실제 기간 평가 대기 | 2개: SOXQ-P1-05, SOXQ-P2-12 | 실제 3개월 원본/coverage·DST 검증 후 옵션 비교 | 같은 원본 자료 공유·검증 2 |
 | DB 지원·호환 전환 | PostgreSQL 로컬 TLS 기록 존재; MariaDB/MSRV 정책 미확정 | 3개: P1-DB-01, DEP-P3-01·02 | 지원 matrix·최소 Rust 결정 후 SQLx/DB/RSA 검증 | 정책 결정 2; SQLx 착수 의존 |
-| 구조·의존성 유지보수 | 대상 세 파일 분리 완료; HTTP 전환 로컬 검증·WS 전환 대기 | 6개: DEP-P3-03~08 | HTTP/WS·서버·UI·빌드·도구 검토 | 독립 검토 가능; Xcode 보류 유지 |
+| 구조·의존성 유지보수 | 대상 세 파일·HTTP 전환과 CI 완료; WS 로컬 검증·CI 대기 | 6개: DEP-P3-03~08 | HTTP/WS·서버·UI·빌드·도구 검토 | 독립 검토 가능; Xcode 보류 유지 |
 | 릴리스 서명 | checksum/attestation·기본 게이트 완료; 실제 서명 미완료 | 1개: P3-SIGN-01 | 플랫폼·키 관리 결정과 서명 검증 | 사용자 결정·관리자 준비 1 |
 
 **미완료 16개 = 자동 구현 7개 + 사용자 판단 4개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현 7개 중 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
@@ -38,8 +38,8 @@ DEP-P3-01·02는 아래 선행 결정 구역에서 관리한다. 아래 03~08은
 
 - [ ] **🟢 자동 구현** **DEP-P3-03 — reqwest 0.12.28→0.13.5 및 tokio-tungstenite 0.24.0→0.30.0을 각각 전환한다.** 우선순위 3, DEP-P3-02 다음; 두 전환의 diff·검증은 분리한다.
   - **5A HTTP 로컬 완료:** reqwest 0.13.5의 `query`·`form`·`rustls-no-provider`와 공통 builder로 기존 Mozilla roots/ring/TLS1.2·1.3/HTTP1.1을 보존했다. 합성 HTTP/TLS10개·전체 Rust841 검증과 보안 잔여는 [회차 기록](tasks/immediate-backlog-20261029.md)을 따른다. 전체 ID는 아직 미완료다.
-  - **남은 5B·CI:** WS0.24는 그대로이며 `Message::Text`의 Utf8Bytes·native roots/provider·수신/종료·버퍼·수동 재구독을 검증한다. 두 전환을 별도 커밋하고 각 SHA의 CI 결과를 기록한다.
-  - **완료 조건:** 합성 HTTP/TLS 서버에서 차트 query·헤더·JSON·쿠키·오류 처리를 확인하고 mock WebSocket에서 승인·구독·수신·ping/pong·종료·재연결을 검증한다. 실제 KIS/Toss 인증 없이 Rust format/strict clippy/check/test/build와 해당 CI를 통과한다. [reqwest 변경](https://github.com/seanmonstar/reqwest/releases/tag/v0.13.0), [WebSocket 변경](https://raw.githubusercontent.com/snapview/tungstenite-rs/v0.30.0/CHANGELOG.md).
+  - **5B 로컬 완료·CI 대기:** WS0.30의 Utf8Bytes·native roots/ring·4KiB read buffer와 합성 WS/WSS14개를 검증했다. 기존0.24에서 재현한 Close 응답·송신 실패 상태 정리도 수정했다. 자동 재연결은 추가하지 않았으며 명시 재구독만 검증했다. HTTP의 Release Gate43·Security50은 성공했고, 별도 WS 커밋의 CI 결과 확인이 남는다.
+  - **완료 조건:** 합성 HTTP/TLS 서버에서 차트 query·헤더·JSON·쿠키·오류 처리를 확인하고 mock WebSocket에서 승인·구독·수신·ping/pong·종료·명시 재연결/재구독을 검증한다. 실제 KIS/Toss 인증 없이 Rust format/strict clippy/check/test/build와 해당 CI를 통과한다. [reqwest 변경](https://github.com/seanmonstar/reqwest/releases/tag/v0.13.0), [WebSocket 변경](https://raw.githubusercontent.com/snapview/tungstenite-rs/v0.30.0/CHANGELOG.md).
 
   - **착수 의존성:** 앞 번호는 검토 권장 순서다. 실제 API·peer·toolchain 의존성을 확인해 범위를 고정하며 DEP-P3-01 결정 대기를 이 항목의 일괄 차단으로 확대하지 않는다.
 

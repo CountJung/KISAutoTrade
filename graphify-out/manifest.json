@@ -95,9 +95,9 @@
     "semantic_hash": ""
   },
   "src-tauri/src/api/websocket.rs": {
-    "mtime": 1783083256.72,
-    "ast_hash": "e2a2a8fe0f29de9eee0f352e496ea4ac",
-    "semantic_hash": "e2a2a8fe0f29de9eee0f352e496ea4ac"
+    "mtime": 1793259459.5756598,
+    "ast_hash": "872d8608de2d6ae988143442a20fec2a",
+    "semantic_hash": ""
   },
   "src-tauri/src/broker/adapter.rs": {
     "mtime": 1792290610.8864927,
@@ -2572,6 +2572,11 @@
   "src-tauri/src/http/tests.rs": {
     "mtime": 1793258609.2054987,
     "ast_hash": "a232575d880c4fc342c0b7e736b0982e",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/api/websocket/tests.rs": {
+    "mtime": 1793259568.6973882,
+    "ast_hash": "474d26c3f5a17c88bf4b9698c70587c7",
     "semantic_hash": ""
   }
 }

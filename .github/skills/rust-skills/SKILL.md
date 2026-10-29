@@ -1396,3 +1396,10 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 
 - reqwest0.13의 기본 platform verifier/aws-lc를 앱의 기존 정책으로 오인하지 않는다. 앱 HTTP 생성은 `crate::http::client_builder()` 또는 `client()`를 사용해 기존 bundled Mozilla roots·ring·TLS1.2/1.3·HTTP1.1 ALPN을 보존한다. 전역 provider 설치·OS CA 읽기·인증서 검증 해제는 추가하지 않는다.
 - query와 form은 명시 feature다. 호출부 timeout/cookie/proxy/header/redirect를 유지하며 POST 응답 유실을 재주문으로 복구하지 않는다. HTTP/TLS 합성 테스트와 실제 계좌/인증 검증을 구분한다. 상세 검증은 `docs/HARNESS_MAP.md`와 `docs/tasks/immediate-backlog-20261029.md`를 따른다.
+
+
+## WebSocket 전환·종료 계약 (2026-10-29)
+
+- tokio-tungstenite0.30 Text는 Utf8Bytes로 변환하고 기존 native roots/ring을 유지한다. HTTP bundled roots와 WS native roots를 섞지 않는다. read buffer4096은 이전 chunk 용량을 보존하며 메시지/프레임 상한과 별개다.
+- peer Close는 큐에 쌓인 응답을 bounded flush한 뒤 연결 false를 발행한다. 승인/구독 송신 오류도 false를 정리하고 자동 재제출하지 않는다. Ping은 라이브러리 자동Pong을 사용하며 중복 응답을 추가하지 않는다. 현재 명시 재구독과 미구현 자동재연결을 구분한다.
+- AppHandle adapter와 같은 생산 transport helper를 합성 WS/WSS에서 검증한다. 테스트 custom CA가 성공한 것을 실제 OS root·KIS 계정 인증 검증으로 보고하지 않는다.

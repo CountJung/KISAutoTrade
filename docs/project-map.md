@@ -680,6 +680,8 @@ KISAutoTrade/
 │   │   │   │   ├── chart_tests.rs
 │   │   │   │   ├── exchange.rs
 │   │   │   │   └── types.rs
+│   │   │   ├── websocket/
+│   │   │   │   └── tests.rs
 │   │   │   ├── detect.rs
 │   │   │   ├── mod.rs
 │   │   │   ├── rest.rs
@@ -1393,7 +1395,8 @@ KISAutoTrade/
 | `broker/toss/types.rs` | Toss read-only/account/market DTO와 broker domain 변환 |
 | `broker/toss/orders.rs` | Toss 주문 생성/목록/상세/정정/취소 DTO와 주문 validation |
 | `api/token.rs` | KIS Access Token 자동 갱신 |
-| `api/websocket.rs` | 실시간 시세 수신, 체결 콜백 |
+| `api/websocket.rs` | tokio-tungstenite0.30 KIS 시세 구독. private connect_stream/websocket_config는 native roots와4096-byte 읽기 버퍼를 유지하고 start_subscription/send_subscription/publish_status가 승인·구독 JSON, 수신 broadcast와 연결 flag/event를 연결. Close 응답을 최대2초 flush하고 구독 전송 실패에도 disconnected를 게시하며 자동 재연결은 추가하지 않음 |
+| `api/websocket/tests.rs` | 합성 WS/WSS14개: 승인/구독 순서·시세 파싱, Ping/Pong·Close·전송 실패·EOF·UTF-8·handshake·명시적 재구독과 버퍼/메시지 한도 구분. 기존 http/testdata DER3개를 재사용해 시험용 trust store의 TLS1.2/1.3 성공·미신뢰 거부를 확인하며 실제 KIS/native roots 운용 검증과 구분 |
 | `trading/mod.rs` | 전략 루프 실행, 장 시간 감지 |
 | `trading/views.rs` | `StrategyConfig` → camelCase `StrategyView` 공용 builder. IPC/REST가 같은 view를 사용하며 종목명 조회 전 manager lock을 해제 |
 | `trading/guard/recovery.rs` | 복구 예약 ID별 최대256개 멱등 기록으로 원래 제출 시각의 동일 방향 cooldown·손절일·유효 whipsaw 관측을 복원. live Local 달력 정책과 최신 보호값을 보존하고 승인 시각으로 보호 창을 연장하거나 만료 관측을 되살리지 않음 |
@@ -1563,8 +1566,22 @@ Discord와 Web profile 감지의 기존14개 생성점이 이 helper를 사용�
 HTTP는 번들 Mozilla roots와 client별 ring·TLS1.2/1.3·HTTP/1.1 ALPN을
 명시하며 OS 인증서 저장소와 프로세스 전역 crypto provider를 바꾸지 않는다.
 `http/tests.rs`는 합성 DER fixture와 loopback 서버로 wire/TLS·실패 계약을
-확인한다. 이번 연결은 tokio-tungstenite0.24의 WebSocket 코드·native roots
-경계를 이전하거나 실제 provider 검증을 완료한 것으로 해석하지 않는다.
+확인한다. HTTP의 번들 roots 정책과 현재 tokio-tungstenite0.30 WebSocket의
+native roots 정책은 별도 경계이며 실제 provider 검증을 완료한 것으로 해석하지 않는다.
+
+### WebSocket 연결·구독·종료
+
+`api/websocket.rs`의 subscribe는 기존 URL/토큰 경로 뒤 private connect_stream과
+websocket_config를 거쳐 구독을 시작한다. tokio-tungstenite0.30의 native roots와
+resolved ring을 유지하며 read_buffer_size만4096으로 명시한다. 이는 eager 읽기
+버퍼 설정이고 frame/message 크기 제한을 축소하는 설정이 아니다.
+start_subscription은 publish_status로 flag와 ws-status 이벤트를 게시하고
+send_subscription의 기존 승인/종목별 JSON을 Utf8Bytes Text로 보낸다. 전송 실패는
+disconnected로 복원하며 수신 Close 응답은 최대2초 flush 후 종료한다. 수신 오류·
+EOF도 같은 종료 상태로 게시하고, 다음 구독은 새 명시 요청으로만 시작한다.
+이 두 종료 보완은0.24에서도 재현된 결함의 최소 교정이며 자동 재연결 정책 추가가
+아니다. 합성 WSS는 기존 HTTP DER fixture와 시험용 connector/trust store를
+사용하며 운영 endpoint나 OS 신뢰 저장소를 바꾸지 않는다.
 
 ### DB 설정 게시·연결·단절 복구
 

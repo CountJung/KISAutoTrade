@@ -284,3 +284,8 @@ Trading/LTH의 state/effect/closure는 각 `use*Model`을 parent에서 한 번 �
 ## HTTP 의존성 전환 계약
 
 `cargo test --offline --locked --lib http::tests`: 합성 HTTP/TLS10개로 query/form/JSON/header·쿠키/redirect·timeout/proxy·오류·응답 유실 POST 재제출 없음·TLS1.2/1.3/SNI/ALPN·CA/hostname 거부를 검사한다. `http/testdata`는 공개 합성 fixture이며 OS trust에 등록하지 않는다. caller는 `crate::http::client_builder()`로 기존 Mozilla roots/ring을 유지한다. 실제 provider 접속·MSRV 실행·다른 플랫폼 검증과 구분한다. [5A 회차 근거와 한계](tasks/immediate-backlog-20261029.md).
+
+
+## WebSocket 의존성 전환 계약
+
+`cargo test --offline --locked --lib api::websocket::tests`: 생산 private transport helper의 합성 WS/WSS14개로 승인/구독 wire·수신·자동Pong·Close echo·오류상태·명시재구독·4KiB버퍼/20KiB메시지·TLS1.2/1.3 신뢰/거부를 확인한다. `http/testdata`의 공개 fixture만 재사용하고 실제 KIS나 OS native-root 연결을 실행하지 않는다. 기존 native roots/ring·금융 payload를 유지한다. 자동 재연결 검증으로 해석하지 않는다. [5B 회차 기록](tasks/immediate-backlog-20261029.md).
