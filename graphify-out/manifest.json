@@ -705,8 +705,8 @@
     "semantic_hash": "e1e05929b9d6e9a67816e0b8739875f0"
   },
   "src/pages/log/ui/Page.tsx": {
-    "mtime": 1793341866.6962464,
-    "ast_hash": "42169ea4c4e8d5111f8b5e150be0741d",
+    "mtime": 1793344433.6401553,
+    "ast_hash": "84fbf622bf29a794bb622a8073d0be07",
     "semantic_hash": ""
   },
   "src/pages/settings/index.ts": {
@@ -2757,6 +2757,11 @@
   "tests/e2e/uiux-history-details.spec.ts": {
     "mtime": 1793343640.4878201,
     "ast_hash": "f6fa4ac9c3866e3a321a4c7277a9c846",
+    "semantic_hash": ""
+  },
+  "tests/e2e/uiux-log-status.spec.ts": {
+    "mtime": 1793344939.7954943,
+    "ast_hash": "b5bbb134b79368b30578b93ae5fb4771",
     "semantic_hash": ""
   }
 }

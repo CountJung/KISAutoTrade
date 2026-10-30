@@ -22,9 +22,9 @@ P2-UX-07의 확인 정책 및 기존 SQLx/사용자 판단/실자료 항목 11�
 | 3 | P1-UX-03 | History 통계 실패와 실제 0 구분 | 구현·검증·리뷰 완료 | `aaf94f274f4a5eb04f34a2d09df0665dc293a222` 원격 일치 |
 | 4 | P2-UX-01 | 검색 결과·보유 종목의 키보드 선택 | 구현·검증·리뷰 완료 | `ee341d6ca6d6f3463d77fec2469e3ee986063e96` 원격 일치 |
 | 5 | P2-UX-02 | 패널 크기 조절 키보드 대안 | 구현·검증·리뷰 완료 | `44c1ae5fa0e3e7dc675eb9b17132146b824d3422` 원격 일치 |
-| 6 | P2-UX-03 | 좁은 History 거래 상세 | 구현·검증·리뷰 완료 | 이번 회차 커밋; 푸시 확인 대기 |
-| 7 | P2-UX-04 | Log 로딩·실패·빈/필터0 구분 | 다음 작업 | — |
-| 8 | P2-UX-05 | Settings 목차·heading·focus 이동 | 미착수 | — |
+| 6 | P2-UX-03 | 좁은 History 거래 상세 | 구현·검증·리뷰 완료 | `9d0a8d290fa6f9f81d33c79dfab68763da902801` 원격 일치 |
+| 7 | P2-UX-04 | Log 로딩·실패·빈/필터0 구분 | 구현·검증·리뷰 완료 | 이번 회차 커밋; 푸시 확인 대기 |
+| 8 | P2-UX-05 | Settings 목차·heading·focus 이동 | 다음 작업 | — |
 | 9 | P2-UX-06 | 차트 텍스트/키보드 자료 대안 | 미착수 | — |
 
 원래 완료 조건과 제외 항목 본문은 착수 시 보존했고 완료 항목별로 이력에 이관한다. 사용자 기존 변경은 없었으며 이후 발견 시 이번 작업과 분리한다.
@@ -133,3 +133,15 @@ History 거래별 상세 보기와 page-local Dialog를 추가해 같은 체결�
 
 - 변경 핵심: history/ui/Page.tsx·TradeDetailsDialog.tsx, uiux-history-details.spec.ts, UI 스킬 원본
 - 다음: P2-UX-04
+
+
+### 7회차 — P2-UX-04
+
+Log에서 placeholder와 실제 응답을 구분해 최초 로딩/실패·정상 무기록·필터 결과0·이전 자료와 마지막 정상 시각을 표시했다. 읽기 재시도·검색 label·필터 지우기를 추가하고 5초 polling의 건수/시각/fetching은 live 영역 밖에 뒀다. 기존 query/tail300·logger·행/trace·필터·scroll/follow·resize를 보존했다.
+
+신규 Log5개+기존 resizer5개의 고유10개가 최종 통과했다(13.3초). 지연/500/성공[]/필터0/이전0·150행/반복 키보드 복구와 필터 초기화, 원래5초 poll2회의 정확한 요청 증가·위쪽scrollTop0·하단follow 복귀·status DOM mutation0을 확인했다. 앱/config 타입·FSD·원래6개 함수/표현과 보호18항목 AST/원문 대조를 통과했고 루트·UI 전문가 독립 리뷰에 필수 P0/P1/P2는 없다. 375px 다크 실패와 desktop 이전자료 PNG를 직접 열었다.
+
+초회6통과/4실패는 가짜 시계 정지 후 TanStack0ms UI 알림 대기3건과 기존7px padding에2px 정렬을 요구한 테스트1건이었다. 응답 완료 후1ms 실행과 원래48px 하단 기준+마지막 행 viewport로 검사만 교정했으며 제품 추가 변경은 없었다. 정적 live 검사 초안은 color 속성까지 집계해false였고 JSX children 경계로 교정·재실행했다. End 설정900의 실제 높이는 기존 flex 제약으로685.328px, 손잡이는 viewport 안이었다. 새 검사 금융 쓰기/외부/unknown/pageerror0·서버 종료 확인이며 실제 로그/계좌·native·스크린리더 발화·전체UI/CI는 별도다.
+
+- 변경 핵심: log/ui/Page.tsx, uiux-log-status.spec.ts, UI 스킬 원본
+- 다음: P2-UX-05

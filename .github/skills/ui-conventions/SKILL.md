@@ -184,6 +184,9 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 - 조회 전/실패를 정상 0·빈 목록·정지로 단정하지 않는다. 기존 query의 data/isError/isFetching/dataUpdatedAt을 반영해 최초 미확인·실패·성공·이전 자료를 구분한다.
 - 여러 화면의 조회 상태는 `src/shared/ui/QueryStatusSummary.tsx`의 범용 props 표시를 재사용한다. 이 콤포넌트는 API/hook/금융 정책을 소유하지 않으며 실제 상태 문구·재조회는 호출부에서 전달한다. 시작/정지·위험 해제 동작 정책를 표시 개선에 섞지 않는다.
 
+- `placeholderData: []`인 Log는 data 존재만으로 정상 무기록을 확정하지 않는다. 실제 응답과 성공 시각을 확인하고 최초 로딩/실패·정상 원본0·필터0·이전 자료를 나눈다. 재조회 실패 뒤 남은0건도 이전 성공 자료이며 마지막 정상 시각을 유지한다.
+- Log의5초 polling은 안정된 의미 상태문구만 polite live 영역에 두고 건수·성공시각·background fetching은 밖에서 표시한다. 공통 상태 표시가 매 poll마다 안내를 바꾸면 페이지 내부 표시를 사용하며 기존 query/poll/tail·행/trace·사용자 스크롤/리사이저 계약은 보존한다.
+
 ### Provider trace 표시
 
 - History/Log처럼 provider 문의·디버깅 식별자를 보여주는 화면은 `src/shared/ui/ProviderTraceChips`를 재사용한다.
@@ -787,4 +790,4 @@ RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저
 - Switch의 role=switch와 실제 Checkbox를 구분하고 Alert의 variant/severity class를 각각 정확한 토큰으로 확인한다. utility class 변경을 금융 동작 변경으로 오인하거나 검증을 느슨하게 하지 않는다.
 - 모바일 Drawer 닫힘 중 aria-hidden과 CSS visibility를 구분한다. 정상 role 접근 가능·route 전환·닫힘 완료를 기다리고 강제click/sleep으로 대체하지 않는다. 새UI계약5개는 HARNESS_MAP을 따른다.
 
-> 마지막 업데이트: 2026-10-30T07:01:00
+> 마지막 업데이트: 2026-10-30T07:25:13

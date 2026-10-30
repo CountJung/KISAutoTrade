@@ -1107,6 +1107,7 @@ KISAutoTrade/
 │       ├── uiux-history-status.spec.ts
 │       ├── uiux-holdings.spec.ts
 │       ├── uiux-keyboard-selection.spec.ts
+│       ├── uiux-log-status.spec.ts
 │       ├── uiux-resizer.spec.ts
 │       └── uiux-status.spec.ts
 ├── .env.example
@@ -1263,7 +1264,7 @@ KISAutoTrade/
 | `pages/strategy/ui/leveragedTrendHoldPreviewChart.tsx` | 레버리지/일반 전략 미리보기의 캔들·종가선·signal marker, 모바일 가로 패닝·핀치 확대/축소와 버튼식 줌 표시. offset 포함 시각은 실제 instant로 파싱하고 compact 분봉은 기존 KST 규칙으로 해석 |
 | `pages/history/ui/Page.tsx` | 활성 broker scope, 자동매매 체결 기록과 기간별 통계 조회, provider 원본 trace 표시. 기존 두 query 호출/option을 유지하며 page-local `HistoryQueryStatus`가 조회 전·적용 기간·최초 실패/이전 자료·마지막 정상 시각과 통계/체결의 독립 refetch를 표시. 날짜 초안과 적용 query를 구분하고 통계 미확인을 정상0으로 표시하지 않음. 거래 상세의 선택 id+적용 기간은 Page가 소유하고 기존 거래/통화·수량·슬리피지 formatter와 trace 결과를 Dialog에 전달. 현재 레코드가 사라지면 UI 선택만 폐기해 같은 ID 재등장 시 자동 재개방 방지 |
 | `pages/history/ui/TradeDetailsDialog.tsx` | History page-local 읽기 전용 상세 표시. 선택된 기존 TradeRecord와 Page가 만든 가격/금액/수수료/슬리피지/수량/통화 문자열·trace 객체·닫기 callback을 받아 접근 가능한 Dialog·스크롤 가능한 상세 필드·ProviderTraceChips를 조립. hook/API/query·금액 재계산·공용 helper 승격 없음 |
-| `pages/log/ui/Page.tsx` | 로그 레벨/검색 필터, provider trace 토큰 chip 표시. LayoutResizer 키보드 target을 기존 높이 범위로 clamp해 상태/localStorage에 반영하며 mouse delta/end 저장과 반응형 handle 노출 유지. 설정/ARIA 높이와 기존 flex 가용 공간에 제한되는 실제 패널 높이는 구분하고 한계는 [작업 기록](tasks/uiux-improvements-20261030.md)을 따름 |
+| `pages/log/ui/Page.tsx` | 로그 레벨/이름 있는 검색·필터 초기화와 provider trace chip 표시. query의 placeholder[]를 실제 성공과 구분해 최초 미확인/실패·이전 자료/정상 시각·원본0/필터0·읽기 refetch를 표시하고 정상 polling의 live 상태 문구를 안정적으로 유지. 기존 useRecentLogs(300)·5초 polling·logger/query metadata·row와 사용자가 위로 읽는 위치/하단 추적을 보존. LayoutResizer 키보드 target의 clamp·상태/localStorage와 mouse delta/end·반응형 노출 유지. 설정/ARIA 높이와 flex 가용 공간의 실제 높이 한계는 [작업 기록](tasks/uiux-improvements-20261030.md)을 따름 |
 
 ### Backend (Rust)
 
@@ -1562,6 +1563,7 @@ keyring/RGL 유지·미삭제 판단은 [9회차 기록](tasks/immediate-backlog
 |---|---|
 | `docs/tasks/uiux-improvements-20261030.md` | 승인된 UI/UX 개선9개의 고정 순서·회차별 범위·격리 검증/리뷰·게시 근거. UI 표시/접근성과 금융 동작·사용자 판단/실자료 제외를 구분 |
 | `tests/e2e/fixtures/uxReviewFixture.ts` | 기존 strategyResearchFixture를 재사용하는 browser-only 합성 fixture. 알려진 GET/응답 override·요청 집계와 외부 요청/WebSocket·API 쓰기/알 수 없는 경로 차단을 제공 |
+| `tests/e2e/uiux-log-status.spec.ts` | 합성 Log의 placeholder 지연/첫 실패·성공한 원본0/필터0·이전 빈/행 자료와 정상 시각·키보드 읽기 재시도/필터 초기화·검색 접근성 회귀. 원래 tail300/5초 polling·위쪽 읽기/하단 추적·정상 live 안내 안정성과 외부/쓰기/알 수 없는 요청·page 오류 경계를 대조 |
 | `tests/e2e/uiux-resizer.spec.ts` | 합성 sidebar/Log separator의 접근 가능한 이름·방향/범위/현재값·설명/focus, 키보드 증감/상하한/기본값과 새 target 저장·route/reload 복원, 기존 mouse delta/end 저장·반응형 노출 회귀. Log End의 설정값과 실제 geometry를 별도 관측하며 전체 layout 변경/실환경 검증으로 확대하지 않음 |
 | `tests/e2e/uiux-keyboard-selection.spec.ts` | 합성 Trading/Strategy 국내 검색 결과의 Tab/Enter·focus 표시·내부 blur/외부 닫힘·Escape/선택 후 입력 focus와 포인터 회귀. KIS/Toss KR/US 보유 선택의 기존 시장/종목/수량 계약을 주문 제출 없이 대조 |
 | `tests/e2e/uiux-history-details.spec.ts` | 합성 History 375/1280px 거래 상세의 기존 KRW/USD·명시/legacy/누락 값·긴 식별자·원본 trace, 키보드 열기/닫기/focus 복귀·선택 lifecycle 회귀. 별도 임시 Chromium 프로필의 실제 탭 zoom200%와 CSS reflow를 확인하며 추가 조회·API 쓰기·외부 요청 경계를 대조 |

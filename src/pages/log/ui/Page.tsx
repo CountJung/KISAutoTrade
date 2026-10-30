@@ -7,6 +7,7 @@ import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import TextField from '@mui/material/TextField'
 import Chip from '@mui/material/Chip'
+import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
 import useMediaQuery from '@mui/material/useMediaQuery'
 
@@ -63,7 +64,8 @@ export default function Log() {
     writeStoredNumber(LOG_HEIGHT_KEY, next, LOG_HEIGHT_MIN, LOG_HEIGHT_MAX)
   }, [])
 
-  const { data: logs = [], isLoading } = useRecentLogs(300)
+  const logsQuery = useRecentLogs(300)
+  const { data: logs = [] } = logsQuery
 
   const handleLogScroll = useCallback(() => {
     const el = logPanelRef.current
@@ -85,11 +87,38 @@ export default function Log() {
     return levelOk && searchOk
   })
 
+  const hasConfirmedLogs = !logsQuery.isPlaceholderData && logsQuery.dataUpdatedAt > 0 && logsQuery.data !== undefined
+  const hasReadError = logsQuery.isError || (!hasConfirmedLogs && logsQuery.errorUpdatedAt > 0)
+  const statusText = hasReadError
+    ? hasConfirmedLogs ? '로그 재조회 실패 — 이전 자료 표시' : '로그 불러오기 실패'
+    : hasConfirmedLogs ? '로그 조회 완료' : '로그 불러오는 중'
+  const checkedAt = hasConfirmedLogs ? new Date(logsQuery.dataUpdatedAt) : null
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
         Log
       </Typography>
+
+      <Box data-testid="log-query-status" sx={{ mb: 1.5 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          <Typography role="status" aria-live="polite" aria-atomic="true" variant="body2" color={hasReadError ? 'warning.main' : 'text.secondary'}>
+            {statusText}
+          </Typography>
+          <Button
+            size="small"
+            aria-label="로그 다시 불러오기"
+            onClick={() => { void logsQuery.refetch() }}
+            disabled={logsQuery.isFetching}
+            startIcon={logsQuery.isFetching ? <CircularProgress size={12} aria-hidden="true" /> : undefined}
+          >
+            다시 불러오기
+          </Button>
+        </Stack>
+        <Typography data-testid="log-checked-at" variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          마지막 정상 확인: {checkedAt ? <time dateTime={checkedAt.toISOString()}>{checkedAt.toLocaleString('ko-KR')}</time> : '없음'}
+        </Typography>
+      </Box>
 
       {/* 필터 */}
       <Stack direction="row" spacing={1} sx={{ mb: 2, alignItems: "center", flexWrap: "wrap", gap: 1 }} useFlexGap>
@@ -105,15 +134,16 @@ export default function Log() {
             </ToggleButton>
           ))}
         </ToggleButtonGroup>
+        <Button size="small" onClick={() => { setLevel('ALL'); setSearch('') }}>필터 지우기</Button>
         <TextField
+          label="로그 검색"
           placeholder="검색..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           size="small"
           sx={{ flex: 1, minWidth: 100, maxWidth: { xs: '100%', sm: 200 } }}
         />
-        <Chip label={`${filtered.length}건`} size="small" />
-        {isLoading && <CircularProgress size={16} />}
+        <Chip data-testid="log-result-count" label={hasConfirmedLogs ? `표시 ${filtered.length}건 / 조회 ${logs.length}건` : '조회 미확인'} size="small" />
       </Stack>
 
       {/* 로그 뷰어 */}
@@ -134,6 +164,17 @@ export default function Log() {
           ),
         }}
       >
+        {!hasConfirmedLogs && (
+          <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>
+            {hasReadError ? '로그를 불러오지 못했습니다. 다시 불러오기를 눌러 확인하세요.' : '조회가 완료되면 로그를 표시합니다.'}
+          </Typography>
+        )}
+        {hasConfirmedLogs && logs.length === 0 && (
+          <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>조회한 최근 로그가 없습니다.</Typography>
+        )}
+        {hasConfirmedLogs && logs.length > 0 && filtered.length === 0 && (
+          <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>현재 필터와 일치하는 로그가 없습니다.</Typography>
+        )}
         {filtered.map((log: AppLogEntry, i: number) => (
           <Box
             key={i}
