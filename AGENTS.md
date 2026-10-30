@@ -85,11 +85,11 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-10-30 | UI/UX CI Log 초기 알림·가짜 clock 준비 교정; 제품/기대 유지·고유5개/20회 반복 검증 |
 | 2026-10-30 | P2-UX-06 — 차트 OHLCV·최근20봉 키보드 표/선택·동일projection·통화/시각 경계, 자체paint·resize·수평이동·UI14개 |
 | 2026-10-30 | P2-UX-05 — Settings15개 목차·h2/h3/focus복귀, 지연 route복원 경합 해소·원래 저장/보안 유지·UI33+보강1 |
 | 2026-10-30 | P2-UX-04 — Log 로딩/실패·원본0/필터0·이전자료/재시도, 5초poll 반복안내 억제·scroll/resize 보존·UI10개 |
 | 2026-10-30 | P2-UX-03 — 좁은 History 거래 상세·원래 금액/trace 재사용·polling 재개방 해소, 실제200% 포함 격리 UI23개 |
-| 2026-10-30 | P2-UX-02 — 패널 키보드 조절·target 즉시 저장·원래 pointer/flex 보존, 격리 UI10개·geometry 한계 구분 |
 
 ## 운영 문서 스택
 

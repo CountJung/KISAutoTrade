@@ -111,10 +111,12 @@ test('Log: successful empty data is distinct from first failure and remains prev
 
 test('Log: filter zero and repeated keyboard clearing remain separate from raw zero and search stays usable', async ({ page }) => {
   await page.clock.install()
-  await pauseClock(page)
   const state = await setup(page, [traceRow, ...entries(3)])
   await page.goto('/log')
   await expect(count(page)).toHaveText('표시 4건 / 조회 4건')
+  await expect(status(page)).toHaveText('로그 조회 완료')
+  // Let the first query notification reach the UI before freezing its 0ms scheduler.
+  await pauseClock(page)
   const before = state.audit.counts.get('/api/recent-logs')
   for (let repeat = 0; repeat < 2; repeat++) {
     await page.getByRole('button', { name: 'ERROR', exact: true }).press('Enter')
@@ -167,10 +169,12 @@ test('Log: retained rows, success time and user scroll survive failure and recov
 
 test('Log: original five-second polling respects upward scroll and bottom follow without repeated live announcements', async ({ page }) => {
   await page.clock.install()
-  await pauseClock(page)
   const state = await setup(page, entries(150))
   await page.goto('/log')
   await expect(count(page)).toHaveText('표시 150건 / 조회 150건')
+  await expect(status(page)).toHaveText('로그 조회 완료')
+  // Let the first query notification reach the UI before freezing its 0ms scheduler.
+  await pauseClock(page)
   await expect.poll(() => panel(page).evaluate(element => element.scrollHeight - element.scrollTop - element.clientHeight)).toBeLessThan(48)
   await expect(panel(page).getByText('Synthetic log row 149', { exact: true })).toBeInViewport()
   await page.evaluate(() => {

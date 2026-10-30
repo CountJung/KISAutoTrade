@@ -25,7 +25,7 @@ P2-UX-07의 확인 정책 및 기존 SQLx/사용자 판단/실자료 항목 11�
 | 6 | P2-UX-03 | 좁은 History 거래 상세 | 구현·검증·리뷰 완료 | `9d0a8d290fa6f9f81d33c79dfab68763da902801` 원격 일치 |
 | 7 | P2-UX-04 | Log 로딩·실패·빈/필터0 구분 | 구현·검증·리뷰 완료 | `8d89417e7b1df76e9b5318cc6a81b7dfd3ac823c` 원격 일치 |
 | 8 | P2-UX-05 | Settings 목차·heading·focus 이동 | 구현·검증·리뷰 완료 | `6fa2e4f32feb41578ff2eb164330025398e28440` 원격 일치 |
-| 9 | P2-UX-06 | 차트 텍스트/키보드 자료 대안 | 구현·검증·리뷰 완료 | 이번 회차 커밋; 푸시 확인 대기 |
+| 9 | P2-UX-06 | 차트 텍스트/키보드 자료 대안 | 구현·검증·리뷰 완료 | `d143824ffd606d4cda4f3eed1d3a87eeabbb70ed` 원격 일치 |
 
 원래 완료 조건과 제외 항목 본문은 착수 시 보존했고 완료 항목별로 이력에 이관한다. 사용자 기존 변경은 없었으며 이후 발견 시 이번 작업과 분리한다.
 
@@ -169,3 +169,20 @@ Settings에15개 안정된 목차 도착점과 제목/목차 복귀를 제공했
 
 - 변경 핵심: stock-chart/ui/StockChart.tsx·OverseasStockChart.tsx·CandleDataSummary.tsx, Trading market 표시 prop, uiux-chart-accessibility.spec.ts, UI 스킬 원본
 - 다음: 최종 통합/CI 확인
+
+## 11. 최종 통합·게시 검증
+
+검증 코드 SHA는 `d143824ffd606d4cda4f3eed1d3a87eeabbb70ed`다.9개 회차를 같은 작업 브랜치에 각각 일반 푸시하고 원격 SHA와 clean을 확인했다. 원래 TODO 완료 조건은 이력에 보존했으며 제외11개 본문/집계는 그대로 유지했다.
+
+- 로컬 격리 전체 UI: **408 passed / 0 failed (3.7m)**, session75263 exit0. `final-ui.log`이며349개 과거 기준에 새59개가 추가된 실제 실행 집합이다. 각 회차의 focused/부분 재검증과 중복 합산하지 않는다.
+- [Dependency Security #58](https://github.com/CountJung/KISAutoTrade/actions/runs/41027249947): 같은 SHA의 workflow_dispatch, success. npm 운영/전체 감사0 vulnerabilities, cargo 감사는 기존 `RUSTSEC-2023-0071` 예외와 허용 경고2개(`RUSTSEC-2024-0370`, `RUSTSEC-2024-0429`)를 유지한 통과다. GitHub Actions의 기존 Node20→24 전환/Node deprecation 안내도 앱 컴파일 경고와 구분한다.
+- [Release Gate #51](https://github.com/CountJung/KISAutoTrade/actions/runs/41027404365): 같은 SHA의 workflow_dispatch, E2E failure. frontend·Toss 명세·Rust는 success이며 E2E는406 passed/2 failed(11.9m)다. 실패는 Log의 필터0 및5초poll 검사에서 최초 조회 전에 가짜 시계를 멈춘 준비 경로의 초기 확인 대기이며 source와 분리해 원인/수정을 검증 중이다. 최초 로컬408통과를 CI성공으로 대신하지 않는다. Rust 로그는887 passed/0 failed/0 ignored다. 별도 DB fixture 환경을 구성하지 않은5개 contract의 조기 반환을 실제 DB 검증 성공으로 세지 않는다.
+- Release Gate와 Security 정의를 읽어 테스트/빌드/감사 범위임을 확인하고 각각1회만 실행했다. 실제 릴리스 게시·서명·운영 배포·계좌/거래/자격증명 접근은 수행하지 않았다. Rust/의존성/워크플로 파일은 시작 기준 `db87a1120fef3ea4153d27ef371c4f50b65bff99`와 동일하다.
+
+9개 구현은 종료됐고 최종 CI/문서 게시 확인을 마친 뒤 이 기록의 상태를 닫는다. 실제 AT/native·시장 자료/원장·DB 및 사용자 정책 결정은 별도 남은 조건이다.
+
+## 12. 최초 CI의 Log clock 준비 보정
+
+Release Gate #51은 E2E406/2로 실패했다. 실패한 필터0/5초poll 두 검사는 최초 조회 전에 가짜 시계를 멈춰 TanStack의0ms batch 알림이 실행되지 않을 수 있었다. 로컬 진단에서 HTTP200/body 완료·GET1건 뒤에도 미확인이었고 clock1ms 진행 뒤 같은1건으로4개 로그/조회 완료가 표시됨을 확인했다. 진단1건은 프로젝트 회귀 수와 분리했고 최초 필터0건 선택 명령은 진단 성공으로 세지 않았다.
+
+두 검사의 첫 정상 count/status 확인 뒤에만 pauseClock을 호출하도록 바꿨다. 제품 source/API·원래5초 poll/정확GET수·실패/필터/scroll/follow/live 안내·timeout/skip 기대는 그대로다. Log의 고유5개가13.1초에 통과했고 대상2개×10회인20회 반복도7.7초에 통과했다. 정적16항목과 독립 리뷰에 필수P0/P1/P2가 없고 서버 종료를 확인했다. 새 검증 커밋/원격 SHA와 후속 전체 CI 결과는 아래에 이어 기록한다.

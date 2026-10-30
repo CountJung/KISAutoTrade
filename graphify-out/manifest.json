@@ -2760,8 +2760,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/uiux-log-status.spec.ts": {
-    "mtime": 1793344939.7954943,
-    "ast_hash": "b5bbb134b79368b30578b93ae5fb4771",
+    "mtime": 1793350403.1601534,
+    "ast_hash": "4346a3a039338f5fd7eee9beb9b46333",
     "semantic_hash": ""
   },
   "src/pages/settings/ui/settingsNavigation.tsx": {
