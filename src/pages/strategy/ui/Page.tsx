@@ -38,6 +38,7 @@ import {
   LeveragedTrendHoldEditorPanel,
   hasInvalidLthEntries,
 } from './leveragedTrendHoldEditorPanel'
+import { StockSearchResults } from './StockSearchResults'
 import { StrategyPreviewPanel } from './strategyPreviewPanel'
 import { PriceConditionEditorPanel } from './priceConditionEditorPanel'
 import {
@@ -205,6 +206,17 @@ export default function Strategy() {
   const [searchQuery, setSearchQuery]         = useState('')
   const [showSearch, setShowSearch]           = useState(false)
   const searchCloseTimer                      = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchRegionRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const returningSearchFocus = useRef(false)
+  const returnSearchFocus = () => {
+    returningSearchFocus.current = true
+    try {
+      searchInputRef.current?.focus()
+    } finally {
+      returningSearchFocus.current = false
+    }
+  }
   const [usSearching, setUsSearching]         = useState(false)
   const [usSearchError, setUsSearchError]     = useState<string | null>(null)
   /** 종목코드 → 이름 캐시 (세션 중 검색으로 추가된 종목) */
@@ -521,10 +533,26 @@ export default function Strategy() {
           </ToggleButton>
         </ToggleButtonGroup>
 
-        <Box sx={{ position: 'relative' }}>
+        <Box
+          ref={searchRegionRef}
+          sx={{ position: 'relative' }}
+          onBlur={(event) => {
+            if (market !== 'KR' || event.currentTarget.contains(event.relatedTarget)) return
+            searchCloseTimer.current = setTimeout(() => setShowSearch(false), 180)
+          }}
+          onFocus={() => { if (searchCloseTimer.current) clearTimeout(searchCloseTimer.current) }}
+          onKeyDown={(event) => {
+            if (market !== 'KR' || event.key !== 'Escape') return
+            event.preventDefault()
+            setShowSearch(false)
+            setSearchQuery('')
+            returnSearchFocus()
+          }}
+        >
           {market === 'KR' ? (
             <>
               <TextField
+                inputRef={searchInputRef}
                 label="6자리 종목코드 (예: 005930, 0005A0)"
                 value={searchInput}
                 onChange={(e) => {
@@ -532,10 +560,9 @@ export default function Strategy() {
                   setShowSearch(true)
                   if (!e.target.value) { setSelectedStock(null); setShowSearch(false) }
                 }}
-                onBlur={() => { searchCloseTimer.current = setTimeout(() => setShowSearch(false), 180) }}
-                onFocus={() => {
+                onFocus={(event) => {
                   if (searchCloseTimer.current) clearTimeout(searchCloseTimer.current)
-                  if (searchInput.length >= 2) setShowSearch(true)
+                  if (!returningSearchFocus.current && !searchRegionRef.current?.contains(event.relatedTarget) && searchInput.length >= 2) setShowSearch(true)
                 }}
                 size="small"
                 fullWidth
@@ -545,6 +572,7 @@ export default function Strategy() {
                       {isFetchingSearch && <CircularProgress size={14} color="inherit" sx={{ mr: 0.5 }} />}
                       <IconButton
                         size="small"
+                        aria-label="국내 종목 검색"
                         disabled={!searchInput || searchInput.length < 2}
                         onClick={() => { if (searchInput.length >= 2) { setSearchQuery(searchInput); setShowSearch(true) } }}
                       >
@@ -559,47 +587,20 @@ export default function Strategy() {
                     : '국내 주식은 6자리 종목코드로만 검색 가능합니다 (예: 005930, 0005A0)'
                 }
               />
-              {/* 검색 결과 드롭다운 */}
-              {showSearch && (searchResults.length > 0 || isFetchingSearch) && (
-                <Paper
-                  elevation={8}
-                  onMouseDown={(e) => { e.preventDefault(); if (searchCloseTimer.current) clearTimeout(searchCloseTimer.current) }}
-                  sx={{ mt: 0.5, maxHeight: 240, overflow: 'auto', border: 1, borderColor: 'divider', zIndex: 1400, position: 'absolute', width: '100%' }}
-                >
-                  {isFetchingSearch && searchResults.length === 0 ? (
-                    <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <CircularProgress size={14} />
-                      <Typography variant="caption" color="text.secondary">검색 중...</Typography>
-                    </Box>
-                  ) : (
-                    <Table size="small">
-                      <TableBody>
-                        {searchResults.map((r) => (
-                          <TableRow
-                            key={r.pdno}
-                            hover
-                            sx={{ cursor: 'pointer' }}
-                            onClick={() => {
-                              setSelectedStock(r)
-                              setSearchInput(r.prdt_name)
-                              setShowSearch(false)
-                              setSearchQuery('')
-                              setSymbolNames(prev => ({ ...prev, [r.pdno]: r.prdt_name }))
-                            }}
-                          >
-                            <TableCell sx={{ py: 0.75 }}>
-                              <Typography variant="body2" noWrap>{r.prdt_name}</Typography>
-                            </TableCell>
-                            <TableCell sx={{ py: 0.75, width: 80 }}>
-                              <Typography variant="caption" color="text.secondary">{r.pdno}</Typography>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </Paper>
-              )}
+              <StockSearchResults
+                open={showSearch}
+                items={searchResults}
+                loading={isFetchingSearch}
+                onPointerInteraction={() => { if (searchCloseTimer.current) clearTimeout(searchCloseTimer.current) }}
+                onSelect={(r) => {
+                  setSelectedStock(r)
+                  setSearchInput(r.prdt_name)
+                  setShowSearch(false)
+                  setSearchQuery('')
+                  setSymbolNames(prev => ({ ...prev, [r.pdno]: r.prdt_name }))
+                  returnSearchFocus()
+                }}
+              />
               {/* STOCK_LIST_EMPTY 경고 */}
               {showSearch && isStockListEmpty && (
                 <Alert

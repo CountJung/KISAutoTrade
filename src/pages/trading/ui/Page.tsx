@@ -1,3 +1,5 @@
+import { useRef } from 'react'
+import type { StockSearchItem } from '../../../api/types'
 import FlagIcon from '@mui/icons-material/Flag'
 import PublicIcon from '@mui/icons-material/Public'
 import RefreshIcon from '@mui/icons-material/Refresh'
@@ -25,7 +27,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { fmtBrokerMoney, fmtDecimalString } from '../../../shared/lib'
-import { BrokerScopeIndicator } from '../../../shared/ui'
+import { BrokerScopeIndicator, RowSelectionButton } from '../../../shared/ui'
 import { OverseasStockChart, StockChart } from '../../../widgets/stock-chart'
 import {
   HoldingsTable,
@@ -40,6 +42,8 @@ import { useTradingOrderModel } from './useTradingOrderModel'
 
 export default function Trading() {
   const model = useTradingOrderModel()
+  const searchRegionRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const {
     appConfig, balance, balanceQuery, brokerHoldings, brokerHoldingsError,
     brokerHoldingsLoading, closeTimerRef, doRefreshList, fmt,
@@ -53,6 +57,15 @@ export default function Trading() {
     tossMarketLabel, tossSafety, tossSafetyError, usExchange,
     usSearching,
   } = model
+  const selectSearchResult = (r: StockSearchItem) => {
+    setSymbol(r.pdno)
+    setInputValue(r.prdt_name)
+    setShowResults(false)
+    setSearchQuery('')
+    setResult(null)
+    setErrorMsg(null)
+    searchInputRef.current?.focus()
+  }
   return (
     <Box>
       <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
@@ -123,7 +136,11 @@ export default function Trading() {
                         onClick={() => handleSelectBrokerHolding(item)}
                       >
                         <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 500 }}>{item.symbolName || item.symbol}</Typography>
+                          <RowSelectionButton
+                            label={item.symbolName || item.symbol}
+                            detail={item.symbol}
+                            onSelect={() => handleSelectBrokerHolding(item)}
+                          />
                           <Typography variant="caption" color="text.secondary">
                             {item.symbol} · {tossMarketLabel(item.market)}
                           </Typography>
@@ -208,8 +225,23 @@ export default function Trading() {
 
         {market === 'KR' ? (
           /* ── KR 종목 검색: TextField + 검색결과 드롭다운 테이블 ── */
-          <Box>
+          <Box
+            ref={searchRegionRef}
+            onBlur={(event) => {
+              if (event.currentTarget.contains(event.relatedTarget)) return
+              closeTimerRef.current = setTimeout(() => setShowResults(false), 180)
+            }}
+            onFocus={() => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current) }}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return
+              event.preventDefault()
+              setShowResults(false)
+              setSearchQuery('')
+              searchInputRef.current?.focus()
+            }}
+          >
             <TextField
+              inputRef={searchInputRef}
               label="6자리 종목코드 (예: 005930, 0005A0)"
               value={inputValue}
               onChange={(e) => {
@@ -234,16 +266,9 @@ export default function Trading() {
                   setShowResults(false)
                 }
               }}
-              onBlur={() => {
-                // 결과 테이블 클릭 허용을 위해 약간 지연 후 닫기
-                closeTimerRef.current = setTimeout(() => setShowResults(false), 180)
-              }}
-              onFocus={() => {
+              onFocus={(event) => {
                 if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-                if (inputValue.length >= 2 && !symbol) setShowResults(true)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') { setShowResults(false); setSearchQuery('') }
+                if (!searchRegionRef.current?.contains(event.relatedTarget) && inputValue.length >= 2 && !symbol) setShowResults(true)
               }}
               size="small"
               fullWidth
@@ -257,6 +282,7 @@ export default function Trading() {
                       <span>
                         <IconButton
                           size="small"
+                          aria-label="국내 종목 검색"
                           onClick={() => {
                             if (inputValue.length >= 2) {
                               setSearchQuery(inputValue)
@@ -317,17 +343,14 @@ export default function Trading() {
                           key={r.pdno}
                           hover
                           sx={{ cursor: 'pointer' }}
-                          onClick={() => {
-                            setSymbol(r.pdno)
-                            setInputValue(r.prdt_name)
-                            setShowResults(false)
-                            setSearchQuery('')
-                            setResult(null)
-                            setErrorMsg(null)
-                          }}
+                          onClick={() => selectSearchResult(r)}
                         >
-                          <TableCell sx={{ py: 0.75 }}>
-                            <Typography variant="body2" noWrap>{r.prdt_name}</Typography>
+                          <TableCell sx={{ py: 0.75, maxWidth: { xs: 180, sm: 400 } }}>
+                            <RowSelectionButton
+                              label={r.prdt_name}
+                              detail={r.pdno}
+                              onSelect={() => selectSearchResult(r)}
+                            />
                           </TableCell>
                           <TableCell sx={{ py: 0.75 }}>
                             <Typography variant="caption" color="text.secondary">{r.pdno}</Typography>

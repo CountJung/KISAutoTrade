@@ -43,26 +43,15 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <h1>KISAutoTrade — 열린 할일</h1>
 <p class="intro"><a href="todo.md">원본 Markdown·연구 근거·완료 기준</a> · 이 화면은 원본에서 자동 생성됩니다.</p>
 <p>🟢 자동 구현은 추가 판단 없이 진행할 작업입니다. <strong>🟠 사용자 판단 대기</strong>는 제품 범위·보류 해제·키 준비 등의 선택이, <strong>🟠 사용자 검증·자료 대기</strong>는 실제 자료나 별도 승인된 검증이 필요합니다. 대기는 완료를 뜻하지 않습니다.</p>
-<p>구현 7개 · 사용자 판단 5개 · 사용자 검증·자료 5개. 선행 구현이 필요한 연구·리팩터링도 구현 목록에 유지합니다.</p>
+<p>구현 6개 · 사용자 판단 5개 · 사용자 검증·자료 5개. 선행 구현이 필요한 연구·리팩터링도 구현 목록에 유지합니다.</p>
 </header>
 <form class="controls" role="search" onsubmit="return false">
 <label for="status">상태별 보기<select id="status"><option value="all">전체 열린 할일</option value="implementation">🟢 자동 구현</option><option value="decision">🟠 사용자 판단 대기</option><option value="validation">🟠 사용자 검증·자료 대기</option><option value="waiting">🟠 모든 사용자 대기</option></select></label>
 <label for="search">할일 검색<input id="search" type="search" placeholder="ID, 전략 이름, 파일 경로" autocomplete="off"></label>
 </form>
-<p id="result" role="status" aria-live="polite">전체 17개 표시</p>
+<p id="result" role="status" aria-live="polite">전체 16개 표시</p>
 <noscript><p>JavaScript 없이도 모든 열린 할일을 읽을 수 있습니다. 상태 필터와 검색은 JavaScript가 필요합니다.</p></noscript>
-<section id="tasks" aria-label="열린 할일 목록"><article class="task implementation" id="task-664ce2157b" data-status="implementation" data-source-line="46">
-<p class="section">2026-10-30 UI/UX 개선 — 순차 구현 중</p>
-<p class="badge">🟢 자동 구현</p>
-<h2><strong>P2-UX-01 — 종목 검색 결과·보유 종목 선택을 키보드로 수행한다.</strong></h2>
-<ul><li>근거/대상: <code>src/pages/trading/ui/kisPanels.tsx:50-55,121-126</code>, <code>trading/ui/Page.tsx:118-123,295-308</code>, <code>strategy/ui/Page.tsx:577-589</code>의 선택 행은 클릭 handler만 있는 TableRow다. 해당 행에 tabIndex/키 handler/실제 button이 없다. 국내 입력의 blur180ms 닫힘과 mouseDown preventDefault(<code>Trading:217-226,264-270</code>, <code>Strategy:535-538,564-567</code>)도 포인터 흐름 중심이다. 해외 티커 Enter 검색과 기존 MUI dialog/Select 키보드 지원은 이미 있으므로 전체 키보드가 없다고 주장하지 않는다.</li>
-<li>영향/우선순위: P2. 마우스를 쓰기 어려운 사용자는 이미 나온 결과 선택이나 보유 클릭을 통한 폼 채우기 경로를 이용하기 어렵다.</li>
-<li>개선 방향: 행 안 명명된 선택 button 또는 일관된 combobox/listbox 패턴을 정하고, 검색 결과 이동·선택·닫기와 포커스 복귀를 지원한다. 표시명과 종목코드를 함께 알리고 기존 선택 후 폼값/시장/scope 유지.</li>
-<li>의존성: 현재 검색 훅·선택 closure 유지. 공용화는 실제 입력/선택 의미가 같은 부분만 검토한다.</li>
-<li>완료/검증: 키보드만으로 KR/Toss 보유 및 국내 검색 결과를 선택하고 폼의 정확한 종목/시장/수량을 확인한다. Arrow/Enter/Escape 또는 명시 button의 Tab/Enter 동작, blur 중 결과 소실 방지, focus visible, 긴 이름·좁은 폭 및 포인터 회귀를 mock으로 검사한다. 주문 제출0.</li></ul>
-<a class="permalink" href="#task-664ce2157b" aria-label="이 할일 링크">#</a>
-</article>
-<article class="task implementation" id="task-21df3ffee7" data-status="implementation" data-source-line="53">
+<section id="tasks" aria-label="열린 할일 목록"><article class="task implementation" id="task-21df3ffee7" data-status="implementation" data-source-line="47">
 <p class="section">2026-10-30 UI/UX 개선 — 순차 구현 중</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>P2-UX-02 — 패널 크기 조절에 키보드 대안과 현재값을 제공한다.</strong></h2>
@@ -73,7 +62,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>완료/검증: Sidebar 폭과 Log 높이를 Tab으로 찾아 keyboard로 조절, min/max·기본값 복원·재방문 persistence·포인터 드래그를 확인한다. 접근 가능한 이름/방향/현재값과 focus visible를 확인하며 금융 호출0.</li></ul>
 <a class="permalink" href="#task-21df3ffee7" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-96e034bbaa" data-status="implementation" data-source-line="60">
+<article class="task implementation" id="task-96e034bbaa" data-status="implementation" data-source-line="54">
 <p class="section">2026-10-30 UI/UX 개선 — 순차 구현 중</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>P2-UX-03 — 좁은 History에서 숨긴 거래 상세를 다시 열 수 있게 한다.</strong></h2>
@@ -84,7 +73,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>완료/검증: 375폭과 1280폭, 200% 확대를 기준으로 같은 mock 체결의 모든 숨긴 항목에 접근 가능하고 KRW/USD·수수료·슬리피지·같은 종목 다중 체결을 정확히 식별한다. Tab/Enter/Escape·focus 복귀·가로 넘침을 검사한다. 이것은 목표 검증이며 현재의 화면 실패를 실측한 주장은 아니다.</li></ul>
 <a class="permalink" href="#task-96e034bbaa" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-5f66e5bfa3" data-status="implementation" data-source-line="67">
+<article class="task implementation" id="task-5f66e5bfa3" data-status="implementation" data-source-line="61">
 <p class="section">2026-10-30 UI/UX 개선 — 순차 구현 중</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>P2-UX-04 — Log의 조회 실패·기록0·필터 결과0을 구분한다.</strong></h2>
@@ -95,7 +84,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>완료/검증: 지연·500·성공[]·비어 있지 않은 원본에 필터0·실패 후 재시도 matrix를 mock으로 확인한다. 오류가 0건으로만 보이지 않고 검색명 접근·필터초기화·사용자 스크롤 고정이 유지된다. 로그 내용·민감 metadata를 늘리지 않는다.</li></ul>
 <a class="permalink" href="#task-5f66e5bfa3" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-1f95fe5bed" data-status="implementation" data-source-line="74">
+<article class="task implementation" id="task-1f95fe5bed" data-status="implementation" data-source-line="68">
 <p class="section">2026-10-30 UI/UX 개선 — 순차 구현 중</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>P2-UX-05 — Settings에 반복 탐색을 줄이는 섹션 목차·heading을 제공한다.</strong></h2>
@@ -106,7 +95,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>완료/검증: 키보드와 좁은 화면에서 계좌/예산·복구/DB/리스크 섹션을 목차로 찾아 올바른 heading으로 focus가 이동한다. reload/back·route scroll 복원·동일 저장 요청 및 오류/상태 가시성을 mock으로 확인한다. 실제 설정 저장0.</li></ul>
 <a class="permalink" href="#task-1f95fe5bed" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-f20d5d85e0" data-status="implementation" data-source-line="81">
+<article class="task implementation" id="task-f20d5d85e0" data-status="implementation" data-source-line="75">
 <p class="section">2026-10-30 UI/UX 개선 — 순차 구현 중</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>P2-UX-06 — 차트의 가격·기간·OHLCV를 비시각적/키보드 경로로 확인한다.</strong></h2>
@@ -116,7 +105,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>완료/검증: 합성 KRW/USD candle의 표시값/시각과 summary/table 값이 같고 키보드로 기간·봉을 탐색한다. 빈/오류/로딩/갱신을 구분하고 과도한 live announce가 없으며 light/dark·narrow 및 기존 painted chart 검사를 회귀한다. 실제 assistive technology·native 플랫폼의 미실행을 명시한다.</li></ul>
 <a class="permalink" href="#task-f20d5d85e0" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-5b7108079d" data-status="implementation" data-source-line="89">
+<article class="task implementation" id="task-5b7108079d" data-status="implementation" data-source-line="83">
 <p class="section">2. 선행 결정 후 진행할 코드 작업</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>DEP-P3-02 — SQLx 0.8.6→0.9.0의 SQL·DB 인증·잔여 RSA를 분리 검증한다.</strong> 우선순위 2, DEP-P3-01 완료 후 전환.</h2>
@@ -124,7 +113,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>완료 조건:</strong> 허용된 테이블 식별자와 bind 경계를 보존하고 격리 DB의 schema/import/export·transaction rollback·TLS 및 지원 인증 계약을 통과한다. <code>cargo fmt --all -- --check</code> 및 <code>--locked</code> check/test/strict clippy/build와 최소 Rust/stable CI를 확인한다. RUSTSEC-2023-0071은 별도 dependency tree/audit로 재평가하고 SQLx 상승만으로 해소됐다고 처리하지 않는다. 기존 비TLS 지원 제거·인증 정책 변경은 별도 사용자 결정 없이 하지 않는다. <a href="https://raw.githubusercontent.com/transact-rs/sqlx/v0.9.0/CHANGELOG.md">공식 0.9 변경</a>.</li></ul>
 <a class="permalink" href="#task-5b7108079d" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-f86c78f20a" data-status="decision" data-source-line="96">
+<article class="task decision" id="task-f86c78f20a" data-status="decision" data-source-line="90">
 <p class="section">3. 사용자 판단·준비가 필요한 항목</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2><strong>P1-DB-01 — MariaDB contract fixture와 지원 버전 matrix 검증.</strong></h2>
@@ -136,7 +125,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>의존성:</strong> DEP-P3-01과 같은 DB 지원정책을 공유한다. 보류 해제와 matrix의 실제 실행을 별도 확인한다.</li></ul>
 <a class="permalink" href="#task-f86c78f20a" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-f1e74cc052" data-status="decision" data-source-line="104">
+<article class="task decision" id="task-f1e74cc052" data-status="decision" data-source-line="98">
 <p class="section">3. 사용자 판단·준비가 필요한 항목</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2><strong>DEP-P3-01 — 격리 DB 검증환경과 프로젝트 MSRV 기준을 결정한다.</strong> 우선순위 1, SQLx 전환의 선행조건.</h2>
@@ -148,7 +137,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>객관적 완료 기준:</strong> 선택한 최소 Rust와 stable의 check/test, 지원 DB matrix별 실제 계약 실행 건수와 성공/거부를 기록한다. 즉시 반환·미실행을 통과로 세지 않고 schema/transaction·TLS·인증·복구를 확인한다. RSA 해소 판정은 별도 audit/의존성 근거로만 한다. <a href="security-mac-handoff-2026-10-06.md">2026-10-24 검증·보류</a>, <a href="release-security.md">정책·RSA 잔여</a>.</li></ul>
 <a class="permalink" href="#task-f1e74cc052" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-b2beeba529" data-status="decision" data-source-line="112">
+<article class="task decision" id="task-b2beeba529" data-status="decision" data-source-line="106">
 <p class="section">3. 사용자 판단·준비가 필요한 항목</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2><strong>P1-SCOPE-01 — 여러 broker/account 포지션과 pending을 동시에 상주·대조하는 multi-scope runtime.</strong></h2>
@@ -159,7 +148,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>객관적 완료 기준:</strong> 동시 scope의 주문/체결/pending·캐시·소유 원가·재시작·부분 실패가 서로 침범하지 않으며 scope별/전체 정지·리스크를 실패 fixture와 UI에서 검증한다. 실제 계좌 운용은 별도 승인 검증으로 남긴다. <a href="ARCHITECTURE.md">현재 소유·scope 경계</a>, <a href="tasks/strategy-fill-ownership-20261018.md">기존 소유 피드백 검증</a>.</li></ul>
 <a class="permalink" href="#task-b2beeba529" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-aee6a0d21e" data-status="decision" data-source-line="119">
+<article class="task decision" id="task-aee6a0d21e" data-status="decision" data-source-line="113">
 <p class="section">3. 사용자 판단·준비가 필요한 항목</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2><strong>P3-SIGN-01 — 플랫폼 코드 서명·updater 서명 강제를 위한 배포 키 준비.</strong></h2>
@@ -171,7 +160,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>의존성:</strong> 플랫폼/키 관리 결정과 관리자 준비가 먼저다. 구현 완료된 checksum·attestation과 실제 서명 검증을 구분한다.</li></ul>
 <a class="permalink" href="#task-aee6a0d21e" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-7ca2205786" data-status="decision" data-source-line="129">
+<article class="task decision" id="task-7ca2205786" data-status="decision" data-source-line="123">
 <p class="section">3. 사용자 판단·준비가 필요한 항목</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2><strong>P2-UX-07 — 실전 시작·위험 해제의 확인 수준을 결정한다.</strong></h2>
@@ -182,7 +171,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>완료/검증: 사용자 승인한 action matrix가 정본에 남고 mock에서 취소=mutation0·승인=정확1·pending중중복0·scope/모드 변경 시 기존 확인 무효화를 확인한다. 긴급 정지는 추가 확인 때문에 지연되지 않는다. 실제 주문/실전 시작/해제는 실행하지 않으며 실제 provider 검증을 대신 완료하지 않는다.</li></ul>
 <a class="permalink" href="#task-7ca2205786" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="task-179a40026c" data-status="validation" data-source-line="139">
+<article class="task validation" id="task-179a40026c" data-status="validation" data-source-line="133">
 <p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>P1-PROVIDER-01 — KIS/Toss 기존 운영 원장과 실제 정정·취소 응답의 최종 검증.</strong></h2>
@@ -194,7 +183,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>관련 완료 근거:</strong> P1-RECOVERY-01의 UI·fixture 구현은 완료 이력에 보존하며 이 항목의 실제 provider 검증을 대체하지 않는다.</li></ul>
 <a class="permalink" href="#task-179a40026c" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="soxq-p1-05" data-status="validation" data-source-line="148">
+<article class="task validation" id="soxq-p1-05" data-status="validation" data-source-line="142">
 <p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>SOXQ-P1-05 — LTH 일봉 근사와 실제 장중 평가를 구분한다.</strong></h2>
@@ -208,7 +197,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>완료된 부분의 근거:</strong> <a href="completed-history.md#soxq-p1-05">이관 기록</a>을 참고한다. 상위 완료 조건은 유지한다.</li></ul>
 <a class="permalink" href="#soxq-p1-05" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="soxq-p2-12" data-status="validation" data-source-line="159">
+<article class="task validation" id="soxq-p2-12" data-status="validation" data-source-line="153">
 <p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>SOXQ-P2-12 — 검증된 LTH 분봉의 기본·볼린저 옵션별 비교.</strong></h2>
@@ -220,7 +209,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>완료된 부분의 근거:</strong> <a href="completed-history.md#soxq-p2-12">이관 기록</a>을 참고한다. 상위 완료 조건은 유지한다.</li></ul>
 <a class="permalink" href="#soxq-p2-12" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="soxq-p2-13" data-status="validation" data-source-line="167">
+<article class="task validation" id="soxq-p2-13" data-status="validation" data-source-line="161">
 <p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>SOXQ-P2-13 — 가격조건의 실제 장중 손절·재진입 효능을 검증한다.</strong></h2>
@@ -232,7 +221,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>의존성:</strong> 비식별 자료만으로 가능한 생산 검증은 자료 확보 후 자동 진행한다. 실제 계좌/provider 연결·금융거래는 이번 구현 범위에 포함되지 않는다.</li></ul>
 <a class="permalink" href="#soxq-p2-13" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="soxq-p2-09" data-status="validation" data-source-line="175">
+<article class="task validation" id="soxq-p2-09" data-status="validation" data-source-line="169">
 <p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>SOXQ-P2-09 — 변동성 확장의 실제 장중 근거 검증.</strong> 테스트 가능한 구현·일봉 비교는 완료했으며 최초 장중 발동·실제 체결 가능성 조건은 열린 상태다. <a href="tasks/volatility-expansion-policy-20261022.md">작업</a>, <a href="research/volatility-expansion-policy-20261022/report.md">사전 설계·비교·한계</a>, <a href="research/volatility-expansion-policy-20261022/independent-audit.json">독립 감사</a>.</h2>
@@ -245,7 +234,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <a class="permalink" href="#soxq-p2-09" aria-label="이 할일 링크">#</a>
 </article></section>
 <p id="empty" hidden>일치하는 열린 할일이 없습니다. 검색어나 상태를 바꿔 주세요.</p>
-<footer>원본 SHA-256: be037e1aee3045ac908955da0fff6e02584c339c2040dc101233ac772f01451d<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
+<footer>원본 SHA-256: d3af63caf3944ae0fed0f75276fcb68fe9a660077d21754bc61cbf982588bdef<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
 </main>
 <script>
 const status = document.getElementById('status');

@@ -458,6 +458,12 @@ useEffect(() => {
 
 ---
 
+### 검색 결과·보유 행 키보드 선택
+
+- 행의 기존 pointer 선택을 유지하면서 `src/shared/ui/RowSelectionButton.tsx`의 native Button으로 Tab/Enter/Space 선택과 이름·코드 accessible name을 제공한다. Button의 click propagation을 끊어 부모 행과 같은 선택을 두 번 실행하지 않는다.
+- 입력과 결과 팝업을 하나의 focus 영역으로 보고 relatedTarget이 영역 안일 때 blur 닫힘을 예약하지 않는다. 영역 밖 이동은 기존180ms 닫힘을 유지한다. Escape/검색 선택 뒤 원래 입력으로 focus를 돌리되 내부 이동의 onFocus가 목록을 다시 열지 않게 한다.
+- 선택의 실제 종목·시장·주문/전략 상태 closure는 원래 도메인에 두고 공통화하지 않는다. 입력·table/row role·포인터 클릭을 함께 회귀 검사하며 금융 제출과 종목 선택을 섞지 않는다. [구현·검증 기록](../../../docs/tasks/uiux-improvements-20261030.md).
+
 ## 해외 잔고 통화 표시 패턴
 
 KIS TTTS3012R은 USD 기준 잔고를 반환한다. KRW 환산은 **하드코딩 상수 금지** — `useExchangeRateStatus()` 또는 호환용 `useExchangeRate()` 훅으로 실시간 환율을 가져온다.

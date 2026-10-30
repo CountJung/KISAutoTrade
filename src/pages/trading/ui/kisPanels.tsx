@@ -14,7 +14,7 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import { useOverseasPrice, usePrice } from '../../../api/hooks'
 import type { BalanceItem, OverseasBalanceItem, OverseasExchange } from '../../../api/types'
 import { fmtNumber } from '../../../shared/lib'
-import { QueryStatusSummary } from '../../../shared/ui'
+import { QueryStatusSummary, RowSelectionButton } from '../../../shared/ui'
 
 function fmt(n: number) {
   return fmtNumber(n)
@@ -91,9 +91,9 @@ export function HoldingsTable({ items, onSelect }: HoldingsTableProps) {
                 sx={{ cursor: 'pointer' }}
               >
                 <TableCell>
-                  <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 130, sm: 'none' } }}>
-                    {item.prdt_name}
-                  </Typography>
+                  <Box sx={{ maxWidth: { xs: 130, sm: 'none' } }}>
+                    <RowSelectionButton label={item.prdt_name} detail={item.pdno} onSelect={() => onSelect(item)} />
+                  </Box>
                   <Typography variant="caption" color="text.secondary">{item.pdno}</Typography>
                 </TableCell>
                 <TableCell align="right">{fmt(parseInt(item.hldg_qty))}주</TableCell>
@@ -162,9 +162,9 @@ export function OverseasHoldingsTable({ items, onSelect }: OverseasHoldingsTable
                 sx={{ cursor: 'pointer' }}
               >
                 <TableCell>
-                  <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 130, sm: 'none' } }}>
-                    {item.ovrs_item_name}
-                  </Typography>
+                  <Box sx={{ maxWidth: { xs: 130, sm: 'none' } }}>
+                    <RowSelectionButton label={item.ovrs_item_name} detail={item.ovrs_pdno} onSelect={() => onSelect(item)} />
+                  </Box>
                   <Typography variant="caption" color="text.secondary">{item.ovrs_pdno}</Typography>
                 </TableCell>
                 <TableCell align="right">{fmt(parseInt(item.ovrs_cblc_qty))}</TableCell>

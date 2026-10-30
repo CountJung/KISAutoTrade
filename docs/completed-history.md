@@ -471,3 +471,17 @@ P1-UX-03 — History 통계 조회 실패를 0원·0건·0%로 표시하지 않�
 - 개선 방향: 통계 query의 실패·미확인/이전 자료·성공0을 명시적으로 구분한다. 요약과 체결 목록 각각의 상태 및 실제 적용 조회기간을 표시하고 해당 실패만 재시도 가능하게 한다. 원장/손익·승률 계산 정책을 바꾸지 않는다.
 - 의존성: 기존 `useStatsByRange`/`useTradesByRange` query와 날짜 범위 전달 계약.
 - 완료/검증: stats500+trades성공, stats성공0+trades빈, 둘다실패, 초기조회·지연의 mock matrix를 확인한다. 실패 요약은 0수익/0승률로 단정되지 않고 성공0과 식별되며 재시도 후 실제 적용기간과 결과가 일치한다.
+
+
+## P2-UX-01
+
+2026-10-30 Trading/Strategy 검색 결과와 KIS/Toss 양시장 보유 행에 이름·코드가 있는 native 선택 버튼과 focus 표시를 추가했다. 내부 Tab 이동 중 결과를 유지하고 Escape/검색 선택 후 입력으로 focus를 돌린다. 순수 RowSelectionButton을5곳에서 재사용하고 Strategy 검색 표만52행 모듈로 분리해 Page982행을 유지했다. 기존 금융/선택 state·모델·query는 보존했다. 새 키보드/포커스10개+기존 form5개+holdings10개의 고유25개가 최종 통과했다(27.8초). 검색 내부 blur·Escape/선택 후 닫힘·외부 blur·포인터 코드셀·KIS/Toss×KR/US 선택을 확인했다. 375px 다크 긴 이름의 full accessible name·focus ring·문서 overflow0 캡처를 확인했고 앱/config 타입·FSD·보호14항목/전략 함수15개 AST 동등성을 통과했다. 최종 독립 UI/helper·참조 검토에 잔여 필수 P0/P1/P2는 없다. 사용자 판단·실자료 조건은 대신 닫지 않는다. [회차 기록](tasks/uiux-improvements-20261030.md)에 검증/미검증·게시 상태를 보존한다.
+
+### 원래 TODO 완료 조건·근거 보존
+
+P2-UX-01 — 종목 검색 결과·보유 종목 선택을 키보드로 수행한다.
+- 근거/대상: `src/pages/trading/ui/kisPanels.tsx:50-55,121-126`, `trading/ui/Page.tsx:118-123,295-308`, `strategy/ui/Page.tsx:577-589`의 선택 행은 클릭 handler만 있는 TableRow다. 해당 행에 tabIndex/키 handler/실제 button이 없다. 국내 입력의 blur180ms 닫힘과 mouseDown preventDefault(`Trading:217-226,264-270`, `Strategy:535-538,564-567`)도 포인터 흐름 중심이다. 해외 티커 Enter 검색과 기존 MUI dialog/Select 키보드 지원은 이미 있으므로 전체 키보드가 없다고 주장하지 않는다.
+- 영향/우선순위: P2. 마우스를 쓰기 어려운 사용자는 이미 나온 결과 선택이나 보유 클릭을 통한 폼 채우기 경로를 이용하기 어렵다.
+- 개선 방향: 행 안 명명된 선택 button 또는 일관된 combobox/listbox 패턴을 정하고, 검색 결과 이동·선택·닫기와 포커스 복귀를 지원한다. 표시명과 종목코드를 함께 알리고 기존 선택 후 폼값/시장/scope 유지.
+- 의존성: 현재 검색 훅·선택 closure 유지. 공용화는 실제 입력/선택 의미가 같은 부분만 검토한다.
+- 완료/검증: 키보드만으로 KR/Toss 보유 및 국내 검색 결과를 선택하고 폼의 정확한 종목/시장/수량을 확인한다. Arrow/Enter/Escape 또는 명시 button의 Tab/Enter 동작, blur 중 결과 소실 방지, focus visible, 긴 이름·좁은 폭 및 포인터 회귀를 mock으로 검사한다. 주문 제출0.
