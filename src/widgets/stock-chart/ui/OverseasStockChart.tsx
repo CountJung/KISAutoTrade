@@ -7,7 +7,7 @@
  * KIS API: /uapi/overseas-price/v1/quotations/dailyprice (HHDFS76200200)
  * 약 100건/호출 — 더 긴 기간은 여러 번 호출이 필요하나 현재 미구현
  */
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import {
   createChart,
   CandlestickSeries,
@@ -36,6 +36,7 @@ import ShowChartIcon from '@mui/icons-material/ShowChart'
 import { alpha, useTheme, type Theme } from '@mui/material/styles'
 import { useOverseasChartData } from '../../../api/hooks'
 import type { ChartCandle } from '../../../api/types'
+import { CandleDataSummary } from './CandleDataSummary'
 
 // ─── 프리셋 정의 ────────────────────────────────────────────────────
 
@@ -155,11 +156,12 @@ export function OverseasStockChart({ symbol, exchange, stockName }: OverseasStoc
   const lineRef      = useRef<ISeriesApi<'Line'> | null>(null)
   const volumeRef    = useRef<ISeriesApi<'Histogram'> | null>(null)
 
-  const { data: candles, isLoading, isError, error } = useOverseasChartData(
+  const { data: candles, isLoading, isError, error, isFetching, dataUpdatedAt } = useOverseasChartData(
     symbol,
     exchange,
     presetKey,
   )
+  const chartPoints = useMemo(() => toChartPoints(candles ?? []), [candles])
 
   // ── 차트 초기화 (마운트 1회) ────────────────────────────────────
   useEffect(() => {
@@ -245,12 +247,12 @@ export function OverseasStockChart({ symbol, exchange, stockName }: OverseasStoc
   // ── 데이터 업데이트 ─────────────────────────────────────────────
   useEffect(() => {
     if (!candles || !candleRef.current || !volumeRef.current || !lineRef.current) return
-    const { candleData, volumeData, lineData } = toChartPoints(candles)
+    const { candleData, volumeData, lineData } = chartPoints
     candleRef.current.setData(candleData)
     lineRef.current.setData(lineData)
     volumeRef.current.setData(volumeData)
     chartRef.current?.timeScale().fitContent()
-  }, [candles])
+  }, [candles, chartPoints])
 
   // ── 차트 타입 전환 (캔들 ↔ 라인) ────────────────────────────────
   useEffect(() => {
@@ -318,12 +320,12 @@ export function OverseasStockChart({ symbol, exchange, stockName }: OverseasStoc
           onChange={(_, v) => { if (v) setChartType(v as ChartType) }}
           size="small"
         >
-          <ToggleButton value="candle" sx={{ px: 1 }}>
+          <ToggleButton aria-label="캔들 차트" value="candle" sx={{ px: 1 }}>
             <Tooltip title="캔들 차트">
               <CandlestickChartIcon fontSize="small" />
             </Tooltip>
           </ToggleButton>
-          <ToggleButton value="line" sx={{ px: 1 }}>
+          <ToggleButton aria-label="라인 차트" value="line" sx={{ px: 1 }}>
             <Tooltip title="라인 차트">
               <ShowChartIcon fontSize="small" />
             </Tooltip>
@@ -397,6 +399,11 @@ export function OverseasStockChart({ symbol, exchange, stockName }: OverseasStoc
           </Box>
         )}
       </Box>
+      <CandleDataSummary key={JSON.stringify([exchange, symbol, presetKey])}
+        points={chartPoints} symbol={symbol} stockName={stockName} currency="USD"
+        context={`KIS 해외 · ${exchange} · ${{ '1M': '선택 프리셋: 1월 · 일봉', '3M': '선택 프리셋: 3월 · 일봉', '6M': '선택 프리셋: 6월 · 주봉', '1Y': '선택 프리셋: 1년 · 주봉', '5Y': '선택 프리셋: 5년 · 월봉' }[presetKey]}`}
+        validSymbol={!!symbol && !!exchange} isLoading={isLoading} isError={isError} isFetching={isFetching}
+        dataUpdatedAt={dataUpdatedAt} formatTime={value => String(value)} />
     </Box>
   )
 }

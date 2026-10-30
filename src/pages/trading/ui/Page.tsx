@@ -497,7 +497,7 @@ export default function Trading() {
             )}
             {isTossActive && symbol ? (
               <Box sx={{ p: { xs: 1, sm: 2 } }}>
-                <StockChart symbol={symbol} stockName={stockName} source="toss" />
+                <StockChart symbol={symbol} stockName={stockName} source="toss" market={market} />
               </Box>
             ) : market === 'US' && symbol ? (
               <Box sx={{ p: { xs: 1, sm: 2 } }}>

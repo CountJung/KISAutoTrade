@@ -203,6 +203,13 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 
 ## 5. 차트 컴포넌트 — StockChart
 
+### 텍스트·키보드 자료 대안
+
+- `src/widgets/stock-chart/ui/CandleDataSummary.tsx`는 두 차트가 기존 converter로 만든 같은 candle/volume projection을 받아 표시한다. 시각/제외 조건이 다른 국내·Toss와 해외 converter를 합치지 않는다. canvas·표의 수치를 새로 파싱/환산하거나 새 시세 query를 만들지 않는다.
+- 최신 봉과 선택 봉을 구분하고 최근20봉만 표에 둔다. 종목/source/프리셋/시장·거래소 scope가 바뀌거나 새 projection이 들어오면 이전 선택을 해제한다. native summary/표·봉 버튼의 방향키/Home/End와 focus를 제공하며 자동 갱신 자료는 aria-live=off로 유지한다.
+- KIS 국내 KRW/해외 USD는 기존 경계를 따르되 Toss ChartCandle은 backend가 Money.currency를 보존하지 않으므로 통화 미확인을 명시한다. 선택 시장으로 통화를 추정하지 않는다. 선택 프리셋·요청 설정과 실제 확보된 봉 범위/마지막 조회 시각을 분리하고 기간 전체 coverage·실시간성·새 시장 시계 의미를 보증하지 않는다.
+- 실제 DOM에서 이름이 없는 캔들/라인 toggle만 label을 보완하고 이미 이름이 있는 zoom 컨트롤은 유지한다. 자체 canvas의 유색 데이터와 빈 격자를 구분하고 resize 완료·theme·unmount/remount를 검증한다. canvas 검사 readback은 willReadFrequently가 있는 테스트 전용 복사본을 사용해 검증 자체의 성능 경고를 피한다. 실제 AT/native 미실행은 별도 기록한다.
+
 ### 라이브러리 선택 근거
 
 **lightweight-charts v5** (TradingView OSS) 선택:
@@ -796,4 +803,4 @@ RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저
 - Switch의 role=switch와 실제 Checkbox를 구분하고 Alert의 variant/severity class를 각각 정확한 토큰으로 확인한다. utility class 변경을 금융 동작 변경으로 오인하거나 검증을 느슨하게 하지 않는다.
 - 모바일 Drawer 닫힘 중 aria-hidden과 CSS visibility를 구분한다. 정상 role 접근 가능·route 전환·닫힘 완료를 기다리고 강제click/sleep으로 대체하지 않는다. 새UI계약5개는 HARNESS_MAP을 따른다.
 
-> 마지막 업데이트: 2026-10-30T07:48:12
+> 마지막 업데이트: 2026-10-30T08:18:07

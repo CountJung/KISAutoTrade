@@ -620,6 +620,7 @@ KISAutoTrade/
 │   │   │   └── index.ts
 │   │   └── stock-chart/
 │   │       ├── ui/
+│   │       │   ├── CandleDataSummary.tsx
 │   │       │   ├── OverseasStockChart.tsx
 │   │       │   └── StockChart.tsx
 │   │       └── index.ts
@@ -1105,6 +1106,7 @@ KISAutoTrade/
 │       ├── toss-commission-ratio.spec.ts
 │       ├── trading-form-contract.spec.ts
 │       ├── ui-dependency-contract.spec.ts
+│       ├── uiux-chart-accessibility.spec.ts
 │       ├── uiux-history-details.spec.ts
 │       ├── uiux-history-status.spec.ts
 │       ├── uiux-holdings.spec.ts
@@ -1209,7 +1211,10 @@ KISAutoTrade/
 | `shared/api/budgetRecovery{Types,Commands}.ts` | 복구 항목·승인 요청의 Rust 미러와 데스크톱 IPC 래퍼. 운영자 근거 대조와 실제 체결 확인을 구분하며 웹 REST 복구 경로는 제공하지 않음 |
 | `api/databaseHooks.ts` | DB 설정/상태/이관 Tauri-only TanStack Query hooks |
 | `widgets/app-shell/` | 전체 앱 레이아웃, ThemeProvider, responsive navigation, 좌측 사이드바 자동매매 시작/정지 전역 조작. route 위치는 메모리 ref로만 복원해 reload는 기존0에서 시작. 명시 focus 알림의 routeKey·현재 route·pending route가 모두 같을 때만 pending을 취소하고 listener를 cleanup하며 기존 복원 함수/1200ms·scroll/resize는 유지 |
-| `widgets/stock-chart/` | 국내/해외/Toss 캔들 차트 |
+| `widgets/stock-chart/` | 국내/해외/Toss canvas 차트와 동일 변환 projection을 사용하는 내부 텍스트 자료 대안. 각 toChartPoints의 기존 시각/제외/가격 변환은 유지하고 useMemo 결과를 canvas·텍스트에 공유하며 query/금융 계산을 추가하지 않음 |
+| `widgets/stock-chart/ui/StockChart.tsx` | 기존 KIS 국내/Toss 조회 gate·preset·canvas lifecycle을 소유. 공개 symbol/stockName/source에 선택적 market(KR/US) 표시 문맥만 추가해 Trading이 전달. KIS 국내 가격은 KRW, Toss DTO의 통화 부재는 시장 추정 없이 미확인으로 표시 |
+| `widgets/stock-chart/ui/OverseasStockChart.tsx` | 기존 symbol/exchange/stockName·해외 query/preset·canvas lifecycle과 KIS USD 가격 경계를 유지하며 동일 chartPoints를 내부 CandleDataSummary에도 전달 |
+| `widgets/stock-chart/ui/CandleDataSummary.tsx` | 두 차트만 소비하는 widget 내부 표시로 index export 없음. canvas와 같은 유효 봉 projection·호출자 시각 formatter/query metadata를 받아 최신/선택 봉·확보 범위/수량·자료 상태/시각/통화와 최근 최대20봉 표를 표시. 키보드 Arrow/Home/End 봉 선택·새 projection/문맥의 선택 해제·수평 스크롤 대안을 제공하며 새 파싱/가격 환산/query 없음 |
 | `pages/settings/ui/Page.tsx` | 테마, 데이터 갱신 주기, 로그/체결 보관, 웹 포트, 종목 목록, 리스크, Discord 설정 route 조립. h1·SettingsContents를 조립하며 Risk 로딩/실패에도 동일 Section ID/h2 도착점을 유지. query/save와 DB·복구 desktop 경계는 기존 소유자에 유지 |
 | `pages/settings/ui/autoTradingBudgetSection.tsx` | 선택 계좌의 KRW/USD 자동매매 배정액·현금·예약액·사용 가능액·차단 사유 표시와 정지 상태 예산 편집 |
 | `pages/settings/ui/budgetRecoverySection.tsx` | 예산 설정 안의 응답 불명 주문 대조·복구 UI. 원래 주문·체결 누적값·보류 사유·승인 영수증을 표시하고, 명시 확인 후 pending 복원을 요청. 실행 중·재조회/조회 실패·identity 불일치·legacy/종결 기록의 승인을 막고 웹에서는 안내만 표시. 예산 Section 아래 settings-recovery h3 도착점과 목차 복귀를 제공 |
@@ -1568,6 +1573,7 @@ keyring/RGL 유지·미삭제 판단은 [9회차 기록](tasks/immediate-backlog
 |---|---|
 | `docs/tasks/uiux-improvements-20261030.md` | 승인된 UI/UX 개선9개의 고정 순서·회차별 범위·격리 검증/리뷰·게시 근거. UI 표시/접근성과 금융 동작·사용자 판단/실자료 제외를 구분 |
 | `tests/e2e/fixtures/uxReviewFixture.ts` | 기존 strategyResearchFixture를 재사용하는 browser-only 합성 fixture. 알려진 GET/응답 override·요청 집계와 외부 요청/WebSocket·API 쓰기/알 수 없는 경로 차단을 제공 |
+| `tests/e2e/uiux-chart-accessibility.spec.ts` | 합성 KIS KRW/해외 USD·Toss 시장/통화 미확인과 기존 정규화 시각·제외/가격·거래량을 canvas/최신/선택/최대20행 표로 대조. 키보드·로딩/실패/빈/이전 자료·문맥 변경/선택 해제·테마/좁은 resize/재마운트 회귀와 외부/쓰기 요청 경계를 확인 |
 | `tests/e2e/uiux-settings-navigation.spec.ts` | 합성 Settings의 desktop/좁은 다크 목차15도착점·h2/중첩 h3·키보드 focus/scroll/복귀·hash/history 유지와 지연/실패 Risk heading 회귀. 미저장 예산·기존 저장/desktop 경계, routeback 위치 복원/reload0, 지연 복원 중 명시 focus 우선·다른 route 알림 격리를 대조 |
 | `tests/e2e/uiux-log-status.spec.ts` | 합성 Log의 placeholder 지연/첫 실패·성공한 원본0/필터0·이전 빈/행 자료와 정상 시각·키보드 읽기 재시도/필터 초기화·검색 접근성 회귀. 원래 tail300/5초 polling·위쪽 읽기/하단 추적·정상 live 안내 안정성과 외부/쓰기/알 수 없는 요청·page 오류 경계를 대조 |
 | `tests/e2e/uiux-resizer.spec.ts` | 합성 sidebar/Log separator의 접근 가능한 이름·방향/범위/현재값·설명/focus, 키보드 증감/상하한/기본값과 새 target 저장·route/reload 복원, 기존 mouse delta/end 저장·반응형 노출 회귀. Log End의 설정값과 실제 geometry를 별도 관측하며 전체 layout 변경/실환경 검증으로 확대하지 않음 |

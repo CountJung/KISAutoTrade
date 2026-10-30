@@ -800,8 +800,8 @@
     "semantic_hash": "e1e05929b9d6e9a67816e0b8739875f0"
   },
   "src/pages/trading/ui/Page.tsx": {
-    "mtime": 1793340685.5175357,
-    "ast_hash": "9e1d343f6267691f8f234d6f4e502eca",
+    "mtime": 1793347473.3805661,
+    "ast_hash": "b7535b63cc0d48f9f0f21a69b2129ed8",
     "semantic_hash": ""
   },
   "src/pages/trading/ui/kisPanels.tsx": {
@@ -955,13 +955,13 @@
     "semantic_hash": "d615d2f5a26f0dfb68819373bc1a4b6f"
   },
   "src/widgets/stock-chart/ui/OverseasStockChart.tsx": {
-    "mtime": 1793264135.4106538,
-    "ast_hash": "36ea5b745f09e20ad99da97950327083",
+    "mtime": 1793347751.396654,
+    "ast_hash": "929e19b427f838bc2780217dd619e6d5",
     "semantic_hash": ""
   },
   "src/widgets/stock-chart/ui/StockChart.tsx": {
-    "mtime": 1793264135.4120708,
-    "ast_hash": "c37df3e6bf658a29804076e7bf59f88b",
+    "mtime": 1793347751.3968828,
+    "ast_hash": "04f6307bf663be5d7ea85b1f0d54034b",
     "semantic_hash": ""
   },
   "tests/e2e/settings-database.spec.ts": {
@@ -2777,6 +2777,16 @@
   "tests/e2e/uiux-settings-navigation.spec.ts": {
     "mtime": 1793346696.0239694,
     "ast_hash": "5ad43c6ab2038c714ca7216e34dc3ccd",
+    "semantic_hash": ""
+  },
+  "src/widgets/stock-chart/ui/CandleDataSummary.tsx": {
+    "mtime": 1793347492.0386212,
+    "ast_hash": "c4f4d8ab337e7ceb24cf32f26b60d526",
+    "semantic_hash": ""
+  },
+  "tests/e2e/uiux-chart-accessibility.spec.ts": {
+    "mtime": 1793348443.0642924,
+    "ast_hash": "62d37d957f9c75badc6c89c1238707e7",
     "semantic_hash": ""
   }
 }

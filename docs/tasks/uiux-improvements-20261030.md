@@ -24,8 +24,8 @@ P2-UX-07의 확인 정책 및 기존 SQLx/사용자 판단/실자료 항목 11�
 | 5 | P2-UX-02 | 패널 크기 조절 키보드 대안 | 구현·검증·리뷰 완료 | `44c1ae5fa0e3e7dc675eb9b17132146b824d3422` 원격 일치 |
 | 6 | P2-UX-03 | 좁은 History 거래 상세 | 구현·검증·리뷰 완료 | `9d0a8d290fa6f9f81d33c79dfab68763da902801` 원격 일치 |
 | 7 | P2-UX-04 | Log 로딩·실패·빈/필터0 구분 | 구현·검증·리뷰 완료 | `8d89417e7b1df76e9b5318cc6a81b7dfd3ac823c` 원격 일치 |
-| 8 | P2-UX-05 | Settings 목차·heading·focus 이동 | 구현·검증·리뷰 완료 | 이번 회차 커밋; 푸시 확인 대기 |
-| 9 | P2-UX-06 | 차트 텍스트/키보드 자료 대안 | 다음 작업 | — |
+| 8 | P2-UX-05 | Settings 목차·heading·focus 이동 | 구현·검증·리뷰 완료 | `6fa2e4f32feb41578ff2eb164330025398e28440` 원격 일치 |
+| 9 | P2-UX-06 | 차트 텍스트/키보드 자료 대안 | 구현·검증·리뷰 완료 | 이번 회차 커밋; 푸시 확인 대기 |
 
 원래 완료 조건과 제외 항목 본문은 착수 시 보존했고 완료 항목별로 이력에 이관한다. 사용자 기존 변경은 없었으며 이후 발견 시 이번 작업과 분리한다.
 
@@ -157,3 +157,15 @@ Settings에15개 안정된 목차 도착점과 제목/목차 복귀를 제공했
 
 - 변경 핵심: settings/ui 8파일(신규 settingsNavigation.tsx), shared/lib/pageFocusNavigation.ts·index.ts, AppShell.tsx, 신규 navigation spec 및 기존 DB/복구 spec selector, UI 스킬 원본
 - 다음: P2-UX-06
+
+
+### 9회차 — P2-UX-06
+
+두 차트의 기존 변환 결과를 canvas와 widget 내부 CandleDataSummary가 함께 사용해 OHLCV·자료 시점/범위·조회 조건·최신/선택 봉과 최근20봉 표를 제공했다. 봉 선택과 표 가로 스크롤을 키보드로 사용하며 scope/새 자료에 이전 선택을 해제한다. KIS KRW/USD와 Toss 통화 미확인을 구분하고 실제 DOM에서 이름이 없던 캔들/라인 버튼만 보완했다. 새 조회·가격 환산·시각 변환은 추가하지 않았다.
+
+신규8개+기존 주문폼5개+기존 LTH paint1개의 고유14개가 통과했다(15.0초). 실제 StockChart/Overseas 각각의 유색 데이터 픽셀과 빈 격자0 대조, KIS KRW/USD·Toss US1분 시각/단위·20봉 한도/방향키/Home/End·상태/갱신/선택초기화·scope/theme/unmount를 확인했다. 같은 lifecycle2개의 후속 부분 검사에서 backing/CSS폭570→256 및584→270, 가로이동0→201/199와 화면 안 우측 거래량18/3개를 확인했다(최종4.8초; 고유수 중복 합산 없음). 앱/config 타입·FSD·보호44항목 및 원래 converter/query/effects/Trading 모델 대조를 통과했고 루트·UI 전문가 독립 리뷰에 필수 P0/P1/P2는 없다.
+
+사전 DOM1개 관측과 구현 회귀를 분리했다. baseline 시장 전환 중 임시 종목 GET2는 deny fixture가 거부한 합성 요청이며 실제 broker 호출이 아니다. 초회10/4는 기존 roving Arrow 경로·Settings fixture 누락, 2차11/3은 검사 도구의 canvas readback 경고였다. test-only 교정 후 원본을 보존했고 제품 추가 변경은 없었다. resize2개3.1초·가로이동2개4.4초·최종우측값2개4.8초는 같은 사례의 보강이며14개와 합산하지 않는다. 신규8개 쓰기/외부/unknown/pageerror0; 의도한503 두 사례의 console각3개를 정상6사례console0과 구분한다. 기존 주문폼은 합성 주문 회귀다. 표는 기존 정규화 정밀도를 보존하며 기존 crosshair 반올림은 유지했다. Toss 가격 통화·실제 coverage/시장 최신성·원장/실거래·AT/native·최종 전체UI/CI를 검증한 것으로 확대하지 않는다.
+
+- 변경 핵심: stock-chart/ui/StockChart.tsx·OverseasStockChart.tsx·CandleDataSummary.tsx, Trading market 표시 prop, uiux-chart-accessibility.spec.ts, UI 스킬 원본
+- 다음: 최종 통합/CI 확인

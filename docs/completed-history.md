@@ -541,3 +541,16 @@ P2-UX-05 — Settings에 반복 탐색을 줄이는 섹션 목차·heading을 �
 - 개선 방향: 기존 섹션명과 저장/보류/보안 정책을 유지한 채 상단 목차·안정된 section ID·논리적 heading과 focus 가능한 도착점을 추가한다. 자동저장/명시저장의 현재 차이는 안내하되 저장 방식 일괄변경이나 주요 설정 숨김은 포함하지 않는다.
 - 의존성: AppShell 기존 route별 scroll 복원과 충돌하지 않아야 한다. 탭/전면 재배치·일괄저장 같은 제품 선택은 필요 시 사용자에게 별도 제안.
 - 완료/검증: 키보드와 좁은 화면에서 계좌/예산·복구/DB/리스크 섹션을 목차로 찾아 올바른 heading으로 focus가 이동한다. reload/back·route scroll 복원·동일 저장 요청 및 오류/상태 가시성을 mock으로 확인한다. 실제 설정 저장0.
+
+
+## P2-UX-06
+
+2026-10-30 두 차트의 기존 변환 결과를 canvas와 widget 내부 CandleDataSummary가 함께 사용해 OHLCV·자료 시점/범위·조회 조건·최신/선택 봉과 최근20봉 표를 제공했다. 봉 선택과 표 가로 스크롤을 키보드로 사용하며 scope/새 자료에 이전 선택을 해제한다. KIS KRW/USD와 Toss 통화 미확인을 구분하고 실제 DOM에서 이름이 없던 캔들/라인 버튼만 보완했다. 새 조회·가격 환산·시각 변환은 추가하지 않았다. 신규8개+기존 주문폼5개+기존 LTH paint1개의 고유14개가 통과했다(15.0초). 실제 StockChart/Overseas 각각의 유색 데이터 픽셀과 빈 격자0 대조, KIS KRW/USD·Toss US1분 시각/단위·20봉 한도/방향키/Home/End·상태/갱신/선택초기화·scope/theme/unmount를 확인했다. 같은 lifecycle2개의 후속 부분 검사에서 backing/CSS폭570→256 및584→270, 가로이동0→201/199와 화면 안 우측 거래량18/3개를 확인했다(최종4.8초; 고유수 중복 합산 없음). 앱/config 타입·FSD·보호44항목 및 원래 converter/query/effects/Trading 모델 대조를 통과했고 루트·UI 전문가 독립 리뷰에 필수 P0/P1/P2는 없다. 사용자 판단·실자료 조건은 대신 닫지 않는다. [회차 기록](tasks/uiux-improvements-20261030.md)에 검증/미검증·게시 상태를 보존한다.
+
+### 원래 TODO 완료 조건·근거 보존
+
+P2-UX-06 — 차트의 가격·기간·OHLCV를 비시각적/키보드 경로로 확인한다.
+- 근거/대상: `src/widgets/stock-chart/ui/StockChart.tsx:473-503`은 라이브러리 canvas 타깃과 crosshair가 있을 때만 OHLCV overlay를 제공한다. `OverseasStockChart.tsx:368-405`도 같은 유형이다. 데이터가 로딩/오류일 때 UI는 이미 있으므로 상태 UI 전체를 재구축하지 않는다. 코드에 정적 요약/접근 가능한 데이터 표나 키보드 봉 선택 대안이 보이지 않는다. 스크린리더/contrast를 실측하거나 WCAG 위반으로 판정한 것은 아니다.
+- 영향/우선순위: P2. 마우스 crosshair·canvas를 보기 어려운 사용자가 기간/마지막 봉 값·시점을 확인하기 어렵다.
+- 개선 방향: 선택 종목·기간/주기·통화·자료 시점과 최신 봉 요약, 제한된 최근 봉의 접근 가능한 표/키보드 선택을 제공한다. 같은 candle 데이터·가격 단위·시계/자료부족 의미를 재사용하고 새로운 시세 조회를 만들지 않는다. 이미 존재하는 줌/차트형태 toggle의 실제 접근 가능 이름은 DOM으로 확인 후 필요한 것만 보완한다.
+- 완료/검증: 합성 KRW/USD candle의 표시값/시각과 summary/table 값이 같고 키보드로 기간·봉을 탐색한다. 빈/오류/로딩/갱신을 구분하고 과도한 live announce가 없으며 light/dark·narrow 및 기존 painted chart 검사를 회귀한다. 실제 assistive technology·native 플랫폼의 미실행을 명시한다.

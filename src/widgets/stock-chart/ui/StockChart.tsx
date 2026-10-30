@@ -4,7 +4,7 @@
  * 프리셋: 일(D/1M) | 주(D/3M) | 월(W/6M) | 3월(D/3M detail) | 년(W/1Y) | 5년(M/5Y)
  * 기능  : 캔들 + 거래량, 확대/축소/전체맞춤, MUI 다크/라이트 자동 동기화
  */
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import {
   createChart,
   CandlestickSeries,
@@ -33,6 +33,7 @@ import ShowChartIcon from '@mui/icons-material/ShowChart'
 import { alpha, useTheme, type Theme } from '@mui/material/styles'
 import { useChartData, useTossChartData } from '../../../api/hooks'
 import type { ChartCandle } from '../../../api/types'
+import { CandleDataSummary } from './CandleDataSummary'
 
 // ─── 프리셋 정의 ────────────────────────────────────────────────────
 
@@ -202,6 +203,7 @@ interface StockChartProps {
   symbol: string
   stockName?: string
   source?: ChartSource
+  market?: 'KR' | 'US'
 }
 
 // ─── 툴팁 데이터 타입 ───────────────────────────────────────────────
@@ -216,7 +218,7 @@ interface CrosshairData {
 
 type ChartType = 'candle' | 'line'
 
-export function StockChart({ symbol, stockName, source = 'kis' }: StockChartProps) {
+export function StockChart({ symbol, stockName, source = 'kis', market }: StockChartProps) {
   const theme = useTheme()
 
   const [presetKey, setPresetKey] = useState('1D')
@@ -256,7 +258,8 @@ export function StockChart({ symbol, stockName, source = 'kis' }: StockChartProp
     preset.key,
     { enabled: source === 'toss' && !!symbol },
   )
-  const { data: candles, isLoading, isError, error } = source === 'toss' ? tossChart : kisChart
+  const { data: candles, isLoading, isError, error, isFetching, dataUpdatedAt } = source === 'toss' ? tossChart : kisChart
+  const chartPoints = useMemo(() => toChartPoints(candles ?? []), [candles])
 
   // ── 차트 초기화 (마운트 1회) ────────────────────────────────────
   useEffect(() => {
@@ -349,7 +352,7 @@ export function StockChart({ symbol, stockName, source = 'kis' }: StockChartProp
   // ── 데이터 업데이트 ─────────────────────────────────────────────
   useEffect(() => {
     if (!candles || !candleRef.current || !volumeRef.current || !lineRef.current) return
-    const { candleData, volumeData, lineData } = toChartPoints(candles)
+    const { candleData, volumeData, lineData } = chartPoints
     candleRef.current.setData(candleData)
     lineRef.current.setData(lineData)
     volumeRef.current.setData(volumeData)
@@ -360,7 +363,7 @@ export function StockChart({ symbol, stockName, source = 'kis' }: StockChartProp
       },
     })
     chartRef.current?.timeScale().fitContent()
-  }, [candles])
+  }, [candles, chartPoints])
 
   // ── 차트 타입 전환 (캔들 ↔ 라인) ────────────────────────────────
   useEffect(() => {
@@ -431,12 +434,12 @@ export function StockChart({ symbol, stockName, source = 'kis' }: StockChartProp
           onChange={(_, v) => { if (v) setChartType(v as ChartType) }}
           size="small"
         >
-          <ToggleButton value="candle" sx={{ px: 1 }}>
+          <ToggleButton aria-label="캔들 차트" value="candle" sx={{ px: 1 }}>
             <Tooltip title="캔들 차트">
               <CandlestickChartIcon fontSize="small" />
             </Tooltip>
           </ToggleButton>
-          <ToggleButton value="line" sx={{ px: 1 }}>
+          <ToggleButton aria-label="라인 차트" value="line" sx={{ px: 1 }}>
             <Tooltip title="라인 차트">
               <ShowChartIcon fontSize="small" />
             </Tooltip>
@@ -520,6 +523,13 @@ export function StockChart({ symbol, stockName, source = 'kis' }: StockChartProp
           </Typography>
         </Box>
       )}
+      <CandleDataSummary key={JSON.stringify([source, symbol, preset.key, market])}
+        points={chartPoints} symbol={symbol} stockName={stockName} currency={source === 'kis' ? 'KRW' : undefined}
+        context={source === 'toss'
+          ? `Toss · 선택 시장: ${market === 'US' ? '미국' : market === 'KR' ? '국내' : '미확인'} · ${tossInterval === '1m' ? '1분봉' : '일봉'} · 요청 최대 200봉`
+          : `KIS 국내 · 선택 프리셋: ${preset.label} · ${preset.months}개월 설정 · ${{ D: '일봉', W: '주봉', M: '월봉' }[kisPeriodCode]} · 요청 설정 ${startDate} ~ ${endDate}`}
+        validSymbol={hasValidSymbol} isLoading={isLoading} isError={isError} isFetching={isFetching}
+        dataUpdatedAt={dataUpdatedAt} formatTime={formatChartTime} />
     </Box>
   )
 }
