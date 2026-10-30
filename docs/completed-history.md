@@ -401,3 +401,28 @@ Toss32개item의속성/시그니처/본문byte동일, Trading56문장/7helper·L
 ## DEP-P3-08 — TypeScript·패키지매니저 평가 완료
 
 2026-10-29 `adf0e5a4e4635e1e3cea9540df3016e6f60b070d`로 TypeScript7.0.2를 정상 푸시·원격 SHA 대조했다. TS5.9→6.0.3→7을 격리 비교해 원문130개·node1개 검사 범위와 strict·동일dist를 유지했다. npm11 유지·pnpm 미채택을 독립 판정했고 global 도구는 바꾸지 않았다. clean 설치/타입·UI349와 후속 짧은 loader 검증을 구분하고 Gate50·Security57 성공을 확인했다. 같은 프로젝트의 warm5회 앱 검사 중앙값은 TS6 2.1884→7 0.5722초이며 전체CI·순수CPU·설치크기 개선으로 확대하지 않는다. 초기 도구 안내·수정·지원환경 미검증은 [10회차 기록](tasks/immediate-backlog-20261029.md)에 보존한다.
+
+
+## UIUX-20261030
+
+2026-10-30 UI/UX 전문가 역할 구성·현재 흐름 검토와 개선 백로그 작성을 수행했다. [역할 TOML](../.codex/agents/ui_ux_expert.toml)·[사용법](agent-tooling.md#uiux-전문가-사용)은 기존 구성을 따르며 모델/권한 재정의는 없다. 이번 세션은 일반 서브에이전트가 TOML을 읽고 같은 지침으로 감사했다. 새 Codex 세션의 자동 역할 탐색은 별도 미검증이다.
+
+코드 기준은 `7f2ec166a47d88508f2e72e10ab6355f9e9a585e`다. 현재 dist 10개 파일 SHA를 직전 TypeScript7 검증의 `dist-final-hashes.json`과 전부 대조했다. Rust/Tauri를 실행하지 않고 정적 파일만 별도 `127.0.0.1` 임시 서버에서 서브했다. Vite/프로젝트 env 로딩 없이 새 headless Chromium context·service worker 차단·외부 HTTP/WebSocket 거부·모든 API 쓰기 403·미지정 API 503으로 격리했다. `strategyResearchFixture.ts`의 합성 KIS 모의 자료를 사용하고 시작/정지·주문/취소·실전동의를 누르지 않았다.
+
+초회 02:25:51~02:26:08 UTC 8개와 후속 02:28:23~02:28:29 UTC 4개는 **화면 관측 시나리오 12개**이며 개선 구현 또는 통과 테스트12개라는 뜻이 아니다. 실제 화면 PNG와 요청/DOM을 부모가 열어 확인했고, 전문가도 P1·Log 주요 증거를 독립 대조했다.
+
+| 관측 | 화면·주입 상태 | 확인과 한계 |
+| --- | --- | --- |
+| P1-UX-01 | `/` 1280×900 light, trading/status503×3·별도 응답 보류 | ‘대기 중/대기’·시작 버튼과 상태 확인 중 문구 공존; 데몬 실제 상태·시작 결과를 검증한 것은 아님 |
+| P1-UX-02 | `/trading` 같은 크기/light, 국내 balance503×3·응답 보류 | ‘보유 종목 없음’; 해외 실패/기존 자료 후 재조회는 소스 추론 |
+| P1-UX-03 | `/history` 같은 크기/light, 조회 GET·stats503×3·trades 정상빈 배열 | 오류 안내 없이 +0원/0건/0.0%; 손익 산식·실제 원장 정합성 판정은 아님 |
+| P2-UX-04 | `/log` 같은 크기/light, 빈 성공·후속 recent-logs503×3 | 둘 다 0건/빈 패널; 필터0·기존 자료 후 오류는 소스 추론 |
+| 반응형·정보구조 | `/settings`, `/strategy` 375×812 dark | 문서 가로 overflow0, Settings 장문 섹션·목차 없음; 일반 모바일 오버플로 결함으로 확대하지 않음 |
+
+초회 Settings의 Tab 샘플이 log-config POST1회를 유발했으나 403으로 차단했다. auto-budget GET fixture 누락503도 같이 남긴다. 이를 운영 설정 변경이나 제품 결함으로 세지 않는다. 누락 mock을 보완한 후속 Settings는 입력/Tab 없는 관찰용 자동 캡처로 분리해 쓰기 시도/미지정/외부 요청/페이지 예외0을 확인했다. 전체12관측의 외부 페이지 요청·페이지 예외는0이며 주입 503/403의 브라우저 resource 오류는 의도된 결과로 보존한다. 모든 context/브라우저/임시 서버는 종료했다.
+
+원본은 Git 제외 `.cache/uiux-review-20261030/`의 `audit-first-pass.mjs`, `audit.mjs`, 두 로그·`report-first-pass.json`/`report-followup.json`·동명 PNG다. 역할 검토는 `/tmp/kis-uiux-expert-20261030.md`에도 남겼다. 실제 Tauri IPC·Toss 상태의 실행·스크린리더·전반 명도대비·200% 확대·Windows/macOS 최소버전은 미검증이다. 기존 UI349 통과를 이번 UX 검증 성공으로 재사용하지 않았다.
+
+새 작업은 [TODO](todo.md)의 즉시9개(P1-UX-01~03, P2-UX-01~06)와 판단1개(P2-UX-07)로 정리했다. 역할 구성과 검토만 완료했으며 후보 구현은 전부 미착수다. 기존 결정/실자료/SQLx 10개·지난 즉시 10회차 완료는 보존했다.
+
+검증: 역할 TOML 5개 파싱·신규 역할 필드/권한 불변, 기존 TODO10개 본문 보존·고유ID20개, HTML freshness·지도·그래프·diff가 통과했다. 기존 TODO 렌더러 테스트 3개(Chromium 좁은 폭·키보드 검색/필터·JS 없는 읽기 포함)를 통과했고 독립 리뷰에 필수 P0/P1/P2 지적은 없었다. 제품 소스·의존성·workflow는 변경하지 않아 Rust/전체UI349/배포 CI를 새로 실행하지 않았다.

@@ -11,6 +11,7 @@
 | 메서드·타입·컴포넌트 정의와 호출자 추적 | `symbol_navigator` | `symbol-navigator` | Serena MCP | 정의·참조·영향 범위 보고 |
 | 두 곳 이상 유사한 helper 발견 또는 공용화 검토 | `helper_curator` | `helper-curator` | Graphify + Serena | 동등성 확인, 공용 위치 이동, 빌드·그래프 재검증 |
 | 주식 자동 전략 시뮬레이션·비용/손실 분석·개선 백로그 | `stock_analyst` | — | 실제 Rust replay + Serena | 동일 기간·사전자료·비용 비교, 평가 불가 분리, 근거와 완료 조건이 있는 TODO |
+| UI/UX 화면·사용 흐름 검토와 개선 백로그 | `ui_ux_expert` | — | 소스·mock/offline 화면·키보드/DOM 관측 | 근거 등급·영향·완료 기준과 TODO 중복 병합 |
 
 프로젝트 전용 Codex 역할은 `.codex/agents/*.toml`에 있으며, Copilot
 호환 역할 설명은 `.github/agents/*.agent.md`에 있다. Codex는 신뢰한
@@ -36,6 +37,23 @@
 계약을 따른다. 새 역할을 로드하지 않은 기존 세션은 같은 지침을 일반
 서브 에이전트에 전달해 분석할 수 있으며 역할 파일 저장과 현재 세션의
 역할 목록 반영을 구분한다.
+
+## UI/UX 전문가 사용
+
+역할 정의는 [ui_ux_expert.toml](../.codex/agents/ui_ux_expert.toml)이다. 기존 역할과 같은 `name`/`description`/`developer_instructions` 형식을 사용하며 모델을 부모에서 상속한다. 별도 sandbox·인증·네트워크 권한을 추가하지 않는다.
+
+```text
+ui_ux_expert에게 현재 HEAD의 Dashboard/Trading/Strategy/Settings/History/Log를
+읽기 전용으로 검토하게 해줘. 프로필·실거래 접근 없이 부모가 제공한 격리 mock 증거를 쓰고,
+화면 관측/코드 추론/미검증을 구분해 기존 TODO ID와 합쳐 제안해줘.
+각 제안에 대상·문제 근거·사용자 영향·우선순위·완료/검증 기준을 적고 실제 UI는 수정하지 마.
+```
+
+역할을 아직 로드하지 않은 세션은 일반 서브 에이전트에 같은 TOML 지침과 구체 범위를 전달한다. 2026-10-30 검토는 이 방식으로 수행했다. 파일 저장·현재 세션 위임·새 세션 자동 로딩을 구분하며, 새 세션의 자동 탐색은 이 감사에서 실행하지 않았다.
+
+부모는 화면 프로세스와 산출물을 소유한다. 기존 정적 dist를 loopback에서 서브하거나 [HARNESS](HARNESS_MAP.md)의 envDir=false 격리 구성을 사용하고, 새 브라우저 context에서 페이지 이동 전 mock을 설치한다. 외부 페이지 요청·알 수 없는 API·금융 쓰기를 거부하고 확인한 화면·주입 상태·테마/크기·시각·코드 SHA를 기록한다. 계좌 파일·키·운영 앱/DB·보안 설정을 열거나 바꾸지 않는다. 미확인 상태를 정상 숫자로 보이는 문제와 백엔드 guard 위반을 같은 것으로 판정하지 않는다.
+
+새로운 상시 분석 문서를 늘리지 않고 현재 후보는 [TODO](todo.md), 완료된 검토의 근거·범위는 [완료 이력](completed-history.md)에 놓는다. 보고서·화면 원본은 Git 제외 검증 캐시에 보관한다. 기존 키보드/복구/계좌 표시와 사용자 판단·실자료 작업은 새 근거 없이 다시 미구현으로 만들지 않는다.
 
 ## Serena
 

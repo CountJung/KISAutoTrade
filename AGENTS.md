@@ -70,6 +70,7 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 - 파일 추가·이동·삭제 또는 구조 변경은 `project_mapper`에게 프로젝트 맵 pass를 위임한다.
 - 중복 helper 후보는 `helper_curator`에게 Graphify 후보 탐색과 Serena 참조 검증을 위임하고, 실제 동등성이 확인된 경우에만 공용 유틸로 승격한다.
 - 주식 전략 연구는 `stock_analyst`에게 생산 replay 결과의 비용·손익·표본 해석을 감사하도록 위임한다. 실제 자료/fixture와 평가 불가를 구분하고 기존 TODO에 근거·완료 조건을 기록한다. 역할은 주문·자동매매 시작·민감 계정 접근을 맡지 않는다.
+- UI/UX 검토는 `ui_ux_expert` (`.codex/agents/ui_ux_expert.toml`)에게 화면·흐름·접근성 감사를 위임한다. 실제 mock/offline 관측·코드 추론·미검증을 구분하고 기존 TODO의 근거·영향·완료 기준으로 합친다. 역할 설정은 UI 구현·실거래·계좌/자격증명 접근 권한을 부여하지 않는다. 사용법은 [역할 운영](docs/agent-tooling.md#uiux-전문가-사용)을 따른다.
 - KIS API 동작·TR-ID·제한사항은 추측하지 말고 공식 포털 또는 `koreainvestment/open-trading-api` 샘플로 확인한다.
 - 새 IPC 커맨드는 Rust command, `lib.rs` 등록, TypeScript 타입/래퍼/훅, 문서를 함께 갱신한다.
 - 반복 매매·손실 방지 관련 변경은 `docs/todo.md`와 관련 스킬 문서에 남긴다.
@@ -84,11 +85,11 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-10-30 | UI/UX 전문가 역할·격리 화면 감사와 근거 기반 개선 TODO 추가; 실제 UI 변경 없음 |
 | 2026-10-29 | TS5→6→7 native 채택·원문130/동일dist/UI349 확인, npm11 유지·pnpm 미채택 |
 | 2026-10-29 | sha2.11/thiserror2·hex 출력 호환, 고정hash/오류14·Rust882(DB5제외)/UI349 및 keyring/RGL 유지 |
 | 2026-10-29 | Vite7→8/Oxc·Rolldown 전환, UI349·target/debug4조합 및 격리WK 차트·종료/재실행 검증 |
 | 2026-10-29 | React19→MUI7→9 단계 전환, Grid/slot/sx·금융AST 보존 및 React vendor 분리·mock UI 검증 |
-| 2026-10-29 | Axum0.8/tower-http0.7 전환, production router·격리 fixture와 70URL/74binding 계약 검증 |
 
 ## 운영 문서 스택
 

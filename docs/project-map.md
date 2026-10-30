@@ -38,7 +38,8 @@ KISAutoTrade/
 │   │   ├── helper_curator.toml
 │   │   ├── project_mapper.toml
 │   │   ├── stock_analyst.toml
-│   │   └── symbol_navigator.toml
+│   │   ├── symbol_navigator.toml
+│   │   └── ui_ux_expert.toml
 │   ├── skills/
 │   │   ├── kisautotrade-frontend-fsd/
 │   │   │   └── SKILL.md
@@ -2559,10 +2560,11 @@ Cargo 빌드 산출물은 프로젝트 루트 `target/`, 일회성 검증·연�
 | `symbol_navigator` | `.codex/agents/symbol_navigator.toml` | Serena 기반 정의·참조·영향 범위 추적 |
 | `helper_curator` | `.codex/agents/helper_curator.toml` | Graphify 후보 탐색과 Serena 동등성 검증 후 공용화 |
 | `stock_analyst` | `.codex/agents/stock_analyst.toml` | 생산 엔진 기반 주식 전략 연구의 입력·결과·재무 해석 감사와 근거 있는 개선 TODO 제안 |
+| `ui_ux_expert` | `.codex/agents/ui_ux_expert.toml` | 거래 UI 흐름·상태 가시성·접근성·반응형을 읽기 전용으로 감사하고, 근거/미검증 경계·우선순위·객관적 검증 기준을 갖춘 TODO 후보 제안 |
 
 Serena 설정과 공유 메모리는 `.serena/`, Graphify 코드 그래프는
 `graphify-out/`에 둔다. Graphify의 캐시·로컬 경로·분석 중간 산출물은
-Git에서 제외하고, 공유 그래프·보고서·manifest·source-hashes를 유지한다. 세 역할의 위임
+Git에서 제외하고, 공유 그래프·보고서·manifest·source-hashes를 유지한다. 각 역할의 위임
 조건, 민감 파일 제외, 갱신·검증 명령은 `docs/agent-tooling.md`를 따른다.
 
 `stock_analyst`는 읽기 전용 연구를 기본으로 하며 실행기는 부모가 생산
