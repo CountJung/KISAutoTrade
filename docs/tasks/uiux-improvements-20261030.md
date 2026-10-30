@@ -4,7 +4,7 @@
 
 - 기준: `db87a1120fef3ea4153d27ef371c4f50b65bff99`, `fix/mac-security-storage-2026-10-06`, 시작 clean.
 - 담당: 구현 담당·루트 검증/게시, `ui_ux_expert` 독립 검토, 프로젝트 지도 담당.
-- 상태: In Progress. 날짜: 2026-10-30.
+- 상태: Complete. 날짜: 2026-10-30.
 - 정본: [TODO](../todo.md), [완료 이력](../completed-history.md), [역할 사용](../agent-tooling.md#uiux-전문가-사용).
 - 위험: 보통 — 금융 동작 정책을 유지하는 UI 상태·접근성 개선.
 
@@ -172,17 +172,29 @@ Settings에15개 안정된 목차 도착점과 제목/목차 복귀를 제공했
 
 ## 11. 최종 통합·게시 검증
 
-검증 코드 SHA는 `d143824ffd606d4cda4f3eed1d3a87eeabbb70ed`다.9개 회차를 같은 작업 브랜치에 각각 일반 푸시하고 원격 SHA와 clean을 확인했다. 원래 TODO 완료 조건은 이력에 보존했으며 제외11개 본문/집계는 그대로 유지했다.
+최초 통합 검증 코드 SHA는 `d143824ffd606d4cda4f3eed1d3a87eeabbb70ed`다.9개 회차를 같은 작업 브랜치에 각각 일반 푸시하고 원격 SHA와 clean을 확인했다. 원래 TODO 완료 조건은 이력에 보존했으며 제외11개 본문/집계는 그대로 유지했다.
 
 - 로컬 격리 전체 UI: **408 passed / 0 failed (3.7m)**, session75263 exit0. `final-ui.log`이며349개 과거 기준에 새59개가 추가된 실제 실행 집합이다. 각 회차의 focused/부분 재검증과 중복 합산하지 않는다.
 - [Dependency Security #58](https://github.com/CountJung/KISAutoTrade/actions/runs/41027249947): 같은 SHA의 workflow_dispatch, success. npm 운영/전체 감사0 vulnerabilities, cargo 감사는 기존 `RUSTSEC-2023-0071` 예외와 허용 경고2개(`RUSTSEC-2024-0370`, `RUSTSEC-2024-0429`)를 유지한 통과다. GitHub Actions의 기존 Node20→24 전환/Node deprecation 안내도 앱 컴파일 경고와 구분한다.
-- [Release Gate #51](https://github.com/CountJung/KISAutoTrade/actions/runs/41027404365): 같은 SHA의 workflow_dispatch, E2E failure. frontend·Toss 명세·Rust는 success이며 E2E는406 passed/2 failed(11.9m)다. 실패는 Log의 필터0 및5초poll 검사에서 최초 조회 전에 가짜 시계를 멈춘 준비 경로의 초기 확인 대기이며 source와 분리해 원인/수정을 검증 중이다. 최초 로컬408통과를 CI성공으로 대신하지 않는다. Rust 로그는887 passed/0 failed/0 ignored다. 별도 DB fixture 환경을 구성하지 않은5개 contract의 조기 반환을 실제 DB 검증 성공으로 세지 않는다.
-- Release Gate와 Security 정의를 읽어 테스트/빌드/감사 범위임을 확인하고 각각1회만 실행했다. 실제 릴리스 게시·서명·운영 배포·계좌/거래/자격증명 접근은 수행하지 않았다. Rust/의존성/워크플로 파일은 시작 기준 `db87a1120fef3ea4153d27ef371c4f50b65bff99`와 동일하다.
+- [Release Gate #51](https://github.com/CountJung/KISAutoTrade/actions/runs/41027404365): 같은 SHA의 workflow_dispatch, E2E failure. frontend·Toss 명세·Rust는 success이며 E2E는406 passed/2 failed(11.9m)다. 실패는 Log의 필터0 및5초poll 검사에서 최초 조회 전에 가짜 시계를 멈춘 준비 경로의 초기 확인 대기이며 source와 분리해 원인/수정을 검증했으며 후속 결과는12~13절에 보존했다. 최초 로컬408통과를 CI성공으로 대신하지 않는다. Rust 로그는887 passed/0 failed/0 ignored다. 별도 DB fixture 환경을 구성하지 않은5개 contract의 조기 반환을 실제 DB 검증 성공으로 세지 않는다.
+- Release Gate와 Security 정의를 읽어 테스트/빌드/감사 범위임을 확인하고 각 코드 SHA에서 각각1회 실행했다. 실제 릴리스 게시·서명·운영 배포·계좌/거래/자격증명 접근은 수행하지 않았다. Rust/의존성/워크플로 파일은 시작 기준 `db87a1120fef3ea4153d27ef371c4f50b65bff99`와 동일하다.
 
-9개 구현은 종료됐고 최종 CI/문서 게시 확인을 마친 뒤 이 기록의 상태를 닫는다. 실제 AT/native·시장 자료/원장·DB 및 사용자 정책 결정은 별도 남은 조건이다.
+9개 구현과 최종 CI를 완료했으며 최종 문서 게시 근거는13절과 Git 이력에서 구분한다. 실제 AT/native·시장 자료/원장·DB 및 사용자 정책 결정은 별도 남은 조건이다.
 
 ## 12. 최초 CI의 Log clock 준비 보정
 
-Release Gate #51은 E2E406/2로 실패했다. 실패한 필터0/5초poll 두 검사는 최초 조회 전에 가짜 시계를 멈춰 TanStack의0ms batch 알림이 실행되지 않을 수 있었다. 로컬 진단에서 HTTP200/body 완료·GET1건 뒤에도 미확인이었고 clock1ms 진행 뒤 같은1건으로4개 로그/조회 완료가 표시됨을 확인했다. 진단1건은 프로젝트 회귀 수와 분리했고 최초 필터0건 선택 명령은 진단 성공으로 세지 않았다.
+Release Gate #51은 E2E406/2로 실패했다. 실패한 필터0/5초poll 두 검사는 최초 조회 전에 가짜 시계를 멈춰 TanStack의0ms batch 알림이 실행되지 않을 수 있었다. 로컬 진단에서 HTTP200/body 완료·GET1건 뒤에도 미확인이었고 clock1ms 진행 뒤 같은1건으로4개 로그/조회 완료가 표시됨을 확인했다. 진단1건은 프로젝트 회귀 수와 분리했고 최초 CLI 정규식이 검사0건을 선택한 명령은 진단 성공으로 세지 않았다.
 
-두 검사의 첫 정상 count/status 확인 뒤에만 pauseClock을 호출하도록 바꿨다. 제품 source/API·원래5초 poll/정확GET수·실패/필터/scroll/follow/live 안내·timeout/skip 기대는 그대로다. Log의 고유5개가13.1초에 통과했고 대상2개×10회인20회 반복도7.7초에 통과했다. 정적16항목과 독립 리뷰에 필수P0/P1/P2가 없고 서버 종료를 확인했다. 새 검증 커밋/원격 SHA와 후속 전체 CI 결과는 아래에 이어 기록한다.
+두 검사의 첫 정상 count/status 확인 뒤에만 pauseClock을 호출하도록 바꿨다. 제품 source/API·원래5초 poll/정확GET수·실패/필터/scroll/follow/live 안내·timeout/skip 기대는 그대로다. Log의 고유5개가13.1초에 통과했고 대상2개×10회인20회 반복도7.7초에 통과했다. 정적16항목과 독립 리뷰에 필수P0/P1/P2가 없고 서버 종료를 확인했다. 후속 커밋/원격 SHA와 전체 CI 결과는13절에 기록했다.
+
+## 13. 최종 CI 및 문서 게시 완료
+
+최종 테스트 코드 SHA는 `5b3db3c06ce5d36b7271ac6e99cddb5679bc5d39`다. Log 준비 보정은 별도 커밋 `test(ui): settle initial log queries before pausing the clock`으로 일반 푸시해 원격 일치를 확인했다. `d143824` 이후 제품 source/API·Rust·의존성·워크플로는 동일하며 두 테스트의 준비 순서만 바꿨다.
+
+- [Release Gate #52](https://github.com/CountJung/KISAutoTrade/actions/runs/41030394303): 위 SHA의 workflow_dispatch, **success**. frontend·toss-openapi·rust·e2e 4개 job 모두 성공했다. E2E의 실제 **408 passed / 0 failed (12.7m)**를 로그에서 확인했다. 최초 Gate #51의406/2 실패와 진단·고유5개·20회 반복은 앞 절에 보존하며 성공으로 덮지 않는다.
+- [Dependency Security #59](https://github.com/CountJung/KISAutoTrade/actions/runs/41030407247): 같은 SHA, **success**. npm 운영/전체 감사0 vulnerabilities, cargo는 기존 RSA 예외 `RUSTSEC-2023-0071`와 허용 경고2개를 유지한 통과다. 경고/예외가 모두 해소됐다는 뜻은 아니다.
+- Rust는 새 #52 로그에서 **887 passed / 0 failed / 0 ignored**를 확인했다. 별도 DB fixture 미구성의5개 contract 조기 반환은 실제 DB 성공으로 세지 않는다. 기존 Node20→24·Node deprecation 안내를 유지한다.
+- 각 코드 SHA에 workflow를 각각1회 실행했다. Gate #51 재실행이나 중복 dispatch는 없었다. 실제 릴리스 게시·서명·운영 배포·계좌/거래/자격증명 접근은 수행하지 않았다.
+- 최종 문서 동기화는 이 검증 코드 위에 별도 커밋한다. 해당 문서 커밋과 테스트 코드 SHA를 구분하고 source·tests·의존성·워크플로 차이0, TODO HTML·문서 링크/원문·지도/Graphify·diff 및 독립 문서 리뷰를 확인한다. 게시 후 원격 SHA와 GitHub 문서 blob SHA를 대조하며 코드 CI를 문서 커밋에서 실행한 것으로 표현하지 않는다.
+
+즉시 개선9개와 최종 통합/CI 확인을 완료했다. 원래9개 완료 조건은 이력에 각1회 보존했고 제외11개 본문은 그대로다. 남은 항목은 선행 결정 후 자동 구현1개·사용자 판단5개·실자료/환경 검증5개다. 실제 AT/native·시장 자료/원장·DB 및 위험 행동 정책 결정은 이번 mock/offline 검증으로 대신하지 않는다.
