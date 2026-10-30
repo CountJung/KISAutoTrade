@@ -1100,6 +1100,7 @@ KISAutoTrade/
 │       ├── toss-commission-ratio.spec.ts
 │       ├── trading-form-contract.spec.ts
 │       ├── ui-dependency-contract.spec.ts
+│       ├── uiux-history-status.spec.ts
 │       ├── uiux-holdings.spec.ts
 │       └── uiux-status.spec.ts
 ├── .env.example
@@ -1180,7 +1181,7 @@ KISAutoTrade/
 | `api/hooks.ts` | 기존 import를 유지하는 TanStack Query 훅 facade. 도메인별 hook 모듈과 기존 budget/database hook, `KEYS`, `useBackendEvents`를 re-export하며 훅 구현을 직접 소유하지 않음 |
 | `api/accountHooks.ts` | 앱 계정 설정·설정 확인·국내/해외/broker 잔고·프로파일 CRUD/전환·거래 환경 감지·Toss 연결/계좌 조회 hook. 잔고 query key를 profile/broker/account/투자 모드로 분리하고 응답 전후 현재 scope를 검사. 계좌 전환 시 이전 query를 취소·무효화하며 이전 계좌의 placeholder/initial data를 공유하지 않음 |
 | `shared/api/liveDailyHistoryTypes.ts` | `TradingStatus.dailyHistory`의 읽기 전용 준비 진단 타입. 기존 응답의 필드 누락은 준비 완료로 추정하지 않도록 optional 호환 계약 유지 |
-| `shared/ui/QueryStatusSummary.tsx` | hook/API를 갖지 않는 props 기반 조회 상태 표시. 미확인·최초 실패·이전 자료/재조회 실패·마지막 정상 확인과 재시도 callback을 표시하며 `shared/ui/index.ts`에서 export. Sidebar/Dashboard의 실행 상태와 Trading의 KIS 잔고 wrapper가 기존 query 결과·refetch를 전달하고 query/cache/금융 동작 정책은 호출부에 유지 |
+| `shared/ui/QueryStatusSummary.tsx` | hook/API를 갖지 않는 props 기반 조회 상태 표시. 미확인·최초 실패·이전 자료/재조회 실패·마지막 정상 확인과 재시도 callback을 표시하며 `shared/ui/index.ts`에서 export. Sidebar/Dashboard의 실행 상태와 Trading KIS 잔고/History 기간 조회 wrapper가 기존 query 결과·refetch를 전달하고 query/cache/금융 동작 정책은 호출부에 유지 |
 | `shared/ui/LiveDailyHistoryPanel.tsx` | Dashboard/Strategy가 기존 상태 query로 공유하는 완료 일봉 준비 패널. 실행/활성 profile·broker/account 범위를 확인하고 상태·확보량·시장 날짜·출처·실패/재시도 사유 표시. 최대 512상태를 요약하고 실제 행은 3개씩 표시하며 프로파일 없는 legacy KIS 실행은 일치 계좌의 실패 진단만 허용 |
 | `api/marketHooks.ts` | 국내/해외/Toss 시세·차트·검색·종목 목록 갱신·시장 일정/유의사항·환율 hook과 해외 차트 preset. 갱신 설정은 `settingsHooks.ts::useRefreshConfig`를 직접 참조. `useCandlePage`는 프로파일·broker/account·종목·간격·거래소·커서별 공통 페이지 조회 계약을 사용 |
 | `api/orderHooks.ts` | 국내/해외 수동 주문·Toss 주문 전 검증/정정·소액 검증·미체결 조회 hook과 주문 후 관련 query 무효화 |
@@ -1251,7 +1252,7 @@ KISAutoTrade/
 | `pages/strategy/model/experimentStore.ts` | credential을 저장하지 않고 broker/account/strategy/symbol scope별 A/B 결과·전략 버전·파라미터·데이터 범위/source·비용 가정·생성 시각을 localStorage에 최대 2개 저장; 연속 결과의 실제 calculationMode/continuity를 함께 보존하고 과거 누락 모드는 추정하지 않음 |
 | `pages/strategy/ui/bollingerControls.tsx` | 레버리지 추세 보유 전략의 선택적 볼린저 보강 활성화와 기간·배수·스퀴즈·ATR 설정 입력 |
 | `pages/strategy/ui/leveragedTrendHoldPreviewChart.tsx` | 레버리지/일반 전략 미리보기의 캔들·종가선·signal marker, 모바일 가로 패닝·핀치 확대/축소와 버튼식 줌 표시. offset 포함 시각은 실제 instant로 파싱하고 compact 분봉은 기존 KST 규칙으로 해석 |
-| `pages/history/ui/Page.tsx` | 활성 broker scope, 자동매매 체결 기록과 기간별 통계 조회, provider 원본 trace 표시 |
+| `pages/history/ui/Page.tsx` | 활성 broker scope, 자동매매 체결 기록과 기간별 통계 조회, provider 원본 trace 표시. 기존 두 query 호출/option을 유지하며 page-local `HistoryQueryStatus`가 조회 전·적용 기간·최초 실패/이전 자료·마지막 정상 시각과 통계/체결의 독립 refetch를 표시. 날짜 초안과 적용 query를 구분하고 통계 미확인을 정상0으로 표시하지 않음 |
 | `pages/log/ui/Page.tsx` | 로그 레벨/검색 필터, provider trace 토큰 chip 표시 |
 
 ### Backend (Rust)
@@ -1551,6 +1552,7 @@ keyring/RGL 유지·미삭제 판단은 [9회차 기록](tasks/immediate-backlog
 |---|---|
 | `docs/tasks/uiux-improvements-20261030.md` | 승인된 UI/UX 개선9개의 고정 순서·회차별 범위·격리 검증/리뷰·게시 근거. UI 표시/접근성과 금융 동작·사용자 판단/실자료 제외를 구분 |
 | `tests/e2e/fixtures/uxReviewFixture.ts` | 기존 strategyResearchFixture를 재사용하는 browser-only 합성 fixture. 알려진 GET/응답 override·요청 집계와 외부 요청/WebSocket·API 쓰기/알 수 없는 경로 차단을 제공 |
+| `tests/e2e/uiux-history-status.spec.ts` | 합성 History 통계/체결의 조회 전·최초 지연/독립 실패·정상0/빈 목록·이전 자료와 시각 보존/개별 키보드 재시도 회귀. 좁은 다크 화면의 날짜 초안/적용 query·기존 통계 산술/KRW·USD/provider trace를 확인하며 API 쓰기·외부/알 수 없는 요청·page 오류를 대조 |
 | `tests/e2e/uiux-holdings.spec.ts` | 합성 KIS 국내/해외 잔고의 최초 지연/실패·정상 빈 목록·이전 보유/빈 자료·정상 시각 보존/갱신·개별 키보드 재시도와 기존 선택→폼 매핑 회귀. Toss 표시/수량·KIS 조회 비활성 경계도 확인하며 기존 Toss POST 조회는 별도 read-only fixture로만 허용 |
 | `tests/e2e/uiux-status.spec.ts` | Sidebar/Dashboard 실행 상태의 미확인·최초 조회 실패·실행/정지 이전 상태의 재조회 실패와 키보드/반복 재시도 회귀. API 쓰기·외부 요청·page 오류가 없는 합성 경계를 확인 |
 | `docs/tasks/immediate-backlog-20261029.md` | 즉시 작업의 고정 ID·순서·회차별 범위와 검증·커밋 근거. P1-RECOVERY-01의 로컬 복구와 P1-PROVIDER-01 실제 운용, SOXQ-P2-13의 합성 계약·고정 일봉 재현과 실제 장중 효능 미완료를 구분 |

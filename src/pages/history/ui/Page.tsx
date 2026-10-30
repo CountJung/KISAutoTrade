@@ -12,12 +12,11 @@ import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Chip from '@mui/material/Chip'
-import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
 import Divider from '@mui/material/Divider'
 import { useAppConfig, useStatsByRange, useTradesByRange } from '../../../api/hooks'
 import { fmtNumber } from '../../../shared/lib'
-import { BrokerScopeIndicator, ProviderTraceChips } from '../../../shared/ui'
+import { BrokerScopeIndicator, ProviderTraceChips, QueryStatusSummary } from '../../../shared/ui'
 
 function fmt(n: number) {
   return fmtNumber(n)
@@ -37,6 +36,47 @@ function weekAgo() {
   return d.toISOString().slice(0, 10)
 }
 
+interface HistoryQueryStatusProps {
+  label: string
+  range: { from: string; to: string } | null
+  hasData: boolean
+  isError: boolean
+  isFetching: boolean
+  dataUpdatedAt: number
+  onRetry: () => void
+  testId: string
+}
+
+function HistoryQueryStatus({
+  label, range, hasData, isError, isFetching, dataUpdatedAt, onRetry, testId,
+}: HistoryQueryStatusProps) {
+  return (
+    <Box data-testid={testId} sx={{ mb: 1.5 }}>
+      <Typography data-testid={`${testId}-range`} variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        적용 기간: {range ? `${range.from} ~ ${range.to}` : '조회 전'}
+      </Typography>
+      {range ? (
+        <QueryStatusSummary
+          label={label}
+          statusText={hasData ? `${label} 조회 완료` : undefined}
+          isError={isError}
+          isFetching={isFetching}
+          dataUpdatedAt={dataUpdatedAt}
+          onRetry={onRetry}
+          testId={`${testId}-query`}
+        />
+      ) : (
+        <Typography role="status" variant="body2" color="text.secondary">{label} 조회 전</Typography>
+      )}
+      {range && hasData && isError && (
+        <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.5 }}>
+          이전 자료: 이 적용 기간의 마지막 정상 조회 결과입니다.
+        </Typography>
+      )}
+    </Box>
+  )
+}
+
 export default function History() {
   const [from, setFrom]   = useState(weekAgo())
   const [to, setTo]       = useState(today())
@@ -44,16 +84,10 @@ export default function History() {
   const { data: appConfig } = useAppConfig()
 
   // ─── 로컬 기록 ──────────────────────────────────────────────────
-  const {
-    data: trades,
-    isLoading: tradesLoading,
-    error: tradesError,
-  } = useTradesByRange(query?.from ?? '', query?.to ?? '', { enabled: !!query })
-
-  const {
-    data: stats,
-    isLoading: statsLoading,
-  } = useStatsByRange(query?.from ?? '', query?.to ?? '', { enabled: !!query })
+  const tradesQuery = useTradesByRange(query?.from ?? '', query?.to ?? '', { enabled: !!query })
+  const { data: trades, isLoading: tradesLoading, error: tradesError } = tradesQuery
+  const statsQuery = useStatsByRange(query?.from ?? '', query?.to ?? '', { enabled: !!query })
+  const { data: stats } = statsQuery
 
   const handleSearch = () => setQuery({ from, to })
 
@@ -138,37 +172,67 @@ export default function History() {
             조회
           </Button>
         </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+          날짜 입력은 조회 버튼을 누르면 적용됩니다.
+        </Typography>
+        {query && (from !== query.from || to !== query.to) && (
+          <Typography data-testid="history-unapplied-dates" variant="body2" color="info.main" sx={{ mt: 1 }}>
+            날짜 입력이 변경되었습니다. 조회 버튼을 눌러 적용하세요.
+          </Typography>
+        )}
       </Paper>
 
       {/* ── 자동매매 체결 기록 ──────────────────────────────────── */}
-      {query && (
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          {[
-            { label: '기간 순손익', value: (totalNetProfit >= 0 ? '+' : '') + fmt(totalNetProfit) + '원' },
-            { label: '총 거래 수', value: `${fmt(totalTrades)}건` },
-            { label: '평균 승률', value: `${(avgWinRate * 100).toFixed(1)}%` },
-          ].map(({ label, value }) => (
-            <Grid size={{ xs: 12, sm: 4 }} key={label}>
-              <Paper sx={{ p: 2 }}>
-                <Typography variant="caption" color="text.secondary">{label}</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  {statsLoading ? <CircularProgress size={16} /> : value}
-                </Typography>
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
-      )}
+      <Paper data-testid="history-stats-panel" sx={{ p: 2.5, mb: 2 }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>기간 통계</Typography>
+        <HistoryQueryStatus
+          label="통계"
+          range={query}
+          hasData={stats !== undefined}
+          isError={statsQuery.isError}
+          isFetching={statsQuery.isFetching}
+          dataUpdatedAt={statsQuery.dataUpdatedAt}
+          onRetry={() => { void statsQuery.refetch() }}
+          testId="history-stats-status"
+        />
+        {query && stats !== undefined && (
+          <Grid container spacing={2} sx={{ mb: 0 }}>
+            {[
+              { label: '기간 순손익', value: (totalNetProfit >= 0 ? '+' : '') + fmt(totalNetProfit) + '원' },
+              { label: '총 거래 수', value: `${fmt(totalTrades)}건` },
+              { label: '평균 승률', value: `${(avgWinRate * 100).toFixed(1)}%` },
+            ].map(({ label, value }) => (
+              <Grid size={{ xs: 12, sm: 4 }} key={label}>
+                <Paper sx={{ p: 2 }}>
+                  <Typography variant="caption" color="text.secondary">{label}</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    {value}
+                  </Typography>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        )}
+      </Paper>
 
-      <Paper sx={{ p: 2.5 }}>
+      <Paper data-testid="history-trades-panel" sx={{ p: 2.5 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>자동매매 체결 기록</Typography>
+        <HistoryQueryStatus
+          label="체결 목록"
+          range={query}
+          hasData={trades !== undefined}
+          isError={tradesQuery.isError}
+          isFetching={tradesQuery.isFetching}
+          dataUpdatedAt={tradesQuery.dataUpdatedAt}
+          onRetry={() => { void tradesQuery.refetch() }}
+          testId="history-trades-status"
+        />
         <Divider sx={{ mb: 2 }} />
         {!query && (
           <Typography variant="body2" color="text.secondary">
             기간을 선택하고 조회 버튼을 누르세요.
           </Typography>
         )}
-        {tradesLoading && <CircularProgress />}
         {tradesError  && <Alert severity="error">{(tradesError as { message?: string })?.message ?? String(tradesError)}</Alert>}
         {trades && trades.length === 0 && !tradesLoading && query && (
           <Typography variant="body2" color="text.secondary">
