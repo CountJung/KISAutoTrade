@@ -85,11 +85,11 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-10-30 | P1-UX-01 — 미확인/이전 실행상태·마지막확인/재조회 공통 표시, 금융 동작 보존·격리 UI 회귀 |
 | 2026-10-30 | UI/UX 전문가 역할·격리 화면 감사와 근거 기반 개선 TODO 추가; 실제 UI 변경 없음 |
 | 2026-10-29 | TS5→6→7 native 채택·원문130/동일dist/UI349 확인, npm11 유지·pnpm 미채택 |
 | 2026-10-29 | sha2.11/thiserror2·hex 출력 호환, 고정hash/오류14·Rust882(DB5제외)/UI349 및 keyring/RGL 유지 |
 | 2026-10-29 | Vite7→8/Oxc·Rolldown 전환, UI349·target/debug4조합 및 격리WK 차트·종료/재실행 검증 |
-| 2026-10-29 | React19→MUI7→9 단계 전환, Grid/slot/sx·금융AST 보존 및 React vendor 분리·mock UI 검증 |
 
 ## 운영 문서 스택
 

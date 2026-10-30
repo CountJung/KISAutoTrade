@@ -54,7 +54,7 @@ import {
   KEYS,
 } from '../../../api/hooks'
 import { fmtBrokerMoney, fmtDecimalString, fmtNumber, parseDecimalString } from '../../../shared/lib'
-import { BrokerScopeIndicator, LiveDailyHistoryPanel, TradingHealthPanel } from '../../../shared/ui'
+import { BrokerScopeIndicator, LiveDailyHistoryPanel, QueryStatusSummary, TradingHealthPanel } from '../../../shared/ui'
 
 function fmt(n: number) {
   return fmtNumber(n)
@@ -359,7 +359,8 @@ export default function Dashboard() {
     isError: brokerHoldingsError,
   } = useBrokerHoldings({ enabled: isTossActive, refetchInterval: isTossActive ? intervalMs : false })
   const { data: stats, isLoading: statsLoading } = useTodayStats({ refetchInterval: intervalMs })
-  const { data: tradingStatus } = useTradingStatus()
+  const tradingStatusQuery = useTradingStatus()
+  const { data: tradingStatus } = tradingStatusQuery
   const { mutate: startTrading, isPending: startPending } = useStartTrading()
   const { mutate: stopTrading, isPending: stopPending } = useStopTrading()
   const { mutate: clearBuySuspension, isPending: clearingBuySusp } = useClearBuySuspension()
@@ -457,10 +458,15 @@ export default function Dashboard() {
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
           Dashboard
         </Typography>
-        <Chip
-          label={isRunning ? '자동매매 실행 중' : '대기'}
-          color={isRunning ? 'success' : 'default'}
-          size="small"
+        <QueryStatusSummary
+          label="실행 상태"
+          statusText={tradingStatus ? isRunning ? '자동매매 실행 중' : '자동매매 정지 상태' : undefined}
+          statusColor={isRunning ? 'success' : 'default'}
+          isError={tradingStatusQuery.isError}
+          isFetching={tradingStatusQuery.isFetching}
+          dataUpdatedAt={tradingStatusQuery.dataUpdatedAt}
+          onRetry={() => { void tradingStatusQuery.refetch() }}
+          testId="dashboard-trading-status"
         />
         <BrokerScopeIndicator appConfig={appConfig} compact />
 

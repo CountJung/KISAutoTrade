@@ -18,12 +18,12 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import HistoryIcon from '@mui/icons-material/History'
 import ArticleIcon from '@mui/icons-material/Article'
 import SettingsIcon from '@mui/icons-material/Settings'
-import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
 import { useNavigate, useLocation } from '@tanstack/react-router'
 import { useAppConfig, useStartTrading, useStopTrading, useTradingStatus } from '../../../api/hooks'
 import type { BrokerId } from '../../../api/types'
+import { QueryStatusSummary } from '../../../shared/ui'
 
 interface NavItem {
   label: string
@@ -54,7 +54,8 @@ function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; on
   const navigate = useNavigate()
   const location = useLocation()
   const { data: appConfig } = useAppConfig()
-  const { data: tradingStatus } = useTradingStatus()
+  const tradingStatusQuery = useTradingStatus()
+  const { data: tradingStatus } = tradingStatusQuery
   const { mutate: startTrading, isPending: startPending } = useStartTrading()
   const { mutate: stopTrading, isPending: stopPending } = useStopTrading()
   const isRunning = tradingStatus?.isRunning ?? false
@@ -100,27 +101,19 @@ function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; on
           </Typography>
         )}
         {/* 자동매매 실행 상태 */}
-        <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", mt: 0.75, minWidth: 0  }}>
-          <Chip
-            icon={
-              <FiberManualRecordIcon
-                sx={{
-                  fontSize: '0.6rem !important',
-                  color: isRunning ? 'success.main' : 'text.disabled',
-                  animation: isRunning ? 'pulse 1.8s ease-in-out infinite' : 'none',
-                  '@keyframes pulse': {
-                    '0%, 100%': { opacity: 1 },
-                    '50%': { opacity: 0.3 },
-                  },
-                }}
-              />
-            }
-            label={isRunning ? '자동매매 실행 중' : '대기 중'}
-            size="small"
-            color={isRunning ? 'success' : 'default'}
-            variant={isRunning ? 'filled' : 'outlined'}
-            sx={{ height: 20, fontSize: '0.68rem', fontWeight: isRunning ? 700 : 400, minWidth: 0 }}
-          />
+        <Stack direction="row" spacing={0.75} sx={{ alignItems: "flex-start", mt: 0.75, minWidth: 0 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <QueryStatusSummary
+              label="실행 상태"
+              statusText={tradingStatus ? isRunning ? '자동매매 실행 중' : '자동매매 정지 상태' : undefined}
+              statusColor={isRunning ? 'success' : 'default'}
+              isError={tradingStatusQuery.isError}
+              isFetching={tradingStatusQuery.isFetching}
+              dataUpdatedAt={tradingStatusQuery.dataUpdatedAt}
+              onRetry={() => { void tradingStatusQuery.refetch() }}
+              testId="sidebar-trading-status"
+            />
+          </Box>
           <Tooltip title={tradingActionLabel} placement="right" arrow>
             <span>
               <IconButton

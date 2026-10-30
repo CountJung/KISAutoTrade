@@ -392,6 +392,7 @@ KISAutoTrade/
 │   │   ├── strong-close-policy-20261022.md
 │   │   ├── trading-module-split-20261018.md
 │   │   ├── trend-filter-policy-20261023.md
+│   │   ├── uiux-improvements-20261030.md
 │   │   └── volatility-expansion-policy-20261022.md
 │   ├── ARCHITECTURE.md
 │   ├── HARNESS_MAP.md
@@ -594,6 +595,7 @@ KISAutoTrade/
 │   │       ├── LayoutResizer.tsx
 │   │       ├── LiveDailyHistoryPanel.tsx
 │   │       ├── ProviderTraceChips.tsx
+│   │       ├── QueryStatusSummary.tsx
 │   │       ├── TradingHealthPanel.tsx
 │   │       └── index.ts
 │   ├── store/
@@ -1069,7 +1071,8 @@ KISAutoTrade/
 ├── tests/
 │   └── e2e/
 │       ├── fixtures/
-│       │   └── strategyResearchFixture.ts
+│       │   ├── strategyResearchFixture.ts
+│       │   └── uxReviewFixture.ts
 │       ├── balance-events.spec.ts
 │       ├── budget-recovery.spec.ts
 │       ├── candle-pagination.spec.ts
@@ -1096,7 +1099,8 @@ KISAutoTrade/
 │       ├── strategy-volatility-expansion-policy.spec.ts
 │       ├── toss-commission-ratio.spec.ts
 │       ├── trading-form-contract.spec.ts
-│       └── ui-dependency-contract.spec.ts
+│       ├── ui-dependency-contract.spec.ts
+│       └── uiux-status.spec.ts
 ├── .env.example
 ├── .gitignore
 ├── .graphifyignore
@@ -1175,6 +1179,7 @@ KISAutoTrade/
 | `api/hooks.ts` | 기존 import를 유지하는 TanStack Query 훅 facade. 도메인별 hook 모듈과 기존 budget/database hook, `KEYS`, `useBackendEvents`를 re-export하며 훅 구현을 직접 소유하지 않음 |
 | `api/accountHooks.ts` | 앱 계정 설정·설정 확인·국내/해외/broker 잔고·프로파일 CRUD/전환·거래 환경 감지·Toss 연결/계좌 조회 hook. 잔고 query key를 profile/broker/account/투자 모드로 분리하고 응답 전후 현재 scope를 검사. 계좌 전환 시 이전 query를 취소·무효화하며 이전 계좌의 placeholder/initial data를 공유하지 않음 |
 | `shared/api/liveDailyHistoryTypes.ts` | `TradingStatus.dailyHistory`의 읽기 전용 준비 진단 타입. 기존 응답의 필드 누락은 준비 완료로 추정하지 않도록 optional 호환 계약 유지 |
+| `shared/ui/QueryStatusSummary.tsx` | hook/API를 갖지 않는 props 기반 조회 상태 표시. 미확인·최초 실패·이전 자료/재조회 실패·마지막 정상 확인과 재시도 callback을 표시하며 `shared/ui/index.ts`에서 export. Sidebar와 Dashboard가 기존 trading status query 결과·refetch를 전달하고 query/cache/금융 동작 정책은 호출부에 유지 |
 | `shared/ui/LiveDailyHistoryPanel.tsx` | Dashboard/Strategy가 기존 상태 query로 공유하는 완료 일봉 준비 패널. 실행/활성 profile·broker/account 범위를 확인하고 상태·확보량·시장 날짜·출처·실패/재시도 사유 표시. 최대 512상태를 요약하고 실제 행은 3개씩 표시하며 프로파일 없는 legacy KIS 실행은 일치 계좌의 실패 진단만 허용 |
 | `api/marketHooks.ts` | 국내/해외/Toss 시세·차트·검색·종목 목록 갱신·시장 일정/유의사항·환율 hook과 해외 차트 preset. 갱신 설정은 `settingsHooks.ts::useRefreshConfig`를 직접 참조. `useCandlePage`는 프로파일·broker/account·종목·간격·거래소·커서별 공통 페이지 조회 계약을 사용 |
 | `api/orderHooks.ts` | 국내/해외 수동 주문·Toss 주문 전 검증/정정·소액 검증·미체결 조회 hook과 주문 후 관련 query 무효화 |
@@ -1543,6 +1548,9 @@ keyring/RGL 유지·미삭제 판단은 [9회차 기록](tasks/immediate-backlog
 
 | 경로 | 책임 |
 |---|---|
+| `docs/tasks/uiux-improvements-20261030.md` | 승인된 UI/UX 개선9개의 고정 순서·회차별 범위·격리 검증/리뷰·게시 근거. UI 표시/접근성과 금융 동작·사용자 판단/실자료 제외를 구분 |
+| `tests/e2e/fixtures/uxReviewFixture.ts` | 기존 strategyResearchFixture를 재사용하는 browser-only 합성 fixture. 알려진 GET/응답 override·요청 집계와 외부 요청/WebSocket·API 쓰기/알 수 없는 경로 차단을 제공 |
+| `tests/e2e/uiux-status.spec.ts` | Sidebar/Dashboard 실행 상태의 미확인·최초 조회 실패·실행/정지 이전 상태의 재조회 실패와 키보드/반복 재시도 회귀. API 쓰기·외부 요청·page 오류가 없는 합성 경계를 확인 |
 | `docs/tasks/immediate-backlog-20261029.md` | 즉시 작업의 고정 ID·순서·회차별 범위와 검증·커밋 근거. P1-RECOVERY-01의 로컬 복구와 P1-PROVIDER-01 실제 운용, SOXQ-P2-13의 합성 계약·고정 일봉 재현과 실제 장중 효능 미완료를 구분 |
 | `docs/research/price-condition-contracts-20261029/{design.json,runner.rs}` | 기존 PC 고정 기준가·수량·2023~2025 일봉·두 비용·nextOpen 설계를 당시 v22 생산 API로6연속/6대체분할/72별도분기 재현. 선언은 이번 실행 전 고정이며 이미 관측한 자료의 재현으로, baselineCommit의 별도 빌드나 새 OOS가 아님 |
 | `docs/research/price-condition-contracts-20261029/validate.py` | 동결 입력 hash와 기록 fill의 현금·원가·비용·손익·노출·기말·가격경로를 독립 산술 대사하고 보관 PC78원장과 현재78원장 backtest/signals/preparation을 비교. 전략 신호를 다시 생성하지 않음 |

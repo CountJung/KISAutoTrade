@@ -675,8 +675,8 @@
     "semantic_hash": "e1e05929b9d6e9a67816e0b8739875f0"
   },
   "src/pages/dashboard/ui/Page.tsx": {
-    "mtime": 1793264135.353475,
-    "ast_hash": "71b3bdb6707f3a6bb50a31f90258de1c",
+    "mtime": 1793338137.9065633,
+    "ast_hash": "50341d3cc6048d01e631c4c80d7ec498",
     "semantic_hash": ""
   },
   "src/pages/dashboard/ui/orderPanels.tsx": {
@@ -905,8 +905,8 @@
     "semantic_hash": ""
   },
   "src/shared/ui/index.ts": {
-    "mtime": 1792291732.7523544,
-    "ast_hash": "082fb7ce206f5285646d745f7fcbab1d",
+    "mtime": 1793338137.9060805,
+    "ast_hash": "31902b2ffcc6b0fd616c2be275f23621",
     "semantic_hash": ""
   },
   "src/store/accountStore.ts": {
@@ -945,8 +945,8 @@
     "semantic_hash": "7f9f18ac373889536c28bdda7fac9014"
   },
   "src/widgets/sidebar/ui/Sidebar.tsx": {
-    "mtime": 1793264135.4089804,
-    "ast_hash": "0cdaa75d900d12b4a115aa436e2de7f5",
+    "mtime": 1793338176.1117337,
+    "ast_hash": "d98695b41b6d43852434430a3ed7ee77",
     "semantic_hash": ""
   },
   "src/widgets/stock-chart/index.ts": {
@@ -970,8 +970,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/strategy-scrollbar.spec.ts": {
-    "mtime": 1793263959.458479,
-    "ast_hash": "2014352d8561b7c927c35248fd1699aa",
+    "mtime": 1793338407.4237435,
+    "ast_hash": "b3346cdabfe4372186aa8b17666eeb7a",
     "semantic_hash": ""
   },
   "tsconfig.json": {
@@ -2702,6 +2702,21 @@
   "src-tauri/src/trading/strategy/manager/live_history_dependency_contract_tests.rs": {
     "mtime": 1793274093.589672,
     "ast_hash": "933eac27d432178fe9d2a0fc2ee05b7b",
+    "semantic_hash": ""
+  },
+  "src/shared/ui/QueryStatusSummary.tsx": {
+    "mtime": 1793338176.1115332,
+    "ast_hash": "0b9aacb9eeabc6cee8f7f87aa4fb48e0",
+    "semantic_hash": ""
+  },
+  "tests/e2e/fixtures/uxReviewFixture.ts": {
+    "mtime": 1793338172.3576715,
+    "ast_hash": "8035fd19515e1c2181d056d8a567bf54",
+    "semantic_hash": ""
+  },
+  "tests/e2e/uiux-status.spec.ts": {
+    "mtime": 1793338407.427696,
+    "ast_hash": "8f5a84b57a3e9c2ce4d169885cfedbeb",
     "semantic_hash": ""
   }
 }

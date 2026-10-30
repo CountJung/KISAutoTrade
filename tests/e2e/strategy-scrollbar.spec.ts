@@ -494,6 +494,6 @@ test('Sidebar trading action toggles auto trading from strategy page', async ({ 
   await expect(stopButton).toBeVisible()
 
   await stopButton.click()
-  await expect(sidebar.getByText('대기 중')).toBeVisible()
+  await expect(sidebar.getByText('자동매매 정지 상태')).toBeVisible()
   await expect(sidebar.getByRole('button', { name: '자동매매 시작' })).toBeVisible()
 })

@@ -176,6 +176,11 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 - Dashboard의 Toss 소액 수동매매 검증 gate는 `src/features/manual-order`의 공유 컴포넌트를 사용한다. Dashboard는 검색 종목 1주 시장가 매수 조건을 사전검증하고, 실거래 동의·최종 확인 checkbox·최대 허용금액을 같은 화면에서 보여준 뒤 Dashboard 전용 버튼으로만 실제 소액매매 검증을 제출한다. Trading은 일반 주문 패널에서 `TossOrderPreflightPanel`을 표시하고 `canSubmit=true`일 때 수동 주문 버튼을 활성화한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
 - Trading의 Toss 수동 주문창은 접수 주문 목록을 같은 패널 안에서 보여준다. 좁은 좌측 주문 패널에서는 다열 테이블을 쓰지 말고 주문별 카드로 종목, 매수/매도, 주문가, 수량, 체결수량, 상태를 표시한다. 가격 정정 UI는 카드 안의 전체 폭 입력 폼으로 제공해 주문 ID나 컬럼 폭 때문에 가격/정정 버튼이 가려지지 않게 한다. 접수 주문 정정 성공/실패는 Alert로 표시하고, 토큰·secret·계좌 원문은 노출하지 않는다.
 
+### 조회 상태·이전 자료 표시
+
+- 조회 전/실패를 정상 0·빈 목록·정지로 단정하지 않는다. 기존 query의 data/isError/isFetching/dataUpdatedAt을 반영해 최초 미확인·실패·성공·이전 자료를 구분한다.
+- 여러 화면의 조회 상태는 `src/shared/ui/QueryStatusSummary.tsx`의 범용 props 표시를 재사용한다. 이 콤포넌트는 API/hook/금융 정책을 소유하지 않으며 실제 상태 문구·재조회는 호출부에서 전달한다. 시작/정지·위험 해제 동작 정책를 표시 개선에 섞지 않는다.
+
 ### Provider trace 표시
 
 - History/Log처럼 provider 문의·디버깅 식별자를 보여주는 화면은 `src/shared/ui/ProviderTraceChips`를 재사용한다.

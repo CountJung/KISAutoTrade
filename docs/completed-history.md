@@ -426,3 +426,18 @@ Toss32개item의속성/시그니처/본문byte동일, Trading56문장/7helper·L
 새 작업은 [TODO](todo.md)의 즉시9개(P1-UX-01~03, P2-UX-01~06)와 판단1개(P2-UX-07)로 정리했다. 역할 구성과 검토만 완료했으며 후보 구현은 전부 미착수다. 기존 결정/실자료/SQLx 10개·지난 즉시 10회차 완료는 보존했다.
 
 검증: 역할 TOML 5개 파싱·신규 역할 필드/권한 불변, 기존 TODO10개 본문 보존·고유ID20개, HTML freshness·지도·그래프·diff가 통과했다. 기존 TODO 렌더러 테스트 3개(Chromium 좁은 폭·키보드 검색/필터·JS 없는 읽기 포함)를 통과했고 독립 리뷰에 필수 P0/P1/P2 지적은 없었다. 제품 소스·의존성·workflow는 변경하지 않아 Rust/전체UI349/배포 CI를 새로 실행하지 않았다.
+
+
+## P1-UX-01
+
+2026-10-30 범용 QueryStatusSummary를 추가해 Sidebar와 Dashboard의 미확인·첫 실패·이전 실행/정지 자료·마지막 정상 확인 시각·읽기 재시도를 일치시켰다. query 옵션과 금융 handler/버튼 조건은 원문 동등성을 유지했다. 앱/config 타입·FSD·격리 production build와 최종 새 상태 테스트5개, 기존 dialog/Select/차트5개, 기존 합성 Sidebar 시작/정지1개의 고유11개 검증을 통과했다. 초회3·중간9·후속6 실행은 중복 합산하지 않는다. 160px Sidebar와375px 다크 메뉴 캡처를 확인했고 독립 리뷰의 문구 기대 정합 P2를 수정·재검증해 잔여 필수 P0/P1/P2는 없다. 사용자 판단·실자료 조건은 대신 닫지 않는다. [회차 기록](tasks/uiux-improvements-20261030.md)에 검증/미검증·게시 상태를 보존한다.
+
+### 원래 TODO 완료 조건·근거 보존
+
+P1-UX-01 — 실행 상태 미확인·조회 실패·이전 상태를 ‘대기’와 구분한다.
+- 근거/대상: `src/widgets/sidebar/ui/Sidebar.tsx:56-68,118-131`은 `useTradingStatus`의 data만 받아 `undefined ?? false`를 ‘대기 중’과 시작 아이콘으로 렌더한다. `src/api/tradingHooks.ts:14-23`은 주기 조회 query이지만 Sidebar는 loading/error/dataUpdatedAt을 소비하지 않는다. Dashboard의 상태 chip·시작 버튼도 `src/pages/dashboard/ui/Page.tsx:460-488`에서 같은 boolean 해석이다. 실제 건강 패널이 없는 것이 아니라 **상태 조회 자체가 아직 성립하지 않았거나 실패했을 때 전역 요약을 구분하지 않는 문제**다.
+- 현재 화면 보강: 위 `sidebar-status-error` mock과 PNG, 후속 `sidebar-status-loading`에서 같은 표현을 확인했다. 503 노출 또는 응답 보류 초기 프레임의 관측이며 실제 데몬 상태나 실제 시작 성공의 증거가 아니다.
+- 영향/우선순위: P1. 사용자가 실제 실행 중단 사실과 단순 통신 미확인을 혼동할 수 있다. 현재 backend guard가 우회되거나 주문이 안전하지 않다고 입증한 것은 아니다.
+- 개선 방향: 확인 중/확인 실패/마지막 정상 상태를 텍스트·아이콘으로 구분하고 마지막 정상 확인 시각 및 읽기 재시도 경로를 표시한다. 기존 health 상세와 연결해 중복 상태를 만들지 않는다. 실제 시작·정지 동작/권한·guard 정책은 보존한다.
+- 의존성: 기존 tradingStatus query key·polling/변이 캐시 계약 재사용. 미확인 때 시작 버튼의 금융 동작 정책을 새로 바꾸려면 P2-UX-07에서 별도 판단한다.
+- 완료/검증: 지연·첫 실패·정상 실행/정지·성공 후 재조회 실패의 synthetic fixture에서 Sidebar와 Dashboard가 같은 상태를 표시한다. 미확인이 ‘대기/정상’으로 단정되지 않고 이전 데이터임이 보인다. 문구/재조회 키보드 경로를 확인하며 start/stop·provider 호출0을 기록한다.
