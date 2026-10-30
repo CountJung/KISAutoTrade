@@ -74,6 +74,9 @@ export default function MyPage() {
 
 ### 조절 가능한 패널
 
+- `LayoutResizer`의 `label/value/min/max/defaultValue/onValueChange`를 부모에서 전달한다. focus가 있는 separator에서 조절 축 화살표(기본10px), Home/End(최소/최대), Enter(기본값 복원)를 제공한다. ARIA 방향은 이동축이 아닌 분할선이다(폭 조절=vertical, 높이 조절=horizontal).
+- keyboard는 부모의 명시적 target값을 clamp한 뒤 setState·기존 `writeStoredNumber`로 저장한다. state updater 안에서 저장하거나 setState 직후 이전 ref값으로 저장하지 않는다. 기존 mouse `onResize(delta)/onResizeEnd`와 저장 키/범위는 유지한다. 상태/ARIA는 크기 설정값이며 flex/가용공간 제약의 실제 렌더 크기와 항상 같다고 가정하지 않는다.
+
 - Log 화면 높이처럼 사용자가 드래그로 조절하는 내부 패널은 `LayoutResizer`와 `persistentLayout` helper를 함께 사용한다.
 - 저장 키는 `act:panel:{panelName}:width|height` 형식을 유지한다. 예: `act:panel:log:height`.
 - Tauri 네이티브 창 위치/크기는 React localStorage가 아니라 `tauri-plugin-window-state`가 담당한다.
@@ -777,3 +780,5 @@ RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저
 - 제거된 system props는 기존 sx보다 앞선 base style로 옮기며 배열/callback의 caller 우선순위를 유지한다. Typography.color처럼 남아 있는 own API를 일괄 제거하지 않는다.
 - Switch의 role=switch와 실제 Checkbox를 구분하고 Alert의 variant/severity class를 각각 정확한 토큰으로 확인한다. utility class 변경을 금융 동작 변경으로 오인하거나 검증을 느슨하게 하지 않는다.
 - 모바일 Drawer 닫힘 중 aria-hidden과 CSS visibility를 구분한다. 정상 role 접근 가능·route 전환·닫힘 완료를 기다리고 강제click/sleep으로 대체하지 않는다. 새UI계약5개는 HARNESS_MAP을 따른다.
+
+> 마지막 업데이트: 2026-10-30T06:47:02

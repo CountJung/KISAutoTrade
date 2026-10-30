@@ -1105,6 +1105,7 @@ KISAutoTrade/
 │       ├── uiux-history-status.spec.ts
 │       ├── uiux-holdings.spec.ts
 │       ├── uiux-keyboard-selection.spec.ts
+│       ├── uiux-resizer.spec.ts
 │       └── uiux-status.spec.ts
 ├── .env.example
 ├── .gitignore
@@ -1184,6 +1185,7 @@ KISAutoTrade/
 | `api/hooks.ts` | 기존 import를 유지하는 TanStack Query 훅 facade. 도메인별 hook 모듈과 기존 budget/database hook, `KEYS`, `useBackendEvents`를 re-export하며 훅 구현을 직접 소유하지 않음 |
 | `api/accountHooks.ts` | 앱 계정 설정·설정 확인·국내/해외/broker 잔고·프로파일 CRUD/전환·거래 환경 감지·Toss 연결/계좌 조회 hook. 잔고 query key를 profile/broker/account/투자 모드로 분리하고 응답 전후 현재 scope를 검사. 계좌 전환 시 이전 query를 취소·무효화하며 이전 계좌의 placeholder/initial data를 공유하지 않음 |
 | `shared/api/liveDailyHistoryTypes.ts` | `TradingStatus.dailyHistory`의 읽기 전용 준비 진단 타입. 기존 응답의 필드 누락은 준비 완료로 추정하지 않도록 optional 호환 계약 유지 |
+| `shared/ui/LayoutResizer.tsx` | 이름 있는 focus 가능한 separator와 값/범위/방향·설명 표시. 방향키/Home/End/Enter는 value/min/max/defaultValue·keyboardStep(기본10)으로 명시 target을 onValueChange에 전달하고 pointer는 기존 onResize(delta)/onResizeEnd 유지. 실제 소비는 `widgets/app-shell/ui/AppShell.tsx`의 sidebar 너비와 `pages/log/ui/Page.tsx`의 Log 높이이며 clamp·상태/저장은 각 호출부가 소유. `components/LayoutResizer.tsx`의 legacy re-export 유지 |
 | `shared/ui/RowSelectionButton.tsx` | label/detail과 선택 callback만 받는 공용 native Button 표시. 이름/코드의 접근 가능한 선택 이름·focus 표시를 제공하고 click 전파를 멈춰 기존 행 포인터 동작과 분리. `shared/ui/index.ts` export를 통해 Trading 검색/Toss 보유·KIS 국내/해외 보유·Strategy 검색 결과 5곳에서 기존 선택 callback 호출 |
 | `shared/ui/QueryStatusSummary.tsx` | hook/API를 갖지 않는 props 기반 조회 상태 표시. 미확인·최초 실패·이전 자료/재조회 실패·마지막 정상 확인과 재시도 callback을 표시하며 `shared/ui/index.ts`에서 export. Sidebar/Dashboard의 실행 상태와 Trading KIS 잔고/History 기간 조회 wrapper가 기존 query 결과·refetch를 전달하고 query/cache/금융 동작 정책은 호출부에 유지 |
 | `shared/ui/LiveDailyHistoryPanel.tsx` | Dashboard/Strategy가 기존 상태 query로 공유하는 완료 일봉 준비 패널. 실행/활성 profile·broker/account 범위를 확인하고 상태·확보량·시장 날짜·출처·실패/재시도 사유 표시. 최대 512상태를 요약하고 실제 행은 3개씩 표시하며 프로파일 없는 legacy KIS 실행은 일치 계좌의 실패 진단만 허용 |
@@ -1258,7 +1260,7 @@ KISAutoTrade/
 | `pages/strategy/ui/bollingerControls.tsx` | 레버리지 추세 보유 전략의 선택적 볼린저 보강 활성화와 기간·배수·스퀴즈·ATR 설정 입력 |
 | `pages/strategy/ui/leveragedTrendHoldPreviewChart.tsx` | 레버리지/일반 전략 미리보기의 캔들·종가선·signal marker, 모바일 가로 패닝·핀치 확대/축소와 버튼식 줌 표시. offset 포함 시각은 실제 instant로 파싱하고 compact 분봉은 기존 KST 규칙으로 해석 |
 | `pages/history/ui/Page.tsx` | 활성 broker scope, 자동매매 체결 기록과 기간별 통계 조회, provider 원본 trace 표시. 기존 두 query 호출/option을 유지하며 page-local `HistoryQueryStatus`가 조회 전·적용 기간·최초 실패/이전 자료·마지막 정상 시각과 통계/체결의 독립 refetch를 표시. 날짜 초안과 적용 query를 구분하고 통계 미확인을 정상0으로 표시하지 않음 |
-| `pages/log/ui/Page.tsx` | 로그 레벨/검색 필터, provider trace 토큰 chip 표시 |
+| `pages/log/ui/Page.tsx` | 로그 레벨/검색 필터, provider trace 토큰 chip 표시. LayoutResizer 키보드 target을 기존 높이 범위로 clamp해 상태/localStorage에 반영하며 mouse delta/end 저장과 반응형 handle 노출 유지. 설정/ARIA 높이와 기존 flex 가용 공간에 제한되는 실제 패널 높이는 구분하고 한계는 [작업 기록](tasks/uiux-improvements-20261030.md)을 따름 |
 
 ### Backend (Rust)
 
@@ -1557,6 +1559,7 @@ keyring/RGL 유지·미삭제 판단은 [9회차 기록](tasks/immediate-backlog
 |---|---|
 | `docs/tasks/uiux-improvements-20261030.md` | 승인된 UI/UX 개선9개의 고정 순서·회차별 범위·격리 검증/리뷰·게시 근거. UI 표시/접근성과 금융 동작·사용자 판단/실자료 제외를 구분 |
 | `tests/e2e/fixtures/uxReviewFixture.ts` | 기존 strategyResearchFixture를 재사용하는 browser-only 합성 fixture. 알려진 GET/응답 override·요청 집계와 외부 요청/WebSocket·API 쓰기/알 수 없는 경로 차단을 제공 |
+| `tests/e2e/uiux-resizer.spec.ts` | 합성 sidebar/Log separator의 접근 가능한 이름·방향/범위/현재값·설명/focus, 키보드 증감/상하한/기본값과 새 target 저장·route/reload 복원, 기존 mouse delta/end 저장·반응형 노출 회귀. Log End의 설정값과 실제 geometry를 별도 관측하며 전체 layout 변경/실환경 검증으로 확대하지 않음 |
 | `tests/e2e/uiux-keyboard-selection.spec.ts` | 합성 Trading/Strategy 국내 검색 결과의 Tab/Enter·focus 표시·내부 blur/외부 닫힘·Escape/선택 후 입력 focus와 포인터 회귀. KIS/Toss KR/US 보유 선택의 기존 시장/종목/수량 계약을 주문 제출 없이 대조 |
 | `tests/e2e/uiux-history-status.spec.ts` | 합성 History 통계/체결의 조회 전·최초 지연/독립 실패·정상0/빈 목록·이전 자료와 시각 보존/개별 키보드 재시도 회귀. 좁은 다크 화면의 날짜 초안/적용 query·기존 통계 산술/KRW·USD/provider trace를 확인하며 API 쓰기·외부/알 수 없는 요청·page 오류를 대조 |
 | `tests/e2e/uiux-holdings.spec.ts` | 합성 KIS 국내/해외 잔고의 최초 지연/실패·정상 빈 목록·이전 보유/빈 자료·정상 시각 보존/갱신·개별 키보드 재시도와 기존 선택→폼 매핑 회귀. Toss 표시/수량·KIS 조회 비활성 경계도 확인하며 기존 Toss POST 조회는 별도 read-only fixture로만 허용 |

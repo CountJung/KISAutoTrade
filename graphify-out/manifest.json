@@ -705,8 +705,8 @@
     "semantic_hash": "e1e05929b9d6e9a67816e0b8739875f0"
   },
   "src/pages/log/ui/Page.tsx": {
-    "mtime": 1793264135.3609006,
-    "ast_hash": "b9395d6a42161c508c53e08fc998f8fd",
+    "mtime": 1793341866.6962464,
+    "ast_hash": "42169ea4c4e8d5111f8b5e150be0741d",
     "semantic_hash": ""
   },
   "src/pages/settings/index.ts": {
@@ -890,9 +890,9 @@
     "semantic_hash": ""
   },
   "src/shared/ui/LayoutResizer.tsx": {
-    "mtime": 1783083256.92,
-    "ast_hash": "36260b6c97bc4ea8fe4c2e87eb4e94a8",
-    "semantic_hash": "36260b6c97bc4ea8fe4c2e87eb4e94a8"
+    "mtime": 1793341866.6954637,
+    "ast_hash": "d935e640dbb3681d05399de6f1ac9131",
+    "semantic_hash": ""
   },
   "src/shared/ui/ProviderTraceChips.tsx": {
     "mtime": 1783083256.92,
@@ -935,8 +935,8 @@
     "semantic_hash": "9a0375e12e137974b815eece78da7e8d"
   },
   "src/widgets/app-shell/ui/AppShell.tsx": {
-    "mtime": 1793264135.408337,
-    "ast_hash": "4a5f9aa10fe1db57b4e0a0b764b3e015",
+    "mtime": 1793341866.695838,
+    "ast_hash": "121395fd50f1cc465b58a4a6480a3c1a",
     "semantic_hash": ""
   },
   "src/widgets/sidebar/index.ts": {
@@ -2742,6 +2742,11 @@
   "tests/e2e/uiux-keyboard-selection.spec.ts": {
     "mtime": 1793341252.587683,
     "ast_hash": "a85b8f7ed102dbbe6117ffb7e7fc0241",
+    "semantic_hash": ""
+  },
+  "tests/e2e/uiux-resizer.spec.ts": {
+    "mtime": 1793342314.9142802,
+    "ast_hash": "00b1782b3fe23e88ef7f3631ecc1c91f",
     "semantic_hash": ""
   }
 }

@@ -106,6 +106,12 @@ export function AppShell() {
     writeStoredNumber(SIDEBAR_KEY, sidebarWidthRef.current, SIDEBAR_MIN, SIDEBAR_MAX)
   }, [])
 
+  const handleSidebarValueChange = useCallback((value: number) => {
+    const next = clampNumber(value, SIDEBAR_MIN, SIDEBAR_MAX)
+    setSidebarWidth(next)
+    writeStoredNumber(SIDEBAR_KEY, next, SIDEBAR_MIN, SIDEBAR_MAX)
+  }, [])
+
   const startMainScrollbarDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     const el = mainScrollRef.current
     if (!el) return
@@ -329,6 +335,12 @@ export function AppShell() {
           {isDesktop && (
             <LayoutResizer
               direction="horizontal"
+              label="사이드바 너비 조절"
+              value={sidebarWidth}
+              min={SIDEBAR_MIN}
+              max={SIDEBAR_MAX}
+              defaultValue={SIDEBAR_DEFAULT}
+              onValueChange={handleSidebarValueChange}
               onResize={handleSidebarResize}
               onResizeEnd={handleSidebarResizeEnd}
             />

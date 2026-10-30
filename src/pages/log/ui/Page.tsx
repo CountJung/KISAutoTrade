@@ -57,6 +57,12 @@ export default function Log() {
     writeStoredNumber(LOG_HEIGHT_KEY, logHeightRef.current, LOG_HEIGHT_MIN, LOG_HEIGHT_MAX)
   }, [])
 
+  const handleLogValueChange = useCallback((value: number) => {
+    const next = clampNumber(value, LOG_HEIGHT_MIN, LOG_HEIGHT_MAX)
+    setLogHeight(next)
+    writeStoredNumber(LOG_HEIGHT_KEY, next, LOG_HEIGHT_MIN, LOG_HEIGHT_MAX)
+  }, [])
+
   const { data: logs = [], isLoading } = useRecentLogs(300)
 
   const handleLogScroll = useCallback(() => {
@@ -112,6 +118,7 @@ export default function Log() {
 
       {/* 로그 뷰어 */}
       <Paper
+        data-testid="log-resizable-panel"
         ref={logPanelRef}
         onScroll={handleLogScroll}
         sx={{
@@ -179,6 +186,12 @@ export default function Log() {
       {!isMobile && (
         <LayoutResizer
           direction="vertical"
+          label="로그 패널 높이 조절"
+          value={logHeight}
+          min={LOG_HEIGHT_MIN}
+          max={LOG_HEIGHT_MAX}
+          defaultValue={LOG_HEIGHT_DEFAULT}
+          onValueChange={handleLogValueChange}
           onResize={handleLogResize}
           onResizeEnd={handleLogResizeEnd}
         />

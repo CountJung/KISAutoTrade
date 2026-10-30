@@ -485,3 +485,17 @@ P2-UX-01 — 종목 검색 결과·보유 종목 선택을 키보드로 수행�
 - 개선 방향: 행 안 명명된 선택 button 또는 일관된 combobox/listbox 패턴을 정하고, 검색 결과 이동·선택·닫기와 포커스 복귀를 지원한다. 표시명과 종목코드를 함께 알리고 기존 선택 후 폼값/시장/scope 유지.
 - 의존성: 현재 검색 훅·선택 closure 유지. 공용화는 실제 입력/선택 의미가 같은 부분만 검토한다.
 - 완료/검증: 키보드만으로 KR/Toss 보유 및 국내 검색 결과를 선택하고 폼의 정확한 종목/시장/수량을 확인한다. Arrow/Enter/Escape 또는 명시 button의 Tab/Enter 동작, blur 중 결과 소실 방지, focus visible, 긴 이름·좁은 폭 및 포인터 회귀를 mock으로 검사한다. 주문 제출0.
+
+
+## P2-UX-02
+
+2026-10-30 Sidebar 너비와 Log 높이에 명명된 키보드 separator를 추가했다. 방향키·Home/End·Enter 기본값 복원과 focus 표시를 제공하고 명시한 target을 즉시 저장한다. 기존 pointer delta/end·저장 키/범위·반응형 flex 계약은 보존했다. 신규 resizer5개와 기존 scroll5개의 고유10개가 최종 통과했다(4.7초). 반복키·경계·기본값·저장/route/reload·다른 pref 불변·pointer와 반응형 표시를 확인했다. 동일 Log 사례의 geometry 부분 재실행1개도 통과했으며 중복 합산하지 않는다. 앱/config 타입·FSD·보호12항목 및 AppShell12/Log4 callback AST 대조를 통과했고 최종 독립 리뷰에 필수 P0/P1/P2는 없다. 사용자 판단·실자료 조건은 대신 닫지 않는다. [회차 기록](tasks/uiux-improvements-20261030.md)에 검증/미검증·게시 상태를 보존한다.
+
+### 원래 TODO 완료 조건·근거 보존
+
+P2-UX-02 — 패널 크기 조절에 키보드 대안과 현재값을 제공한다.
+- 근거/대상: `src/shared/ui/LayoutResizer.tsx:27-67,71-78`은 mouse down/move/up에만 연결된 Box이며 focus/keyboard/명명·현재값 API가 없다. `widgets/app-shell/ui/AppShell.tsx:328-334` Sidebar, `pages/log/ui/Page.tsx:178-184` 로그 높이 등에 사용된다. 앱 main의 native scroll과 custom rail은 별도이므로 ‘스크롤 전체가 키보드 불가’로 확대하지 않는다.
+- 영향/우선순위: P2. 포인터 없이 밀도/읽기 폭을 조절하기 어렵고 현재 크기·방향을 알 수 없다.
+- 개선 방향: 명명된 separator의 focus/화살표/Home/End 지원 또는 명시 크기 입력·기본값 복원 대안을 제공한다. 기존 min/max·저장 키·드래그 callback 보존.
+- 의존성: 각 부모의 clamp·persistentLayout 계약을 먼저 대조. touch 필요 여부는 pointer 추가 전 별도 runtime 확인.
+- 완료/검증: Sidebar 폭과 Log 높이를 Tab으로 찾아 keyboard로 조절, min/max·기본값 복원·재방문 persistence·포인터 드래그를 확인한다. 접근 가능한 이름/방향/현재값과 focus visible를 확인하며 금융 호출0.

@@ -20,9 +20,9 @@ P2-UX-07의 확인 정책 및 기존 SQLx/사용자 판단/실자료 항목 11�
 | 1 | P1-UX-01 | 실행 상태 미확인·실패·이전 자료 구분 | 구현·검증·리뷰 완료 | `d18dce3f9cbe858a29dd8c7e5cc2c9f8383e24a1` 원격 일치 |
 | 2 | P1-UX-02 | KIS 잔고 로딩·실패·정상 빈 목록 구분 | 구현·검증·리뷰 완료 | `36ccd96618d1681cf9c2d5e68bda6815d596e60d` 원격 일치 |
 | 3 | P1-UX-03 | History 통계 실패와 실제 0 구분 | 구현·검증·리뷰 완료 | `aaf94f274f4a5eb04f34a2d09df0665dc293a222` 원격 일치 |
-| 4 | P2-UX-01 | 검색 결과·보유 종목의 키보드 선택 | 구현·검증·리뷰 완료 | 이번 회차 커밋; 푸시 확인 대기 |
-| 5 | P2-UX-02 | 패널 크기 조절 키보드 대안 | 다음 작업 | — |
-| 6 | P2-UX-03 | 좁은 History 거래 상세 | 미착수 | — |
+| 4 | P2-UX-01 | 검색 결과·보유 종목의 키보드 선택 | 구현·검증·리뷰 완료 | `ee341d6ca6d6f3463d77fec2469e3ee986063e96` 원격 일치 |
+| 5 | P2-UX-02 | 패널 크기 조절 키보드 대안 | 구현·검증·리뷰 완료 | 이번 회차 커밋; 푸시 확인 대기 |
+| 6 | P2-UX-03 | 좁은 History 거래 상세 | 다음 작업 | — |
 | 7 | P2-UX-04 | Log 로딩·실패·빈/필터0 구분 | 미착수 | — |
 | 8 | P2-UX-05 | Settings 목차·heading·focus 이동 | 미착수 | — |
 | 9 | P2-UX-06 | 차트 텍스트/키보드 자료 대안 | 미착수 | — |
@@ -109,3 +109,15 @@ Trading/Strategy 검색 결과와 KIS/Toss 양시장 보유 행에 이름·코�
 
 - 변경 핵심: Trading Page.tsx/kisPanels.tsx, Strategy Page.tsx/StockSearchResults.tsx, shared/ui/RowSelectionButton.tsx·index.ts, uiux-keyboard-selection.spec.ts, UI 스킬 원본
 - 다음: P2-UX-02
+
+
+### 5회차 — P2-UX-02
+
+Sidebar 너비와 Log 높이에 명명된 키보드 separator를 추가했다. 방향키·Home/End·Enter 기본값 복원과 focus 표시를 제공하고 명시한 target을 즉시 저장한다. 기존 pointer delta/end·저장 키/범위·반응형 flex 계약은 보존했다.
+
+신규 resizer5개와 기존 scroll5개의 고유10개가 최종 통과했다(4.7초). 반복키·경계·기본값·저장/route/reload·다른 pref 불변·pointer와 반응형 표시를 확인했다. 동일 Log 사례의 geometry 부분 재실행1개도 통과했으며 중복 합산하지 않는다. 앱/config 타입·FSD·보호12항목 및 AppShell12/Log4 callback AST 대조를 통과했고 최종 독립 리뷰에 필수 P0/P1/P2는 없다.
+
+초회8통과/2실패는 Chrome의 기존 scroll Paper Tabstop을 건너뛴 테스트 가정이었다. 실제 Tab 경로로 교정한 원본을 보존했다. 1440×900에서 End 설정/ARIA/저장900에 실제 Log 높이는 기존 flex 제약으로751.984px이며 손잡이는 viewport 안에 남았다. 설정값이 항상 실제 렌더 픽셀과 일치한다고 주장하지 않는다. 새 검사 금융 쓰기/외부/unknown/pageerror0, 서버 정리 확인. native·스크린리더·touch·실계좌는 미검증이며 최종 전체UI/CI는 별도다.
+
+- 변경 핵심: shared/ui/LayoutResizer.tsx, app-shell/ui/AppShell.tsx, log/ui/Page.tsx, uiux-resizer.spec.ts, UI 스킬 원본
+- 다음: P2-UX-03
