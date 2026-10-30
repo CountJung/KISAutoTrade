@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Typography from '@mui/material/Typography'
 import Paper from '@mui/material/Paper'
 import Box from '@mui/material/Box'
@@ -14,6 +14,8 @@ import TableRow from '@mui/material/TableRow'
 import Chip from '@mui/material/Chip'
 import Alert from '@mui/material/Alert'
 import Divider from '@mui/material/Divider'
+import type { TradeRecord } from '../../../api/types'
+import { TradeDetailsDialog } from './TradeDetailsDialog'
 import { useAppConfig, useStatsByRange, useTradesByRange } from '../../../api/hooks'
 import { fmtNumber } from '../../../shared/lib'
 import { BrokerScopeIndicator, ProviderTraceChips, QueryStatusSummary } from '../../../shared/ui'
@@ -82,6 +84,7 @@ export default function History() {
   const [to, setTo]       = useState(today())
   const [query, setQuery] = useState<{ from: string; to: string } | null>(null)
   const { data: appConfig } = useAppConfig()
+  const [detailTarget, setDetailTarget] = useState<{ id: string; from: string; to: string } | null>(null)
 
   // ─── 로컬 기록 ──────────────────────────────────────────────────
   const tradesQuery = useTradesByRange(query?.from ?? '', query?.to ?? '', { enabled: !!query })
@@ -139,6 +142,16 @@ export default function History() {
     providerRequestId: trade.provider_request_id,
     providerTrId: trade.provider_tr_id,
   })
+
+  const detailTrade = detailTarget && query && detailTarget.from === query.from && detailTarget.to === query.to
+    ? trades?.find(trade => trade.id === detailTarget.id) ?? null
+    : null
+  useEffect(() => {
+    if (detailTarget && detailTrade === null) setDetailTarget(null)
+  }, [detailTarget, detailTrade])
+  const openDetails = (trade: TradeRecord) => {
+    if (query) setDetailTarget({ id: trade.id, from: query.from, to: query.to })
+  }
 
   return (
     <Box>
@@ -270,6 +283,15 @@ export default function History() {
                       <Box sx={{ display: { xs: 'block', sm: 'none' }, mt: 0.5 }}>
                         <ProviderTraceChips trace={traceOf(t)} />
                       </Box>
+                      <Button
+                        size="small"
+                        aria-haspopup="dialog"
+                        aria-label={`${t.symbol_name} (${t.symbol}) ${t.timestamp} 체결 ${t.id} 상세 보기`}
+                        onClick={() => openDetails(t)}
+                        sx={{ display: 'block', mt: 0.5 }}
+                      >
+                        상세 보기
+                      </Button>
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -312,6 +334,17 @@ export default function History() {
           </TableContainer>
         )}
       </Paper>
+      <TradeDetailsDialog
+        trade={detailTrade}
+        price={detailTrade ? renderTradeMoney(detailTrade, 'price') : ''}
+        amount={detailTrade ? renderTradeMoney(detailTrade, 'amount') : ''}
+        fee={detailTrade ? renderTradeMoney(detailTrade, 'fee') : ''}
+        slippage={detailTrade ? renderSlippage(detailTrade) : ''}
+        quantity={detailTrade ? fmt(detailTrade.quantity) : ''}
+        currency={detailTrade ? detailTrade.currency ?? (isOverseasTrade(detailTrade) ? 'USD' : 'KRW') : ''}
+        trace={detailTrade ? traceOf(detailTrade) : {}}
+        onClose={() => setDetailTarget(null)}
+      />
     </Box>
   )
 }

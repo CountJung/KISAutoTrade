@@ -467,6 +467,12 @@ useEffect(() => {
 - 입력과 결과 팝업을 하나의 focus 영역으로 보고 relatedTarget이 영역 안일 때 blur 닫힘을 예약하지 않는다. 영역 밖 이동은 기존180ms 닫힘을 유지한다. Escape/검색 선택 뒤 원래 입력으로 focus를 돌리되 내부 이동의 onFocus가 목록을 다시 열지 않게 한다.
 - 선택의 실제 종목·시장·주문/전략 상태 closure는 원래 도메인에 두고 공통화하지 않는다. 입력·table/row role·포인터 클릭을 함께 회귀 검사하며 금융 제출과 종목 선택을 섞지 않는다. [구현·검증 기록](../../../docs/tasks/uiux-improvements-20261030.md).
 
+### 반응형 거래 표의 상세 대안
+
+- 좁은 폭에서 숨긴 시각·금액·비용은 거래별 이름이 있는 native Button과 페이지 내부 Dialog로 다시 읽을 수 있게 한다. History의 기존 formatter 결과를 전달하고 통화·USD fallback·슬리피지·trace 산식을 다시 구현하지 않는다. 같은 종목 복수 체결은 ID와 전체 기록 시각으로 구분한다.
+- MUI Dialog의 명명·focus trap·Escape/닫기 후 원래 trigger 복귀를 유지하고, 긴 ID/trace는 줄바꿈과 키보드 스크롤로 접근하게 한다. 실제 브라우저 확대의 CSS reflow와 deviceScaleFactor/단순 축소 viewport는 별도로 검증·기록한다.
+- 실제 발생한 잘못된 패턴: polling에서 선택 행이 사라져 창만 닫고 선택 ID를 남기면 동일 ID 재등장 시 클릭 없이 상세가 다시 열린다. 올바른 패턴은 선택한 ID와 적용 query 범위로 기존 자료를 찾고 유효한 대상이 없어질 때 UI 선택도 폐기하는 것이다. query/poll 주기를 바꾸지 않고 빈 응답 후 동일 ID 재등장을 회귀 검사한다.
+
 ## 해외 잔고 통화 표시 패턴
 
 KIS TTTS3012R은 USD 기준 잔고를 반환한다. KRW 환산은 **하드코딩 상수 금지** — `useExchangeRateStatus()` 또는 호환용 `useExchangeRate()` 훅으로 실시간 환율을 가져온다.
@@ -781,4 +787,4 @@ RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저
 - Switch의 role=switch와 실제 Checkbox를 구분하고 Alert의 variant/severity class를 각각 정확한 토큰으로 확인한다. utility class 변경을 금융 동작 변경으로 오인하거나 검증을 느슨하게 하지 않는다.
 - 모바일 Drawer 닫힘 중 aria-hidden과 CSS visibility를 구분한다. 정상 role 접근 가능·route 전환·닫힘 완료를 기다리고 강제click/sleep으로 대체하지 않는다. 새UI계약5개는 HARNESS_MAP을 따른다.
 
-> 마지막 업데이트: 2026-10-30T06:47:02
+> 마지막 업데이트: 2026-10-30T07:01:00

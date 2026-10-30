@@ -695,8 +695,8 @@
     "semantic_hash": "e1e05929b9d6e9a67816e0b8739875f0"
   },
   "src/pages/history/ui/Page.tsx": {
-    "mtime": 1793339832.2853975,
-    "ast_hash": "fabecff41ea54878fdcd5003486167c2",
+    "mtime": 1793343640.4875524,
+    "ast_hash": "f327118d7a836b43bc57765c30932c60",
     "semantic_hash": ""
   },
   "src/pages/log/index.ts": {
@@ -2747,6 +2747,16 @@
   "tests/e2e/uiux-resizer.spec.ts": {
     "mtime": 1793342314.9142802,
     "ast_hash": "00b1782b3fe23e88ef7f3631ecc1c91f",
+    "semantic_hash": ""
+  },
+  "src/pages/history/ui/TradeDetailsDialog.tsx": {
+    "mtime": 1793343532.5192156,
+    "ast_hash": "168a6d0f7d6895a95611d7433df657a7",
+    "semantic_hash": ""
+  },
+  "tests/e2e/uiux-history-details.spec.ts": {
+    "mtime": 1793343640.4878201,
+    "ast_hash": "f6fa4ac9c3866e3a321a4c7277a9c846",
     "semantic_hash": ""
   }
 }

@@ -21,9 +21,9 @@ P2-UX-07의 확인 정책 및 기존 SQLx/사용자 판단/실자료 항목 11�
 | 2 | P1-UX-02 | KIS 잔고 로딩·실패·정상 빈 목록 구분 | 구현·검증·리뷰 완료 | `36ccd96618d1681cf9c2d5e68bda6815d596e60d` 원격 일치 |
 | 3 | P1-UX-03 | History 통계 실패와 실제 0 구분 | 구현·검증·리뷰 완료 | `aaf94f274f4a5eb04f34a2d09df0665dc293a222` 원격 일치 |
 | 4 | P2-UX-01 | 검색 결과·보유 종목의 키보드 선택 | 구현·검증·리뷰 완료 | `ee341d6ca6d6f3463d77fec2469e3ee986063e96` 원격 일치 |
-| 5 | P2-UX-02 | 패널 크기 조절 키보드 대안 | 구현·검증·리뷰 완료 | 이번 회차 커밋; 푸시 확인 대기 |
-| 6 | P2-UX-03 | 좁은 History 거래 상세 | 다음 작업 | — |
-| 7 | P2-UX-04 | Log 로딩·실패·빈/필터0 구분 | 미착수 | — |
+| 5 | P2-UX-02 | 패널 크기 조절 키보드 대안 | 구현·검증·리뷰 완료 | `44c1ae5fa0e3e7dc675eb9b17132146b824d3422` 원격 일치 |
+| 6 | P2-UX-03 | 좁은 History 거래 상세 | 구현·검증·리뷰 완료 | 이번 회차 커밋; 푸시 확인 대기 |
+| 7 | P2-UX-04 | Log 로딩·실패·빈/필터0 구분 | 다음 작업 | — |
 | 8 | P2-UX-05 | Settings 목차·heading·focus 이동 | 미착수 | — |
 | 9 | P2-UX-06 | 차트 텍스트/키보드 자료 대안 | 미착수 | — |
 
@@ -121,3 +121,15 @@ Sidebar 너비와 Log 높이에 명명된 키보드 separator를 추가했다. �
 
 - 변경 핵심: shared/ui/LayoutResizer.tsx, app-shell/ui/AppShell.tsx, log/ui/Page.tsx, uiux-resizer.spec.ts, UI 스킬 원본
 - 다음: P2-UX-03
+
+
+### 6회차 — P2-UX-03
+
+History 거래별 상세 보기와 page-local Dialog를 추가해 같은 체결의 전체 기록 시각·ID·통화·가격/금액/수수료/슬리피지·전략·trace를 좁은 화면에서도 읽게 했다. 기존 formatter 결과를 전달하며 선택은 ID+적용 기간만 보관한다. polling에서 대상이 사라지면 선택도 폐기해 자동 재개방을 막는다.
+
+신규 상세4개+기존 History 상태6개+일봉13개의 고유23개가 최종 통과했다(23.3초). 375/1280폭에서 KRW/USD fallback·환산/부호·같은 종목 다중 체결·긴 ID·null/빈 trace·Tab/Enter/Escape/닫기/focus 복귀·키보드 스크롤과 overflow를 검사했다. 격리 Chromium의 실제 tab zoom2에서 CSS1280→640/높이1000→500·DPR1→2·visualScale1과 상세 접근을 확인했다. 앱/config 타입·FSD·원래 함수13개 및 보호15항목 대조를 통과했다. 최종 루트·UI 전문가 독립 리뷰에 필수 P0/P1/P2는 없다.
+
+초회22통과/1실패는 오늘30초 polling 빈 응답 뒤 동일 ID가 돌아올 때 상세가 자동 재개방되는 실제 문제였다. 선택만 폐기하는 effect로 해소하고 원본 로그/trace/PNG를 보존했다. zoom 보조 코드는 권한/host 권한 없는 임시 테스트 프로필에서만 실행했고 종료·삭제와 서버 listener0을 확인했다. 새 검사 금융 쓰기/외부/unknown/pageerror0이다. 전체 시각은 기록값 그대로이며 새 timezone/환율 계산·query·실제 원장/계좌·native·스크린리더 검증은 추가하지 않았다.
+
+- 변경 핵심: history/ui/Page.tsx·TradeDetailsDialog.tsx, uiux-history-details.spec.ts, UI 스킬 원본
+- 다음: P2-UX-04
