@@ -54,6 +54,7 @@ import { getWebApiToken, setWebApiToken } from '../../../shared/api/transport'
 
 import { AccountProfilesSection } from './accountProfiles'
 import { Section } from './section'
+import { SettingsContents } from './settingsNavigation'
 import { DatabaseManagementSection } from './databaseManagementSection'
 import { BrokerRateLimitSection } from './brokerRateLimitSection'
 import { AutoTradingBudgetSection } from './autoTradingBudgetSection'
@@ -194,13 +195,19 @@ function RiskSection() {
     updateRisk(input, { onSuccess: () => setDirty(false) })
   }
 
-  if (isLoading || !risk) return null
+  if (isLoading || !risk) return (
+    <Section id="settings-risk" title="리스크 관리">
+      <Typography color="text.secondary">
+        {isLoading ? '리스크 설정을 불러오는 중…' : '리스크 설정을 불러오지 못했습니다.'}
+      </Typography>
+    </Section>
+  )
 
   const netLossPct = Math.min(risk.lossRatio * 100, 100)
   const barColor = netLossPct < 50 ? 'success' : netLossPct < 80 ? 'warning' : 'error'
 
   return (
-    <Section title="리스크 관리">
+    <Section id="settings-risk" title="리스크 관리">
       <Stack spacing={2}>
         {/* 활성화 토글 */}
         <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between" }}>
@@ -490,13 +497,14 @@ export default function Settings() {
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 700, mb: 3 }}>
+      <Typography component="h1" variant="h5" sx={{ fontWeight: 700, mb: 3 }}>
         Settings
       </Typography>
+      <SettingsContents />
 
       <Stack spacing={2}>
         {/* ── 테마 ─────────────────────────────────────────────── */}
-        <Section title="테마">
+        <Section id="settings-theme" title="테마">
           <ToggleButtonGroup
             value={theme}
             exclusive
@@ -519,7 +527,7 @@ export default function Settings() {
         </Section>
 
         {/* ── 데이터 갱신 주기 ──────────────────────────────────── */}
-        <Section title="데이터 갱신 주기">
+        <Section id="settings-refresh" title="데이터 갱신 주기">
           <Stack spacing={2}>
             <SliderWithInput
               label="갱신 주기"
@@ -539,7 +547,7 @@ export default function Settings() {
         </Section>
 
         {/* ── 로그 설정 ─────────────────────────────────────────── */}
-        <Section title="로그 설정">
+        <Section id="settings-logs" title="로그 설정">
           <Stack spacing={3}>
             <SliderWithInput
               label="보관 기간"
@@ -595,7 +603,7 @@ export default function Settings() {
         </Section>
 
         {/* ── 체결 기록 보관 설정 ─────────────────────────────────── */}
-        <Section title="체결 기록 보관">
+        <Section id="settings-archive" title="체결 기록 보관">
           <Stack spacing={3}>
             <SliderWithInput
               label="보관 기간"
@@ -648,7 +656,7 @@ export default function Settings() {
         <AccountProfilesSection />
 
         {/* ── 웹 접속 설정 ──────────────────────────────────────── */}
-        <Section title="웹 접속 설정">
+        <Section id="settings-web" title="웹 접속 설정">
           <Stack spacing={2}>
             <Typography variant="body2" color="text.secondary">
               기본은 이 컴퓨터에서만 접속할 수 있습니다. LAN 공개는 명시적으로 켜고 API token 인증을 설정해야 합니다.
@@ -804,7 +812,7 @@ export default function Settings() {
         </Section>
 
         {/* ── 종목 목록 관리 ─────────────────────────────────────── */}
-        <Section title="종목 목록 관리">
+        <Section id="settings-stocks" title="종목 목록 관리">
           <Stack spacing={2}>
             <Typography variant="body2" color="text.secondary">
               종목명 검색은 <strong>로컬 캐시 → NAVER Finance → KIS API</strong> 순서로 동작합니다.
@@ -868,7 +876,7 @@ export default function Settings() {
         <RiskSection />
 
         {/* ── Discord 알림 ───────────────────────────────────────── */}
-        <Section title="Discord 알림">
+        <Section id="settings-discord" title="Discord 알림">
           <Stack spacing={2}>
             <FormControlLabel
               control={

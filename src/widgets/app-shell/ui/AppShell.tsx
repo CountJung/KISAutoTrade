@@ -24,7 +24,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import { alpha, ThemeProvider } from '@mui/material/styles'
 import { Sidebar } from '../../sidebar'
 import { LayoutResizer } from '../../../shared/ui'
-import { clampNumber, readStoredNumber, writeStoredNumber } from '../../../shared/lib'
+import { clampNumber, readStoredNumber, writeStoredNumber, PAGE_FOCUS_NAVIGATION_EVENT } from '../../../shared/lib'
 import { createAppTheme, getResolvedMode, THEME_STORAGE_KEY } from '../../../shared/config/theme'
 import { useSettingsStore } from '../../../entities/settings'
 import { useUpdateCheck, useBackendEvents } from '../../../api/hooks'
@@ -201,6 +201,19 @@ export function AppShell() {
     }
     restorePendingMainScroll()
   }, [location.pathname, restorePendingMainScroll])
+
+  useEffect(() => {
+    const handlePageFocusNavigation = (event: Event) => {
+      const pending = pendingMainScrollRestoreRef.current
+      if (event instanceof CustomEvent
+        && event.detail?.routeKey === mainScrollRouteRef.current
+        && pending?.routeKey === mainScrollRouteRef.current) {
+        pendingMainScrollRestoreRef.current = null
+      }
+    }
+    window.addEventListener(PAGE_FOCUS_NAVIGATION_EVENT, handlePageFocusNavigation)
+    return () => window.removeEventListener(PAGE_FOCUS_NAVIGATION_EVENT, handlePageFocusNavigation)
+  }, [])
 
   useEffect(() => {
     const el = mainScrollRef.current

@@ -715,23 +715,23 @@
     "semantic_hash": "e1e05929b9d6e9a67816e0b8739875f0"
   },
   "src/pages/settings/ui/Page.tsx": {
-    "mtime": 1793264135.36557,
-    "ast_hash": "b1e5cc1ba8b986fb138d60d3e4479723",
+    "mtime": 1793345741.7751522,
+    "ast_hash": "6cfb148f3ae28c9d4ddd97c0b6480688",
     "semantic_hash": ""
   },
   "src/pages/settings/ui/accountProfiles.tsx": {
-    "mtime": 1793264135.3674023,
-    "ast_hash": "5e805e44d252a331afec2b9dea8dbe7a",
+    "mtime": 1793345741.7757983,
+    "ast_hash": "0d23a6a9a681cc53faf5ad09c7d622af",
     "semantic_hash": ""
   },
   "src/pages/settings/ui/brokerRateLimitSection.tsx": {
-    "mtime": 1793264135.3691807,
-    "ast_hash": "dbb4509f80ee4cf1c13f8fa59faeeb0c",
+    "mtime": 1793345741.7755501,
+    "ast_hash": "7f2f278ed680192011de422db38f0612",
     "semantic_hash": ""
   },
   "src/pages/settings/ui/databaseManagementSection.tsx": {
-    "mtime": 1793264135.3724244,
-    "ast_hash": "e4a5b8ef01f4cc9f02c9c6743d5ddbc0",
+    "mtime": 1793345741.7754087,
+    "ast_hash": "363003e3158555fb96f7167f7fb36f87",
     "semantic_hash": ""
   },
   "src/pages/settings/ui/profileDialogs.tsx": {
@@ -745,8 +745,8 @@
     "semantic_hash": "9e77299b1e3b3fdaf534334213419e1e"
   },
   "src/pages/settings/ui/section.tsx": {
-    "mtime": 1793264135.3747215,
-    "ast_hash": "e2c0cd787a6aabdbfac56f73b7c29f69",
+    "mtime": 1793345844.5000842,
+    "ast_hash": "f299d4eb26b12755607e59927fd50772",
     "semantic_hash": ""
   },
   "src/pages/strategy/index.ts": {
@@ -875,8 +875,8 @@
     "semantic_hash": ""
   },
   "src/shared/lib/index.ts": {
-    "mtime": 1792501003.0951478,
-    "ast_hash": "1887ec7c18ff541945ec9bc84e997bd9",
+    "mtime": 1793346228.1356137,
+    "ast_hash": "8cf3f1d1c8559ddd9166a261683de3a1",
     "semantic_hash": ""
   },
   "src/shared/lib/persistentLayout.ts": {
@@ -935,8 +935,8 @@
     "semantic_hash": "9a0375e12e137974b815eece78da7e8d"
   },
   "src/widgets/app-shell/ui/AppShell.tsx": {
-    "mtime": 1793341866.695838,
-    "ast_hash": "121395fd50f1cc465b58a4a6480a3c1a",
+    "mtime": 1793346228.1359415,
+    "ast_hash": "40ba4ea5853287dff26988e1be40c94f",
     "semantic_hash": ""
   },
   "src/widgets/sidebar/index.ts": {
@@ -965,8 +965,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/settings-database.spec.ts": {
-    "mtime": 1789086309.13,
-    "ast_hash": "d454446f1d10d406dbb5f4fd7e4a7371",
+    "mtime": 1793345844.5007892,
+    "ast_hash": "b878d35fdc5b1f66b1d39b1767688615",
     "semantic_hash": ""
   },
   "tests/e2e/strategy-scrollbar.spec.ts": {
@@ -1280,8 +1280,8 @@
     "semantic_hash": ""
   },
   "src/pages/settings/ui/autoTradingBudgetSection.tsx": {
-    "mtime": 1793264135.368544,
-    "ast_hash": "69b1e8b523e765fd23085bf0263cabf5",
+    "mtime": 1793345741.776189,
+    "ast_hash": "f901f8762040b0d7706fa11409c99293",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/bollingerControls.tsx": {
@@ -2465,8 +2465,8 @@
     "semantic_hash": ""
   },
   "src/pages/settings/ui/budgetRecoverySection.tsx": {
-    "mtime": 1793264135.3701527,
-    "ast_hash": "dae6c3a66a1a957e7c96a19948266f2b",
+    "mtime": 1793345844.5002303,
+    "ast_hash": "f53c6e6144fc85250bd34ceafccda207",
     "semantic_hash": ""
   },
   "src/shared/api/budgetRecoveryCommands.ts": {
@@ -2480,8 +2480,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/budget-recovery.spec.ts": {
-    "mtime": 1793253544.7585309,
-    "ast_hash": "73ff08cf8aa6d830d19d973e402278f4",
+    "mtime": 1793345844.5009787,
+    "ast_hash": "2a1698846f20cad315f16ba1bdfd33aa",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/strategy_preview/pc_replay_tests.rs": {
@@ -2762,6 +2762,21 @@
   "tests/e2e/uiux-log-status.spec.ts": {
     "mtime": 1793344939.7954943,
     "ast_hash": "b5bbb134b79368b30578b93ae5fb4771",
+    "semantic_hash": ""
+  },
+  "src/pages/settings/ui/settingsNavigation.tsx": {
+    "mtime": 1793346228.1357753,
+    "ast_hash": "a8b367f59a8f0e47e9dfa3bdcdbe5596",
+    "semantic_hash": ""
+  },
+  "src/shared/lib/pageFocusNavigation.ts": {
+    "mtime": 1793346228.1352332,
+    "ast_hash": "72ccfc5454acfd6d48566246b0d2a59f",
+    "semantic_hash": ""
+  },
+  "tests/e2e/uiux-settings-navigation.spec.ts": {
+    "mtime": 1793346696.0239694,
+    "ast_hash": "5ad43c6ab2038c714ca7216e34dc3ccd",
     "semantic_hash": ""
   }
 }

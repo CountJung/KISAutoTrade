@@ -86,7 +86,7 @@ export function AutoTradingBudgetSection() {
     : undefined
   const budget = useAutoTradingBudget(scope)
   return (
-    <Section title="자동매매 전용 예산">
+    <Section id="settings-budget" title="자동매매 전용 예산">
       <Stack spacing={2}>
         <Typography variant="body2">선택 계좌: {config?.active_profile_name || '미선택'}</Typography>
         {!scope && <Alert severity="info">계좌 프로파일을 먼저 선택하세요.</Alert>}

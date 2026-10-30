@@ -361,7 +361,7 @@ export function AccountProfilesSection() {
   }
 
   const renderBrokerProfiles = (brokerId: BrokerId, brokerProfiles: AccountProfileView[]) => (
-    <Section title={`${brokerLabel(brokerId)} 계좌 프로파일`}>
+    <Section id={brokerId === 'kis' ? 'settings-kis-profiles' : 'settings-toss-profiles'} title={`${brokerLabel(brokerId)} 계좌 프로파일`}>
       <Stack spacing={2}>
         {profilesLoading ? (
           <CircularProgress size={24} />
@@ -401,7 +401,7 @@ export function AccountProfilesSection() {
 
   return (
     <>
-      <Section title="활성 증권사 프로파일">
+      <Section id="settings-active-profile" title="활성 증권사 프로파일">
         <Stack spacing={2}>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
             {appConfig ? (

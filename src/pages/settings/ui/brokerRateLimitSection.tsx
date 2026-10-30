@@ -26,7 +26,7 @@ export function BrokerRateLimitSection() {
   const { data: scopes = [], isError } = useBrokerRateLimitStatus()
 
   return (
-    <Section title="Broker 요청 상태 (rate limit)">
+    <Section id="settings-rate-limit" title="Broker 요청 상태 (rate limit)">
       {isError && <Alert severity="error">rate limit 상태를 불러오지 못했습니다.</Alert>}
       {!isError && scopes.length === 0 && (
         <Alert severity="info">아직 broker API 요청이 없습니다. 시세·잔고 조회나 주문 후 표시됩니다.</Alert>

@@ -57,7 +57,7 @@ async function mockNative(page: Page, options: { item?: Partial<BudgetRecoveryIt
     })
   }, { item: { ...original, ...options.item }, running: options.running ?? false, failFirst: options.failFirst ?? false, failAfterIntent: options.failAfterIntent ?? false, totalCount: options.totalCount ?? 1 })
   await page.goto('/settings')
-  await expect(page.getByText('응답 불명 주문 대조·복구')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '응답 불명 주문 대조·복구', exact: true })).toBeVisible()
 }
 
 async function evidence(page: Page) {

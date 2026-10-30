@@ -91,7 +91,7 @@ test('Database administration stays desktop-only in unauthenticated web mode', a
   await mockSettingsApi(page)
   await page.goto('/settings')
 
-  await expect(page.getByText('데이터베이스 및 데이터 이관')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '데이터베이스 및 데이터 이관', exact: true })).toBeVisible()
   await expect(page.getByText(/Tauri 데스크톱 앱 Settings에서만/)).toBeVisible()
   await expect(page.getByLabel('Password')).toHaveCount(0)
   await expect(page.getByRole('button', { name: '앱 테이블 삭제' })).toHaveCount(0)
@@ -102,7 +102,7 @@ test('Database Settings safety notice does not overflow a narrow viewport', asyn
   await mockSettingsApi(page)
   await page.goto('/settings')
 
-  await expect(page.getByText('데이터베이스 및 데이터 이관')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '데이터베이스 및 데이터 이관', exact: true })).toBeVisible()
   await expect(page.getByText(/Tauri 데스크톱 앱 Settings에서만/)).toBeVisible()
   const metrics = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, width: window.innerWidth }))
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.width)

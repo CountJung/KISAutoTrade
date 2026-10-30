@@ -72,6 +72,12 @@ export default function MyPage() {
 - 스크롤 방지: Drawer paper에 `overflowX: 'hidden'`
 - 자동매매 시작/정지처럼 앱 어디서든 즉시 접근해야 하는 전역 동작은 좌측 사이드바의 실행 상태 chip 옆에 icon button으로 둔다. 버튼은 `useTradingStatus`와 같은 Query cache를 갱신하는 `useStartTrading`/`useStopTrading` 훅을 사용하고, pending 상태에서는 spinner와 disabled 상태를 표시한다.
 
+### Settings 목차와 명시 이동
+
+- `src/pages/settings/ui/settingsNavigation.tsx`의15개 안정 ID와 `Section`의 명명된 h2/중첩 복구 h3를 함께 유지한다. 목차/복귀 링크는 실제 제목으로 focus를 옮기고 가시적인 outline을 제공한다. URL hash/history를 추가하거나 설정의 저장·조회·데스크톱 제한을 바꾸지 않는다. 로딩/실패 때도 목차가 가리키는 도착점은 남긴다.
+- 실제 발생: 지연된 Risk 자료로 페이지 높이가 줄어든 routeback에서 기존 pending scroll 복원이 사용자의 목차 이동을 덮었다. `shared/lib/pageFocusNavigation.ts`의 동기 알림을 focus/scroll 직전에 보내고 AppShell은 현재 route와 pending route가 같은 경우에만 복원을 취소한다. 기존 자동 복원 함수·1200ms·다른 route·일반 scroll/resize를 유지하고 listener cleanup을 짝지운다. 반복 강제 scroll이나 임의 대기로 덮지 않는다.
+- 기존 route 위치는 AppShell 메모리에만 보관하므로 reload는 기본0이다. routeback·reload0·자료 지연/5분 cache GC·다른 route 이벤트 거부·반복 목차 이동을 구분해 검증한다. 기본 h2/h3는 native heading level로 확인하며 불필요한 aria-level 속성을 요구하지 않는다.
+
 ### 조절 가능한 패널
 
 - `LayoutResizer`의 `label/value/min/max/defaultValue/onValueChange`를 부모에서 전달한다. focus가 있는 separator에서 조절 축 화살표(기본10px), Home/End(최소/최대), Enter(기본값 복원)를 제공한다. ARIA 방향은 이동축이 아닌 분할선이다(폭 조절=vertical, 높이 조절=horizontal).
@@ -790,4 +796,4 @@ RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저
 - Switch의 role=switch와 실제 Checkbox를 구분하고 Alert의 variant/severity class를 각각 정확한 토큰으로 확인한다. utility class 변경을 금융 동작 변경으로 오인하거나 검증을 느슨하게 하지 않는다.
 - 모바일 Drawer 닫힘 중 aria-hidden과 CSS visibility를 구분한다. 정상 role 접근 가능·route 전환·닫힘 완료를 기다리고 강제click/sleep으로 대체하지 않는다. 새UI계약5개는 HARNESS_MAP을 따른다.
 
-> 마지막 업데이트: 2026-10-30T07:25:13
+> 마지막 업데이트: 2026-10-30T07:48:12

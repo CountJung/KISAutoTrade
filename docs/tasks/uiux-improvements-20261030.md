@@ -23,9 +23,9 @@ P2-UX-07의 확인 정책 및 기존 SQLx/사용자 판단/실자료 항목 11�
 | 4 | P2-UX-01 | 검색 결과·보유 종목의 키보드 선택 | 구현·검증·리뷰 완료 | `ee341d6ca6d6f3463d77fec2469e3ee986063e96` 원격 일치 |
 | 5 | P2-UX-02 | 패널 크기 조절 키보드 대안 | 구현·검증·리뷰 완료 | `44c1ae5fa0e3e7dc675eb9b17132146b824d3422` 원격 일치 |
 | 6 | P2-UX-03 | 좁은 History 거래 상세 | 구현·검증·리뷰 완료 | `9d0a8d290fa6f9f81d33c79dfab68763da902801` 원격 일치 |
-| 7 | P2-UX-04 | Log 로딩·실패·빈/필터0 구분 | 구현·검증·리뷰 완료 | 이번 회차 커밋; 푸시 확인 대기 |
-| 8 | P2-UX-05 | Settings 목차·heading·focus 이동 | 다음 작업 | — |
-| 9 | P2-UX-06 | 차트 텍스트/키보드 자료 대안 | 미착수 | — |
+| 7 | P2-UX-04 | Log 로딩·실패·빈/필터0 구분 | 구현·검증·리뷰 완료 | `8d89417e7b1df76e9b5318cc6a81b7dfd3ac823c` 원격 일치 |
+| 8 | P2-UX-05 | Settings 목차·heading·focus 이동 | 구현·검증·리뷰 완료 | 이번 회차 커밋; 푸시 확인 대기 |
+| 9 | P2-UX-06 | 차트 텍스트/키보드 자료 대안 | 다음 작업 | — |
 
 원래 완료 조건과 제외 항목 본문은 착수 시 보존했고 완료 항목별로 이력에 이관한다. 사용자 기존 변경은 없었으며 이후 발견 시 이번 작업과 분리한다.
 
@@ -145,3 +145,15 @@ Log에서 placeholder와 실제 응답을 구분해 최초 로딩/실패·정상
 
 - 변경 핵심: log/ui/Page.tsx, uiux-log-status.spec.ts, UI 스킬 원본
 - 다음: P2-UX-05
+
+
+### 8회차 — P2-UX-05
+
+Settings에15개 안정된 목차 도착점과 제목/목차 복귀를 제공했다. h1/h2/중첩 복구 h3와 명시 focus·outline을 추가하고 Risk 로딩/실패 때도 제목을 유지했다. 지연된 routeback의 pending 복원이 명시 목차 이동을 덮는 실제 문제는 공통 동기 알림과 AppShell의 같은 route pending만 취소하는 listener로 해소했다. 원래 저장·금융/DB 경계와 자동 복원 함수는 보존했다.
+
+신규6개+기존 DB/예산4·복구11·UI4·resizer5·Strategy3의 고유33개가 통과했다(17.1초). 375dark/1280에서15개 Tab/Enter 도착/복귀·focus·계층/overflow·초안 무저장·Risk500/지연·정상back/reload0와 지연back 반복을 확인했다. 독립 리뷰 요청으로 보강한 같은1case의 부분 재검증도 통과했다(2.5초). test-only scroll anchoring 차단 대조에서 wrong-route는 높이 회복 후 저장top4824 복원, same-route 취소는3929 유지로895px 판별 차이를 확인했다. 앱/config 타입·FSD·보호40항목과 원래6파일/handler/query 및 AppShell 기존 본문 대조를 통과했다. 루트·UI 전문가 최종 독립 리뷰에 필수 P0/P1/P2는 없다.
+
+초회19/5는 바깥 Paper 위치/native heading ARIA 기대 문제, 2차22/3은 목차명 불일치2건과 실제 pending 경합1건이었다. 3차24/1은 pausedclock의 scroll frame 준비 문제로 구분·교정하고 원본을 보존했다. 잘못된 route 검사의 판별력을 보강했으며 전체33과 부분1은 중복 합산하지 않는다. reload0은 기존 메모리 복원 경계이고 영속 복원을 추가하지 않았다. 신규6 navigation 쓰기/외부/unknown/pageerror0, 의도한500 시 console3개와 정상5case console0을 구분한다. 기존 회귀의 저장/복구는 browser mock이다. 실제 계좌/설정·DB·native·스크린리더·최종 전체UI/CI는 별도다.
+
+- 변경 핵심: settings/ui 8파일(신규 settingsNavigation.tsx), shared/lib/pageFocusNavigation.ts·index.ts, AppShell.tsx, 신규 navigation spec 및 기존 DB/복구 spec selector, UI 스킬 원본
+- 다음: P2-UX-06

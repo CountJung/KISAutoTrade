@@ -257,7 +257,7 @@ export function DatabaseManagementSection() {
   }
 
   return (
-    <Section title="데이터베이스 및 데이터 이관">
+    <Section id="settings-database" title="데이터베이스 및 데이터 이관">
       {!isDesktop ? (
         <Alert severity="warning">
           DB password와 테이블 삭제 기능은 보안을 위해 Tauri 데스크톱 앱 Settings에서만 사용할 수 있습니다.

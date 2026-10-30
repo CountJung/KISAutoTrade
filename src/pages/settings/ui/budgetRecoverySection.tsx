@@ -8,6 +8,7 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useApproveBudgetRecovery, useBudgetRecovery } from '../../../api/budgetRecoveryHooks'
+import { SettingsContentsLink, settingsHeadingFocus } from './settingsNavigation'
 import type { RecoveryIdentity } from '../../../api/budgetRecoveryHooks'
 import type { AutoTradingBudgetInput } from '../../../api/types'
 import type { BudgetRecoveryItem } from '../../../shared/api/budgetRecoveryTypes'
@@ -89,7 +90,9 @@ export function BudgetRecoverySection({ scope, identity, running }: {
   const sameScope = scope && recovery.data?.scope.brokerId === scope.brokerId && recovery.data.scope.accountId === scope.brokerAccountId
   return (
     <Stack spacing={2}>
-      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>응답 불명 주문 대조·복구</Typography>
+      <Typography id="settings-recovery" component="h3" variant="subtitle1" tabIndex={-1}
+        sx={{ ...settingsHeadingFocus, fontWeight: 700 }}>응답 불명 주문 대조·복구</Typography>
+      <SettingsContentsLink title="응답 불명 주문 대조·복구" />
       <Typography variant="body2">예약을 자동 해제하거나 주문을 다시 제출하지 않습니다. 운영자가 원래 주문 근거를 대조한 뒤 미체결 처리 경로에 연결합니다. 이 승인만으로 증권사 사실 확인이나 체결 정산이 완료되지는 않습니다.</Typography>
       {!desktop ? <Alert severity="info">불명 주문 복구는 Tauri 데스크톱 앱에서만 사용할 수 있습니다.</Alert> : <>
         {!scope && <Alert severity="info">계좌 프로파일을 먼저 선택하세요.</Alert>}
