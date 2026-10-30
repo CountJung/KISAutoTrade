@@ -148,8 +148,10 @@ export function useTradingOrderModel() {
   const { data: appConfig }                                         = useAppConfig()
   const isTossActive = appConfig?.active_broker_id === 'toss'
   const isKisActive = appConfig?.active_broker_id === 'kis'
-  const { data: balance }                                           = useBalance({ enabled: isKisActive })
-  const { data: overseasBalance }                                   = useOverseasBalance({ enabled: isKisActive })
+  const balanceQuery = useBalance({ enabled: isKisActive })
+  const overseasBalanceQuery = useOverseasBalance({ enabled: isKisActive })
+  const { data: balance } = balanceQuery
+  const { data: overseasBalance } = overseasBalanceQuery
   const { data: brokerHoldings = [],
           isLoading: brokerHoldingsLoading,
           isError: brokerHoldingsError }                            = useBrokerHoldings({ enabled: isTossActive })
@@ -388,7 +390,7 @@ export function useTradingOrderModel() {
   }
 
   return {
-    TOSS_US_SESSION_OPTIONS, appConfig, availableCash, balance,
+    TOSS_US_SESSION_OPTIONS, appConfig, availableCash, balance, balanceQuery,
     brokerHoldings, brokerHoldingsError, brokerHoldingsLoading, clearBuySuspension,
     clearingBuySusp, closeTimerRef, doRefreshList, errorMsg,
     fmt, fmtTossSessionWindow, handleFillMarketPrice, handleSelectBrokerHolding,
@@ -397,7 +399,7 @@ export function useTradingOrderModel() {
     isPending, isRefreshing, isStockListEmpty, isTossActive,
     isTossCalendarError, isTossCalendarLoading, isTossPreflightError, isTossPreflightLoading,
     isTossSafetyError, isTossSafetyLoading, krCurrentPrice, market,
-    normalizedUsSymbol, orderType, overseasBalance, overseasOrderExchange,
+    normalizedUsSymbol, orderType, overseasBalance, overseasBalanceQuery, overseasOrderExchange,
     price, quantity, result, searchQuery,
     searchResults, selectedTossSessionOpen, selectedTossSessionWindow, setErrorMsg,
     setInputValue, setMarket, setOrderType, setPrice,

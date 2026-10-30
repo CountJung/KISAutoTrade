@@ -80,7 +80,7 @@ npm run test:database-tls-contract
 
 ## 5. Playwright
 
-설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 기존 Vite dev `127.0.0.1:1430`에서 전체 349개를 실행한다. CI는 먼저 `npm run build:web`를 수행하고 두 서버·프로젝트를 사용한다. UI 317개는 `chromium`의 production preview `127.0.0.1:1431`, 소스 모듈 가로채기를 요구하는 `balance-events.spec.ts`, `toss-commission-ratio.spec.ts`, `strategy-deviation-policy.spec.ts`의 32개는 `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 검사한다. 전체 27파일·349개를 중복·누락 없이 유지한다.
+설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 Vite dev `127.0.0.1:1430`을 사용한다. 직전 2026-10-29 기준은349개였으며 이후 UI/UX 추가 spec도 같은 production 프로젝트에 포함된다. 추가 집중 검증·최종 전체 실행 수는 [UI/UX 회차 기록](tasks/uiux-improvements-20261030.md)에 실제 결과로 남긴다. CI는 먼저 `npm run build:web`를 수행하고 두 서버·프로젝트를 사용한다. 기존 UI317개와 새 UI/UX spec은 `chromium`의 production preview `127.0.0.1:1431`, 소스 모듈 가로채기를 요구하는 `balance-events.spec.ts`, `toss-commission-ratio.spec.ts`, `strategy-deviation-policy.spec.ts`의 32개는 `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 검사한다. 기존27파일·349개의 검사 범위와 새 회귀를 중복·누락 없이 유지한다.
 
 spec은 mock transport를 사용하며 실제 Tauri IPC·provider 주문 검증과 구분한다. 테스트 30초·assertion 5초 제한은 유지한다. CI는 list와 HTML reporter를 함께 생성하고 실패 trace·screenshot을 보존한다.
 
@@ -131,7 +131,7 @@ npm run build:app
 
 - frontend: npm ci, lockfiles, 앱 및 Vite config TypeScript, 합성 WebView bootstrap VM, FSD, project map, todo freshness
 - rust: Cargo metadata/check/lib test with lock
-- e2e: Chromium 설치, todo renderer 테스트, `npm run build:web`, UI production 317개와 source dev 32개의 Playwright 검사. 실패하면 `playwright-report/`와 `test-results/`를 artifact로 7일 보관한다.
+- e2e: Chromium 설치, todo renderer 테스트, `npm run build:web`, 기존 UI production317개와 추가 UI/UX spec, source dev32개의 Playwright 검사. 실패하면 `playwright-report/`와 `test-results/`를 artifact로 7일 보관한다.
 - toss-openapi: Toss spec 검증
 
 로컬 완료 보고에는 CI가 나중에 수행할 것이라고만 쓰지 말고, 변경 범위의 최소 게이트를 직접 실행한 결과를 남긴다.

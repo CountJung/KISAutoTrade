@@ -30,6 +30,7 @@ import { OverseasStockChart, StockChart } from '../../../widgets/stock-chart'
 import {
   HoldingsTable,
   KrStockInfoCard,
+  KisHoldingsSection,
   OverseasHoldingsTable,
   UsStockInfoCard,
 } from './kisPanels'
@@ -40,12 +41,12 @@ import { useTradingOrderModel } from './useTradingOrderModel'
 export default function Trading() {
   const model = useTradingOrderModel()
   const {
-    appConfig, balance, brokerHoldings, brokerHoldingsError,
+    appConfig, balance, balanceQuery, brokerHoldings, brokerHoldingsError,
     brokerHoldingsLoading, closeTimerRef, doRefreshList, fmt,
     handleSelectBrokerHolding, handleSelectHolding, handleSelectOverseasHolding, handleUsSearch,
     inputValue, isFetchingSearch, isRefreshing, isStockListEmpty,
     isTossActive, isTossCalendarError, isTossCalendarLoading, isTossSafetyError,
-    isTossSafetyLoading, market, overseasBalance, searchQuery,
+    isTossSafetyLoading, market, overseasBalance, overseasBalanceQuery, searchQuery,
     searchResults, setErrorMsg, setInputValue, setMarket,
     setResult, setSearchQuery, setShowResults, setSymbol,
     showResults, stockName, symbol, tossCalendar,
@@ -153,17 +154,36 @@ export default function Trading() {
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, display: 'block'  }}>
               🇰🇷 국내
             </Typography>
-            <HoldingsTable items={balance?.items ?? []} onSelect={handleSelectHolding} />
+            <KisHoldingsSection
+              label="국내 잔고"
+              hasData={balance !== undefined}
+              isError={balanceQuery.isError}
+              isFetching={balanceQuery.isFetching}
+              dataUpdatedAt={balanceQuery.dataUpdatedAt}
+              onRetry={() => { void balanceQuery.refetch() }}
+              testId="kis-domestic-holdings"
+            >
+              {balance && <HoldingsTable items={balance.items} onSelect={handleSelectHolding} />}
+            </KisHoldingsSection>
 
             {/* 해외 보유 */}
             <Box sx={{ mt: 2 }}>
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, display: 'block'  }}>
                 🇺🇸 해외 — 클릭하면 US 매도 폼 자동 완성
               </Typography>
-              <OverseasHoldingsTable
-                items={overseasBalance?.items ?? []}
-                onSelect={handleSelectOverseasHolding}
-              />
+              <KisHoldingsSection
+                label="해외 잔고"
+                hasData={overseasBalance !== undefined}
+                isError={overseasBalanceQuery.isError}
+                isFetching={overseasBalanceQuery.isFetching}
+                dataUpdatedAt={overseasBalanceQuery.dataUpdatedAt}
+                onRetry={() => { void overseasBalanceQuery.refetch() }}
+                testId="kis-overseas-holdings"
+              >
+                {overseasBalance && (
+                  <OverseasHoldingsTable items={overseasBalance.items} onSelect={handleSelectOverseasHolding} />
+                )}
+              </KisHoldingsSection>
             </Box>
           </>
         )}

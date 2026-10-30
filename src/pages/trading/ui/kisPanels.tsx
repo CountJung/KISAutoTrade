@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
@@ -13,9 +14,45 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import { useOverseasPrice, usePrice } from '../../../api/hooks'
 import type { BalanceItem, OverseasBalanceItem, OverseasExchange } from '../../../api/types'
 import { fmtNumber } from '../../../shared/lib'
+import { QueryStatusSummary } from '../../../shared/ui'
 
 function fmt(n: number) {
   return fmtNumber(n)
+}
+
+interface KisHoldingsSectionProps {
+  label: string
+  hasData: boolean
+  isError: boolean
+  isFetching: boolean
+  dataUpdatedAt: number
+  onRetry: () => void
+  testId: string
+  children: ReactNode
+}
+
+export function KisHoldingsSection({
+  label, hasData, isError, isFetching, dataUpdatedAt, onRetry, testId, children,
+}: KisHoldingsSectionProps) {
+  return (
+    <Box data-testid={testId}>
+      <QueryStatusSummary
+        label={label}
+        statusText={hasData ? `${label} 조회 완료` : undefined}
+        isError={isError}
+        isFetching={isFetching}
+        dataUpdatedAt={dataUpdatedAt}
+        onRetry={onRetry}
+        testId={`${testId}-status`}
+      />
+      {hasData && isError && (
+        <Typography variant="caption" color="warning.main" sx={{ display: 'block', mb: 0.5 }}>
+          이전 자료: 마지막 정상 조회의 보유 수량·가격입니다.
+        </Typography>
+      )}
+      {hasData && children}
+    </Box>
+  )
 }
 
 interface HoldingsTableProps {

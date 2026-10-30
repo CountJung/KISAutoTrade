@@ -800,13 +800,13 @@
     "semantic_hash": "e1e05929b9d6e9a67816e0b8739875f0"
   },
   "src/pages/trading/ui/Page.tsx": {
-    "mtime": 1793264135.4012134,
-    "ast_hash": "26c0d56481c8ca65050168a051f4bb62",
+    "mtime": 1793339017.6513124,
+    "ast_hash": "d44c7f9cdbf2948073e5cbee0801cd26",
     "semantic_hash": ""
   },
   "src/pages/trading/ui/kisPanels.tsx": {
-    "mtime": 1793264135.4022171,
-    "ast_hash": "02a037e5f84847eeaf675cbc417356de",
+    "mtime": 1793339017.650928,
+    "ast_hash": "4b13fb71c8b05d45fb8acdbcc8b5683c",
     "semantic_hash": ""
   },
   "src/pages/trading/ui/tossPanels.tsx": {
@@ -2555,8 +2555,8 @@
     "semantic_hash": ""
   },
   "src/pages/trading/ui/useTradingOrderModel.ts": {
-    "mtime": 1793257267.702365,
-    "ast_hash": "485bbefa52b361046aa10064984c8b32",
+    "mtime": 1793339017.6504896,
+    "ast_hash": "0f522f884326a6b0df016dbb88ae0bc5",
     "semantic_hash": ""
   },
   "tests/e2e/trading-form-contract.spec.ts": {
@@ -2717,6 +2717,11 @@
   "tests/e2e/uiux-status.spec.ts": {
     "mtime": 1793338407.427696,
     "ast_hash": "8f5a84b57a3e9c2ce4d169885cfedbeb",
+    "semantic_hash": ""
+  },
+  "tests/e2e/uiux-holdings.spec.ts": {
+    "mtime": 1793339429.9988196,
+    "ast_hash": "579d8b8576bb605e6e178f79483a53bf",
     "semantic_hash": ""
   }
 }
