@@ -485,6 +485,14 @@ useEffect(() => {
 - 입력과 결과 팝업을 하나의 focus 영역으로 보고 relatedTarget이 영역 안일 때 blur 닫힘을 예약하지 않는다. 영역 밖 이동은 기존180ms 닫힘을 유지한다. Escape/검색 선택 뒤 원래 입력으로 focus를 돌리되 내부 이동의 onFocus가 목록을 다시 열지 않게 한다.
 - 선택의 실제 종목·시장·주문/전략 상태 closure는 원래 도메인에 두고 공통화하지 않는다. 입력·table/row role·포인터 클릭을 함께 회귀 검사하며 금융 제출과 종목 선택을 섞지 않는다. [구현·검증 기록](../../../docs/tasks/uiux-improvements-20261030.md).
 
+
+### 키보드 조회·조합·처리 중 상태의 검토 기준
+
+- 검색 입력 Enter는 해당 읽기 조회 버튼과 같은 유효성·pending 조건으로 다룬다. 이미 지원되는 Enter/Tab/Space/Escape와 직접 코드 선택은 보존하고, 조합 중 Enter/isComposing·229·키 반복·늦은 응답·scope 전환을 별도로 검사한다.
+- 수치 컨트롤은 보이는 이름·단위를 실제 입력/Slider의 접근 가능 이름·설명과 연결하고 기존 범위·step·Tab blur 저장 의미를 유지한다. 목록 내부 포커스·닫기/복귀·Dialog pending/Escape/중복 활성화·오류 재시도도 대조한다.
+- 조회 Enter를 주문·자동매매 시작·삭제·위험 해제의 전역/자동 제출로 확대하지 않는다. 기존 동의/preflight·확인·pending/scope guard와 긴급정지 즉시성을 보존한다.
+- 현재 지원과 미착수 개선은 [TODO](../../../docs/todo.md), 실제/합성/소스 근거와 미검증 경계는 [키보드 검토 이력](../../../docs/completed-history.md#kbd-audit-20261031)을 따른다. 합성 composition 이벤트를 실제 OS IME·AT/WebView 검증으로 주장하지 않는다.
+
 ### 반응형 거래 표의 상세 대안
 
 - 좁은 폭에서 숨긴 시각·금액·비용은 거래별 이름이 있는 native Button과 페이지 내부 Dialog로 다시 읽을 수 있게 한다. History의 기존 formatter 결과를 전달하고 통화·USD fallback·슬리피지·trace 산식을 다시 구현하지 않는다. 같은 종목 복수 체결은 ID와 전체 기록 시각으로 구분한다.

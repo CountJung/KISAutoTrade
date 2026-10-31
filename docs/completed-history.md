@@ -10,6 +10,36 @@
 - 부분 완료 항목은 아래 별도 절에 보관하고, 원래 열린 상위 ID는 현재 TODO에 유지한다.
 - 원문 줄 번호는 위 고정 커밋 기준이다. 기존 ID가 없는 열린 항목에는 이번에 추적 ID만 부여했다.
 
+<a id="kbd-audit-20261031"></a>
+## 2026-10-31 키보드 UX 후속 검토 — 검토 완료·구현 대기
+
+- **대상/권한:** `74c303a901040d2922b2c41ea58cbd8c798d2c3d`, `fix/mac-security-storage-2026-10-06`, 시작 clean. UI/UX 전문가 읽기 감사와 루트의 mock/offline 관측이다. 기능/추적 UI 테스트·역할 설정은 수정하지 않았다. 별도 토스 파싱 수정과 이 검토의 범위를 구분한다.
+- **정본:** 신규 개선과 완료 기준은 [TODO의 P2-KBD-01~05](todo.md#1-바로-진행할-코드개선-작업)에만 둔다. 이 절은 관측·현재 지원·한계의 정본이다. 기존 [UI9개 완료](tasks/uiux-improvements-20261030.md)는 다시 열지 않는다.
+- **실행 환경:** 2026-10-31 약07:22~07:27 UTC, fresh Chromium context·1280×720·캡처상 light, production web build·envDir:false·비민감 환경 allowlist. `mockUx`의 합성 KIS 모의 프로필/종목/가격과 정확한 loopback GET만 사용하고 외부/WS·API 변이를 차단했다. 운영 앱·설정·DB·실계좌·자격증명은 접근하지 않았다.
+
+| 화면·컨트롤 | 현재 지원 및 이번 근거 등급 | 후속 |
+|---|---|---|
+| Trading 국내 입력/검색/직접코드 | 새 관측: 이름입력Enter 전후600ms창 GET0→0, 검색버튼 GET1/결과 정상,6자리 직접코드 선택 정상. `src/pages/trading/ui/Page.tsx:235-297`에는 Escape/버튼과 직접선택이 있고 입력 Enter는 없다. | P2-KBD-01 |
+| Trading/Strategy 미국 ticker·검색 | 새 관측: 일반Enter는 이미 정상 선택. Trading의선택후GET2는 검색+정상price hook이며 중복의근거로쓰지 않는다. 합성 composing Enter는 각각GET+1; 응답보류중Enter3회는각GET3. `src/pages/trading/ui/useTradingOrderModel.ts:235-265`, `src/pages/strategy/ui/Page.tsx:242-283,638-653`. | P2-KBD-01·02 |
+| 상단 국내 결과·보유 행 | 소스/기존검사: RowSelectionButton의 명명 native버튼·focus outline,Tab/Enter·Escape·내부blur유지/입력복귀를 이미 지원한다. 기존 `uiux-keyboard-selection.spec.ts` 정의 대조이며 이번 재실행은 아니다. | 기존 P2-UX-01 완료 유지; 방향키는 추가 편의 |
+| LTH 별도 ETF 결과 | 새 관측: 기본US에서KR로전환한 결과의 focus 자식0/row tabIndex없음,Tab→검색버튼/250ms뒤닫힘,Escape후목록남음. `src/pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx:67-71,100-131`. | P2-KBD-03 |
+| Settings 목차·Select | 소스/기존검사:15개목차Link·heading focus/복귀,Select방향키·Escape와명시/필드별저장. `uiux-settings-navigation.spec.ts`, `ui-dependency-contract.spec.ts`의정의대조. | P2-UX-05 완료 유지; Enter 일괄저장 아님 |
+| Settings 숫자·Slider | 새 읽기 관측: 갱신/로그/보관/리스크의11쌍·22개컨트롤 ARIA이름빈값,aria-label/labelledby없음. 값/focus/blur/저장조작0. `src/pages/settings/ui/Page.tsx:114-147`의 Enter→blur와조합검사누락은소스근거. | P2-KBD-04 |
+| Settings 프로필 팝업 | 소스/기존검사:평상시Tab trap/Escape/trigger복귀는지원. 추가/편집pending 취소disabled와onClose불일치,삭제pending/error미노출은소스확인만했다. `src/pages/settings/ui/profileDialogs.tsx:267-272,449-452,604-613,793-796`, `src/pages/settings/ui/accountProfiles.tsx:349,356-360,509-525`. | P2-KBD-05 |
+| DB·예산·복구 팝업 | 소스/기존검사:desktop·dirty·busy·자동매매중잠금과 DB확인문구/checkbox·복구명시승인을보존한다. DB Dialog는busy중onClose guard가있다. 실제관리·저장/삭제동작미실행. | 현재안전계약보존 |
+| History 날짜·조회·거래 상세 | 소스/기존검사:날짜draft와명시조회분리,명명상세Button/Dialog·Tab/Escape/닫기/focus복귀·대상소실선택정리. 날짜입력Enter즉시조회가없다는사실을결함으로세지않는다. | P1-UX-03·P2-UX-03 완료 유지 |
+| Dashboard/Sidebar 실행·재조회·페이지 | 소스/기존검사:native Button·pending disabled·조회상태·페이지경계가존재한다. 시작/위험해제확인수준은기존판단이며 입력Enter/전역단축키로확대하지않는다. | P2-UX-07 판단 유지 |
+| Log 검색·필터·retry·패널 | 소스/기존검사:onChange필터·명명버튼·오류/이전자료·키보드retry,리사이저Arrow/Home/End/Enter기본값·저장. 5초poll/live·scroll/follow계약보존. | P2-UX-02·04 완료 유지 |
+| 차트·공통 탭·메뉴·주문폼 | 소스/기존검사:차트최근봉native details/표의Arrow/Home/End·가로스크롤,명명toggle, MUI탭/메뉴와명시주문Button이있다. 주문입력에전역Enter/자동form submit을추가하지않는다. 모든탭·팝업·모바일Drawer의실제IME/AT/WebView를전수실행한것은아니다. | 기존 P2-UX-06·금융guard 보존 |
+
+### 실제 실행과 원본 보존
+
+- 최초 임시진단6개는 **5개 관측 통과·1개 준비 실패(9.2초,session32193 exit1)**다. LTH카드는존재했지만기본US를KR로가정해국내입력을못찾은fixture/selector준비오류다. 기능실패로집계하지않고 원본을보존했다.
+- 국내전환을명시한 동일LTH1개와새Settings1개의 **후속2개 관측 통과(3.5초,session87640 exit0)**를확인했다. 결과는총7개고유관측이완료됐다는뜻이며 단일7/7실행이나7개UX기능정상판정으로합치지않는다. 모든완료관측의 쓰기/외부/unknown/pageerror는0이었다.
+- 합성IME이벤트는 `isTrusted=false,isComposing=true,keyCode=229`였다. 가짜clock의600ms는기존debounce를포함하는관측창이며 GET0이영구적인미발생을증명하지않는다. 정상미국Enter·버튼·직접코드대조와보류중요청을분리했다.
+- 원본: `.cache/keyboard-audit-20261031/first-run-32193/`의로그·JSON·PNG·ARIA·trace·당시spec/config/runner, `followup-evidence/`·`followup-test-results/`·`followup-run.log`. 새관측은Git제외cache의임시spec이며 구현회귀정본테스트가추가/완료된것은아니다. UI전문가소스감사보고는 `/tmp/kis-keyboard-ux-audit-expert-20261031.md`다.
+- native/실제macOS한글IME·VoiceOver/스크린리더·터치·운영프로필/계좌·실제주문은미실행이다. 이전10/30의408UI/887Rust·CI결과를이번검토의재실행으로주장하지않는다. 새키보드과제5개는미착수이며 기존선행결정/사용자판단/실자료11개를보존한다.
+
 ## 2026-10-29 즉시 작업 완료
 
 <a id="p1-recovery-01"></a>

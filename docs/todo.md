@@ -1,6 +1,6 @@
 # KISAutoTrade — 남은 할일
 
-> 갱신: 2026-10-30 · 현재 구현 근거는 [UI/UX 회차](tasks/uiux-improvements-20261030.md), [기존 즉시 작업 회차](tasks/immediate-backlog-20261029.md)와 완료 이력을 따른다.
+> 갱신: 2026-10-31 · 현재 구현 근거는 [UI/UX 회차](tasks/uiux-improvements-20261030.md), [기존 즉시 작업 회차](tasks/immediate-backlog-20261029.md)와 완료 이력을 따른다.
 > 우선순위는 P1 정확성/신뢰성 → P2 사용 흐름·전략 연구 → P3 유지보수다. 로컬 구현 완료와 실제 provider·실자료 검증 완료를 구분한다.
 
 ## 대분류별 진행 현황
@@ -11,11 +11,11 @@
 | 전략 연구·해석 | 가격조건 계약·구간 진단·별도 회고 walk-forward 완료; 장중 효능 대기 | 2개: SOXQ-P2-13·09 | 가격조건/변동성 실제 장중 근거 | 장중 자료 2 |
 | LTH 실제 장중 평가 | 일봉 평가불가·분봉 시각 진단 구현 완료; 실제 기간 평가 대기 | 2개: SOXQ-P1-05, SOXQ-P2-12 | 실제 3개월 원본/coverage·DST 검증 후 옵션 비교 | 같은 원본 자료 공유·검증 2 |
 | DB 지원·호환 전환 | PostgreSQL 로컬 TLS 기록 존재; MariaDB/MSRV 정책 미확정 | 3개: P1-DB-01, DEP-P3-01·02 | 지원 matrix·최소 Rust 결정 후 SQLx/DB/RSA 검증 | 정책 결정 2; SQLx 착수 의존 |
-| UI/UX 사용 흐름 | 즉시 9/9개·전체 UI408개·테스트/보안 CI 완료 | 1개: P2-UX-07 | 남은 즉시 0개; 완료 근거는 회차/이력 | 위험 행동 확인 정책 결정 1 |
+| UI/UX 사용 흐름 | 10/30 즉시9개 완료; 10/31 키보드 검토·합성7개 관측 완료 | 6개: P2-KBD-01~05, P2-UX-07 | Enter/IME·조회경합·LTH목록·수치이름·팝업 처리중 동작 5개 미착수 | 위험 행동 확인 정책 결정 1 |
 | 구조·의존성 유지보수 | 모듈·HTTP/WS·서버·UI·빌드·도구 전환과 후보별 유지 평가·CI 완료 | 0개 | 즉시 구역 완료; 근거는 완료 이력 | Xcode 보류 유지 |
 | 릴리스 서명 | checksum/attestation·기본 게이트 완료; 실제 서명 미완료 | 1개: P3-SIGN-01 | 플랫폼·키 관리 결정과 서명 검증 | 사용자 결정·관리자 준비 1 |
 
-**미완료 11개 = 즉시 코드·개선 0개 + 선행결정 후 자동 구현 1개 + 사용자 판단 5개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현은 합계 1개이며 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
+**미완료 16개 = 즉시 코드·개선 5개 + 선행결정 후 자동 구현 1개 + 사용자 판단 5개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현은 합계 6개이며 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
 
 [완료·경과 이력](completed-history.md) · [색상·필터 보기](todo.html) · [운영 계획](MASTER_PLAN.html) · [검증 지도](HARNESS_MAP.md)
 
@@ -37,7 +37,46 @@
 
 즉시 개선9개는 항목별 구현·격리 검증·독립 리뷰를 마쳐 [완료 이력](completed-history.md)으로 옮겼다. 실행 상태·잔고·History 조회, 종목/패널 키보드 조작, 거래 상세, Log, Settings 목차, 차트 자료 대안의 완료 범위와 회차별 커밋은 [UI/UX 회차 기록](tasks/uiux-improvements-20261030.md)을 따른다. 전체 UI408개와 테스트/보안 CI 결과·게시 근거는 같은 기록에서 확인한다.
 
-현재 이 구역에 새로 착수할 코드 항목은 없다. 위험 행동 확인 정책 P2-UX-07과 기존 선행 결정·사용자 판단·실자료 조건11개는 아래2~4구역에 유지한다. 실제 원장·시장 자료·native/스크린리더 검증은 이번 격리 UI 완료로 대신하지 않는다. [전문가 사용법](agent-tooling.md#uiux-전문가-사용)과 [최초 검토 근거](completed-history.md#uiux-20261030)는 보존한다.
+위 9개 완료와 아래 10/31 키보드 검토의 신규5개 미착수 과제를 구분한다. 위험 행동 확인 정책 P2-UX-07과 기존 선행 결정·사용자 판단·실자료 조건11개는 아래2~4구역에 유지한다. 실제 원장·시장 자료·native/스크린리더 검증은 이번 격리 UI 완료로 대신하지 않는다. [전문가 사용법](agent-tooling.md#uiux-전문가-사용)과 [최초 검토 근거](completed-history.md#uiux-20261030)는 보존한다.
+
+### 2026-10-31 키보드 편의성 — 신규5개, 구현 미착수
+
+이번 요청은 검토와 할 일 반영이며 아래 기능 구현은 승인·실행하지 않았다. 소스/실제 mock 관측/미검증의 상세 구분은 [키보드 검토 이력](completed-history.md#kbd-audit-20261031)을 따른다. 기존 UI9개 완료를 다시 열지 않고 새 경로와 trigger만 다룬다.
+
+- [ ] **🟢 자동 구현** **P2-KBD-01 — 종목·티커 조회의 Enter·IME·버튼 이름을 일관되게 한다.**
+  - **근거/대상:** 기준74c303a의 src/pages/trading/ui/Page.tsx:243-297 국내 입력은 검색 버튼을 제공하지만 입력 Enter handler는 없고, 미국:403-432는 이미 Enter 조회를 지원한다. src/pages/strategy/ui/Page.tsx:638 및 src/pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx:70-71도 미국 Enter가 있다. 해당 handler에서 isComposing/keyCode229 검사를 찾지 못했으며 Trading 미국 검색 IconButton:420-426은 명시 이름이 없다. 실제 한글 IME/AT 실패로 단정하지 않는다.
+  - **실제 관측/한계:** 새 mock 관측에서 Trading 국내 이름 입력 후600ms창의 Enter 전/후 검색GET0→0, 버튼은GET1·결과표시,6자리 직접선택은 정상이다. Trading/Strategy 미국 일반Enter는 정상 선택했으며, isComposing=true/keyCode229/isTrusted=false 합성Enter는 각 논리조회GET+1을 만들었다. 실제 OS IME 재현과는 구분한다.
+  - **영향/우선순위:** P2, 우선순위1. 키보드 입력 뒤 조회를 이어가기 어렵거나 조합 확정 Enter가 의도치 않은 조회로 해석될 가능성을 줄인다. 기존 미국 Enter 지원은 보존한다.
+  - **기대 동작/의존성:** 각 검색 입력의 Enter를 같은 읽기 조회 버튼의 유효성 경로에 연결하고 조합 중 Enter/229는 무시한다. 국내6자리 직접입력의 기존 즉시선택을 보존해 추가 중복조회하지 않으며 검색 버튼에 정확한 접근 가능 이름·pending 설명을 제공한다. 주문/추가/저장 제출로 이벤트가 전파되지 않게 한다.
+  - **완료/키보드 회귀:** Trading/Strategy/LTH의 KR·US와 KIS·Toss를 합성으로 대조한다. 일반 Enter와 버튼은 같은 검색조건/선택, 빈칸·각 컨트롤의 기존 유효성 조건을 충족하지 못한 입력·조합Enter/229는 조회0(유효한1글자US티커는허용), 조합종료 후 일반Enter는 정상1회다. 6자리 직접선택·기존 Tab/Space/Escape를 유지하고 모든 조회 키에서 금융/설정 변이0, 외부0을 확인한다. 실제 macOS 한글 IME·WebView·AT는 별도 실측으로 구분한다.
+
+- [ ] **🟢 자동 구현** **P2-KBD-02 — 조회 중 반복 Enter와 늦은 티커 응답을 현재 입력·scope에 한정한다.**
+  - **근거/대상:** src/pages/trading/ui/useTradingOrderModel.ts:235-265와 src/pages/strategy/ui/Page.tsx:242-283의 미국 검색은 비동기 조회 전후 상태를 바꾸지만 handler 자체 pending/요청세대 검사가 없다. Strategy 버튼의 usSearching disabled와 입력 Enter 경로가 다르다. LTH 모델 src/pages/strategy/ui/useLeveragedTrendHoldEditorModel.ts:215-262의 handlePickerUsSearch도 별도로 대조한다. 중복 GET와 이전 응답 적용 가능성은 읽기 조회 문제이며 실제 주문 중복이나 계좌 경계 침범을 입증한 것이 아니다.
+  - **실제 관측/한계:** 두 미국 입력에서 응답을 모두 보류한 상태의 Enter3회는 각GET3개를 만들었다. 선택 뒤 정상query hook의추가GET와 구분해 보류중 조회만 센 관측이다. 이전 입력/scope 응답 경합은 아직 소스 기반 후보다.
+  - **영향/우선순위:** P2, 우선순위2. Enter 반복으로 조회가 겹치거나 이전 티커·시장 결과가 늦게 선택에 적용되는 혼란을 막는다.
+  - **기대 동작/의존성:** 버튼·Enter에 동기 단일 진행 guard를 적용하고 입력/시장/broker·profile scope/새 요청/화면 이탈 뒤 이전 결과의 적용을 무효화한다. 조회 중 spinner가 버튼을 교체해 포커스를 잃지 않도록 명명된 컨트롤을 유지한다. NAS→NYS→AMS 탐색·Toss 전용 경로·기존 fallback 및 API/캐시 주기는 바꾸지 않는다.
+  - **완료/키보드 회귀:** 지연된 합성 응답에서 Enter×3·키 repeat·버튼 혼합으로 원래 논리 조회1회만 실행한다(거래소 fallback 내부 단계는 원래대로). A→B·시장/broker/profile 변경·unmount 후 A 응답이 현재 선택/오류를 덮지 않고 현재 실패 후 재시도1회가 가능해야 한다. GET 수·focus·loading/오류/disabled·금융 변이0을 함께 검증한다.
+
+- [ ] **🟢 자동 구현** **P2-KBD-03 — LTH 내부 ETF 결과를 키보드로 선택하고 목록 탐색을 보강한다.**
+  - **근거/대상:** src/pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx:67-71,100-131의 국내 결과는 onClick TableRow와 입력 blur180ms를 사용하며 명명된 native 선택 버튼/내부 focus 유지/Escape 경로가 없다. 완료된 P2-UX-01의 상단 검색·보유 행과 다른 하위 picker다. 상단 결과는 이미 Tab/Enter·Escape/focus 복귀를 지원하며 방향키 경로 추가는 편의 개선이지 현재 선택 불가라는 결함은 아니다.
+  - **실제 관측/한계:** 국내로 명시 전환한 LTH 결과에서 focus 가능한 결과 자식0·row tabIndex 없음, 첫Tab은 검색버튼으로 이동하고250ms뒤 목록이 닫혔다. 입력에서Escape를 눌러도 목록은 남았다. LTH 기본시장은US이며 국내가 기본이라는 최초 준비 오류는 교정하고 원본을 보존했다.
+  - **영향/우선순위:** P2, 우선순위3. 레버리지 ETF 대상 선택의 포인터 의존을 없애고 긴 결과 목록의 이동 부담을 줄인다.
+  - **기대 동작/의존성:** 원래 선택 closure·stratEnabled 잠금·query/추가·저장 정책을 유지하면서 LTH 결과에 이름·focus 표시가 있는 native 선택을 제공한다. 내부 Tab/Shift+Tab 동안 목록을 유지하고 Escape/선택 후 입력으로 복귀한다. 상단/별도 결과에 ArrowUp/Down·Home/End를 도입할 때는 실제 선택 패턴과 ARIA를 맞추고 기존 Tab 경로를 보존한다.
+  - **완료/키보드 회귀:** KR 두 결과에서 Tab/Shift+Tab·Enter/Space 정확1선택,250ms 내부blur 후 유지,Escape 닫힘/입력focus/재개방0·외부blur 닫힘·원래 포인터 선택을 검사한다. 방향키 경계/Home/End·빈/오류/로딩·긴 목록·narrow/light/dark를 대조하고 활성전략 조작0·자동 대상추가/전략저장0을 확인한다.
+
+- [ ] **🟢 자동 구현** **P2-KBD-04 — 설정 수치 입력과 슬라이더의 이름·단위·Enter commit을 연결한다.**
+  - **근거/대상:** src/pages/settings/ui/Page.tsx:114-147의 SliderWithInput은 label을 인접 Typography에 표시하나 Slider/TextField에 label·aria-label·aria-labelledby를 연결하지 않고, 조합 검사 없이 Enter→blur→범위보정/onChangeCommitted를 호출한다. 리스크·갱신·로그·보관의 helper 사용처가 대상이다. 실제 DOM 이름·IME·스크린리더 결과는 별도 관측 전까지 소스 기반으로 구분한다.
+  - **실제 관측/한계:** 갱신·로그·보관·리스크4구역의11쌍(슬라이더11·입력11)은 현재 ARIA snapshot에서 이름이 비었고 aria-label/aria-labelledby도없었다. 값·focus·blur·저장은 조작하지 않았다. 실제 IME commit·AT발화는 미실행이다.
+  - **영향/우선순위:** P2, 우선순위4. 여러 수치 컨트롤을 키보드/AT에서 구분하고 조합 확정이 즉시 commit으로 이어질 가능성을 줄인다.
+  - **기대 동작/의존성:** 안정된 ID로 보이는 label·unit를 해당 Slider와 입력의 접근 가능 이름/설명에 연결한다. 일반 Enter의 기존 blur·clamp·step·commit과 Tab blur 저장 방식을 유지하며 조합 중 Enter만 commit하지 않는다. 금융 한도·기본값·저장 방식과 disabled 정책은 바꾸지 않는다.
+  - **완료/키보드 회귀:** 각 Slider/textbox를 정확한 역할+이름으로 찾아 Tab 순서·focus·단위/범위와 native 방향키/Home/End를 확인한다. 일반Enter commit1·조합Enter/229 commit0·후속일반Enter1,Tab blur 기존 보정/요청 동일·실패 복구·disabled를 mock 저장만으로 검증한다.
+
+- [ ] **🟢 자동 구현** **P2-KBD-05 — 프로필 팝업의 pending·Escape·중복 활성화·오류 복구를 일치시킨다.**
+  - **근거/대상:** src/pages/settings/ui/profileDialogs.tsx:267-272,449-452 및604-613,793-796은 추가/편집 pending중 취소 버튼을 막지만 Dialog onClose는 같은 guard가 없다. src/pages/settings/ui/accountProfiles.tsx:349,356-360,509-525는 삭제 mutate만 사용하고 pending/error UI를 읽지 않는다. src/api/accountHooks.ts:237-249의 공유 mutation scope 직렬화는 존재하므로 backend 중복삭제 성공으로 오판하지 않는다. 평상시 Dialog Tab trap/Escape/trigger 복귀는 기존 지원이다.
+  - **실제 관측/한계:** 이번 실행 관측에는 포함하지 않았다. pending/Escape/오류/반복 호출의 현재 소스와 기존 평상시 Dialog 검사만 대조한 후속 과제다.
+  - **영향/우선순위:** P2, 우선순위5. 저장 중 키보드 닫기·재개방과 늦은 callback의 초안 간섭, 삭제 버튼 반복 활성화·실패 후 무응답 혼란을 줄인다.
+  - **기대 동작/의존성:** 현재 추가/편집 버튼의 pending 취소 금지 의미를 Escape/backdrop에도 일치시키고 이전 dialog 세션의 callback이 새 draft를 닫지 못하게 한다. 삭제는 동기 중복 guard·명명 pending/오류·명시 재시도·안전한 focus 복귀를 보강한다. 기존 삭제 확인/활성프로필 경고·계좌 scope 직렬화는 유지한다. 닫힘을 허용하는 새 제품 정책으로 바꾸려면 별도 판단을 거친다.
+  - **완료/키보드 회귀:** 지연 mock에서 focused 버튼 Enter/Space 반복→요청 정확1,추가/편집 pending의 Cancel/Escape/backdrop 일관성·draft 유지,실패 후 재시도1·재개방 뒤 이전 callback 격리를 검사한다. 삭제 실패에는 대상/오류가 남고 성공에는 유효 trigger 또는 안전한 대안으로 focus가 복귀해야 한다. 입력의 단순Enter/전역키로 자동저장·삭제하지 않으며 실제 프로필/계좌 변경0이다.
 
 ## 2. 선행 결정 후 진행할 코드 작업
 
@@ -88,6 +127,8 @@
   - 개선 방향: 결정 전에는 현행 진입점·현재 확인/guard 존재 여부와 영향 표를 작성한다. 결정 뒤 presentation flow만 좁게 설계하고 backend 중복요청/멱등·권한 규칙을 유지한다. P1-UX-01의 상태 미확인 표시와 연결하되 동작 정책은 별도.
   - 완료/검증: 사용자 승인한 action matrix가 정본에 남고 mock에서 취소=mutation0·승인=정확1·pending중중복0·scope/모드 변경 시 기존 확인 무효화를 확인한다. 긴급 정지는 추가 확인 때문에 지연되지 않는다. 실제 주문/실전 시작/해제는 실행하지 않으며 실제 provider 검증을 대신 완료하지 않는다.
 
+
+  - **키보드 안전 기준 보강(2026-10-31, 판단 대기 유지):** 조회 입력의 Enter와 위험 행동의 명시 버튼 활성화를 구분한다. 주문·실전 시작·삭제·위험 해제를 입력의 단순Enter나 전역 단축키로 실행하지 않으며, 의도적으로 focus한 버튼의 Enter/Space에도 기존 동의·preflight·확인·pending·scope guard가 동일하게 적용되어야 한다. Enter key repeat/두 번 활성화·IME확정·Escape 취소/닫기·scope변경을 action matrix에 추가한다. 취소=변이0·최종승인=정확1·pending중중복0을 mock으로검증하고 비상정지의즉시성을유지한다. 새확인수준/단축키정책은 이번검토로결정하지않는다.
 
 ## 4. 사용자 환경·실자료 검증이 필요한 항목
 
