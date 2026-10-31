@@ -35,7 +35,8 @@ export function StrategyUsSearch({ value, selection, searching, error, onChange,
           } }}
           helperText={selection ? `선택됨: ${selection.prdt_name} (${selection.pdno})` : 'NAS(NASDAQ)·NYS·AMEX 순서로 자동 감지합니다'} />
         <Button variant="contained" size="small" aria-label="미국 종목 검색"
-          onClick={onSearch} disabled={!value.trim() || searching}
+          onClick={onSearch} disabled={!value.trim()}
+          aria-disabled={!value.trim() || searching}
           aria-busy={searching} aria-description={searching ? '미국 종목 조회 중' : undefined}
           startIcon={searching ? <CircularProgress size={14} aria-label="미국 종목 조회 중" /> : <SearchIcon />}
           sx={{ minWidth: 80, alignSelf: 'flex-start', mt: 0.5 }}>검색</Button>

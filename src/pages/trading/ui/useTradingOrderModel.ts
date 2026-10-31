@@ -31,7 +31,7 @@ import type {
   TossManualSession,
   TossMarketCalendarView,
 } from '../../../api/types'
-import { fmtNumber } from '../../../shared/lib'
+import { fmtNumber, useKeyedRequestGate } from '../../../shared/lib'
 
 function fmt(n: number) {
   return fmtNumber(n)
@@ -112,7 +112,6 @@ export function useTradingOrderModel() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showResults, setShowResults] = useState(false)
   const [usExchange, setUsExchange]   = useState<OverseasExchange>('NAS')
-  const [usSearching, setUsSearching] = useState(false)
   const [side, setSide]               = useState<OrderSide>('Buy')
   const [orderType, setOrderType]     = useState<OrderType>('Limit')
   const [tossSession, setTossSession] = useState<TossManualSession>('auto')
@@ -132,7 +131,6 @@ export function useTradingOrderModel() {
     setQuantity('')
     setResult(null)
     setErrorMsg(null)
-    setUsSearching(false)
     setTossSession('auto')
   }, [market])
 
@@ -146,6 +144,10 @@ export function useTradingOrderModel() {
   }, [inputValue, market, showResults])
 
   const { data: appConfig }                                         = useAppConfig()
+  const searchGate = useKeyedRequestGate(JSON.stringify([inputValue, market, symbol, usExchange,
+    appConfig?.active_broker_id, appConfig?.active_profile_id, appConfig?.active_broker_account_id,
+    appConfig?.kis_is_paper_trading]))
+  const usSearching = searchGate.pending()
   const isTossActive = appConfig?.active_broker_id === 'toss'
   const isKisActive = appConfig?.active_broker_id === 'kis'
   const balanceQuery = useBalance({ enabled: isKisActive })
@@ -205,6 +207,7 @@ export function useTradingOrderModel() {
   const selectedTossSessionOpen = isTossUsSessionOpen(tossCalendar, tossSession)
 
   const handleSelectHolding = (item: BalanceItem) => {
+    searchGate.invalidate()
     setSymbol(item.pdno)
     setInputValue(item.prdt_name)
     setResult(null)
@@ -213,6 +216,7 @@ export function useTradingOrderModel() {
 
   /** 해외 보유 종목 클릭 → US 모드로 전환 후 매도 폼 자동 완성 */
   const handleSelectOverseasHolding = (item: OverseasBalanceItem) => {
+    searchGate.invalidate()
     setMarket('US')
     setSymbol(item.ovrs_pdno)
     setInputValue(item.ovrs_item_name)
@@ -224,6 +228,7 @@ export function useTradingOrderModel() {
   }
 
   const handleSelectBrokerHolding = (item: BrokerHoldingView) => {
+    searchGate.invalidate()
     setMarket(item.market === 'kr' ? 'KR' : 'US')
     setSymbol(item.symbol)
     setInputValue(item.symbolName || item.symbol)
@@ -235,32 +240,36 @@ export function useTradingOrderModel() {
   const handleUsSearch = async () => {
     const ticker = inputValue.trim().toUpperCase()
     if (!ticker) return
-    if (isTossActive) {
-      setSymbol(ticker)
-      setResult(null)
+    const ticket = searchGate.begin()
+    if (!ticket) return
+    try {
+      if (isTossActive) {
+        if (!searchGate.finish(ticket)) return
+        setSymbol(ticker)
+        setResult(null)
+        setErrorMsg(null)
+        return
+      }
       setErrorMsg(null)
-      return
-    }
-    setUsSearching(true)
-    setErrorMsg(null)
-    const exchanges: OverseasExchange[] = ['NAS', 'NYS', 'AMS']
-    for (const exc of exchanges) {
-      try {
-        const res = await cmd.getOverseasPrice(ticker, exc)
-        // 가격 > 0 이거나 종목명이 있으면 유효 (NYSE Arca ETF 등 특수 케이스 포함)
-        const validPrice = parseFloat(res.last) > 0
-        const hasName = res.name && res.name.trim().length > 0
-        if (res && (validPrice || hasName)) {
-          setUsExchange(exc)
-          setSymbol(ticker)
-          setResult(null)
-          setUsSearching(false)
-          return
-        }
-      } catch { /* 다음 거래소 시도 */ }
-    }
-    setErrorMsg(`"${ticker}"을 NAS·NYS·AMEX에서 찾을 수 없습니다.`)
-    setUsSearching(false)
+      const exchanges: OverseasExchange[] = ['NAS', 'NYS', 'AMS']
+      for (const exc of exchanges) {
+        if (!searchGate.current(ticket)) return
+        try {
+          const res = await cmd.getOverseasPrice(ticker, exc)
+          if (!searchGate.current(ticket)) return
+          const validPrice = parseFloat(res.last) > 0
+          const hasName = res.name && res.name.trim().length > 0
+          if (res && (validPrice || hasName)) {
+            if (!searchGate.finish(ticket)) return
+            setUsExchange(exc)
+            setSymbol(ticker)
+            setResult(null)
+            return
+          }
+        } catch { if (!searchGate.current(ticket)) return }
+      }
+      if (searchGate.current(ticket)) setErrorMsg(`"${ticker}"을 NAS·NYS·AMEX에서 찾을 수 없습니다.`)
+    } finally { searchGate.finish(ticket) }
   }
 
   const handleFillMarketPrice = () => {

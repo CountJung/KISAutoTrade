@@ -428,19 +428,19 @@ export default function Trading() {
               } }, input: {
                 endAdornment: (
                   <InputAdornment position="end">
-                    {usSearching
-                      ? <CircularProgress size={16} color="inherit" aria-label="미국 종목 조회 중" sx={{ mr: 0.5 }} />
-                      : (
-                        <IconButton
-                          size="small"
-                          aria-label="미국 종목 검색"
-                          onClick={() => void handleUsSearch()}
-                          disabled={!inputValue.trim()}
-                        >
-                          <SearchIcon fontSize="small" />
-                        </IconButton>
-                      )
-                    }
+                    <IconButton
+                      size="small"
+                      aria-label="미국 종목 검색"
+                      onClick={() => void handleUsSearch()}
+                      disabled={!inputValue.trim()}
+                      aria-disabled={!inputValue.trim() || usSearching}
+                      aria-busy={usSearching}
+                      aria-description={usSearching ? '미국 종목 조회 중' : undefined}
+                    >
+                      {usSearching
+                        ? <CircularProgress size={16} color="inherit" aria-label="미국 종목 조회 중" />
+                        : <SearchIcon fontSize="small" />}
+                    </IconButton>
                   </InputAdornment>
                 ),
               } }}

@@ -11,11 +11,11 @@
 | 전략 연구·해석 | 가격조건 계약·구간 진단·별도 회고 walk-forward 완료; 장중 효능 대기 | 2개: SOXQ-P2-13·09 | 가격조건/변동성 실제 장중 근거 | 장중 자료 2 |
 | LTH 실제 장중 평가 | 일봉 평가불가·분봉 시각 진단 구현 완료; 실제 기간 평가 대기 | 2개: SOXQ-P1-05, SOXQ-P2-12 | 실제 3개월 원본/coverage·DST 검증 후 옵션 비교 | 같은 원본 자료 공유·검증 2 |
 | DB 지원·호환 전환 | PostgreSQL 로컬 TLS 기록 존재; MariaDB/MSRV 정책 미확정 | 3개: P1-DB-01, DEP-P3-01·02 | 지원 matrix·최소 Rust 결정 후 SQLx/DB/RSA 검증 | 정책 결정 2; SQLx 착수 의존 |
-| UI/UX 사용 흐름 | 10/30 즉시9개 완료; 10/31 키보드 1/5개 로컬 구현·검증 완료 | 5개: P2-KBD-02, P2-KBD-03, P2-KBD-04, P2-KBD-05, P2-UX-07 | 키보드 4개 순차 진행 | 위험 행동 확인 정책 결정 1 |
+| UI/UX 사용 흐름 | 10/30 즉시9개 완료; 10/31 키보드 2/5개 로컬 구현·검증 완료 | 4개: P2-KBD-03, P2-KBD-04, P2-KBD-05, P2-UX-07 | 키보드 3개 순차 진행 | 위험 행동 확인 정책 결정 1 |
 | 구조·의존성 유지보수 | 모듈·HTTP/WS·서버·UI·빌드·도구 전환과 후보별 유지 평가·CI 완료 | 0개 | 즉시 구역 완료; 근거는 완료 이력 | Xcode 보류 유지 |
 | 릴리스 서명 | checksum/attestation·기본 게이트 완료; 실제 서명 미완료 | 1개: P3-SIGN-01 | 플랫폼·키 관리 결정과 서명 검증 | 사용자 결정·관리자 준비 1 |
 
-**미완료 15개 = 즉시 코드·개선 4개 + 선행결정 후 자동 구현 1개 + 사용자 판단 5개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현은 합계 5개이며 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
+**미완료 14개 = 즉시 코드·개선 3개 + 선행결정 후 자동 구현 1개 + 사용자 판단 5개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현은 합계 4개이며 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
 
 [완료·경과 이력](completed-history.md) · [색상·필터 보기](todo.html) · [운영 계획](MASTER_PLAN.html) · [검증 지도](HARNESS_MAP.md)
 
@@ -44,12 +44,6 @@
 2026-10-31 08:19 UTC의 후속 요청으로 아래5개 순차 구현이 승인됐다. [현재 구현·회차 영수증](tasks/keyboard-improvements-20261031.md)에서 red/green·검증·커밋/원격 상태를 관리한다. 소스/실제 mock 관측/미검증의 상세 구분은 [키보드 검토 이력](completed-history.md#kbd-audit-20261031)을 따른다. 기존 UI9개 완료를 다시 열지 않고 새 경로와 trigger만 다룬다.
 
 
-- [ ] **🟢 자동 구현** **P2-KBD-02 — 조회 중 반복 Enter와 늦은 티커 응답을 현재 입력·scope에 한정한다.**
-  - **근거/대상:** src/pages/trading/ui/useTradingOrderModel.ts:235-265와 src/pages/strategy/ui/Page.tsx:242-283의 미국 검색은 비동기 조회 전후 상태를 바꾸지만 handler 자체 pending/요청세대 검사가 없다. Strategy 버튼의 usSearching disabled와 입력 Enter 경로가 다르다. LTH 모델 src/pages/strategy/ui/useLeveragedTrendHoldEditorModel.ts:215-262의 handlePickerUsSearch도 별도로 대조한다. 중복 GET와 이전 응답 적용 가능성은 읽기 조회 문제이며 실제 주문 중복이나 계좌 경계 침범을 입증한 것이 아니다.
-  - **실제 관측/한계:** 두 미국 입력에서 응답을 모두 보류한 상태의 Enter3회는 각GET3개를 만들었다. 선택 뒤 정상query hook의추가GET와 구분해 보류중 조회만 센 관측이다. 이전 입력/scope 응답 경합은 아직 소스 기반 후보다.
-  - **영향/우선순위:** P2, 우선순위2. Enter 반복으로 조회가 겹치거나 이전 티커·시장 결과가 늦게 선택에 적용되는 혼란을 막는다.
-  - **기대 동작/의존성:** 버튼·Enter에 동기 단일 진행 guard를 적용하고 입력/시장/broker·profile scope/새 요청/화면 이탈 뒤 이전 결과의 적용을 무효화한다. 조회 중 spinner가 버튼을 교체해 포커스를 잃지 않도록 명명된 컨트롤을 유지한다. NAS→NYS→AMS 탐색·Toss 전용 경로·기존 fallback 및 API/캐시 주기는 바꾸지 않는다.
-  - **완료/키보드 회귀:** 지연된 합성 응답에서 Enter×3·키 repeat·버튼 혼합으로 원래 논리 조회1회만 실행한다(거래소 fallback 내부 단계는 원래대로). A→B·시장/broker/profile 변경·unmount 후 A 응답이 현재 선택/오류를 덮지 않고 현재 실패 후 재시도1회가 가능해야 한다. GET 수·focus·loading/오류/disabled·금융 변이0을 함께 검증한다.
 
 - [ ] **🟢 자동 구현** **P2-KBD-03 — LTH 내부 ETF 결과를 키보드로 선택하고 목록 탐색을 보강한다.**
   - **근거/대상:** src/pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx:67-71,100-131의 국내 결과는 onClick TableRow와 입력 blur180ms를 사용하며 명명된 native 선택 버튼/내부 focus 유지/Escape 경로가 없다. 완료된 P2-UX-01의 상단 검색·보유 행과 다른 하위 picker다. 상단 결과는 이미 Tab/Enter·Escape/focus 복귀를 지원하며 방향키 경로 추가는 편의 개선이지 현재 선택 불가라는 결함은 아니다.

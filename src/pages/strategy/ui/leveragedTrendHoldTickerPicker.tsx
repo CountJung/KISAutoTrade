@@ -97,6 +97,7 @@ export function LeveragedTrendHoldTickerPicker({ model }: { model: LeveragedTren
                     aria-label="레버리지 대상 검색"
                     disabled={stratEnabled || !pickerInput.trim() || (pickerMarket === 'KR' && pickerInput.trim().length < 2)}
                     onClick={search}
+                    aria-disabled={stratEnabled || !pickerInput.trim() || (pickerMarket === 'KR' && pickerInput.trim().length < 2) || pickerSearching}
                     aria-busy={pickerFetching || pickerSearching}
                     aria-description={pickerFetching || pickerSearching ? '레버리지 대상 조회 중' : undefined}
                   >

@@ -4,7 +4,7 @@
 
 - 기준: `8a9d1b54312721cdc38bf84abb8dbc801a2ad08b`, `fix/mac-security-storage-2026-10-06`, 시작 clean.
 - 사용자 승인: 2026-10-31 08:19 UTC, 방금 등록한 할 일을 순서대로 구현. 이전 키보드 검토 전용 제한은 아래5개에 한해 변경됐다.
-- 상태: In Progress. 루트는 검증/문서/게시, 구현 담당은 해당 회차 source/test, UI 전문가·참조/지도 담당은 독립 읽기 검토를 맡는다.
+- 상태: In Progress. 루트는 검증/문서/게시를 맡고 회차별 source/test 생산과 독립 검토 역할을 분리한다. 역할이 바뀌면 해당 회차에 기록하며, 생산자가 자기 변경의 독립 리뷰를 맡지 않는다.
 - 정본: [현재 TODO](../todo.md), [검토 근거](../completed-history.md#kbd-audit-20261031), [이전 UI9개](uiux-improvements-20261030.md), [역할 사용](../agent-tooling.md#uiux-전문가-사용).
 - 제외: 기존 선행 결정/사용자 판단/실자료11개, P2-UX-07 확인 정책, 토스 실제 응답 원인 확정/실계좌·운영앱 확인. 금융 동작 정책·기본값·저장/조회 계약을 임의 변경하지 않는다.
 
@@ -12,8 +12,8 @@
 
 | 순서 | ID | 범위 | 상태 | 코드·원격 근거 |
 |---|---|---|---|---|
-|1|P2-KBD-01|조회 Enter·IME·버튼 이름|로컬 완료·일반 푸시 준비|검증 완료·원격 영수증 후속 기록|
-|2|P2-KBD-02|중복 조회·늦은 응답·scope|대기|미착수|
+|1|P2-KBD-01|조회 Enter·IME·버튼 이름|완료·원격 확인|[`a8cba69`](https://github.com/CountJung/KISAutoTrade/commit/a8cba69e1ac518d36ba5f5e173a4eff921098a6e)|
+|2|P2-KBD-02|중복 조회·늦은 응답·scope|로컬 완료·일반 푸시 준비|검증 완료·원격 영수증 후속 기록|
 |3|P2-KBD-03|LTH/결과 목록 키보드|대기|미착수|
 |4|P2-KBD-04|수치 이름·단위·Enter commit|대기|미착수|
 |5|P2-KBD-05|프로필 팝업 pending·복구|대기|미착수|
@@ -58,6 +58,21 @@ fresh Chromium context의 합성 mock/offline만 사용한다. envDir:false와 �
 - **최종 검증:** Rust check --locked10.72초→앱/config 타입→FSD 통과, 경고0. 격리 production build 후 최종29/29(신규14+인접15,18.2초,session52851) 통과. 앞선17.2초 green과 부분/실패 실행을 합산하지 않는다. 신규14개 JSON 모두 쓰기/외부/unknown/pageerror0이다.
 - **리뷰·지도:** 독립 UI 및 참조/지도 리뷰에 필수 P0/P1/P2 지적이 없다. 공유 경계는4파일·5handler이며 모델 callback·금융 조립은 유지했다. code-only Graphify7267nodes/16095edges와 최종 해시를 갱신했다.
 - **실제 관측/한계:** fresh Chromium1280×720 light의 Trading/LTH 미국 선택·focus 캡처를 확인했다. 합성 isTrusted=false 조합 이벤트는 실제 macOS IME·Tauri WebView·AT 검증이 아니다. 실제 계좌 조회·운영 데이터 변형·실제 금융 동작·배포는 실행하지 않았다. P2-KBD-02~05와 기존 대기11개는 이 완료에 포함되지 않는다.
-- **원본·게시:** `.cache/kbd01-implementation-20261031/`의 red-initial-kis5, red-kr-kis.log, first-green-29, green-before-reopen, red-reopen-kis1 및 green-final-reopen-29.log에 단계별 원본을 보존했다. 이번 회차는 검증 완료·커밋/일반 푸시 준비 상태이며 원격 SHA는 후속 영수증에 기록한다.
+- **원본·게시:** `.cache/kbd01-implementation-20261031/`의 red-initial-kis5, red-kr-kis.log, first-green-29, green-before-reopen, red-reopen-kis1 및 green-final-reopen-29.log에 단계별 원본을 보존했다. 이번 회차는 `a8cba69e1ac518d36ba5f5e173a4eff921098a6e`로 일반 푸시하고 원격 SHA 일치와 clean을 확인했다. 통합 테스트/보안 CI는 마지막 코드에서 별도 확인한다.
 
 - **문서 마감:** docs-canon120개 문서의 링크/표/앵커/등록부 오류0, TODO15개·지도/그래프 freshness·diff 검사 통과. 문서 독립 리뷰의 범위 표현을 교정해 신규 읽기14개는 쓰기0, 인접 주문폼5개는 명시적 mock 제출·실제 주문0으로 구분했다. 최종 문서 리뷰의 필수 P0/P1/P2 잔여는 없다.
+
+### P2-KBD-02
+
+- **기준·구현:** 첫 회차 원격확인 `a8cba69`에서 시작했다. 신규 `keyedRequestGate.ts`는 순수 ticket/epoch controller와 React 수명/revision adapter다. Trading 모델·Strategy US local hook·LTH 모델3곳이 같은 동기 begin/current/finish를 소비하며, 입력/시장/선택/public scope·LTH 잠금의 key 조립과 조회/유효성·결과·오류·broker fallback은 caller에 남겼다.
+- **보존·표시:** 현재 요청을 finish한 뒤 표시명·선택을 바꾸고, 이전 성공/오류/후속 거래소/fallback/finally가 새 요청을 덮지 않게 했다. Trading의 동일 IconButton과 Strategy 버튼은 유효 입력 pending에 aria-disabled/busy·설명을 제공하고 handler gate로 중복을 억제한다. 빈 입력·실제 잠금의 native disabled, 원래 query/cache/주기·금융 setter와 Toss Trading 즉시선택은 유지했다.
+- **소유 분리:** Strategy US 조회/오류/busy·KIS/Toss 탐색만 `useStrategyUsSearch.ts`로 옮겼다. Page는 입력/선택·이름 cache/onSelect·전략 조립과 저장을 유지하며928행이다. 지도도 새 local hook의 실제 소유를 반영했다.
+- **red5:** production4개(session54571 exit1)는 세 화면의 Space+Enter3+repeat가 첫 응답 전 논리GET5(기대1)를 만든 문제와 Trading oldA가 B 조회 중 A를 선택하는 문제를 재현했다. source1개(session10607 exit1)는 동일 rawA에서 account만 바꿔 oldA/newA ticket을 나눴고, 늦은 oldA 선택을 재현했다. 첫5개 모두 쓰기/외부/unknown/pageerror0이었다.
+- **검사 보강·준비 교정:** Node route.fulfill만으로 완료를 판단하지 않고 정확 ticket header의 response.finished 이후 UI 알림을 대조했다. 첫68개는66통과/2준비실패(38.7초)였다. Strategy profile/broker 변경의 기존 입력 reset을 무시한 가정이 원인이며, 기준 커밋의 effect와 대조해 정상 reset을 검사하고 A를 명시 재입력하도록 교정했다. Trading same-raw profile/broker 단독2개를 추가해 독립 필드 판별도 보존했다. 후속70/70(44.4초)은 별도 원본으로 보존했다.
+- **최종 경계:** LTH pending 중 합성 strategies GET의 enabled만 바꾼 잠금1개를 추가했다. 동일 main·input DOM/scope에서 old 성공/무효 본문 뒤 선택·경고·후속0과 unlock 후 새B 정상 복구를 확인했다. 실제 전략 toggle/save/start는 호출하지 않았다. 입력만 변경/비우기·raw/scope ABA·독립 broker/profile/account/paper·시장/SPA 이탈·stale 오류/invalid·명시 재시도·KIS/Toss/LTH의 원래 fallback도 대조했다.
+- **최종 결과:** 신규42개(production34/source8)+인접29개의 **71/71(32.3초,session24996)**가 통과했다. 과거/부분 실행을 합산하지 않는다. 현재42개 제목과 JSON을 직접 대조한 `final-42-evidence-index.json`의 쓰기/외부/unknown/pageerror는0이다. 인접 주문폼5개의 명시적 mock 제출은 실제 주문과 분리한다.
+- **필수 검사·리뷰:** Rust check --locked9.23초→앱/config 타입→FSD, 새 검사 noEmit 타입과 격리 production build를 통과했다. 컴파일 경고0이며 앱 타입 설정 완화는 없다. 독립 코드·검사·참조/지도 리뷰의 필수 P0/P1/P2 잔여는 없다. Graphify7304nodes/16188edges와 해시를 갱신했다. 기존6개 비코드 JSON의0-node 안내는 extractor 한계로 분리한다.
+- **한계:** 이미 전송된 cmd Promise는 완료될 수 있고, 보호는 UI 적용·후속 탐색을 제한한다. source harness는 실제 router/Page/QueryClient를 유지하는 합성 공개 설정 재조회이며 실제 계좌/credential pinning이나 backend abort가 아니다. dev StrictMode 초기 수명과 정상조회·SPA 이탈은 관측했지만 pending-ticket dispose→activate나 중단된 concurrent render는 별도 재현하지 않았다. 실제 OS IME/WebView/AT·운영 계좌/자료·배포는 미실행이다.
+- **원본·게시:** `.cache/kbd02-implementation-20261031/`의 red-initial-kis4, pre-test-expansion-20261031, first-green-68, green-before-lth-lock 및 green-final-71.log에 단계별 원본을 보존했다. 제품/source와 검사 생산을 분리하고 별도 담당이 독립 리뷰했다. 현재 회차는 검증 완료·일반 커밋/푸시 준비 상태이며 원격 영수증은 후속 기록한다.
+
+- **문서 마감:** docs-canon120개 문서의 링크/표/앵커/등록부 오류0, TODO14개·지도/그래프 freshness·원래 열린14개/제외11개 보존·diff 검사 통과. 최종 독립 문서 리뷰에 필수 P0/P1/P2 잔여는 없다. 첫 회차의 원격 영수증은 기록했고 이번 회차의 게시 결과는 다음 영수증으로 이어 남긴다.

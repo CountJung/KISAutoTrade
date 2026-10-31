@@ -1,3 +1,4 @@
+import { useKeyedRequestGate } from '../../../shared/lib'
 // State, query gates and command closures remain in the route/editor React lifetime.
 import {
   useEffect,
@@ -85,7 +86,6 @@ export function useLeveragedTrendHoldEditorModel(props: LeveragedTrendHoldEditor
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerSelection, setPickerSelection] = useState<TargetDraftSelection | null>(null)
   const pickerCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [pickerSearching, setPickerSearching] = useState(false)
   const [pickerError, setPickerError] = useState<string | null>(null)
   const [draftQuantity, setDraftQuantity] = useState(1)
   const [previewSymbol, setPreviewSymbol] = useState('')
@@ -118,6 +118,10 @@ export function useLeveragedTrendHoldEditorModel(props: LeveragedTrendHoldEditor
   const initialStopLoss = numericParam(params, 'initial_stop_loss_pct', 1)
   const entryFailureObservations = numericParam(params, 'entry_failure_observations', 3)
   const { data: appConfig } = useAppConfig()
+  const pickerGate = useKeyedRequestGate(JSON.stringify([pickerInput, pickerMarket, pickerSelection?.stock.pdno,
+    stratEnabled, appConfig?.active_broker_id, appConfig?.active_profile_id,
+    appConfig?.active_broker_account_id, appConfig?.kis_is_paper_trading]))
+  const pickerSearching = pickerGate.pending()
   const isTossActive = appConfig?.active_broker_id === 'toss'
   const previewMutation = usePreviewLeveragedTrendHold()
   const previewOptions = useMemo(
@@ -205,6 +209,7 @@ export function useLeveragedTrendHoldEditorModel(props: LeveragedTrendHoldEditor
   }, [previewInputKey]) // eslint-disable-line react-hooks/exhaustive-deps -- serialized preview input is the invalidation boundary
 
   const handlePickerSelect = (stock: StockSearchItem) => {
+    pickerGate.invalidate()
     setPickerSelection({ stock, market: pickerMarket })
     setPickerInput(pickerMarket === 'US' ? stock.pdno : stock.prdt_name)
     setPickerOpen(false)
@@ -214,51 +219,51 @@ export function useLeveragedTrendHoldEditorModel(props: LeveragedTrendHoldEditor
 
   const handlePickerUsSearch = async () => {
     const ticker = normalizeUsTicker(pickerInput)
-    if (!ticker) return
+    if (!ticker || stratEnabled) return
     if (!US_TICKER_PATTERN.test(ticker)) {
       setPickerError('미국 ETF 티커는 영문으로 시작하고 영문/숫자/./-만 입력할 수 있습니다.')
       setPickerSelection(null)
       return
     }
-    setPickerSearching(true)
+    const ticket = pickerGate.begin()
+    if (!ticket) return
     setPickerError(null)
-
-    if (isTossActive) {
-      try {
-        const safety = await cmd.getTossStockSafety(ticker)
-        if (safety.stockInfo) {
-          handlePickerSelect({ pdno: ticker, prdt_name: safety.stockInfo.name || ticker })
-          setPickerSearching(false)
-          return
-        }
-      } catch {
-        // 아래 fallback으로 직접 선택 처리
+    try {
+      if (isTossActive) {
+        try {
+          const safety = await cmd.getTossStockSafety(ticker)
+          if (!pickerGate.current(ticket)) return
+          if (safety.stockInfo) {
+            if (!pickerGate.finish(ticket)) return
+            handlePickerSelect({ pdno: ticker, prdt_name: safety.stockInfo.name || ticker })
+            return
+          }
+        } catch { if (!pickerGate.current(ticket)) return }
+        if (!pickerGate.finish(ticket)) return
+        setPickerSelection({ stock: { pdno: ticker, prdt_name: ticker }, market: 'US' })
+        setPickerInput(ticker)
+        setPickerError(`Toss 종목 정보로 "${ticker}" 검증은 실패했지만 티커 형식이 유효해 직접 선택했습니다. 저장 후 시세/주문 연결 상태를 확인하세요.`)
+        return
       }
+      for (const exc of EXCHANGE_SEARCH_ORDER) {
+        if (!pickerGate.current(ticket)) return
+        try {
+          const res = await cmd.getOverseasPrice(ticker, exc)
+          if (!pickerGate.current(ticket)) return
+          const validPrice = parseFloat(res.last) > 0
+          const hasName = res.name && res.name.trim().length > 0
+          if (res && (validPrice || hasName)) {
+            if (!pickerGate.finish(ticket)) return
+            handlePickerSelect({ pdno: ticker, prdt_name: res.name || ticker })
+            return
+          }
+        } catch { if (!pickerGate.current(ticket)) return }
+      }
+      if (!pickerGate.finish(ticket)) return
       setPickerSelection({ stock: { pdno: ticker, prdt_name: ticker }, market: 'US' })
       setPickerInput(ticker)
-      setPickerError(`Toss 종목 정보로 "${ticker}" 검증은 실패했지만 티커 형식이 유효해 직접 선택했습니다. 저장 후 시세/주문 연결 상태를 확인하세요.`)
-      setPickerSearching(false)
-      return
-    }
-
-    for (const exc of EXCHANGE_SEARCH_ORDER) {
-      try {
-        const res = await cmd.getOverseasPrice(ticker, exc)
-        const validPrice = parseFloat(res.last) > 0
-        const hasName = res.name && res.name.trim().length > 0
-        if (res && (validPrice || hasName)) {
-          handlePickerSelect({ pdno: ticker, prdt_name: res.name || ticker })
-          setPickerSearching(false)
-          return
-        }
-      } catch {
-        // 다음 거래소 시도
-      }
-    }
-    setPickerSelection({ stock: { pdno: ticker, prdt_name: ticker }, market: 'US' })
-    setPickerInput(ticker)
-    setPickerError(`KIS 해외 현재가로 "${ticker}" 검증은 실패했지만 티커 형식이 유효해 직접 선택했습니다. 저장 후 시세/주문 연결 상태를 확인하세요.`)
-    setPickerSearching(false)
+      setPickerError(`KIS 해외 현재가로 "${ticker}" 검증은 실패했지만 티커 형식이 유효해 직접 선택했습니다. 저장 후 시세/주문 연결 상태를 확인하세요.`)
+    } finally { pickerGate.finish(ticket) }
   }
 
   const handleAddTarget = () => {

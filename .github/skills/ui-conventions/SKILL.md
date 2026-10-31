@@ -500,6 +500,14 @@ useEffect(() => {
 - Trading KR6자리 직접선택, Strategy6자리 자동검색, LTH250ms 자동검색과 Toss/KIS별 fallback은 서로 다른 계약이다. callback 전체를 합치거나 debounce로 Enter의 누락을 가리지 않는다.
 - IME/229 합성 이벤트·정지된 clock의 Enter 즉시조회와 기존 timer를 분리해 검사한다. 합성 `isTrusted=false` 관측은 실제 macOS 한글 IME·WebView·스크린리더 검증이 아니다. 회차별 범위·검증과 남은 조건은 [구현 기록](../../../docs/tasks/keyboard-improvements-20261031.md)을 따른다.
 
+### 조회 요청의 수명과 처리 중 버튼
+
+- `shared/lib/keyedRequestGate.ts`는 opaque key/epoch/ticket controller와 React lifetime/revision adapter를 제공한다. 동기 begin으로 중복을 막고 current/finish는 현재 소유자만 결과·종료를 적용한다. key의 입력·시장·선택/public scope 조립, 유효성·조회·오류·broker fallback과 금융 상태는 각 모델이 소유한다.
+- 입력/범위 변경·A→B→A·unmount 뒤에는 이전 성공·오류·후속 거래소/fallback·finally를 적용하지 않는다. 새 요청이 시작됐을 때 이전 finally가 busy를 지우지 않아야 한다. 성공으로 입력 표시명을 바꾸기 전에 자기 ticket을 마감해 self-invalidation과 busy 잔류를 피한다.
+- 유효 입력의 pending 버튼은 같은 DOM·이름·focus를 유지하고 aria-busy/aria-disabled로 설명한다. aria-disabled 자체는 이벤트를 막지 않으므로 Enter/Space/포인터와 입력 Enter가 같은 동기 gate를 거쳐야 한다. 빈 입력·활성 전략 등 실제 잠금의 기존 native disabled를 유지한다.
+- Strategy의 profile/broker scope 전환은 기존 입력·선택 초기화를 보존한다. Trading의 같은 입력 유지와 다른 계약이므로 모든 화면에 같은 reset을 강제하거나 테스트의 가정에 맞춰 제품을 바꾸지 않는다.
+- 경합 검사는 정확 ticket의 응답 본문 완료와 UI 알림 이후를 확인하고, 입력만 변경·독립 scope 필드·ABA·실패/재시도·화면 이탈을 구분한다. source harness의 합성 공개 설정 변경은 실제 프로필/계좌 전환이나 backend 요청 abort·credential pinning의 증거가 아니다.
+
 ### 반응형 거래 표의 상세 대안
 
 - 좁은 폭에서 숨긴 시각·금액·비용은 거래별 이름이 있는 native Button과 페이지 내부 Dialog로 다시 읽을 수 있게 한다. History의 기존 formatter 결과를 전달하고 통화·USD fallback·슬리피지·trace 산식을 다시 구현하지 않는다. 같은 종목 복수 체결은 ID와 전체 기록 시각으로 구분한다.
@@ -822,4 +830,4 @@ RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저
 
 > 마지막 업데이트: 2026-10-30T08:58:11
 
-> 마지막 업데이트: 2026-10-31T08:58:32+00:00
+> 마지막 업데이트: 2026-10-31T09:43:11+00:00

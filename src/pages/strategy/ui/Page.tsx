@@ -1,3 +1,4 @@
+import { useStrategyUsSearch } from './useStrategyUsSearch'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { StrategyUsSearch } from './StrategyUsSearch'
 import { StrategyPolicyControls, isStrategyPolicyParam, preservesStrategyRawParam, strategyPolicyError } from './strategyPolicyControls'
@@ -57,13 +58,11 @@ import {
   useRefreshStockList,
   useTossMarketCalendar,
 } from '../../../api/hooks'
-import * as cmd from '../../../api/commands'
 import type {
   AppConfigView,
   BrokerId,
   CmdError,
   LeveragedTrendHoldEntry,
-  OverseasExchange,
   PriceConditionSymbolConfig,
   StockSearchItem,
   TossManualSession,
@@ -74,7 +73,6 @@ import { BrokerScopeIndicator, LiveDailyHistoryPanel, tradingHealthProblem } fro
 
 type Market = 'KR' | 'US'
 
-const EXCHANGE_SEARCH_ORDER: OverseasExchange[] = ['NAS', 'NYS', 'AMS']
 const TOSS_US_SESSION_OPTIONS: Array<{ value: TossManualSession; label: string }> = [
   { value: 'auto', label: '자동' },
   { value: 'day', label: '데이' },
@@ -219,8 +217,6 @@ export default function Strategy() {
       returningSearchFocus.current = false
     }
   }
-  const [usSearching, setUsSearching]         = useState(false)
-  const [usSearchError, setUsSearchError]     = useState<string | null>(null)
   /** 종목코드 → 이름 캐시 (세션 중 검색으로 추가된 종목) */
   const [symbolNames, setSymbolNames]         = useState<Record<string, string>>({})
 
@@ -246,48 +242,14 @@ export default function Strategy() {
     setSearchQuery(searchInput)
     setShowSearch(true)
   }
-  const handleUsSearch = async () => {
-    const ticker = searchInput.trim().toUpperCase()
-    if (!ticker) return
-    setUsSearching(true)
-    setUsSearchError(null)
-
-    if (appConfig?.active_broker_id === 'toss') {
-      try {
-        const safety = await cmd.getTossStockSafety(ticker)
-        if (safety.stockInfo) {
-          const item: StockSearchItem = { pdno: ticker, prdt_name: safety.stockInfo.name || ticker }
-          setSelectedStock(item)
-          setSearchInput(safety.stockInfo.name || ticker)
-          setSymbolNames(prev => ({ ...prev, [ticker]: safety.stockInfo!.name || ticker }))
-          setUsSearching(false)
-          return
-        }
-      } catch { /* fallback 메시지로 처리 */ }
-      setUsSearchError(`Toss 종목 정보에서 "${ticker}"을 찾을 수 없습니다.`)
-      setUsSearching(false)
-      return
-    }
-
-    for (const exc of EXCHANGE_SEARCH_ORDER) {
-      try {
-        const res = await cmd.getOverseasPrice(ticker, exc)
-        // 가격 또는 종목명이 있으면 유효한 종목으로 간주
-        const validPrice = parseFloat(res.last) > 0
-        const hasName = res.name && res.name.trim().length > 0
-        if (res && (validPrice || hasName)) {
-          const item: StockSearchItem = { pdno: ticker, prdt_name: res.name || ticker }
-          setSelectedStock(item)
-          setSearchInput(res.name || ticker)
-          setSymbolNames(prev => ({ ...prev, [ticker]: res.name || ticker }))
-          setUsSearching(false)
-          return
-        }
-      } catch { /* 다음 거래소 시도 */ }
-    }
-    setUsSearchError(`"${ticker}"을 NAS·NYS·AMEX에서 찾을 수 없습니다.`)
-    setUsSearching(false)
-  }
+  const { search: handleUsSearch, searching: usSearching, error: usSearchError, setError: setUsSearchError } = useStrategyUsSearch({
+    input: searchInput, market, config: appConfig, selectedSymbol: selectedStock?.pdno,
+    onSelect: item => {
+      setSelectedStock(item)
+      setSearchInput(item.prdt_name)
+      setSymbolNames(prev => ({ ...prev, [item.pdno]: item.prdt_name }))
+    },
+  })
   // 전략이 로드됐을 때 targetSymbolNames를 symbolNames 캐시에 반영
   useEffect(() => {
     if (!strategies) return

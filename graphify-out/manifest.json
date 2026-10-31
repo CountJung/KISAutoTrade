@@ -20,8 +20,8 @@
     "semantic_hash": ""
   },
   "playwright.config.ts": {
-    "mtime": 1792825792.520049,
-    "ast_hash": "b3de7667d8d64019e73b7e339cb8b507",
+    "mtime": 1793437873.489821,
+    "ast_hash": "a1d12b73a464d17a36b420b468a1fce8",
     "semantic_hash": ""
   },
   "scripts/check-fsd-imports.mjs": {
@@ -760,8 +760,8 @@
     "semantic_hash": "59b76fc1faedff9ea62d9770d8a76ee8"
   },
   "src/pages/strategy/ui/Page.tsx": {
-    "mtime": 1793436872.304125,
-    "ast_hash": "9f2c49366caacfb218defebe0dfe3d5c",
+    "mtime": 1793439089.626374,
+    "ast_hash": "e955c7caaab0d01cb42ae4675f395268",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx": {
@@ -800,8 +800,8 @@
     "semantic_hash": "e1e05929b9d6e9a67816e0b8739875f0"
   },
   "src/pages/trading/ui/Page.tsx": {
-    "mtime": 1793436382.9917102,
-    "ast_hash": "0a00ca4827616b19a438bb52532ccbb0",
+    "mtime": 1793439089.6258416,
+    "ast_hash": "699965e25f1e9373f68f8ab517adac94",
     "semantic_hash": ""
   },
   "src/pages/trading/ui/kisPanels.tsx": {
@@ -875,8 +875,8 @@
     "semantic_hash": ""
   },
   "src/shared/lib/index.ts": {
-    "mtime": 1793436165.9725058,
-    "ast_hash": "6cf7610eb3d8402ea3b19ebe666b0ae6",
+    "mtime": 1793438939.5362067,
+    "ast_hash": "42f82e5836a6267e66c2b40ee3243b85",
     "semantic_hash": ""
   },
   "src/shared/lib/persistentLayout.ts": {
@@ -2540,13 +2540,13 @@
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx": {
-    "mtime": 1793436382.9921684,
-    "ast_hash": "42edf563df4257a08719eee331478b84",
+    "mtime": 1793439089.6261647,
+    "ast_hash": "30c7bbe02ff62a3c38a435e965213a73",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/useLeveragedTrendHoldEditorModel.ts": {
-    "mtime": 1793257267.7030773,
-    "ast_hash": "16d1ecc8423d287019ceb4a35e6850dd",
+    "mtime": 1793438939.5380867,
+    "ast_hash": "8ce9e90568a358899def9239c0f53883",
     "semantic_hash": ""
   },
   "src/pages/trading/ui/tradingOrderForm.tsx": {
@@ -2555,8 +2555,8 @@
     "semantic_hash": ""
   },
   "src/pages/trading/ui/useTradingOrderModel.ts": {
-    "mtime": 1793339017.6504896,
-    "ast_hash": "0f522f884326a6b0df016dbb88ae0bc5",
+    "mtime": 1793438939.5368464,
+    "ast_hash": "dad202a1ff23b078eb7eb8b492440675",
     "semantic_hash": ""
   },
   "tests/e2e/trading-form-contract.spec.ts": {
@@ -2800,8 +2800,8 @@
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/StrategyUsSearch.tsx": {
-    "mtime": 1793436382.9920526,
-    "ast_hash": "6452daa0e4f9781c3233501d448e27f5",
+    "mtime": 1793439089.6260233,
+    "ast_hash": "61e3b611ed4f4d19ebd5cf15ecb3b2aa",
     "semantic_hash": ""
   },
   "src/shared/lib/searchKeyboard.ts": {
@@ -2817,6 +2817,31 @@
   "tests/e2e/keyboard-search-contract.spec.ts": {
     "mtime": 1793436742.9540749,
     "ast_hash": "e555422e54df9108418a3ea3e0d3f668",
+    "semantic_hash": ""
+  },
+  "src/pages/strategy/ui/useStrategyUsSearch.ts": {
+    "mtime": 1793438939.5000644,
+    "ast_hash": "f86c9a0670f2c61da75af4fc029ab7f8",
+    "semantic_hash": ""
+  },
+  "src/shared/lib/keyedRequestGate.ts": {
+    "mtime": 1793439089.6264763,
+    "ast_hash": "5313d27ce4e215bd1eb58327f47979f0",
+    "semantic_hash": ""
+  },
+  "tests/e2e/fixtures/keyboardSearchRaceFixture.ts": {
+    "mtime": 1793439993.2441902,
+    "ast_hash": "359f7fdbe72f4ea9eab2f2fabce3b800",
+    "semantic_hash": ""
+  },
+  "tests/e2e/keyboard-search-race.spec.ts": {
+    "mtime": 1793439291.15159,
+    "ast_hash": "0500c99ece1c2b442d9d2b9cfa33abd6",
+    "semantic_hash": ""
+  },
+  "tests/e2e/keyboard-search-scope.spec.ts": {
+    "mtime": 1793439993.2444365,
+    "ast_hash": "5f823354cc1c013466d11790fabd70d0",
     "semantic_hash": ""
   }
 }

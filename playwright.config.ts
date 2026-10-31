@@ -37,12 +37,12 @@ export default defineConfig({
   projects: process.env.CI ? [
     {
       name: 'chromium',
-      testIgnore: ['**/._*', '**/balance-events.spec.ts', '**/toss-commission-ratio.spec.ts', '**/strategy-deviation-policy.spec.ts'],
+      testIgnore: ['**/._*', '**/balance-events.spec.ts', '**/toss-commission-ratio.spec.ts', '**/strategy-deviation-policy.spec.ts', '**/keyboard-search-scope.spec.ts'],
       use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:1431' },
     },
     {
       name: 'chromium-source-harness',
-      testMatch: ['**/balance-events.spec.ts', '**/toss-commission-ratio.spec.ts', '**/strategy-deviation-policy.spec.ts'],
+      testMatch: ['**/balance-events.spec.ts', '**/toss-commission-ratio.spec.ts', '**/strategy-deviation-policy.spec.ts', '**/keyboard-search-scope.spec.ts'],
       use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:1430' },
     },
   ] : [

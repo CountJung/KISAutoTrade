@@ -30,6 +30,26 @@
   - **완료/키보드 회귀:** Trading/Strategy/LTH의 KR·US와 KIS·Toss를 합성으로 대조한다. 일반 Enter와 버튼은 같은 검색조건/선택, 빈칸·각 컨트롤의 기존 유효성 조건을 충족하지 못한 입력·조합Enter/229는 조회0(유효한1글자US티커는허용), 조합종료 후 일반Enter는 정상1회다. 6자리 직접선택·기존 Tab/Space/Escape를 유지하고 모든 조회 키에서 금융/설정 변이0, 외부0을 확인한다. 실제 macOS 한글 IME·WebView·AT는 별도 실측으로 구분한다.
 ```
 
+<a id="p2-kbd-02"></a>
+## P2-KBD-02
+
+2026-10-31 US 조회에 입력·시장·선택·공개 broker/profile/account/모드의 ticket/epoch 보호를 연결해 반복 요청과 늦은 결과·오류·후속 fallback·이전 finally를 차단했다. 검색 중 명명 버튼과 focus를 유지하고 기존 KIS 거래소 순서·Toss 동기 선택·Strategy safety·LTH 직접선택 fallback을 보존했다. 최종71개가 통과했다(32.3초): 신규42개(production34/source8)+인접29개다. 신규42개 읽기는 쓰기/외부/unknown/pageerror0이며 기존 주문폼5개는 명시적 브라우저 mock 제출·실제 주문0이다. Rust·앱/config·검사 타입·FSD·격리 production build와 독립 코드/검사 리뷰를 통과했다. 실제 backend 요청 취소·계좌 pinning·운영 검증을 완료한 것은 아니다.
+
+[회차별 검증·한계·게시 기록](tasks/keyboard-improvements-20261031.md#p2-kbd-02)을 따른다.
+
+### 원래 TODO 완료 조건·근거 보존
+
+아래는 착수 당시 미완료 표기를 포함한 원문이며 현재 상태는 위 완료 범위를 따른다.
+
+```markdown
+- [ ] **🟢 자동 구현** **P2-KBD-02 — 조회 중 반복 Enter와 늦은 티커 응답을 현재 입력·scope에 한정한다.**
+  - **근거/대상:** src/pages/trading/ui/useTradingOrderModel.ts:235-265와 src/pages/strategy/ui/Page.tsx:242-283의 미국 검색은 비동기 조회 전후 상태를 바꾸지만 handler 자체 pending/요청세대 검사가 없다. Strategy 버튼의 usSearching disabled와 입력 Enter 경로가 다르다. LTH 모델 src/pages/strategy/ui/useLeveragedTrendHoldEditorModel.ts:215-262의 handlePickerUsSearch도 별도로 대조한다. 중복 GET와 이전 응답 적용 가능성은 읽기 조회 문제이며 실제 주문 중복이나 계좌 경계 침범을 입증한 것이 아니다.
+  - **실제 관측/한계:** 두 미국 입력에서 응답을 모두 보류한 상태의 Enter3회는 각GET3개를 만들었다. 선택 뒤 정상query hook의추가GET와 구분해 보류중 조회만 센 관측이다. 이전 입력/scope 응답 경합은 아직 소스 기반 후보다.
+  - **영향/우선순위:** P2, 우선순위2. Enter 반복으로 조회가 겹치거나 이전 티커·시장 결과가 늦게 선택에 적용되는 혼란을 막는다.
+  - **기대 동작/의존성:** 버튼·Enter에 동기 단일 진행 guard를 적용하고 입력/시장/broker·profile scope/새 요청/화면 이탈 뒤 이전 결과의 적용을 무효화한다. 조회 중 spinner가 버튼을 교체해 포커스를 잃지 않도록 명명된 컨트롤을 유지한다. NAS→NYS→AMS 탐색·Toss 전용 경로·기존 fallback 및 API/캐시 주기는 바꾸지 않는다.
+  - **완료/키보드 회귀:** 지연된 합성 응답에서 Enter×3·키 repeat·버튼 혼합으로 원래 논리 조회1회만 실행한다(거래소 fallback 내부 단계는 원래대로). A→B·시장/broker/profile 변경·unmount 후 A 응답이 현재 선택/오류를 덮지 않고 현재 실패 후 재시도1회가 가능해야 한다. GET 수·focus·loading/오류/disabled·금융 변이0을 함께 검증한다.
+```
+
 <a id="toss-parse-20261031"></a>
 ## TOSS-PARSE-01 — 시뮬레이션 응답 협상·파싱 진단
 
