@@ -16,7 +16,7 @@
 |2|P2-KBD-02|중복 조회·늦은 응답·scope|완료·원격 확인|[`5b45c46`](https://github.com/CountJung/KISAutoTrade/commit/5b45c463807cbd1385d7837b4daf3245e1659874)|
 |3|P2-KBD-03|LTH/결과 목록 키보드|완료·원격 확인|[`a6c51fc`](https://github.com/CountJung/KISAutoTrade/commit/a6c51fc9dae70873f9c77d069e841ff42c069da1)|
 |4|P2-KBD-04|수치 이름·단위·Enter commit|완료·원격 확인|[`73f1775`](https://github.com/CountJung/KISAutoTrade/commit/73f1775a8adc9d354e04fa6bde58818d00829c44)|
-|5|P2-KBD-05|프로필 팝업 pending·복구|로컬 완료·일반 푸시 준비|검증 완료·원격 영수증 후속 기록|
+|5|P2-KBD-05|프로필 팝업 pending·복구|구현 게시·CI 보정 중|[`e27d7bd`](https://github.com/CountJung/KISAutoTrade/commit/e27d7bd51ac08e03c26a0cd408f3973af66573bb)|
 
 각 항목의 원래 근거·기대 동작·완료 조건은 착수 TODO에서 고정했다. 완료할 때 원래 ID/조건을 이력에 보존하고 열린 목록에서 걷어 낸다. 회차별 red→최소 수정→green/인접 회귀→타입/빌드·독립 리뷰→문서/지도/Graphify→일반 커밋·푸시·원격 SHA 확인 뒤 다음 항목으로 진행한다. 순서를 바꾸면 의존 근거를 남기며 현재 변경은 없다.
 
@@ -113,4 +113,15 @@ fresh Chromium context의 합성 mock/offline만 사용한다. envDir:false와 �
 - **mock/console:** 최종24의 명시 mock profile POST15회=Add/Update/Delete각5(성공11/의도실패4), aux 읽기POST23회다. readonly전용13case의 profile쓰기0을 구분한다. 의도HTTP5007개와 정확히 같은 resource console7개를 매칭했고 무관console/denied/external/unknown/pageerror/WS0이다. 실제 프로필/계좌/키체인/파일/금융 동작0이며 기존 인접 주문폼의 명시mock 주문은 별도다. 공유 account scope는 직렬화이지 dedup이며 기존 계좌 publication을 UI gate로 대체하지 않았다.
 - **필수 검사·리뷰:** source 후Rust check8.46초→앱/config 타입·FSD와 최종검사strict noEmit·production build가 통과했다. 별도 최종 workspace all-targets check11.70초, Rust lib901/901(17.37초; test compile28.67초), WebView bootstrap합성4/4(session29150exit0)를 새로 실행했다. compiler경고0·lockfiles통과이며 독립 코드/검사/참조·지도/문서 리뷰의 필수 P0/P1/P2 잔여가 없다. code-only Graphify7402nodes/16453edges·최종해시를 갱신했고 기존6개 비코드JSON0-node 안내는 extractor 한계로 분리한다.
 - **시각·한계:**1280×900 light와375×812 dark의 Dialog geometry/Tab·ShiftTab·busy/name을 대조했고 narrow Toss Add pending 앱 PNG를 직접 확인했다. 같은turn .click burst는 untrusted이며 별도 native keyboard/pointer와 구분한다. 전송된 요청 자체를 abort하지 않고 UI 적용을 격리한다. HTTP200→config refresh500·실제 SPA unmount/pending StrictMode 재진입은 직접 case가 없으며 source 검토 범위다. 실제 OS IME·AT/Tauri WebView·운영 계좌/자료 검증은 미실행이다. 서버 변경이 없었다거나 idempotency/자동rollback을 새로 보장하지 않는다.
-- **원본·게시:** `.cache/kbd05-implementation-20261031/`의 first-minimum-6, green-add-baseline-1, red-add-focused-1, green-minimum-6, first-focused24, final-full557 및 final-24-evidence-index.json에 단계별 원본·집계를 보존했다. 최소 복사는 `.cache/kbd05-minimum-snapshot-20261031/`다. 일반 커밋·푸시/원격 SHA 및 그 코드의 테스트·보안 CI는 게시 후 영수증으로 기록한다. 기존 선행결정/사용자판단/실자료11개는 그대로 남긴다.
+- **원본·게시:** `.cache/kbd05-implementation-20261031/`의 first-minimum-6, green-add-baseline-1, red-add-focused-1, green-minimum-6, first-focused24, final-full557 및 final-24-evidence-index.json에 단계별 원본·집계를 보존했다. 최소 복사는 `.cache/kbd05-minimum-snapshot-20261031/`다. 구현 커밋의 일반 푸시·원격 SHA를 확인했고 테스트·보안 CI와 후속 보정은 [최종 영수증](#keyboard-final-ci-20261031)을 따른다. 기존 선행결정/사용자판단/실자료11개는 그대로 남긴다.
+
+<a id="keyboard-final-ci-20261031"></a>
+## 8. 최종 게시·CI 후속
+
+- 다섯 구현 회차를 순서대로 일반 푸시했고 마지막 코드 `e27d7bd51ac08e03c26a0cd408f3973af66573bb`의 원격 SHA 일치·clean을 확인했다. 기존 결정/자료11개는 보존했다.
+- 같은 SHA에서 [Release Gate54](https://github.com/CountJung/KISAutoTrade/actions/runs/41200065545)와 [Security61](https://github.com/CountJung/KISAutoTrade/actions/runs/41200188496)을 각각 한 번 실행했다. Security는성공, Gate의Rust901·frontend·Toss명세는성공했으나 UI는553통과/4실패(12.5분)였다. 이 결과를 로컬557통과로 대신하지 않는다.
+- 실패4개는 Settings refresh/archive의 유효textbox blur→저장/disabled 동안 Slider focus 기대 충돌, minEdit 정상backdrop의고정(5,5), auxEdit의실제키대상미관측이다. CI PNG의좌10pxgutter·theme stableboth-edges와trace고정좌표는관련근거지만원래hit대상/aux bodyfocus를확정하지않는다. 두 독립 읽기 분석 뒤 제품 정책을 유지하는 test-only 3파일 보강을 적용했다. container자기자신hit/신뢰입력·enabled Tab순서와유효blur잠금/복구를명시검증하고retry/timeout·기대완화는하지않는다.
+- 실패원본은 `/tmp/kis-ci54-e2e-failure-20261031.log`와SHA256검증한artifact13042284162의 `/tmp/kis-ci54-playwright-20261031/test-results/`에보존했다. test보강·로컬회귀·새SHA검증CI가끝나기전전체CI완료로기록하지않는다. 기존54를중복실행하지않는다.
+
+- **CI 후속 보정 검증:** 제품 `src/`·API·저장/disabled 정책·workflow·검사 등록수·retry/timeout은 무수정이다. 현재 container의 자기 hit와 trusted mousedown/click, aux 이름 input의 실제 focus·trusted Escape target을 확인한다. Slider는 빈 초안의 저장0 Tab 왕복과 유효 blur의 held 저장·family 잠금/해제·명시 focus 복구를 같은 case에서 분리한다. 즉시 family 저장7/Risk 명시1 및 정확 payload 기대를 유지했다.
+- **새 로컬 실행:** 엄격한 검사 타입과 격리 production build 뒤 수정된 Settings31+Profile24의 **55/55(29.5초, session81680 exit0)**가 통과했다. 현재 고유 JSON55개와 실제 hit/키 target을 확인했고, mock 설정쓰기56·profile쓰기15·aux읽기23·의도HTTP5007의 경계를 유지했다. 실제 API/계좌/프로필/운영설정 쓰기0이다. 원본은 `.cache/kbd-ci54-followup-20261031/`의 focused55.log·test-types.log·settings-evidence·profiles-evidence·focused55-evidence-index.json이다. 앞선 전체557 통과는 e27의 로컬 결과이며 이 보정된 검사 코드의 전체 CI를 대신하지 않는다. 독립 테스트 리뷰에 필수 P0/P1/P2 잔여가 없고, Graphify7403nodes/16457edges·freshness/지도·TODO11/원문보존·docs-canon120개 형식 검사를 통과했다. 기존6개 비코드 JSON의0-node 안내는 extractor 한계다. 게시·새 SHA CI는 다음 영수증으로 확정한다.

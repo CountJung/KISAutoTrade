@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { keyboardProfileFixture, fakeProfiles, addPath, updatePath, deletePath, newTossAccountsPath, savedTossAccountsPath,
   openAddProfile, openEditProfile, openDeleteProfile, ordinaryProfileClosePositive, profileTick, waitProfileTicket,
   finishProfileTicket, addProfileTrigger, profileCard, captureProfiles, safeProfiles, oldAccounts,
-  fillSyntheticAdd, expectedAddBody, expectedEditBody, attemptMainClose, currentError, startKisDetection, type ProfileFixture } from './fixtures/keyboardProfileFixture'
+  fillSyntheticAdd, expectedAddBody, expectedEditBody, attemptMainClose, clickProfileBackdrop, currentError, startKisDetection, type ProfileFixture } from './fixtures/keyboardProfileFixture'
 
 const states = new WeakMap<Page, ProfileFixture>()
 test.afterEach(async ({ page }, info) => { const state = states.get(page); if (state) try { await captureProfiles(page, state, info.title, info.status) } finally { safeProfiles(state) } })
@@ -58,8 +58,8 @@ test('P2-KBD-05 minimum Add pending Escape matches disabled Cancel after ordinar
 test('P2-KBD-05 minimum Edit pending backdrop matches disabled Cancel after ordinary close positives', async ({ page }) => {
   const state = await setup(page), open = () => openEditProfile(page)
   await ordinaryProfileClosePositive(page, state, open)
-  // Prove this exact native pointer coordinate is a real normal backdrop close first.
-  let view = await open(); await page.mouse.click(5, 5); await expect(view.dialog).toHaveCount(0); await expect(view.trigger).toBeFocused()
+  // Prove an actual current container self-hit closes normally before testing its pending guard.
+  let view = await open(); await clickProfileBackdrop(page, view.dialog, state.notes, 'minimum-normal-close'); await expect(view.dialog).toHaveCount(0); await expect(view.trigger).toBeFocused()
   view = await open(); const { dialog } = view
   await expect(dialog).toContainText('실거래 동의 없음')
   await dialog.getByRole('textbox', { name: '프로파일 이름', exact: true }).fill('합성 Toss 수정')
@@ -67,7 +67,7 @@ test('P2-KBD-05 minimum Edit pending backdrop matches disabled Cancel after ordi
   const held = await waitProfileTicket(state, updatePath)
   expect(held.body).toEqual({ id: fakeProfiles[2].id, broker_id: 'toss', name: '합성 Toss 수정', is_paper_trading: false, live_trading_consent: false, account_no: '7101' })
   await expect(dialog.getByRole('button', { name: '취소', exact: true })).toBeDisabled()
-  await page.mouse.click(5, 5); await profileTick(page)
+  await clickProfileBackdrop(page, dialog, state.notes, 'minimum-main-pending'); await profileTick(page)
   state.notes.push({ stage: 'Edit-main-held-backdrop', pending: !held.bodyFinished, stillOpen: await dialog.count() })
   await expect(dialog).toBeVisible(); await expect(dialog.getByRole('textbox', { name: '프로파일 이름', exact: true })).toHaveValue('합성 Toss 수정')
   state.release(updatePath); await finishProfileTicket(page, held); await expect(dialog).toHaveCount(0)
@@ -147,7 +147,25 @@ test('P2-KBD-05 minimum Edit Toss auxiliary error after close and same ID reopen
   const old = await waitProfileTicket(state, savedTossAccountsPath)
   expect(old.body).toBeNull()
   await expect(dialog.getByRole('button', { name: '취소', exact: true })).toBeEnabled()
-  await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0); await expect(trigger).toBeFocused()
+  const nameInput = dialog.getByRole('textbox', { name: '프로파일 이름', exact: true })
+  await nameInput.focus(); await expect(nameInput).toBeFocused()
+  const escapeTarget = await nameInput.elementHandle()
+  if (!escapeTarget) throw new Error('No Edit input for the permitted auxiliary Escape path')
+  const beforeEscape = await escapeTarget.evaluate(element => {
+    Reflect.set(element, '__kbd05AuxEscape', null)
+    element.addEventListener('keydown', event => Reflect.set(element, '__kbd05AuxEscape', event), { once: true, passive: true, capture: true })
+    return { inputFocused: document.activeElement === element, dialogContainsActive: element.closest('[role="dialog"]')?.contains(document.activeElement) ?? false }
+  })
+  await page.keyboard.press('Escape')
+  const observedEscape = await escapeTarget.evaluate(element => {
+    const event = Reflect.get(element, '__kbd05AuxEscape') as KeyboardEvent | null
+    return { key: event?.key ?? null, isTrusted: event?.isTrusted ?? null, targetWasInput: event?.target === element,
+      defaultPrevented: event?.defaultPrevented ?? null, activeTag: document.activeElement?.tagName, inputStillConnected: element.isConnected }
+  })
+  state.notes.push({ stage: 'permitted-aux-Edit-Escape-real-input-path', beforeEscape, observedEscape })
+  expect(beforeEscape).toEqual({ inputFocused: true, dialogContainsActive: true })
+  expect(observedEscape).toMatchObject({ key: 'Escape', isTrusted: true, targetWasInput: true })
+  await expect(dialog).toHaveCount(0); await expect(trigger).toBeFocused()
   ;({ dialog, trigger } = await open())
   await dialog.getByRole('textbox', { name: '프로파일 이름', exact: true }).fill('합성 다시 연 편집')
   state.release(savedTossAccountsPath); await finishProfileTicket(page, old)
@@ -209,12 +227,12 @@ async function mainContract(page: Page, item: { kind: 'Add' | 'Edit'; broker: 'k
   const bounds = await submit.boundingBox(); if (!bounds) throw new Error('No named pending submit bounds')
   await page.mouse.click(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
   await expect(nameInput).toBeEnabled(); await nameInput.fill(edited)
-  await attemptMainClose(page, view)
+  await attemptMainClose(page, view, state)
   await expect(nameInput).toHaveValue(edited)
   state.release(path); await finishProfileTicket(page, first)
   const publication = await waitProfileTicket(state, '/api/app-config', configBefore + 1)
   expect(publication.held).toBe(true); expect(publication.bodyFinished).toBe(false)
-  await attemptMainClose(page, view)
+  await attemptMainClose(page, view, state)
   expect(state.reads(path)).toHaveLength(1)
   state.notes.push({ stage: 'main-HTTP-finished-but-publication-pending', ...item, publication: publication.id,
     mainTicket: first.id, bodyFinished: first.bodyFinished, draftEditablePolicyPreserved: true, geometry, viewport,
@@ -252,10 +270,10 @@ for (const userMoves of [false, true]) test(`P2-KBD-05 Delete delayed profile re
   expect(deletion.body).toEqual({ id: target.id })
   await expect(submit).toHaveAccessibleName('삭제'); await expect(submit).toHaveAttribute('aria-busy', 'true')
   await page.keyboard.press('Space'); await page.keyboard.press('Enter')
-  await attemptMainClose(page, view, submit)
+  await attemptMainClose(page, view, state, submit)
   state.release(deletePath); await finishProfileTicket(page, deletion)
   const publication = await waitProfileTicket(state, '/api/app-config', configBefore + 1)
-  await attemptMainClose(page, view, submit)
+  await attemptMainClose(page, view, state, submit)
   state.release('/api/app-config'); await finishProfileTicket(page, publication)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   const list = await waitProfileTicket(state, '/api/profiles', profilesBefore + 1)

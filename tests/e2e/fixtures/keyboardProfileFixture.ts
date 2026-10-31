@@ -217,7 +217,62 @@ export function expectedEditBody(profile: AccountProfileView, name: string) {
   return { id: profile.id, broker_id: profile.broker_id, name, is_paper_trading: profile.is_paper_trading,
     live_trading_consent: profile.live_trading_consent, account_no: profile.account_no }
 }
-export async function attemptMainClose(page: Page, view: ProfileView, focusTarget?: Locator) {
+export async function clickProfileBackdrop(page: Page, dialog: Locator, notes: unknown[], phase: string) {
+  const viewport = page.viewportSize()
+  const container = dialog.locator('..')
+  await expect(container).toHaveClass(/MuiDialog-container/); await expect(container).toBeVisible()
+  const handle = await container.elementHandle(), paper = await dialog.elementHandle()
+  if (!handle || !paper) throw new Error('No current Dialog container/Paper for native backdrop hit')
+  const inspect = () => handle.evaluate((element, paper) => {
+    const box = element.getBoundingClientRect(), bounds = paper.getBoundingClientRect()
+    const within = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+    const centerX = within(bounds.x + bounds.width / 2, box.x + 1, box.right - 1)
+    const centerY = within(bounds.y + bounds.height / 2, box.y + 1, box.bottom - 1)
+    const candidates = [
+      { x: (box.x + bounds.x) / 2, y: centerY }, { x: (bounds.right + box.right) / 2, y: centerY },
+      { x: centerX, y: (box.y + bounds.y) / 2 }, { x: centerX, y: (bounds.bottom + box.bottom) / 2 },
+    ].filter(point => point.x > box.x && point.x < box.right && point.y > box.y && point.y < box.bottom
+      && point.x >= 0 && point.x < innerWidth && point.y >= 0 && point.y < innerHeight
+      && (point.x < bounds.x || point.x >= bounds.right || point.y < bounds.y || point.y >= bounds.bottom))
+      .map(point => { const hit = document.elementFromPoint(point.x, point.y); return { ...point,
+        hitIsContainer: hit === element, hitTag: hit?.tagName ?? null, hitClass: hit ? String(hit.className) : null } })
+    return { container: { x: box.x, y: box.y, width: box.width, height: box.height },
+      paper: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }, candidates }
+  }, paper)
+  let geometry = await inspect()
+  // Synchronize to a real current hit, not a platform-fixed coordinate or an assumed fade duration.
+  await expect.poll(async () => { geometry = await inspect(); return geometry.candidates.some(point => point.hitIsContainer) }).toBe(true)
+  const point = geometry.candidates.find(point => point.hitIsContainer)
+  if (!point) throw new Error('No backdrop point hits the current container itself')
+  await handle.evaluate(element => {
+    const events: Array<{ type: string; trusted: boolean; targetIsContainer: boolean; x: number; y: number; targetTag: string | null }> = []
+    const listener = (event: Event) => { const mouse = event as MouseEvent; events.push({ type: event.type, trusted: event.isTrusted,
+      targetIsContainer: event.target === element, x: mouse.clientX, y: mouse.clientY, targetTag: (event.target as Element | null)?.tagName ?? null }) }
+    Reflect.set(element, '__kbd05BackdropEvents', events); Reflect.set(element, '__kbd05BackdropListener', listener)
+    element.addEventListener('mousedown', listener, { once: true, passive: true, capture: true })
+    element.addEventListener('click', listener, { once: true, passive: true, capture: true })
+  })
+  let observed: Array<{ type: string; trusted: boolean; targetIsContainer: boolean; x: number; y: number; targetTag: string | null }> = []
+  try {
+    // Locator actionability checks include the actual point receiving events; no force or synthetic click.
+    await container.click({ position: { x: point.x - geometry.container.x, y: point.y - geometry.container.y } })
+  } finally {
+    observed = await handle.evaluate(element => {
+      const events = Reflect.get(element, '__kbd05BackdropEvents') as Array<{ type: string; trusted: boolean; targetIsContainer: boolean; x: number; y: number; targetTag: string | null }>
+      const listener = Reflect.get(element, '__kbd05BackdropListener') as (event: Event) => void
+      element.removeEventListener('mousedown', listener, true); element.removeEventListener('click', listener, true)
+      Reflect.deleteProperty(element, '__kbd05BackdropEvents'); Reflect.deleteProperty(element, '__kbd05BackdropListener')
+      return events
+    })
+    notes.push({ stage: 'actual-container-native-backdrop', phase, viewport, geometry, point, observed })
+  }
+  expect(observed.map(event => event.type)).toEqual(['mousedown', 'click'])
+  for (const event of observed) {
+    expect(event.trusted).toBe(true); expect(event.targetIsContainer).toBe(true)
+    expect(Math.abs(event.x - point.x)).toBeLessThanOrEqual(1); expect(Math.abs(event.y - point.y)).toBeLessThanOrEqual(1)
+  }
+}
+export async function attemptMainClose(page: Page, view: ProfileView, state: ProfileFixture, focusTarget?: Locator) {
   const cancel = view.dialog.getByRole('button', { name: '취소', exact: true })
   await expect(cancel).toBeDisabled()
   const bounds = await cancel.boundingBox(); if (!bounds) throw new Error('No pending Cancel bounds')
@@ -226,7 +281,7 @@ export async function attemptMainClose(page: Page, view: ProfileView, focusTarge
   const target = focusTarget ?? view.dialog.getByRole('textbox', { name: '프로파일 이름', exact: true })
   await target.focus(); await expect(target).toBeFocused(); await page.keyboard.press('Escape')
   await expect(view.dialog).toBeVisible()
-  await page.mouse.click(5, 5); await expect(view.dialog).toBeVisible()
+  await clickProfileBackdrop(page, view.dialog, state.notes, 'main-pending'); await expect(view.dialog).toBeVisible()
 }
 export async function currentError(view: ProfileView, text: string) {
   const alert = view.dialog.getByRole('alert').filter({ hasText: text })

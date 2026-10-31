@@ -2870,8 +2870,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/keyboard-settings-contract.spec.ts": {
-    "mtime": 1793445466.720609,
-    "ast_hash": "d21fe98ff6aa2d5d0547318fd317f69d",
+    "mtime": 1793450770.5199013,
+    "ast_hash": "ba5f1fa01e27821af46bc4dfd117760b",
     "semantic_hash": ""
   },
   "src/pages/settings/ui/useProfileDialogSession.ts": {
@@ -2880,13 +2880,13 @@
     "semantic_hash": ""
   },
   "tests/e2e/fixtures/keyboardProfileFixture.ts": {
-    "mtime": 1793447433.305732,
-    "ast_hash": "9442660de2d040c240a22adaaa62c3a5",
+    "mtime": 1793450770.5195959,
+    "ast_hash": "a93b5e0e190f3e8c335d427e391445e7",
     "semantic_hash": ""
   },
   "tests/e2e/keyboard-profile-dialogs.spec.ts": {
-    "mtime": 1793447709.3149977,
-    "ast_hash": "8a0683175f6ee36fdce9310c8e97d985",
+    "mtime": 1793450770.519789,
+    "ast_hash": "dcf3a6e066ce356c7c6dfc3ab92ea193",
     "semantic_hash": ""
   }
 }

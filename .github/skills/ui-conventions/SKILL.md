@@ -493,6 +493,11 @@ useEffect(() => {
 - 조회 Enter를 주문·자동매매 시작·삭제·위험 해제의 전역/자동 제출로 확대하지 않는다. 기존 동의/preflight·확인·pending/scope guard와 긴급정지 즉시성을 보존한다.
 - 현재 지원과 미착수 개선은 [TODO](../../../docs/todo.md), 실제/합성/소스 근거와 미검증 경계는 [키보드 검토 이력](../../../docs/completed-history.md#kbd-audit-20261031)을 따른다. 합성 composition 이벤트를 실제 OS IME·AT/WebView 검증으로 주장하지 않는다.
 
+### 키보드 회귀의 실제 입력 대상 준비
+
+- MUI Dialog 배경은 고정 viewport 좌표가 아니라 현재 Paper 밖 container 자기 hit를 확인하고 실제 trusted mousedown/click 대상을 기록한다. scrollbar gutter나 자식 hit를 정상 배경 클릭으로 간주하지 않는다.
+- native disabled 버튼을 누른 뒤에는 다음 키의 실제 focus/target을 확인한다. 유효 blur가 즉시 저장·family disabled를 시작하는 기존 정책에서는 저장 없는 Tab 왕복과 저장 잠금/해제 검증을 분리하고 자동 focus 보장을 새로 만들지 않는다. 강제 클릭·sleep·retry/timeout 증가로 준비 오류를 가리지 않는다. [CI 후속 근거](../../../docs/tasks/keyboard-improvements-20261031.md#keyboard-final-ci-20261031).
+
 ### 검색 Enter의 좁은 공통 경계
 
 - `shared/lib/searchKeyboard.ts::isSearchEnter`는 Enter와 direct/native isComposing·229만 판정한다. 검색어 길이·종목/시장·broker callback·query/선택·금융 의미는 caller에 유지하며 KR2자 조건을 US1자 티커에 적용하지 않는다.

@@ -184,9 +184,11 @@ test('P2-KBD-04 risk parser rounds local drafts and explicit save preserves all 
 for (const pair of [settingsPairs[0], settingsPairs[2], settingsPairs[4], settingsPairs[6]]) test(`P2-KBD-04 ${pair.family} native Slider arrows Home End retain original step commit and Tab order`, async ({ page }) => {
   const state = await setup(page), control = namedSettingsControl(page, pair)
   await control.slider.focus(); await page.keyboard.press('Tab'); await expect(control.input).toBeFocused()
-  await page.keyboard.press('Shift+Tab'); await expect(control.slider).toBeFocused()
-  let writes = pair.family === 'risk' ? 0 : 1
-  if (writes) await assertWrite(page, state, pair, pair.initial, writes)
+  // Empty draft restores the existing value without saving, so both ends of this Tab path stay enabled.
+  await control.input.fill(''); await page.keyboard.press('Shift+Tab')
+  await expect(control.input).toHaveValue(String(pair.initial)); await expect(control.slider).toBeEnabled(); await expect(control.slider).toBeFocused()
+  expect((await state.snapshot()).mockWrites).toHaveLength(0)
+  let writes = 0
   for (const [key, value] of [['ArrowRight', pair.initial + pair.step], ['ArrowDown', pair.initial], ['ArrowUp', pair.initial + pair.step],
     ['ArrowLeft', pair.initial], ['Home', pair.min], ['End', pair.max]] as const) {
     await expect(control.slider).toBeEnabled(); await control.slider.focus(); await page.keyboard.press(key)
@@ -194,9 +196,36 @@ for (const pair of [settingsPairs[0], settingsPairs[2], settingsPairs[4], settin
     if (pair.family === 'risk') expect((await state.snapshot()).mockWrites).toHaveLength(0)
     else { writes++; await assertWrite(page, state, pair, value, writes) }
   }
-  if (pair.family === 'risk') { await riskSave(page).click(); await assertWrite(page, state, pair, pair.max, 1) }
+  // A valid blur still commits even at the current value. Test its pending policy separately from Tab order.
+  await control.slider.focus(); await page.keyboard.press('Tab'); await expect(control.input).toBeFocused()
+  if (pair.family !== 'risk') await state.configure(pair.command, { hold: true })
+  await page.keyboard.press('Shift+Tab')
+  if (pair.family === 'risk') {
+    await expect(control.slider).toBeFocused(); await expect(control.slider).toBeEnabled()
+    expect((await state.snapshot()).mockWrites).toHaveLength(0)
+    await riskSave(page).click(); await assertWrite(page, state, pair, pair.max, 1)
+  } else {
+    writes++
+    const held = await waitSettingsWrite(state, pair.command, writes, 'pending')
+    expect(held.args).toEqual(expectedSettingsArgs(pair, pair.max))
+    for (const sibling of settingsPairs.filter(item => item.family === pair.family)) {
+      const locked = namedSettingsControl(page, sibling)
+      await expect(locked.slider).toBeDisabled(); await expect(locked.input).toBeDisabled()
+    }
+    expect((await state.snapshot()).mockWrites).toHaveLength(7)
+    state.notes.push({ stage: 'valid-ShiftTab-held-save', family: pair.family, mockWrites: writes,
+      activeTag: await page.evaluate(() => document.activeElement?.tagName ?? null), automaticFocusRecoveryRequired: false })
+    await state.release(pair.command); await assertWrite(page, state, pair, pair.max, writes)
+  }
+  for (const sibling of settingsPairs.filter(item => item.family === pair.family)) {
+    const enabled = namedSettingsControl(page, sibling)
+    await expect(enabled.slider).toBeEnabled(); await expect(enabled.input).toBeEnabled()
+  }
+  await control.slider.focus(); await expect(control.slider).toBeFocused()
+  expect((await state.snapshot()).mockWrites).toHaveLength(pair.family === 'risk' ? 1 : 7)
   state.notes.push({ stage: 'native-MUI-slider-keys', family: pair.family, keys: ['ArrowRight', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'Home', 'End'],
-    initialTabBlurSaved: pair.family !== 'risk', mockWrites: (await state.snapshot()).mockWrites.length })
+    emptyTabBlurCommits: 0, finalValidShiftTabMockWrites: pair.family === 'risk' ? 0 : 1,
+    explicitFocusAfterCompletion: true, mockWrites: (await state.snapshot()).mockWrites.length })
 })
 
 test('P2-KBD-04 log Slider pointer release remains one exact mock settings commit', async ({ page }) => {
