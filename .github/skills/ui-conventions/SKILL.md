@@ -493,6 +493,13 @@ useEffect(() => {
 - 조회 Enter를 주문·자동매매 시작·삭제·위험 해제의 전역/자동 제출로 확대하지 않는다. 기존 동의/preflight·확인·pending/scope guard와 긴급정지 즉시성을 보존한다.
 - 현재 지원과 미착수 개선은 [TODO](../../../docs/todo.md), 실제/합성/소스 근거와 미검증 경계는 [키보드 검토 이력](../../../docs/completed-history.md#kbd-audit-20261031)을 따른다. 합성 composition 이벤트를 실제 OS IME·AT/WebView 검증으로 주장하지 않는다.
 
+### 검색 Enter의 좁은 공통 경계
+
+- `shared/lib/searchKeyboard.ts::isSearchEnter`는 Enter와 direct/native isComposing·229만 판정한다. 검색어 길이·종목/시장·broker callback·query/선택·금융 의미는 caller에 유지하며 KR2자 조건을 US1자 티커에 적용하지 않는다.
+- MUI TextField의 검색 handler는 실제 htmlInput에 연결한다. adornment/결과 선택 버튼의 native Enter·Space를 상위 입력 검색으로 중복 해석하지 않는다. 비조합 Enter만 해당 읽기 경로를 실행하고 주문·전략 추가·저장을 제출하지 않는다.
+- Trading KR6자리 직접선택, Strategy6자리 자동검색, LTH250ms 자동검색과 Toss/KIS별 fallback은 서로 다른 계약이다. callback 전체를 합치거나 debounce로 Enter의 누락을 가리지 않는다.
+- IME/229 합성 이벤트·정지된 clock의 Enter 즉시조회와 기존 timer를 분리해 검사한다. 합성 `isTrusted=false` 관측은 실제 macOS 한글 IME·WebView·스크린리더 검증이 아니다. 회차별 범위·검증과 남은 조건은 [구현 기록](../../../docs/tasks/keyboard-improvements-20261031.md)을 따른다.
+
 ### 반응형 거래 표의 상세 대안
 
 - 좁은 폭에서 숨긴 시각·금액·비용은 거래별 이름이 있는 native Button과 페이지 내부 Dialog로 다시 읽을 수 있게 한다. History의 기존 formatter 결과를 전달하고 통화·USD fallback·슬리피지·trace 산식을 다시 구현하지 않는다. 같은 종목 복수 체결은 ID와 전체 기록 시각으로 구분한다.
@@ -814,3 +821,5 @@ RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저
 - 모바일 Drawer 닫힘 중 aria-hidden과 CSS visibility를 구분한다. 정상 role 접근 가능·route 전환·닫힘 완료를 기다리고 강제click/sleep으로 대체하지 않는다. 새UI계약5개는 HARNESS_MAP을 따른다.
 
 > 마지막 업데이트: 2026-10-30T08:58:11
+
+> 마지막 업데이트: 2026-10-31T08:58:32+00:00

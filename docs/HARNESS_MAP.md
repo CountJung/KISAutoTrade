@@ -92,6 +92,12 @@ npx playwright test tests/e2e/strategy-scrollbar.spec.ts
 
 UI 변경과 직접 관련된 spec을 먼저 실행한 뒤 범위가 넓으면 전체 E2E를 실행한다. 실제 Tauri IPC·provider 주문 E2E로 오인하지 않는다.
 
+### 키보드 조회 회귀
+
+`tests/e2e/keyboard-search-contract.spec.ts`는 Trading/Strategy/LTH×KR/US×KIS/Toss의 일반 Enter·조합/229·지역 유효성·1자 US·기존6자리 경로·검색 버튼 이름을 합성 응답으로 대조한다. 국내 Enter는 정지된 clock에서 즉시 조회를 요구해 기존 자동 debounce와 구분한다. 인접 회귀는 `uiux-keyboard-selection.spec.ts`와 `trading-form-contract.spec.ts`다. fixture 파일은 별도 검사 건수가 아니다.
+
+로컬 실행은 프로젝트 .env를 읽지 않는 envDir:false 설정·비민감 환경 allowlist·fresh mock Chromium을 사용한다. 외부/WS·unknown·금융/설정 쓰기를 차단하며 Toss open-orders의 정확한 합성 POST 읽기 예외는 금융 변이로 해석하지 않는다. 실제 실행 명령·red/green·수치·증거·미검증은 [5개 순차 구현 기록](tasks/keyboard-improvements-20261031.md)이 정본이다. 실제 OS IME/WebView/스크린리더·실계좌 검증을 대체하지 않는다. 인접 주문폼5개는 별도 브라우저 합성 주문 제출 회귀이며 실제 주문0이다. 신규 검색14개의 쓰기0과 이 명시적 mock 제출을 구분한다.
+
 ## 6. 구조·생성물 검사
 
 할일 상태는 `docs/todo.md`가 원본이며 `npm run todo:render`로 `docs/todo.html`을 생성한다. `npm run check:todo`는 최신 여부, `node --test scripts/render-todo.test.mjs`는 열린 항목 보존·필터·검색·모바일·JavaScript 없는 읽기와 마크업 escaping을 실제 Chromium에서 검증한다. 후자는 CI e2e job에서 Chromium 설치 후 실행한다.

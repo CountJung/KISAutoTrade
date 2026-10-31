@@ -760,8 +760,8 @@
     "semantic_hash": "59b76fc1faedff9ea62d9770d8a76ee8"
   },
   "src/pages/strategy/ui/Page.tsx": {
-    "mtime": 1793341329.6152503,
-    "ast_hash": "f538763df4ba18eac1fb618c0439e90f",
+    "mtime": 1793436872.304125,
+    "ast_hash": "9f2c49366caacfb218defebe0dfe3d5c",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx": {
@@ -800,8 +800,8 @@
     "semantic_hash": "e1e05929b9d6e9a67816e0b8739875f0"
   },
   "src/pages/trading/ui/Page.tsx": {
-    "mtime": 1793347473.3805661,
-    "ast_hash": "b7535b63cc0d48f9f0f21a69b2129ed8",
+    "mtime": 1793436382.9917102,
+    "ast_hash": "0a00ca4827616b19a438bb52532ccbb0",
     "semantic_hash": ""
   },
   "src/pages/trading/ui/kisPanels.tsx": {
@@ -875,8 +875,8 @@
     "semantic_hash": ""
   },
   "src/shared/lib/index.ts": {
-    "mtime": 1793346228.1356137,
-    "ast_hash": "8cf3f1d1c8559ddd9166a261683de3a1",
+    "mtime": 1793436165.9725058,
+    "ast_hash": "6cf7610eb3d8402ea3b19ebe666b0ae6",
     "semantic_hash": ""
   },
   "src/shared/lib/persistentLayout.ts": {
@@ -2540,8 +2540,8 @@
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx": {
-    "mtime": 1793264135.3873115,
-    "ast_hash": "77f174c485cbd59a9707558130ea029b",
+    "mtime": 1793436382.9921684,
+    "ast_hash": "42edf563df4257a08719eee331478b84",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/useLeveragedTrendHoldEditorModel.ts": {
@@ -2797,6 +2797,26 @@
   "src-tauri/src/broker/toss/response_parsing_tests.rs": {
     "mtime": 1793432315.8373806,
     "ast_hash": "1b76fc77b451225382f9fe9fc5725f0b",
+    "semantic_hash": ""
+  },
+  "src/pages/strategy/ui/StrategyUsSearch.tsx": {
+    "mtime": 1793436382.9920526,
+    "ast_hash": "6452daa0e4f9781c3233501d448e27f5",
+    "semantic_hash": ""
+  },
+  "src/shared/lib/searchKeyboard.ts": {
+    "mtime": 1793436165.9719317,
+    "ast_hash": "7925298d6ed9cec2eeba070fccadabf8",
+    "semantic_hash": ""
+  },
+  "tests/e2e/fixtures/keyboardSearchFixture.ts": {
+    "mtime": 1793435282.2914336,
+    "ast_hash": "71db1bc64e1073ef32093ca3e9baa572",
+    "semantic_hash": ""
+  },
+  "tests/e2e/keyboard-search-contract.spec.ts": {
+    "mtime": 1793436742.9540749,
+    "ast_hash": "e555422e54df9108418a3ea3e0d3f668",
     "semantic_hash": ""
   }
 }

@@ -1,3 +1,4 @@
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useRef } from 'react'
 import type { StockSearchItem } from '../../../api/types'
 import FlagIcon from '@mui/icons-material/Flag'
@@ -26,7 +27,7 @@ import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
-import { fmtBrokerMoney, fmtDecimalString } from '../../../shared/lib'
+import { fmtBrokerMoney, fmtDecimalString, isSearchEnter } from '../../../shared/lib'
 import { BrokerScopeIndicator, RowSelectionButton } from '../../../shared/ui'
 import { OverseasStockChart, StockChart } from '../../../widgets/stock-chart'
 import {
@@ -57,6 +58,11 @@ export default function Trading() {
     tossMarketLabel, tossSafety, tossSafetyError, usExchange,
     usSearching,
   } = model
+  const searchDomestic = () => {
+    if (inputValue.trim().length < 2) return
+    setSearchQuery(inputValue)
+    setShowResults(true)
+  }
   const selectSearchResult = (r: StockSearchItem) => {
     setSymbol(r.pdno)
     setInputValue(r.prdt_name)
@@ -272,24 +278,27 @@ export default function Trading() {
               }}
               size="small"
               fullWidth
-              slotProps={{ input: {
+              slotProps={{ htmlInput: { onKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => {
+                if (event.key !== 'Enter') return
+                event.stopPropagation()
+                if (!isSearchEnter(event)) return
+                event.preventDefault()
+                if (!/^[A-Z0-9]{6}$/i.test(inputValue)) searchDomestic()
+              } }, input: {
                 endAdornment: (
                   <InputAdornment position="end">
                     {isFetchingSearch && (
-                      <CircularProgress size={16} color="inherit" sx={{ mr: 0.5 }} />
+                      <CircularProgress size={16} color="inherit" aria-label="국내 종목 조회 중" sx={{ mr: 0.5 }} />
                     )}
                     <Tooltip title="검색">
                       <span>
                         <IconButton
                           size="small"
                           aria-label="국내 종목 검색"
-                          onClick={() => {
-                            if (inputValue.length >= 2) {
-                              setSearchQuery(inputValue)
-                              setShowResults(true)
-                            }
-                          }}
-                          disabled={!inputValue || inputValue.length < 2}
+                          onClick={searchDomestic}
+                          disabled={inputValue.trim().length < 2}
+                          aria-busy={isFetchingSearch}
+                          aria-description={isFetchingSearch ? '국내 종목 조회 중' : undefined}
                         >
                           <RefreshIcon fontSize="small" />
                         </IconButton>
@@ -408,19 +417,25 @@ export default function Trading() {
                 setInputValue(v)
                 if (!v) setSymbol('')
               }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && inputValue) void handleUsSearch() }}
               size="small"
               fullWidth
-              slotProps={{ input: {
+              slotProps={{ htmlInput: { onKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => {
+                if (event.key !== 'Enter') return
+                event.stopPropagation()
+                if (!isSearchEnter(event)) return
+                event.preventDefault()
+                void handleUsSearch()
+              } }, input: {
                 endAdornment: (
                   <InputAdornment position="end">
                     {usSearching
-                      ? <CircularProgress size={16} color="inherit" sx={{ mr: 0.5 }} />
+                      ? <CircularProgress size={16} color="inherit" aria-label="미국 종목 조회 중" sx={{ mr: 0.5 }} />
                       : (
                         <IconButton
                           size="small"
+                          aria-label="미국 종목 검색"
                           onClick={() => void handleUsSearch()}
-                          disabled={!inputValue}
+                          disabled={!inputValue.trim()}
                         >
                           <SearchIcon fontSize="small" />
                         </IconButton>

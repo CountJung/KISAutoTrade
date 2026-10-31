@@ -11,11 +11,11 @@
 | 전략 연구·해석 | 가격조건 계약·구간 진단·별도 회고 walk-forward 완료; 장중 효능 대기 | 2개: SOXQ-P2-13·09 | 가격조건/변동성 실제 장중 근거 | 장중 자료 2 |
 | LTH 실제 장중 평가 | 일봉 평가불가·분봉 시각 진단 구현 완료; 실제 기간 평가 대기 | 2개: SOXQ-P1-05, SOXQ-P2-12 | 실제 3개월 원본/coverage·DST 검증 후 옵션 비교 | 같은 원본 자료 공유·검증 2 |
 | DB 지원·호환 전환 | PostgreSQL 로컬 TLS 기록 존재; MariaDB/MSRV 정책 미확정 | 3개: P1-DB-01, DEP-P3-01·02 | 지원 matrix·최소 Rust 결정 후 SQLx/DB/RSA 검증 | 정책 결정 2; SQLx 착수 의존 |
-| UI/UX 사용 흐름 | 10/30 즉시9개 완료; 10/31 키보드 검토·합성7개 관측 완료 | 6개: P2-KBD-01~05, P2-UX-07 | Enter/IME·조회경합·LTH목록·수치이름·팝업 처리중 동작 5개 미착수 | 위험 행동 확인 정책 결정 1 |
+| UI/UX 사용 흐름 | 10/30 즉시9개 완료; 10/31 키보드 1/5개 로컬 구현·검증 완료 | 5개: P2-KBD-02, P2-KBD-03, P2-KBD-04, P2-KBD-05, P2-UX-07 | 키보드 4개 순차 진행 | 위험 행동 확인 정책 결정 1 |
 | 구조·의존성 유지보수 | 모듈·HTTP/WS·서버·UI·빌드·도구 전환과 후보별 유지 평가·CI 완료 | 0개 | 즉시 구역 완료; 근거는 완료 이력 | Xcode 보류 유지 |
 | 릴리스 서명 | checksum/attestation·기본 게이트 완료; 실제 서명 미완료 | 1개: P3-SIGN-01 | 플랫폼·키 관리 결정과 서명 검증 | 사용자 결정·관리자 준비 1 |
 
-**미완료 16개 = 즉시 코드·개선 5개 + 선행결정 후 자동 구현 1개 + 사용자 판단 5개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현은 합계 6개이며 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
+**미완료 15개 = 즉시 코드·개선 4개 + 선행결정 후 자동 구현 1개 + 사용자 판단 5개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현은 합계 5개이며 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
 
 [완료·경과 이력](completed-history.md) · [색상·필터 보기](todo.html) · [운영 계획](MASTER_PLAN.html) · [검증 지도](HARNESS_MAP.md)
 
@@ -37,18 +37,12 @@
 
 즉시 개선9개는 항목별 구현·격리 검증·독립 리뷰를 마쳐 [완료 이력](completed-history.md)으로 옮겼다. 실행 상태·잔고·History 조회, 종목/패널 키보드 조작, 거래 상세, Log, Settings 목차, 차트 자료 대안의 완료 범위와 회차별 커밋은 [UI/UX 회차 기록](tasks/uiux-improvements-20261030.md)을 따른다. 전체 UI408개와 테스트/보안 CI 결과·게시 근거는 같은 기록에서 확인한다.
 
-위 9개 완료와 아래 10/31 키보드 검토의 신규5개 미착수 과제를 구분한다. 위험 행동 확인 정책 P2-UX-07과 기존 선행 결정·사용자 판단·실자료 조건11개는 아래2~4구역에 유지한다. 실제 원장·시장 자료·native/스크린리더 검증은 이번 격리 UI 완료로 대신하지 않는다. [전문가 사용법](agent-tooling.md#uiux-전문가-사용)과 [최초 검토 근거](completed-history.md#uiux-20261030)는 보존한다.
+위 9개 완료와 아래 10/31 키보드 검토의 신규5개 후속 과제를 구분한다. 위험 행동 확인 정책 P2-UX-07과 기존 선행 결정·사용자 판단·실자료 조건11개는 아래2~4구역에 유지한다. 실제 원장·시장 자료·native/스크린리더 검증은 이번 격리 UI 완료로 대신하지 않는다. [전문가 사용법](agent-tooling.md#uiux-전문가-사용)과 [최초 검토 근거](completed-history.md#uiux-20261030)는 보존한다.
 
-### 2026-10-31 키보드 편의성 — 신규5개, 구현 미착수
+### 2026-10-31 키보드 편의성 — 5개 순차 구현 중
 
-이번 요청은 검토와 할 일 반영이며 아래 기능 구현은 승인·실행하지 않았다. 소스/실제 mock 관측/미검증의 상세 구분은 [키보드 검토 이력](completed-history.md#kbd-audit-20261031)을 따른다. 기존 UI9개 완료를 다시 열지 않고 새 경로와 trigger만 다룬다.
+2026-10-31 08:19 UTC의 후속 요청으로 아래5개 순차 구현이 승인됐다. [현재 구현·회차 영수증](tasks/keyboard-improvements-20261031.md)에서 red/green·검증·커밋/원격 상태를 관리한다. 소스/실제 mock 관측/미검증의 상세 구분은 [키보드 검토 이력](completed-history.md#kbd-audit-20261031)을 따른다. 기존 UI9개 완료를 다시 열지 않고 새 경로와 trigger만 다룬다.
 
-- [ ] **🟢 자동 구현** **P2-KBD-01 — 종목·티커 조회의 Enter·IME·버튼 이름을 일관되게 한다.**
-  - **근거/대상:** 기준74c303a의 src/pages/trading/ui/Page.tsx:243-297 국내 입력은 검색 버튼을 제공하지만 입력 Enter handler는 없고, 미국:403-432는 이미 Enter 조회를 지원한다. src/pages/strategy/ui/Page.tsx:638 및 src/pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx:70-71도 미국 Enter가 있다. 해당 handler에서 isComposing/keyCode229 검사를 찾지 못했으며 Trading 미국 검색 IconButton:420-426은 명시 이름이 없다. 실제 한글 IME/AT 실패로 단정하지 않는다.
-  - **실제 관측/한계:** 새 mock 관측에서 Trading 국내 이름 입력 후600ms창의 Enter 전/후 검색GET0→0, 버튼은GET1·결과표시,6자리 직접선택은 정상이다. Trading/Strategy 미국 일반Enter는 정상 선택했으며, isComposing=true/keyCode229/isTrusted=false 합성Enter는 각 논리조회GET+1을 만들었다. 실제 OS IME 재현과는 구분한다.
-  - **영향/우선순위:** P2, 우선순위1. 키보드 입력 뒤 조회를 이어가기 어렵거나 조합 확정 Enter가 의도치 않은 조회로 해석될 가능성을 줄인다. 기존 미국 Enter 지원은 보존한다.
-  - **기대 동작/의존성:** 각 검색 입력의 Enter를 같은 읽기 조회 버튼의 유효성 경로에 연결하고 조합 중 Enter/229는 무시한다. 국내6자리 직접입력의 기존 즉시선택을 보존해 추가 중복조회하지 않으며 검색 버튼에 정확한 접근 가능 이름·pending 설명을 제공한다. 주문/추가/저장 제출로 이벤트가 전파되지 않게 한다.
-  - **완료/키보드 회귀:** Trading/Strategy/LTH의 KR·US와 KIS·Toss를 합성으로 대조한다. 일반 Enter와 버튼은 같은 검색조건/선택, 빈칸·각 컨트롤의 기존 유효성 조건을 충족하지 못한 입력·조합Enter/229는 조회0(유효한1글자US티커는허용), 조합종료 후 일반Enter는 정상1회다. 6자리 직접선택·기존 Tab/Space/Escape를 유지하고 모든 조회 키에서 금융/설정 변이0, 외부0을 확인한다. 실제 macOS 한글 IME·WebView·AT는 별도 실측으로 구분한다.
 
 - [ ] **🟢 자동 구현** **P2-KBD-02 — 조회 중 반복 Enter와 늦은 티커 응답을 현재 입력·scope에 한정한다.**
   - **근거/대상:** src/pages/trading/ui/useTradingOrderModel.ts:235-265와 src/pages/strategy/ui/Page.tsx:242-283의 미국 검색은 비동기 조회 전후 상태를 바꾸지만 handler 자체 pending/요청세대 검사가 없다. Strategy 버튼의 usSearching disabled와 입력 Enter 경로가 다르다. LTH 모델 src/pages/strategy/ui/useLeveragedTrendHoldEditorModel.ts:215-262의 handlePickerUsSearch도 별도로 대조한다. 중복 GET와 이전 응답 적용 가능성은 읽기 조회 문제이며 실제 주문 중복이나 계좌 경계 침범을 입증한 것이 아니다.

@@ -1,3 +1,4 @@
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import AddIcon from '@mui/icons-material/Add'
 import FlagIcon from '@mui/icons-material/Flag'
 import PublicIcon from '@mui/icons-material/Public'
@@ -18,6 +19,7 @@ import TextField from '@mui/material/TextField'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
+import { isSearchEnter } from '../../../shared/lib'
 import type { LeveragedTrendHoldEditorModel, Market } from './useLeveragedTrendHoldEditorModel'
 
 // Presentation only: the parent retains query/state ownership and callback closures.
@@ -30,6 +32,13 @@ export function LeveragedTrendHoldTickerPicker({ model }: { model: LeveragedTren
     setPickerMarket, setPickerOpen, setPickerQuery, setPickerSelection,
     stratEnabled,
   } = model
+  const search = () => {
+    if (pickerMarket === 'US') void handlePickerUsSearch()
+    else if (pickerInput.trim().length >= 2) {
+      setPickerQuery(pickerInput)
+      setPickerOpen(true)
+    }
+  }
   return (
     <>
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', md: 'center' } }}>
@@ -67,28 +76,29 @@ export function LeveragedTrendHoldTickerPicker({ model }: { model: LeveragedTren
             onBlur={() => {
               pickerCloseTimer.current = setTimeout(() => setPickerOpen(false), 180)
             }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && pickerMarket === 'US') void handlePickerUsSearch()
-            }}
             size="small"
             fullWidth
             disabled={stratEnabled}
-            slotProps={{ htmlInput: { style: { textTransform: pickerMarket === 'US' ? 'uppercase' : 'none' } }, input: {
+            slotProps={{ htmlInput: {
+              style: { textTransform: pickerMarket === 'US' ? 'uppercase' : 'none' },
+              onKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => {
+                if (event.key !== 'Enter') return
+                event.stopPropagation()
+                if (!isSearchEnter(event)) return
+                event.preventDefault()
+                search()
+              },
+            }, input: {
               endAdornment: (
                 <InputAdornment position="end">
-                  {(pickerFetching || pickerSearching) && <CircularProgress size={14} color="inherit" sx={{ mr: 0.5 }} />}
+                  {(pickerFetching || pickerSearching) && <CircularProgress size={14} color="inherit" aria-label="레버리지 대상 조회 중" sx={{ mr: 0.5 }} />}
                   <IconButton
                     size="small"
                     aria-label="레버리지 대상 검색"
                     disabled={stratEnabled || !pickerInput.trim() || (pickerMarket === 'KR' && pickerInput.trim().length < 2)}
-                    onClick={() => {
-                      if (pickerMarket === 'US') {
-                        void handlePickerUsSearch()
-                      } else {
-                        setPickerQuery(pickerInput)
-                        setPickerOpen(true)
-                      }
-                    }}
+                    onClick={search}
+                    aria-busy={pickerFetching || pickerSearching}
+                    aria-description={pickerFetching || pickerSearching ? '레버리지 대상 조회 중' : undefined}
                   >
                     <SearchIcon fontSize="small" />
                   </IconButton>

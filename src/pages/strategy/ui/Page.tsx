@@ -1,5 +1,7 @@
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { StrategyUsSearch } from './StrategyUsSearch'
 import { StrategyPolicyControls, isStrategyPolicyParam, preservesStrategyRawParam, strategyPolicyError } from './strategyPolicyControls'
-import { removeDraftIfUnchanged } from '../../../shared/lib'
+import { isSearchEnter, removeDraftIfUnchanged } from '../../../shared/lib'
 import Typography from '@mui/material/Typography'
 import Paper from '@mui/material/Paper'
 import Box from '@mui/material/Box'
@@ -228,17 +230,22 @@ export default function Strategy() {
   const { data: tossCalendar } = useTossMarketCalendar({ enabled: appConfig?.active_broker_id === 'toss' })
   const isStockListEmpty = isSearchError && (searchError as CmdError | null)?.code === 'STOCK_LIST_EMPTY'
 
-  // 검색어 디바운스 — 6자리 영숫자 코드만 검색 허용 (0005A0, 0089C0 등 ETF 포함)
+  // 6자리 영숫자 코드는 자동 조회, 이름은 Enter/검색 버튼으로 명시 조회
   useEffect(() => {
     if (!searchInput || !showSearch) { setSearchQuery(''); return }
     if (/^[A-Z0-9]{6}$/i.test(searchInput)) {
       setSearchQuery(searchInput.toUpperCase())
       return
     }
-    // 6자 미만이면 대기, 그 외(6자 초과 등)는 무시
-    setSearchQuery('')
+    // 현재 이름을 명시 제출한 query는 보존하고, 이전 입력의 query만 지운다.
+    setSearchQuery(current => current === searchInput ? current : '')
   }, [searchInput, showSearch])
   /** 해외(미국) 거래소 자동 감지: NAS → NYS → AMS 순서로 조회 (활성 프로파일이 Toss면 Toss 종목 정보로 검증) */
+  const searchDomestic = () => {
+    if (searchInput.trim().length < 2) return
+    setSearchQuery(searchInput)
+    setShowSearch(true)
+  }
   const handleUsSearch = async () => {
     const ticker = searchInput.trim().toUpperCase()
     if (!ticker) return
@@ -566,15 +573,23 @@ export default function Strategy() {
                 }}
                 size="small"
                 fullWidth
-                slotProps={{ input: {
+                slotProps={{ htmlInput: { onKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => {
+                  if (event.key !== 'Enter') return
+                  event.stopPropagation()
+                  if (!isSearchEnter(event)) return
+                  event.preventDefault()
+                  if (!/^[A-Z0-9]{6}$/i.test(searchInput)) searchDomestic()
+                } }, input: {
                   endAdornment: (
                     <InputAdornment position="end">
-                      {isFetchingSearch && <CircularProgress size={14} color="inherit" sx={{ mr: 0.5 }} />}
+                      {isFetchingSearch && <CircularProgress size={14} color="inherit" aria-label="국내 종목 조회 중" sx={{ mr: 0.5 }} />}
                       <IconButton
                         size="small"
                         aria-label="국내 종목 검색"
-                        disabled={!searchInput || searchInput.length < 2}
-                        onClick={() => { if (searchInput.length >= 2) { setSearchQuery(searchInput); setShowSearch(true) } }}
+                        disabled={searchInput.trim().length < 2}
+                        onClick={searchDomestic}
+                        aria-busy={isFetchingSearch}
+                        aria-description={isFetchingSearch ? '국내 종목 조회 중' : undefined}
                       >
                         <SearchIcon fontSize="small" />
                       </IconButton>
@@ -584,7 +599,7 @@ export default function Strategy() {
                 helperText={
                   selectedStock
                     ? `선택됨: ${selectedStock.prdt_name} (${selectedStock.pdno})`
-                    : '국내 주식은 6자리 종목코드로만 검색 가능합니다 (예: 005930, 0005A0)'
+                    : '6자리 종목코드는 자동 조회합니다 (예: 005930, 0005A0). 이름은 2자 이상 입력 후 Enter 또는 검색 버튼을 누르세요.'
                 }
               />
               <StockSearchResults
@@ -625,43 +640,12 @@ export default function Strategy() {
             </>
           ) : (
             /* ── 해외(미국) 주식 검색 ─── */
-            <Stack spacing={1}>
-              <Stack direction="row" spacing={1}>
-                <TextField
-                  label="티커 (예: AAPL, SPYM, QQQ)"
-                  value={searchInput}
-                  onChange={(e) => {
-                    setSearchInput(e.target.value.toUpperCase())
-                    setUsSearchError(null)
-                    setSelectedStock(null)
-                  }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleUsSearch() }}
-                  size="small"
-                  fullWidth
-                  slotProps={{ htmlInput: { style: { textTransform: 'uppercase' } } }}
-                  helperText={
-                    selectedStock
-                      ? `선택됨: ${selectedStock.prdt_name} (${selectedStock.pdno})`
-                      : 'NAS(NASDAQ)·NYS·AMEX 순서로 자동 감지합니다'
-                  }
-                />
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={handleUsSearch}
-                  disabled={!searchInput.trim() || usSearching}
-                  startIcon={usSearching ? <CircularProgress size={14} color="inherit" /> : <SearchIcon />}
-                  sx={{ minWidth: 80, alignSelf: 'flex-start', mt: 0.5 }}
-                >
-                  검색
-                </Button>
-              </Stack>
-              {usSearchError && (
-                <Alert severity="warning" sx={{ py: 0.5 }}>
-                  <Typography variant="caption">{usSearchError}</Typography>
-                </Alert>
-              )}
-            </Stack>
+            <StrategyUsSearch value={searchInput} selection={selectedStock} searching={usSearching} error={usSearchError}
+              onChange={value => {
+                setSearchInput(value.toUpperCase())
+                setUsSearchError(null)
+                setSelectedStock(null)
+              }} onSearch={handleUsSearch} />
           )}
 
           {/* 선택된 종목 칩 */}

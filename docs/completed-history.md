@@ -10,6 +10,26 @@
 - 부분 완료 항목은 아래 별도 절에 보관하고, 원래 열린 상위 ID는 현재 TODO에 유지한다.
 - 원문 줄 번호는 위 고정 커밋 기준이다. 기존 ID가 없는 열린 항목에는 이번에 추적 ID만 부여했다.
 
+<a id="p2-kbd-01"></a>
+## P2-KBD-01
+
+2026-10-31 Trading/Strategy/LTH의 KIS·Toss KR/US 입력에 비조합 Enter 조회와 IME/229 방어를 연결했다. 검색 버튼 이름·조회 중 설명을 보완하고, Strategy 이름 조회를 Escape로 닫은 뒤 같은 입력의 Enter 재개방이 유지되게 교정했다. 최종 신규14+기존 선택10/주문폼5의 고유29개가 production mock에서 통과했다(18.2초). Rust check·앱/config 타입·FSD·격리 production build 및 독립 UI/참조 리뷰를 통과했다. 신규14개 읽기 검사는 쓰기/외부/unknown/pageerror0이다. 기존 주문폼5개는 브라우저 합성 주문 제출 회귀이며 실제 주문은0이다. 실제 OS IME·WebView·스크린리더는 미검증이며, 중복/늦은 응답은 P2-KBD-02에 남긴다.
+
+[회차별 검증·한계·게시 기록](tasks/keyboard-improvements-20261031.md#p2-kbd-01)을 따른다.
+
+### 원래 TODO 완료 조건·근거 보존
+
+아래는 착수 당시 미완료 표기를 포함한 원문이며 현재 상태는 위 완료 범위를 따른다.
+
+```markdown
+- [ ] **🟢 자동 구현** **P2-KBD-01 — 종목·티커 조회의 Enter·IME·버튼 이름을 일관되게 한다.**
+  - **근거/대상:** 기준74c303a의 src/pages/trading/ui/Page.tsx:243-297 국내 입력은 검색 버튼을 제공하지만 입력 Enter handler는 없고, 미국:403-432는 이미 Enter 조회를 지원한다. src/pages/strategy/ui/Page.tsx:638 및 src/pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx:70-71도 미국 Enter가 있다. 해당 handler에서 isComposing/keyCode229 검사를 찾지 못했으며 Trading 미국 검색 IconButton:420-426은 명시 이름이 없다. 실제 한글 IME/AT 실패로 단정하지 않는다.
+  - **실제 관측/한계:** 새 mock 관측에서 Trading 국내 이름 입력 후600ms창의 Enter 전/후 검색GET0→0, 버튼은GET1·결과표시,6자리 직접선택은 정상이다. Trading/Strategy 미국 일반Enter는 정상 선택했으며, isComposing=true/keyCode229/isTrusted=false 합성Enter는 각 논리조회GET+1을 만들었다. 실제 OS IME 재현과는 구분한다.
+  - **영향/우선순위:** P2, 우선순위1. 키보드 입력 뒤 조회를 이어가기 어렵거나 조합 확정 Enter가 의도치 않은 조회로 해석될 가능성을 줄인다. 기존 미국 Enter 지원은 보존한다.
+  - **기대 동작/의존성:** 각 검색 입력의 Enter를 같은 읽기 조회 버튼의 유효성 경로에 연결하고 조합 중 Enter/229는 무시한다. 국내6자리 직접입력의 기존 즉시선택을 보존해 추가 중복조회하지 않으며 검색 버튼에 정확한 접근 가능 이름·pending 설명을 제공한다. 주문/추가/저장 제출로 이벤트가 전파되지 않게 한다.
+  - **완료/키보드 회귀:** Trading/Strategy/LTH의 KR·US와 KIS·Toss를 합성으로 대조한다. 일반 Enter와 버튼은 같은 검색조건/선택, 빈칸·각 컨트롤의 기존 유효성 조건을 충족하지 못한 입력·조합Enter/229는 조회0(유효한1글자US티커는허용), 조합종료 후 일반Enter는 정상1회다. 6자리 직접선택·기존 Tab/Space/Escape를 유지하고 모든 조회 키에서 금융/설정 변이0, 외부0을 확인한다. 실제 macOS 한글 IME·WebView·AT는 별도 실측으로 구분한다.
+```
+
 <a id="toss-parse-20261031"></a>
 ## TOSS-PARSE-01 — 시뮬레이션 응답 협상·파싱 진단
 
