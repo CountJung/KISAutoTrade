@@ -4,7 +4,7 @@
 
 - ID: TOSS-PARSE-01. 브랜치: `fix/mac-security-storage-2026-10-06`.
 - 제품 기준: `74c303a901040d2922b2c41ea58cbd8c798d2c3d`; 키보드 문서 전용 커밋 `7703f38636f78e25f015a6f7841d7e599a60bb6c` 위의 별도 수정이다.
-- 상태: 로컬 수정·전체 핵심/시뮬레이션 UI 검증 완료, CI·게시 검증 진행 중. 실제 사용자 응답의 원인은 미확정이다.
+- 상태: 재현된 로컬 경로 수정·검증·코드 CI/게시 완료(실사용 응답 원인 미확정). 실제 사용자 응답의 원인은 미확정이다.
 - 사용자 단서: 시뮬레이션에서 기억상 “utf-8 본문 … 실패”였다. 근사 표현이며 실제 오류 문자열/본문/헤더를 확보한 것으로 취급하지 않는다. 현재 소스의 `토스증권 응답 본문 UTF-8 파싱 실패` 경로를 우선 조사했다. 화면·본문을 재요청하거나 운영 로그를 읽지 않았다.
 - 승인 범위: 파싱 실패의 합성 재현·최소 수정·회귀 검증·일반 커밋/푸시. 키보드 UX는 [별도 검토](../completed-history.md#kbd-audit-20261031)와 TODO 반영만이며 기능 구현0이다.
 
@@ -51,7 +51,7 @@
 | replay clock 통합 |4 passed/0 failed/0 ignored |생산 replay clock의 기존 독립 integration target |
 | check/types/FSD/fmt/clippy/build |전부 exit0·compiler warning0 |offline `cargo check --workspace --all-targets --locked`→app/config tsc→FSD/fmt→lib/replay tests→strict clippy→lib build 순서 |
 | 시뮬레이션 UI |30 passed/0 failed(28.2초,session47910 exit0) |기존 격리 production mock의 candle-pagination/replay-assessment/configuration-errors; 실제 backend/provider E2E와구분 |
-| CI·게시 |진행 중 |검증한 코드 SHA·workflow/run ID·문서 커밋을 후속 절에서 구분 |
+| CI·코드 게시 |Release Gate53/Security60 success·코드0e69fb7 원격일치 |Rust901/UI408의 실제로그와 후속문서SHA는7절에서구분 |
 
 새14개는 정상 공개예제3개, syntax/data/eof·잘린UTF8/읽기·다국어chunk·4MiB header/stream/exact·token캐시·401·typed거절·GET/POST·identity·비시장legacy·stacked header를 검증한다. 직접 client/DTO fixture를 생산 adapter의 시장/scope 검증으로 확대하지 않는다. 정상KRW 예제에 사용한 test symbol도 실제미국시장 성공의 증거가 아니다. 기존 별도 Toss cursor HTTP와 전체 lib의 계약을 구분한다.
 
@@ -61,11 +61,11 @@
 
 ## 5. 독립 검토와 문서 게이트
 
-`/tmp/kis-toss-parse-impact-20261031.md`의사전참조분석과 `/tmp/kis-toss-parse-independent-review-20261031.md`의읽기전용독립리뷰에필수P0/P1/P2는없다. Serena전용도구미지원으로rg/소스대조를사용했다. 프로젝트지도/Graphify·문서정본의최종freshness는후속검증과함께기록한다.
+`/tmp/kis-toss-parse-impact-20261031.md`의사전참조분석과 `/tmp/kis-toss-parse-independent-review-20261031.md`의읽기전용독립리뷰에필수P0/P1/P2는없다. Serena전용도구미지원으로rg/소스대조를사용했다. 지도 책임 누락 P2는 보완 후 해소됐고 최종 내용 리뷰에 잔여 필수 지적은 없다. docs-canon119개 Markdown의 링크·표·앵커·도달성 경고0, TODO16·프로젝트지도·Graphify·FSD·lock·diff 검사를 통과했다.
 
 초기조사전용지시를근거로한자동승인검토의1회거절은CreateProcess전미실행이었다. 부모가사용자의실제수정승인원문을새관련근거로전달한뒤같은미실행동작을한번만재요청해승인받았다. 원인비교·수정·검증은그뒤수행했고우회·중복제출하지않았다. 현재승인차단은없다.
 
-Graphify는 code-only/LLM 없이 갱신했다. 기존5개와 새 공개 response fixture JSON1개를 합한6개 JSON의 zero-node 추출 안내는 그래프 도구 한계이며 compiler warning과 구분한다. 코드 source snapshot은 갱신됐고 freshness·문서 링크 검사는 최종 게이트에서 확인한다.
+Graphify는 code-only/LLM 없이 갱신했다. 기존5개와 새 공개 response fixture JSON1개를 합한6개 JSON의 zero-node 추출 안내는 그래프 도구 한계이며 compiler warning과 구분한다. 코드 source snapshot과 freshness·문서 링크의 최종 게이트를 통과했다.
 
 ## 6. 실제 사용자 환경의 한계
 
@@ -75,4 +75,11 @@ Graphify는 code-only/LLM 없이 갱신했다. 기존5개와 새 공개 response
 
 ## 7. 코드·CI·게시 영수증
 
-로컬검증코드의커밋/원격SHA와Release Gate·Dependency Security결과를여기에이어기록한다. 문서만후속변경하면그커밋과실제CI대상코드를구분하며불변diff를확인한다.
+검증 코드 커밋은 [`0e69fb7a26eb30d3fe0c73f7cc910a8d2a60d53d`](https://github.com/CountJung/KISAutoTrade/commit/0e69fb7a26eb30d3fe0c73f7cc910a8d2a60d53d)이며 작업 브랜치에 일반 푸시한 뒤 원격 SHA 일치·clean을 확인했다.
+
+- [Release Gate #53](https://github.com/CountJung/KISAutoTrade/actions/runs/41182432956): 위 SHA, workflow_dispatch, **success**. frontend/toss-openapi/rust/e2e4개 job이 성공했고 실제 로그의 **901 Rust passed/0 failed/0 ignored**, **408 UI passed/0 failed(7.7m)**를 확인했다. 로컬30UI·7개키보드관측·반복필터를408개에합산하지않는다. DB미구성5개조기반환은실제DB성공이아니다.
+- [Dependency Security #60](https://github.com/CountJung/KISAutoTrade/actions/runs/41182558334): 같은 SHA, **success**. npm 운영/전체 감사0 vulnerabilities, cargo는 기존 `RUSTSEC-2023-0071` 예외와 허용 경고2개(`RUSTSEC-2024-0370`,`RUSTSEC-2024-0429`)를 유지한 통과다. 기존 Node20→24/Node deprecation·runner 전환 안내와 compiler warning을 구분한다.
+- 두 workflow는 각각1회만 실행했고 중복 dispatch/재실행·실제 릴리스/서명/운영배포를 하지 않았다. source/tests/deps/workflows는 이 코드 SHA에 고정한다.
+- 최종 정본 영수증은 별도 문서 커밋으로 남긴다. 실제 CI대상은 위 코드 SHA이며 후속 문서 SHA에서 CI를 새로 실행했다고 주장하지 않는다. 코드/테스트/의존성/워크플로 차이0과 문서·TODO16·지도/Graphify·독립 리뷰를 확인한 뒤 일반 푸시·원격 SHA·게시 파일을 대조한다.
+
+키보드 검토 커밋은 `7703f38636f78e25f015a6f7841d7e599a60bb6c`이며 P2-KBD-01~05는 여전히 미착수다. 이번 파싱 교정은 재현된 로컬 경로의 수정·검증·CI 범위에서 완료됐으며, 실제 사용자의 응답 원인 확정·운영앱 재시도·실계좌 확인은 미실행이다.

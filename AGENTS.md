@@ -85,7 +85,7 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 | 날짜 | 한줄 요약 |
 |------|----------|
-| 2026-10-31 | Toss identity 협상·캔들 안전 파싱 단계 교정·Rust901/clock4 통과; 실사용 원인 미확정·상세는 [기록](docs/tasks/toss-simulation-response-parsing-20261031.md) |
+| 2026-10-31 | Toss identity 협상·캔들 안전 파싱 단계 교정·Rust901/clock4·UI408·CI53/60 통과; 실사용 원인 미확정·상세는 [기록](docs/tasks/toss-simulation-response-parsing-20261031.md) |
 | 2026-10-31 | 키보드 컨트롤 감사·합성7개 관측, Enter/IME·조회경합·LTH·수치이름·프로필팝업 신규5개 TODO; UI구현 없음 |
 | 2026-10-30 | UI/UX 즉시9개 완료·로컬/CI UI408개·Rust887개·테스트/보안 CI 통과; 결정/실자료11개 보존 |
 | 2026-10-30 | UI/UX CI Log 초기 알림·가짜 clock 준비 교정; 제품/기대 유지·고유5개/20회 반복 검증 |
