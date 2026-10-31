@@ -44,6 +44,8 @@ for (const broker of ['kis', 'toss'] as const) test(`P2-KBD-03 source ${broker.t
   if (!originalInput) throw new Error('No initial LTH input')
   const identity = await replaceFocusedResult(page, state, view, harness)
   await focusFirstResult(view)
+  // Own the disabled-present phase so the existing blur timer cannot remove a native pointer target between observations.
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000))
   state.strategy.enabled = true
   await harness.refresh('strategies') // Synthetic GET only: do not click toggle/save/add/start.
   expect(await harness.identity()).toBe(identity)
@@ -54,23 +56,37 @@ for (const broker of ['kis', 'toss'] as const) test(`P2-KBD-03 source ${broker.t
   await expect(add.nth(0)).toBeDisabled(); await expect(add.nth(1)).toBeDisabled()
   let pointerPathPresent = false
   for (const item of resultItems) {
-    const button = resultButton(view, item)
-    if (await button.count()) await expect(button).toBeDisabled()
-    const row = resultRow(view, item)
-    if (await row.count()) {
-      pointerPathPresent = true
-      await row.getByRole('cell', { name: item.pdno, exact: true }).click()
+    const observed = await resultButton(view, item).evaluateAll(buttons => buttons.map(button => ({
+      nativeButton: button instanceof HTMLButtonElement, disabled: button instanceof HTMLButtonElement && button.disabled,
+    })))
+    state.notes.push({ stage: 'locked-result-atomic-snapshot', phase: 'after-enabled-GET', symbol: item.pdno, observed })
+    expect(observed).toEqual(observed.length === 0 ? [] : [{ nativeButton: true, disabled: true }])
+    const cells = await resultRow(view, item).getByRole('cell', { name: item.pdno, exact: true }).elementHandles()
+    expect(cells.length).toBeLessThanOrEqual(1)
+    if (cells[0]) {
+      await cells[0].click()
       await assertNoResultsSelection(view, item)
+      pointerPathPresent = true
+      state.notes.push({ stage: 'locked-result-native-cell-pointer-complete', symbol: item.pdno, noSelection: true })
+      await cells[0].dispose()
     }
   }
   await page.keyboard.press('Enter'); await page.keyboard.press('Space')
   await expect(view.input).toHaveValue(resultsTerm)
   for (const item of resultItems) await assertNoResultsSelection(view, item)
   await page.clock.runFor(600)
-  for (const item of resultItems) await assertNoResultsSelection(view, item)
+  for (const item of resultItems) {
+    await assertNoResultsSelection(view, item)
+    const observed = await resultButton(view, item).evaluateAll(buttons => buttons.map(button => ({
+      nativeButton: button instanceof HTMLButtonElement, disabled: button instanceof HTMLButtonElement && button.disabled,
+    })))
+    state.notes.push({ stage: 'locked-result-atomic-snapshot', phase: 'after-600ms', symbol: item.pdno, observed })
+    expect(observed).toEqual(observed.length === 0 ? [] : [{ nativeButton: true, disabled: true }])
+  }
   state.notes.push({ stage: 'synthetic-enabled-row-lock', broker, pointerPathPresent,
     removedResultsAlsoCountAsLocked: true, noToggleOrSave: true, identity })
 
+  await page.clock.resume()
   state.strategy.enabled = false
   await harness.refresh('strategies')
   expect(await harness.identity()).toBe(identity)

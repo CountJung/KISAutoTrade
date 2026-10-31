@@ -2860,8 +2860,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/keyboard-results-scope.spec.ts": {
-    "mtime": 1793441699.987141,
-    "ast_hash": "9680f8941dd18ed9ca286c47bbc427c7",
+    "mtime": 1793488416.9158788,
+    "ast_hash": "2ec6b8a09832129a8a233b4258ef12e2",
     "semantic_hash": ""
   },
   "tests/e2e/fixtures/keyboardSettingsFixture.ts": {

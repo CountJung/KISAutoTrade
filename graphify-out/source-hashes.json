@@ -482,7 +482,7 @@
   "tests/e2e/fixtures/uxReviewFixture.ts": "4117c41f958262232322d0d822d8fda5e1af99cb1d2d308148d25afe18d07cb4",
   "tests/e2e/keyboard-profile-dialogs.spec.ts": "88428066d863df961149545233c1233f7c63cc9f185bd415be61496bb8120cca",
   "tests/e2e/keyboard-results-navigation.spec.ts": "385c64aa5f5fed7d076ca19548083fe125263734cbea074b358cbe2d1333e0c4",
-  "tests/e2e/keyboard-results-scope.spec.ts": "47528a579d0f619b3554208af6c275a615c68ba7e15b42685dea3d6753a2c0d2",
+  "tests/e2e/keyboard-results-scope.spec.ts": "03d702d609709162d7c2ff97db27feb2f263ba3f155a38dbc05d245854ec1e97",
   "tests/e2e/keyboard-search-contract.spec.ts": "80c0664525195127b4c2c06a9296f6364e0b6f1073b6f3a9281071a57c3de886",
   "tests/e2e/keyboard-search-race.spec.ts": "7ed37fcbd62d9bb8f1f0a369cfd11ce5f0935cdc3483f7e5e0fbe946459f85f0",
   "tests/e2e/keyboard-search-scope.spec.ts": "831531e036d5e5528829bb2f99e0e3a9007f5e0f29cd711c4b84e248c0f952c0",

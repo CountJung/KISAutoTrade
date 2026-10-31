@@ -500,6 +500,8 @@ useEffect(() => {
 
 - clock을 소유한 Query UI fixture는 초기 scope/자료 응답의 body 완료와 observer 알림 전달을 구분한다. 정확한 초기 GET을 navigation 전에 관측하고 준비 단계의 microtask·소유 clock tick 뒤 기존 입력 기대를 실행한다. HTTP200만으로 화면 준비를 단정하거나 install을 frozen clock으로 부르지 않는다. 제어된 pause 재현과 원래 CI 관측은 구분한다.
 
+- 잠금 시 제거도 허용하는 결과 목록은 count 뒤 별도 disabled 기대를 두지 않는다. 한 DOM 관측에서 정확0개 또는 정확1개 native disabled만 허용하고 enabled·중복은 즉시 거부한다. 소유 clock으로 native 포인터 관측과 기존 blur 제거 phase를 분리하며, Paper의 timer 취소 정책을 바꾸거나 force/DOM click·일반 오류 catch로 통과시키지 않는다.
+
 ### 검색 Enter의 좁은 공통 경계
 
 - `shared/lib/searchKeyboard.ts::isSearchEnter`는 Enter와 direct/native isComposing·229만 판정한다. 검색어 길이·종목/시장·broker callback·query/선택·금융 의미는 caller에 유지하며 KR2자 조건을 US1자 티커에 적용하지 않는다.
