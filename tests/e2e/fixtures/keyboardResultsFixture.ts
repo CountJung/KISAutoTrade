@@ -82,7 +82,24 @@ export async function keyboardResultsFixture(page: Page, broker: 'kis' | 'toss' 
 export type ResultsFixture = Awaited<ReturnType<typeof keyboardResultsFixture>>
 
 export async function openResultsSurface(page: Page, surface: ResultsSurface) {
+  const waitForInitialGet = (path: '/api/app-config' | '/api/strategies') => page.waitForResponse(response => {
+    const url = new URL(response.url())
+    return ['127.0.0.1', 'localhost'].includes(url.hostname) && url.pathname === path
+      && response.request().method() === 'GET'
+  })
+  const initialConfig = surface === 'Trading' ? null : waitForInitialGet('/api/app-config')
+  const initialStrategies = surface === 'Trading' ? null : waitForInitialGet('/api/strategies')
+  // If navigation itself fails, its error remains primary and later response-wait rejections are handled.
+  // Await the original promises below so response failures still propagate after successful navigation.
+  void initialConfig?.catch(() => undefined); void initialStrategies?.catch(() => undefined)
   await page.goto(surface === 'Trading' ? '/trading' : '/strategy')
+  for (const initialRead of [initialConfig, initialStrategies]) if (initialRead) {
+    const response = await initialRead
+    expect(response.status()).toBe(200)
+    expect(await response.finished()).toBeNull()
+    await page.evaluate(() => Promise.resolve())
+    await page.clock.runFor(1) // Deliver scope first, then strategy notifications before the actual input contract.
+  }
   const area = surface === 'LTH' ? page.getByTestId('strategy-card-grid').filter({ hasText: 'LeveragedTrendHoldStrategy' }) : page.locator('body')
   if (surface === 'LTH') {
     // Preserve the real US default and explicitly select KR before testing domestic results.

@@ -498,6 +498,8 @@ useEffect(() => {
 - MUI Dialog 배경은 고정 viewport 좌표가 아니라 현재 Paper 밖 container 자기 hit를 확인하고 실제 trusted mousedown/click 대상을 기록한다. scrollbar gutter나 자식 hit를 정상 배경 클릭으로 간주하지 않는다.
 - native disabled 버튼을 누른 뒤에는 다음 키의 실제 focus/target을 확인한다. 유효 blur가 즉시 저장·family disabled를 시작하는 기존 정책에서는 저장 없는 Tab 왕복과 저장 잠금/해제 검증을 분리하고 자동 focus 보장을 새로 만들지 않는다. 강제 클릭·sleep·retry/timeout 증가로 준비 오류를 가리지 않는다. [CI 후속 근거](../../../docs/tasks/keyboard-improvements-20261031.md#keyboard-final-ci-20261031).
 
+- clock을 소유한 Query UI fixture는 초기 scope/자료 응답의 body 완료와 observer 알림 전달을 구분한다. 정확한 초기 GET을 navigation 전에 관측하고 준비 단계의 microtask·소유 clock tick 뒤 기존 입력 기대를 실행한다. HTTP200만으로 화면 준비를 단정하거나 install을 frozen clock으로 부르지 않는다. 제어된 pause 재현과 원래 CI 관측은 구분한다.
+
 ### 검색 Enter의 좁은 공통 경계
 
 - `shared/lib/searchKeyboard.ts::isSearchEnter`는 Enter와 direct/native isComposing·229만 판정한다. 검색어 길이·종목/시장·broker callback·query/선택·금융 의미는 caller에 유지하며 KR2자 조건을 US1자 티커에 적용하지 않는다.

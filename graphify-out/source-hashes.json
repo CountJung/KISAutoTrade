@@ -474,7 +474,7 @@
   "tests/e2e/budget-recovery.spec.ts": "2d7bad8382ded796aa523e35f26dc4f4a852c0dcf2168f4bd24d464d948de984",
   "tests/e2e/candle-pagination.spec.ts": "f1938752db42b602378ad9f8a9334f985f6718f009e4aa4e1345ddeb21820eca",
   "tests/e2e/fixtures/keyboardProfileFixture.ts": "70eeee42f11228606b353c7c3411e14098dda5c8e17becef88f681f4d7010701",
-  "tests/e2e/fixtures/keyboardResultsFixture.ts": "1350f1317b6915d9027f2752cd6c844d2909e1db164edfd3f049460b6f26bd80",
+  "tests/e2e/fixtures/keyboardResultsFixture.ts": "6a977383d30e219fe9cfdcf37060b2703c4130ef47ecf890909e364e1e5d6464",
   "tests/e2e/fixtures/keyboardSearchFixture.ts": "30c98c8cc9f31d7ea52f21de89dceb321356e0db4b4f70a335d4b3efee72e4b0",
   "tests/e2e/fixtures/keyboardSearchRaceFixture.ts": "554bbcf9941cf59d4a6e06c4a7e31fcebaa51138e42c779c31e4854b8ab60d0b",
   "tests/e2e/fixtures/keyboardSettingsFixture.ts": "a7497ee5cb4d8419a3982a0e340f8087bfdf9a9e9714438aa06e7c02d746613e",

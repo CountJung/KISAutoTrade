@@ -94,6 +94,8 @@ UI 변경과 직접 관련된 spec을 먼저 실행한 뒤 범위가 넓으면 �
 
 CI의 Dialog 배경/aux Escape·수치 blur 검사는 실제 hit/키 target과 저장 중 native disabled를 구분한다. 고정 좌표나 disabled 후 미관측 focus를 전제로 하지 않는다. 테스트 보정과 코드 SHA별 결과는 [최종 CI 영수증](tasks/keyboard-improvements-20261031.md#keyboard-final-ci-20261031)을 따른다.
 
+결과 목록 fixture의 Strategy/LTH 초기 준비는 app-config와 strategies의 정확한 GET body 완료→microtask/소유 clock tick 순서를 확인한 뒤 기존 입력 기대를 수행한다. 실제 Query cache나 시장 정책을 바꾸지 않으며 제어된 pause 진단은 원래 CI clock 정지의 증거가 아니다. 자세한 실패/재현/후속 결과는 같은 최종 영수증에서 확인한다.
+
 ### 키보드 조회 회귀
 
 `tests/e2e/keyboard-search-contract.spec.ts`는 Trading/Strategy/LTH×KR/US×KIS/Toss의 일반 Enter·조합/229·지역 유효성·1자 US·기존6자리 경로·검색 버튼 이름을 합성 응답으로 대조한다. 국내 Enter는 정지된 clock에서 즉시 조회를 요구해 기존 자동 debounce와 구분한다. 인접 회귀는 `uiux-keyboard-selection.spec.ts`와 `trading-form-contract.spec.ts`다. fixture 파일은 별도 검사 건수가 아니다.
