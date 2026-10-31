@@ -4,7 +4,7 @@
 
 - 기준: `8a9d1b54312721cdc38bf84abb8dbc801a2ad08b`, `fix/mac-security-storage-2026-10-06`, 시작 clean.
 - 사용자 승인: 2026-10-31 08:19 UTC, 방금 등록한 할 일을 순서대로 구현. 이전 키보드 검토 전용 제한은 아래5개에 한해 변경됐다.
-- 상태: In Progress. 루트는 검증/문서/게시를 맡고 회차별 source/test 생산과 독립 검토 역할을 분리한다. 역할이 바뀌면 해당 회차에 기록하며, 생산자가 자기 변경의 독립 리뷰를 맡지 않는다.
+- 상태: Completed. 루트는 검증/문서/게시를 맡고 회차별 source/test 생산과 독립 검토 역할을 분리한다. 역할이 바뀌면 해당 회차에 기록하며, 생산자가 자기 변경의 독립 리뷰를 맡지 않는다.
 - 정본: [현재 TODO](../todo.md), [검토 근거](../completed-history.md#kbd-audit-20261031), [이전 UI9개](uiux-improvements-20261030.md), [역할 사용](../agent-tooling.md#uiux-전문가-사용).
 - 제외: 기존 선행 결정/사용자 판단/실자료11개, P2-UX-07 확인 정책, 토스 실제 응답 원인 확정/실계좌·운영앱 확인. 금융 동작 정책·기본값·저장/조회 계약을 임의 변경하지 않는다.
 
@@ -16,7 +16,7 @@
 |2|P2-KBD-02|중복 조회·늦은 응답·scope|완료·원격 확인|[`5b45c46`](https://github.com/CountJung/KISAutoTrade/commit/5b45c463807cbd1385d7837b4daf3245e1659874)|
 |3|P2-KBD-03|LTH/결과 목록 키보드|완료·원격 확인|[`a6c51fc`](https://github.com/CountJung/KISAutoTrade/commit/a6c51fc9dae70873f9c77d069e841ff42c069da1)|
 |4|P2-KBD-04|수치 이름·단위·Enter commit|완료·원격 확인|[`73f1775`](https://github.com/CountJung/KISAutoTrade/commit/73f1775a8adc9d354e04fa6bde58818d00829c44)|
-|5|P2-KBD-05|프로필 팝업 pending·복구|구현 게시·CI 보정 중|[`e27d7bd`](https://github.com/CountJung/KISAutoTrade/commit/e27d7bd51ac08e03c26a0cd408f3973af66573bb)|
+|5|P2-KBD-05|프로필 팝업 pending·복구|완료·최종 CI 확인|[`e27d7bd`](https://github.com/CountJung/KISAutoTrade/commit/e27d7bd51ac08e03c26a0cd408f3973af66573bb)|
 
 각 항목의 원래 근거·기대 동작·완료 조건은 착수 TODO에서 고정했다. 완료할 때 원래 ID/조건을 이력에 보존하고 열린 목록에서 걷어 낸다. 회차별 red→최소 수정→green/인접 회귀→타입/빌드·독립 리뷰→문서/지도/Graphify→일반 커밋·푸시·원격 SHA 확인 뒤 다음 항목으로 진행한다. 순서를 바꾸면 의존 근거를 남기며 현재 변경은 없다.
 
@@ -145,3 +145,8 @@ fresh Chromium context의 합성 mock/offline만 사용한다. envDir:false와 �
 - **CI57 결과·기존 검사 경합:** 잠금 보강 `e3f034dff059c85544e111249501a08ad5851ea2`를 일반 푸시하고 원격 SHA 일치·clean을 확인했다. 같은 SHA의 [Gate57](https://github.com/CountJung/KISAutoTrade/actions/runs/41252115689)은 frontend·Toss명세·Rust901/901(12.99초, compiler 경고0)이 성공했고 UI는 **556통과/1실패(11.7분)**였다. 이번 키보드149개와 앞선 잠금 보강은 통과했다. [Security64](https://github.com/CountJung/KISAutoTrade/actions/runs/41252198871)의 두 audit job도 성공했다. 남은 실패는 기존 Trend Filter invalid-draft 검사의 최초 정상 preview가 candle 수집 중 입력 변경으로 정당하게 무효화돼 POST0인데 요청1을 기대하던 준비 경합이다. trace의 수집/입력 시각과 제품 generation 취소 경로를 대조했으며 전략 로직 결함으로 단정하지 않는다.
 - **기존 검사 최소 보강·실측:** `strategy-trend-filter-policy.spec.ts`의 첫 정상 실행 직후 실제 현재 결과의 `trend-filter-policy-summary` 표시를 기다리는 기대 한 줄만 추가했다. 기존 invalid 값/원형·저장/두preview 차단·이전 결과 제거·정확 요청1 기대와 timeout/등록수는 유지했다. strict 검사 타입·격리 production build 뒤 해당 spec **14/14(11.2초)** 통과를 로그로 확인했다. 이미 종료된 session66957의 재조회는 Unknown process였으므로 종료 코드를 새로 추정하지 않고 완료 로그를 근거로 삼는다. 제품 src·API·전략 정책은 무수정이며 원격 전체 성공은 새 SHA의 다음 CI에서 확인한다.
 - **CI57 원본:** decoded log `/tmp/kis-ci57-e2e-failure-20261031.log`, artifact13062231183의 SHA256 `0ac7029163f36f334ecfb96b7423d551a8b4b10f6f432b20b5ab754fca084bbc`, 안전 추출 `/tmp/kis-ci57-playwright-20261031/test-results/`와 `.cache/kbd-ci57-followup-20261031/`의 test-types.log·focused-trend.log를 보존했다. 이전 검증/진단을14개에 합산하지 않는다. 정상 승인 경로로 최소 검사 보강을 적용했으며 실제 계좌/API·운영 앱/DB·보안/자격증명·배포는 건드리지 않았다. 기존 대기11개는 보존한다.
+
+- **최종 게시:** 정상 재검토 후 잠금 관측·기존 preview 준비를 보강한 `7b8b9978a182c8dc138264e5b61cdb9a8c775a70`를 일반 푸시하고 원격 SHA 일치·clean을 확인했다. 현재 적용본은 독립 검토 초안과 byte 동일하고, 실제 잠금2/38·Trend14 실행 근거를 포함한 독립 코드·문서 리뷰의 필수 P0/P1/P2 잔여가 없다. 형식120개·지도/그래프 freshness·TODO11·원래 열린11개/완료5개 원문 보존 검사도 통과했다. 기존6개 비코드 JSON의0-node 안내는 extractor 한계로 구분한다.
+- **최종 CI58 영수증:** 같은 SHA에서 [Release Gate58](https://github.com/CountJung/KISAutoTrade/actions/runs/41253655588)과 [Dependency Security65](https://github.com/CountJung/KISAutoTrade/actions/runs/41253708366)를 각각 한 번 실행했고 둘 다 completed/success를 확인했다. Gate의 frontend·Toss명세·Rust·e2e 네 job과 Security의 npm/cargo audit 두 job이 모두 성공했다.
+- **최종 실측·해석:** decoded log의 UI **557/557(14.0m)**, Rust lib **901/901(12.81s)**, TODO renderer3개와 bootstrap4개 통과를 대조했다. 기존408+이번 키보드149=고유557이며 focused2/14/38/55·진단1·이전 로컬/원격 실행을 합산하지 않는다. compiler 경고0이며 외부 Actions v4 Node20→24 및 Node punycode/url.parse deprecation은 별도 도구 안내다. Security65 성공은 기존 차단 기준과 RSA 예외 RUSTSEC-2023-0071을 유지한 결과이며 모든 취약점 부재를 뜻하지 않는다.
+- **마감·남은 경계:** 승인된 P2-KBD-01~05를 순서대로 구현·검증·게시했고, CI54/55/56/57 실패·이전 승인 거절·정상 재개를 이력으로 보존했다. 현재 이 범위의 승인 차단은 해소됐다. 기존 선행결정1/사용자판단5/자료5의11개는 원문 그대로 남긴다. 실제 macOS 한글 IME·Tauri WebView·스크린리더·실계좌/시장자료 및 회차별 좁은 미검증 경계는 유지한다. 실제 계좌/주문·자격증명·보안 설정·운영DB/앱·운영배포는 변경하지 않았다. 이 영수증의 문서 커밋은 CI 대상 코드 SHA와 구분한다.
