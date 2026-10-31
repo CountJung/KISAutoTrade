@@ -50,6 +50,26 @@
   - **완료/키보드 회귀:** 지연된 합성 응답에서 Enter×3·키 repeat·버튼 혼합으로 원래 논리 조회1회만 실행한다(거래소 fallback 내부 단계는 원래대로). A→B·시장/broker/profile 변경·unmount 후 A 응답이 현재 선택/오류를 덮지 않고 현재 실패 후 재시도1회가 가능해야 한다. GET 수·focus·loading/오류/disabled·금융 변이0을 함께 검증한다.
 ```
 
+<a id="p2-kbd-03"></a>
+## P2-KBD-03
+
+2026-10-31 완료. LTH 국내 결과를 명명된 native 선택 버튼으로 연결하고 내부 Tab/Shift+Tab 유지·Escape/선택 뒤 입력 복귀·활성전략 잠금을 보강했다. 세 국내 결과 목록만 ArrowUp/Down·Home/End focus 이동에 opt-in한다. 조회/모델·미국 경로·대상추가/저장은 유지했다. red4와 별도 Trading 포인터 복귀 결함을 재현·교정하고 최종109/109를 통과했다. 상세 검증·플랫폼 한계와 원격 영수증은 회차 정본을 따른다.
+
+[회차별 검증·한계·게시 기록](tasks/keyboard-improvements-20261031.md#p2-kbd-03)을 따른다.
+
+### 원래 TODO 완료 조건·근거 보존
+
+아래는 착수 당시 미완료 표기를 포함한 원문이며 현재 상태는 위 완료 범위를 따른다.
+
+```markdown
+- [ ] **🟢 자동 구현** **P2-KBD-03 — LTH 내부 ETF 결과를 키보드로 선택하고 목록 탐색을 보강한다.**
+  - **근거/대상:** src/pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx:67-71,100-131의 국내 결과는 onClick TableRow와 입력 blur180ms를 사용하며 명명된 native 선택 버튼/내부 focus 유지/Escape 경로가 없다. 완료된 P2-UX-01의 상단 검색·보유 행과 다른 하위 picker다. 상단 결과는 이미 Tab/Enter·Escape/focus 복귀를 지원하며 방향키 경로 추가는 편의 개선이지 현재 선택 불가라는 결함은 아니다.
+  - **실제 관측/한계:** 국내로 명시 전환한 LTH 결과에서 focus 가능한 결과 자식0·row tabIndex 없음, 첫Tab은 검색버튼으로 이동하고250ms뒤 목록이 닫혔다. 입력에서Escape를 눌러도 목록은 남았다. LTH 기본시장은US이며 국내가 기본이라는 최초 준비 오류는 교정하고 원본을 보존했다.
+  - **영향/우선순위:** P2, 우선순위3. 레버리지 ETF 대상 선택의 포인터 의존을 없애고 긴 결과 목록의 이동 부담을 줄인다.
+  - **기대 동작/의존성:** 원래 선택 closure·stratEnabled 잠금·query/추가·저장 정책을 유지하면서 LTH 결과에 이름·focus 표시가 있는 native 선택을 제공한다. 내부 Tab/Shift+Tab 동안 목록을 유지하고 Escape/선택 후 입력으로 복귀한다. 상단/별도 결과에 ArrowUp/Down·Home/End를 도입할 때는 실제 선택 패턴과 ARIA를 맞추고 기존 Tab 경로를 보존한다.
+  - **완료/키보드 회귀:** KR 두 결과에서 Tab/Shift+Tab·Enter/Space 정확1선택,250ms 내부blur 후 유지,Escape 닫힘/입력focus/재개방0·외부blur 닫힘·원래 포인터 선택을 검사한다. 방향키 경계/Home/End·빈/오류/로딩·긴 목록·narrow/light/dark를 대조하고 활성전략 조작0·자동 대상추가/전략저장0을 확인한다.
+```
+
 <a id="toss-parse-20261031"></a>
 ## TOSS-PARSE-01 — 시뮬레이션 응답 협상·파싱 진단
 

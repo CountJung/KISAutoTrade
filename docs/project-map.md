@@ -599,6 +599,7 @@ KISAutoTrade/
 │   │   │   ├── numberDraft.ts
 │   │   │   ├── pageFocusNavigation.ts
 │   │   │   ├── persistentLayout.ts
+│   │   │   ├── resultButtonNavigation.ts
 │   │   │   └── searchKeyboard.ts
 │   │   └── ui/
 │   │       ├── BrokerScopeIndicator.tsx
@@ -1086,6 +1087,7 @@ KISAutoTrade/
 ├── tests/
 │   └── e2e/
 │       ├── fixtures/
+│       │   ├── keyboardResultsFixture.ts
 │       │   ├── keyboardSearchFixture.ts
 │       │   ├── keyboardSearchRaceFixture.ts
 │       │   ├── strategyResearchFixture.ts
@@ -1093,6 +1095,8 @@ KISAutoTrade/
 │       ├── balance-events.spec.ts
 │       ├── budget-recovery.spec.ts
 │       ├── candle-pagination.spec.ts
+│       ├── keyboard-results-navigation.spec.ts
+│       ├── keyboard-results-scope.spec.ts
 │       ├── keyboard-search-contract.spec.ts
 │       ├── keyboard-search-race.spec.ts
 │       ├── keyboard-search-scope.spec.ts
@@ -1200,7 +1204,7 @@ KISAutoTrade/
 | `router/` | TanStack Router 기반 라우팅 |
 | `shared/api/` | Tauri IPC/Web REST wrapper, Rust 타입 미러 (`BrokerHoldingView` 포함) |
 | `shared/ui/` | 공통 UI (`LayoutResizer`, `BrokerScopeIndicator` broker/profile/account scope 표시, `ProviderTraceChips` 원본 요청 trace 표시) |
-| `shared/lib/` | 공통 유틸 (`persistentLayout` localStorage 숫자 상태 저장/복원, `formatters` 숫자/decimal/money 표시, `numberDraft` decimal 초안 파싱·엄격 유한수 범위 판정, `draftMap` 제출 초안 identity에 따른 정리, `searchKeyboard` 순수 Enter·조합 판정, `keyedRequestGate` opaque ticket/epoch와 React 수명 adapter) |
+| `shared/lib/` | 공통 유틸 (`persistentLayout` localStorage 숫자 상태 저장/복원, `formatters` 숫자/decimal/money 표시, `numberDraft` decimal 초안 파싱·엄격 유한수 범위 판정, `draftMap` 제출 초안 identity에 따른 정리, `searchKeyboard` 순수 Enter·조합 판정, `keyedRequestGate` opaque ticket/epoch와 React 수명 adapter, `resultButtonNavigation` DOM 결과 focus 이동) |
 | `shared/config/theme/` | 앱 테마 생성과 theme mode 타입 |
 | `shared/config/scheduler/` | TanStack Query 공통 폴링 주기 |
 | `entities/*/model/` | Zustand 전역 상태 (계좌, 매매, 설정) |
@@ -1208,7 +1212,7 @@ KISAutoTrade/
 | `api/accountHooks.ts` | 앱 계정 설정·설정 확인·국내/해외/broker 잔고·프로파일 CRUD/전환·거래 환경 감지·Toss 연결/계좌 조회 hook. 잔고 query key를 profile/broker/account/투자 모드로 분리하고 응답 전후 현재 scope를 검사. 계좌 전환 시 이전 query를 취소·무효화하며 이전 계좌의 placeholder/initial data를 공유하지 않음 |
 | `shared/api/liveDailyHistoryTypes.ts` | `TradingStatus.dailyHistory`의 읽기 전용 준비 진단 타입. 기존 응답의 필드 누락은 준비 완료로 추정하지 않도록 optional 호환 계약 유지 |
 | `shared/ui/LayoutResizer.tsx` | 이름 있는 focus 가능한 separator와 값/범위/방향·설명 표시. 방향키/Home/End/Enter는 value/min/max/defaultValue·keyboardStep(기본10)으로 명시 target을 onValueChange에 전달하고 pointer는 기존 onResize(delta)/onResizeEnd 유지. 실제 소비는 `widgets/app-shell/ui/AppShell.tsx`의 sidebar 너비와 `pages/log/ui/Page.tsx`의 Log 높이이며 clamp·상태/저장은 각 호출부가 소유. `components/LayoutResizer.tsx`의 legacy re-export 유지 |
-| `shared/ui/RowSelectionButton.tsx` | label/detail과 선택 callback만 받는 공용 native Button 표시. 이름/코드의 접근 가능한 선택 이름·focus 표시를 제공하고 click 전파를 멈춰 기존 행 포인터 동작과 분리. `shared/ui/index.ts` export를 통해 Trading 검색/Toss 보유·KIS 국내/해외 보유·Strategy 검색 결과 5곳에서 기존 선택 callback 호출 |
+| `shared/ui/RowSelectionButton.tsx` | label/detail·선택 callback과 optional disabled(default false)를 받는 공용 native Button 표시. 이름/코드의 명명·focus outline·click 전파 차단 후 원래 callback1회를 제공한다. 공개 index로 Trading 검색/Toss 보유·KIS 국내/해외 보유·Strategy 검색·LTH 국내 결과6개 JSX가 소비. 새 disabled는 LTH stratEnabled에 연결하고 방향키 정책은 opt-in 결과 TableBody가 소유 |
 | `shared/ui/QueryStatusSummary.tsx` | hook/API를 갖지 않는 props 기반 조회 상태 표시. 미확인·최초 실패·이전 자료/재조회 실패·마지막 정상 확인과 재시도 callback을 표시하며 `shared/ui/index.ts`에서 export. Sidebar/Dashboard의 실행 상태와 Trading KIS 잔고/History 기간 조회 wrapper가 기존 query 결과·refetch를 전달하고 query/cache/금융 동작 정책은 호출부에 유지 |
 | `shared/ui/LiveDailyHistoryPanel.tsx` | Dashboard/Strategy가 기존 상태 query로 공유하는 완료 일봉 준비 패널. 실행/활성 profile·broker/account 범위를 확인하고 상태·확보량·시장 날짜·출처·실패/재시도 사유 표시. 최대 512상태를 요약하고 실제 행은 3개씩 표시하며 프로파일 없는 legacy KIS 실행은 일치 계좌의 실패 진단만 허용 |
 | `api/marketHooks.ts` | 국내/해외/Toss 시세·차트·검색·종목 목록 갱신·시장 일정/유의사항·환율 hook과 해외 차트 preset. 갱신 설정은 `settingsHooks.ts::useRefreshConfig`를 직접 참조. `useCandlePage`는 프로파일·broker/account·종목·간격·거래소·커서별 공통 페이지 조회 계약을 사용 |
@@ -1241,14 +1245,14 @@ KISAutoTrade/
 | `pages/dashboard/ui/Page.tsx` | 활성 broker scope, KIS 국내/해외 잔고, 활성 Toss broker 보유 종목/평가 요약, Toss 자동매매 시작, 소액매매 검증 안내, USD/KRW 환율 출처 chip, 수익 카드, 리스크, Dashboard 라우트 조립 |
 | `pages/dashboard/ui/orderPanels.tsx` | Dashboard 미체결 주문과 체결 내역 필터/정렬/페이지네이션 패널 |
 | `pages/dashboard/ui/tossVerificationPanel.tsx` | 활성 Toss 프로파일의 실거래 동의 상태를 표시하고 실제 주문 검증을 수행하는 수동거래 페이지로 안내 |
-| `pages/trading/ui/Page.tsx` | 기존 Trading route 공개 진입점. useTradingOrderModel을 한 번 호출하고 holdings·종목 검색·차트·broker 패널과 TradingOrderForm을 조립. 실제 입력의 비조합 Enter를 지역 검색 경로로 연결하고 명명된 검색/조회 중 설명을 표시. KR6자리 직접선택·기존 broker별 US callback·주문 조립은 유지. US 조회 중에도 동일한 명명 IconButton과 aria-disabled/busy·설명을 유지하며 실제 실행 억제는 모델 gate가 담당 |
+| `pages/trading/ui/Page.tsx` | 기존 Trading route 공개 진입점. useTradingOrderModel을 한 번 호출하고 holdings·종목 검색·차트·broker 패널과 TradingOrderForm을 조립. 실제 입력의 비조합 Enter를 지역 검색 경로로 연결하고 명명된 검색/조회 중 설명을 표시. KR6자리 직접선택·기존 broker별 US callback·주문 조립은 유지. US 조회 중에도 동일한 명명 IconButton과 aria-disabled/busy·설명을 유지하며 실제 실행 억제는 모델 gate가 담당. 국내 결과 TableBody만 DOM focus helper로4키를 처리하고 선택/Escape의 동기 반환 guard로 외부 포커스에서 돌아올 때 재개방을 방지. 보유 목록의 기본 키 정책은 유지 |
 | `pages/trading/ui/useTradingOrderModel.ts` | KIS/Toss 주문 화면의 입력 상태·시장 전환·검색/선택·조회 hook·preflight/세션·주문 payload/제출·성공/실패 초안을 소유. 기존 정책과 hook 실행 순서를 보존한 페이지 내부 모델. 국내/해외 balance query 객체를 Page에 노출해 조회 상태·마지막 정상 시각·개별 refetch를 표시하고 원래 query option은 유지. 입력/시장/선택/거래소와 public broker/profile/account/모드 key의 US 조회 gate를 소유해 동기 중복과 이전 결과/후속 탐색을 차단. Toss 즉시선택·KIS 탐색 순서·query/주문 정책은 유지 |
 | `pages/trading/ui/tradingOrderForm.tsx` | 공유 TradingOrderModel을 받아 방향·유형·가격/수량·Toss 세션·preflight·제출/상태 UI를 표시. 별도 모델 인스턴스나 주문 정책을 만들지 않음 |
 | `pages/trading/ui/kisPanels.tsx` | KIS 국내/해외 보유 테이블과 KIS 현재가 카드. page-local `KisHoldingsSection`이 `QueryStatusSummary`로 미확인/실패/이전 잔고와 마지막 정상 시각·재시도를 표시하고 조회 자료가 있을 때 기존 테이블을 조립. Trading Page의 국내/해외 두 곳이 소비 |
 | `pages/trading/ui/tossPanels.tsx` | 활성 Toss 프로파일의 holdings/시세 snapshot/차트/종목 유의사항/장 운영 상태, 주문 전 검증, 접수 주문 목록과 정정 UI |
 | `pages/strategy/ui/useStrategyUsSearch.ts` | Strategy page-local 미국 조회 hook. Page의 input/market/선택 symbol·public config/onSelect를 받아 keyed gate·오류/busy·KIS NAS/NYS/AMS/Toss safety를 연결. 현재 ticket 성공만 item으로 반환하고 입력/선택·이름 cache·전략 저장은 Page에 유지 |
 | `pages/strategy/ui/StrategyUsSearch.tsx` | Strategy 내부 미국 입력/검색/오류의 좁은 표시 모듈. value/selection/searching/error와 onChange/onSearch를 받아 실제 입력 Enter·IME guard와 명명 버튼/조회 중 설명을 조립하며 입력/선택·이름 cache·전략 조립은 Page, 미국 조회/error/busy·broker 탐색은 useStrategyUsSearch가 소유. 표시 child에는 hook/API/state 없음 |
-| `pages/strategy/ui/StockSearchResults.tsx` | Strategy route 내부 국내 검색 결과 JSX의 좁은 표시 추출. open/items/loading과 pointer/선택 callback으로 로딩·결과 테이블·RowSelectionButton을 조립하며 query·선택 상태/이름 캐시·전략 갱신은 Page에 유지 |
+| `pages/strategy/ui/StockSearchResults.tsx` | Strategy route 내부 국내 검색 결과 JSX의 좁은 표시 추출. open/items/loading과 pointer/선택 callback으로 로딩·결과 테이블·RowSelectionButton을 조립하며 query·선택 상태/이름 캐시·전략 갱신은 Page에 유지. 국내 결과 TableBody의 modifier 없는 Arrow/Home/End만 focus helper에 연결하며 query·선택·이름 cache·복귀 callback은 기존 Page가 소유 |
 | `pages/strategy/ui/Page.tsx` | 활성 broker scope, 전략별 저장 broker/account scope 표시, 전략 활성화/대상 종목/전체 너비 카드/카드별 미리보기 route 조립과 strategyPolicyControls의 정책 UI 연결. 일반·가격조건·LTH 저장 성공은 제출한 immutable 초안과 현재 초안의 identity가 같을 때만 정리하고 scope epoch가 달라진 응답은 현재 편집 상태에 적용하지 않음. 국내/미국 입력 Enter는 순수 키 판정과 지역 유효성을 사용하며 US 표시는 StrategyUsSearch, 조회 lifecycle은 useStrategyUsSearch에 위임. 입력·선택·이름 cache·전략 추가/저장은 Page가 소유 |
 | `pages/strategy/ui/priceConditionEditorPanel.tsx` | 가격조건 전략의 종목별 수량·매수가·익절가·익절률·손절률 편집 테이블 |
 | `pages/strategy/ui/strategyMetadata.ts` | 일반 전략 파라미터 입력 메타, 전략 설명, strategy id 기반 타입 판별. FailedBreakout의 기존20/0.5와 선택 기준·ATR/거래량·수익 보호 쌍·보유 관측, Consecutive의 관측 횟수와 선택 진입3필드, Momentum 기본 level/선택 crossing·재무장 %p와 Deviation 진입 모드·장기/보유 관측 수·native 손절률, MeanReversion 청산 모드·장기/보유 관측 수와 기존 손절0, MA 교차의 기존 관측 기간과 완료 일봉 필터4개, RSI의 기존14/30/70 단순평균·진입 추세/손절/보유 관측3개와 StrongClose의 기존 기준3/손절3·이전 완료 일봉 추세/수익 보호 쌍/보유 관측4개의 단위·상한과 VolatilityExpansion의 기존10/2/3·선택 수익 보호 쌍/보유 관측3개의 단위·엄격 범위와 TrendFilter의 기존200/5/20·이탈 확인1·선택 수익 보호 쌍/보유 관측의 단위·상한 설명을 소유 |
@@ -1270,7 +1274,7 @@ KISAutoTrade/
 | `pages/strategy/ui/consecutiveEntryPreparation.tsx` | 선택 진입 준비·완료 OHLC/TR 수·후보/거부/통과 진단을 수량 산정 ATR과 별도로 표시. current/saved params가 모두0이면 중립 비활성, 활성 필터의 진단 누락은 미확인 경고로 구분하며 통과를 체결로 세지 않음 |
 | `pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx` | 기존 LTH 편집 공개 진입점과 hasInvalidLthEntries export 유지. 모델을 한 번 호출하고 ticker picker·진입/반등/청산 파라미터·preview panel을 조립 |
 | `pages/strategy/ui/useLeveragedTrendHoldEditorModel.ts` | LTH 대상 초안·검색/추가/삭제·파라미터 변경·Toss preview 입력/요청/결과 상태 소유. 1분/일봉·50/100/200봉, 계좌/profile와 직렬화 입력의 generation 무효화·늦은 응답 차단을 보존. preview generation과 별도의 picker key gate로 중복/이전 US 조회·fallback 적용을 제어하고 현재 선택 전 ticket을 종료. stratEnabled·ticker validation·직접선택 fallback과 추가/저장 정책은 유지 |
-| `pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx` | 공유 LTH 모델의 국내/미국 ticker 검색·선택·수량·대상 목록 UI. 기존 입력/중복 대상·편집 상태와 이벤트를 모델에 위임. KR/US 실제 입력의 비조합 Enter를 기존 지역 읽기 callback과 연결하고 조회 중 설명을 표시. 기존 stratEnabled·미국 티커 유효성·선택과 별도 대상추가 책임은 유지. 조회 중 명명 버튼의 aria-disabled/busy를 표시하고 동기 중복 억제는 모델 gate가 소유 |
+| `pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx` | 공유 LTH 모델의 국내/미국 ticker 검색·선택·수량·대상 목록 UI. 기존 입력/중복 대상·편집 상태와 이벤트를 모델에 위임. KR/US 실제 입력의 비조합 Enter를 기존 지역 읽기 callback과 연결하고 조회 중 설명을 표시. 기존 stratEnabled·미국 티커 유효성·선택과 별도 대상추가 책임은 유지. 조회 중 명명 버튼의 aria-disabled/busy를 표시하고 동기 중복 억제는 모델 gate가 소유. KR 결과에 native RowSelectionButton과 stratEnabled 버튼/행 guard를 적용. region/input/반환 ref로 내부 focus를 유지하고 영역 밖180ms 닫기·Escape/선택 뒤 input 복귀를 소유. 실제 선택·250ms조회·US gate/fallback·추가/저장은 모델에 유지 |
 | `pages/strategy/ui/leveragedTrendHoldPreviewPanel.tsx` | 공유 LTH 모델의 종목·봉 간격/수·회계 가정·preview 요청/차트·연구 결과 UI. 평가불가/표본·계좌 범위와 저장 A/B 경계는 기존 공통 연구 컴포넌트에 연결 |
 | `pages/strategy/ui/strategyPreviewPanel.tsx` | 일반/가격조건 전략 카드에서 `candlePageCollector`로 KIS 일/주/월봉 또는 Toss 1분/일봉을 순차 조회하고 요청 평가봉과 그 이전 사전자료를 나눠 편집값·비용 가정과 함께 `preview_strategy`에 전달. 실제 페이지 수·종료 사유·미완료/무효/중복 제외 수와 확보한 사전자료를 표시한다. 강한 종가·변동성 확장은 일봉 선택만 제공하고 날짜 이벤트와 선택한 연구 체결 모델의 가정을 안내한다. 실제 평가 기간·사전자료 수·준비 상태·평가 불가/조건 불충족/무체결을 표시하고 티커/봉/구간/파라미터/수량/broker/account/가정 변경 시 결과 무효화. 연속 일봉은 별도 수집/preview_strategy_continuous를 사용하고 응답 청크·평가/사전자료 수를 검증하며 가정·날짜·계좌 변경 또는 취소 뒤 오래된 결과를 게시하지 않는다. FailedBreakout 완료 고가/ATR/거래량·Consecutive ATR/MA 또는 MA 교차4필터 활성 비일봉과 잘못된 진입 필터 draft는 계산을 차단하며 entryFilterPreparation과 변동성 확장 전용 volatilityExpansionPreparation을 공통 결과에 전달 |
 | `pages/strategy/ui/continuousReplayPanel.tsx` | 단기/연속 날짜 범위 선택·기본 최근 3년 요청과 자료 수집 진행/보류·실제 범위·누락 한계 표시. 연속 API가 반환한 청크별 시작/종료 수량·대기 신호를 공급 경계로 표시하며 분기 리셋·독립 실험으로 해석하지 않음 |
@@ -1281,6 +1285,7 @@ KISAutoTrade/
 | `shared/api/strategyResearchTypes.ts` | 일반/LTH replay의 가정·회계/비교 DTO와 typed 연속 chunk/input/continuity 계약. A/B의 calculationMode/continuity와 과거 저장 결과의 새 회계 필드는 optional로 유지하며 누락을 미확인으로 표시. VolatilityExpansionPreparation 전용12필드를 미러하고 preview/A-B 보관 필드는 optional로 유지해 과거 누락을 보존한다. 단기/연속 공통 EntryFilterPreparation과 A/B 보관 필드는 선택적이며 비활성 기본값과 활성 필터의 진단 누락을 구분. FailedBreakout의 volumeRejections/breakoutBasis/priorVolumeRatio/priorAtr도 optional로 미확인·검증된0을 보존한다. MA 전용 slopeRejections/bandwidthRejections는 optional이며 Consecutive 응답의 생략과 과거 누락을 보존. ReplayAssessment.minuteTiming은 선택 LthMinuteTiming DTO로 시각/세션/관측 슬롯·출처 수·상한·미검증 플래그를 미러하며 과거 응답 누락은 정보 없음. BacktestPhase의 선택 diagnostics v1/sameLedgerObservationSplit과 관측·경계·손익 필드를 미러하며 이전 결과의 누락을 허용 |
 | `shared/lib/numberDraft.ts` | `parseDecimalDraft(raw)`는 명시 decimal 문법과 finite 숫자 변환을 소유하고 빈칸·문법 불일치·비유한 입력은 원문 문자열로 반환. `isFiniteNumberInRange`는 타입을 변환하지 않고 유한수·상하한·선택 정수 조건만 판정. public export를 통해 Consecutive/Momentum/Deviation/MeanReversion/MA 교차/RSI/FailedBreakout/StrongClose/VolatilityExpansion/TrendFilter가 재사용하며 필드별 범위·기본값·오류 문구·crossing 관계와 raw state는 local에 유지 |
 | `shared/lib/keyedRequestGate.ts` | opaque key/epoch/ticket identity의 동기 begin·current/finish·무효화/정리를 제공하는 controller factory와 React lifetime/revision adapter. 공개 index로 Trading 모델·Strategy US local hook·LTH 모델이 소비하며 key 조립·유효성·network·선택/오류·broker fallback·금융 동작은 caller에 유지. 실제 transport abort는 추가하지 않음 |
+| `shared/lib/resultButtonNavigation.ts` | focusResultButton은 opt-in boundary 안의 현재 활성 native 버튼을 DOM 순서로 찾아 ArrowUp/Down·Home/End focus를 이동한다. disabled/aria-disabled는 제외하고 경계 clamp. Trading/Strategy/LTH 국내 결과 TableBody3곳만 소비하며 modifier·event 취소·선택/query/callback/timer는 caller에 유지. DOM focus 부작용이 있어 순수 계산 helper나 전역 목록 키 정책은 아님 |
 | `shared/lib/searchKeyboard.ts` | isSearchEnter는 Enter와 direct/native isComposing·229만 판정하는 순수 helper. shared/lib index 공개 export로 Trading Page·Strategy Page/StrategyUsSearch·LTH picker가 소비하며 target·validity·broker callback·state·focus/timer·금융 동작은 caller에 유지 |
 | `shared/lib/pageFocusNavigation.ts` | 명시적인 페이지 내부 focus 이동을 알리는 routeKey 포함 동기 CustomEvent와 상수의 좁은 브라우저 helper. shared/lib index export를 통해 Settings focus 직전에 호출하고 AppShell이 같은 route의 pending 복원만 취소하며 API/query/저장 상태를 추가하지 않음 |
 | `shared/lib/draftMap.ts` | `removeDraftIfUnchanged`는 저장 당시 초안과 현재 항목이 Object.is로 같을 때만 immutable map에서 제거. 이후 편집을 보존하는 순수 helper이며 broker scope epoch와 저장 성공 정책은 Page가 소유 |
@@ -1594,6 +1599,9 @@ keyring/RGL 유지·미삭제 판단은 [9회차 기록](tasks/immediate-backlog
 | `tests/e2e/keyboard-search-race.spec.ts` | production mock에서 US 조회의 중복·같은 버튼 focus·stale 성공/오류/선택·입력/ABA·시장/SPA 이탈·실패/재시도와 broker별 기존 fallback을 대조. 이미 전송한 요청 취소나 실제 계좌 검증으로 해석하지 않음 |
 | `tests/e2e/keyboard-search-scope.spec.ts` | source harness가 실제 main/router/QueryClient를 유지하고 합성 공개 설정을 다시 읽게 해 broker/profile/account/paper 독립 경계와 scope ABA를 대조. 제품 global/export를 추가하거나 reload로 경합을 대체하지 않음 |
 | `tests/e2e/fixtures/keyboardSearchRaceFixture.ts` | 정확한 loopback 읽기·동적 합성 scope·지연 ticket과 response.finished 관측을 제공. Toss open-orders POST 읽기는 현재 합성 broker=Toss일 때만 예외이며 외부/금융 쓰기/unknown을 차단. 실제 broker/계좌·취소를 사용하지 않음 |
+| `tests/e2e/keyboard-results-navigation.spec.ts` | production mock의 KIS/Toss3검색 결과에서 native 선택/Tab·focus-only방향키·입력caret·blur/Escape/복귀·긴목록geometry/scroll·상태/포인터를 대조. callback 내부 횟수 spy와 native click·최종 상태 근거를 구분 |
+| `tests/e2e/keyboard-results-scope.spec.ts` | 실제 main/router/QueryClient를 유지한03 전용 source bridge로 동일 query 결과교체·LTH 합성GET 잠금과 선택 차단을 대조. 실제 전략 toggle/start/save·계좌 검증은 수행하지 않음 |
+| `tests/e2e/fixtures/keyboardResultsFixture.ts` | 합성 국내 결과·정확한 읽기 ticket/body 완료·focus/geometry/안전 기록과03 전용 source 제어를 제공. 외부/금융·설정 쓰기/unknown을 거부하고 Toss open-orders의 정확한 읽기POST만 분리 |
 | `tests/e2e/keyboard-search-contract.spec.ts` | 합성 KIS/Toss Trading/Strategy/LTH KR·US의 Enter·IME/229·지역 유효성·1자US·기존6자리 경로·명명 버튼/native 키·외부/쓰기 경계를 대조. frozen clock으로 국내 Enter와 자동 debounce를 분리하며 실제 OS IME 검증과 구분 |
 | `tests/e2e/fixtures/keyboardSearchFixture.ts` | mockUx를 재사용하는 검색 spec 전용 합성 fixture. loopback 읽기·US 논리조회 보류/해제·가짜clock·감사 자료를 제공하며 실제 계좌/provider를 사용하지 않음 |
 | `docs/tasks/uiux-improvements-20261030.md` | 승인된 UI/UX 개선9개의 고정 순서·회차별 범위·격리 검증/리뷰·게시 근거. UI 표시/접근성과 금융 동작·사용자 판단/실자료 제외를 구분 |

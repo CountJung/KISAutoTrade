@@ -5,14 +5,16 @@ interface RowSelectionButtonProps {
   label: string
   detail: string
   onSelect: () => void
+  disabled?: boolean
 }
 
 /** A native selection control inside a row; the row keeps its pointer action. */
-export function RowSelectionButton({ label, detail, onSelect }: RowSelectionButtonProps) {
+export function RowSelectionButton({ label, detail, onSelect, disabled = false }: RowSelectionButtonProps) {
   return (
     <Button
       size="small"
       color="inherit"
+      disabled={disabled}
       aria-label={`${label} (${detail}) 선택`}
       onClick={(event) => { event.stopPropagation(); onSelect() }}
       sx={{

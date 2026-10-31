@@ -27,7 +27,7 @@ import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
-import { fmtBrokerMoney, fmtDecimalString, isSearchEnter } from '../../../shared/lib'
+import { fmtBrokerMoney, fmtDecimalString, focusResultButton, isSearchEnter } from '../../../shared/lib'
 import { BrokerScopeIndicator, RowSelectionButton } from '../../../shared/ui'
 import { OverseasStockChart, StockChart } from '../../../widgets/stock-chart'
 import {
@@ -45,6 +45,15 @@ export default function Trading() {
   const model = useTradingOrderModel()
   const searchRegionRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const returningSearchFocus = useRef(false)
+  const returnSearchFocus = () => {
+    returningSearchFocus.current = true
+    try {
+      searchInputRef.current?.focus()
+    } finally {
+      returningSearchFocus.current = false
+    }
+  }
   const {
     appConfig, balance, balanceQuery, brokerHoldings, brokerHoldingsError,
     brokerHoldingsLoading, closeTimerRef, doRefreshList, fmt,
@@ -70,7 +79,7 @@ export default function Trading() {
     setSearchQuery('')
     setResult(null)
     setErrorMsg(null)
-    searchInputRef.current?.focus()
+    returnSearchFocus()
   }
   return (
     <Box>
@@ -243,7 +252,7 @@ export default function Trading() {
               event.preventDefault()
               setShowResults(false)
               setSearchQuery('')
-              searchInputRef.current?.focus()
+              returnSearchFocus()
             }}
           >
             <TextField
@@ -274,7 +283,7 @@ export default function Trading() {
               }}
               onFocus={(event) => {
                 if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-                if (!searchRegionRef.current?.contains(event.relatedTarget) && inputValue.length >= 2 && !symbol) setShowResults(true)
+                if (!returningSearchFocus.current && !searchRegionRef.current?.contains(event.relatedTarget) && inputValue.length >= 2 && !symbol) setShowResults(true)
               }}
               size="small"
               fullWidth
@@ -346,7 +355,12 @@ export default function Trading() {
                         <TableCell sx={{ py: 0.75, fontWeight: 700, fontSize: '0.7rem', width: 80 }}>코드</TableCell>
                       </TableRow>
                     </TableHead>
-                    <TableBody>
+                    <TableBody onKeyDown={(event: ReactKeyboardEvent<HTMLTableSectionElement>) => {
+                      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+                      if (!focusResultButton(event.currentTarget, event.target, event.key)) return
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }}>
                       {searchResults.map((r) => (
                         <TableRow
                           key={r.pdno}

@@ -13,8 +13,8 @@
 | 순서 | ID | 범위 | 상태 | 코드·원격 근거 |
 |---|---|---|---|---|
 |1|P2-KBD-01|조회 Enter·IME·버튼 이름|완료·원격 확인|[`a8cba69`](https://github.com/CountJung/KISAutoTrade/commit/a8cba69e1ac518d36ba5f5e173a4eff921098a6e)|
-|2|P2-KBD-02|중복 조회·늦은 응답·scope|로컬 완료·일반 푸시 준비|검증 완료·원격 영수증 후속 기록|
-|3|P2-KBD-03|LTH/결과 목록 키보드|대기|미착수|
+|2|P2-KBD-02|중복 조회·늦은 응답·scope|완료·원격 확인|[`5b45c46`](https://github.com/CountJung/KISAutoTrade/commit/5b45c463807cbd1385d7837b4daf3245e1659874)|
+|3|P2-KBD-03|LTH/결과 목록 키보드|로컬 완료·일반 푸시 준비|검증 완료·원격 영수증 후속 기록|
 |4|P2-KBD-04|수치 이름·단위·Enter commit|대기|미착수|
 |5|P2-KBD-05|프로필 팝업 pending·복구|대기|미착수|
 
@@ -73,6 +73,18 @@ fresh Chromium context의 합성 mock/offline만 사용한다. envDir:false와 �
 - **최종 결과:** 신규42개(production34/source8)+인접29개의 **71/71(32.3초,session24996)**가 통과했다. 과거/부분 실행을 합산하지 않는다. 현재42개 제목과 JSON을 직접 대조한 `final-42-evidence-index.json`의 쓰기/외부/unknown/pageerror는0이다. 인접 주문폼5개의 명시적 mock 제출은 실제 주문과 분리한다.
 - **필수 검사·리뷰:** Rust check --locked9.23초→앱/config 타입→FSD, 새 검사 noEmit 타입과 격리 production build를 통과했다. 컴파일 경고0이며 앱 타입 설정 완화는 없다. 독립 코드·검사·참조/지도 리뷰의 필수 P0/P1/P2 잔여는 없다. Graphify7304nodes/16188edges와 해시를 갱신했다. 기존6개 비코드 JSON의0-node 안내는 extractor 한계로 분리한다.
 - **한계:** 이미 전송된 cmd Promise는 완료될 수 있고, 보호는 UI 적용·후속 탐색을 제한한다. source harness는 실제 router/Page/QueryClient를 유지하는 합성 공개 설정 재조회이며 실제 계좌/credential pinning이나 backend abort가 아니다. dev StrictMode 초기 수명과 정상조회·SPA 이탈은 관측했지만 pending-ticket dispose→activate나 중단된 concurrent render는 별도 재현하지 않았다. 실제 OS IME/WebView/AT·운영 계좌/자료·배포는 미실행이다.
-- **원본·게시:** `.cache/kbd02-implementation-20261031/`의 red-initial-kis4, pre-test-expansion-20261031, first-green-68, green-before-lth-lock 및 green-final-71.log에 단계별 원본을 보존했다. 제품/source와 검사 생산을 분리하고 별도 담당이 독립 리뷰했다. 현재 회차는 검증 완료·일반 커밋/푸시 준비 상태이며 원격 영수증은 후속 기록한다.
+- **원본·게시:** `.cache/kbd02-implementation-20261031/`의 red-initial-kis4, pre-test-expansion-20261031, first-green-68, green-before-lth-lock 및 green-final-71.log에 단계별 원본을 보존했다. 제품/source와 검사 생산을 분리하고 별도 담당이 독립 리뷰했다. 이번 회차는 `5b45c463807cbd1385d7837b4daf3245e1659874`로 일반 푸시하고 원격 SHA 일치와 clean을 확인했다. 통합 테스트/보안 CI는 마지막 코드에서 별도 확인한다.
 
 - **문서 마감:** docs-canon120개 문서의 링크/표/앵커/등록부 오류0, TODO14개·지도/그래프 freshness·원래 열린14개/제외11개 보존·diff 검사 통과. 최종 독립 문서 리뷰에 필수 P0/P1/P2 잔여는 없다. 첫 회차의 원격 영수증은 기록했고 이번 회차의 게시 결과는 다음 영수증으로 이어 남긴다.
+
+### P2-KBD-03
+
+- **기준·구현:** 두 번째 회차 원격확인5b45c46에서 시작했다. 신규13행 `resultButtonNavigation.ts`는 opt-in 결과 TableBody3곳의 현재 enabled native 버튼 DOM만 찾아4키 focus를 clamp한다. 선택/query/index를 저장하지 않으며 modifier·event 취소는 caller에 둔다. RowSelectionButton optional disabled 기본false와 LTH KR 연결을 추가하고 기존 보유3곳은 그대로다.
+- **LTH 표시 수명:** 명명된 버튼·KR region/input refs와 동기 반환 guard를 연결했다. 내부 Tab/Shift+Tab은 닫지 않고 외부180ms 닫기·Escape/선택 후 입력 복귀를 처리한다. 기존180ms의 owner가 입력에서 영역으로 바뀌었으며 모든 timer 무변경은 아니다. Trading400ms/LTH250ms 조회 debounce·모델·US fallback·02 gate·대상추가/저장 정책은 유지했다.
+- **red와 제품 후속:** 최소KIS4개(session49819 exit1)는 기존 코드cell 포인터 positive4개 이후 LTH native 버튼 부재/Escape 미닫힘과 Trading/Strategy ArrowDown 미이동에서 실패했다. 첫109개는102통과/7실패였다. 그중 Trading 포인터 선택 뒤600ms 재개방은 실제 결함2case였고 동기 returningSearchFocus guard로 최소 교정했다. 이후 두 broker의 해당 경로가 모두 통과했다.
+- **검사 조건 교정:** 나머지 실패에는 플랫폼 기본 Home/End에 숫자 caret0을 고정하거나 다른 문서/애니메이션 frame을 동일시한 비교가 있었다. 진단1개·동일부모 clone 대조와 설치 Playwright1.64.1의 Mac native command 구현을 확인했다. 첫 수정105/109, 다음103/109는 별도 원본이며 합산하지 않는다. 최종은 같은 부모·타입·서체·geometry의 React handler 없는 기본 입력을 대조한다. 앱 caret은 강제 설정하지 않았고 제품 기본 키 동작을 변경하지 않았다.
+- **최종 계약·한계:** 결과 버튼4키의 focus/clamp와 입력4방향키의 caret/direction 비교는 strict다. 입력 Home/End는 같은 시작 selection·실제 key/trusted/defaultPrevented·값/focus 보존을 검사하고 후속 numeric caret·진행 중 scroll 좌표는 OS/브라우저 관측 한계로 분리한다. 이 한계를 통과한 실제 macOS IME/WebView/스크린리더 검증으로 확대하지 않는다. 이전 about:blank 진단 PNG는 최종 앱 PNG와 구분한다.
+- **최종 결과:** 격리 production build 뒤 **109/109(1.3m)** 통과. 신규38개(production34/source4)+인접71개이며 반복 실행을 합산하지 않는다. 현재38개 제목의 JSON은 모두 passed이고 쓰기/외부/unknown/pageerror0이다. 인접 주문폼5개의 명시적 browser mock 제출은 실제 주문0으로 분리한다. 내부 callback spy 대신 native click1과 최종 선택/닫힘·값 보존을 대조했다.
+- **범위 검증:** KIS/Toss×Trading/Strategy/LTH의 Enter/Space·Tab/ShiftTab·4키 경계·입력 기본 동작·Escape·내부/외부blur·코드cell 포인터·RACE01 복귀600ms, loading/empty/error/복구를 검사했다. 40행 내부 scroll/bounds, 좁은375×812 dark와1280×900 light, 현재 query 결과 교체와 합성 GET enabled 잠금/해제를 포함한다. modifier 조합 직접 행사는 미실행이며 caller의 early-return 소스로만 대조했다. 실제 거래·설정 변이·전략toggle/save/start는 없다.
+- **필수 검사·리뷰:** Trading 후속 교정 후 Rust check --locked8.11초→앱/config 타입→FSD, 검사 strict noEmit 및 production build 통과. 컴파일 경고0이다. 독립 코드/검사·참조/지도 리뷰에 필수 P0/P1/P2 잔여가 없다. code-only Graphify7340nodes/16291edges와 해시를 갱신했고 기존6개 비코드 JSON0-node 안내는 extractor 한계로 분리한다.
+- **원본·게시:** `.cache/kbd03-implementation-20261031/`의 red-initial-kis4, first-green-109, first-native-109, native-context-probe-34189, native-frame-109-13078 및 green-acceptance-109.log에 단계별 원본이 있다. 최종 same-context JSON과 focus/긴 목록 앱 PNG를 보존했다. 일반 커밋·푸시 및 원격 SHA 영수증은 게시 후 기록하며 최종 코드 CI는5회차 뒤 확인한다. 기존 대기11개와04/05는 이번 완료에 포함하지 않는다.

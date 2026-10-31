@@ -508,6 +508,14 @@ useEffect(() => {
 - Strategy의 profile/broker scope 전환은 기존 입력·선택 초기화를 보존한다. Trading의 같은 입력 유지와 다른 계약이므로 모든 화면에 같은 reset을 강제하거나 테스트의 가정에 맞춰 제품을 바꾸지 않는다.
 - 경합 검사는 정확 ticket의 응답 본문 완료와 UI 알림 이후를 확인하고, 입력만 변경·독립 scope 필드·ABA·실패/재시도·화면 이탈을 구분한다. source harness의 합성 공개 설정 변경은 실제 프로필/계좌 전환이나 backend 요청 abort·credential pinning의 증거가 아니다.
 
+### 결과 목록의 선택과 focus 탐색
+
+- Trading/Strategy/LTH 국내 결과는 native RowSelectionButton을 사용한다. optional disabled의 기본값은 false이며 LTH의 stratEnabled만 명시 연결한다. 보유 목록3곳의 기존 선택 정책을 결과 탐색으로 확장하지 않는다.
+- `focusResultButton`은 opt-in TableBody의 현재 enabled 버튼 DOM만 보고 ArrowUp/Down·Home/End focus를 clamp한다. 선택/query/index 상태를 저장하지 않으며 modifier·event 취소는 caller가 처리한다. 입력 caret·Tab/Shift+Tab·native Enter/Space·table 의미를 보존하고 전역 단축키·roving/listbox로 바꾸지 않는다.
+- LTH는 입력/검색/결과를 한 focus 영역으로 다룬다. 내부 이동은 닫지 않고 영역 밖 이동은 기존180ms를 유지한다. 선택·Escape의 프로그램 focus 복귀는 동기 ref guard로 감싸 onFocus가 닫은 목록을 다시 열지 않게 한다. 모델의250ms 조회·US gate/fallback·추가/저장은 UI focus helper로 옮기지 않는다.
+- 실제 재현된 Trading 외부 focus→행 포인터 선택의 복귀에서도 guard가 필요하다. setSymbol/setShowResults 직후 동기 focus 이벤트는 이전 render 상태를 볼 수 있으므로 relatedTarget이나 !symbol만으로 재개방을 막았다고 가정하지 않는다.
+- caret 회귀는 동일 부모·타입·서체·geometry의 handler 없는 기본 입력과 대조한다. 입력 방향키4개의 caret/direction은 엄격 비교하고 Home/End는 같은 시작 selection·실제 native key·trusted/defaultPrevented·값/focus 보존을 검사한다. 플랫폼 명령의 후속 numeric caret·진행 중 scroll 좌표는 관측 한계로 분리한다. 결과 버튼 Home/End focus/clamp는 엄격 검사하며 제품 caret이나 기본 키 동작을 재설계하지 않는다. 최종 검사는 앱에 남아 PNG를 보존한다.
+
 ### 반응형 거래 표의 상세 대안
 
 - 좁은 폭에서 숨긴 시각·금액·비용은 거래별 이름이 있는 native Button과 페이지 내부 Dialog로 다시 읽을 수 있게 한다. History의 기존 formatter 결과를 전달하고 통화·USD fallback·슬리피지·trace 산식을 다시 구현하지 않는다. 같은 종목 복수 체결은 ID와 전체 기록 시각으로 구분한다.
@@ -830,4 +838,4 @@ RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저
 
 > 마지막 업데이트: 2026-10-30T08:58:11
 
-> 마지막 업데이트: 2026-10-31T09:43:11+00:00
+> 마지막 업데이트: 2026-10-31T10:33:01+00:00

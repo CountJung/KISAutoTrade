@@ -20,8 +20,8 @@
     "semantic_hash": ""
   },
   "playwright.config.ts": {
-    "mtime": 1793437873.489821,
-    "ast_hash": "a1d12b73a464d17a36b420b468a1fce8",
+    "mtime": 1793441699.9874096,
+    "ast_hash": "0295f0294729ea0112256cd74a8af5cc",
     "semantic_hash": ""
   },
   "scripts/check-fsd-imports.mjs": {
@@ -800,8 +800,8 @@
     "semantic_hash": "e1e05929b9d6e9a67816e0b8739875f0"
   },
   "src/pages/trading/ui/Page.tsx": {
-    "mtime": 1793439089.6258416,
-    "ast_hash": "699965e25f1e9373f68f8ab517adac94",
+    "mtime": 1793442230.7034476,
+    "ast_hash": "89b35a3bfd534165843b4352a487beee",
     "semantic_hash": ""
   },
   "src/pages/trading/ui/kisPanels.tsx": {
@@ -875,8 +875,8 @@
     "semantic_hash": ""
   },
   "src/shared/lib/index.ts": {
-    "mtime": 1793438939.5362067,
-    "ast_hash": "42f82e5836a6267e66c2b40ee3243b85",
+    "mtime": 1793441252.4066482,
+    "ast_hash": "260c02406b86e21c56ee7906d8bbf74b",
     "semantic_hash": ""
   },
   "src/shared/lib/persistentLayout.ts": {
@@ -2540,8 +2540,8 @@
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx": {
-    "mtime": 1793439089.6261647,
-    "ast_hash": "30c7bbe02ff62a3c38a435e965213a73",
+    "mtime": 1793441252.407686,
+    "ast_hash": "1594946d31403a4d5fdfeb4f349de172",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/useLeveragedTrendHoldEditorModel.ts": {
@@ -2730,13 +2730,13 @@
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/StockSearchResults.tsx": {
-    "mtime": 1793340685.5177698,
-    "ast_hash": "45ffeae145cb42e0f8ebb3aae24cfeb9",
+    "mtime": 1793441252.4075086,
+    "ast_hash": "8be638125b8a2e0ae314c8cb16fbf908",
     "semantic_hash": ""
   },
   "src/shared/ui/RowSelectionButton.tsx": {
-    "mtime": 1793340477.1503148,
-    "ast_hash": "d2ac7bb15d2e715f84d822e247251360",
+    "mtime": 1793441252.4070284,
+    "ast_hash": "35dec93e03f873bbc29035d43966acb6",
     "semantic_hash": ""
   },
   "tests/e2e/uiux-keyboard-selection.spec.ts": {
@@ -2842,6 +2842,26 @@
   "tests/e2e/keyboard-search-scope.spec.ts": {
     "mtime": 1793439993.2444365,
     "ast_hash": "5f823354cc1c013466d11790fabd70d0",
+    "semantic_hash": ""
+  },
+  "src/shared/lib/resultButtonNavigation.ts": {
+    "mtime": 1793441252.406491,
+    "ast_hash": "4d2a4aa530ad6406f7bf957e0d4c93eb",
+    "semantic_hash": ""
+  },
+  "tests/e2e/fixtures/keyboardResultsFixture.ts": {
+    "mtime": 1793443920.2202215,
+    "ast_hash": "4b3866c4dc09c77a17e414d2d6c1dfc0",
+    "semantic_hash": ""
+  },
+  "tests/e2e/keyboard-results-navigation.spec.ts": {
+    "mtime": 1793443920.219989,
+    "ast_hash": "5da72b9f8e1e62e345781fb07496d474",
+    "semantic_hash": ""
+  },
+  "tests/e2e/keyboard-results-scope.spec.ts": {
+    "mtime": 1793441699.987141,
+    "ast_hash": "9680f8941dd18ed9ca286c47bbc427c7",
     "semantic_hash": ""
   }
 }

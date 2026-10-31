@@ -1,3 +1,4 @@
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
 import Paper from '@mui/material/Paper'
@@ -8,6 +9,7 @@ import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
 import type { StockSearchItem } from '../../../api/types'
 import { RowSelectionButton } from '../../../shared/ui'
+import { focusResultButton } from '../../../shared/lib'
 
 interface StockSearchResultsProps {
   open: boolean
@@ -33,7 +35,12 @@ export function StockSearchResults({ open, items, loading, onPointerInteraction,
         </Box>
       ) : (
         <Table size="small">
-          <TableBody>
+          <TableBody onKeyDown={(event: ReactKeyboardEvent<HTMLTableSectionElement>) => {
+            if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+            if (!focusResultButton(event.currentTarget, event.target, event.key)) return
+            event.preventDefault()
+            event.stopPropagation()
+          }}>
             {items.map((item) => (
               <TableRow key={item.pdno} hover sx={{ cursor: 'pointer' }} onClick={() => onSelect(item)}>
                 <TableCell sx={{ py: 0.75, maxWidth: { xs: 180, sm: 400 } }}>

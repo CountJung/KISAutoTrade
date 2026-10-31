@@ -80,7 +80,7 @@ npm run test:database-tls-contract
 
 ## 5. Playwright
 
-설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 Vite dev `127.0.0.1:1430`을 사용한다. 직전 2026-10-29 기준은349개였으며 이후 UI/UX 추가 spec도 같은 production 프로젝트에 포함된다. 추가 집중 검증·최종 전체 실행 수는 [UI/UX 회차 기록](tasks/uiux-improvements-20261030.md)과 [키보드 회차 기록](tasks/keyboard-improvements-20261031.md)에 각 실제 결과로 남긴다. CI는 먼저 `npm run build:web`를 수행하고 두 서버·프로젝트를 사용한다. 기존 UI317개와 새 UI/UX spec은 `chromium`의 production preview `127.0.0.1:1431`, 소스 모듈 가로채기를 요구하는 `balance-events.spec.ts`, `toss-commission-ratio.spec.ts`, `strategy-deviation-policy.spec.ts`의 기존32개와 `keyboard-search-scope.spec.ts`는 `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 검사한다. 기존27파일·349개의 검사 범위와 새 회귀를 중복·누락 없이 유지한다.
+설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 Vite dev `127.0.0.1:1430`을 사용한다. 직전 2026-10-29 기준은349개였으며 이후 UI/UX 추가 spec도 같은 production 프로젝트에 포함된다. 추가 집중 검증·최종 전체 실행 수는 [UI/UX 회차 기록](tasks/uiux-improvements-20261030.md)과 [키보드 회차 기록](tasks/keyboard-improvements-20261031.md)에 각 실제 결과로 남긴다. CI는 먼저 `npm run build:web`를 수행하고 두 서버·프로젝트를 사용한다. 기존 UI317개와 새 UI/UX spec은 `chromium`의 production preview `127.0.0.1:1431`, 소스 모듈 가로채기를 요구하는 `balance-events.spec.ts`, `toss-commission-ratio.spec.ts`, `strategy-deviation-policy.spec.ts`의 기존32개와 `keyboard-search-scope.spec.ts`·`keyboard-results-scope.spec.ts`는 `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 검사한다. 기존27파일·349개의 검사 범위와 새 회귀를 중복·누락 없이 유지한다.
 
 spec은 mock transport를 사용하며 실제 Tauri IPC·provider 주문 검증과 구분한다. 테스트 30초·assertion 5초 제한은 유지한다. CI는 list와 HTML reporter를 함께 생성하고 실패 trace·screenshot을 보존한다.
 
@@ -99,6 +99,8 @@ UI 변경과 직접 관련된 spec을 먼저 실행한 뒤 범위가 넓으면 �
 로컬 실행은 프로젝트 .env를 읽지 않는 envDir:false 설정·비민감 환경 allowlist·fresh mock Chromium을 사용한다. 외부/WS·unknown·금융/설정 쓰기를 차단하며 Toss open-orders의 정확한 합성 POST 읽기 예외는 금융 변이로 해석하지 않는다. 실제 실행 명령·red/green·수치·증거·미검증은 [5개 순차 구현 기록](tasks/keyboard-improvements-20261031.md)이 정본이다. 실제 OS IME/WebView/스크린리더·실계좌 검증을 대체하지 않는다. 인접 주문폼5개는 별도 브라우저 합성 주문 제출 회귀이며 실제 주문0이다. 신규 검색14개의 쓰기0과 이 명시적 mock 제출을 구분한다.
 
 `keyboard-search-race.spec.ts`는 production mock에서 지연 응답·반복 입력/버튼·stale 선택/오류/fallback·입력/ABA·시장/SPA 이탈·재시도를 대조한다. `keyboard-search-scope.spec.ts`는 source 프로젝트에서 실제 router/Page/QueryClient를 유지한 합성 appConfig 재조회로 공개 scope 필드와 ABA를 구분한다. 두 spec은 전용 `keyboardSearchRaceFixture.ts`의 ticket header·response.finished 관측을 사용한다. 정확한 실행 건수·부분/최종 결과는 회차 정본에서 확인하며 실제 provider 요청 취소·계좌 검증으로 확대하지 않는다.
+
+`keyboard-results-navigation.spec.ts`와 전용 `keyboardResultsFixture.ts`는 결과 선택·focus-only4키·caret·blur/Escape·포인터·긴 목록의 geometry/scroll을 production mock에서 대조한다. `keyboard-results-scope.spec.ts`는03 전용 source bridge로 현재 query 결과 교체와 합성 GET 잠금을 검사한다. 동일 부모의 handler 없는 기본 입력을 대조하고 입력4방향키는 strict, Home/End 후속 numeric caret·animated scroll 좌표는 플랫폼 관측 한계로 구분한다. 결과 버튼 Home/End focus/clamp는 strict이며 최종 PNG는 앱이다. 이전 about:blank 진단 원본은 최종 앱 증거와 구분한다. native click 횟수·최종 상태와 내부 callback 횟수 미계측을 구분하고 정확 실행/원본/한계는 회차 정본에 기록한다.
 
 ## 6. 구조·생성물 검사
 

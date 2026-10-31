@@ -11,11 +11,11 @@
 | 전략 연구·해석 | 가격조건 계약·구간 진단·별도 회고 walk-forward 완료; 장중 효능 대기 | 2개: SOXQ-P2-13·09 | 가격조건/변동성 실제 장중 근거 | 장중 자료 2 |
 | LTH 실제 장중 평가 | 일봉 평가불가·분봉 시각 진단 구현 완료; 실제 기간 평가 대기 | 2개: SOXQ-P1-05, SOXQ-P2-12 | 실제 3개월 원본/coverage·DST 검증 후 옵션 비교 | 같은 원본 자료 공유·검증 2 |
 | DB 지원·호환 전환 | PostgreSQL 로컬 TLS 기록 존재; MariaDB/MSRV 정책 미확정 | 3개: P1-DB-01, DEP-P3-01·02 | 지원 matrix·최소 Rust 결정 후 SQLx/DB/RSA 검증 | 정책 결정 2; SQLx 착수 의존 |
-| UI/UX 사용 흐름 | 10/30 즉시9개 완료; 10/31 키보드 2/5개 로컬 구현·검증 완료 | 4개: P2-KBD-03, P2-KBD-04, P2-KBD-05, P2-UX-07 | 키보드 3개 순차 진행 | 위험 행동 확인 정책 결정 1 |
+| UI/UX 사용 흐름 | 10/30 즉시9개 완료; 10/31 키보드 3/5개 로컬 구현·검증 완료 | 3개: P2-KBD-04, P2-KBD-05, P2-UX-07 | 키보드 2개 순차 진행 | 위험 행동 확인 정책 결정 1 |
 | 구조·의존성 유지보수 | 모듈·HTTP/WS·서버·UI·빌드·도구 전환과 후보별 유지 평가·CI 완료 | 0개 | 즉시 구역 완료; 근거는 완료 이력 | Xcode 보류 유지 |
 | 릴리스 서명 | checksum/attestation·기본 게이트 완료; 실제 서명 미완료 | 1개: P3-SIGN-01 | 플랫폼·키 관리 결정과 서명 검증 | 사용자 결정·관리자 준비 1 |
 
-**미완료 14개 = 즉시 코드·개선 3개 + 선행결정 후 자동 구현 1개 + 사용자 판단 5개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현은 합계 4개이며 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
+**미완료 13개 = 즉시 코드·개선 2개 + 선행결정 후 자동 구현 1개 + 사용자 판단 5개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현은 합계 3개이며 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
 
 [완료·경과 이력](completed-history.md) · [색상·필터 보기](todo.html) · [운영 계획](MASTER_PLAN.html) · [검증 지도](HARNESS_MAP.md)
 
@@ -45,12 +45,6 @@
 
 
 
-- [ ] **🟢 자동 구현** **P2-KBD-03 — LTH 내부 ETF 결과를 키보드로 선택하고 목록 탐색을 보강한다.**
-  - **근거/대상:** src/pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx:67-71,100-131의 국내 결과는 onClick TableRow와 입력 blur180ms를 사용하며 명명된 native 선택 버튼/내부 focus 유지/Escape 경로가 없다. 완료된 P2-UX-01의 상단 검색·보유 행과 다른 하위 picker다. 상단 결과는 이미 Tab/Enter·Escape/focus 복귀를 지원하며 방향키 경로 추가는 편의 개선이지 현재 선택 불가라는 결함은 아니다.
-  - **실제 관측/한계:** 국내로 명시 전환한 LTH 결과에서 focus 가능한 결과 자식0·row tabIndex 없음, 첫Tab은 검색버튼으로 이동하고250ms뒤 목록이 닫혔다. 입력에서Escape를 눌러도 목록은 남았다. LTH 기본시장은US이며 국내가 기본이라는 최초 준비 오류는 교정하고 원본을 보존했다.
-  - **영향/우선순위:** P2, 우선순위3. 레버리지 ETF 대상 선택의 포인터 의존을 없애고 긴 결과 목록의 이동 부담을 줄인다.
-  - **기대 동작/의존성:** 원래 선택 closure·stratEnabled 잠금·query/추가·저장 정책을 유지하면서 LTH 결과에 이름·focus 표시가 있는 native 선택을 제공한다. 내부 Tab/Shift+Tab 동안 목록을 유지하고 Escape/선택 후 입력으로 복귀한다. 상단/별도 결과에 ArrowUp/Down·Home/End를 도입할 때는 실제 선택 패턴과 ARIA를 맞추고 기존 Tab 경로를 보존한다.
-  - **완료/키보드 회귀:** KR 두 결과에서 Tab/Shift+Tab·Enter/Space 정확1선택,250ms 내부blur 후 유지,Escape 닫힘/입력focus/재개방0·외부blur 닫힘·원래 포인터 선택을 검사한다. 방향키 경계/Home/End·빈/오류/로딩·긴 목록·narrow/light/dark를 대조하고 활성전략 조작0·자동 대상추가/전략저장0을 확인한다.
 
 - [ ] **🟢 자동 구현** **P2-KBD-04 — 설정 수치 입력과 슬라이더의 이름·단위·Enter commit을 연결한다.**
   - **근거/대상:** src/pages/settings/ui/Page.tsx:114-147의 SliderWithInput은 label을 인접 Typography에 표시하나 Slider/TextField에 label·aria-label·aria-labelledby를 연결하지 않고, 조합 검사 없이 Enter→blur→범위보정/onChangeCommitted를 호출한다. 리스크·갱신·로그·보관의 helper 사용처가 대상이다. 실제 DOM 이름·IME·스크린리더 결과는 별도 관측 전까지 소스 기반으로 구분한다.

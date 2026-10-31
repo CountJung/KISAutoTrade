@@ -1,4 +1,6 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useRef } from 'react'
+import type { StockSearchItem } from '../../../api/types'
 import AddIcon from '@mui/icons-material/Add'
 import FlagIcon from '@mui/icons-material/Flag'
 import PublicIcon from '@mui/icons-material/Public'
@@ -19,7 +21,8 @@ import TextField from '@mui/material/TextField'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
-import { isSearchEnter } from '../../../shared/lib'
+import { focusResultButton, isSearchEnter } from '../../../shared/lib'
+import { RowSelectionButton } from '../../../shared/ui'
 import type { LeveragedTrendHoldEditorModel, Market } from './useLeveragedTrendHoldEditorModel'
 
 // Presentation only: the parent retains query/state ownership and callback closures.
@@ -32,6 +35,28 @@ export function LeveragedTrendHoldTickerPicker({ model }: { model: LeveragedTren
     setPickerMarket, setPickerOpen, setPickerQuery, setPickerSelection,
     stratEnabled,
   } = model
+  const pickerRegionRef = useRef<HTMLDivElement>(null)
+  const pickerInputRef = useRef<HTMLInputElement>(null)
+  const returningPickerFocus = useRef(false)
+  const clearPickerCloseTimer = () => {
+    if (pickerCloseTimer.current) clearTimeout(pickerCloseTimer.current)
+    pickerCloseTimer.current = null
+  }
+  const returnPickerFocus = () => {
+    if (stratEnabled) return
+    returningPickerFocus.current = true
+    try {
+      pickerInputRef.current?.focus()
+    } finally {
+      returningPickerFocus.current = false
+    }
+  }
+  const selectDomesticResult = (stock: StockSearchItem) => {
+    if (stratEnabled) return
+    clearPickerCloseTimer()
+    handlePickerSelect(stock)
+    returnPickerFocus()
+  }
   const search = () => {
     if (pickerMarket === 'US') void handlePickerUsSearch()
     else if (pickerInput.trim().length >= 2) {
@@ -58,8 +83,26 @@ export function LeveragedTrendHoldTickerPicker({ model }: { model: LeveragedTren
           </ToggleButton>
         </ToggleButtonGroup>
 
-        <Box sx={{ position: 'relative', flex: 1 }}>
+        <Box
+          ref={pickerRegionRef}
+          sx={{ position: 'relative', flex: 1 }}
+          onBlur={(event) => {
+            if (pickerMarket !== 'KR' || event.currentTarget.contains(event.relatedTarget)) return
+            clearPickerCloseTimer()
+            pickerCloseTimer.current = setTimeout(() => setPickerOpen(false), 180)
+          }}
+          onFocus={clearPickerCloseTimer}
+          onKeyDown={(event) => {
+            if (pickerMarket !== 'KR' || event.key !== 'Escape') return
+            event.preventDefault()
+            clearPickerCloseTimer()
+            setPickerOpen(false)
+            setPickerQuery('')
+            returnPickerFocus()
+          }}
+        >
           <TextField
+            inputRef={pickerInputRef}
             label={pickerMarket === 'US' ? 'ETF 티커' : 'ETF 코드 또는 이름'}
             value={pickerInput}
             onChange={(e) => {
@@ -69,12 +112,10 @@ export function LeveragedTrendHoldTickerPicker({ model }: { model: LeveragedTren
               setPickerError(null)
               if (pickerMarket === 'KR') setPickerOpen(next.length >= 2)
             }}
-            onFocus={() => {
-              if (pickerCloseTimer.current) clearTimeout(pickerCloseTimer.current)
-              if (pickerMarket === 'KR' && pickerInput.length >= 2) setPickerOpen(true)
-            }}
-            onBlur={() => {
-              pickerCloseTimer.current = setTimeout(() => setPickerOpen(false), 180)
+            onFocus={(event) => {
+              clearPickerCloseTimer()
+              if (!returningPickerFocus.current && pickerMarket === 'KR' && pickerInput.length >= 2
+                && !pickerRegionRef.current?.contains(event.relatedTarget)) setPickerOpen(true)
             }}
             size="small"
             fullWidth
@@ -113,7 +154,7 @@ export function LeveragedTrendHoldTickerPicker({ model }: { model: LeveragedTren
               elevation={8}
               onMouseDown={(e) => {
                 e.preventDefault()
-                if (pickerCloseTimer.current) clearTimeout(pickerCloseTimer.current)
+                clearPickerCloseTimer()
               }}
               sx={{ mt: 0.5, maxHeight: 220, overflow: 'auto', border: 1, borderColor: 'divider', zIndex: 1400, position: 'absolute', width: '100%' }}
             >
@@ -124,16 +165,22 @@ export function LeveragedTrendHoldTickerPicker({ model }: { model: LeveragedTren
                 </Box>
               ) : (
                 <Table size="small">
-                  <TableBody>
+                  <TableBody onKeyDown={(event: ReactKeyboardEvent<HTMLTableSectionElement>) => {
+                    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+                    if (!focusResultButton(event.currentTarget, event.target, event.key)) return
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }}>
                     {pickerResults.map((r) => (
                       <TableRow
                         key={r.pdno}
                         hover
                         sx={{ cursor: 'pointer' }}
-                        onClick={() => handlePickerSelect(r)}
+                        onClick={() => selectDomesticResult(r)}
                       >
                         <TableCell sx={{ py: 0.75 }}>
-                          <Typography variant="body2" noWrap>{r.prdt_name}</Typography>
+                          <RowSelectionButton label={r.prdt_name} detail={r.pdno}
+                            disabled={stratEnabled} onSelect={() => selectDomesticResult(r)} />
                         </TableCell>
                         <TableCell sx={{ py: 0.75, width: 90 }}>
                           <Typography variant="caption" color="text.secondary">{r.pdno}</Typography>
