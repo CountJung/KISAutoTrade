@@ -86,6 +86,7 @@ test('scoped save reload and both preview payloads retain seven fields and A/B s
 })
 test('invalid raw drafts block save and both previews without numeric coercion', async ({page})=>{
   const {requests}=await setup(page); await runButton(page).click()
+  await expect(card(page).getByTestId('trend-filter-policy-summary')).toBeVisible()
   for(const [label,bads,repair] of [[coreLabels[0],['','NaN','Infinity','0','513','2.5'],'200'],[labels[0],['0','1.5','1000001'],'1'],[labels[1],['1000.1'],'0'],[labels[2],['99.91'],'0'],[labels[3],['-1','1.5','1000001'],'0']] as const){
     for(const raw of bads){ const input=card(page).getByLabel(label,{exact:true}); await input.fill(raw); await expect(input).toHaveValue(raw); await expect(runButton(page)).toBeDisabled(); await expect(saveButton(page)).toBeDisabled(); await expect(card(page).getByRole('button',{name:'현재 결과를 A로 저장',exact:true})).toHaveCount(0); await input.fill(repair); await expect(runButton(page)).toBeEnabled() }
   }

@@ -98,6 +98,8 @@ CI의 Dialog 배경/aux Escape·수치 blur 검사는 실제 hit/키 target과 �
 
 LTH 잠금 source 검사는 제거/native disabled를 한 DOM 관측으로 판정하고 소유 clock의 포인터 phase에서 실제 cell click을 수행한다. 600ms 뒤 잠금 재관측과 원래 단일 unlock GET·키보드 선택 복구를 유지한다. 제거될 locator의 count→기대/클릭 경합을 만들지 않으며 상세 영수증은 같은 회차 정본을 따른다.
 
+기존 preview의 입력 무효화 검사는 첫 정상 결과 표시를 먼저 확인한다. candle 수집 중 입력 변경으로 정당하게 취소된 요청을 최초 정상 POST로 간주하지 않으며, invalid 값·차단·요청 수 기대를 유지한다. [CI 후속 근거](tasks/keyboard-improvements-20261031.md#keyboard-final-ci-20261031).
+
 ### 키보드 조회 회귀
 
 `tests/e2e/keyboard-search-contract.spec.ts`는 Trading/Strategy/LTH×KR/US×KIS/Toss의 일반 Enter·조합/229·지역 유효성·1자 US·기존6자리 경로·검색 버튼 이름을 합성 응답으로 대조한다. 국내 Enter는 정지된 clock에서 즉시 조회를 요구해 기존 자동 debounce와 구분한다. 인접 회귀는 `uiux-keyboard-selection.spec.ts`와 `trading-form-contract.spec.ts`다. fixture 파일은 별도 검사 건수가 아니다.

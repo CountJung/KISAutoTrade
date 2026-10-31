@@ -2420,8 +2420,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/strategy-trend-filter-policy.spec.ts": {
-    "mtime": 1792906061.524707,
-    "ast_hash": "df3082f5a011ea3413bb55dc863fde7b",
+    "mtime": 1793489817.7174654,
+    "ast_hash": "4c6dbb5672d291ac1e7babe27bbe3f15",
     "semantic_hash": ""
   },
   "src-tauri/src/storage/database/recovery_history.rs": {

@@ -479,6 +479,8 @@ useEffect(() => {
 
 ---
 
+비동기 preview 뒤 invalid 편집을 검증할 때는 첫 정상 결과를 먼저 관측한다. candle 수집 중 generation 취소를 정상 POST 완료로 간주하지 않고 원래 차단·결과 제거·요청 수 기대를 유지한다. [CI 후속 근거](../../../docs/tasks/keyboard-improvements-20261031.md#keyboard-final-ci-20261031).
+
 ### 검색 결과·보유 행 키보드 선택
 
 - 행의 기존 pointer 선택을 유지하면서 `src/shared/ui/RowSelectionButton.tsx`의 native Button으로 Tab/Enter/Space 선택과 이름·코드 accessible name을 제공한다. Button의 click propagation을 끊어 부모 행과 같은 선택을 두 번 실행하지 않는다.

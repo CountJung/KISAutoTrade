@@ -506,7 +506,7 @@
   "tests/e2e/strategy-rsi-policy.spec.ts": "6bffa9e71d9ccedb15a48164fe103c4ec82b6ad998136436424a40e4de7ce46e",
   "tests/e2e/strategy-scrollbar.spec.ts": "2b248d7e13fdbe5edd3836f4824ef77bbd11beea8d8b86e05898228b3a2e942b",
   "tests/e2e/strategy-strong-close-policy.spec.ts": "6cd21a54674f60c15c786ca210a44b8ed57fa7531d23ac48d68d6b324f141787",
-  "tests/e2e/strategy-trend-filter-policy.spec.ts": "9ef03a96327f1f471ca75d336067808242f33b8eeba4b744c9eae6fd78e1e725",
+  "tests/e2e/strategy-trend-filter-policy.spec.ts": "fffdd80bae74f69b5d5dc418d9018dec051add45aaa035273f84d9e892830da5",
   "tests/e2e/strategy-volatility-expansion-policy.spec.ts": "5979eeaba7bef8ee62733d2e4e6fe7b37b2f1540e20ff6e4164078fd9a269e81",
   "tests/e2e/toss-commission-ratio.spec.ts": "1f7bc246220f77123fea084b45ac680f8dcda1dc6983d4b7f27213a3c6996a5b",
   "tests/e2e/trading-form-contract.spec.ts": "dac70ba8ddd6364344d22661ea730c4025c558481eac8dcdc25176502d49d366",
