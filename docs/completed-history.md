@@ -70,6 +70,26 @@
   - **완료/키보드 회귀:** KR 두 결과에서 Tab/Shift+Tab·Enter/Space 정확1선택,250ms 내부blur 후 유지,Escape 닫힘/입력focus/재개방0·외부blur 닫힘·원래 포인터 선택을 검사한다. 방향키 경계/Home/End·빈/오류/로딩·긴 목록·narrow/light/dark를 대조하고 활성전략 조작0·자동 대상추가/전략저장0을 확인한다.
 ```
 
+<a id="p2-kbd-04"></a>
+## P2-KBD-04
+
+2026-10-31 완료. Settings 수치11쌍의 정적 이름·단위/범위/step 설명과 안정 ID를 실제 Slider/textbox에 연결했다. IME Enter/229는 기존 blur commit을 막고 일반 Enter·Tab/포인터·native Slider·즉시5/Risk 명시저장6쌍의 기존 정책을 유지했다. red3→고정 최소green3→통합151 통과를 확인했다. 증거 파일명 충돌 교정 뒤 신규31개를 별도 재검증해 고유31개 기록을 보존했다. 실제 운영 설정·주문은 호출하지 않았다.
+
+[회차별 검증·한계·게시 기록](tasks/keyboard-improvements-20261031.md#p2-kbd-04)을 따른다.
+
+### 원래 TODO 완료 조건·근거 보존
+
+아래는 착수 당시 미완료 표기를 포함한 원문이며 현재 상태는 위 완료 범위를 따른다.
+
+```markdown
+- [ ] **🟢 자동 구현** **P2-KBD-04 — 설정 수치 입력과 슬라이더의 이름·단위·Enter commit을 연결한다.**
+  - **근거/대상:** src/pages/settings/ui/Page.tsx:114-147의 SliderWithInput은 label을 인접 Typography에 표시하나 Slider/TextField에 label·aria-label·aria-labelledby를 연결하지 않고, 조합 검사 없이 Enter→blur→범위보정/onChangeCommitted를 호출한다. 리스크·갱신·로그·보관의 helper 사용처가 대상이다. 실제 DOM 이름·IME·스크린리더 결과는 별도 관측 전까지 소스 기반으로 구분한다.
+  - **실제 관측/한계:** 갱신·로그·보관·리스크4구역의11쌍(슬라이더11·입력11)은 현재 ARIA snapshot에서 이름이 비었고 aria-label/aria-labelledby도없었다. 값·focus·blur·저장은 조작하지 않았다. 실제 IME commit·AT발화는 미실행이다.
+  - **영향/우선순위:** P2, 우선순위4. 여러 수치 컨트롤을 키보드/AT에서 구분하고 조합 확정이 즉시 commit으로 이어질 가능성을 줄인다.
+  - **기대 동작/의존성:** 안정된 ID로 보이는 label·unit를 해당 Slider와 입력의 접근 가능 이름/설명에 연결한다. 일반 Enter의 기존 blur·clamp·step·commit과 Tab blur 저장 방식을 유지하며 조합 중 Enter만 commit하지 않는다. 금융 한도·기본값·저장 방식과 disabled 정책은 바꾸지 않는다.
+  - **완료/키보드 회귀:** 각 Slider/textbox를 정확한 역할+이름으로 찾아 Tab 순서·focus·단위/범위와 native 방향키/Home/End를 확인한다. 일반Enter commit1·조합Enter/229 commit0·후속일반Enter1,Tab blur 기존 보정/요청 동일·실패 복구·disabled를 mock 저장만으로 검증한다.
+```
+
 <a id="toss-parse-20261031"></a>
 ## TOSS-PARSE-01 — 시뮬레이션 응답 협상·파싱 진단
 

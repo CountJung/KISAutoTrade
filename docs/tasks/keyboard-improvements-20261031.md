@@ -14,8 +14,8 @@
 |---|---|---|---|---|
 |1|P2-KBD-01|조회 Enter·IME·버튼 이름|완료·원격 확인|[`a8cba69`](https://github.com/CountJung/KISAutoTrade/commit/a8cba69e1ac518d36ba5f5e173a4eff921098a6e)|
 |2|P2-KBD-02|중복 조회·늦은 응답·scope|완료·원격 확인|[`5b45c46`](https://github.com/CountJung/KISAutoTrade/commit/5b45c463807cbd1385d7837b4daf3245e1659874)|
-|3|P2-KBD-03|LTH/결과 목록 키보드|로컬 완료·일반 푸시 준비|검증 완료·원격 영수증 후속 기록|
-|4|P2-KBD-04|수치 이름·단위·Enter commit|대기|미착수|
+|3|P2-KBD-03|LTH/결과 목록 키보드|완료·원격 확인|[`a6c51fc`](https://github.com/CountJung/KISAutoTrade/commit/a6c51fc9dae70873f9c77d069e841ff42c069da1)|
+|4|P2-KBD-04|수치 이름·단위·Enter commit|로컬 완료·일반 푸시 준비|검증 완료·원격 영수증 후속 기록|
 |5|P2-KBD-05|프로필 팝업 pending·복구|대기|미착수|
 
 각 항목의 원래 근거·기대 동작·완료 조건은 착수 TODO에서 고정했다. 완료할 때 원래 ID/조건을 이력에 보존하고 열린 목록에서 걷어 낸다. 회차별 red→최소 수정→green/인접 회귀→타입/빌드·독립 리뷰→문서/지도/Graphify→일반 커밋·푸시·원격 SHA 확인 뒤 다음 항목으로 진행한다. 순서를 바꾸면 의존 근거를 남기며 현재 변경은 없다.
@@ -87,4 +87,17 @@ fresh Chromium context의 합성 mock/offline만 사용한다. envDir:false와 �
 - **최종 결과:** 격리 production build 뒤 **109/109(1.3m)** 통과. 신규38개(production34/source4)+인접71개이며 반복 실행을 합산하지 않는다. 현재38개 제목의 JSON은 모두 passed이고 쓰기/외부/unknown/pageerror0이다. 인접 주문폼5개의 명시적 browser mock 제출은 실제 주문0으로 분리한다. 내부 callback spy 대신 native click1과 최종 선택/닫힘·값 보존을 대조했다.
 - **범위 검증:** KIS/Toss×Trading/Strategy/LTH의 Enter/Space·Tab/ShiftTab·4키 경계·입력 기본 동작·Escape·내부/외부blur·코드cell 포인터·RACE01 복귀600ms, loading/empty/error/복구를 검사했다. 40행 내부 scroll/bounds, 좁은375×812 dark와1280×900 light, 현재 query 결과 교체와 합성 GET enabled 잠금/해제를 포함한다. modifier 조합 직접 행사는 미실행이며 caller의 early-return 소스로만 대조했다. 실제 거래·설정 변이·전략toggle/save/start는 없다.
 - **필수 검사·리뷰:** Trading 후속 교정 후 Rust check --locked8.11초→앱/config 타입→FSD, 검사 strict noEmit 및 production build 통과. 컴파일 경고0이다. 독립 코드/검사·참조/지도 리뷰에 필수 P0/P1/P2 잔여가 없다. code-only Graphify7340nodes/16291edges와 해시를 갱신했고 기존6개 비코드 JSON0-node 안내는 extractor 한계로 분리한다.
-- **원본·게시:** `.cache/kbd03-implementation-20261031/`의 red-initial-kis4, first-green-109, first-native-109, native-context-probe-34189, native-frame-109-13078 및 green-acceptance-109.log에 단계별 원본이 있다. 최종 same-context JSON과 focus/긴 목록 앱 PNG를 보존했다. 일반 커밋·푸시 및 원격 SHA 영수증은 게시 후 기록하며 최종 코드 CI는5회차 뒤 확인한다. 기존 대기11개와04/05는 이번 완료에 포함하지 않는다.
+- **원본·게시:** `.cache/kbd03-implementation-20261031/`의 red-initial-kis4, first-green-109, first-native-109, native-context-probe-34189, native-frame-109-13078 및 green-acceptance-109.log에 단계별 원본이 있다. 최종 same-context JSON과 focus/긴 목록 앱 PNG를 보존했다. 이번 회차는 `a6c51fc9dae70873f9c77d069e841ff42c069da1`로 일반 푸시하고 원격 SHA 일치와 clean을 확인했다. 최종 코드 CI는5회차 뒤 확인한다. 기존 대기11개와04/05는 이번 완료에 포함하지 않는다.
+
+### P2-KBD-04
+
+- **기준·최소 변경:**03 원격확인 a6c51fc에서 시작했다. Settings Page.tsx의 import·local SliderWithInput만16행 늘려937행이다. useId 파생 정적 label/설명/slider/input ID를 연결하고 현재 strong 값은 이름에서 제외했다. 단위·min/max/step은 실제 input의 description, Slider 수치는 기존 valueText로 전달한다. 별도 공용 helper/API는 추가하지 않았다.
+- **입력·보존:** 실제 htmlInput의 typed isSearchEnter 판정 뒤 일반 Enter는 currentTarget.blur만 한 번 호출한다. 조합/native229는 blur하지 않는다. 원래 문자 정리·parseFloat·prevValue sync·round/clamp·NaN 복원·같은 유효값 blur commit과 native MUI Slider·11caller·범위/step/기본값/disabled·payload는 그대로다. 즉시5쌍과 Risk local dirty→명시 저장6쌍·비중/100·bps·dailyBuy0·volatility 의미를 유지했다.
+- **red3:** 최소3개(session44293 exit1)는 이름 검사 전에11쌍22개를 전부 관측해 label 연결0을 확인했다. IME 두 case는 기존 일반 Enter의 blur1/mock 로그저장1 positive 뒤 native isComposing=true/keyCode13와 standalone229에서 각각 추가blur1/mock저장1·focus 이탈을 재현했다. unknown/external/API/pageerror/WS0이며 실제 쓰기는0이다.
+- **최소 green·통합:** 수정 후 원래 최소3개의 고정 복사본은3/3(3.2초,session41762) 통과했다. canonical 확장 검사는 **151/151(1.5분,session35687)** 통과했고 신규31+앞선109+Settings목차6+UI의존성5다. 고유 관측/컨트롤22개·반복 실행을 검사 건수로 더하지 않는다.
+- **증거 교정:** 최초151 통과 후 한글 제목의 ASCII 치환 파일명이 충돌해 JSON27개만 남은 기록 P2를 발견했다. 원본 first-integration-151/와 legacy-name-evidence를 보존하고 fixture의 import/capture만 수정해 제목 UTF-8 SHA25612자·원제목 JSON을 추가했다. 제품/검사 기대는 바꾸지 않았다. strict 타입 뒤 신규 **31/31(20.2초,session63819)**만 다시 실행했고 title고유31·passed31과 PNG를 확보했다. 이전109를 반복하거나151+31을 합산하지 않는다.
+- **실제 범위:**11쌍22컨트롤의 정확 role/name·이름/ID 안정·단위/범위/step, 모든 쌍의 합성 composing/229와 일반 Enter를 확인했다. 네 저장 family 대표의 native Slider4방향키/Home/End·Tab/ShiftTab·기존 parser round/clamp/빈값 복원, 대표 pointer commit과 pending/실패/명시재시도를 대조했다. Risk 숨김/volatility2쌍잠금·held read/기존 retry/poll·dirty 초안 보존 및 명시 변환 저장도 검사했다. 모든11쌍에서 모든 Slider키를 각각 행사한 Cartesian 검증은 아니다.
+- **mock/실제 경계:** 고유31개 JSON의 explicit mock 설정쓰기56회=성공52/의도실패4(Risk11·refresh13·archive14·log18)다. 의도 read실패3도 별도이며 HTTP 실패가 아닌 browser-only 합성 invoke 거절이다. unknown/external/API/WS/pageerror/console0, 실제 IPC/설정/파일/DB/계좌/주문0이다. 인접 주문폼5개의 명시 mock 주문은 따로 해석한다. refresh 미지원 REST를 제품에 추가하지 않았다.
+- **검사·리뷰·구조:** Rust check --locked8.55초→앱/config 타입·FSD, 신규 검사 strict noEmit과 격리 production build가 통과했다. compiler 경고0, 독립 코드/검사·지도/문서 리뷰의 필수 P0/P1/P2 잔여가 없다. Graphify7368nodes/16356edges·최종 해시를 갱신했고 기존6개 비코드JSON0-node 안내는 extractor 한계로 분리했다.
+- **시각·한계:**1280×900 light/375×812 dark에서 값·단위·native focus·폭을 대조하고 narrow Risk Slider 포커스 PNG를 직접 확인했다. querycache 재방문은 OS/file 설정 영속성 검증이 아니다. 합성 isTrusted=false IME는 실제 macOS 한글 IME·Tauri WebView·스크린리더 검증이 아니며 운영 파일 정리·위험엔진·계좌/API 검증은 수행하지 않았다.
+- **원본·게시:** `.cache/kbd04-implementation-20261031/`의 red-initial-min3, green-minimum-3, first-integration-151, final-artifact-31와 final-31-evidence-index.json에 원본/집계를 보존했다. 일반 커밋·푸시와 원격 SHA 영수증은 게시 후 기록하고 최종 코드 CI는05 뒤 확인한다. 다음05 및 기존 대기11개는 이번 완료와 구분한다.

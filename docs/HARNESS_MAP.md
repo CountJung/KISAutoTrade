@@ -102,6 +102,8 @@ UI 변경과 직접 관련된 spec을 먼저 실행한 뒤 범위가 넓으면 �
 
 `keyboard-results-navigation.spec.ts`와 전용 `keyboardResultsFixture.ts`는 결과 선택·focus-only4키·caret·blur/Escape·포인터·긴 목록의 geometry/scroll을 production mock에서 대조한다. `keyboard-results-scope.spec.ts`는03 전용 source bridge로 현재 query 결과 교체와 합성 GET 잠금을 검사한다. 동일 부모의 handler 없는 기본 입력을 대조하고 입력4방향키는 strict, Home/End 후속 numeric caret·animated scroll 좌표는 플랫폼 관측 한계로 구분한다. 결과 버튼 Home/End focus/clamp는 strict이며 최종 PNG는 앱이다. 이전 about:blank 진단 원본은 최종 앱 증거와 구분한다. native click 횟수·최종 상태와 내부 callback 횟수 미계측을 구분하고 정확 실행/원본/한계는 회차 정본에 기록한다.
 
+`keyboard-settings-contract.spec.ts`와 `keyboardSettingsFixture.ts`는 Settings11쌍의 이름·단위·IME Enter·기존 blur/native Slider·저장 계약을 browser-only 합성 Tauri 브리지로 검사한다. 명시 read/이벤트·정확한 설정 mock write만 허용하고 unknown·외부/API/WS·금융 동작은 거부한다. 즉시 저장5쌍과 Risk 명시저장6쌍의 요청/단위·잠금/복구를 구분하며 실제 IPC·운영 설정/파일/DB/위험엔진 성공으로 확대하지 않는다. refresh의 현재 REST 미지원은 제품 변경 없이 보존한다. 정확한 실행/부분 결과·mock 저장 횟수·미검증은 회차 정본을 따른다.
+
 ## 6. 구조·생성물 검사
 
 할일 상태는 `docs/todo.md`가 원본이며 `npm run todo:render`로 `docs/todo.html`을 생성한다. `npm run check:todo`는 최신 여부, `node --test scripts/render-todo.test.mjs`는 열린 항목 보존·필터·검색·모바일·JavaScript 없는 읽기와 마크업 escaping을 실제 Chromium에서 검증한다. 후자는 CI e2e job에서 Chromium 설치 후 실행한다.

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useId, useRef } from 'react'
 import InputAdornment from '@mui/material/InputAdornment'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
@@ -49,7 +49,7 @@ import {
 } from '../../../api/hooks'
 import type { UpdateRiskConfigInput } from '../../../api/types'
 import type { ThemeMode } from '../../../shared/config/theme'
-import { fmtNumber } from '../../../shared/lib'
+import { fmtNumber, isSearchEnter } from '../../../shared/lib'
 import { getWebApiToken, setWebApiToken } from '../../../shared/api/transport'
 
 import { AccountProfilesSection } from './accountProfiles'
@@ -78,6 +78,10 @@ function SliderWithInput({
   label, value, min, max, step, unit, disabled,
   onChange, onChangeCommitted,
 }: SliderWithInputProps) {
+  const controlId = useId()
+  const labelId = `${controlId}-label`
+  const descriptionId = `${controlId}-description`
+  const description = `${unit ? `단위: ${unit}. ` : ''}범위: ${min}~${max}. 간격: ${step}.`
   const [inputVal, setInputVal] = useState(String(value))
   const prevValue = useRef(value)
 
@@ -111,17 +115,24 @@ function SliderWithInput({
     }
   }
 
-  const handleInputKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+  const handleInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isSearchEnter(event)) event.currentTarget.blur()
   }
 
   return (
     <Box>
       <Typography variant="body2" gutterBottom>
-        {label}: <strong>{value}{unit}</strong>
+        <span id={labelId}>{label}</span>: <strong>{value}{unit}</strong>
       </Typography>
+      <Box component="span" id={descriptionId}
+        sx={{ position: 'absolute', width: 1, height: 1, p: 0, overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap' }}>
+        {description}
+      </Box>
       <Stack direction="row" sx={{ alignItems: "center" }} spacing={2}>
         <Slider
+          aria-labelledby={labelId}
+          getAriaValueText={(currentValue) => `${currentValue}${unit ?? ''}`}
+          slotProps={{ input: { id: `${controlId}-slider`, 'aria-describedby': descriptionId } }}
           value={value}
           min={min}
           max={max}
@@ -133,14 +144,19 @@ function SliderWithInput({
           sx={{ flex: 1, maxWidth: 260 }}
         />
         <TextField
+          id={`${controlId}-input`}
           value={inputVal}
           onChange={handleInputChange}
           onBlur={handleInputBlur}
-          onKeyDown={handleInputKeyDown}
           size="small"
           disabled={disabled}
           sx={{ width: 100 }}
           slotProps={{
+            htmlInput: {
+              'aria-labelledby': labelId,
+              'aria-describedby': descriptionId,
+              onKeyDown: handleInputKeyDown,
+            },
             input: unit ? {
               endAdornment: <InputAdornment position="end">{unit}</InputAdornment>,
             } : {},

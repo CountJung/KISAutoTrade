@@ -1090,6 +1090,7 @@ KISAutoTrade/
 │       │   ├── keyboardResultsFixture.ts
 │       │   ├── keyboardSearchFixture.ts
 │       │   ├── keyboardSearchRaceFixture.ts
+│       │   ├── keyboardSettingsFixture.ts
 │       │   ├── strategyResearchFixture.ts
 │       │   └── uxReviewFixture.ts
 │       ├── balance-events.spec.ts
@@ -1100,6 +1101,7 @@ KISAutoTrade/
 │       ├── keyboard-search-contract.spec.ts
 │       ├── keyboard-search-race.spec.ts
 │       ├── keyboard-search-scope.spec.ts
+│       ├── keyboard-settings-contract.spec.ts
 │       ├── live-daily-history.spec.ts
 │       ├── lth-minute-timing.spec.ts
 │       ├── settings-database.spec.ts
@@ -1233,7 +1235,7 @@ KISAutoTrade/
 | `widgets/stock-chart/ui/StockChart.tsx` | 기존 KIS 국내/Toss 조회 gate·preset·canvas lifecycle을 소유. 공개 symbol/stockName/source에 선택적 market(KR/US) 표시 문맥만 추가해 Trading이 전달. KIS 국내 가격은 KRW, Toss DTO의 통화 부재는 시장 추정 없이 미확인으로 표시 |
 | `widgets/stock-chart/ui/OverseasStockChart.tsx` | 기존 symbol/exchange/stockName·해외 query/preset·canvas lifecycle과 KIS USD 가격 경계를 유지하며 동일 chartPoints를 내부 CandleDataSummary에도 전달 |
 | `widgets/stock-chart/ui/CandleDataSummary.tsx` | 두 차트만 소비하는 widget 내부 표시로 index export 없음. canvas와 같은 유효 봉 projection·호출자 시각 formatter/query metadata를 받아 최신/선택 봉·확보 범위/수량·자료 상태/시각/통화와 최근 최대20봉 표를 표시. 키보드 Arrow/Home/End 봉 선택·새 projection/문맥의 선택 해제·수평 스크롤 대안을 제공하며 새 파싱/가격 환산/query 없음 |
-| `pages/settings/ui/Page.tsx` | 테마, 데이터 갱신 주기, 로그/체결 보관, 웹 포트, 종목 목록, 리스크, Discord 설정 route 조립. h1·SettingsContents를 조립하며 Risk 로딩/실패에도 동일 Section ID/h2 도착점을 유지. query/save와 DB·복구 desktop 경계는 기존 소유자에 유지 |
+| `pages/settings/ui/Page.tsx` | 테마, 데이터 갱신 주기, 로그/체결 보관, 웹 포트, 종목 목록, 리스크, Discord 설정 route 조립. h1·SettingsContents를 조립하며 Risk 로딩/실패에도 동일 Section ID/h2 도착점을 유지. query/save와 DB·복구 desktop 경계는 기존 소유자에 유지. local SliderWithInput은 useId의 정적 label·단위/범위/step 설명을 실제 Slider/textbox에 연결하고 공유 Enter/IME 판정으로 일반 Enter만 기존 blur commit을 호출. parser·native Slider·즉시5쌍/Risk 명시저장6쌍 정책은 caller에 유지 |
 | `pages/settings/ui/autoTradingBudgetSection.tsx` | 선택 계좌의 KRW/USD 자동매매 배정액·현금·예약액·사용 가능액·차단 사유 표시와 정지 상태 예산 편집 |
 | `pages/settings/ui/budgetRecoverySection.tsx` | 예산 설정 안의 응답 불명 주문 대조·복구 UI. 원래 주문·체결 누적값·보류 사유·승인 영수증을 표시하고, 명시 확인 후 pending 복원을 요청. 실행 중·재조회/조회 실패·identity 불일치·legacy/종결 기록의 승인을 막고 웹에서는 안내만 표시. 예산 Section 아래 settings-recovery h3 도착점과 목차 복귀를 제공 |
 | `pages/settings/ui/databaseManagementSection.tsx` | PostgreSQL/MariaDB 연결, 고정 앱 테이블 관리, JSON↔DB 이관, backend 전환. 웹 모드에서는 보안 안내만 표시 |
@@ -1286,7 +1288,7 @@ KISAutoTrade/
 | `shared/lib/numberDraft.ts` | `parseDecimalDraft(raw)`는 명시 decimal 문법과 finite 숫자 변환을 소유하고 빈칸·문법 불일치·비유한 입력은 원문 문자열로 반환. `isFiniteNumberInRange`는 타입을 변환하지 않고 유한수·상하한·선택 정수 조건만 판정. public export를 통해 Consecutive/Momentum/Deviation/MeanReversion/MA 교차/RSI/FailedBreakout/StrongClose/VolatilityExpansion/TrendFilter가 재사용하며 필드별 범위·기본값·오류 문구·crossing 관계와 raw state는 local에 유지 |
 | `shared/lib/keyedRequestGate.ts` | opaque key/epoch/ticket identity의 동기 begin·current/finish·무효화/정리를 제공하는 controller factory와 React lifetime/revision adapter. 공개 index로 Trading 모델·Strategy US local hook·LTH 모델이 소비하며 key 조립·유효성·network·선택/오류·broker fallback·금융 동작은 caller에 유지. 실제 transport abort는 추가하지 않음 |
 | `shared/lib/resultButtonNavigation.ts` | focusResultButton은 opt-in boundary 안의 현재 활성 native 버튼을 DOM 순서로 찾아 ArrowUp/Down·Home/End focus를 이동한다. disabled/aria-disabled는 제외하고 경계 clamp. Trading/Strategy/LTH 국내 결과 TableBody3곳만 소비하며 modifier·event 취소·선택/query/callback/timer는 caller에 유지. DOM focus 부작용이 있어 순수 계산 helper나 전역 목록 키 정책은 아님 |
-| `shared/lib/searchKeyboard.ts` | isSearchEnter는 Enter와 direct/native isComposing·229만 판정하는 순수 helper. shared/lib index 공개 export로 Trading Page·Strategy Page/StrategyUsSearch·LTH picker가 소비하며 target·validity·broker callback·state·focus/timer·금융 동작은 caller에 유지 |
+| `shared/lib/searchKeyboard.ts` | isSearchEnter는 Enter와 direct/native isComposing·229만 판정하는 순수 helper. shared/lib index 공개 export로 Trading Page·Strategy Page/StrategyUsSearch·LTH picker와 Settings SliderWithInput이 소비하며 target·validity·broker callback·state·focus/timer·금융 동작은 caller에 유지 |
 | `shared/lib/pageFocusNavigation.ts` | 명시적인 페이지 내부 focus 이동을 알리는 routeKey 포함 동기 CustomEvent와 상수의 좁은 브라우저 helper. shared/lib index export를 통해 Settings focus 직전에 호출하고 AppShell이 같은 route의 pending 복원만 취소하며 API/query/저장 상태를 추가하지 않음 |
 | `shared/lib/draftMap.ts` | `removeDraftIfUnchanged`는 저장 당시 초안과 현재 항목이 Object.is로 같을 때만 immutable map에서 제거. 이후 편집을 보존하는 순수 helper이며 broker scope epoch와 저장 성공 정책은 Page가 소유 |
 | `shared/lib/formatters.ts` | 공통 숫자·금액 표시. 연구 화면의 `fmtRoundedKrw(number)`는 기존 Math.round→ko-KR→원 순서를 보존하며 일반/회계 패널이 alias로 재사용한다. BrokerMoneyView의 통화·누락·decimal 문자열 처리를 하는 `fmtBrokerMoney`와 음수 절반 반올림 의미가 달라 별도 유지 |
@@ -1599,6 +1601,8 @@ keyring/RGL 유지·미삭제 판단은 [9회차 기록](tasks/immediate-backlog
 | `tests/e2e/keyboard-search-race.spec.ts` | production mock에서 US 조회의 중복·같은 버튼 focus·stale 성공/오류/선택·입력/ABA·시장/SPA 이탈·실패/재시도와 broker별 기존 fallback을 대조. 이미 전송한 요청 취소나 실제 계좌 검증으로 해석하지 않음 |
 | `tests/e2e/keyboard-search-scope.spec.ts` | source harness가 실제 main/router/QueryClient를 유지하고 합성 공개 설정을 다시 읽게 해 broker/profile/account/paper 독립 경계와 scope ABA를 대조. 제품 global/export를 추가하거나 reload로 경합을 대체하지 않음 |
 | `tests/e2e/fixtures/keyboardSearchRaceFixture.ts` | 정확한 loopback 읽기·동적 합성 scope·지연 ticket과 response.finished 관측을 제공. Toss open-orders POST 읽기는 현재 합성 broker=Toss일 때만 예외이며 외부/금융 쓰기/unknown을 차단. 실제 broker/계좌·취소를 사용하지 않음 |
+| `tests/e2e/keyboard-settings-contract.spec.ts` | Settings11쌍의 이름/단위·실제 입력 Enter/IME·native Slider와 기존 blur/저장 계약을 합성 브리지로 대조. 실제 OS IME·Tauri 설정/파일/위험엔진 검증과 구분 |
+| `tests/e2e/fixtures/keyboardSettingsFixture.ts` | browser-only Tauri 표식의 명시 read/이벤트·설정 mock write 및 안전 기록을 제공. unknown·외부/API/WS·금융/운영 변이는 거부하며 임의 null 성공으로 묵인하지 않음 |
 | `tests/e2e/keyboard-results-navigation.spec.ts` | production mock의 KIS/Toss3검색 결과에서 native 선택/Tab·focus-only방향키·입력caret·blur/Escape/복귀·긴목록geometry/scroll·상태/포인터를 대조. callback 내부 횟수 spy와 native click·최종 상태 근거를 구분 |
 | `tests/e2e/keyboard-results-scope.spec.ts` | 실제 main/router/QueryClient를 유지한03 전용 source bridge로 동일 query 결과교체·LTH 합성GET 잠금과 선택 차단을 대조. 실제 전략 toggle/start/save·계좌 검증은 수행하지 않음 |
 | `tests/e2e/fixtures/keyboardResultsFixture.ts` | 합성 국내 결과·정확한 읽기 ticket/body 완료·focus/geometry/안전 기록과03 전용 source 제어를 제공. 외부/금융·설정 쓰기/unknown을 거부하고 Toss open-orders의 정확한 읽기POST만 분리 |

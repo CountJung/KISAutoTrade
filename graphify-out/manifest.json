@@ -715,8 +715,8 @@
     "semantic_hash": "e1e05929b9d6e9a67816e0b8739875f0"
   },
   "src/pages/settings/ui/Page.tsx": {
-    "mtime": 1793345741.7751522,
-    "ast_hash": "6cfb148f3ae28c9d4ddd97c0b6480688",
+    "mtime": 1793444940.0904088,
+    "ast_hash": "83b587734243608daa4facc4f324ff0d",
     "semantic_hash": ""
   },
   "src/pages/settings/ui/accountProfiles.tsx": {
@@ -2862,6 +2862,16 @@
   "tests/e2e/keyboard-results-scope.spec.ts": {
     "mtime": 1793441699.987141,
     "ast_hash": "9680f8941dd18ed9ca286c47bbc427c7",
+    "semantic_hash": ""
+  },
+  "tests/e2e/fixtures/keyboardSettingsFixture.ts": {
+    "mtime": 1793445657.9509776,
+    "ast_hash": "3d4fc1a60b4f59e796c9cb08b8709825",
+    "semantic_hash": ""
+  },
+  "tests/e2e/keyboard-settings-contract.spec.ts": {
+    "mtime": 1793445466.720609,
+    "ast_hash": "d21fe98ff6aa2d5d0547318fd317f69d",
     "semantic_hash": ""
   }
 }

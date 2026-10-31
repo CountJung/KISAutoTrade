@@ -500,6 +500,12 @@ useEffect(() => {
 - Trading KR6자리 직접선택, Strategy6자리 자동검색, LTH250ms 자동검색과 Toss/KIS별 fallback은 서로 다른 계약이다. callback 전체를 합치거나 debounce로 Enter의 누락을 가리지 않는다.
 - IME/229 합성 이벤트·정지된 clock의 Enter 즉시조회와 기존 timer를 분리해 검사한다. 합성 `isTrusted=false` 관측은 실제 macOS 한글 IME·WebView·스크린리더 검증이 아니다. 회차별 범위·검증과 남은 조건은 [구현 기록](../../../docs/tasks/keyboard-improvements-20261031.md)을 따른다.
 
+### Settings 수치 이름과 Enter commit
+
+- page-local SliderWithInput의 useId 기반 정적 label·단위/범위/step 설명을 실제 Slider range input과 textbox에 연결한다. 현재 strong 값은 이름에 포함하지 않고 Slider valueText로 수치·단위를 전달한다. 동명 보관기간/용량은 기존 명명 section 안에서 구분하며 rerender ID/이름을 보존한다.
+- 실제 htmlInput의 typed handler에서 isSearchEnter를 판정하고 일반 Enter는 기존 blur만 한 번 호출한다. 조합/229는 blur하지 않으며 Tab/포인터 blur·MUI Slider native 키는 원래 경로다. Settings의 문자열 정리·parseFloat/round/clamp·NaN 복원과 범위/step을 numberDraft 정책으로 교체하지 않는다.
+- 즉시 저장5쌍과 Risk local dirty→명시 저장6쌍·payload/단위 변환·disabled를 유지한다. 검사는 명시 mock 저장 수와 실제 설정/주문0을 구분하고 refresh의 미지원 REST 경로를 검사 목적으로 제품에 추가하지 않는다. 실제 OS IME/AT/WebView·운영 파일/위험엔진은 별도 검증이다.
+
 ### 조회 요청의 수명과 처리 중 버튼
 
 - `shared/lib/keyedRequestGate.ts`는 opaque key/epoch/ticket controller와 React lifetime/revision adapter를 제공한다. 동기 begin으로 중복을 막고 current/finish는 현재 소유자만 결과·종료를 적용한다. key의 입력·시장·선택/public scope 조립, 유효성·조회·오류·broker fallback과 금융 상태는 각 모델이 소유한다.

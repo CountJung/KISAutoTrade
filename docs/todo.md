@@ -11,11 +11,11 @@
 | 전략 연구·해석 | 가격조건 계약·구간 진단·별도 회고 walk-forward 완료; 장중 효능 대기 | 2개: SOXQ-P2-13·09 | 가격조건/변동성 실제 장중 근거 | 장중 자료 2 |
 | LTH 실제 장중 평가 | 일봉 평가불가·분봉 시각 진단 구현 완료; 실제 기간 평가 대기 | 2개: SOXQ-P1-05, SOXQ-P2-12 | 실제 3개월 원본/coverage·DST 검증 후 옵션 비교 | 같은 원본 자료 공유·검증 2 |
 | DB 지원·호환 전환 | PostgreSQL 로컬 TLS 기록 존재; MariaDB/MSRV 정책 미확정 | 3개: P1-DB-01, DEP-P3-01·02 | 지원 matrix·최소 Rust 결정 후 SQLx/DB/RSA 검증 | 정책 결정 2; SQLx 착수 의존 |
-| UI/UX 사용 흐름 | 10/30 즉시9개 완료; 10/31 키보드 3/5개 로컬 구현·검증 완료 | 3개: P2-KBD-04, P2-KBD-05, P2-UX-07 | 키보드 2개 순차 진행 | 위험 행동 확인 정책 결정 1 |
+| UI/UX 사용 흐름 | 10/30 즉시9개 완료; 10/31 키보드 4/5개 로컬 구현·검증 완료 | 2개: P2-KBD-05, P2-UX-07 | 키보드 1개 순차 진행 | 위험 행동 확인 정책 결정 1 |
 | 구조·의존성 유지보수 | 모듈·HTTP/WS·서버·UI·빌드·도구 전환과 후보별 유지 평가·CI 완료 | 0개 | 즉시 구역 완료; 근거는 완료 이력 | Xcode 보류 유지 |
 | 릴리스 서명 | checksum/attestation·기본 게이트 완료; 실제 서명 미완료 | 1개: P3-SIGN-01 | 플랫폼·키 관리 결정과 서명 검증 | 사용자 결정·관리자 준비 1 |
 
-**미완료 13개 = 즉시 코드·개선 2개 + 선행결정 후 자동 구현 1개 + 사용자 판단 5개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현은 합계 3개이며 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
+**미완료 12개 = 즉시 코드·개선 1개 + 선행결정 후 자동 구현 1개 + 사용자 판단 5개 + 사용자 검증·자료 5개.** 각 상위 ID는 표에서 한 번만 센다. 하위 체크리스트와 완료 이력은 더하지 않으며 근거 없는 진행률은 산출하지 않는다. 자동 구현은 합계 2개이며 DEP-P3-02의 전환은 DEP-P3-01 결정이 선행한다.
 
 [완료·경과 이력](completed-history.md) · [색상·필터 보기](todo.html) · [운영 계획](MASTER_PLAN.html) · [검증 지도](HARNESS_MAP.md)
 
@@ -46,12 +46,6 @@
 
 
 
-- [ ] **🟢 자동 구현** **P2-KBD-04 — 설정 수치 입력과 슬라이더의 이름·단위·Enter commit을 연결한다.**
-  - **근거/대상:** src/pages/settings/ui/Page.tsx:114-147의 SliderWithInput은 label을 인접 Typography에 표시하나 Slider/TextField에 label·aria-label·aria-labelledby를 연결하지 않고, 조합 검사 없이 Enter→blur→범위보정/onChangeCommitted를 호출한다. 리스크·갱신·로그·보관의 helper 사용처가 대상이다. 실제 DOM 이름·IME·스크린리더 결과는 별도 관측 전까지 소스 기반으로 구분한다.
-  - **실제 관측/한계:** 갱신·로그·보관·리스크4구역의11쌍(슬라이더11·입력11)은 현재 ARIA snapshot에서 이름이 비었고 aria-label/aria-labelledby도없었다. 값·focus·blur·저장은 조작하지 않았다. 실제 IME commit·AT발화는 미실행이다.
-  - **영향/우선순위:** P2, 우선순위4. 여러 수치 컨트롤을 키보드/AT에서 구분하고 조합 확정이 즉시 commit으로 이어질 가능성을 줄인다.
-  - **기대 동작/의존성:** 안정된 ID로 보이는 label·unit를 해당 Slider와 입력의 접근 가능 이름/설명에 연결한다. 일반 Enter의 기존 blur·clamp·step·commit과 Tab blur 저장 방식을 유지하며 조합 중 Enter만 commit하지 않는다. 금융 한도·기본값·저장 방식과 disabled 정책은 바꾸지 않는다.
-  - **완료/키보드 회귀:** 각 Slider/textbox를 정확한 역할+이름으로 찾아 Tab 순서·focus·단위/범위와 native 방향키/Home/End를 확인한다. 일반Enter commit1·조합Enter/229 commit0·후속일반Enter1,Tab blur 기존 보정/요청 동일·실패 복구·disabled를 mock 저장만으로 검증한다.
 
 - [ ] **🟢 자동 구현** **P2-KBD-05 — 프로필 팝업의 pending·Escape·중복 활성화·오류 복구를 일치시킨다.**
   - **근거/대상:** src/pages/settings/ui/profileDialogs.tsx:267-272,449-452 및604-613,793-796은 추가/편집 pending중 취소 버튼을 막지만 Dialog onClose는 같은 guard가 없다. src/pages/settings/ui/accountProfiles.tsx:349,356-360,509-525는 삭제 mutate만 사용하고 pending/error UI를 읽지 않는다. src/api/accountHooks.ts:237-249의 공유 mutation scope 직렬화는 존재하므로 backend 중복삭제 성공으로 오판하지 않는다. 평상시 Dialog Tab trap/Escape/trigger 복귀는 기존 지원이다.
