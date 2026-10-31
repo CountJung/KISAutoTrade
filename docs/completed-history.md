@@ -90,6 +90,26 @@
   - **완료/키보드 회귀:** 각 Slider/textbox를 정확한 역할+이름으로 찾아 Tab 순서·focus·단위/범위와 native 방향키/Home/End를 확인한다. 일반Enter commit1·조합Enter/229 commit0·후속일반Enter1,Tab blur 기존 보정/요청 동일·실패 복구·disabled를 mock 저장만으로 검증한다.
 ```
 
+<a id="p2-kbd-05"></a>
+## P2-KBD-05
+
+2026-10-31 로컬 구현·회귀 완료. 프로필 Add/Edit/Delete의 현재 세션에만 main/aux 응답을 적용하고 main 처리 중 Cancel/Escape/backdrop·반복 활성화를 동기 guard로 일치시켰다. 기존 계좌 hook publication/reconcile·payload·동의/확인/활성 경고·aux 중 닫기 허용을 유지했다. 삭제 오류/명시재시도와 Dialog exit·늦은 목록 제거 뒤 조건부 focus 복귀를 보강했다. 제품 red6→최소green6→canonical24→최종전체UI557 및 Rust901·bootstrap4를 통과했다. 정확 코드 SHA의 원격 게시·CI 영수증과 미검증 한계는 회차 정본을 따른다.
+
+[회차별 검증·한계·게시 기록](tasks/keyboard-improvements-20261031.md#p2-kbd-05)을 따른다.
+
+### 원래 TODO 완료 조건·근거 보존
+
+아래는 착수 당시 미완료 표기를 포함한 원문이며 현재 상태는 위 완료 범위를 따른다.
+
+```markdown
+- [ ] **🟢 자동 구현** **P2-KBD-05 — 프로필 팝업의 pending·Escape·중복 활성화·오류 복구를 일치시킨다.**
+  - **근거/대상:** src/pages/settings/ui/profileDialogs.tsx:267-272,449-452 및604-613,793-796은 추가/편집 pending중 취소 버튼을 막지만 Dialog onClose는 같은 guard가 없다. src/pages/settings/ui/accountProfiles.tsx:349,356-360,509-525는 삭제 mutate만 사용하고 pending/error UI를 읽지 않는다. src/api/accountHooks.ts:237-249의 공유 mutation scope 직렬화는 존재하므로 backend 중복삭제 성공으로 오판하지 않는다. 평상시 Dialog Tab trap/Escape/trigger 복귀는 기존 지원이다.
+  - **실제 관측/한계:** 이번 실행 관측에는 포함하지 않았다. pending/Escape/오류/반복 호출의 현재 소스와 기존 평상시 Dialog 검사만 대조한 후속 과제다.
+  - **영향/우선순위:** P2, 우선순위5. 저장 중 키보드 닫기·재개방과 늦은 callback의 초안 간섭, 삭제 버튼 반복 활성화·실패 후 무응답 혼란을 줄인다.
+  - **기대 동작/의존성:** 현재 추가/편집 버튼의 pending 취소 금지 의미를 Escape/backdrop에도 일치시키고 이전 dialog 세션의 callback이 새 draft를 닫지 못하게 한다. 삭제는 동기 중복 guard·명명 pending/오류·명시 재시도·안전한 focus 복귀를 보강한다. 기존 삭제 확인/활성프로필 경고·계좌 scope 직렬화는 유지한다. 닫힘을 허용하는 새 제품 정책으로 바꾸려면 별도 판단을 거친다.
+  - **완료/키보드 회귀:** 지연 mock에서 focused 버튼 Enter/Space 반복→요청 정확1,추가/편집 pending의 Cancel/Escape/backdrop 일관성·draft 유지,실패 후 재시도1·재개방 뒤 이전 callback 격리를 검사한다. 삭제 실패에는 대상/오류가 남고 성공에는 유효 trigger 또는 안전한 대안으로 focus가 복귀해야 한다. 입력의 단순Enter/전역키로 자동저장·삭제하지 않으며 실제 프로필/계좌 변경0이다.
+```
+
 <a id="toss-parse-20261031"></a>
 ## TOSS-PARSE-01 — 시뮬레이션 응답 협상·파싱 진단
 

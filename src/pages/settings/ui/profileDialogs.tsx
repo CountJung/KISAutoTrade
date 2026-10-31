@@ -35,6 +35,7 @@ import type {
 } from '../../../api/types'
 
 import { brokerLabel, cmdErrMsg } from './profileUtils'
+import { useProfileDialogSession } from './useProfileDialogSession'
 
 function brokerProfileLabels(brokerId: BrokerId) {
   if (brokerId === 'toss') {
@@ -167,9 +168,13 @@ export function AddProfileDialog({
   const [detectMsg, setDetectMsg] = useState<string>('')
   const [tossAccounts, setTossAccounts] = useState<TossAccountOptionView[]>([])
   const [tossAccountMsg, setTossAccountMsg] = useState<string>('')
-  const { mutate: addProfile, isPending } = useAddProfile()
-  const { mutate: detectType, isPending: isDetecting } = useDetectTradingType()
-  const { mutate: listTossAccounts, isPending: isListingTossAccounts } = useListTossAccounts()
+  const { mutateAsync: addProfile } = useAddProfile()
+  const { mutateAsync: detectType } = useDetectTradingType()
+  const { mutateAsync: listTossAccounts } = useListTossAccounts()
+  const session = useProfileDialogSession(open, brokerId)
+  const isPending = session.main.pending()
+  const isDetecting = session.detect.pending()
+  const isListingTossAccounts = session.lookup.pending()
 
   useEffect(() => {
     if (!open) return
@@ -189,24 +194,25 @@ export function AddProfileDialog({
     && form.app_key.trim().length > 0
     && form.app_secret.trim().length > 0
 
-  const handleDetect = () => {
+  const handleDetect = async () => {
     if (!canDetect) return
+    const ticket = session.detect.begin()
+    if (!ticket) return
     setDetectStatus('detecting')
     setDetectMsg('')
-    detectType(
-      { appKey: form.app_key.trim(), appSecret: form.app_secret.trim() },
-      {
-        onSuccess: (res) => {
-          setForm((f) => ({ ...f, is_paper_trading: res.is_paper_trading }))
-          setDetectStatus('detected')
-          setDetectMsg(res.message)
-        },
-        onError: (e) => {
-          setDetectStatus('failed')
-          setDetectMsg(cmdErrMsg(e))
-        },
-      },
-    )
+    try {
+      const res = await detectType({ appKey: form.app_key.trim(), appSecret: form.app_secret.trim() })
+      if (!session.detect.current(ticket)) return
+      setForm((f) => ({ ...f, is_paper_trading: res.is_paper_trading }))
+      setDetectStatus('detected')
+      setDetectMsg(res.message)
+    } catch (e) {
+      if (!session.detect.current(ticket)) return
+      setDetectStatus('failed')
+      setDetectMsg(cmdErrMsg(e))
+    } finally {
+      session.detect.finish(ticket)
+    }
   }
 
   const resetTossAccounts = () => {
@@ -214,38 +220,37 @@ export function AddProfileDialog({
     setTossAccountMsg('')
   }
 
-  const handleLookupTossAccounts = () => {
+  const handleLookupTossAccounts = async () => {
     if (!canLookupTossAccounts) {
       setError('토스증권 Client ID와 Client Secret을 먼저 입력하세요.')
       return
     }
+    const ticket = session.lookup.begin()
+    if (!ticket) return
     setError(null)
-    listTossAccounts(
-      {
-        client_id: form.app_key.trim(),
-        client_secret: form.app_secret.trim(),
-      },
-      {
-        onSuccess: (accounts) => {
-          setTossAccounts(accounts)
-          setTossAccountMsg(
-            accounts.length > 0
-              ? `${accounts.length}개 계좌를 조회했습니다. 저장할 accountSeq를 선택하세요.`
-              : '조회된 토스증권 계좌가 없습니다.',
-          )
-          if (accounts.length === 1) {
-            setForm((f) => ({ ...f, account_no: accounts[0].account_seq }))
-          }
-        },
-        onError: (e) => {
-          resetTossAccounts()
-          setError(cmdErrMsg(e))
-        },
-      },
-    )
+    try {
+      const accounts = await listTossAccounts({ client_id: form.app_key.trim(), client_secret: form.app_secret.trim() })
+      if (!session.lookup.current(ticket)) return
+      setTossAccounts(accounts)
+      setTossAccountMsg(
+        accounts.length > 0
+          ? `${accounts.length}개 계좌를 조회했습니다. 저장할 accountSeq를 선택하세요.`
+          : '조회된 토스증권 계좌가 없습니다.',
+      )
+      if (accounts.length === 1) {
+        setForm((f) => ({ ...f, account_no: accounts[0].account_seq }))
+      }
+    } catch (e) {
+      if (!session.lookup.current(ticket)) return
+      resetTossAccounts()
+      setError(cmdErrMsg(e))
+    } finally {
+      session.lookup.finish(ticket)
+    }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (session.main.pending()) return
     if (!form.name.trim()) { setError('프로파일 이름을 입력하세요.'); return }
     if (!form.app_key.trim()) { setError(`${labels.key}를 입력하세요.`); return }
     if (!form.app_secret.trim()) { setError(`${labels.secret}을 입력하세요.`); return }
@@ -255,16 +260,24 @@ export function AddProfileDialog({
       return
     }
 
+    const ticket = session.main.begin()
+    if (!ticket) return
     const input: AddProfileInput = { ...form }
-    addProfile(input, {
-      onSuccess: () => {
-        setForm(emptyForm(brokerId)); setError(null); setDetectStatus('idle'); setDetectMsg(''); resetTossAccounts(); onClose()
-      },
-      onError: (e) => setError(cmdErrMsg(e)),
-    })
+    try {
+      await addProfile(input)
+      if (!session.main.finish(ticket)) return
+      session.close()
+      setForm(emptyForm(brokerId)); setError(null); setDetectStatus('idle'); setDetectMsg(''); resetTossAccounts(); onClose()
+    } catch (e) {
+      if (session.main.current(ticket)) setError(cmdErrMsg(e))
+    } finally {
+      session.main.finish(ticket)
+    }
   }
 
   const handleClose = () => {
+    if (session.main.pending()) return
+    session.close()
     setForm(emptyForm(brokerId)); setError(null); setDetectStatus('idle'); setDetectMsg(''); resetTossAccounts(); onClose()
   }
 
@@ -320,6 +333,7 @@ export function AddProfileDialog({
             label={labels.key}
             value={form.app_key}
             onChange={(e) => {
+              session.invalidateAux()
               setForm({ ...form, app_key: e.target.value })
               setDetectStatus('idle')
               if (isTossProfile) resetTossAccounts()
@@ -330,6 +344,7 @@ export function AddProfileDialog({
             label={labels.secret}
             value={form.app_secret}
             onChange={(e) => {
+              session.invalidateAux()
               setForm({ ...form, app_secret: e.target.value })
               setDetectStatus('idle')
               if (isTossProfile) resetTossAccounts()
@@ -447,8 +462,10 @@ export function AddProfileDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={isPending}>취소</Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={isPending}>
-          {isPending ? <CircularProgress size={18} /> : '추가'}
+        <Button onClick={handleSubmit} variant="contained" aria-label="추가"
+          aria-disabled={isPending} aria-busy={isPending} aria-description={isPending ? '추가 중' : undefined}
+          startIcon={isPending ? <CircularProgress size={18} color="inherit" aria-label="추가 중" /> : undefined}>
+          추가
         </Button>
       </DialogActions>
     </Dialog>
@@ -469,16 +486,17 @@ export function EditProfileDialog({
   const [detectMsg, setDetectMsg] = useState<string>('')
   const [tossAccounts, setTossAccounts] = useState<TossAccountOptionView[]>([])
   const [tossAccountMsg, setTossAccountMsg] = useState<string>('')
-  const { mutate: updateProfile, isPending } = useUpdateProfile()
-  const { mutate: detectType, isPending: isDetecting } = useDetectTradingType()
-  const { mutate: listTossAccounts, isPending: isListingTossAccounts } = useListTossAccounts()
-  const {
-    mutate: listTossProfileAccounts,
-    isPending: isListingSavedTossAccounts,
-  } = useListTossProfileAccounts()
+  const { mutateAsync: updateProfile } = useUpdateProfile()
+  const { mutateAsync: detectType } = useDetectTradingType()
+  const { mutateAsync: listTossAccounts } = useListTossAccounts()
+  const { mutateAsync: listTossProfileAccounts } = useListTossProfileAccounts()
+  const session = useProfileDialogSession(!!profile, profile)
+  const isPending = session.main.pending()
+  const isDetecting = session.detect.pending()
 
   // profile 변경 시 form 동기화
   useEffect(() => {
+    setError(null)
     if (!profile) {
       setForm(emptyForm())
       setTossAccounts([])
@@ -509,26 +527,27 @@ export function EditProfileDialog({
     && form.app_key.trim().length > 0
     && form.app_secret.trim().length > 0
   const canLookupTossAccounts = isTossProfile && (!!profile || newTossCredentialsReady)
-  const isListingAnyTossAccounts = isListingTossAccounts || isListingSavedTossAccounts
+  const isListingAnyTossAccounts = session.lookup.pending()
 
-  const handleDetect = () => {
+  const handleDetect = async () => {
     if (!canDetect) return
+    const ticket = session.detect.begin()
+    if (!ticket) return
     setDetectStatus('detecting')
     setDetectMsg('')
-    detectType(
-      { appKey: form.app_key.trim(), appSecret: form.app_secret.trim() },
-      {
-        onSuccess: (res) => {
-          setForm((f) => ({ ...f, is_paper_trading: res.is_paper_trading }))
-          setDetectStatus('detected')
-          setDetectMsg(res.message)
-        },
-        onError: (e) => {
-          setDetectStatus('failed')
-          setDetectMsg(cmdErrMsg(e))
-        },
-      },
-    )
+    try {
+      const res = await detectType({ appKey: form.app_key.trim(), appSecret: form.app_secret.trim() })
+      if (!session.detect.current(ticket)) return
+      setForm((f) => ({ ...f, is_paper_trading: res.is_paper_trading }))
+      setDetectStatus('detected')
+      setDetectMsg(res.message)
+    } catch (e) {
+      if (!session.detect.current(ticket)) return
+      setDetectStatus('failed')
+      setDetectMsg(cmdErrMsg(e))
+    } finally {
+      session.detect.finish(ticket)
+    }
   }
 
   const resetTossAccounts = () => {
@@ -550,47 +569,40 @@ export function EditProfileDialog({
     })
   }
 
-  const handleLookupTossAccounts = () => {
+  const handleLookupTossAccounts = async () => {
     if (!profile) return
     if (!canLookupTossAccounts) {
       setError('토스증권 Client ID와 Client Secret을 먼저 입력하세요.')
       return
     }
+    const ticket = session.lookup.begin()
+    if (!ticket) return
     setError(null)
-    if (newTossCredentialsReady) {
-      listTossAccounts(
-        {
-          client_id: form.app_key.trim(),
-          client_secret: form.app_secret.trim(),
-        },
-        {
-          onSuccess: applyTossAccounts,
-          onError: (e) => {
-            resetTossAccounts()
-            setError(cmdErrMsg(e))
-          },
-        },
-      )
-      return
+    try {
+      const accounts = newTossCredentialsReady
+        ? await listTossAccounts({ client_id: form.app_key.trim(), client_secret: form.app_secret.trim() })
+        : await listTossProfileAccounts(profile.id)
+      if (!session.lookup.current(ticket)) return
+      applyTossAccounts(accounts)
+    } catch (e) {
+      if (!session.lookup.current(ticket)) return
+      resetTossAccounts()
+      setError(cmdErrMsg(e))
+    } finally {
+      session.lookup.finish(ticket)
     }
-
-    listTossProfileAccounts(profile.id, {
-      onSuccess: applyTossAccounts,
-      onError: (e) => {
-        resetTossAccounts()
-        setError(cmdErrMsg(e))
-      },
-    })
   }
 
-  const handleSubmit = () => {
-    if (!profile) return
+  const handleSubmit = async () => {
+    if (session.main.pending() || !profile) return
     if (!form.name.trim()) { setError('프로파일 이름을 입력하세요.'); return }
     if (form.broker_id === 'toss' && form.account_no.trim() && !/^\d+$/.test(form.account_no.trim())) {
       setError('토스증권 accountSeq는 숫자여야 합니다.')
       return
     }
 
+    const ticket = session.main.begin()
+    if (!ticket) return
     const input: UpdateProfileInput = {
       id: profile.id,
       broker_id: profile.broker_id,
@@ -601,13 +613,23 @@ export function EditProfileDialog({
       app_secret: form.app_secret || undefined,
       account_no: form.account_no || undefined,
     }
-    updateProfile(input, {
-      onSuccess: () => { setError(null); setDetectStatus('idle'); setDetectMsg(''); onClose() },
-      onError: (e) => setError(cmdErrMsg(e)),
-    })
+    try {
+      await updateProfile(input)
+      if (!session.main.finish(ticket)) return
+      session.close()
+      setError(null); setDetectStatus('idle'); setDetectMsg(''); onClose()
+    } catch (e) {
+      if (session.main.current(ticket)) setError(cmdErrMsg(e))
+    } finally {
+      session.main.finish(ticket)
+    }
   }
 
-  const handleClose = () => { setError(null); setDetectStatus('idle'); setDetectMsg(''); resetTossAccounts(); onClose() }
+  const handleClose = () => {
+    if (session.main.pending()) return
+    session.close()
+    setError(null); setDetectStatus('idle'); setDetectMsg(''); resetTossAccounts(); onClose()
+  }
 
   return (
     <Dialog open={!!profile} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -660,6 +682,7 @@ export function EditProfileDialog({
             label={`${labels.key} (변경 시에만 입력)`}
             value={form.app_key}
             onChange={(e) => {
+              session.invalidateAux()
               setForm({ ...form, app_key: e.target.value })
               setDetectStatus('idle')
               if (isTossProfile) resetTossAccounts()
@@ -671,6 +694,7 @@ export function EditProfileDialog({
             label={`${labels.secret} (변경 시에만 입력)`}
             value={form.app_secret}
             onChange={(e) => {
+              session.invalidateAux()
               setForm({ ...form, app_secret: e.target.value })
               setDetectStatus('idle')
               if (isTossProfile) resetTossAccounts()
@@ -791,8 +815,10 @@ export function EditProfileDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={isPending}>취소</Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={isPending}>
-          {isPending ? <CircularProgress size={18} /> : '저장'}
+        <Button onClick={handleSubmit} variant="contained" aria-label="저장"
+          aria-disabled={isPending} aria-busy={isPending} aria-description={isPending ? '저장 중' : undefined}
+          startIcon={isPending ? <CircularProgress size={18} color="inherit" aria-label="저장 중" /> : undefined}>
+          저장
         </Button>
       </DialogActions>
     </Dialog>

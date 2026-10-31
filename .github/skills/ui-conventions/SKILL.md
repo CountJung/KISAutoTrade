@@ -506,6 +506,13 @@ useEffect(() => {
 - 실제 htmlInput의 typed handler에서 isSearchEnter를 판정하고 일반 Enter는 기존 blur만 한 번 호출한다. 조합/229는 blur하지 않으며 Tab/포인터 blur·MUI Slider native 키는 원래 경로다. Settings의 문자열 정리·parseFloat/round/clamp·NaN 복원과 범위/step을 numberDraft 정책으로 교체하지 않는다.
 - 즉시 저장5쌍과 Risk local dirty→명시 저장6쌍·payload/단위 변환·disabled를 유지한다. 검사는 명시 mock 저장 수와 실제 설정/주문0을 구분하고 refresh의 미지원 REST 경로를 검사 목적으로 제품에 추가하지 않는다. 실제 OS IME/AT/WebView·운영 파일/위험엔진은 별도 검증이다.
 
+### 프로필 Dialog의 처리 중 동작과 세션
+
+- Settings local useProfileDialogSession은 open/identity 참조의 epoch와 독립 main/detect/lookup을 조립한다. 기존 shared adapter의 ticket 소유권만 재사용하고 form/secret/payload를 gate key에 직렬화하지 않는다. 닫힘/옛 epoch의 begin을 거절하며 입력 키 변경은 aux만 무효화한다.
+- main pending 동안 사용자 Cancel/Escape/backdrop은 같은 동기 guard를 쓰고 초안을 보존한다. 현재 성공은 자기 ticket 마감 뒤 별도 내부 경로로 닫는다. 동일 이름/텍스트의 busy 버튼과 aria-disabled에는 실제 동기 중복 guard가 필요하며 Cancel native disabled는 유지한다. 입력의 단순 Enter/전역키를 저장/삭제로 바꾸지 않는다.
+- mutateAsync는 기존 hook publication/reconcile 완료를 소비하고 accountHooks·공유 mutation scope를 대체하지 않는다. scope는 직렬화이며 dedup이 아니다. aux 중 허용된 닫기·기존 새 키/저장 profile 분기와 계좌 선택을 유지하고 이전 세션의 success/error/finally는 새 초안·busy를 건드리지 않는다.
+- Delete의 확인/활성 경고·대상별 오류/명시재시도를 유지한다. profiles 변경과 transition onExited 뒤 실제 trigger 연결 해제를 확인해 같은 broker 추가 버튼/h2로 돌아가며, 사용자가 다른 살아 있는 control로 이동했으면 focus를 빼앗지 않는다. 별도 DOM observer/timer를 추가한 것으로 기록하지 않는다. 검증은 명시 mock 프로필쓰기·aux POST 읽기·실제 계좌/파일0을 구분한다.
+
 ### 조회 요청의 수명과 처리 중 버튼
 
 - `shared/lib/keyedRequestGate.ts`는 opaque key/epoch/ticket controller와 React lifetime/revision adapter를 제공한다. 동기 begin으로 중복을 막고 current/finish는 현재 소유자만 결과·종료를 적용한다. key의 입력·시장·선택/public scope 조립, 유효성·조회·오류·broker fallback과 금융 상태는 각 모델이 소유한다.

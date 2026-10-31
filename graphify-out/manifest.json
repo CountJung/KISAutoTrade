@@ -720,8 +720,8 @@
     "semantic_hash": ""
   },
   "src/pages/settings/ui/accountProfiles.tsx": {
-    "mtime": 1793345741.7757983,
-    "ast_hash": "0d23a6a9a681cc53faf5ad09c7d622af",
+    "mtime": 1793447021.8486538,
+    "ast_hash": "5bef249fb4ac2e8f4c94ffdb72ead993",
     "semantic_hash": ""
   },
   "src/pages/settings/ui/brokerRateLimitSection.tsx": {
@@ -735,8 +735,8 @@
     "semantic_hash": ""
   },
   "src/pages/settings/ui/profileDialogs.tsx": {
-    "mtime": 1793264135.374572,
-    "ast_hash": "0db81ede1a13ef30356435a49cc21f88",
+    "mtime": 1793447021.848469,
+    "ast_hash": "b493c0a232922480956f7e05d1ac9299",
     "semantic_hash": ""
   },
   "src/pages/settings/ui/profileUtils.ts": {
@@ -2872,6 +2872,21 @@
   "tests/e2e/keyboard-settings-contract.spec.ts": {
     "mtime": 1793445466.720609,
     "ast_hash": "d21fe98ff6aa2d5d0547318fd317f69d",
+    "semantic_hash": ""
+  },
+  "src/pages/settings/ui/useProfileDialogSession.ts": {
+    "mtime": 1793447021.8482096,
+    "ast_hash": "5a3fb430ee092abba75ad7785d6511ad",
+    "semantic_hash": ""
+  },
+  "tests/e2e/fixtures/keyboardProfileFixture.ts": {
+    "mtime": 1793447433.305732,
+    "ast_hash": "9442660de2d040c240a22adaaa62c3a5",
+    "semantic_hash": ""
+  },
+  "tests/e2e/keyboard-profile-dialogs.spec.ts": {
+    "mtime": 1793447709.3149977,
+    "ast_hash": "8a0683175f6ee36fdce9310c8e97d985",
     "semantic_hash": ""
   }
 }

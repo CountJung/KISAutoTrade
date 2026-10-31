@@ -519,7 +519,8 @@ KISAutoTrade/
 │   │   │   │   ├── profileDialogs.tsx
 │   │   │   │   ├── profileUtils.ts
 │   │   │   │   ├── section.tsx
-│   │   │   │   └── settingsNavigation.tsx
+│   │   │   │   ├── settingsNavigation.tsx
+│   │   │   │   └── useProfileDialogSession.ts
 │   │   │   └── index.ts
 │   │   ├── strategy/
 │   │   │   ├── model/
@@ -1087,6 +1088,7 @@ KISAutoTrade/
 ├── tests/
 │   └── e2e/
 │       ├── fixtures/
+│       │   ├── keyboardProfileFixture.ts
 │       │   ├── keyboardResultsFixture.ts
 │       │   ├── keyboardSearchFixture.ts
 │       │   ├── keyboardSearchRaceFixture.ts
@@ -1096,6 +1098,7 @@ KISAutoTrade/
 │       ├── balance-events.spec.ts
 │       ├── budget-recovery.spec.ts
 │       ├── candle-pagination.spec.ts
+│       ├── keyboard-profile-dialogs.spec.ts
 │       ├── keyboard-results-navigation.spec.ts
 │       ├── keyboard-results-scope.spec.ts
 │       ├── keyboard-search-contract.spec.ts
@@ -1239,8 +1242,9 @@ KISAutoTrade/
 | `pages/settings/ui/autoTradingBudgetSection.tsx` | 선택 계좌의 KRW/USD 자동매매 배정액·현금·예약액·사용 가능액·차단 사유 표시와 정지 상태 예산 편집 |
 | `pages/settings/ui/budgetRecoverySection.tsx` | 예산 설정 안의 응답 불명 주문 대조·복구 UI. 원래 주문·체결 누적값·보류 사유·승인 영수증을 표시하고, 명시 확인 후 pending 복원을 요청. 실행 중·재조회/조회 실패·identity 불일치·legacy/종결 기록의 승인을 막고 웹에서는 안내만 표시. 예산 Section 아래 settings-recovery h3 도착점과 목차 복귀를 제공 |
 | `pages/settings/ui/databaseManagementSection.tsx` | PostgreSQL/MariaDB 연결, 고정 앱 테이블 관리, JSON↔DB 이관, backend 전환. 웹 모드에서는 보안 안내만 표시 |
-| `pages/settings/ui/accountProfiles.tsx` | 활성 broker/profile 요약, KIS/Toss 프로파일 목록, 연결 진단, 프로파일 삭제 확인 |
-| `pages/settings/ui/profileDialogs.tsx` | KIS/Toss 프로파일 추가/편집, 실전/모의 감지, Toss accountSeq 조회. secret 입력 상태는 이 파일 안에만 보관 |
+| `pages/settings/ui/accountProfiles.tsx` | 활성 broker/profile 요약, KIS/Toss 프로파일 목록·연결 진단. 삭제 target 세션의 동기 guard·명명 pending·오류/명시재시도·확인/활성 경고를 조립. 실제 trigger/broker action refs와 profiles/transition onExited의 React effect로 늦은 카드 제거 뒤 조건부 focus 대안을 제공하며 사용자 이동 focus와 기존 계좌 hook publication을 유지 |
+| `pages/settings/ui/profileDialogs.tsx` | KIS/Toss 추가/편집·실전/모의 감지·Toss accountSeq 조회와 secret 입력 상태를 소유. local 세션의 독립 main/detect/lookup으로 현재 ticket만 UI에 적용. pending 사용자 Cancel/Escape/backdrop과 내부 성공닫기를 분리하고 동일 명명 버튼/focus·기존 payload/계좌 선택/경고를 유지 |
+| `pages/settings/ui/useProfileDialogSession.ts` | Add/Edit/Delete의 open/identity 참조 변화를 secret 없는 epoch로 구분하고 기존 useKeyedRequestGate React adapter3개를 독립 조립. closed/옛epoch begin과 동기 close/aux 무효화만 소유. 유효성·payload·API/publication·성공/오류/reset/닫기/focus는 caller에 두며 기존 adapter activate/dispose를 재사용 |
 | `pages/settings/ui/profileUtils.ts` | 프로파일 에러 메시지와 broker label 공통 유틸 |
 | `pages/settings/ui/settingsNavigation.tsx` | Settings page-local 목차15도착점·목차 h2·안정 ID/type·공유 focus 스타일과 목차 복귀 링크. 기본 hash 이동을 막고 대상 존재 확인→현재 route의 명시 focus 알림→focus/scroll을 수행해 URL hash/history를 유지. 설정 저장 정책이나 route 복원 상태를 소유하지 않음 |
 | `pages/settings/ui/section.tsx` | Settings page-local Section의 typed 안정 ID·section/aria-labelledby·focus 가능한 h2·목차 복귀 링크 조립. Page/accountProfiles/autoTradingBudgetSection/brokerRateLimitSection/databaseManagementSection 5파일이 소비하며 중첩 복구는 별도 h3로 유지 |
@@ -1286,7 +1290,7 @@ KISAutoTrade/
 | `pages/strategy/ui/strategyAccountingPanel.tsx` | 일반·LTH 공통 연구 비용/현금흐름 입력과 결과 표시. 방향별·최소 수수료와 수동 출처, bounded 환율·배당 JSON·배당 가격 조정 선언을 검증하고 오류 초안은 실행을 차단하며 이전 성과를 무효화. 실현/잔여·가격/환율·배당·종료 가상 청산·관측 봉말 투자 비중·동일 요청 수량 보유/기록 비용 환급 비교와 한계를 표시. 과거 응답의 누락 회계를 0으로 추정하지 않음 |
 | `shared/api/strategyResearchTypes.ts` | 일반/LTH replay의 가정·회계/비교 DTO와 typed 연속 chunk/input/continuity 계약. A/B의 calculationMode/continuity와 과거 저장 결과의 새 회계 필드는 optional로 유지하며 누락을 미확인으로 표시. VolatilityExpansionPreparation 전용12필드를 미러하고 preview/A-B 보관 필드는 optional로 유지해 과거 누락을 보존한다. 단기/연속 공통 EntryFilterPreparation과 A/B 보관 필드는 선택적이며 비활성 기본값과 활성 필터의 진단 누락을 구분. FailedBreakout의 volumeRejections/breakoutBasis/priorVolumeRatio/priorAtr도 optional로 미확인·검증된0을 보존한다. MA 전용 slopeRejections/bandwidthRejections는 optional이며 Consecutive 응답의 생략과 과거 누락을 보존. ReplayAssessment.minuteTiming은 선택 LthMinuteTiming DTO로 시각/세션/관측 슬롯·출처 수·상한·미검증 플래그를 미러하며 과거 응답 누락은 정보 없음. BacktestPhase의 선택 diagnostics v1/sameLedgerObservationSplit과 관측·경계·손익 필드를 미러하며 이전 결과의 누락을 허용 |
 | `shared/lib/numberDraft.ts` | `parseDecimalDraft(raw)`는 명시 decimal 문법과 finite 숫자 변환을 소유하고 빈칸·문법 불일치·비유한 입력은 원문 문자열로 반환. `isFiniteNumberInRange`는 타입을 변환하지 않고 유한수·상하한·선택 정수 조건만 판정. public export를 통해 Consecutive/Momentum/Deviation/MeanReversion/MA 교차/RSI/FailedBreakout/StrongClose/VolatilityExpansion/TrendFilter가 재사용하며 필드별 범위·기본값·오류 문구·crossing 관계와 raw state는 local에 유지 |
-| `shared/lib/keyedRequestGate.ts` | opaque key/epoch/ticket identity의 동기 begin·current/finish·무효화/정리를 제공하는 controller factory와 React lifetime/revision adapter. 공개 index로 Trading 모델·Strategy US local hook·LTH 모델이 소비하며 key 조립·유효성·network·선택/오류·broker fallback·금융 동작은 caller에 유지. 실제 transport abort는 추가하지 않음 |
+| `shared/lib/keyedRequestGate.ts` | opaque key/epoch/ticket identity의 동기 begin·current/finish·무효화/정리를 제공하는 controller factory와 React lifetime/revision adapter. 공개 index로 Trading 모델·Strategy US local hook·LTH 모델과 Settings local session hook이 소비하며 key 조립·유효성·network·선택/오류·broker fallback·금융 동작은 caller에 유지. 실제 transport abort는 추가하지 않음 |
 | `shared/lib/resultButtonNavigation.ts` | focusResultButton은 opt-in boundary 안의 현재 활성 native 버튼을 DOM 순서로 찾아 ArrowUp/Down·Home/End focus를 이동한다. disabled/aria-disabled는 제외하고 경계 clamp. Trading/Strategy/LTH 국내 결과 TableBody3곳만 소비하며 modifier·event 취소·선택/query/callback/timer는 caller에 유지. DOM focus 부작용이 있어 순수 계산 helper나 전역 목록 키 정책은 아님 |
 | `shared/lib/searchKeyboard.ts` | isSearchEnter는 Enter와 direct/native isComposing·229만 판정하는 순수 helper. shared/lib index 공개 export로 Trading Page·Strategy Page/StrategyUsSearch·LTH picker와 Settings SliderWithInput이 소비하며 target·validity·broker callback·state·focus/timer·금융 동작은 caller에 유지 |
 | `shared/lib/pageFocusNavigation.ts` | 명시적인 페이지 내부 focus 이동을 알리는 routeKey 포함 동기 CustomEvent와 상수의 좁은 브라우저 helper. shared/lib index export를 통해 Settings focus 직전에 호출하고 AppShell이 같은 route의 pending 복원만 취소하며 API/query/저장 상태를 추가하지 않음 |
@@ -1601,6 +1605,8 @@ keyring/RGL 유지·미삭제 판단은 [9회차 기록](tasks/immediate-backlog
 | `tests/e2e/keyboard-search-race.spec.ts` | production mock에서 US 조회의 중복·같은 버튼 focus·stale 성공/오류/선택·입력/ABA·시장/SPA 이탈·실패/재시도와 broker별 기존 fallback을 대조. 이미 전송한 요청 취소나 실제 계좌 검증으로 해석하지 않음 |
 | `tests/e2e/keyboard-search-scope.spec.ts` | source harness가 실제 main/router/QueryClient를 유지하고 합성 공개 설정을 다시 읽게 해 broker/profile/account/paper 독립 경계와 scope ABA를 대조. 제품 global/export를 추가하거나 reload로 경합을 대체하지 않음 |
 | `tests/e2e/fixtures/keyboardSearchRaceFixture.ts` | 정확한 loopback 읽기·동적 합성 scope·지연 ticket과 response.finished 관측을 제공. Toss open-orders POST 읽기는 현재 합성 broker=Toss일 때만 예외이며 외부/금융 쓰기/unknown을 차단. 실제 broker/계좌·취소를 사용하지 않음 |
+| `tests/e2e/keyboard-profile-dialogs.spec.ts` | 합성 프로필 Dialog의 main pending 닫기·동기 중복·publication/reconcile·오류/재시도와 aux 세션·입력 revision·닫힘/재진입·삭제 후 조건부 focus를 대조. 실제 계좌/자격증명/프로필 파일 성공과 구분 |
+| `tests/e2e/fixtures/keyboardProfileFixture.ts` | mockUx 기반의 정확 fake 프로필 payload·지연 ticket/body 완료·합성 publication/목록 갱신과 제목 해시 증거를 제공. 명시 mock profile mutation과 aux POST 읽기를 구분하고 외부/WS/unknown·실제 계좌/파일 동작을 차단 |
 | `tests/e2e/keyboard-settings-contract.spec.ts` | Settings11쌍의 이름/단위·실제 입력 Enter/IME·native Slider와 기존 blur/저장 계약을 합성 브리지로 대조. 실제 OS IME·Tauri 설정/파일/위험엔진 검증과 구분 |
 | `tests/e2e/fixtures/keyboardSettingsFixture.ts` | browser-only Tauri 표식의 명시 read/이벤트·설정 mock write 및 안전 기록을 제공. unknown·외부/API/WS·금융/운영 변이는 거부하며 임의 null 성공으로 묵인하지 않음 |
 | `tests/e2e/keyboard-results-navigation.spec.ts` | production mock의 KIS/Toss3검색 결과에서 native 선택/Tab·focus-only방향키·입력caret·blur/Escape/복귀·긴목록geometry/scroll·상태/포인터를 대조. callback 내부 횟수 spy와 native click·최종 상태 근거를 구분 |

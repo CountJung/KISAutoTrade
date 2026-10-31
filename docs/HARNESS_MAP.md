@@ -104,6 +104,8 @@ UI 변경과 직접 관련된 spec을 먼저 실행한 뒤 범위가 넓으면 �
 
 `keyboard-settings-contract.spec.ts`와 `keyboardSettingsFixture.ts`는 Settings11쌍의 이름·단위·IME Enter·기존 blur/native Slider·저장 계약을 browser-only 합성 Tauri 브리지로 검사한다. 명시 read/이벤트·정확한 설정 mock write만 허용하고 unknown·외부/API/WS·금융 동작은 거부한다. 즉시 저장5쌍과 Risk 명시저장6쌍의 요청/단위·잠금/복구를 구분하며 실제 IPC·운영 설정/파일/DB/위험엔진 성공으로 확대하지 않는다. refresh의 현재 REST 미지원은 제품 변경 없이 보존한다. 정확한 실행/부분 결과·mock 저장 횟수·미검증은 회차 정본을 따른다.
 
+`keyboard-profile-dialogs.spec.ts`와 `keyboardProfileFixture.ts`는 정확한 fake payload의 Add/Edit/Delete mock mutation과 aux POST 읽기를 구분한다. 일반 Cancel/Escape·focus/inputEnter 무저장 positive 뒤 main 닫기·큐/중복·publication/reconcile·오류/재시도, aux 재진입/입력 revision 및 삭제 Dialog exit/지연 목록 제거의 조건부 focus를 대조한다. ticket header/body 완료와 UI 적용을 함께 확인하고 원제목 해시로 증거를 보존한다. 실제 프로필/계좌/키체인/파일·금융 동작은 호출하지 않으며 정확한 red/green·mock 횟수와 미검증 경계는 회차 정본을 따른다.
+
 ## 6. 구조·생성물 검사
 
 할일 상태는 `docs/todo.md`가 원본이며 `npm run todo:render`로 `docs/todo.html`을 생성한다. `npm run check:todo`는 최신 여부, `node --test scripts/render-todo.test.mjs`는 열린 항목 보존·필터·검색·모바일·JavaScript 없는 읽기와 마크업 escaping을 실제 Chromium에서 검증한다. 후자는 CI e2e job에서 Chromium 설치 후 실행한다.
