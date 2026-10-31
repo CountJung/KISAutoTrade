@@ -390,6 +390,7 @@ KISAutoTrade/
 │   │   ├── strategy-fill-ownership-20261018.md
 │   │   ├── strategy-review-20261018.md
 │   │   ├── strong-close-policy-20261022.md
+│   │   ├── toss-simulation-response-parsing-20261031.md
 │   │   ├── trading-module-split-20261018.md
 │   │   ├── trend-filter-policy-20261023.md
 │   │   ├── uiux-improvements-20261030.md
@@ -714,6 +715,9 @@ KISAutoTrade/
 │   │   │   │   ├── http.rs
 │   │   │   │   ├── mod.rs
 │   │   │   │   ├── orders.rs
+│   │   │   │   ├── response_parsing_fixtures.json
+│   │   │   │   ├── response_parsing_last_page.json.gz
+│   │   │   │   ├── response_parsing_tests.rs
 │   │   │   │   ├── support.rs
 │   │   │   │   ├── tests.rs
 │   │   │   │   └── types.rs
@@ -1443,8 +1447,9 @@ KISAutoTrade/
 | `broker/candles.rs` | provider별 typed cursor와 `CandlePageRequest`/`BrokerCandlePage`, KR/US 시장 날짜의 공통 `candle_market_date` 변환. KIS 날짜 anchor와 Toss inclusive timestamp 커서를 구분하고 커서 무진전을 감지한다. `BrokerAdapter::get_candle_page`로 KIS/Toss를 공통 호출하되 기존 `get_candles`는 유지 |
 | `broker/toss/mod.rs` | Toss 공개 surface re-export. 내부 DTO/helper는 외부로 직접 노출하지 않음 |
 | `broker/toss/adapter.rs` | `TossBrokerAdapter` 구현과 broker 공통 타입 매핑 |
-| `broker/toss/client.rs` | OAuth2 token, accounts/holdings/market/order REST 호출과 401 1회 재시도 |
-| `broker/toss/http.rs` | 공통 http::client_builder를 사용하는 Toss timeout·base URL/query encoding·response body streaming cap. provider 요청·오류 처리 경계는 기존 모듈에 유지 |
+| `broker/toss/client.rs` | OAuth2 token, accounts/holdings/market/order REST 호출과401 1회 재시도. 캔들 GET에만 안전한 JSON/본문 단계 진단을 연결하고 다른 GET/POST/token의 legacy 오류·재시도 계약을 유지 |
+| `broker/toss/http.rs` | 공통 http::client_builder를 쓰는 Toss 전용 identity 협상·15초 timeout·4MiB streaming cap·URL/query encoding. 캔들만 전체 content-coding 검사/안전 metadata를 적용하고 나머지 reader의 legacy 동작은 유지 |
+| `broker/toss/response_parsing_tests.rs` | client.rs의 cfg(test) 등록. 신규14개와 공개 JSON/gzip fixture2개로 loopback 직접client/DTO·오류/encoding·한도·401/재시도/비재전송을 검증한다. 실제 adapter 시장/scope나 사용자 인증응답 원인 확정과 구분하며 [수정 기록](tasks/toss-simulation-response-parsing-20261031.md)을 따른다 |
 | `broker/toss/error.rs` | Toss error envelope와 provider request id/error snippet formatting |
 | `broker/toss/support.rs` | rate-limit group, currency/market 변환, 주문 입력 validation/clientOrderId helper |
 | `broker/toss/types.rs` | Toss read-only/account/market DTO와 broker domain 변환 |

@@ -11,7 +11,10 @@ use tokio::sync::Mutex as AsyncMutex;
 
 use super::{
     error::format_toss_error,
-    http::{body_snippet, read_toss_response_text, toss_http_client, trim_base_url, url_encode},
+    http::{
+        body_snippet, read_toss_candle_response_text, read_toss_response_text, toss_http_client,
+        trim_base_url, url_encode,
+    },
     orders::{
         TossOrder, TossOrderCreateRequest, TossOrderListQuery, TossOrderModifyRequest,
         TossOrderOperationResponse, TossOrderResponse, TossPaginatedOrderResponse,
@@ -683,7 +686,13 @@ impl TossOpenApiClient {
         self.rate_limiter
             .record_outcome(rate_group, status.is_success())
             .await;
-        let text = read_toss_response_text(resp).await?;
+        let candle_response =
+            path.split('?').next() == Some("/api/v1/candles") && account_seq.is_none();
+        let text = if candle_response {
+            read_toss_candle_response_text(resp).await?
+        } else {
+            read_toss_response_text(resp).await?
+        };
 
         if status == StatusCode::UNAUTHORIZED && !had_retry_token {
             let new_token = self.refresh_after_unauthorized(&token).await?;
@@ -699,12 +708,21 @@ impl TossOpenApiClient {
             ));
         }
 
-        serde_json::from_str(&text).with_context(|| {
-            format!(
-                "토스증권 OpenAPI 응답 파싱 실패: body={}",
-                body_snippet(&text)
-            )
-        })
+        if candle_response {
+            // serde's message/source can contain response values. Keep only
+            // structural diagnostics in the UI-visible error and its chain.
+            serde_json::from_str(&text).map_err(|error| anyhow!(
+                "토스증권 OpenAPI 응답 파싱 실패: endpoint=/api/v1/candles; status={}; stage=json; category={:?}; line={}; column={}",
+                status.as_u16(), error.classify(), error.line(), error.column()
+            ))
+        } else {
+            serde_json::from_str(&text).with_context(|| {
+                format!(
+                    "토스증권 OpenAPI 응답 파싱 실패: body={}",
+                    body_snippet(&text)
+                )
+            })
+        }
     }
 
     async fn post_json<T, B>(
@@ -788,3 +806,7 @@ impl TossOpenApiClient {
             .ok_or_else(|| anyhow!("토스증권 계좌 API 호출에는 accountSeq가 필요합니다"))
     }
 }
+
+#[cfg(test)]
+#[path = "response_parsing_tests.rs"]
+mod response_parsing_tests;

@@ -149,3 +149,7 @@ npm run verify:toss-openapi
 ## 2026-10-29 공개 REST 명세 변경
 
 [공식 JSON](https://openapi.tossinvest.com/openapi-docs/latest/openapi.json) v1.2.28은39 paths/42 operations다. 이전 검증 목록38개는 모두 존재하고 `GET /api/v1/rankings/investor-trading` 한 경로가 추가됐다. 선택 count는1~100/default100, OAuth2 Bearer이며 계좌 헤더는 없다. 이 API를 호출하거나 앱 기능으로 구현하지 않았다. 원래 인증·오류·rate-limit·정확한 inventory 검사를 유지했다. 공개 JSON SHA256은 `18fdc96fdf632e4869c765ed0cb169049c5310a1c48e10b40e47a71f52aa7a45`다.
+
+## 2026-10-31 시뮬레이션 본문 파싱의 로컬 교정
+
+Toss 전용 client의 무압축 identity 협상과 캔들 전용 안전 단계 진단으로 합성HTTP의 rawgzip→UTF8 실패 경로를 교정했다. 실제 사용자 응답이 gzip이었다는 증거는 없으며 잘린/손상본문·미지원coding은 계속 명시 실패한다. 신규14개·기존/인접 검증과 전체 Rust/시뮬레이션·CI·게시 근거, 운영앱/실계좌 미실행 범위는 [단일 작업 기록](tasks/toss-simulation-response-parsing-20261031.md)을 따른다. DTO·가격/시각·재시도/금융 guard·TLS/의존성 정책을 변경한 것이 아니다.

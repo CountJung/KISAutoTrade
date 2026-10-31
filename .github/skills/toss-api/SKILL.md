@@ -86,6 +86,14 @@ npm run verify:toss-openapi
 - OAuth2 실패 응답은 `OAuth2ErrorResponse` 형태로 별도 파싱한다.
 - 주문 전 검증은 official error code에 맞춘다. 특히 고액 주문 확인, 주문 가능 시간, 호가 유형, 시장별 지원 여부, 반대 미체결 주문 관련 오류는 로컬 guard와 함께 처리한다.
 
+
+### 응답 content-coding과 캔들 파싱 진단 (2026-10-31)
+
+- 현재 Toss 전용 client는 자동 압축 해제 feature가 없으므로 `Accept-Encoding: identity`를 명시한다. 헤더 생략은 서버가 임의 content-coding을 선택할 여지를 남긴다. 근거는 [RFC9110 §12.5.3](https://www.rfc-editor.org/rfc/rfc9110.html#section-12.5.3)과 [reqwest optional gzip](https://docs.rs/reqwest/0.13.5/reqwest/struct.ClientBuilder.html#method.gzip)이며 다른 서비스의 HTTP/TLS·전역 feature를 임의 변경하지 않는다.
+- 캔들 GET은 Content-Encoding 없음/단일identity만 읽고 미지원/복수·stacked coding을 명시 거부한다. 압축 wire를 UTF-8로 오인하거나 lossy decode·빈캔들 성공으로 바꾸지 않는다.15초/4MiB 사전·누적 제한을 보존한다.
+- 캔들 body_limit/body_read/body_utf8/content_encoding/json 오류는 고정 endpoint·HTTP status·고정분류/숫자 위치만 남긴다. 원문 body/header·토큰·계좌·query/cursor·동적orderID/serde의응답값·rawsource는 새 진단에 넣지 않는다. 비시장/비성공HTTP의 기존 오류 정책까지 전부 redaction됐다고 주장하지 않는다.
+- 캔들 정상DTO와401·GET send재시도·POST비재전송·typed 거절/불명 예산 경계를 fixture로 대조한다. 재현된 rawgzip 실패와 최종 미지원coding 조기 거절을 구분하고 실제 provider 응답 원인으로 확대하지 않는다. [수정·검증·한계](../../../docs/tasks/toss-simulation-response-parsing-20261031.md).
+
 ## Adapter Implementation Rules
 
 - 공통 타입은 `src-tauri/src/broker/domain.rs`의 `BrokerId`, `BrokerAccountId`, `BrokerMarket`, `BrokerSymbol`, `BrokerMoney`, `BrokerQuantity`, `BrokerOrderId`, `BrokerClientOrderId`를 우선 사용한다.
