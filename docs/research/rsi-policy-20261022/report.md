@@ -66,7 +66,7 @@ hold63은78/78개의전체backtest/signals가owned와정확히같고cap신호0�
 
 ## 검증과 남은 조건
 
-부모정산은390원장의정확한조합/중복/경계와nextOpen·방향별슬리피지·현금/원가/실현/잔여·MDD/회전/노출/기말청산·기록수량경로복원61,782개산술검사를통과했다. 합성기능fixture와실제동결가격의진단을구분하며실제계좌/provider/주문/시장체결검증은하지않았다. 별도stock_analyst의독립감사는 [감사 산출물](independent-audit.json)과 [작업 기록](../../tasks/rsi-policy-20261022.md)에 기록한다.
+부모정산은390원장의정확한조합/중복/경계와nextOpen·방향별슬리피지·현금/원가/실현/잔여·MDD/회전/노출/기말청산·기록수량경로복원61,782개산술검사를통과했다. 합성기능fixture와실제동결가격의진단을구분하며실제계좌/provider/주문/시장체결검증은하지않았다. 별도stock_analyst의독립감사는 [감사 산출물](independent-audit.json)과 [작업 기록](../../completed-history.md#task-rsi-policy-20261022)에 기록한다.
 
 재현은프로젝트.cache에978640c git archive와Cargo harness를두고baseline_runner를archivedsrc-tauri,current runner를현재src-tauri pathdependency로실행한다. argv는저장소경로이며target은공유target이다. validate.py는전체기록을gzip(lossless,mtime0)로보관하고평문을ignoredcache로옮긴다. 그뒤analyze.py가정책/기간별관측만집계한다. baseline-source-validation.json은archived코드주요파일이gitobject와정확히같음을증명한다. runtime수정후재실행시기록/코드hash를다시대조한다.
 

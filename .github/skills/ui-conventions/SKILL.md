@@ -479,13 +479,13 @@ useEffect(() => {
 
 ---
 
-비동기 preview 뒤 invalid 편집을 검증할 때는 첫 정상 결과를 먼저 관측한다. candle 수집 중 generation 취소를 정상 POST 완료로 간주하지 않고 원래 차단·결과 제거·요청 수 기대를 유지한다. [CI 후속 근거](../../../docs/tasks/keyboard-improvements-20261031.md#keyboard-final-ci-20261031).
+비동기 preview 뒤 invalid 편집을 검증할 때는 첫 정상 결과를 먼저 관측한다. candle 수집 중 generation 취소를 정상 POST 완료로 간주하지 않고 원래 차단·결과 제거·요청 수 기대를 유지한다. [CI 후속 근거](../../../docs/completed-history.md#keyboard-final-ci-20261031).
 
 ### 검색 결과·보유 행 키보드 선택
 
 - 행의 기존 pointer 선택을 유지하면서 `src/shared/ui/RowSelectionButton.tsx`의 native Button으로 Tab/Enter/Space 선택과 이름·코드 accessible name을 제공한다. Button의 click propagation을 끊어 부모 행과 같은 선택을 두 번 실행하지 않는다.
 - 입력과 결과 팝업을 하나의 focus 영역으로 보고 relatedTarget이 영역 안일 때 blur 닫힘을 예약하지 않는다. 영역 밖 이동은 기존180ms 닫힘을 유지한다. Escape/검색 선택 뒤 원래 입력으로 focus를 돌리되 내부 이동의 onFocus가 목록을 다시 열지 않게 한다.
-- 선택의 실제 종목·시장·주문/전략 상태 closure는 원래 도메인에 두고 공통화하지 않는다. 입력·table/row role·포인터 클릭을 함께 회귀 검사하며 금융 제출과 종목 선택을 섞지 않는다. [구현·검증 기록](../../../docs/tasks/uiux-improvements-20261030.md).
+- 선택의 실제 종목·시장·주문/전략 상태 closure는 원래 도메인에 두고 공통화하지 않는다. 입력·table/row role·포인터 클릭을 함께 회귀 검사하며 금융 제출과 종목 선택을 섞지 않는다. [구현·검증 기록](../../../docs/completed-history.md#task-uiux-improvements-20261030).
 
 
 ### 키보드 조회·조합·처리 중 상태의 검토 기준
@@ -498,7 +498,7 @@ useEffect(() => {
 ### 키보드 회귀의 실제 입력 대상 준비
 
 - MUI Dialog 배경은 고정 viewport 좌표가 아니라 현재 Paper 밖 container 자기 hit를 확인하고 실제 trusted mousedown/click 대상을 기록한다. scrollbar gutter나 자식 hit를 정상 배경 클릭으로 간주하지 않는다.
-- native disabled 버튼을 누른 뒤에는 다음 키의 실제 focus/target을 확인한다. 유효 blur가 즉시 저장·family disabled를 시작하는 기존 정책에서는 저장 없는 Tab 왕복과 저장 잠금/해제 검증을 분리하고 자동 focus 보장을 새로 만들지 않는다. 강제 클릭·sleep·retry/timeout 증가로 준비 오류를 가리지 않는다. [CI 후속 근거](../../../docs/tasks/keyboard-improvements-20261031.md#keyboard-final-ci-20261031).
+- native disabled 버튼을 누른 뒤에는 다음 키의 실제 focus/target을 확인한다. 유효 blur가 즉시 저장·family disabled를 시작하는 기존 정책에서는 저장 없는 Tab 왕복과 저장 잠금/해제 검증을 분리하고 자동 focus 보장을 새로 만들지 않는다. 강제 클릭·sleep·retry/timeout 증가로 준비 오류를 가리지 않는다. [CI 후속 근거](../../../docs/completed-history.md#keyboard-final-ci-20261031).
 
 - clock을 소유한 Query UI fixture는 초기 scope/자료 응답의 body 완료와 observer 알림 전달을 구분한다. 정확한 초기 GET을 navigation 전에 관측하고 준비 단계의 microtask·소유 clock tick 뒤 기존 입력 기대를 실행한다. HTTP200만으로 화면 준비를 단정하거나 install을 frozen clock으로 부르지 않는다. 제어된 pause 재현과 원래 CI 관측은 구분한다.
 
@@ -509,7 +509,7 @@ useEffect(() => {
 - `shared/lib/searchKeyboard.ts::isSearchEnter`는 Enter와 direct/native isComposing·229만 판정한다. 검색어 길이·종목/시장·broker callback·query/선택·금융 의미는 caller에 유지하며 KR2자 조건을 US1자 티커에 적용하지 않는다.
 - MUI TextField의 검색 handler는 실제 htmlInput에 연결한다. adornment/결과 선택 버튼의 native Enter·Space를 상위 입력 검색으로 중복 해석하지 않는다. 비조합 Enter만 해당 읽기 경로를 실행하고 주문·전략 추가·저장을 제출하지 않는다.
 - Trading KR6자리 직접선택, Strategy6자리 자동검색, LTH250ms 자동검색과 Toss/KIS별 fallback은 서로 다른 계약이다. callback 전체를 합치거나 debounce로 Enter의 누락을 가리지 않는다.
-- IME/229 합성 이벤트·정지된 clock의 Enter 즉시조회와 기존 timer를 분리해 검사한다. 합성 `isTrusted=false` 관측은 실제 macOS 한글 IME·WebView·스크린리더 검증이 아니다. 회차별 범위·검증과 남은 조건은 [구현 기록](../../../docs/tasks/keyboard-improvements-20261031.md)을 따른다.
+- IME/229 합성 이벤트·정지된 clock의 Enter 즉시조회와 기존 timer를 분리해 검사한다. 합성 `isTrusted=false` 관측은 실제 macOS 한글 IME·WebView·스크린리더 검증이 아니다. 회차별 범위·검증과 남은 조건은 [구현 기록](../../../docs/completed-history.md#task-keyboard-improvements-20261031)을 따른다.
 
 ### Settings 수치 이름과 Enter commit
 
@@ -810,7 +810,7 @@ UI 규칙:
 
 - current/A-B의 선택 `assessment.minuteTiming`을 같은 panel로 표시한다. 정보없음·미지원버전·손상된 날짜/예시/limitations는 경고로 처리하고 시간대 검증을 만들어내지 않는다. 기본8일/compact2일의 실제 표시 수와 전체/생략 날짜수를 구분한다. 긴 시각과 label은 좁은 화면에서도 줄바꿈한다.
 - 원본 label 현지시각/봉시작UTC/종가 공개 가능UTC와 asOf, 공급/선택/실행/가격제외 수를 구분한다. 일반 평일창의 미관측 슬롯은 실제 누락 확정이 아니며 달력·발행·전체 coverage·기존 fixed KST 실행시계 한계를 보인다. 표기/시간대/진단버전/검증가정이 다른A/B는 경고한다. sampleOnly/notEvaluable·일봉 성과숨김과 이전결과 보호를 유지한다.
-- `tests/e2e/lth-minute-timing.spec.ts`의 mock으로 저장/복원·손상 배열·다른가정·legacy·일봉/빈자료·375px overflow/compact수를 확인한다. [작업 기록](../../../docs/tasks/lth-minute-timing-20261022.md).
+- `tests/e2e/lth-minute-timing.spec.ts`의 mock으로 저장/복원·손상 배열·다른가정·legacy·일봉/빈자료·375px overflow/compact수를 확인한다. [작업 기록](../../../docs/completed-history.md#task-lth-minute-timing-20261022).
 
 > 마지막 업데이트: 2026-10-22T20:33:31+09:00
 
@@ -828,13 +828,13 @@ RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저
 
 ## 강한 종가 선택 보호 안내
 
-기준3%는 이전 고가 대비 종가 거리이며 양봉/상승률이 아니다. 손절0은 비활성이 아닌 원가 이하 청산이다. 새 추세·수익 보호 쌍·관측 한도는 strict raw와 기본0 비활성을 표시하고 저장/두 preview/current/A-B에 같은 요약을 쓴다. 이전 일봉 준비 부족·legacy 진단 누락을 sizing ATR로 대체하지 않는다. D-1 조건→D종가 신호→D+1관측 시가와 live 첫 quote를 나누고 수익/보유시간 보장·하루 전체 quota로 표현하지 않는다. [작업](../../../docs/tasks/strong-close-policy-20261022.md).
+기준3%는 이전 고가 대비 종가 거리이며 양봉/상승률이 아니다. 손절0은 비활성이 아닌 원가 이하 청산이다. 새 추세·수익 보호 쌍·관측 한도는 strict raw와 기본0 비활성을 표시하고 저장/두 preview/current/A-B에 같은 요약을 쓴다. 이전 일봉 준비 부족·legacy 진단 누락을 sizing ATR로 대체하지 않는다. D-1 조건→D종가 신호→D+1관측 시가와 live 첫 quote를 나누고 수익/보유시간 보장·하루 전체 quota로 표현하지 않는다. [작업](../../../docs/completed-history.md#task-strong-close-policy-20261022).
 
 > 마지막 업데이트: 2026-10-22T22:15:36+09:00
 
 ## 변동성 확장 조건 빈도·관측 보호 UI
 
-이전N완료 범위 평균과 당일 범위·엄격 > 두조건을 안내하고 0범위를 자료부족으로 오해하지 않는다. 새선택0off·수익보호쌍·기존stop0활성, raw/stored 엄격타입과보유관측수를 저장/두preview/current-A-B에 동기화한다. 전용 진단의 평가·보유·미보유·준비/범위/방향·통과를 체결과 구분하고 legacy/손상진단은0으로 만들지 않는다. 일봉종가 확인→다음관측시가 가정과 live첫quote 시가대용·전체장중범위 미확인을 간결히 표시한다. 키보드·활성잠금·저장중새초안/실패·늦은응답/취소·모바일을 mock검증한다. [작업](../../../docs/tasks/volatility-expansion-policy-20261022.md).
+이전N완료 범위 평균과 당일 범위·엄격 > 두조건을 안내하고 0범위를 자료부족으로 오해하지 않는다. 새선택0off·수익보호쌍·기존stop0활성, raw/stored 엄격타입과보유관측수를 저장/두preview/current-A-B에 동기화한다. 전용 진단의 평가·보유·미보유·준비/범위/방향·통과를 체결과 구분하고 legacy/손상진단은0으로 만들지 않는다. 일봉종가 확인→다음관측시가 가정과 live첫quote 시가대용·전체장중범위 미확인을 간결히 표시한다. 키보드·활성잠금·저장중새초안/실패·늦은응답/취소·모바일을 mock검증한다. [작업](../../../docs/completed-history.md#task-volatility-expansion-policy-20261022).
 
 > 마지막 업데이트: 2026-10-22T22:51:29.543451+09:00
 
@@ -843,7 +843,7 @@ RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저
 
 세MA와이탈확인·수익쌍·보유한도의7필드를raw타입으로보존한다. MA1..512·확인1..1000000은0불가이고수익/보유만0off다. 현재포함MA·세MA준비뒤기존strict청산과선택보호의독립평가·native평균/보유관측peak·미상나이·잔량후보를구분한다. live약10초와일봉/분봉관측수를일수로부르지않고nextOpen/guard/갭을체결·손실보장으로표현하지않는다. current/A-B에실제params와누락기본을표시하고v22이전/미확인엔진의새보호적용은미확인이다. 빈칸/null/string/bool/분수정수·지연preview/저장중새초안·실패재시도·잠금·375px모바일을mock검증한다.
 
-전략별검증·기본값·rawstate는각controls에남기고 `strategyPolicyControls.tsx`는기존9전략과Trend의조립만담당한다. 의미가다른입력/보호전체를shared로승격하지않는다. [작업](../../../docs/tasks/trend-filter-policy-20261023.md).
+전략별검증·기본값·rawstate는각controls에남기고 `strategyPolicyControls.tsx`는기존9전략과Trend의조립만담당한다. 의미가다른입력/보호전체를shared로승격하지않는다. [작업](../../../docs/completed-history.md#task-trend-filter-policy-20261023).
 
 > 마지막 업데이트: 2026-10-25T20:23:25+09:00
 
@@ -863,3 +863,5 @@ RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저
 > 마지막 업데이트: 2026-10-30T08:58:11
 
 > 마지막 업데이트: 2026-10-31T10:33:01+00:00
+
+> 마지막 업데이트: 2026-11-01T00:21:19+00:00

@@ -1,159 +1,82 @@
 # KISAutoTrade — 완료·경과 이력
 
-> 2026-10-29 문서 재편. 현재 남은 작업의 정본은 [todo.md](todo.md)이며, 이 문서는 완료·과거 경과·기각 근거를 보존한다.
-> 아래 인용은 재편 전 `6eeb0ea718138438296b832bcbbe3e218fc49564`의 `docs/todo.md`에서 이관했다. 원래 ID·날짜·검증 수치·한계를 유지하며 이번에 다시 실행한 검증으로 주장하지 않는다.
+> 현재 남은 11개 작업과 완료 조건의 정본은 [todo.md](todo.md)다. 이 문서는 완료된 범위·과거 관측·기각 이유를 요약한다. 아래 수치는 당시 검증이며 문서 압축 중 재실행한 결과가 아니다.
+> 원문은 [고정 커밋 4021e38의 이력](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md)에 보존한다. 각 절의 불변 링크에서 원래 TODO 인용·중간 실패·수치·근거를 복원할 수 있다. 2026-10-29 이전 이관 원본은 `6eeb0ea718138438296b832bcbbe3e218fc49564`의 TODO다.
+
+당시 짧은 `P2-13` 표기는 `SOXQ-P2-13`을 뜻한다. 현재 `DEP-P3-01`의 MSRV/DB 결정과 나머지 열린 조건은 [TODO](todo.md)에서 관리한다.
 
 ## 이력 사용과 추적
 
-- 상세 구현/실험 기록은 기존 `docs/tasks/`·`docs/research/` 링크를 정본으로 유지한다. 이 문서는 TODO에서 옮긴 기록의 색인과 원문 보존소다.
-- 완료 표시는 당시 명시한 범위에 한정된다. 실제 provider 운용, 독립 OOS, 새 전략 채택이나 미확인 자료까지 완료했다는 뜻이 아니다.
-- 부분 완료 항목은 아래 별도 절에 보관하고, 원래 열린 상위 ID는 현재 TODO에 유지한다.
-- 원문 줄 번호는 위 고정 커밋 기준이다. 기존 ID가 없는 열린 항목에는 이번에 추적 ID만 부여했다.
+- **최신 전체 기준:** 키보드 최종 코드의 Release Gate58·Security65 성공, UI **557/557(14.0분)**·Rust lib **901/901(12.81초)**·TODO renderer3·bootstrap4. 기존408+키보드149의 고유557이며 focused/진단/재실행을 더하지 않는다. compiler 경고0, Actions/Node deprecation과 기존 RSA 예외는 별도다. [최종 영수증](#keyboard-final-ci-20261031).
+- 실제 macOS 한글 IME·Tauri WebView·스크린리더/AT·실계좌·시장자료·운영 DB/배포는 이 결과로 검증 완료하지 않는다. 아래 과거349/408 UI·887 Rust는 당시 기준이다.
+- 연구는 실제 자료/합성 가정·생산 실행/독립 재정산·실현/잔여 평가·연속/별도 초기화 계좌를 구분한다. 과거 사후 연구를 독립 OOS나 전략 채택 근거로 승격하지 않는다. 실제 provider·실자료·정책 결정은 TODO에 남긴다.
+- 완료 작업은 아래 통합 영수증과 불변 Git 원문, 연구 판단은 기존 research 정본을 따른다. 이력 압축은 구현·수치·설정·거래 정책 변경이 아니다.
+
+## 키보드 개선 완료 — 2026-10-31
+
+[원래 완료 조건·관측 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L13-L112). 아래 줄 범위로 각 ID를 찾을 수 있다.
+
+공통 Rust/앱·검사 타입/FSD/격리 production build·독립 UI/코드 리뷰를 통과했다. 읽기 fixture의 쓰기/외부/unknown/pageerror0과 기존 주문폼의 브라우저 mock 제출을 구분하며 실제 주문은0이다.
 
 <a id="p2-kbd-01"></a>
-## P2-KBD-01
+### P2-KBD-01
 
-2026-10-31 Trading/Strategy/LTH의 KIS·Toss KR/US 입력에 비조합 Enter 조회와 IME/229 방어를 연결했다. 검색 버튼 이름·조회 중 설명을 보완하고, Strategy 이름 조회를 Escape로 닫은 뒤 같은 입력의 Enter 재개방이 유지되게 교정했다. 최종 신규14+기존 선택10/주문폼5의 고유29개가 production mock에서 통과했다(18.2초). Rust check·앱/config 타입·FSD·격리 production build 및 독립 UI/참조 리뷰를 통과했다. 신규14개 읽기 검사는 쓰기/외부/unknown/pageerror0이다. 기존 주문폼5개는 브라우저 합성 주문 제출 회귀이며 실제 주문은0이다. 실제 OS IME·WebView·스크린리더는 미검증이며, 중복/늦은 응답은 P2-KBD-02에 남긴다.
+2026-10-31 Trading/Strategy/LTH의 KIS·Toss KR/US 입력에 비조합 Enter 조회와 IME/229 방어를 연결했다. 검색 버튼 이름·조회 중 설명을 보완하고, Strategy 이름 조회를 Escape로 닫은 뒤 같은 입력의 Enter 재개방이 유지되게 교정했다. 최종 신규14+기존 선택10/주문폼5의 고유29개가 production mock에서 통과했다(18.2초). 신규14개는 읽기, 기존 주문폼5개는 mock 제출이다. 실제 OS IME·WebView·스크린리더는 미검증이다. 중복/늦은 응답은 후속 P2-KBD-02에서 처리했다.
 
-[회차별 검증·한계·게시 기록](tasks/keyboard-improvements-20261031.md#p2-kbd-01)을 따른다.
-
-### 원래 TODO 완료 조건·근거 보존
-
-아래는 착수 당시 미완료 표기를 포함한 원문이며 현재 상태는 위 완료 범위를 따른다.
-
-```markdown
-- [ ] **🟢 자동 구현** **P2-KBD-01 — 종목·티커 조회의 Enter·IME·버튼 이름을 일관되게 한다.**
-  - **근거/대상:** 기준74c303a의 src/pages/trading/ui/Page.tsx:243-297 국내 입력은 검색 버튼을 제공하지만 입력 Enter handler는 없고, 미국:403-432는 이미 Enter 조회를 지원한다. src/pages/strategy/ui/Page.tsx:638 및 src/pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx:70-71도 미국 Enter가 있다. 해당 handler에서 isComposing/keyCode229 검사를 찾지 못했으며 Trading 미국 검색 IconButton:420-426은 명시 이름이 없다. 실제 한글 IME/AT 실패로 단정하지 않는다.
-  - **실제 관측/한계:** 새 mock 관측에서 Trading 국내 이름 입력 후600ms창의 Enter 전/후 검색GET0→0, 버튼은GET1·결과표시,6자리 직접선택은 정상이다. Trading/Strategy 미국 일반Enter는 정상 선택했으며, isComposing=true/keyCode229/isTrusted=false 합성Enter는 각 논리조회GET+1을 만들었다. 실제 OS IME 재현과는 구분한다.
-  - **영향/우선순위:** P2, 우선순위1. 키보드 입력 뒤 조회를 이어가기 어렵거나 조합 확정 Enter가 의도치 않은 조회로 해석될 가능성을 줄인다. 기존 미국 Enter 지원은 보존한다.
-  - **기대 동작/의존성:** 각 검색 입력의 Enter를 같은 읽기 조회 버튼의 유효성 경로에 연결하고 조합 중 Enter/229는 무시한다. 국내6자리 직접입력의 기존 즉시선택을 보존해 추가 중복조회하지 않으며 검색 버튼에 정확한 접근 가능 이름·pending 설명을 제공한다. 주문/추가/저장 제출로 이벤트가 전파되지 않게 한다.
-  - **완료/키보드 회귀:** Trading/Strategy/LTH의 KR·US와 KIS·Toss를 합성으로 대조한다. 일반 Enter와 버튼은 같은 검색조건/선택, 빈칸·각 컨트롤의 기존 유효성 조건을 충족하지 못한 입력·조합Enter/229는 조회0(유효한1글자US티커는허용), 조합종료 후 일반Enter는 정상1회다. 6자리 직접선택·기존 Tab/Space/Escape를 유지하고 모든 조회 키에서 금융/설정 변이0, 외부0을 확인한다. 실제 macOS 한글 IME·WebView·AT는 별도 실측으로 구분한다.
-```
+[회차 기록](#p2-kbd-01) · 원문 L13–31
 
 <a id="p2-kbd-02"></a>
-## P2-KBD-02
+### P2-KBD-02
 
-2026-10-31 US 조회에 입력·시장·선택·공개 broker/profile/account/모드의 ticket/epoch 보호를 연결해 반복 요청과 늦은 결과·오류·후속 fallback·이전 finally를 차단했다. 검색 중 명명 버튼과 focus를 유지하고 기존 KIS 거래소 순서·Toss 동기 선택·Strategy safety·LTH 직접선택 fallback을 보존했다. 최종71개가 통과했다(32.3초): 신규42개(production34/source8)+인접29개다. 신규42개 읽기는 쓰기/외부/unknown/pageerror0이며 기존 주문폼5개는 명시적 브라우저 mock 제출·실제 주문0이다. Rust·앱/config·검사 타입·FSD·격리 production build와 독립 코드/검사 리뷰를 통과했다. 실제 backend 요청 취소·계좌 pinning·운영 검증을 완료한 것은 아니다.
+2026-10-31 US 조회에 입력·시장·선택·공개 broker/profile/account/모드의 ticket/epoch 보호를 연결해 반복 요청과 늦은 결과·오류·후속 fallback·이전 finally를 차단했다. 검색 중 명명 버튼과 focus를 유지하고 기존 KIS 거래소 순서·Toss 동기 선택·Strategy safety·LTH 직접선택 fallback을 보존했다. 최종71개가 통과했다(32.3초): 신규42개(production34/source8)+인접29개다. 신규42개는 읽기, 기존 주문폼5개는 mock 제출이다. 실제 backend 요청 취소·계좌 pinning·운영 검증을 완료한 것은 아니다.
 
-[회차별 검증·한계·게시 기록](tasks/keyboard-improvements-20261031.md#p2-kbd-02)을 따른다.
-
-### 원래 TODO 완료 조건·근거 보존
-
-아래는 착수 당시 미완료 표기를 포함한 원문이며 현재 상태는 위 완료 범위를 따른다.
-
-```markdown
-- [ ] **🟢 자동 구현** **P2-KBD-02 — 조회 중 반복 Enter와 늦은 티커 응답을 현재 입력·scope에 한정한다.**
-  - **근거/대상:** src/pages/trading/ui/useTradingOrderModel.ts:235-265와 src/pages/strategy/ui/Page.tsx:242-283의 미국 검색은 비동기 조회 전후 상태를 바꾸지만 handler 자체 pending/요청세대 검사가 없다. Strategy 버튼의 usSearching disabled와 입력 Enter 경로가 다르다. LTH 모델 src/pages/strategy/ui/useLeveragedTrendHoldEditorModel.ts:215-262의 handlePickerUsSearch도 별도로 대조한다. 중복 GET와 이전 응답 적용 가능성은 읽기 조회 문제이며 실제 주문 중복이나 계좌 경계 침범을 입증한 것이 아니다.
-  - **실제 관측/한계:** 두 미국 입력에서 응답을 모두 보류한 상태의 Enter3회는 각GET3개를 만들었다. 선택 뒤 정상query hook의추가GET와 구분해 보류중 조회만 센 관측이다. 이전 입력/scope 응답 경합은 아직 소스 기반 후보다.
-  - **영향/우선순위:** P2, 우선순위2. Enter 반복으로 조회가 겹치거나 이전 티커·시장 결과가 늦게 선택에 적용되는 혼란을 막는다.
-  - **기대 동작/의존성:** 버튼·Enter에 동기 단일 진행 guard를 적용하고 입력/시장/broker·profile scope/새 요청/화면 이탈 뒤 이전 결과의 적용을 무효화한다. 조회 중 spinner가 버튼을 교체해 포커스를 잃지 않도록 명명된 컨트롤을 유지한다. NAS→NYS→AMS 탐색·Toss 전용 경로·기존 fallback 및 API/캐시 주기는 바꾸지 않는다.
-  - **완료/키보드 회귀:** 지연된 합성 응답에서 Enter×3·키 repeat·버튼 혼합으로 원래 논리 조회1회만 실행한다(거래소 fallback 내부 단계는 원래대로). A→B·시장/broker/profile 변경·unmount 후 A 응답이 현재 선택/오류를 덮지 않고 현재 실패 후 재시도1회가 가능해야 한다. GET 수·focus·loading/오류/disabled·금융 변이0을 함께 검증한다.
-```
+[회차 기록](#p2-kbd-02) · 원문 L33–51
 
 <a id="p2-kbd-03"></a>
-## P2-KBD-03
+### P2-KBD-03
 
-2026-10-31 완료. LTH 국내 결과를 명명된 native 선택 버튼으로 연결하고 내부 Tab/Shift+Tab 유지·Escape/선택 뒤 입력 복귀·활성전략 잠금을 보강했다. 세 국내 결과 목록만 ArrowUp/Down·Home/End focus 이동에 opt-in한다. 조회/모델·미국 경로·대상추가/저장은 유지했다. red4와 별도 Trading 포인터 복귀 결함을 재현·교정하고 최종109/109를 통과했다. 상세 검증·플랫폼 한계와 원격 영수증은 회차 정본을 따른다.
+2026-10-31 완료. LTH 국내 결과를 명명된 native 선택 버튼으로 연결하고 내부 Tab/Shift+Tab 유지·Escape/선택 뒤 입력 복귀·활성전략 잠금을 보강했다. 세 국내 결과 목록만 ArrowUp/Down·Home/End focus 이동에 opt-in한다. 조회/모델·미국 경로·대상추가/저장은 유지했다. red4와 별도 Trading 포인터 복귀 결함을 재현·교정하고 최종109/109를 통과했다.
 
-[회차별 검증·한계·게시 기록](tasks/keyboard-improvements-20261031.md#p2-kbd-03)을 따른다.
-
-### 원래 TODO 완료 조건·근거 보존
-
-아래는 착수 당시 미완료 표기를 포함한 원문이며 현재 상태는 위 완료 범위를 따른다.
-
-```markdown
-- [ ] **🟢 자동 구현** **P2-KBD-03 — LTH 내부 ETF 결과를 키보드로 선택하고 목록 탐색을 보강한다.**
-  - **근거/대상:** src/pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx:67-71,100-131의 국내 결과는 onClick TableRow와 입력 blur180ms를 사용하며 명명된 native 선택 버튼/내부 focus 유지/Escape 경로가 없다. 완료된 P2-UX-01의 상단 검색·보유 행과 다른 하위 picker다. 상단 결과는 이미 Tab/Enter·Escape/focus 복귀를 지원하며 방향키 경로 추가는 편의 개선이지 현재 선택 불가라는 결함은 아니다.
-  - **실제 관측/한계:** 국내로 명시 전환한 LTH 결과에서 focus 가능한 결과 자식0·row tabIndex 없음, 첫Tab은 검색버튼으로 이동하고250ms뒤 목록이 닫혔다. 입력에서Escape를 눌러도 목록은 남았다. LTH 기본시장은US이며 국내가 기본이라는 최초 준비 오류는 교정하고 원본을 보존했다.
-  - **영향/우선순위:** P2, 우선순위3. 레버리지 ETF 대상 선택의 포인터 의존을 없애고 긴 결과 목록의 이동 부담을 줄인다.
-  - **기대 동작/의존성:** 원래 선택 closure·stratEnabled 잠금·query/추가·저장 정책을 유지하면서 LTH 결과에 이름·focus 표시가 있는 native 선택을 제공한다. 내부 Tab/Shift+Tab 동안 목록을 유지하고 Escape/선택 후 입력으로 복귀한다. 상단/별도 결과에 ArrowUp/Down·Home/End를 도입할 때는 실제 선택 패턴과 ARIA를 맞추고 기존 Tab 경로를 보존한다.
-  - **완료/키보드 회귀:** KR 두 결과에서 Tab/Shift+Tab·Enter/Space 정확1선택,250ms 내부blur 후 유지,Escape 닫힘/입력focus/재개방0·외부blur 닫힘·원래 포인터 선택을 검사한다. 방향키 경계/Home/End·빈/오류/로딩·긴 목록·narrow/light/dark를 대조하고 활성전략 조작0·자동 대상추가/전략저장0을 확인한다.
-```
+[회차 기록](#p2-kbd-03) · 원문 L53–71
 
 <a id="p2-kbd-04"></a>
-## P2-KBD-04
+### P2-KBD-04
 
 2026-10-31 완료. Settings 수치11쌍의 정적 이름·단위/범위/step 설명과 안정 ID를 실제 Slider/textbox에 연결했다. IME Enter/229는 기존 blur commit을 막고 일반 Enter·Tab/포인터·native Slider·즉시5/Risk 명시저장6쌍의 기존 정책을 유지했다. red3→고정 최소green3→통합151 통과를 확인했다. 증거 파일명 충돌 교정 뒤 신규31개를 별도 재검증해 고유31개 기록을 보존했다. 실제 운영 설정·주문은 호출하지 않았다.
 
-[회차별 검증·한계·게시 기록](tasks/keyboard-improvements-20261031.md#p2-kbd-04)을 따른다.
-
-### 원래 TODO 완료 조건·근거 보존
-
-아래는 착수 당시 미완료 표기를 포함한 원문이며 현재 상태는 위 완료 범위를 따른다.
-
-```markdown
-- [ ] **🟢 자동 구현** **P2-KBD-04 — 설정 수치 입력과 슬라이더의 이름·단위·Enter commit을 연결한다.**
-  - **근거/대상:** src/pages/settings/ui/Page.tsx:114-147의 SliderWithInput은 label을 인접 Typography에 표시하나 Slider/TextField에 label·aria-label·aria-labelledby를 연결하지 않고, 조합 검사 없이 Enter→blur→범위보정/onChangeCommitted를 호출한다. 리스크·갱신·로그·보관의 helper 사용처가 대상이다. 실제 DOM 이름·IME·스크린리더 결과는 별도 관측 전까지 소스 기반으로 구분한다.
-  - **실제 관측/한계:** 갱신·로그·보관·리스크4구역의11쌍(슬라이더11·입력11)은 현재 ARIA snapshot에서 이름이 비었고 aria-label/aria-labelledby도없었다. 값·focus·blur·저장은 조작하지 않았다. 실제 IME commit·AT발화는 미실행이다.
-  - **영향/우선순위:** P2, 우선순위4. 여러 수치 컨트롤을 키보드/AT에서 구분하고 조합 확정이 즉시 commit으로 이어질 가능성을 줄인다.
-  - **기대 동작/의존성:** 안정된 ID로 보이는 label·unit를 해당 Slider와 입력의 접근 가능 이름/설명에 연결한다. 일반 Enter의 기존 blur·clamp·step·commit과 Tab blur 저장 방식을 유지하며 조합 중 Enter만 commit하지 않는다. 금융 한도·기본값·저장 방식과 disabled 정책은 바꾸지 않는다.
-  - **완료/키보드 회귀:** 각 Slider/textbox를 정확한 역할+이름으로 찾아 Tab 순서·focus·단위/범위와 native 방향키/Home/End를 확인한다. 일반Enter commit1·조합Enter/229 commit0·후속일반Enter1,Tab blur 기존 보정/요청 동일·실패 복구·disabled를 mock 저장만으로 검증한다.
-```
+[회차 기록](#p2-kbd-04) · 원문 L73–91
 
 <a id="p2-kbd-05"></a>
-## P2-KBD-05
+### P2-KBD-05
 
-2026-10-31 로컬 구현·회귀 완료. 프로필 Add/Edit/Delete의 현재 세션에만 main/aux 응답을 적용하고 main 처리 중 Cancel/Escape/backdrop·반복 활성화를 동기 guard로 일치시켰다. 기존 계좌 hook publication/reconcile·payload·동의/확인/활성 경고·aux 중 닫기 허용을 유지했다. 삭제 오류/명시재시도와 Dialog exit·늦은 목록 제거 뒤 조건부 focus 복귀를 보강했다. 제품 red6→최소green6→canonical24→최종전체UI557 및 Rust901·bootstrap4를 통과했다. 정확 코드 SHA의 원격 게시·CI 영수증과 미검증 한계는 회차 정본을 따른다.
+2026-10-31 구현 뒤 최종 원격 CI까지 완료. 프로필 Add/Edit/Delete의 현재 세션에만 main/aux 응답을 적용하고 main 처리 중 Cancel/Escape/backdrop·반복 활성화를 동기 guard로 일치시켰다. 기존 계좌 hook publication/reconcile·payload·동의/확인/활성 경고·aux 중 닫기 허용을 유지했다. 삭제 오류/명시재시도와 Dialog exit·늦은 목록 제거 뒤 조건부 focus 복귀를 보강했다. 제품 red6→최소green6→canonical24→최종전체UI557 및 Rust901·bootstrap4를 통과했다.
 
-[회차별 검증·한계·게시 기록](tasks/keyboard-improvements-20261031.md#p2-kbd-05)을 따른다.
-
-### 원래 TODO 완료 조건·근거 보존
-
-아래는 착수 당시 미완료 표기를 포함한 원문이며 현재 상태는 위 완료 범위를 따른다.
-
-```markdown
-- [ ] **🟢 자동 구현** **P2-KBD-05 — 프로필 팝업의 pending·Escape·중복 활성화·오류 복구를 일치시킨다.**
-  - **근거/대상:** src/pages/settings/ui/profileDialogs.tsx:267-272,449-452 및604-613,793-796은 추가/편집 pending중 취소 버튼을 막지만 Dialog onClose는 같은 guard가 없다. src/pages/settings/ui/accountProfiles.tsx:349,356-360,509-525는 삭제 mutate만 사용하고 pending/error UI를 읽지 않는다. src/api/accountHooks.ts:237-249의 공유 mutation scope 직렬화는 존재하므로 backend 중복삭제 성공으로 오판하지 않는다. 평상시 Dialog Tab trap/Escape/trigger 복귀는 기존 지원이다.
-  - **실제 관측/한계:** 이번 실행 관측에는 포함하지 않았다. pending/Escape/오류/반복 호출의 현재 소스와 기존 평상시 Dialog 검사만 대조한 후속 과제다.
-  - **영향/우선순위:** P2, 우선순위5. 저장 중 키보드 닫기·재개방과 늦은 callback의 초안 간섭, 삭제 버튼 반복 활성화·실패 후 무응답 혼란을 줄인다.
-  - **기대 동작/의존성:** 현재 추가/편집 버튼의 pending 취소 금지 의미를 Escape/backdrop에도 일치시키고 이전 dialog 세션의 callback이 새 draft를 닫지 못하게 한다. 삭제는 동기 중복 guard·명명 pending/오류·명시 재시도·안전한 focus 복귀를 보강한다. 기존 삭제 확인/활성프로필 경고·계좌 scope 직렬화는 유지한다. 닫힘을 허용하는 새 제품 정책으로 바꾸려면 별도 판단을 거친다.
-  - **완료/키보드 회귀:** 지연 mock에서 focused 버튼 Enter/Space 반복→요청 정확1,추가/편집 pending의 Cancel/Escape/backdrop 일관성·draft 유지,실패 후 재시도1·재개방 뒤 이전 callback 격리를 검사한다. 삭제 실패에는 대상/오류가 남고 성공에는 유효 trigger 또는 안전한 대안으로 focus가 복귀해야 한다. 입력의 단순Enter/전역키로 자동저장·삭제하지 않으며 실제 프로필/계좌 변경0이다.
-```
+[회차 기록](#p2-kbd-05) · 원문 L93–111
 
 <a id="toss-parse-20261031"></a>
 ## TOSS-PARSE-01 — 시뮬레이션 응답 협상·파싱 진단
 
-2026-10-31 사용자 기억의 UTF-8 본문 실패 단서를 따라 공개 명세와 합성 HTTP를 조사했다. 헤더 생략시 rawgzip UTF-8 실패/명시identity시 정상캔들 재현을 근거로 Toss 전용 협상을 교정하고 캔들 오류에 안전한 단계·status·위치만 남겼다. 실제 사용자 장애 원인의 최종 확정은 아니다. 잘못된 본문·미지원coding을 빈자료 성공으로 처리하지 않는다. 로컬검증과후속CI·게시상태, 직접client/DTO와실제adapter/시장scope·운영앱/계좌미실행의구분은 [작업 기록](tasks/toss-simulation-response-parsing-20261031.md)이 정본이다. 키보드 신규5개와 기존 대기11개는 현재 TODO에 그대로 남는다.
+2026-10-31 공개 명세·합성 wire에서 헤더 생략→raw gzip UTF-8 실패, 명시 identity→정상 캔들을 대조해 Toss 전용 협상을 교정했다. 캔들 오류는 안전한 단계/status/위치만 남기며 잘못된 본문·미지원 coding을 빈자료 성공으로 바꾸지 않는다. 실제 인증 응답의 gzip이나 사용자가 기억한 장애 원인은 미확정이다. 직접 client/DTO와 생산 adapter의 시장/scope 검증을 구분한다. [작업 기록](#task-toss-simulation-response-parsing-20261031) · [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L113-L117).
 
 <a id="kbd-audit-20261031"></a>
-## 2026-10-31 키보드 UX 후속 검토 — 검토 완료·구현 대기
+## 2026-10-31 키보드 UX 후속 검토
 
-- **대상/권한:** `74c303a901040d2922b2c41ea58cbd8c798d2c3d`, `fix/mac-security-storage-2026-10-06`, 시작 clean. UI/UX 전문가 읽기 감사와 루트의 mock/offline 관측이다. 기능/추적 UI 테스트·역할 설정은 수정하지 않았다. 별도 토스 파싱 수정과 이 검토의 범위를 구분한다.
-- **정본:** 신규 개선과 완료 기준은 [TODO의 P2-KBD-01~05](todo.md#1-바로-진행할-코드개선-작업)에만 둔다. 이 절은 관측·현재 지원·한계의 정본이다. 기존 [UI9개 완료](tasks/uiux-improvements-20261030.md)는 다시 열지 않는다.
-- **실행 환경:** 2026-10-31 약07:22~07:27 UTC, fresh Chromium context·1280×720·캡처상 light, production web build·envDir:false·비민감 환경 allowlist. `mockUx`의 합성 KIS 모의 프로필/종목/가격과 정확한 loopback GET만 사용하고 외부/WS·API 변이를 차단했다. 운영 앱·설정·DB·실계좌·자격증명은 접근하지 않았다.
+감사 기준 `74c303a901040d2922b2c41ea58cbd8c798d2c3d`, 당시 clean. 기능·역할·추적 테스트 변경 없이 전문가 소스 검토와 root의 격리 mock 관측을 수행해 P2-KBD-01~05를 제안했다. **제안은 이후 위 절에서 완료됐으며 당시 ‘구현 대기’ 표현을 현재 상태로 읽지 않는다.**
 
-| 화면·컨트롤 | 현재 지원 및 이번 근거 등급 | 후속 |
-|---|---|---|
-| Trading 국내 입력/검색/직접코드 | 새 관측: 이름입력Enter 전후600ms창 GET0→0, 검색버튼 GET1/결과 정상,6자리 직접코드 선택 정상. `src/pages/trading/ui/Page.tsx:235-297`에는 Escape/버튼과 직접선택이 있고 입력 Enter는 없다. | P2-KBD-01 |
-| Trading/Strategy 미국 ticker·검색 | 새 관측: 일반Enter는 이미 정상 선택. Trading의선택후GET2는 검색+정상price hook이며 중복의근거로쓰지 않는다. 합성 composing Enter는 각각GET+1; 응답보류중Enter3회는각GET3. `src/pages/trading/ui/useTradingOrderModel.ts:235-265`, `src/pages/strategy/ui/Page.tsx:242-283,638-653`. | P2-KBD-01·02 |
-| 상단 국내 결과·보유 행 | 소스/기존검사: RowSelectionButton의 명명 native버튼·focus outline,Tab/Enter·Escape·내부blur유지/입력복귀를 이미 지원한다. 기존 `uiux-keyboard-selection.spec.ts` 정의 대조이며 이번 재실행은 아니다. | 기존 P2-UX-01 완료 유지; 방향키는 추가 편의 |
-| LTH 별도 ETF 결과 | 새 관측: 기본US에서KR로전환한 결과의 focus 자식0/row tabIndex없음,Tab→검색버튼/250ms뒤닫힘,Escape후목록남음. `src/pages/strategy/ui/leveragedTrendHoldTickerPicker.tsx:67-71,100-131`. | P2-KBD-03 |
-| Settings 목차·Select | 소스/기존검사:15개목차Link·heading focus/복귀,Select방향키·Escape와명시/필드별저장. `uiux-settings-navigation.spec.ts`, `ui-dependency-contract.spec.ts`의정의대조. | P2-UX-05 완료 유지; Enter 일괄저장 아님 |
-| Settings 숫자·Slider | 새 읽기 관측: 갱신/로그/보관/리스크의11쌍·22개컨트롤 ARIA이름빈값,aria-label/labelledby없음. 값/focus/blur/저장조작0. `src/pages/settings/ui/Page.tsx:114-147`의 Enter→blur와조합검사누락은소스근거. | P2-KBD-04 |
-| Settings 프로필 팝업 | 소스/기존검사:평상시Tab trap/Escape/trigger복귀는지원. 추가/편집pending 취소disabled와onClose불일치,삭제pending/error미노출은소스확인만했다. `src/pages/settings/ui/profileDialogs.tsx:267-272,449-452,604-613,793-796`, `src/pages/settings/ui/accountProfiles.tsx:349,356-360,509-525`. | P2-KBD-05 |
-| DB·예산·복구 팝업 | 소스/기존검사:desktop·dirty·busy·자동매매중잠금과 DB확인문구/checkbox·복구명시승인을보존한다. DB Dialog는busy중onClose guard가있다. 실제관리·저장/삭제동작미실행. | 현재안전계약보존 |
-| History 날짜·조회·거래 상세 | 소스/기존검사:날짜draft와명시조회분리,명명상세Button/Dialog·Tab/Escape/닫기/focus복귀·대상소실선택정리. 날짜입력Enter즉시조회가없다는사실을결함으로세지않는다. | P1-UX-03·P2-UX-03 완료 유지 |
-| Dashboard/Sidebar 실행·재조회·페이지 | 소스/기존검사:native Button·pending disabled·조회상태·페이지경계가존재한다. 시작/위험해제확인수준은기존판단이며 입력Enter/전역단축키로확대하지않는다. | P2-UX-07 판단 유지 |
-| Log 검색·필터·retry·패널 | 소스/기존검사:onChange필터·명명버튼·오류/이전자료·키보드retry,리사이저Arrow/Home/End/Enter기본값·저장. 5초poll/live·scroll/follow계약보존. | P2-UX-02·04 완료 유지 |
-| 차트·공통 탭·메뉴·주문폼 | 소스/기존검사:차트최근봉native details/표의Arrow/Home/End·가로스크롤,명명toggle, MUI탭/메뉴와명시주문Button이있다. 주문입력에전역Enter/자동form submit을추가하지않는다. 모든탭·팝업·모바일Drawer의실제IME/AT/WebView를전수실행한것은아니다. | 기존 P2-UX-06·금융guard 보존 |
+07:22~07:27 UTC, fresh Chromium1280×720/light·production build·envDir:false·환경 allowlist·합성 KIS 모의 fixture, loopback GET만 허용하고 외부/WS·API 변이를 차단했다. 최초6개는5관측+LTH 기본US를KR로 가정한 준비실패1(9.2초); KR전환 명시 LTH1+Settings1의 후속2개(3.5초)로 **고유7관측**을 확보했다. 단일7/7 기능검증이 아니며 완료 관측 쓰기/외부/unknown/pageerror0이다.
 
-### 실제 실행과 원본 보존
+- Trading 국내 이름 Enter 전후600ms GET0→0, 버튼 GET1·직접6자리 선택 정상. 미국 일반Enter는 이미 지원하며 선택 후 GET2는 검색+정상 price hook이다. 합성 composing Enter(`isTrusted=false/isComposing=true/keyCode229`)는 각 GET+1, 응답 보류 Enter3회는 각 GET3이었다. 600ms 관측을 영구 미발생이나 실제 OS IME 재현으로 부르지 않는다.
+- LTH KR 결과 focus 자식0·row tabIndex 없음, Tab→검색버튼/250ms 후 닫힘·Escape 후 목록 유지. Settings 수치11쌍/22컨트롤 ARIA 이름이 없었으며 값/focus/blur/저장은 조작하지 않았다. 프로필 pending/닫기 경합은 당시 소스 근거였다.
+- 이미 지원하던 상단 결과/보유 native 선택, Settings15목차·Select, DB/예산/복구 busy/승인 guard, History 명시 조회/상세, Log retry/리사이저, 차트 표·MUI 메뉴·명시 주문을 미구현으로 재분류하지 않았다. 전역 Enter 주문/저장은 추가하지 않으며 P2-UX-07 판단은 별도다.
 
-- 최초 임시진단6개는 **5개 관측 통과·1개 준비 실패(9.2초,session32193 exit1)**다. LTH카드는존재했지만기본US를KR로가정해국내입력을못찾은fixture/selector준비오류다. 기능실패로집계하지않고 원본을보존했다.
-- 국내전환을명시한 동일LTH1개와새Settings1개의 **후속2개 관측 통과(3.5초,session87640 exit0)**를확인했다. 결과는총7개고유관측이완료됐다는뜻이며 단일7/7실행이나7개UX기능정상판정으로합치지않는다. 모든완료관측의 쓰기/외부/unknown/pageerror는0이었다.
-- 합성IME이벤트는 `isTrusted=false,isComposing=true,keyCode=229`였다. 가짜clock의600ms는기존debounce를포함하는관측창이며 GET0이영구적인미발생을증명하지않는다. 정상미국Enter·버튼·직접코드대조와보류중요청을분리했다.
-- 원본: `.cache/keyboard-audit-20261031/first-run-32193/`의로그·JSON·PNG·ARIA·trace·당시spec/config/runner, `followup-evidence/`·`followup-test-results/`·`followup-run.log`. 새관측은Git제외cache의임시spec이며 구현회귀정본테스트가추가/완료된것은아니다. UI전문가소스감사보고는 `/tmp/kis-keyboard-ux-audit-expert-20261031.md`다.
-- native/실제macOS한글IME·VoiceOver/스크린리더·터치·운영프로필/계좌·실제주문은미실행이다. 이전10/30의408UI/887Rust·CI결과를이번검토의재실행으로주장하지않는다. 새키보드과제5개는미착수이며 기존선행결정/사용자판단/실자료11개를보존한다.
-
-## 2026-10-29 즉시 작업 완료
+원본은 `.cache/keyboard-audit-20261031/first-run-32193/`와 `followup-evidence/`, `followup-test-results/`, `followup-run.log`; 전문가 보고는 `/tmp/kis-keyboard-ux-audit-expert-20261031.md`. 실제 IME·AT·터치·운영 프로필/계좌·주문 미실행, 당시408UI/887Rust를 재실행으로 재사용하지 않았다. [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L118-L147).
 
 <a id="p1-recovery-01"></a>
-### P1-RECOVERY-01 — 운영자 대조·복구 UI
+## P1-RECOVERY-01 — 운영자 대조·복구 UI
 
-- **완료 범위:** desktop IPC/UI, 신규 제출 전 원래 주문 snapshot, 대조 승인 receipt→기존 pending 복원, 원래 시각의 멱등 TradeGuard 복원. 승인 자체는 재주문·체결 합성·예약 해제를 하지 않는다.
-- **검증:** Rust 전체807개, 복구 focused19개, 제출 focused15개, format/check/strict clippy 경고0. TypeScript/FSD·production 웹빌드, 최종 production 복구11+Settings4=15개 mock UI 통과. 독립 안전감사에서 지적한 중복 provider ID·재시작/재조회 재시도·유실 primary·손절 guard 누락 수정 후 새 P0/P1/P2 지적 없음.
-- **한계:** legacy 원래 소유 근거가 없거나 부분체결 pending intent가 유실된 경우 보류한다. 실제 provider·운영자 원본 대조, 보관기간 밖 이력, 실제 계좌/주문 검증은 수행하지 않았으며 P1-PROVIDER-01이 남는다. [회차별 범위·검증 기록](tasks/immediate-backlog-20261029.md).
-- **원래 조건 보존:** `5437c07bc6c2bf0876c0ddc211ddeabb6cd632d7`의 TODO P1-RECOVERY-01에서 이관했다. 대조 근거·scope·주문 식별값·누적 체결/보류 예산 표시와 상태 전이, 중복 승인·역순/부분 체결·불일치·저장 실패·재시작 fixture, mock 대조→승인→영속화→재시작 일치와 확인 불가 보류가 완료 기준이었다. [기존 소유·체결 경계](tasks/strategy-fill-ownership-20261018.md), [예산 원장 구조](ARCHITECTURE.md) 의존성을 보존한다.
+2026-10-29 desktop IPC/UI·제출 전 원래 주문 snapshot·승인 receipt→기존 pending 복원·원래 시각 멱등 TradeGuard를 완료했다. 승인 자체는 재주문·체결 합성·예약 해제가 아니다. Rust807/복구focused19/제출15·fmt/check/strict clippy 경고0, TS/FSD/build와 production 복구11+Settings4=15 mock UI를 통과했다. 중복 provider ID·재시작/재조회 재시도·유실 primary·손절 guard 누락을 수정한 뒤 독립 필수 지적 없음.
+
+legacy 소유 근거 또는 부분체결 pending intent가 없으면 보류한다. 실제 provider·운영자 원본·보관기간 밖 이력·실계좌/주문은 P1-PROVIDER-01에 남는다. [회차](#task-immediate-backlog-20261029), [기존 소유·체결](#task-strategy-fill-ownership-20261018), [예산 구조](ARCHITECTURE.md) · [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L148-L157).
 
 ## 기존 기록·운영 참고 색인
 
@@ -161,531 +84,343 @@
 
 | 역할 | 기존 정본 |
 |---|---|
-| 과거 전체 설계 아카이브 | [MasterPlan.md](MasterPlan.md) |
-| 저장·보안 인계 기록 | [2026-10-06 인계](security-storage-handoff-2026-10-06.md) |
-| 초기 프로젝트 점검·SOXQ P1-01 기록 | [프로젝트 점검](tasks/project-health-and-soxq-p1-01.md) |
-| 자동 진행 백로그 기록 | [2026-10-18 작업](tasks/autonomous-backlog-20261018.md) |
-| 문서 배치 변경 기록 | [2026-10-18 배치](tasks/documentation-layout-20261018.md) · [2026-10-20 루트 정리](tasks/root-documents-20261020.md) |
+| 과거 전체 설계 아카이브 | [MasterPlan.md](#legacy-master-plan) |
+| 저장·보안 인계 기록 | [2026-10-06 인계](#security-storage-handoff) |
+| 초기 프로젝트 점검·SOXQ P1-01 기록 | [프로젝트 점검](#task-project-health-and-soxq-p1-01) |
+| 자동 진행 백로그 기록 | [2026-10-18 작업](#task-autonomous-backlog-20261018) |
+| 문서 배치 변경 기록 | [2026-10-18 배치](#task-documentation-layout-20261018) · [2026-10-20 루트 정리](#task-root-documents-20261020) |
 | 현재 에이전트 도구·코딩 규칙 | [도구 운영](agent-tooling.md) · [코딩 가이드](coding-guide.md) |
 | 현재 LTH 파라미터 안내 | [파라미터 가이드](leveraged-trend-hold-parameter-guide.md) |
 | 별도 승인 범위의 운영 검증 절차 | [모의 검증 체크리스트](mock-trading-e2e-checklist.md) · [Toss read-only·소액 검증](toss-readonly-small-order-checklist.md) |
 
 ## 문서 재편 당시 열린 항목의 ID 대응
 
-| 기존 제목 | 현재 ID | 처리 |
-|---|---|---|
-| MariaDB contract fixture와 지원 버전 matrix 검증. | P1-DB-01 | 미완료 유지·분류 이동 |
-| 여러 broker/account 포지션과 pending을 동시에 상주·대조하는 multi-scope runtime. | P1-SCOPE-01 | 미완료 유지·분류 이동 |
-| KIS/Toss 기존 운영 원장과 실제 정정·취소 응답의 최종 검증. | P1-PROVIDER-01 | 미완료 유지·분류 이동 |
-| 실제 provider 응답 불명 주문의 운영자 대조/복구 UI: 현재는 자동 해제 없이 예산을 보류한다. 주문번호/clientOrderId 대조 및 멱등 승인 흐름으로 확장할 것. | P1-RECOVERY-01 | 재편 당시 미완료 → [2026-10-29 로컬 완료](#p1-recovery-01) |
-| 1,000라인 초과 파일을 책임 단위로 분리한다. | P3-REFACTOR-01 | 미완료 유지·분류 이동 |
-| 플랫폼 코드 서명·updater 서명 강제를 위한 배포 키 준비. | P3-SIGN-01 | 미완료 유지·분류 이동 |
+P1-DB-01=MariaDB matrix, P1-SCOPE-01=multi-scope runtime, P1-PROVIDER-01=실제 원장·정정/취소 대조, P3-SIGN-01=서명 키 준비는 현재 TODO에 남는다. P1-RECOVERY-01과 P3-REFACTOR-01은 2026-10-29 로컬 범위를 완료했다. “LTH 일봉 성과 미리보기”는 일봉 평가불가/분봉 자료 조건이 같은 SOXQ-P1-05에 통합했으며 SOXQ-P2-12 옵션 비교는 별도다. P1-DB-01과 DEP-P3-01은 정책을 공유해도 완료 조건이 달라 합치지 않는다. [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L173-L185).
 
-기존 “LTH 보강의 일봉 성과 미리보기”는 SOXQ-P1-05에 통합되어 있으며 SOXQ-P2-12 옵션 비교는 별도 결과물로 유지한다. MariaDB(P1-DB-01)와 MSRV/DB 정책(DEP-P3-01)은 정책 결정을 공유하지만 실행 검증의 완료 조건이 달라 합치지 않았다.
+## 과거 연구의 공통 기준
 
-## 과거 연구·선행 작업 경과
+옛 축약 ID P1-03·P1-04와 P2-01·P2-02·P2-03·P2-04·P2-06·P2-07·P2-08·P2-09·P2-10·P2-11·P2-13은 아래 SOXQ 접두 ID의 같은 작업을 뜻한다.
 
-### 원문 18–47행
+2026-10-18 등록13종 중 일봉12종1,224회·LTH 분봉4진단. SOXQ/SPY/QQQ의2023Q1~2026Q3 완전45창, 전일 기준15% 목표수량·수수료/슬리피지 각10/20bp·공통guard·기본파라미터(PC는 전일종가/익절5/손절3)를 고정했다. 12전략 모두 동일수량 보유 대비 초과수익 중앙값≤0으로 우수전략을 확정하지 않았다. 부분Q4/최근248 겹침창은 주집계 제외, 분기 초기화·상관 ETF·작은 완료표본·sameClose·고정FX/무배당 한계를 보존한다. [보고/결과](research/strategy-review-20261018/report.md) · [실행](research/strategy-review-20261018/results.jsonl) · [요약](research/strategy-review-20261018/summary.json).
 
-### 현재 전략 전수 연구 후 권장 순서 (2026-10-18)
+후속 정확성(SOXQ-P2-05/P2-16), 완료일봉(P2-05/P2-17), 체결/회계(P2-14/P2-15), 연속장부(P2-18)와 전략별 교정을 완료했다. 당시 권장 순서는 현재 작업 순서가 아니다. v12의 nextOpen·2023~2025 각752봉·최초수량/PC기준가 고정3년 장부와12개 독립 분기계좌는45창 통계와 합산하지 않는다. [v8 교정](research/autonomous-corrections-20261018/report.md), [연속 연구](research/continuous-replay-20261018/report.md) · [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L186-L230).
 
-[전담 분석 보고서](research/strategy-review-20261018/report.md) · [실행별 근거](research/strategy-review-20261018/results.jsonl) · [요약](research/strategy-review-20261018/summary.json). 등록 13종 중 일봉 12종 1,224회, LTH 실제 분봉 표본 4회 진단을 실행했다. 주집계는 SOXQ/SPY/QQQ의 2023Q1~2026Q3 완전 45창이다. 고정된 전일 기준 15% 목표 수량, 수수료·슬리피지 각각 10/20bp, 기존 guard를 유지했다. 모두 기본 파라미터이며 가격조건은 전일 종가·익절5%·손절3% 연구 설정이다. 전략·계좌 설정을 변경한 작업이 아니다.
+## SOXQ 3개월 연구의 P1 정확성
 
-1. **정확성 선행:** **SOXQ-P2-05** generic 일봉 rolling252 고가와 **P2-16** TR14/준비 진단을 수정·회귀 검증했다. live 완료 일봉 공급은 후속 P2-05·17에서 연결했다. 당시 P2-16의 표본/walk-forward는 남아 있었다(후속 완료는 아래 해당 ID 참조). [v8 비교 근거](research/autonomous-corrections-20261018/report.md).
-2. **비교 기반 완료:** **P2-14·15** 체결 시점과 실현/잔여 평가손익·기말 청산 비용, 가상 FX/배당·실제 투자비중 비교를 분리했다. 강한 종가 15창의 평가이익/실현손실과 QQQ 가정청산 비용의 부호 전환을 검증했다.
-3. **불필요한 반복:** **P2-03·04·13**의 상태·중복 신호·손절 후 재진입을 공통 guard 유지하에 검증한다.
-4. **자료/표본:** **P1-05·P2-12·16·17**의 실제 분봉·봉 공개 시각·DST·누락 자료·ATR·준비 자료 조회를 검증한다.
-5. **연속 기반 완료·전략별 가설:** **P2-18**의3년 상태 보존/분기 초기화 비교를 완료했다. 아래 P2-01~13 후보는 비용 경로·반복 신호 근거를 우선하며 하나씩 사전 고정하고 기각 결과도 보관한다.
+기준2026-07-06~10-02·64거래일+별도252사전봉, 당시 runtime 수정 없이 생산 엔진을 실행했다. [보고](research/soxq-3m-20261003/report.md) · [차트](research/soxq-3m-20261003/charts.html) · [결과](research/soxq-3m-20261003/results.json).
 
-P1-RUN-01의 실행 epoch·설정 revision 예약 검증, provider 고정, 수동/체결 대조 계좌·모드 보호를 구현했다. [검증 기록](tasks/execution-run-reservation-20261018.md). P1-CONFIG-01은 저장 후 인스턴스 공개와 13전략 보유 보호 보존으로 해결했다. [검증 기록](tasks/strategy-configuration-preservation-20261018.md). P1-BAL-01은 공통 잔고 게시 gate와 계좌별 캐시·오류 복구로 해결했다. [검증 기록](tasks/holdings-publication-fence-20261018.md). P1-FILL-01은 exact owner 체결·원가·보호 복원으로 해결했다. [검증 기록](tasks/strategy-fill-ownership-20261018.md). 로컬 TLS verify-full·서버 단절/재접속 contract도 완료했다. P2-14 체결 모델과 P2-15 손익·비용·현금흐름 비교도 완료했다. P2-18의 연속 상태 경계·실제3년/별도분기 비교도 완료했다. P2-06의 기본 비용 경로와 단독 진입 필터 비교를 완료했다. P2-03 모멘텀의 실제 소유 피드백·교차 후보 비교도 완료했다. P2-04 이격도 실제 소유·단독 진입/청산 후보 비교도 완료했다. P2-10 평균회귀 소유 피드백·단독 후보 비교도 완료했다. P2-01 이동평균 교차의 이전 완료 일봉 필터와 단독·사후 스트레스 비교도 완료했다. P2-02 RSI 실제 소유·단독 후보 비교도 완료했다. P2-07 돌파 실패의 실제 소유·완료 자료·선택 보호 비교도 완료했다. P2-08 강한 종가의 실제 소유·완료 시장일·선택 청산 비교도 완료했다. P2-09 변동성 확장의 테스트 가능한 구현·일봉 비교도 완료했고 실제 장중 근거는 열린 자료 조건으로 유지한다. P2-11 추세 필터의 실제 소유·청산·노출 비교도 완료했다. 당시 다음 자동 과제는 P2-13 가격조건과 P2-16 구간 해석이었다(후속 기록은 아래 해당 ID 참조).
+| ID | 최종 변화·검증·한계 |
+|---|---|
+| SOXQ-P1-01 | 평가 기간/사전자료/준비 상태 분리, 누락initializer6개·이전MA/RSI 복원·200/252봉 유지. live 신고가 최신봉 제외·재초기화 후 보유 손절, 자료부족/준비/조건불충족/무체결 구분. [v4](research/soxq-3m-20261003/report.md#validation-p1-01) |
+| SOXQ-P1-02 | 기본 warmup 종가/52주신고가 고가 분리·호출1회·첫신호/미래봉/분봉혼입/보유 회귀. 동일입력 평균회귀+1.4402→+2.2083%, 완료2→1. [검증](research/soxq-3m-20261003/report.md#validation-p1-02) |
+| SOXQ-P1-03 | 시가-only→완성OHLC 종가판단→실제체결/차단 피드백→완료봉 적재. StrongClose 전일조건·Volatility 당일/이전N범위·0범위포함·날짜전환 보유유지, 일봉 전용. 장중 실제체결 아님. [v5](research/soxq-3m-20261003/report.md#validation-p1-03) |
+| SOXQ-P1-04 | generic LTH는 factory 전 UNSUPPORTED_GENERIC_REPLAY, 전용 입력시각 경로 유지. 서로 다른 시스템 분/시간대의 지원24실행·거부·일봉진단 일치·미래불변. 고정세션 시장정확성은 P1-05에 남음. [v6](research/soxq-3m-20261003/report.md#validation-p1-04) |
 
-모든 12전략의 동일 수량 보유 대비 초과수익 중앙값이 0 이하이며 우수 전략을 확정하지 않았다. 분기 포트폴리오는 매번 초기화하며, 부분 Q4와 겹치는 최근248봉은 주집계에서 제외했다. 작은 완료 표본·서로 상관된 ETF·same-close 체결·고정 환율/무배당의 한계를 유지한다.
+[이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L207-L220).
 
-SOXQ 연구에서 확인한 시뮬레이션 정확성 과제는 아래에 기록한다.
+## 주문·상태·저장 경계의 완료 기록
 
+**P1-RUN-01:** 실행 epoch/config revision·provider 고정과 예약, 수동/체결 대조의 계좌·모드 보호를 구현했다. [기록](#task-execution-run-reservation-20261018) · [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L201-L205).
 
-## SOXQ 3개월 연구에서 확인한 P1 과제 (2026-10-03)
+### P1-CONFIG-01
 
-근거: [평가 보고서](research/soxq-3m-20261003/report.md), [차트](research/soxq-3m-20261003/charts.html), [원시 결과](research/soxq-3m-20261003/results.json).
-평가 구간은 2026-07-06~10-02, 64거래일이며 사전자료 252봉을 별도 제공했다. 런타임 수정 없이 현재 엔진을 실행한 연구다.
-
-후속 완료: **SOXQ-P1-02 고가/종가 warmup 분리** — 기본 OHLC 훅은 종가, 52주 신고가는 고가를 선택하도록 수정했다. 기본 200/252봉, 호출 1회, 첫 신호/미래 봉/분봉 혼입·보유 상태 회귀를 검증했다. [검증·동일 입력 재평가](research/soxq-3m-20261003/p1-02-validation.md): 평균회귀 +1.4402%→+2.2083%, 완료 거래 2→1. 나머지 정확성 과제는 아래에 유지한다.
-
-후속 완료: **SOXQ-P1-01 평가 구간·사전자료·준비 상태 분리** — 모든 전략이 같은 평가 기간을 유지한다. 6개 누락 initializer와 이전 MA/RSI 기준선을 복원하고, 200/252봉 기준을 유지하며 실제 준비 상태와 조건 평가 봉 수를 반환한다. live 신고가 최신 봉 제외와 자료 부족 재초기화 뒤 보유 손절을 검증했다. 단일 provider 응답의 이전 봉만 사전자료로 사용하고 자료 부족·준비 중·조건 불충족·신호 무체결을 구분한다. [동일 입력 재평가·검증](research/soxq-3m-20261003/p1-01-validation.md).
-
-후속 완료: **SOXQ-P1-03 일봉 완료봉·날짜 전환 이벤트** — 시가-only 시작 → 완성 OHLC 종가 평가 → 실제 체결/차단 포지션 피드백 → 완료봉 적재 순서를 도입했다. 강한 종가는 매일 전일 조건을 다음 평가일에 사용하고, 변동성 확장은 당일 OHLC와 이전 N일 범위를 비교한다. 0변동폭도 일수에 포함하며 날짜 전환 시 보유 상태를 유지한다. 두 전략은 일봉만 허용한다. 동일 종가 체결 근사이며 익일 시가·장중 체결은 P2-14로 유지한다. [v5 재평가·검증](research/soxq-3m-20261003/p1-03-validation.md).
-
-후속 완료: **SOXQ-P1-04 LTH 과거 실행의 현재시각 의존 차단** — generic LTH는 factory 전 `UNSUPPORTED_GENERIC_REPLAY`로 명시 거부하며 접미 ID·모든 간격에 적용한다. 기존 입력 시각 전용 경로를 유지하고, production-library fixture에서 세션/blackout/장마감·신호/체결·미래 봉 불변을 검증했다. 서로 다른 시스템 분·시간대의 오프라인 재실행에서 지원 24실행과 거부 결과·전용 일봉 진단이 일치한다. 합성 일봉/고정 세션의 시장 정확성은 P1-05에 유지한다. [v6 검증](research/soxq-3m-20261003/p1-04-validation.md).
-
-
-### 원문 99–105행
-
-## P2 — 전략 시뮬레이션과 연구 워크플로
-
-후속 완료: **P2-05·P2-17 live 완료 일봉과 페이지 준비 연결** — scope/config/run/시장 날짜를 고정한 bounded background 수집,252/512봉 요구·마지막 완료봉 보존·부족 중 신규 매수 차단/보유 손절, IPC/웹/UI 상태와 같은scope52주 설정/rollback 보유 보존을 구현했다. [검증/한계](tasks/live-completed-daily-history-20261018.md). 실제 provider 운용·전체 주문 lifecycle 검증으로 확대하지 않는다. 발견한 기존 주문·다른 전략 설정 위험은 위 P1 자동 과제로 먼저 해결한다.
-
-전략별 항목의 최신 수치는 [2026-10-18 전수 연구](research/strategy-review-20261018/report.md)의 완전45창·기본 비용 결과다. 별도로 명시한 과거 SOXQ 수치는 당시 구간 관측이다. P1-01(v4) 초기화 결과는 [준비 상태 검증](research/soxq-3m-20261003/p1-01-validation.md), 강한 종가·변동성 확장은 [P1-03(v5) 검증](research/soxq-3m-20261003/p1-03-validation.md), generic LTH 거부는 [P1-04(v6) 검증](research/soxq-3m-20261003/p1-04-validation.md), 현재 일봉 진단/분봉 표본 경계는 [P1-05(v7) 검증](research/soxq-3m-20261003/p1-05-validation.md)을 먼저 확인한다. 일반 전략은 완료된 P2-14·15·18의 체결/회계 가정을 고정해 후보 비교를 이어가고, LTH의 별도 시간·자료 검증은 유지한다. 별도 [P2-18 연속 연구](research/continuous-replay-20261018/report.md)는 nextOpen·2023~2025 각752봉·최초 수량/PC기준가 고정의3년 장부와12개 독립 초기화 계좌를 구분한다. 기존45분기 통계와 합산하지 않는다.
-
-
-
-### 원문 198–201행
-
-## 자동매매 예산·볼린저 보강 검증 기록 (2026-09-11)
-
-
-### 원문 203–204행
-
-기존 열린 제목 **“LTH 보강의 일봉 성과 미리보기”**는 별도 일봉 성과 기능이 아니다. 일봉 평가 불가·분봉만 성과 표본으로 허용하는 구현 근거와 실제 장중 자료/시장 시간 미완료 조건이 P1-05와 같아 **SOXQ-P1-05에 통합**했다. 미완료 조건을 닫거나 제거하지 않았으며, 활성 볼린저의 옵션별 비교 결과는 **P2-12**에 별도로 유지한다. [원래 일봉/분봉 검증 근거](research/soxq-3m-20261003/p1-05-validation.md).
-
-
-## 완료 항목 원문
-
-### 원문 77–80행
-
-- [x] **P1-CONFIG-01 — 일반 전략의 설정 저장 중 보유 보호 상태를 보존했다.**
-  - 13전략의 같은 ID/scope 재설정과 저장 후 공개, 저장 실패·불명확 저장 원본 복구/복구 실패 차단, params/targets 변경·빈 프로파일·held stop/trailing·취소·신호/주문 경합을 검증했다. 실제 provider·정상 fill 소유권 피드백까지 완료한 것은 아니다. [구현·검증](tasks/strategy-configuration-preservation-20261018.md).
+- **P1-CONFIG-01 — 일반 전략의 설정 저장 중 보유 보호 상태를 보존했다.**
+  - 13전략의 같은 ID/scope 재설정과 저장 후 공개, 저장 실패·불명확 저장 원본 복구/복구 실패 차단, params/targets 변경·빈 프로파일·held stop/trailing·취소·신호/주문 경합을 검증했다. 실제 provider·정상 fill 소유권 피드백까지 완료한 것은 아니다. [구현·검증](#task-strategy-configuration-preservation-20261018).
   - 보유 또는 private 보호 중인 대상 제거/시장 변경을 거부하고, 다른 전략/계좌의 보유를 새 대상에 옮기거나 공유 tracker의 0수량으로 기존 보호를 지우지 않는다.
 
+[이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L245-L248)
 
-### 원문 81–84행
+### P1-FILL-01
 
-- [x] **P1-FILL-01 — 정상·부분 체결과 거부/취소를 주문 소유 전략에 반영했다.**
+- **P1-FILL-01 — 정상·부분 체결과 거부/취소를 주문 소유 전략에 반영했다.**
   - 계좌 snapshot과 exact owner(profile/account/모드/전략/시장) 원장을 분리하고 소유 수량·원가·LTH 최고가/관측을 보존한다. live 신호로 확정 보유를 바꾸지 않으며 자동매도/수동매도 가능 수량을 예약 직전 다시 검증한다.
   - provider snapshot 선반영 뒤 fill 중복 가감 방지, 누적 체결대금301의 잔액 보존, 고정 intent·0수량/증가수량 취소·저장 실패 재시도·원장 세대/재시작·타 owner/프로파일/모드 격리를 검증했다. KIS/Toss 엄격 잔고 변환과 Toss 수수료 비율100배 오류도 수정했다.
-  - Rust455개(단위449+통합3+doc3), 브라우저89개, 독립 코드·심볼·helper·문서 리뷰 통과. 실제 운용/도입 전 보유 귀속은 별도 검증이다. [구현·검증과 한계](tasks/strategy-fill-ownership-20261018.md).
+  - Rust455개(단위449+통합3+doc3), 브라우저89개, 독립 코드·심볼·helper·문서 리뷰 통과. 실제 운용/도입 전 보유 귀속은 별도 검증이다. [구현·검증과 한계](#task-strategy-fill-ownership-20261018).
 
-### 원문 85–88행
+[이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L252-L255)
 
-- [x] **P1-BAL-01 — 일반 잔고 조회의 늦은 응답과 계좌별 캐시 경합을 보호했다.**
+### P1-BAL-01
+
+- **P1-BAL-01 — 일반 잔고 조회의 늦은 응답과 계좌별 캐시 경합을 보호했다.**
   - 기존 게시 14곳을 공통 gate에 연결하고 profile/client/scope/모드·실행 epoch·설정 lease와 tracker별 조회/수량 version을 검증한다. A→B→A, 정지/재시작, 실제 0수량·삭제·두 시장 원자성·실제 partial fill·HTTP barrier를 검증했다. 네트워크 await 동안 전역 lock을 유지하지 않는다.
-  - 잔고 이벤트는 현재 scope 재조회 힌트로 사용하고 이전 cache를 제거한다. 늦은 설정 응답·설정 재조회 실패·연속 프로파일 변경·backend 적용 후 mutation 오류도 검증했다. Rust365개·브라우저 신규13개와 기존26개, 독립 리뷰를 통과했다. [구현·검증과 한계](tasks/holdings-publication-fence-20261018.md).
+  - 잔고 이벤트는 현재 scope 재조회 힌트로 사용하고 이전 cache를 제거한다. 늦은 설정 응답·설정 재조회 실패·연속 프로파일 변경·backend 적용 후 mutation 오류도 검증했다. Rust365개·브라우저 신규13개와 기존26개, 독립 리뷰를 통과했다. [구현·검증과 한계](#task-holdings-publication-fence-20261018).
 
+[이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L259-L262)
 
-### 원문 89–91행
+### TLS verify-full·재접속
 
-- [x] **TLS verify-full 인증서, 서버 강제 단절·재접속 contract를 완료했다.**
+- **TLS verify-full 인증서, 서버 강제 단절·재접속 contract를 완료했다.**
   - 임시 CA/localhost 인증서의 PostgreSQL16 로컬 fixture에서 일반 계약3개와 TLS/재접속2개를 실제 실행했다. 신뢰 CA 성공, hostname/CA 불일치·비TLS·오인증 거부, backend socket 종료와 SIGKILL/재기동 뒤 동일 pool 복구, 단절 중 pending/소유/risk 오류 및 JSON/backup/backend 설정 보존을 검증했다.
-  - cold pool single-flight·설정/pool snapshot, 파일/keychain 동시 원복·취소/불명확 복구 차단을 보강했다. 릴리스 gate에 같은 fixture를 연결했으며 실제 운영 DB·MariaDB matrix·Windows 실행은 별도 범위다. [구현·검증과 한계](tasks/database-tls-reconnect-20261018.md).
+  - cold pool single-flight·설정/pool snapshot, 파일/keychain 동시 원복·취소/불명확 복구 차단을 보강했다. 릴리스 gate에 같은 fixture를 연결했으며 실제 운영 DB·MariaDB matrix·Windows 실행은 별도 범위다. [구현·검증과 한계](#task-database-tls-reconnect-20261018).
 
-### 원문 106–110행
+[이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L266-L268)
 
-- [x] **SOXQ-P2-01 — 이동평균 교차의 이전 완료 일봉 진입 필터와 단독 비교를 완료했다.**
-  - 기존5/20 입력 관측 교차·Sell·매 관측 prevMA 갱신과 공통 guard를 유지하고 선택 추세/MA기울기/ATR%/밴드폭%를 Buy후보에만 적용했다. 새4조건은 strict 이전 완료 일봉만 사용하며 필터 거절 교차를 되살리지 않는다. 저장/두 preview·scoped 일봉 재조회/실패·raw UI/A-B·준비/조건미달·1분 거부·활성 잠금/모바일을 검증했다. [작업·검증](tasks/ma-cross-filters-20261020.md).
-  - archived327739a 대비 기본1224개 전체 backtest/signals 호환과 unfiltered78개 원장 동일, 최종48연속/48분할/576별도분기(624원장)를 확인했다. 부모104,884개 기록 산술+3,240개 이전일봉 조건 대조·독립313,205개 검사 오류0. 기본1224는 생산 hash 대조 증거이며 독립 직접 기본원장 대조78개와 구분한다.
-  - 추세/기울기는 연속6개 순평가수익 모두 하락했다. ATR0.5/폭2는 거부0으로 활성 효능 미평가다. 이를 본 뒤 사후 고정 ATR2/폭10 스트레스를 각각 한 번 추가했으며 원래36controls 입력/경제hash를 보존했다. 폭10 SOXQ20bp 수익7.4794→10.7262%/MDD11.8990→7.5717%이나 최저 완료손실 동일·노출 감소, SPY/QQQ 수익 하락이다. SPY 두 스트레스 완료1개·평균투자1.6268%를 우월성으로 표현하지 않는다.
-  - 비용 때문에 SOXQ trend200의2025-01-21매수가20bp에서 비중한도로 차단돼10bp 손실청산−218,390.83원을 건너뛰는 경로 차이, 기말 청산비용의 분기3개 양→음 전환을 보존했다. 기본5/20·선택옵션0 유지, 추가격자/재조정·운용채택 없음. [사전 선언·사후 탐색·기각/표본·실현/잔여·비용/노출](research/ma-cross-filters-20261020/report.md).
+**P2-05·P2-17:** scope/config/run/시장 날짜를 고정한 bounded 완료일봉 수집·252/512봉 준비·마지막 완료봉 보존, 부족 중 신규매수 차단/보유손절, IPC/REST/UI와 같은scope52주 재설정/rollback 보호를 연결했다. 실제 provider 전수 운용 완료가 아니다. [기록](#task-live-completed-daily-history-20261018) · [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L223-L229).
 
-### 원문 111–115행
+**2026-09-11 전용예산/LTH:** 계좌·통화별 예산·자동 소유량·durable 예약/체결/terminal 재시작과 Settings/E2E, 기본off 볼린저/중심선·ATR청산·live/replay/preview 설정 연결을 완료했다. 일봉 성과 기능으로 해석하지 않는다. [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L368-L375).
 
-- [x] **SOXQ-P2-02 — RSI 실제 소유·단독 진입/청산 후보 비교를 완료했다.**
-  - v18은 단순RSI14/30/70·zero-loss100·기존once-cross를 유지하며 actualowned 수량/원가·잔여전량청산·age/metadata·재설정을 연결했다. 추세200·손절3%·보유63관측을 각각 단독 비교하고 새옵션0을 유지한다. strict 저장/두preview·current/A-B·legacy/손상/모바일·실제guard거절후cap재후보를fixture/mock으로검증했다.
-  - 비RSI1122개 전체report/signals 호환, RSI102개 finalEquity/accounting 동일(100개raw/report변경)을확인했다. 30연속/30분할/360별도분기에서owned78개actual경제경로는legacy와같고flatSell386·heldBuy70 제거, raw648→192·blocked462→10이다. 신호감소를수익개선으로해석하지않는다.
-  - trend200은연속4악화/2동일, stop3는6개전부수익악화·회전증가/SOXQ비용부호전환이었다. hold63은cap0·78개report/signals동일·최장54/57/46관측으로효능평가불가다. 사후튜닝없이옵션0을유지하며20개무신호와36개무완료(owned)를준비부족과구분한다. [작업](tasks/rsi-policy-20261022.md), [설계·실현/잔여·비용/노출·기각](research/rsi-policy-20261022/report.md).
-  - P2-18 연속20bp 완료는3ETF 합23회(9/7/7), 차단116건이다. 작은 완료 표본과 무보유 매도·회전·노출을 먼저 분리한다.
+## 전략별 연구 완료와 기각 판단
 
-### 원문 116–119행
+구현·당시 검사는 아래 작업 영수증, 고정 설계·비용/노출별 원장과 해석은 다음 연구 정본이 소유한다. 수익률 표·같은 방법·원문 TODO를 이력에 다시 복제하지 않는다. 당시 선택과 기각 이유는 다음과 같다.
 
-- [x] **SOXQ-P2-03 — 모멘텀 실제 소유 피드백과 선택 진입 교차를 완료했다.**
-  - 실제 owned_quantity를 관측·무장/미체결 후보와 분리하고 flat Buy/held Sell을 적용했다. 기존 inclusive >=T/<=−T, 보유 청산·부분체결·거절 재시도·live pending·같은0수량 피드백·strict warmup/재설정과 공통 guard/risk를 유지한다. 기본 level/0, 선택 entry-only crossing/간격%p를 제공한다.
-  - 비모멘텀1122회 전체 report/signals 호환, 모멘텀102창 경제지표·회계 동일(65창에서 신호/차단수만 변경), 연속24/분할24/별도분기288과 parent46,772·독립136,960검사를 통과했다. corrected level은 legacy와78개 회계/자산곡선/실제체결 exact동일이다. 비용당 연속 raw231→42·차단195→6, 무보유Sell187/보유Buy2건을 제거했으며 수익·수수료 개선으로 표현하지 않는다.
-  - crossing/1%p는 연속 장부 추가 효과가 없고 각비용36분기에서2개개선/3·4개악화여서 공통 기본 채택을 기각했다. 복수기간·두비용 순수익/MDD/회전·최저완료손익·실현/잔여·노출, 동결 v7과 구분한 새 엔진 기준은 [연구](research/momentum-feedback-20261020/report.md), 구현·실패/복구·전체검증은 [작업 기록](tasks/momentum-feedback-20261020.md)에 보관했다. 실제 provider 운용/OOS 우월성은 별도다.
+| ID | 남긴 판단·경계 | 연구 정본 |
+|---|---|---|
+| SOXQ-P2-01 | MA 기본5/20·선택 필터0 유지. 사전 고정 비교와 사후 스트레스 선택을 분리하며 모든 구간의 우수 전략으로 승격하지 않았다. | [MA 교차](research/ma-cross-filters-20261020/report.md) |
+| SOXQ-P2-02 | RSI14/30/70·선택0 유지. 확정 소유 피드백을 교정했지만 추세·손절·보유 후보의 구간별 결과를 기본 채택으로 확대하지 않았다. | [RSI](research/rsi-policy-20261022/report.md) |
+| SOXQ-P2-03 | 소유를 보정한 level/간격0 유지. crossing/1%p는 연속 장부 추가 효과가 없고 일부 분기 악화로 기본 채택하지 않았다. QQQ2024Q3 개선은 청산 감소·낮은 노출·잔여 평가를 동반했다. | [Momentum](research/momentum-feedback-20261020/report.md) |
+| SOXQ-P2-04 | 현재 포함 MA20의 −5/+5 경계와 level·선택0 유지. 실제 소유·미체결을 구분했고 사전 후보를 단독 비교했다. 비대상 경제 동등성과 대상 변화는 별도다. | [Deviation](research/deviation-policy-20261020/report.md) |
+| SOXQ-P2-06 | 누적 변화·이전 완료 ATR·장기 MA 확인은 기본0. 단독 필터의 거래 감소·미발동·노출 변화와 손익을 구분해 공통 기본값으로 승격하지 않았다. | [Consecutive](research/consecutive-filters-20261018/report.md) |
+| SOXQ-P2-07 | 기존 lookback20/buffer0.5·선택0 유지. raw 후보·완료 거래량의0/결측·실제 소유 보호를 분리했고 통과를 체결로 표현하지 않았다. | [FailedBreakout](research/failed-breakout-policy-20261022/report.md) |
+| SOXQ-P2-08 | 이전 완료 고가·종가 거리3%·stop0 원가 이하 의미를 보존했다. D−1조건→D종가 신호→다음 관측 시가와 live 첫 quote 대용을 구분했고 높은 잔여 평가를 동일 노출·청산 성과로 표현하지 않았다. | [StrongClose](research/strong-close-policy-20261022/report.md) |
+| SOXQ-P2-10 | upperBand 기본·선택0 유지. 사전63관측의 미발동과 사후21관측 탐색을 분리하고 midBand/추세/보유 후보를 새 OOS나 기본 승격 근거로 삼지 않았다. | [MeanReversion](research/mean-reversion-policy-20261020/report.md) |
+| SOXQ-P2-11 | MA200/5/20·선택0 유지. v21→v22 실제 소유 교정과 고정5후보·390원장 독립 대사를 분리하고 후보 미발동/구간 차이·기말 보유로 기본 채택하지 않았다. | [TrendFilter](research/trend-filter-policy-20261023/report.md) |
+| SOXQ-P2-12 / SOXQ-P1-05 | UTC/시장 시각·DST·세션·격자 공백 진단만 구현. 기존 fixed KST·선택순서·신호/정산/hash·lookAheadSafe=false를 유지했고 평일창 진단을 실제 달력/coverage 검증으로 보지 않았다. 실제3개월 조건은 TODO에 남는다. | [LTH 근거](research/soxq-3m-20261003/report.md) |
+| SOXQ-P2-14 | v10 sameClose/nextOpen·이전 ATR→실제 원가·마지막 미체결과 갭/손절 우선 가정을 분리했다. baseline1224 동등성·합성/실가격 비교는 실제 체결 시각·유동성 검증이 아니다. | [체결 연구](research/replay-execution-20261018/report.md) |
+| SOXQ-P2-15 | v11 수수료·FX/배당·실현/잔여·가정 기말청산·실제 자본 노출을 구분했다. baseline1224·원장4540 대사는 가상 가정 정산이며 실제 요율/배당/FX 검증이 아니다. | [회계 연구](research/replay-accounting-20261018/report.md) |
+| SOXQ-P2-18 | v12 단일 장부와 청크 상태 보존: 연속72/분할72/별도 분기864를 분리했다. 최초 요청 수량 고정은 동일 실제 노출이 아니고 분기 수익률 합산/복리를 하지 않았다. 청산0·잔여 평가·0주 기준을 우수성으로 표현하지 않았다. | [연속 연구](research/continuous-replay-20261018/report.md) |
 
-### 원문 120–124행
+세부 수치·기각 과정의 [통합 전 이력 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L280-L365)도 보존한다. 공개 자료의 동결 입력·수량 결정·사전/사후 후보·독립 대사 범위를 연구 정본에서 확인하며, 이미 관측한 과거를 독립 OOS로 부르지 않는다.
 
-- [x] **SOXQ-P2-04 — 이격도 실제 소유·하향 교차·단독 진입/청산 후보를 완료했다.**
-  - MA20/−5/+5의 inclusive 기본 경계와 공통 guard를 유지하고 소유량·native 평균가·관측 나이를 분리했다. 선택 crossing/추세 관측/보유 관측/손절의 저장·두 preview·UI/A-B·실제 소유 metadata 복원과 live 추세 cadence 분리, 미체결/거절/partial/준비/설정 변경을 검증했다. 저장 중 새 초안도 일반/PC/LTH에서 보존한다. [작업 기록](tasks/deviation-policy-20261020.md).
-  - archived bca6601 대비 비이격도1,122회 exact, 이격도102창 경제 동일(60창 raw/차단만 변화),36연속/36분할/432별도분기와 독립200,495검사 통과. 기본 level은78/78개 실제 filled/회계/자산곡선 동일이며 비용별 raw305→23·차단286→4를 비용절감으로 표현하지 않는다.
-  - crossing은 연속 동일·분기 비용별1개 개선/35동일, trend200은3개 개선/4악화·SOXQ 낮은 노출, maxHold63은 분기 동일·SPY 비용별 청산 경로 차이, stop5는SOXQ20bp 수익4.5454→2.6040%/MDD9.1305→9.5692%로 악화했다. 기본 level/다른옵션0을 유지한다. [사전 고정·기각 근거](research/deviation-policy-20261020/report.md). 과거 동결 SOXQ v7 +1.3756%와 초기 v3 +2.4987%는 다른 구간/엔진 기록이며 이번3년 수치와 합치지 않는다.
-  - P2-18 당시 연속20bp 차단286건에는 무보유 매도200·보유 중 매수82건이 포함됐다. 이번 기본 소유 교정의 재현 기준이며 실제 체결·손익 동일성을 별도 확인했다.
+## release gate·안내 정합성
 
-### 원문 125–128행
+broker mock 제출→부분/완전체결→취소/거부→재시작, 잔고fail-closed·scope·자정·manual/auto·미인증REST 거부와 Rust/TS/FSD/UI/OpenAPI를 release gate에 연결했다. audit·Dependabot·lockfile·SHA256/attestation/detached signature 준비를 자동화했으나 실제 플랫폼/updater 서명 강제는 키 준비 후 `REQUIRE_RELEASE_SIGNATURES=true` 조건이다. 가이드는 KIS/Toss 지원표·13전략·프로파일·세션/candle source·소액 gate에 맞췄다. [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L376-L398).
 
-- [x] **SOXQ-P2-06 — 연속 상승/하락 진입 필터와 생산 A/B를 완료했다.**
-  - 기본0의 누적 변화·직전 완료 일봉 ATR·장기 MA 진입 확인을 제공한다. live 가격 관측과 일봉 context를 분리하고 잘못된 설정/자료 부족/0 ATR은 신규 매수만 보류한다. 보유 청산·설정 재저장·관측열과 기존 guard/risk를 유지하며 현재 평가 OHLC는 판단 뒤에만 게시한다.
-  - 직전 생산코드 단기1,224회·장기6회 전체 report/signals 기본 호환, 고정 후보24연속·24분할대조·288별도분기, parent55,986·독립148,099산술 대사를 통과했다. 누적1%는 SPY/QQQ 악화, ATR0.5는 SOXQ 제한 개선이나 MDD/최악손실 동일·SPY무효, MA200은6개모두수익하락이라 공통 기본 채택하지 않았다. 기본0을 유지한다.
-  - SPY 비용10/20bp의 매도2023-08-04↔08-07/2025-02-25↔03-31과 후속 기대 순익 차단을 보존했다. MDD·회전·최악 완료 손실·실현/잔여·노출·필터 거절/후속 주문 차단 및 기각 근거는 [연구](research/consecutive-filters-20261018/report.md), UI/실패/복구·전체 검증은 [작업 기록](tasks/consecutive-entry-filters-20261018.md)에 기록했다. 실제 운용 효과/OOS 우월성이나 실거래 검증 완료를 뜻하지 않는다.
-
-### 원문 129–132행
-
-- [x] **SOXQ-P2-07 — 돌파 실패:** 실제 소유·후보 anchor·완료 OHLCV와 선택 고가/ATR/거래량·수익 보호/보유 한도를 구현하고 UI·엄격 저장/두 preview를 검증했다. 다음 시가 체결의 anchor 유실을 교정했으며 기존 sameClose102개 변화0·비대상1122개 정확히 일치, 42연속/42분할/504분기·부모85073/독립233251회 정산을 확인했다. [작업](tasks/failed-breakout-policy-20261022.md), [결과·한계](research/failed-breakout-policy-20261022/report.md), [독립 감사](research/failed-breakout-policy-20261022/independent-audit.json).
-  - 실현/잔여/가정 기말 비용·노출을 분리했다. 거래량 조건은 연속6개 손실, 수익 보호 체결38/16(연속/분기), 한도28/0과 분기72개 owned동일을 구분하며 선택값 자동 승격을 기각했다. 완료 승률만으로 판단하지 않고 비중 제한으로 비교 보유42개가 미체결인 점을 보존한다.
-  - 후속 연구 조건: 새 관측을 읽기 전에 구간·universe·수량·비용·단독 후보를 고정하고 자료 공급 범위·조정·달력·누락과 gross/net·노출·회전·실현/잔여/기말 비용을 대사한다. 이번 과거 진단을 독립 OOS나 실제 운용 완료로 승격하지 않는다.
-  - P2-18 연속3ETF×두비용은 모두 완료청산0회다. 높은 평가이익을 청산 설계 완료로 해석하지 않고 최대보유/수익보호 후보를 사전 고정한다.
-
-### 원문 133–137행
-
-- [x] **SOXQ-P2-08 — 강한 종가의 실제 소유·완료 시장일·선택 청산 비교를 완료했다.**
-  - v20은 기존3/3·고가 대비 종가 거리·stop0의 활성 의미를 유지하고 실제 수량/원가·잔량·보유 관측/최고가/무장·strict 복원을 연결했다. live 완료 일봉 갱신 누락은 유효 시장일 ticket으로 교정하며 같은 날 재조회·실패/지연·legacy가 소비 조건과 보유 보호를 지우지 않는다. 저장/두 preview·현재/A-B·모바일과 미체결 기원 보호를 fixture/mock으로 검증했다. [작업](tasks/strong-close-policy-20261022.md).
-  - 비대상1122개 전체 report/signals·기존 StrongClose102창·새 owned78원장 모두 기본 경제 결과와 신호를 보존했다. 사전 고정30연속/30분할/360별도분기와 부모67393개/독립253595개 정산을 통과했다. 대체 분할 원장의 독립 재정산과 생산 동등성 assertion은 구분한다. [설계·결과·한계](research/strong-close-policy-20261022/report.md), [독립 감사](research/strong-close-policy-20261022/independent-audit.json).
-  - 추세200·수익5/되밀림3·보유63은 각각 연속6개 수익이 모두 낮아 기본 승격하지 않았다. 보호 체결89/49·한도46/0(연속/분기), 마지막 분기 한도 신호10개의 미체결과72개 동일 경제 경로를 구분한다. 원본/owned 연속은 완료0·잔량51/2/3으로 보유 평가수익이며, 분기 비교 보유30개는 비중 제한으로0주다. 선택값0·공통 guard를 유지한다.
-  - 후속 승격은 새 자료를 읽기 전 구간·수량·비용·단독 가설을 고정하고 실제 자료 범위/조정·달력·시점과 비용·노출·회전·실현/잔여/기말 비용을 대사해야 한다. 이 사후 연구와 날짜 fixture를 미관측 OOS·실제 운용 완료로 취급하지 않는다.
-
-### 원문 148–152행
-
-- [x] **SOXQ-P2-10 — 평균회귀 실제 소유·단독 추세/청산/보유 후보 비교를 완료했다.**
-  - 현재 포함20관측 모집단 밴드·strict 경계와 native stop5(0도 원가 이하 손절)를 유지하고 확정 소유·원가·관측 나이를 분리했다. 선택 middleBand/이전N추세/보유관측의 저장·두 preview·UI/A-B, live 약10초 관측과 일봉 준비 분리, ageunknown 복원·partial·거절·준비 부족 보호를 검증했다. 기존 QQQ1주252+64봉 비용/nextOpen4경로를 유지했다. [작업 기록](tasks/mean-reversion-policy-20261020.md).
-  - 비평균회귀1122개 전체 report/signals와 평균회귀102개 backtest/signals가 동일했다. confirmedUpper는 legacy와78/78개 경제 경로가 같고 기존 원장 flatSell/heldBuy도0이므로 신호 감소·수익 개선으로 주장하지 않는다. 최종36연속/36분할/432별도분기와 부모74,968개·독립219,769개 기록 산술(오류0)을 통과했다.
-  - 중심선은 연속6개 모두 순평가수익 하락·회전 증가, trend200은 SPY/QQQ 일부 손실 감소이나 SOXQ20bp6.9134→−3.7217%다.63관측은 발동0·최장55로 효능 평가 불가다. 이를 본 뒤 고정한21관측 사후 탐색은 QQQ 소폭 개선/SOXQ·SPY 악화, 최저 완료손실 동일과 guard 뒤22/24관측 재시도를 기록했다. upperBand/선택옵션0을 유지하며 종가 손절·보유 관측을 장중 손실/실제 보유 상한으로 부르지 않는다. [사전 선언·사후 탐색·실현/잔여·비용/노출·기각 근거](research/mean-reversion-policy-20261020/report.md).
-  - 우선 회귀 근거: P2-18 SPY연속 +4.2519%→+0.0835%, 실제 매도2025-06-27↔04-09·동일경로 비용복원 +4.9703%→+1.5065%로 경로 자체가 달라진다. QQQ20bp −1.8039%/MDD4.5823%도 사전 고정 검증 구간으로 보관한다.
-
-### 원문 153–158행
-
-- [x] **SOXQ-P2-11 — 추세 필터 실제 소유·청산 비교를 완료했다.**
-  - v22는200/5/20·현재포함산술MA·strict경계·세MA준비후원래장기이탈을유지하고실수량/native평균·잔량Sell·pending기원·보유관측나이/peak/무장·strict7필드checkpoint를연결했다. 양수unknown도metadataSome이며실제caller의coldrestore/동량/부분에서확인streak를보존한다. 재시작/과거지표재적재/core변경은streak0재관측, warmup은보호를만들지않고reset가격버퍼를보존한다. strict저장·두preview·raw초안/current-A-B/legacy미확인·모바일/실패/지연검증을동기화했다. [작업](tasks/trend-filter-policy-20261023.md).
-  - 사전고정5종·30연속/30대체분할/360별도분기를생산RustAPI로실행했다. 기준81fa00d/v21과새owned의78원장/기존Trend102창은전체backtest/signals동일, 비대상1122호환·부모63559/독립171604검사·오류0이다. 실제소유교정의수익개선으로주장하지않는다. [고정설계·결과/한계](research/trend-filter-policy-20261023/report.md), [독립감사](research/trend-filter-policy-20261023/independent-audit.json).
-  - 이탈확인2는일부개선/작은완료표본·SPY악화이고수익5/되밀림3·보유63은SOXQ20bp−3.6376/−3.5244%다. 기본확인1/선택0·공통guard를유지하고기본승격을기각한다. 연속수익보호58/보유한도45체결과분기26/0을구분하며보유63분기72개실제경로동일/16개마지막pending만추가라분기효능은미평가다. SOXQowned20bp+9.5760%는실현−240553.37/잔여+1198152.86원이며기말가상비용·비교보유0주·노출/회전을분리했다.
-  - 후속승격은새자료를읽기전창·universe·수량·비용·단독가설을고정하고자료범위/조정/달력·공개시각과실제청산/차단·실현/잔여·기말·노출/회전을대사해야한다. 상관3ETF/겹침/분할을독립OOS나운용안전성으로승격하지않는다. 기존v12감사42958건은과거준비이력으로새실행과구분한다.
-
-
-### 원문 165–167행
-
-- [x] **LTH 분봉의 거래소 시각·세션·미관측 슬롯 진단을 구현했다.**
-  - `lth-minute-timing-v1`은 원본 실행 label의 UTC/시장 timezone·DST offset, 봉 종료/시작 구분, 중복/역순/분경계/asOf 뒤 종가와 관측일 내부 격자 공백을 bounded512행·64byte·날짜8/예시6개로 진단한다. current/A-B/복원·legacy/손상 형식·일봉/빈자료·모바일을 fixture/mock으로 검증했다. 기존 고정 KST 시계·신호·정산·입력hash와 sampleOnly/notEvaluable·lookAheadSafe=false는 유지한다. [구현·검증](tasks/lth-minute-timing-20261022.md).
-  - 일반 평일 시간창과 실제 달력·발행/수신·공급원/요청기간 coverage는 다르다. P1-05/P2-12 실제3개월 자료와 운용 검증은 계속 미완료다.
-
-### 원문 175–177행
-
-- [x] **SOXQ-P2-14 — 체결 가능성과 장중 손절의 연구 모델을 분리했다.**
-  - v10 공통 ReplaySession의 sameClose/nextOpen, 종가 신호→다음 관측 시가·이전 ATR→실제 원가 피드백, 마지막 미체결, signalAvailableAt/fillAt의 봉/단계를 구현했다. 연구 보호0 기본, 갭 시가·OHLC 양방향 접촉 순서 불명·손절 우선 가정을 UI와 A/B에 표시하고 실제 체결 시각/유동성 검증으로 표현하지 않는다.
-  - 직전 ba74e03 생산코드1,224회와 기본 모드의 전체 회계 report/신호가 일치했다. QQQ2026Q3 평균회귀의 비용·체결가가 청산을 바꾸는 fixture와 강한 종가 포함 실자료8회/benchmark8회, 합성 갭·미체결·순서 불명, 일반/LTH 피드백·공통 UI를 검증했다. [작업·검증](tasks/replay-execution-model-20261018.md), [독립 분석](research/replay-execution-20261018/report.md).
-
-### 원문 178–181행
-
-- [x] **SOXQ-P2-15 — 비용·배당·환율·청산 가정과 비교 기준을 구현했다.**
-  - v11의 방향별/최소 수수료·수동 출처, 평가봉에 정확히 매칭한 FX/배당·조정가격 중복계상 거절, native 진입평균/역사적 KRW 원가 보존을 구현했다. 실제 청산 전망을 최소fee 기대수익 guard와 정산이 공유하며 손절/보호/native손실 예외를 유지한다.
-  - 실현+잔여 순평가+세후배당=자산증감, 가격/FX 귀속과 report-only 기말청산, 관측종가 평균/최대 자본비중·보유봉비율 구분을 제공한다. 같은 요청수량 단순보유의 실제 체결량/노출차이와 동일 실제경로 비용환급 산술참조를 구분하고 소표본·역부호·부분/겹침창 경고를 표시한다. UI/A/B/legacy/LTH 평가불가 gate를 함께 검증했다.
-  - 직전1192673 생산코드1224회 전체report/신호 기본호환, QQQ 단일분기40개 합성 시나리오/120개 항등식과 기록fill 독립4540대사를 통과했다. 강한종가 nextOpen20bp는 평가+0.0039%지만 가정청산−0.0390%다. 실제 요율·배당·FX/장기 운용 검증으로 확대하지 않는다. [작업·검증](tasks/replay-accounting-20261018.md), [연구·한계](research/replay-accounting-20261018/report.md).
-
-### 원문 192–197행
-
-- [x] **SOXQ-P2-18 — 연속 운용 검증의 포지션·guard·risk 상태를 보존했다.**
-  - v12 공통driver에서 factory/warmup/ReplaySession/finish각1회, native원가·pending·ATR·쿨다운·시장날짜/연속손실 상태를 청크 사이에 유지한다. 기존flat합계500을 보존하고 새bounded입력(16청크/각500/평가4096/history512), strict시각검증·미래prefix/단일·분할회귀·IPC/REST/모드/A-B/UI자료수집을 연결했다.
-  - 직전cc6f5d0 생산1224회 전체report/신호 호환,3ETF×12전략×비용2의3년72회/alternatepartition72회/별도분기864회와 root136717·독립143866 산술체크를 통과했다. 최초전일결정수량·PC기준가/params를 고정하고 실제 accepted 수량의 갭/장중 시장가격 경로를 비용환급과 대사했다. 분기계좌 수익률 합산/복리는 없다.
-  - 강한종가·돌파실패의 높은 평가수익도 청산0회, SOXQ일부분기 단순보유72개는 비중한도로0주다. 같은요청수량을 동일실제노출/알파비교로 표현하지 않는다. UI의7일경계는 보수적자료gate이며 달력검증이 아니고 LTH시간/coverage·별도walk-forward는 미완료 유지. [작업·검증](tasks/continuous-replay-20261018.md), [설계·실자료·한계](research/continuous-replay-20261018/report.md).
-
-
-
-### 원문 200–200행
-
-- [x] 계좌/통화별 전용 예산, 자동 소유수량, durable 예약·체결·완료 복원, 설정 UI와 E2E 추가.
-
-### 원문 201–201행
-
-- [x] 기존 LTH에 기본 비활성 볼린저 필터와 중심선/ATR 청산, 공통 live/replay 및 미리보기 설정 연결.
-
-### 원문 217–221행
-
-- [x] 핵심 거래 흐름의 자동화 테스트를 release gate로 승격한다.
-  - broker mock 기반 제출→부분체결→완전체결→취소/거부→재시작 복구 테스트를 추가한다.
-  - balance fail-closed, scope 전환, midnight rollover, manual/auto parity, 인증 없는 REST 거부를 포함한다.
-  - `cargo check`, `cargo test`, `npx tsc --noEmit`, `npm run check:fsd`, `npm run test:e2e`, OpenAPI 검증을 CI에서 실행한다.
-
-
-### 원문 222–226행
-
-- [x] 의존성·릴리스 보안 점검을 자동화한다.
-  - `cargo audit`와 npm audit 정책, Dependabot/Renovate, lockfile 검증을 CI에 추가한다.
-  - release artifact 서명/해시와 updater 경로를 검증하고, 실패 시 사용자가 확인할 수 있게 한다.
-  - `release-gate.yml`, `security.yml`, Dependabot, 추적 lockfile 검증, SHA-256/attestation 및 detached signature 준비 검증으로 반영했다. 실제 플랫폼 코드 서명/updater 서명 강제는 배포 키 준비 후 `REQUIRE_RELEASE_SIGNATURES=true`로 전환한다.
-
-
-### 원문 227–230행
-
-- [x] 사용자 가이드를 broker별 실제 지원 범위와 일치시킨다.
-  - KIS 전용 소개를 KIS/Toss 공통 기능, broker별 주문·시세·자동매매 제한 표로 교체한다.
-  - 실제 UI의 13개 전략 카드, 프로파일 설정, 세션/캔들 source, 소액 실거래 gate를 기준으로 오래된 절차를 정리한다.
-
-
-## 미완료 항목 안의 부분 완료·과거 진단
+## 미완료 상위 항목의 완료된 부분
 
 ### SOXQ-P1-05
 
-원문 48–59행의 부분 완료/과거 관측이다. 상위 작업은 [현재 TODO](todo.md)에서 미완료로 유지한다.
-
-  - [x] v7/LTH v3에서 일봉 context를 bounded 별도 버퍼로 분리했다. 분봉 EMA/RSI/ADX·반동·볼린저에 일봉을 넣지 않으며, 분봉 OHLC 재초기화는 OHLC·반동·볼린저 snapshot, 가격 재초기화는 반동 snapshot만 교체한다. 일봉 재초기화는 분봉·보유 상태를 유지한다.
-  - [x] 전용 일봉 경로는 시가를 장중 진입 가격으로 합성하지 않고 `dailyDiagnostic/notEvaluable` 자료 진단만 반환한다. UI는 수익률·거래 성과·A/B 저장을 숨기며 assessment 없는 기존 LTH 응답도 평가 불가로 표시한다.
-  - [x] 현재 최대 200봉의 실제 분봉은 `intradaySample/sampleOnly`, 유효 분봉 0개는 `notEvaluable`로 표시한다. 일봉 context 수와 실제 장중 관측 수를 분리하고 시간대·DST·세션 미검증, 고정 KST 근사와 3개월 대표성 부족을 명시한다.
+v7/LTHv3는 bounded 일봉 context와 분봉 EMA/RSI/ADX·반동·볼린저를 분리했다. 분봉OHLC 재초기화는 OHLC/반동/볼린저, 가격 재초기화는 반동만 교체하고 일봉 갱신은 분봉·보유를 유지한다. 일봉은 시가 진입 합성 없이 dailyDiagnostic/notEvaluable이며 성과·A/B저장을 숨긴다(assessment 없는 legacy도 포함). 최대200 실제분봉은 sampleOnly, 유효0개는 notEvaluable. 고정KST·timezone/DST/세션·3개월 대표성 한계는 미완료다. [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L401-L408).
 
 ### SOXQ-P2-09
 
-원문 138–147행의 부분 완료/과거 관측이다. 상위 작업은 [현재 TODO](todo.md)에서 미완료로 유지한다.
+v21의 실제수량/원가·잔량·pending/부분/거절/재설정 보호, 이전N완료범위/당일OHLC·0범위·엄격초과·유효시장일/latelegacy, 저장/두preview/준비진단/UI를 완료했다. 비대상1122·기존102창·owned78 호환,36연속/36분할/432분기·부모70828/독립249412정산·390진단을 확인했다(미저장 대체원장 독립정산 아님).
 
-  - [x] v21 실제 수량/native 원가·잔량 청산·pending 기원·거절/부분/재설정/복원 보호, 이전N완료 범위와 당일OHLC·0범위/평균0·엄격 초과를 검증했다. live 유효 시장일의 관측 시가/고저·같은날 재조회/실패/latelegacy를 나누고 strict 저장·두 preview·전용 조건 빈도·현재/A-B·모바일을 동기화했다.
-  - [x] 비대상1122개·기존102창·owned78원장의 기본 backtest/signals 호환, 고정36연속/36분할/432별도분기·부모70828개/독립249412개 정산과 현재390개 진단을 확인했다. 대체분할36개는 생산 경제 hash·입력연결이며 미저장 대체 원장 독립 재정산과 구분한다.
-  - [x] 기간20은 연속4악화/2동일, 배수1.5는4개 개선/2동일이지만 모두 완료0·잔여평가다. 수익 보호/보유63은6개 모두 수익하락·회전증가, cap분기0·72개 동일이며 QQQ hold63은10/20bp +0.1099/−0.4609%다. 기본10/2/손절3·선택0·공통guard를 유지한다. 비교 보유0주36개·준비완료 무신호32/72개를 우수성/자료부족으로 오해하지 않는다.
-  - 과거45창 중앙값0%·완료8·무완료38·무신호20은 별도 연구 관측으로 보존하며 이번 연속/분기 결과와 합산하지 않는다. P1-03의 완료봉·0범위/이전평균 계약도 유지한다.
+기간20은4악화/2동일, 배수1.5는4개선/2동일이나 모두 완료0·잔여평가. 수익보호/보유63은6개모두하락·회전증가, 분기cap0/72동일, QQQ hold63은10/20bp+0.1099/−0.4609%. 기본10/2/손절3·선택0·guard 유지. 비교보유0주36개·준비완료 무신호32/72를 우월성/자료부족으로 오해하지 않는다. 과거45창 중앙값0%·완료8·무완료38·무신호20은 별도이며 장중효능 미완료. [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L409-L417).
 
 ### SOXQ-P2-12
 
-원문 159–164행의 부분 완료/과거 관측이다. 상위 작업은 [현재 TODO](todo.md)에서 미완료로 유지한다.
-
-- [ ] **🟠 사용자 검증·자료 대기** **SOXQ-P2-12 — 레버리지 추세 보유(LTH):** 최근 실제 분봉2,318개/7날짜의 기본·볼린저 활성×비용2종 네 진단은 신호0이다. null OHLCV412개·정규장 밖1개는 제거했고 합성하지 않았다. 고정KST/auto 세션·봉 종료 표기의 시작·종가 공개 가능 시각 모델·10초 관측 차이·누락/기간 coverage 미검증이라 0% 성과/볼린저 효과 없음으로 해석하지 않는다. 완료 조건: P1-05 실제3개월 원본·DST/거래일/세션·gap·진입/마감 창 검증 후 옵션별 비교. generic 거부·일봉 평가 불가 유지.
+실제분봉2318개/7날짜의 기본·볼린저×비용2 네 진단은 신호0. null OHLCV412개·장외1개를 제거했고 합성하지 않았다. 고정KST/auto세션·봉종료/공개가능시각·10초 관측 차이·누락/coverage 미검증이므로0%성과/효과없음이 아니다. P1-05의 실제3개월/DST/달력/진입·마감창 검증 뒤 옵션 비교가 남는다. generic 거부·일봉 평가불가 유지. [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L418-L423).
 
 ### SOXQ-P2-13
 
-**2026-10-29 로컬 부분 완료:** live6/replay9 생산 경로 fixture, 현재 v22의6연속+6대체분할+72별도분기와 기존 보관78 PC원장 report/signals/preparation 일치, 기록체결 독립산술10,536건을 확인했다. 원래 기준가·수량·native5%/3%·두비용·기본 guard를 유지했고 생산 정책 변경은 없다. [이번 설계·결과·한계](research/price-condition-contracts-20261029/report.md), [회차 검증](tasks/immediate-backlog-20261029.md).
+2026-10-29 로컬 계약만 완료: live6/replay9 fixture, v22의6연속+6분할+72분기와 보관78PC report/signals/preparation 일치·독립산술10536건. exact owner/native원가·partial/설정수량·거절/미체결·손절 전후·날짜/DST/scope·native/overlay·두비용·분할불변을 검증하되 정책은 바꾸지 않았다. live 잔량은 일일매도/guard에 막힐 수 있어 상태보존≠청산성공이다. [연구](research/price-condition-contracts-20261029/report.md), [회차](#task-immediate-backlog-20261029).
 
-회차 시작 `ac3eb564ea678fe99722bbc5f3f040b4c50b1773`의 자동 구현 조건인 실제 exact owner/native 원가·부분/설정수량 차이·거절/미체결·손절 접수 전후·같은날/다음날/DST·계좌분리·native/overlay·두비용·분할불변을 합성 생산 경로에서 검증했다. live 잔량은 일일매도 제한·guard에 막힐 수 있으며 상태 보존을 청산 성공으로 해석하지 않는다. 실제 장중 자료와 실제 체결 가능성 조건은 같은 ID의 TODO 자료 구역으로 이관했고 전체 완료 체크는 하지 않았다. 아래는 이전 원문 이력이다.
-
-원문 168–174행의 부분 완료/과거 관측이다. 상위 작업은 [현재 TODO](todo.md)에서 미완료로 유지한다.
-
-- [ ] **🟢 자동 구현** **SOXQ-P2-13 — 가격조건:** 전일 종가 고정·익절5%·손절3% 연구 설정에서 중앙값 +0.2847%, 완료117회, 비용 부호 반전3창. 완료 조건: 평가 전 고정 기준가 유지, 손절 직후 재진입·공통 cooldown/최소 기대수익·회전율을 두 비용과 복수 구간에서 비교; guard 완화나 사후 최적화 금지.
-  - **기존 원장 근거:** P2-18의 2023-01-03~2025-12-31 nextOpen 연속 평가는 비용별 3건·완료매도 3회·rawStopSignals 0·완료손절 0·guard 차단 0·기말보유 0이다. 별도 분기 초기화는 비용별 36건·완료매도 3회·33건 완료청산 없음·손절/차단 0이다. 원래 45창 sameClose 통계와 합산하지 않는다. [고정 설계](research/continuous-replay-20261018/design.json), [연속 원장](research/continuous-replay-20261018/continuous-results.jsonl.gz), [별도 분기 원장](research/continuous-replay-20261018/reset-results.jsonl.gz), [요약](research/continuous-replay-20261018/summary.csv).
-  - **평가 범위:** 2022-12-30 기준가 SOXQ 19.91/SPY 382.43/QQQ 266.28, 수량 51/2/3, native 익절 5%·손절 3%, 수수료와 슬리피지 각각 10/20bp를 고정했다. 평균 초기자본 비중 0.0806/0.2430/0.1259%의 희소노출이며 손절 후 재진입·cooldown·최소 기대순익 gate의 효과를 이 표본으로 평가할 수 없다. 자료 준비 실패·코드 오류·전략 효능 0%라는 뜻이 아니다. 비교 도중 분기별 기준가 변경·사후 조정·guard 완화를 하지 않는다.
-  - **기존 검증 범위:** `cargo test --offline --workspace --lib price_condition --locked` 8개 통과·0개 실패·781개 제외는 기존 동작 검증이다. 위 새 조건의 구현·연구 결과나 P2-13 완료 증거가 아니며 이 항목은 자동 구현으로 열린 상태를 유지한다.
+과거45창 sameClose 중앙값+0.2847%/완료117/비용부호반전3창과 v12 nextOpen3년은 별도다. 후자는 비용별3원장/완료매도3·rawStop/손절/guard차단/기말보유0, 분기36원장 중완료3·무완료33·손절/차단0. 2022-12-30 기준 SOXQ19.91/SPY382.43/QQQ266.28·수량51/2/3·native5%/3%·각10/20bp, 평균 초기비중0.0806/0.2430/0.1259%의 희소노출이다. 손절재진입/cooldown/기대순익 효능은 이 표본으로 평가불가. 기존price_condition8통과/781제외는 이전 동작 검사였으며 새 완료 증거가 아니었다. 실제장중자료/체결은 현재TODO에 남고 사후 기준가조정·guard완화는 없다. [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L424-L436).
 
 ### SOXQ-P2-16
 
-원문 182–191행의 부분 완료/과거 관측을 보존한다. 아래 2026-10-29 구현·검증으로 로컬 작업을 완료했다.
+2026-10-29 v23 로컬 완료: 동일장부 구간 진단·0보합/음수손실 문구·소표본 설명을 flat/LTH/continuous·현재/A-B에 동기화했다. 경제값/체결/guard·v8 TR14(이전종가 포함)/동일간격warmup·기본off수량산정·LTH평가불가/실잔량보호를 유지한다. 70/30은 같은 상태가 이어진 사후 관측이며 학습/OOS가 아니다. 완료매도phase에 전체 배분원가 손익을 귀속하고 원래 전반양수·후반≤0/절반미만 판정식은 경제값과 함께 보존했다.
 
-  - v8 replay는 이전 종가 포함 TR14·동일 interval 사전 ATR warmup·준비 진단을 구현했다. 연구 UI는 기본 비활성 수량 산정과 위험bps/배수를 제공하고 부족·0범위·0bps 매수 차단을 표시한다. LTH는 실제 잔여수량/평균가 피드백으로 확대·축소·부분매도 보호를 검증했다. 최신45창의 작은 완료 표본과 자산/기간 상관·무거래 창은 여전히 구분해야 한다.
-  - **기존 원장 진단:** v12 연속 72원장은 526/226봉이며 후반 양수·전반 절반 미만 26건, 전반 양수·후반 음수 16건/정확히 0인 6건, 한쪽 완료청산 0인 32건이다. 별도 분기 864원장은 각각 52/132/53/786건이다. SOXQ PC 10bp의 2023Q1은 전반 +0.7526%·완료1/후반 0%·완료0인데 flat 경고는 후반을 “검증 구간은 손실”로 표시한다. 비용쌍·상관 ETF·겹치는 창은 독립 표본이 아니다. 앞선 감사와 동일 SHA의 기존 원장이며 새 v22 실행 결과가 아니다. [연속 원장](research/continuous-replay-20261018/continuous-results.jsonl.gz), [별도 분기 원장](research/continuous-replay-20261018/reset-results.jsonl.gz), [고정 설계](research/continuous-replay-20261018/design.json).
+기존 v12 72연속(526/226봉)에서 후반양수/절반미만26·양→음16·양→0 6·한쪽완료0 32,864분기는52/132/53/786건이다. SOXQ PC10bp2023Q1 +0.7526%/완료1→0%/완료0을 ‘손실’로 부르던 사례를 교정했다. 새 v22 실행으로 오인하지 않는다.
 
+사전고정12전략×3ETF×11fold×2비용의 context/evaluation 각792,총1584 reset계좌 회고walk-forward·PC78경제값/6분할 일치·phase3324/독립산술358749를 확인했다. 별도 이전commit빌드나 미관측OOS가 아니며 비용별396평가의 완료0은228/227, 모두20미만이다. 경고없음·청산0을 신뢰/우수/장중효능으로 승격하지 않는다. [계약](ipc-commands.md#v23-동일-장부-구간-관측-진단), [회차](#task-immediate-backlog-20261029), [연구](research/phase-walk-forward-20261029/report.md) · [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L437-L463).
 
-**2026-10-29 완료:** v23 동일 장부 구간 진단·0보합/음수손실 경고 교정·작은 표본 설명을 flat/LTH/continuous와 현재/A-B에 동기화했다. 기존 경제값·체결·guard·TR14/사전warmup/봉간격과 LTH 평가불가 gate를 유지했다. [계약](ipc-commands.md#v23-동일-장부-구간-관측-진단), [회차 검증](tasks/immediate-backlog-20261029.md).
+## P3-REFACTOR-01
 
-사전 고정12전략×3ETF×11fold×2비용의 context/evaluation각792개, 총1,584계좌를 별도 reset해 회고 walk-forward로 평가했다. PC보관78경제값/6분할 일치, phase3,324개·독립산술358,749건 검증. 별도 이전commit빌드는 아니며 이미 관측한 자료를 새OOS로 주장하지 않는다. 비용별396평가 계좌의 완료매도0은228/227, 모두20미만으로 신뢰 충분·우수전략·장중효능을 확정하지 않는다. [설계·결과·한계](research/phase-walk-forward-20261029/report.md).
+2026-10-18 trading.rs를 lifecycle469/positions329/balance96/risk_restore96/daemon527/history281행으로 분리해 IPC4·시작/복원순서와lib212를 확인했다. hooks는19행 facade+49~255행 모듈·export87/선언74동일. submission과order/fills는 준비/provider/기록·health/pending/run/collector/reconciliation/mode 책임으로 나눴다. [trading](#task-trading-module-split-20261018), [hooks](#task-frontend-hooks-split-20261018), [run](#task-execution-run-reservation-20261018).
 
-<details>
-<summary>이관한 원래 잔여 조건·판정 근거 (완료 전 상태)</summary>
-
-- [x] **로컬 완료** **SOXQ-P2-16 — 구간 경고·표본 해석을 교정하고 별도 walk-forward를 평가한다.**
-  - **의존성:** 기존 TR14·사전 ATR warmup·LTH 평가불가 gate는 보존한다. 경고/설명·fixture 교정은 즉시 가능하며 walk-forward는 생산 API·검증 자료·사전 선언에 의존한다. 과거 수치와 구현 근거는 [부분 완료 이력](completed-history.md#soxq-p2-16)에 보존했다.
-  - 완료 조건: 이전 종가 포함 TR·사전 ATR warmup·봉 간격 유지; 표본 수/신뢰 부족 표시; 70/30 구간을 기간 정규화 없이 과최적화 확정에 사용하지 않고 별도 walk-forward 평가.
-  - **현재 판정 근거:** 같은 ReplaySession 상태가 이어지는 70/30은 분리 학습·독립 OOS가 아니다. `phase_summaries`는 완료매도가 체결된 phase에 전체 배분 원가의 손익을 귀속한다. `overfit_warning`은 전반 수익>0에서 후반<=0 또는 후반<전반×0.5만 검사하며 구간 길이·완료 수를 보지 않는다. session의 최종 판정식을 continuous 경로는 유지하고 문구만 완화한다. [구간 집계·판정식](../src-tauri/src/trading/simulation.rs), [최종 호출](../src-tauri/src/trading/simulation/session.rs), [연속 문구 치환](../src-tauri/src/commands/strategy_preview/continuous.rs).
-  - **남은 자동 구현 우선순위:** 누적수익 절반 조건으로 과최적화·학습/OOS를 단정하는 경고와 0%=손실 문구를 교정한다. 같은 finish를 쓰는 LTH 전용 preview를 포함해 flat/LTH/continuous·현재/A-B·legacy의 구간 길이·완료청산 표본·연속 상태 설명을 일치시킨다. 현재 flat/LTH UI의 “학습 구간(%) / 나머지는 out-of-sample 검증”·학습/In-sample/Out-of-sample 제목·표와 continuous의 앞/뒤·독립검증 아님 표현을 함께 정리한다. `BacktestPhaseView`/`BacktestPhase`에 관측수·노출·실현/잔여·경계보유 정보가 없으므로 필요한 설명/진단 계약을 보완하되 기존 회계·체결·원시 구간값은 보존한다. 길이가 다른 구간·후반0/손실·완료0/부분청산 fixture와 기본 거래/report·회계 불변을 검증하고 기존 TR·사전 ATR warmup·봉 간격 계약 및 LTH 평가불가/자료 gate를 유지한다. [현재 연구 UI](../src/pages/strategy/ui/strategyResearchPanel.tsx), [구간 TS 계약](../src/shared/api/strategyResearchTypes.ts).
-  - **별도 walk-forward 완료 기준:** 생산 Rust API로 자료를 읽기 전 창·이전 정보·고정 후보·두 비용·설정 선택·warmup·수량·경계 보유 처리와 비중/노출·실현/잔여·MDD·차단·회전 기준을 선언한다. 과거 자료 재검토를 새 OOS로 부르지 않으며, 이어지는 장부의 사후 70/30과 분리한다.
-  - **해석 위험·검증 의존성:** 경고 없음을 신뢰 충분으로, 청산0을 성과 우수로 해석하지 않는다. 생산 Rust 구현·fixture와 검증 가능한 자료·사전 선언에 의존하며, 로컬 자동 구현/검증에 새 사용자 승인 게이트를 추가하지 않는다.
-
-
-
-</details>
-
-### P3-REFACTOR-01
-
-원문 207–216행의 부분 완료/과거 관측을 보존한다. 남은 세 대상도 아래 2026-10-29 회차에서 분리·검증했다.
-
-  - [x] `src-tauri/src/commands/trading.rs`: lifecycle469/positions329/balance96/risk_restore96/daemon527/history281행으로 분리. IPC4개·scope·복원/시작 순서 보존, lib212개와 독립 본문 감사 통과. [기록](tasks/trading-module-split-20261018.md).
-  - [x] `src/api/hooks.ts`: 19행 facade와 account/market/order/strategy/settings/history/trading/log 모듈49~255행으로 분리, 공개export87개/선언74개 동일. [기록](tasks/frontend-hooks-split-20261018.md).
-  - [x] `src-tauri/src/trading/order/submission.rs`: positions/prepare/provider/records와 run 회귀로 분리. 예약·scope·manual API 경계를 검증했다. [기록](tasks/execution-run-reservation-20261018.md).
-  - [x] `src-tauri/src/trading/order.rs`: facade·health·pending·legacy·execution run으로 분리하고 1050행 fills도 적용/collector/reconciliation/provider mode로 나눴다. [기록](tasks/execution-run-reservation-20261018.md).
-
-**2026-10-29 완료:** Trading Page1056→474행·주문 model414/form234, Toss facade1093→13행·accounts111/diagnostics379/preflight236/orders371, LTHeditor993→413행·model343/picker177/preview161로 책임을 분리했다. LTH는 시작시 이미1000미만이었지만 요청된 책임 분리를 수행했다. 모든 변경/신규 코드파일1000미만, IPC/public API·query·state/effect/closure·JSX 동작을 보존했다.
-
-Toss32개item의속성/시그니처/본문byte동일, Trading56문장/7helper·LTH68문장/5helper 및 재확장JSX AST동등을 확인했다. Rust831/strictclippy·TS/FSD/build와 분리전 합성거래5개, 분리후47개 UI검증이 통과했다. 실제 주문/계좌/키 접근은 없다. [정본 회차 기록](tasks/immediate-backlog-20261029.md).
+2026-10-29 나머지 Trading1056→474(model414/form234), Toss1093→13(accounts111/diagnostics379/preflight236/orders371), LTH993→413(model343/picker177/preview161)을 완료했다. LTH는 시작부터1000미만이나 요청된 분리였다. 변경코드1000미만·IPC/query/state/effect/closure/JSX 보존, Toss32item 본문byte동일·Trading56문장/7helper·LTH68문장/5helper·재확장JSX AST동등, Rust831/clippy·TS/FSD/build·분리전mock5/후47UI를 통과했다. 실계좌/주문/키 접근0. [회차](#task-immediate-backlog-20261029) · [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L464-L476).
 
 ## 2026-10-29 문서 재편 검증
 
-- 대상: `6eeb0ea718138438296b832bcbbe3e218fc49564`에서 시작한 문서 변경. macOS 로컬 작업 트리는 시작 시 깨끗했으며 기존 다른 작업 폴더는 변경하지 않았다.
-- 범위: TODO와 이력·생성 HTML·문서 포인터만 변경했다. 구현/전략 기본값·계정/API·거래·배포·의존성 파일은 변경하지 않았다.
-- 이관 대조: 열린 최상위 19개(자동 구현11·판단4·실자료4), 유일 ID19개, 완료 최상위22개와 기존 완료 하위19개, 기존 링크74개 및 항목 상세의 보존을 확인했다. 번호 없는 열린 제목6개에는 대응표의 ID를 부여했다.
-- 형식 검사: `docs-canon`의 `check_docs.py --changed` 1회에서 상대 링크·표·앵커·TODO 완료 체크 경고는 0이었다. 기존 문서11개의 등록부 도달성 누락으로 최초 종료 코드1이었으며, 위 참고 색인을 추가한 뒤 별도 Markdown 링크 그래프 대조에서 미도달0·변경 문서 링크 유효를 확인했다. 검사기를 반복 실행한 결과로 표기하지 않는다.
-- 저장소 검사: `npm run check:todo`는 열린19개 원본/HTML 동기화 통과, `npm run check:project-map`은 새 이력 인벤토리 일치, `git diff --check`는 통과했다.
-- HTML 검사: `node --test scripts/render-todo.test.mjs` 3개 통과. 초기 sandbox에서는 Chromium MachPort 권한 제한으로 브라우저가 시작되지 않았고, 허용된 로컬 환경에서 재실행해 전체 통과했다. 375px 화면의 전체 항목·키보드 검색/상태 필터·무스크립트 읽기·오버플로·브라우저 오류를 검사했다.
-- 내용 검토: 별도 문서 감사로 집계·의존성·원래 ID/근거·실자료 미완료 경계의 보존을 확인했다. 이동 전 “아래 자동 구현 항목” 표현은 P1-RECOVERY-01 참조로 수정했다.
-- 미실행 범위: 문서 harness에 따라 거래 앱/Rust 전체·전략 replay·실자료/실계좌 검증은 실행하지 않았다. 기존 기록의 테스트 수치를 이번 실행으로 주장하지 않는다. Git 커밋/원격 반영은 저장소 이력에서 확인한다.
+기준6eeb0ea clean·문서만 변경. 당시 열린19(자동11/판단4/자료4)·고유ID19·완료상위22/하위19·링크74를 보존하고 무ID제목6개에 대응ID를 부여했다. docs-canon1회는 링크/표/앵커/완료체크경고0이나 기존11문서미도달로exit1; 색인 보완 뒤 별도링크그래프로미도달0을 확인했으며 검사 재실행으로 표현하지 않는다. TODO/map/diff와 renderer3개를 통과했다. 최초 sandbox Chromium MachPort실패 뒤 허용환경375px의 키보드필터/JS없는읽기/overflow·오류를 확인했다. 거래앱/Rust/replay/실자료 미실행, 당시수치를 새검증으로 재사용하지 않는다. [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L477-L488).
 
+## 의존성 선별 전환 완료 — 2026-10-29
 
-## DEP-P3-03 — 5A HTTP 부분 완료
+[아래 ID의 고정 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L489-L540). 각 절 끝에 원래 줄 범위를 표시한다.
 
-2026-10-29 시작 `4a9e250236e8773f0b1fe3194339cc0978a8a5a8`에서 reqwest0.12.28→0.13.5를 분리 전환했다. 8파일14생성점의 기존 TLS trust/provider와 호출부 옵션을 공통 builder로 보존했고 합성 HTTP/TLS10·전체lib841이 통과했다. RustSec 기존RSA1·Linux경고2는 남는다. 당시 WS0.24→0.30과 각 SHA CI 조건은 미완료였으며 아래 최종 기록에서 후속 완료를 확인한다. [구현·검사·제약 정본](tasks/immediate-backlog-20261029.md).
+각 전환의 부분완료는 아래 최종 상태에 합쳤다. 실제계좌/인증·배포/운영DB·OS신뢰 변경 완료가 아니다. [단계별 정본](#task-immediate-backlog-20261029).
 
+### DEP-P3-03 — HTTP·WebSocket
 
-## DEP-P3-03 — 5B WebSocket 로컬 부분 완료
+reqwest0.12.28→0.13.5의8파일14생성점 TLStrust/provider·옵션을 보존했다. HTTP/TLS10·lib841, 5A `0dead386aa0e1270cff4092009b253dc0f37e8e5` Gate43/Security50. WS0.24→0.30은wire/native roots/ring/4KiB chunk 유지·교체전 재현 Close응답누락/실패연결flag 교정·WS/WSS14, 5B `270296db196ee7191e5c4848b1346095b1061dc7` Gate44/Security51·LinuxRust855/UI344. query/header/JSON/cookie/error·승인/구독/수신/pingpong/종료/명시재연결을검증했고 자동재연결은 추가하지 않았다. 기존RSA예외/Linux경고2유지. 원문 L489–505.
 
-2026-10-29 HTTP `0dead386`의 Release Gate43(Rust841/UI344)·Security50 성공을 확인한 뒤 WS0.24→0.30을 별도 전환했다. 기존 wire/native roots/ring과4KiB read chunk를 유지하고, 교체 전 재현한 Close 응답 누락·송신 실패 연결 플래그 잔류를 수정했다. 합성WS/WSS14개가 통과했으며 자동 재연결·실계좌 연결은 추가하지 않았다. 이 기록 시점에는 WS 커밋 CI 확인 전이었으며 최종 결과는 아래와 같다. [최종 검사·게시 정본](tasks/immediate-backlog-20261029.md).
+### DEP-P3-04 — 서버
 
+axum0.7.9→0.8.9/tower-http0.5.2→0.7.1,70URL/74binding·보안handler계약/13capture문법 변경. 단계서버24·Rust873·strictclippy/check/fmt/custom-protocol/타입/FSD/build. `653377ce4ba49bc679d1762fe0f5d6ec2409fb74` 원격일치·Gate45/Security52·Linux/frontend/OpenAPI/UI 성공. 모든handler성공/실제provider/배포 실행은 아니다. 원문 L506–515.
 
-## DEP-P3-03 — HTTP·WebSocket 전환 완료
+### DEP-P3-05 — React·MUI
 
-2026-10-29 두 전환을 별도 커밋과 검사로 완료했다. 5A `0dead386aa0e1270cff4092009b253dc0f37e8e5`는 Release Gate43·Security50 성공, 5B `270296db196ee7191e5c4848b1346095b1061dc7`는 [Release Gate44](https://github.com/CountJung/KISAutoTrade/actions/runs/40837592217)·[Security51](https://github.com/CountJung/KISAutoTrade/actions/runs/40839169041) 성공이다. 5B에서 Linux Rust855개·UI344개와 frontend/Toss OpenAPI 검사를 통과했다. 기존 RSA 예외와 Linux RustSec 경고2개는 유지한다.
+React19.3.1/types19.3.0→MUI7.3.11→9.5.0, Grid/slot/sx 외 금융AST·callback/scope/preview 보존. clean설치/타입/FSD/무경고build·UI349·별도개발5·Tauri custom-protocol. `f15f192fee105600d79468291334fb10f1495e9f` 뒤 공개명세CI보정 `99b85eb3cdc63deceb7ec60c325559607f98f8ce` 원격일치·Gate47/Security54. native startup/실계좌/Windows전수 검증은 아니다. 원문 L516–525.
 
-원래 완료 조건인 합성 HTTP/TLS의 query·헤더·JSON·쿠키·오류와 mock WS의 승인·구독·수신·ping/pong·종료·명시 재연결/재구독, Rust fmt/strict clippy/check/test/build 및 해당 CI를 확인했다. 실제 KIS/Toss 인증·실계좌·자동 재연결·OS 신뢰 변경은 수행하지 않았다. 완료 근거와 미실행 세부 경계는 [회차 기록](tasks/immediate-backlog-20261029.md)을 따른다. 다음 즉시 항목은 DEP-P3-04이며 전체 요청 완료는 아니다.
+### DEP-P3-06 — Vite·React plugin
 
+Vite6→7→8.3.5/plugin6.1.2·Oxc/Rolldown, `06a84fe32fa37dd0f31a13c21f13efb6dc4e8ac1` Gate48/Security55. clean설치·target/debug4조합·UI349/Tauri빌드·별도승인 WKWebView 차트/테마/입력/종료재실행. calendar fixture차단1과원래Tauri startup/IPC·Windows/macOS12/CSP negative control 제외를 보존한다. 원문 L526–530.
 
-## DEP-P3-04 — 서버 전환 로컬 부분 완료
+### DEP-P3-07 — 나머지 선별
 
-2026-10-29 `270296db` 이후 axum0.7.9→0.8.9, tower-http0.5.2→0.7.1을 별도 단계로 전환했다. production 라우터의 70 URL/74 binding과 보안·handler 계약을 유지하며 13 capture 문법을 변경했다. 각 단계 서버24개와 최종 전체 Rust873개, strict clippy/check/fmt/custom-protocol build·타입/FSD/웹 빌드를 통과했다. 실제 provider와 모든 handler 성공 경로의 실행은 아니며 [회차 기록의 범위](tasks/immediate-backlog-20261029.md)를 따른다. 같은 SHA의 CI 확인 전까지 TODO 상위 ID를 유지한다.
+sha2.11.1/thiserror2.0.21·기존hex0.4.3 재사용, keyring3/RGL1은 초기화/backend·이익 평가 뒤유지·삭제없음. `fe3a3f8a8836c7c20745b3a7c7ea7e09e68ccda4` Gate49/Security56·동일literal14·Rust882(실DB5제외)/UI349/clippy/build. 최초LowerHex실패와호환baseline·본문동등, 최소Rust/다른OS/실DB미검증을구분한다. 원문 L531–535.
 
+### DEP-P3-08 — TypeScript·패키지매니저
 
-## DEP-P3-04 — 서버 전환 완료
-
-2026-10-29 커밋 `653377ce4ba49bc679d1762fe0f5d6ec2409fb74`를 정상 푸시·원격 SHA 대조하고 같은 SHA의 Release Gate45·Security52 성공을 확인했다. 위 로컬 계약 검증과 Linux Rust873·frontend·Toss OpenAPI·UI CI를 완료해 TODO 상위 ID를 닫았다. 실제 provider/계좌·운영 배포를 수행한 결과는 아니다. [최종 CI 링크와 범위](tasks/immediate-backlog-20261029.md).
-
-
-## DEP-P3-05 — React·MUI 전환 로컬 부분 완료
-
-2026-10-29 `653377ce` 뒤 React19.3.1/types19.3.0→MUI7.3.11→MUI9.5.0을 단계적으로 전환했다. Grid/slot/system sx 변환 밖 금융 AST·콜백·scope/preview 정책을 보존했다. 타입/FSD/clean lock 설치·경고 없는 production build와 전체UI349개, 별도 개발UI5개·Tauri custom-protocol build를 통과했다. 당시 같은 SHA의 원격 CI 확인을 남겨 상위ID를 TODO에 유지했다. 최종 완료는 아래 절을 따른다. [단계별 근거·실행 경계](tasks/immediate-backlog-20261029.md).
-
-
-## DEP-P3-05 — React·MUI 전환 완료
-
-2026-10-29 UI 전환 `f15f192fee105600d79468291334fb10f1495e9f`와 공개 Toss 명세 CI 보정 `99b85eb3cdc63deceb7ec60c325559607f98f8ce`를 정상 푸시·원격 SHA 대조했다. 최종 SHA의 Release Gate47·Security54가 모두 성공해 TODO 상위 ID를 닫았다. React19→MUI7→9 단계별 합성UI·최종349개와 개발QA5개, Rust 통합 빌드 및 Linux CI 검증을 구분해 기록했다. 원래 앱 startup·계좌·실거래·Windows/native 실동작 전체를 검증한 결과는 아니다. [CI 링크와 정확 범위](tasks/immediate-backlog-20261029.md).
-
-
-## DEP-P3-06 — Vite·React plugin 전환 완료
-
-2026-10-29 Vite6→7→8.3.5/plugin-react6.1.2·Oxc/Rolldown 전환을 `06a84fe32fa37dd0f31a13c21f13efb6dc4e8ac1`로 정상 푸시·원격 SHA 대조했다. clean 설치·target/debug4조합·전체UI349와 Tauri custom-protocol 빌드, 승인된 별도 WKWebView 차트·테마·입력·종료/재실행을 검증했다. 같은 코드 SHA의 Gate48·Security55도 성공했다. 알려진 calendar fixture 차단1건, 원래 Tauri startup/IPC·Windows·macOS12·CSP negative control 등의 제외 범위와 캡처 provenance는 [회차 기록](tasks/immediate-backlog-20261029.md)에 보존한다. 실제 계정·운영 DB·거래 검증이 아니다.
-
-
-## DEP-P3-07 — 나머지 의존성 평가·선별 전환 완료
-
-2026-10-29 `fe3a3f8a8836c7c20745b3a7c7ea7e09e68ccda4`로 sha2.11.1/thiserror2.0.21과 기존 hex0.4.3 재사용을 정상 푸시·원격 SHA 대조했다. keyring3/RGL1은 실제 초기화/backend·사용 이익을 검토해 유지·삭제 없음으로 판정했다. 구버전 및 호환 baseline과 새 버전의 같은 literal14개, 로컬 Rust882(실DB5제외)·전체UI349·strict clippy/build를 통과했다. 같은 코드 SHA의 Gate49·Security56도 성공했다. 최초 LowerHex 실패, 입력/생산 본문 동등성, 실제 DB/최소Rust/타플랫폼 제외는 [9회차 기록](tasks/immediate-backlog-20261029.md)에 보존한다.
-
-
-## DEP-P3-08 — TypeScript·패키지매니저 평가 완료
-
-2026-10-29 `adf0e5a4e4635e1e3cea9540df3016e6f60b070d`로 TypeScript7.0.2를 정상 푸시·원격 SHA 대조했다. TS5.9→6.0.3→7을 격리 비교해 원문130개·node1개 검사 범위와 strict·동일dist를 유지했다. npm11 유지·pnpm 미채택을 독립 판정했고 global 도구는 바꾸지 않았다. clean 설치/타입·UI349와 후속 짧은 loader 검증을 구분하고 Gate50·Security57 성공을 확인했다. 같은 프로젝트의 warm5회 앱 검사 중앙값은 TS6 2.1884→7 0.5722초이며 전체CI·순수CPU·설치크기 개선으로 확대하지 않는다. 초기 도구 안내·수정·지원환경 미검증은 [10회차 기록](tasks/immediate-backlog-20261029.md)에 보존한다.
-
+TS5.9→6.0.3→7.0.2 격리 비교·원문130/node1·strict/동일dist, npm11유지/pnpm미채택/global무변경. `adf0e5a4e4635e1e3cea9540df3016e6f60b070d` Gate50/Security57·clean설치/타입/UI349와후속loader를구분한다. 동일프로젝트warm5중앙값TS6 2.1884→7 0.5722초이며 전체CI/순수CPU/설치크기 개선으로확대하지않는다. 초기도구수정/지원환경미검증유지. 원문 L536–540.
 
 ## UIUX-20261030
 
-2026-10-30 UI/UX 전문가 역할 구성·현재 흐름 검토와 개선 백로그 작성을 수행했다. [역할 TOML](../.codex/agents/ui_ux_expert.toml)·[사용법](agent-tooling.md#uiux-전문가-사용)은 기존 구성을 따르며 모델/권한 재정의는 없다. 이번 세션은 일반 서브에이전트가 TOML을 읽고 같은 지침으로 감사했다. 새 Codex 세션의 자동 역할 탐색은 별도 미검증이다.
+`ui_ux_expert`는 기존TOML형식·부모모델/권한상속으로 구성했다. 현재세션 일반subagent가TOML을읽은것과 새세션autoload미검증을구분한다. [역할](../.codex/agents/ui_ux_expert.toml), [사용법](agent-tooling.md#uiux-전문가-사용).
 
-코드 기준은 `7f2ec166a47d88508f2e72e10ab6355f9e9a585e`다. 현재 dist 10개 파일 SHA를 직전 TypeScript7 검증의 `dist-final-hashes.json`과 전부 대조했다. Rust/Tauri를 실행하지 않고 정적 파일만 별도 `127.0.0.1` 임시 서버에서 서브했다. Vite/프로젝트 env 로딩 없이 새 headless Chromium context·service worker 차단·외부 HTTP/WebSocket 거부·모든 API 쓰기 403·미지정 API 503으로 격리했다. `strategyResearchFixture.ts`의 합성 KIS 모의 자료를 사용하고 시작/정지·주문/취소·실전동의를 누르지 않았다.
+`7f2ec166a47d88508f2e72e10ab6355f9e9a585e` dist10SHA를TS7검증과대조한 정적loopback·freshChromium·serviceworker/외부HTTP/WS차단·쓰기403/미지정503·합성KIS관측이다. 초회02:25:51~02:26:08UTC8+후속02:28:23~02:28:29UTC4는12관측이며기능PASS12가아니다. 1280×900light의status/balance/stats503×3와별도지연에서대기/보유없음/0원표시,Log빈성공/후속503×3의0건을확인했다. Settings/Strategy375×812dark문서overflow0, 해외실패/staledata는소스추론이었다.
 
-초회 02:25:51~02:26:08 UTC 8개와 후속 02:28:23~02:28:29 UTC 4개는 **화면 관측 시나리오 12개**이며 개선 구현 또는 통과 테스트12개라는 뜻이 아니다. 실제 화면 PNG와 요청/DOM을 부모가 열어 확인했고, 전문가도 P1·Log 주요 증거를 독립 대조했다.
+초회Settings Tab은log-config POST1을유발했으나403차단,누락budget GET503도보존하고제품결함으로세지않았다. 후속입력/Tab없는캡처는쓰기/unknown/외부/pageerror0,전체외부/pageerror0. 모든프로세스종료. `.cache/uiux-review-20261030/`의초회/후속JSON·PNG·script와`/tmp/kis-uiux-expert-20261030.md`가원본이다. nativeIPC/Toss실행/AT/전반contrast/200%확대/최소OS는당시미검증.
 
-| 관측 | 화면·주입 상태 | 확인과 한계 |
-| --- | --- | --- |
-| P1-UX-01 | `/` 1280×900 light, trading/status503×3·별도 응답 보류 | ‘대기 중/대기’·시작 버튼과 상태 확인 중 문구 공존; 데몬 실제 상태·시작 결과를 검증한 것은 아님 |
-| P1-UX-02 | `/trading` 같은 크기/light, 국내 balance503×3·응답 보류 | ‘보유 종목 없음’; 해외 실패/기존 자료 후 재조회는 소스 추론 |
-| P1-UX-03 | `/history` 같은 크기/light, 조회 GET·stats503×3·trades 정상빈 배열 | 오류 안내 없이 +0원/0건/0.0%; 손익 산식·실제 원장 정합성 판정은 아님 |
-| P2-UX-04 | `/log` 같은 크기/light, 빈 성공·후속 recent-logs503×3 | 둘 다 0건/빈 패널; 필터0·기존 자료 후 오류는 소스 추론 |
-| 반응형·정보구조 | `/settings`, `/strategy` 375×812 dark | 문서 가로 overflow0, Settings 장문 섹션·목차 없음; 일반 모바일 오버플로 결함으로 확대하지 않음 |
+역할5TOML·신규권한불변·기존TODO10본문/고유20·HTML/map/graph/diff·renderer3(좁은폭/keyboard/JS없는읽기)·독립리뷰를통과했다. 제품/의존성/workflow무변경이므로Rust/전체UI349를새실행하지않았다. 제안9개는이후아래에서구현했고판단P2-UX-07과기존대기는유지한다. [이전 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L541-L565).
 
-초회 Settings의 Tab 샘플이 log-config POST1회를 유발했으나 403으로 차단했다. auto-budget GET fixture 누락503도 같이 남긴다. 이를 운영 설정 변경이나 제품 결함으로 세지 않는다. 누락 mock을 보완한 후속 Settings는 입력/Tab 없는 관찰용 자동 캡처로 분리해 쓰기 시도/미지정/외부 요청/페이지 예외0을 확인했다. 전체12관측의 외부 페이지 요청·페이지 예외는0이며 주입 503/403의 브라우저 resource 오류는 의도된 결과로 보존한다. 모든 context/브라우저/임시 서버는 종료했다.
+## UI/UX 개선 완료 — 2026-10-30
 
-원본은 Git 제외 `.cache/uiux-review-20261030/`의 `audit-first-pass.mjs`, `audit.mjs`, 두 로그·`report-first-pass.json`/`report-followup.json`·동명 PNG다. 역할 검토는 `/tmp/kis-uiux-expert-20261030.md`에도 남겼다. 실제 Tauri IPC·Toss 상태의 실행·스크린리더·전반 명도대비·200% 확대·Windows/macOS 최소버전은 미검증이다. 기존 UI349 통과를 이번 UX 검증 성공으로 재사용하지 않았다.
+[아래 ID의 고정 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L566-L691). 각 절 끝에 원래 줄 범위를 표시한다.
 
-새 작업은 [TODO](todo.md)의 즉시9개(P1-UX-01~03, P2-UX-01~06)와 판단1개(P2-UX-07)로 정리했다. 역할 구성과 검토만 완료했으며 후보 구현은 전부 미착수다. 기존 결정/실자료/SQLx 10개·지난 즉시 10회차 완료는 보존했다.
+아래는 production mock의 고유검사 수이며 인접/후속재실행을 합산하지 않는다. 공통 앱/config타입·FSD·보호본문/AST 대조와 독립리뷰를 통과했고 실거래/운영설정·사용자판단/실자료를 대신 완료하지 않았다. [회차 기록](#task-uiux-improvements-20261030).
 
-검증: 역할 TOML 5개 파싱·신규 역할 필드/권한 불변, 기존 TODO10개 본문 보존·고유ID20개, HTML freshness·지도·그래프·diff가 통과했다. 기존 TODO 렌더러 테스트 3개(Chromium 좁은 폭·키보드 검색/필터·JS 없는 읽기 포함)를 통과했고 독립 리뷰에 필수 P0/P1/P2 지적은 없었다. 제품 소스·의존성·workflow는 변경하지 않아 Rust/전체UI349/배포 CI를 새로 실행하지 않았다.
+### P1-UX-01
 
+QueryStatusSummary로Sidebar/Dashboard 미확인·첫실패·이전실행/정지자료·마지막정상시각·읽기재시도를일치시켰다. query/금융handler/버튼조건보존. 신규5+기존UI5+합성Sidebar시작정지1=고유11,160pxSidebar/375pxdark캡처,독립문구기대P2교정. 초회3/중간9/후속6중복합산없음. 원문 L566–580.
 
-## P1-UX-01
+### P1-UX-02
 
-2026-10-30 범용 QueryStatusSummary를 추가해 Sidebar와 Dashboard의 미확인·첫 실패·이전 실행/정지 자료·마지막 정상 확인 시각·읽기 재시도를 일치시켰다. query 옵션과 금융 handler/버튼 조건은 원문 동등성을 유지했다. 앱/config 타입·FSD·격리 production build와 최종 새 상태 테스트5개, 기존 dialog/Select/차트5개, 기존 합성 Sidebar 시작/정지1개의 고유11개 검증을 통과했다. 초회3·중간9·후속6 실행은 중복 합산하지 않는다. 160px Sidebar와375px 다크 메뉴 캡처를 확인했고 독립 리뷰의 문구 기대 정합 P2를 수정·재검증해 잔여 필수 P0/P1/P2는 없다. 사용자 판단·실자료 조건은 대신 닫지 않는다. [회차 기록](tasks/uiux-improvements-20261030.md)에 검증/미검증·게시 상태를 보존한다.
+KIS국내/해외 독립상태·시각/retry·같은scope이전자료,실패와정상빈잔고분리·Toss/선택/주문보존. 신규10+기존폼5=15(27.8초),각시장지연/빈/보유/이전자료·키보드연속2회재조회·다른시장불변·보호9항목/375dark. 외부guard검사P2보강. 원문 L581–595.
 
-### 원래 TODO 완료 조건·근거 보존
+### P1-UX-03
 
-P1-UX-01 — 실행 상태 미확인·조회 실패·이전 상태를 ‘대기’와 구분한다.
-- 근거/대상: `src/widgets/sidebar/ui/Sidebar.tsx:56-68,118-131`은 `useTradingStatus`의 data만 받아 `undefined ?? false`를 ‘대기 중’과 시작 아이콘으로 렌더한다. `src/api/tradingHooks.ts:14-23`은 주기 조회 query이지만 Sidebar는 loading/error/dataUpdatedAt을 소비하지 않는다. Dashboard의 상태 chip·시작 버튼도 `src/pages/dashboard/ui/Page.tsx:460-488`에서 같은 boolean 해석이다. 실제 건강 패널이 없는 것이 아니라 **상태 조회 자체가 아직 성립하지 않았거나 실패했을 때 전역 요약을 구분하지 않는 문제**다.
-- 현재 화면 보강: 위 `sidebar-status-error` mock과 PNG, 후속 `sidebar-status-loading`에서 같은 표현을 확인했다. 503 노출 또는 응답 보류 초기 프레임의 관측이며 실제 데몬 상태나 실제 시작 성공의 증거가 아니다.
-- 영향/우선순위: P1. 사용자가 실제 실행 중단 사실과 단순 통신 미확인을 혼동할 수 있다. 현재 backend guard가 우회되거나 주문이 안전하지 않다고 입증한 것은 아니다.
-- 개선 방향: 확인 중/확인 실패/마지막 정상 상태를 텍스트·아이콘으로 구분하고 마지막 정상 확인 시각 및 읽기 재시도 경로를 표시한다. 기존 health 상세와 연결해 중복 상태를 만들지 않는다. 실제 시작·정지 동작/권한·guard 정책은 보존한다.
-- 의존성: 기존 tradingStatus query key·polling/변이 캐시 계약 재사용. 미확인 때 시작 버튼의 금융 동작 정책을 새로 바꾸려면 P2-UX-07에서 별도 판단한다.
-- 완료/검증: 지연·첫 실패·정상 실행/정지·성공 후 재조회 실패의 synthetic fixture에서 Sidebar와 Dashboard가 같은 상태를 표시한다. 미확인이 ‘대기/정상’으로 단정되지 않고 이전 데이터임이 보인다. 문구/재조회 키보드 경로를 확인하며 start/stop·provider 호출0을 기록한다.
+History통계/체결독립상태·시각/retry·날짜draft/실제기간구분·같은query이전자료. 손익/승률/통화/trace보존. 신규6+일봉13=19(17.2초),통계실패/체결성공·정상0/양쪽실패·각stale/retry2회·미적용기간·보호11항목. 원문 L596–610.
 
+### P2-UX-01
 
-## P1-UX-02
+Trading/Strategy검색과KIS/Toss양시장보유 native명명선택·focus·내부Tab유지/Escape·입력복귀. RowSelectionButton5곳,검색표52행분리/Page982. 신규10+폼5+holdings10=25(27.8초),blur/외부닫힘/포인터/375dark긴이름/overflow0,보호14·전략함수15AST동등. 원문 L611–624.
 
-2026-10-30 Trading의 KIS 국내·해외 잔고에 독립 조회 상태·마지막 정상 시각·읽기 재시도를 연결하고 미조회/첫 실패를 정상 빈 목록과 분리했다. 같은 scope의 query 자료만 이전 자료로 유지하며 기존 scope fence·Toss 분기·선택/주문 본문을 보존했다. 최종 새 holdings10개+기존 주문폼5개의 고유15개가 production mock UI에서 통과했다(27.8초). 국내/해외 각각 지연·첫 실패·빈/보유 성공·성공 후 실패·키보드 복구·연속2회 재조회·다른 시장 읽기 불변을 확인했다. 앱/config 타입·FSD·diff와 보호원문9항목 대조가 통과했고375px 다크 이전 해외잔고 캡처를 확인했다. 테스트 외부 guard P2를 보강·재검증해 최종 독립 리뷰에 잔여 필수 P0/P1/P2는 없다. 사용자 판단·실자료 조건은 대신 닫지 않는다. [회차 기록](tasks/uiux-improvements-20261030.md)에 검증/미검증·게시 상태를 보존한다.
+### P2-UX-02
 
-### 원래 TODO 완료 조건·근거 보존
+Sidebar/Log명명separator·Arrow/Home/End/Enter기본값·명시target즉시저장. pointer delta/end·범위/키/flex보존. 신규5+scroll5=10(4.7초),repeat/경계/route/reload/다른pref/반응형·동일geometry1재검사,보호12/AppShell12·Log4callback동등. 원문 L625–638.
 
-P1-UX-02 — Trading의 KIS 잔고 로딩·실패를 ‘보유 없음’과 분리한다.
-- 근거/대상: `src/pages/trading/ui/useTradingOrderModel.ts:148-155`는 KIS 국내/해외 잔고에서 data만 꺼내지만 Toss 보유는 loading/error를 꺼낸다. `src/pages/trading/ui/Page.tsx:151-166`은 KIS data가 없으면 `[]`를 넘기고, `kisPanels.tsx:26-31,97-102`는 이를 ‘보유 종목 없음/해외 보유 종목 없음’으로 렌더한다. Toss의 별도 상태 분기(`Page.tsx:88-100`)는 이미 있으므로 유지한다.
-- 현재 화면 보강: 위 `trading-balance-error`에서 국내503인데 ‘보유 종목 없음’을 확인했다. 후속 `trading-balance-loading` 초기 프레임에서도 같은 빈 표시를 확인했다. 동시 appConfig 초기 로딩·프로파일 미선택을 별도 문제로 세지 않는다. 해외 실패와 stale-data 재조회 상태는 소스 기반 후보로 남긴다.
-- 영향/우선순위: P1. 미조회·인증/연결 실패를 정상 잔고0으로 해석하게 할 수 있다.
-- 개선 방향: KIS 두 query의 loading/error/마지막 성공 data를 보유 패널까지 전달하고 로딩·조회 불가·정상 빈 목록·이전 자료를 구분한다. 기존 데이터를 무조건 버리거나 잔고 수량을0으로 치환하지 않는다.
-- 의존성: query key, broker gate, polling, 보유 선택이 채우는 주문 폼 의미는 그대로 둔다. 자격증명 UI 확대 없이 재조회/기존 설정 안내를 활용한다.
-- 완료/검증: 국내/해외 각각 지연·실패·빈 성공·보유 성공·보유 성공 후 실패를 mock으로 확인한다. 실패 시 ‘보유 없음’ 단정이 없고 국내와 해외의 상태를 독립적으로 읽을 수 있다. Toss 분기 회귀와 실제 외부 요청0을 확인한다.
+### P2-UX-03
 
+History상세Dialog에동일체결의시각/ID/통화/경제값/전략/trace. ID+적용기간선택·대상소실시폐기·기존formatter보존. 신규4+상태6+일봉13=23(23.3초),375/1280·다중체결/긴ID/nulltrace/keyboard/focus/scroll. 실제Chromium tabzoom2의CSS1280→640/1000→500,DPR1→2,visualScale1을확인했다(AT/native아님). 함수13/보호15. 원문 L639–652.
 
-## P1-UX-03
+### P2-UX-04
 
-2026-10-30 History의 통계와 체결 목록을 독립 조회 상태·마지막 정상 시각·읽기 재시도로 표시하고, 미조회/실패와 실제0을 분리했다. 날짜 입력의 미적용 변경과 실제 적용 기간을 명시하며 같은 query의 이전 자료만 보존한다. 원래 손익/승률·통화/trace·날짜 전달과 query 계약은 유지했다. 새 History6개+기존 live-daily13개의 고유19개가 첫 실행에서 통과했다(17.2초). 초기 조회 전/지연·통계 실패/체결 성공·실제0/빈 성공·양쪽 실패·각 이전 자료/시각·독립 키보드 재시도와 반복2회·미적용 입력/확정 기간을 검증했다. 앱/config 타입·FSD·보호원문11항목·독립 UI 리뷰를 통과했고 잔여 필수 P0/P1/P2는 없다. 사용자 판단·실자료 조건은 대신 닫지 않는다. [회차 기록](tasks/uiux-improvements-20261030.md)에 검증/미검증·게시 상태를 보존한다.
+Log placeholder/실응답·로딩/실패/무기록/필터0/stale·시각/retry/검색label/필터초기화. 5초poll의빈번한값은live영역밖,tail300/행/trace/filter/scroll/follow/resize보존. 신규5+resizer5=10(13.3초),이전0/150행·poll2회정확증가·위scrollTop0/하단follow·statusDOMmutation0,함수6/보호18·375dark/desktop캡처. 원문 L653–666.
 
-### 원래 TODO 완료 조건·근거 보존
+### P2-UX-05
 
-P1-UX-03 — History 통계 조회 실패를 0원·0건·0%로 표시하지 않는다.
-- 근거/대상: `src/pages/history/ui/Page.tsx:53-65`는 stats query의 data/isLoading만 사용하며 미존재 값을0으로 요약한다. `143-159`는 로딩이 끝나면 그 값을 보여준다. `171-176`의 tradesError는 별도 체결 query에만 적용되므로 통계 단독 실패는 표시되지 않는다.
-- 현재 화면 보강: 위 `history-stats-error`에서 통계503과 +0원/0건/0.0%를 JSON·PNG로 확인했다. 실제 원장/손익 값의 정확성이나 다른 통계 경로를 검증한 것은 아니다.
-- 영향/우선순위: P1. 기록을 확인하려는 사용자가 조회 실패를 실제 손익/거래0으로 오독할 수 있다. 기존 손익 산식 자체의 맞고 틀림은 이 검토 범위가 아니다.
-- 개선 방향: 통계 query의 실패·미확인/이전 자료·성공0을 명시적으로 구분한다. 요약과 체결 목록 각각의 상태 및 실제 적용 조회기간을 표시하고 해당 실패만 재시도 가능하게 한다. 원장/손익·승률 계산 정책을 바꾸지 않는다.
-- 의존성: 기존 `useStatsByRange`/`useTradesByRange` query와 날짜 범위 전달 계약.
-- 완료/검증: stats500+trades성공, stats성공0+trades빈, 둘다실패, 초기조회·지연의 mock matrix를 확인한다. 실패 요약은 0수익/0승률로 단정되지 않고 성공0과 식별되며 재시도 후 실제 적용기간과 결과가 일치한다.
+Settings15목차/h1·h2·복구h3·focus/복귀, Risk지연/실패제목유지. 지연routeback이명시이동을덮는문제는동기알림+같은route pending만취소해교정했다. 저장/DB/금융/원래복원보존. 신규6+DB예산4/복구11/UI4/resizer5/Strategy3=33(17.1초);375dark/1280·draft무저장·지연back반복. 동일1case재검증2.5초와test-only anchoring차단에서wrong-route top4824복원/same-route3929유지(895px차이). 보호40/원래6파일대조. 원문 L667–680.
 
+### P2-UX-06
 
-## P2-UX-01
+두차트동일변환결과를canvas와CandleDataSummary가공유,OHLCV/시점/조회조건/최근20봉표·keyboard선택/scroll·scope/새자료선택해제. KIS KRW/USD·Toss통화미확인구분/명명toggle,새조회·환산·시각변환없음. 신규8+폼5+LTHpaint1=14(15.0초),유색픽셀/빈격자0·US1분/단위/20봉/상태/theme/unmount. 동일lifecycle2후속4.8초에서backing/CSS570→256·584→270,scroll0→201/199,우측거래량18/3확인. 보호44/converter/query/effects/model대조. 원문 L681–691.
 
-2026-10-30 Trading/Strategy 검색 결과와 KIS/Toss 양시장 보유 행에 이름·코드가 있는 native 선택 버튼과 focus 표시를 추가했다. 내부 Tab 이동 중 결과를 유지하고 Escape/검색 선택 후 입력으로 focus를 돌린다. 순수 RowSelectionButton을5곳에서 재사용하고 Strategy 검색 표만52행 모듈로 분리해 Page982행을 유지했다. 기존 금융/선택 state·모델·query는 보존했다. 새 키보드/포커스10개+기존 form5개+holdings10개의 고유25개가 최종 통과했다(27.8초). 검색 내부 blur·Escape/선택 후 닫힘·외부 blur·포인터 코드셀·KIS/Toss×KR/US 선택을 확인했다. 375px 다크 긴 이름의 full accessible name·focus ring·문서 overflow0 캡처를 확인했고 앱/config 타입·FSD·보호14항목/전략 함수15개 AST 동등성을 통과했다. 최종 독립 UI/helper·참조 검토에 잔여 필수 P0/P1/P2는 없다. 사용자 판단·실자료 조건은 대신 닫지 않는다. [회차 기록](tasks/uiux-improvements-20261030.md)에 검증/미검증·게시 상태를 보존한다.
+<a id="keyboard-final-ci-20261031"></a>
+## 최신 키보드 게시·CI 영수증
 
-### 원래 TODO 완료 조건·근거 보존
+P2-KBD-01~05를 순서대로 구현·검증·푸시했다. 마지막 검증 코드 **`7b8b9978a182c8dc138264e5b61cdb9a8c775a70`**, 그 결과를 기록한 문서 **`4021e38bc5caaf4751eacaf96c20dc54dcf0f708`**는 서로 다른 커밋이다. 같은 코드의 [Release Gate58](https://github.com/CountJung/KISAutoTrade/actions/runs/41253655588)과 [Security65](https://github.com/CountJung/KISAutoTrade/actions/runs/41253708366)가 성공했다. UI557/557(14.0분; 기존408+키보드149), Rust901/901(12.81초), renderer3·bootstrap4·compiler 경고0을 로그와 대조했다. 기존 RSA 예외와 외부 도구 deprecation은 별도다.
 
-P2-UX-01 — 종목 검색 결과·보유 종목 선택을 키보드로 수행한다.
-- 근거/대상: `src/pages/trading/ui/kisPanels.tsx:50-55,121-126`, `trading/ui/Page.tsx:118-123,295-308`, `strategy/ui/Page.tsx:577-589`의 선택 행은 클릭 handler만 있는 TableRow다. 해당 행에 tabIndex/키 handler/실제 button이 없다. 국내 입력의 blur180ms 닫힘과 mouseDown preventDefault(`Trading:217-226,264-270`, `Strategy:535-538,564-567`)도 포인터 흐름 중심이다. 해외 티커 Enter 검색과 기존 MUI dialog/Select 키보드 지원은 이미 있으므로 전체 키보드가 없다고 주장하지 않는다.
-- 영향/우선순위: P2. 마우스를 쓰기 어려운 사용자는 이미 나온 결과 선택이나 보유 클릭을 통한 폼 채우기 경로를 이용하기 어렵다.
-- 개선 방향: 행 안 명명된 선택 button 또는 일관된 combobox/listbox 패턴을 정하고, 검색 결과 이동·선택·닫기와 포커스 복귀를 지원한다. 표시명과 종목코드를 함께 알리고 기존 선택 후 폼값/시장/scope 유지.
-- 의존성: 현재 검색 훅·선택 closure 유지. 공용화는 실제 입력/선택 의미가 같은 부분만 검토한다.
-- 완료/검증: 키보드만으로 KR/Toss 보유 및 국내 검색 결과를 선택하고 폼의 정확한 종목/시장/수량을 확인한다. Arrow/Enter/Escape 또는 명시 button의 Tab/Enter 동작, blur 중 결과 소실 방지, focus visible, 긴 이름·좁은 폭 및 포인터 회귀를 mock으로 검사한다. 주문 제출0.
+CI54(553/4)는 실제 입력·backdrop hit와 저장 중 focus를 구분하는 준비 보강, CI55(556/1)는 최초 query body→화면 준비, CI56(556/1)은 잠금 DOM의 원자적 제거/disabled 관측, CI57(556/1)은 첫 정상 preview 결과 대기로 교정했다. 제품 정책·검사 등록수·timeout을 완화하지 않았고, 같은 실패 run을 중복 실행하지 않았다. 이전 파일 쓰기 승인 거절은 미실행 확인 후 새 사용자 지시의 정상 재검토로 한 번 해소했다. 현재 승인/게시 차단은 없다. [회차·red/green·정확 SHA 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/keyboard-improvements-20261031.md#keyboard-final-ci-20261031).
 
+실제 macOS 한글 IME·Tauri WebView·스크린리더·운영 계좌/시장자료는 미검증이다. 공개 scope를 바꾼 합성 검사와 실제 계좌 pinning, UI 응답 격리와 backend abort/idempotency는 구분한다. 기존 TODO11개는 이 완료에 포함하지 않는다. 아래/이전의 작은 검사 수와 반복 실행은557에 더하지 않는다.
 
-## P2-UX-02
+## 통합한 작업 기록의 검증·결정 색인
 
-2026-10-30 Sidebar 너비와 Log 높이에 명명된 키보드 separator를 추가했다. 방향키·Home/End·Enter 기본값 복원과 focus 표시를 제공하고 명시한 target을 즉시 저장한다. 기존 pointer delta/end·저장 키/범위·반응형 flex 계약은 보존했다. 신규 resizer5개와 기존 scroll5개의 고유10개가 최종 통과했다(4.7초). 반복키·경계·기본값·저장/route/reload·다른 pref 불변·pointer와 반응형 표시를 확인했다. 동일 Log 사례의 geometry 부분 재실행1개도 통과했으며 중복 합산하지 않는다. 앱/config 타입·FSD·보호12항목 및 AppShell12/Log4 callback AST 대조를 통과했고 최종 독립 리뷰에 필수 P0/P1/P2는 없다. 사용자 판단·실자료 조건은 대신 닫지 않는다. [회차 기록](tasks/uiux-improvements-20261030.md)에 검증/미검증·게시 상태를 보존한다.
+기존 중복 구현 설명은 위 ID 절과 현재 계약/연구 정본을 따른다. 아래35개는 당시 코드·환경의 별도 검증 영수증과 고유 판단을 보강한 것이다. 시작/baseline SHA를 게시 SHA로 바꾸지 않으며, 원문의 게시 예정·미착수는 당시 상태다. 원래 완료 조건·명령 출력·중간 실패는 각 불변 Git 원문에서 복원한다. 실제 사용자 변경·미추적 원본을 삭제한 것이 아니다.
 
-### 원래 TODO 완료 조건·근거 보존
+| 날짜·작업 | 당시 코드·검증 | 판단·미검증 경계 | 고정 원문 |
+|---|---|---|---|
+|<a id="task-appledouble-and-soxq-p1-03"></a>2026-10-03 · SOXQ-P1-03|Rust lib180, all-target check/Clippy 경고0; Playwright22, TS/FSD/build/map/graph 통과; 같은 입력2회+각20bp 지원24실행 일치; 다른 전략20실행 v4 결과 유지|현재일 범위를 이전 N일 평균에 섞지 않고 flat range0 보존; 공용 기본 훅은 live tick 경계를 유지; 기존 미커밋 사용자 작업 보존; 커밋/PR 생성 없음; 실전·모의주문/자동시작 미실행; SOXQ +1.7179%/+0.7807%는 미청산 수량 포함 엔진 진단; 성과 우수성 아님; 당시 P1-04/05·P2-14/16/17 잔여는 후속기록과 구분|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/appledouble-and-soxq-p1-03.md)|
+|<a id="task-project-health-and-soxq-p1-01"></a>2026-10-03 · SOXQ-P1-01, 프로젝트 캐시 경계|main; 커밋없음; 캐시이동후초기Rust142, P1-01최종Rust167; UI21/39.5초·TS/FSD/build/Clippy 경고0; 13전략×2모드64봉, 지원12×2 생성시각외재현/20bp스트레스|registry/toolchain공통cache미이동·연구원본보존; 부족자료에기간단축금지·가상warmup주문금지; 이전p1-02 fmt실패는당시기록보존; 외부DB없는contractskip은실서버검증아님; 당시날짜이벤트/LTH/nextOpen/TRATR는후속범위; 실주문/자동시작없고커밋생성없음|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/project-health-and-soxq-p1-01.md)|
+|<a id="task-soxq-p1-04"></a>2026-10-03 · SOXQ-P1-04|baseline65e465e에P1-01~03보존·origin/main게시확인; Rust181lib+3productionintegration+3doc=187·UI22; generatedAt외전체JSON반복동일·지원24 v5결과동일|provider조회자동fallback금지; generic차단대안을선택·엔진v6/deterministic지원범위표시; LTH시장세션/DST·실분봉/P1-05·nextOpen은당시미완료; 실주문/모의운용없음|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/soxq-p1-04.md)|
+|<a id="task-soxq-p1-05"></a>2026-10-05 · SOXQ-P1-05|시작main cbc4553; Rust190lib+3integration+3doc=196·UI26; 지원24+구조적거부2 v6동일반복·TS/FSD/build/Clippy경고0|일봉재초기화가분봉/보유/highwater/age지우지않음; warmupCount0·dailyContext/intraday별도·LTHv3/enginev7; 일봉→분봉보간금지; 2026-07-06~10-02 원본/공급원/시간대·start/end·정규연장·캘린더·조정/누락 metadata대기; 실전체3개월 replay NOT RUN·운용/모의소액별도승인; 전체Done으로압축금지|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/soxq-p1-05.md)|
+|<a id="task-autonomous-backlog-20261018"></a>2026-10-18 · SOXQ-P2-05, SOXQ-P2-16, LTH 실제 체결 feedback, P3 사용자 가이드|시작694fa14; 최종 Rust212lib+3integration+3doc=218, Clippy 경고0; focusedUI10, 앱36+TODO3 E2E; v8 두 실행1432행 동일; 1402행 v7동등/52주30행 차이|ATR 기본 비활성·신규매수 차단/보유매도 유지; 동결 bool 연구 API 보존; replay 전용 module 유지; live 일봉/providerpaging/walk-forward/연속replay/체결모델 등 당시 잔여; 외부 DB fixture 미설정 early return은 실DB 검증 아님; 실계좌조회·실주문·자동시작 없음|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/autonomous-backlog-20261018.md)|
+|<a id="task-consecutive-entry-filters-20261018"></a>2026-10-18 · SOXQ-P2-06|기준6f9ca35; 구현d39d15f 원격동일/clean(문서 최종감사 후속기록 별도); Rust537lib+4integration+3doc=544; E2E125+production33+TODO3; 기본flat1224+long6, 후보연속24/분할24/분기288; 최종312원장148099체크 오류0; map/graph·253링크|기존 필드명 저장 호환; 숫자+관측 단위 문구만 reason정규화; legacy warmup이 context 무효화하면 ready표도 지워 재요청; 차트 chunk 분리로 build경고 해소, warning limit 유지; 관측한2023~2025 상관ETF3개 사후진단; 2026 미사용은 독립OOS증거 아님; 분기는 별도1천만원 계좌; 수익률합산/복리 금지; 실자료coverage·장중체결·운용안전 미검증|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/consecutive-entry-filters-20261018.md)|
+|<a id="task-continuous-replay-20261018"></a>2026-10-18 · SOXQ-P2-18|시작cc6f5d0; 게시커밋은원문Git이력참조; Rust517lib+4integration+3doc; UI114; 기본flat1224 full report/signals 일치; 연속72/alternate72/초기화864; root136717/독립143866 산술체크|16청크/각500·평가4096/history512, UI48페이지/4608보관; 7달력일 초과 공백은 보수적 계산보류; 누락봉 합성 금지; 모드는 경제hash 포함·청크분할은 제외; typed신호키순서로 baseline대조; 원장30MB→gzip4.2MB 무손실·SHA보존; LTH시간대·실분봉coverage·실거래·서버세션저장·walk-forward 미완료; 완료청산0 평가수익/실제0주비중제한은 동일노출 성과아님; 고정FX/무배당/추정비용·기업행위/달력 미검증|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/continuous-replay-20261018.md)|
+|<a id="task-database-tls-reconnect-20261018"></a>2026-10-18 · DB TLS·단절·복구|시작f7d3a24; 게시Git이력참조; Docker run5f656179: 일반3+TLS재접속1+불신CA1 실제통과·정리확인; Rust464lib+3integration+3doc(외부5 earlyreturn 별도), focusedDB29; UI DB4·subprocess timeoutcleanup2·정적게이트/Clippy 경고0|정확한UUID/소유label·loopback·임시CA/합성credential만 사용; retention fixture를오늘/91일전으로 교정, 제품90일규칙유지; 취소/post-rename/marker sync 실패는 복구확인 전 차단; Windows 실제실행/전원차단/운영keychain·DB/MariaDB 미검증; 원격tag release미실행; marker만삭제해복구우회금지|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/database-tls-reconnect-20261018.md)|
+|<a id="task-documentation-layout-20261018"></a>2026-10-18 · 루트 문서 정리(1차)|시작cd35389; 게시Git이력참조; 상대링크110/독립107 broken0·연구SHA20일치; cargo check/TS·map/graph freshness·독립리뷰 통과|기존연구 validationhash 재작성금지; index.html/LICENSE·도구진입예외유지; 동작변경없어 Rust단위/E2E미재실행; 운영배포/모의소액범위아님|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/documentation-layout-20261018.md)|
+|<a id="task-execution-run-reservation-20261018"></a>2026-10-18 · P1-RUN-01|시작2c593de; 신규race22 포함 Rust297lib+3integration+3doc=303; Clippy/TS/FSD/build 경고0·함수71본문분리전동일성; TODO3·152링크·map/graph|manager→order lock순서·networkawait에bool/strategyguard유지금지; KIS pending TR-ID 모드불명/반대면조회·종결보류; 비활성profile삭제로활성runtime재생성금지; 실provider·실모의주문·자동시작미실행; async close stop은프로세스종료내구성보장아님; 당시일반설정 보유보존 P1-CONFIG-01은후속범위|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/execution-run-reservation-20261018.md)|
+|<a id="task-frontend-hooks-split-20261018"></a>2026-10-18 · P3 frontend Query hook 분리|기준eb8b63d; TS AST함수72/전체선언74 exact·export87동일; TS/FSD/build 경고0·E2E36·TODO3·map/graph|새module은facade역참조금지·전면FSD이전미포함; 의미동일본문복사테스트추가안함; Toss38경로명세검사는runtime섹터구현아님; 실주문·계좌API·자동시작미실행|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/frontend-hooks-split-20261018.md)|
+|<a id="task-holdings-publication-fence-20261018"></a>2026-10-18 · P1-BAL-01|시작323727c; Rust359lib+3integration+3doc=365; 계좌전환/이벤트UI13+기존26·TODO3; A→B→A/partialfill/두시장원자성·159링크·정적게이트 경고0|새조회실패해도old응답복귀금지·priceupdate는수량version유지; 진짜empty/0은삭제·무효수량/가격은전체오류; profile5mutation직렬화·late listener해제/unmount보호; provider잔고자체지연·조회전fill+reconcile이중반영미해결; 공유총수량을전략소유로추정금지; 당시 P1-FILL-01후속; 실provider인증/실모의주문/자동시작미실행|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/holdings-publication-fence-20261018.md)|
+|<a id="task-live-completed-daily-history-20261018"></a>2026-10-18 · SOXQ-P2-05, SOXQ-P2-17|Rust275lib+3integration+3doc=281·UI35; manager19+collector/scheduler scope/날짜/공유수집회귀; 133링크·map/graph/정적게이트 경고0|동시2·요청8·512봉·대상511+초과진단1; 최종완료일1~10일과거만ready; 실제휴장달력증거아님; 52주전용legacyseed제외; 완료봉재차제외금지; 실provider·계좌주문미실행·긴휴장도보수적보류; 당시quote→예약 pinning/P1-CONFIG보유재생성위험은별도후속; LTH초기화미호출|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/live-completed-daily-history-20261018.md)|
+|<a id="task-provider-candle-contract-20261018"></a>2026-10-18 · SOXQ-P2-17, SOXQ-P2-05 선행|Rust243lib+3integration+3doc=249·UI54; localhost실adaptercursor/+URL·KIS요청/파서·8MiB상한; UTC/Seoul/NY독립프로세스 hash/trades일치·DST반복시각회귀|해외dailyprice HHDFS76240000·xymd; 현재가TR유지; Toss200/KIS100, UI8요청/500보관·cur_scope/asOf고정; NAS→NYS→AMS는첫provider오류만·성공뒤거래소유지; 주/월/당일 보수적제외와provider확정flag를구분; 공개스펙/합성fixture와실providercoverage구분; LTH세션/DST/3개월운용미검증; live연결은후속live완료일봉기록참조|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/provider-candle-contract-20261018.md)|
+|<a id="task-replay-accounting-20261018"></a>2026-10-18 · SOXQ-P2-15|시작1192673; Rust504lib+4integration+3doc·UI104, focused47/formatter후31별도; 기본1224 metadata외 report/signals exact·합성시나리오40/항등120; 독립fill4540/경제640항목·최대0.01원차|FX배당각64개·정확평가봉시각·이중배당거부; 최소fee native/방향별fee·수동확인은사용자선언; 실제경로비용환급은산술참조,무비용재실행아님; fmtRoundedKrw만공유·음수half-tie다른함수유지; QQQ실가격+합성FX/배당/요율40은독립시장40표본아님; 실브로커요율인증/USD현금장부/실배당자료아님; PG환경없는5earlyreturn은실DB검증아님|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/replay-accounting-20261018.md)|
+|<a id="task-replay-execution-model-20261018"></a>2026-10-18 · SOXQ-P2-14|시작ba74e03; Rust480lib+4integration+3doc·UI95·focused38; baseline1224전체report/signals exact·실가격8+benchmark8; simulation25·기존runner2offlinecompile|sameClose신규진입에과거고저가적용금지; LTHOpen에미래closehighwater혼입금지; sameClose lookAheadSafe=false/LTHfalse 유지; 고정FX/일봉소표본·미청산평가이익/완료손실혼합; 실유동성·LTH시장시각·배당/기말청산 미검증; 당시P2-15/18은후속완료항목과구분|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/replay-execution-model-20261018.md)|
+|<a id="task-strategy-configuration-preservation-20261018"></a>2026-10-18 · P1-CONFIG-01|시작3040e8c; 문서이전694fa14; Rust342lib+3integration+3doc=348(45추가); UI22+설정오류4·TODO3·156링크; 13전략reconfigure·owned취소/실제저장뒤오류복구·정적게이트경고0|보유제거/시장변경사전거절·PC빈symbols실효대상반영; 다른profile에private인스턴스이전금지·공유0잔고로private보유삭제금지; same_identity기계predicate만13caller공유; 당시P1-FILL/P1-BAL은별도후속완료기록; 거래소세션/손익안전·실계좌운용인증아님|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/strategy-configuration-preservation-20261018.md)|
+|<a id="task-strategy-fill-ownership-20261018"></a>2026-10-18 · P1-FILL-01|시작886dd5b; Rust449lib+3integration+3doc=455·UI89; Tossv1.2.24/38paths·162링크·정적게이트 경고0; legacy wholeaccount원가/자정손실/terminalintent/즉시fillID 등독립finding 수정재검증|fill은tracker delta아닌조회무효화·재조회전예약보류; 소유ledger/generationmanifest 손상·불일치는failclosed·낡은backup자동복구금지; 0.00015=0.015%·비정상비율0수수료통과금지; ledger+manifest모두삭제coldstart를신규설치와구별못함; 계좌총잔고로잃은전략귀속복원금지; 실provider지연/운영원장/실제분봉미검증|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/strategy-fill-ownership-20261018.md)|
+|<a id="task-strategy-review-20261018"></a>2026-10-18 · 전략 전수 연구, stock_analyst 역할|시작2cd04db; Rust197lib+3integration+3doc=203; 1432행전체반복generatedAt외일치·harnessClippy경고0; 기존SOXQ24/거부2/진단/benchmark동일·TOML모델상속검증|전략Python재구현금지·생산Rust실행; 분기252준비/최근248평가·두비용/동일요청수량; 재다운로드수정가능하므로보관input기준재현; sameClose/고정FX/무배당/낮은노출/미청산/상관표본; LTH0신호=0%성과아님·P1-05실3개월/시장시각미완료; Playwright미실행(제품/UI변경없음)|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/strategy-review-20261018.md)|
+|<a id="task-trading-module-split-20261018"></a>2026-10-18 · P3 자동매매커맨드 분리|기준191fa93; Rustlib212·check/Clippy/TS/FSD 경고0; fmt/map/graph/TODO HTML 통과·독립본문동일감사|privatehelper하위module한정·외부재수출만기존visibility; 순수이동본문복제테스트추가없음; 분리만으로live52주고가갱신구현아님; 실계좌/API/주문/자동시작미실행|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/trading-module-split-20261018.md)|
+|<a id="task-deviation-policy-20261020"></a>2026-10-20 · SOXQ-P2-04|baseline bca6601/v15; 게시예정문구만있음; Rust583lib+4integration+3doc=590; E2E155 및 별도추가case/최종spec18; 비대상1122exact·대상102delta, 연속36/분할36/분기432; 468원장 root68421/독립200495검사 오류0|약10초관측·warmup일봉/분봉을분리; isFiniteNumberInRange/removeDraftIfUnchanged만 공유승격, domain정책local; ABA callback 실제재전달source검사로우연한 observer폐기성공 방지; raw305→23/차단286→4는 수수료절감아님; 노출·미청산수익·비중제한0주는우수성아님; 상관3ETF 사후진단; 추가case를156단일실행으로합산금지; 실제provider/운영DB/장중미실행|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/deviation-policy-20261020.md)|
+|<a id="task-ma-cross-filters-20261020"></a>2026-10-20 · SOXQ-P2-01|기준327739a/v16→v17; Rust635lib+4integration+3doc=642·MA27; UI191/focused20·baseline1224 full exact; 최종48연속/48분할/576분기, root104884+3240/독립313205검사|ATR0/폭0은자료충분시ready·양수문턱미달; 손상legacy기간 slope활성 검증우회차단; StageA36→최종48 후보추가는사후탐색으로구분; 전체사전등록/OOS·SOXQ일부개선의기본승격아님; 독립current1224재실행아닌runner/hash감사; 실provider/주문/DB미검증|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/ma-cross-filters-20261020.md)|
+|<a id="task-mean-reversion-policy-20261020"></a>2026-10-20 · SOXQ-P2-10|baseline474aa06/v15→v16; Rust611lib+4integration+3doc=618·UI171 후문구focused15별도; 최종36연속/36분할/432분기468원장·flat102; root74968/독립219769검사·TrendFilter실행bytesSHA동일|기존ddof0/strictband·기간버퍼/reset·1분warmup no-op유지; 나이불명 활성maxHold은보수적매도후보; 완료자료부족중에도stop/maxHold평가; 1분준비분봉을기존경로가사용하지않는한계보존; 63관측미발동으로효능평가불가; 사후21/상관과거자료OOS아님; QQQ1주기존4경로와새3주연구혼합금지|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/mean-reversion-policy-20261020.md)|
+|<a id="task-momentum-feedback-20261020"></a>2026-10-20 · SOXQ-P2-03|기준86a9829/v14; Rust553lib+4integration+3doc=560·UI138; 비모멘텀1122exact·Momentum102경제동일·연속24/분할24/분기288; 312원장root46772/독립136960체크 오류0|같은0수량/nextOpenpending은체결아님·양수feedback에만후보소모; gap1에서4<m<5는후보취소만,재무장아님; warmup가상후보/포지션생성금지; raw차단감소는수수료/수익개선아님; partition감사는독립대체재실행아님·상관3ETF/OOS아님; QQQ부분개선은낮은노출/잔여평가동반·실운용미검증|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/momentum-feedback-20261020.md)|
+|<a id="task-root-documents-20261020"></a>2026-10-20 · 루트 LICENSE 문서정리(2차)|선행Momentum be732e7; 문서게시예정; LICENSE바이트/SHA55d027a578fedf8881e20abd62556611978529201c87471b4e94c9f8e3a120d9동일; 링크48·map/graph/TODO/diff통과|도구요구숨김진입/Graphify산출물예외유지; 선행Momentum be732e7 별도커밋; 기능테스트추가없음·제품동작변경없음|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/root-documents-20261020.md)|
+|<a id="task-failed-breakout-policy-20261022"></a>2026-10-22 · SOXQ-P2-07|baseline13c5fd3/v18→v19; commitpush예정문구; Rust718+integration4+doc3·focused30; UI21/전체238; 비대상1122exact/대상102sameClose변화0, 연속42/분할42/분기504; 546원장63168봉·root85073/독립233251검사 오류0|raw정상0/결측분리·현재누적거래량을과거완료량으로사용금지; 체결반영후pending해제·실제잔량매도; v1미확인/v2엄격복원; nextOpen 소유교정은경제경로변경, sameClose와구분; 비중제한SOXQ분기42계좌0주·독립OOS아님; P1-05/P2-12 실자료운용게이트미완료·최종지연심볼호출결과미사용|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/failed-breakout-policy-20261022.md)|
+|<a id="task-lth-minute-timing-20261022"></a>2026-10-22 · SOXQ-P2-12(자동진단 하위항목), SOXQ-P1-05|시작ec57c02; Rust660lib+4integration+3doc=667·minute25/preview79; 양수체결fixture signals/backtest/inputhash exact·엔진v17/LTHv4유지; UI최종15/전체202·188링크/anchor2|TossbarClose label/label−60초, explicitbarStart label/+60초; RFC3339실제순간변환·compact12/14는legacyKST가정; 512입력/64byte/진단목록상한·gap산술계산; 실제3개월자료·휴장조기마감·coverage·실수신발행시각 미검증; 상위P1-05/P2-12 미완료유지, 자동하위1개만완료; 초기UI11/12 후fixturefalse교정/손상컬렉션보강을단일15성공과구분|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/lth-minute-timing-20261022.md)|
+|<a id="task-rsi-policy-20261022"></a>2026-10-22 · SOXQ-P2-02|baseline978640c; Rust687lib+4integration+3doc=694·UI217/focused15; 비RSI1122exact/대상102delta·연속30/분할30/분기360; 390원장root61782/독립185202체크 오류0|zero-loss100·매관측기준갱신유지; runtime경제SHA와후속testmanifest갱신분리·audit순환hash금지; hold63 전체78경로owned동일로효능미평가; 비RSI/partition은부모증거확인이지독립재실행아님; P1-05/P2-12 실제자료/운용미완료|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/rsi-policy-20261022.md)|
+|<a id="task-strong-close-policy-20261022"></a>2026-10-22 · SOXQ-P2-08|baseline ac9d7d0e432b2e992aba58fce68187de18777fa5/v20; Rust745lib+4integration+3doc·focused34·UI262/focused24; 기본1224/비대상1122·대상102/owned78경제신호동일; 연속30/분할30/분기360·root67393/독립253595검사390원장|D-1조건→D종가신호→D+1관측시가와익일시가매수오해구분; 기본3/3·inclusive(H-C)/H·stop0원가이하보존; 상태/peak/metadata무리한공유없음; 원본owned연속6 청산0·잔량평가수익을청산성과로표현금지; hold63 마지막신호10/실한도청산0·효능미평가; 대체partition원장미저장/독립재정산아님·P1-05/P2-12대기|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/strong-close-policy-20261022.md)|
+|<a id="task-volatility-expansion-policy-20261022"></a>2026-10-22/2026-10-23 · SOXQ-P2-09|baseline47fc10ba744223ec069edc71d77a4d05f425ff19/v21; Rust775lib+4integration+3doc=782·focused41; UI전체306후문구수정focused46, 전체308단일통과주장금지; 36연속/36분할/432분기·468원장root70828/독립249412|새시장일첫quote는거래소시가아님·관측고저는전체장중범위아님; 평균H-L을ATR/종가평균helper와합치지않음; 진단512상한초과는ready아닌미확인; 실장중최초발동·체결·세션/누락/coverage미검증으로상위P2-09열림; 대체분할원장미저장·hash동등성36만; 실주문/모의운용미실행|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/volatility-expansion-policy-20261022.md)|
+|<a id="task-trend-filter-policy-20261023"></a>2026-10-23/2026-10-25 · SOXQ-P2-11|시작70df3b3·문서b3c441c보존·연구baseline81fa00d/v21→v22; Rustlib789·UI322(production290/source32), focused84별도; 30연속/30분할/360분기·비대상1122/대상102/owned78호환; 390원장root63559/독립171604검사 오류0|positiveunknown metadataSome·원자복원뒤streak0; StrongClose전체state공유안함·age기계동작만재사용; baselineharness는별도offline lock해석,원Cargo동일빌드주장금지; hold63분기72경제동일·16lastpending추가로분기효능미평가; SOXQowned+9.5760%=실현손실+잔여평가혼합; 실운영DB/주문/장중체결미검증|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/trend-filter-policy-20261023.md)|
+|<a id="task-immediate-backlog-20261029"></a>2026-10-29 · P1-RECOVERY-01, SOXQ-P2-13, SOXQ-P2-16, P3-REFACTOR-01, DEP-P3-03, DEP-P3-04, DEP-P3-05, DEP-P3-06, DEP-P3-07, DEP-P3-08|시작5437c07bc6c2bf0876c0ddc211ddeabb6cd632d7; 아래 회차별 게시 추적 참조; 회차별별도영수증·반복실행수합산금지; 마지막Gate50/Security57 동일adf0e5a에서Rust887/UI349; 격리WK실제paint/Tab/Escape/종료재실행·stale재시작PNG분리/provenancemanifest; TS6→7 동일source파일명검사warm앱3.82배/node2.10배, executor/ambient차이·전체앱성능아님|복구승인은desktopIPC한정·pending복원이며재주문/체결합성/예산직접해제아님; PC상위미완료·70/30같은장부진단과회고walkforward/OOS분리; 기존RSA예외와LinuxRustSec2경고유지·최소Rust1.90실행성공아님; 자동승인거절은미실행확인+새원문근거1회정상재검토로해소·우회없음; SOXQ-P2-13 실제장중자료/효능·실접수체결미완료; 실DB미설정5earlyreturn을887실DB통과로세지않음; WK는bare Wry/Tao·CSPnegative/IME/원TauriIPC/Windows/macOS12미검증; SQLx/MariaDB/서명/실자료·사용자판단미완료유지|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/immediate-backlog-20261029.md)|
+|<a id="task-uiux-improvements-20261030"></a>2026-10-30/2026-10-31 · P1-UX-01, P1-UX-02, P1-UX-03, P2-UX-01, P2-UX-02, P2-UX-03, P2-UX-04, P2-UX-05, P2-UX-06|구현최종d143824ffd606d4cda4f3eed1d3a87eeabbb70ed; 검사보정5b3db3c06ce5d36b7271ac6e99cddb5679bc5d39; 로컬전체408/3.7m; 첫Gate51 406/2 후준비보정고유Log5·반복20별도; 최종5b3db3c Gate52UI408/12.7m·Rust887/Security59success; 신규59+기존349; 신규읽기writing0/기존mock주문별도|QueryStatusSummary/RowSelectionButton·명시focus동기알림 등기계동작만공유; History선택은ID+적용기간·poll에서대상사라지면폐기; 표는기존chart정규화자료공유·새조회/환산/시각변환없음; Log첫정상조회완료후clockpause로초기Query통지준비만교정; 제외TODO11개유지·실provider/계좌/DB/AT/native미실행; resizer설정900≠실제flex픽셀·스크롤표요약이모두한frame에보임을보장안함; 키보드5미착수footer는당시검토상태로현재완료를덮지않음|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/uiux-improvements-20261030.md)|
+|<a id="task-toss-simulation-response-parsing-20261031"></a>2026-10-31 · TOSS-PARSE-01|코드0e69fb7a26eb30d3fe0c73f7cc910a8d2a60d53d 원격동일/clean; 키보드검토문서7703f38636f78e25f015a6f7841d7e599a60bb6c; 최종focused37·신규14 포함Rustlib901/replayintegration4; 로컬productionmockUI30·compiler경고0·OpenAPIv1.2.28/39paths; Gate53=Rust901/UI408 7.7m·Security60success|decoder/dependency/TLS/DTO허용범위/15초·4MiB유지; 캔들GET만안전metadata·token/POST/401/GET retry계약보존; 최종gzip거절stage=content_encoding,옛UTF8재현과구분; 실계좌API/운영로그/앱재실행/배포미실행; publicdocs gzip제공은인증캔들gzip증거아님; 원문keyboard미착수는이작업당시상태로현재KBD완료를덮으면안됨|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/toss-simulation-response-parsing-20261031.md)|
+|<a id="task-keyboard-improvements-20261031"></a>2026-10-31/2026-11-01 · P2-KBD-01, P2-KBD-02, P2-KBD-03, P2-KBD-04, P2-KBD-05|01 a8cba69e1ac518d36ba5f5e173a4eff921098a6e; 02 5b45c463807cbd1385d7837b4daf3245e1659874; 03 a6c51fc9dae70873f9c77d069e841ff42c069da1; 04 73f1775a8adc9d354e04fa6bde58818d00829c44; 05 e27d7bd51ac08e03c26a0cd408f3973af66573bb; 최종검사코드7b8b9978a182c8dc138264e5b61cdb9a8c775a70 원격동일/clean; 문서commit와분리; 최종Gate58 UI557/557(14.0m)=기존408+신규149·Rust901/901(12.81s)·TODO3/bootstrap4; Security65npm/cargo성공·기존RSA예외/도구안내유지; 고유04 JSON31 mocksettings56(52성공/4의도거절),05 JSON24 profile15/auxread23/HTTP5007console매칭; 실제쓰기0|shared helper는EnterIME·opaque key/epoch·focus-only4키같은기계동작만; LTH외부180ms owner가input→region으로변경됨,모든timer불변주장금지; Home/End숫자caret OS가정대신동일부모기본input대조·기본동작재설계없음; main pending사용자닫기와성공내부닫기분리·aux닫기허용·serialization≠dedup; CI후속은실제hit/trustedkey·enabledTab/held저장분리·초기GETbody→clock통지·atomicdisabled/removed/nativepointer·Trendbaseline결과await; 04IMEs합성이벤트isTrusted=false·모든11쌍×모든Slider키Cartesian검증아님; 02 pendingStrictMode dispose→activate/concurrent중단·05HTTP200→config500/실SPAunmount미재현; 전송Promise자체abort/계좌pinning/idempotency/자동rollback보장아님; CI54~57실패원본과최종성공/로컬focused실행중복합산금지|[원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/tasks/keyboard-improvements-20261031.md)|
 
-P2-UX-02 — 패널 크기 조절에 키보드 대안과 현재값을 제공한다.
-- 근거/대상: `src/shared/ui/LayoutResizer.tsx:27-67,71-78`은 mouse down/move/up에만 연결된 Box이며 focus/keyboard/명명·현재값 API가 없다. `widgets/app-shell/ui/AppShell.tsx:328-334` Sidebar, `pages/log/ui/Page.tsx:178-184` 로그 높이 등에 사용된다. 앱 main의 native scroll과 custom rail은 별도이므로 ‘스크롤 전체가 키보드 불가’로 확대하지 않는다.
-- 영향/우선순위: P2. 포인터 없이 밀도/읽기 폭을 조절하기 어렵고 현재 크기·방향을 알 수 없다.
-- 개선 방향: 명명된 separator의 focus/화살표/Home/End 지원 또는 명시 크기 입력·기본값 복원 대안을 제공한다. 기존 min/max·저장 키·드래그 callback 보존.
-- 의존성: 각 부모의 clamp·persistentLayout 계약을 먼저 대조. touch 필요 여부는 pointer 추가 전 별도 runtime 확인.
-- 완료/검증: Sidebar 폭과 Log 높이를 Tab으로 찾아 keyboard로 조절, min/max·기본값 복원·재방문 persistence·포인터 드래그를 확인한다. 접근 가능한 이름/방향/현재값과 focus visible를 확인하며 금융 호출0.
+### 기존 이력에 부족했던 구현 요약
 
+- **SOXQ-P1-03:** 등록 작업 루트 두 곳의 AppleDouble 후보·제거·오류가 모두 0임을 확인했다. StrongClose/VolatilityExpansion에 날짜 시작→종가 조건→실제 포지션 피드백→완료봉 적재 순서를 도입하고 replay v5 및 일봉 제한 UI를 맞췄다. live tick·next-open·장중 체결은 이 작업의 완료 범위가 아니다.
+- **SOXQ-P1-01, 프로젝트 캐시 경계:** 외장파일시스템 시절 절대 Cargo target을 프로젝트 내부 상대 target/으로 이전하고 setup-local이 공통 설정을 덮지 않도록 했다. 모든 전략의 동일 평가기간과 엄격한 과거 warmup·준비 상태를 분리해 고정200/252 기본을 보존했다. 기존 사용자 미커밋 연구/코드를 유지하며 13전략 동일64봉을 재평가했다.
+- **SOXQ-P2-05, SOXQ-P2-16, LTH 실제 체결 feedback, P3 사용자 가이드:** 52주 rolling 고가와 TR14 ATR 준비·차단을 보강하고 LTH에 실제 잔여수량·평균체결가 snapshot을 반영했다. 0bps fallback과 bool feedback 결함을 독립 감사 후 수정했으며 live/LTH/replay helper는 의미가 달라 공용화하지 않았다. 사용자 가이드와 TODO 생성·대기 표시도 맞췄다.
+- **루트 문서 정리(1차):** 루트 일반 문서를 docs로 옮기고 README·AGENTS·CLAUDE만 진입 문서로 남겼다. PROJECT_MAP과 자동 project-map의 역할·파일명을 구분하고 상대 링크·도구 참조를 동기화했다. 연구 artifact20개 SHA를 유지했고 생산 동작은 변경하지 않았다.
+- **SOXQ-P2-17, SOXQ-P2-05 선행:** Toss inclusive nextBefore·봉 종료시각과 KIS 공식 TR-ID/날짜 xymd를 확인해 공통 scoped candle page를 연결했다. UI는 평가봉을 우선 보존하고 별도252 사전자료를 bounded 수집하며 완료/무효/부족·cursor오류를 표시한다. RFC3339 실제순간과 시장날짜를 분리해 host timezone 의존을 제거했으나 LTH 세션 인증으로 확대하지 않았다.
+- **루트 LICENSE 문서정리(2차):** 기존 docs 배치를 확인한 뒤 남은 루트 LICENSE를 docs/LICENSE로 원문 변경 없이 옮겼다. README 배지/링크와 AGENTS 배치 규칙을 맞추고 실행 코드·전략 설정은 건드리지 않았다.
 
-## P2-UX-03
+### 묶음 회차별 게시 추적
 
-2026-10-30 History 거래별 상세 보기와 page-local Dialog를 추가해 같은 체결의 전체 기록 시각·ID·통화·가격/금액/수수료/슬리피지·전략·trace를 좁은 화면에서도 읽게 했다. 기존 formatter 결과를 전달하며 선택은 ID+적용 기간만 보관한다. polling에서 대상이 사라지면 선택도 폐기해 자동 재개방을 막는다. 신규 상세4개+기존 History 상태6개+일봉13개의 고유23개가 최종 통과했다(23.3초). 375/1280폭에서 KRW/USD fallback·환산/부호·같은 종목 다중 체결·긴 ID·null/빈 trace·Tab/Enter/Escape/닫기/focus 복귀·키보드 스크롤과 overflow를 검사했다. 격리 Chromium의 실제 tab zoom2에서 CSS1280→640/높이1000→500·DPR1→2·visualScale1과 상세 접근을 확인했다. 앱/config 타입·FSD·원래 함수13개 및 보호15항목 대조를 통과했다. 최종 루트·UI 전문가 독립 리뷰에 필수 P0/P1/P2는 없다. 사용자 판단·실자료 조건은 대신 닫지 않는다. [회차 기록](tasks/uiux-improvements-20261030.md)에 검증/미검증·게시 상태를 보존한다.
+| 작업 | 당시 검증·게시 근거 |
+|---|---|
+|P1-RECOVERY-01|ac3eb564ea678fe99722bbc5f3f040b4c50b1773; Rust807/UI15·recovery19(부분집합); 실provider운용P1-PROVIDER-01열림|
+|SOXQ-P2-13|00ea198ad021836862ad345d58f618660fae6d0b; Rust822+후속FX1별도; live6/replay9;6연속+6분할+72분기·10536정산; 상위ID미완료·실자료조건TODO이관|
+|SOXQ-P2-16|15b53286109f599242d27e5314ea2c0105ac453e; Rust831·UI20+37별도·1584실행/독립358749정산; 새OOS·성과우수아님|
+|P3-REFACTOR-01|4a9e250236e8773f0b1fe3194339cc0978a8a5a8; Rust831·분리전폼5/분리후47·정적경고0|
+|DEP-P3-03|HTTP10/Rust841/Gate43UI344·WS14/Rust855/Gate44UI344·Security50/51; 실OSroot/KIS인증·stalledwrite전용fixture·MSRV실행미검증|
+|DEP-P3-04|653377ce4ba49bc679d1762fe0f5d6ec2409fb74; 서버24단계별·Rust873/UI344/Gate45·Security52|
+|DEP-P3-05|전체UI349·Rust873; 첫Gate46명세실패/Sec53후Gate47/Sec54성공; MacChromium이nativeWebView검증아님|
+|DEP-P3-06|06a84fe32fa37dd0f31a13c21f13efb6dc4e8ac1; cold64/warm32단계별·전체349·네build조합·Rust873/Gate48/Sec55; 실앱startup/계정미실행·재시작유효PNG1/stale분리|
+|DEP-P3-07|fe3a3f8a8836c7c20745b3a7c7ea7e09e68ccda4; 고유focused104⊂localRust882(DB5제외),CI887(DB5earlyreturn)/UI349 Gate49/Sec56; DBscanner checksumtest는productionimport/exportroundtrip아님|
+|DEP-P3-08|adf0e5a4e4635e1e3cea9540df3016e6f60b070d; 전체UI349와loader후속무경고짧은실행분리·dist10동일·Gate50Rust887/UI349/Sec57; TSspeed는executor/ambient차이포함·Windows/editorLSP/Mac12실행미검증|
+|P1-UX-01|d18dce3f9cbe858a29dd8c7e5cc2c9f8383e24a1; 고유11·160px/375dark|
+|P1-UX-02|36ccd96618d1681cf9c2d5e68bda6815d596e60d; 신규10+mock주문5=15|
+|P1-UX-03|aaf94f274f4a5eb04f34a2d09df0665dc293a222; 신규6+일봉13=19|
+|P2-UX-01|ee341d6ca6d6f3463d77fec2469e3ee986063e96; 키보드10+form5+holdings10=25|
+|P2-UX-02|44c1ae5fa0e3e7dc675eb9b17132146b824d3422; resizer5+scroll5=10·설정값/실제pixel구분|
+|P2-UX-03|9d0a8d290fa6f9f81d33c79dfab68763da902801; 상세4+상태6+일봉13=23·실제tabzoom2|
+|P2-UX-04|8d89417e7b1df76e9b5318cc6a81b7dfd3ac823c; Log5+resizer5=10·최종CI준비보정별도|
+|P2-UX-05|6fa2e4f32feb41578ff2eb164330025398e28440; 33+같은case부분1별도·wrongroute895px판별|
+|P2-UX-06|d143824ffd606d4cda4f3eed1d3a87eeabbb70ed; 새8+form5+paint1=14·같은lifecycle2부분별도|
+|P2-KBD-01|신규14+인접15=29|
+|P2-KBD-02|신규42+인접29=71|
+|P2-KBD-03|신규38+인접71=109|
+|P2-KBD-04|신규31+기존109+인접11=151후artifact31별도; 제목ASCII충돌27JSON→UTF8SHA12+원title로31증거복구|
+|P2-KBD-05|min6/canonical24/최종557별도|
 
-### 원래 TODO 완료 조건·근거 보존
+키보드 순차 커밋: `01 a8cba69e1ac518d36ba5f5e173a4eff921098a6e`; `02 5b45c463807cbd1385d7837b4daf3245e1659874`; `03 a6c51fc9dae70873f9c77d069e841ff42c069da1`; `04 73f1775a8adc9d354e04fa6bde58818d00829c44`; `05 e27d7bd51ac08e03c26a0cd408f3973af66573bb`; `최종검사코드7b8b9978a182c8dc138264e5b61cdb9a8c775a70 원격동일/clean; 문서commit와분리`.
 
-P2-UX-03 — 좁은 History에서 숨긴 거래 상세를 다시 열 수 있게 한다.
-- 근거/대상: `src/pages/history/ui/Page.tsx:183-192,198-199,218-242`는 xs에서 시간·가격·전략을, md 미만에서 금액·수수료·슬리피지를 숨긴다. xs ProviderTraceChips 대안은 `206-208`에 있지만 숨긴 경제값/시간을 여는 상세 컨트롤은 없다.
-- 영향/우선순위: P2. 좁은 화면에서 같은 종목/수량의 여러 체결을 구분하거나 비용·시각을 대조하기 위해 화면 폭을 바꿔야 한다.
-- 개선 방향: 거래별 명명된 ‘상세 보기’ disclosure/dialog 또는 카드 보조행으로 숨긴 값·통화·시간·전략·trace를 제공한다. 테이블의 현재 간결한 요약과 기존 표시 산식은 유지한다.
-- 의존성: 기존 trade 데이터만 사용. P1-PROVIDER-01의 실제 원장 검증을 완료 처리하지 않는다.
-- 완료/검증: 375폭과 1280폭, 200% 확대를 기준으로 같은 mock 체결의 모든 숨긴 항목에 접근 가능하고 KRW/USD·수수료·슬리피지·같은 종목 다중 체결을 정확히 식별한다. Tab/Enter/Escape·focus 복귀·가로 넘침을 검사한다. 이것은 목표 검증이며 현재의 화면 실패를 실측한 주장은 아니다.
+## 초기 설계·보안 인수인계의 통합 기록
 
+<a id="legacy-master-plan"></a>
+### 초기 설계 아카이브
 
-## P2-UX-04
+초기 `#legacy-master-plan`는 개인용 Desktop/Web·JSON 거래/통계 보관·Discord 알림·자유형 화면·Theme·민감정보 비노출의 요구사항을 기록했다. React18/MUI6·JSON-only·옛 파일 트리/스키마는 당시 구상이며 현재 계약이 아니다. 현재 사용법은 [사용 가이드](user-guide.md), 저장/IPC 계약은 [코딩 가이드](coding-guide.md)·[IPC](ipc-commands.md), 구조는 [아키텍처](ARCHITECTURE.md), 운영 단계는 [사람용 계획](MASTER_PLAN.html)이 소유한다. 재사용 지침과 Discord 설정은 각각 AGENTS와 [Discord 가이드](discord-setup-guide.md)를 따른다. [초기 요구·스키마·설계 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/MasterPlan.md)은 고정 Git에서 복원한다.
 
-2026-10-30 Log에서 placeholder와 실제 응답을 구분해 최초 로딩/실패·정상 무기록·필터 결과0·이전 자료와 마지막 정상 시각을 표시했다. 읽기 재시도·검색 label·필터 지우기를 추가하고 5초 polling의 건수/시각/fetching은 live 영역 밖에 뒀다. 기존 query/tail300·logger·행/trace·필터·scroll/follow·resize를 보존했다. 신규 Log5개+기존 resizer5개의 고유10개가 최종 통과했다(13.3초). 지연/500/성공[]/필터0/이전0·150행/반복 키보드 복구와 필터 초기화, 원래5초 poll2회의 정확한 요청 증가·위쪽scrollTop0·하단follow 복귀·status DOM mutation0을 확인했다. 앱/config 타입·FSD·원래6개 함수/표현과 보호18항목 AST/원문 대조를 통과했고 루트·UI 전문가 독립 리뷰에 필수 P0/P1/P2는 없다. 375px 다크 실패와 desktop 이전자료 PNG를 직접 열었다. 사용자 판단·실자료 조건은 대신 닫지 않는다. [회차 기록](tasks/uiux-improvements-20261030.md)에 검증/미검증·게시 상태를 보존한다.
+<a id="security-storage-handoff"></a>
+### 2026-10-06 Windows 저장·보안
 
-### 원래 TODO 완료 조건·근거 보존
+기준 `8db7bf8`에서 Windows 보안 패치 `0812c71`과 저장 변경을 분리했다. Lenovo Windows x64/Rust1.92·Node22 환경에서 같은 디렉터리 temp flush→handle 종료→Windows MoveFileExW(REPLACE_EXISTING/WRITE_THROUGH), Unix rename→parent fsync의 차이를 보존했다. backup 실패 시 정상본 보존·긴 한글 경로·Windows 잠금/재시도를 검사했으며 copy/delete fallback으로 오류를 숨기지 않았다. Unix rename 후 directory fsync 실패는 이미 새 정상본이 반영됐을 수 있고, 임의 backup copy 실패의 기존 backup 보존이나 실제 정전 내구성은 보장하지 않는다.
 
-P2-UX-04 — Log의 조회 실패·기록0·필터 결과0을 구분한다.
-- 근거/대상: `src/pages/log/ui/Page.tsx:60,76-80,102-110,130-175`는 query error를 읽지 않고 기본[]·결과 건수와 map만 표시한다. `src/api/logHooks.ts:43-50`은 placeholderData[]를 쓰며 실패 상태의 부모 분기나 빈 결과 안내가 없다. 검색 필드는 placeholder만 있어 명시 label도 보완 대상이다. 현재 auto-follow는 사용자가 위로 스크롤하면 멈추는 동작(`Log:62-74`)이 이미 있으므로 없는 기능으로 다시 제안하지 않는다.
-- 현재 화면 보강: 초회 `log-empty`와 후속 `log-error-final`의 JSON/PNG를 대조했다. 후속 GET503 3회 뒤에도0건/빈 패널만 보이며 실패 안내가 없었다. 필터0·기존 자료 후 오류는 아직 소스 기반 후보다.
-- 영향/우선순위: P2. 비어 있는 로그가 정상 무기록인지 필터나 통신 실패인지 구분하기 어렵고 장애 조사 다음 행동이 불명확하다.
-- 개선 방향: 최초 로딩·불러오기 실패/이전 자료·기록 없음·검색/level 불일치 메시지와 읽기 재시도·필터 지우기를 제공한다. 검색 label, 결과 건수의 과도하지 않은 상태 안내를 추가한다. tail/poll 주기·logger 자체는 변경하지 않는다.
-- 완료/검증: 지연·500·성공[]·비어 있지 않은 원본에 필터0·실패 후 재시도 matrix를 mock으로 확인한다. 오류가 0건으로만 보이지 않고 검색명 접근·필터초기화·사용자 스크롤 고정이 유지된다. 로그 내용·민감 metadata를 늘리지 않는다.
+당시 lib181통과/9실패의 저장·원장 문제를 교정한 뒤 **193통과 중 실제190+DB 즉시반환3**, LTH clock3·Chromium mock30, check/clippy/fmt·타입/build를 통과했다. Unix 실행·실제 DB·브로커 TLS/주문·desktop artifact는 미검증이었다. 당시 RSA/XML 예외3·RustSec경고14·개발 Vite/esbuild 잔여는 뒤 Mac 회차와 구분한다. [Windows 환경·패키지 버전·수정·검사 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/security-storage-handoff-2026-10-06.md).
 
+<a id="security-mac-handoff"></a>
+### 2026-10-06 / 10-24 Mac 보안·호환 검증
 
-## P2-UX-05
+**10/06:** Windows `015a28a8b38d9cc9665511ccdae96afe06100c32`를 보존한 Apple Silicon/Rust1.95·Node26 작업본에서 private0600·read-only 원본 교체·backup/corrupt 복구·동시 쓰기를 합성 검증했다. lib **195통과 중 실제192+DB 즉시반환3**, clock3·mock UI30 및 check/clippy/fmt/타입/build가 통과했다. plist/quick-xml·anyhow/event-listener/rand·Tauri의 옛 XML/UNIC/selectors 경로와 Vite/esbuild를 교정해 예외3→1, 경고14→2를 기록했다. compiler 경고0과 Linux 보안 경고2는 다르다. 실제 keychain은 mock이며 실DB·브로커·desktop 실행·정전 내구성은 미검증이다.
 
-2026-10-30 Settings에15개 안정된 목차 도착점과 제목/목차 복귀를 제공했다. h1/h2/중첩 복구 h3와 명시 focus·outline을 추가하고 Risk 로딩/실패 때도 제목을 유지했다. 지연된 routeback의 pending 복원이 명시 목차 이동을 덮는 실제 문제는 공통 동기 알림과 AppShell의 같은 route pending만 취소하는 listener로 해소했다. 원래 저장·금융/DB 경계와 자동 복원 함수는 보존했다. 신규6개+기존 DB/예산4·복구11·UI4·resizer5·Strategy3의 고유33개가 통과했다(17.1초). 375dark/1280에서15개 Tab/Enter 도착/복귀·focus·계층/overflow·초안 무저장·Risk500/지연·정상back/reload0와 지연back 반복을 확인했다. 독립 리뷰 요청으로 보강한 같은1case의 부분 재검증도 통과했다(2.5초). test-only scroll anchoring 차단 대조에서 wrong-route는 높이 회복 후 저장top4824 복원, same-route 취소는3929 유지로895px 판별 차이를 확인했다. 앱/config 타입·FSD·보호40항목과 원래6파일/handler/query 및 AppShell 기존 본문 대조를 통과했다. 루트·UI 전문가 최종 독립 리뷰에 필수 P0/P1/P2는 없다. 사용자 판단·실자료 조건은 대신 닫지 않는다. [회차 기록](tasks/uiux-improvements-20261030.md)에 검증/미검증·게시 상태를 보존한다.
+**10/24:** 시작 `04f3b04`, Mac stable Rust1.99.1·프로젝트 Node24.22.1/npm11.19.1로 안정 호환 갱신을 검증했다. 선언 MSRV1.90 자체 실행은 하지 않았고 SQLx0.9의 최소1.94·MariaDB 인증/TLS 정책은 사용자 결정으로 남겼다. lib **775통과 중 실제 오프라인770+DB 즉시반환5**, clock4·mock UI308, Linux/Mac production60·source32, renderer3·빌드/타입·Clippy/fmt의 당시 결과를 구분했다. npm audit0→0, Cargo 취약점12→1·RSA 예외 유지와 Linux경고2를 기록했다. Xcode27.0→27.1 설치는 사용자 보류이며 이 문서 통합으로 해제하지 않는다.
 
-### 원래 TODO 완료 조건·근거 보존
+당시 `64ed2b6` CI는279/29, `beebe01` CI는293/15였고 모바일 overflow와 dev/source harness 전제를 교정했다. Linux 로컬 전체308 통과와 당시 최종 harness 게시 대기는 각각 과거 상태다. 이를 현재 실패/게시 대기로 표시하지 않으며 이후 구현·최종 코드 CI는 이 문서의 최신 영수증을 따른다. 설치/worktree·패키지 준비 명령은 실행하지 않았고 현재 명령은 [HARNESS](HARNESS_MAP.md), 남은 RSA/Linux 정책은 [release-security](release-security.md), DB/MSRV·Xcode·실운영 조건은 [TODO](todo.md)를 따른다. [회차별 전체 버전표·검사·CI·근거 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/security-mac-handoff-2026-10-06.md).
 
-P2-UX-05 — Settings에 반복 탐색을 줄이는 섹션 목차·heading을 제공한다.
-- 근거/대상: `src/pages/settings/ui/Page.tsx:497-648,650-871`은 테마→갱신→로그→보관→DB→rate limit→프로파일→웹→종목→Discord의 긴 Stack이다. 리스크·예산/복구·KIS/Toss 프로파일 섹션도 page/child에 조립된다. `settings/ui/section.tsx:6-11`은 anchor/id 없이 subtitle1 Typography를 표시한다. 현재 코드에서 상단 목차·섹션 focus 이동 경로는 보이지 않는다. 길이 때문에 실제 작업시간이 몇 초 느리다는 실측은 하지 않았다.
-- 영향/우선순위: P2. 반복 설정/장애 복구를 위해 어느 섹션으로 가야 하는지 찾기 어렵고 제목 탐색·키보드 접근 단서가 부족하다.
-- 개선 방향: 기존 섹션명과 저장/보류/보안 정책을 유지한 채 상단 목차·안정된 section ID·논리적 heading과 focus 가능한 도착점을 추가한다. 자동저장/명시저장의 현재 차이는 안내하되 저장 방식 일괄변경이나 주요 설정 숨김은 포함하지 않는다.
-- 의존성: AppShell 기존 route별 scroll 복원과 충돌하지 않아야 한다. 탭/전면 재배치·일괄저장 같은 제품 선택은 필요 시 사용자에게 별도 제안.
-- 완료/검증: 키보드와 좁은 화면에서 계좌/예산·복구/DB/리스크 섹션을 목차로 찾아 올바른 heading으로 focus가 이동한다. reload/back·route scroll 복원·동일 저장 요청 및 오류/상태 가시성을 mock으로 확인한다. 실제 설정 저장0.
+## 문서 압축·통합 — 2026-11-01
 
-
-## P2-UX-06
-
-2026-10-30 두 차트의 기존 변환 결과를 canvas와 widget 내부 CandleDataSummary가 함께 사용해 OHLCV·자료 시점/범위·조회 조건·최신/선택 봉과 최근20봉 표를 제공했다. 봉 선택과 표 가로 스크롤을 키보드로 사용하며 scope/새 자료에 이전 선택을 해제한다. KIS KRW/USD와 Toss 통화 미확인을 구분하고 실제 DOM에서 이름이 없던 캔들/라인 버튼만 보완했다. 새 조회·가격 환산·시각 변환은 추가하지 않았다. 신규8개+기존 주문폼5개+기존 LTH paint1개의 고유14개가 통과했다(15.0초). 실제 StockChart/Overseas 각각의 유색 데이터 픽셀과 빈 격자0 대조, KIS KRW/USD·Toss US1분 시각/단위·20봉 한도/방향키/Home/End·상태/갱신/선택초기화·scope/theme/unmount를 확인했다. 같은 lifecycle2개의 후속 부분 검사에서 backing/CSS폭570→256 및584→270, 가로이동0→201/199와 화면 안 우측 거래량18/3개를 확인했다(최종4.8초; 고유수 중복 합산 없음). 앱/config 타입·FSD·보호44항목 및 원래 converter/query/effects/Trading 모델 대조를 통과했고 루트·UI 전문가 독립 리뷰에 필수 P0/P1/P2는 없다. 사용자 판단·실자료 조건은 대신 닫지 않는다. [회차 기록](tasks/uiux-improvements-20261030.md)에 검증/미검증·게시 상태를 보존한다.
-
-### 원래 TODO 완료 조건·근거 보존
-
-P2-UX-06 — 차트의 가격·기간·OHLCV를 비시각적/키보드 경로로 확인한다.
-- 근거/대상: `src/widgets/stock-chart/ui/StockChart.tsx:473-503`은 라이브러리 canvas 타깃과 crosshair가 있을 때만 OHLCV overlay를 제공한다. `OverseasStockChart.tsx:368-405`도 같은 유형이다. 데이터가 로딩/오류일 때 UI는 이미 있으므로 상태 UI 전체를 재구축하지 않는다. 코드에 정적 요약/접근 가능한 데이터 표나 키보드 봉 선택 대안이 보이지 않는다. 스크린리더/contrast를 실측하거나 WCAG 위반으로 판정한 것은 아니다.
-- 영향/우선순위: P2. 마우스 crosshair·canvas를 보기 어려운 사용자가 기간/마지막 봉 값·시점을 확인하기 어렵다.
-- 개선 방향: 선택 종목·기간/주기·통화·자료 시점과 최신 봉 요약, 제한된 최근 봉의 접근 가능한 표/키보드 선택을 제공한다. 같은 candle 데이터·가격 단위·시계/자료부족 의미를 재사용하고 새로운 시세 조회를 만들지 않는다. 이미 존재하는 줌/차트형태 toggle의 실제 접근 가능 이름은 DOM으로 확인 후 필요한 것만 보완한다.
-- 완료/검증: 합성 KRW/USD candle의 표시값/시각과 summary/table 값이 같고 키보드로 기간·봉을 탐색한다. 빈/오류/로딩/갱신을 구분하고 과도한 live announce가 없으며 light/dark·narrow 및 기존 painted chart 검사를 회귀한다. 실제 assistive technology·native 플랫폼의 미실행을 명시한다.
+현재 정본/열린 작업/가이드/결정/완료 로그를 구분해 작업35·템플릿1·구 설계1·인수인계2·연구 검증/감사6의45파일을 기존 이력·기록 규칙·연구 부록으로 통합했다. 새 문서를 만들지 않았으며 원본은 고정4021e38 Git 링크로 복원한다. 문서 MD/HTML은83→38개, 원자료·설계·실행기213개와 TODO11개의 조건·기존 이력8앵커를 보존한다. 코드·의존성·계정/보안·운영배포는 변경하지 않았다. 문서 형식75개 오류0·지도/TODO/그래프 freshness·HTML 회귀3개·원자료/ID/조건 보존 검사를 통과했고 독립 내용 리뷰의 필수 P0/P1/P2 잔여는 없다. UI557/Rust901은 앞선 정확 코드의 결과를 보존한 것이다. 상세 문서 수/분량은 실제 최종 diff로 집계하며 별도 날짜 보고서를 생성하지 않는다.

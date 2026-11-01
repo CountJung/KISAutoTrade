@@ -9,7 +9,7 @@
 
 ## 프로젝트 문서
 
-처음 사용하는 경우 [사용 가이드](docs/user-guide.md)를 읽으세요. 운영·설계·할일·라이선스 문서는 `docs/`, 작업 기록은 `docs/tasks/`에 두고 루트 문서는 `README.md`, `AGENTS.md`, `CLAUDE.md`만 유지합니다. 도구가 요구하는 설정·스킬과 빌드 진입 파일은 해당 경로에 유지합니다.
+처음 사용하는 경우 [사용 가이드](docs/user-guide.md)를 읽으세요. 운영·설계·할일·라이선스 문서는 `docs/`, 현재 작업과 완료 기록은 기존 TODO·완료 이력에 합치고 루트 문서는 `README.md`, `AGENTS.md`, `CLAUDE.md`만 유지합니다. 도구가 요구하는 설정·스킬과 빌드 진입 파일은 해당 경로에 유지합니다.
 
 | 문서 | 위치 |
 |---|---|
@@ -17,7 +17,7 @@
 | 단계 계획 | [MASTER_PLAN.html](docs/MASTER_PLAN.html) |
 | 작업별 탐색 / 전체 파일 지도 | [PROJECT_MAP.md](docs/PROJECT_MAP.md) / [project-map.md](docs/project-map.md) |
 | 아키텍처 / 검증 명령 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) / [HARNESS_MAP.md](docs/HARNESS_MAP.md) |
-| 개선 할일 / 작업 기록 템플릿 | [todo.md](docs/todo.md) · [상태·색상 보기](docs/todo.html) · [완료·경과 이력](docs/completed-history.md) / [TASK_TEMPLATE.md](docs/tasks/TASK_TEMPLATE.md) |
+| 개선 할일 / 기록 규칙 | [todo.md](docs/todo.md) · [상태·색상 보기](docs/todo.html) · [완료·경과 이력](docs/completed-history.md) / [기록 규칙](docs/agent-tooling.md#문서-소유권과-기록-규칙) |
 | API 계약 / Toss 연동 | [ipc-commands.md](docs/ipc-commands.md) / [toss-openapi.md](docs/toss-openapi.md) |
 | Discord 설정 / 릴리스 보안 | [discord-setup-guide.md](docs/discord-setup-guide.md) / [release-security.md](docs/release-security.md) |
 | 에이전트 진입 | [AGENTS.md](AGENTS.md) / [CLAUDE.md](CLAUDE.md) |
@@ -84,7 +84,7 @@ KIS 키 발급은 [공식 개발자 포털](https://apiportal.koreainvestment.co
 
 일반 전략 11종에 가격 조건 매매와 레버리지 추세 보유(LTH)를 더한 **13개 카드**가 있습니다. 전체 목록과 각 화면의 사용 절차는 [전략 가이드](docs/user-guide.md#5-전략-설정과-미리보기)를 참고하세요.
 
-미리보기는 완료봉 신호와 선택한 체결 가정(같은 종가/다음 관측 시가)을 사용하는 연구 모델입니다. 비용·리스크 가정과 단순 보유 비교를 확인할 수 있지만 실제 장중 체결·지연을 재현하지 않습니다. LTH 일봉은 **성과 평가 불가 진단**, 1분봉은 **제한된 표본**으로 구분하며 실제 3개월 분봉·시간대 검증은 잔여 과제입니다. 분봉에는 [시각·세션 진단](docs/tasks/lth-minute-timing-20261022.md)을 제공하며 시간대 변환·일반 정규 시간창의 미관측 구간을 실제 달력·자료 완전성 검증과 구분합니다. [최근 전략 전수 분석](docs/research/strategy-review-20261018/report.md)은 기본 파라미터 연구 결과이며 운용 설정 변경이나 수익 보장을 뜻하지 않습니다. [체결 모델 비교](docs/research/replay-execution-20261018/report.md)는 비용·시가 갭이 청산 경로를 바꾸는 사례와 한계를 정리합니다. [손익·비용·현금흐름 비교](docs/research/replay-accounting-20261018/report.md)는 실현/잔여 손익, 가정 청산, 실제 투자비중과 가상 FX·배당 입력을 구분합니다. 연속 일봉 모드는 이전 준비 자료를 한 번 적용하고 상태를 이어갑니다. [3년 연속 장부와 분기 초기화 비교](docs/research/continuous-replay-20261018/report.md)는 동일 최초 수량의 실제 경로·노출 차이와 한계를 기록합니다. 연속 상승/하락에는 기본0의 누적 변화·완료 일봉 ATR·장기 MA 신규 진입 확인을 제공합니다. [단독 필터 비교](docs/research/consecutive-filters-20261018/report.md)는 비용·노출·기각 근거를 함께 기록하며 운용 기본값을 자동 변경하지 않습니다. 모멘텀은 실제 소유 수량으로 부적합 신호를 제거하고 선택 진입 교차·재무장 간격을 제공합니다. [소유 피드백·교차 비교](docs/research/momentum-feedback-20261020/report.md)는 신호 감소와 실제 체결/손익을 구분합니다. 평균회귀는 실제 소유 피드백과 선택 중심선 청산·이전N 추세·보유 관측 제한을 제공합니다. [평균회귀 단독 후보 비교](docs/research/mean-reversion-policy-20261020/report.md)는63관측 미발동과 사후21관측 탐색을 구분하며 기존 기본값을 유지합니다. 이동평균 교차에는 이전 완료 일봉의 추세·MA 기울기·ATR·밴드폭 진입 확인을 제공합니다. [MA 교차 비교](docs/research/ma-cross-filters-20261020/report.md)는 사전 고정 후보와 사후 스트레스를 구분하고 기본5/20·선택옵션0을 유지합니다.
+미리보기는 완료봉 신호와 선택한 체결 가정(같은 종가/다음 관측 시가)을 사용하는 연구 모델입니다. 비용·리스크 가정과 단순 보유 비교를 확인할 수 있지만 실제 장중 체결·지연을 재현하지 않습니다. LTH 일봉은 **성과 평가 불가 진단**, 1분봉은 **제한된 표본**으로 구분하며 실제 3개월 분봉·시간대 검증은 잔여 과제입니다. 분봉에는 [시각·세션 진단](docs/completed-history.md#task-lth-minute-timing-20261022)을 제공하며 시간대 변환·일반 정규 시간창의 미관측 구간을 실제 달력·자료 완전성 검증과 구분합니다. [최근 전략 전수 분석](docs/research/strategy-review-20261018/report.md)은 기본 파라미터 연구 결과이며 운용 설정 변경이나 수익 보장을 뜻하지 않습니다. [체결 모델 비교](docs/research/replay-execution-20261018/report.md)는 비용·시가 갭이 청산 경로를 바꾸는 사례와 한계를 정리합니다. [손익·비용·현금흐름 비교](docs/research/replay-accounting-20261018/report.md)는 실현/잔여 손익, 가정 청산, 실제 투자비중과 가상 FX·배당 입력을 구분합니다. 연속 일봉 모드는 이전 준비 자료를 한 번 적용하고 상태를 이어갑니다. [3년 연속 장부와 분기 초기화 비교](docs/research/continuous-replay-20261018/report.md)는 동일 최초 수량의 실제 경로·노출 차이와 한계를 기록합니다. 연속 상승/하락에는 기본0의 누적 변화·완료 일봉 ATR·장기 MA 신규 진입 확인을 제공합니다. [단독 필터 비교](docs/research/consecutive-filters-20261018/report.md)는 비용·노출·기각 근거를 함께 기록하며 운용 기본값을 자동 변경하지 않습니다. 모멘텀은 실제 소유 수량으로 부적합 신호를 제거하고 선택 진입 교차·재무장 간격을 제공합니다. [소유 피드백·교차 비교](docs/research/momentum-feedback-20261020/report.md)는 신호 감소와 실제 체결/손익을 구분합니다. 평균회귀는 실제 소유 피드백과 선택 중심선 청산·이전N 추세·보유 관측 제한을 제공합니다. [평균회귀 단독 후보 비교](docs/research/mean-reversion-policy-20261020/report.md)는63관측 미발동과 사후21관측 탐색을 구분하며 기존 기본값을 유지합니다. 이동평균 교차에는 이전 완료 일봉의 추세·MA 기울기·ATR·밴드폭 진입 확인을 제공합니다. [MA 교차 비교](docs/research/ma-cross-filters-20261020/report.md)는 사전 고정 후보와 사후 스트레스를 구분하고 기본5/20·선택옵션0을 유지합니다.
 
 변동성 확장은 이전 완료 일봉 범위와 당일 공개 범위·실제 소유 수량을 구분하고 조건 빈도를 별도로 표시합니다. [변동성 확장 비교](docs/research/volatility-expansion-policy-20261022/report.md)는 기간·배수·청산을 단독 비교하며 일봉 결과를 실제 장중 최초 발동이나 체결 검증으로 확대하지 않습니다.
 

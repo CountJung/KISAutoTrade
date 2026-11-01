@@ -55,4 +55,4 @@ confirmedLevel은 연속6개와분기72개 모두 accounting/equityCurve/실제f
 
 기준harness는.cache의Git archive86a9829/src-tauri,현재harness는현재src-tauri를pathdependency로사용하고각baseline_runner.rs/runner.rs를실행한다. 기본조건을바꾸지않고baseline→current→validate.py순서로실행한다. 원본/runner/생산source해시는validation에보관한다. 파일이필요한bare.cache Cargo manifest와코드의경로는실행기source에서확인할수있으며캐시를커밋하지않는다.
 
-선택된상관ETF3개의이미관측한가격이며독립OOS/통계유의성증거가아니다. 미사용2026을unseen증거라고주장하지않는다. 거래소달력·coverage·조정가격/실배당·실FX·장중경로/실체결은별도검증이다. same-input-quantity보유비교는실제%노출이같지않고same-accepted-path비용복원은독립알파benchmark가아니다. 실제주문·자동매매시작·계좌설정변경은하지않았다. UI/실패회귀·전체검증과코드/문서감사는 [작업기록](../../tasks/momentum-feedback-20261020.md)에구분한다.
+선택된상관ETF3개의이미관측한가격이며독립OOS/통계유의성증거가아니다. 미사용2026을unseen증거라고주장하지않는다. 거래소달력·coverage·조정가격/실배당·실FX·장중경로/실체결은별도검증이다. same-input-quantity보유비교는실제%노출이같지않고same-accepted-path비용복원은독립알파benchmark가아니다. 실제주문·자동매매시작·계좌설정변경은하지않았다. UI/실패회귀·전체검증과코드/문서감사는 [작업기록](../../completed-history.md#task-momentum-feedback-20261020)에구분한다.

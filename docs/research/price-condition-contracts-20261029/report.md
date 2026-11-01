@@ -41,4 +41,4 @@ cargo run --offline --manifest-path .cache/pc-contracts-harness/Cargo.toml --tar
 python3 docs/research/price-condition-contracts-20261029/validate.py
 ```
 
-Rust 전체/strict 검사와 문서·지도·그래프 결과는 [2회차 기록](../../tasks/immediate-backlog-20261029.md)에 둔다. 남은 P2-13 조건은 검증된 실제 장중 자료의 시각·시장일·DST·세션·coverage, 실제 접수·부분체결 근거를 확보한 뒤 동일 기준가·수량·두 비용·guard로 손절·재진입·회전·순손익을 비교하는 것이다. [현재 TODO](../../todo.md)에서 전체 ID를 미완료로 유지한다.
+Rust 전체/strict 검사와 문서·지도·그래프 결과는 [2회차 기록](../../completed-history.md#task-immediate-backlog-20261029)에 둔다. 남은 P2-13 조건은 검증된 실제 장중 자료의 시각·시장일·DST·세션·coverage, 실제 접수·부분체결 근거를 확보한 뒤 동일 기준가·수량·두 비용·guard로 손절·재진입·회전·순손익을 비교하는 것이다. [현재 TODO](../../todo.md)에서 전체 ID를 미완료로 유지한다.

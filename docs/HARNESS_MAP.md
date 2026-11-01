@@ -80,7 +80,7 @@ npm run test:database-tls-contract
 
 ## 5. Playwright
 
-설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 Vite dev `127.0.0.1:1430`을 사용한다. 직전 2026-10-29 기준은349개였으며 이후 UI/UX 추가 spec도 같은 production 프로젝트에 포함된다. 추가 집중 검증·최종 전체 실행 수는 [UI/UX 회차 기록](tasks/uiux-improvements-20261030.md)과 [키보드 회차 기록](tasks/keyboard-improvements-20261031.md)에 각 실제 결과로 남긴다. CI는 먼저 `npm run build:web`를 수행하고 두 서버·프로젝트를 사용한다. 기존 UI317개와 새 UI/UX spec은 `chromium`의 production preview `127.0.0.1:1431`, 소스 모듈 가로채기를 요구하는 `balance-events.spec.ts`, `toss-commission-ratio.spec.ts`, `strategy-deviation-policy.spec.ts`의 기존32개와 `keyboard-search-scope.spec.ts`·`keyboard-results-scope.spec.ts`는 `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 검사한다. 기존27파일·349개의 검사 범위와 새 회귀를 중복·누락 없이 유지한다.
+설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 Vite dev `127.0.0.1:1430`을 사용한다. 직전 2026-10-29 기준은349개였으며 이후 UI/UX 추가 spec도 같은 production 프로젝트에 포함된다. 추가 집중 검증·최종 전체 실행 수는 [UI/UX 회차 기록](completed-history.md#task-uiux-improvements-20261030)과 [키보드 회차 기록](completed-history.md#task-keyboard-improvements-20261031)에 각 실제 결과로 남긴다. CI는 먼저 `npm run build:web`를 수행하고 두 서버·프로젝트를 사용한다. 기존 UI317개와 새 UI/UX spec은 `chromium`의 production preview `127.0.0.1:1431`, 소스 모듈 가로채기를 요구하는 `balance-events.spec.ts`, `toss-commission-ratio.spec.ts`, `strategy-deviation-policy.spec.ts`의 기존32개와 `keyboard-search-scope.spec.ts`·`keyboard-results-scope.spec.ts`는 `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 검사한다. 기존27파일·349개의 검사 범위와 새 회귀를 중복·누락 없이 유지한다.
 
 spec은 mock transport를 사용하며 실제 Tauri IPC·provider 주문 검증과 구분한다. 테스트 30초·assertion 5초 제한은 유지한다. CI는 list와 HTML reporter를 함께 생성하고 실패 trace·screenshot을 보존한다.
 
@@ -92,19 +92,19 @@ npx playwright test tests/e2e/strategy-scrollbar.spec.ts
 
 UI 변경과 직접 관련된 spec을 먼저 실행한 뒤 범위가 넓으면 전체 E2E를 실행한다. 실제 Tauri IPC·provider 주문 E2E로 오인하지 않는다.
 
-CI의 Dialog 배경/aux Escape·수치 blur 검사는 실제 hit/키 target과 저장 중 native disabled를 구분한다. 고정 좌표나 disabled 후 미관측 focus를 전제로 하지 않는다. 테스트 보정과 코드 SHA별 결과는 [최종 CI 영수증](tasks/keyboard-improvements-20261031.md#keyboard-final-ci-20261031)을 따른다.
+CI의 Dialog 배경/aux Escape·수치 blur 검사는 실제 hit/키 target과 저장 중 native disabled를 구분한다. 고정 좌표나 disabled 후 미관측 focus를 전제로 하지 않는다. 테스트 보정과 코드 SHA별 결과는 [최종 CI 영수증](completed-history.md#keyboard-final-ci-20261031)을 따른다.
 
 결과 목록 fixture의 Strategy/LTH 초기 준비는 app-config와 strategies의 정확한 GET body 완료→microtask/소유 clock tick 순서를 확인한 뒤 기존 입력 기대를 수행한다. 실제 Query cache나 시장 정책을 바꾸지 않으며 제어된 pause 진단은 원래 CI clock 정지의 증거가 아니다. 자세한 실패/재현/후속 결과는 같은 최종 영수증에서 확인한다.
 
 LTH 잠금 source 검사는 제거/native disabled를 한 DOM 관측으로 판정하고 소유 clock의 포인터 phase에서 실제 cell click을 수행한다. 600ms 뒤 잠금 재관측과 원래 단일 unlock GET·키보드 선택 복구를 유지한다. 제거될 locator의 count→기대/클릭 경합을 만들지 않으며 상세 영수증은 같은 회차 정본을 따른다.
 
-기존 preview의 입력 무효화 검사는 첫 정상 결과 표시를 먼저 확인한다. candle 수집 중 입력 변경으로 정당하게 취소된 요청을 최초 정상 POST로 간주하지 않으며, invalid 값·차단·요청 수 기대를 유지한다. [CI 후속 근거](tasks/keyboard-improvements-20261031.md#keyboard-final-ci-20261031).
+기존 preview의 입력 무효화 검사는 첫 정상 결과 표시를 먼저 확인한다. candle 수집 중 입력 변경으로 정당하게 취소된 요청을 최초 정상 POST로 간주하지 않으며, invalid 값·차단·요청 수 기대를 유지한다. [CI 후속 근거](completed-history.md#keyboard-final-ci-20261031).
 
 ### 키보드 조회 회귀
 
 `tests/e2e/keyboard-search-contract.spec.ts`는 Trading/Strategy/LTH×KR/US×KIS/Toss의 일반 Enter·조합/229·지역 유효성·1자 US·기존6자리 경로·검색 버튼 이름을 합성 응답으로 대조한다. 국내 Enter는 정지된 clock에서 즉시 조회를 요구해 기존 자동 debounce와 구분한다. 인접 회귀는 `uiux-keyboard-selection.spec.ts`와 `trading-form-contract.spec.ts`다. fixture 파일은 별도 검사 건수가 아니다.
 
-로컬 실행은 프로젝트 .env를 읽지 않는 envDir:false 설정·비민감 환경 allowlist·fresh mock Chromium을 사용한다. 외부/WS·unknown·금융/설정 쓰기를 차단하며 Toss open-orders의 정확한 합성 POST 읽기 예외는 금융 변이로 해석하지 않는다. 실제 실행 명령·red/green·수치·증거·미검증은 [5개 순차 구현 기록](tasks/keyboard-improvements-20261031.md)이 정본이다. 실제 OS IME/WebView/스크린리더·실계좌 검증을 대체하지 않는다. 인접 주문폼5개는 별도 브라우저 합성 주문 제출 회귀이며 실제 주문0이다. 신규 검색14개의 쓰기0과 이 명시적 mock 제출을 구분한다.
+로컬 실행은 프로젝트 .env를 읽지 않는 envDir:false 설정·비민감 환경 allowlist·fresh mock Chromium을 사용한다. 외부/WS·unknown·금융/설정 쓰기를 차단하며 Toss open-orders의 정확한 합성 POST 읽기 예외는 금융 변이로 해석하지 않는다. 실제 실행 명령·red/green·수치·증거·미검증은 [5개 순차 구현 기록](completed-history.md#task-keyboard-improvements-20261031)이 정본이다. 실제 OS IME/WebView/스크린리더·실계좌 검증을 대체하지 않는다. 인접 주문폼5개는 별도 브라우저 합성 주문 제출 회귀이며 실제 주문0이다. 신규 검색14개의 쓰기0과 이 명시적 mock 제출을 구분한다.
 
 `keyboard-search-race.spec.ts`는 production mock에서 지연 응답·반복 입력/버튼·stale 선택/오류/fallback·입력/ABA·시장/SPA 이탈·재시도를 대조한다. `keyboard-search-scope.spec.ts`는 source 프로젝트에서 실제 router/Page/QueryClient를 유지한 합성 appConfig 재조회로 공개 scope 필드와 ABA를 구분한다. 두 spec은 전용 `keyboardSearchRaceFixture.ts`의 ticket header·response.finished 관측을 사용한다. 정확한 실행 건수·부분/최종 결과는 회차 정본에서 확인하며 실제 provider 요청 취소·계좌 검증으로 확대하지 않는다.
 
@@ -218,12 +218,12 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 - `cargo test --workspace --lib entry_filter --locked`: 생산 preview의 optional 진단, 잘못된 params/미지원 간격, 현재 OHLC 미래 정보 배제와 SPY 비용별 완료 매도 경로를 확인한다. `cargo test --workspace --lib live_history --locked`와 configuration 회귀로 pending/실패/날짜 전환/legacy warmup 경합과 저장 이전 검증을 확인한다.
 - `npx playwright test tests/e2e/strategy-consecutive-entry-filters.spec.ts`: strict raw draft·실제 소수 키입력·저장 실패/재시도·활성 잠금·short/continuous payload·이전 응답 폐기·A/B 준비 진단/모두0/활성 legacy unknown·수량 ATR 분리·모바일 overflow를 확인한다.
 - `npm run build:web`는 warnings0이어야 한다. 차트 라이브러리 chunk를 분리한 뒤에는 실제 vite preview의 전략/차트 회귀를 실행해 production 초기화를 확인한다.
-- 동결 입력·생산 실행·독립 기록 산술은 [연구 재현](research/consecutive-filters-20261018/report.md)과 [작업 기록](tasks/consecutive-entry-filters-20261018.md)에 구분한다. 필터 통과를 체결이나 운용 우수성으로 해석하지 않는다.
+- 동결 입력·생산 실행·독립 기록 산술은 [연구 재현](research/consecutive-filters-20261018/report.md)과 [작업 기록](completed-history.md#task-consecutive-entry-filters-20261018)에 구분한다. 필터 통과를 체결이나 운용 우수성으로 해석하지 않는다.
 
 
 ## P2-03 Momentum 소유 피드백·교차
 
-- `cargo test --workspace --lib momentum --locked`: 실제 소유 상태, inclusive 경계, strict warmup/무장, 후보 취소/동일0/pending 재시도, 부분/복원·재설정, 두 preview strict/분할·미래 prefix와 실제 저장 거부를 확인한다. 실행 건수와 전체 결과는 [작업 기록](tasks/momentum-feedback-20261020.md)에 구분한다.
+- `cargo test --workspace --lib momentum --locked`: 실제 소유 상태, inclusive 경계, strict warmup/무장, 후보 취소/동일0/pending 재시도, 부분/복원·재설정, 두 preview strict/분할·미래 prefix와 실제 저장 거부를 확인한다. 실행 건수와 전체 결과는 [작업 기록](completed-history.md#task-momentum-feedback-20261020)에 구분한다.
 - `npx playwright test tests/e2e/strategy-momentum-entry.spec.ts tests/e2e/strategy-consecutive-entry-filters.spec.ts`: 두 controls의 공유 십진 초안 해석·실제 키보드 입력, 도메인별 유효성, 잘못된 stored enum/null/string, level 미사용 간격, 저장 실패/재시도·활성 잠금, 두 preview·이전응답 폐기·AB·모바일을 확인한다. tsc/FSD/lockfiles/build와 전체 회귀를 함께 사용한다.
 - 연구의 archived86a9829와 current v14 생산 라이브러리는 분리한다. 비모멘텀1122회 report/signals exact와 Momentum102창의 경제 경로/부적합 raw차이를 구분하며 실패한 모형을 강제로 기존 수치에 맞추지 않는다. [재현·사전조건·기각 결과](research/momentum-feedback-20261020/report.md)를 따른다.
 
@@ -232,14 +232,14 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 
 - `cargo test --workspace --locked deviation`와 `cargo test --workspace --locked live_feedback`: 실제 소유/교차 재시도·동일0/nextOpen/partial·strict params/저장·생산 preview·미래 prefix/두 체결 모델/분할 불변·live 전용 trend 준비·기록 나이/unknown/metadata·실제 exact owner coordinator 복원·manager 신호를 확인한다. 전체 Rust와 Clippy를 함께 실행하고 옛 stateless 분류의 Deviation 포함을 새 소유 계약으로 정정한다.
 - `npx playwright test tests/e2e/strategy-deviation-policy.spec.ts`: 새4필드의 raw/stored 타입·경계·실제 키 입력·활성 잠금·저장/두 preview·A/B·모바일, 저장 실패/재시도와 일반/PC/LTH 지연 응답 뒤 새 초안 보존을 검증한다. scope epoch는 A→B→A의 과거 callback과 현재 초안을 구분한다. 인접 Momentum/Consecutive 및 전체 브라우저를 함께 확인한다.
-- `python3 docs/research/deviation-policy-20261020/validate.py`: archived bca6601/현재 v15의 비이격도1122 exact·이격도102 delta,36연속/36분할/432별도 분기의 기록 장부를 대사한다. filled reason-only 차이와 실제 경제 경로 차이를 분리한다. [사전 선언·재현·기각과 한계](research/deviation-policy-20261020/report.md), [검증 기록](tasks/deviation-policy-20261020.md)을 따른다.
+- `python3 docs/research/deviation-policy-20261020/validate.py`: archived bca6601/현재 v15의 비이격도1122 exact·이격도102 delta,36연속/36분할/432별도 분기의 기록 장부를 대사한다. filled reason-only 차이와 실제 경제 경로 차이를 분리한다. [사전 선언·재현·기각과 한계](research/deviation-policy-20261020/report.md), [검증 기록](completed-history.md#task-deviation-policy-20261020)을 따른다.
 
 
 ## P2-10 MeanReversion 단독 청산 후보
 
 - `cargo test --workspace --locked strategy::`와 `cargo test --workspace --locked strategy_preview`로 내부 공통helper와 기존전략·준비·strict선택params·두모델/분할/미래prefix·frozenQQQ1주4경로를 확인한다. 실제coordinator/strictsave는 order::feedback와configuration 회귀 및 전체Rust로 확인한다. stop0/off차이·resetprice/intradayno-op·unknownage와cold/pending/partial/오염metadata를 포함한다.
 - `npx playwright test tests/e2e/strategy-mean-reversion-policy.spec.ts`: raw/stored type·실제정수키입력·stop0의미·legacy/default·활성잠금·저장실패재시도·두payload/A-B·late결과/저장초안·모바일을 확인한다.1분history무사용한계문구를포함한최종focused와전체UI를구분기록한다.
-- `python3 docs/research/mean-reversion-policy-20261020/validate.py`: 고정입력·유일factorial·partition대응·signalClose→nextObservedOpen·방향별slippage·기록장부/노출/기말/경로비용참조를 검증한다. [사전단계와후속탐색·재현·한계](research/mean-reversion-policy-20261020/report.md), [전체게이트](tasks/mean-reversion-policy-20261020.md)를 따른다. maxHold63미발동을 효과 없음으로 확정하지 않고 후속21관측은 사후탐색 단계로 구분한다.
+- `python3 docs/research/mean-reversion-policy-20261020/validate.py`: 고정입력·유일factorial·partition대응·signalClose→nextObservedOpen·방향별slippage·기록장부/노출/기말/경로비용참조를 검증한다. [사전단계와후속탐색·재현·한계](research/mean-reversion-policy-20261020/report.md), [전체게이트](completed-history.md#task-mean-reversion-policy-20261020)를 따른다. maxHold63미발동을 효과 없음으로 확정하지 않고 후속21관측은 사후탐색 단계로 구분한다.
 
 
 ## P2-01 이동평균 교차 진입 필터
@@ -247,25 +247,25 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 - `cargo test -p kis-auto-trade ma_cross` 및 관련 configuration/preview focused: 이전 완료 일봉·현재봉 미포함, 교차 소비·Sell 비차단·재조회/실패/재설정·strict 입력과 분봉 거부를 검증한다.
 - `cargo test -p kis-auto-trade consecutive`와 공유 completed_daily 계약: pure helper 이동 뒤 갭/분수/zeroAtr·이전종가평균 의미를 보존한다.
 - `npx playwright test tests/e2e/strategy-ma-cross-filters.spec.ts`: 네 raw/stored 입력·저장/재조회/실패 재시도·preview/A-B·진단 없음·활성 잠금·모바일을 mock으로 검증한다.
-- [사전 설계](research/ma-cross-filters-20261020/design.json)와 production runners: archived327739a/default1224호환, Stage A36연속/36분할/432분기와 사후 ATR2/폭10 추가 최종48연속/48분할/576별도분기를 구분해 대조한다. Python은 기록 fill/cash/노출을 정산하고 신호를 재생성하지 않는다. [작업 기록](tasks/ma-cross-filters-20261020.md).
+- [사전 설계](research/ma-cross-filters-20261020/design.json)와 production runners: archived327739a/default1224호환, Stage A36연속/36분할/432분기와 사후 ATR2/폭10 추가 최종48연속/48분할/576별도분기를 구분해 대조한다. Python은 기록 fill/cash/노출을 정산하고 신호를 재생성하지 않는다. [작업 기록](completed-history.md#task-ma-cross-filters-20261020).
 
 ## LTH 분봉 시각 진단 (2026-10-22)
 
 - `cargo test --offline -p kis-auto-trade minute_timing`: pure20개와 command5개의 합성 fixture. RFC3339/compact·DST·동일순간 alias/역순·barClose/barStart/unknown·초 경계·휴일 미인증·내부 gap/야간/주말·512행/64바이트/8일/6예시·asOf를 확인한다. command fixture는 기존 signals/backtest/hash와 실제 비어있지 않은 신호·체결을 비교하며 daily skipNone/empty notEvaluable을 확인한다.
 - `npx playwright test tests/e2e/lth-minute-timing.spec.ts tests/e2e/strategy-replay-assessment.spec.ts`: 현재/저장/복원·다른봉표기 비교·legacy/미지원/손상 컬렉션·빈자료/일봉 성과숨김·모바일과 compact 날짜수를 mock으로 검증한다. fixture는 LTH lookAheadSafe=false를 유지한다.
-- 공용 timestamp 구문 추출은 기존 generic 정규화·회계 시나리오 정렬 회귀와 전체 Rust 검증으로 확인한다. 입력 시계·신호·정산은 기존 `lth_replay_clock`을 함께 통과한다. 실제 provider/3개월 coverage 검증으로 확대하지 않는다. [결과와 한계](tasks/lth-minute-timing-20261022.md).
+- 공용 timestamp 구문 추출은 기존 generic 정규화·회계 시나리오 정렬 회귀와 전체 Rust 검증으로 확인한다. 입력 시계·신호·정산은 기존 `lth_replay_clock`을 함께 통과한다. 실제 provider/3개월 coverage 검증으로 확대하지 않는다. [결과와 한계](completed-history.md#task-lth-minute-timing-20261022).
 
 ## RSI 소유·선택 진입/청산 (2026-10-22)
 
 `cargo test --offline -p kis-auto-trade rsi`는 단순RSI·기존교차·strict옵션·실제수량/원가·부분/미체결·나이/metadata·범위/재설정·분할을검증한다. `npx playwright test tests/e2e/strategy-rsi-policy.spec.ts`로원형입력·저장/재조회·두preview/A-B·손상값·late response·저장중새초안·모바일을mock으로확인한다. 전체Rust/UI와지도/그래프를함께검증한다.
 
-연구 [설계](research/rsi-policy-20261022/design.json)·[runner](research/rsi-policy-20261022/runner.rs)·[정산](research/rsi-policy-20261022/validate.py)은기존동결가격과실제Rust preview만사용한다. baseline978640c flat1224/continuous6/reset72, current비RSI1122exact와RSI102변화·연속30/분할30/별도분기360을구분한다. 결과와한계는[작업](tasks/rsi-policy-20261022.md)·[연구](research/rsi-policy-20261022/report.md)에서확인한다. 실제계좌/API/주문검증으로확대하지않는다.
+연구 [설계](research/rsi-policy-20261022/design.json)·[runner](research/rsi-policy-20261022/runner.rs)·[정산](research/rsi-policy-20261022/validate.py)은기존동결가격과실제Rust preview만사용한다. baseline978640c flat1224/continuous6/reset72, current비RSI1122exact와RSI102변화·연속30/분할30/별도분기360을구분한다. 결과와한계는[작업](completed-history.md#task-rsi-policy-20261022)·[연구](research/rsi-policy-20261022/report.md)에서확인한다. 실제계좌/API/주문검증으로확대하지않는다.
 
 ## P2-07 돌파 실패 검증
 
 전략·driver·완료 history/manager·owner/configuration의 focused 테스트와 전체 Rust를 확인한다. 가격 관측/완료 고가·미래 HLCV 불변, TR gap/0/마지막15, volume unknown/실0/평균0/ratio 경계, atomic1회 forwarding, nextOpen0→첫실fill anchor 승격·거절/부분/v1v2·age/peak·scope/저장 실패를 검증한다.
 
-`npx playwright test tests/e2e/strategy-failed-breakout-policy.spec.ts`는 기본·엄격 입력/쌍설정·두 preview/A-B·준비 진단·일봉 필터의 분봉 거부/보호만 분봉 허용·재시도/늦은 응답/새 초안·모바일을 mock으로 검증한다. [설계](research/failed-breakout-policy-20261022/design.json)의42연속/42동일경로분할/504독립분기와 부모·독립 정산은 [연구](research/failed-breakout-policy-20261022/report.md)·[작업](tasks/failed-breakout-policy-20261022.md)에 기록하며 실제 주문/provider 검증으로 확대하지 않는다.
+`npx playwright test tests/e2e/strategy-failed-breakout-policy.spec.ts`는 기본·엄격 입력/쌍설정·두 preview/A-B·준비 진단·일봉 필터의 분봉 거부/보호만 분봉 허용·재시도/늦은 응답/새 초안·모바일을 mock으로 검증한다. [설계](research/failed-breakout-policy-20261022/design.json)의42연속/42동일경로분할/504독립분기와 부모·독립 정산은 [연구](research/failed-breakout-policy-20261022/report.md)·[작업](completed-history.md#task-failed-breakout-policy-20261022)에 기록하며 실제 주문/provider 검증으로 확대하지 않는다.
 
 ### P2-08 강한 종가
 
@@ -273,7 +273,7 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 
 ### P2-09 변동성 확장
 
-`cargo test --offline volatility`로 이전N범위/당일OHLC·0범위/평균0/엄격 경계·실수량/원가·부분/거절/기원/pending·재설정/메타데이터·scope/date/freshness fixture를 확인한다. 두 preview의 current 제외/미래 prefix·분할·진단 빈도와 strict 입력을 함께 검증한다. 변동성 전용 focused Playwright는 저장/두 preview·현재/A-B·raw/쌍·과거/손상 진단·활성 잠금·지연 응답/저장 중 초안·모바일을 mock으로 확인한다. 전체 Rust/UI·타입/빌드/FSD/graph/map/TODO 게이트를 유지한다. [설계](research/volatility-expansion-policy-20261022/design.json)의36연속/36분할/432분기 정산은 [작업](tasks/volatility-expansion-policy-20261022.md)에 기록하며 실제 장중 최초 발동/체결은 검증된 장중 자료 확보까지 열린 조건이다.
+`cargo test --offline volatility`로 이전N범위/당일OHLC·0범위/평균0/엄격 경계·실수량/원가·부분/거절/기원/pending·재설정/메타데이터·scope/date/freshness fixture를 확인한다. 두 preview의 current 제외/미래 prefix·분할·진단 빈도와 strict 입력을 함께 검증한다. 변동성 전용 focused Playwright는 저장/두 preview·현재/A-B·raw/쌍·과거/손상 진단·활성 잠금·지연 응답/저장 중 초안·모바일을 mock으로 확인한다. 전체 Rust/UI·타입/빌드/FSD/graph/map/TODO 게이트를 유지한다. [설계](research/volatility-expansion-policy-20261022/design.json)의36연속/36분할/432분기 정산은 [작업](completed-history.md#task-volatility-expansion-policy-20261022)에 기록하며 실제 장중 최초 발동/체결은 검증된 장중 자료 확보까지 열린 조건이다.
 
 
 ## P2-11 추세 필터 v22
@@ -288,50 +288,50 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 
 `cargo test --locked --lib pc_live_`는 실제 PC→공유제출/loopback→누적체결→exact owner 피드백6개를 검증한다. `cargo test --locked --lib pc_replay_tests`는 native 평균가/FX·손절·시장일/DST·실제수량/설정수량·overlay·두비용/분할9개를 검증한다. 계좌 전체 preflight 값과 소유 원장, 접수와 체결, 잔량 상태 보존과 실제 청산 성공을 구분한다.
 
-[고정 설계와 재현](research/price-condition-contracts-20261029/report.md)의6연속+6대체분할+72별도분기 및 기록체결 정산은 기존 일봉 입력 재분석이며 실제 장중 손절 효능 검증이 아니다. 전체 Rust와 strict clippy, 문서·지도·그래프 게이트 결과는 [회차 기록](tasks/immediate-backlog-20261029.md)에 보존한다.
+[고정 설계와 재현](research/price-condition-contracts-20261029/report.md)의6연속+6대체분할+72별도분기 및 기록체결 정산은 기존 일봉 입력 재분석이며 실제 장중 손절 효능 검증이 아니다. 전체 Rust와 strict clippy, 문서·지도·그래프 게이트 결과는 [회차 기록](completed-history.md#task-immediate-backlog-20261029)에 보존한다.
 
 
 ## P2-16 동일 장부 구간 진단·별도 walk-forward
 
-- `cargo test --offline --lib trading::simulation`와 `cargo test --offline --lib commands::strategy_preview`: 경계잔량/pending·부분매도·FX/배당/원가·0/1봉/100%·양수절반/보합/음수·분할불변·기존TR/ATR/LTHgate를 확인한다. 최종 전체lib831 및 strict clippy 통과 근거는 [회차 기록](tasks/immediate-backlog-20261029.md).
+- `cargo test --offline --lib trading::simulation`와 `cargo test --offline --lib commands::strategy_preview`: 경계잔량/pending·부분매도·FX/배당/원가·0/1봉/100%·양수절반/보합/음수·분할불변·기존TR/ATR/LTHgate를 확인한다. 최종 전체lib831 및 strict clippy 통과 근거는 [회차 기록](completed-history.md#task-immediate-backlog-20261029).
 - production `build:web` 후 `CI=1 npx playwright test tests/e2e/strategy-phase-diagnostics.spec.ts tests/e2e/strategy-continuous-replay.spec.ts tests/e2e/strategy-replay-assessment.spec.ts`:20개. 회계·ATR·scrollbar인접3spec:37개. A/B진단 보존·legacy/손상 미확인·375px overflow·LTH성과숨김을 검증한다.
 - [연구 재현법](research/phase-walk-forward-20261029/report.md)은 동결일봉/생산API와 독립 기록산술을 사용한다. 별도reset평가·사전고정 설정을 같은장부70/30과 구분하고 이미본자료를 새OOS로 부르지 않는다.
 
 
 ## P3 대형 모듈 책임 분리
 
-Trading/LTH의 state/effect/closure는 각 `use*Model`을 parent에서 한 번 호출해 보존하고 표시는 child panel로 분리한다. Toss는 기존 facade/command macro re-export와 서버caller 계약을 유지한다. [동등성/행수/회차검증](tasks/immediate-backlog-20261029.md).
+Trading/LTH의 state/effect/closure는 각 `use*Model`을 parent에서 한 번 호출해 보존하고 표시는 child panel로 분리한다. Toss는 기존 facade/command macro re-export와 서버caller 계약을 유지한다. [동등성/행수/회차검증](completed-history.md#task-immediate-backlog-20261029).
 
 `CI=1 npx playwright test tests/e2e/trading-form-contract.spec.ts tests/e2e/strategy-scrollbar.spec.ts tests/e2e/lth-minute-timing.spec.ts tests/e2e/strategy-configuration-errors.spec.ts tests/e2e/strategy-replay-assessment.spec.ts tests/e2e/toss-commission-ratio.spec.ts`를 production build 후 실행한다.47개(46production+1sourceharness) mock검증이며 실제주문/계좌연결아니다. Rust 전체lib와 strictclippy/check/fmt,TS/FSD도확인한다.
 
 
 ## HTTP 의존성 전환 계약
 
-`cargo test --offline --locked --lib http::tests`: 합성 HTTP/TLS10개로 query/form/JSON/header·쿠키/redirect·timeout/proxy·오류·응답 유실 POST 재제출 없음·TLS1.2/1.3/SNI/ALPN·CA/hostname 거부를 검사한다. `http/testdata`는 공개 합성 fixture이며 OS trust에 등록하지 않는다. caller는 `crate::http::client_builder()`로 기존 Mozilla roots/ring을 유지한다. 실제 provider 접속·MSRV 실행·다른 플랫폼 검증과 구분한다. [5A 회차 근거와 한계](tasks/immediate-backlog-20261029.md).
+`cargo test --offline --locked --lib http::tests`: 합성 HTTP/TLS10개로 query/form/JSON/header·쿠키/redirect·timeout/proxy·오류·응답 유실 POST 재제출 없음·TLS1.2/1.3/SNI/ALPN·CA/hostname 거부를 검사한다. `http/testdata`는 공개 합성 fixture이며 OS trust에 등록하지 않는다. caller는 `crate::http::client_builder()`로 기존 Mozilla roots/ring을 유지한다. 실제 provider 접속·MSRV 실행·다른 플랫폼 검증과 구분한다. [5A 회차 근거와 한계](completed-history.md#task-immediate-backlog-20261029).
 
 
 ## WebSocket 의존성 전환 계약
 
-`cargo test --offline --locked --lib api::websocket::tests`: 생산 private transport helper의 합성 WS/WSS14개로 승인/구독 wire·수신·자동Pong·Close echo·오류상태·명시재구독·4KiB버퍼/20KiB메시지·TLS1.2/1.3 신뢰/거부를 확인한다. `http/testdata`의 공개 fixture만 재사용하고 실제 KIS나 OS native-root 연결을 실행하지 않는다. 기존 native roots/ring·금융 payload를 유지한다. 자동 재연결 검증으로 해석하지 않는다. [5B 회차 기록](tasks/immediate-backlog-20261029.md).
+`cargo test --offline --locked --lib api::websocket::tests`: 생산 private transport helper의 합성 WS/WSS14개로 승인/구독 wire·수신·자동Pong·Close echo·오류상태·명시재구독·4KiB버퍼/20KiB메시지·TLS1.2/1.3 신뢰/거부를 확인한다. `http/testdata`의 공개 fixture만 재사용하고 실제 KIS나 OS native-root 연결을 실행하지 않는다. 기존 native roots/ring·금융 payload를 유지한다. 자동 재연결 검증으로 해석하지 않는다. [5B 회차 기록](completed-history.md#task-immediate-backlog-20261029).
 
 
 ## Axum router 계약과 격리 fixture (2026-10-29)
 
 `cargo test --offline --locked --lib server::`는 기존6개와 신규18개, 총24개다. production `server/router.rs`의 70 URL/74 명시 method binding, 13개 capture, POST 토큰 거부140건, HEAD/Origin/OPTIONS·405/Allow·SPA fallback, JSON/query/path 거부, IPC와 REST view 값·케이싱, KIS loopback4경로를 검사한다. 0.7 baseline→0.8.9/tower0.5→0.8.9/tower0.7.1에서 각각 통과했다. 최종 trailing JSON은 framework의400 거부를 단정한다.
 
-fixture는 임시 경로와 합성 token/profile만 사용하고 `DatabaseManager::isolated_json_for_tests`로 config·키체인·전역 DB 설치를 피한다. 전체 route 등록/차단 검사가 모든 handler의 성공 경로 검증을 뜻하지 않는다. Toss는 미설정/없는 profile 오류, 웹 설정 저장·종목 목록 갱신·거래 시작은 차단 또는 입력 거부까지만 실행한다. 실제 provider·운영 앱·계좌 접근을 추가하지 않는다. tower-http cors feature는 선언돼 있지만 실제 CorsLayer 사용은 없으며 기존 자체 Origin 정책을 유지한다. [회차 근거·제약](tasks/immediate-backlog-20261029.md).
+fixture는 임시 경로와 합성 token/profile만 사용하고 `DatabaseManager::isolated_json_for_tests`로 config·키체인·전역 DB 설치를 피한다. 전체 route 등록/차단 검사가 모든 handler의 성공 경로 검증을 뜻하지 않는다. Toss는 미설정/없는 profile 오류, 웹 설정 저장·종목 목록 갱신·거래 시작은 차단 또는 입력 거부까지만 실행한다. 실제 provider·운영 앱·계좌 접근을 추가하지 않는다. tower-http cors feature는 선언돼 있지만 실제 CorsLayer 사용은 없으며 기존 자체 Origin 정책을 유지한다. [회차 근거·제약](completed-history.md#task-immediate-backlog-20261029).
 
 
 ## React19·MUI9 UI 계약 (2026-10-29)
 
 `CI=1 npx playwright test tests/e2e/ui-dependency-contract.spec.ts`는 production preview의 합성 UI5개를 검사한다. dialog focus·Escape 복귀, Select 키보드·mock 저장, 좁은 Dashboard 표, painted chart의 theme/resize/SPA재진입을 다룬다. external origin·browser warning/error와 숨김 상태의 차트 중복을 검사한다. Drawer transition 때 aria-hidden을 CSS display와 혼동하지 않으며 정상 접근 가능/route/닫힘을 기다린다. 강제 클릭으로 동기화를 대체하지 않는다.
 
-Switch는 MUI7 이상에서 role=switch이며 실제 Checkbox와 구분한다. MUI9 Alert는 variant/severity의 분리된 정확 class 토큰과 내용으로 검증한다. React vendor는 react·react-dom/client·JSX runtime 진입점을 포함하고 최종 production chunk의 초기화/순환과 경고를 함께 확인한다. 단계별·전체 실행과 actual native runtime을 구분한다. [회차 기록](tasks/immediate-backlog-20261029.md).
+Switch는 MUI7 이상에서 role=switch이며 실제 Checkbox와 구분한다. MUI9 Alert는 variant/severity의 분리된 정확 class 토큰과 내용으로 검증한다. React vendor는 react·react-dom/client·JSX runtime 진입점을 포함하고 최종 production chunk의 초기화/순환과 경고를 함께 확인한다. 단계별·전체 실행과 actual native runtime을 구분한다. [회차 기록](completed-history.md#task-immediate-backlog-20261029).
 
 
 ## Vite8 및 독립 macOS WebView 확인
 
-Vite6→7→8/plugin6 전환에서는 명시한 Safari13/Chrome105 target과 production/debug 네 조합, Rolldown 다섯 vendor 그룹·Oxc, cold/warm source harness와 production UI를 구분해 확인한다. syntax target 빌드는 실제 지원 OS/브라우저 실행을 뜻하지 않는다. 단계별 검증과 현재 결과는 [회차 기록](tasks/immediate-backlog-20261029.md)의 DEP-P3-06에 둔다.
+Vite6→7→8/plugin6 전환에서는 명시한 Safari13/Chrome105 target과 production/debug 네 조합, Rolldown 다섯 vendor 그룹·Oxc, cold/warm source harness와 production UI를 구분해 확인한다. syntax target 빌드는 실제 지원 OS/브라우저 실행을 뜻하지 않는다. 단계별 검증과 현재 결과는 [회차 기록](completed-history.md#task-immediate-backlog-20261029)의 DEP-P3-06에 둔다.
 
 `node --test scripts/webview-smoke/bootstrap.test.mjs`는 네 개의 순수 Node VM 계약이다. `node scripts/webview-smoke/driver.mjs --build`는 macOS에서 동결 dist를 복사하고 독립 Wry/Tao workspace를 offline으로 빌드한다. Cargo registry cache가 필요하며 GUI 실행 명령은 없다. 격리 목적상 일회성 결과는 일반 `.cache/` 대신 고유 `/tmp/kis-webview-smoke-8-*/`에 둔다. `snapshot.json`, `isolation.json`, `build-result.json`의 소스·자산·실행 파일 해시를 확인한 뒤 별도로 승인된 CUA 실행만 수행한다. `launched:false`는 빌드 시점 기록이다. 같은 실행 파일을 재실행하면 고정 output 이름을 재사용하므로 이전 PNG가 남을 수 있다. 각 실행을 별도 보관하고 현재 report의 snapshotCount·파일 시각·sidecar와 대조한 유효 산출물 manifest를 둔다. 이전 회차의 더 큰 번호 파일을 새 캡처로 집계하지 않는다.
 
@@ -342,12 +342,12 @@ Vite6→7→8/plugin6 전환에서는 명시한 Safari13/Chrome105 target과 pro
 
 `cargo test --offline --locked --lib dependency_contract_tests`는 생산 scope/profile/receipt/config 지문과 실제 DB scanner, 다섯 오류 타입의 고정 계약14개다. 기존 버전에서 입력 bytes·기대값을 먼저 고정하고 전환 후 같은 literal을 쓴다. sha2.11 Output은 LowerHex가 없으므로 기존 hex0.4.3의 소문자·leading-zero 출력을 사용한다. DB checksum fixture는 scanner와 입력/알고리즘 계약이며 production import/export roundtrip은 아니다.
 
-`cargo test --workspace --lib --locked -- --skip storage::database_contract_tests`는 실제 DB 계약 module을 명시 제외한 lib 회귀다. 접속 환경 값은 조회하지 않고 자식에서 제거하며, filtered5를 성공한 DB 테스트로 세지 않는다. 실제 PostgreSQL/TLS fixture는 앞의 별도 명령과 사용자 결정 범위를 따른다. focused·통합 결과, 원본/호환 baseline·동등성·유지 판단은 [9회차 기록](tasks/immediate-backlog-20261029.md)에 보존한다. thiserror 전환에서는 Display/From/source/downcast와 확정거절/불명 결과를 함께 확인하고 HTTP trust·보안 예외를 변경하지 않는다.
+`cargo test --workspace --lib --locked -- --skip storage::database_contract_tests`는 실제 DB 계약 module을 명시 제외한 lib 회귀다. 접속 환경 값은 조회하지 않고 자식에서 제거하며, filtered5를 성공한 DB 테스트로 세지 않는다. 실제 PostgreSQL/TLS fixture는 앞의 별도 명령과 사용자 결정 범위를 따른다. focused·통합 결과, 원본/호환 baseline·동등성·유지 판단은 [9회차 기록](completed-history.md#task-immediate-backlog-20261029)에 보존한다. thiserror 전환에서는 Display/From/source/downcast와 확정거절/불명 결과를 함께 확인하고 HTTP trust·보안 예외를 변경하지 않는다.
 
 
 ## TypeScript native CLI와 오프라인 검증 설정
 
-현재 프로젝트 compiler는 package.json/lock의 TypeScript7 native CLI다. 기존 `npx tsc --noEmit`과 별도 node config 검사 명령을 그대로 쓰며 구형 JS compiler API의 존재를 가정하지 않는다. API 소비가 필요해지면 실제 호출부부터 확인한다. 원문 source/config의 입력 집합과 defaults·OS별 native 준비를 함께 대조하고 compiler host와 배포 앱 최소 OS를 구분한다. [단계 비교·벤치·지원 범위](tasks/immediate-backlog-20261029.md)는10회차 기록을 따른다.
+현재 프로젝트 compiler는 package.json/lock의 TypeScript7 native CLI다. 기존 `npx tsc --noEmit`과 별도 node config 검사 명령을 그대로 쓰며 구형 JS compiler API의 존재를 가정하지 않는다. API 소비가 필요해지면 실제 호출부부터 확인한다. 원문 source/config의 입력 집합과 defaults·OS별 native 준비를 함께 대조하고 compiler host와 배포 앱 최소 OS를 구분한다. [단계 비교·벤치·지원 범위](completed-history.md#task-immediate-backlog-20261029)는10회차 기록을 따른다.
 
 개인 환경 파일을 읽지 않는 임시 Vite 설정은 repo Git 제외 캐시에 두고 bare package와 명시된 source 확장자를 사용한다. 다음은 `.cache/toolchain-migration-20261029/offline-vite.config.mts`의 패턴이다.
 

@@ -95,7 +95,7 @@ LTH 조회는 유지하며 live 완료 일봉 갱신은 이 경로의 책임이 
 
 수동 주문(`commands/orders.rs`)과 전략 신호는 공통 `OrderManager` 제출 서비스를 사용한다.
 
-자동매매는 OrderManager에 epoch·configuration revision·broker/account·profile context와 검증한 client/profile snapshot을 저장한다. daemon의 시세·평가액은 같은 snapshot을 사용하고, 전략 변경은 bool→strategy→order 검증 구간에서만 수행한다. 자동 예약은 같은 OrderManager mutex에서 context를 검사한 다음 guard·submitting·예산을 변경한다. 설정 저장 성공 후 manager→order 임계구역에서 새 revision을 공개하고, 저장 실패는 기존 revision을 유지한다. provider await에는 bool/strategy lock을 유지하지 않는다. 예약 후에는 최초 client/scope로 응답·재시도·pending을 끝까지 추적하며 정지나 자정 초기화로 submitting을 지우지 않는다. 세부 검증은 [P1-RUN-01 기록](tasks/execution-run-reservation-20261018.md)을 참조한다.
+자동매매는 OrderManager에 epoch·configuration revision·broker/account·profile context와 검증한 client/profile snapshot을 저장한다. daemon의 시세·평가액은 같은 snapshot을 사용하고, 전략 변경은 bool→strategy→order 검증 구간에서만 수행한다. 자동 예약은 같은 OrderManager mutex에서 context를 검사한 다음 guard·submitting·예산을 변경한다. 설정 저장 성공 후 manager→order 임계구역에서 새 revision을 공개하고, 저장 실패는 기존 revision을 유지한다. provider await에는 bool/strategy lock을 유지하지 않는다. 예약 후에는 최초 client/scope로 응답·재시도·pending을 끝까지 추적하며 정지나 자정 초기화로 submitting을 지우지 않는다. 세부 검증은 [P1-RUN-01 기록](completed-history.md#task-execution-run-reservation-20261018)을 참조한다.
 
 ```text
 UI/전략 Signal
@@ -122,7 +122,7 @@ UI/전략 Signal
 
 `order/ownership.rs`는 broker/account/profile/투자모드·전략·시장·종목별 확정 수량과 정수 원가의 권위자다. `position_ownership.json`과 별도 generation manifest를 검증하며 pending/order record와 연결한다. 자동매도는 owner 수량과 계좌 관측 수량의 교집합을 예약 직전에 다시 확인한다. 계좌 tracker는 broker snapshot의 권위만 유지하고 fill delta로 변경하지 않는다. 체결 뒤 해당 시장 재조회가 성공하기 전 신규 예약을 보류한다.
 
-`order/feedback.rs`가 manager → order lock 순서로 정확한 전략에만 수량·pending·보호 metadata를 전달한다. live 관측은 지표·LTH 최고가/보유 관측 수를 유지하지만 raw 신호만으로 확정 보유를 바꾸지 않는다. 전체 계좌 보유를 모든 전략에 broadcast하지 않는다. 원가·세대·모드 미상 기록과 저장 실패는 신규 주문을 차단한다. 리스크 재복원은 동일 당일 체결 이벤트·계좌·투자모드를 검증하고 후보를 저장한 뒤 공개한다. 상세 검증은 [P1-FILL-01 기록](tasks/strategy-fill-ownership-20261018.md)을 참조한다.
+`order/feedback.rs`가 manager → order lock 순서로 정확한 전략에만 수량·pending·보호 metadata를 전달한다. live 관측은 지표·LTH 최고가/보유 관측 수를 유지하지만 raw 신호만으로 확정 보유를 바꾸지 않는다. 전체 계좌 보유를 모든 전략에 broadcast하지 않는다. 원가·세대·모드 미상 기록과 저장 실패는 신규 주문을 차단한다. 리스크 재복원은 동일 당일 체결 이벤트·계좌·투자모드를 검증하고 후보를 저장한 뒤 공개한다. 상세 검증은 [P1-FILL-01 기록](completed-history.md#task-strategy-fill-ownership-20261018)을 참조한다.
 
 ## 7. 리스크 계층
 
@@ -276,17 +276,17 @@ v13 Consecutive는 가격 관측열/확정 보유와 `sequence/consecutive/conte
 v14 Momentum은 classic/momentum.rs의 owned_quantity를 가격 관측/previous momentum/무장/미체결 후보와 분리한다. raw tick으로 소유량을 선반영하지 않으며 exact owner 피드백에서만 갱신한다. 기본 level은 flat Buy/held Sell, crossing/간격%p는 entry-only이고 보유 negative level은 유지한다. 같은0수량·nextOpen pending과 부분체결에서 후보/청산을 잃지 않으며 설정이 바뀌면 보유/잔존가격을 유지하고 관측 상태를 재seed한다. 기존 save/short/continuous validator와 UI params/AB를 사용해 새endpoint/DTO를 만들지 않는다. 숫자 lexical draft는 shared/lib 공개 parser를 사용하고 전략 범위/mode 관계는 controls에 남긴다. 계약은 [IPC v14](ipc-commands.md), 생산 대조는 [P2-03 연구](research/momentum-feedback-20261020/report.md)다.
 
 
-v15 Deviation은 classic/deviation.rs와 params/state 모듈에서 관측·하향 교차 후보·live 전용 추세 버퍼를 exact owner 수량/평균가/보유 나이와 분리한다. 기존 guard/risk·owner clamp 경계를 유지하고 metadata를 통해 보호 관측을 복원한다. generic warmup과 live 추세 cadence를 혼합하지 않으며 진입 준비 부족 중에도 held stop/maxHold을 평가한다. 기존 params 저장/두 preview/UI/A-B를 사용하고 새 endpoint/DTO는 없다. [계약](ipc-commands.md), [연구](research/deviation-policy-20261020/report.md), [작업 기록](tasks/deviation-policy-20261020.md)을 참조한다.
+v15 Deviation은 classic/deviation.rs와 params/state 모듈에서 관측·하향 교차 후보·live 전용 추세 버퍼를 exact owner 수량/평균가/보유 나이와 분리한다. 기존 guard/risk·owner clamp 경계를 유지하고 metadata를 통해 보호 관측을 복원한다. generic warmup과 live 추세 cadence를 혼합하지 않으며 진입 준비 부족 중에도 held stop/maxHold을 평가한다. 기존 params 저장/두 preview/UI/A-B를 사용하고 새 endpoint/DTO는 없다. [계약](ipc-commands.md), [연구](research/deviation-policy-20261020/report.md), [작업 기록](completed-history.md#task-deviation-policy-20261020)을 참조한다.
 
 
-v16 MeanReversion은 mean_trend facade 아래 독립 모듈로 분리하고 actual q/native avg·기록 나이와 현재 포함 band/선택 청산·live전용 trend를 구분한다. 당시 TrendFilter 원형을 유지하며 observation.rs가 두 전략의 동등한8개 기계 동작만 제공한다. 이후 TrendFilter의 실제 소유·선택 보호 경계는 아래 절을 따른다. kind/scope/대상·stop0/strict/inclusive·reset/warmup 차이는 전략에 남는다. 기존 owner ledger/관측후 checkpoint·pending복원/저장실패 차단과 save/two preview/UI-A-B를 사용하며 새IPC/DTO/schema는 없다. [계약](ipc-commands.md), [작업](tasks/mean-reversion-policy-20261020.md).
+v16 MeanReversion은 mean_trend facade 아래 독립 모듈로 분리하고 actual q/native avg·기록 나이와 현재 포함 band/선택 청산·live전용 trend를 구분한다. 당시 TrendFilter 원형을 유지하며 observation.rs가 두 전략의 동등한8개 기계 동작만 제공한다. 이후 TrendFilter의 실제 소유·선택 보호 경계는 아래 절을 따른다. kind/scope/대상·stop0/strict/inclusive·reset/warmup 차이는 전략에 남는다. 기존 owner ledger/관측후 checkpoint·pending복원/저장실패 차단과 save/two preview/UI-A-B를 사용하며 새IPC/DTO/schema는 없다. [계약](ipc-commands.md), [작업](completed-history.md#task-mean-reversion-policy-20261020).
 
 
-v17 MA cross는 기존 관측 교차를 보존하고 별도 bounded512 완료 일봉 context로 Buy 후보만 확인한다. 기존 scoped daily coordinator와 apply/invalidate hook을 재사용하며 현재봉 after-decision, 일봉 재조회와 교차열 분리를 유지한다. 순수 일봉 지표3개만 completed_daily.rs에서 Consecutive와 공유한다. EntryFilterPreparation의 MA 전용 선택 slope/bandwidth 거부 수는 Consecutive에서 생략한다. 실제 소유·주문·provider/리스크 경계는 기존 그대로다. [계약](ipc-commands.md), [작업](tasks/ma-cross-filters-20261020.md).
+v17 MA cross는 기존 관측 교차를 보존하고 별도 bounded512 완료 일봉 context로 Buy 후보만 확인한다. 기존 scoped daily coordinator와 apply/invalidate hook을 재사용하며 현재봉 after-decision, 일봉 재조회와 교차열 분리를 유지한다. 순수 일봉 지표3개만 completed_daily.rs에서 Consecutive와 공유한다. EntryFilterPreparation의 MA 전용 선택 slope/bandwidth 거부 수는 Consecutive에서 생략한다. 실제 소유·주문·provider/리스크 경계는 기존 그대로다. [계약](ipc-commands.md), [작업](completed-history.md#task-ma-cross-filters-20261020).
 
 ## LTH minute timing 진단 경계
 
-`strategy_preview → lth_preview_assessment → simulation/minute_timing`은 기존 준비된 분봉 label의 별도 읽기 전용 경로다. 실제 순간의 거래소 timezone 변환·봉 시작/종가 가능 시각·일별 정규 시간창의 미관측 슬롯을 bounded metadata로 만든다. 원본 label 및 기존 fixed KST 실행시계·매매 신호·회계·hash는 유지한다. 구문 파서만 `simulation/minute_time`에서 generic 분봉 정규화와 공유한다. `assessment.minuteTiming`은 전용1m만 제공하고 UI와 저장A/B에 같은 진단을 표시한다. 달력/실제 발행/coverage·성과 적합성은 인증하지 않으며 [IPC 계약](ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22)과 [작업 기록](tasks/lth-minute-timing-20261022.md)을 따른다.
+`strategy_preview → lth_preview_assessment → simulation/minute_timing`은 기존 준비된 분봉 label의 별도 읽기 전용 경로다. 실제 순간의 거래소 timezone 변환·봉 시작/종가 가능 시각·일별 정규 시간창의 미관측 슬롯을 bounded metadata로 만든다. 원본 label 및 기존 fixed KST 실행시계·매매 신호·회계·hash는 유지한다. 구문 파서만 `simulation/minute_time`에서 generic 분봉 정규화와 공유한다. `assessment.minuteTiming`은 전용1m만 제공하고 UI와 저장A/B에 같은 진단을 표시한다. 달력/실제 발행/coverage·성과 적합성은 인증하지 않으며 [IPC 계약](ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22)과 [작업 기록](completed-history.md#task-lth-minute-timing-20261022)을 따른다.
 
 ## RSI 소유 피드백
 

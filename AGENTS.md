@@ -62,7 +62,8 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 ## Codex 작업 원칙
 
 - 사용자가 다른 언어를 명시적으로 요청하지 않으면 진행 상황·질문·최종 안내와 에이전트 간 위임·검토 메시지는 한국어로 작성한다. 코드·명령·파일/심볼명과 필요한 영어 기술 용어는 원문을 유지한다. 전송 전에 한국어·영어 외의 불필요한 자연어가 섞이지 않았는지 문장 전체를 점검한다. 검토 결과를 전달할 때도 같은 기준을 적용하며, 이미 출력했다면 해당 내용을 즉시 한국어로 다시 안내한다.
-- 루트 문서는 `README.md`, `AGENTS.md`, `CLAUDE.md`를 유지하고 일반 운영·설계·할일 문서와 라이선스(`docs/LICENSE`)는 `docs/`, 작업 기록은 `docs/tasks/`에 둔다. 도구가 요구하는 `.github/`, `.codex/`, `.claude/`, `.serena/` 진입 설정·스킬 경로는 유지한다.
+- 루트 문서는 `README.md`, `AGENTS.md`, `CLAUDE.md`를 유지하고 일반 운영·설계·할일 문서와 라이선스(`docs/LICENSE`)는 `docs/`에 둔다. 현재 작업은 `docs/todo.md`, 완료·중간 경과는 `docs/completed-history.md`의 같은 ID에 간략히 합친다. 도구가 요구하는 `.github/`, `.codex/`, `.claude/`, `.serena/` 진입 설정·스킬 경로는 유지한다.
+- 새 문서보다 기존 정본 갱신을 우선한다. 날짜별 작업·검증·인수인계 보고서를 만들지 않는다. 새 파일은 기존 정본으로 담을 수 없는 독립 책임/수명이 있을 때만 생성 사유·소유자·진입 링크를 정하고, 종료 시 고유 결정·검증/미검증 근거를 이력으로 합친다. [문서 소유권과 기록 규칙](docs/agent-tooling.md#문서-소유권과-기록-규칙)을 따른다.
 - `.env`, `secure_config.json`, `profiles.json`은 읽지 않는다.
 - 코드 변경 전 현재 구현을 먼저 검색하고, 기존 패턴을 우선한다.
 - 작업별 검증과 리뷰·문서 게이트가 완료되면 변경을 커밋하고 현재 브랜치를 origin에 푸시한다. 캐시·민감 파일은 제외하며 강제 푸시는 하지 않는다. (사용자 지시: 2026-10-03)
@@ -85,11 +86,11 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 | 날짜 | 한줄 요약 |
 |------|----------|
-| 2026-10-31 | 키보드5개 순차 완료·UI557/Rust901·최종 테스트/보안 CI58/65 성공·[회차 정본](docs/tasks/keyboard-improvements-20261031.md), 기존 대기11개 보존 |
-| 2026-10-31 | Toss identity 협상·캔들 안전 파싱 단계 교정·Rust901/clock4·UI408·CI53/60 통과; 실사용 원인 미확정·상세는 [기록](docs/tasks/toss-simulation-response-parsing-20261031.md) |
+| 2026-11-01 | 날짜별 완료 기록을 기존 이력/연구 부록으로 통합·신규 문서 생성 기준 정리; 남은11개·코드 UI557/Rust901 근거 보존 |
+| 2026-10-31 | 키보드5개 순차 완료·UI557/Rust901·최종 테스트/보안 CI58/65 성공·[회차 정본](docs/completed-history.md#task-keyboard-improvements-20261031), 기존 대기11개 보존 |
+| 2026-10-31 | Toss identity 협상·캔들 안전 파싱 단계 교정·Rust901/clock4·UI408·CI53/60 통과; 실사용 원인 미확정·상세는 [기록](docs/completed-history.md#task-toss-simulation-response-parsing-20261031) |
 | 2026-10-31 | 키보드 컨트롤 감사·합성7개 관측, Enter/IME·조회경합·LTH·수치이름·프로필팝업 신규5개 TODO; UI구현 없음 |
 | 2026-10-30 | UI/UX 즉시9개 완료·로컬/CI UI408개·Rust887개·테스트/보안 CI 통과; 결정/실자료11개 보존 |
-| 2026-10-30 | UI/UX CI Log 초기 알림·가짜 clock 준비 교정; 제품/기대 유지·고유5개/20회 반복 검증 |
 
 ## 운영 문서 스택
 
@@ -99,6 +100,6 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 - [`docs/PROJECT_MAP.md`](docs/PROJECT_MAP.md): 작업별 시작 파일과 핵심 경로
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): React/Tauri/Axum/주문·리스크·저장 경계
 - [`docs/HARNESS_MAP.md`](docs/HARNESS_MAP.md): 변경 유형별 검증 명령
-- [`docs/tasks/TASK_TEMPLATE.md`](docs/tasks/TASK_TEMPLATE.md): 범위·위험·완료 조건·검증 기록 템플릿
+- [문서 소유권과 기록 규칙](docs/agent-tooling.md#문서-소유권과-기록-규칙): 정본 선택·열린 작업·간략 이력의 기록 기준
 
 기존 상세 자료인 `docs/project-map.md`, `docs/agent-tooling.md`, `docs/ipc-commands.md`, `docs/coding-guide.md`는 계속 유효하다. Serena는 공용 타입, IPC, 주문, 리스크의 실제 참조 범위를 확인해야 할 때만 사용하고, Graphify는 호출 계층이나 공용 helper를 바꾸는 구조 리팩터링 때만 사용한다. 금융 안전 규칙과 provider 경계는 도구 사용 여부와 관계없이 항상 우선한다.

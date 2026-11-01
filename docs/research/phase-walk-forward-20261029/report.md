@@ -69,6 +69,6 @@ cargo run --offline --manifest-path .cache/phase-walk-forward-harness/Cargo.toml
 python3 docs/research/phase-walk-forward-20261029/validate.py
 ```
 
-연구 runner의 최초 컴파일·실행과 별도 harness의 `cargo clippy --offline --all-targets --all-features -- -D warnings`는 통과했고 경고0이었다. 검증기 재실행은 압축 원장을 읽으며 전략 실행을 다시 하지 않는다. 생산/프런트 전체 검사와 문서·지도·회차 완료 판정은 부모의 [순차 기록](../../tasks/immediate-backlog-20261029.md)이 정본이다. 연구 harness만으로 UI/실제 Tauri 런타임·provider coverage 검증을 주장하지 않는다.
+연구 runner의 최초 컴파일·실행과 별도 harness의 `cargo clippy --offline --all-targets --all-features -- -D warnings`는 통과했고 경고0이었다. 검증기 재실행은 압축 원장을 읽으며 전략 실행을 다시 하지 않는다. 생산/프런트 전체 검사와 문서·지도·회차 완료 판정은 부모의 [순차 기록](../../completed-history.md#task-immediate-backlog-20261029)이 정본이다. 연구 harness만으로 UI/실제 Tauri 런타임·provider coverage 검증을 주장하지 않는다.
 
 이 연구는 [P2-16 완료 이력](../../completed-history.md#soxq-p2-16)의 별도 회고 walk-forward 절차와 phase 진단 검산 근거다. 실제 장중 cooldown·손절 효능, LTH 장중 coverage·시계, 미래 미관측 자료의 일반화나 실거래 안전성은 별도 조건이며 완료로 승격하지 않는다. 기본 전략이나 guard 완화·정책 승격을 제안하지 않는다.

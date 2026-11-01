@@ -92,7 +92,7 @@ npm run verify:toss-openapi
 - 현재 Toss 전용 client는 자동 압축 해제 feature가 없으므로 `Accept-Encoding: identity`를 명시한다. 헤더 생략은 서버가 임의 content-coding을 선택할 여지를 남긴다. 근거는 [RFC9110 §12.5.3](https://www.rfc-editor.org/rfc/rfc9110.html#section-12.5.3)과 [reqwest optional gzip](https://docs.rs/reqwest/0.13.5/reqwest/struct.ClientBuilder.html#method.gzip)이며 다른 서비스의 HTTP/TLS·전역 feature를 임의 변경하지 않는다.
 - 캔들 GET은 Content-Encoding 없음/단일identity만 읽고 미지원/복수·stacked coding을 명시 거부한다. 압축 wire를 UTF-8로 오인하거나 lossy decode·빈캔들 성공으로 바꾸지 않는다.15초/4MiB 사전·누적 제한을 보존한다.
 - 캔들 body_limit/body_read/body_utf8/content_encoding/json 오류는 고정 endpoint·HTTP status·고정분류/숫자 위치만 남긴다. 원문 body/header·토큰·계좌·query/cursor·동적orderID/serde의응답값·rawsource는 새 진단에 넣지 않는다. 비시장/비성공HTTP의 기존 오류 정책까지 전부 redaction됐다고 주장하지 않는다.
-- 캔들 정상DTO와401·GET send재시도·POST비재전송·typed 거절/불명 예산 경계를 fixture로 대조한다. 재현된 rawgzip 실패와 최종 미지원coding 조기 거절을 구분하고 실제 provider 응답 원인으로 확대하지 않는다. [수정·검증·한계](../../../docs/tasks/toss-simulation-response-parsing-20261031.md).
+- 캔들 정상DTO와401·GET send재시도·POST비재전송·typed 거절/불명 예산 경계를 fixture로 대조한다. 재현된 rawgzip 실패와 최종 미지원coding 조기 거절을 구분하고 실제 provider 응답 원인으로 확대하지 않는다. [수정·검증·한계](../../../docs/completed-history.md#task-toss-simulation-response-parsing-20261031).
 
 ## Adapter Implementation Rules
 
@@ -146,7 +146,7 @@ npm run verify:toss-openapi
 
 2026-10-18 공개 스펙 v1.2.24는 기존33개에 섹터 GET5개(`/api/v1/sectors`, `/sectors/rankings`, `/sectors/{sectorId}`, 그 하위 `/stocks`, `/etfs`)를 추가했다. 정확한 inventory 검증을38개로 갱신하며 새 섹터 앱 기능은 추가하지 않는다. [공식 OpenAPI](https://openapi.tossinvest.com/openapi-docs/latest/openapi.json).
 
-캔들 page adapter는 inclusive `nextBefore`를 그대로 보존하며 요청한 count(최대200)보다 큰 응답은 거부한다. 다음 커서가 없거나 이전 커서보다 과거로 전진하지 않으면 명시 종료한다. 공통 `get_candle_page`/웹 GET는 동일 scope·기준 시각을 고정한다. `1m`은 봉 종료 시각을 RFC3339 offset 포함 actual instant로 처리하고, `1d` 거래일은 시장 현지 날짜로 변환한다. provider 응답의 timezone `+`를 URL `%2B`로 인코딩하며 임의1초 차감으로 inclusive 계약을 바꾸지 않는다. UI 수집8회/500봉·사전252봉과 정확한 부족 사유, live52주 갱신은 `docs/tasks/live-completed-daily-history-20261018.md`를 따른다. live는실행profile/account고정,동시2개·8회/512봉·30~900초backoff이며프로파일누락을KIS조회로폴백하지않는다.
+캔들 page adapter는 inclusive `nextBefore`를 그대로 보존하며 요청한 count(최대200)보다 큰 응답은 거부한다. 다음 커서가 없거나 이전 커서보다 과거로 전진하지 않으면 명시 종료한다. 공통 `get_candle_page`/웹 GET는 동일 scope·기준 시각을 고정한다. `1m`은 봉 종료 시각을 RFC3339 offset 포함 actual instant로 처리하고, `1d` 거래일은 시장 현지 날짜로 변환한다. provider 응답의 timezone `+`를 URL `%2B`로 인코딩하며 임의1초 차감으로 inclusive 계약을 바꾸지 않는다. UI 수집8회/500봉·사전252봉과 정확한 부족 사유, live52주 갱신은 `docs/completed-history.md#task-live-completed-daily-history-20261018`를 따른다. live는실행profile/account고정,동시2개·8회/512봉·30~900초backoff이며프로파일누락을KIS조회로폴백하지않는다.
 
 > 마지막 업데이트: 2026-10-18T11:57:42+09:00
 
@@ -172,3 +172,5 @@ npm run verify:toss-openapi
 ## 2026-10-29 REST inventory 변경
 
 공식 공개 v1.2.28은 기존38경로를 유지하고 `GET /api/v1/rankings/investor-trading`1개를 추가해39경로/42 operations다. count는 선택1~100/default100, OAuth2 Bearer·RANKING group이며 계좌 헤더는 없다. 검증기의 정확한 목록을 갱신하고 인증/오류/rate-limit 검사를 유지한다. 앱의 신규 API 호출·거래 기능을 추가하지 않는다. REST 명세의 AsyncAPI3 별도 안내와 현재 앱의 Toss REST 구현을 구분하고 실제 WebSocket 지원/연결 성공으로 확대하지 않는다. [정본](../../../docs/toss-openapi.md).
+
+> 마지막 업데이트: 2026-11-01T00:21:19+00:00

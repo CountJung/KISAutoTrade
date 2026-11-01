@@ -125,7 +125,7 @@ npm run verify:toss-openapi
 
 2026-10-18: [공식 OpenAPI](https://openapi.tossinvest.com/openapi-docs/latest/openapi.json) v1.2.24에서 섹터 GET5개가 추가되어38개 inventory로 검증했다. 기존 인증·오류·rate-limit 헤더 검사는 유지한다. 계좌/주문 호출은 하지 않았다.
 
-캔들 cursor·봉 시각과 KIS 요청 불일치의 구현 잔여는 [공개 계약 조사](tasks/provider-candle-contract-20261018.md)를 따른다.
+캔들 cursor·봉 시각과 KIS 요청 불일치의 구현 잔여는 [공개 계약 조사](completed-history.md#task-provider-candle-contract-20261018)를 따른다.
 
 
 ### 체결·수수료의 네이티브 단위 확인 (2026-10-18)
@@ -152,4 +152,4 @@ npm run verify:toss-openapi
 
 ## 2026-10-31 시뮬레이션 본문 파싱의 로컬 교정
 
-Toss 전용 client의 무압축 identity 협상과 캔들 전용 안전 단계 진단으로 합성HTTP의 rawgzip→UTF8 실패 경로를 교정했다. 실제 사용자 응답이 gzip이었다는 증거는 없으며 잘린/손상본문·미지원coding은 계속 명시 실패한다. 신규14개·기존/인접 검증과 전체 Rust/시뮬레이션·CI·게시 근거, 운영앱/실계좌 미실행 범위는 [단일 작업 기록](tasks/toss-simulation-response-parsing-20261031.md)을 따른다. DTO·가격/시각·재시도/금융 guard·TLS/의존성 정책을 변경한 것이 아니다.
+Toss 전용 client의 무압축 identity 협상과 캔들 전용 안전 단계 진단으로 합성HTTP의 rawgzip→UTF8 실패 경로를 교정했다. 실제 사용자 응답이 gzip이었다는 증거는 없으며 잘린/손상본문·미지원coding은 계속 명시 실패한다. 신규14개·기존/인접 검증과 전체 Rust/시뮬레이션·CI·게시 근거, 운영앱/실계좌 미실행 범위는 [단일 작업 기록](completed-history.md#task-toss-simulation-response-parsing-20261031)을 따른다. DTO·가격/시각·재시도/금융 guard·TLS/의존성 정책을 변경한 것이 아니다.

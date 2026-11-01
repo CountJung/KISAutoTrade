@@ -1,6 +1,6 @@
 # KISAutoTrade — 남은 할일
 
-> 갱신: 2026-10-31 · 현재 구현 근거는 [UI/UX 회차](tasks/uiux-improvements-20261030.md), [기존 즉시 작업 회차](tasks/immediate-backlog-20261029.md)와 완료 이력을 따른다.
+> 갱신: 2026-11-01 · 완료 근거는 [통합 이력](completed-history.md), 현재 사용법·계약은 해당 정본을 따른다.
 > 우선순위는 P1 정확성/신뢰성 → P2 사용 흐름·전략 연구 → P3 유지보수다. 로컬 구현 완료와 실제 provider·실자료 검증 완료를 구분한다.
 
 ## 대분류별 진행 현황
@@ -29,21 +29,9 @@
 
 ## 1. 바로 진행할 코드·개선 작업
 
-2026-10-29 착수 시 고정한 즉시 작업 10회차의 승인된 코드 구현·검증·후보 평가를 완료했다. 회차별 원래ID·채택/유지 판단·커밋·CI·미검증 경계는 [회차 기록](tasks/immediate-backlog-20261029.md)과 [완료·경과 이력](completed-history.md)에 보존한다. SOXQ-P2-13의 로컬 코드 계약은 완료했지만 같은ID의 실제 장중 효능 조건은 아래4구역에 열린 상태다.
+즉시 자동 구현은 **0개**다. 기존 즉시10회차·UI/UX9개·키보드5개의 완료 범위와 커밋/CI는 [완료 이력](completed-history.md)에 합쳤다. 최신 코드의 UI557/Rust901·테스트/보안 CI와 실제 OS IME/WebView/스크린리더 미검증 경계는 [최종 영수증](completed-history.md#keyboard-final-ci-20261031)을 따른다.
 
-기존 SQLx 코드 작업 DEP-P3-02는 아래2구역에서 관리하며 DEP-P3-01의 최소Rust·격리DB 지원정책 결정이 먼저다. 판단·실자료 조건을 가짜 완료로 처리하지 않는다. 검증은 금융 자격증명·실거래 연결 없이 합성/mock·격리 fixture를 사용하며 운영 DB·실제 주문/취소·운영배포를 건드리지 않는다. Xcode27.0→27.1은 기존 사용자 보류를 유지한다.
-
-### 2026-10-30 UI/UX 즉시 개선 — 9개 완료
-
-즉시 개선9개는 항목별 구현·격리 검증·독립 리뷰를 마쳐 [완료 이력](completed-history.md)으로 옮겼다. 실행 상태·잔고·History 조회, 종목/패널 키보드 조작, 거래 상세, Log, Settings 목차, 차트 자료 대안의 완료 범위와 회차별 커밋은 [UI/UX 회차 기록](tasks/uiux-improvements-20261030.md)을 따른다. 전체 UI408개와 테스트/보안 CI 결과·게시 근거는 같은 기록에서 확인한다.
-
-위 9개 완료와 아래 10/31 키보드 검토의 신규5개 후속 과제를 구분한다. 위험 행동 확인 정책 P2-UX-07과 기존 선행 결정·사용자 판단·실자료 조건11개는 아래2~4구역에 유지한다. 실제 원장·시장 자료·native/스크린리더 검증은 이번 격리 UI 완료로 대신하지 않는다. [전문가 사용법](agent-tooling.md#uiux-전문가-사용)과 [최초 검토 근거](completed-history.md#uiux-20261030)는 보존한다.
-
-### 2026-10-31 키보드 편의성 — 5개 완료
-
-2026-10-31 08:19 UTC의 후속 요청으로 아래5개 순차 구현이 승인됐다. [현재 구현·회차 영수증](tasks/keyboard-improvements-20261031.md)에서 red/green·검증·커밋/원격 상태를 관리한다. 소스/실제 mock 관측/미검증의 상세 구분은 [키보드 검토 이력](completed-history.md#kbd-audit-20261031)을 따른다. 기존 UI9개 완료를 다시 열지 않고 새 경로와 trigger만 다룬다.
-
-키보드5개는 [완료 이력](completed-history.md)과 [회차별 검증·게시 기록](tasks/keyboard-improvements-20261031.md)으로 이관했다. 최종 코드의 테스트/보안 CI와 앞선 실패 보정 근거는 [최종 영수증](tasks/keyboard-improvements-20261031.md#keyboard-final-ci-20261031)을 따른다. 기존 대기11개는 아래2~4구역에서 계속 관리한다.
+다음 코드 작업 DEP-P3-02는 DEP-P3-01의 최소 Rust·격리 DB 지원정책 결정 후2구역에서 진행한다. 기존 판단·실자료11개는2~4구역에 유지하며 SOXQ-P2-13의 로컬 계약 완료를 실제 장중 효능 완료로 확대하지 않는다. Xcode27.0→27.1은 기존 사용자 보류를 유지한다. 실제 주문/취소·운영 DB·배포는 별도 승인 없이 실행하지 않는다.
 
 ## 2. 선행 결정 후 진행할 코드 작업
 
@@ -59,7 +47,7 @@
   - **진행할 수 없는 사유:** 실제 서버 fixture는 기존 사용자 결정으로 보류되었고 지원할 MariaDB 버전·인증 범위가 확정되지 않았다. 임의로 보류를 해제하거나 비TLS 인증 지원을 제거하지 않는다.
   - **필요한 사용자 판단:** 보류 해제 여부, 지원 버전과 인증/TLS 범위를 결정한다. 운영 계정/DB 자료 대신 격리된 합성 fixture를 사용한다.
   - **재개 조건:** 범위가 정해지면 운영 서비스와 분리한 일회용 서버·합성 접속정보로 테스트를 실제 실행한다. 환경 미설정으로 즉시 반환한 테스트는 통과로 세지 않는다.
-  - **객관적 완료 기준:** 지원 matrix의 각 조합에서 계약 실행 건수·성공/거부·rollback·재접속과 비밀정보 비노출을 기록하고 CI 실행/미실행을 구분한다. [기존 PostgreSQL 검증과 제외 범위](tasks/database-tls-reconnect-20261018.md), SQLx 전환 정책은 DEP-P3-01·02에서 별도 관리한다.
+  - **객관적 완료 기준:** 지원 matrix의 각 조합에서 계약 실행 건수·성공/거부·rollback·재접속과 비밀정보 비노출을 기록하고 CI 실행/미실행을 구분한다. [기존 PostgreSQL 검증과 제외 범위](completed-history.md#task-database-tls-reconnect-20261018), SQLx 전환 정책은 DEP-P3-01·02에서 별도 관리한다.
   - **의존성:** DEP-P3-01과 같은 DB 지원정책을 공유한다. 보류 해제와 matrix의 실제 실행을 별도 확인한다.
 
 - [ ] **🟠 사용자 판단 대기** **DEP-P3-01 — 격리 DB 검증환경과 프로젝트 MSRV 기준을 결정한다.** 우선순위 1, SQLx 전환의 선행조건.
@@ -68,14 +56,14 @@
   - **진행할 수 없는 사유:** 선언 MSRV 1.90과 SQLx 0.9 요구 1.94가 다르며 기존 MariaDB fixture 보류·비TLS 인증 지원의 정책을 임의로 변경할 수 없다. 개발 Mac 1.99.1의 성공만으로 최소 지원 버전을 검증한 것은 아니다.
   - **필요한 사용자 판단:** 최소 Rust를 1.94 이상으로 올릴지, 격리 DB 버전/인증 범위와 MariaDB 보류를 어떻게 다룰지 확정한다. 운영 계정/자료 없이 합성 전용 접속정보를 사용한다.
   - **재개 조건:** 결정된 지원 기준을 선언·CI에 반영하고 임시 DB fixture의 실제 실행·skip 감지를 연결한 후 DEP-P3-02 전환을 진행한다. 결정 전에도 로컬 검증 설계·호환 영향 조사·독립적인 다른 업데이트 검토는 가능하다.
-  - **객관적 완료 기준:** 선택한 최소 Rust와 stable의 check/test, 지원 DB matrix별 실제 계약 실행 건수와 성공/거부를 기록한다. 즉시 반환·미실행을 통과로 세지 않고 schema/transaction·TLS·인증·복구를 확인한다. RSA 해소 판정은 별도 audit/의존성 근거로만 한다. [2026-10-24 검증·보류](security-mac-handoff-2026-10-06.md), [정책·RSA 잔여](release-security.md).
+  - **객관적 완료 기준:** 선택한 최소 Rust와 stable의 check/test, 지원 DB matrix별 실제 계약 실행 건수와 성공/거부를 기록한다. 즉시 반환·미실행을 통과로 세지 않고 schema/transaction·TLS·인증·복구를 확인한다. RSA 해소 판정은 별도 audit/의존성 근거로만 한다. [2026-10-24 검증·보류](completed-history.md#security-mac-handoff), [정책·RSA 잔여](release-security.md).
 
 - [ ] **🟠 사용자 판단 대기** **P1-SCOPE-01 — 여러 broker/account 포지션과 pending을 동시에 상주·대조하는 multi-scope runtime.**
   - **현재 미완료:** 여러 broker/account의 포지션·pending을 동시에 상주시켜 scope별로 대조하는 runtime이다. 현재의 단일 활성 scope·owner 원장·계좌 전환 경합 보호는 구현했으며 동시 다계좌 운용과 다르다.
   - **진행할 수 없는 사유:** 동시 다계좌 운용의 제품 채택 여부와 scope별 실행·정지·리스크 한도가 정해지지 않았다. 현재 불변식을 임의로 바꾸면 주문·잔고·복원 경계가 달라진다.
   - **필요한 사용자 판단:** 동시 운용 채택 여부, 지원 broker/시장 조합, 계좌별·전체 리스크/비상정지 범위를 결정한다. 실제 credential·계좌 파일 제공은 이 결정에 필요하지 않다.
   - **재개 조건:** 제품 범위가 확정되면 `(broker, account, market, symbol)` tracker와 scope별 credential reconciliation 설계를 고정하고 mock부터 구현한다.
-  - **객관적 완료 기준:** 동시 scope의 주문/체결/pending·캐시·소유 원가·재시작·부분 실패가 서로 침범하지 않으며 scope별/전체 정지·리스크를 실패 fixture와 UI에서 검증한다. 실제 계좌 운용은 별도 승인 검증으로 남긴다. [현재 소유·scope 경계](ARCHITECTURE.md), [기존 소유 피드백 검증](tasks/strategy-fill-ownership-20261018.md).
+  - **객관적 완료 기준:** 동시 scope의 주문/체결/pending·캐시·소유 원가·재시작·부분 실패가 서로 침범하지 않으며 scope별/전체 정지·리스크를 실패 fixture와 UI에서 검증한다. 실제 계좌 운용은 별도 승인 검증으로 남긴다. [현재 소유·scope 경계](ARCHITECTURE.md), [기존 소유 피드백 검증](completed-history.md#task-strategy-fill-ownership-20261018).
 
 - [ ] **🟠 사용자 판단 대기** **P3-SIGN-01 — 플랫폼 코드 서명·updater 서명 강제를 위한 배포 키 준비.**
   - **현재 미완료:** 대상 플랫폼의 실제 코드 서명·updater 서명 생성과 서명 강제 release artifact 검증이다. checksum/attestation·sidecar 존재/비어 있지 않음·강제 옵션 검사는 구현했으며 암호학적 서명 검증이나 실제 서명 릴리스와 다르다.
@@ -104,7 +92,7 @@
   - **진행할 수 없는 사유:** 실제 사례의 비식별 원본과 운영자 귀속 확인이 없고 계좌 조회·소액 주문의 별도 승인이 없다. 새 원장에 계좌 전체 보유를 자동 편입하거나 확인 불가 기록의 주문 차단을 해제할 수 없다.
   - **필요한 비식별 자료/판단:** 식별값을 일관되게 치환한 요청·응답·시간순 상태·누적 수량/대금/비용 사례와 도입 이전 보유 귀속 대조 결과를 제공한다. 운영 연결이 필요하면 read-only 범위를 먼저 정하고 소액 주문은 별도로 명시 승인한다. key·계좌 원문·개인 계정 파일은 받지 않는다.
   - **재개 조건:** 비식별 fixture로 mapping·중복/역순·부분체결/정정/취소/거부/만료를 먼저 재현한다. read-only 대조 후에도 불충분한 실제 주문 검증만 별도 승인 범위에서 진행한다.
-  - **객관적 완료 기준:** provider별 원래/새 주문 연결·최종 상태·수량/원가/모드·소유 귀속을 원본 근거와 대사하고 불명확 사례의 fail-closed·재시도 멱등성을 입증한다. 운영자 대조/복구 UI의 로컬 구현은 [P1-RECOVERY-01 이력](completed-history.md#p1-recovery-01)에 보존하며 실제 provider 근거를 통한 운영 검증은 이 항목에서 계속한다. [로컬 검증과 운영 제외 범위](tasks/strategy-fill-ownership-20261018.md).
+  - **객관적 완료 기준:** provider별 원래/새 주문 연결·최종 상태·수량/원가/모드·소유 귀속을 원본 근거와 대사하고 불명확 사례의 fail-closed·재시도 멱등성을 입증한다. 운영자 대조/복구 UI의 로컬 구현은 [P1-RECOVERY-01 이력](completed-history.md#p1-recovery-01)에 보존하며 실제 provider 근거를 통한 운영 검증은 이 항목에서 계속한다. [로컬 검증과 운영 제외 범위](completed-history.md#task-strategy-fill-ownership-20261018).
 
   - **관련 완료 근거:** P1-RECOVERY-01의 UI·fixture 구현은 완료 이력에 보존하며 이 항목의 실제 provider 검증을 대체하지 않는다.
 
@@ -114,8 +102,8 @@
   - **필요한 비식별 자료:** 원본 파일 경로 또는 사용 가능한 공급원과 자료 이용 범위, feed·가격 조정 여부·봉 시작/종료 표기·요청 기간·수집 시각 metadata를 제공한다. API key·계좌번호·개인 계정 파일은 문서나 에이전트에 전달하지 않는다.
   - **재개 조건:** 원본과 이용 범위가 확인되면 원본 hash·누락/중복·거래소 달력·공개 가능 시각을 먼저 고정하고, 기존 fixed KST 실행 모델과 검증된 시장 시각의 차이를 해결한 뒤 재실행한다. 파싱 진단 통과만으로 `lookAheadSafe`나 성과 상태를 승격하지 않는다.
   - [ ] **객관적 완료 기준:** 요청 기간의 원본·출처·hash·세션별 coverage/제외 사유를 보관하고, DST·휴장/조기마감·gap·진입/마감 창 및 생산 신호/체결·독립 정산을 재현 가능하게 검증한다. 미확인 구간은 평가 불가로 남긴다.
-  - **중복 미완료 조건 통합:** 기존 제목 **“LTH 보강의 일봉 성과 미리보기”**의 근거와 잔여 조건을 이 항목에 통합했다. 일봉 context/분봉 지표 분리와 일봉 `notEvaluable`는 이미 구현되었고, 일봉에서 장중 성과를 복원하는 새 기능을 약속하지 않는다. 활성 볼린저 성과는 실제 1분봉·시장 시간 검증 후에만 평가하며 옵션별 비교 결과는 별도 P2-12에 남긴다. 통합은 삭제나 완료 처리가 아니다. [시간 진단의 검증 범위](tasks/lth-minute-timing-20261022.md).
-  - 대상: `commands/strategy_preview.rs`, `trading/strategy/leveraged_trend_hold/{live,preview,indicators}.rs`, `trading/simulation/assessment.rs`. [작업 기록](tasks/soxq-p1-05.md), [v7 검증](research/soxq-3m-20261003/p1-05-validation.md).
+  - **중복 미완료 조건 통합:** 기존 제목 **“LTH 보강의 일봉 성과 미리보기”**의 근거와 잔여 조건을 이 항목에 통합했다. 일봉 context/분봉 지표 분리와 일봉 `notEvaluable`는 이미 구현되었고, 일봉에서 장중 성과를 복원하는 새 기능을 약속하지 않는다. 활성 볼린저 성과는 실제 1분봉·시장 시간 검증 후에만 평가하며 옵션별 비교 결과는 별도 P2-12에 남긴다. 통합은 삭제나 완료 처리가 아니다. [시간 진단의 검증 범위](completed-history.md#task-lth-minute-timing-20261022).
+  - 대상: `commands/strategy_preview.rs`, `trading/strategy/leveraged_trend_hold/{live,preview,indicators}.rs`, `trading/simulation/assessment.rs`. [작업 기록](completed-history.md#task-soxq-p1-05), [v7 검증](research/soxq-3m-20261003/report.md#validation-p1-05).
 
   - **완료된 부분의 근거:** [이관 기록](completed-history.md#soxq-p1-05)을 참고한다. 상위 완료 조건은 유지한다.
 
@@ -124,7 +112,7 @@
   - **진행할 수 없는 사유:** 검증된 전체 기간 자료·시장 달력/세션·공개 시각과 실행 시계의 일치가 확보되지 않았다. P1-05의 자료 준비와 이 항목의 옵션별 비교는 서로 다른 결과물이다.
   - **필요한 비식별 자료:** P1-05의 원본 경로·출처/이용 범위·시각/조정/coverage metadata를 공유한다. 같은 자료를 중복 요청하거나 별도 계좌 credential을 요구하지 않는다.
   - **재개 조건:** P1-05의 자료·시간 검증을 마친 뒤 결과를 보기 전 옵션·창·수량·비용을 고정하고 실제 장중 경로에서 비교한다.
-  - **객관적 완료 기준:** 기본/볼린저 각 결과의 신호·체결/차단·완료 표본·실현/잔여·MDD·회전·노출을 독립 대조하고 무신호/자료부족/평가불가를 구분한다. generic LTH 거부·일봉 notEvaluable를 유지하고 짧은 신호0을 효과 없음으로 단정하지 않는다. [표본 연구](research/strategy-review-20261018/report.md), [시장 시각 진단의 한계](tasks/lth-minute-timing-20261022.md).
+  - **객관적 완료 기준:** 기본/볼린저 각 결과의 신호·체결/차단·완료 표본·실현/잔여·MDD·회전·노출을 독립 대조하고 무신호/자료부족/평가불가를 구분한다. generic LTH 거부·일봉 notEvaluable를 유지하고 짧은 신호0을 효과 없음으로 단정하지 않는다. [표본 연구](research/strategy-review-20261018/report.md), [시장 시각 진단의 한계](completed-history.md#task-lth-minute-timing-20261022).
   - **완료된 부분의 근거:** [이관 기록](completed-history.md#soxq-p2-12)을 참고한다. 상위 완료 조건은 유지한다.
 
 - [ ] **🟠 사용자 검증·자료 대기** **SOXQ-P2-13 — 가격조건의 실제 장중 손절·재진입 효능을 검증한다.**
@@ -135,7 +123,7 @@
   - **현재 정책의 관측 한계:** PC 매도는 설정수량 요청 뒤 실제 소유수량으로 제한한다. 잔량이 남으면 live 기본 일일 매도 제한과 일반 guard가 후속 청산을 막을 수 있다. 로컬 검증은 잔량·원가 상태 보존이며 잔량 청산 성공이나 손실 제한 증거가 아니다. 연구 overlay 결과를 live 결과로 바꾸어 부르지 않는다.
   - **의존성:** 비식별 자료만으로 가능한 생산 검증은 자료 확보 후 자동 진행한다. 실제 계좌/provider 연결·금융거래는 이번 구현 범위에 포함되지 않는다.
 
-- [ ] **🟠 사용자 검증·자료 대기** **SOXQ-P2-09 — 변동성 확장의 실제 장중 근거 검증.** 테스트 가능한 구현·일봉 비교는 완료했으며 최초 장중 발동·실제 체결 가능성 조건은 열린 상태다. [작업](tasks/volatility-expansion-policy-20261022.md), [사전 설계·비교·한계](research/volatility-expansion-policy-20261022/report.md), [독립 감사](research/volatility-expansion-policy-20261022/independent-audit.json).
+- [ ] **🟠 사용자 검증·자료 대기** **SOXQ-P2-09 — 변동성 확장의 실제 장중 근거 검증.** 테스트 가능한 구현·일봉 비교는 완료했으며 최초 장중 발동·실제 체결 가능성 조건은 열린 상태다. [작업](completed-history.md#task-volatility-expansion-policy-20261022), [사전 설계·비교·한계](research/volatility-expansion-policy-20261022/report.md), [독립 감사](research/volatility-expansion-policy-20261022/independent-audit.json).
   - **현재 미완료:** 최초 장중 조건 발동·주문 가능 시각·체결/차단·청산 창의 실제 자료 검증이다. 위 일봉/fixture·현재 UI 진단의 완료를 실제 장중 체결 가능성 확인으로 확대하지 않는다.
   - **진행할 수 없는 사유:** 관측 시가 대용인 live 첫 quote와 일봉 nextOpen은 실제 거래소 시가·봉 내부 순서·유동성을 입증하지 못한다. 해당 구간의 출처/공개 시각·세션·누락/coverage가 검증된 장중 자료가 없다.
   - **필요한 비식별 자료:** 장중 파일 경로 또는 공급원/이용 범위와 시장 timezone·봉 표기·발행/수신 시각·가격 조정·누락 metadata를 제공한다. 실제 체결 가능성까지 판단하려면 그 판단을 뒷받침하는 호가/체결 근거가 필요하며 OHLC만 있으면 그 한계를 남긴다.

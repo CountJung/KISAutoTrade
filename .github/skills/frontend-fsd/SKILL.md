@@ -107,4 +107,6 @@ ESLint나 별도 스크립트를 추가하기 전까지는 수동으로 아래�
 > 마지막 업데이트: 2026-10-25T20:23:25+09:00
 
 
-- Trading route는 `useTradingOrderModel`에 기존broker별query gate/state/effect/command closure를, `tradingOrderForm`에공통주문표시를둔다. LTH editor도 `useLeveragedTrendHoldEditorModel`을parent에서한번호출하고tickerPicker/previewPanel에같은model을전달한다. child에서hook을중복호출해독립state/query를만들지않는다. 이page전용상태는shared에승격하지않고기존public entry를보존한다. [분리검증](../../../docs/tasks/immediate-backlog-20261029.md).
+- Trading route는 `useTradingOrderModel`에 기존broker별query gate/state/effect/command closure를, `tradingOrderForm`에공통주문표시를둔다. LTH editor도 `useLeveragedTrendHoldEditorModel`을parent에서한번호출하고tickerPicker/previewPanel에같은model을전달한다. child에서hook을중복호출해독립state/query를만들지않는다. 이page전용상태는shared에승격하지않고기존public entry를보존한다. [분리검증](../../../docs/completed-history.md#task-immediate-backlog-20261029).
+
+> 마지막 업데이트: 2026-11-01T00:21:19+00:00

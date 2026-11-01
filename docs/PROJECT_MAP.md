@@ -27,7 +27,7 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | 수동 주문 화면 | `src/pages/trading/ui/Page.tsx`, `useTradingOrderModel.ts` | `tradingOrderForm.tsx`, `kisPanels.tsx`, `tossPanels.tsx`, `tests/e2e/trading-form-contract.spec.ts`. Page는 조립, 모델은 상태·조회·제출, 폼은 공유 모델 UI를 소유 |
 | LTH 편집·종목 선택·preview | `src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx`, `useLeveragedTrendHoldEditorModel.ts` | `leveragedTrendHoldTickerPicker.tsx`, `leveragedTrendHoldPreviewPanel.tsx`, `leveragedTrendHoldPreviewChart.tsx`, `strategyResearchPanel.tsx`. 기존 공개 entry·검증 export와 계좌/입력 generation·평가불가 경계를 보존 |
 | UI 의존성·키보드/반응형 계약 | `tests/e2e/ui-dependency-contract.spec.ts` | Settings Dialog/Select, Dashboard 페이지 크기, LTH 차트의 테마·resize·SPA 재진입을 mock API로 확인. focus 복귀·canvas 렌더링·console/page 오류·외부 요청 경계 포함 |
-| 격리 macOS Wry smoke | `scripts/webview-smoke/driver.mjs`, `host.rs` | `native.rs`, `bootstrap.js`, `fixtures.json`, `bootstrap.test.mjs`. VM4·build-only·승인 후 실제 Wry UI/종료·재실행 검증을 구분. [명령·경계](HARNESS_MAP.md)와 [8회차 실행 근거·미검증 범위](tasks/immediate-backlog-20261029.md) 참조 |
+| 격리 macOS Wry smoke | `scripts/webview-smoke/driver.mjs`, `host.rs` | `native.rs`, `bootstrap.js`, `fixtures.json`, `bootstrap.test.mjs`. VM4·build-only·승인 후 실제 Wry UI/종료·재실행 검증을 구분. [명령·경계](HARNESS_MAP.md)와 [8회차 실행 근거·미검증 범위](completed-history.md#task-immediate-backlog-20261029) 참조 |
 | 전역 UI 상태 | `src/entities/*/model/*Store.ts` | 하위 호환 `src/store/*.ts` re-export |
 | 서버 상태 조회/변경 | `src/api/hooks.ts`, `src/api/queryKeys.ts` | `src/api/commands.ts`, `src/shared/api/transport.ts` |
 | 공용 IPC 타입 | `src/shared/api/types.ts` | `src/api/types.ts` re-export/legacy surface, Rust serde view |
@@ -44,8 +44,8 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | 자동매매 시작/데몬 | `src-tauri/src/commands/trading.rs` / `commands/trading/daemon.rs` | `daemon/{fence,flow}.rs`, `commands/trading/{positions,balance,risk_restore,history,daily_history}.rs`, `lib.rs` |
 | Live 완료 일봉 준비·거래량 | `commands/trading/daily_history.rs`, `daily_history/jobs.rs` | `trading/strategy/{core,manager/live_history}.rs`, `src/shared/ui/LiveDailyHistoryPanel.tsx`, TradingStatus |
 | 전략 | `src-tauri/src/trading/strategy/` | `commands/strategy.rs`, `commands/strategy_preview.rs`, Strategy UI |
-| 가격조건 소유·손절/재진입 계약 검증 | `trading/order/feedback/tests/price_condition.rs`, `commands/strategy_preview/pc_replay_tests.rs` | `trading/strategy/price_condition.rs`, `order/submission/owned.rs`, `simulation/session.rs`, [고정 설계·생산 재현](research/price-condition-contracts-20261029/report.md), [2회차 기록](tasks/immediate-backlog-20261029.md). 생산 정책 변경 없이 live/replay 합성 계약과 기존 고정 일봉 원장을 재현하며 실제 장중 효능은 미완료 |
-| 추세 필터 P2-11 소유·선택 보호 | `src-tauri/src/trading/strategy/mean_trend.rs`, `mean_trend/trend_filter_{params,protection,tests}.rs` | `src/pages/strategy/ui/{strategyPolicyControls,trendFilterControls}.tsx`, `docs/research/trend-filter-policy-20261023/{runner.rs,baseline_runner.rs,report.md}`, `docs/tasks/trend-filter-policy-20261023.md`; 실제 소유/잔량·strict checkpoint·저장/두 preview/UI와 고정81fa00d/v21→v22 생산 실행·독립 대사를 구분 |
+| 가격조건 소유·손절/재진입 계약 검증 | `trading/order/feedback/tests/price_condition.rs`, `commands/strategy_preview/pc_replay_tests.rs` | `trading/strategy/price_condition.rs`, `order/submission/owned.rs`, `simulation/session.rs`, [고정 설계·생산 재현](research/price-condition-contracts-20261029/report.md), [2회차 기록](completed-history.md#task-immediate-backlog-20261029). 생산 정책 변경 없이 live/replay 합성 계약과 기존 고정 일봉 원장을 재현하며 실제 장중 효능은 미완료 |
+| 추세 필터 P2-11 소유·선택 보호 | `src-tauri/src/trading/strategy/mean_trend.rs`, `mean_trend/trend_filter_{params,protection,tests}.rs` | `src/pages/strategy/ui/{strategyPolicyControls,trendFilterControls}.tsx`, `docs/research/trend-filter-policy-20261023/{runner.rs,baseline_runner.rs,report.md}`, `docs/completed-history.md#task-trend-filter-policy-20261023`; 실제 소유/잔량·strict checkpoint·저장/두 preview/UI와 고정81fa00d/v21→v22 생산 실행·독립 대사를 구분 |
 | RSI 실제 소유·선택 보호 | `trading/strategy/classic/rsi.rs`, `classic/rsi/params.rs` | `strategy/observation.rs`, `configuration/tests/rsi.rs`, `order/feedback/tests/rsi.rs`, `strategy_preview/rsi_entry_tests.rs`, `rsiControls.tsx`, `docs/research/rsi-policy-20261022/` |
 | 변동성 확장 이전 범위·시장일 관측·실제 소유 | `trading/strategy/breakout/volatility_expansion.rs`, `volatility_expansion/{params,context,protection}.rs` | `strategy/{core,manager/live_history}.rs`, `manager/volatility_history_tests.rs`, `configuration/tests/volatility.rs`, `strategy_preview/volatility_entry_tests.rs`, `src/shared/api/strategyResearchTypes.ts`, `volatilityExpansion{Controls,Preparation}.tsx`, `tests/e2e/strategy-volatility-expansion-policy.spec.ts`, `docs/research/volatility-expansion-policy-20261022/` |
 | 강한 종가 완료 시장일·실제 소유·선택 보호 | `trading/strategy/breakout/strong_close.rs`, `strong_close/{params,context,protection}.rs` | `strategy/{core,manager/live_history}.rs`, `manager/strong_close_history_tests.rs`, `configuration/tests/strong_close.rs`, `strategy_preview/strong_close_entry_tests.rs`, `strongClose{Controls,Preparation}.tsx`, `tests/e2e/strategy-strong-close-policy.spec.ts`, `docs/research/strong-close-policy-20261022/` |
@@ -61,15 +61,15 @@ JSON/DB storage + pending/order/trade/risk + Discord/event
 | 주문 전 검증 | `src-tauri/src/trading/preflight.rs`, `trading/guard.rs` | broker별 preflight command, `trading/risk.rs` |
 | 리스크 | `src-tauri/src/trading/risk.rs` | `commands/risk.rs`, `storage/risk_store.rs`, restore tests |
 | pending/체결 | `trading/order/fills.rs`, `order/fills/reconciliation.rs` | `order/{pending,health}.rs`, `fills/{collector,provider_mode}.rs`, `storage/{pending_order_store,order_store,trade_store}.rs` |
-| 응답 불명 주문 대조·복구 | `trading/order/budget/recovery.rs`, `submission/recovery.rs`, `commands/budget.rs` | `src/pages/settings/ui/budgetRecoverySection.tsx`, `src/api/budgetRecoveryHooks.ts`, `src/shared/api/budgetRecovery{Types,Commands}.ts`, `budget/recovery/{history,tests}.rs`, `trading/guard/recovery.rs`, `trading/guard/recovery/tests.rs`, `storage/database/recovery_history.rs`, `storage/{order_store,trade_store}.rs`, `tests/e2e/budget-recovery.spec.ts`, [작업 기록](tasks/immediate-backlog-20261029.md). 데스크톱에서 원래 주문 근거와 보관된 primary 이력의 scope/provider ID 충돌을 대조해 pending과 원래 제출 시각의 멱등 guard 보호를 복원. 공통 제출의 budget_owned→load_budget 경로가 guard 평가 전에 보호를 읽으며 실제 provider 검증·예산 해제와 구분 |
+| 응답 불명 주문 대조·복구 | `trading/order/budget/recovery.rs`, `submission/recovery.rs`, `commands/budget.rs` | `src/pages/settings/ui/budgetRecoverySection.tsx`, `src/api/budgetRecoveryHooks.ts`, `src/shared/api/budgetRecovery{Types,Commands}.ts`, `budget/recovery/{history,tests}.rs`, `trading/guard/recovery.rs`, `trading/guard/recovery/tests.rs`, `storage/database/recovery_history.rs`, `storage/{order_store,trade_store}.rs`, `tests/e2e/budget-recovery.spec.ts`, [작업 기록](completed-history.md#task-immediate-backlog-20261029). 데스크톱에서 원래 주문 근거와 보관된 primary 이력의 scope/provider ID 충돌을 대조해 pending과 원래 제출 시각의 멱등 guard 보호를 복원. 공통 제출의 budget_owned→load_budget 경로가 guard 평가 전에 보호를 읽으며 실제 provider 검증·예산 해제와 구분 |
 | 전략 소유 수량·체결 피드백 | `trading/order/{ownership,feedback}.rs` | `ownership/runtime.rs`, `submission/owned.rs`, `fills/ownership.rs`, `trading/strategy/{core,manager}.rs`, 각 `live_feedback_tests.rs` |
 | 체결 손익·재시도 영수증 | `trading/order/fills/ownership.rs`, `trading/risk/fill_accounting.rs` | `fills/collector/notional.rs`, `commands/trading/risk_restore.rs`, `storage/pending_order_store.rs`, `order/ownership/` |
 | Toss 소액 검증·수수료율 표시 | `commands/toss/small_order.rs`, `trading/preflight.rs` | `small_order/tests.rs`, `src/pages/trading/ui/tossPanels.tsx`, `tests/e2e/toss-commission-ratio.spec.ts` |
 | 저장 backend·설정 복구 | `src-tauri/src/storage/mod.rs`, `database.rs` | `storage/database/{configuration,connection,tests}.rs`, 각 `*_store.rs` |
 | 서버용 격리 저장 fixture | `src-tauri/src/storage/database/test_support.rs` | `server/test_support.rs`가 사용하는 `cfg(test)` JSON 전용 manager. 설정 로드·keychain 접근·전역 DB 설치 없이 조립 |
-| DB TLS·강제 단절·재접속 계약 | `scripts/database-tls-contract.mjs` | `storage/database_contract_tests/tls_restart.rs`, `docs/tasks/database-tls-reconnect-20261018.md`, `docs/HARNESS_MAP.md` |
+| DB TLS·강제 단절·재접속 계약 | `scripts/database-tls-contract.mjs` | `storage/database_contract_tests/tls_restart.rs`, `docs/completed-history.md#task-database-tls-reconnect-20261018`, `docs/HARNESS_MAP.md` |
 | 데몬/앱 초기화 | `src-tauri/src/lib.rs` | `commands.rs::AppState`, `server/mod.rs` |
-| Rust 의존성 hash·오류 호환 | `src-tauri/Cargo.toml`, `src-tauri/src/{api,broker,commands,storage,trading}/`의 dependency 계약 leaf | [상세 지도·등록부](project-map.md#rust-의존성의-hash오류-계약)의 10개 leaf·14개 합성 계약. sha2.11/hex0.4의 소문자 출력 6표현·raw 프로파일 배열과 thiserror2 오류 경계를 구분. [명령·한계](HARNESS_MAP.md), [9회차 고정 입력·단계 결과/유지 판단](tasks/immediate-backlog-20261029.md) 참조 |
+| Rust 의존성 hash·오류 호환 | `src-tauri/Cargo.toml`, `src-tauri/src/{api,broker,commands,storage,trading}/`의 dependency 계약 leaf | [상세 지도·등록부](project-map.md#rust-의존성의-hash오류-계약)의 10개 leaf·14개 합성 계약. sha2.11/hex0.4의 소문자 출력 6표현·raw 프로파일 배열과 thiserror2 오류 경계를 구분. [명령·한계](HARNESS_MAP.md), [9회차 고정 입력·단계 결과/유지 판단](completed-history.md#task-immediate-backlog-20261029) 참조 |
 | 릴리스/CI | `package.json`, root `Cargo.toml` | `.github/workflows/*.yml`, `docs/release-security.md` |
 
 ## 3. Frontend 경계
@@ -154,7 +154,7 @@ health에 남긴다.
 `holdings/parse.rs`는 일반 갱신·시작·수동 주문에서 같은 잔고 검증을 적용한다.
 Toss 응답의 broker/account·시장/통화·중복 종목과 수치 범위를 확인하고 소수 잔량을
 정수 주문 수량으로 올리지 않는다. 리스크 복원은 계좌와 투자 모드를 검증한 후보를
-저장한 뒤 공개한다. 구현·검증 범위는 [P1-FILL 작업 기록](tasks/strategy-fill-ownership-20261018.md)을 따른다.
+저장한 뒤 공개한다. 구현·검증 범위는 [P1-FILL 작업 기록](completed-history.md#task-strategy-fill-ownership-20261018)을 따른다.
 
 `fills/collector/notional.rs`는 provider 누적 체결금액을 원·cents의 정수로 변환한다.
 Toss의 명시 금액과 누락을 구분하고 실제 평균가 대체 계산도 총액 변환 뒤 한 번만
@@ -220,7 +220,7 @@ v21 전용390진단·249412검사의 독립 감사는 같은 연구 경로의 gz
 validation·independent-audit.json으로 연결한다. 분할36개는 생산 assertion과 저장 원장
 hash 연결만 확인했으며 미저장 대체 원장 독립 재정산이나 새 표본으로 세지 않는다.
 [연구](research/volatility-expansion-policy-20261022/report.md)와
-[작업](tasks/volatility-expansion-policy-20261022.md)에서 자동 구현·일봉 연구의 검증 범위를
+[작업](completed-history.md#task-volatility-expansion-policy-20261022)에서 자동 구현·일봉 연구의 검증 범위를
 확인한다. 실제 장중 최초 발동/체결 자료 게이트는 미완료다.
 
 ### 강한 종가의 완료 시장일·실제 소유와 선택 보호
@@ -256,7 +256,7 @@ live 첫 적격 관측과 다르다. controls/preparation은 raw/stored 편집·
 집계와 `independent-audit.json`의 기록390원장 독립 정산은
 `docs/research/strong-close-policy-20261022/`에 둔다. 분할30개는 생산 assertion·입력
 hash 연결이며 미저장 대체 원장 독립 정산과 구분하고 live 날짜 fixture도 과거
-연구 성과와 분리한다. [작업](tasks/strong-close-policy-20261022.md)과
+연구 성과와 분리한다. [작업](completed-history.md#task-strong-close-policy-20261022)과
 [연구](research/strong-close-policy-20261022/report.md)에서 최종 검증 범위를 확인한다.
 
 ### RSI 소유 피드백·관측과 교차
@@ -275,7 +275,7 @@ RSI 계산·교차·손절/추세 의미는 전략에 남긴다. 고정 생산30
 360별도분기 비교에서 실제 소유 기본의78개 경제 경로는 legacy와 같았다.
 부적합 신호 감소를 수익 개선으로 해석하지 않고 선택 추세/손절 기각과
 보유63 미발동·효능 미평가를 구분한다. 실제 실행·감사 범위와 해석은
-[작업](tasks/rsi-policy-20261022.md), [연구](research/rsi-policy-20261022/report.md),
+[작업](completed-history.md#task-rsi-policy-20261022), [연구](research/rsi-policy-20261022/report.md),
 [IPC 계약](ipc-commands.md#rsi-v18-실제-소유선택-보호)을 따른다.
 
 ### Replay 회계·체결 피드백
@@ -291,7 +291,7 @@ RSI 계산·교차·손절/추세 의미는 전략에 남긴다. 고정 생산30
 연구 UI는 체결/보호 가정·신호 공개와 체결 단계·미체결·동시 도달·A/B의 엔진과
 가정 차이를 표시한다. 이전 결과의 누락 metadata는 미확인으로 남긴다. 동결 자료를
 생산 엔진으로 비교하는 진입점은 `docs/research/replay-execution-20261018/runner.rs`다.
-이 경로는 사용자 운용 설정·실제 주문을 변경하지 않는다. [연구 비교](research/replay-execution-20261018/report.md)와 [작업 기록](tasks/replay-execution-model-20261018.md)에서 검증 범위를 확인한다.
+이 경로는 사용자 운용 설정·실제 주문을 변경하지 않는다. [연구 비교](research/replay-execution-20261018/report.md)와 [작업 기록](completed-history.md#task-replay-execution-model-20261018)에서 검증 범위를 확인한다.
 
 ### 동일 장부의 앞/뒤 구간 관측
 
@@ -323,7 +323,7 @@ KRW 원가를 분리한다. 해외 장부의 유휴 현금은 KRW이며 USD 현�
 생산 실행·기준·결과는 `docs/research/replay-accounting-20261018/`에 둔다.
 [연구 보고서](research/replay-accounting-20261018/report.md)의 직전/현재 harness
 manifest와 `validate.py`의 독립 기록 fill 대사로 재현하며, 구현·검증 범위는
-[작업 기록](tasks/replay-accounting-20261018.md)을 따른다.
+[작업 기록](completed-history.md#task-replay-accounting-20261018)을 따른다.
 
 ### 연속 replay 경계
 
@@ -345,7 +345,7 @@ coverageVerified=false 한계를 유지한다. mutation/공통 transport는 desk
 harness manifest로 재현하고 `validate.py`로 기록 fill과 실제 보유구간을 독립
 대사한다. 전체 JSONL은 두 .gz로 손실 없이 압축해 보관하며 생성 평문 .cache는
 프로젝트 인벤토리에 넣지 않는다. 구현·검증 범위는
-[작업 기록](tasks/continuous-replay-20261018.md)을 따른다.
+[작업 기록](completed-history.md#task-continuous-replay-20261018)을 따른다.
 
 ### DB 설정·pool 변경
 

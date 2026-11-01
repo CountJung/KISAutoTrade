@@ -815,7 +815,7 @@ let adjusted_qty = min(risk_qty, position_qty);
 - Toss 변환은 `HoldingsUpdate::from_toss` 하나로 IPC/웹 시작·수동·체결 후 refresh를 통일한다. broker/account/시장/통화·중복 종목·유한 범위를 검증한다. 정수 주문 체계에서 소수 수량은 floor하며 양수 최소1 올림을 하지 않는다. KRW 원/USD cents를 구분하고 `< 2^64`를 검사한다.
 - 도입 이전/수동 보유를 새 전략에 임의 귀속하지 않는다. 소유 원장과 별도 generation manifest의 누락·손상·충돌, 원가 미상 체결은 신규 주문 차단 사유다. pending/소유 원장을 오래된 backup으로 자동 복원하지 않는다.
 
-검증과 범위: `docs/tasks/strategy-fill-ownership-20261018.md`.
+검증과 범위: `docs/completed-history.md#task-strategy-fill-ownership-20261018`.
 
 > 마지막 업데이트: 2026-10-18T14:21:43+09:00
 
@@ -1177,7 +1177,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - manager ticket은 run generation/config fingerprint/profile/broker/account/symbol/시장 날짜를 포함한다. start/stop/close/설정 변경·rollback은 무효화한다. apply 직전 bool→manager lock 순서로 확인하며 네트워크 await는 lock 밖이다. quote await 중 날짜 전환을 막으려 on_tick 직전에도 `invalidate_stale_daily_history_for_symbol`을 호출한다.
 - 완료 일봉만 `apply_daily_history`로 적용하고 마지막 봉을 다시 버리지 않는다. 당일/미래/무효/중복 제외, 기본252/최대512 요구, 마지막 완료일1~10일 과거를 확인한다. 이 freshness 상한은 실제 휴장 달력 검증이 아니다. 부족/실패/한도 초과도 신규 매수만 막고 buy_price 손절 보존, 무관한 LTH 분봉 initializer 미호출을 검증한다.
 - `Strategy::reconfigure_preserving_position`은 기본 false이며 현재 13개 전략이 동일 ID/broker/account에서 opt-in한다. 새 파라미터로 유효 관측을 재계산하되 잔존 대상의 보유 기준을 유지한다. LTH의 entry/high-water/held-observations를 평균가 snapshot으로 다시 만들지 않는다. 시작 시 옛 snapshot cache를 새 보유 복원 원본으로 만들지 않는다.
-- `TradingStatus.dailyHistory`의 IPC/웹/TS/UI를 같이 갱신한다. 실제 확보/요구·상태·출처·마지막 완료일·실패/재시도를 표시하며 legacy 누락을 ready로 추정하지 않는다. 상세 계약은 docs/ipc-commands.md, 검증은 docs/tasks/live-completed-daily-history-20261018.md다.
+- `TradingStatus.dailyHistory`의 IPC/웹/TS/UI를 같이 갱신한다. 실제 확보/요구·상태·출처·마지막 완료일·실패/재시도를 표시하며 legacy 누락을 ready로 추정하지 않는다. 상세 계약은 [IPC](../../../docs/ipc-commands.md), 검증은 [통합 이력](../../../docs/completed-history.md#task-live-completed-daily-history-20261018)을 따른다.
 - 일봉 ticket과 주문 run은 서로 다른 소비 경계를 가진다. 완료 일봉 준비도 bool→manager→order에서 동일 run snapshot으로 대상을 만든다. 잘못된 scope/profile 조회는 새 실행 generation을 변경하지 않는다. 설정 저장의 보유 보존은 아래 transaction 경계를 따른다.
 
 > 마지막 업데이트: 2026-10-18T11:57:42+09:00
@@ -1191,7 +1191,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 프로파일 publication은 manager→order gate 아래 scope/client/config/양쪽 tracker/전략 설정을 함께 바꾼다. 수동 holdings 게시·예약도 order gate에서 exact active profile/scope/client를 확인한다. no-profile KIS 설정 계좌의 기존 수동 경로는 유지한다.
 - reconciliation은 실제 client/profile을 고정하고 응답 후 scope/credentials/mode를 다시 검사해 fill/terminal/health를 적용한다. 같은 scope의 새 epoch는 실제 체결을 막지 않는다. KIS pending의 저장 TR-ID로 모드를 확인하며 반대 모드·미상 출처는 pending/예산을 보류하고 기존 health에 진단한다. 이전 계좌·모드의 잔고 부족 응답으로 현재 실행의 매수를 정지하지 않는다.
 - end·자정 reset은 이미 예약한 submitting/pending/예산을 지우지 않는다. 예약이 먼저 완료된 주문은 최초 scope/client로 완료·기록·대조한다. 정지는 provider 취소가 아니다. 비활성 프로파일 삭제는 runtime을 재생성하지 않는다.
-- 회귀는 실제 shared submission coordinator와 localhost 주문 서버를 사용한다. synthetic TokenManager cache는 `cfg(test)`로만 주입하며 실제 token/order URL로 fixture를 보내지 않는다. 검증 기록은 `docs/tasks/execution-run-reservation-20261018.md`를 따른다.
+- 회귀는 실제 shared submission coordinator와 localhost 주문 서버를 사용한다. synthetic TokenManager cache는 `cfg(test)`로만 주입하며 실제 token/order URL로 fixture를 보내지 않는다. 검증 기록은 `docs/completed-history.md#task-execution-run-reservation-20261018`를 따른다.
 
 > 마지막 업데이트: 2026-10-18T12:29:40+09:00
 
@@ -1216,7 +1216,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - IPC·daemon·시작 복원·수동 주문 갱신에 공통 gate를 적용한다. tracker를 쓰지 않는 Web/일반 broker 조회도 ReadOnly ticket으로 응답 반환 전 identity를 확인하며 새 quantity query를 무효화하지 않는다. no-profile 빈 결과도 검증한다.
 - KIS 공통 refresh는 엄격한 수량/가격 변환과 종목명 저장 await를 완료한 뒤 최종 gate를 실행한다. 실패한 값은 0으로 대체하지 않는다. 잔고 이벤트 callback은 성공한 gate 내부에서 동기 실행한다. frontend는 이벤트를 현재 scope 재조회 힌트로 사용한다.
 - profile fingerprint는 execution_run의 공통 순수 helper를 사용하되 broker/scope/client 비교를 별도로 유지한다. 해외 거래소 trim/대문자 정규화는 holdings helper를 사용하며 다른 의미의 order_exchange_code와 합치지 않는다.
-- 이 gate는 조회 시작 이후의 로컬 변경과 계좌 경합을 막는다. provider snapshot에 이미 포함된 체결의 중복은 계좌 delta 변경을 없애고 소유 원장과 재조회로 분리해 방지한다. P1-FILL-01의 lifecycle 검증은 `docs/tasks/strategy-fill-ownership-20261018.md`를 따른다.
+- 이 gate는 조회 시작 이후의 로컬 변경과 계좌 경합을 막는다. provider snapshot에 이미 포함된 체결의 중복은 계좌 delta 변경을 없애고 소유 원장과 재조회로 분리해 방지한다. P1-FILL-01의 lifecycle 검증은 `docs/completed-history.md#task-strategy-fill-ownership-20261018`를 따른다.
 
 > 마지막 업데이트: 2026-10-18T13:35:00+09:00
 
@@ -1316,7 +1316,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 
 - `simulation/minute_timing`은 기존 준비 label만 읽는 pure metadata다. RFC3339 실제 순간→시장 timezone, compact12/14=KST 가정을 구분하며 Toss barClose는 label−60초/label이다. 요청 시작 asOf를 명시하고 일반 평일창을 실제 달력으로 표현하지 않는다.
 - 입력512·label64byte·날짜8·예시6 상한과 산술 gap만 사용한다. 분 경계 고유 관측과 raw 시간창 분류를 구분하고 내부 미관측 슬롯을 공급원 누락으로 확정하지 않는다. 야간·주말·무관측 날짜와 tail 앞뒤를 누락으로 합산하지 않는다. flag4개는 미검증false이며 성과 적합성을 승격하지 않는다.
-- `minute_time::parse_minute_instant`는 generic 기존 문법/UTC Nanos 출력 보존을 위해 syntax만 공유한다. risk/daily/hostLocal/epoch 또는 provider page parser와 합치지 않는다. 진단 결과로 기존 LTH fixed KST 시계·선택순서·신호·정산·입력hash를 바꾸지 않는다. daily skipNone, empty notEvaluable, 실제 nonempty 신호/체결의 전후 동일성을 검증한다. [상세](../../../docs/tasks/lth-minute-timing-20261022.md).
+- `minute_time::parse_minute_instant`는 generic 기존 문법/UTC Nanos 출력 보존을 위해 syntax만 공유한다. risk/daily/hostLocal/epoch 또는 provider page parser와 합치지 않는다. 진단 결과로 기존 LTH fixed KST 시계·선택순서·신호·정산·입력hash를 바꾸지 않는다. daily skipNone, empty notEvaluable, 실제 nonempty 신호/체결의 전후 동일성을 검증한다. [상세](../../../docs/completed-history.md#task-lth-minute-timing-20261022).
 
 > 마지막 업데이트: 2026-10-22T20:33:31+09:00
 
@@ -1325,7 +1325,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 기존14변화simpleRSI/zero-loss100·prev≤30→cur>30 Buy 및prev≥70→cur<70 Sell과매관측baseline갱신을보존한다. flatBuy/heldSell만허용하며실제owned수량/native원가를feedback으로만변경한다. 기존cross는거절뒤래치재시도없음, Sell은실잔여전량이다.
 - long_trend_period0..512/stop_loss_pct0..99.9/max_hold_observations0..1000000은생략/0disabled이다. strictsave/공통preview·runtimeoptional손상Buyfailclosed를연결하고customlegacy RSI와실보유청산을보존한다. Mean의stop0활성정책을복사하지않는다.
 - observation의integer/age/metadata(kindrsi)/trend8함수만그대로재사용한다. stop→cap→cross우선, RSI/추세준비부족은보유보호를막지않는다. sameqty/partial/warmup/reconfigure age보존·coldunknown과exactownercheckpoint를구분한다. live최초새trendseed만clear·current제외관측단위·reset전체clear를유지한다.
-- 실filled/원가·평가자산/비용경로와rawsignal/blocked감소를분리한다. 선택3%/63관측은실제손실/보유시간보장아니다. [검증·기각](../../../docs/research/rsi-policy-20261022/report.md)과[작업](../../../docs/tasks/rsi-policy-20261022.md)을확인한다.
+- 실filled/원가·평가자산/비용경로와rawsignal/blocked감소를분리한다. 선택3%/63관측은실제손실/보유시간보장아니다. [검증·기각](../../../docs/research/rsi-policy-20261022/report.md)과[작업](../../../docs/completed-history.md#task-rsi-policy-20261022)을확인한다.
 
 > 마지막 업데이트: 2026-10-22T20:47:35+09:00
 
@@ -1333,7 +1333,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 
 - 기존20/0.5/current 제외 가격max·floor%>=/실패price<anchor를 보존한다. 신호로 소유·확정 anchor를 바꾸지 않고 미체결0→첫actualfill 승격을 구분한다. 실제 flat 전 거절·부분·재설정이 anchor를 지우지 않는다. 실제 잔량 Sell·공통 guard/risk·v1 읽기와 v2 unknown 보호를 유지한다.
 - CompletedDailyBar의 OHLC/Option volume와 기본1회 forwarding·scope/date/generation/512 상한을 유지한다. 현재 봉HLCV/live누적량을 prior DAILY로 쓰지 않고 raw 유효성·unknown/실0/평균0을 구분한다. mean_true_range14는 마지막15/14TR 합산 순서를 유지하며 0허용, 기존 atr14는 positive wrapper로 MA/Consecutive 동등성을 유지한다.
-- observation bounded integer/advance/sync age만 재사용하고 anchor/armed/v2 정책은 FailedBreakout에 남긴다. 실제 원가·보유 관측 peak만 사용하고 failure→profit→cap·거절시 지속 후보·unknown age/단위를 UI와 동기화한다. [작업](../../../docs/tasks/failed-breakout-policy-20261022.md)·[연구](../../../docs/research/failed-breakout-policy-20261022/report.md).
+- observation bounded integer/advance/sync age만 재사용하고 anchor/armed/v2 정책은 FailedBreakout에 남긴다. 실제 원가·보유 관측 peak만 사용하고 failure→profit→cap·거절시 지속 후보·unknown age/단위를 UI와 동기화한다. [작업](../../../docs/completed-history.md#task-failed-breakout-policy-20261022)·[연구](../../../docs/research/failed-breakout-policy-20261022/report.md).
 
 > 마지막 업데이트: 2026-10-22T21:22:25+09:00
 
@@ -1341,7 +1341,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 
 - 기본 threshold3/stop3·`(H-C)/H*100<=threshold`와 stop0의 원가 이하 청산을 보존한다. 실제 q/native avg와 잔량 Sell을 사용하며 원래 조건 재제안과 실제 fill 소비를 구분한다.
 - 추세는 이전 완료 N일봉 종가 평균의 엄격 상회다. always-required1 또는 N coordinator는 검증된 시장 날짜를 전달하고 same-day 재조회/new-day seed를 분리한다. invalidation/late legacy는 날짜 소비·미체결 증거·보유 보호를 지우거나 후보를 재무장하지 않는다. dated 기본 hook은 기존 hook1회 전달이다.
-- 정수/advance/sync age와 완료 mean만 공유한다. peak는 실제 보유 관측이며 stop→profit→cap, unknown은 unknown으로 둔다. strict kindstrongClose checkpoint와 저장/두 preview/UI를 동기화한다. 새 선택0과 원래 stop0 활성 의미를 혼동하지 않는다. [작업](../../../docs/tasks/strong-close-policy-20261022.md)·[연구](../../../docs/research/strong-close-policy-20261022/report.md).
+- 정수/advance/sync age와 완료 mean만 공유한다. peak는 실제 보유 관측이며 stop→profit→cap, unknown은 unknown으로 둔다. strict kindstrongClose checkpoint와 저장/두 preview/UI를 동기화한다. 새 선택0과 원래 stop0 활성 의미를 혼동하지 않는다. [작업](../../../docs/completed-history.md#task-strong-close-policy-20261022)·[연구](../../../docs/research/strong-close-policy-20261022/report.md).
 
 > 마지막 업데이트: 2026-10-22T22:15:36+09:00
 
@@ -1350,7 +1350,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 기존10/2/손절3·당일range > priorNmean×factor AND price > dayOpen의 엄격 경계·0범위 평균 포함·평균0에서양수범위 허용을 유지한다. 현재 일봉 OHLC는 종가 판단과 실제 소유 피드백 뒤 이전 범위에 게시한다.
 - 실수량/native원가·잔량Sell과 pending/기원을 분리한다. integer/age순수helper만 재사용하고 peak/armed·새 strict kindvolatilityExpansion checkpoint·범위/날짜 수명주기는 별도로 유지한다. 거절/부분/재설정/unknown 나이와 stop0활성·새선택0off를 구분한다.
 - always-requiredN 완료 일봉·검증된 dated시장일은 새날 관측open/high/low만 나눈다. 같은날교체·invalidation·latelegacy는 관측일/보호를 지우지 않고 Buy만 보류한다. 첫 quote 시가대용과 전체장중범위 미확인을 숨기지 않는다.
-- 범위 진단은 전용 volatilityExpansionPreparation로 준비/평가·보유·미보유·범위/방향·통과를 나누고 기존EntryFilterPreparation와혼합하지않는다. strict저장/두preview·TS미러/current-A-B/legacy를동기화하고 실제장중최초발동/체결은 별도자료게이트다. [작업](../../../docs/tasks/volatility-expansion-policy-20261022.md)·[연구](../../../docs/research/volatility-expansion-policy-20261022/report.md).
+- 범위 진단은 전용 volatilityExpansionPreparation로 준비/평가·보유·미보유·범위/방향·통과를 나누고 기존EntryFilterPreparation와혼합하지않는다. strict저장/두preview·TS미러/current-A-B/legacy를동기화하고 실제장중최초발동/체결은 별도자료게이트다. [작업](../../../docs/completed-history.md#task-volatility-expansion-policy-20261022)·[연구](../../../docs/research/volatility-expansion-policy-20261022/report.md).
 
 > 마지막 업데이트: 2026-10-22T22:51:29.542193+09:00
 
@@ -1395,7 +1395,7 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 ## HTTP TLS 정책 보존 (2026-10-29)
 
 - reqwest0.13의 기본 platform verifier/aws-lc를 앱의 기존 정책으로 오인하지 않는다. 앱 HTTP 생성은 `crate::http::client_builder()` 또는 `client()`를 사용해 기존 bundled Mozilla roots·ring·TLS1.2/1.3·HTTP1.1 ALPN을 보존한다. 전역 provider 설치·OS CA 읽기·인증서 검증 해제는 추가하지 않는다.
-- query와 form은 명시 feature다. 호출부 timeout/cookie/proxy/header/redirect를 유지하며 POST 응답 유실을 재주문으로 복구하지 않는다. HTTP/TLS 합성 테스트와 실제 계좌/인증 검증을 구분한다. 상세 검증은 `docs/HARNESS_MAP.md`와 `docs/tasks/immediate-backlog-20261029.md`를 따른다.
+- query와 form은 명시 feature다. 호출부 timeout/cookie/proxy/header/redirect를 유지하며 POST 응답 유실을 재주문으로 복구하지 않는다. HTTP/TLS 합성 테스트와 실제 계좌/인증 검증을 구분한다. 상세 검증은 `docs/HARNESS_MAP.md`와 `docs/completed-history.md#task-immediate-backlog-20261029`를 따른다.
 
 
 ## WebSocket 전환·종료 계약 (2026-10-29)
@@ -1420,3 +1420,5 @@ sha2 소비자의 입력 bytes·serde 순서·UTF-8 길이 prefix·raw 배열/�
 thiserror 전환은 오류 정의를 그대로 두고 Display/From/source/downcast와 typed 확정거절 분류를 확인한다. keyring은 현재3의 mock/backend를 유지하며 v4의 core/store 초기화를 단순 API 이름만으로 교체하지 않는다. [재현 명령과 실행 경계](../../../docs/HARNESS_MAP.md)를 따른다.
 
 > 마지막 업데이트: 2026-10-29T12:01:40+00:00
+
+> 마지막 업데이트: 2026-11-01T00:21:19+00:00

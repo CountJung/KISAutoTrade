@@ -272,16 +272,11 @@ KISAutoTrade/
 │   │   │   ├── charts.html
 │   │   │   ├── p1-01-cost20-results.json
 │   │   │   ├── p1-01-results.json
-│   │   │   ├── p1-01-validation.md
 │   │   │   ├── p1-02-results.json
-│   │   │   ├── p1-02-validation.md
 │   │   │   ├── p1-03-cost20-results.json
 │   │   │   ├── p1-03-results.json
-│   │   │   ├── p1-03-validation.md
 │   │   │   ├── p1-04-results.json
-│   │   │   ├── p1-04-validation.md
 │   │   │   ├── p1-05-results.json
-│   │   │   ├── p1-05-validation.md
 │   │   │   ├── replay-input.json
 │   │   │   ├── report.md
 │   │   │   ├── results-cost20.json
@@ -319,7 +314,6 @@ KISAutoTrade/
 │   │   ├── trend-filter-policy-20261023/
 │   │   │   ├── aggregate.json
 │   │   │   ├── analyze.py
-│   │   │   ├── audit-findings.md
 │   │   │   ├── baseline-hashes.json
 │   │   │   ├── baseline-run-summary.json
 │   │   │   ├── baseline-source-validation.json
@@ -359,48 +353,10 @@ KISAutoTrade/
 │   │       ├── summary.csv
 │   │       ├── validate.py
 │   │       └── validation.json
-│   ├── tasks/
-│   │   ├── TASK_TEMPLATE.md
-│   │   ├── appledouble-and-soxq-p1-03.md
-│   │   ├── autonomous-backlog-20261018.md
-│   │   ├── consecutive-entry-filters-20261018.md
-│   │   ├── continuous-replay-20261018.md
-│   │   ├── database-tls-reconnect-20261018.md
-│   │   ├── deviation-policy-20261020.md
-│   │   ├── documentation-layout-20261018.md
-│   │   ├── execution-run-reservation-20261018.md
-│   │   ├── failed-breakout-policy-20261022.md
-│   │   ├── frontend-hooks-split-20261018.md
-│   │   ├── holdings-publication-fence-20261018.md
-│   │   ├── immediate-backlog-20261029.md
-│   │   ├── keyboard-improvements-20261031.md
-│   │   ├── live-completed-daily-history-20261018.md
-│   │   ├── lth-minute-timing-20261022.md
-│   │   ├── ma-cross-filters-20261020.md
-│   │   ├── mean-reversion-policy-20261020.md
-│   │   ├── momentum-feedback-20261020.md
-│   │   ├── project-health-and-soxq-p1-01.md
-│   │   ├── provider-candle-contract-20261018.md
-│   │   ├── replay-accounting-20261018.md
-│   │   ├── replay-execution-model-20261018.md
-│   │   ├── root-documents-20261020.md
-│   │   ├── rsi-policy-20261022.md
-│   │   ├── soxq-p1-04.md
-│   │   ├── soxq-p1-05.md
-│   │   ├── strategy-configuration-preservation-20261018.md
-│   │   ├── strategy-fill-ownership-20261018.md
-│   │   ├── strategy-review-20261018.md
-│   │   ├── strong-close-policy-20261022.md
-│   │   ├── toss-simulation-response-parsing-20261031.md
-│   │   ├── trading-module-split-20261018.md
-│   │   ├── trend-filter-policy-20261023.md
-│   │   ├── uiux-improvements-20261030.md
-│   │   └── volatility-expansion-policy-20261022.md
 │   ├── ARCHITECTURE.md
 │   ├── HARNESS_MAP.md
 │   ├── LICENSE
 │   ├── MASTER_PLAN.html
-│   ├── MasterPlan.md
 │   ├── PROJECT_MAP.md
 │   ├── agent-tooling.md
 │   ├── coding-guide.md
@@ -411,8 +367,6 @@ KISAutoTrade/
 │   ├── mock-trading-e2e-checklist.md
 │   ├── project-map.md
 │   ├── release-security.md
-│   ├── security-mac-handoff-2026-10-06.md
-│   ├── security-storage-handoff-2026-10-06.md
 │   ├── todo.html
 │   ├── todo.md
 │   ├── toss-openapi.md
@@ -1163,7 +1117,7 @@ KISAutoTrade/
 ### 문서 위치와 책임
 
 루트에는 `README.md`, `AGENTS.md`, `CLAUDE.md`를 문서 진입점으로 유지한다. 라이선스 정본은 [`docs/LICENSE`](LICENSE)에 두고 README 배지/본문에서 연결한다.
-일반 운영·설계·할일 문서는 `docs/`, 작업 기록은 `docs/tasks/`에 모은다.
+일반 운영·설계·할일 문서는 `docs/`, 현재 작업은 TODO, 완료·회차 경과는 기존 완료 이력의 같은 ID에 합친다.
 도구가 요구하는 `.github/`, `.codex/`, `.claude/`, `.serena/` 설정·스킬과
 빌드 설정·앱 진입 파일·Graphify 생성 산출물은 각 기존 위치를 유지한다.
 
@@ -1180,7 +1134,7 @@ KISAutoTrade/
 | `docs/todo.md` | 남은 작업의 정본: 대분류 현황표, 실행·선행 결정·사용자 판단·실자료 검증, ID·완료 기준·의존성 |
 | `docs/completed-history.md` | TODO에서 이관한 완료·부분 완료·과거 연구·기각 기록. 원래 ID/날짜·검증 근거·한계 및 현재 TODO 연결을 보존 |
 | `docs/todo.html` | 원본의 열린 항목을 상태별 색상·검색·필터로 읽는 자동 생성 문서 |
-| `docs/tasks/` | 작업별 범위·실행·검증·전달 기록, `TASK_TEMPLATE.md` 템플릿 |
+| `docs/agent-tooling.md` | 정본 소유권·신규 문서 허용 기준·간략 이력 기록 규칙 |
 
 `docs/PROJECT_MAP.md`의 밑줄과 `docs/project-map.md`의 하이픈을 구분한다.
 문서 정리는 앱 모듈·IPC·데몬·연구 데이터의 책임을 변경하지 않는다.
@@ -1303,7 +1257,7 @@ KISAutoTrade/
 | `pages/strategy/ui/leveragedTrendHoldPreviewChart.tsx` | 레버리지/일반 전략 미리보기의 캔들·종가선·signal marker, 모바일 가로 패닝·핀치 확대/축소와 버튼식 줌 표시. offset 포함 시각은 실제 instant로 파싱하고 compact 분봉은 기존 KST 규칙으로 해석 |
 | `pages/history/ui/Page.tsx` | 활성 broker scope, 자동매매 체결 기록과 기간별 통계 조회, provider 원본 trace 표시. 기존 두 query 호출/option을 유지하며 page-local `HistoryQueryStatus`가 조회 전·적용 기간·최초 실패/이전 자료·마지막 정상 시각과 통계/체결의 독립 refetch를 표시. 날짜 초안과 적용 query를 구분하고 통계 미확인을 정상0으로 표시하지 않음. 거래 상세의 선택 id+적용 기간은 Page가 소유하고 기존 거래/통화·수량·슬리피지 formatter와 trace 결과를 Dialog에 전달. 현재 레코드가 사라지면 UI 선택만 폐기해 같은 ID 재등장 시 자동 재개방 방지 |
 | `pages/history/ui/TradeDetailsDialog.tsx` | History page-local 읽기 전용 상세 표시. 선택된 기존 TradeRecord와 Page가 만든 가격/금액/수수료/슬리피지/수량/통화 문자열·trace 객체·닫기 callback을 받아 접근 가능한 Dialog·스크롤 가능한 상세 필드·ProviderTraceChips를 조립. hook/API/query·금액 재계산·공용 helper 승격 없음 |
-| `pages/log/ui/Page.tsx` | 로그 레벨/이름 있는 검색·필터 초기화와 provider trace chip 표시. query의 placeholder[]를 실제 성공과 구분해 최초 미확인/실패·이전 자료/정상 시각·원본0/필터0·읽기 refetch를 표시하고 정상 polling의 live 상태 문구를 안정적으로 유지. 기존 useRecentLogs(300)·5초 polling·logger/query metadata·row와 사용자가 위로 읽는 위치/하단 추적을 보존. LayoutResizer 키보드 target의 clamp·상태/localStorage와 mouse delta/end·반응형 노출 유지. 설정/ARIA 높이와 flex 가용 공간의 실제 높이 한계는 [작업 기록](tasks/uiux-improvements-20261030.md)을 따름 |
+| `pages/log/ui/Page.tsx` | 로그 레벨/이름 있는 검색·필터 초기화와 provider trace chip 표시. query의 placeholder[]를 실제 성공과 구분해 최초 미확인/실패·이전 자료/정상 시각·원본0/필터0·읽기 refetch를 표시하고 정상 polling의 live 상태 문구를 안정적으로 유지. 기존 useRecentLogs(300)·5초 polling·logger/query metadata·row와 사용자가 위로 읽는 위치/하단 추적을 보존. LayoutResizer 키보드 target의 clamp·상태/localStorage와 mouse delta/end·반응형 노출 유지. 설정/ARIA 높이와 flex 가용 공간의 실제 높이 한계는 [작업 기록](completed-history.md#task-uiux-improvements-20261030)을 따름 |
 
 ### Backend (Rust)
 
@@ -1474,7 +1428,7 @@ KISAutoTrade/
 | `broker/toss/adapter.rs` | `TossBrokerAdapter` 구현과 broker 공통 타입 매핑 |
 | `broker/toss/client.rs` | OAuth2 token, accounts/holdings/market/order REST 호출과401 1회 재시도. 캔들 GET에만 안전한 JSON/본문 단계 진단을 연결하고 다른 GET/POST/token의 legacy 오류·재시도 계약을 유지 |
 | `broker/toss/http.rs` | 공통 http::client_builder를 쓰는 Toss 전용 identity 협상·15초 timeout·4MiB streaming cap·URL/query encoding. 캔들만 전체 content-coding 검사/안전 metadata를 적용하고 나머지 reader의 legacy 동작은 유지 |
-| `broker/toss/response_parsing_tests.rs` | client.rs의 cfg(test) 등록. 신규14개와 공개 JSON/gzip fixture2개로 loopback 직접client/DTO·오류/encoding·한도·401/재시도/비재전송을 검증한다. 실제 adapter 시장/scope나 사용자 인증응답 원인 확정과 구분하며 [수정 기록](tasks/toss-simulation-response-parsing-20261031.md)을 따른다 |
+| `broker/toss/response_parsing_tests.rs` | client.rs의 cfg(test) 등록. 신규14개와 공개 JSON/gzip fixture2개로 loopback 직접client/DTO·오류/encoding·한도·401/재시도/비재전송을 검증한다. 실제 adapter 시장/scope나 사용자 인증응답 원인 확정과 구분하며 [수정 기록](completed-history.md#task-toss-simulation-response-parsing-20261031)을 따른다 |
 | `broker/toss/error.rs` | Toss error envelope와 provider request id/error snippet formatting |
 | `broker/toss/support.rs` | rate-limit group, currency/market 변환, 주문 입력 validation/clientOrderId helper |
 | `broker/toss/types.rs` | Toss read-only/account/market DTO와 broker domain 변환 |
@@ -1591,7 +1545,7 @@ KISAutoTrade/
 | `trading/strategy/manager/live_history_dependency_contract_tests.rs` | `trading/strategy/manager/live_history_tests.rs` | 캔들 내용과 구분한 StrategyConfig의 exact JSON·fingerprint·설정 변경 |
 
 고정 입력/hash 수와 구버전→hex 호환→sha2→thiserror 단계별 결과,
-keyring/RGL 유지·미삭제 판단은 [9회차 기록](tasks/immediate-backlog-20261029.md)을 따른다.
+keyring/RGL 유지·미삭제 판단은 [9회차 기록](completed-history.md#task-immediate-backlog-20261029)을 따른다.
 명령과 full DB·실계좌·실제 keychain 접근을 포함하지 않는 검증 경계는
 [검증 지도](HARNESS_MAP.md)와 해당 회차 기록에서 확인한다.
 
@@ -1601,7 +1555,7 @@ keyring/RGL 유지·미삭제 판단은 [9회차 기록](tasks/immediate-backlog
 
 | 경로 | 책임 |
 |---|---|
-| `docs/tasks/keyboard-improvements-20261031.md` | 승인된 키보드5개의 고정 순서·red/green·회차별 검증/리뷰·커밋/원격·CI/미검증 경계의 정본 |
+| `docs/completed-history.md#task-keyboard-improvements-20261031` | 승인된 키보드5개의 고정 순서·red/green·회차별 검증/리뷰·커밋/원격·CI/미검증 경계의 정본 |
 | `tests/e2e/keyboard-search-race.spec.ts` | production mock에서 US 조회의 중복·같은 버튼 focus·stale 성공/오류/선택·입력/ABA·시장/SPA 이탈·실패/재시도와 broker별 기존 fallback을 대조. 이미 전송한 요청 취소나 실제 계좌 검증으로 해석하지 않음 |
 | `tests/e2e/keyboard-search-scope.spec.ts` | source harness가 실제 main/router/QueryClient를 유지하고 합성 공개 설정을 다시 읽게 해 broker/profile/account/paper 독립 경계와 scope ABA를 대조. 제품 global/export를 추가하거나 reload로 경합을 대체하지 않음 |
 | `tests/e2e/fixtures/keyboardSearchRaceFixture.ts` | 정확한 loopback 읽기·동적 합성 scope·지연 ticket과 response.finished 관측을 제공. Toss open-orders POST 읽기는 현재 합성 broker=Toss일 때만 예외이며 외부/금융 쓰기/unknown을 차단. 실제 broker/계좌·취소를 사용하지 않음 |
@@ -1614,7 +1568,7 @@ keyring/RGL 유지·미삭제 판단은 [9회차 기록](tasks/immediate-backlog
 | `tests/e2e/fixtures/keyboardResultsFixture.ts` | 합성 국내 결과·정확한 읽기 ticket/body 완료·focus/geometry/안전 기록과03 전용 source 제어를 제공. 외부/금융·설정 쓰기/unknown을 거부하고 Toss open-orders의 정확한 읽기POST만 분리 |
 | `tests/e2e/keyboard-search-contract.spec.ts` | 합성 KIS/Toss Trading/Strategy/LTH KR·US의 Enter·IME/229·지역 유효성·1자US·기존6자리 경로·명명 버튼/native 키·외부/쓰기 경계를 대조. frozen clock으로 국내 Enter와 자동 debounce를 분리하며 실제 OS IME 검증과 구분 |
 | `tests/e2e/fixtures/keyboardSearchFixture.ts` | mockUx를 재사용하는 검색 spec 전용 합성 fixture. loopback 읽기·US 논리조회 보류/해제·가짜clock·감사 자료를 제공하며 실제 계좌/provider를 사용하지 않음 |
-| `docs/tasks/uiux-improvements-20261030.md` | 승인된 UI/UX 개선9개의 고정 순서·회차별 범위·격리 검증/리뷰·게시 근거. UI 표시/접근성과 금융 동작·사용자 판단/실자료 제외를 구분 |
+| `docs/completed-history.md#task-uiux-improvements-20261030` | 승인된 UI/UX 개선9개의 고정 순서·회차별 범위·격리 검증/리뷰·게시 근거. UI 표시/접근성과 금융 동작·사용자 판단/실자료 제외를 구분 |
 | `tests/e2e/fixtures/uxReviewFixture.ts` | 기존 strategyResearchFixture를 재사용하는 browser-only 합성 fixture. 알려진 GET/응답 override·요청 집계와 외부 요청/WebSocket·API 쓰기/알 수 없는 경로 차단을 제공 |
 | `tests/e2e/uiux-chart-accessibility.spec.ts` | 합성 KIS KRW/해외 USD·Toss 시장/통화 미확인과 기존 정규화 시각·제외/가격·거래량을 canvas/최신/선택/최대20행 표로 대조. 키보드·로딩/실패/빈/이전 자료·문맥 변경/선택 해제·테마/좁은 resize/재마운트 회귀와 외부/쓰기 요청 경계를 확인 |
 | `tests/e2e/uiux-settings-navigation.spec.ts` | 합성 Settings의 desktop/좁은 다크 목차15도착점·h2/중첩 h3·키보드 focus/scroll/복귀·hash/history 유지와 지연/실패 Risk heading 회귀. 미저장 예산·기존 저장/desktop 경계, routeback 위치 복원/reload0, 지연 복원 중 명시 focus 우선·다른 route 알림 격리를 대조 |
@@ -1625,7 +1579,7 @@ keyring/RGL 유지·미삭제 판단은 [9회차 기록](tasks/immediate-backlog
 | `tests/e2e/uiux-history-status.spec.ts` | 합성 History 통계/체결의 조회 전·최초 지연/독립 실패·정상0/빈 목록·이전 자료와 시각 보존/개별 키보드 재시도 회귀. 좁은 다크 화면의 날짜 초안/적용 query·기존 통계 산술/KRW·USD/provider trace를 확인하며 API 쓰기·외부/알 수 없는 요청·page 오류를 대조 |
 | `tests/e2e/uiux-holdings.spec.ts` | 합성 KIS 국내/해외 잔고의 최초 지연/실패·정상 빈 목록·이전 보유/빈 자료·정상 시각 보존/갱신·개별 키보드 재시도와 기존 선택→폼 매핑 회귀. Toss 표시/수량·KIS 조회 비활성 경계도 확인하며 기존 Toss POST 조회는 별도 read-only fixture로만 허용 |
 | `tests/e2e/uiux-status.spec.ts` | Sidebar/Dashboard 실행 상태의 미확인·최초 조회 실패·실행/정지 이전 상태의 재조회 실패와 키보드/반복 재시도 회귀. API 쓰기·외부 요청·page 오류가 없는 합성 경계를 확인 |
-| `docs/tasks/immediate-backlog-20261029.md` | 즉시 작업의 고정 ID·순서·회차별 범위와 검증·커밋 근거. P1-RECOVERY-01의 로컬 복구와 P1-PROVIDER-01 실제 운용, SOXQ-P2-13의 합성 계약·고정 일봉 재현과 실제 장중 효능 미완료를 구분 |
+| `docs/completed-history.md#task-immediate-backlog-20261029` | 즉시 작업의 고정 ID·순서·회차별 범위와 검증·커밋 근거. P1-RECOVERY-01의 로컬 복구와 P1-PROVIDER-01 실제 운용, SOXQ-P2-13의 합성 계약·고정 일봉 재현과 실제 장중 효능 미완료를 구분 |
 | `docs/research/price-condition-contracts-20261029/{design.json,runner.rs}` | 기존 PC 고정 기준가·수량·2023~2025 일봉·두 비용·nextOpen 설계를 당시 v22 생산 API로6연속/6대체분할/72별도분기 재현. 선언은 이번 실행 전 고정이며 이미 관측한 자료의 재현으로, baselineCommit의 별도 빌드나 새 OOS가 아님 |
 | `docs/research/price-condition-contracts-20261029/validate.py` | 동결 입력 hash와 기록 fill의 현금·원가·비용·손익·노출·기말·가격경로를 독립 산술 대사하고 보관 PC78원장과 현재78원장 backtest/signals/preparation을 비교. 전략 신호를 다시 생성하지 않음 |
 | `docs/research/price-condition-contracts-20261029/{report.md,run-summary.json,summary.csv,aggregate.json,validation.json,continuous-results.jsonl.gz,reset-results.jsonl.gz}` | 생산 실행수·분할 hash·78개 원장·비용별 요약/독립 대사와 한계 보관. 무손실 압축 원장은 연속6개와 별도분기72개를 구분하며 손절 미발동·희소노출을 실제 장중 재진입/손실 제한 효능으로 확대하지 않음 |
@@ -1697,7 +1651,7 @@ keyring/RGL 유지·미삭제 판단은 [9회차 기록](tasks/immediate-backlog
 | `docs/research/autonomous-corrections-20261018/compare.py` | 기존 동결 입력의 수정 전후 생산 replay trace를 비교하고 trace hash·변화 행·기술 통계를 `comparison.json`에 보관. 원래 연구 JSON/CSV는 변경하지 않으며 전체 trace는 `.cache/`에 유지 |
 
 격리 Wry smoke는 source VM 검사, driver의 build-only, 승인 후 실제 Wry UI·종료/재실행
-검증을 구분한다. 실제 실행 범위·미검증 기능과 근거는 [8회차 기록](tasks/immediate-backlog-20261029.md),
+검증을 구분한다. 실제 실행 범위·미검증 기능과 근거는 [8회차 기록](completed-history.md#task-immediate-backlog-20261029),
 명령·실행 경계는 [검증 지도](HARNESS_MAP.md)를 따른다. 원래 Tauri 앱 startup/IPC나
 Windows·최소 OS·보안 차단 전체를 이 smoke 결과로 검증했다고 판단하지 않는다.
 
@@ -1763,7 +1717,7 @@ snapshot을 사용한다. 서버 단절은 managed store에 오류로 전달되�
 정상본/백업을 대체하지 않는다. 서버 복구 뒤 기존 SQLx pool의 새 연결 취득으로
 회복하며, 완료 여부가 불명확한 쓰기를 애플리케이션이 자동 재실행하지 않는다.
 
-검증 실행기·테스트 책임은 위 표와 [DB TLS 작업 기록](tasks/database-tls-reconnect-20261018.md),
+검증 실행기·테스트 책임은 위 표와 [DB TLS 작업 기록](completed-history.md#task-database-tls-reconnect-20261018),
 실행 환경·명령은 [Harness 지도](HARNESS_MAP.md)를 따른다. 임시 인증서·개인키·결과는
 프로젝트 `.cache/`에서만 생성하고 Git에서 제외한다.
 
@@ -1967,7 +1921,7 @@ live는 검증된 ticket 시장일의 첫 관측 가격을 시가 대용으로 �
 거부→방향 거부→통과로 중복 없이 집계한다. 후보 통과·실제 체결·수량 산정 ATR은
 별개다. UI는 진단 누락/손상·지원하지 않는 분류를0이나 준비 완료로 대신하지 않는다.
 [연구 보고서](research/volatility-expansion-policy-20261022/report.md)와
-[작업 기록](tasks/volatility-expansion-policy-20261022.md)은 실제 검증 범위를 별도로 기록한다.
+[작업 기록](completed-history.md#task-volatility-expansion-policy-20261022)은 실제 검증 범위를 별도로 기록한다.
 생산36연속/432별도분기 기록468원장과 그중 v21의390전용 진단은 독립 감사 대상이며,
 분할36개는 생산 assertion·저장 원장 hash 연결이다. 대체 원장을 독립 재실행/정산한
 것으로 세지 않는다. P2-09의 자동 구현·일봉 연구와 실제 장중 최초 발동/체결 자료
@@ -2012,7 +1966,7 @@ Sell 후보를 낸다. strict v1 kind=strongClose checkpoint는 미확인 보호
 않으며 나이 미확인·cap 활성은 다음 보유 관측에 보수적으로 청산을 제안한다.
 
 기록 정산·연속/별도 분기 연구는 [연구 보고서](research/strong-close-policy-20261022/report.md),
-실제 검증 범위는 [작업 기록](tasks/strong-close-policy-20261022.md)을 따른다.
+실제 검증 범위는 [작업 기록](completed-history.md#task-strong-close-policy-20261022)을 따른다.
 완료 일봉 live 교정의 fixture와 이미 본 과거 자료의 후보 성과를 구분한다.
 
 ### RSI 실제 소유·선택 추세와 보유 보호
@@ -2322,7 +2276,7 @@ P1-05의 미완료 항목으로 남아 있다.
 
 P2-14의 직전 코드 기본 모드 호환과 QQQ 체결 모델 비교는
 [연구 보고서](research/replay-execution-20261018/report.md), 구현·검증 범위는
-[작업 기록](tasks/replay-execution-model-20261018.md)을 따른다. 이 비교를
+[작업 기록](completed-history.md#task-replay-execution-model-20261018)을 따른다. 이 비교를
 장중 경로·실제 체결 또는 장기 연속 운용 검증으로 확대하지 않는다.
 
 ### LTH 분봉의 별도 시각·관측 슬롯 진단
@@ -2362,7 +2316,7 @@ UI는 현재 및 저장된 A/B에서 별도 진단 버전·봉 표기·시간대
 정상 진단으로 추정하지 않는다. 기존 sampleOnly/notEvaluable·미검증
 시각/세션·lookAheadSafe=false를 유지하며 실제3개월 분봉 검증과
 P1-05/P2-12는 별도 과제다. 범위·검증 기록은
-[작업 기록](tasks/lth-minute-timing-20261022.md)을 따른다.
+[작업 기록](completed-history.md#task-lth-minute-timing-20261022)을 따른다.
 
 ### 연속 replay 공급과 상태 경계
 
@@ -2398,7 +2352,7 @@ UI의 연속 일봉 수집은 최대48페이지·4608봉을 유지하고 엄격�
 `continuous-results.jsonl.gz`와 `reset-results.jsonl.gz`는 손실 없는 전체 기록이고,
 생성 평문은 `.cache/continuous-research-output/`에 두어 인벤토리/커밋에서 제외한다.
 검증기는 두 기록 형식을 모두 읽으며 전략 신호를 재구현하지 않는다. 구현·검증의
-범위와 잔여 한계는 [작업 기록](tasks/continuous-replay-20261018.md)을 따른다.
+범위와 잔여 한계는 [작업 기록](completed-history.md#task-continuous-replay-20261018)을 따른다.
 
 ### Replay 회계 귀속과 비교
 
@@ -2425,7 +2379,7 @@ UI의 연속 일봉 수집은 최대48페이지·4608봉을 유지하고 엄격�
 [연구 보고서](research/replay-accounting-20261018/report.md)에 직전/현재 harness
 manifest와 실행 순서를 기록한다. `validate.py`는 생산 fill을 독립 대사하고
 소스/산출물 hash를 보관한다. 구현·검증 범위는
-[작업 기록](tasks/replay-accounting-20261018.md)을 따른다.
+[작업 기록](completed-history.md#task-replay-accounting-20261018)을 따른다.
 
 ### 오프라인 전략 전수 연구
 
@@ -2485,7 +2439,7 @@ live 신호는 관측을 진행하되 확인된 소유 수량을 미리 바꾸�
 오염된 수량·가격이나 Toss 응답 범위/통화·중복 종목을 정상 0수량으로 바꾸지
 않으며, 정수 주식 경로에서 소수 잔량을 1주로 올리지 않는다. 리스크 복원도
 KIS 체결/주문 투자 모드를 확인한 후보를 저장한 뒤 공개한다. 상세 구현·검증
-범위는 [전략 체결 소유권 작업 기록](tasks/strategy-fill-ownership-20261018.md)에 남긴다.
+범위는 [전략 체결 소유권 작업 기록](completed-history.md#task-strategy-fill-ownership-20261018)에 남긴다.
 
 provider 누적 체결금액은 `fills/collector/notional.rs`에서 정수 원·cents로
 변환한다. Toss 명시 `filledAmount`를 우선하고 누락에만 실제 평균가×수량을
@@ -2540,7 +2494,7 @@ pending은 기존 체결 대조·정산 경계를 따르며 저장 실패의 차
 제한한다. 이력 읽기는 orders/trades 각 category의2,048문서·총16MiB·50,000행과
 로컬 디렉터리20,000항목/깊이 한도를 검사한다. JSON/DB의 strict primary 읽기
 오류를 과거 backup이나 JSON fallback으로 숨기지 않는다. 실제 provider 사례 대조는 별도 P1-PROVIDER-01로 남긴다. 구현과
-검증 기록은 [즉시 작업 기록](tasks/immediate-backlog-20261029.md)을 따른다.
+검증 기록은 [즉시 작업 기록](completed-history.md#task-immediate-backlog-20261029)을 따른다.
 
 ### 실시간 데이터 Push (백그라운드 데몬 → 프론트)
 

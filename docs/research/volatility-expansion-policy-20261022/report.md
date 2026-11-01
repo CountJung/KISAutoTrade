@@ -165,7 +165,7 @@ hold63: 연속 한도16개가16개 청산, 손절26개와 합쳐42개다. QQQ는
 
 새 전용 진단은 UI/current-A-B에 보존하고, 과거·손상·미지원 값은0이나 준비 완료로 표시하지 않는다. 실제 core/선택 raw 타입·수익 보호 쌍·필요/확보 봉 상한을 검사하며 저장·두 preview·활성 잠금·실패/취소·지연 응답/새 초안·좁은 화면을 mock으로 검증했다. 일반 UI는 sameClose/nextOpen을 모두 지원하고 선택한 가정을 표시한다. 이 연구는 nextOpen만 사용한다.
 
-구체적인 단위/통합·브라우저 검증·재실행 사유와 문서/지도 게이트는 [작업 기록](../../tasks/volatility-expansion-policy-20261022.md)을 따른다.
+구체적인 단위/통합·브라우저 검증·재실행 사유와 문서/지도 게이트는 [작업 기록](../../completed-history.md#task-volatility-expansion-policy-20261022)을 따른다.
 
 ## 한계와 남은 P2-09 조건
 

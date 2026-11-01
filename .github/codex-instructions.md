@@ -45,7 +45,7 @@ npm run check:graphify
 npm run check:project-map
 ```
 
-모든 변경 후 `cargo check` → `npx tsc --noEmit` 순서로 검증한다.  
+코드 변경 후 `cargo check` → `npx tsc --noEmit` 순서로 검증한다. 문서만 바뀌면 아래 문서 게이트를 적용한다.
 **경고(warning) 0개**를 목표로 한다. 경고가 남아있으면 완료로 보고하지 않는다.
 
 ---
@@ -286,6 +286,8 @@ Codex 환경에서는 프로젝트 루트의 `.codex/skills/kisautotrade-*` 브�
 
 ## 살아있는 문서 원칙 (Living Documentation)
 
+문서 생성·통합의 정본은 [문서 소유권과 기록 규칙](../docs/agent-tooling.md#문서-소유권과-기록-규칙)이다. 작업마다 날짜별 문서를 만들지 말고 TODO의 같은 ID와 기존 완료 이력을 갱신한다. 독립 수명이 없는 보고서·템플릿 복제는 하지 않는다. 문서만 변경한 작업은 링크/등록부·생성물·독립 내용 검토를 적용하며, 코드 변경용 전체 Rust/UI 빌드를 반복하지 않는다.
+
 `AGENTS.md`, `docs/todo.md`, `docs/project-map.md`, `docs/ipc-commands.md`, `codex-instructions.md`, `.github/skills/**` 는 **항상 현재 코드베이스를 정확히 반영하는 살아있는 문서**여야 한다.
 작업 종료 시점에 아래 기준을 충족하지 못하면 완료로 보고하지 않는다.
 
@@ -339,7 +341,7 @@ Codex 환경에서는 프로젝트 루트의 `.codex/skills/kisautotrade-*` 브�
 - `docs/agent-tooling.md` — 프로젝트 맵·Serena·Graphify 서브 에이전트 운영
 - `docs/ipc-commands.md` — IPC 커맨드 전체 목록 (항상 최신 유지)
 - `docs/coding-guide.md` — 설정 추가·AppState·IPC·데몬·제어흐름 실전 가이드
-- `docs/MasterPlan.md` — 전체 설계 문서 (아카이브, 읽기 전용)
+- `docs/completed-history.md#legacy-master-plan` — 전체 설계 문서 (아카이브, 읽기 전용)
 - `docs/discord-setup-guide.md` — Discord 봇 설정 가이드
 - [KIS Developers 포털](https://apiportal.koreainvestment.com/)
 - [KIS Open API 샘플 코드](https://github.com/koreainvestment/open-trading-api)

@@ -125,4 +125,4 @@ SPY ATR 조건의 2024Q3는 비용 10bps +0.0037%, 20bps −0.0936%로 부호가
 
 독립 `stock_analyst` 감사는 부모 검증기를 재사용하지 않고 546개 원장·63,168개 봉에서 233,251회 점검하여 불일치 0건을 확인했다. raw→정규화 바이트·baseline git object, 실제 체결 공개시점·수량·원가·매 봉 현금/평가·실현/잔여·기말 비용·노출/MDD/회전도 대사했다. [독립 감사](independent-audit.json)는 단독 후보 해석이 원장과 일치하고 새 미해결 P1/P2 결함이 없음을 기록한다. 비대상 1,122개 및 대체 분할 trace 전체를 독립 재실행한 감사는 아니며 해당 생산 실행 증거와 구분한다.
 
-최종 검증은 Rust 전체718·통합4·doc3, UI 집중21·전체238, fmt/check/Clippy(정적 경고0), TypeScript/Vite/FSD/lockfiles, TODO renderer3, graph/map freshness와 상대 링크·소스 크기·변경 범위 검사까지 통과했다. 핵심 runtime과 UI·문서에 별도 read-only 감사를 적용했고 확정된 미해결 결함은 없었다. [작업 기록](../../tasks/failed-breakout-policy-20261022.md)에 도구 응답 지연과 직접 보완한 감사 범위를 구분해 남겼다. 이 진단으로 P1-05/P2-12 실제 자료 수집·운용 검증을 완료 처리하지 않는다.
+최종 검증은 Rust 전체718·통합4·doc3, UI 집중21·전체238, fmt/check/Clippy(정적 경고0), TypeScript/Vite/FSD/lockfiles, TODO renderer3, graph/map freshness와 상대 링크·소스 크기·변경 범위 검사까지 통과했다. 핵심 runtime과 UI·문서에 별도 read-only 감사를 적용했고 확정된 미해결 결함은 없었다. [작업 기록](../../completed-history.md#task-failed-breakout-policy-20261022)에 도구 응답 지연과 직접 보완한 감사 범위를 구분해 남겼다. 이 진단으로 P1-05/P2-12 실제 자료 수집·운용 검증을 완료 처리하지 않는다.

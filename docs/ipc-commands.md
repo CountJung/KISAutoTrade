@@ -52,7 +52,7 @@
 - 승인 영수증을 먼저 저장하고 원래 예약 ID의 pending을 복원한다. 저장된 승인 의도는 같은 주문번호·clientOrderId·근거 참조로만 재시도한다. UI는 재시작 시 저장된 근거를 복원하되 확인 체크는 새로 받는다. 서로 다른 승인, 이미 사용한 주문번호와 충돌, 오래된 revision은 거부한다.
 - 승인된 주문의 재진입 방어는 원래 제출 시각·사유·예약 ID에서 멱등 복원한다. 손절일/매도 후 cooldown을 승인 시각으로 연장하지 않고 더 최신 guard 기록을 과거 값으로 덮지 않는다. 예산 원장 조회/저장 시 terminal receipt도 복원하므로 앱 재시작 뒤 신규 주문 guard 평가보다 먼저 적용된다. 실제 체결/risk 카운터와 별개다.
 - 승인 자체는 재주문·체결 합성·현금/소유량 수정·예약 해제를 수행하지 않는다. 실제 확인은 기존 미체결 reconciliation과 terminal 저장 경로가 처리하며 영속화 장애 차단도 해제하지 않는다. 영수증256개 한도 초과는 보류한다. retained orders/trades primary는 category별 2,048문서·16MiB·50,000행 이내에서 검사하며, 오류·한도 초과·primary 없이 backup/격리본만 존재하면 보류한다. 보관기간 밖·별도 archive의 과거 주문 사용 여부는 자동으로 입증하지 못한다.
-- 구현·합성 검증 범위와 실제 provider 미검증은 [회차 기록](tasks/immediate-backlog-20261029.md)에서 구분한다.
+- 구현·합성 검증 범위와 실제 provider 미검증은 [회차 기록](completed-history.md#task-immediate-backlog-20261029)에서 구분한다.
 
 ## 데이터베이스 관리 (Tauri 데스크톱 전용)
 
@@ -294,7 +294,7 @@ v9 generic 1m 입력은 RFC3339 offset을 실제 순간으로 해석하고 고�
 
 `get_trading_status` 및 시작/정지/매수정지 해제 응답의 `dailyHistory`는 `strategyId`, `symbol`, `brokerId`, `profileId`, `marketDate`, `requiredBars`, `availableBars`, `state`, `source`, `lastCompletedDate`, `lastError`, `nextRetryAt` 배열이다. state는 pending/ready/insufficient/failed/capacityExceeded다. 웹 GET `/api/trading/status`도 같은 camelCase 의미를 사용하며 실행 profile/broker/account는 실제 manager run identity를 반환한다. 중지 후 남은 OrderManager scope를 실행중으로 표시하지 않는다. 구버전의 필드 누락은 UI에서 미지원 중립 상태다.
 
-최대511개 수집 대상과 초과 진단1행, 동시2개 job, 종목/계좌/날짜 공유 수집,8회 요청/512봉 보관,30~900초 재시도를 적용한다. 당일 제외·최신 완료일1~10일 이내와 실제 요구량 충족을 확인한다. quote 직전 새 시장 날짜를 다시 확인하며 부족 중 신규 매수만 막고 보유 손절은 유지한다. run/config/scope/profile 변경 결과를 버린다. 기존 preview500봉 상한과 다른 live512봉 경계다. [상세 검증·한계](tasks/live-completed-daily-history-20261018.md).
+최대511개 수집 대상과 초과 진단1행, 동시2개 job, 종목/계좌/날짜 공유 수집,8회 요청/512봉 보관,30~900초 재시도를 적용한다. 당일 제외·최신 완료일1~10일 이내와 실제 요구량 충족을 확인한다. quote 직전 새 시장 날짜를 다시 확인하며 부족 중 신규 매수만 막고 보유 손절은 유지한다. run/config/scope/profile 변경 결과를 버린다. 기존 preview500봉 상한과 다른 live512봉 경계다. [상세 검증·한계](completed-history.md#task-live-completed-daily-history-20261018).
 
 
 ### Replay v13 Consecutive 진입 필터
@@ -395,7 +395,7 @@ RSI는 기존 period14/oversold30/overbought70 단순평균 계산과 교차 기
 
 선택 `long_trend_period`는 정수0..512, `stop_loss_pct`는 유한0..99.9, `max_hold_observations`는 정수0..1000000이다. 누락/0은 비활성이며 null/문자열/bool/소수정수/범위초과는 저장과 공통 bounded/continuous driver에서 거부한다. runtime optional 손상은 custom legacy RSI와 보유 청산을 보존하며 신규 Buy만 차단한다. 추세는 현재제외 이전N 입력가격 평균을 현재가가 엄격히 상회해야 한다. live 첫 관측의 새 추세 사전자료만 비우므로 입력관측N은 일수N이 아니다.
 
-청산은 실제평균가 손실≥손절률 → 알려진보유관측≥한도/미상나이 보수적후보 → 기존 과매수 하향교차 순서다. stop/cap은 차단/부분체결뒤 조건지속·잔량양수에서 다시후보를내며 공통guard/리스크를유지한다. 최초양수체결뒤age0/다음관측1, 같은수량·부분매도·warmup·reconfigure는age를지우지않는다. origin없는복원은unknown, 정확한owner v1 kind=rsi metadata로만알려진age를복원한다. RSI준비/추세부족은기존보유보호를막지않는다. UI/current/A-B는실제params와관측단위·기본0·미확인보관결과를표시한다. [작업](tasks/rsi-policy-20261022.md), [단독 비교](research/rsi-policy-20261022/report.md).
+청산은 실제평균가 손실≥손절률 → 알려진보유관측≥한도/미상나이 보수적후보 → 기존 과매수 하향교차 순서다. stop/cap은 차단/부분체결뒤 조건지속·잔량양수에서 다시후보를내며 공통guard/리스크를유지한다. 최초양수체결뒤age0/다음관측1, 같은수량·부분매도·warmup·reconfigure는age를지우지않는다. origin없는복원은unknown, 정확한owner v1 kind=rsi metadata로만알려진age를복원한다. RSI준비/추세부족은기존보유보호를막지않는다. UI/current/A-B는실제params와관측단위·기본0·미확인보관결과를표시한다. [작업](completed-history.md#task-rsi-policy-20261022), [단독 비교](research/rsi-policy-20261022/report.md).
 
 ### v19 돌파 실패: 완료 자료와 실제 소유 보호
 
@@ -407,7 +407,7 @@ completedHigh는 이전N 완료 일봉 고가다. ATR 문턱은 기존 % 문턱�
 
 entryFilterPreparation의 선택 breakoutBasis/volumeRejections/priorVolumeRatio/priorAtr는 FailedBreakout에만 제공한다. status unverifiedVolume/zeroReferenceVolume와 기존 준비 상태를 구분한다. candidates는 미보유에서 선택 anchor의 원래 % 문턱을 넘은 수이며, 고가 미준비 때 가격 anchor는 unready 집계에만 사용한다. 통과는 체결이 아니다.
 
-실제 평균가 대비 activation 상승에서 한 번 무장한 뒤 실보유 관측 peak 대비 trailing 되밀림에서 청산 후보를 낸다. failure→profit→cap 순서, 조건 지속·실잔량에서는 재후보이며 거절을 체결로 취급하지 않는다. known age는 실제 fill뒤0/다음 관측1, 미상 age는 활성 cap에서 다음 보유 관측 보수적 후보로 남는다. 관측은 일수·실제 보유시간 상한이 아니며 수익 보호도 손익을 보장하지 않는다. [작업](tasks/failed-breakout-policy-20261022.md), [단독 비교](research/failed-breakout-policy-20261022/report.md).
+실제 평균가 대비 activation 상승에서 한 번 무장한 뒤 실보유 관측 peak 대비 trailing 되밀림에서 청산 후보를 낸다. failure→profit→cap 순서, 조건 지속·실잔량에서는 재후보이며 거절을 체결로 취급하지 않는다. known age는 실제 fill뒤0/다음 관측1, 미상 age는 활성 cap에서 다음 보유 관측 보수적 후보로 남는다. 관측은 일수·실제 보유시간 상한이 아니며 수익 보호도 손익을 보장하지 않는다. [작업](completed-history.md#task-failed-breakout-policy-20261022), [단독 비교](research/failed-breakout-policy-20261022/report.md).
 
 ### v20 강한 종가: 실제 소유와 이전 완료 일봉
 
@@ -417,7 +417,7 @@ entryFilterPreparation의 선택 breakoutBasis/volumeRejections/priorVolumeRatio
 
 추세는 현재 제외 이전 완료 N일봉 종가 평균을 관측가가 엄격히 상회하는지 확인한다. 활성 추세의 `entryFilterPreparation`는 기존 cadence/상태·필요/확보 일봉·후보/준비 보류/추세 거부/통과를 사용하고 sizing ATR과 구분한다. 실제 원가 대비 관측 수익으로 한 번 무장한 뒤 실제 보유 관측 최고가의 되밀림을 평가한다. 진입 전/현재 봉 전체 high는 peak가 아니다. 손절→수익 보호→관측 한도 순서이며 unknown 나이에 활성 한도는 다음 관측의 보수적 후보를 낸다. 거절/부분/동량·warmup/재설정이 보유 보호를 초기화하지 않는다. 새 strict metadata `kind=strongClose`는 기원 미확인을 꾸미지 않는다.
 
-일봉 nextOpen은 D-1 조건→D종가 신호→D+1 관측 시가 체결이며 live 첫 eligible quote와 다르다. live coordinator의 유효 시장일에서만 이전 H/C를 seed하고 같은 날 재조회는 소비 후보를 재무장하지 않는다. 지연·조회 실패·미검증 legacy는 Buy만 보류하며 held 보호는 유지한다. 새 하루 전체 quota나 flat 재시작 제한을 뜻하지 않는다. [작업](tasks/strong-close-policy-20261022.md)·[연구](research/strong-close-policy-20261022/report.md).
+일봉 nextOpen은 D-1 조건→D종가 신호→D+1 관측 시가 체결이며 live 첫 eligible quote와 다르다. live coordinator의 유효 시장일에서만 이전 H/C를 seed하고 같은 날 재조회는 소비 후보를 재무장하지 않는다. 지연·조회 실패·미검증 legacy는 Buy만 보류하며 held 보호는 유지한다. 새 하루 전체 quota나 flat 재시작 제한을 뜻하지 않는다. [작업](completed-history.md#task-strong-close-policy-20261022)·[연구](research/strong-close-policy-20261022/report.md).
 
 ### v21 변동성 확장: 실제 소유·범위 빈도·관측 보호
 
@@ -427,7 +427,7 @@ core 입력 범위는 lookback 정수1..512, factor 유한0..1000, stop 유한0.
 
 새 선택 `volatilityExpansionPreparation`는 변동성 전략에만 제공한다. `ready/status/cadence/requiredCompletedBars/availableCompletedBars/evaluatedObservations/ownedObservations/candidateObservations/unreadyCandidates/rangeRejections/directionRejections/passedCandidates`를 구분한다. 준비 상태는 ready/insufficientHistory/invalidParams/unsupportedObservation이며 주기는 dailyCloseRange/observedLiveQuotes/unverified다. enabled·대상·유효 가격 관측을 평가 수로 세고 보유 관측은 진입 후보에서 제외한다. 미보유 후보는 준비→범위→방향 순서로 한 번만 분류하며 통과가 실제 주문/체결을 뜻하지 않는다. 기존 ATR/추세 `entryFilterPreparation`에 범위 거부를 섞지 않는다. 과거 저장 슬롯의 진단 부재는0이 아닌 미확인이다.
 
-일봉은 D완성 OHLC를 D종가에서 판단한 뒤 이전 범위에 게시하고 nextOpen은 다음 관측 시가 체결 가정이다. live는 기존 scope/profile/account/market/date/generation/freshness를 검증한 시장일 ticket으로만 새날 관측 시가/고저를 초기화한다. 같은날 재조회는 당일 범위를 보존하며 실패/지연/late legacy는 Buy만 보류한다. 첫 검증 후 quote는 시가 대용이고 전체 장중 고저가 아니므로 실제 장중 최초 발동·체결 가능성은 미검증으로 남긴다. [작업](tasks/volatility-expansion-policy-20261022.md)·[설계와 비교](research/volatility-expansion-policy-20261022/report.md)를 따른다.
+일봉은 D완성 OHLC를 D종가에서 판단한 뒤 이전 범위에 게시하고 nextOpen은 다음 관측 시가 체결 가정이다. live는 기존 scope/profile/account/market/date/generation/freshness를 검증한 시장일 ticket으로만 새날 관측 시가/고저를 초기화한다. 같은날 재조회는 당일 범위를 보존하며 실패/지연/late legacy는 Buy만 보류한다. 첫 검증 후 quote는 시가 대용이고 전체 장중 고저가 아니므로 실제 장중 최초 발동·체결 가능성은 미검증으로 남긴다. [작업](completed-history.md#task-volatility-expansion-policy-20261022)·[설계와 비교](research/volatility-expansion-policy-20261022/report.md)를 따른다.
 
 
 ### v22 추세 필터: 실제 잔량·현재 포함 MA·선택 청산
@@ -442,7 +442,7 @@ core 입력 범위는 lookback 정수1..512, factor 유한0..1000, stop 유한0.
 
 소유 metadata는 version1/kind=`trendFilter`이며 정확히 `version/kind/ageKnown/heldObservations/candidateEntry/observedPeak/profitArmed`7필드다. 누락/미지필드/타입/모순을 전부 검증한 뒤 원자적으로 게시한다. 이탈 연속값은 영속화하지 않는다. 양수 보유는 나이/peak unknown이어도Some이다. 실제 OrderManager caller가 sync 전에 had_metadata를 읽으므로 이것이 반복 동일수량 feedback의 불필요한 restore와 streak초기화를 막는다. cold restore/동량/부분 fixture를 실제 caller로 검증한다. 물리 pending은 기존 공통 경계를 유지하고 두 preview driver도 pending 증거를 전달한다.
 
-UI는 일곱 필드 raw 초안을 유지하고 오류에서 저장·두 preview·늦은 결과를 차단한다. current/A-B에 기간·확인·수익·보유를 보존·표시하고 v22 이전/미확인 엔진의 새 소유·보호 적용을 추정하지 않는다. live 약10초 quote와 선택 일봉/분봉의 관측 기간을 구분하며 관측 한도를 일수/체결·손실 보장으로 표현하지 않는다. 단기/연속의 기존 interval 지원은 유지하며 StrongClose/Volatility의 일봉 전용 제한을 복사하지 않는다. [연구 결과](research/trend-filter-policy-20261023/report.md), [작업 검증](tasks/trend-filter-policy-20261023.md).
+UI는 일곱 필드 raw 초안을 유지하고 오류에서 저장·두 preview·늦은 결과를 차단한다. current/A-B에 기간·확인·수익·보유를 보존·표시하고 v22 이전/미확인 엔진의 새 소유·보호 적용을 추정하지 않는다. live 약10초 quote와 선택 일봉/분봉의 관측 기간을 구분하며 관측 한도를 일수/체결·손실 보장으로 표현하지 않는다. 단기/연속의 기존 interval 지원은 유지하며 StrongClose/Volatility의 일봉 전용 제한을 복사하지 않는다. [연구 결과](research/trend-filter-policy-20261023/report.md), [작업 검증](completed-history.md#task-trend-filter-policy-20261023).
 
 
 ### v23 동일 장부 구간 관측 진단
@@ -451,4 +451,4 @@ UI는 일곱 필드 raw 초안을 유지하고 오류에서 저장·두 preview�
 
 구간 자산 증감은 실현손익 + 잔여 평가손익 증감 + 순배당이다(표시 금액 반올림 오차 가능). 부분매도를 포함한 각 양수 수량 매도의 원래 배분 진입원가·매수비용은 매도 구간 실현손익에 귀속된다. 기존 raw return/MDD/완료 수·신호·회계·guard는 유지한다. 전반 양수에서 후반0은 보합, 음수는 손실 관측으로 안내하고 양수 수익 절반 조건의 과최적화 경고는 제거한다. 경고 없음은 신뢰 충분이나 독립 검증을 뜻하지 않는다.
 
-flat/전용 LTH/continuous 및 현재/A-B는 같은 설명과 서버 진단을 사용한다. 누락·손상·미지원 진단은 미확인이고 축약 저장된 거래/곡선으로 재계산하지 않는다. LTH 일봉·평가불가·legacy gate는 유지한다. v23은 버전이 포함된 inputHash가 바뀌며 hash 알고리즘은 바꾸지 않는다. [회차 검증](tasks/immediate-backlog-20261029.md).
+flat/전용 LTH/continuous 및 현재/A-B는 같은 설명과 서버 진단을 사용한다. 누락·손상·미지원 진단은 미확인이고 축약 저장된 거래/곡선으로 재계산하지 않는다. LTH 일봉·평가불가·legacy gate는 유지한다. v23은 버전이 포함된 inputHash가 바뀌며 hash 알고리즘은 바꾸지 않는다. [회차 검증](completed-history.md#task-immediate-backlog-20261029).
