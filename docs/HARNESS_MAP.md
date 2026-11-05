@@ -82,7 +82,7 @@ npm run test:database-tls-contract
 
 설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 Vite dev `127.0.0.1:1430`을 사용한다. 직전 2026-10-29 기준은349개였으며 이후 UI/UX 추가 spec도 같은 production 프로젝트에 포함된다. 추가 집중 검증·최종 전체 실행 수는 [UI/UX 회차 기록](completed-history.md#task-uiux-improvements-20261030)과 [키보드 회차 기록](completed-history.md#task-keyboard-improvements-20261031)에 각 실제 결과로 남긴다. CI는 먼저 `npm run build:web`를 수행하고 두 서버·프로젝트를 사용한다. 기존 UI317개와 새 UI/UX spec은 `chromium`의 production preview `127.0.0.1:1431`, 소스 모듈 가로채기를 요구하는 `balance-events.spec.ts`, `toss-commission-ratio.spec.ts`, `strategy-deviation-policy.spec.ts`의 기존32개와 `keyboard-search-scope.spec.ts`·`keyboard-results-scope.spec.ts`는 `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 검사한다. 기존27파일·349개의 검사 범위와 새 회귀를 중복·누락 없이 유지한다.
 
-spec은 mock transport를 사용하며 실제 Tauri IPC·provider 주문 검증과 구분한다. 테스트 30초·assertion 5초 제한은 유지한다. CI는 list와 HTML reporter를 함께 생성하고 실패 trace·screenshot을 보존한다.
+spec은 mock transport를 사용하며 실제 Tauri IPC·provider 주문 검증과 구분한다. 테스트는 기본·production `chromium`·로컬 30초, CI 전용 `chromium-source-harness`만 초기화를 포함해 60초이며 assertion은 모두 5초다. source 초기 clock 지연의 근본 원인을 해결한 것은 아니며, 60초에서도 실패하면 추가 연장하지 않고 새 trace로 재진단한다. CI는 list와 HTML reporter를 함께 생성하고 실패 trace·screenshot을 보존한다.
 
 ```bash
 npm run test:e2e

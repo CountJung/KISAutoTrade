@@ -325,6 +325,10 @@ CI54(553/4)는 실제 입력·backdrop hit와 저장 중 focus를 구분하는 �
 
 실제 macOS 한글 IME·Tauri WebView·스크린리더·운영 계좌/시장자료는 미검증이다. 공개 scope를 바꾼 합성 검사와 실제 계좌 pinning, UI 응답 격리와 backend abort/idempotency는 구분한다. 기존 TODO11개는 이 완료에 포함하지 않는다. 아래/이전의 작은 검사 수와 반복 실행은557에 더하지 않는다.
 
+**2026-11-05 병합 검증 후속:** HEAD `8cd29b8a7bf5b363b85fe245c5e5cec10963cdb7`의 [Release Gate61](https://github.com/CountJung/KISAutoTrade/actions/runs/41943810202) 최초·재실행은557중556개 성공, source KIS Strategy 결과 교체 후 명시 키보드 선택 복구1개에서 전체30초 timeout이었다. 호출자의 독립 trace 감사에서 초기 `clock.runFor(1)`에16.660/18.340초가 소요됐고 이후 선택 흐름은 진전했다. GET/200/body 완료·microtask·clock·input readiness는 이미 확인하므로 fixture나 제품 코드를 추측해서 바꾸지 않고 CI 전용 source project의 전체 예산만60초로 분리했다. production/local30초·assertion5초·557개 시나리오와 fixture는 유지한다. 초기 지연의 근본 원인은 미확정이며60초 재실패 시 추가 연장하지 않고 trace로 재진단한다. 새 HEAD의 전체 CI와 병합은 호출자가 확인한다.
+
+로컬 Node24.19.0·Playwright1.61.1·시스템 Chromium151에서 envDir:false·비민감 환경 allowlist·합성 localhost fixture로 실패 시나리오3회가26.5/23.5/24.1초에 통과했고, 별도 results-scope4개+search-scope8개의12개도 통과했다. 반복3회는 고유12개와 중복되며15개 고유 검사로 합산하지 않는다. 실제 CI/비CI config 로딩 대조에서 차이는 source CI timeout 한 항목뿐이고 기본30초·expect5초를 보존했다. Playwright 등록도 CI513+44=557·로컬557·오류0이다. 지도·TODO·Graphify freshness·diff 및 독립 코드/문서 감사를 통과했다. Graphify는 대상 config의 baseline/current AST1node/1edge 동일을 확인하고 지원 subset manifest와 기존 snapshot 생성 로직만 사용했으며 graph/HTML/report는 원본 그대로다. 원본 결과는 Git 제외 `.cache/source-harness-timeout-20261105/`에 보관한다. 로컬 시스템 브라우저 결과는 CI 번들 Chromium의 새 HEAD 전체 검증을 대신하지 않으며 계좌·주문 API/운영 앱/배포는 실행하지 않았다.
+
 ## 통합한 작업 기록의 검증·결정 색인
 
 기존 중복 구현 설명은 위 ID 절과 현재 계약/연구 정본을 따른다. 아래35개는 당시 코드·환경의 별도 검증 영수증과 고유 판단을 보강한 것이다. 시작/baseline SHA를 게시 SHA로 바꾸지 않으며, 원문의 게시 예정·미착수는 당시 상태다. 원래 완료 조건·명령 출력·중간 실패는 각 불변 Git 원문에서 복원한다. 실제 사용자 변경·미추적 원본을 삭제한 것이 아니다.

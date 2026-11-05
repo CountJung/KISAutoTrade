@@ -42,6 +42,7 @@ export default defineConfig({
     },
     {
       name: 'chromium-source-harness',
+      timeout: 60_000,
       testMatch: ['**/balance-events.spec.ts', '**/toss-commission-ratio.spec.ts', '**/strategy-deviation-policy.spec.ts', '**/keyboard-search-scope.spec.ts', '**/keyboard-results-scope.spec.ts'],
       use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:1430' },
     },
