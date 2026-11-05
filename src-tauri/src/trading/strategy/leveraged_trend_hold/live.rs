@@ -13,11 +13,58 @@ impl Strategy for LeveragedTrendHoldStrategy {
     fn config_mut(&mut self) -> &mut StrategyConfig {
         &mut self.config
     }
+    fn has_held_position(&self, symbol: &str) -> Option<bool> {
+        Some(
+            self.positions
+                .get(symbol)
+                .is_some_and(|position| position.in_position),
+        )
+    }
     fn is_enabled(&self) -> bool {
         self.config.enabled
     }
     fn set_enabled(&mut self, enabled: bool) {
         self.config.enabled = enabled;
+    }
+
+    fn reconfigure_preserving_position(&mut self, config: StrategyConfig) -> bool {
+        if !self.config.same_identity(&config) {
+            return false;
+        }
+        let mut replacement = Self::new(config);
+        replacement.positions = std::mem::take(&mut self.positions);
+        replacement
+            .positions
+            .retain(|symbol, _| replacement.config.targets_symbol(symbol));
+        replacement.states = std::mem::take(&mut self.states);
+        replacement
+            .states
+            .retain(|symbol, _| replacement.config.targets_symbol(symbol));
+        let window_cap = replacement.window_cap();
+        let rebound_cap = replacement.rebound_price_cap();
+        for state in replacement.states.values_mut() {
+            while state.intraday_candles.len() > window_cap {
+                state.intraday_candles.pop_front();
+            }
+            while state.rebound_prices.len() > rebound_cap {
+                state.rebound_prices.pop_front();
+            }
+        }
+        replacement.daily_context = std::mem::take(&mut self.daily_context);
+        replacement
+            .daily_context
+            .retain(|symbol, _| replacement.config.targets_symbol(symbol));
+        for candles in replacement.daily_context.values_mut() {
+            while candles.len() > window_cap {
+                candles.pop_front();
+            }
+        }
+        replacement.bollinger_candles = std::mem::take(&mut self.bollinger_candles);
+        replacement
+            .bollinger_candles
+            .retain(|symbol, _| replacement.config.targets_symbol(symbol));
+        *self = replacement;
+        true
     }
 
     fn initialize_ohlc(&mut self, symbol: &str, candles: &[OhlcCandle]) {
@@ -126,6 +173,127 @@ impl Strategy for LeveragedTrendHoldStrategy {
     }
 
     fn on_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
+        self.evaluate_tick(symbol, price, false)
+    }
+
+    fn on_live_tick(&mut self, symbol: &str, price: u64, _volume: u64) -> Signal {
+        self.evaluate_tick(symbol, price, true)
+    }
+
+    fn owned_position_metadata(&self, symbol: &str) -> Option<serde_json::Value> {
+        let position = self
+            .positions
+            .get(symbol)
+            .filter(|position| position.in_position)?;
+        Some(serde_json::json!({
+            "version": 1,
+            "kind": "leveragedTrendHold",
+            "entryPrice": position.entry_price?,
+            "highWater": position.high_water?,
+            "heldObservations": position.held_observations,
+        }))
+    }
+
+    fn restore_owned_position_metadata(
+        &mut self,
+        symbol: &str,
+        metadata: &serde_json::Value,
+    ) -> Result<(), String> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase", deny_unknown_fields)]
+        struct Protection {
+            version: u64,
+            kind: String,
+            entry_price: u64,
+            high_water: u64,
+            held_observations: usize,
+        }
+        let protection: Protection = serde_json::from_value(metadata.clone())
+            .map_err(|error| format!("Invalid LTH protection checkpoint: {error}"))?;
+        if protection.version != 1
+            || protection.kind != "leveragedTrendHold"
+            || protection.entry_price == 0
+            || protection.high_water == 0
+        {
+            return Err("Invalid LTH protection checkpoint identity or price".into());
+        }
+        let position = self
+            .positions
+            .get_mut(symbol)
+            .filter(|position| position.in_position)
+            .ok_or("Cannot restore LTH protection without confirmed owned quantity")?;
+        // Actual owned average remains authoritative, including partial buys.
+        position.high_water = Some(protection.high_water);
+        position.held_observations = protection.held_observations;
+        Ok(())
+    }
+
+    fn sync_owned_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
+        self.sync_params();
+        if !self.is_target_symbol(symbol) {
+            return;
+        }
+        if quantity == 0 {
+            self.positions.remove(symbol);
+            return;
+        }
+        let position =
+            self.positions
+                .entry(symbol.to_string())
+                .or_insert(LeveragedTrendHoldPosition {
+                    in_position: true,
+                    entry_price: Some(avg_price),
+                    high_water: Some(avg_price),
+                    held_observations: 0,
+                });
+        position.in_position = true;
+        position.entry_price = Some(avg_price);
+        // Partial fills do not reset trailing activation or observation age.
+        position.high_water = Some(position.high_water.unwrap_or(avg_price));
+    }
+
+    fn sync_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
+        self.sync_params();
+        if !self.is_target_symbol(symbol) {
+            return;
+        }
+        if quantity == 0 {
+            self.positions.remove(symbol);
+            return;
+        }
+        self.positions.insert(
+            symbol.to_string(),
+            LeveragedTrendHoldPosition {
+                in_position: true,
+                entry_price: Some(avg_price),
+                high_water: Some(avg_price),
+                held_observations: self.min_hold_observations(),
+            },
+        );
+        tracing::info!(
+            "레버리지 단일 티커 추세 포지션 동기화: {} {}주 @ {}",
+            symbol,
+            quantity,
+            avg_price
+        );
+    }
+
+    fn reset(&mut self) {
+        for state in self.states.values_mut() {
+            state.live_candle_minute = None;
+            state.rebound_prices.clear();
+        }
+        for pos in self.positions.values_mut() {
+            pos.in_position = false;
+            pos.entry_price = None;
+            pos.high_water = None;
+            pos.held_observations = 0;
+        }
+    }
+}
+
+impl LeveragedTrendHoldStrategy {
+    fn evaluate_tick(&mut self, symbol: &str, price: u64, live: bool) -> Signal {
         if !self.config.enabled {
             return Signal::Hold;
         }
@@ -167,7 +335,9 @@ impl Strategy for LeveragedTrendHoldStrategy {
                 .initial_risk_exit_reason(price, entry_price, high, held_observations)
                 .or_else(|| self.bollinger_exit_reason(symbol, price, entry_price))
             {
-                self.clear_position(symbol);
+                if !live {
+                    self.clear_position(symbol);
+                }
                 return Signal::Sell {
                     symbol: symbol.to_string(),
                     quantity,
@@ -178,7 +348,9 @@ impl Strategy for LeveragedTrendHoldStrategy {
             if let Some(reason) =
                 self.protection_exit_reason(symbol, price, entry_price, high, held_observations)
             {
-                self.clear_position(symbol);
+                if !live {
+                    self.clear_position(symbol);
+                }
                 return Signal::Sell {
                     symbol: symbol.to_string(),
                     quantity,
@@ -190,7 +362,9 @@ impl Strategy for LeveragedTrendHoldStrategy {
                 Self::session_minutes(entry.is_overseas, &self.params.toss_us_session)
             {
                 if minutes_to_close <= self.params.exit_before_close_min {
-                    self.clear_position(symbol);
+                    if !live {
+                        self.clear_position(symbol);
+                    }
                     return Signal::Sell {
                         symbol: symbol.to_string(),
                         quantity,
@@ -219,15 +393,17 @@ impl Strategy for LeveragedTrendHoldStrategy {
 
         if can_check_rapid_rebound {
             if let Some(snap) = self.rapid_rebound_entry_ok(symbol) {
-                self.positions.insert(
-                    symbol.to_string(),
-                    LeveragedTrendHoldPosition {
-                        in_position: true,
-                        entry_price: Some(price),
-                        high_water: Some(price),
-                        held_observations: 0,
-                    },
-                );
+                if !live {
+                    self.positions.insert(
+                        symbol.to_string(),
+                        LeveragedTrendHoldPosition {
+                            in_position: true,
+                            entry_price: Some(price),
+                            high_water: Some(price),
+                            held_observations: 0,
+                        },
+                    );
+                }
                 return Signal::Buy {
                     symbol: symbol.to_string(),
                     quantity,
@@ -244,15 +420,17 @@ impl Strategy for LeveragedTrendHoldStrategy {
 
         if in_trend_window {
             if let Some(snap) = self.entry_ok(symbol) {
-                self.positions.insert(
-                    symbol.to_string(),
-                    LeveragedTrendHoldPosition {
-                        in_position: true,
-                        entry_price: Some(price),
-                        high_water: Some(price),
-                        held_observations: 0,
-                    },
-                );
+                if !live {
+                    self.positions.insert(
+                        symbol.to_string(),
+                        LeveragedTrendHoldPosition {
+                            in_position: true,
+                            entry_price: Some(price),
+                            high_water: Some(price),
+                            held_observations: 0,
+                        },
+                    );
+                }
                 return Signal::Buy {
                     symbol: symbol.to_string(),
                     quantity,
@@ -271,15 +449,17 @@ impl Strategy for LeveragedTrendHoldStrategy {
 
         if can_check_rebound {
             if let Some(snap) = self.rebound_entry_ok(symbol) {
-                self.positions.insert(
-                    symbol.to_string(),
-                    LeveragedTrendHoldPosition {
-                        in_position: true,
-                        entry_price: Some(price),
-                        high_water: Some(price),
-                        held_observations: 0,
-                    },
-                );
+                if !live {
+                    self.positions.insert(
+                        symbol.to_string(),
+                        LeveragedTrendHoldPosition {
+                            in_position: true,
+                            entry_price: Some(price),
+                            high_water: Some(price),
+                            held_observations: 0,
+                        },
+                    );
+                }
                 return Signal::Buy {
                     symbol: symbol.to_string(),
                     quantity,
@@ -295,44 +475,5 @@ impl Strategy for LeveragedTrendHoldStrategy {
         }
 
         Signal::Hold
-    }
-
-    fn sync_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
-        self.sync_params();
-        if !self.is_target_symbol(symbol) {
-            return;
-        }
-        if quantity == 0 {
-            self.positions.remove(symbol);
-            return;
-        }
-        self.positions.insert(
-            symbol.to_string(),
-            LeveragedTrendHoldPosition {
-                in_position: true,
-                entry_price: Some(avg_price),
-                high_water: Some(avg_price),
-                held_observations: self.min_hold_observations(),
-            },
-        );
-        tracing::info!(
-            "레버리지 단일 티커 추세 포지션 동기화: {} {}주 @ {}",
-            symbol,
-            quantity,
-            avg_price
-        );
-    }
-
-    fn reset(&mut self) {
-        for state in self.states.values_mut() {
-            state.live_candle_minute = None;
-            state.rebound_prices.clear();
-        }
-        for pos in self.positions.values_mut() {
-            pos.in_position = false;
-            pos.entry_price = None;
-            pos.high_water = None;
-            pos.held_observations = 0;
-        }
     }
 }

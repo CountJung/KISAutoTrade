@@ -1,0 +1,28 @@
+{
+  "baselineCommit": "1192673",
+  "sameCloseFullReportAndSignalParityRuns": 1224,
+  "productionScenarioRuns": 40,
+  "productionAccountingIdentityChecks": 120,
+  "independentRecordedFillReconciliationChecks": 4540,
+  "scope": "Frozen daily prices; synthetic FX/dividend/fee inputs. No strategy signal reimplementation or live account access.",
+  "sha256": {
+    "docs/research/replay-accounting-20261018/baseline-hashes.json": "d7508b67a3e862b336f3adf7a605a1c82ff37fc2fd9d5de479e1085043ded98e",
+    "docs/research/replay-accounting-20261018/baseline_runner.rs": "2d659e7883faa10c935e61ebf7ca0dbb69747d1832c60436f9c9d519d942d4ae",
+    "docs/research/replay-accounting-20261018/results.json": "15408c10f917e91ab43efa0e7be4ca96ab6d755560a9066e2588f59e14ca1c9d",
+    "docs/research/replay-accounting-20261018/runner.rs": "db225357fd619454f3976c284b97674973f3ec1ec8875db184fcb0215d7f8633",
+    "docs/research/replay-accounting-20261018/validate.py": "370b8f5f15d3d69212751308f4ef234cccb582bfe9151a30ccfe7b0c32ce1739",
+    "docs/research/strategy-review-20261018/input.json": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+    "src-tauri/src/commands/strategy_preview/generic.rs": "493f9f98dc593f9a963a08b0929113dd93294cb9738387c35d5fdc44652fb0fa",
+    "src-tauri/src/commands/strategy_preview.rs": "e5ef4f6ab5e394117104c0b0fab438c5042e851f4c564289c82dfef5ea3a3f9d",
+    "src-tauri/src/trading/simulation/accounting.rs": "0dad977e87fd0dae8bc1a582ee7cc5c42d5f534d84ec9664634047c4a2f00472",
+    "src-tauri/src/trading/simulation/accounting_tests.rs": "2c3eebc8385fe3ced6a4b21e8a79e2c3ec4d4c4472dfca9fca87eda43668e152",
+    "src-tauri/src/trading/simulation/assessment.rs": "78f3fa932e3743a932cde4a339a0ccd25d5924e0b3bce6bbf500bff401b87a5b",
+    "src-tauri/src/trading/simulation/atr.rs": "08b59f57fb6bc8fafd5cc6666feed8c72a1c7974e3ecea193ff99bbe34b54ca1",
+    "src-tauri/src/trading/simulation/comparison.rs": "59116354873274b33898cb5e8635293ba8406a56c4fa2dacc107081fa5df8a98",
+    "src-tauri/src/trading/simulation/execution_tests.rs": "bd81a35bbea6e969c7336c7eecf4a7bf89edaa95aa9623151236b0e2aeda82d1",
+    "src-tauri/src/trading/simulation/session/accounting.rs": "8b7447f4393d770192b985d8dbc722710d33bbdea832acc717350bd2402a67d0",
+    "src-tauri/src/trading/simulation/session.rs": "2aad3b138eab516b7c3728c349f365bc0305a4a9eb808d22397b662c614b914b",
+    "src-tauri/src/trading/simulation/tests.rs": "a8fbd8e1f6256d52de4a983ae729211efea7586282630b323c79ebdd51072285",
+    "src-tauri/src/trading/simulation.rs": "4fe2290dc49ff5fed2cc7448493aa33128381adec5ecec22fc50a89494b9da0f"
+  }
+}

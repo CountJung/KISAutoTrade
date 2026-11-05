@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useId, useRef } from 'react'
 import InputAdornment from '@mui/material/InputAdornment'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
@@ -49,11 +49,12 @@ import {
 } from '../../../api/hooks'
 import type { UpdateRiskConfigInput } from '../../../api/types'
 import type { ThemeMode } from '../../../shared/config/theme'
-import { fmtNumber } from '../../../shared/lib'
+import { fmtNumber, isSearchEnter } from '../../../shared/lib'
 import { getWebApiToken, setWebApiToken } from '../../../shared/api/transport'
 
 import { AccountProfilesSection } from './accountProfiles'
 import { Section } from './section'
+import { SettingsContents } from './settingsNavigation'
 import { DatabaseManagementSection } from './databaseManagementSection'
 import { BrokerRateLimitSection } from './brokerRateLimitSection'
 import { AutoTradingBudgetSection } from './autoTradingBudgetSection'
@@ -77,6 +78,10 @@ function SliderWithInput({
   label, value, min, max, step, unit, disabled,
   onChange, onChangeCommitted,
 }: SliderWithInputProps) {
+  const controlId = useId()
+  const labelId = `${controlId}-label`
+  const descriptionId = `${controlId}-description`
+  const description = `${unit ? `단위: ${unit}. ` : ''}범위: ${min}~${max}. 간격: ${step}.`
   const [inputVal, setInputVal] = useState(String(value))
   const prevValue = useRef(value)
 
@@ -110,17 +115,24 @@ function SliderWithInput({
     }
   }
 
-  const handleInputKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+  const handleInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isSearchEnter(event)) event.currentTarget.blur()
   }
 
   return (
     <Box>
       <Typography variant="body2" gutterBottom>
-        {label}: <strong>{value}{unit}</strong>
+        <span id={labelId}>{label}</span>: <strong>{value}{unit}</strong>
       </Typography>
-      <Stack direction="row" alignItems="center" spacing={2}>
+      <Box component="span" id={descriptionId}
+        sx={{ position: 'absolute', width: 1, height: 1, p: 0, overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap' }}>
+        {description}
+      </Box>
+      <Stack direction="row" sx={{ alignItems: "center" }} spacing={2}>
         <Slider
+          aria-labelledby={labelId}
+          getAriaValueText={(currentValue) => `${currentValue}${unit ?? ''}`}
+          slotProps={{ input: { id: `${controlId}-slider`, 'aria-describedby': descriptionId } }}
           value={value}
           min={min}
           max={max}
@@ -132,14 +144,19 @@ function SliderWithInput({
           sx={{ flex: 1, maxWidth: 260 }}
         />
         <TextField
+          id={`${controlId}-input`}
           value={inputVal}
           onChange={handleInputChange}
           onBlur={handleInputBlur}
-          onKeyDown={handleInputKeyDown}
           size="small"
           disabled={disabled}
           sx={{ width: 100 }}
           slotProps={{
+            htmlInput: {
+              'aria-labelledby': labelId,
+              'aria-describedby': descriptionId,
+              onKeyDown: handleInputKeyDown,
+            },
             input: unit ? {
               endAdornment: <InputAdornment position="end">{unit}</InputAdornment>,
             } : {},
@@ -194,18 +211,24 @@ function RiskSection() {
     updateRisk(input, { onSuccess: () => setDirty(false) })
   }
 
-  if (isLoading || !risk) return null
+  if (isLoading || !risk) return (
+    <Section id="settings-risk" title="리스크 관리">
+      <Typography color="text.secondary">
+        {isLoading ? '리스크 설정을 불러오는 중…' : '리스크 설정을 불러오지 못했습니다.'}
+      </Typography>
+    </Section>
+  )
 
   const netLossPct = Math.min(risk.lossRatio * 100, 100)
   const barColor = netLossPct < 50 ? 'success' : netLossPct < 80 ? 'warning' : 'error'
 
   return (
-    <Section title="리스크 관리">
+    <Section id="settings-risk" title="리스크 관리">
       <Stack spacing={2}>
         {/* 활성화 토글 */}
-        <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
+        <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between" }}>
           <Box>
-            <Typography variant="body2" fontWeight={600}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
               리스크 관리 사용
             </Typography>
             <Typography variant="caption" color="text.secondary">
@@ -227,27 +250,27 @@ function RiskSection() {
 
             {/* 오늘 현황 요약 */}
             <Box>
-              <Typography variant="body2" fontWeight={600} gutterBottom>
+              <Typography variant="body2" sx={{ fontWeight: 600 }} gutterBottom>
                 오늘 현황
               </Typography>
               <Stack direction="row" spacing={1.5}>
                 <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, flex: 1, textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" display="block">총 손실</Typography>
-                  <Typography variant="body2" fontWeight={700} color="error.main">
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>총 손실</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }} color="error.main">
                     -{fmt(Math.abs(risk.currentLoss))}원
                   </Typography>
                 </Box>
                 <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, flex: 1, textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" display="block">당일 수익</Typography>
-                  <Typography variant="body2" fontWeight={700} color="success.main">
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>당일 수익</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }} color="success.main">
                     +{fmt(risk.dailyProfit)}원
                   </Typography>
                 </Box>
                 <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, flex: 1, textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary" display="block">순 손실</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>순 손실</Typography>
                   <Typography
                     variant="body2"
-                    fontWeight={700}
+                    sx={{ fontWeight: 700 }}
                     color={risk.netLoss > 0 ? 'warning.main' : 'text.primary'}
                   >
                     {fmt(risk.netLoss)}원
@@ -257,9 +280,9 @@ function RiskSection() {
 
               {/* 순손실 진행바 */}
               <Box sx={{ mt: 1.5 }}>
-                <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                <Stack direction="row" sx={{ justifyContent: "space-between", mb: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">순손실 소진율</Typography>
-                  <Typography variant="caption" fontWeight={700} color={`${barColor}.main`}>
+                  <Typography variant="caption" sx={{ fontWeight: 700 }} color={`${barColor}.main`}>
                     {netLossPct.toFixed(1)}%
                   </Typography>
                 </Stack>
@@ -293,7 +316,7 @@ function RiskSection() {
 
             {/* 한도 설정 슬라이더 */}
             <Box>
-              <Typography variant="body2" fontWeight={600} gutterBottom>
+              <Typography variant="body2" sx={{ fontWeight: 600 }} gutterBottom>
                 한도 설정
               </Typography>
               <Stack spacing={2}>
@@ -345,9 +368,9 @@ function RiskSection() {
                   onChangeCommitted={(v) => { setLossBlockLimit(v); setDirty(true) }}
                 />
                 <Divider />
-                <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
+                <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between" }}>
                   <Box>
-                    <Typography variant="body2" fontWeight={600}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       변동성 기반 주문 수량
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
@@ -490,13 +513,14 @@ export default function Settings() {
 
   return (
     <Box>
-      <Typography variant="h5" fontWeight={700} mb={3}>
+      <Typography component="h1" variant="h5" sx={{ fontWeight: 700, mb: 3 }}>
         Settings
       </Typography>
+      <SettingsContents />
 
       <Stack spacing={2}>
         {/* ── 테마 ─────────────────────────────────────────────── */}
-        <Section title="테마">
+        <Section id="settings-theme" title="테마">
           <ToggleButtonGroup
             value={theme}
             exclusive
@@ -519,7 +543,7 @@ export default function Settings() {
         </Section>
 
         {/* ── 데이터 갱신 주기 ──────────────────────────────────── */}
-        <Section title="데이터 갱신 주기">
+        <Section id="settings-refresh" title="데이터 갱신 주기">
           <Stack spacing={2}>
             <SliderWithInput
               label="갱신 주기"
@@ -539,7 +563,7 @@ export default function Settings() {
         </Section>
 
         {/* ── 로그 설정 ─────────────────────────────────────────── */}
-        <Section title="로그 설정">
+        <Section id="settings-logs" title="로그 설정">
           <Stack spacing={3}>
             <SliderWithInput
               label="보관 기간"
@@ -595,7 +619,7 @@ export default function Settings() {
         </Section>
 
         {/* ── 체결 기록 보관 설정 ─────────────────────────────────── */}
-        <Section title="체결 기록 보관">
+        <Section id="settings-archive" title="체결 기록 보관">
           <Stack spacing={3}>
             <SliderWithInput
               label="보관 기간"
@@ -648,7 +672,7 @@ export default function Settings() {
         <AccountProfilesSection />
 
         {/* ── 웹 접속 설정 ──────────────────────────────────────── */}
-        <Section title="웹 접속 설정">
+        <Section id="settings-web" title="웹 접속 설정">
           <Stack spacing={2}>
             <Typography variant="body2" color="text.secondary">
               기본은 이 컴퓨터에서만 접속할 수 있습니다. LAN 공개는 명시적으로 켜고 API token 인증을 설정해야 합니다.
@@ -656,7 +680,7 @@ export default function Settings() {
               접속 URL: <code>{webConfig?.accessUrl ?? `http://localhost:7474`}</code>
             </Typography>
 
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }} useFlexGap>
               <Chip
                 size="small"
                 label={webConfig?.lanEnabled ? 'LAN 공개 예정' : 'localhost 전용'}
@@ -689,7 +713,7 @@ export default function Settings() {
               </Stack>
             ) : (
               <Box>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'center' } }}>
                   <TextField
                     label="현재 웹 API token"
                     type="password"
@@ -719,7 +743,7 @@ export default function Settings() {
             {webConfig && (
               webConfig.distFound === false ? (
                 <Alert severity="warning">
-                  <Typography variant="body2" fontWeight={600} mb={0.5}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
                     프론트엔드 빌드 파일 없음
                   </Typography>
                   <Typography variant="body2">
@@ -738,14 +762,14 @@ export default function Settings() {
 
             {/* 포트 설정 */}
             <Box>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 <TextField
                   label="웹 서버 포트"
                   value={webPortInput}
                   onChange={(e) => { setWebPortInput(e.target.value); setWebSaveResult(null) }}
                   size="small"
                   type="number"
-                  inputProps={{ min: 1024, max: 65535 }}
+                  slotProps={{ htmlInput: { min: 1024, max: 65535 } }}
                   sx={{ width: 140 }}
                 />
                 <Button
@@ -804,7 +828,7 @@ export default function Settings() {
         </Section>
 
         {/* ── 종목 목록 관리 ─────────────────────────────────────── */}
-        <Section title="종목 목록 관리">
+        <Section id="settings-stocks" title="종목 목록 관리">
           <Stack spacing={2}>
             <Typography variant="body2" color="text.secondary">
               종목명 검색은 <strong>로컬 캐시 → NAVER Finance → KIS API</strong> 순서로 동작합니다.
@@ -868,7 +892,7 @@ export default function Settings() {
         <RiskSection />
 
         {/* ── Discord 알림 ───────────────────────────────────────── */}
-        <Section title="Discord 알림">
+        <Section id="settings-discord" title="Discord 알림">
           <Stack spacing={2}>
             <FormControlLabel
               control={

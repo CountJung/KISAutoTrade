@@ -1,0 +1,145 @@
+{
+  "declaredBeforeContinuousRuns": true,
+  "baselineCommit": "bca6601",
+  "plannedEngineVersion": "strategy-replay-v15",
+  "source": "../strategy-review-20261018/input.json",
+  "sourceSha256": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+  "evaluationStart": "20230103",
+  "evaluationEnd": "20251231",
+  "evaluationBarsPerSymbol": 752,
+  "historyBars": 252,
+  "costBps": [
+    10,
+    20
+  ],
+  "initialCapitalKrw": 10000000,
+  "exchangeRateKrw": 1450,
+  "taxBps": 0,
+  "executionModel": "nextOpen",
+  "dividendScenario": [],
+  "fxScenario": [],
+  "stopLossPct": 0,
+  "takeProfitPct": 0,
+  "partitions": [
+    "12 calendar-quarter chunks",
+    "500+252 bars"
+  ],
+  "expectedContinuousRuns": 36,
+  "expectedAlternatePartitionRuns": 36,
+  "expectedIndependentQuarterResetRuns": 432,
+  "matchedPathReference": "Fixed accepted share quantities/timing; previous close to current open gap PnL plus current open to close PnL at fixed FX. Equals final equity plus recorded fees/tax/slippage. Not an independent signal benchmark, cost-free rerun or same percentage exposure.",
+  "limitations": [
+    "Retrospective diagnostics on already observed frozen prices; no parameter selection/optimization",
+    "2026 observations reserved and not used in this run; this is not out-of-sample significance evidence",
+    "Three correlated selected ETFs; calendar/corporate-action coverage not independently verified",
+    "Same original 2023Q1 quantity including original 10bp cost-buffer sizing, frozen across both costs and every quarter; target15% differs from actual integer-share exposure",
+    "Quarter reset rows are separate10000000KRW accounts, never summed or compounded into continuous performance",
+    "maxHold63 means63 observed daily closes in this study, not63 guaranteed trading days in live10s cadence. All candidates single-factor, no optimization or combined winner."
+  ],
+  "configs": [
+    {
+      "symbol": "SOXQ",
+      "strategyId": "deviation",
+      "orderQuantity": 51,
+      "params": {
+        "ma_period": 20,
+        "buy_threshold_pct": -5.0,
+        "sell_threshold_pct": 5.0
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "19.91"
+    },
+    {
+      "symbol": "SPY",
+      "strategyId": "deviation",
+      "orderQuantity": 2,
+      "params": {
+        "ma_period": 20,
+        "buy_threshold_pct": -5.0,
+        "sell_threshold_pct": 5.0
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "382.43"
+    },
+    {
+      "symbol": "QQQ",
+      "strategyId": "deviation",
+      "orderQuantity": 3,
+      "params": {
+        "ma_period": 20,
+        "buy_threshold_pct": -5.0,
+        "sell_threshold_pct": 5.0
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "266.28"
+    }
+  ],
+  "declaredBeforeCandidateRuns": true,
+  "variants": [
+    {
+      "id": "legacy",
+      "engine": "archivedbca6601",
+      "params": {}
+    },
+    {
+      "id": "confirmedLevel",
+      "engine": "current",
+      "params": {}
+    },
+    {
+      "id": "crossing",
+      "engine": "current",
+      "params": {
+        "entry_mode": "crossing"
+      }
+    },
+    {
+      "id": "trend200",
+      "engine": "current",
+      "params": {
+        "long_trend_period": 200
+      }
+    },
+    {
+      "id": "maxHold63",
+      "engine": "current",
+      "params": {
+        "max_hold_observations": 63
+      }
+    },
+    {
+      "id": "stop5",
+      "engine": "current",
+      "params": {
+        "stop_loss_pct": 5.0
+      }
+    }
+  ],
+  "entryPolicy": {
+    "deviation": "100*(current/current-inclusive MA20-1); original <=-5 Buy and >=+5 Sell inclusive thresholds retained",
+    "level": "Actual owned quantity gates flat Buy/owned Sell only; raw observations never manufacture ownership",
+    "crossing": "Previous deviation >-5 and current <=-5 creates candidate; retry while <=-5 until actual positive fill; >-5 cancels; strict history seeds no candidate",
+    "trend200": "Independent corrected-level entry filter, current price strictly > mean of previous200 observations, current excluded. Only entries blocked when unready. Replay uses strict prior history. Live clears separate trend context on first live observation, uses real live prior observations; generic daily/1m warmup never certified as10s cadence",
+    "maxHold63": "Independent corrected-level exit at observed held count>=63, counting first price observation after actual positive fill. Count also recorded when option off; same quantity, partial sell, warmup and reconfigure do not reset. Valid exact owner metadata restores count; positive restoration without an emitted entry candidate/age metadata is age unknown and triggers conservative exit candidate if maxHold enabled",
+    "stop5": "Independent corrected-level exit if current observed price <= native confirmed average fill price*(1-.05); signal at close, nextOpen fill. Includes neither fees nor FX PnL and is not an intrabar/5% loss cap",
+    "exitPriority": "Stop loss, then max holding, then original high deviation level. Protective exits request all currently owned shares; original level exit retains configured quantity and common clamp",
+    "feedback": "Equal zero/nextOpen pending is not fill; positive fill consumes entry candidate; partial positive remains owned and eligible. Rejected or pending sell never consumes ownership/age",
+    "warmup": "Legacy MA observation history retained; strict history seeds only observations, not fills/candidates/holding age; stop and max holding can protect owned positions without MA readiness",
+    "reconfiguration": "Same config preserves observation/candidate/ownership state. Changed params preserve native owned avg/quantity/age and live trend provenance, reseed only indicator/crossing state safely",
+    "safety": "Existing TradeGuard, risk limits and exact owner clamps remain. Stop reason includes 손절 and same-day reentry guard remains. No live or paper orders/autotrading/credentials accessed"
+  },
+  "compatibility": {
+    "unchangedStrategies": 1122,
+    "deviationChangedWindows": 102,
+    "description": "Non-Deviation entire backtest/signals exact against bca6601. Deviation raw, accepted, cash and accounting deltas measured without forced financial parity."
+  }
+}

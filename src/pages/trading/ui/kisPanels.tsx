@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
@@ -13,9 +14,45 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import { useOverseasPrice, usePrice } from '../../../api/hooks'
 import type { BalanceItem, OverseasBalanceItem, OverseasExchange } from '../../../api/types'
 import { fmtNumber } from '../../../shared/lib'
+import { QueryStatusSummary, RowSelectionButton } from '../../../shared/ui'
 
 function fmt(n: number) {
   return fmtNumber(n)
+}
+
+interface KisHoldingsSectionProps {
+  label: string
+  hasData: boolean
+  isError: boolean
+  isFetching: boolean
+  dataUpdatedAt: number
+  onRetry: () => void
+  testId: string
+  children: ReactNode
+}
+
+export function KisHoldingsSection({
+  label, hasData, isError, isFetching, dataUpdatedAt, onRetry, testId, children,
+}: KisHoldingsSectionProps) {
+  return (
+    <Box data-testid={testId}>
+      <QueryStatusSummary
+        label={label}
+        statusText={hasData ? `${label} 조회 완료` : undefined}
+        isError={isError}
+        isFetching={isFetching}
+        dataUpdatedAt={dataUpdatedAt}
+        onRetry={onRetry}
+        testId={`${testId}-status`}
+      />
+      {hasData && isError && (
+        <Typography variant="caption" color="warning.main" sx={{ display: 'block', mb: 0.5 }}>
+          이전 자료: 마지막 정상 조회의 보유 수량·가격입니다.
+        </Typography>
+      )}
+      {hasData && children}
+    </Box>
+  )
 }
 
 interface HoldingsTableProps {
@@ -54,9 +91,9 @@ export function HoldingsTable({ items, onSelect }: HoldingsTableProps) {
                 sx={{ cursor: 'pointer' }}
               >
                 <TableCell>
-                  <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 130, sm: 'none' } }}>
-                    {item.prdt_name}
-                  </Typography>
+                  <Box sx={{ maxWidth: { xs: 130, sm: 'none' } }}>
+                    <RowSelectionButton label={item.prdt_name} detail={item.pdno} onSelect={() => onSelect(item)} />
+                  </Box>
                   <Typography variant="caption" color="text.secondary">{item.pdno}</Typography>
                 </TableCell>
                 <TableCell align="right">{fmt(parseInt(item.hldg_qty))}주</TableCell>
@@ -67,7 +104,7 @@ export function HoldingsTable({ items, onSelect }: HoldingsTableProps) {
                   <Typography
                     variant="body2"
                     color={positive ? 'success.main' : 'error.main'}
-                    fontWeight={600}
+                    sx={{ fontWeight: 600 }}
                     noWrap
                   >
                     {positive ? '+' : ''}{pfls.toFixed(2)}%
@@ -125,9 +162,9 @@ export function OverseasHoldingsTable({ items, onSelect }: OverseasHoldingsTable
                 sx={{ cursor: 'pointer' }}
               >
                 <TableCell>
-                  <Typography variant="body2" noWrap sx={{ maxWidth: { xs: 130, sm: 'none' } }}>
-                    {item.ovrs_item_name}
-                  </Typography>
+                  <Box sx={{ maxWidth: { xs: 130, sm: 'none' } }}>
+                    <RowSelectionButton label={item.ovrs_item_name} detail={item.ovrs_pdno} onSelect={() => onSelect(item)} />
+                  </Box>
                   <Typography variant="caption" color="text.secondary">{item.ovrs_pdno}</Typography>
                 </TableCell>
                 <TableCell align="right">{fmt(parseInt(item.ovrs_cblc_qty))}</TableCell>
@@ -138,7 +175,7 @@ export function OverseasHoldingsTable({ items, onSelect }: OverseasHoldingsTable
                   <Typography
                     variant="body2"
                     color={positive ? 'success.main' : 'error.main'}
-                    fontWeight={600}
+                    sx={{ fontWeight: 600 }}
                     noWrap
                   >
                     {positive ? '+' : ''}{pfls.toFixed(2)}%
@@ -177,22 +214,22 @@ export function KrStockInfoCard({ symbol }: { symbol: string }) {
 
   return (
     <Box sx={{ px: { xs: 1.5, sm: 2.5 }, py: 1.5 }}>
-      <Stack direction="row" spacing={1.5} alignItems="baseline" flexWrap="wrap" mb={1}>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: "baseline", flexWrap: "wrap", mb: 1 }}>
         <Box>
-          <Typography variant="subtitle2" fontWeight={700}>{p.hts_kor_isnm}</Typography>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{p.hts_kor_isnm}</Typography>
           <Typography variant="caption" color="text.secondary">{symbol}</Typography>
         </Box>
-        <Typography variant="h5" fontWeight={700}>{fmt(price)}원</Typography>
-        <Stack direction="row" alignItems="center" spacing={0.5}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>{fmt(price)}원</Typography>
+        <Stack direction="row" sx={{ alignItems: "center" }} spacing={0.5}>
           {pos
             ? <TrendingUpIcon fontSize="small" color="success" />
             : <TrendingDownIcon fontSize="small" color="error" />}
-          <Typography variant="body2" color={pos ? 'success.main' : 'error.main'} fontWeight={600}>
+          <Typography variant="body2" color={pos ? 'success.main' : 'error.main'} sx={{ fontWeight: 600 }}>
             {pos ? '+' : ''}{fmt(change)} ({pos ? '+' : ''}{rt.toFixed(2)}%)
           </Typography>
         </Stack>
       </Stack>
-      <Stack direction="row" spacing={2} flexWrap="wrap">
+      <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
         {[
           { label: '시가', value: p.stck_oprc },
           { label: '고가', value: p.stck_hgpr, color: 'error.main' },
@@ -200,8 +237,8 @@ export function KrStockInfoCard({ symbol }: { symbol: string }) {
           { label: '거래량', text: fmt(parseInt(p.acml_vol)) },
         ].filter(i => i.value || i.text).map(({ label, value, color, text }) => (
           <Box key={label}>
-            <Typography variant="caption" color="text.secondary" display="block">{label}</Typography>
-            <Typography variant="caption" fontWeight={600} color={color ?? 'text.primary'}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{label}</Typography>
+            <Typography variant="caption" sx={{ fontWeight: 600 }} color={color ?? 'text.primary'}>
               {text ?? (value ? fmt(parseInt(value)) + '원' : '-')}
             </Typography>
           </Box>
@@ -232,22 +269,22 @@ export function UsStockInfoCard({ symbol, exchange }: { symbol: string; exchange
 
   return (
     <Box sx={{ px: { xs: 1.5, sm: 2.5 }, py: 1.5 }}>
-      <Stack direction="row" spacing={1.5} alignItems="baseline" flexWrap="wrap" mb={1}>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: "baseline", flexWrap: "wrap", mb: 1 }}>
         <Box>
-          <Typography variant="subtitle2" fontWeight={700}>{p.name ?? symbol}</Typography>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{p.name ?? symbol}</Typography>
           <Typography variant="caption" color="text.secondary">{symbol} · {exchange}</Typography>
         </Box>
-        <Typography variant="h5" fontWeight={700}>${price.toFixed(2)}</Typography>
-        <Stack direction="row" alignItems="center" spacing={0.5}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>${price.toFixed(2)}</Typography>
+        <Stack direction="row" sx={{ alignItems: "center" }} spacing={0.5}>
           {pos
             ? <TrendingUpIcon fontSize="small" color="success" />
             : <TrendingDownIcon fontSize="small" color="error" />}
-          <Typography variant="body2" color={pos ? 'success.main' : 'error.main'} fontWeight={600}>
+          <Typography variant="body2" color={pos ? 'success.main' : 'error.main'} sx={{ fontWeight: 600 }}>
             {pos ? '+' : ''}{change.toFixed(2)} ({pos ? '+' : ''}{rt.toFixed(2)}%)
           </Typography>
         </Stack>
       </Stack>
-      <Stack direction="row" spacing={2} flexWrap="wrap">
+      <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
         {[
           { label: '시가', text: '$' + parseFloat(p.open).toFixed(2) },
           { label: '고가', text: '$' + parseFloat(p.high).toFixed(2), color: 'error.main' },
@@ -257,8 +294,8 @@ export function UsStockInfoCard({ symbol, exchange }: { symbol: string; exchange
           .filter(i => i.text && i.text !== '$0.00' && i.text !== '$NaN')
           .map(({ label, text, color }) => (
             <Box key={label}>
-              <Typography variant="caption" color="text.secondary" display="block">{label}</Typography>
-              <Typography variant="caption" fontWeight={600} color={color ?? 'text.primary'}>{text}</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{label}</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 600 }} color={color ?? 'text.primary'}>{text}</Typography>
             </Box>
           ))}
       </Stack>

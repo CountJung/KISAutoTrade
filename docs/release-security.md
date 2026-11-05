@@ -11,16 +11,21 @@
 - npm 설치는 `npm ci --ignore-scripts`, Rust 명령은 `--locked`를 사용한다. workspace 빌드·감사·버전 동기화의 유일한 Rust 기준은 루트 `Cargo.lock`이다. Cargo가 무시하던 과거 독립 crate 시절의 `src-tauri/Cargo.lock`은 제거한다.
 - Dependabot은 npm, Cargo, GitHub Actions 업데이트를 매주 제안한다.
 
-## 임시 RustSec 예외
+## 남은 RustSec 예외와 경고
 
-`Dependency Security`는 다음 세 advisory만 명시적으로 예외 처리하고 그 외 advisory는 계속 차단한다.
+**2026-10-24 점검**에서는 Mac 원본의 기존 semver 범위 안에서 lockfile을 갱신해 Cargo 취약점 12개 중 quinn-proto·rustls·webpki 계열 11개를 해소했다. Tokio unsound 경고도 해소했으며 아래 RSA 예외 1개와 Linux 경고 2개는 남는다. CI에는 기존 RSA 예외 하나만 유지하며 추가 ignore나 경고 필터를 두지 않는다. 2026-10-06의 quick-xml 예외 2개 해제는 기존 완료 이력이다.
 
-| Advisory | 경로와 완화 근거 | 해제 조건 |
+| 항목 | 실제 경로와 잔여 이유 | 해제 조건 |
 | --- | --- | --- |
-| `RUSTSEC-2026-0194`, `RUSTSEC-2026-0195` | `quick-xml 0.38.x ← plist 1.8.0 ← Tauri`. 현재 앱은 이 경로로 외부 사용자 XML을 파싱하지 않으며, `plist`의 `quick-xml ^0.38` 제약 때문에 수정 버전 `0.41+`를 선택할 수 없다. | `plist`/Tauri가 `quick-xml >=0.41`을 허용하면 즉시 업데이트하고 예외 제거 |
-| `RUSTSEC-2023-0071` | `rsa 0.9.10 ← sqlx-mysql`. RustSec에 수정 릴리스가 없고, 앱은 MySQL 클라이언트의 서버 공개키 암호화만 사용하며 취약한 RSA 개인키 연산을 수행하지 않는다. | `sqlx-mysql`이 수정된 RSA 구현으로 전환하면 예외 제거 |
+| `RUSTSEC-2023-0071` (예외) | `sqlx-mysql 0.8.6 → rsa 0.9.10`. 이번 감사에도 수정된 안정 릴리스가 없어 잔여다. 앱은 서버 공개키 암호화를 사용하며 취약한 개인키 연산을 수행하지 않는다. SQLx 0.9 전환은 MSRV 1.94 및 API·인증 정책 호환 검토가 필요해 보류했다. RSA 기능 제거는 현재 지원하는 비 TLS MariaDB 인증의 기능 손실이므로 수행하지 않았다. | 수정된 RSA 구현으로 소비자가 전환하거나 사용자 승인하에 DB 인증 정책을 변경한 뒤 호환성 검증 |
+| `RUSTSEC-2024-0429` (unsound 경고) | Linux 전용 `Tauri/tao/wry → GTK3 0.18 → glib 0.18.5`. 수정 버전은 ≥0.20이나 갱신한 Tauri 2.12.5의 안정 GTK 경로도 0.18이다. Mac target에는 포함되지 않는다. | Tauri 안정 GTK 의존성에서 수정된 GLib 사용 |
+| `RUSTSEC-2024-0370` (unmaintained 경고) | Linux 전용 `glib-macros/gtk3-macros → proc-macro-error 1.0.4`. 소비자 매크로가 대체 crate를 채택해야 한다. | GTK/GLib 안정 매크로 의존성 업데이트 |
 
-최초 검토일은 2026-07-26이며 담당자는 저장소 maintainer다. Dependabot 주간 검토와 매 릴리스 전에 예외의 upstream 상태와 실제 호출 경로를 다시 확인한다.
+[RSA 공식 공지](https://rustsec.org/advisories/RUSTSEC-2023-0071.html), [GLib 공식 공지](https://rustsec.org/advisories/RUSTSEC-2024-0429.html), [매크로 공식 공지](https://rustsec.org/advisories/RUSTSEC-2024-0370.html). 담당자는 저장소 maintainer이며 Dependabot 주간 검토와 매 릴리스 전에 upstream 상태를 재확인한다. 예외 없는 `cargo audit`는 RSA 때문에 실패하고 기존 예외를 적용한 감사도 경고 두 개를 표시한다. 보안 경고 0개 달성으로 보고하지 않는다.
+
+2026-10-06의 경고 12개 해소 이력과 2026-10-24의 취약점 12→1·버전·Mac 검증 근거는 [Mac 보안·동기화 보고서](completed-history.md#security-mac-handoff)에 날짜를 나누어 기록한다. 2026-10-24 npm 운영·개발 전체 감사는 변경 전후 모두 취약점 0개였으며 기존 차단 기준을 유지한다.
+
+2026-10-29 reqwest0.13.5 분리 전환 후에도 raw 감사는 위 RSA1개로 실패했고 기존 예외만 적용한 감사는 통과했다. Linux 경고2개는 그대로이며 추가 ignore는 없다. RustSec DB revision과 실행 범위는 [즉시 작업5A 기록](completed-history.md#task-immediate-backlog-20261029)을 따른다. 기존 HTTP의 Mozilla roots/ring을 보존했으며 시스템 신뢰 범위나 인증서 검증 정책을 변경하지 않았다.
 
 ## 릴리스 artifact 무결성
 
@@ -40,9 +45,7 @@ npm audit --omit=dev --audit-level=high
 npm audit --audit-level=critical
 cargo metadata --locked --format-version 1 --no-deps >/dev/null
 cargo audit --file Cargo.lock \
-  --ignore RUSTSEC-2023-0071 \
-  --ignore RUSTSEC-2026-0194 \
-  --ignore RUSTSEC-2026-0195
+  --ignore RUSTSEC-2023-0071
 npm run verify:toss-openapi
 npm run verify:release-artifacts -- --dir ./release-assets
 ```

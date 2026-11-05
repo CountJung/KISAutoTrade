@@ -1,4 +1,6 @@
 /// Rust commands.rs 와 1:1 대응하는 TypeScript 타입 정의
+import type { LiveDailyHistoryStatus } from './liveDailyHistoryTypes'
+export type { LiveDailyHistoryStatus } from './liveDailyHistoryTypes'
 
 // ─── 공통 오류 ──────────────────────────────────────────────────────
 export interface CmdError {
@@ -7,6 +9,7 @@ export interface CmdError {
 }
 
 export type BrokerId = 'kis' | 'toss'
+export type { CandleInterval, CandlePageInput, CandlePageView } from './candlePageTypes'
 
 export interface AutoTradingBudgetInput {
   brokerId: BrokerId
@@ -400,6 +403,7 @@ export interface TradeRecord {
 
 // ─── 자동 매매 상태 ─────────────────────────────────────────────────
 export interface TradingStatus {
+  dailyHistory?: LiveDailyHistoryStatus[]
   isRunning: boolean
   activeStrategies: string[]
   positionCount: number
@@ -560,6 +564,7 @@ export interface TossOrderPreflightView {
   priceSource: 'input' | 'snapshot'
   buyingPower: BrokerMoneyView | null
   sellableQuantity: string | null
+  /** Native decimal ratio: 0.00015 means 0.015%. */
   commissionRate: string | null
   grossAmount: BrokerMoneyView
   estimatedCommission: BrokerMoneyView | null
@@ -976,3 +981,5 @@ export interface RefreshConfig {
 
 export * from './databaseTypes'
 export * from './strategyResearchTypes'
+
+export type { BudgetRecoveryItem, BudgetRecoveryView, ApproveBudgetRecoveryInput } from './budgetRecoveryTypes'

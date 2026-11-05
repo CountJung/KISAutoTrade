@@ -11,8 +11,8 @@ pub struct OrderPreflightInput {
 pub struct OrderPreflightConstraints {
     pub buying_power: Option<BrokerMoney>,
     pub sellable_quantity: Option<BrokerQuantity>,
-    /// Toss returns `commissionRate` as a percent string: `0.015` means 0.015%.
-    pub commission_rate_percent: Option<String>,
+    /// Toss returns a decimal ratio: `0.00015` means 0.015%.
+    pub commission_rate_ratio: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -39,13 +39,16 @@ pub fn evaluate_order_preflight(
     }
 
     let gross = (quantity * price).max(0.0);
-    let commission_rate = constraints
-        .commission_rate_percent
-        .as_deref()
-        .and_then(parse_decimal_amount)
-        .unwrap_or(0.0)
-        .max(0.0)
-        / 100.0;
+    let commission_rate = match constraints.commission_rate_ratio.as_deref() {
+        Some(raw) => match parse_decimal_amount(raw).filter(|rate| *rate >= 0.0) {
+            Some(rate) => rate,
+            None => {
+                blocked_reasons.push("수수료율 형식을 확인할 수 없습니다.".into());
+                0.0
+            }
+        },
+        None => 0.0,
+    };
     let commission = gross * commission_rate;
     let required_cash = gross + commission;
 
@@ -141,9 +144,11 @@ mod tests {
         let decision = evaluate_order_preflight(
             &input,
             &OrderPreflightConstraints {
-                buying_power: Some(BrokerMoney::krw("10000")),
+                // The prior percent interpretation requested only 10001 and
+                // wrongly accepted this cash balance for the official ratio.
+                buying_power: Some(BrokerMoney::krw("10001")),
                 sellable_quantity: None,
-                commission_rate_percent: Some("0.015".to_string()),
+                commission_rate_ratio: Some("0.00015".to_string()),
             },
         );
 
@@ -166,7 +171,7 @@ mod tests {
             &OrderPreflightConstraints {
                 buying_power: None,
                 sellable_quantity: Some(BrokerQuantity("5.25".to_string())),
-                commission_rate_percent: Some("0.1".to_string()),
+                commission_rate_ratio: Some("0.001".to_string()),
             },
         );
 
@@ -188,11 +193,34 @@ mod tests {
             &OrderPreflightConstraints {
                 buying_power: Some(BrokerMoney::usd("201")),
                 sellable_quantity: None,
-                commission_rate_percent: Some("0.1".to_string()),
+                commission_rate_ratio: Some("0.001".to_string()),
             },
         );
 
         assert!(decision.liquidity_ok);
         assert_eq!(decision.required_cash.unwrap().amount, "200.2000");
+    }
+
+    #[test]
+    fn invalid_commission_ratios_block_instead_of_becoming_zero_fee() {
+        for raw in ["NaN", "inf", "-0.001", "invalid", ""] {
+            let result = evaluate_order_preflight(
+                &OrderPreflightInput {
+                    side: BrokerOrderSide::Buy,
+                    quantity: BrokerQuantity("1".into()),
+                    price: BrokerMoney::krw("1000"),
+                },
+                &OrderPreflightConstraints {
+                    buying_power: Some(BrokerMoney::krw("1000000")),
+                    commission_rate_ratio: Some(raw.into()),
+                    ..Default::default()
+                },
+            );
+            assert!(!result.liquidity_ok, "invalid ratio accepted: {raw}");
+            assert!(result
+                .blocked_reasons
+                .iter()
+                .any(|reason| reason.contains("수수료율")));
+        }
     }
 }

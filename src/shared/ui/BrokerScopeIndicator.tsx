@@ -35,10 +35,7 @@ export function BrokerScopeIndicator({ appConfig, compact = false, sx }: BrokerS
   return (
     <Stack
       direction="row"
-      flexWrap="wrap"
-      alignItems="center"
-      gap={0.75}
-      sx={sx}
+      sx={[{ flexWrap: "wrap", alignItems: "center", gap: 0.75 }, ...(Array.isArray(sx) ? sx : [sx ?? {}])]}
       aria-label="현재 broker scope"
     >
       <Tooltip title="현재 broker">

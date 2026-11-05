@@ -1,456 +1,100 @@
-/**
- * Trading 페이지 — KR / US 주식, 모바일 반응형
- */
-import { useEffect, useRef, useState } from 'react'
-import Typography from '@mui/material/Typography'
-import Paper from '@mui/material/Paper'
-import Box from '@mui/material/Box'
-import Grid from '@mui/material/Grid'
-import TextField from '@mui/material/TextField'
-import Button from '@mui/material/Button'
-import Stack from '@mui/material/Stack'
-import ToggleButton from '@mui/material/ToggleButton'
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
-import InputAdornment from '@mui/material/InputAdornment'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useRef } from 'react'
+import type { StockSearchItem } from '../../../api/types'
+import FlagIcon from '@mui/icons-material/Flag'
+import PublicIcon from '@mui/icons-material/Public'
+import RefreshIcon from '@mui/icons-material/Refresh'
+import SearchIcon from '@mui/icons-material/Search'
 import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
+import Divider from '@mui/material/Divider'
+import Grid from '@mui/material/Grid'
+import IconButton from '@mui/material/IconButton'
+import InputAdornment from '@mui/material/InputAdornment'
+import Paper from '@mui/material/Paper'
+import Stack from '@mui/material/Stack'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
-import Chip from '@mui/material/Chip'
-import Divider from '@mui/material/Divider'
+import TextField from '@mui/material/TextField'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Tooltip from '@mui/material/Tooltip'
-import RefreshIcon from '@mui/icons-material/Refresh'
-import SearchIcon from '@mui/icons-material/Search'
-import PublicIcon from '@mui/icons-material/Public'
-import FlagIcon from '@mui/icons-material/Flag'
-import IconButton from '@mui/material/IconButton'
-
-import {
-  useBalance,
-  useBrokerHoldings,
-  useOverseasBalance,
-  usePlaceOrder,
-  usePrice,
-  useStockSearch,
-  useOverseasPrice,
-  useTossMarketSnapshot,
-  useTossOrderPreflight,
-  useTossStockSafety,
-  useTossMarketCalendar,
-  usePlaceOverseasOrder,
-  useRefreshStockList,
-  useTradingStatus,
-  useClearBuySuspension,
-  useAppConfig,
-} from '../../../api/hooks'
-import * as cmd from '../../../api/commands'
-import type {
-  BalanceItem,
-  BrokerHoldingView,
-  OverseasBalanceItem,
-  CmdError,
-  OverseasExchange,
-  OverseasOrderExchange,
-  OrderSide,
-  OrderType,
-  TossManualSession,
-  TossMarketCalendarView,
-} from '../../../api/types'
-import { StockChart, OverseasStockChart } from '../../../widgets/stock-chart'
-import { fmtBrokerMoney, fmtDecimalString, fmtNumber } from '../../../shared/lib'
-import { BrokerScopeIndicator } from '../../../shared/ui'
+import Typography from '@mui/material/Typography'
+import { fmtBrokerMoney, fmtDecimalString, focusResultButton, isSearchEnter } from '../../../shared/lib'
+import { BrokerScopeIndicator, RowSelectionButton } from '../../../shared/ui'
+import { OverseasStockChart, StockChart } from '../../../widgets/stock-chart'
 import {
   HoldingsTable,
   KrStockInfoCard,
+  KisHoldingsSection,
   OverseasHoldingsTable,
   UsStockInfoCard,
 } from './kisPanels'
-import {
-  TossMarketCalendarStrip,
-  TossMarketSnapshotCard,
-  TossOpenOrdersPanel,
-  TossOrderPreflightPanel,
-  TossStockSafetyCard,
-} from './tossPanels'
+import { TossMarketCalendarStrip, TossMarketSnapshotCard, TossStockSafetyCard } from './tossPanels'
+import { TradingOrderForm } from './tradingOrderForm'
+import { useTradingOrderModel } from './useTradingOrderModel'
 
-function fmt(n: number) {
-  return fmtNumber(n)
-}
-
-function tossMarketLabel(market: 'kr' | 'us') {
-  return market === 'kr' ? '국내' : '미국'
-}
-
-type Market = 'KR' | 'US'
-
-const EXCHANGE_ORDER_MAP: Record<OverseasExchange, OverseasOrderExchange> = {
-  NAS: 'NASD',
-  NYS: 'NYSE',
-  AMS: 'AMEX',
-}
-
-const PAPER_UNSUPPORTED_US_SELL_SYMBOLS = ['VOO', 'SPY', 'QQQM']
-
-const TOSS_US_SESSION_OPTIONS: Array<{ value: TossManualSession; label: string }> = [
-  { value: 'auto', label: '자동' },
-  { value: 'day', label: '데이' },
-  { value: 'pre', label: '프리' },
-  { value: 'regular', label: '정규' },
-  { value: 'after', label: '애프터' },
-]
-
-function tossSessionLabel(session: TossManualSession) {
-  return TOSS_US_SESSION_OPTIONS.find((option) => option.value === session)?.label ?? session
-}
-
-function fmtTossSessionWindow(session: TossMarketCalendarView['us']['regularSession']) {
-  if (!session) return '오늘 세션 없음'
-  const format = (value: string) => new Date(value).toLocaleTimeString('ko-KR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-  return `${format(session.startTime)}~${format(session.endTime)}`
-}
-
-function tossUsSessionWindow(
-  calendar: TossMarketCalendarView | undefined,
-  session: TossManualSession,
-) {
-  if (!calendar) return null
-  if (session === 'day') return calendar.us.daySession
-  if (session === 'pre') return calendar.us.preSession
-  if (session === 'regular') return calendar.us.regularSession
-  if (session === 'after') return calendar.us.afterSession
-  return null
-}
-
-function isTossUsSessionOpen(
-  calendar: TossMarketCalendarView | undefined,
-  session: TossManualSession,
-) {
-  if (!calendar) return false
-  if (session === 'day') return calendar.us.isDayOpen
-  if (session === 'pre') return calendar.us.isPreOpen
-  if (session === 'regular') return calendar.us.isRegularOpen
-  if (session === 'after') return calendar.us.isAfterOpen
-  return true
-}
-
-/**
- * KIS 잔고 API의 ovrs_excg_cd (NAS/NYS/AMS 또는 NASD/NYSE/AMEX 모두 처리)
- * → 프론트엔드 OverseasExchange ('NAS' | 'NYS' | 'AMS') 로 정규화
- */
-function normalizeExchange(code: string): OverseasExchange {
-  const map: Record<string, OverseasExchange> = {
-    NAS: 'NAS', NASD: 'NAS', NASDAQ: 'NAS',
-    NYS: 'NYS', NYSE: 'NYS',
-    AMS: 'AMS', AMEX: 'AMS',
-  }
-  return map[code.toUpperCase()] ?? 'NAS'
-}
-
-// --- Trading 메인
 export default function Trading() {
-  const [market, setMarket]           = useState<Market>('KR')
-  const [symbol, setSymbol]           = useState('')
-  const [inputValue, setInputValue]   = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showResults, setShowResults] = useState(false)
-  const [usExchange, setUsExchange]   = useState<OverseasExchange>('NAS')
-  const [usSearching, setUsSearching] = useState(false)
-  const [side, setSide]               = useState<OrderSide>('Buy')
-  const [orderType, setOrderType]     = useState<OrderType>('Limit')
-  const [tossSession, setTossSession] = useState<TossManualSession>('auto')
-  const [quantity, setQuantity]       = useState('')
-  const [price, setPrice]             = useState('')
-  const [result, setResult]           = useState<string | null>(null)
-  const [errorMsg, setErrorMsg]       = useState<string | null>(null)
-  // 검색 결과 테이블 마우스 다운 시 blur 이벤트 지연 취소용
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    setSymbol('')
-    setInputValue('')
-    setSearchQuery('')
+  const model = useTradingOrderModel()
+  const searchRegionRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const returningSearchFocus = useRef(false)
+  const returnSearchFocus = () => {
+    returningSearchFocus.current = true
+    try {
+      searchInputRef.current?.focus()
+    } finally {
+      returningSearchFocus.current = false
+    }
+  }
+  const {
+    appConfig, balance, balanceQuery, brokerHoldings, brokerHoldingsError,
+    brokerHoldingsLoading, closeTimerRef, doRefreshList, fmt,
+    handleSelectBrokerHolding, handleSelectHolding, handleSelectOverseasHolding, handleUsSearch,
+    inputValue, isFetchingSearch, isRefreshing, isStockListEmpty,
+    isTossActive, isTossCalendarError, isTossCalendarLoading, isTossSafetyError,
+    isTossSafetyLoading, market, overseasBalance, overseasBalanceQuery, searchQuery,
+    searchResults, setErrorMsg, setInputValue, setMarket,
+    setResult, setSearchQuery, setShowResults, setSymbol,
+    showResults, stockName, symbol, tossCalendar,
+    tossMarketLabel, tossSafety, tossSafetyError, usExchange,
+    usSearching,
+  } = model
+  const searchDomestic = () => {
+    if (inputValue.trim().length < 2) return
+    setSearchQuery(inputValue)
+    setShowResults(true)
+  }
+  const selectSearchResult = (r: StockSearchItem) => {
+    setSymbol(r.pdno)
+    setInputValue(r.prdt_name)
     setShowResults(false)
-    setPrice('')
-    setQuantity('')
+    setSearchQuery('')
     setResult(null)
     setErrorMsg(null)
-    setUsSearching(false)
-    setTossSession('auto')
-  }, [market])
-
-  useEffect(() => {
-    if (market !== 'KR' || !inputValue || !showResults) {
-      if (!inputValue || !showResults) setSearchQuery('')
-      return
-    }
-    const t = setTimeout(() => setSearchQuery(inputValue), 400)
-    return () => clearTimeout(t)
-  }, [inputValue, market, showResults])
-
-  const { data: appConfig }                                         = useAppConfig()
-  const isTossActive = appConfig?.active_broker_id === 'toss'
-  const isKisActive = appConfig?.active_broker_id === 'kis'
-  const { data: balance }                                           = useBalance({ enabled: isKisActive })
-  const { data: overseasBalance }                                   = useOverseasBalance({ enabled: isKisActive })
-  const { data: brokerHoldings = [],
-          isLoading: brokerHoldingsLoading,
-          isError: brokerHoldingsError }                            = useBrokerHoldings({ enabled: isTossActive })
-  const { data: krPrice }                                           = usePrice(!isTossActive && market === 'KR' && symbol.length === 6 ? symbol : '')
-  const { data: usPrice }                                           = useOverseasPrice(!isTossActive && market === 'US' ? symbol : '', !isTossActive && market === 'US' ? usExchange : '')
-  const { data: tossSnapshot }                                      = useTossMarketSnapshot(isTossActive && symbol ? symbol : '')
-  const { data: tossSafety, isLoading: isTossSafetyLoading,
-          isError: isTossSafetyError, error: tossSafetyError }      = useTossStockSafety(isTossActive && symbol ? symbol : '')
-  const { data: tossPreflight, isLoading: isTossPreflightLoading,
-          isError: isTossPreflightError, error: tossPreflightError } = useTossOrderPreflight(
-    {
-      symbol,
-      side,
-      quantity,
-      price: price || null,
-    },
-    { enabled: isTossActive && !!symbol && !!quantity },
-  )
-  const { data: tossCalendar, isLoading: isTossCalendarLoading,
-          isError: isTossCalendarError }                            = useTossMarketCalendar({ enabled: isTossActive })
-  const { data: searchResults = [], isFetching: isFetchingSearch,
-          isError: isSearchError, error: searchError }              = useStockSearch(searchQuery)
-  const { mutate: placeOrder,         isPending: isPendingKr }     = usePlaceOrder()
-  const { mutate: placeOverseasOrder, isPending: isPendingUs }     = usePlaceOverseasOrder()
-  const { mutate: doRefreshList,      isPending: isRefreshing }    = useRefreshStockList()
-  const { data: tradingStatus }                                     = useTradingStatus()
-  const { mutate: clearBuySuspension, isPending: clearingBuySusp } = useClearBuySuspension()
-  const isPending = isPendingKr || isPendingUs
-
-  // STOCK_LIST_EMPTY 에러 감지: KRX 다운로드 미완료 or 실패
-  const isStockListEmpty = isSearchError && (searchError as CmdError | null)?.code === 'STOCK_LIST_EMPTY'
-
-  const availableCash  = parseInt(balance?.summary?.dnca_tot_amt ?? '0') || 0
-  const tossCurrentPrice = tossSnapshot ? Number(tossSnapshot.price.amount.replace(/,/g, '')) : null
-  const krCurrentPrice = krPrice ? parseInt(krPrice.stck_prpr) : null
-  const usCurrentPrice = usPrice ? parseFloat(usPrice.last) : null
-  const stockName      = isTossActive
-    ? (inputValue || symbol)
-    : market === 'KR' ? krPrice?.hts_kor_isnm : (usPrice?.name ?? symbol)
-  const isPaperTrading = appConfig?.kis_is_paper_trading ?? false
-  const overseasOrderExchange = EXCHANGE_ORDER_MAP[usExchange]
-  const normalizedUsSymbol = symbol.trim().toUpperCase()
-  const isPaperUnsupportedUsSell =
-    market === 'US' &&
-    isPaperTrading &&
-    side === 'Sell' &&
-    (overseasOrderExchange === 'AMEX' || PAPER_UNSUPPORTED_US_SELL_SYMBOLS.includes(normalizedUsSymbol))
-  const tossManualOrderReady = tossPreflight?.canSubmit ?? false
-  const showTossUsSessionSelector = isTossActive && market === 'US'
-  const selectedTossSessionWindow = tossUsSessionWindow(tossCalendar, tossSession)
-  const selectedTossSessionOpen = isTossUsSessionOpen(tossCalendar, tossSession)
-
-  const handleSelectHolding = (item: BalanceItem) => {
-    setSymbol(item.pdno)
-    setInputValue(item.prdt_name)
-    setResult(null)
-    setErrorMsg(null)
+    returnSearchFocus()
   }
-
-  /** 해외 보유 종목 클릭 → US 모드로 전환 후 매도 폼 자동 완성 */
-  const handleSelectOverseasHolding = (item: OverseasBalanceItem) => {
-    setMarket('US')
-    setSymbol(item.ovrs_pdno)
-    setInputValue(item.ovrs_item_name)
-    // ovrs_excg_cd: KIS는 잔고 API에서 'NAS'/'NYS'/'AMS' 반환
-    // 방어적으로 'NASD'/'NYSE'/'AMEX' 장포맷도 OverseasExchange로 정규화
-    setUsExchange(normalizeExchange(item.ovrs_excg_cd))
-    setResult(null)
-    setErrorMsg(null)
-  }
-
-  const handleSelectBrokerHolding = (item: BrokerHoldingView) => {
-    setMarket(item.market === 'kr' ? 'KR' : 'US')
-    setSymbol(item.symbol)
-    setInputValue(item.symbolName || item.symbol)
-    setResult(null)
-    setErrorMsg(null)
-  }
-
-  /** 미국 주식 거래소 자동 감지: NAS → NYS → AMS 순서로 조회 */
-  const handleUsSearch = async () => {
-    const ticker = inputValue.trim().toUpperCase()
-    if (!ticker) return
-    if (isTossActive) {
-      setSymbol(ticker)
-      setResult(null)
-      setErrorMsg(null)
-      return
-    }
-    setUsSearching(true)
-    setErrorMsg(null)
-    const exchanges: OverseasExchange[] = ['NAS', 'NYS', 'AMS']
-    for (const exc of exchanges) {
-      try {
-        const res = await cmd.getOverseasPrice(ticker, exc)
-        // 가격 > 0 이거나 종목명이 있으면 유효 (NYSE Arca ETF 등 특수 케이스 포함)
-        const validPrice = parseFloat(res.last) > 0
-        const hasName = res.name && res.name.trim().length > 0
-        if (res && (validPrice || hasName)) {
-          setUsExchange(exc)
-          setSymbol(ticker)
-          setResult(null)
-          setUsSearching(false)
-          return
-        }
-      } catch { /* 다음 거래소 시도 */ }
-    }
-    setErrorMsg(`"${ticker}"을 NAS·NYS·AMEX에서 찾을 수 없습니다.`)
-    setUsSearching(false)
-  }
-
-  const handleFillMarketPrice = () => {
-    if (isTossActive && tossCurrentPrice && Number.isFinite(tossCurrentPrice)) {
-      setPrice(tossSnapshot?.price.currency === 'KRW' ? String(Math.round(tossCurrentPrice)) : tossCurrentPrice.toFixed(4))
-      return
-    }
-    if (market === 'KR' && krCurrentPrice) setPrice(String(krCurrentPrice))
-    if (market === 'US' && usCurrentPrice)  setPrice(usCurrentPrice.toFixed(2))
-  }
-
-  const handleSubmit = () => {
-    setResult(null)
-    setErrorMsg(null)
-    const qty = parseInt(quantity)
-    if (!symbol)          { setErrorMsg('종목을 선택하세요.'); return }
-    if (!qty || qty <= 0) { setErrorMsg('수량을 입력하세요.'); return }
-    if (isTossActive && !tossManualOrderReady) {
-      setErrorMsg(tossPreflight?.blockedReasons?.[0] ?? 'Toss 주문 전 사전검증을 통과해야 수동 주문을 제출할 수 있습니다.')
-      return
-    }
-    if (isTossActive) {
-      const prc = parseFloat(price || '0')
-      if (orderType === 'Limit' && (!prc || prc <= 0)) {
-        setErrorMsg('Toss 지정가 주문은 가격을 입력해야 합니다.')
-        return
-      }
-      if (market === 'US' && tossSession !== 'auto') {
-        if (!tossCalendar) {
-          setErrorMsg('Toss 미국 세션 정보를 확인한 뒤 주문을 제출할 수 있습니다.')
-          return
-        }
-        if (!selectedTossSessionOpen) {
-          setErrorMsg(
-            `현재 시간은 선택한 Toss 미국 ${tossSessionLabel(tossSession)} 세션이 아닙니다. ` +
-            `세션 시간: ${fmtTossSessionWindow(selectedTossSessionWindow)}`
-          )
-          return
-        }
-      }
-      placeOrder(
-        {
-          symbol,
-          side,
-          order_type: orderType,
-          quantity: qty,
-          price: orderType === 'Market' ? 0 : prc,
-          toss_session: market === 'US' ? tossSession : null,
-        },
-        {
-          onSuccess: (d) => {
-            const odno = d.odno || '(접수됨)'
-            setResult('Toss 주문 완료 — 주문번호: ' + odno)
-            setQuantity('')
-            setPrice('')
-          },
-          onError: (e) => {
-            const err = e as { message?: string } | Error | null
-            setErrorMsg(err instanceof Error ? err.message : (err as { message?: string })?.message ?? String(e))
-          },
-        },
-      )
-      return
-    }
-
-    if (market === 'KR') {
-      if (!/^[A-Z0-9]{6}$/i.test(symbol)) { setErrorMsg('국내 종목코드는 6자리 영숫자입니다 (예: 005930, 0005A0).'); return }
-      const prc = parseInt(price)
-      if (orderType === 'Limit' && (!prc || prc <= 0)) {
-        setErrorMsg('지정가 주문은 가격을 입력해야 합니다.')
-        return
-      }
-      placeOrder(
-        { symbol, side, order_type: orderType, quantity: qty, price: orderType === 'Market' ? 0 : prc },
-        {
-          onSuccess: (d) => {
-            const odno = d.odno || '(접수됨)'
-            setResult('주문 완료 — 주문번호: ' + odno)
-            setQuantity('')
-            setPrice('')
-          },
-          onError:   (e) => {
-            const err = e as { message?: string } | Error | null
-            setErrorMsg(err instanceof Error ? err.message : (err as { message?: string })?.message ?? String(e))
-          },
-        },
-      )
-    } else {
-      const prc = parseFloat(price)
-      if (!prc || prc <= 0) { setErrorMsg('해외 주문은 USD 가격을 입력해야 합니다.'); return }
-      if (isPaperUnsupportedUsSell) {
-        setErrorMsg(
-          `모의투자 미지원 사전 검증: ${normalizedUsSymbol} (${overseasOrderExchange}) 매도 주문은 ` +
-          'KIS 모의투자 해외 주문 universe에서 제한될 수 있습니다. 실전투자로 전환하거나 NASD/NYSE 지원 종목으로 검증하세요.'
-        )
-        return
-      }
-      placeOverseasOrder(
-        { symbol, exchange: overseasOrderExchange, side, quantity: qty, price: prc },
-        {
-          onSuccess: (d) => {
-            const odno = d.odno || '(접수됨)'
-            setResult('주문 완료 — 주문번호: ' + odno)
-            setQuantity('')
-            setPrice('')
-          },
-          onError: (e) => {
-            const err = e as { message?: string } | Error | null
-            const rawMsg = err instanceof Error ? err.message : (err as { message?: string })?.message ?? String(e)
-            if (
-              rawMsg.includes('해당업무가 제공되지 않습니다') ||
-              rawMsg.includes('모의투자 미지원') ||
-              rawMsg.includes('PAPER_OVERSEAS_UNSUPPORTED')
-            ) {
-              setErrorMsg(
-                `모의투자 미지원: ${rawMsg}\n` +
-                `이 종목(${symbol}) 또는 거래소(${overseasOrderExchange})는 모의투자에서 매도 주문이 지원되지 않습니다. ` +
-                `실전투자로 전환하거나 NASD/NYSE 종목을 이용하세요.`
-              )
-            } else {
-              setErrorMsg(rawMsg)
-            }
-          },
-        },
-      )
-    }
-  }
-
   return (
     <Box>
-      <Stack direction="row" alignItems="center" gap={1.5} mb={2} flexWrap="wrap">
-        <Typography variant="h5" fontWeight={700}>Trading</Typography>
+      <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>Trading</Typography>
         <BrokerScopeIndicator appConfig={appConfig} compact />
       </Stack>
 
       {/* 1. 보유 종목 */}
       <Paper sx={{ p: { xs: 1.5, sm: 2.5 }, mb: 2 }}>
         <Stack
-          direction="row" alignItems="center" justifyContent="space-between"
-          mb={1.5} flexWrap="wrap" gap={1}
+          direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1.5, flexWrap: "wrap", gap: 1 }}
         >
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            <Typography variant="subtitle1" fontWeight={600}>보유 종목</Typography>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>보유 종목</Typography>
             {isTossActive && (
               <Chip
                 size="small"
@@ -507,7 +151,11 @@ export default function Trading() {
                         onClick={() => handleSelectBrokerHolding(item)}
                       >
                         <TableCell>
-                          <Typography variant="body2" fontWeight={500}>{item.symbolName || item.symbol}</Typography>
+                          <RowSelectionButton
+                            label={item.symbolName || item.symbol}
+                            detail={item.symbol}
+                            onSelect={() => handleSelectBrokerHolding(item)}
+                          />
                           <Typography variant="caption" color="text.secondary">
                             {item.symbol} · {tossMarketLabel(item.market)}
                           </Typography>
@@ -535,20 +183,39 @@ export default function Trading() {
         ) : (
           <>
             {/* 국내 보유 */}
-            <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, display: 'block'  }}>
               🇰🇷 국내
             </Typography>
-            <HoldingsTable items={balance?.items ?? []} onSelect={handleSelectHolding} />
+            <KisHoldingsSection
+              label="국내 잔고"
+              hasData={balance !== undefined}
+              isError={balanceQuery.isError}
+              isFetching={balanceQuery.isFetching}
+              dataUpdatedAt={balanceQuery.dataUpdatedAt}
+              onRetry={() => { void balanceQuery.refetch() }}
+              testId="kis-domestic-holdings"
+            >
+              {balance && <HoldingsTable items={balance.items} onSelect={handleSelectHolding} />}
+            </KisHoldingsSection>
 
             {/* 해외 보유 */}
             <Box sx={{ mt: 2 }}>
-              <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5, display: 'block'  }}>
                 🇺🇸 해외 — 클릭하면 US 매도 폼 자동 완성
               </Typography>
-              <OverseasHoldingsTable
-                items={overseasBalance?.items ?? []}
-                onSelect={handleSelectOverseasHolding}
-              />
+              <KisHoldingsSection
+                label="해외 잔고"
+                hasData={overseasBalance !== undefined}
+                isError={overseasBalanceQuery.isError}
+                isFetching={overseasBalanceQuery.isFetching}
+                dataUpdatedAt={overseasBalanceQuery.dataUpdatedAt}
+                onRetry={() => { void overseasBalanceQuery.refetch() }}
+                testId="kis-overseas-holdings"
+              >
+                {overseasBalance && (
+                  <OverseasHoldingsTable items={overseasBalance.items} onSelect={handleSelectOverseasHolding} />
+                )}
+              </KisHoldingsSection>
             </Box>
           </>
         )}
@@ -556,8 +223,8 @@ export default function Trading() {
 
       {/* 2. 종목 검색 패널 */}
       <Paper sx={{ p: { xs: 1.5, sm: 2.5 }, mb: 2 }}>
-        <Stack direction="row" alignItems="center" spacing={1} mb={1.5} flexWrap="wrap" gap={1}>
-          <Typography variant="subtitle1" fontWeight={600}>종목 검색</Typography>
+        <Stack direction="row" sx={{ alignItems: "center", mb: 1.5, flexWrap: "wrap", gap: 1 }} spacing={1}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>종목 검색</Typography>
           <ToggleButtonGroup
             value={market} exclusive onChange={(_, v) => v && setMarket(v)} size="small"
           >
@@ -573,8 +240,23 @@ export default function Trading() {
 
         {market === 'KR' ? (
           /* ── KR 종목 검색: TextField + 검색결과 드롭다운 테이블 ── */
-          <Box>
+          <Box
+            ref={searchRegionRef}
+            onBlur={(event) => {
+              if (event.currentTarget.contains(event.relatedTarget)) return
+              closeTimerRef.current = setTimeout(() => setShowResults(false), 180)
+            }}
+            onFocus={() => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current) }}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return
+              event.preventDefault()
+              setShowResults(false)
+              setSearchQuery('')
+              returnSearchFocus()
+            }}
+          >
             <TextField
+              inputRef={searchInputRef}
               label="6자리 종목코드 (예: 005930, 0005A0)"
               value={inputValue}
               onChange={(e) => {
@@ -599,36 +281,33 @@ export default function Trading() {
                   setShowResults(false)
                 }
               }}
-              onBlur={() => {
-                // 결과 테이블 클릭 허용을 위해 약간 지연 후 닫기
-                closeTimerRef.current = setTimeout(() => setShowResults(false), 180)
-              }}
-              onFocus={() => {
+              onFocus={(event) => {
                 if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-                if (inputValue.length >= 2 && !symbol) setShowResults(true)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') { setShowResults(false); setSearchQuery('') }
+                if (!returningSearchFocus.current && !searchRegionRef.current?.contains(event.relatedTarget) && inputValue.length >= 2 && !symbol) setShowResults(true)
               }}
               size="small"
               fullWidth
-              InputProps={{
+              slotProps={{ htmlInput: { onKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => {
+                if (event.key !== 'Enter') return
+                event.stopPropagation()
+                if (!isSearchEnter(event)) return
+                event.preventDefault()
+                if (!/^[A-Z0-9]{6}$/i.test(inputValue)) searchDomestic()
+              } }, input: {
                 endAdornment: (
                   <InputAdornment position="end">
                     {isFetchingSearch && (
-                      <CircularProgress size={16} color="inherit" sx={{ mr: 0.5 }} />
+                      <CircularProgress size={16} color="inherit" aria-label="국내 종목 조회 중" sx={{ mr: 0.5 }} />
                     )}
                     <Tooltip title="검색">
                       <span>
                         <IconButton
                           size="small"
-                          onClick={() => {
-                            if (inputValue.length >= 2) {
-                              setSearchQuery(inputValue)
-                              setShowResults(true)
-                            }
-                          }}
-                          disabled={!inputValue || inputValue.length < 2}
+                          aria-label="국내 종목 검색"
+                          onClick={searchDomestic}
+                          disabled={inputValue.trim().length < 2}
+                          aria-busy={isFetchingSearch}
+                          aria-description={isFetchingSearch ? '국내 종목 조회 중' : undefined}
                         >
                           <RefreshIcon fontSize="small" />
                         </IconButton>
@@ -636,7 +315,7 @@ export default function Trading() {
                     </Tooltip>
                   </InputAdornment>
                 ),
-              }}
+              } }}
               helperText={
                 symbol
                   ? `선택됨: ${symbol}`
@@ -676,23 +355,25 @@ export default function Trading() {
                         <TableCell sx={{ py: 0.75, fontWeight: 700, fontSize: '0.7rem', width: 80 }}>코드</TableCell>
                       </TableRow>
                     </TableHead>
-                    <TableBody>
+                    <TableBody onKeyDown={(event: ReactKeyboardEvent<HTMLTableSectionElement>) => {
+                      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+                      if (!focusResultButton(event.currentTarget, event.target, event.key)) return
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }}>
                       {searchResults.map((r) => (
                         <TableRow
                           key={r.pdno}
                           hover
                           sx={{ cursor: 'pointer' }}
-                          onClick={() => {
-                            setSymbol(r.pdno)
-                            setInputValue(r.prdt_name)
-                            setShowResults(false)
-                            setSearchQuery('')
-                            setResult(null)
-                            setErrorMsg(null)
-                          }}
+                          onClick={() => selectSearchResult(r)}
                         >
-                          <TableCell sx={{ py: 0.75 }}>
-                            <Typography variant="body2" noWrap>{r.prdt_name}</Typography>
+                          <TableCell sx={{ py: 0.75, maxWidth: { xs: 180, sm: 400 } }}>
+                            <RowSelectionButton
+                              label={r.prdt_name}
+                              detail={r.pdno}
+                              onSelect={() => selectSearchResult(r)}
+                            />
                           </TableCell>
                           <TableCell sx={{ py: 0.75 }}>
                             <Typography variant="caption" color="text.secondary">{r.pdno}</Typography>
@@ -709,7 +390,7 @@ export default function Trading() {
             {showResults && !isFetchingSearch && searchQuery.length >= 2 && (searchResults.length === 0 || isStockListEmpty) && (
               <Box sx={{ mt: 0.5, px: 1.5, py: 1 }}>
                 {isStockListEmpty ? (
-                  <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                  <Stack direction="row" sx={{ alignItems: "center", flexWrap: "wrap" }} spacing={1}>
                     <Alert
                       severity="warning"
                       sx={{ flex: 1, py: 0.5, '& .MuiAlert-message': { display: 'flex', alignItems: 'center', gap: 1 } }}
@@ -741,7 +422,7 @@ export default function Trading() {
             )}
           </Box>
         ) : (
-          <Stack direction="row" spacing={1} alignItems="flex-start">
+          <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
             <TextField
               label="티커 (AAPL, TSLA …)"
               value={inputValue}
@@ -750,27 +431,33 @@ export default function Trading() {
                 setInputValue(v)
                 if (!v) setSymbol('')
               }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && inputValue) void handleUsSearch() }}
               size="small"
               fullWidth
-              InputProps={{
+              slotProps={{ htmlInput: { onKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => {
+                if (event.key !== 'Enter') return
+                event.stopPropagation()
+                if (!isSearchEnter(event)) return
+                event.preventDefault()
+                void handleUsSearch()
+              } }, input: {
                 endAdornment: (
                   <InputAdornment position="end">
-                    {usSearching
-                      ? <CircularProgress size={16} color="inherit" sx={{ mr: 0.5 }} />
-                      : (
-                        <IconButton
-                          size="small"
-                          onClick={() => void handleUsSearch()}
-                          disabled={!inputValue}
-                        >
-                          <SearchIcon fontSize="small" />
-                        </IconButton>
-                      )
-                    }
+                    <IconButton
+                      size="small"
+                      aria-label="미국 종목 검색"
+                      onClick={() => void handleUsSearch()}
+                      disabled={!inputValue.trim()}
+                      aria-disabled={!inputValue.trim() || usSearching}
+                      aria-busy={usSearching}
+                      aria-description={usSearching ? '미국 종목 조회 중' : undefined}
+                    >
+                      {usSearching
+                        ? <CircularProgress size={16} color="inherit" aria-label="미국 종목 조회 중" />
+                        : <SearchIcon fontSize="small" />}
+                    </IconButton>
                   </InputAdornment>
                 ),
-              }}
+              } }}
               helperText={isTossActive ? 'Enter 또는 검색 버튼 — Toss 시세와 주문 전 검증 조회' : 'Enter 또는 검색 버튼 — 나스닥·뉴욕·AMEX 자동 감지'}
             />
             {symbol && (
@@ -815,209 +502,11 @@ export default function Trading() {
 
       {/* 3. 주문 + 차트 */}
       <Grid container spacing={2}>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: { xs: 2, sm: 3 }, height: '100%' }}>
-            <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-              <Typography variant="subtitle1" fontWeight={600}>수동 주문</Typography>
-              {symbol && (
-                <Chip
-                  label={isTossActive ? `${symbol} (Toss)` : market === 'KR' ? symbol : symbol + ' (' + usExchange + ')'}
-                  size="small"
-                  color={isTossActive ? 'secondary' : market === 'US' ? 'info' : 'default'}
-                  variant="outlined"
-                />
-              )}
-            </Stack>
-
-            <ToggleButtonGroup
-              value={side} exclusive onChange={(_, v) => v && setSide(v)}
-              fullWidth size="small" sx={{ mb: 2 }}
-            >
-              <ToggleButton value="Buy"  color="primary">매수</ToggleButton>
-              <ToggleButton value="Sell" color="error">매도</ToggleButton>
-            </ToggleButtonGroup>
-
-            {market === 'KR' && (
-              <ToggleButtonGroup
-                value={orderType} exclusive onChange={(_, v) => v && setOrderType(v)}
-                fullWidth size="small" sx={{ mb: 2 }}
-              >
-                <ToggleButton value="Limit">지정가</ToggleButton>
-                <ToggleButton value="Market">시장가</ToggleButton>
-              </ToggleButtonGroup>
-            )}
-
-            {showTossUsSessionSelector && (
-              <Box
-                sx={{
-                  mb: 1.5,
-                  p: 1.25,
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                  bgcolor: 'action.hover',
-                }}
-              >
-                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
-                  <Typography variant="caption" fontWeight={700}>
-                    Toss 미국 거래 세션
-                  </Typography>
-                  {tossSession !== 'auto' && (
-                    <Chip
-                      size="small"
-                      label={selectedTossSessionOpen ? '현재 가능' : '현재 아님'}
-                      color={selectedTossSessionOpen ? 'success' : 'default'}
-                      variant="outlined"
-                      sx={{ height: 20, fontSize: '0.68rem' }}
-                    />
-                  )}
-                </Stack>
-                <ToggleButtonGroup
-                  value={tossSession}
-                  exclusive
-                  onChange={(_, v: TossManualSession | null) => v && setTossSession(v)}
-                  fullWidth
-                  size="small"
-                  sx={{ mb: 0.75 }}
-                >
-                  {TOSS_US_SESSION_OPTIONS.map((option) => (
-                    <ToggleButton key={option.value} value={option.value}>
-                      {option.label}
-                    </ToggleButton>
-                  ))}
-                </ToggleButtonGroup>
-                <Typography variant="caption" color="text.secondary">
-                  {tossSession === 'auto'
-                    ? '세션을 지정하지 않고 Toss 주문 접수 가능 여부를 provider 응답에 맡깁니다.'
-                    : `${tossSessionLabel(tossSession)} ${fmtTossSessionWindow(selectedTossSessionWindow)} · ` +
-                      (selectedTossSessionOpen ? '선택 세션이 열려 있습니다.' : '선택 세션 시간이 아닙니다.')}
-                </Typography>
-              </Box>
-            )}
-
-            {isTossActive && !tossManualOrderReady && (
-              <Alert severity="info" sx={{ mb: 1.5 }}>
-                Toss 수동 주문은 실거래 동의와 주문 전 검증을 통과하면 제출됩니다. 시장가 주문은 가격 없이 수량 기준으로 전송됩니다.
-              </Alert>
-            )}
-
-            {isTossActive && tossSafety?.buyBlockReason && (
-              <Alert severity="warning" sx={{ mb: 1.5 }}>
-                {tossSafety.buyBlockReason}
-              </Alert>
-            )}
-
-            {(market === 'US' || orderType === 'Limit') && (
-              <TextField
-                label={market === 'US' ? '주문가격 (USD)' : '주문가격'}
-                value={price}
-                onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ''))}
-                fullWidth size="small" sx={{ mb: 1.5 }}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Tooltip title="현재가 자동 입력">
-                        <span>
-                          <Button
-                            size="small"
-                            onClick={handleFillMarketPrice}
-                            disabled={isTossActive ? !(tossCurrentPrice && Number.isFinite(tossCurrentPrice)) : !(market === 'KR' ? krCurrentPrice : usCurrentPrice)}
-                          >
-                            현재가
-                          </Button>
-                        </span>
-                      </Tooltip>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            )}
-
-            <TextField
-              label="주문수량"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value.replace(/\D/g, ''))}
-              fullWidth size="small" sx={{ mb: 2 }}
-            />
-
-            {quantity && price && (
-              <Box sx={{ mb: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
-                <Typography variant="body2">
-                  예상 금액:{' '}
-                  <strong>
-                    {market === 'US'
-                      ? '$' + (parseFloat(quantity || '0') * parseFloat(price || '0')).toFixed(2)
-                      : fmt(parseInt(quantity || '0') * parseInt(price || '0')) + '원'}
-                  </strong>
-                </Typography>
-                {market === 'KR' && (
-                  <Typography variant="body2" color="text.secondary">
-                    예수금: {fmt(availableCash)}원
-                  </Typography>
-                )}
-              </Box>
-            )}
-
-            {isTossActive && symbol && quantity && (
-              <TossOrderPreflightPanel
-                data={tossPreflight}
-                isLoading={isTossPreflightLoading}
-                isError={isTossPreflightError}
-                error={tossPreflightError}
-              />
-            )}
-
-            {result   && <Alert severity="success" sx={{ mb: 1.5 }}>{result}</Alert>}
-            {errorMsg && <Alert severity="error"   sx={{ mb: 1.5 }}>{errorMsg}</Alert>}
-
-            {market === 'US' && isPaperTrading && (
-              <Alert severity={isPaperUnsupportedUsSell ? 'warning' : 'info'} sx={{ mb: 1.5 }}>
-                {isPaperUnsupportedUsSell
-                  ? `${normalizedUsSymbol || '선택 종목'} (${overseasOrderExchange}) 매도는 KIS 모의투자에서 제한될 수 있어 주문 전 차단됩니다.`
-                  : '모의 해외 주문은 USD 지정가로만 전송합니다. 일부 AMEX/ETF 종목은 모의투자 주문 universe에서 제한될 수 있습니다.'}
-              </Alert>
-            )}
-
-            {/* 잔고 부족 매수 정지 경고 */}
-            {tradingStatus?.buySuspended && side === 'Buy' && (
-              <Alert
-                severity="warning"
-                sx={{ mb: 1.5 }}
-                action={
-                  <Button
-                    size="small"
-                    color="inherit"
-                    onClick={() => clearBuySuspension()}
-                    disabled={clearingBuySusp}
-                    startIcon={clearingBuySusp ? <CircularProgress size={12} color="inherit" /> : undefined}
-                  >
-                    해제
-                  </Button>
-                }
-              >
-                잔고 부족으로 매수 주문이 정지되었습니다.
-                매도 체결로 자본 확보 시 자동 재개됩니다.
-              </Alert>
-            )}
-
-            <Button
-              variant="contained"
-              color={side === 'Buy' ? 'primary' : 'error'}
-              fullWidth
-              onClick={handleSubmit}
-              disabled={isPending || !symbol || isPaperUnsupportedUsSell || (isTossActive && !tossManualOrderReady)}
-              startIcon={isPending ? <CircularProgress size={16} color="inherit" /> : undefined}
-              sx={{ py: 1.2 }}
-            >
-              {side === 'Buy' ? '매수 주문' : '매도 주문'}
-              {market === 'US' && ' (USD 지정가)'}
-            </Button>
-
-            {isTossActive && <TossOpenOrdersPanel symbol={symbol} />}
-          </Paper>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <TradingOrderForm model={model} />
         </Grid>
 
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Paper sx={{ overflow: 'hidden' }}>
             {symbol && (market === 'KR' ? symbol.length === 6 : true) ? (
               <>
@@ -1037,7 +526,7 @@ export default function Trading() {
             )}
             {isTossActive && symbol ? (
               <Box sx={{ p: { xs: 1, sm: 2 } }}>
-                <StockChart symbol={symbol} stockName={stockName} source="toss" />
+                <StockChart symbol={symbol} stockName={stockName} source="toss" market={market} />
               </Box>
             ) : market === 'US' && symbol ? (
               <Box sx={{ p: { xs: 1, sm: 2 } }}>

@@ -40,7 +40,7 @@ pub struct TokenManager {
 impl TokenManager {
     pub fn new(config: Arc<AppConfig>) -> Self {
         Self {
-            client: Client::builder()
+            client: crate::http::client_builder()
                 .timeout(StdDuration::from_secs(15))
                 .build()
                 .expect("KIS reqwest client with timeout should build"),
@@ -48,6 +48,15 @@ impl TokenManager {
             current_token: Mutex::new(None),
             token_refresh: Mutex::new(()),
         }
+    }
+
+    /// Localhost 회귀 전용: 실제 token endpoint를 호출하지 않도록 synthetic 캐시를 주입한다.
+    #[cfg(test)]
+    pub(crate) async fn set_test_access_token(&self, token: String) {
+        *self.current_token.lock().await = Some(AccessToken {
+            token,
+            expires_at: Utc::now() + chrono::Duration::hours(1),
+        });
     }
 
     /// 유효한 토큰 반환 (만료 시 자동 갱신)

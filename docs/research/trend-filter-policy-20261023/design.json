@@ -1,0 +1,247 @@
+{
+  "researchId": "trend-filter-policy-20261023",
+  "todoId": "SOXQ-P2-11",
+  "status": "declaredNotRun",
+  "declaredAt": "2026-10-23T00:47:43.695214+09:00",
+  "declaredBeforeCandidateRuns": true,
+  "declarationScope": "이번 새 후보의 생산 실행 전에 고정한다. 이미 관측한 과거 자료의 사후 연구이며 미관측 OOS가 아니다.",
+  "source": "../strategy-review-20261018/input.json",
+  "sourceSha256": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+  "baselineCommit": "81fa00d3aa50bc59606667568f36c4b686902412",
+  "baselineEngineVersion": "strategy-replay-v21",
+  "plannedEngineVersion": "strategy-replay-v22",
+  "currentEngineVersionVerification": "구현 뒤 실제 engineVersion을 기록하며 예정값을 실행 증거로 취급하지 않는다.",
+  "evaluationStart": "20230103",
+  "evaluationEnd": "20251231",
+  "evaluationBarsPerSymbol": 752,
+  "historyBars": 252,
+  "historyStartDate": "20211231",
+  "historyEndDate": "20221230",
+  "costBps": [
+    10,
+    20
+  ],
+  "costInterpretation": "각 방향 fee와 slippage가 각각10bp 또는20bp다. 개략 왕복40bp/80bp이며 왕복10/20bp가 아니다.",
+  "initialCapitalKrw": 10000000,
+  "exchangeRateKrw": 1450,
+  "taxBps": 0,
+  "executionModel": "nextOpen",
+  "dividendScenario": [],
+  "fxScenario": [],
+  "stopLossPct": 0,
+  "takeProfitPct": 0,
+  "riskAndGuardPolicy": "기존 공통 guard·cooldown·일일/연속 손실·주문 제한과30% 단일 포지션 상한을 유지한다.",
+  "maxPositionRatio": 0.3,
+  "partitions": [
+    "12 calendar-quarter chunks",
+    "500+252 bars"
+  ],
+  "configs": [
+    {
+      "symbol": "SOXQ",
+      "strategyId": "trend_filter",
+      "orderQuantity": 51,
+      "params": {
+        "long_period": 200,
+        "short_period": 5,
+        "mid_period": 20
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "19.91"
+    },
+    {
+      "symbol": "SPY",
+      "strategyId": "trend_filter",
+      "orderQuantity": 2,
+      "params": {
+        "long_period": 200,
+        "short_period": 5,
+        "mid_period": 20
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "382.43"
+    },
+    {
+      "symbol": "QQQ",
+      "strategyId": "trend_filter",
+      "orderQuantity": 3,
+      "params": {
+        "long_period": 200,
+        "short_period": 5,
+        "mid_period": 20
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "266.28"
+    }
+  ],
+  "variants": [
+    {
+      "id": "legacy",
+      "engine": "baseline",
+      "params": {}
+    },
+    {
+      "id": "owned",
+      "engine": "current",
+      "params": {}
+    },
+    {
+      "id": "exit2",
+      "engine": "current",
+      "params": {
+        "exit_confirm_observations": 2
+      }
+    },
+    {
+      "id": "profit5trail3",
+      "engine": "current",
+      "params": {
+        "profit_activation_pct": 5,
+        "profit_trailing_pct": 3
+      }
+    },
+    {
+      "id": "hold63",
+      "engine": "current",
+      "params": {
+        "max_hold_observations": 63
+      }
+    }
+  ],
+  "expectedContinuousRuns": 30,
+  "expectedAlternatePartitionRuns": 30,
+  "expectedIndependentQuarterResetRuns": 360,
+  "candidateResultsStatus": "notRun",
+  "candidateResults": null,
+  "provenance": [
+    {
+      "symbol": "SOXQ",
+      "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/SOXQ?range=5y&interval=1d",
+      "retrievedAtUtc": "2026-10-18T00:01:14.850336+00:00",
+      "rawSha256": "0f80045b3e7247fa00fd97bf3d7b61ccc48e638022af150efbf85a64cff54e91",
+      "sourceTimezone": "America/New_York",
+      "normalizedTimezone": "America/New_York",
+      "timestampSemantics": "Provider bar start; daily date is exchange-local date; minute start converted from UTC, no synthetic observations",
+      "priceSemantics": "Provider chart OHLC rounded to USD cents; adjusted-close field ignored; corporate-action adjustment and total-return correctness not independently verified",
+      "dividendsAndFxChangesIncluded": false,
+      "sourceBars": 1255,
+      "retainedBars": 1255,
+      "excluded": {},
+      "normalSessionFilter": null,
+      "calendarCoverageVerified": false,
+      "normalizedSha256": "57bb9ca50affd7bdd29d8fc955dbc06d575028b9b939b675afbd4583e33bc4b2",
+      "normalizedHashRecomputed": true,
+      "rawBytesRehashedThisStage": false,
+      "retrievalTimeProvenance": "기존 prepare_data.py가 저장 원본의 mtime을 UTC로 변환한 기록이며 이번 재조회 시각이 아니다.",
+      "duplicatesOrReverseDatesInNormalizedInput": 0,
+      "calendarMissingBarsVerified": false,
+      "exchangeFeedCompletenessVerified": false
+    },
+    {
+      "symbol": "SPY",
+      "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/SPY?range=5y&interval=1d",
+      "retrievedAtUtc": "2026-10-18T00:01:30.133684+00:00",
+      "rawSha256": "646c002c84d25aeb637805760305bd84153af8888aedc85b09bbedc07a6511ea",
+      "sourceTimezone": "America/New_York",
+      "normalizedTimezone": "America/New_York",
+      "timestampSemantics": "Provider bar start; daily date is exchange-local date; minute start converted from UTC, no synthetic observations",
+      "priceSemantics": "Provider chart OHLC rounded to USD cents; adjusted-close field ignored; corporate-action adjustment and total-return correctness not independently verified",
+      "dividendsAndFxChangesIncluded": false,
+      "sourceBars": 1255,
+      "retainedBars": 1255,
+      "excluded": {},
+      "normalSessionFilter": null,
+      "calendarCoverageVerified": false,
+      "normalizedSha256": "8ca82b8d872b0174574c0dafcb34e5e03f7fe76809c9272733378ba187fe33c9",
+      "normalizedHashRecomputed": true,
+      "rawBytesRehashedThisStage": false,
+      "retrievalTimeProvenance": "기존 prepare_data.py가 저장 원본의 mtime을 UTC로 변환한 기록이며 이번 재조회 시각이 아니다.",
+      "duplicatesOrReverseDatesInNormalizedInput": 0,
+      "calendarMissingBarsVerified": false,
+      "exchangeFeedCompletenessVerified": false
+    },
+    {
+      "symbol": "QQQ",
+      "sourceUrl": "https://query1.finance.yahoo.com/v8/finance/chart/QQQ?range=5y&interval=1d",
+      "retrievedAtUtc": "2026-10-18T00:01:28.276405+00:00",
+      "rawSha256": "3aad8fa01fe90a2f01ac910d94f42aae1bc3e34146637d41957c9e2bc8dfa2f0",
+      "sourceTimezone": "America/New_York",
+      "normalizedTimezone": "America/New_York",
+      "timestampSemantics": "Provider bar start; daily date is exchange-local date; minute start converted from UTC, no synthetic observations",
+      "priceSemantics": "Provider chart OHLC rounded to USD cents; adjusted-close field ignored; corporate-action adjustment and total-return correctness not independently verified",
+      "dividendsAndFxChangesIncluded": false,
+      "sourceBars": 1255,
+      "retainedBars": 1255,
+      "excluded": {},
+      "normalSessionFilter": null,
+      "calendarCoverageVerified": false,
+      "normalizedSha256": "acba2c5bf5729255291637f05de3319622cd809bb7feaad0148847b7b103d7b9",
+      "normalizedHashRecomputed": true,
+      "rawBytesRehashedThisStage": false,
+      "retrievalTimeProvenance": "기존 prepare_data.py가 저장 원본의 mtime을 UTC로 변환한 기록이며 이번 재조회 시각이 아니다.",
+      "duplicatesOrReverseDatesInNormalizedInput": 0,
+      "calendarMissingBarsVerified": false,
+      "exchangeFeedCompletenessVerified": false
+    }
+  ],
+  "policy": {
+    "defaults": "원래200/5/20과 현재 관측 포함 산술 MA를 유지한다. 새 확인 횟수는 기본1로 기존 단일 관측 청산을 유지하며0으로 원래 청산을 끄지 않는다. 새 수익 보호 쌍과 보유 한도는 기본0off다.",
+    "entry": "실제 flat에서 price > longMA AND shortMA > midMA의 strict 조건을 유지한다. 등호는 불성립이며200기준·진입 조건·별도 추세필터를 바꾸지 않는다.",
+    "exit": "실제 held에서 price < 현재 포함 longMA의 연속 확인이다. price>=longMA 또는 유효 MA 부재에서 연속값0, 기본1/단독 후보2다. 확인 뒤 이탈이 지속하면 guard 거절/부분매도 뒤 실잔량 후보를 유지한다. shortMA<=midMA만으로 청산하지 않고 별도 원가 손절을 추가하지 않는다.",
+    "owned": "실제 소유 수량/native 평균은 확인 feedback만 바꾼다. 신호 제안·물리 pending·거절·부분매도는 소유를 위조하지 않는다. Sell은 실잔량이며 공통 clamp/guard/risk를 유지한다. pending 중 새 진입 기원을 만들지 않고 기존 증거만 유지한다.",
+    "profit": "실제 native 평균 대비5%에서 한번 무장하며 실제 보유 관측 최고가 대비3% 되밀림에서 단독 보호 후보다. 진입 전/현재 전체 봉 high는 최고가에 쓰지 않는다. 둘다0off 또는 둘다양수다.",
+    "age": "실제 첫 fill0/다음 보유 관측1이며 off 중에도 센다. 동량/부분/선택 설정 변경은 보호를 보존한다. 기원 미상은 unknown이며 활성 한도에서 다음 보유 관측에 보수적 청산 후보다.63은 관측수이며 날짜/시장일/보장 보유 시간이 아니다.",
+    "priority": "기존 장기 MA 이탈 확인→수익 보호→보유 관측 한도다. 단독 후보만 비교하고 조합하지 않는다.",
+    "reinitialize": "warmup 재초기화·과거 지표 재적재 또는 long/short/mid 핵심 기간 변경·reset은 이탈 연속값을0으로 만든다. warmup은 신호·소유·나이·최고가·무장을 만들지 않는다. 동일 설정이나 선택 정책만의 변경은 실제 소유와 나이/최고가/무장 보호를 보존한다. 동일 프로세스의 분할·동량·부분매도에서는 이탈 연속값도 유지하며 실제0주가 되면0으로 한다.",
+    "confirmationMetadata": "이탈 연속값은 영속 checkpoint에 저장/이식하지 않고 복원 시0으로 시작하여 새 MA 문맥에서 다시 관측한다. 실제 소유 나이/최고가/수익 무장 checkpoint와 분리한다. 동일 프로세스의 분할·동일 수량·부분매도에서는 연속값을 보존하고 핵심 기간 변경·과거 지표 재적재·reset에서는0으로 한다. 별도 소유 checkpoint는 kind/version/필드·값 정합성을 원자적으로 검증하고 미지 필드·누락·모순을 거부한다. 오래된 MA 문맥의 확인값을 소유 증거로 해석하지 않는다.",
+    "publication": "일봉D 종가 공개 뒤 현재 포함 MA·신호를 계산하고 다음 실제 관측봉 open에서 체결한다. 미래 warmup/종가·분봉 보간을 사용하지 않는다. 이전252봉은 평가 전이며 미래 청크 변경이 과거 신호/fill/equity/상태를 바꾸지 않아야 한다.",
+    "cadence": "일봉 연구는 daily close→next observed open이다. live는 약10초 quote 관측이므로200/확인2/보유63은 관측수다. 기존 warmup 가격 seed를 live의200완료 일봉 보장으로 재해석하지 않는다.",
+    "evaluation": "연속/대체 분할은 같은 상태를 보존한다. 별도12분기는 각 직전252history·현금/포지션 초기화 계좌다. 분할은 새 표본이 아니며 분기 수익률을 합산/복리하지 않는다. 준비 부족·미지원·미발동을0% 효능으로 혼동하지 않는다.",
+    "terminal": "마지막 pending은 미체결이다. 기말 수량/native 평균/역사 KRW 원가/매수fee·실현/미실현/잔여·가상 청산 비용을 기록하고 가상 청산을 실제 거래에 더하지 않는다.",
+    "comparison": "같은 요청 수량 단순 보유의 실제 체결량/노출을 기록한다. SOXQ 별도 분기30%제한의0주는 동일 노출 benchmark가 아니다. 실제 accepted 수량/보유 구간의 close→open gap과 open→close 시장손익을 고정FX로 대사하며 독립alpha·무비용 전략 재실행으로 표현하지 않는다.",
+    "acceptance": "기본/비대상 회귀, 현재 포함200·strict경계, 소유/거절/부분/pending기원/재설정/복원·보호 우선/준비 부족·미래prefix/분할과30/30/360전체 결과를 검증한다. 비용·노출·회전·기말 보유/독립 정산과 새 설정 저장/두preview/UI/A-B·손상raw거부를 확인한다.",
+    "selection": "후보 성과를 보고 임계값/기간/수량/창/조합을 바꾸지 않는다. 좋은 과거 성과만으로 기본 승격하지 않는다. 미발동은 효능 미평가이며 승격에는 새 자료를 읽기 전 가설·창·비용·노출 고정이 필요하다.",
+    "readiness": "원래 장기 MA 이탈 청산은 long/mid/short 세 MA가 모두 준비되는 기존 gate를 유지한다. 허용된 비정렬 기간/기간 확대에서도 장기 MA만 준비되면 원래 청산을 실행하는 변경은 하지 않는다. 새 수익/보유 나이 보호는 이 준비 gate 밖에서 실제 보유를 평가하며 유효 보호가 지표 부족으로 막히지 않게 한다.",
+    "ownedEvidenceLimit": "소스의 bool-only 상태와 설정 수량 Sell 제안은 상태 표현의 한계다. live bool 복원/driver sync·공통 수량 clamp/guard가 있으므로 실제 초과매도·운용 사고·기존 원장 손실 원인이 입증됐다고 해석하지 않는다. owned 교정의 경제 효과는 향후 동일 입력 baseline/current 생산 비교 전까지 미확인이다."
+  },
+  "implementationDecisionsOutstanding": [
+    "새 params의 정확한 상한/strict raw 검증과 손상 runtime의 Buy 차단·유효 보유 보호를 구현 시 확정한다.",
+    "실제 소유 age/peak/arm checkpoint의 정확한 kind/version/필드와 원자적 검증 형식을 구현 전에 확정한다. 이탈 확인 횟수는 저장하지 않으며 복원 시0이다.",
+    "실제 engineVersion·기준 archive/source hash·실행 inputHash는 향후 생산 실행 때 기록한다."
+  ],
+  "requiredMetrics": [
+    "netReturn",
+    "matchedPathMarketPnlAndCostRefundReference",
+    "maxDrawdown",
+    "completedTradesAndLosses",
+    "realizedPnl",
+    "unrealizedAndResidualPnl",
+    "terminalLiquidationCosts",
+    "terminalHoldings",
+    "rawSignalsAndBlockedReasons",
+    "actualExposureAndHeldObservations",
+    "turnover",
+    "readinessAndNoTriggerCounts",
+    "buyAndHoldActualFillsAndExposure",
+    "costPathChanges"
+  ],
+  "limitations": [
+    "이미 본 상관된3ETF 과거 자료이며 미관측 OOS·대표 모집단·통계적 유의성·견고한 우수성·운용 안전성을 입증하지 않는다.",
+    "provider OHLC는USD센트 반올림/adjusted-close미사용이며 기업행동 조정·총수익·거래소 달력·전기간coverage 독립 인증은 없다.",
+    "raw hash·조회일은 기존input metadata기록을 승계하며 이번rawbytes재조회/재해시는 미실행이다. normalizedhash는 이번에 재계산했다.",
+    "일봉OHLC는 장중 최초 발동·고저 순서·quote지연·실제 체결 가능성을 증명하지 않는다.",
+    "고정FX/배당없음/KRW유휴현금/추정비용이며 실제USD현금 장부·실제 요율이 아니다.",
+    "공개chart를consolidated feed나단일거래소feed로인증하지않았다.",
+    "실전/모의주문·자동매매시작·broker/account/credentialAPI·운영설정변경없음."
+  ],
+  "confirmationCheckpointDecision": "restoreZeroReobserveNewMaContext"
+}

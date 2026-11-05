@@ -1,4 +1,4 @@
-import type { TossOrderPreflightInput } from './types'
+import type { CandlePageInput, TossOrderPreflightInput } from './types'
 
 // ─── Query Keys ────────────────────────────────────────────────────
 export const KEYS = {
@@ -19,6 +19,9 @@ export const KEYS = {
   todayStats: ['todayStats'] as const,
   statsRange: (from: string, to: string) => ['stats', from, to] as const,
   logConfig: ['logConfig'] as const,
+  candlePage: (input: CandlePageInput) => ['candlePage', input.expectedProfileId,
+    input.brokerId, input.expectedBrokerAccountId ?? '', input.isOverseas,
+    input.symbol, input.interval, input.exchange ?? '', input.count ?? 200, input.cursor ?? ''] as const,
   chartData: (symbol: string, presetKey: string) => ['chartData', symbol, presetKey] as const,
   tossChartData: (symbol: string, interval: string, presetKey: string) =>
     ['tossChartData', symbol, interval, presetKey] as const,
@@ -40,6 +43,8 @@ export const KEYS = {
   riskConfig: ['riskConfig'] as const,
   autoTradingBudget: (brokerId?: string, accountId?: string) =>
     ['autoTradingBudget', brokerId ?? '', accountId ?? ''] as const,
+  budgetRecovery: (brokerId?: string, accountId?: string, profileId?: string | null, isPaper?: boolean) =>
+    ['budgetRecovery', brokerId ?? '', accountId ?? '', profileId ?? '', isPaper ?? null] as const,
   pendingOrders: ['pendingOrders'] as const,
   tradeArchiveConfig: ['tradeArchiveConfig'] as const,
   tradeArchiveStats: ['tradeArchiveStats'] as const,

@@ -73,6 +73,13 @@ pub async fn add_profile(
     state: State<'_, AppState>,
 ) -> CmdResult<ProfileView> {
     let _strategy_update = state.strategy_update_lock.lock().await;
+    let activates_profile = state.profiles.read().await.profiles.is_empty();
+    if activates_profile && *state.is_trading.lock().await {
+        return Err(CmdError {
+            code: "TRADING_RUNNING".into(),
+            message: "첫 프로파일을 활성화하려면 자동매매를 먼저 정지하세요.".into(),
+        });
+    }
     let profile = AccountProfile::new(
         input.name,
         input.is_paper_trading,
@@ -185,7 +192,9 @@ pub async fn delete_profile(id: String, state: State<'_, AppState>) -> CmdResult
         });
     }
 
-    apply_active_profile(&state).await?;
+    if is_active {
+        apply_active_profile(&state).await?;
+    }
     save_profiles(&state).await?;
     Ok(())
 }
@@ -222,6 +231,8 @@ pub async fn set_active_profile(
 
 /// 현재 active_id 기반으로 config + rest_client + 전략 설정 교체
 pub(super) async fn apply_active_profile(state: &AppState) -> CmdResult<()> {
+    // Fail closed while loading the destination profile's configuration.
+    state.order_manager.lock().await.end_execution_run();
     let (new_config, active_id) = {
         let profiles = state.profiles.read().await;
         let cfg = match profiles.get_active() {
@@ -230,53 +241,30 @@ pub(super) async fn apply_active_profile(state: &AppState) -> CmdResult<()> {
         };
         (cfg, profiles.active_id.clone())
     };
-
     let new_client = make_rest_client(&new_config);
-
+    let account_id =
+        (!new_config.broker_account_id.is_empty()).then(|| new_config.broker_account_id.clone());
+    let broker_id = new_config.broker_id;
+    let saved = match active_id.as_deref() {
+        Some(id) => state
+            .strategy_store
+            .load(id)
+            .await
+            .map_err(CmdError::from)?,
+        None => Vec::new(),
+    };
+    // Reconciliation and manual holdings publish under the same order mutex.
+    // Keep manager → order ordering; provider and store reads finished above.
+    let mut manager = state.strategy_manager.lock().await;
+    let mut orders = state.order_manager.lock().await;
+    orders.set_execution_scope(BrokerScope::new(
+        broker_id,
+        account_id.clone().map(BrokerAccountId),
+    ));
     *state.config.write().await = new_config;
     *state.rest_client.write().await = new_client;
-
-    // 이전 프로파일의 보유 포지션이 새 broker/account scope로 새어들지 않게 초기화한다.
-    // 다음 잔고 동기화(replace)와 수동 주문 직전 refresh에서 새 계좌 스냅샷으로 채워진다.
-    state.position_tracker.lock().await.clear();
-    state.overseas_position_tracker.lock().await.clear();
-
-    // 프로파일 전환 시 해당 프로파일의 전략 설정 로드 (재시작 없이도 반영)
-    let active_scope = {
-        let cfg = state.config.read().await.clone();
-        let account_id = if cfg.broker_account_id.is_empty() {
-            None
-        } else {
-            Some(cfg.broker_account_id.clone())
-        };
-        (cfg.broker_id, account_id)
-    };
-    state
-        .order_manager
-        .lock()
-        .await
-        .set_execution_scope(BrokerScope::new(
-            active_scope.0,
-            active_scope.1.clone().map(BrokerAccountId),
-        ));
-    if let Some(pid) = &active_id {
-        let saved = state
-            .strategy_store
-            .load(pid)
-            .await
-            .map_err(CmdError::from)?;
-        let mut mgr = state.strategy_manager.lock().await;
-        mgr.apply_saved_configs_for_scope(&saved, active_scope.0, active_scope.1.clone());
-        tracing::info!(
-            "프로파일 전환 — 전략 설정 복원: 프로파일 '{}', {}개 전략",
-            pid,
-            saved.len()
-        );
-    } else {
-        let mut mgr = state.strategy_manager.lock().await;
-        mgr.apply_saved_configs_for_scope(&[], active_scope.0, active_scope.1.clone());
-    }
-
+    orders.clear_position_trackers_for_scope_change().await;
+    manager.replace_saved_configs_for_scope(&saved, broker_id, account_id);
     tracing::info!("활성 프로파일 적용 완료");
     Ok(())
 }
@@ -302,8 +290,13 @@ pub struct BalanceResult {
 
 #[tauri::command]
 pub async fn get_balance(state: State<'_, AppState>) -> CmdResult<BalanceResult> {
-    let client = state.rest_client.read().await.clone();
-    match client.get_balance().await {
+    match OrderManager::refresh_kis_domestic_shared(
+        &state.order_manager,
+        Some(&state.stock_store),
+        |_| {},
+    )
+    .await
+    {
         Ok(resp) => {
             tracing::info!(
                 "잔고 조회 성공: 보유종목 {}개, 총평가금액 {}원",
@@ -313,28 +306,6 @@ pub async fn get_balance(state: State<'_, AppState>) -> CmdResult<BalanceResult>
                     .map(|s| s.tot_evlu_amt.as_str())
                     .unwrap_or("미제공")
             );
-            // 잔고 응답의 종목코드+이름 데이터 자동 수집
-            state
-                .stock_store
-                .upsert_many(
-                    resp.items
-                        .iter()
-                        .map(|i| (i.pdno.clone(), i.prdt_name.clone())),
-                )
-                .await;
-            // 앱 재시작 후 position_tracker가 비어있으면 잔고 응답으로 복원
-            {
-                let mut tracker = state.position_tracker.lock().await;
-                tracker.replace(resp.items.iter().map(|i| {
-                    (
-                        i.pdno.clone(),
-                        i.prdt_name.clone(),
-                        i.hldg_qty.parse::<u64>().unwrap_or(0),
-                        i.pchs_avg_pric.parse::<f64>().unwrap_or(0.0) as u64,
-                        i.prpr.parse::<u64>().unwrap_or(0),
-                    )
-                }));
-            }
             Ok(BalanceResult {
                 items: resp.items,
                 summary: resp.summary,
@@ -359,24 +330,9 @@ pub struct OverseasBalanceResult {
 
 #[tauri::command]
 pub async fn get_overseas_balance(state: State<'_, AppState>) -> CmdResult<OverseasBalanceResult> {
-    let client = state.rest_client.read().await.clone();
-    match client.get_overseas_balance().await {
+    match OrderManager::refresh_kis_overseas_shared(&state.order_manager, |_| {}).await {
         Ok(resp) => {
             tracing::info!("해외 잔고 조회 성공: 보유종목 {}개", resp.items.len());
-            // 해외 잔고는 국내 position_tracker에 혼입하지 않고 별도 tracker에만 복원한다.
-            {
-                let mut tracker = state.overseas_position_tracker.lock().await;
-                tracker.replace(resp.items.iter().map(|i| {
-                    (
-                        i.ovrs_pdno.clone(),
-                        i.ovrs_item_name.clone(),
-                        normalize_overseas_order_exchange(&i.ovrs_excg_cd),
-                        i.ovrs_cblc_qty.parse::<u64>().unwrap_or(0),
-                        usd_to_cents(&i.pchs_avg_pric),
-                        usd_to_cents(&i.now_pric2),
-                    )
-                }));
-            }
             Ok(OverseasBalanceResult {
                 items: resp.items,
                 summary: resp.summary,
@@ -479,13 +435,31 @@ fn broker_market_sort_key(market: BrokerMarket) -> u8 {
 
 #[tauri::command]
 pub async fn get_broker_holdings(state: State<'_, AppState>) -> CmdResult<Vec<BrokerHoldingView>> {
-    let profile = {
-        let profiles = state.profiles.read().await;
-        profiles.get_active().cloned()
+    let query = {
+        let mut orders = state.order_manager.lock().await;
+        let broker = orders.execution_scope().broker_id;
+        orders
+            .begin_holdings_query(broker, crate::trading::order::HoldingsMarkets::ReadOnly)
+            .await
+            .map_err(CmdError::from)?
     };
-    let Some(profile) = profile else {
+    let Some(profile) = query.profile().cloned() else {
+        state
+            .order_manager
+            .lock()
+            .await
+            .publish_holdings(query, crate::trading::order::HoldingsUpdate::ReadOnly)
+            .await
+            .map_err(CmdError::from)?;
         return Ok(Vec::new());
     };
-    let rest_client = state.rest_client.read().await.clone();
-    list_broker_holdings_for_profile(profile, rest_client).await
+    let response = list_broker_holdings_for_profile(profile, query.client()).await?;
+    state
+        .order_manager
+        .lock()
+        .await
+        .publish_holdings(query, crate::trading::order::HoldingsUpdate::ReadOnly)
+        .await
+        .map_err(CmdError::from)?;
+    Ok(response)
 }

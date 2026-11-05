@@ -1,0 +1,114 @@
+{
+  "declaredBeforeContinuousRuns": true,
+  "source": "../strategy-review-20261018/input.json",
+  "sourceSha256": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+  "evaluationStart": "20230103",
+  "evaluationEnd": "20251231",
+  "evaluationBarsPerSymbol": 752,
+  "historyBars": 252,
+  "costBps": [
+    10,
+    20
+  ],
+  "initialCapitalKrw": 10000000,
+  "exchangeRateKrw": 1450,
+  "taxBps": 0,
+  "executionModel": "nextOpen",
+  "dividendScenario": [],
+  "fxScenario": [],
+  "stopLossPct": 0,
+  "takeProfitPct": 0,
+  "partitions": [
+    "12 calendar-quarter chunks",
+    "500+252 bars"
+  ],
+  "matchedPathReference": "Fixed accepted share quantities/timing; previous close to current open gap PnL plus current open to close PnL at fixed FX. Equals final equity plus recorded fees/tax/slippage. Not an independent signal benchmark, cost-free rerun or same percentage exposure.",
+  "limitations": [
+    "Retrospective diagnostics on already observed frozen prices; no parameter selection/optimization",
+    "2026 observations reserved and not used in this run; this is not out-of-sample significance evidence",
+    "Three correlated selected ETFs; calendar/corporate-action coverage not independently verified",
+    "Same original 2023Q1 quantity including original 10bp cost-buffer sizing, frozen across both costs and every quarter; target15% differs from actual integer-share exposure",
+    "Quarter reset rows are separate10000000KRW accounts, never summed or compounded into continuous performance"
+  ],
+  "baselineCommit": "6f9ca35",
+  "plannedEngineVersion": "strategy-replay-v13",
+  "configs": [
+    {
+      "symbol": "SOXQ",
+      "strategyId": "consecutive_move",
+      "orderQuantity": 51,
+      "params": {
+        "buy_days": 3,
+        "sell_days": 3
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "19.91"
+    },
+    {
+      "symbol": "SPY",
+      "strategyId": "consecutive_move",
+      "orderQuantity": 2,
+      "params": {
+        "buy_days": 3,
+        "sell_days": 3
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "382.43"
+    },
+    {
+      "symbol": "QQQ",
+      "strategyId": "consecutive_move",
+      "orderQuantity": 3,
+      "params": {
+        "buy_days": 3,
+        "sell_days": 3
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "266.28"
+    }
+  ],
+  "variants": [
+    {
+      "id": "baseline",
+      "params": {}
+    },
+    {
+      "id": "cumulative1pct",
+      "params": {
+        "min_cumulative_move_pct": 1.0
+      }
+    },
+    {
+      "id": "atrHalf",
+      "params": {
+        "min_move_atr_multiplier": 0.5
+      }
+    },
+    {
+      "id": "trend200",
+      "params": {
+        "long_trend_period": 200
+      }
+    }
+  ],
+  "filterSemantics": {
+    "cumulative": "Current observation versus buy_days observations earlier, inclusive >=1pct",
+    "atr": "Same native delta >=0.5 x arithmetic mean of14 true ranges from15 prior completed daily OHLC, current candidate OHLC excluded; zero/insufficient is entry-not-ready",
+    "trend": "Candidate strictly greater than mean of200 prior completed daily closes",
+    "combination": "Each candidate alone. Multiple configured entry filters AND, but no combination tested in this study",
+    "live": "Quote observations remain distinct from refreshed completed daily OHLC context; entry-only, existing exit and shared guard/risk preserved"
+  },
+  "expectedContinuousRuns": 24,
+  "expectedAlternatePartitionRuns": 24,
+  "expectedIndependentQuarterResetRuns": 288,
+  "defaultCompatibility": "Predeclared correction of two consecutive observation-unit reason labels only; including preservation of the exact known terminal unfilled suffix; all other report/signal fields remain comparable. No default filter enabled or live config changed."
+}

@@ -24,7 +24,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import { alpha, ThemeProvider } from '@mui/material/styles'
 import { Sidebar } from '../../sidebar'
 import { LayoutResizer } from '../../../shared/ui'
-import { clampNumber, readStoredNumber, writeStoredNumber } from '../../../shared/lib'
+import { clampNumber, readStoredNumber, writeStoredNumber, PAGE_FOCUS_NAVIGATION_EVENT } from '../../../shared/lib'
 import { createAppTheme, getResolvedMode, THEME_STORAGE_KEY } from '../../../shared/config/theme'
 import { useSettingsStore } from '../../../entities/settings'
 import { useUpdateCheck, useBackendEvents } from '../../../api/hooks'
@@ -104,6 +104,12 @@ export function AppShell() {
 
   const handleSidebarResizeEnd = useCallback(() => {
     writeStoredNumber(SIDEBAR_KEY, sidebarWidthRef.current, SIDEBAR_MIN, SIDEBAR_MAX)
+  }, [])
+
+  const handleSidebarValueChange = useCallback((value: number) => {
+    const next = clampNumber(value, SIDEBAR_MIN, SIDEBAR_MAX)
+    setSidebarWidth(next)
+    writeStoredNumber(SIDEBAR_KEY, next, SIDEBAR_MIN, SIDEBAR_MAX)
   }, [])
 
   const startMainScrollbarDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
@@ -197,6 +203,19 @@ export function AppShell() {
   }, [location.pathname, restorePendingMainScroll])
 
   useEffect(() => {
+    const handlePageFocusNavigation = (event: Event) => {
+      const pending = pendingMainScrollRestoreRef.current
+      if (event instanceof CustomEvent
+        && event.detail?.routeKey === mainScrollRouteRef.current
+        && pending?.routeKey === mainScrollRouteRef.current) {
+        pendingMainScrollRestoreRef.current = null
+      }
+    }
+    window.addEventListener(PAGE_FOCUS_NAVIGATION_EVENT, handlePageFocusNavigation)
+    return () => window.removeEventListener(PAGE_FOCUS_NAVIGATION_EVENT, handlePageFocusNavigation)
+  }, [])
+
+  useEffect(() => {
     const el = mainScrollRef.current
     if (!el) return
 
@@ -284,7 +303,7 @@ export function AppShell() {
               >
                 <MenuIcon fontSize="small" />
               </IconButton>
-              <Typography variant="subtitle2" fontWeight={700} color="primary" noWrap>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }} color="primary" noWrap>
                 KISAutoTrade
               </Typography>
             </Toolbar>
@@ -329,6 +348,12 @@ export function AppShell() {
           {isDesktop && (
             <LayoutResizer
               direction="horizontal"
+              label="사이드바 너비 조절"
+              value={sidebarWidth}
+              min={SIDEBAR_MIN}
+              max={SIDEBAR_MAX}
+              defaultValue={SIDEBAR_DEFAULT}
+              onValueChange={handleSidebarValueChange}
               onResize={handleSidebarResize}
               onResizeEnd={handleSidebarResizeEnd}
             />

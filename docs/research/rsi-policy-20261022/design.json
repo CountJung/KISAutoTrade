@@ -1,0 +1,128 @@
+{
+  "source": "../strategy-review-20261018/input.json",
+  "sourceSha256": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+  "evaluationStart": "20230103",
+  "evaluationEnd": "20251231",
+  "evaluationBarsPerSymbol": 752,
+  "historyBars": 252,
+  "costBps": [
+    10,
+    20
+  ],
+  "initialCapitalKrw": 10000000,
+  "exchangeRateKrw": 1450,
+  "taxBps": 0,
+  "executionModel": "nextOpen",
+  "dividendScenario": [],
+  "fxScenario": [],
+  "stopLossPct": 0,
+  "takeProfitPct": 0,
+  "partitions": [
+    "12 calendar-quarter chunks",
+    "500+252 bars"
+  ],
+  "matchedPathReference": "Fixed accepted share quantities/timing; previous close to current open gap PnL plus current open to close PnL at fixed FX. Equals final equity plus recorded fees/tax/slippage. Not an independent signal benchmark, cost-free rerun or same percentage exposure.",
+  "declaredAt": "2026-10-22T20:40:35+09:00",
+  "declaredBeforeCandidateRuns": true,
+  "baselineCommit": "978640c25ae23b64629690fcaded0bb2d0475891",
+  "plannedEngineVersion": "strategy-replay-v18",
+  "configs": [
+    {
+      "symbol": "SOXQ",
+      "strategyId": "rsi",
+      "orderQuantity": 51,
+      "params": {
+        "period": 14,
+        "oversold": 30.0,
+        "overbought": 70.0
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "19.91"
+    },
+    {
+      "symbol": "SPY",
+      "strategyId": "rsi",
+      "orderQuantity": 2,
+      "params": {
+        "period": 14,
+        "oversold": 30.0,
+        "overbought": 70.0
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "382.43"
+    },
+    {
+      "symbol": "QQQ",
+      "strategyId": "rsi",
+      "orderQuantity": 3,
+      "params": {
+        "period": 14,
+        "oversold": 30.0,
+        "overbought": 70.0
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "266.28"
+    }
+  ],
+  "variants": [
+    {
+      "id": "legacy",
+      "engine": "baseline",
+      "params": {}
+    },
+    {
+      "id": "owned",
+      "engine": "current",
+      "params": {}
+    },
+    {
+      "id": "trend200",
+      "engine": "current",
+      "params": {
+        "long_trend_period": 200
+      }
+    },
+    {
+      "id": "stop3",
+      "engine": "current",
+      "params": {
+        "stop_loss_pct": 3.0
+      }
+    },
+    {
+      "id": "hold63",
+      "engine": "current",
+      "params": {
+        "max_hold_observations": 63
+      }
+    }
+  ],
+  "expectedContinuousRuns": 30,
+  "expectedAlternatePartitionRuns": 30,
+  "expectedIndependentQuarterResetRuns": 360,
+  "policy": {
+    "rsi": "Existing simple moving average of14 price changes; not Wilder. Keep zero-loss=100 even flat, Buy prev<=30/current>30, Sell prev>=70/current<70. Every evaluated observation advances RSI baseline even after ownership/filter/guard refusal. No new crossing latch or retry for original cross exits.",
+    "ownership": "Confirmed quantity/cost only. Flat buy/owned sell; held raw Buy and flat Sell removed before common guard. Sell confirmed remaining quantity. Keep pending/partial/restart/reconfigure checkpoints and prior RSI baselines. No assuming signal is filled. All owned Sell candidates including original70cross request confirmed remaining quantity, not configured quantity; common guard clamps remain. This is intentional for actual ATR-sized/partial holdings and must be tested independently.",
+    "trend": "Only original flat Buy crossing candidates, current price strictly above previous200 same-cadence input prices, excludes current. Live first observation clears daily/minute seed for trend; native roughly10second observations are not200days. This filter does not suppress owned exits.",
+    "stop": "Optional0disabled; candidate price decline>=3% vs actual confirmed native entry average. Continues offering exit each owned observation while condition holds if guard blocks or partial remains. Research close signal/next observed open fill, not guaranteed loss bound.",
+    "age": "Optional0disabled; >=63 actual owned observations since confirmed entry (first following evaluated observation counts1). Duplicate same-quantity/partial fills/reconfigure/restart preserve known age. Restored unknown age stays unknown; no forced zero/reset. Max63 is observations not trading/calendar days or guaranteed held-time bound; sustained retry after guard refusal while owned. If a newly active cap sees restored unknown age, offer conservative exit on next owned observation without assigning a fake known age (matches existing Mean/Deviation policy).",
+    "validation": "long_trend_period integer0..512, max_hold_observations integer0..1000000, stop_loss_pct finite0..99.9; null/strings/bool/fractional integers rejected at save and both previews. Damaged optional runtime fails new Buy closed while preserves custom14/30/70/core RSI and valid owned protections.",
+    "defaults": "Existing period14/oversold30/overbought70, optional0. No operating params changed, no automatic winning candidate selection.",
+    "priority": "Owned stop -> max holding observations -> original70cross. None of these is prevented by trend/new optional validation/RSI readiness. Original crossing exits remain once-cross; stop/cap sustained only."
+  },
+  "limitations": [
+    "Retrospective diagnostic on previously inspected frozen prices, not unseen OOS or preregistration. Thresholds fixed before this candidate run; no grid/combinations or retuning after observing returns.",
+    "3correlated ETFs, small trades, fixedFX/no dividends, uncertified market calendar/corporate actions. Same requested quantities need not match actual exposure.",
+    "Continuous2023-2025 and12reset quarters are different capital/state experiments, never add/compound reset accounts. 2026default1224 compatibility includes observed future study data, not candidate OOS.",
+    "Actual production Rust strategy/replay only; synthetic fixtures separate; no broker/account/order calls."
+  ]
+}

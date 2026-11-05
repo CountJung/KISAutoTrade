@@ -4,7 +4,7 @@
   "version": "0.2.0",
   "type": "module",
   "engines": {
-    "node": ">=20.0.0",
+    "node": "^20.19.0 || >=22.12.0",
     "npm": ">=10.0.0"
   },
   "scripts": {
@@ -18,6 +18,8 @@
     "version:set": "node scripts/release-version.mjs --no-git",
     "release": "node scripts/release-version.mjs",
     "release:dry": "node scripts/release-version.mjs --dry-run",
+    "todo:render": "node scripts/render-todo.mjs",
+    "check:todo": "node scripts/render-todo.mjs --check",
     "check:fsd": "node scripts/check-fsd-imports.mjs",
     "check:project-map": "node scripts/project-map.mjs --check",
     "project-map:update": "node scripts/project-map.mjs --write",
@@ -28,32 +30,34 @@
     "verify:toss-openapi": "node scripts/verify-toss-openapi.mjs",
     "test:toss-openapi": "node scripts/verify-toss-openapi.mjs",
     "check:lockfiles": "node scripts/verify-lockfiles.mjs",
+    "test:database-tls-contract": "node scripts/database-tls-contract.mjs",
     "verify:release-artifacts": "node scripts/verify-release-artifacts.mjs",
     "sync:codex-skills": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-codex-skills.ps1"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
-    "@mui/icons-material": "^6.1.5",
-    "@mui/material": "^6.1.5",
+    "@mui/icons-material": "9.5.0",
+    "@mui/material": "9.5.0",
     "@tanstack/react-query": "^5.59.16",
     "@tanstack/react-router": "^1.65.0",
     "@tauri-apps/api": "^2.0.4",
     "@tauri-apps/plugin-shell": "^2.0.2",
     "lightweight-charts": "^5.1.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "react-grid-layout": "^1.4.4",
     "zustand": "^5.0.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "@tauri-apps/cli": "^2.0.4",
-    "@types/react": "^18.3.11",
-    "@types/react-dom": "^18.3.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "@types/react-grid-layout": "^1.3.5",
-    "@vitejs/plugin-react": "^4.3.2",
-    "typescript": "^5.5.4",
-    "vite": "^5.4.8"
+    "@vitejs/plugin-react": "6.1.2",
+    "typescript": "7.0.2",
+    "vite": "8.3.5",
+    "@types/node": "24.19.2"
   }
 }

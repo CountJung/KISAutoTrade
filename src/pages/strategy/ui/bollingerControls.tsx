@@ -32,10 +32,10 @@ export function BollingerControls({ params, disabled, onChange }: {
           실시간은 1분봉 기준이며 다음 관측에서 직전 봉을 확정합니다. 일봉과 분봉을 섞지 않고,
           준비된 봉이 부족하면 매수를 보류합니다. 보강 옵션은 1분봉 미리보기로 점검하세요.
         </Typography>
-        <Stack direction="row" useFlexGap flexWrap="wrap" gap={1}>
+        <Stack direction="row" useFlexGap sx={{ flexWrap: "wrap", gap: 1 }}>
           {fields.map(([key, label, fallback, min, max, step]) => (
             <TextField key={key} label={label} type="number" size="small" value={typeof value[key] === 'number' ? value[key] : fallback}
-              disabled={disabled || !enabled} inputProps={{ min, max, step }} sx={{ width: { xs: '100%', sm: 175 } }}
+              disabled={disabled || !enabled} slotProps={{ htmlInput: { min, max, step } }} sx={{ width: { xs: '100%', sm: 175 } }}
               onChange={e => { const number = Number(e.target.value); if (Number.isFinite(number)) update(key, Math.max(min, Math.min(max, step === 1 ? Math.round(number) : number))) }} />
           ))}
         </Stack>

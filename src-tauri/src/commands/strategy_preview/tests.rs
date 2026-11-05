@@ -106,7 +106,13 @@ fn future_candle_change_does_not_change_prior_replay_signals() {
 
     assert_eq!(prior_left, prior_right);
     assert!(left.replay.deterministic);
-    assert!(left.replay.look_ahead_safe);
+    // Signal prefix invariance does not prove execution at the just-observed close.
+    assert!(!left.replay.look_ahead_safe);
+    assert!(left
+        .backtest
+        .execution_warnings
+        .iter()
+        .any(|warning| warning.contains("같은 종가")));
 }
 
 #[test]
@@ -403,7 +409,7 @@ fn daily_diagnostic_never_evaluates_strategy_or_execution_even_with_intraday_inp
         LeveragedTrendHoldParams::default(),
         &[bar],
         &timed,
-        |_, _| panic!("daily diagnostics must not run execution"),
+        |_| panic!("daily diagnostics must not run execution"),
     );
     assert!(signals.is_empty());
     let assessment =

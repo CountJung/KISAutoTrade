@@ -81,7 +81,7 @@ export const useBalance = () =>
   useQuery({ queryKey: KEYS.balance, queryFn: getBalance, refetchInterval: 60_000 });
 ```
 
-새 훅은 반드시 `src/api/hooks.ts`에 추가하고, query key는 `src/api/queryKeys.ts`의 `KEYS`에 등록합니다. 기존 소비자는 `src/api/hooks.ts`에서 `KEYS`를 re-export하므로 import 호환을 유지합니다.
+새 훅은 `src/api/{account,market,order,strategy,settings,history,trading,log}Hooks.ts` 중 책임에 맞는 모듈에 구현하고 `src/api/hooks.ts` facade로 공개합니다. query key는 `src/api/queryKeys.ts`의 동일 `KEYS`를 사용합니다. 각 모듈이 facade를 다시 import하지 않으며, 환율 훅은 `marketHooks`에서 `settingsHooks.useRefreshConfig`를 직접 참조합니다. 기존 소비자의 import·캐시 키·polling·retry·무효화·이벤트 계약을 유지합니다.
 
 파라미터가 결과를 바꾸는 query는 반드시 queryKey에도 그 파라미터를 포함한다.
 예: 최근 로그 조회는 `recentLogs(count)`처럼 `count`별 key를 사용한다.
@@ -227,27 +227,30 @@ export function useBackendEvents() {
     if (!canUseTauriEvents()) return
 
     let active = true
-    const unlisteners: Promise<() => void>[] = []
+    const unlisteners: (() => void)[] = []
+    const release = (unlisten: () => void) => {
+      void Promise.resolve().then(unlisten).catch(console.warn)
+    }
 
     void import('@tauri-apps/api/event').then(({ listen }) => {
       if (!active) return
 
-      unlisteners.push(
-        listen('balance-updated', (event) => {
-          qc.setQueryData(KEYS.balance, event.payload)
-        })
-      )
-    })
+      void listen('balance-updated', () => {
+        if (active) void qc.invalidateQueries({ queryKey: KEYS.balance })
+      }).then((unlisten) => {
+        if (active) unlisteners.push(unlisten)
+        else release(unlisten)
+      }).catch(console.warn)
+    }).catch(console.warn)
 
     return () => {
       active = false
-      unlisteners.forEach((p) => p.then((fn) => fn()))
+      unlisteners.forEach(release)
     }
   }, [qc])
 }
 ```
 
-> 마지막 업데이트: 2026-07-04T12:25:10
 
 ---
 
@@ -332,29 +335,14 @@ const { data: executed, isError: isExecutedError } = useTodayExecuted()
 )}
 ```
 
-### 미래 개선 방향 (Rust event-based scheduler)
+### Rust 잔고 이벤트와 현재 계좌 재조회
 
-현재는 React TanStack Query 기반 폴링이지만, 다음 단계로 Rust 백그라운드 스케쥴러로 전환할 수 있다:
+`src-tauri/src/lib.rs`의 백그라운드 갱신은 `OrderManager::refresh_kis_*_shared`로 조회·게시하고 성공한 gate 안에서 `balance-updated` / `overseas-balance-updated`를 emit한다. `backendEvents.ts`는 해당 이벤트로 현재 계좌 query를 무효화한다. 직접 REST 조회 뒤 scope 검사 없이 emit하는 예시는 사용하지 않는다.
 
-```rust
-// 미래 설계: Rust background task → Tauri event emit
-tokio::spawn(async move {
-    let mut interval = tokio::time::interval(Duration::from_secs(30));
-    loop {
-        interval.tick().await;
-        let balance = rest_client.get_balance().await?;
-        app_handle.emit("balance_update", balance)?;
-    }
-});
-
-// React: listen('balance_update', handler) → qc.setQueryData(...)
-```
-
-장점: 여러 브라우저 탭이 열려도 중복 API 호출 없음, rate limit 완전 통제.
+React polling과 이벤트 후 재조회는 추가 요청을 만들 수 있으며, TanStack Query의 중복 제거는 같은 QueryClient/key 범위다. 여러 브라우저 탭의 요청까지 한 번으로 합치거나 provider quota 전체를 보장한다고 설명하지 않는다. 기존 scheduler·rate limiter와 계좌별 query gate를 함께 유지한다.
 
 ---
 
-> 마지막 업데이트: 2026-04-07T17:48:01
 
 ---
 
@@ -511,4 +499,33 @@ const savedGeometry = useMemo(() => {
 > ResizableDialog는 현재 SPA 세션 캐시만 지원합니다.  
 > localStorage 영속이 필요하면 `storageKey`를 기반으로 별도 save/restore 로직을 추가합니다.
 
-> 마지막 업데이트: 2026-07-07T18:10:00+09:00
+## 계좌별 잔고 캐시와 설정 공개
+
+- `accountHooks.ts`의 국내·해외·broker holdings는 `KEYS` prefix 뒤에 profile ID, broker, account, 투자 모드를 붙인다. prefix 무효화 계약은 유지한다. 이전 scope의 placeholder/initialData를 표시하지 않는다.
+- profile 변경 5종은 동일 mutation scope로 직렬화한다. 변경 중이거나 AppConfig 조회 중·실패·무효화 상태이면 잔고 data를 숨기고 조회를 보류한다. 새 설정이 확인된 뒤 현재 계좌를 다시 조회한다. 오류는 기존 잔고 오류 UI로 전달한다.
+- 설정 응답을 공개할 때 이전 AppConfig retryer를 먼저 취소하고 첫 await 전에 새 설정을 동기 공개한다. 설정 응답이 없는 추가/삭제는 이전 설정을 즉시 무효화하고 오류를 전파하는 fetchQuery로 새 설정을 확정한다.
+- mutation 요청 오류도 backend 공개 전 실패라고 추정하지 않는다. 설정 저장 실패나 응답 유실 전에 계좌가 이미 바뀌었을 수 있으므로 설정·잔고를 무효화하고 현재 설정을 재확인한다. 재확인 실패 중에는 이전 data를 숨기며 원래 변경 오류를 유지한다.
+- 잔고 queryFn 시작/종료 모두 현재 설정의 신뢰 상태와 scope를 검사한다. 전환 시 진행 중인 세 잔고 query를 취소하고 이전 scope 캐시를 제거한다. A→B→A에서도 전환 중 완료한 캐시를 재사용하지 않는다.
+- `backendEvents.ts`의 잔고 이벤트는 payload를 캐시에 직접 넣지 않고 현재 query를 무효화하는 힌트로만 쓴다. 등록 완료가 unmount보다 늦으면 즉시 해제하며 해제 후 callback은 active guard로 무시한다.
+- ❌ 계좌 없는 전역 key에 늦은 이벤트 payload를 setQueryData하면 이전 계좌 잔고가 표시될 수 있다. ✅ 현재 scope로 다시 조회하고 backend 게시 gate와 frontend scope 검증을 함께 유지한다.
+
+> 마지막 업데이트: 2026-10-18T13:35:00+09:00
+
+
+## 금융 차트 번들 경계
+
+`vite.config.ts`는 Vite8의 `rolldownOptions.output.codeSplitting.groups`로 React·MUI·Emotion·TanStack·lightweight-charts를 분리한다. 기반 React priority20/Emotion10과 기본 재귀 dependency 수집으로 실제 소유권을 확인하며, 예전 Rollup manualChunks와 API를 혼용하지 않는다. 전략 연구 UI 확장 때 main chunk가 500kB를 넘으면 warning limit를 높여 숨기지 않고 안정된 라이브러리 경계를 분리한다. production build 경고0과 실제 vite preview에서 차트/전략 화면의 로딩·초기화 회귀를 확인한다. dev-server E2E만으로 production chunk 초기화 검증을 대신하지 않는다.
+
+> 마지막 업데이트: 2026-10-18T16:38:45+09:00
+
+
+## React19과 production bundle 검증 (2026-10-29)
+
+React/DOM/types를 같은 지원 major로 맞추고 실제 peer/clean lock 설치를 확인한다. 기존 callback·query/scope·preview generation과 chart cleanup 책임을 UI library props 변환과 섞지 않는다. ReactDOM client와 JSX runtime의 실제 진입점까지 vendor 경계를 확인하며 warning threshold를 높이지 않는다. 최종 production preview에서 chart paint·theme/resize·unmount/re-entry·dialog focus/keyboard를 mock으로 검사한다. native WebView 실행 여부는 브라우저 성공과 별도로 기록한다.
+
+
+## 임시 Vite 검증 설정
+
+오프라인 wrapper는 repo 캐시의 bare vite import와 명시 .ts source 경로로 원래 config를 재사용한다. Vite 내부 절대 index.js를 묶거나 경고 억제로 초기화 문제를 가리지 않는다. [명령·안내·재검증 범위](../../../docs/HARNESS_MAP.md)를 따른다.
+
+> 마지막 업데이트: 2026-10-29T12:53:42+00:00

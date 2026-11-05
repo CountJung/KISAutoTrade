@@ -1,39 +1,48 @@
 mod breakout;
 mod classic;
+mod completed_daily;
 mod core;
 mod leveraged_trend_hold;
 mod ma_cross;
 mod manager;
 mod mean_trend;
+mod observation;
 mod price_condition;
 mod sequence;
 mod state;
 
 pub use breakout::{
-    FiftyTwoWeekHighParams, FiftyTwoWeekHighStrategy, StrongCloseParams, StrongCloseStrategy,
-    VolatilityExpansionParams, VolatilityExpansionStrategy,
+    validate_strong_close_params, validate_volatility_expansion_params, FiftyTwoWeekHighParams,
+    FiftyTwoWeekHighStrategy, StrongCloseParams, StrongCloseStrategy, VolatilityExpansionParams,
+    VolatilityExpansionStrategy,
 };
 pub use classic::{
-    DeviationParams, DeviationStrategy, MomentumParams, MomentumStrategy, RsiParams, RsiStrategy,
+    validate_deviation_entry_params, validate_momentum_entry_params, validate_rsi_params,
+    DeviationEntryMode, DeviationParams, DeviationStrategy, MomentumEntryMode, MomentumParams,
+    MomentumStrategy, RsiParams, RsiStrategy,
 };
 pub use core::{
-    initialize_strategy_warmup, BrokerPositionSnapshot, HistoryReadiness, OhlcCandle, Signal,
-    Strategy, StrategyConfig, StrategySignal,
+    initialize_strategy_warmup, initialize_strategy_warmup_with_daily_bars,
+    parse_completed_daily_volume, BrokerPositionSnapshot, CompletedDailyBar,
+    EntryFilterPreparation, HistoryReadiness, OhlcCandle, Signal, Strategy, StrategyConfig,
+    StrategySignal, VolatilityExpansionPreparation,
 };
 pub use leveraged_trend_hold::{
     LeveragedTrendHoldEntry, LeveragedTrendHoldParams, LeveragedTrendHoldPreviewSignal,
-    LeveragedTrendHoldStrategy, LeveragedTrendHoldTimedCandle,
+    LeveragedTrendHoldPreviewStep, LeveragedTrendHoldStrategy, LeveragedTrendHoldTimedCandle,
 };
-pub use ma_cross::{MaCrossParams, MovingAverageCrossStrategy};
-pub use manager::{build_strategy, StrategyManager};
+pub use ma_cross::{validate_ma_cross_entry_params, MaCrossParams, MovingAverageCrossStrategy};
+pub use manager::{build_strategy, DailyHistoryStatus, DailyHistoryTicket, StrategyManager};
 pub use mean_trend::{
+    validate_mean_reversion_params, validate_trend_filter_params, MeanReversionExitMode,
     MeanReversionParams, MeanReversionStrategy, TrendFilterParams, TrendFilterStrategy,
 };
 pub use price_condition::{
     PriceConditionParams, PriceConditionStrategy, PriceConditionSymbolConfig,
 };
 pub use sequence::{
-    ConsecutiveMoveParams, ConsecutiveMoveStrategy, FailedBreakoutParams, FailedBreakoutStrategy,
+    validate_consecutive_entry_params, validate_failed_breakout_params, ConsecutiveMoveParams,
+    ConsecutiveMoveStrategy, FailedBreakoutBasis, FailedBreakoutParams, FailedBreakoutStrategy,
 };
 
 #[cfg(test)]

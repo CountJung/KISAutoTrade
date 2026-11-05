@@ -115,13 +115,13 @@ fn deserializes_order_preflight_responses() {
           "result": [
             {
               "marketCountry": "KR",
-              "commissionRate": "0.015",
+              "commissionRate": "0.00015",
               "startDate": "2026-01-01",
               "endDate": null
             },
             {
               "marketCountry": "US",
-              "commissionRate": "0.1",
+              "commissionRate": "0.001",
               "startDate": null,
               "endDate": "2026-06-30"
             }

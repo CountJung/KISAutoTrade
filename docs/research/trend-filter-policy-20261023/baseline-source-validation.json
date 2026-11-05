@@ -1,0 +1,46 @@
+{
+  "commit": "81fa00d3aa50bc59606667568f36c4b686902412",
+  "startHead": "70df3b32d33b9297439cd25cfb8010b2fe0599a1",
+  "files": [
+    {
+      "path": "src-tauri/src/trading/strategy/mean_trend.rs",
+      "sha256": "fb71a2d5da0bb5884da587198ee270a7da0d3d78952b5eff8855b5f2fea31ca5",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "src-tauri/src/trading/strategy/core.rs",
+      "sha256": "7974f8674d800d644e3501885d6ccc73d33825374f6ac4a7d918a3acd24aafcd",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "src-tauri/src/commands/strategy_preview/driver.rs",
+      "sha256": "391fe129b208c8921e299665a054c5309bd4e275b82eede055d4a71d9c4902e9",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "src-tauri/src/trading/simulation.rs",
+      "sha256": "f70afcf3abd5edd5f192858e05347ba149698c8cf5a4decaf1dccf4886a31485",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "b9e526c8fa3bcca291aa28237b06d996b2cdb7c28cc115f04e96923ef7f3d628",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "55c8962a32bda2fec9d653b9fc00575c80108fb36a649c404e9a42fd9b5bd0f6",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "src-tauri/Cargo.toml",
+      "sha256": "65faf6ad04b2c27408721ec232390012069e06bb39b305b09648c1bf553a8844",
+      "sameAsGitObject": true
+    }
+  ],
+  "harnessLockSha256": {
+    "baseline": "72b6d0d2e8c662204c7a1544bf6704b329824d9c870aadcb53096a7d209d63c3",
+    "current": "90922f0bdec1ca69dc4343d03dc5a7aa0d8b2746657cd2d669997c6acdb0f4bc"
+  },
+  "dependencyResolution": "각 path harness는 offline으로 사용 가능한 호환 의존성을 별도 해석했다. 원본81fa00d Cargo.lock bytes는 보존·대조했으며 동일 lock으로 빌드했다고 주장하지 않는다."
+}

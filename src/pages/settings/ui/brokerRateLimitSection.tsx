@@ -26,7 +26,7 @@ export function BrokerRateLimitSection() {
   const { data: scopes = [], isError } = useBrokerRateLimitStatus()
 
   return (
-    <Section title="Broker 요청 상태 (rate limit)">
+    <Section id="settings-rate-limit" title="Broker 요청 상태 (rate limit)">
       {isError && <Alert severity="error">rate limit 상태를 불러오지 못했습니다.</Alert>}
       {!isError && scopes.length === 0 && (
         <Alert severity="info">아직 broker API 요청이 없습니다. 시세·잔고 조회나 주문 후 표시됩니다.</Alert>
@@ -37,8 +37,8 @@ export function BrokerRateLimitSection() {
           const failing = scope.groups.some((group) => group.consecutiveFailures >= 3)
           return (
             <Paper key={scope.scope} variant="outlined" sx={{ p: 1.5 }}>
-              <Stack direction="row" spacing={1} alignItems="center" mb={1} flexWrap="wrap" useFlexGap>
-                <Typography variant="body2" fontWeight={600} sx={{ wordBreak: 'break-all' }}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1, flexWrap: "wrap" }} useFlexGap>
+                <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-all'  }}>
                   {scope.scope}
                 </Typography>
                 {paused && <Chip size="small" color="warning" label="rate limit pause 중" />}

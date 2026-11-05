@@ -449,7 +449,7 @@ pub async fn set_log_config(
 // ── 업데이트 확인 ────────────────────────────────────────────────
 #[tauri::command]
 pub async fn check_for_update() -> CmdResult<crate::updater::UpdateInfo> {
-    let client = reqwest::Client::new();
+    let client = crate::http::client();
     crate::updater::check(&client)
         .await
         .map_err(|message| CmdError {
@@ -649,7 +649,7 @@ pub async fn detect_trading_type(
         });
     }
 
-    let client = reqwest::Client::builder()
+    let client = crate::http::client_builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
         .map_err(|e| CmdError {
@@ -692,6 +692,14 @@ pub async fn detect_profile_trading_type(
     profile_id: String,
     state: State<'_, AppState>,
 ) -> CmdResult<ProfileView> {
+    let _strategy_update = state.strategy_update_lock.lock().await;
+    let is_active = state.profiles.read().await.active_id.as_deref() == Some(&profile_id);
+    if is_active && *state.is_trading.lock().await {
+        return Err(CmdError {
+            code: "TRADING_ACTIVE".into(),
+            message: "자동매매를 정지한 뒤 활성 프로파일의 투자 모드를 감지하세요.".into(),
+        });
+    }
     // 1) 해당 프로파일의 키 복사 (read lock 빠르게 해제)
     let (app_key, app_secret) = {
         let profiles = state.profiles.read().await;
@@ -718,7 +726,7 @@ pub async fn detect_profile_trading_type(
         (p.app_key.clone(), p.app_secret.clone())
     };
 
-    let client = reqwest::Client::builder()
+    let client = crate::http::client_builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
         .map_err(|e| CmdError {

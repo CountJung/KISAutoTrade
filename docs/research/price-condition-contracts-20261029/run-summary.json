@@ -1,0 +1,64 @@
+{
+  "baselineCommit": "ac3eb564ea678fe99722bbc5f3f040b4c50b1773",
+  "continuousRuns": 6,
+  "elapsedSeconds": 1.620112208,
+  "independentQuarterResetRuns": 72,
+  "note": "Quarter-reset returns are separate accounts and are never aggregated into continuous performance",
+  "partitionEquivalenceRuns": 6,
+  "partitions": [
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "11fcf274ba0fd2a6",
+      "inputHash": "31d1c4908464e1e1",
+      "quarterChunks": 12,
+      "strategyId": "price_condition",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "52a187e98dcf3c36",
+      "inputHash": "624dc879406c893b",
+      "quarterChunks": 12,
+      "strategyId": "price_condition",
+      "symbol": "SOXQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "d53933c2f2604aab",
+      "inputHash": "ac514e97e08ea6d4",
+      "quarterChunks": 12,
+      "strategyId": "price_condition",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "4e036aff86319c6d",
+      "inputHash": "3ab69bd9d16229ce",
+      "quarterChunks": 12,
+      "strategyId": "price_condition",
+      "symbol": "SPY"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "0e74e9a096360f77",
+      "inputHash": "6ef219d37a034977",
+      "quarterChunks": 12,
+      "strategyId": "price_condition",
+      "symbol": "QQQ"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "2df4bbd6413a7516",
+      "inputHash": "71dd5862812dbab5",
+      "quarterChunks": 12,
+      "strategyId": "price_condition",
+      "symbol": "QQQ"
+    }
+  ]
+}

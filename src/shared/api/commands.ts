@@ -22,6 +22,8 @@ import type {
   OverseasBalanceResult,
   ChartCandle,
   ChartDataInput,
+  CandlePageInput,
+  CandlePageView,
   ConfigDiagnostic,
   DailyStats,
   DetectTradingTypeResult,
@@ -45,6 +47,8 @@ import type {
   StockListStats,
   StockSearchItem,
   StrategyPreviewInput,
+  ContinuousStrategyPreviewInput,
+  ContinuousStrategyPreviewView,
   StrategyPreviewView,
   StrategyView,
   TradeArchiveConfig,
@@ -109,6 +113,9 @@ export const getPrice = (symbol: string): Promise<PriceResponse> =>
   invoke('get_price', { symbol })
 
 // ─── 차트 ───────────────────────────────────────────────────────
+export const getCandlePage = (input: CandlePageInput): Promise<CandlePageView> =>
+  invoke('get_candle_page', { input })
+
 export const getChartData = (input: ChartDataInput): Promise<ChartCandle[]> =>
   invoke('get_chart_data', { input })
 
@@ -214,6 +221,9 @@ export const previewStrategy = (
   input: StrategyPreviewInput,
 ): Promise<StrategyPreviewView> =>
   invoke('preview_strategy', { input })
+
+export const previewStrategyContinuous = (input: ContinuousStrategyPreviewInput): Promise<ContinuousStrategyPreviewView> =>
+  invoke('preview_strategy_continuous', { input })
 
 // ─── 로그 설정 ────────────────────────────────────────────────────
 export const getLogConfig = (): Promise<LogConfig> =>
@@ -363,3 +373,5 @@ export const getBrokerRateLimitStatus = (): Promise<BrokerRateLimitScopeView[]> 
   invoke('get_broker_rate_limit_status')
 
 export * from './databaseCommands'
+
+export { getBudgetRecovery, approveBudgetRecovery } from './budgetRecoveryCommands'

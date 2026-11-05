@@ -155,7 +155,7 @@ export function FilledOrdersPanel() {
 
   return (
     <Box>
-      <Stack direction="row" spacing={1} alignItems="center" mb={1} flexWrap="wrap" useFlexGap>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1, flexWrap: "wrap" }} useFlexGap>
         <TextField
           type="date"
           label="시작일"
@@ -194,7 +194,7 @@ export function FilledOrdersPanel() {
       </Stack>
 
       {!isLoading && trades.length > 0 && (
-        <Stack direction="row" spacing={1} alignItems="center" mb={1.5} flexWrap="wrap" useFlexGap>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1.5, flexWrap: "wrap" }} useFlexGap>
           <ToggleButtonGroup
             value={sideFilter}
             exclusive
@@ -297,7 +297,7 @@ export function FilledOrdersPanel() {
                 {pagedTrades.map((t) => (
                   <TableRow key={t.id} hover>
                     <TableCell>
-                      <Typography variant="body2" component="span" fontWeight={500}>
+                      <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
                         {t.symbol_name}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" component="span" sx={{ ml: 0.5 }}>
@@ -343,8 +343,8 @@ export function FilledOrdersPanel() {
             </Table>
           </TableContainer>
 
-          <Stack direction="row" justifyContent="space-between" alignItems="center" mt={1} flexWrap="wrap" gap={1}>
-            <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mt: 1, flexWrap: "wrap", gap: 1 }}>
+            <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
               <Button size="small" variant="outlined" disabled={page === 0} onClick={() => setPage(0)} sx={{ minWidth: 0, px: 1 }}>
                 «
               </Button>
@@ -446,7 +446,7 @@ export function PendingOrdersPanel() {
                   <Typography variant="caption" color="text.secondary">
                     {o.symbol}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" display="block" noWrap>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block" }} noWrap>
                     {o.brokerId.toUpperCase()}{o.brokerAccountId ? ` · ${o.brokerAccountId}` : ''}
                   </Typography>
                 </TableCell>

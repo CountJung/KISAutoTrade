@@ -175,3 +175,106 @@ fn warmup_dispatch_calls_historical_once_with_daily_closes() {
     assert_eq!(probe.calls, 1);
     assert_eq!(probe.prices, [110]);
 }
+
+#[test]
+fn atomic_daily_default_hooks_forward_established_behavior_exactly_once() {
+    struct Probe {
+        config: StrategyConfig,
+        calls: Vec<&'static str>,
+        bars: Vec<OhlcCandle>,
+    }
+    impl Strategy for Probe {
+        fn id(&self) -> &str {
+            &self.config.id
+        }
+        fn name(&self) -> &str {
+            &self.config.name
+        }
+        fn config(&self) -> &StrategyConfig {
+            &self.config
+        }
+        fn config_mut(&mut self) -> &mut StrategyConfig {
+            &mut self.config
+        }
+        fn is_enabled(&self) -> bool {
+            true
+        }
+        fn set_enabled(&mut self, _: bool) {}
+        fn on_tick(&mut self, _: &str, _: u64, _: u64) -> Signal {
+            Signal::Hold
+        }
+        fn reset(&mut self) {}
+        fn initialize_candles(&mut self, _: &str, _: &[(u64, u64)]) {
+            self.calls.push("candles");
+        }
+        fn initialize_ohlc(&mut self, _: &str, bars: &[OhlcCandle]) {
+            self.calls.push("ohlc");
+            self.bars = bars.to_vec();
+        }
+        fn initialize_range_data(&mut self, _: &str, _: &[u64]) {
+            self.calls.push("ranges");
+        }
+        fn apply_completed_daily_history(&mut self, _: &str, bars: &[OhlcCandle]) {
+            self.calls.push("apply");
+            self.bars = bars.to_vec();
+        }
+        fn on_completed_candle(&mut self, _: &str, bar: &OhlcCandle) {
+            self.calls.push("complete");
+            self.bars.push(*bar);
+        }
+    }
+    let mut p = Probe {
+        config: StrategyConfig::new(
+            "probe",
+            "probe",
+            true,
+            vec!["TEST".into()],
+            1,
+            serde_json::json!({}),
+        ),
+        calls: vec![],
+        bars: vec![],
+    };
+    let bars = [CompletedDailyBar {
+        ohlc: OhlcCandle {
+            open: 100,
+            high: 200,
+            low: 90,
+            close: 110,
+        },
+        volume: Some(0),
+    }];
+    initialize_strategy_warmup_with_daily_bars(&mut p, "TEST", &bars, &[]);
+    assert_eq!(p.calls, ["candles", "ohlc", "ranges"]);
+    assert_eq!(p.bars, [bars[0].ohlc]);
+    p.apply_completed_daily_bars("TEST", &bars);
+    assert_eq!(p.calls, ["candles", "ohlc", "ranges", "apply"]);
+    p.on_completed_daily_bar("TEST", &bars[0]);
+    assert_eq!(p.calls, ["candles", "ohlc", "ranges", "apply", "complete"]);
+    assert_eq!(p.bars.len(), 2);
+}
+#[test]
+fn raw_daily_volume_parser_preserves_unknown_and_zero_without_float_loss() {
+    for raw in [
+        "",
+        "1.0",
+        "1e3",
+        "+1",
+        "-1",
+        "null",
+        "NaN",
+        "1,,000",
+        "1,00",
+        "1234,000",
+        "18446744073709551616",
+    ] {
+        assert_eq!(parse_completed_daily_volume(raw), None, "{raw}");
+    }
+    for (raw, n) in [
+        ("0", 0),
+        (" 1,000 ", 1000),
+        ("18446744073709551615", u64::MAX),
+    ] {
+        assert_eq!(parse_completed_daily_volume(raw), Some(n));
+    }
+}

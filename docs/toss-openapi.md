@@ -2,16 +2,16 @@
 
 > Source of truth: `https://openapi.tossinvest.com/openapi-docs/latest/openapi.json`
 
-마지막 확인: 2026-09-11
+마지막 확인: 2026-11-05 (공개 문서 확인; 로컬 JSON 다운로드는 네트워크 정책으로 차단)
 
 ## 공식 스펙 스냅샷
 
 | 항목 | 값 |
 |------|----|
 | OpenAPI title | `토스증권 Open API` |
-| version | `1.2.15` |
+| version | `1.2.28` |
 | base URL | `https://openapi.tossinvest.com` |
-| paths | 33 |
+| paths | 40 |
 | 인증 | OAuth2 Client Credentials Grant |
 
 ## 구현 전 검증
@@ -37,16 +37,29 @@ npm run verify:toss-openapi
 | Market Data | GET | `/api/v1/price-limits` | 상하한가 |
 | Market Data | GET | `/api/v1/candles` | 캔들, 별도 rate-limit group |
 | Stock Info | GET | `/api/v1/stocks` | 종목 기본 정보 |
+| Stock Info | GET | `/api/v1/stocks/all` | 공개 스펙 inventory, 앱 기능 미구현 |
+| Stock Info | GET | `/api/v1/stocks/{symbol}/investor-trading` | 공개 스펙 inventory, 앱 기능 미구현 |
+| Stock Info | GET | `/api/v1/stocks/{symbol}/program-trades` | 공개 스펙 inventory, 앱 기능 미구현 |
+| Stock Info | GET | `/api/v1/stocks/{symbol}/short-selling` | 공개 스펙 inventory, 앱 기능 미구현 |
+| Stock Info | GET | `/api/v1/stocks/{symbol}/credit-trades` | 공개 스펙 inventory, 앱 기능 미구현 |
+| Stock Info | GET | `/api/v1/stocks/{symbol}/securities-lending` | 공개 스펙 inventory, 앱 기능 미구현 |
 | Stock Info | GET | `/api/v1/stocks/{symbol}/warnings` | 투자경고/거래 제한 후보 |
 | Market Info | GET | `/api/v1/exchange-rate` | KRW/USD 참고 환율 |
 | Market Info | GET | `/api/v1/market-calendar/KR` | 국내 시장 캘린더 |
 | Market Info | GET | `/api/v1/market-calendar/US` | 미국 시장 캘린더 |
 | Market Data | GET | `/api/v1/rankings` | 랭킹 |
+| Ranking | GET | `/api/v1/rankings/investor-trading` | 투자자 매매 순위, 공개 명세 확인·앱 기능 미구현 |
 | Market Indicator | GET | `/api/v1/market-indicators/prices` | 시장 지표 현재가 |
 | Market Indicator | GET | `/api/v1/market-indicators/{symbol}/candles` | 시장 지표 캔들 |
 | Market Indicator | GET | `/api/v1/market-indicators/{symbol}/investor-trading` | 시장 지표 투자자 매매 |
+| Sector | GET | `/api/v1/sectors` | 공개 스펙 확인, 앱 기능 미구현 |
+| Sector | GET | `/api/v1/sectors/rankings` | 공개 스펙 확인, 앱 기능 미구현 |
+| Sector | GET | `/api/v1/sectors/{sectorId}` | 공개 스펙 확인, 앱 기능 미구현 |
+| Sector | GET | `/api/v1/sectors/{sectorId}/stocks` | 공개 스펙 확인, 앱 기능 미구현 |
+| Sector | GET | `/api/v1/sectors/{sectorId}/etfs` | 공개 스펙 확인, 앱 기능 미구현 |
 | Account | GET | `/api/v1/accounts` | accountSeq 조회 진입점 |
 | Asset | GET | `/api/v1/holdings` | `X-Tossinvest-Account` 필요 |
+| Transaction | GET | `/api/v1/transactions` | 본인 계좌 거래내역, OAuth2·`X-Tossinvest-Account` 필요, 앱 기능 미구현 |
 | Order | GET, POST | `/api/v1/orders` | 주문 목록/생성, `clientOrderId` 지원 |
 | Order History | GET | `/api/v1/orders/{orderId}` | 주문 상세 |
 | Order | POST | `/api/v1/orders/{orderId}/modify` | 정정 |
@@ -65,7 +78,7 @@ npm run verify:toss-openapi
 - 앱은 Toss token을 `base_url + client_id` 단위 프로세스 공유 캐시에 저장한다. 새 `TossBrokerAdapter`를 만들더라도 같은 client는 기존 token을 재사용하고, 만료 5분 전 또는 401 응답에서만 1회 재발급한다. 요청별 adapter 생성이 요청별 토큰 발급으로 이어지면 병렬 호출이 서로의 token을 무효화할 수 있으므로 금지한다.
 - 계좌·자산·주문·주문 정보 API는 `Authorization: Bearer {access_token}` 외에 `X-Tossinvest-Account` 헤더가 필요하다.
 - `accountSeq`는 임의 순번 입력값이 아니라 `GET /api/v1/accounts` 응답에서 받은 계좌 식별자다. Settings는 KIS/Toss 계좌 프로파일 섹션을 분리하고, Toss 섹션의 Add/Edit 다이얼로그에서 `list_toss_accounts`/`list_toss_profile_accounts`로 계좌 목록을 조회해 마스킹된 드롭다운에서 `accountSeq`를 선택하게 한다.
-- 공식 태그 설명 기준 WebSocket은 아직 지원 대상이 아니며 REST 중심으로 설계한다.
+- 현재 앱의 Toss 연결은 REST 중심이다. v1.2.28 REST 명세는 별도 AsyncAPI3 명세를 안내하며, 이번 검증은 REST inventory만 확인했다. 실제 Toss WebSocket 구현·연결은 이 결과에 포함하지 않는다.
 - 공통 성공 응답은 `ApiResponse` + `result`, 실패 응답은 `ErrorResponse { error: ApiError }` envelope를 기준으로 처리한다.
 - 429 응답은 `Retry-After`, `X-RateLimit-*` 헤더를 읽어 broker 공통 throttler로 넘긴다.
 - 주문 생성은 `clientOrderId`를 발급해 중복 주문과 `request-in-progress`류 응답을 추적한다.
@@ -76,7 +89,7 @@ npm run verify:toss-openapi
 - `src-tauri/src/broker/toss/` 하위에 read-only `TossOpenApiClient`와 `TossBrokerAdapter`가 있다. 공개 surface는 `mod.rs`에서 re-export하고, 구현은 `adapter.rs`, `client.rs`, `http.rs`, `error.rs`, `support.rs`, `types.rs`, `orders.rs`, `tests.rs`로 나눈다.
 - 구현된 범위: `POST /oauth2/token`, `GET /api/v1/accounts`, `GET /api/v1/holdings`, `GET /api/v1/prices`, `GET /api/v1/orderbook`, `GET /api/v1/trades`, `GET /api/v1/price-limits`, `GET /api/v1/candles`, `GET /api/v1/stocks`, `GET /api/v1/stocks/{symbol}/warnings`, `GET /api/v1/market-calendar/KR`, `GET /api/v1/market-calendar/US`.
 - access token은 `base_url + client_id` 단위 공유 캐시에서 재사용하고, 만료 5분 전 갱신 대상으로 본다. 401 응답 시에는 해당 요청이 사용한 token이 아직 캐시에 남아 있을 때만 캐시를 지우고 1회 재발급/재시도한다. 다른 병렬 요청이 이미 token을 갱신했다면 그 token을 재사용한다.
-- holdings 응답은 `BrokerHolding`으로 매핑한다. `marketCountry`는 `KR`/`US`, `currency`는 `KRW`/`USD`만 공통 타입으로 변환한다. Dashboard 표시와 자동매매 시작 전 전략 포지션 복원에 사용하되, 자동매매 주문 수량 산정에는 재사용하지 않는다.
+- holdings 응답은 `BrokerHolding`으로 매핑한다. `marketCountry`는 `KR`/`US`, `currency`는 `KRW`/`USD`만 공통 타입으로 변환한다. Dashboard 표시와 계좌 tracker 게시에 사용한다. 전략 보유는 별도 exact owner 원장에서 복원하며 계좌 전체 수량을 전략 소유로 배정하지 않는다.
 - prices 응답은 `BrokerPriceQuote`로, candles 응답은 `BrokerCandle`로 매핑한다. `prices`는 최대 200개 symbols, `trades`는 count 1~50, `candles`는 interval `1m`/`1d`와 count 1~200 범위를 client에서 선검증한다. 공식 스펙 v1.2.2 기준 `prices` symbols는 영문 대/소문자, 숫자, `.`, `-`를 허용하고 응답 symbol은 canonical casing으로 올 수 있으므로 adapter/자동매매는 응답 symbol을 대소문자 무시로 매칭한다.
 - stocks 응답은 `TossStockInfo`, warnings 응답은 `TossStockWarning`으로 보존한다. 공식 스펙이 unknown warning code 허용을 요구하므로 `warningType`은 enum이 아니라 문자열로 유지한다.
 - market-calendar 응답은 KR의 `today.integrated.regularMarket`과 US의 `today.regularMarket`을 `MarketCalendarOverride`로 변환해 장 시간 판단에 사용한다. 공식 US calendar의 `dayMarket`/`preMarket`/`afterMarket`도 함께 보존해 Toss 미국 수동 주문과 자동매매 세션 gate에 사용한다. 공식 calendar가 있으면 우선 사용하고, 없거나 조회 실패하면 기존 KST 하드코딩 fallback을 유지한다.
@@ -102,7 +115,7 @@ npm run verify:toss-openapi
 - `get_toss_chart_data` IPC와 `/api/toss-chart/:symbol` 웹 REST는 활성 Toss 프로파일 기준 `1d`/`1m` candles를 기존 `ChartCandle[]`로 내려준다. Trading 화면은 `StockChart source="toss"`로 lightweight-charts를 재사용한다. Strategy 화면의 `preview_leveraged_trend_hold` IPC와 `/api/strategy/leveraged-trend-hold/preview` 웹 REST는 요청 시점 profile/account scope를 검증하고 `1m`/`1d`를 주문 없이 deterministic replay한다. raw 매수/청산 신호·차트 외에 live 10초 tick과 분리된 replay cadence, warmup/source/range/hash, 초기자본·수수료·세금·슬리피지·환율·리스크를 반영한 주문 가능/차단/체결 가정과 equity/성과/in-out-of-sample 결과를 반환한다.
 - `get_exchange_rate_status` IPC와 `/api/exchange-rate/status` 웹 REST는 환율 source/fallback/유효시간을 `ExchangeRateView`로 내려준다. 기존 `get_exchange_rate`와 `/api/exchange-rate`는 숫자 캐시 호환 경로로 유지한다.
 - Settings 프로파일 카드의 `연결 진단` 버튼은 토스 프로파일에만 표시한다. 진단 결과는 `steps[]`, `issues[]`, OpenAPI version, accounts/holdings count, KRW/USD buying power, commissions count로 요약한다. Add 다이얼로그는 열린 섹션의 broker로 고정하고, Edit 다이얼로그는 저장된 `broker_id`를 바꾸지 않는다.
-- 자동매매 주문 실행 경로는 Toss 프로파일에서도 활성화된다. `start_trading()`은 Toss holdings 기반 `BrokerPositionSnapshot`으로 전략 내부 포지션 상태를 복원한 뒤, 활성 Toss 프로파일 설정과 `live_trading_consent`를 확인하고 실행 scope를 `BrokerScope { brokerId: Toss, accountSeq }`로 고정한다. 실행 scope가 Toss이면 자동매매 데몬은 KIS 해외 현재가로 폴백하지 않고 Toss `/api/v1/prices`를 사용한다. 전략 히스토리 초기화도 Toss 실행 scope에서는 KIS chart API가 아니라 Toss `/api/v1/candles`를 사용하며, `1d` candles는 일봉 지표에, `1m` candles OHLC는 레버리지 전략 장중 상태와 반동 관측 버퍼에 사용한다. 이후 실시간 현재가 polling은 같은 분의 마지막 장중 캔들을 갱신하고 분이 바뀔 때 새 캔들을 추가한다. Dashboard는 자동매매 시작 버튼과 수동거래 페이지 안내 패널을 유지한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
+- 자동매매 주문 실행 경로는 Toss 프로파일에서도 활성화된다. `start_trading()`은 Toss holdings를 엄격히 검증해 계좌 tracker에 게시하고 별도 exact owner 원장으로 전략 보유를 복원한 뒤, 활성 Toss 프로파일 설정과 `live_trading_consent`를 확인하고 실행 scope를 `BrokerScope { brokerId: Toss, accountSeq }`로 고정한다. 실행 scope가 Toss이면 자동매매 데몬은 KIS 해외 현재가로 폴백하지 않고 Toss `/api/v1/prices`를 사용한다. 전략 히스토리 초기화도 Toss 실행 scope에서는 KIS chart API가 아니라 Toss `/api/v1/candles`를 사용하며, `1d` candles는 일봉 지표에, `1m` candles OHLC는 레버리지 전략 장중 상태와 반동 관측 버퍼에 사용한다. 이후 실시간 현재가 polling은 같은 분의 마지막 장중 캔들을 갱신하고 분이 바뀔 때 새 캔들을 추가한다. Dashboard는 자동매매 시작 버튼과 수동거래 페이지 안내 패널을 유지한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
 
 > 마지막 업데이트: 2026-07-15T00:00:00+09:00
 
@@ -110,3 +123,38 @@ npm run verify:toss-openapi
 2026-09-11 공식 스펙 검증: v1.2.15, 33 paths. 기존 27개에 `/api/v1/stocks/all` 및 `/api/v1/stocks/{symbol}/investor-trading`, `program-trades`, `short-selling`, `credit-trades`, `securities-lending` GET 경로가 추가되어 inventory 검증 기준을 갱신했다. 추가 경로의 앱 기능은 이 변경에 포함하지 않는다.
 
 자동매매 예산: Toss HTTP 오류는 상태 코드를 보존하는 내부 타입으로 전달한다. 400/401/403/404/405/422만 확정 거절로 예약을 해제하며 408/409/429/5xx, transport/응답 파싱 실패는 보류한다. 자동 예산 주문은 정정 차단, 자동매수 지정가, 수동/자동 소유수량 분리를 유지한다.
+
+2026-10-18: [공식 OpenAPI](https://openapi.tossinvest.com/openapi-docs/latest/openapi.json) v1.2.24에서 섹터 GET5개가 추가되어38개 inventory로 검증했다. 기존 인증·오류·rate-limit 헤더 검사는 유지한다. 계좌/주문 호출은 하지 않았다.
+
+캔들 cursor·봉 시각과 KIS 요청 불일치의 구현 잔여는 [공개 계약 조사](completed-history.md#task-provider-candle-contract-20261018)를 따른다.
+
+
+### 체결·수수료의 네이티브 단위 확인 (2026-10-18)
+
+[공식 OpenAPI v1.2.24](https://openapi.tossinvest.com/openapi-docs/latest/openapi.json)의 `OrderExecution.filledAmount`는 총 체결 금액(native currency), `averageFilledPrice`는 평균 가격이다. 정수 평균가에 수량을 다시 곱해 누적 금액을 복원하면 나눗셈 잔액이 사라질 수 있다. nullable 응답·미확인 자료와 실제 0을 구분한다.
+
+`Commission.commissionRate`는 소수 비율이다. `0.00015`는 `0.015%`이며 1,000,000원 주문의 수수료는150원이다. `OrderPreflightConstraints.commission_rate_ratio`는 추가로100을 나누지 않으며, wire `commissionRate` 문자열은 원본 비율을 유지하고 화면에서만 퍼센트로 변환한다. 비정상·음수 rate는 사전검증을 차단한다. 수수료 정책 미확보의 기존 명시적 경고는 유지한다.
+
+❌ 기존 오류: 비율을 percent로 해석해 `/100`하거나 원본 뒤에 `%`를 붙여 수수료/표시를100배 낮추는 것.
+
+✅ 현 계약: 공식 비율을 주문 필요 현금 계산에 사용하고 표시 시에만 퍼센트로 변환한다. 경계 cash10001/필요10002와 실제 패널 표시를 검증한다. 실제 broker 주문 검증을 뜻하지 않는다.
+
+> 마지막 업데이트: 2026-10-18T14:30:00+09:00
+
+
+앱의 누적금액 정책: `filledAmount` 명시값이 우선이다. 누락에만 실제 `averageFilledPrice` 원문×확정 정수 수량을 총액에서 한번 반올림한다. 명시0/오염·시장 통화 불일치를 주문가나 신호가로 대체하지 않는다. 소액 검증 즉시 fill은 명시금액이 있어야 하며 원 주문 ID·symbol·BUY·통화·정수1주를 검증한다. 누락 금액은 즉시 적용 없이 pending을 유지해 정규 대조로 넘긴다.
+
+> 마지막 업데이트: 2026-10-18T14:40:06+09:00
+
+
+## 2026-10-29 공개 REST 명세 변경
+
+[공식 JSON](https://openapi.tossinvest.com/openapi-docs/latest/openapi.json) v1.2.28은39 paths/42 operations다. 이전 검증 목록38개는 모두 존재하고 `GET /api/v1/rankings/investor-trading` 한 경로가 추가됐다. 선택 count는1~100/default100, OAuth2 Bearer이며 계좌 헤더는 없다. 이 API를 호출하거나 앱 기능으로 구현하지 않았다. 원래 인증·오류·rate-limit·정확한 inventory 검사를 유지했다. 공개 JSON SHA256은 `18fdc96fdf632e4869c765ed0cb169049c5310a1c48e10b40e47a71f52aa7a45`다.
+
+## 2026-10-31 시뮬레이션 본문 파싱의 로컬 교정
+
+Toss 전용 client의 무압축 identity 협상과 캔들 전용 안전 단계 진단으로 합성HTTP의 rawgzip→UTF8 실패 경로를 교정했다. 실제 사용자 응답이 gzip이었다는 증거는 없으며 잘린/손상본문·미지원coding은 계속 명시 실패한다. 신규14개·기존/인접 검증과 전체 Rust/시뮬레이션·CI·게시 근거, 운영앱/실계좌 미실행 범위는 [단일 작업 기록](completed-history.md#task-toss-simulation-response-parsing-20261031)을 따른다. DTO·가격/시각·재시도/금융 guard·TLS/의존성 정책을 변경한 것이 아니다.
+
+## 2026-11-05 공개 REST inventory 보정
+
+[공식 JSON](https://openapi.tossinvest.com/openapi-docs/latest/openapi.json)의 v1.2.28 공개 문서에서 `GET /api/v1/transactions`를 확인했다. 기존 39개 고정 경로를 유지하고 이 경로만 추가해 40개를 기대한다. 본인 계좌 거래내역 조회이며 OAuth2와 `X-Tossinvest-Account`가 필요하다. 정확한 경로 수·누락 경로·제목·서버·오류·rate-limit 검사는 유지하며, 앱의 거래내역 기능은 구현하지 않는다. 로컬 공식 JSON 다운로드·원문 SHA256 확인은 클라우드 네트워크 정책으로 차단됐으므로 이전 절의 해시를 최신 해시로 재사용하지 않는다. 검증 진행 상태는 [이력](completed-history.md#toss-inventory-20261105)을 따른다.

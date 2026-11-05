@@ -1,0 +1,142 @@
+{
+  "source": "../strategy-review-20261018/input.json",
+  "sourceSha256": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+  "evaluationStart": "20230103",
+  "evaluationEnd": "20251231",
+  "evaluationBarsPerSymbol": 752,
+  "historyBars": 252,
+  "costBps": [
+    10,
+    20
+  ],
+  "initialCapitalKrw": 10000000,
+  "exchangeRateKrw": 1450,
+  "taxBps": 0,
+  "executionModel": "nextOpen",
+  "dividendScenario": [],
+  "fxScenario": [],
+  "stopLossPct": 0,
+  "takeProfitPct": 0,
+  "partitions": [
+    "12 calendar-quarter chunks",
+    "500+252 bars"
+  ],
+  "matchedPathReference": "Fixed accepted share quantities/timing; previous close to current open gap PnL plus current open to close PnL at fixed FX. Equals final equity plus recorded fees/tax/slippage. Not an independent signal benchmark, cost-free rerun or same percentage exposure.",
+  "declaredAt": "2026-10-22T21:10:57+09:00",
+  "declaredBeforeCandidateRuns": true,
+  "baselineCommit": "13c5fd3b354ed47c604db32a239fdccc66820f79",
+  "plannedEngineVersion": "strategy-replay-v19",
+  "configs": [
+    {
+      "symbol": "SOXQ",
+      "strategyId": "failed_breakout",
+      "orderQuantity": 51,
+      "params": {
+        "lookback_days": 20,
+        "buffer_pct": 0.5
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "19.91"
+    },
+    {
+      "symbol": "SPY",
+      "strategyId": "failed_breakout",
+      "orderQuantity": 2,
+      "params": {
+        "lookback_days": 20,
+        "buffer_pct": 0.5
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "382.43"
+    },
+    {
+      "symbol": "QQQ",
+      "strategyId": "failed_breakout",
+      "orderQuantity": 3,
+      "params": {
+        "lookback_days": 20,
+        "buffer_pct": 0.5
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "266.28"
+    }
+  ],
+  "variants": [
+    {
+      "id": "legacy",
+      "engine": "baseline",
+      "params": {}
+    },
+    {
+      "id": "owned",
+      "engine": "current",
+      "params": {}
+    },
+    {
+      "id": "completedHigh",
+      "engine": "current",
+      "params": {
+        "breakout_basis": "completedHigh"
+      }
+    },
+    {
+      "id": "atr0_5",
+      "engine": "current",
+      "params": {
+        "atr_buffer_multiplier": 0.5
+      }
+    },
+    {
+      "id": "volume1_5",
+      "engine": "current",
+      "params": {
+        "min_volume_ratio": 1.5
+      }
+    },
+    {
+      "id": "profit5trail3",
+      "engine": "current",
+      "params": {
+        "profit_activation_pct": 5.0,
+        "profit_trailing_pct": 3.0
+      }
+    },
+    {
+      "id": "hold63",
+      "engine": "current",
+      "params": {
+        "max_hold_observations": 63
+      }
+    }
+  ],
+  "expectedContinuousRuns": 42,
+  "expectedAlternatePartitionRuns": 42,
+  "expectedIndependentQuarterResetRuns": 504,
+  "policy": {
+    "defaults": "lookback20/buffer0.5 unchanged. breakout_basis omitted=priceObservations; all new numbers0disabled. No operating settings changed.",
+    "owned": "Confirmed quantity/native avg only, no signal-owned toggles. All sells confirmed remaining quantity. Retain original pre-entry anchor until actual flat; pending first-fill anchor fixed. Preserve rejection/partial/unknown origin/reconfigure/exact owner checkpoint. Do not assume economic parity; measure legacy vs owned.",
+    "basis": "priceObservations is the previous native-price maximum: daily closes in this study, quotes live. completedHigh uses maximum of previous lookback completed DAILY highs, excludes candidate high. Buy on candidate current price, not current high. Anchor is pre-buffer high, never threshold or fill average.",
+    "atr": "max(legacy floor(anchor*(1+buffer_pct/100)), anchor+multiplier*arithmetic mean14TR from15 prior completed DAILY OHLC). Compare integer price to real threshold (effective ceil for new ATR limb). Zero ATR is ready and retains legacy percent threshold. Existing positive-ATR users remain unchanged.",
+    "volume": "Latest prior completed DAILY volume / mean of20 completed DAILY volumes strictly before it,21previous bars total. Current bar/quote cumulative volumes excluded. Parse raw strings to Option<u64> before lossy legacy parser. Missing/malformed None is not zero. Verified zero numerator with positive mean is valid ratio0 rejection; zero mean is zeroReferenceVolume readiness failure. Atomic OHLC+volume history/complete hooks forward old behavior exactly once for other strategies. No zip truncation or fabricated OHLC/volume.",
+    "profit": "If actually owned, observed price>=actual native avg*(1+activation/100) arms once. Track only actually owned observed prices, never pre-entry/current-bar high. Once armed retain until flat. Sell if current<=owned observed peak*(1-trailing/100). Defaults both0off; both positive required otherwise strict invalid. Same quantity/partial/reconfigure retain arm/peak; v1 unknown peaks are not invented.",
+    "age": "max_hold_observations0disabled. Known first confirmed entry age0, following owned observation1; preserve sameqty/partial/warmup/reconfigure. Cold owned/v1 without known age remains unknown; active cap offers conservative next-owned-observation exit without fake age. Limit is observations, not days/guaranteed actual held-time bound.",
+    "priority": "Existing failure price<confirmed anchor, then armed profit pullback, then max age. All sustained while actually owned/condition holds, existing guard/clamp/risk unchanged. Rejection is not fill and does not erase anchor/arm/age.",
+    "metadata": "Continue reading existing v1 kindfailedBreakout confirmed/candidateAnchor strictly and exactly. v2 adds known/unknown age, owned observation peak/profit arm; cross-kind/contradictions/unknown fields fail atomically. v1 cold held metadata leaves age/peak/arm evidence unknown.",
+    "validation": "basis priceObservations|completedHigh; atr_buffer_multiplier finite0..20; min_volume_ratio finite0..100; profit_activation_pct finite0..1000; profit_trailing_pct finite0..99.9 with paired off/positive; max_hold_observations integer0..1000000. New null/string/bool/fractional integer rejected in save/bounded/continuous. Damaged optional runtime blocks Buy while legacy custom lookback/buffer and owned exits survive. Active daily inputs reject non-daily replay rather than treating minute/quote volume as daily."
+  },
+  "limitations": [
+    "Retrospective diagnostic on previously inspected frozen prices, not unseen OOS or preregistration. Thresholds fixed before this candidate run; no grid/combinations or retuning after observing returns.",
+    "3correlated ETFs, small trades, fixedFX/no dividends, uncertified market calendar/corporate actions. Same requested quantities need not match actual exposure.",
+    "Continuous2023-2025 and12reset quarters are different capital/state experiments, never add/compound reset accounts. 2026default1224 compatibility includes observed future study data, not candidate OOS.",
+    "Actual production Rust strategy/replay only; synthetic fixtures separate; no broker/account/order calls."
+  ]
+}

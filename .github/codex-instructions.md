@@ -1,6 +1,6 @@
 # KISAutoTrade — Codex 프로젝트 지침
 
-개인용 자동 주식 매매 시스템. **Rust (Tauri v2) + React 18 + TypeScript** 풀스택.  
+개인용 자동 주식 매매 시스템. **Rust (Tauri v2) + React 19 + TypeScript** 풀스택.
 작업 전 반드시 `AGENTS.md`를 읽어 현재 구조를 파악한다.
 
 ---
@@ -45,7 +45,7 @@ npm run check:graphify
 npm run check:project-map
 ```
 
-모든 변경 후 `cargo check` → `npx tsc --noEmit` 순서로 검증한다.  
+코드 변경 후 `cargo check` → `npx tsc --noEmit` 순서로 검증한다. 문서만 바뀌면 아래 문서 게이트를 적용한다.
 **경고(warning) 0개**를 목표로 한다. 경고가 남아있으면 완료로 보고하지 않는다.
 
 ---
@@ -153,7 +153,7 @@ npm run check:project-map
 2. 전략 내부 `in_position`은 실제 보유 수량과 다를 수 있으므로, 자동매매 시작/재시작 시 KIS 잔고와 로컬 포지션을 기준으로 복원한다.
 3. 횡보장 필터(ATR, 밴드폭, 최근 반대 신호 횟수)를 전략별 옵션이 아닌 공통 리스크/guard 후보로 우선 설계한다.
 4. 체결은 가격 틱 기반 가정이 아니라 주문번호 기반 체결 조회로 확인한다. 로컬 자동 체결은 모의/개발 편의 기능으로 격리한다.
-5. 반복 매매 방지 변경은 `todo.md`, `rust-skills/SKILL.md`, 필요 시 `kis-api/SKILL.md`에 함께 기록한다.
+5. 반복 매매 방지 변경은 `docs/todo.md`, `rust-skills/SKILL.md`, 필요 시 `kis-api/SKILL.md`에 함께 기록한다.
 
 ---
 
@@ -182,7 +182,7 @@ npm run check:project-map
   `npm run check:graphify`를 통과한다. 상세 절차는
   `docs/agent-tooling.md`를 따른다.
 
-- 소스 파일이 1000라인을 초과하면 신규 기능을 더 얹기 전에 페이지/route/helper/domain 단위로 분리한다. 즉시 분리가 어렵다면 `todo.md`에 구체 파일과 분리 축을 기록한다.
+- 소스 파일이 1000라인을 초과하면 신규 기능을 더 얹기 전에 페이지/route/helper/domain 단위로 분리한다. 즉시 분리가 어렵다면 `docs/todo.md`에 구체 파일과 분리 축을 기록한다.
 - 숫자/금액/decimal 표시, provider trace, broker scope, 프로파일 view처럼 두 곳 이상 반복되는 helper는 `shared/lib`, `shared/ui`, backend view builder 등 공용 위치로 승격한다.
 - 로그 조회, 이벤트 listener, background daemon, TanStack Query polling, cache, per-symbol map을 추가하거나 수정할 때는 OOM·jank·quota 낭비 가능성을 점검한다.
 - **위임 게이트는 작업 시작 전과 최종 보고 직전에 두 번 실행한다.** 모든 구현/리뷰 턴에서 먼저 "위임 판단 체크"를 수행한다. 아래 조건 중 하나라도 맞으면 subagent 도구가 노출된 런타임에서는 서브 에이전트 위임을 시도한다. 이 저장소에서 코드 리뷰/문서 drift 점검은 사용자가 기본 허용한 read-only 감사로 본다. 이미 구현을 끝낸 뒤 조건을 발견했어도 최종 보고 전에 review/documentation pass를 별도 위임하거나 직접 수행해야 한다.
@@ -278,7 +278,7 @@ Use the repository at <repo>. Compare the current diff against AGENTS.md, docs/i
 | Rust 데이터 구조, trait, 에러 처리, serde | `.github/skills/rust-skills/SKILL.md` |
 | KIS API 인증, REST/WS 호출, tr_id, 에러코드 | `.github/skills/kis-api/SKILL.md` |
 | 토스증권 OpenAPI, OAuth2, 계좌 헤더, rate limit, REST adapter | `.github/skills/toss-api/SKILL.md` |
-| MUI v6 컴포넌트, 차트, 색상, 금융 UI 컨벤션 | `.github/skills/ui-conventions/SKILL.md` |
+| MUI v9 컴포넌트, 차트, 색상, 금융 UI 컨벤션 | `.github/skills/ui-conventions/SKILL.md` |
 
 Codex 환경에서는 프로젝트 루트의 `.codex/skills/kisautotrade-*` 브리지 스킬이 현재 작업 저장소 루트 기준으로 위 원본 스킬을 다시 읽도록 구성되어 있다. Codex 런타임이 계정 스킬만 읽는 경우 `scripts/sync-codex-skills.ps1`로 `~/.codex/skills`에 동기화한다. 브리지 스킬은 자동 트리거용 얇은 연결 파일이므로, 규칙 변경 시 반드시 저장소의 `.github/skills/**/SKILL.md`를 수정한다.
 
@@ -286,7 +286,9 @@ Codex 환경에서는 프로젝트 루트의 `.codex/skills/kisautotrade-*` 브�
 
 ## 살아있는 문서 원칙 (Living Documentation)
 
-`AGENTS.md`, `todo.md`, `docs/project-map.md`, `docs/ipc-commands.md`, `codex-instructions.md`, `.github/skills/**` 는 **항상 현재 코드베이스를 정확히 반영하는 살아있는 문서**여야 한다.  
+문서 생성·통합의 정본은 [문서 소유권과 기록 규칙](../docs/agent-tooling.md#문서-소유권과-기록-규칙)이다. 작업마다 날짜별 문서를 만들지 말고 TODO의 같은 ID와 기존 완료 이력을 갱신한다. 독립 수명이 없는 보고서·템플릿 복제는 하지 않는다. 문서만 변경한 작업은 링크/등록부·생성물·독립 내용 검토를 적용하며, 코드 변경용 전체 Rust/UI 빌드를 반복하지 않는다.
+
+`AGENTS.md`, `docs/todo.md`, `docs/project-map.md`, `docs/ipc-commands.md`, `codex-instructions.md`, `.github/skills/**` 는 **항상 현재 코드베이스를 정확히 반영하는 살아있는 문서**여야 한다.
 작업 종료 시점에 아래 기준을 충족하지 못하면 완료로 보고하지 않는다.
 
 문서 업데이트는 구현 완료 조건이다. documentation-update subagent가 있으면 drift 감사를 위임할 수 있지만, 도구가 없으면 메인 에이전트가 직접 갱신한다. read-only 턴에서는 파일을 수정하지 않고 갱신 대상과 권장 문구를 보고한다.
@@ -334,12 +336,12 @@ Codex 환경에서는 프로젝트 루트의 `.codex/skills/kisautotrade-*` 브�
 ## 참고 문서
 
 - `AGENTS.md` — Codex 에이전트 가이드 (핵심 경로·빌드·변경 이력)
-- `todo.md` — 개선 백로그 및 다음 작업 목록
+- `docs/todo.md` — 개선 백로그 및 다음 작업 목록
 - `docs/project-map.md` — 전체 디렉토리 맵 및 모듈 책임 (항상 최신 유지)
 - `docs/agent-tooling.md` — 프로젝트 맵·Serena·Graphify 서브 에이전트 운영
 - `docs/ipc-commands.md` — IPC 커맨드 전체 목록 (항상 최신 유지)
 - `docs/coding-guide.md` — 설정 추가·AppState·IPC·데몬·제어흐름 실전 가이드
-- `docs/MasterPlan.md` — 전체 설계 문서 (아카이브, 읽기 전용)
+- `docs/completed-history.md#legacy-master-plan` — 전체 설계 문서 (아카이브, 읽기 전용)
 - `docs/discord-setup-guide.md` — Discord 봇 설정 가이드
 - [KIS Developers 포털](https://apiportal.koreainvestment.com/)
 - [KIS Open API 샘플 코드](https://github.com/koreainvestment/open-trading-api)

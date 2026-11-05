@@ -1,6 +1,6 @@
 ---
 name: ui-conventions
-description: "AutoConditionTrade 프로젝트 UI 컨벤션. MUI v6 컴포넌트 사용 규칙, 차트(lightweight-charts v5) 패턴, 레이아웃 규칙, 색상 시스템, 금융 데이터 표시 규칙. Keywords: MUI, chart, lightweight-charts, 차트, 레이아웃, 색상, 금융, React, Trading, StockChart"
+description: "AutoConditionTrade 프로젝트 UI 컨벤션. MUI v9 컴포넌트 사용 규칙, 차트(lightweight-charts v5) 패턴, 레이아웃 규칙, 색상 시스템, 금융 데이터 표시 규칙. Keywords: MUI, chart, lightweight-charts, 차트, 레이아웃, 색상, 금융, React, Trading, StockChart"
 ---
 # UI 컨벤션 스킬 — AutoConditionTrade
 
@@ -40,7 +40,7 @@ description: "AutoConditionTrade 프로젝트 UI 컨벤션. MUI v6 컴포넌트 
 export default function MyPage() {
   return (
     <Box>
-      <Typography variant="h5" fontWeight={700} mb={3}>
+      <Typography variant="h5" sx={{ fontWeight: 700, mb: 3 }}>
         페이지 제목
       </Typography>
       {/* 콘텐츠 */}
@@ -54,12 +54,12 @@ export default function MyPage() {
 ```tsx
 <Grid container spacing={2}>
   {/* 좌: 좁은 작업 패널 */}
-  <Grid item xs={12} md={4}>
+  <Grid size={{ xs: 12, md: 4 }}>
     <Paper sx={{ p: 3, height: '100%' }}>...</Paper>
   </Grid>
 
   {/* 우: 넓은 데이터/차트 패널 */}
-  <Grid item xs={12} md={8}>
+  <Grid size={{ xs: 12, md: 8 }}>
     <Paper sx={{ overflow: 'hidden' }}>...</Paper>
   </Grid>
 </Grid>
@@ -72,7 +72,16 @@ export default function MyPage() {
 - 스크롤 방지: Drawer paper에 `overflowX: 'hidden'`
 - 자동매매 시작/정지처럼 앱 어디서든 즉시 접근해야 하는 전역 동작은 좌측 사이드바의 실행 상태 chip 옆에 icon button으로 둔다. 버튼은 `useTradingStatus`와 같은 Query cache를 갱신하는 `useStartTrading`/`useStopTrading` 훅을 사용하고, pending 상태에서는 spinner와 disabled 상태를 표시한다.
 
+### Settings 목차와 명시 이동
+
+- `src/pages/settings/ui/settingsNavigation.tsx`의15개 안정 ID와 `Section`의 명명된 h2/중첩 복구 h3를 함께 유지한다. 목차/복귀 링크는 실제 제목으로 focus를 옮기고 가시적인 outline을 제공한다. URL hash/history를 추가하거나 설정의 저장·조회·데스크톱 제한을 바꾸지 않는다. 로딩/실패 때도 목차가 가리키는 도착점은 남긴다.
+- 실제 발생: 지연된 Risk 자료로 페이지 높이가 줄어든 routeback에서 기존 pending scroll 복원이 사용자의 목차 이동을 덮었다. `shared/lib/pageFocusNavigation.ts`의 동기 알림을 focus/scroll 직전에 보내고 AppShell은 현재 route와 pending route가 같은 경우에만 복원을 취소한다. 기존 자동 복원 함수·1200ms·다른 route·일반 scroll/resize를 유지하고 listener cleanup을 짝지운다. 반복 강제 scroll이나 임의 대기로 덮지 않는다.
+- 기존 route 위치는 AppShell 메모리에만 보관하므로 reload는 기본0이다. routeback·reload0·자료 지연/5분 cache GC·다른 route 이벤트 거부·반복 목차 이동을 구분해 검증한다. 기본 h2/h3는 native heading level로 확인하며 불필요한 aria-level 속성을 요구하지 않는다.
+
 ### 조절 가능한 패널
+
+- `LayoutResizer`의 `label/value/min/max/defaultValue/onValueChange`를 부모에서 전달한다. focus가 있는 separator에서 조절 축 화살표(기본10px), Home/End(최소/최대), Enter(기본값 복원)를 제공한다. ARIA 방향은 이동축이 아닌 분할선이다(폭 조절=vertical, 높이 조절=horizontal).
+- keyboard는 부모의 명시적 target값을 clamp한 뒤 setState·기존 `writeStoredNumber`로 저장한다. state updater 안에서 저장하거나 setState 직후 이전 ref값으로 저장하지 않는다. 기존 mouse `onResize(delta)/onResizeEnd`와 저장 키/범위는 유지한다. 상태/ARIA는 크기 설정값이며 flex/가용공간 제약의 실제 렌더 크기와 항상 같다고 가정하지 않는다.
 
 - Log 화면 높이처럼 사용자가 드래그로 조절하는 내부 패널은 `LayoutResizer`와 `persistentLayout` helper를 함께 사용한다.
 - 저장 키는 `act:panel:{panelName}:width|height` 형식을 유지한다. 예: `act:panel:log:height`.
@@ -176,6 +185,16 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 - Dashboard의 Toss 소액 수동매매 검증 gate는 `src/features/manual-order`의 공유 컴포넌트를 사용한다. Dashboard는 검색 종목 1주 시장가 매수 조건을 사전검증하고, 실거래 동의·최종 확인 checkbox·최대 허용금액을 같은 화면에서 보여준 뒤 Dashboard 전용 버튼으로만 실제 소액매매 검증을 제출한다. Trading은 일반 주문 패널에서 `TossOrderPreflightPanel`을 표시하고 `canSubmit=true`일 때 수동 주문 버튼을 활성화한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
 - Trading의 Toss 수동 주문창은 접수 주문 목록을 같은 패널 안에서 보여준다. 좁은 좌측 주문 패널에서는 다열 테이블을 쓰지 말고 주문별 카드로 종목, 매수/매도, 주문가, 수량, 체결수량, 상태를 표시한다. 가격 정정 UI는 카드 안의 전체 폭 입력 폼으로 제공해 주문 ID나 컬럼 폭 때문에 가격/정정 버튼이 가려지지 않게 한다. 접수 주문 정정 성공/실패는 Alert로 표시하고, 토큰·secret·계좌 원문은 노출하지 않는다.
 
+### 조회 상태·이전 자료 표시
+
+- 조회 전/실패를 정상 0·빈 목록·정지로 단정하지 않는다. 기존 query의 data/isError/isFetching/dataUpdatedAt을 반영해 최초 미확인·실패·성공·이전 자료를 구분한다.
+- 여러 화면의 조회 상태는 `src/shared/ui/QueryStatusSummary.tsx`의 범용 props 표시를 재사용한다. 이 콤포넌트는 API/hook/금융 정책을 소유하지 않으며 실제 상태 문구·재조회는 호출부에서 전달한다. 시작/정지·위험 해제 동작 정책를 표시 개선에 섞지 않는다.
+
+- `placeholderData: []`인 Log는 data 존재만으로 정상 무기록을 확정하지 않는다. 실제 응답과 성공 시각을 확인하고 최초 로딩/실패·정상 원본0·필터0·이전 자료를 나눈다. 재조회 실패 뒤 남은0건도 이전 성공 자료이며 마지막 정상 시각을 유지한다.
+- Log의5초 polling은 안정된 의미 상태문구만 polite live 영역에 두고 건수·성공시각·background fetching은 밖에서 표시한다. 공통 상태 표시가 매 poll마다 안내를 바꾸면 페이지 내부 표시를 사용하며 기존 query/poll/tail·행/trace·사용자 스크롤/리사이저 계약은 보존한다.
+
+- TanStack Query 테스트에서 첫 응답 전에 가짜 시계를 멈추면 HTTP200/body 완료 뒤에도0ms batch 알림이 정지해 placeholder 화면이 남을 수 있다. 초기 정상 count/status를 실제로 확인한 뒤 clock을 정지해 poll을 격리한다. 초기 지연 자체를 검증할 때는 응답 완료와 알림 timer 진행을 명시하고5초 poll/정확 요청수·기존 기대를 바꾸거나 timeout/skip으로 숨기지 않는다.
+
 ### Provider trace 표시
 
 - History/Log처럼 provider 문의·디버깅 식별자를 보여주는 화면은 `src/shared/ui/ProviderTraceChips`를 재사용한다.
@@ -185,6 +204,13 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 ---
 
 ## 5. 차트 컴포넌트 — StockChart
+
+### 텍스트·키보드 자료 대안
+
+- `src/widgets/stock-chart/ui/CandleDataSummary.tsx`는 두 차트가 기존 converter로 만든 같은 candle/volume projection을 받아 표시한다. 시각/제외 조건이 다른 국내·Toss와 해외 converter를 합치지 않는다. canvas·표의 수치를 새로 파싱/환산하거나 새 시세 query를 만들지 않는다.
+- 최신 봉과 선택 봉을 구분하고 최근20봉만 표에 둔다. 종목/source/프리셋/시장·거래소 scope가 바뀌거나 새 projection이 들어오면 이전 선택을 해제한다. native summary/표·봉 버튼의 방향키/Home/End와 focus를 제공하며 자동 갱신 자료는 aria-live=off로 유지한다.
+- KIS 국내 KRW/해외 USD는 기존 경계를 따르되 Toss ChartCandle은 backend가 Money.currency를 보존하지 않으므로 통화 미확인을 명시한다. 선택 시장으로 통화를 추정하지 않는다. 선택 프리셋·요청 설정과 실제 확보된 봉 범위/마지막 조회 시각을 분리하고 기간 전체 coverage·실시간성·새 시장 시계 의미를 보증하지 않는다.
+- 실제 DOM에서 이름이 없는 캔들/라인 toggle만 label을 보완하고 이미 이름이 있는 zoom 컨트롤은 유지한다. 자체 canvas의 유색 데이터와 빈 격자를 구분하고 resize 완료·theme·unmount/remount를 검증한다. canvas 검사 readback은 willReadFrequently가 있는 테스트 전용 복사본을 사용해 검증 자체의 성능 경고를 피한다. 실제 AT/native 미실행은 별도 기록한다.
 
 ### 라이브러리 선택 근거
 
@@ -373,7 +399,7 @@ TextField에 `helperText`가 있으면 컴포넌트 전체 높이가 늘어나 `
 ```tsx
 // ✅ 권장 패턴
 <Box>
-  <Stack direction="row" spacing={1} alignItems="center">
+  <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
     <TextField
       label="레이블"
       size="small"
@@ -389,7 +415,7 @@ TextField에 `helperText`가 있으면 컴포넌트 전체 높이가 늘어나 `
 </Box>
 
 // ❌ 잘못된 패턴 — helperText가 포함된 상태로 alignItems="center"
-<Box display="flex" alignItems="center">
+<Box sx={{ display: 'flex', alignItems: 'center' }}>
   <TextField helperText="..." />  {/* Button이 입력 필드보다 낮게 표시됨 */}
   <Button>저장</Button>
 </Box>
@@ -452,6 +478,73 @@ useEffect(() => {
 ```
 
 ---
+
+비동기 preview 뒤 invalid 편집을 검증할 때는 첫 정상 결과를 먼저 관측한다. candle 수집 중 generation 취소를 정상 POST 완료로 간주하지 않고 원래 차단·결과 제거·요청 수 기대를 유지한다. [CI 후속 근거](../../../docs/completed-history.md#keyboard-final-ci-20261031).
+
+### 검색 결과·보유 행 키보드 선택
+
+- 행의 기존 pointer 선택을 유지하면서 `src/shared/ui/RowSelectionButton.tsx`의 native Button으로 Tab/Enter/Space 선택과 이름·코드 accessible name을 제공한다. Button의 click propagation을 끊어 부모 행과 같은 선택을 두 번 실행하지 않는다.
+- 입력과 결과 팝업을 하나의 focus 영역으로 보고 relatedTarget이 영역 안일 때 blur 닫힘을 예약하지 않는다. 영역 밖 이동은 기존180ms 닫힘을 유지한다. Escape/검색 선택 뒤 원래 입력으로 focus를 돌리되 내부 이동의 onFocus가 목록을 다시 열지 않게 한다.
+- 선택의 실제 종목·시장·주문/전략 상태 closure는 원래 도메인에 두고 공통화하지 않는다. 입력·table/row role·포인터 클릭을 함께 회귀 검사하며 금융 제출과 종목 선택을 섞지 않는다. [구현·검증 기록](../../../docs/completed-history.md#task-uiux-improvements-20261030).
+
+
+### 키보드 조회·조합·처리 중 상태의 검토 기준
+
+- 검색 입력 Enter는 해당 읽기 조회 버튼과 같은 유효성·pending 조건으로 다룬다. 이미 지원되는 Enter/Tab/Space/Escape와 직접 코드 선택은 보존하고, 조합 중 Enter/isComposing·229·키 반복·늦은 응답·scope 전환을 별도로 검사한다.
+- 수치 컨트롤은 보이는 이름·단위를 실제 입력/Slider의 접근 가능 이름·설명과 연결하고 기존 범위·step·Tab blur 저장 의미를 유지한다. 목록 내부 포커스·닫기/복귀·Dialog pending/Escape/중복 활성화·오류 재시도도 대조한다.
+- 조회 Enter를 주문·자동매매 시작·삭제·위험 해제의 전역/자동 제출로 확대하지 않는다. 기존 동의/preflight·확인·pending/scope guard와 긴급정지 즉시성을 보존한다.
+- 현재 지원과 미착수 개선은 [TODO](../../../docs/todo.md), 실제/합성/소스 근거와 미검증 경계는 [키보드 검토 이력](../../../docs/completed-history.md#kbd-audit-20261031)을 따른다. 합성 composition 이벤트를 실제 OS IME·AT/WebView 검증으로 주장하지 않는다.
+
+### 키보드 회귀의 실제 입력 대상 준비
+
+- MUI Dialog 배경은 고정 viewport 좌표가 아니라 현재 Paper 밖 container 자기 hit를 확인하고 실제 trusted mousedown/click 대상을 기록한다. scrollbar gutter나 자식 hit를 정상 배경 클릭으로 간주하지 않는다.
+- native disabled 버튼을 누른 뒤에는 다음 키의 실제 focus/target을 확인한다. 유효 blur가 즉시 저장·family disabled를 시작하는 기존 정책에서는 저장 없는 Tab 왕복과 저장 잠금/해제 검증을 분리하고 자동 focus 보장을 새로 만들지 않는다. 강제 클릭·sleep·retry/timeout 증가로 준비 오류를 가리지 않는다. [CI 후속 근거](../../../docs/completed-history.md#keyboard-final-ci-20261031).
+
+- clock을 소유한 Query UI fixture는 초기 scope/자료 응답의 body 완료와 observer 알림 전달을 구분한다. 정확한 초기 GET을 navigation 전에 관측하고 준비 단계의 microtask·소유 clock tick 뒤 기존 입력 기대를 실행한다. HTTP200만으로 화면 준비를 단정하거나 install을 frozen clock으로 부르지 않는다. 제어된 pause 재현과 원래 CI 관측은 구분한다.
+
+- 잠금 시 제거도 허용하는 결과 목록은 count 뒤 별도 disabled 기대를 두지 않는다. 한 DOM 관측에서 정확0개 또는 정확1개 native disabled만 허용하고 enabled·중복은 즉시 거부한다. 소유 clock으로 native 포인터 관측과 기존 blur 제거 phase를 분리하며, Paper의 timer 취소 정책을 바꾸거나 force/DOM click·일반 오류 catch로 통과시키지 않는다.
+
+### 검색 Enter의 좁은 공통 경계
+
+- `shared/lib/searchKeyboard.ts::isSearchEnter`는 Enter와 direct/native isComposing·229만 판정한다. 검색어 길이·종목/시장·broker callback·query/선택·금융 의미는 caller에 유지하며 KR2자 조건을 US1자 티커에 적용하지 않는다.
+- MUI TextField의 검색 handler는 실제 htmlInput에 연결한다. adornment/결과 선택 버튼의 native Enter·Space를 상위 입력 검색으로 중복 해석하지 않는다. 비조합 Enter만 해당 읽기 경로를 실행하고 주문·전략 추가·저장을 제출하지 않는다.
+- Trading KR6자리 직접선택, Strategy6자리 자동검색, LTH250ms 자동검색과 Toss/KIS별 fallback은 서로 다른 계약이다. callback 전체를 합치거나 debounce로 Enter의 누락을 가리지 않는다.
+- IME/229 합성 이벤트·정지된 clock의 Enter 즉시조회와 기존 timer를 분리해 검사한다. 합성 `isTrusted=false` 관측은 실제 macOS 한글 IME·WebView·스크린리더 검증이 아니다. 회차별 범위·검증과 남은 조건은 [구현 기록](../../../docs/completed-history.md#task-keyboard-improvements-20261031)을 따른다.
+
+### Settings 수치 이름과 Enter commit
+
+- page-local SliderWithInput의 useId 기반 정적 label·단위/범위/step 설명을 실제 Slider range input과 textbox에 연결한다. 현재 strong 값은 이름에 포함하지 않고 Slider valueText로 수치·단위를 전달한다. 동명 보관기간/용량은 기존 명명 section 안에서 구분하며 rerender ID/이름을 보존한다.
+- 실제 htmlInput의 typed handler에서 isSearchEnter를 판정하고 일반 Enter는 기존 blur만 한 번 호출한다. 조합/229는 blur하지 않으며 Tab/포인터 blur·MUI Slider native 키는 원래 경로다. Settings의 문자열 정리·parseFloat/round/clamp·NaN 복원과 범위/step을 numberDraft 정책으로 교체하지 않는다.
+- 즉시 저장5쌍과 Risk local dirty→명시 저장6쌍·payload/단위 변환·disabled를 유지한다. 검사는 명시 mock 저장 수와 실제 설정/주문0을 구분하고 refresh의 미지원 REST 경로를 검사 목적으로 제품에 추가하지 않는다. 실제 OS IME/AT/WebView·운영 파일/위험엔진은 별도 검증이다.
+
+### 프로필 Dialog의 처리 중 동작과 세션
+
+- Settings local useProfileDialogSession은 open/identity 참조의 epoch와 독립 main/detect/lookup을 조립한다. 기존 shared adapter의 ticket 소유권만 재사용하고 form/secret/payload를 gate key에 직렬화하지 않는다. 닫힘/옛 epoch의 begin을 거절하며 입력 키 변경은 aux만 무효화한다.
+- main pending 동안 사용자 Cancel/Escape/backdrop은 같은 동기 guard를 쓰고 초안을 보존한다. 현재 성공은 자기 ticket 마감 뒤 별도 내부 경로로 닫는다. 동일 이름/텍스트의 busy 버튼과 aria-disabled에는 실제 동기 중복 guard가 필요하며 Cancel native disabled는 유지한다. 입력의 단순 Enter/전역키를 저장/삭제로 바꾸지 않는다.
+- mutateAsync는 기존 hook publication/reconcile 완료를 소비하고 accountHooks·공유 mutation scope를 대체하지 않는다. scope는 직렬화이며 dedup이 아니다. aux 중 허용된 닫기·기존 새 키/저장 profile 분기와 계좌 선택을 유지하고 이전 세션의 success/error/finally는 새 초안·busy를 건드리지 않는다.
+- Delete의 확인/활성 경고·대상별 오류/명시재시도를 유지한다. profiles 변경과 transition onExited 뒤 실제 trigger 연결 해제를 확인해 같은 broker 추가 버튼/h2로 돌아가며, 사용자가 다른 살아 있는 control로 이동했으면 focus를 빼앗지 않는다. 별도 DOM observer/timer를 추가한 것으로 기록하지 않는다. 검증은 명시 mock 프로필쓰기·aux POST 읽기·실제 계좌/파일0을 구분한다.
+
+### 조회 요청의 수명과 처리 중 버튼
+
+- `shared/lib/keyedRequestGate.ts`는 opaque key/epoch/ticket controller와 React lifetime/revision adapter를 제공한다. 동기 begin으로 중복을 막고 current/finish는 현재 소유자만 결과·종료를 적용한다. key의 입력·시장·선택/public scope 조립, 유효성·조회·오류·broker fallback과 금융 상태는 각 모델이 소유한다.
+- 입력/범위 변경·A→B→A·unmount 뒤에는 이전 성공·오류·후속 거래소/fallback·finally를 적용하지 않는다. 새 요청이 시작됐을 때 이전 finally가 busy를 지우지 않아야 한다. 성공으로 입력 표시명을 바꾸기 전에 자기 ticket을 마감해 self-invalidation과 busy 잔류를 피한다.
+- 유효 입력의 pending 버튼은 같은 DOM·이름·focus를 유지하고 aria-busy/aria-disabled로 설명한다. aria-disabled 자체는 이벤트를 막지 않으므로 Enter/Space/포인터와 입력 Enter가 같은 동기 gate를 거쳐야 한다. 빈 입력·활성 전략 등 실제 잠금의 기존 native disabled를 유지한다.
+- Strategy의 profile/broker scope 전환은 기존 입력·선택 초기화를 보존한다. Trading의 같은 입력 유지와 다른 계약이므로 모든 화면에 같은 reset을 강제하거나 테스트의 가정에 맞춰 제품을 바꾸지 않는다.
+- 경합 검사는 정확 ticket의 응답 본문 완료와 UI 알림 이후를 확인하고, 입력만 변경·독립 scope 필드·ABA·실패/재시도·화면 이탈을 구분한다. source harness의 합성 공개 설정 변경은 실제 프로필/계좌 전환이나 backend 요청 abort·credential pinning의 증거가 아니다.
+
+### 결과 목록의 선택과 focus 탐색
+
+- Trading/Strategy/LTH 국내 결과는 native RowSelectionButton을 사용한다. optional disabled의 기본값은 false이며 LTH의 stratEnabled만 명시 연결한다. 보유 목록3곳의 기존 선택 정책을 결과 탐색으로 확장하지 않는다.
+- `focusResultButton`은 opt-in TableBody의 현재 enabled 버튼 DOM만 보고 ArrowUp/Down·Home/End focus를 clamp한다. 선택/query/index 상태를 저장하지 않으며 modifier·event 취소는 caller가 처리한다. 입력 caret·Tab/Shift+Tab·native Enter/Space·table 의미를 보존하고 전역 단축키·roving/listbox로 바꾸지 않는다.
+- LTH는 입력/검색/결과를 한 focus 영역으로 다룬다. 내부 이동은 닫지 않고 영역 밖 이동은 기존180ms를 유지한다. 선택·Escape의 프로그램 focus 복귀는 동기 ref guard로 감싸 onFocus가 닫은 목록을 다시 열지 않게 한다. 모델의250ms 조회·US gate/fallback·추가/저장은 UI focus helper로 옮기지 않는다.
+- 실제 재현된 Trading 외부 focus→행 포인터 선택의 복귀에서도 guard가 필요하다. setSymbol/setShowResults 직후 동기 focus 이벤트는 이전 render 상태를 볼 수 있으므로 relatedTarget이나 !symbol만으로 재개방을 막았다고 가정하지 않는다.
+- caret 회귀는 동일 부모·타입·서체·geometry의 handler 없는 기본 입력과 대조한다. 입력 방향키4개의 caret/direction은 엄격 비교하고 Home/End는 같은 시작 selection·실제 native key·trusted/defaultPrevented·값/focus 보존을 검사한다. 플랫폼 명령의 후속 numeric caret·진행 중 scroll 좌표는 관측 한계로 분리한다. 결과 버튼 Home/End focus/clamp는 엄격 검사하며 제품 caret이나 기본 키 동작을 재설계하지 않는다. 최종 검사는 앱에 남아 PNG를 보존한다.
+
+### 반응형 거래 표의 상세 대안
+
+- 좁은 폭에서 숨긴 시각·금액·비용은 거래별 이름이 있는 native Button과 페이지 내부 Dialog로 다시 읽을 수 있게 한다. History의 기존 formatter 결과를 전달하고 통화·USD fallback·슬리피지·trace 산식을 다시 구현하지 않는다. 같은 종목 복수 체결은 ID와 전체 기록 시각으로 구분한다.
+- MUI Dialog의 명명·focus trap·Escape/닫기 후 원래 trigger 복귀를 유지하고, 긴 ID/trace는 줄바꿈과 키보드 스크롤로 접근하게 한다. 실제 브라우저 확대의 CSS reflow와 deviceScaleFactor/단순 축소 viewport는 별도로 검증·기록한다.
+- 실제 발생한 잘못된 패턴: polling에서 선택 행이 사라져 창만 닫고 선택 ID를 남기면 동일 ID 재등장 시 클릭 없이 상세가 다시 열린다. 올바른 패턴은 선택한 ID와 적용 query 범위로 기존 자료를 찾고 유효한 대상이 없어질 때 UI 선택도 폐기하는 것이다. query/poll 주기를 바꾸지 않고 빈 응답 후 동일 ID 재등장을 회귀 검사한다.
 
 ## 해외 잔고 통화 표시 패턴
 
@@ -532,8 +625,8 @@ const { data: stats } = useTodayStats({ refetchInterval: intervalMs })
 <Collapse in={expanded}><RiskPanel /></Collapse>
 
 // ✅ 올바른 패턴 — 항상 펼쳐서 표시, 기능은 버튼으로 제어
-<Stack direction="row" alignItems="center" spacing={1} mb={1.5}>
-  <Typography variant="subtitle1" fontWeight={600}>리스크 관리</Typography>
+<Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1.5 }}>
+  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>리스크 관리</Typography>
   <Tooltip title="..."><InfoOutlinedIcon /></Tooltip>
 </Stack>
 <Divider sx={{ mb: 1.5 }} />
@@ -543,7 +636,7 @@ const { data: stats } = useTodayStats({ refetchInterval: intervalMs })
 비상정지 상태 토글 버튼 패턴:
 ```tsx
 // 비상정지 상태에 따라 다른 버튼 표시
-<Stack direction="row" justifyContent="space-between" alignItems="center" mt={1.5}>
+<Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mt: 1.5 }}>
   <Typography variant="caption" color={
     risk.isEmergencyStop ? 'error.main' : risk.canTrade ? 'success.main' : 'warning.main'
   }>
@@ -584,11 +677,11 @@ UI 규칙:
 
 ## 전략 카드 연구 작업 공간
 
-- Strategy 페이지의 모든 전략 카드는 데스크톱에서도 `Grid item xs={12}` 전체 너비를 사용한다. 일반 전략만 `md={6}`으로 줄이면 파라미터와 미리보기 차트를 동시에 읽기 어렵다.
-- 일반 전략 파라미터는 `xs={12} sm={6} md={4}`로 배치하고 TextField에 `fullWidth`를 적용한다.
+- Strategy 페이지의 모든 전략 카드는 데스크톱에서도 `Grid size={12}` 전체 너비를 사용한다. 일반 전략만 `size={{ md: 6 }}`으로 줄이면 파라미터와 미리보기 차트를 동시에 읽기 어렵다.
+- 일반 전략 파라미터는 `size={{ xs: 12, sm: 6, md: 4 }}`로 배치하고 TextField에 `fullWidth`를 적용한다.
 - 미리보기 티커 Select와 계산 버튼은 좁은 화면에서 세로로 쌓고, 데스크톱에서만 가로로 배치한다.
-- 일반 미리보기는 KIS 일/주/월봉, Toss 1분/일봉을 제공하고 분석 구간은 최근 50/100/200봉으로 분리한다. `봉 단위`와 `분석 구간`을 한 프리셋 이름으로 합쳐 사용자가 일봉과 1년 범위를 혼동하게 하지 않는다.
-- 강한 종가·변동성 확장의 generic 미리보기는 일봉만 선택할 수 있다. 전일 조건→다음 평가일과 당일 OHLC→이전 N일 평균 범위의 차이를 안내하고, 현재 동일 종가 체결 근사가 익일 시가·장중 체결을 재현한다고 표시하지 않는다.
+- 단기 구간 미리보기는 KIS 일/주/월봉, Toss 1분/일봉을 제공하고 분석 구간은 최근 50/100/200봉으로 분리한다. `봉 단위`와 `분석 구간`을 한 프리셋 이름으로 합쳐 사용자가 일봉과 1년 범위를 혼동하게 하지 않는다.
+- 강한 종가·변동성 확장의 generic 미리보기는 일봉만 선택할 수 있다. 전일 조건→다음 평가일과 당일 OHLC→이전 N일 평균 범위의 차이를 안내하고, 같은 종가/다음 관측 시가 실행 모델과 장중 순서 미검증을 표시하며 실제 체결 재현으로 표현하지 않는다.
 - 티커·봉 단위·분석 구간·파라미터·수량·broker가 바뀌면 이전 미리보기 결과를 무효화한다. 진행 중 요청의 결과도 generation/key가 현재 입력과 일치할 때만 표시해 stale chart를 막는다.
 - lightweight-charts 미리보기는 `horzTouchDrag: true`, `vertTouchDrag: false`, `pinch: true`로 설정하고 컨테이너 `touchAction: pan-y`를 유지한다. 모바일에서 세로 한 손가락 이동은 페이지 스크롤, 가로 이동은 차트 패닝, 두 손가락은 확대/축소로 분리하며 확대·축소·전체 맞춤 버튼도 제공한다.
 - Playwright에서 모든 전략 카드의 x/width가 동일한지와 좁은 viewport에서 입력/Select/버튼이 카드 밖으로 넘치지 않는지 검증한다.
@@ -597,7 +690,7 @@ UI 규칙:
 - replay cadence와 live 10초 tick cadence, warmup, 데이터 source/range, 재현 hash를 함께 표시해 일봉/1분봉 근사와 실제 tick을 혼동하지 않게 한다.
 - 전용 LTH의 `replay.assessment`로 성과 표시 가능 여부를 결정한다. `dailyDiagnostic/notEvaluable` 일봉과 유효 분봉 0개는 자료 진단만 표시하고 수익률·승률·자산 곡선·거래 성과·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리하며 빈 backtest를 0% 성과로 표시하지 않는다. generic 성과 패널은 기존 계약을 유지한다.
 - `intradaySample/sampleOnly`는 “분봉 표본 모의 결과”로 제목/경고를 표시한다. 별도 일봉 context 수와 실제 장중 관측 수, 최대 200봉/3개월 대표성 부족, 원본 시간대·DST·세션 미검증과 고정 KST 근사를 명시한다. `warmupCount=0`을 일봉 context 없음으로 해석하지 않는다. A/B snapshot은 assessment를 replay에 보존하며 기존 미검증 LTH 저장 결과의 성과도 숨긴다.
-- Generic preview는 모든 전략에 동일한 요청 평가 봉 수를 우선 적용하고 단일 provider 응답의 이전 봉만 별도 `historyCandles`로 보낸다. KIS는 요청 count+252(최대 452), Toss 현재 커맨드는 최대 200 안에서 조회하므로 실제 사전자료가 부족할 수 있다. 추가 페이지 확보 전까지 기간/200·252 기준을 줄이지 않고 요청·실제 평가·사전자료 수를 표시한다.
+- 단기 generic preview는 모든 전략에 동일한 요청 평가 봉 수를 우선 적용한다. 공통 완료봉 페이지를 최대8회·보관500봉 안에서 조회해 평가50/100/200봉과 이전252봉을 별도 `historyCandles`로 보낸다. 준비 부족을 감추기 위해 요청 평가 봉을 history로 옮기거나200·252 기준을 줄이지 않고 요청·실제 평가·사전자료 수와 수집 중단 사유를 표시한다. 연속 일봉의 별도 상한과 날짜 범위는 아래 v12 항목을 따른다.
 - `preparation`에서 자료 부족·지표 준비 중·조건 불충족·신호 무체결·체결 가정을 구분한다. 제공 자료와 실제 지표 버퍼 수, 시작/종료 준비, 처리 후 첫 준비 시각, 조건 평가 봉 수를 함께 읽는다. seed-only 또는 미지원 구간은 평가 불가로 표시하며 null을 false/0으로 단정하지 않는다.
 - A/B 실험은 broker/account/strategy/symbol scope별 localStorage에 두 slot만 저장한다. 전략 버전, params, data source/interval/range, 비용 가정, 생성 시각을 포함하고 credential/secret은 저장하지 않는다. source/기간이 다르면 직접 비교 경고를 표시한다.
 - equity SVG는 `role="img"`와 시작/종료 자산을 설명하는 `aria-label`을 제공한다. 좁은 화면에서는 실행 가정 입력과 preview control이 1열로 쌓여 카드 밖으로 넘치지 않아야 한다.
@@ -613,3 +706,162 @@ UI 규칙:
 - DB password와 파괴적 관리는 Tauri desktop Settings에서만 렌더링한다. 웹 모드에는 보안 안내만 보여주고 관리 form/control을 노출하지 않는다.
 
 > 마지막 업데이트: 2026-10-05T23:54:16+09:00
+
+
+### Toss 수수료 비율 표시 (2026-10-18)
+
+`TossOrderPreflightView.commissionRate`는 공식 소수 비율 문자열이다. `0.00015`를 `0.015%`로 표시하며 원본에 `%`만 붙이지 않는다. 주문 계산은 Rust preflight에서 비율을 그대로 적용한다. 공식 계약 근거와100배 오류 회귀는 `toss-api/SKILL.md`를 따른다.
+
+> 마지막 업데이트: 2026-10-18T14:30:00+09:00
+
+## 연구 체결 가정 (replay v10)
+
+- 공통 실행 가정에 같은 종가/다음 관측봉 시가, 봉 내부 미검증/손절 우선 가정과 연구 손절·익절(0비활성)을 제공한다. 입력 변경은 기존 preview와 진행 응답을 무효화한다.
+- signalAvailableAt와 fillAt의 봉 label·open/close/intrabar 단계를 분리 표시한다. 마지막 unfilled는 차단과 구분하고 순서 불명·갭·정확한 거래소 시각/체결 미검증 경고를 남긴다. raw 전략 신호 수와 별도 보호 주문 수는 일치하지 않을 수 있다.
+- 엔진·체결 모델·보호 가정을 현재 결과와 A/B 양쪽에 표시한다. 기존 저장 응답의 선택 필드가 없으면 확인 불가로 표시하고 새 결과로 둔갑시키지 않는다. LTH 일봉은 계속 자료 진단만 표시한다.
+
+> 마지막 업데이트: 2026-10-18T15:21:57+09:00
+
+
+## 연구 비용·현금흐름과 회계 결과 (replay v11)
+
+- 비용·시나리오 입력/응답의 정본은 저장소 `docs/ipc-commands.md`의 v11 회계·비교 계약이다. 비용 출처는 추정/사용자 수동 확인이며 후자에 최대120자 메모를 요구한다. 브로커 API 자동 검증이라고 표시하지 않는다. 방향별 bps의 빈칸은 공통 요율 사용, 최소 수수료는 국내 원/해외 USD 단위를 라벨에 표시한다.
+- FX/배당 JSON은 각각64행·24,000자로 제한하고 자료·범위 오류를 빈 배열로 바꾸지 않는다. 잘못된 draft 편집도 현재 preview와 진행 generation을 즉시 무효화하고 계산을 차단한다. 시나리오는 정규화 뒤 실제 평가 봉에 정확히 일치해야 하며 국내 FX와 LTH 일봉의 비어 있지 않은 시나리오를 지원되는 성과로 표시하지 않는다.
+- 배당 가격 자료는 미확인/미조정 선언/조정 선언을 구분한다. 배당 조정 가격+현금 배당은 이중 계산으로 거부하고 미확인은 경고한다. FX는 지정 봉부터 유지하고 배당은 봉 시작 직전 보유 수량에 즉시 세후 원화 지급한다는 연구 가정과 유휴 KRW 현금 정책을 안내한다.
+- `strategyAccountingPanel.tsx`는 비용/시나리오 편집과 손익/비교 표시를 맡는다. 긴 JSON 예시·원문은 `overflowWrap:anywhere`/`whiteSpace:pre-wrap`로 모바일 카드 밖에 넘치지 않게 한다. 공통 수수료와 매수/매도 수수료의 accessible name이 부분 일치하므로 Playwright 공통 수수료 선택에는 `exact:true`를 사용한다.
+- 실현·잔여 평가·순배당을 분리하고 전체 자산 증감과 부호가 다르면 경고한다. 가격/환율 효과와 수수료·거래세·슬리피지 영향을 따로 읽으며 슬리피지를 이중 차감하지 않는다. 완료 청산 표본 수와 부분 매도도 각1건이라는 한계를 표시한다.
+- 종료 시 가상 청산을 실제 체결·승률과 분리한다. 봉말 평균 보유 평가액, 초기자본/당시 순자산 대비 관측 평균·최대 비중, 보유 관측 봉 비율을 서로 구분하고 시간 가중·장중 최대 노출이라고 표시하지 않는다.
+- 단순 보유는 같은 요청 수량이어도 실제 진입 수량·노출이 다를 수 있음을 표시한다. 같은 체결 경로의 비용 제거 값은 발생 당시 원화 비용 환급 산술이며 원가/FX 재분해나 비용 변경 전략 재실행이 아니다. 겹친 A/B는 독립 검증이 아니며 부분기간을 전체 분기/연속 운용 성과로 합산하지 않는다.
+- A/B에 비용 출처·요율·최소 수수료·FX/배당 시나리오·배당 가격 선언과 서버 집계를 보존한다. 보관 거래를100건으로 잘라도 집계는 다시 계산하지 않는다. legacy `accounting`/`comparison` 누락은 unknown으로 표시하고 LTH 일봉·기존 평가 불가 슬롯에는 새 회계 성과도 숨긴다.
+- UI 검증은 `docs/HARNESS_MAP.md`의 P2-15 focused 조합을 따른다. 2026-10-18 고정 소스47/47(mock API) 통과는 입력·상태·표시 계약의 근거이며 실제 비용/주문/시장 성과 검증이 아니다.
+
+> 마지막 업데이트: 2026-10-18T15:44:21+09:00
+
+- 연구 원화 정수 표시는 `shared/lib/formatters.ts::fmtRoundedKrw`를 재사용한다. Math.round의 음수 half-tie를 보존하며 통화/누락/decimal-string 의미가 다른 fmtBrokerMoney로 대체하지 않는다.
+
+> 마지막 업데이트: 2026-10-18T15:51:29+09:00
+
+
+## 연속 일봉 연구 UI (replay v12)
+
+- 정본은 [IPC v12 연속 재생 계약](../../../docs/ipc-commands.md)이다. 기존 단기50/100/200봉 모드·flat 합계500봉 경로와 전용 LTH UI는 유지한다. 연속 모드는 일반 전략의 일봉 날짜 범위에만 제공하고 어제까지 최근3년을 기본 요청한다. API의 기존 주/월/분봉 허용을 UI 선택 지원으로 확대하지 않는다.
+- `pages/strategy/ui/continuousReplayPanel.tsx`가 모드·날짜·수집 안내·공급 경계 표를, `pages/strategy/model/candlePageCollector.ts`가 bounded 수집을 맡는다. strict 시작 이전252봉을 한 번 확보하고48회 요청·보관4608/평가4096을 제한한다. 요청 평가 봉을 history로 옮기지 않고 준비 완료 후 오래된 순서로500봉씩 나누어 연속 API를 한 번 호출한다.
+- 요청/실제 관측 범위·asOf·history252 확보량·페이지·제외/중복 수·중단 사유·최대 관측 간격을 보인다. 요청 경계 차이 또는 관측 간격7달력일 초과는 계산 보류다. 이 gate는 앱의 보수적 자료 경계이며 검증된 거래소 달력이 아니고 긴 휴장도 보류할 수 있음을 명시한다. 준비 완료여도 `coverageVerified=false`를 유지하며 누락 봉을 합성하거나 일부 자료를3년 성과로 표시하지 않는다.
+- 날짜가 비었거나 역전·무효이면 계산을 차단한다. 모드·날짜·가정·scope 변경과 취소는 기존 결과/두 mutation 및 진행 generation을 무효화한다. 늦게 온 연속 응답이 이후 단기 결과를 덮지 않게 한다. 응답의 continuity mode·평가/history 수·묶음 수와 원장 길이를 보낸 입력과 확인한다.
+- 결과와 A/B에 실제 호출 모드(`boundedWindow`/`continuous`)·최상위 `continuity`를 서버 집계와 함께 보존한다. 이전 보관값에 계산 모드가 없으면 정보 없음으로 표시하며 엔진 이름으로 추정하지 않는다. 모드가 다른 A/B는 가정 차이를 표시한다. hash는 모드를 구분하고 같은 연속 경제 입력의 공급 분할은 구분하지 않는다.
+- 공급 경계의 시작/종료 보유·pending은 같은 장부의 상태 진단이다. 묶음·분기마다 자본·원가·리스크가 초기화되거나 종료 청산된다고 표시하지 않는다. 다음 시가 대기는 다음 묶음으로 보존하고 전체 마지막에만 미체결로 확정한다. 연속70/30은 **앞/뒤 구간·동일 장부**와 **연속 구간 경계**로 표시하며 독립 훈련/검증·분기 수익 합산으로 설명하지 않는다. 기존 v11 비용 환급·단순 보유 실제 노출 차이 설명도 유지한다.
+- 모바일에서 날짜 입력은 한 열로 쌓고 긴 범위/경계 표는 카드 안에서 스크롤하게 한다. focused 검증은 [Harness P2-18](../../../docs/HARNESS_MAP.md)의 연속10개+인접47개 조합을 따르며 최초56개 통과+수정한1개 재실행 통과를 단일 전체 통과 실행으로 부풀리지 않는다. 실제 provider coverage·주문/체결 검증과 구분한다.
+
+> 마지막 업데이트: 2026-10-18T16:10:33+09:00
+
+## Consecutive v13 선택 진입 필터
+
+- 관측 횟수를 일수로 표시하지 않는다. 누적 변화0..100, ATR배수0..20, MA정수0..512의 raw 입력을 유한수/범위/정수로 검증하고 빈칸·잘못된 stored string/null은 draft를 보존하며 저장·preview를 막는다. 잘못된 편집도 이전 응답을 무효화한다. 실제 키보드 소수 입력과 모바일 줄바꿈/overflow를 검증한다.
+- ATR/MA는 일봉만 지원한다는 안내와 live 약10초 quote+완료 일봉 맥락 차이를 명시한다. 기존 매도/guard가 유지됨을 안내하며 수량 조절 ATR 준비와 선택 진입 준비를 별도 표시한다.
+- 모든 필터가 유효 숫자0/누락인 요청·A/B 기록은 비활성으로 중립 표시한다. 활성 필터의 entryFilterPreparation 없는 legacy만 준비 정보 없음이며 통과를 실제 체결로 표시하지 않는다. A/B에 서버 진단과 params를 보존하고 전 필터0에서는 기존 기본 경로를 유지한다. 정본은 docs/ipc-commands.md의 v13 계약이다.
+
+> 마지막 업데이트: 2026-10-18T16:31:45+09:00
+
+
+## Momentum v14 진입 교차 UI
+
+- entry_mode level/crossing 문자열을 일반 numeric param 변환으로 훼손하지 않는다. 새두필드의 stored enum/null/string 원형을 보존해 엄격히 검증하고 저장/두preview를 차단한다. 실제 소수 키 입력·실패 재시도·활성 잠금·이전 응답 폐기와 모바일을 확인한다.
+- 간격은 %p이고0..100/crossing에서threshold이하이다. level에서는 유효값을보관하되미사용을명시한다. 기존>=T/<=−T와entrycross이전<T→현재>=T,재무장<=T−band를안내한다. 보유청산은모드와독립이며 신호·pending을확정소유/체결로표시하지않는다.
+- A/B는서버성과와함께params의모드/%p를보존·표시하고차이를알린다. live약10초와선택봉관측차이를숨기지않는다. 새DTO/계좌query/polling을추가하지않는다.
+
+> 마지막 업데이트: 2026-10-20T19:42:13+09:00
+
+숫자 초안의 공통 문자열 해석은 `src/shared/lib/numberDraft.ts::parseDecimalDraft`를 shared/lib 공개 진입점으로 사용한다. 빈칸·단독 부호/점·잘못된 문자열·비유한수는 raw를 보존하고 유한한 십진 입력만 숫자로 바꾼다. 공통 `isFiniteNumberInRange`는 타입 강제 변환 없는 유한수·양끝 포함 범위·선택 정수 판정을 담당한다. 필드별 범위·기본값·mode 관계·오류 문구와 input raw-state 보존은 각 controls에 남긴다. Graphify 후보/Serena 실제 caller와 도메인 차이를 확인한 뒤 승격한 범위이며, 소유/가격 anchor 같은 전략 상태와 혼합하지 않는다.
+
+> 마지막 업데이트: 2026-10-20T19:49:11+09:00
+
+
+## Deviation v15 선택 진입·보유 보호 UI
+
+- entry_mode와 세 숫자 optional 필드의 stored enum/null/string 초안을 보존하며 유한수·범위·정수 조건을 엄격 검증한다. 기존 shared/lib parseDecimalDraft로 문자열을 해석하고 isFiniteNumberInRange로 공통 숫자 판정을 사용한다. 필드별 기본값·허용 범위·mode 관계·오류 문구는 controls에 유지한다. 오류 초안은 저장·단기/연속 preview와 이전 응답을 무효화한다.
+- 기본 level/다른옵션0, crossing 하향 진입과 미체결 재시도·현재 제외 장기 MA를 안내한다. live 약10초/선택 봉 차이와 live 추세 N관측 준비를 숨기지 않는다. 보유 관측 한도·나이 불명 복원·보호 전량 후보·nextOpen 갭/부분체결을 체결 보장이나 장중 손실 한도로 표현하지 않는다.
+- 현재/A-B에 모드와 장기 관측·보유 관측·손절 %를 보존·표시한다. 실제 키보드 숫자 입력·저장 실패/재시도·활성 잠금·두 payload·잘못된 stored 값 복구·모바일 overflow를 검증한다. 신규 계좌 query/polling/DTO를 추가하지 않는다.
+
+> 마지막 업데이트: 2026-10-20T21:51:20+09:00
+
+전략 설정 저장 응답은 shared/lib/draftMap.ts의 removeDraftIfUnchanged로 전송 당시 immutable 초안과 같은 항목만 정리한다. 일반·가격조건·LTH의 저장 중 새 편집은 보존하며 Page의 scope epoch로 A→B→A 이전 응답도 현재 초안을 지우지 못하게 한다. payload merge/종목 산출·세션 기본값/검증은 각 handler에 유지한다.
+
+> 마지막 업데이트: 2026-10-20T22:04:21+09:00
+
+
+## MeanReversion v16 선택 청산 UI
+
+- exit_mode upperBand/middleBand와 두 정수 관측 옵션의 raw/stored 타입을 보존한다. shared parseDecimalDraft/isFiniteNumberInRange로 공통 해석·유한수/범위/정수를 검사하고 필드별 기본값/모드/문구/raw state는 local 유지한다. invalid edit는 저장/두 preview와 이전 응답을 무효화한다.
+- 현재 포함 strict 밴드·middleBand strict 현재>mean·기존 손절0 활성과 새0off 옵션을 구분한다. liveN관측/일봉N봉의 기간 차이, live 별도 추세 준비와 legacy1분 history no-op·나이불명 보수적 보호를 숨기지 않는다. 손절/밴드 configq vsmaxHold잔량 후보·nextOpen/갭을 체결/손실 한도 보장으로 표현하지 않는다.
+- current/A-B의 mode/trend/maxHold·손절 가정을 함께 보존·표시하고 차이를 알린다. 실제 키 입력·stored 복구·경계·실패 재시도·잠금·두payload·지연 저장 초안 보존·모바일을 확인한다. 새 DTO/query/polling은 추가하지 않는다.
+
+> 마지막 업데이트: 2026-10-20T22:32:26+09:00
+
+
+## MA cross v17 선택 진입 UI
+
+네 옵션은 raw decimal draft를 유지하고 omission0과 저장된null/string/분수정수 오류를 구분한다. slope활성시long_period1..511도확인하고save/two preview를차단한다. 활성필터1분preview는필요일봉맥락없음을표시한다. 기본5/20은가격관측수이며일수가아니고새필터는이전완료일봉임을명시한다.
+
+현재결과와A/B에설정·필요/확보완료일봉·후보/준비보류/추세·기울기·ATR·폭거부·통과를표시한다. 진단이없는활성옵션응답은경고로표시하고수량산정ATR로대신하지않는다. 후보는소유검사전rawgoldencross이며거부사유중복가능·통과는체결아니다. 충분자료ATR0/폭0을자료부족으로표현하지않는다. 저장/재조회·실패재시도·저장중새초안·활성잠금·키보드·모바일focused검증을수행한다.
+
+> 마지막 업데이트: 2026-10-20T23:11:46+09:00
+
+## LTH 분봉 시각·세션 진단 UI
+
+- current/A-B의 선택 `assessment.minuteTiming`을 같은 panel로 표시한다. 정보없음·미지원버전·손상된 날짜/예시/limitations는 경고로 처리하고 시간대 검증을 만들어내지 않는다. 기본8일/compact2일의 실제 표시 수와 전체/생략 날짜수를 구분한다. 긴 시각과 label은 좁은 화면에서도 줄바꿈한다.
+- 원본 label 현지시각/봉시작UTC/종가 공개 가능UTC와 asOf, 공급/선택/실행/가격제외 수를 구분한다. 일반 평일창의 미관측 슬롯은 실제 누락 확정이 아니며 달력·발행·전체 coverage·기존 fixed KST 실행시계 한계를 보인다. 표기/시간대/진단버전/검증가정이 다른A/B는 경고한다. sampleOnly/notEvaluable·일봉 성과숨김과 이전결과 보호를 유지한다.
+- `tests/e2e/lth-minute-timing.spec.ts`의 mock으로 저장/복원·손상 배열·다른가정·legacy·일봉/빈자료·375px overflow/compact수를 확인한다. [작업 기록](../../../docs/completed-history.md#task-lth-minute-timing-20261022).
+
+> 마지막 업데이트: 2026-10-22T20:33:31+09:00
+
+## RSI 선택 보호 UI
+
+RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저장타입을보존한다. 누락0만비활성이고null/string/bool/소수정수는원형오류상태로고쳐야한다. 새필드검증/disabled를save와두preview에동일적용하고decimal초안은공용numberDraft를사용한다. current/A-B에는실제coreparams·선택값/기본0·미확인을표시하고이전엔진결과가새보호를적용했다고주장하지않는다. 실시간관측과일봉기간, 실제평균매수가손절·미상나이·한도/손절후보의주문제한과다음시가한계를간결히설명한다. 저장중새초안/계좌전환/실패재시도·keyboard·mobile을mock검증한다.
+
+> 마지막 업데이트: 2026-10-22T20:47:35+09:00
+
+## 돌파 실패 자료·보호 UI
+
+기본 가격 관측과 선택 완료 일봉 고가를 구분한다. 새 숫자0off·수익 보호 쌍과 raw null/string/bool/소수 정수 검증을 저장·두 preview에 동기화한다. current/A-B에 실제 params·주기·준비 상태를 보이고 기본off 진단 부재와 활성 진단 미확인을 구분한다. ATR0/검증된0분자·unknown/평균0을 분리하고 후보·통과를 체결로 표현하지 않는다. 평균 매수가·기준점·수익 무장·관측수/복원 미상·주문 제한/다음 시가 한계를 간결한 한국어로 설명한다. 늦은 응답·저장중 초안·실패/재조회·키보드/모바일을 mock 검증한다.
+
+> 마지막 업데이트: 2026-10-22T21:22:25+09:00
+
+## 강한 종가 선택 보호 안내
+
+기준3%는 이전 고가 대비 종가 거리이며 양봉/상승률이 아니다. 손절0은 비활성이 아닌 원가 이하 청산이다. 새 추세·수익 보호 쌍·관측 한도는 strict raw와 기본0 비활성을 표시하고 저장/두 preview/current/A-B에 같은 요약을 쓴다. 이전 일봉 준비 부족·legacy 진단 누락을 sizing ATR로 대체하지 않는다. D-1 조건→D종가 신호→D+1관측 시가와 live 첫 quote를 나누고 수익/보유시간 보장·하루 전체 quota로 표현하지 않는다. [작업](../../../docs/completed-history.md#task-strong-close-policy-20261022).
+
+> 마지막 업데이트: 2026-10-22T22:15:36+09:00
+
+## 변동성 확장 조건 빈도·관측 보호 UI
+
+이전N완료 범위 평균과 당일 범위·엄격 > 두조건을 안내하고 0범위를 자료부족으로 오해하지 않는다. 새선택0off·수익보호쌍·기존stop0활성, raw/stored 엄격타입과보유관측수를 저장/두preview/current-A-B에 동기화한다. 전용 진단의 평가·보유·미보유·준비/범위/방향·통과를 체결과 구분하고 legacy/손상진단은0으로 만들지 않는다. 일봉종가 확인→다음관측시가 가정과 live첫quote 시가대용·전체장중범위 미확인을 간결히 표시한다. 키보드·활성잠금·저장중새초안/실패·늦은응답/취소·모바일을 mock검증한다. [작업](../../../docs/completed-history.md#task-volatility-expansion-policy-20261022).
+
+> 마지막 업데이트: 2026-10-22T22:51:29.543451+09:00
+
+
+## 추세 필터 v22 선택 청산 안내
+
+세MA와이탈확인·수익쌍·보유한도의7필드를raw타입으로보존한다. MA1..512·확인1..1000000은0불가이고수익/보유만0off다. 현재포함MA·세MA준비뒤기존strict청산과선택보호의독립평가·native평균/보유관측peak·미상나이·잔량후보를구분한다. live약10초와일봉/분봉관측수를일수로부르지않고nextOpen/guard/갭을체결·손실보장으로표현하지않는다. current/A-B에실제params와누락기본을표시하고v22이전/미확인엔진의새보호적용은미확인이다. 빈칸/null/string/bool/분수정수·지연preview/저장중새초안·실패재시도·잠금·375px모바일을mock검증한다.
+
+전략별검증·기본값·rawstate는각controls에남기고 `strategyPolicyControls.tsx`는기존9전략과Trend의조립만담당한다. 의미가다른입력/보호전체를shared로승격하지않는다. [작업](../../../docs/completed-history.md#task-trend-filter-policy-20261023).
+
+> 마지막 업데이트: 2026-10-25T20:23:25+09:00
+
+
+## v23 구간 관측 진단
+
+구간 비율은 평가 관측 봉 수 기준이며 동일 장부 앞/뒤를 독립 학습/OOS로 표시하지 않는다. 현재/A-B 공통 `strategyPhaseResults.tsx`로 관측·종가보유·경계 잔량/pending·원가 귀속을 보여준다. version/policy/유한수/개수/boolean이 맞지 않는 진단은 미확인이고0으로 만들지 않는다. 작은 완료 매도 표본·부분매도 집계와 수량별 배분원가를 명시하며 legacy 경고를 새판정처럼 재표시하지 않는다. LTH 평가불가 gate 유지, A/B 축약 뒤 서버 진단 보존·복원과375px overflow를 검증한다. [계약](../../../docs/ipc-commands.md#v23-동일-장부-구간-관측-진단).
+
+
+## MUI9 호환 UI 계약 (2026-10-29)
+
+- Grid는 item/breakpoint props 대신 size를 사용한다. TextField slotProps.input은 InputAdornment 등 컴포넌트 옵션, slotProps.htmlInput은 native min/step/aria-label을 담당한다. Switch native 옵션은 slotProps.input이다.
+- 제거된 system props는 기존 sx보다 앞선 base style로 옮기며 배열/callback의 caller 우선순위를 유지한다. Typography.color처럼 남아 있는 own API를 일괄 제거하지 않는다.
+- Switch의 role=switch와 실제 Checkbox를 구분하고 Alert의 variant/severity class를 각각 정확한 토큰으로 확인한다. utility class 변경을 금융 동작 변경으로 오인하거나 검증을 느슨하게 하지 않는다.
+- 모바일 Drawer 닫힘 중 aria-hidden과 CSS visibility를 구분한다. 정상 role 접근 가능·route 전환·닫힘 완료를 기다리고 강제click/sleep으로 대체하지 않는다. 새UI계약5개는 HARNESS_MAP을 따른다.
+
+> 마지막 업데이트: 2026-10-30T08:58:11
+
+> 마지막 업데이트: 2026-10-31T10:33:01+00:00
+
+> 마지막 업데이트: 2026-11-01T00:21:19+00:00

@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography'
 import { useAppConfig, useAutoTradingBudget, useTradingStatus, useUpdateAutoTradingBudget } from '../../../api/hooks'
 import type { AutoTradingBudgetInput, AutoTradingBudgetView, BudgetCurrencyView } from '../../../api/types'
 import { Section } from './section'
+import { BudgetRecoverySection } from './budgetRecoverySection'
 
 function amount(text: string, decimals: number): number | undefined {
   if (!(decimals ? /^\d+(\.\d{1,2})?$/ : /^\d+$/).test(text)) return undefined
@@ -20,11 +21,11 @@ function CurrencyStatus({ value, currency }: { value: BudgetCurrencyView; curren
   const display = (n: number) => new Intl.NumberFormat('ko-KR', { style: 'currency', currency }).format(currency === 'USD' ? n / 100 : n)
   return (
     <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1, minWidth: 0, flex: 1 }}>
-      <Typography fontWeight={600}>{currency === 'KRW' ? '원화' : '달러'}</Typography>
+      <Typography sx={{ fontWeight: 600 }}>{currency === 'KRW' ? '원화' : '달러'}</Typography>
       <Typography variant="body2">배정액: {display(value.allocatedAmount)}</Typography>
       <Typography variant="body2">전용 현금: {display(value.cashAmount)}</Typography>
       <Typography variant="body2">주문 예약액: {display(value.reservedAmount)}</Typography>
-      <Typography variant="body2" fontWeight={700}>사용 가능액: {display(value.availableAmount)}</Typography>
+      <Typography variant="body2" sx={{ fontWeight: 700 }}>사용 가능액: {display(value.availableAmount)}</Typography>
       <Typography variant="caption" color="text.secondary">자동매매 보유 {value.ownedPositionCount}종목 · 비용 여유분 {value.feeBufferBps / 100}%</Typography>
       {value.blockedReason && <Alert severity="error" sx={{ mt: 1 }}>{value.blockedReason}</Alert>}
     </Box>
@@ -55,11 +56,11 @@ function BudgetEditor({ scope, data, running }: { scope: AutoTradingBudgetInput;
       </Typography>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
         <TextField fullWidth label="자동매매 원화 배정액 (원)" value={krw} disabled={disabled}
-          inputProps={{ inputMode: 'numeric' }} error={krwAmount === undefined}
+          slotProps={{ htmlInput: { inputMode: 'numeric' } }} error={krwAmount === undefined}
           helperText={krwAmount === undefined ? '0 이상의 정수 금액을 입력하세요.' : '원 단위'}
           onChange={(event) => setDraft({ krw: event.target.value, usd })} />
         <TextField fullWidth label="자동매매 달러 배정액 (USD)" value={usd} disabled={disabled}
-          inputProps={{ inputMode: 'decimal' }} error={usdAmount === undefined}
+          slotProps={{ htmlInput: { inputMode: 'decimal' } }} error={usdAmount === undefined}
           helperText={usdAmount === undefined ? '소수 둘째 자리까지 입력하세요.' : '달러 단위 (예: 100.50)'}
           onChange={(event) => setDraft({ krw, usd: event.target.value })} />
       </Stack>
@@ -85,7 +86,7 @@ export function AutoTradingBudgetSection() {
     : undefined
   const budget = useAutoTradingBudget(scope)
   return (
-    <Section title="자동매매 전용 예산">
+    <Section id="settings-budget" title="자동매매 전용 예산">
       <Stack spacing={2}>
         <Typography variant="body2">선택 계좌: {config?.active_profile_name || '미선택'}</Typography>
         {!scope && <Alert severity="info">계좌 프로파일을 먼저 선택하세요.</Alert>}
@@ -93,6 +94,8 @@ export function AutoTradingBudgetSection() {
         {budget.error && <Alert severity="error">{budget.error.message || '예산을 불러오지 못했습니다.'}</Alert>}
         {scope && budget.data && budget.data.scope?.brokerId === scope.brokerId && budget.data.scope?.accountId === scope.brokerAccountId &&
           <BudgetEditor key={`${scope.brokerId}:${scope.brokerAccountId}`} scope={scope} data={budget.data} running={trading?.isRunning !== false} />}
+        <BudgetRecoverySection scope={scope} identity={{ profileId: config?.active_profile_id ?? null,
+          isPaper: config?.active_broker_id === 'kis' && config.kis_is_paper_trading }} running={trading?.isRunning !== false} />
       </Stack>
     </Section>
   )

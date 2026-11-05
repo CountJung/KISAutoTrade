@@ -1,3 +1,8 @@
+import { useStrategyUsSearch } from './useStrategyUsSearch'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { StrategyUsSearch } from './StrategyUsSearch'
+import { StrategyPolicyControls, isStrategyPolicyParam, preservesStrategyRawParam, strategyPolicyError } from './strategyPolicyControls'
+import { isSearchEnter, removeDraftIfUnchanged } from '../../../shared/lib'
 import Typography from '@mui/material/Typography'
 import Paper from '@mui/material/Paper'
 import Box from '@mui/material/Box'
@@ -36,6 +41,7 @@ import {
   LeveragedTrendHoldEditorPanel,
   hasInvalidLthEntries,
 } from './leveragedTrendHoldEditorPanel'
+import { StockSearchResults } from './StockSearchResults'
 import { StrategyPreviewPanel } from './strategyPreviewPanel'
 import { PriceConditionEditorPanel } from './priceConditionEditorPanel'
 import {
@@ -52,24 +58,21 @@ import {
   useRefreshStockList,
   useTossMarketCalendar,
 } from '../../../api/hooks'
-import * as cmd from '../../../api/commands'
 import type {
   AppConfigView,
   BrokerId,
   CmdError,
   LeveragedTrendHoldEntry,
-  OverseasExchange,
   PriceConditionSymbolConfig,
   StockSearchItem,
   TossManualSession,
   TossMarketCalendarView,
   UpdateStrategyInput,
 } from '../../../api/types'
-import { BrokerScopeIndicator, tradingHealthProblem } from '../../../shared/ui'
+import { BrokerScopeIndicator, LiveDailyHistoryPanel, tradingHealthProblem } from '../../../shared/ui'
 
 type Market = 'KR' | 'US'
 
-const EXCHANGE_SEARCH_ORDER: OverseasExchange[] = ['NAS', 'NYS', 'AMS']
 const TOSS_US_SESSION_OPTIONS: Array<{ value: TossManualSession; label: string }> = [
   { value: 'auto', label: '자동' },
   { value: 'day', label: '데이' },
@@ -141,7 +144,7 @@ function isActiveStrategyScope(
   )
 }
 
-type EditState = { symbols: string[]; quantity: number; params: Record<string, number> }
+type EditState = { symbols: string[]; quantity: number; params: Record<string, unknown> }
 
 // ─── Strategy 메인 ────────────────────────────────────────────────
 export default function Strategy() {
@@ -149,6 +152,8 @@ export default function Strategy() {
   const activeScopeKey = appConfig?.active_profile_id
     ? `${appConfig.active_profile_id}:${appConfig.active_broker_id}:${appConfig.active_broker_account_id ?? ''}`
     : null
+  const scopeEpoch = useRef({ key: activeScopeKey, value: 0 })
+  if (scopeEpoch.current.key !== activeScopeKey) scopeEpoch.current = { key: activeScopeKey, value: scopeEpoch.current.value + 1 }
   const {
     data: strategies,
     isLoading,
@@ -201,8 +206,17 @@ export default function Strategy() {
   const [searchQuery, setSearchQuery]         = useState('')
   const [showSearch, setShowSearch]           = useState(false)
   const searchCloseTimer                      = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [usSearching, setUsSearching]         = useState(false)
-  const [usSearchError, setUsSearchError]     = useState<string | null>(null)
+  const searchRegionRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const returningSearchFocus = useRef(false)
+  const returnSearchFocus = () => {
+    returningSearchFocus.current = true
+    try {
+      searchInputRef.current?.focus()
+    } finally {
+      returningSearchFocus.current = false
+    }
+  }
   /** 종목코드 → 이름 캐시 (세션 중 검색으로 추가된 종목) */
   const [symbolNames, setSymbolNames]         = useState<Record<string, string>>({})
 
@@ -212,59 +226,30 @@ export default function Strategy() {
   const { data: tossCalendar } = useTossMarketCalendar({ enabled: appConfig?.active_broker_id === 'toss' })
   const isStockListEmpty = isSearchError && (searchError as CmdError | null)?.code === 'STOCK_LIST_EMPTY'
 
-  // 검색어 디바운스 — 6자리 영숫자 코드만 검색 허용 (0005A0, 0089C0 등 ETF 포함)
+  // 6자리 영숫자 코드는 자동 조회, 이름은 Enter/검색 버튼으로 명시 조회
   useEffect(() => {
     if (!searchInput || !showSearch) { setSearchQuery(''); return }
     if (/^[A-Z0-9]{6}$/i.test(searchInput)) {
       setSearchQuery(searchInput.toUpperCase())
       return
     }
-    // 6자 미만이면 대기, 그 외(6자 초과 등)는 무시
-    setSearchQuery('')
+    // 현재 이름을 명시 제출한 query는 보존하고, 이전 입력의 query만 지운다.
+    setSearchQuery(current => current === searchInput ? current : '')
   }, [searchInput, showSearch])
   /** 해외(미국) 거래소 자동 감지: NAS → NYS → AMS 순서로 조회 (활성 프로파일이 Toss면 Toss 종목 정보로 검증) */
-  const handleUsSearch = async () => {
-    const ticker = searchInput.trim().toUpperCase()
-    if (!ticker) return
-    setUsSearching(true)
-    setUsSearchError(null)
-
-    if (appConfig?.active_broker_id === 'toss') {
-      try {
-        const safety = await cmd.getTossStockSafety(ticker)
-        if (safety.stockInfo) {
-          const item: StockSearchItem = { pdno: ticker, prdt_name: safety.stockInfo.name || ticker }
-          setSelectedStock(item)
-          setSearchInput(safety.stockInfo.name || ticker)
-          setSymbolNames(prev => ({ ...prev, [ticker]: safety.stockInfo!.name || ticker }))
-          setUsSearching(false)
-          return
-        }
-      } catch { /* fallback 메시지로 처리 */ }
-      setUsSearchError(`Toss 종목 정보에서 "${ticker}"을 찾을 수 없습니다.`)
-      setUsSearching(false)
-      return
-    }
-
-    for (const exc of EXCHANGE_SEARCH_ORDER) {
-      try {
-        const res = await cmd.getOverseasPrice(ticker, exc)
-        // 가격 또는 종목명이 있으면 유효한 종목으로 간주
-        const validPrice = parseFloat(res.last) > 0
-        const hasName = res.name && res.name.trim().length > 0
-        if (res && (validPrice || hasName)) {
-          const item: StockSearchItem = { pdno: ticker, prdt_name: res.name || ticker }
-          setSelectedStock(item)
-          setSearchInput(res.name || ticker)
-          setSymbolNames(prev => ({ ...prev, [ticker]: res.name || ticker }))
-          setUsSearching(false)
-          return
-        }
-      } catch { /* 다음 거래소 시도 */ }
-    }
-    setUsSearchError(`"${ticker}"을 NAS·NYS·AMEX에서 찾을 수 없습니다.`)
-    setUsSearching(false)
+  const searchDomestic = () => {
+    if (searchInput.trim().length < 2) return
+    setSearchQuery(searchInput)
+    setShowSearch(true)
   }
+  const { search: handleUsSearch, searching: usSearching, error: usSearchError, setError: setUsSearchError } = useStrategyUsSearch({
+    input: searchInput, market, config: appConfig, selectedSymbol: selectedStock?.pdno,
+    onSelect: item => {
+      setSelectedStock(item)
+      setSearchInput(item.prdt_name)
+      setSymbolNames(prev => ({ ...prev, [item.pdno]: item.prdt_name }))
+    },
+  })
   // 전략이 로드됐을 때 targetSymbolNames를 symbolNames 캐시에 반영
   useEffect(() => {
     if (!strategies) return
@@ -290,9 +275,9 @@ export default function Strategy() {
 
   const getEdit = (id: string, s: { targetSymbols: string[]; orderQuantity: number; params: Record<string, unknown> }): EditState => {
     if (editMap[id]) return editMap[id]
-    const numericParams: Record<string, number> = {}
+    const numericParams: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(s.params)) {
-      numericParams[k] = typeof v === 'number' ? v : Number(v)
+      numericParams[k] = preservesStrategyRawParam(id, k) ? v : typeof v === 'number' ? v : Number(v)
     }
     return { symbols: s.targetSymbols, quantity: s.orderQuantity, params: numericParams }
   }
@@ -300,7 +285,7 @@ export default function Strategy() {
   const setEdit = (id: string, s: { targetSymbols: string[]; orderQuantity: number; params: Record<string, unknown> }, patch: Partial<EditState>) =>
     setEditMap(prev => ({ ...prev, [id]: { ...getEdit(id, s), ...patch } }))
 
-  const setParam = (id: string, s: { targetSymbols: string[]; orderQuantity: number; params: Record<string, unknown> }, key: string, val: number) => {
+  const setParam = (id: string, s: { targetSymbols: string[]; orderQuantity: number; params: Record<string, unknown> }, key: string, val: number | string) => {
     const cur = getEdit(id, s)
     setEditMap(prev => ({ ...prev, [id]: { ...cur, params: { ...cur.params, [key]: val } } }))
   }
@@ -360,6 +345,7 @@ export default function Strategy() {
 
   const handleSave = (id: string, strategy: { params: Record<string, unknown> }) => {
     if (!expectedScope) return
+    const submittedEpoch = scopeEpoch.current.value
     const edit = editMap[id]
     const session = getTossSession(id, strategy.params)
     const mergedParams = edit
@@ -374,8 +360,9 @@ export default function Strategy() {
       } satisfies UpdateStrategyInput,
       {
         onSuccess: () => {
-          setEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
-          setTossSessionEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
+          if (scopeEpoch.current.value !== submittedEpoch) return
+          setEditMap(prev => removeDraftIfUnchanged(prev, id, edit))
+          setTossSessionEditMap(prev => removeDraftIfUnchanged(prev, id, session))
         },
       },
     )
@@ -387,6 +374,7 @@ export default function Strategy() {
     initialSymbols: PriceConditionSymbolConfig[],
   ) => {
     if (!expectedScope) return
+    const submittedEpoch = scopeEpoch.current.value
     const pcSymbols = pcEditMap[id] ?? initialSymbols
     const session = getTossSession(id, params)
     updateStrategy(
@@ -398,8 +386,9 @@ export default function Strategy() {
       } satisfies UpdateStrategyInput,
       {
         onSuccess: () => {
-          setPcEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
-          setTossSessionEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
+          if (scopeEpoch.current.value !== submittedEpoch) return
+          setPcEditMap(prev => removeDraftIfUnchanged(prev, id, pcSymbols))
+          setTossSessionEditMap(prev => removeDraftIfUnchanged(prev, id, session))
         },
       },
     )
@@ -407,6 +396,8 @@ export default function Strategy() {
 
   const handleSaveLth = (id: string, params: Record<string, unknown>, initialEntries: LeveragedTrendHoldEntry[]) => {
     if (!expectedScope) return
+    const submittedEpoch = scopeEpoch.current.value
+    const session = getTossSession(id, lthParamEditMap[id] ?? params)
     const entries = lthEditMap[id] ?? initialEntries
     const nextParams = lthParamEditMap[id] ?? params
     if (hasInvalidLthEntries(entries)) return
@@ -418,14 +409,15 @@ export default function Strategy() {
         targetSymbols,
         params: withTossUsSessionParam(
           { ...nextParams, entries },
-          getTossSession(id, nextParams),
+          session,
         ),
       } satisfies UpdateStrategyInput,
       {
         onSuccess: () => {
-          setLthEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
-          setLthParamEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
-          setTossSessionEditMap(prev => { const n = { ...prev }; delete n[id]; return n })
+          if (scopeEpoch.current.value !== submittedEpoch) return
+          setLthEditMap(prev => removeDraftIfUnchanged(prev, id, entries))
+          setLthParamEditMap(prev => removeDraftIfUnchanged(prev, id, nextParams))
+          setTossSessionEditMap(prev => removeDraftIfUnchanged(prev, id, session))
         },
       },
     )
@@ -462,7 +454,7 @@ export default function Strategy() {
         <Alert severity="info" sx={{ mb: 2 }}>현재 계좌 범위에 등록된 전략이 없습니다.</Alert>
       )}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <Typography variant="h5" fontWeight={700}>Strategy</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>Strategy</Typography>
         <Chip
           label={`${activeCount}개 활성`}
           color={activeCount > 0 ? 'success' : 'default'}
@@ -474,6 +466,7 @@ export default function Strategy() {
         <BrokerScopeIndicator appConfig={appConfig} compact />
       </Box>
 
+      <LiveDailyHistoryPanel status={tradingStatus} appConfig={appConfig} />
       {tradingHealthProblem(tradingStatus?.health) && (
         <Alert severity="error" sx={{ mb: 2 }}>
           자동매매 상태 확인 필요: {tradingHealthProblem(tradingStatus?.health)}
@@ -488,8 +481,8 @@ export default function Strategy() {
 
       {/* ── 0. 종목 선택 패널 ─────────────────────────────────────── */}
       <Paper sx={{ p: { xs: 1.5, sm: 2.5 }, mb: 2 }}>
-        <Typography variant="subtitle1" fontWeight={600} mb={0.5}>종목 선택</Typography>
-        <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>종목 선택</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
           종목을 검색하여 선택한 후, 각 전략 카드의 "추가" 버튼으로 전략에 등록하세요
         </Typography>
 
@@ -509,10 +502,26 @@ export default function Strategy() {
           </ToggleButton>
         </ToggleButtonGroup>
 
-        <Box sx={{ position: 'relative' }}>
+        <Box
+          ref={searchRegionRef}
+          sx={{ position: 'relative' }}
+          onBlur={(event) => {
+            if (market !== 'KR' || event.currentTarget.contains(event.relatedTarget)) return
+            searchCloseTimer.current = setTimeout(() => setShowSearch(false), 180)
+          }}
+          onFocus={() => { if (searchCloseTimer.current) clearTimeout(searchCloseTimer.current) }}
+          onKeyDown={(event) => {
+            if (market !== 'KR' || event.key !== 'Escape') return
+            event.preventDefault()
+            setShowSearch(false)
+            setSearchQuery('')
+            returnSearchFocus()
+          }}
+        >
           {market === 'KR' ? (
             <>
               <TextField
+                inputRef={searchInputRef}
                 label="6자리 종목코드 (예: 005930, 0005A0)"
                 value={searchInput}
                 onChange={(e) => {
@@ -520,74 +529,55 @@ export default function Strategy() {
                   setShowSearch(true)
                   if (!e.target.value) { setSelectedStock(null); setShowSearch(false) }
                 }}
-                onBlur={() => { searchCloseTimer.current = setTimeout(() => setShowSearch(false), 180) }}
-                onFocus={() => {
+                onFocus={(event) => {
                   if (searchCloseTimer.current) clearTimeout(searchCloseTimer.current)
-                  if (searchInput.length >= 2) setShowSearch(true)
+                  if (!returningSearchFocus.current && !searchRegionRef.current?.contains(event.relatedTarget) && searchInput.length >= 2) setShowSearch(true)
                 }}
                 size="small"
                 fullWidth
-                InputProps={{
+                slotProps={{ htmlInput: { onKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => {
+                  if (event.key !== 'Enter') return
+                  event.stopPropagation()
+                  if (!isSearchEnter(event)) return
+                  event.preventDefault()
+                  if (!/^[A-Z0-9]{6}$/i.test(searchInput)) searchDomestic()
+                } }, input: {
                   endAdornment: (
                     <InputAdornment position="end">
-                      {isFetchingSearch && <CircularProgress size={14} color="inherit" sx={{ mr: 0.5 }} />}
+                      {isFetchingSearch && <CircularProgress size={14} color="inherit" aria-label="국내 종목 조회 중" sx={{ mr: 0.5 }} />}
                       <IconButton
                         size="small"
-                        disabled={!searchInput || searchInput.length < 2}
-                        onClick={() => { if (searchInput.length >= 2) { setSearchQuery(searchInput); setShowSearch(true) } }}
+                        aria-label="국내 종목 검색"
+                        disabled={searchInput.trim().length < 2}
+                        onClick={searchDomestic}
+                        aria-busy={isFetchingSearch}
+                        aria-description={isFetchingSearch ? '국내 종목 조회 중' : undefined}
                       >
                         <SearchIcon fontSize="small" />
                       </IconButton>
                     </InputAdornment>
                   ),
-                }}
+                } }}
                 helperText={
                   selectedStock
                     ? `선택됨: ${selectedStock.prdt_name} (${selectedStock.pdno})`
-                    : '국내 주식은 6자리 종목코드로만 검색 가능합니다 (예: 005930, 0005A0)'
+                    : '6자리 종목코드는 자동 조회합니다 (예: 005930, 0005A0). 이름은 2자 이상 입력 후 Enter 또는 검색 버튼을 누르세요.'
                 }
               />
-              {/* 검색 결과 드롭다운 */}
-              {showSearch && (searchResults.length > 0 || isFetchingSearch) && (
-                <Paper
-                  elevation={8}
-                  onMouseDown={(e) => { e.preventDefault(); if (searchCloseTimer.current) clearTimeout(searchCloseTimer.current) }}
-                  sx={{ mt: 0.5, maxHeight: 240, overflow: 'auto', border: 1, borderColor: 'divider', zIndex: 1400, position: 'absolute', width: '100%' }}
-                >
-                  {isFetchingSearch && searchResults.length === 0 ? (
-                    <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <CircularProgress size={14} />
-                      <Typography variant="caption" color="text.secondary">검색 중...</Typography>
-                    </Box>
-                  ) : (
-                    <Table size="small">
-                      <TableBody>
-                        {searchResults.map((r) => (
-                          <TableRow
-                            key={r.pdno}
-                            hover
-                            sx={{ cursor: 'pointer' }}
-                            onClick={() => {
-                              setSelectedStock(r)
-                              setSearchInput(r.prdt_name)
-                              setShowSearch(false)
-                              setSearchQuery('')
-                              setSymbolNames(prev => ({ ...prev, [r.pdno]: r.prdt_name }))
-                            }}
-                          >
-                            <TableCell sx={{ py: 0.75 }}>
-                              <Typography variant="body2" noWrap>{r.prdt_name}</Typography>
-                            </TableCell>
-                            <TableCell sx={{ py: 0.75, width: 80 }}>
-                              <Typography variant="caption" color="text.secondary">{r.pdno}</Typography>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </Paper>
-              )}
+              <StockSearchResults
+                open={showSearch}
+                items={searchResults}
+                loading={isFetchingSearch}
+                onPointerInteraction={() => { if (searchCloseTimer.current) clearTimeout(searchCloseTimer.current) }}
+                onSelect={(r) => {
+                  setSelectedStock(r)
+                  setSearchInput(r.prdt_name)
+                  setShowSearch(false)
+                  setSearchQuery('')
+                  setSymbolNames(prev => ({ ...prev, [r.pdno]: r.prdt_name }))
+                  returnSearchFocus()
+                }}
+              />
               {/* STOCK_LIST_EMPTY 경고 */}
               {showSearch && isStockListEmpty && (
                 <Alert
@@ -612,43 +602,12 @@ export default function Strategy() {
             </>
           ) : (
             /* ── 해외(미국) 주식 검색 ─── */
-            <Stack spacing={1}>
-              <Stack direction="row" spacing={1}>
-                <TextField
-                  label="티커 (예: AAPL, SPYM, QQQ)"
-                  value={searchInput}
-                  onChange={(e) => {
-                    setSearchInput(e.target.value.toUpperCase())
-                    setUsSearchError(null)
-                    setSelectedStock(null)
-                  }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleUsSearch() }}
-                  size="small"
-                  fullWidth
-                  inputProps={{ style: { textTransform: 'uppercase' } }}
-                  helperText={
-                    selectedStock
-                      ? `선택됨: ${selectedStock.prdt_name} (${selectedStock.pdno})`
-                      : 'NAS(NASDAQ)·NYS·AMEX 순서로 자동 감지합니다'
-                  }
-                />
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={handleUsSearch}
-                  disabled={!searchInput.trim() || usSearching}
-                  startIcon={usSearching ? <CircularProgress size={14} color="inherit" /> : <SearchIcon />}
-                  sx={{ minWidth: 80, alignSelf: 'flex-start', mt: 0.5 }}
-                >
-                  검색
-                </Button>
-              </Stack>
-              {usSearchError && (
-                <Alert severity="warning" sx={{ py: 0.5 }}>
-                  <Typography variant="caption">{usSearchError}</Typography>
-                </Alert>
-              )}
-            </Stack>
+            <StrategyUsSearch value={searchInput} selection={selectedStock} searching={usSearching} error={usSearchError}
+              onChange={value => {
+                setSearchInput(value.toUpperCase())
+                setUsSearchError(null)
+                setSelectedStock(null)
+              }} onSearch={handleUsSearch} />
           )}
 
           {/* 선택된 종목 칩 */}
@@ -670,7 +629,8 @@ export default function Strategy() {
         {(strategies ?? []).map((s) => {
           const edit = getEdit(s.id, s)
           const sType = getStrategyType(s.id)
-          const paramMetas = STRATEGY_PARAM_META[sType] ?? []
+          const paramMetas = (STRATEGY_PARAM_META[sType] ?? []).filter((meta) => !isStrategyPolicyParam(sType, meta.key))
+          const entryError = strategyPolicyError(sType, edit.params)
           const stratDesc = STRATEGY_DESCRIPTION[sType]
           const pcInitialSymbols = (s.params['symbols'] as PriceConditionSymbolConfig[] | undefined) ?? []
           const lthInitialEntries = (s.params['entries'] as LeveragedTrendHoldEntry[] | undefined) ?? []
@@ -717,18 +677,18 @@ export default function Strategy() {
                 variant="outlined"
                 startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
                 onClick={() => handleSave(s.id, s)}
-                disabled={saving || !scopeMatchesActive}
+                disabled={saving || !scopeMatchesActive || !!entryError}
               >
                 변경사항 저장
               </Button>
             ) : null
           )
           return (
-            <Grid item xs={12} key={`${activeScopeKey}:${s.id}`} data-testid="strategy-card-grid">
+            <Grid size={{ xs: 12 }} key={`${activeScopeKey}:${s.id}`} data-testid="strategy-card-grid">
               <Paper sx={{ p: { xs: 2, sm: 3 } }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1, gap: 1.5 }}>
-                  <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap">
-                    <Typography variant="subtitle1" fontWeight={600}>{s.name}</Typography>
+                  <Stack direction="row" sx={{ alignItems: "center", gap: 0.75, flexWrap: "wrap", minWidth: 0, flex: 1  }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, minWidth: 0, maxWidth: '100%', overflowWrap: 'anywhere'  }}>{s.name}</Typography>
                     <Chip
                       size="small"
                       label={`${brokerLabel(s.brokerId)}${s.brokerAccountId ? ` · ${s.brokerAccountId}` : ''}`}
@@ -739,9 +699,8 @@ export default function Strategy() {
                   </Stack>
                   <Stack
                     direction={{ xs: 'column', sm: 'row' }}
-                    alignItems={{ xs: 'flex-end', sm: 'center' }}
                     spacing={1}
-                    sx={{ flexShrink: 0 }}
+                    sx={{ alignItems: { xs: 'flex-end', sm: 'center' }, flexShrink: 0  }}
                   >
                     {saveAction}
                     <FormControlLabel
@@ -772,8 +731,8 @@ export default function Strategy() {
                         bgcolor: 'action.hover',
                       }}
                     >
-                      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
-                        <Typography variant="caption" fontWeight={700}>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between", mb: 1  }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700 }}>
                           Toss 미국 자동매매 세션
                         </Typography>
                         <Chip
@@ -820,6 +779,7 @@ export default function Strategy() {
                         onUpdate={(syms) => setPcEditMap((prev) => ({ ...prev, [s.id]: syms }))}
                       />
                       <StrategyPreviewPanel
+                        profileId={appConfig?.active_profile_id ?? null}
                         strategyId={s.id}
                         strategyName={s.name}
                         brokerId={s.brokerId}
@@ -846,8 +806,8 @@ export default function Strategy() {
                     <>
                       {/* 종목 목록 테이블 */}
                   <Box>
-                    <Stack direction="row" alignItems="center" justifyContent="space-between" mb={0.5}>
-                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                    <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
                         대상 종목 ({edit.symbols.length}개)
                       </Typography>
                       <Button
@@ -904,7 +864,7 @@ export default function Strategy() {
                     )}
                   </Box>
                   <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6} md={4}>
+                    <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                       <TextField
                         label="1회 수량"
                         type="number"
@@ -913,26 +873,29 @@ export default function Strategy() {
                         size="small"
                         fullWidth
                         disabled={s.enabled}
-                        inputProps={{ min: 1 }}
+                        slotProps={{ htmlInput: { min: 1 } }}
                       />
                     </Grid>
                     {paramMetas.map((meta) => (
-                      <Grid item xs={12} sm={6} md={4} key={meta.key}>
+                      <Grid size={{ xs: 12, sm: 6, md: 4 }} key={meta.key}>
                         <TextField
                           label={meta.label}
                           type="number"
                           title={meta.description}
-                          value={edit.params[meta.key] ?? 0}
+                          value={edit.params[meta.key] ?? (sType === 'strong_close' ? 3 : 0)}
                           onChange={(e) => setParam(s.id, s, meta.key, Number(e.target.value))}
                           size="small"
                           fullWidth
                           disabled={s.enabled}
-                          inputProps={{ min: meta.min, max: meta.max, step: meta.step ?? 1 }}
+                          slotProps={{ htmlInput: { min: meta.min, max: meta.max, step: meta.step ?? 1 } }}
                         />
                       </Grid>
                     ))}
                   </Grid>
+                  <StrategyPolicyControls type={sType} params={edit.params} disabled={s.enabled} onChange={(key, value) => setParam(s.id, s, key, value)} />
                   <StrategyPreviewPanel
+                    paramsError={entryError}
+                    profileId={appConfig?.active_profile_id ?? null}
                     strategyId={s.id}
                     strategyName={s.name}
                     brokerId={s.brokerId}
@@ -948,7 +911,7 @@ export default function Strategy() {
 
                 {stratDesc && sType !== 'price_condition' && sType !== 'leveraged_trend_hold' && (
                   <Tooltip title={stratDesc} arrow placement="bottom-start">
-                    <Stack direction="row" alignItems="center" gap={0.5} sx={{ mt: 1.5, cursor: 'help', width: 'fit-content' }}>
+                    <Stack direction="row" sx={{ alignItems: "center", gap: 0.5, mt: 1.5, cursor: 'help', width: 'fit-content'  }}>
                       <InfoOutlinedIcon sx={{ fontSize: 13, color: 'text.disabled' }} />
                       <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.65rem' }}>전략 설명 보기</Typography>
                     </Stack>

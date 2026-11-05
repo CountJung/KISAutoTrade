@@ -1,0 +1,493 @@
+{
+  "baselineCommit": "327739a",
+  "continuousRuns": 48,
+  "elapsedSeconds": 16.196371375,
+  "independentQuarterResetRuns": 576,
+  "maCrossDefaultReportAndSignalParityRuns": 102,
+  "note": "Quarter-reset returns are separate accounts and are never aggregated into continuous performance",
+  "partitionEquivalenceRuns": 48,
+  "partitions": [
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "19d2676e95fad7a2",
+      "inputHash": "02e3f1eb92c65cc7",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "62fe33cb1a6f923e",
+      "inputHash": "7bab69890a7a1781",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "d46850e0d5cc1752",
+      "inputHash": "c4e7c4d8feee7a3b",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "30f091d6322ae05b",
+      "inputHash": "8ab350de7afa985d",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "2cc243d652d3300d",
+      "inputHash": "38c9116477a89918",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "b9a8754e722e9467",
+      "inputHash": "d11384a2fbc2fac6",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "19d2676e95fad7a2",
+      "inputHash": "c22b716bf799d375",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "unfiltered"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "62fe33cb1a6f923e",
+      "inputHash": "82591ef84daefbcf",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "unfiltered"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "ae3f54c647f4b354",
+      "inputHash": "3f6810d206e52e0f",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "9aa1674272b27b60",
+      "inputHash": "b47b5a8cdc4e90e9",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "186422bf32b7ed5c",
+      "inputHash": "a5cf087f0d1eb0c8",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "slope0_1"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "589f37678361f9d0",
+      "inputHash": "2f3950d58e4372ca",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "slope0_1"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "8f2d6a4c67ba01cd",
+      "inputHash": "d2760d041beec9c4",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "atr0_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "9f4e432393e7d489",
+      "inputHash": "ebbf7c858aff6cb6",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "atr0_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "fb2a68ed02461df1",
+      "inputHash": "454d0abd4c49ced1",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "bandwidth2"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "9a904623d178c535",
+      "inputHash": "e47dd8d83ac7072b",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "bandwidth2"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "7d6f8a0d3763b9f1",
+      "inputHash": "f4384bf9cbb444e5",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "atr2"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "1f7476e78d3e714c",
+      "inputHash": "2fcba724a218d27f",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "atr2"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "f2615ae9a4f37058",
+      "inputHash": "87f671314e60f6ac",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "bandwidth10"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "7a04dddd3792b9c9",
+      "inputHash": "4f94067655f81e7e",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SOXQ",
+      "variant": "bandwidth10"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "d46850e0d5cc1752",
+      "inputHash": "30e72592a8a59c89",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "unfiltered"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "30f091d6322ae05b",
+      "inputHash": "15ff895fcf1d2f0b",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "unfiltered"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "729bb90f1a26ef7d",
+      "inputHash": "8ea0a1b0434f7897",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "64feb5bad82df254",
+      "inputHash": "5f88227549339dc9",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "ad38f673a0f390a3",
+      "inputHash": "7e13c091d350e5ae",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "slope0_1"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "5b595a894f647356",
+      "inputHash": "28e80deef3a2c670",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "slope0_1"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "cf5daf3834e7a121",
+      "inputHash": "83deeb0e5644cd46",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "atr0_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "597d29556258aa52",
+      "inputHash": "f950f37bd10199e8",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "atr0_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "01609befcd203651",
+      "inputHash": "30be7ed15dcc1225",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "bandwidth2"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "658139a7b6ee3f22",
+      "inputHash": "1d57f805206c0287",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "bandwidth2"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "e95570ab6d5a14c9",
+      "inputHash": "3c429e428d472351",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "atr2"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "5930992c716a8b5d",
+      "inputHash": "69c9f3c105ef2f13",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "atr2"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "a2b287a0f157be8b",
+      "inputHash": "14d18badcc7a70a8",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "bandwidth10"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "9deb93cbbece2657",
+      "inputHash": "b0b7fcb097a4e3f2",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "SPY",
+      "variant": "bandwidth10"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "2cc243d652d3300d",
+      "inputHash": "d0bb320072dfb2ae",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "unfiltered"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "b9a8754e722e9467",
+      "inputHash": "c477d6293cb23f6c",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "unfiltered"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "8c2323111a34d140",
+      "inputHash": "713863eb83172c68",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "8d44fbe101188696",
+      "inputHash": "214b2c0b7bb60716",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "31c2f077f9bb30c9",
+      "inputHash": "9c4aecc519e08919",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "slope0_1"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "40cadc79d659db11",
+      "inputHash": "4221504084bf2fdf",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "slope0_1"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "85a69df8a3e4f3b8",
+      "inputHash": "f18eb391d43a6ef5",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "atr0_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "ba46466ac6a48742",
+      "inputHash": "0ea7a781e7fcb2bb",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "atr0_5"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "96088a28ab4c1320",
+      "inputHash": "30365ac53ccd5bb2",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "bandwidth2"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "06c3ceb081891af6",
+      "inputHash": "03ef7bb856027030",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "bandwidth2"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "68e394e8b373e1f0",
+      "inputHash": "fac10e3597fb928e",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "atr2"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "935289c6b1bc8d2e",
+      "inputHash": "24f96538e641514c",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "atr2"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "6d73535ed356d6d8",
+      "inputHash": "519bbe06925f9d29",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "bandwidth10"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "801de6ab3ee00c12",
+      "inputHash": "a24e0cec04cf606f",
+      "quarterChunks": 12,
+      "strategyId": "ma_cross",
+      "symbol": "QQQ",
+      "variant": "bandwidth10"
+    }
+  ],
+  "stageAControlEquivalenceRuns": 36,
+  "unchangedStrategyFullReportAndSignalParityRuns": 1224
+}

@@ -81,6 +81,18 @@ async fn apply_intraday_ohlc(
     );
 }
 
+pub(super) fn legacy_history_symbols(manager: &StrategyManager) -> Vec<String> {
+    manager
+        .active_symbols()
+        .into_iter()
+        .filter(|symbol| {
+            manager.any_active_config_for_symbol(symbol, |config| {
+                !config.id.starts_with("fifty_two_week_high")
+            })
+        })
+        .collect()
+}
+
 pub(crate) async fn initialize_active_strategy_history(
     strategy_manager: &Arc<Mutex<StrategyManager>>,
     order_manager: &Arc<Mutex<crate::trading::order::OrderManager>>,
@@ -91,7 +103,9 @@ pub(crate) async fn initialize_active_strategy_history(
     // 활성 전략의 종목별 일봉 차트 데이터 로드 → 히스토리 기반 전략 초기화 (52주 신고가 등)
     // 국내 종목: get_chart_data (KRW 정수 가격)
     // 해외 종목: get_overseas_chart_data (USD float → ×100 센트로 정수화)
-    let active_symbols: Vec<String> = strategy_manager.lock().await.active_symbols();
+    // The 52-week strategy is prepared exclusively by scoped completed-page jobs.
+    // A symbol also used by another strategy still receives that strategy's legacy seed.
+    let active_symbols = legacy_history_symbols(&*strategy_manager.lock().await);
     if !active_symbols.is_empty() {
         let execution_scope = order_manager.lock().await.execution_scope().clone();
         let toss_adapter = if execution_scope.broker_id == BrokerId::Toss {
@@ -108,6 +122,10 @@ pub(crate) async fn initialize_active_strategy_history(
         } else {
             None
         };
+        if execution_scope.broker_id == BrokerId::Toss && toss_adapter.is_none() {
+            tracing::warn!("Toss 실행 scope의 프로파일을 찾지 못해 히스토리 초기화를 중단합니다.");
+            return;
+        }
         let rest = rest_client.read().await.clone();
         let today = chrono::Local::now();
         let end_date = today.format("%Y%m%d").to_string();
@@ -257,4 +275,25 @@ pub(crate) async fn initialize_active_strategy_history(
             }
         }
     }
+}
+
+fn calculate_atr(candles: &[OhlcCandle], period: usize) -> Option<u64> {
+    if candles.len() < 2 || period == 0 {
+        return None;
+    }
+    let start = candles.len().saturating_sub(period).max(1);
+    let mut ranges = Vec::with_capacity(candles.len().saturating_sub(start));
+    for idx in start..candles.len() {
+        let candle = candles[idx];
+        let prev_close = candles[idx - 1].close;
+        let high_low = candle.high.saturating_sub(candle.low);
+        let high_prev = candle.high.abs_diff(prev_close);
+        let low_prev = candle.low.abs_diff(prev_close);
+        ranges.push(high_low.max(high_prev).max(low_prev));
+    }
+    if ranges.is_empty() {
+        return None;
+    }
+    Some((ranges.iter().sum::<u64>() as f64 / ranges.len() as f64).round() as u64)
+        .filter(|atr| *atr > 0)
 }

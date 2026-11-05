@@ -1,0 +1,260 @@
+{
+  "baselineCommit": "6f9ca35",
+  "continuousRuns": 24,
+  "elapsedSeconds": 11.970571584,
+  "flatFullReportAndSignalParityRuns": 1224,
+  "independentQuarterResetRuns": 288,
+  "longDefaultFullReportAndSignalParityRuns": 6,
+  "longDefaultParityKeys": [
+    "\"QQQ\"|10",
+    "\"QQQ\"|20",
+    "\"SOXQ\"|10",
+    "\"SOXQ\"|20",
+    "\"SPY\"|10",
+    "\"SPY\"|20"
+  ],
+  "note": "Quarter-reset returns are separate accounts and are never aggregated into continuous performance",
+  "partitionEquivalenceRuns": 24,
+  "partitions": [
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "80fefb57d869ed78",
+      "inputHash": "f6bcfd69ad8ca274",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SOXQ",
+      "variant": "baseline"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "f150a3b305e70be3",
+      "inputHash": "41a18667d4ef5e66",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SOXQ",
+      "variant": "baseline"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "d49bb864edb72f73",
+      "inputHash": "ab79f2bb55e21e63",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SOXQ",
+      "variant": "cumulative1pct"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "ebc3e3e187b8e79a",
+      "inputHash": "3f301d8fe0660bed",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SOXQ",
+      "variant": "cumulative1pct"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "ab9e247d99afdad8",
+      "inputHash": "d1a42654f2fc7c69",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SOXQ",
+      "variant": "atrHalf"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "42bac491387e1b48",
+      "inputHash": "b848c711e9f1e303",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SOXQ",
+      "variant": "atrHalf"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "66e102736fc78bcd",
+      "inputHash": "b985fe03d3902c2a",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SOXQ",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "9427646d52e1d307",
+      "inputHash": "07b3c4d6bc0544f4",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SOXQ",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "df5d97ad7f1ea062",
+      "inputHash": "be959fd0b3c06768",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SPY",
+      "variant": "baseline"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "3db30a259175e48e",
+      "inputHash": "d3a07a9c343705b2",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SPY",
+      "variant": "baseline"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "1b7faed20f142f62",
+      "inputHash": "cf593dcbb6629de1",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SPY",
+      "variant": "cumulative1pct"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "a68991667a3273d5",
+      "inputHash": "280225b71dc43423",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SPY",
+      "variant": "cumulative1pct"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "4d54289c05df617d",
+      "inputHash": "25110539c9f65ff3",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SPY",
+      "variant": "atrHalf"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "667001154bb1a5e7",
+      "inputHash": "527a1c3fbb4aacd5",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SPY",
+      "variant": "atrHalf"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "f939bf28b33b0895",
+      "inputHash": "89ce88414b8a21ba",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SPY",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "47d3f1c9d78a6759",
+      "inputHash": "97115c50098a09dc",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "SPY",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "5991247d34104c24",
+      "inputHash": "3f4eb4b4c73fd87b",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "QQQ",
+      "variant": "baseline"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "fde8d48f1933f01d",
+      "inputHash": "23f9f10fb479de09",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "QQQ",
+      "variant": "baseline"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "cd72a245a27fb484",
+      "inputHash": "e56973833de963c2",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "QQQ",
+      "variant": "cumulative1pct"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "a6d01889a99c8612",
+      "inputHash": "44c100add9208700",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "QQQ",
+      "variant": "cumulative1pct"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "126ffb050fc8efa8",
+      "inputHash": "dca9f0414cebc47c",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "QQQ",
+      "variant": "atrHalf"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "8037a81845164f19",
+      "inputHash": "0055ddb28d5c379a",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "QQQ",
+      "variant": "atrHalf"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "f25e0ed9e67e4d0e",
+      "inputHash": "e9a3c20d0d65d77d",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "QQQ",
+      "variant": "trend200"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "15beea410d5c83f1",
+      "inputHash": "561c06d28ba9d5a3",
+      "quarterChunks": 12,
+      "strategyId": "consecutive_move",
+      "symbol": "QQQ",
+      "variant": "trend200"
+    }
+  ]
+}

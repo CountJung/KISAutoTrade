@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -44,6 +44,7 @@ import type {
 import { AddProfileDialog, EditProfileDialog } from './profileDialogs'
 import { brokerLabel, cmdErrMsg } from './profileUtils'
 import { Section } from './section'
+import { useProfileDialogSession } from './useProfileDialogSession'
 
 // ── 프로파일 카드 ──────────────────────────────────────────────────
 function ProfileCard({
@@ -56,7 +57,7 @@ function ProfileCard({
 }: {
   profile: AccountProfileView
   onEdit: (p: AccountProfileView) => void
-  onDelete: (p: AccountProfileView) => void
+  onDelete: (p: AccountProfileView, trigger: HTMLButtonElement) => void
   onSetActive: (id: string) => void
   isRunning: boolean
   tradingProfileId: string | null
@@ -112,9 +113,9 @@ function ProfileCard({
         bgcolor: profile.is_active ? 'action.selected' : undefined,
       }}
     >
-      <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
-        <Stack spacing={0.5} flex={1}>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+      <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "space-between" }}>
+        <Stack spacing={0.5} sx={{ flex: 1 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
             {profile.is_active ? (
               <RadioButtonCheckedIcon color="primary" fontSize="small" />
             ) : (
@@ -131,7 +132,7 @@ function ProfileCard({
                 </span>
               </Tooltip>
             )}
-            <Typography variant="body1" fontWeight={600}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
               {profile.name}
             </Typography>
             <Chip
@@ -259,18 +260,18 @@ function ProfileCard({
               </Tooltip>
             )}
           </Stack>
-          <Typography variant="body2" color="text.secondary" pl={3.5}>
+          <Typography variant="body2" color="text.secondary" sx={{ pl: 3.5 }}>
             KEY: <code>{profile.app_key_masked}</code>
             &nbsp;&nbsp;계좌: <code>{profile.account_no || '(미설정)'}</code>
             &nbsp;&nbsp;Broker 계좌: <code>{profile.broker_account_id || '(미설정)'}</code>
           </Typography>
           {detectError && (
-            <Typography variant="caption" color="error" pl={3.5}>
+            <Typography variant="caption" color="error" sx={{ pl: 3.5 }}>
               {detectError}
             </Typography>
           )}
           {tossDiagnostic && (
-            <Box pl={3.5} mt={1}>
+            <Box sx={{ pl: 3.5, mt: 1 }}>
               <Alert
                 severity={tossDiagnostic.is_ready ? 'success' : 'warning'}
                 sx={{ py: 0.75 }}
@@ -294,7 +295,7 @@ function ProfileCard({
                       ? ` · 수수료 ${tossDiagnostic.commissions_count}개`
                       : ''}
                   </Typography>
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                  <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }} useFlexGap>
                     {tossDiagnostic.steps.map((step) => (
                       <Chip
                         key={step.id}
@@ -316,14 +317,14 @@ function ProfileCard({
           )}
         </Stack>
 
-        <Stack direction="row" spacing={0.5} alignItems="center">
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
           <Tooltip title="편집">
             <IconButton size="small" onClick={() => onEdit(profile)}>
               <EditIcon fontSize="small" />
             </IconButton>
           </Tooltip>
           <Tooltip title="삭제">
-            <IconButton size="small" color="error" onClick={() => onDelete(profile)}>
+            <IconButton size="small" color="error" onClick={(event) => onDelete(profile, event.currentTarget)}>
               <DeleteIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -346,22 +347,67 @@ export function AccountProfilesSection() {
   const { data: tradingStatus } = useTradingStatus()
   const { data: profiles = [], isLoading: profilesLoading } = useProfiles()
   const { mutate: setActive } = useSetActiveProfile()
-  const { mutate: deleteProfile } = useDeleteProfile()
+  const { mutateAsync: deleteProfile } = useDeleteProfile()
   const [addBroker, setAddBroker] = useState<BrokerId | null>(null)
   const [editProfile, setEditProfile] = useState<AccountProfileView | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<AccountProfileView | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const deleteSession = useProfileDialogSession(!!deleteTarget, deleteTarget)
+  const deleting = deleteSession.main.pending()
+  const deleteTrigger = useRef<HTMLButtonElement | null>(null)
+  const addButtons = useRef<Partial<Record<BrokerId, HTMLButtonElement | null>>>({})
+  const [deleteDialogExited, setDeleteDialogExited] = useState(true)
+  const [deletedFocus, setDeletedFocus] = useState<{ trigger: HTMLButtonElement | null; broker: BrokerId } | null>(null)
+
+  useEffect(() => {
+    if (!deletedFocus || !deleteDialogExited || deleteTarget || deletedFocus.trigger?.isConnected) return
+    const active = document.activeElement
+    // Do not steal focus if the user already moved to another live control.
+    if (!active || active === document.body || active === deletedFocus.trigger || !active.isConnected) {
+      const fallback = addButtons.current[deletedFocus.broker]
+        ?? document.getElementById(deletedFocus.broker === 'kis' ? 'settings-kis-profiles' : 'settings-toss-profiles')
+      fallback?.focus()
+    }
+    setDeletedFocus(null)
+  }, [deletedFocus, deleteDialogExited, deleteTarget, profiles])
   const kisProfiles = profiles.filter((profile) => profile.broker_id === 'kis')
   const tossProfiles = profiles.filter((profile) => profile.broker_id === 'toss')
 
-  const handleDelete = () => {
+  const openDelete = (profile: AccountProfileView, trigger: HTMLButtonElement) => {
+    deleteTrigger.current = trigger
+    setDeletedFocus(null)
+    setDeleteError(null)
+    setDeleteDialogExited(false)
+    setDeleteTarget(profile)
+  }
+  const closeDelete = () => {
+    if (deleteSession.main.pending()) return
+    deleteSession.close()
+    setDeleteError(null)
+    setDeleteTarget(null)
+  }
+  const handleDelete = async () => {
     if (!deleteTarget) return
-    deleteProfile(deleteTarget.id, {
-      onSuccess: () => setDeleteTarget(null),
-    })
+    const ticket = deleteSession.main.begin()
+    if (!ticket) return
+    const target = deleteTarget
+    const trigger = deleteTrigger.current
+    setDeleteError(null)
+    try {
+      await deleteProfile(target.id)
+      if (!deleteSession.main.finish(ticket)) return
+      deleteSession.close()
+      setDeletedFocus({ trigger, broker: target.broker_id })
+      setDeleteTarget(null)
+    } catch (e) {
+      if (deleteSession.main.current(ticket)) setDeleteError(cmdErrMsg(e))
+    } finally {
+      deleteSession.main.finish(ticket)
+    }
   }
 
   const renderBrokerProfiles = (brokerId: BrokerId, brokerProfiles: AccountProfileView[]) => (
-    <Section title={`${brokerLabel(brokerId)} 계좌 프로파일`}>
+    <Section id={brokerId === 'kis' ? 'settings-kis-profiles' : 'settings-toss-profiles'} title={`${brokerLabel(brokerId)} 계좌 프로파일`}>
       <Stack spacing={2}>
         {profilesLoading ? (
           <CircularProgress size={24} />
@@ -376,7 +422,7 @@ export function AccountProfilesSection() {
                 key={profile.id}
                 profile={profile}
                 onEdit={setEditProfile}
-                onDelete={setDeleteTarget}
+                onDelete={openDelete}
                 onSetActive={(id) => setActive(id)}
                 isRunning={tradingStatus?.isRunning ?? false}
                 tradingProfileId={tradingStatus?.tradingProfileId ?? null}
@@ -390,6 +436,7 @@ export function AccountProfilesSection() {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => setAddBroker(brokerId)}
+            ref={(button: HTMLButtonElement | null) => { addButtons.current[brokerId] = button }}
             size="small"
           >
             {brokerLabel(brokerId)} 계좌 추가
@@ -401,9 +448,9 @@ export function AccountProfilesSection() {
 
   return (
     <>
-      <Section title="활성 증권사 프로파일">
+      <Section id="settings-active-profile" title="활성 증권사 프로파일">
         <Stack spacing={2}>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
             {appConfig ? (
               <>
                 <Chip
@@ -449,7 +496,7 @@ export function AccountProfilesSection() {
 
           {diag && diag.issues.length > 0 && (
             <Alert severity="warning">
-              <Typography variant="body2" fontWeight={600} mb={0.5}>
+              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
                 설정 문제 감지됨
               </Typography>
               {diag.issues.map((issue, i) => (
@@ -506,7 +553,8 @@ export function AccountProfilesSection() {
       />
       <EditProfileDialog profile={editProfile} onClose={() => setEditProfile(null)} />
 
-      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+      <Dialog open={!!deleteTarget} onClose={closeDelete} maxWidth="xs" fullWidth
+        slotProps={{ transition: { onExited: () => setDeleteDialogExited(true) } }}>
         <DialogTitle>프로파일 삭제</DialogTitle>
         <DialogContent>
           <Typography>
@@ -517,10 +565,13 @@ export function AccountProfilesSection() {
               </Alert>
             )}
           </Typography>
+          {deleteError && <Alert severity="error" sx={{ mt: 1 }}>{deleteError}</Alert>}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteTarget(null)}>취소</Button>
-          <Button onClick={handleDelete} color="error" variant="contained">
+          <Button onClick={closeDelete} disabled={deleting}>취소</Button>
+          <Button onClick={handleDelete} color="error" variant="contained" aria-label="삭제"
+            aria-busy={deleting} aria-disabled={deleting} aria-description={deleting ? '프로파일 삭제 중' : undefined}
+            startIcon={deleting ? <CircularProgress size={18} color="inherit" aria-label="프로파일 삭제 중" /> : undefined}>
             삭제
           </Button>
         </DialogActions>

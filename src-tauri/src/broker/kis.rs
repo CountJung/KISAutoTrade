@@ -8,11 +8,13 @@ use crate::api::rest::{
 
 use super::{
     adapter::{BrokerAdapter, BrokerAdapterError, BrokerAdapterResult},
+    candles::{kis_cursor_date, previous_kis_cursor},
     domain::{
         BrokerAccountId, BrokerHolding, BrokerId, BrokerMarket, BrokerMoney, BrokerOrderId,
         BrokerOrderReceipt, BrokerOrderRequest, BrokerOrderSide, BrokerOrderStatus,
         BrokerOrderType, BrokerPriceQuote, BrokerQuantity, BrokerSymbol,
     },
+    BrokerCandle, BrokerCandlePage, CandlePageRequest,
 };
 
 /// Adapter boundary for existing KIS REST calls.
@@ -45,6 +47,115 @@ impl KisBrokerAdapter {
 impl BrokerAdapter for KisBrokerAdapter {
     fn broker_id(&self) -> BrokerId {
         BrokerId::Kis
+    }
+
+    async fn get_candle_page(
+        &self,
+        request: &CandlePageRequest,
+    ) -> BrokerAdapterResult<BrokerCandlePage> {
+        request
+            .validate()
+            .map_err(|error| BrokerAdapterError::InvalidRequest(error.to_string()))?;
+        if request.interval == "1m" {
+            return Err(BrokerAdapterError::Unsupported {
+                broker: BrokerId::Kis,
+                operation: "minute candle pages",
+            });
+        }
+        let now = chrono::Utc::now();
+        let today = match request.market {
+            BrokerMarket::Kr => now.with_timezone(&chrono_tz::Asia::Seoul).date_naive(),
+            BrokerMarket::Us => now
+                .with_timezone(&chrono_tz::America::New_York)
+                .date_naive(),
+        };
+        let anchor = kis_cursor_date(request.cursor.as_ref(), today)
+            .map_err(BrokerAdapterError::Provider)?;
+        if anchor > today {
+            return Err(BrokerAdapterError::InvalidRequest(
+                "future KIS date cursor".into(),
+            ));
+        }
+        let rows = if request.market == BrokerMarket::Kr {
+            let days = match request.interval.as_str() {
+                "W" => 1_000,
+                "M" => 4_000,
+                _ => 400,
+            };
+            let start = anchor
+                .checked_sub_days(chrono::Days::new(days))
+                .ok_or_else(|| {
+                    BrokerAdapterError::InvalidRequest("KIS date cursor underflow".into())
+                })?;
+            self.client
+                .get_chart_data(
+                    &request.symbol.0,
+                    &request.interval,
+                    &start.format("%Y%m%d").to_string(),
+                    &anchor.format("%Y%m%d").to_string(),
+                )
+                .await?
+        } else {
+            let exchange = match request.exchange.as_deref() {
+                Some("NAS" | "NASD") => "NAS",
+                Some("NYS" | "NYSE") => "NYS",
+                Some("AMS" | "AMEX") => "AMS",
+                _ => {
+                    return Err(BrokerAdapterError::InvalidRequest(
+                        "US candle pages require NAS/NYS/AMS exchange".into(),
+                    ))
+                }
+            };
+            self.client
+                .get_overseas_chart_data(
+                    &request.symbol.0,
+                    exchange,
+                    &request.interval,
+                    &anchor.format("%Y%m%d").to_string(),
+                )
+                .await?
+        };
+        let currency = if request.market == BrokerMarket::Kr {
+            super::BrokerCurrency::Krw
+        } else {
+            super::BrokerCurrency::Usd
+        };
+        let keep = usize::from(request.count.min(100));
+        let start = rows.len().saturating_sub(keep);
+        let candles = rows[start..]
+            .iter()
+            .map(|bar| {
+                let money = |amount: &String| BrokerMoney {
+                    amount: amount.clone(),
+                    currency,
+                };
+                BrokerCandle {
+                    symbol: request.symbol.clone(),
+                    market: request.market,
+                    date: bar.date.clone(),
+                    open: money(&bar.open),
+                    high: money(&bar.high),
+                    low: money(&bar.low),
+                    close: money(&bar.close),
+                    volume: BrokerQuantity(bar.volume.clone()),
+                }
+            })
+            .collect::<Vec<_>>();
+        let next_cursor = previous_kis_cursor(&candles, anchor);
+        let end_reason = next_cursor.is_none().then(|| {
+            if candles.is_empty() {
+                "providerExhausted"
+            } else {
+                "cursorDidNotAdvance"
+            }
+            .into()
+        });
+        Ok(BrokerCandlePage {
+            candles,
+            next_cursor,
+            end_reason,
+            timestamp_semantics: "tradingDate",
+        })
     }
 
     async fn get_price(&self, symbol: &BrokerSymbol) -> BrokerAdapterResult<BrokerPriceQuote> {

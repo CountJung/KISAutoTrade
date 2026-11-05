@@ -15,10 +15,12 @@ use super::{
 };
 use crate::broker::{
     adapter::{BrokerAdapter, BrokerAdapterError, BrokerAdapterResult},
+    candles::{next_toss_cursor, toss_cursor_before},
     domain::{
         BrokerAccountId, BrokerCandle, BrokerCurrency, BrokerHolding, BrokerId, BrokerPriceQuote,
         BrokerSymbol,
     },
+    BrokerCandlePage, CandlePageRequest,
 };
 
 pub(super) fn select_price_response(
@@ -301,6 +303,63 @@ impl std::fmt::Display for TossBrokerAdapter {
 impl BrokerAdapter for TossBrokerAdapter {
     fn broker_id(&self) -> BrokerId {
         BrokerId::Toss
+    }
+
+    async fn get_candle_page(
+        &self,
+        request: &CandlePageRequest,
+    ) -> BrokerAdapterResult<BrokerCandlePage> {
+        request
+            .validate()
+            .map_err(|error| BrokerAdapterError::InvalidRequest(error.to_string()))?;
+        let interval = match request.interval.as_str() {
+            "D" => "1d",
+            "1m" => "1m",
+            _ => {
+                return Err(BrokerAdapterError::Unsupported {
+                    broker: BrokerId::Toss,
+                    operation: "weekly/monthly candle pages",
+                })
+            }
+        };
+        let before = toss_cursor_before(request.cursor.as_ref())
+            .map_err(|error| BrokerAdapterError::InvalidRequest(error.to_string()))?;
+        let page = self
+            .client
+            .get_candles(
+                &request.symbol,
+                interval,
+                Some(request.count),
+                before,
+                Some(true),
+            )
+            .await?;
+        if page.candles.len() > usize::from(request.count) {
+            return Err(BrokerAdapterError::InvalidRequest(
+                "Toss candle response exceeds requested page size".into(),
+            ));
+        }
+        let candles = page
+            .candles
+            .iter()
+            .map(|bar| bar.to_broker_candle(&request.symbol))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        if candles.iter().any(|bar| bar.market != request.market) {
+            return Err(BrokerAdapterError::InvalidRequest(
+                "Toss candle market does not match requested market".into(),
+            ));
+        }
+        let (next_cursor, end_reason) = next_toss_cursor(before, page.next_before)?;
+        Ok(BrokerCandlePage {
+            candles,
+            next_cursor,
+            end_reason,
+            timestamp_semantics: if interval == "1m" {
+                "barClose"
+            } else {
+                "tradingDate"
+            },
+        })
     }
 
     async fn get_price(&self, symbol: &BrokerSymbol) -> BrokerAdapterResult<BrokerPriceQuote> {

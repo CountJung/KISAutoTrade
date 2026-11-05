@@ -54,6 +54,11 @@ function toNumber(value: string) {
 }
 
 function parseTimeMs(value: string, fallbackIndex = 0): number {
+  // Offset-bearing timestamps already identify the instant; stripping digits loses the offset.
+  if (/(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(value)) {
+    const timestamp = Date.parse(value)
+    if (Number.isFinite(timestamp)) return timestamp
+  }
   const digits = value.replace(/\D/g, '')
   if (digits.length === 8) {
     const year = Number(digits.slice(0, 4))
@@ -270,7 +275,7 @@ export function StrategyPreviewChart({
 
   return (
     <Stack spacing={1}>
-      <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
+      <Stack direction="row" sx={{ alignItems: "center", gap: 1, flexWrap: "wrap" }}>
         <Chip size="small" variant="outlined" label={sourceLabel} />
         <FormControlLabel
           control={
@@ -278,7 +283,7 @@ export function StrategyPreviewChart({
               size="small"
               checked={showCloseLine}
               onChange={(event) => setShowCloseLine(event.target.checked)}
-              inputProps={{ 'aria-label': '종가 선 그래프 표시' }}
+              slotProps={{ input: { 'aria-label': '종가 선 그래프 표시' } }}
             />
           }
           label="종가 선 그래프"
@@ -319,7 +324,7 @@ export function StrategyPreviewChart({
           overscrollBehavior: 'contain',
         }}
       />
-      <Stack direction="row" gap={0.75} flexWrap="wrap">
+      <Stack direction="row" sx={{ gap: 0.75, flexWrap: "wrap" }}>
         <Chip size="small" variant="outlined" label="시간축 KST" />
         <Chip size="small" variant="outlined" label="한 손가락 좌우 이동 · 두 손가락 확대/축소" />
         {signals.length === 0 ? (

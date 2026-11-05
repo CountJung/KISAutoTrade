@@ -76,9 +76,9 @@ export function PriceConditionEditorPanel({
 
   return (
     <Stack spacing={1.5}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
-        <Stack direction="row" alignItems="center" gap={0.5}>
-          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+      <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
+        <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
             대상 종목 ({symbols.length}개)
           </Typography>
           <Tooltip
@@ -126,15 +126,15 @@ export function PriceConditionEditorPanel({
               {symbols.map((symbol) => (
                 <TableRow key={symbol.symbol}>
                   <TableCell sx={{ py: 0.5 }}>
-                    <Stack direction="row" alignItems="center" gap={0.5}>
+                    <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
                       {symbol.is_overseas && (
-                        <Typography variant="caption" color="primary.main" fontWeight={700} sx={{ fontSize: '0.6rem' }}>
+                        <Typography variant="caption" color="primary.main" sx={{ fontWeight: 700, fontSize: '0.6rem'  }}>
                           $
                         </Typography>
                       )}
                       <Box>
-                        <Typography variant="caption" fontWeight={600}>{symbol.symbol}</Typography>
-                        <Typography variant="caption" color="text.secondary" display="block" noWrap sx={{ maxWidth: 80 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 600 }}>{symbol.symbol}</Typography>
+                        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block", maxWidth: 80  }}>
                           {symbol.symbol_name}
                         </Typography>
                       </Box>
@@ -151,13 +151,12 @@ export function PriceConditionEditorPanel({
                           disabled={stratEnabled}
                           size="small"
                           onChange={(event) => handleFieldChange(symbol.symbol, field.key, Number(event.target.value))}
-                          inputProps={{
+                          slotProps={{ htmlInput: {
                             'aria-label': `${symbol.symbol} ${field.label}`,
                             min: field.key === 'quantity' ? 1 : 0,
                             step: fieldStep,
                             style: { padding: '4px 4px', fontSize: '0.75rem', textAlign: 'right' },
-                          }}
-                          InputProps={field.isPrice ? {
+                          }, input: field.isPrice ? {
                             endAdornment: (
                               <InputAdornment position="end">
                                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', lineHeight: 1 }}>
@@ -165,7 +164,7 @@ export function PriceConditionEditorPanel({
                                 </Typography>
                               </InputAdornment>
                             ),
-                          } : undefined}
+                          } : undefined }}
                           sx={{ width: '100%', '& .MuiInputBase-root': { fontSize: '0.75rem' } }}
                         />
                       </TableCell>

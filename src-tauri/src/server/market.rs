@@ -13,40 +13,104 @@ use crate::{
         BrokerAccountId, BrokerAdapter, BrokerCurrency, BrokerId, BrokerMarket, BrokerScope,
         BrokerSymbol, TossBrokerAdapter,
     },
-    trading::order::{OrderManager, SubmissionOutcome},
+    trading::order::{HoldingsMarkets, HoldingsUpdate, OrderManager, SubmissionOutcome},
 };
 
+pub(super) async fn candle_page_handler(
+    State(s): State<ServerState>,
+    Query(input): Query<crate::commands::CandlePageInput>,
+) -> Response {
+    let Some(profile) = s.profiles.read().await.get_active().cloned() else {
+        return (StatusCode::CONFLICT, Json(serde_json::json!({"code":"CONFIG_NOT_READY", "message":"활성 프로파일이 없습니다."}))).into_response();
+    };
+    let rest = s.rest_client.read().await.clone();
+    match crate::commands::get_candle_page_for_profile(input, profile, rest).await {
+        Ok(page) => Json(page).into_response(),
+        Err(error) => (StatusCode::BAD_REQUEST, Json(error)).into_response(),
+    }
+}
+
 pub(super) async fn balance_handler(State(s): State<ServerState>) -> Json<serde_json::Value> {
-    let client = s.rest_client.read().await.clone();
-    match client.get_balance().await {
-        Ok(b) => Json(serde_json::to_value(b).unwrap_or_default()),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
+    let result: anyhow::Result<_> = async {
+        let query = s
+            .order_manager
+            .lock()
+            .await
+            .begin_holdings_query(BrokerId::Kis, HoldingsMarkets::ReadOnly)
+            .await?;
+        let balance = query.client().get_balance().await?;
+        s.order_manager
+            .lock()
+            .await
+            .publish_holdings(query, HoldingsUpdate::ReadOnly)
+            .await?;
+        Ok(balance)
+    }
+    .await;
+    match result {
+        Ok(balance) => Json(serde_json::to_value(balance).unwrap_or_default()),
+        Err(error) => Json(serde_json::json!({ "error": error.to_string() })),
     }
 }
 
 pub(super) async fn overseas_balance_handler(
     State(s): State<ServerState>,
 ) -> Json<serde_json::Value> {
-    let client = s.rest_client.read().await.clone();
-    match client.get_overseas_balance().await {
-        Ok(b) => Json(serde_json::to_value(b).unwrap_or_default()),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
+    let result: anyhow::Result<_> = async {
+        let query = s
+            .order_manager
+            .lock()
+            .await
+            .begin_holdings_query(BrokerId::Kis, HoldingsMarkets::ReadOnly)
+            .await?;
+        let balance = query.client().get_overseas_balance().await?;
+        s.order_manager
+            .lock()
+            .await
+            .publish_holdings(query, HoldingsUpdate::ReadOnly)
+            .await?;
+        Ok(balance)
+    }
+    .await;
+    match result {
+        Ok(balance) => Json(serde_json::to_value(balance).unwrap_or_default()),
+        Err(error) => Json(serde_json::json!({ "error": error.to_string() })),
     }
 }
 
 pub(super) async fn broker_holdings_handler(
     State(s): State<ServerState>,
 ) -> Json<serde_json::Value> {
-    let profile = {
-        let profiles = s.profiles.read().await;
-        profiles.get_active().cloned()
-    };
-    let Some(profile) = profile else {
-        return Json(serde_json::json!([]));
-    };
-
-    let rest_client = s.rest_client.read().await.clone();
-    match crate::commands::list_broker_holdings_for_profile(profile, rest_client).await {
+    let result: Result<_, crate::commands::CmdError> = async {
+        let query = {
+            let mut orders = s.order_manager.lock().await;
+            let broker = orders.execution_scope().broker_id;
+            orders
+                .begin_holdings_query(broker, HoldingsMarkets::ReadOnly)
+                .await
+                .map_err(crate::commands::CmdError::from)?
+        };
+        let Some(profile) = query.profile().cloned() else {
+            s.order_manager
+                .lock()
+                .await
+                .publish_holdings(query, HoldingsUpdate::ReadOnly)
+                .await
+                .map_err(crate::commands::CmdError::from)?;
+            return Ok(Vec::new());
+        };
+        let response =
+            crate::commands::list_broker_holdings_for_profile(profile, query.client()).await?;
+        s.order_manager
+            .lock()
+            .await
+            .publish_holdings(query, HoldingsUpdate::ReadOnly)
+            .await
+            .map_err(crate::commands::CmdError::from)?;
+        Ok(response)
+    }
+    .await;
+    match result {
         Ok(holdings) => Json(serde_json::to_value(holdings).unwrap_or_default()),
         Err(e) => Json(serde_json::json!({
             "code": e.code,
@@ -151,7 +215,7 @@ pub(super) async fn order_handler(
         )
         .await
         {
-            return response;
+            return *response;
         }
         let account_id = profile.broker_account_id();
         let adapter = TossBrokerAdapter::with_credentials(
@@ -301,7 +365,7 @@ pub(super) async fn overseas_order_handler(
         )
         .await
         {
-            return response;
+            return *response;
         }
         let account_id = profile.broker_account_id();
         let adapter = TossBrokerAdapter::with_credentials(
@@ -430,6 +494,11 @@ fn submission_response(outcome: SubmissionOutcome) -> Response {
             "msg1": "주문 접수"
         }))
         .into_response(),
+        SubmissionOutcome::StaleRun { reason } => (
+            StatusCode::CONFLICT,
+            Json(serde_json::json!({ "code": "EXECUTION_CONTEXT_CHANGED", "message": reason })),
+        )
+            .into_response(),
         SubmissionOutcome::Skipped { reason, .. } => (
             StatusCode::CONFLICT,
             Json(serde_json::json!({ "code": "ORDER_PREFLIGHT_BLOCKED", "message": reason })),
@@ -461,7 +530,7 @@ async fn validate_toss_web_order(
     order_type: OrderType,
     quantity: u64,
     price: String,
-) -> Result<(), Response> {
+) -> Result<(), Box<Response>> {
     let preflight = crate::commands::check_toss_order_preflight_for_profile(
         crate::commands::TossOrderPreflightInput {
             symbol: symbol.to_string(),
@@ -477,16 +546,16 @@ async fn validate_toss_web_order(
         profile.clone(),
     )
     .await
-    .map_err(|error| invalid_order_input(&error.code, &error.message))?;
+    .map_err(|error| Box::new(invalid_order_input(&error.code, &error.message)))?;
     if !preflight.can_submit {
-        return Err(invalid_order_input(
+        return Err(Box::new(invalid_order_input(
             "TOSS_PREFLIGHT_BLOCKED",
             preflight
                 .blocked_reasons
                 .first()
                 .map(String::as_str)
                 .unwrap_or("Toss 주문 사전검증을 통과하지 못했습니다."),
-        ));
+        )));
     }
     let open_orders = crate::commands::list_toss_open_orders_for_profile(
         crate::commands::TossOpenOrdersInput {
@@ -495,12 +564,12 @@ async fn validate_toss_web_order(
         profile.clone(),
     )
     .await
-    .map_err(|error| provider_error(error.message))?;
+    .map_err(|error| Box::new(provider_error(error.message)))?;
     if let Some(order) = open_orders.first() {
-        return Err(invalid_order_input(
+        return Err(Box::new(invalid_order_input(
             "TOSS_PENDING_ORDER_EXISTS",
             &format!("provider 미체결 주문이 있습니다: {}", order.order_id),
-        ));
+        )));
     }
     Ok(())
 }
@@ -532,6 +601,74 @@ fn parse_order_type(value: &str) -> Option<OrderType> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Both inputs fail before credentials, adapters, or provider HTTP are used.
+    #[tokio::test]
+    async fn web_preflight_wrong_broker_preserves_bad_request_response() {
+        let profile = crate::config::AccountProfile::new(
+            "offline fixture".into(),
+            true,
+            String::new(),
+            String::new(),
+            String::new(),
+        );
+        let response = *validate_toss_web_order(
+            &profile,
+            "",
+            OrderSide::Buy,
+            OrderType::Limit,
+            0,
+            "0".into(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(response.headers()["content-type"], "application/json");
+        let body = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+            serde_json::json!({
+                "code": "BROKER_NOT_SUPPORTED",
+                "message": "Toss 주문 전 검증은 Toss 활성 프로파일에서만 사용할 수 있습니다."
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn web_preflight_zero_quantity_preserves_bad_request_response() {
+        let mut profile = crate::config::AccountProfile::new(
+            "offline fixture".into(),
+            true,
+            String::new(),
+            String::new(),
+            "fixture-account".into(),
+        );
+        profile.broker_id = BrokerId::Toss;
+        let response = *validate_toss_web_order(
+            &profile,
+            "005930",
+            OrderSide::Sell,
+            OrderType::Limit,
+            0,
+            "70000".into(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(response.headers()["content-type"], "application/json");
+        let body = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+            serde_json::json!({
+                "code": "INVALID_QUANTITY",
+                "message": "Toss 주문 전 검증 수량은 0보다 커야 합니다."
+            })
+        );
+    }
 
     #[test]
     fn invalid_order_enums_never_fall_back_to_sell_or_market() {

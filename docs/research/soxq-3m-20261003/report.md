@@ -1,12 +1,12 @@
-> 최신 상태: [P1-05(v7) 일봉 진단·분봉 지표 분리](p1-05-validation.md) 구현 검증 완료, 실제 3개월 분봉 재평가는 자료 대기 중이다. [P1-04(v6) 현재시각 경로 차단](p1-04-validation.md), [P1-03(v5) 날짜 이벤트](p1-03-validation.md), [P1-01(v4) 준비 상태](p1-01-validation.md). 아래 본문은 초기 v2 관측이다.
+> 최신 상태: [P1-05(v7) 일봉 진단·분봉 지표 분리](#validation-p1-05) 구현 검증 완료, 실제 3개월 분봉 재평가는 자료 대기 중이다. [P1-04(v6) 현재시각 경로 차단](#validation-p1-04), [P1-03(v5) 날짜 이벤트](#validation-p1-03), [P1-01(v4) 준비 상태](#validation-p1-01). 아래 본문은 초기 v2 관측이다.
 
 # SOXQ 최근 3개월 자동투자전략 평가 — 2026-10-03
 
-> 이 문서는 수정 전 v2 엔진 분석 기록이다. 이후 **SOXQ-P1-02 고가/종가 warmup 오류를 수정**했고 [수정 후 검증·재평가](p1-02-validation.md)에 차이를 기록했다. 아래 수치와 charts.html은 최초 분석 시점의 결과를 보존한다.
+> 이 문서는 수정 전 v2 엔진 분석 기록이다. 이후 **SOXQ-P1-02 고가/종가 warmup 오류를 수정**했고 [수정 후 검증·재평가](#validation-p1-02)에 차이를 기록했다. 아래 수치와 charts.html은 최초 분석 시점의 결과를 보존한다.
 
 현재 프로젝트의 13개 전략을 실제 Rust 시뮬레이션 라이브러리로 실행했다. Python으로 매매 전략을 새로 구현하지 않았고, 실계좌 접속·모의계좌 주문·자동매매 시작·저장된 전략 설정 변경은 하지 않았다.
 
-이격도·가격조건·RSI가 이번 종가 replay에서 양의 순수익을 보였지만, 표본 수와 엔진 제약 때문에 전략 순위를 확정할 수 없다. 우선 개선 대상은 **사전 데이터/준비 상태, 고가·종가 초기화 구분, 일자별 이벤트, LTH 역사 시각/분봉 처리**다. [TODO](../../../todo.md)에 P1 5개와 P2 16개(13개 전략별 평가 과제 포함)를 남겼다.
+이격도·가격조건·RSI가 이번 종가 replay에서 양의 순수익을 보였지만, 표본 수와 엔진 제약 때문에 전략 순위를 확정할 수 없다. 우선 개선 대상은 **사전 데이터/준비 상태, 고가·종가 초기화 구분, 일자별 이벤트, LTH 역사 시각/분봉 처리**다. [TODO](../../todo.md)에 P1 5개와 P2 16개(13개 전략별 평가 과제 포함)를 남겼다.
 
 ## 입력과 공통 가정
 
@@ -145,3 +145,102 @@ SOXQ_COST_BPS=20 cargo run --offline --manifest-path "$harness_dir/Cargo.toml" -
 - PASS: TypeScript noEmit.
 
 반복 실행은 generatedAt을 제외한 입력·신호·체결·수익 곡선·hash 일치를 확인했다. 동일 시스템 시각 범위 내 재실행이므로 generic LTH의 시각 의존성 해소를 입증하지는 않는다. 별도 읽기 전용 감사로 계산 의미와 문서 drift를 확인했으며, 운영 전략 코드는 수정하지 않았다.
+
+## 후속 검증 부록: v3~v7
+
+아래는 2026-10-03~05의 동일 입력 검증을 버전순으로 이관한 기록이며 문서 통합 시점의 재실행 결과가 아니다. 원래 ID 순서와 엔진 순서는 다르다: **v3(P1-02)→v4(P1-01)→v5(P1-03)→v6(P1-04)→v7(P1-05)**. 본문의 초기v2 결과·차트는 당시 관측으로 유지한다. 현재 남은 일은 [TODO](../../todo.md)를 따른다.
+
+공통 입력은 [동결 replay 입력](replay-input.json)과 같은 폴더의 원본 CSV/metadata, 평가2026-07-06~10-02의64봉·이전252봉 또는 사전자료 없는 진단이다. 초기자본1천만원·FX1450·10주·세금0·수수료와 슬리피지 **각각**10/20bp 및 당시 guard를 유지했다. 배당/변동FX/기말 강제청산·실제 장중 체결 가능성은 검증하지 않았다. `ui_three_month_defaults`는 사전자료 없는 옛 runner 모드명이며 현재 UI provider 조회의 재현이라는 뜻이 아니다.
+
+<a id="validation-p1-02"></a>
+### P1-02 — v3 고가·종가 warmup 분리 (2026-10-03)
+
+**당시 완료·main, 위험 보통.** 공통 warmup은 OHLC 훅을1회 호출하고 기본 initializer에는 종가,52주 신고가 override에는 고가를 전달한다. 원래 마지막 봉 제외·200/252 기준·종목 독립성·기존 보유/평균가와 LTH/강한종가/변동범위의 전용 경계를 보존했다. 엔진은 `strategy-replay-v3`; IPC/serde/TS/저장 형식은 무변경이다.
+
+high20000/close10000의 평균회귀,252봉 상승종가의 MA10151.5/10241.5/10249, 신고가15000 Hold/20001 Buy, 일봉historical1회·intraday-only0회·기존 보유 불변과 미래봉 이전신호 불변의 신규6회귀를 확인했다. 동일 입력52개 전후 비교(26실행×두 비용)와 기본비용 반복은 생성시각을 제외하고 일치했으며 Mean/Trend 외 모든 신호/backtest·LTH 일봉진단·두 benchmark는 그대로였다.
+
+| 전략/각 비용 | 수정 전→v3 수익률 | MDD 전→후 | 완료 거래 전→후 |
+|---|---|---|---|
+|평균회귀10bp|1.4402→2.2083%|1.6683→1.6558%|2→1|
+|평균회귀20bp|1.3333→2.1561%|1.6696→1.6562%|2→1|
+|추세필터10bp|0.8722→0.8722%|1.6917→1.6917%|0→0|
+|추세필터20bp|0.8440→0.8440%|1.6921→1.6921%|0→0|
+
+평균회귀의 잘못된7/7매수·7/17손절이 제거되고7/29→9/21청산이 남았다. 추세필터 첫매수8/7은 같지만 장기MA는7456→7371센트로 바뀌었다. 사전자료 없는 Mean/Trend는 변함없다. 작은 완료 표본을 우수성으로 해석하지 않으며 사전준비·날짜이벤트·next-open·generic LTH 시스템시각 문제는 당시 미해결이었다.
+
+당시 lib142(신규6)·check/Clippy/TS·수정Rust6파일 rustfmt·Chromium mock18·map/graph PASS였다. **전체 cargo fmt는 기존5파일**(`rate_limit.rs`, `commands/toss.rs`, `server/profiles.rs`, `storage/database_projection.rs`, `trade_store.rs`) 차이로 NOT PASS였고 전체 재서식은 하지 않았다. compiler/Clippy0과 기존 Graphify4JSON zero-node·NO_COLOR/FORCE_COLOR 안내는 별개다. DB 환경 없는 contract의 내부skip은 실제 DB 성공이 아니며 외부 계좌/API·실전/모의 주문은 미실행이다.
+
+[수정 전 결과](results.json) · [전후 비교 결과](p1-02-results.json) · [4021e38 고정 상세 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/research/soxq-3m-20261003/p1-02-validation.md). 당시 재현은 [runner](runner.rs)를 최초 보고서 명령으로 실행해 새 결과에 쓰고 대상 신호/backtest/inputHash를 대조했다. 주문/guard/risk/provider 변경은 rollback 범위가 아니다.
+
+<a id="validation-p1-01"></a>
+### P1-01 — v4 사전자료·준비 상태 (2026-10-03)
+
+`strategy-replay-v4`는6전략의 과거 가격/MA·RSI를 과거tick/가상 포지션 없이 복원하고 warmupCount 생략0·명시legacy prefix/별도history의 신호/hash 동등성을 유지했다. 처리 후 readiness와 처리 전 `can_evaluate_next_tick`을 구분하며 seed-only 마지막봉은 readyAtEnd여도 notEvaluable, 미지원은null이다. live 신고가는 완료 불명 최신1봉 제외(252입력→251부족/253→252준비), generic stricthistory는 마지막봉까지 포함한다. stale기준 정리·보유손절 우선과500봉/OHLC/날짜granularity·중복/겹침 검사를 보존했다.
+
+아래는 history252/64평가봉의 당시 결과다. 지원12전략은 시작준비 완료·평가64이며 LTH는 미지원/notEvaluable이다.
+
+| 전략 | 각10bp / 각20bp 수익률 | 완료 거래 |
+|---|---|---:|
+|ma_cross|−1.1197 / −1.2549%|2|
+|rsi|2.0224 / 1.9147%|2|
+|momentum|−1.2637 / −1.4574%|3|
+|deviation|1.3756 / 1.2649%|2|
+|fifty_two_week_high|0 / 0%·conditionsNotMet|0|
+|consecutive_move|−0.6445 / −0.7816%|2|
+|failed_breakout|−0.0005 / −0.0851%|1|
+|strong_close|0 / 0%·conditionsNotMet|0|
+|volatility_expansion|−0.0300 / −0.0600%|0|
+|mean_reversion|2.2083 / 2.1561%|1|
+|trend_filter|0.8722 / 0.8440%|0|
+|price_condition|2.2408 / 0.9777%|12|
+|leveraged_trend_hold|unsupported/notEvaluable·성과판정 아님|0|
+
+모멘텀 v3−0.4868→v4−1.2637%, 이격도2.4987→1.3756%는 누락 초기화 교정에 따른 진단이며 최적화가 아니다. MA의 raw 무보유매도 차단0→1, Mean/Trend는v3와 동일했다. cold 모드의 신고가/강한종가/변동성/추세는 notEvaluable이며 무거래0%와 구분한다. UI는 원래 평가봉을 우선 보존하고 당시 KIS1응답/Toss최대200봉의 준비부족을 표시했으며200/252 기준을 줄이지 않았다. provider 페이지와 날짜/LTH시각·next-open/ATR는 당시 잔여였다.
+
+generatedAt 제외 지원24결과(12전략×2모드)의 신호·준비/metadata·backtest 반복 일치, 평가기간/64봉·history252/cold0과 혼합날짜/비정렬기간 회귀를 확인했다. 당시 lib167·전체target check/allfeaturesClippy/rustfmt·TS/FSD/lock/web build PASS이며 **비결정적 generic LTH는 반복 일치 주장에서 제외**했다.
+
+[기본 결과](p1-01-results.json) · [20bp 결과](p1-01-cost20-results.json) · [4021e38 고정 상세 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/research/soxq-3m-20261003/p1-01-validation.md). 기본결과 SHA256=`8a49774fcfe58b201e037c2cec0ed2576546b36c14199fccb474da2c222946bf`.
+
+<a id="validation-p1-03"></a>
+### P1-03 — v5 날짜 시작·완료봉과 보유 피드백 (2026-10-03)
+
+`strategy-replay-v5`는 날짜 시작에 시가만 공개하고 reset하지 않는다. 종가 시점의 완성OHLC→기존 비용/risk 체결·차단→실수량/평균가 피드백→완료봉 적재 순서다. 강한종가는 이전 완료일 조건, 변동성은 현재범위와 이전N완료일 평균을 비교하며 flat-day0도 일수에 포함한다. 차단매수의 낙관적 내부 보유를 방지하고 새날 당일고저만 정리한다. 두 전략은 D/1d만 지원하고 분/주/월은 `UNSUPPORTED_REPLAY_INTERVAL`; cadence=`dailyCloseWithDayBoundary`다. live polling/전용 LTH 경계는 바꾸지 않았다.
+
+| 전략 | v4→v5 각10bp 수익률 | v5 각20bp / MDD10bp | 완료거래 / 체결주문 / 첫매수 |
+|---|---|---|---|
+|강한종가|0→1.7179%|1.5871% / 2.0740%|2 / 5 / 2026-07-07|
+|변동성확장|−0.0300→0.7807%|0.7523% / 0.2531%|0 / 1 / 2026-09-21|
+
+강한종가의 완료2회는 모두 손실이고 두 전략 모두 기말10주를 보유한다. 양의 평가수익을 완료 승률/우수성으로 판정하지 않는다. cold 강한종가는7/6봉 처리 후 준비·실제평가63/처리후미준비0, 변동성10일은7/17준비·평가54/미준비9다. history252에서는 둘 다64평가이며 cold와 같은 신호/체결이어도 준비 집계는 다르다. 당시 체결은 해당일 종가 근사로 next-open·장중손절/가격경로를 재현하지 않았다.
+
+26generic 실행의 기간/64봉, generatedAt 제외 지원24의 반복 일치, 변경두전략/LTH 외20실행의v4호환과 미래봉·차단피드백·bounded범위/평가중준비·비일봉 거부를 검증했다. 당시 lib180/UI22와target check/Clippy/rustfmt·TS/FSD/lock/build PASS, 독립 리뷰에서 미수정 결함은 없었다. generic LTH는 여전히 반복 일치 주장에서 제외했다.
+
+[기본 결과](p1-03-results.json) SHA256=`87790f4d2c1adf4b183b877cdc5d1237e065421840b73416a542799af68f4e3e` · [20bp 결과](p1-03-cost20-results.json) SHA256=`5d6255db273b33760282311817a39a6104ccf02791e1e1e9456863b221a06c07` · [4021e38 고정 상세 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/research/soxq-3m-20261003/p1-03-validation.md).
+
+<a id="validation-p1-04"></a>
+### P1-04 — v6 generic LTH 명시 거부 (2026-10-03)
+
+`strategy-replay-v6`는 live의 Local::now() 기반 LTH를 일반 과거 replay로 실행하지 않도록 `starts_with("leveraged_trend_hold")`의 기본/접미ID를 factory·정규화·params/warmup 이전에 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 두 대안 중 generic거부를 선택한 것이며 입력봉 오프라인 계약을 Toss/provider 네트워크 조회로 자동 전환하거나 live에 역사시계를 주입하지 않았다. 전용 `preview_signals_with_execution`은 입력 `timed.time`, 기존 profile/account/interval을 유지하고 generatedAt은 hash에서 제외한다.
+
+지원24결과의 candles/signals/preparation/backtest는v5와 같고2generic LTH는 `rejectedRuns` 구조화 오류로만 남긴다. 0수익/무신호 정상 결과로 세지 않는다. 다른 오류는 runner를 실패시킨다. Asia/Seoul의 `2026-10-03T23:34:39.865022+09:00`와 America/New_York의 `2026-10-03T10:37:33.494989-04:00` 실행은 UTC로도 다른 분이며 generatedAt만 재귀 제외한 **전체 JSON**(24정상 hash·2거부·전용LTH·benchmark·입력)이 같았다. v5까지의 generic LTH 재현성 제외 예외는 제거됐다.
+
+단위42요청(3ID×7간격×history2)의 조기거부, production 통합3개의09:04매수→15:25청산·2체결/완료1·세션밖/blackout·미래봉 이전신호/equity 불변을 확인했다. KORU 이름/국내세션·합성가격은 실제 시장 자료가 아니다. 당시 workspace187(lib181+통합3+doc3)/UI22·타입/구조/lock/build/Clippy/fmt/map/graph PASS, 코드경고0이었다. live 주문/전용 replay 로직은 그대로이고 일봉 합성관측/지표혼합·KST/DST·실제분봉은P1-05에 남았다. 실전/모의 주문·자동매매는 미실행이다.
+
+[전체 결과](p1-04-results.json) SHA256=`5358b95ff0710fa725415a42004611b0bc76ffa720614a0c20aa5dd98420a74b` · [4021e38 고정 상세 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/research/soxq-3m-20261003/p1-04-validation.md). CSV의CRLF/metadata hash를 보존했고 반복/check 산출물과 harness lock은 ignored cache다.
+
+<a id="validation-p1-05"></a>
+### P1-05 — v7 일봉 진단·분봉 지표 분리 (2026-10-05)
+
+**구현 검증 완료, 실제3개월 분봉 재평가는 미완료다.** `strategy-replay-v7`/전용`leveraged-trend-hold-v3`는 일봉시가를15분뒤 진입으로 해석하던 합성 관측을 제거했다. 일봉은 `dailyDiagnostic/notEvaluable`, 분봉은 `intradaySample/sampleOnly`(유효0이면notEvaluable)이며 과거 assessment없는 LTH 성과표·새A/B저장을 숨긴다. 최대200봉 표본을3개월 성과로 표시하지 않는다.
+
+일봉 context와 분봉 EMA/RSI/ADX·반동은 별도 bounded buffer다. 일봉 재초기화는 분봉·볼린저·실보유/high-water/보유관측을 보존하고 분봉 snapshot은 교체한다. 일봉만으로 분봉준비가 되지 않는다. warmupCount0/dailyContextBars·unverified시간대/세션·lookAheadSafe=false와 generic명시거부를 유지하며 응답/hash의 LTH버전은 같다.
+
+동일64평가/252history에서 지원24결과는v6와 candles/signals/preparation/backtest가 같고 버전/hash만 바뀌었다. generic거부2/benchmark도 같다. 전용 일봉은64종가 equity trace·장중0/context252·합성세션/전략·체결실행0이다. 무거래cash0%를 LTH 투자성과로 해석하지 않는다. `2026-10-05T23:48:35.344877+09:00`(Asia/Seoul)와 `2026-10-05T10:50:07.064736-04:00`(America/New_York)의 generatedAt 제외 전체JSON도 일치했다.
+
+당시 Rust196(lib190+production3+doc3), UI26(기존22+assessment4)와타입/build/FSD/lock/check/Clippy/fmt/map/graph·독립리뷰 PASS, 코드경고0이었다. 유효분봉0·상태보존·snapshot교체/초기화·buffer상한·실패주문피드백 회귀를 포함한다. 09:04→15:25 분봉 fixture는 실제 SOXQ나3개월 성과가 아니며 gap_pct/반동준비전진입·보유청산/피드백은 보존했다. live는 KIS일봉 warmup만으로 minute지표를 준비하지 않고 후속 실제 관측을 기다린다.
+
+**남은 조건:**2026-07-06~10-02 실제 SOXQ1분봉 원본/metadata·누락구간, 원본 봉시작/종료시각·feed/조정·거래소시각/세션/DST·coverage 검증과 전체기간 replay가 필요하다. 일봉 보간·합성 fixture로 충족시키지 않는다. 당시 무료·무인증 전체기간 경로를 확인하지 못했을 뿐 공급원 전체가 불가능하다는 판단은 아니다. 10/05 기록의 [Alpaca historical bars](https://docs.alpaca.markets/us/reference/stockbarsingle-1)·[FAQ](https://docs.alpaca.markets/us/docs/market-data-faq)는 인증/15분이전 historical SIP 설명을, [Alpha Vantage](https://www.alphavantage.co/documentation/)는 premium endpoint 설명을 근거로 보존한다. 가입/결제·인증조회는 하지 않았으며 현재 제공조건을 새로 확인한 기록은 아니다. 실제/모의 주문·자동매매도 미실행이다.
+
+[전체 결과](p1-05-results.json) SHA256=`8ede4d705810f32906827bbcabc93960a4e4bbfe7132624f9bd2b64ede60fd03` · CSV SHA256=`10ab23ff4af9bec44d4fe19da33f7603e01857610f6ce8ba60c8d87c33b02dae` · [4021e38 고정 상세 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/research/soxq-3m-20261003/p1-05-validation.md).
+
+당시 공통 재현은 [runner.rs](runner.rs)와 ignored `.cache/research/soxq-replay/Cargo.toml`/lock, `target/`을 사용했다. v4 원문의 manifest는 production path dependency와 serde_json1.0.149를 고정하며 새 환경에서 lock생성 후 `--locked`로 실행한다. 기본/20bp·TZ반복의 명령·환경/rollback·전체 수치·위임 범위는 각 고정 원문에 보존한다. 이 통합에서 원본/runner/JSON을 재실행하거나 raw bytes/hash를 수정하지 않았다.

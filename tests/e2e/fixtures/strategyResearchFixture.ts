@@ -1,4 +1,4 @@
-import type { ChartCandle, StrategyPreviewPreparation } from '../../../src/api/types'
+import type { AppConfigView, CandlePageView, ChartCandle, StrategyPreviewPreparation, StrategyPreviewSignal, TradingStatus } from '../../../src/api/types'
 
 const strategyEntries = [
   {
@@ -91,17 +91,25 @@ type MockOptions = {
   leveragedPreviewDelayMs?: number
   leveragedLegacy?: boolean
   leveragedZero?: boolean
+  leveragedTiming?: import('../../../src/api/types').LthMinuteTiming
   activeBroker?: 'kis' | 'toss'
   previewRequests?: unknown[]
   genericPreviewRequests?: unknown[]
   chartRequests?: string[]
   chartCandles?: ChartCandle[]
+  candlePages?: Array<Partial<CandlePageView>>
+  candlePageGate?: Promise<void>
+  candlePageError?: { page: number; code: string }
   genericPreparation?: StrategyPreviewPreparation
+  genericSignals?: StrategyPreviewSignal[]
+  genericSymbol?: string
+  tradingStatusOverride?: () => Partial<TradingStatus>
+  appConfigOverride?: Partial<AppConfigView>
   updateRequests?: unknown[]
   scopeController?: { current: 'A' | 'B' }
 }
 
-function mockResearchResult(body: Record<string, unknown>, interval: string) {
+export function mockResearchResult(body: Record<string, unknown>, interval: string) {
   const assumptions = body.assumptions ?? {
     initialCapitalKrw: 10_000_000,
     feeBps: 1.5,
@@ -201,6 +209,7 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
       daemonConsecutiveFailures: 0,
       daemonLastError: null,
     },
+    ...options.tradingStatusOverride?.(),
   })
   const strategies = [
     strategy('leveraged_trend_hold_default', 'LeveragedTrendHoldStrategy', 1),
@@ -218,10 +227,14 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
     strategy('price_condition_default', 'PriceConditionStrategy', 13),
   ].map((item) => ({
     ...item,
+    ...(options.genericSymbol && item.id === 'ma_cross_default' ? {
+      targetSymbols: [options.genericSymbol], targetSymbolNames: { [options.genericSymbol]: 'Mock overseas' },
+    } : {}),
     brokerId: activeBroker,
     brokerAccountId: activeBroker === 'toss' ? '1' : '12345678-01',
   }))
 
+  let candlePageIndex = 0
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url())
     if (!url.pathname.startsWith('/api/')) {
@@ -246,6 +259,7 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
           notification_levels: [],
           active_profile_id: activeProfileId(),
           active_profile_name: options.scopeController?.current === 'B' ? '계좌 B' : (activeBroker === 'toss' ? 'Toss 실전' : '모의'),
+          ...options.appConfigOverride,
         },
       })
       return
@@ -279,6 +293,19 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
       return
     }
     const settingsPayloads: Record<string, unknown> = {
+      '/api/balance': { items: [], summary: null },
+      '/api/overseas-balance': { items: [], summary: null },
+      '/api/broker-holdings': [],
+      '/api/today-trades': [],
+      '/api/positions': [],
+      '/api/pending-orders': [],
+      '/api/trades': [],
+      '/api/executed': [],
+      '/api/kis-executed': [],
+      '/api/today-stats': { net_profit: 0, fees_paid: 0, win_rate: 0, total_trades: 0 },
+      '/api/exchange-rate': 1450,
+      '/api/exchange-rate/status': { rate: 1450, source: 'mock', fallbackUsed: false, message: 'fixture rate' },
+      '/api/refresh-interval': 30,
       '/api/log-config': { retention_days: 5, max_size_mb: 100, api_debug: false },
       '/api/archive-config': { retention_days: 90, max_size_mb: 500 },
       '/api/archive-stats': { total_files: 0, size_bytes: 0, oldest_date: null, newest_date: null },
@@ -342,6 +369,38 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
       })
       return
     }
+    if (url.pathname === '/api/candles/page') {
+      options.chartRequests?.push(url.toString())
+      const pageIndex = candlePageIndex++
+      if (options.candlePageGate) await options.candlePageGate
+      if (options.candlePageError?.page === pageIndex) {
+        await route.fulfill({ status: 409, json: { error: 'mock page failure', code: options.candlePageError.code } })
+        return
+      }
+      const defaults = ['20260701', '20260702', '20260703', '20260704'].map((date) => ({ date, open: '100', high: '109', low: '99', close: '106', volume: '1000' }))
+      const ordered = [...new Map((options.chartCandles ?? defaults).map((candle) => [candle.date, candle])).values()]
+        .sort((left, right) => left.date.localeCompare(right.date))
+      const capacity = activeBroker === 'kis' ? 100 : 200
+      const offset = url.searchParams.has('cursor') ? JSON.parse(url.searchParams.get('cursor')!).offset as number : 0
+      const start = Math.max(0, ordered.length - offset - capacity)
+      const end = ordered.length - offset
+      const nextCursor = options.candlePages
+        ? (pageIndex + 1 < options.candlePages.length ? JSON.stringify({ offset: pageIndex + 1, token: 'a+/=&한글' }) : null)
+        : (start > 0 ? JSON.stringify({ offset: offset + capacity, token: 'a+/=&한글' }) : null)
+      const response = {
+        candles: ordered.slice(start, end), nextCursor, endReason: nextCursor ? null : 'exhausted',
+        brokerId: activeBroker, profileId: activeProfileId(),
+        scopeKey: `${activeProfileId()}:${activeAccountId()}:${url.searchParams.get('symbol')}`,
+        symbol: url.searchParams.get('symbol'), interval: url.searchParams.get('interval'),
+        exchange: url.searchParams.get('exchange'), source: `${activeBroker}Mock`,
+        timestampSemantics: url.searchParams.get('interval') === '1m' ? 'barClose' : 'tradingDate',
+        completionPolicy: url.searchParams.get('interval') === '1m' ? 'barCloseAtOrBeforeAsOf' : 'strictlyBeforeCurrentMarketPeriod',
+        asOf: '2026-10-18T00:00:00Z', excludedUnfinishedBars: 0, excludedInvalidBars: 0,
+        ...options.candlePages?.[pageIndex],
+      }
+      await route.fulfill({ json: response })
+      return
+    }
     if (url.pathname.startsWith('/api/chart/') || url.pathname.startsWith('/api/toss-chart/')) {
       options.chartRequests?.push(url.toString())
       await route.fulfill({
@@ -365,7 +424,7 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
           strategyId: body.strategyId,
           symbol: body.symbol,
           candles: body.candles,
-          signals: [
+          signals: options.genericSignals ?? [
             {
               time: '20260702',
               side: 'buy',
@@ -436,10 +495,12 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
           ...mockResearchResult(body, String(body.interval ?? '1m')),
           replay: {
             ...mockResearchResult(body, String(body.interval ?? '1m')).replay,
+            lookAheadSafe: false,
             ...(!options.leveragedLegacy ? { assessment: {
               model: body.interval === '1d' ? 'dailyDiagnostic' : 'intradaySample',
               performanceStatus: body.interval === '1d' || options.leveragedZero ? 'notEvaluable' : 'sampleOnly',
               dailyContextBars: body.interval === '1d' ? 3 : 0, intradayBars: body.interval === '1d' || options.leveragedZero ? 0 : 3,
+              ...(body.interval !== '1d' && options.leveragedTiming ? { minuteTiming: options.leveragedTiming } : {}),
               timestampStatus: 'unverified', sessionStatus: 'unverified', limitations: ['시각·세션 검증 전 표본'],
             } } : {}),
           },

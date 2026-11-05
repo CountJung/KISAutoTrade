@@ -1,0 +1,70 @@
+{
+  "baselineCommit": "978640c",
+  "continuousRuns": 6,
+  "elapsedSeconds": 6.560938042,
+  "flatRuns": 1224,
+  "partitionEquivalenceRuns": 6,
+  "partitions": [
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "beb7e963b5fd0e4e",
+      "inputHash": "ae399606b522d0fd",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SOXQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "e725e34d803bf7e5",
+      "inputHash": "3cf6100e589c6d97",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SOXQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "c8acf209674ae17a",
+      "inputHash": "52bc3166ee98ce7d",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SPY",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "9727e13972ed170e",
+      "inputHash": "271be2d295bab0ff",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "SPY",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 10,
+      "economicHash": "c395026954da16b2",
+      "inputHash": "495d84ab2317b6f0",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "QQQ",
+      "variant": "legacy"
+    },
+    {
+      "alternativeChunks": 2,
+      "costBps": 20,
+      "economicHash": "34e974a2cd2937e7",
+      "inputHash": "f1cefd288281195e",
+      "quarterChunks": 12,
+      "strategyId": "rsi",
+      "symbol": "QQQ",
+      "variant": "legacy"
+    }
+  ],
+  "quarterResetRuns": 72
+}

@@ -1,0 +1,35 @@
+{
+  "commit": "ac9d7d0e432b2e992aba58fce68187de18777fa5",
+  "files": [
+    {
+      "path": "src-tauri/src/trading/strategy/breakout.rs",
+      "sha256": "7d8b4040da3fd206e378f879f41ec9e28869fc6701350177de5a1b2e00f42761",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "src-tauri/src/trading/strategy/core.rs",
+      "sha256": "2b72c161148729383595689bc715ab6f064ed92293f68b603a58560845cf8e5d",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "src-tauri/src/commands/strategy_preview/driver.rs",
+      "sha256": "59f317c44cb5bacac72b4e54be922077965d433ccefa2dcef1f4a55a0b18e047",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "src-tauri/src/trading/strategy/manager/live_history.rs",
+      "sha256": "283760393ff7683c27ebe99344064d5fbf7b2072bc5a1428747961611e4fc8d7",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "src-tauri/src/commands/trading/daily_history/jobs.rs",
+      "sha256": "e7db5244fd9c1a99fe259d3c2e5fb99620cd48d095c3fd3bd518660dd704d60f",
+      "sameAsGitObject": true
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "b9e526c8fa3bcca291aa28237b06d996b2cdb7c28cc115f04e96923ef7f3d628",
+      "sameAsGitObject": true
+    }
+  ]
+}

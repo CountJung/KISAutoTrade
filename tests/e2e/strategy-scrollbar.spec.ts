@@ -255,7 +255,7 @@ test('Leveraged strategy preview runs selected ticker and renders signal chart',
   await expect(card.getByText('mock preview signals')).toBeVisible()
   await expect(card.getByTestId('lth-preview-chart')).toBeVisible()
   await expect(card.getByTestId('lth-preview-chart').locator('canvas').first()).toBeVisible()
-  await expect(card.getByRole('checkbox', { name: '종가 선 그래프 표시' })).toBeChecked()
+  await expect(card.getByRole('switch', { name: '종가 선 그래프 표시' })).toBeChecked()
   await expect(card.getByText('종가 선 그래프')).toBeVisible()
   await expect(card.getByText('한 손가락 좌우 이동 · 두 손가락 확대/축소')).toBeVisible()
   await expect(card.getByRole('button', { name: '차트 확대' })).toBeVisible()
@@ -281,15 +281,15 @@ test('Generic strategy card preview runs with edited card settings', async ({ pa
   await card.getByRole('button', { name: '미리보기 계산' }).click()
 
   await expect(card.getByText('mock generic preview signals')).toBeVisible()
-  await expect(card.getByText(/KIS 주봉 · 실제 4봉 \/ 요청 100봉/)).toBeVisible()
+  await expect(card.getByTestId('candle-collection-status')).toContainText('KIS 주봉 · 실제 4봉 / 요청 100봉')
   await expect(card.getByText(/매수 07\/02 00:00/)).toBeVisible()
   await expect(card.getByText(/매도 07\/04 00:00/)).toBeVisible()
   await expect(card.getByTestId('lth-preview-chart').locator('canvas').first()).toBeVisible()
   await expect(card.getByText('한 손가락 좌우 이동 · 두 손가락 확대/축소')).toBeVisible()
   expect(await card.getByTestId('lth-preview-chart').evaluate((element) => getComputedStyle(element).touchAction)).toBe('pan-y')
   expect(chartRequests).toHaveLength(1)
-  expect(chartRequests[0]).toContain('period=W')
-  expect(chartRequests[0]).toContain('count=352')
+  expect(chartRequests[0]).toContain('interval=W')
+  expect(chartRequests[0]).toContain('count=200')
   expect(genericPreviewRequests).toHaveLength(1)
   expect(genericPreviewRequests[0]).toMatchObject({
     strategyId: 'ma_cross_default',
@@ -318,7 +318,7 @@ test('Strategy research assumptions and A/B experiments are reproducible in the 
 
   await card.getByRole('button', { name: '현재 결과를 A로 저장' }).click()
   await expect(card.getByTestId('strategy-ab-comparison').getByText('실험 결과 A')).toBeVisible()
-  await card.getByRole('spinbutton', { name: '수수료(bps)' }).fill('7.5')
+  await card.getByRole('spinbutton', { name: '수수료(bps)', exact: true }).fill('7.5')
   await card.getByRole('button', { name: '미리보기 계산' }).click()
   await expect.poll(() => genericPreviewRequests.length).toBe(2)
   expect(genericPreviewRequests[1]?.assumptions).toMatchObject({ feeBps: 7.5 })
@@ -369,7 +369,7 @@ test('Generic Toss strategy preview uses the selected one-minute interval and ra
   await page.getByRole('option', { name: '최근 200봉', exact: true }).click()
   await card.getByRole('button', { name: '미리보기 계산' }).click()
 
-  await expect(card.getByText(/Toss 1분봉 · 실제 4봉 \/ 요청 200봉/)).toBeVisible()
+  await expect(card.getByTestId('candle-collection-status')).toContainText('Toss 1분봉 · 실제 4봉 / 요청 200봉')
   expect(chartRequests).toHaveLength(1)
   expect(chartRequests[0]).toContain('interval=1m')
   expect(chartRequests[0]).toContain('count=200')
@@ -405,8 +405,8 @@ test('Generic preview separates sorted history from the complete requested evalu
   await expect(card.getByTestId('strategy-preparation-status')).toContainText('실제 조건 평가 50봉')
   await expect(card.getByTestId('strategy-preparation-status')).toContainText('지표 버퍼 252봉')
   await expect(card.getByTestId('strategy-preparation-status')).toContainText('봉 처리 후 첫 준비 완료 시점')
-  expect(chartRequests).toHaveLength(1)
-  expect(chartRequests[0]).toContain('count=302')
+  expect(chartRequests).toHaveLength(4)
+  expect(chartRequests[0]).toContain('count=200')
   expect(genericPreviewRequests[0].candles).toEqual(ordered.slice(-50))
   expect(genericPreviewRequests[0].historyCandles).toEqual(ordered.slice(0, 252))
   expect(genericPreviewRequests[0].warmupCount).toBeUndefined()
@@ -435,7 +435,7 @@ test('Generic preview retains evaluation bars when the provider returns insuffic
   await expect(status).toContainText('지표 버퍼 20봉')
   expect(genericPreviewRequests[0].candles).toEqual(ordered.slice(-100))
   expect(genericPreviewRequests[0].historyCandles).toEqual(ordered.slice(0, 20))
-  expect(chartRequests).toHaveLength(1)
+  expect(chartRequests).toHaveLength(2)
   expect(await status.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
   const statusBox = await status.boundingBox()
   const cardBox = await card.boundingBox()
@@ -465,12 +465,13 @@ test('Toss capped response preserves all 200 evaluation bars and reports unfille
   expect(genericPreviewRequests[0].historyCandles).toEqual([])
 })
 
-test('Daily boundary strategies restrict replay to daily candles and explain close execution', async ({ page }) => {
+test('Daily boundary strategies restrict replay to daily candles and explain selected execution assumptions', async ({ page }) => {
   await mockApi(page, { activeBroker: 'toss' })
   await page.goto('/strategy')
   for (const name of ['StrongCloseStrategy', 'VolatilityExpansionStrategy']) {
     const card = page.locator('.MuiPaper-root').filter({ hasText: name }).first()
-    await expect(card.getByTestId('daily-event-replay-note')).toContainText('일봉만 지원하며 체결은 종가 가정')
+    await expect(card.getByTestId('daily-event-replay-note')).toContainText('일봉만 지원하며 선택한 같은 종가/다음 관측 시가 체결 가정')
+    await expect(card.getByTestId('daily-event-replay-note')).toContainText('실제 장중 순서·체결은 검증하지 않습니다')
     await card.getByRole('combobox', { name: '봉 단위' }).click()
     await expect(page.getByRole('option', { name: '일봉', exact: true })).toBeVisible()
     await expect(page.getByRole('option', { name: '1분봉', exact: true })).toHaveCount(0)
@@ -493,6 +494,6 @@ test('Sidebar trading action toggles auto trading from strategy page', async ({ 
   await expect(stopButton).toBeVisible()
 
   await stopButton.click()
-  await expect(sidebar.getByText('대기 중')).toBeVisible()
+  await expect(sidebar.getByText('자동매매 정지 상태')).toBeVisible()
   await expect(sidebar.getByRole('button', { name: '자동매매 시작' })).toBeVisible()
 })

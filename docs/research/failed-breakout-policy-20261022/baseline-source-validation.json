@@ -1,0 +1,12 @@
+{
+  "commit": "13c5fd3b354ed47c604db32a239fdccc66820f79",
+  "sourceComparison": "Exact isolated git object bytes; no working tree overlay",
+  "sha256": {
+    "src-tauri/src/trading/strategy/sequence.rs": "ab9e0523b945e88afa8846ee5bb12bf4aa58a91f197886416d99439683278d89",
+    "src-tauri/src/trading/strategy/core.rs": "fef1d616a1a83e2c8314280315268d66c306be29a968764a644cbc254c2f1507",
+    "src-tauri/src/commands/strategy_preview/driver.rs": "514c3eb2fbddd71a59e877661a8a4a10cd06bafe3a7e2187126d168ac3cc6c8a",
+    "src-tauri/src/commands/trading/daily_history.rs": "d19684b259a6462ac2d97b833e297406bb870dd4f8e30ad271ca50f939201838",
+    "src-tauri/src/trading/strategy/manager/live_history.rs": "8889f999ad48377d3b6f502b5ad3f4af642de753e47c3d30825f07388bf8b0ca",
+    "Cargo.lock": "b9e526c8fa3bcca291aa28237b06d996b2cdb7c28cc115f04e96923ef7f3d628"
+  }
+}

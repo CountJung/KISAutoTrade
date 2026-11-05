@@ -1,0 +1,140 @@
+{
+  "source": "../strategy-review-20261018/input.json",
+  "sourceSha256": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+  "evaluationStart": "20230103",
+  "evaluationEnd": "20251231",
+  "evaluationBarsPerSymbol": 752,
+  "historyBars": 252,
+  "costBps": [
+    10,
+    20
+  ],
+  "initialCapitalKrw": 10000000,
+  "exchangeRateKrw": 1450,
+  "taxBps": 0,
+  "executionModel": "nextOpen",
+  "dividendScenario": [],
+  "fxScenario": [],
+  "stopLossPct": 0,
+  "takeProfitPct": 0,
+  "partitions": [
+    "12 calendar-quarter chunks",
+    "500+252 bars"
+  ],
+  "matchedPathReference": "Fixed accepted share quantities/timing; previous close to current open gap PnL plus current open to close PnL at fixed FX. Equals final equity plus recorded fees/tax/slippage. Not an independent signal benchmark, cost-free rerun or same percentage exposure.",
+  "declaredAt": "2026-10-22T22:39:57.604281+09:00",
+  "declaredBeforeCandidateRuns": true,
+  "baselineCommit": "47fc10ba744223ec069edc71d77a4d05f425ff19",
+  "plannedEngineVersion": "strategy-replay-v21",
+  "configs": [
+    {
+      "symbol": "SOXQ",
+      "strategyId": "volatility_expansion",
+      "orderQuantity": 51,
+      "params": {
+        "lookback_days": 10,
+        "expansion_factor": 2.0,
+        "stop_loss_pct": 3.0
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "19.91"
+    },
+    {
+      "symbol": "SPY",
+      "strategyId": "volatility_expansion",
+      "orderQuantity": 2,
+      "params": {
+        "lookback_days": 10,
+        "expansion_factor": 2.0,
+        "stop_loss_pct": 3.0
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "382.43"
+    },
+    {
+      "symbol": "QQQ",
+      "strategyId": "volatility_expansion",
+      "orderQuantity": 3,
+      "params": {
+        "lookback_days": 10,
+        "expansion_factor": 2.0,
+        "stop_loss_pct": 3.0
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "266.28"
+    }
+  ],
+  "variants": [
+    {
+      "id": "legacy",
+      "engine": "baseline",
+      "params": {}
+    },
+    {
+      "id": "owned",
+      "engine": "current",
+      "params": {}
+    },
+    {
+      "id": "lookback20",
+      "engine": "current",
+      "params": {
+        "lookback_days": 20
+      }
+    },
+    {
+      "id": "factor1_5",
+      "engine": "current",
+      "params": {
+        "expansion_factor": 1.5
+      }
+    },
+    {
+      "id": "profit5trail3",
+      "engine": "current",
+      "params": {
+        "profit_activation_pct": 5,
+        "profit_trailing_pct": 3
+      }
+    },
+    {
+      "id": "hold63",
+      "engine": "current",
+      "params": {
+        "max_hold_observations": 63
+      }
+    }
+  ],
+  "expectedContinuousRuns": 36,
+  "expectedAlternatePartitionRuns": 36,
+  "expectedIndependentQuarterResetRuns": 432,
+  "policy": {
+    "defaults": "기본 lookback_days10/expansion_factor2/stop_loss_pct3을 보존한다. 당일 H-L > 이전 N개 완료 일봉 H-L 산술평균 × 배수 AND 현재가 > 당일시가의 엄격한 > 조건이다. 0범위도 평균 일수에 포함하며 평균0에서 양의 당일 범위/상승 방향은 통과한다. 원래 stop0은 실제 평균가 이하 청산이며 새 선택0만 비활성이다.",
+    "owned": "실제 소유 수량/native 평균과 제안 신호를 분리한다. 모든 Sell은 실제 잔량을 요청하며 거절/부분/같은 수량/설정 변경은 보호를 유지한다. 물리 pending 중 새 진입 기원을 만들지 않고 기존 기원만 유지한다. 출처 미상 나이는 미상으로 보존하며 활성 한도에서 다음 관측의 보수적 후보를 제공한다.",
+    "publication": "일봉 D 완성 OHLC가 D 종가에만 공개된다. 이전 N완료 범위로 판단하고 실제 체결 피드백 뒤 당일 범위를 평균에 적재한다. nextOpen은 D종가 신호→다음 관측 시가 체결 가정이다. 당일 고저 발생 순서나 장중 최초 발동/체결을 증명하지 않는다.",
+    "liveDailyCorrection": "기존 coordinator에 항상 완료 N일봉을 요구하고 유효 ticket의 시장 평가일로 새날 관측 시가/고저만 초기화한다. 같은 날 재조회는 당일 관측 범위를 초기화하지 않는다. 자료 부족/지연/실패/늦은 legacy는 Buy만 보류하고 보유 보호와 확인된 시장일을 지우지 않는다. 검증 후 첫 관측 quote가 시가 대용이며 거래소 시가/전체 장중 고저가 아니다. OHLC 동일성/호스트 날짜로 시장일을 추측하지 않는다. 실시간 자료 교정은 합성 fixture 근거로 과거 수익 개선과 구분한다.",
+    "range": "이전 완료 범위는 최대512개, 0포함, 합산은 overflow 없이 수행한다. lookback20만과 factor1.5만을 각각 비교하며 조합하지 않는다. core 입력은 누락 시 기존 기본, 제공 값은 raw 유한수/정수/범위 검증(lookback1..512, factor0..1000, stop0..99.9)을 저장/두 preview/UI에 맞춘다. 손상 runtime은 유효 custom core/보유 손절을 유지하며 Buy를 차단한다.",
+    "profit": "profit_activation_pct 유한0..1000/profit_trailing_pct 유한0..99.9는 둘다0off 또는 둘다양수다. 실제 평균가+활성률에서 한번 무장하고 실제 보유 관측 peak 대비 되밀림을 확인한다. 진입 전/현재 전체 봉 high를 peak로 쓰지 않는다. 거절/부분/동량/재설정/복원은 보유 보호를 초기화하지 않는다.",
+    "age": "max_hold_observations 정수0..1000000. 실제 첫 체결0/다음보유관측1, 옵션off중에도기록. 같은수량/부분/재설정은보존하며미상기원에서age0을만들지않는다. 관측은날짜/보장된보유시간이아니다.",
+    "priority": "원래 손절→수익 되밀림→보유 관측 한도. 조건 지속 시 잔량 Sell 후보 재제안. 공통 guard/clamp/리스크/30% 단일 비중 제한을 완화하지 않는다.",
+    "metadata": "새 strict version1/kind volatilityExpansion 메타데이터로 known/unknown age·candidateEntry·observedPeak·profitArmed를 원자적으로 복원한다. 다른kind/누락/미지필드/모순을 거부하며 없는기원/peak/무장을 추정하지 않는다. 시장일 context는 실제 소유 권한과 분리한다.",
+    "diagnostics": "새 optional volatilityExpansionPreparation를 기본 포함해 준비/주기/필요·확보 완료 봉과 평가 관측·미보유 후보·준비 보류·범위 거부·방향 거부·통과를 분리한다. 범위/방향거부는 순차 분류로 중복되지 않는다. 보유 관측은 진입 후보에 합산하지 않는다. 통과는 주문/체결이 아니다. 기존 EntryFilterPreparation ATR/추세 거부에 섞지 않는다. Rust/TS미러·driver·current/A-B·legacy미확인을 함께 갱신한다.",
+    "fixtures": "실수량/실원가/부분/거절/미체결 기원·scope/재설정/strict metadata, 0범위/평균0/엄격 경계·current제외/미래prefix/분할·오버플로, 새 시장일/같은날/실패/latelegacy/stalescope/generation, 손절0·owned peak/arm·우선순위/age unknown, strict 저장/두 preview/UI raw/활성 잠금/새 초안/늦은 응답/모바일/현재-A-B/과거 진단 부재를 검증한다."
+  },
+  "limitations": [
+    "Retrospective correlated ETF diagnostics; no unseen OOS or parameter retuning.",
+    "Daily close OHLC cannot prove intraday first trigger/quote order, session open or actual fill feasibility. P2-09 intraday evidence remains open.",
+    "Separate reset accounts never compounded. Partition assertions are not independent samples.",
+    "No broker/account/order API or operating settings changed.",
+    "Fixed FX/no dividends; market-calendar/corporate-action/feed coverage uncertified."
+  ]
+}

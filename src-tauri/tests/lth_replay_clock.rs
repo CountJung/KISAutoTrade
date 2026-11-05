@@ -79,6 +79,7 @@ fn run(params: LeveragedTrendHoldParams, candles: &[LeveragedTrendHoldTimedCandl
         .map(|c| SimulationEvent {
             time: c.time.clone(),
             chart_time: c.time.clone(),
+            open_units: c.candle.open,
             close_units: c.candle.close,
             high_units: c.candle.high,
             low_units: c.candle.low,
@@ -161,4 +162,116 @@ fn future_bar_does_not_change_prior_signal() {
         baseline["backtest"]["equityCurve"].as_array().unwrap()[..94],
         future["backtest"]["equityCurve"].as_array().unwrap()[..94]
     );
+}
+
+#[test]
+fn delayed_open_fill_reaches_lth_before_close_and_last_exit_remains_unfilled() {
+    use kis_auto_trade_lib::trading::simulation::{ExecutionModel, ReplaySession};
+    use kis_auto_trade_lib::trading::strategy::LeveragedTrendHoldPreviewStep;
+    let mut candles = timed();
+    candles.insert(
+        candles.len() - 1,
+        LeveragedTrendHoldTimedCandle {
+            time: "20260707090500".into(),
+            candle: OhlcCandle {
+                open: 187,
+                high: 187,
+                low: 187,
+                close: 187,
+            },
+        },
+    );
+    let events = candles
+        .iter()
+        .map(|c| SimulationEvent {
+            time: c.time.clone(),
+            chart_time: c.time.clone(),
+            open_units: c.candle.open,
+            close_units: c.candle.close,
+            high_units: c.candle.high,
+            low_units: c.candle.low,
+            signal: None,
+        })
+        .collect::<Vec<_>>();
+    let mut session = ReplaySession::new(
+        "leveraged_trend_hold",
+        "KORU",
+        false,
+        SimulationAssumptions {
+            execution_model: ExecutionModel::NextOpen,
+            fee_bps: 0.0,
+            tax_bps: 0.0,
+            slippage_bps: 0.0,
+            ..SimulationAssumptions::default()
+        },
+        &[],
+        events.len(),
+    );
+    let mut index = 0;
+    let mut closed = false;
+    let signals = LeveragedTrendHoldStrategy::preview_signals_with_driver(
+        "KORU",
+        params(),
+        &history(),
+        &candles,
+        |step| {
+            let event = &events[index];
+            match step {
+                LeveragedTrendHoldPreviewStep::Open(_) => {
+                    session.begin_bar(event);
+                    closed = false;
+                }
+                LeveragedTrendHoldPreviewStep::Signal(signal, _) => {
+                    let mut event = event.clone();
+                    event.signal = Some(if signal.side == "buy" {
+                        Signal::Buy {
+                            symbol: "KORU".into(),
+                            quantity: signal.quantity,
+                            reason: signal.reason.clone(),
+                        }
+                    } else {
+                        Signal::Sell {
+                            symbol: "KORU".into(),
+                            quantity: signal.quantity,
+                            reason: signal.reason.clone(),
+                        }
+                    });
+                    session.process_close(&event);
+                    closed = true;
+                }
+                LeveragedTrendHoldPreviewStep::Close(_) => {
+                    if !closed {
+                        session.process_close(event);
+                    }
+                    index += 1;
+                }
+            }
+            session.position_snapshot()
+        },
+    );
+    assert_eq!(
+        index,
+        candles.len(),
+        "every observation must close exactly once"
+    );
+    assert_eq!(session.position_snapshot(), (1, 187));
+    let report = session.finish();
+    assert_eq!(signals.len(), 2);
+    assert_eq!(report.summary.filled_order_count, 1);
+    assert_eq!(report.summary.unfilled_order_count, 1);
+    assert_eq!(report.trades[0].fill_price, Some(187.0));
+    assert_eq!(
+        report.trades[0]
+            .signal_available_at
+            .as_ref()
+            .unwrap()
+            .bar_time,
+        "20260707090400"
+    );
+    assert_eq!(
+        report.trades[0].fill_at.as_ref().unwrap().bar_time,
+        "20260707090500"
+    );
+    assert_eq!(report.trades[1].status, "unfilled");
+    assert!(report.trades[1].fill_at.is_none());
 }

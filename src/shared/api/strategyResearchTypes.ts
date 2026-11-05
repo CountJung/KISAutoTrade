@@ -1,5 +1,77 @@
 import type { BrokerId, ChartCandle } from './types'
 
+export type ReplayExecutionModel = 'sameClose' | 'nextOpen'
+export type ReplayIntrabarExitPolicy = 'unverified' | 'stopFirst'
+
+export interface ReplayEventTime {
+  barTime: string
+  phase: 'open' | 'close' | 'intrabar'
+}
+
+export interface FxScenarioPoint { barTime: string; rateKrw: number }
+export interface DividendScenarioPoint { barTime: string; amountPerShare: number; withholdingTaxBps: number }
+
+export interface ReplayComparison {
+  sameInputQuantityBuyHold: {
+    requestedQuantity: number
+    actualEntryQuantity: number
+    remainingQuantity: number
+    finalEquityKrw: number
+    cumulativeReturnPct: number
+    terminalLiquidationReturnPct: number
+    realizedPnlKrw: number
+    residualUnrealizedPnlKrw: number
+    dividendNetKrw: number
+    mddPct: number
+    averageInvestedCapitalPct: number
+    averageInvestedEquityPct: number
+    peakInvestedCapitalPct?: number
+    peakInvestedEquityPct?: number
+    holdingBarPct: number
+    filledOrderCount: number
+    blockedOrderCount: number
+    unfilledOrderCount: number
+  }
+  sameExecutionPathCostReference: {
+    restoredCostKrw: number
+    finalEquityKrw: number
+    cumulativeReturnPct: number
+  }
+  capitalExposureDifferencePct: number
+  holdingBarDifferencePct: number
+  limitations: string[]
+}
+
+export interface ReplayAccounting {
+  realizedPnlKrw: number
+  residualUnrealizedPnlKrw: number
+  remainingQuantity: number
+  remainingCostBasisKrw: number
+  remainingBuyFeeKrw: number
+  realizedPricePnlKrw: number
+  realizedFxPnlKrw: number
+  residualPricePnlKrw: number
+  residualFxPnlKrw: number
+  totalFeeKrw: number
+  totalTaxKrw: number
+  totalSlippageKrw: number
+  dividendGrossKrw: number
+  dividendTaxKrw: number
+  dividendNetKrw: number
+  terminalLiquidationEquityKrw: number
+  terminalLiquidationReturnPct: number
+  terminalExitFeeKrw: number
+  terminalExitTaxKrw: number
+  terminalExitSlippageKrw: number
+  averageInvestedNotionalKrw: number
+  averageInvestedCapitalPct: number
+  averageInvestedEquityPct: number
+  peakInvestedCapitalPct: number
+  peakInvestedEquityPct: number
+  realizedEquitySignMismatch: boolean
+  warnings: string[]
+}
+
 export interface SimulationAssumptions {
   initialCapitalKrw: number
   feeBps: number
@@ -12,6 +84,77 @@ export interface SimulationAssumptions {
   atrStopMultiplier: number
   dailyLossLimitKrw: number
   inSamplePercent: number
+  /** Optional only for saved results from older engines. New requests set these explicitly. */
+  executionModel?: ReplayExecutionModel
+  intrabarExitPolicy?: ReplayIntrabarExitPolicy
+  stopLossPct?: number
+  takeProfitPct?: number
+  dividendPriceBasis?: 'unverified' | 'unadjusted' | 'dividendAdjusted'
+  costSource?: 'estimated' | 'brokerVerifiedManual'
+  costNote?: string
+  buyFeeBps?: number | null
+  sellFeeBps?: number | null
+  minimumFeeNative?: number
+  fxScenario?: FxScenarioPoint[]
+  dividendScenario?: DividendScenarioPoint[]
+}
+
+export interface LthMinuteTimingDay {
+  marketDate: string
+  utcOffsetMinutes: number
+  regularUniqueBars: number
+  firstCloseMarketLocal: string
+  lastCloseMarketLocal: string
+  ordinaryWindowExpectedSlots: number
+  interiorUnobservedSlots: number
+  maxInteriorGapSlots: number
+  leadingUnobservedWindowSlots: number
+  trailingUnobservedWindowSlots: number
+}
+
+export interface LthMinuteTiming {
+  diagnosticVersion: string
+  labelConvention: 'barClose' | 'barStart' | 'unknown'
+  market: 'us' | 'kr'
+  exchangeTimezone: string
+  referenceAsOf: string
+  legacySessionPolicy: string
+  sourceRows: number
+  selectedRows: number
+  usedRows: number
+  priceExcludedRows: number
+  inputLimit: number
+  processedRows: number
+  inputTruncated: boolean
+  parsedRows: number
+  invalidRows: number
+  assumedKstRows: number
+  duplicateInstants: number
+  outOfOrderRows: number
+  nonMinuteAlignedRows: number
+  regularRows: number
+  offSessionRows: number
+  weekendRows: number
+  unfinishedRows: number
+  marketUtcOffsetsMinutes: number[]
+  firstBarStartUtc: string | null
+  lastBarStartUtc: string | null
+  firstCloseAvailableAtUtc: string | null
+  lastCloseAvailableAtUtc: string | null
+  firstMarketLocal: string | null
+  lastMarketLocal: string | null
+  observedDaysCount: number
+  dayRowLimit: number
+  omittedDayRows: number
+  interiorUnobservedSlots: number
+  maxInteriorGapSlots: number
+  days: LthMinuteTimingDay[]
+  examples: { kind: string; label: string }[]
+  calendarVerified: boolean
+  providerCoverageVerified: boolean
+  requestedPeriodCoverageVerified: boolean
+  actualPublicationVerified: boolean
+  limitations: string[]
 }
 
 export interface ReplayAssessment {
@@ -22,6 +165,7 @@ export interface ReplayAssessment {
   timestampStatus: 'unverified'
   sessionStatus: 'unverified'
   limitations: string[]
+  minuteTiming?: LthMinuteTiming
 }
 
 export interface ReplayMetadata {
@@ -44,15 +188,23 @@ export interface BacktestTrade {
   time: string
   side: 'buy' | 'sell'
   signalPrice: number
+  executionReferencePrice?: number
+  exchangeRateKrw?: number
+  feeKrw?: number
+  taxKrw?: number
+  slippageKrw?: number
   fillPrice: number | null
   quantity: number
   grossAmountKrw: number
   costKrw: number
   realizedPnlKrw: number | null
-  status: 'filled' | 'blocked'
+  status: 'filled' | 'blocked' | 'unfilled'
   reason: string
   blockedReason?: string
   phase: 'inSample' | 'outOfSample'
+  signalAvailableAt?: ReplayEventTime
+  fillAt?: ReplayEventTime
+  intrabarPathStatus?: string
 }
 
 export interface EquityPoint {
@@ -62,8 +214,26 @@ export interface EquityPoint {
   phase: 'inSample' | 'outOfSample'
 }
 
+export interface BacktestPhaseDiagnostics {
+  version: 1
+  policy: 'sameLedgerObservationSplit'
+  observedBars: number
+  heldBars: number
+  exposurePct: number
+  startQuantity: number
+  endQuantity: number
+  pendingAtStart: boolean
+  pendingAtEnd: boolean
+  realizedPnlKrw: number
+  startResidualUnrealizedPnlKrw: number
+  endResidualUnrealizedPnlKrw: number
+  dividendNetKrw: number
+  equityChangeKrw: number
+}
+
 export interface BacktestPhase {
   phase: 'inSample' | 'outOfSample'
+  diagnostics?: BacktestPhaseDiagnostics
   start: string
   end: string
   returnPct: number
@@ -88,6 +258,8 @@ export interface BacktestSummary {
   orderEligibleCount: number
   filledOrderCount: number
   blockedOrderCount: number
+  unfilledOrderCount?: number
+  ambiguousBarCount?: number
 }
 
 export interface BacktestReport {
@@ -97,6 +269,76 @@ export interface BacktestReport {
   trades: BacktestTrade[]
   equityCurve: EquityPoint[]
   overfitWarning: string | null
+  atrPreparation?: BacktestAtrPreparation
+  executionWarnings?: string[]
+  accounting?: ReplayAccounting
+  comparison?: ReplayComparison
+}
+
+export interface BacktestAtrPreparation {
+  period: number
+  historyBars: number
+  readyAtStart: boolean
+  readyAtEnd: boolean
+  firstReadyTime: string | null
+  unreadyEvaluationBars: number
+  rangePolicy: 'observedBarsWithPreviousCloseNoInterpolation'
+}
+
+export type ReplayCalculationMode = 'boundedWindow' | 'continuous'
+export interface ChunkContinuityView {
+  index: number
+  start: string
+  end: string
+  bars: number
+  startQuantity: number
+  endQuantity: number
+  pendingAtEnd: boolean
+}
+export interface ReplayContinuityView {
+  mode: 'continuous'
+  chunkCount: number
+  evaluationBars: number
+  historyBars: number
+  chunks: ChunkContinuityView[]
+}
+
+/** Strategy entry confirmation, separate from execution sizing ATR. Missing legacy data is unknown. */
+export interface EntryFilterPreparation {
+  enabled: boolean
+  ready: boolean
+  status: 'ready' | 'insufficientHistory' | 'invalidParams' | 'unsupportedObservation' | 'zeroAtr' | 'unverifiedVolume' | 'zeroReferenceVolume'
+  cadence: 'priceObservations' | 'priorCompletedDailyOhlc' | 'priorCompletedDailyOhlcv'
+  requiredCompletedBars: number
+  availableCompletedBars: number
+  trueRangeSamples: number
+  candidates: number
+  unreadyCandidates: number
+  minMoveRejections: number
+  atrRejections: number
+  trendRejections: number
+  slopeRejections?: number
+  bandwidthRejections?: number
+  volumeRejections?: number
+  breakoutBasis?: 'priceObservations' | 'completedHigh'
+  priorVolumeRatio?: number
+  priorAtr?: number
+  passedCandidates: number
+}
+
+export interface VolatilityExpansionPreparation {
+  ready: boolean
+  status: 'ready' | 'insufficientHistory' | 'invalidParams' | 'unsupportedObservation'
+  cadence: 'dailyCloseRange' | 'observedLiveQuotes' | 'unverified'
+  requiredCompletedBars: number
+  availableCompletedBars: number
+  evaluatedObservations: number
+  ownedObservations: number
+  candidateObservations: number
+  unreadyCandidates: number
+  rangeRejections: number
+  directionRejections: number
+  passedCandidates: number
 }
 
 export interface StrategyExperimentSnapshot {
@@ -112,6 +354,10 @@ export interface StrategyExperimentSnapshot {
   replay: ReplayMetadata
   backtest: BacktestReport
   generatedAt: string
+  calculationMode?: ReplayCalculationMode
+  continuity?: ReplayContinuityView
+  entryFilterPreparation?: EntryFilterPreparation
+  volatilityExpansionPreparation?: VolatilityExpansionPreparation
 }
 
 export interface LeveragedTrendHoldPreviewInput {
@@ -167,6 +413,14 @@ export interface StrategyPreviewInput {
   assumptions?: SimulationAssumptions
 }
 
+export interface ContinuousStrategyPreviewChunk { candles: ChartCandle[] }
+export interface ContinuousStrategyPreviewInput extends Omit<StrategyPreviewInput, 'candles' | 'warmupCount'> {
+  chunks: ContinuousStrategyPreviewChunk[]
+}
+export interface ContinuousStrategyPreviewView extends StrategyPreviewView {
+  continuity: ReplayContinuityView
+}
+
 export interface StrategyPreviewSignal {
   time: string
   chartTime?: string
@@ -186,6 +440,9 @@ export interface StrategyPreviewView {
   replay: ReplayMetadata
   backtest: BacktestReport
   preparation?: StrategyPreviewPreparation
+  continuity?: ReplayContinuityView
+  entryFilterPreparation?: EntryFilterPreparation
+  volatilityExpansionPreparation?: VolatilityExpansionPreparation
 }
 
 export interface StrategyPreviewPreparation {

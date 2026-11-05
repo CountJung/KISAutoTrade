@@ -827,7 +827,7 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 - KIS는 주문 제출부터 `kis:order` group으로 점진 이전한다. 조회 API까지 확장할 때는 TR-ID별로 흩어진 sleep을 추가하지 말고 같은 scheduler group을 사용한다.
 - read-only 연결 진단은 `check_toss_profile_connection` IPC와 `/api/profiles/:id/toss-diagnostic` 웹 REST를 함께 추가한다. 프로파일 lock은 clone까지만 유지하고, OpenAPI/token/accounts/holdings/preflight 네트워크 호출은 lock 밖에서 실행한다.
 - `buying-power`는 KRW/USD를 각각 조회하고, `commissions`는 account 단위로 조회한다. `sellable-quantity`는 symbol이 필수이므로 holdings에 보유 종목이 있을 때 첫 종목으로 확인하고, holdings가 비어 있으면 성공 skip으로 기록한다.
-- `check_toss_order_preflight`는 buy이면 현재 통화의 `buying-power`, sell이면 해당 symbol의 `sellable-quantity`를 조회하고, `commissions.marketCountry`가 현재 market과 일치하는 수수료율을 우선 사용한다. Toss의 `commissionRate`는 percent 문자열로 보고, 추정 수수료 계산에만 사용한다.
+- `check_toss_order_preflight`는 buy이면 현재 통화의 `buying-power`, sell이면 해당 symbol의 `sellable-quantity`를 조회하고, `commissions.marketCountry`가 현재 market과 일치하는 수수료율을 우선 사용한다. Toss의 `commissionRate`는 공식 소수 비율 문자열(`0.00015` = `0.015%`)이며 계산에서100으로 나누지 않는다. 상세 계약은 toss-api 스킬을 따른다.
 - Toss 주문 adapter를 연결할 때 provider가 `opposite-pending-order-exists`를 반환하면 로컬 pending conflict와 같은 차단 계열로 기록한다. provider 응답을 받기 전에도 로컬 pending scan을 먼저 수행해 같은 symbol의 반대 주문 제출을 막는다.
 - Toss 주문 API surface는 `create_order`, `list_orders`, `get_order`, `modify_order`, `cancel_order`로 나눈다. `TossOrderCreateRequest::with_generated_client_order_id()`가 36자 이하 idempotency key를 생성하고, request type은 `quantity`와 `orderAmount` 중 정확히 하나만 허용한다.
 - 수동 주문창의 Toss 접수 주문 목록은 `list_toss_open_orders` IPC, `/api/toss-open-orders`, `useTossOpenOrders()`로 연결한다. provider 조회는 `TossOrderListQuery::open()`을 사용하고, 화면은 현재 검색 종목을 먼저 보여주되 같은 활성 `accountSeq`의 다른 접수 주문도 함께 표시한다.
@@ -839,14 +839,82 @@ KIS 전용 `KisRestClient` 호출을 한 번에 모두 바꾸지 말고 `src-tau
 ## 14. 전략 preview와 backtest 구현 경계
 
 - live와 preview는 `trading::strategy::initialize_strategy_warmup()`으로 일봉/장중 warmup 의미를 공유한다. replay 구간 이후 데이터는 initializer에 전달하지 않는다.
-- preview IPC는 봉 단위, data source, broker/account scope, 비용·환율·리스크 가정을 받고 `ReplayMetadataView`와 `BacktestReportView`를 반환한다. candle 입력은 500개 상한을 유지한다.
+- preview IPC는 봉 단위, data source, broker/account scope, 비용·환율·리스크 가정을 받고 `ReplayMetadataView`와 `BacktestReportView`를 반환한다. 기존 flat `preview_strategy`는 평가+history 합계500봉 상한을 유지한다.
+- v12 `preview_strategy_continuous`/POST `/api/strategy/preview/continuous`는 별도 입력 계약이다. history 최대512·1~16chunks·묶음당1~500·전체 평가4096봉을 검증하고 알 수 없는 필드와 flat `candles`/`warmupCount` 혼용을 거부한다. 정규화된 history/평가 및 모든 경계의 엄격한 시간순을 먼저 검사하며 잘못된 입력을 정렬·봉 이동으로 수리하지 않는다. 시나리오도 전체 실제 평가 봉과 먼저 대사한다.
+- 공통 `strategy_preview/driver.rs`는 전체 검증 뒤 factory·warmup·ReplaySession을 각각 한 번 생성하고 순차 append 후 finish한다. 공급 묶음·분기 경계에서 자본·보유/native 원가·pending·cooldown/risk를 초기화하지 않는다. 다음 묶음 첫 Open이 이전 pending을 처리하며 최종 미체결 확정은 전체 끝에서만 한다. 서버 session/cache가 없는 한 요청이므로 경계별 preview 결과를 사후 합산하는 방식으로 대체하지 않는다.
+- hash는 `boundedWindow`/`continuous`를 구분하되 같은 연속 경제 입력의 chunk 분할은 제외한다. 응답의 최상위 `continuity`를 A/B에 보존하며 이전 슬롯에 모드가 없으면 unknown이다. wire `inSample`/`outOfSample`은 유지하되 연속 UI는 동일 장부의 앞/뒤 구간으로 표시한다. 고정70/30 경계를 독립 훈련/검증으로 표현하지 않는다. 상세 DTO/오류와 UI 수집 정책은 [v12 IPC 계약](ipc-commands.md)을 따른다.
+- 연속 UI는 일봉만 제공하고 strict 이전252봉·48회 요청·보관4608/평가4096 상한을 적용한다. 요청/실제 경계 차이 또는 관측 간격7달력일 초과를 보류하되 거래소 달력 검증이라고 주장하지 않는다. `coverageVerified=false`, 요청/실제 범위·중단 사유를 유지하며 누락 봉을 합성하지 않는다. 잘못된 날짜·모드/가정 변경·취소는 기존 결과와 진행 generation을 무효화한다.
 - simulated portfolio는 raw signal을 바로 거래로 세지 않는다. 공통 TradeGuard/RiskManager와 보유/현금/비용 조건을 통과한 주문만 `filled`로 기록하고 차단 사유를 보존한다.
 - 과거 cooldown은 `TradeGuard::*_at()`에 event timestamp를 전달한다. `Local::now()`를 직접 사용하면 deterministic fixture가 깨진다.
 - 전략이 신호 생성과 동시에 내부 포지션을 바꾸는 경우 실제 주문 skip 결과의 `held_quantity`/`avg_price`로 즉시 복원한다.
-- generic replay도 각 raw signal 직후 체결/차단 snapshot을 전략에 되먹임하고, provider/network 오류가 난 live 주문도 제출 전 tracker snapshot으로 복원한다.
+- generic/LTH replay는 공통 ReplaySession의 봉 시작에서 이전 대기 신호를 먼저 처리하고 실제 수량/원가를 종가 평가 전에 되먹임한다. raw 신호 뒤에도 체결/차단/대기 snapshot으로 speculative 상태를 해소한다. provider/network 오류가 난 live 주문도 제출 전 tracker snapshot으로 복원한다.
 - 일일 손실/연속손실 상태는 event 거래일 경계에서 초기화한다. replay에는 수동 비상정지 입력이 없으므로 전일 손실한도에 의한 자동 정지는 다음 거래일에 해제한다.
-- in/out-of-sample은 walk-forward 재학습이 아니라 한 번의 고정 chronological split이다. 봉 종가 replay는 live 10초 tick의 intrabar 경로, pending/fill latency를 재현하지 않는다.
+- in/out-of-sample은 walk-forward 재학습이 아니라 한 번의 고정 chronological split이다. 같은 종가/다음 관측 시가의 선택 가정과 연구용 손절/익절을 live 설정과 분리한다. sameClose의 종가 후 체결 가능성, OHLC 장중 순서, live10초 tick과 provider 지연은 미검증이다. 마지막 대기 신호는 blocked/filled가 아닌 unfilled로 표시한다.
+- v11 비용·현금흐름 필드와 응답 필드 정본은 [IPC 계약](ipc-commands.md)의 회계·비교 항목을 따른다. 사용자의 비용 수동 확인을 API 자동 검증으로 표현하지 않는다. FX/배당 시나리오는 각각 최대64개의 정규화된 고유 평가 봉과 정확히 일치시켜 검증하며 history/누락 봉으로 옮기지 않는다. 국내 FX와 LTH 일봉의 현금흐름 시나리오, 배당 조정 가격+현금 배당 중복은 명시 거부한다.
+- KRW 현금과 native 평균 체결가를 별도로 보존한다. 배당은 봉 시작 직전 보유에만 배분하고 미래 FX를 소급하지 않는다. 부분 매도 전망과 실제 청산은 같은 수량·과거 매수 비용 배분·현재 FX·최소 수수료 계산을 공유한다. 일반 이익 매도의 세후 순익 검사로 native 손실 청산·명시 손절·연구 보호를 억제하지 않는다.
+- 실현 순손익+잔여 평가 순손익+순배당의 자산 증감 일치를 검사한다. 가격 효과는 진입 FX, 환율 효과는 종료 native 금액에 귀속하고 슬리피지를 체결 가격과 현금 비용 양쪽에서 빼지 않는다. 종료 청산은 보고 전용이며 실제 현금·보유·체결/승률·risk 상태를 수정하지 않는다.
+- 평균/최대 투자 비중은 평가 봉말의 보유 평가액을 사용한다. 보유 봉 비율과 구분하고 시간 가중·장중 최대라는 이름을 붙이지 않는다. 단순 보유의 입력 수량과 실제 체결 수량·노출을 공개하며 동일 체결 경로 비용 환급을 비용 변경 전략 재실행으로 설명하지 않는다.
+- UI의 잘못된 JSON draft도 preview generation을 즉시 무효화하고 결과·계산 버튼을 차단한다. A/B의 회계 집계는 서버 결과를 보존하며 100건으로 잘린 거래 목록에서 역산하지 않는다. 이전 응답의 집계 누락은 unknown으로 표시하고 일봉 LTH 진단/legacy 평가 불가에는 회계 성과를 노출하지 않는다.
 - generic broker/account는 결과 저장 scope 메타데이터이고, Toss 레버리지 preview의 expected profile/account만 서버에서 현재 활성 scope와 일치하는지 검증한다.
 - UI 실험 저장은 broker/account/strategy/symbol scope별 A/B 두 slot, 최근 12 scope로 제한하고 credential은 저장하지 않는다. 이는 현재 편집값과 결과 snapshot 비교이며 편집 폼 재적용 preset은 아니다. quota 오류는 UI에 표시한다.
 
-> 마지막 업데이트: 2026-07-15T00:00:00+09:00
+> 마지막 업데이트: 2026-10-18T15:44:21+09:00
+
+
+## Consecutive 완료 일봉 진입 맥락 (v13)
+
+`sequence/consecutive.rs`는 기존 방향 관측/확정 보유를 유지하고 별도 `context.rs`가 bounded 완료 OHLC와 진입 진단을 관리한다. `Strategy::required_completed_daily_bars`는 opt-in이다. coordinator의 apply/invalidate/readiness 훅을 통해 context만 교체하고 실패·시장 날짜 전환·재설정으로 관측열과 보유 청산을 초기화하지 않는다. 기본 훅은 기존 52주 고가 동작을 보존한다. legacy 초기화 자료를 검증된 live 완료 일봉으로 추정하지 않도록 별도 검증 경계를 사용한다.
+
+필터 params는 0으로 opt-in하며 저장·short/continuous preview에서 엄격히 검증한다. 선택 `entryFilterPreparation`은 실제 주문 수와 수량 조절 ATR을 대신하지 않는다. 기본/오류·준비 부족·보유 청산·미래 봉 불변·live 갱신·비용별 매도 경로와 분할 무관 결과를 함께 검증한다. 상세 정본은 [v13 IPC 계약](ipc-commands.md)이다.
+
+
+## Momentum v14 실제 소유와 교차 상태
+
+classic/momentum.rs는 bounded prices/previous_momentum/armed/retry_candidate와 실제 owned_quantity를 분리한다. raw on_tick/live관측은 보유량을 만들지 않고 exact owner sync만 수량을 갱신한다. Buy는flat, Sell은owned>0이며 exit level은 진입 mode와 독립이다. nextOpen process_close 뒤 같은수량 피드백이 올 수 있고 live manager는 pending중에도 관측을 전진시키므로 이를 체결/거절로 추정해 교차를 소모하지 않는다. warmup은 관측 상태만 seed하고 reconfigure는 같은identity의 소유량/관측을 유지한다.
+
+entry_mode/entry_hysteresis_pct는 저장·short/continuous 경계에서 엄격 검증하고 legacy 기간/임계값을 신규필드 오류로 덮지 않는다. inclusive 경계·1%p 재무장·동일0피드백/partial/거절·미래 prefix/청크 불변을 확인한다. 신호 qty는 기존 config 계약을 유지하며 최종 실제 매도는 prepare_ownership/prepare_sell_submission이 현재 소유량으로 제한한다. 새 DTO/IPC는 없고 계약 정본은 [v14 IPC](ipc-commands.md)다.
+
+
+## Deviation v15 소유·진입·보유 관측
+
+classic/deviation.rs와 params/state 모듈은 실제 owned quantity/native avg·관측 나이를 가격/교차/장기 추세 관측과 분리한다. sync와 exact owner metadata만 보유 보호를 복원하며 raw 후보와 같은0수량/pending은 체결이 아니다. 기본 MA는 현재 포함, 선택 장기 MA는 현재 제외 이전 가격이다. live 최초 진입은 장기 context를 새로 모아 warmup cadence 혼합을 방지한다.
+
+보유 관측은 옵션 off 중에도 기록하고 같은qty·부분체결·warmup·reconfigure로 줄이지 않는다. 나이 불명 복원은 한도 활성 시 보수적 후보이며 보호 exit는 잔량 전량, legacy level exit는 config수량이다. 지표 준비가 부족해도 보유 stop/maxHold은 평가한다. strict params 저장/두 preview·raw UI/A-B와 미래 prefix/분할 불변을 함께 검증한다. 정본은 [v15 IPC 계약](ipc-commands.md)이다.
+
+
+## MeanReversion v16과 공통 관측 경계
+
+mean_trend.rs는 TrendFilter와 MeanReversion 공개 경로를 유지하고 mean_trend/mean_reversion.rs가 band/stop/exit_mode·보유/준비를 관리한다. 기존 QQQ4개 경로와1분 warmup no-op/reset가격 유지·손절0 활성은 전략 계약이다. actual q/native entry는 raw신호로 바꾸지 않는다.
+
+observation.rs의8개 내부 함수는 검증된 age/candidate 전이·kind codec·이전N추세·정수판정만 공유한다. codec은 순수 검증 후 age/candidate를 반환하고 caller가 게시하며 소유 q/avg·대상/scope와 전략별 정책은 caller에 남긴다. 신규 params는 save/two preview·raw UI/A-B와 함께 갱신한다. [v16 정본](ipc-commands.md), [연구](research/mean-reversion-policy-20261020/report.md)를 따른다.
+
+
+## MA cross v17 진입 맥락
+
+MA5/20의 기존 가격 관측·prevMA와 별도 이전 완료 DAILY context를 유지한다. 필터0이어도 검증된 맥락은 최대512봉 보존하며 required는 준비 판정에 사용한다. 재조회/실패는 교차열을 초기화하지 않고 현재 OHLC는 판단 뒤 반영한다. optional 잘못된 입력은 save/two preview에서 거부하고 runtime Buy만 차단한다. 이전 교차를 재무장하지 않는다.
+
+`completed_daily.rs`는 valid OHLC·u128 close mean·양수14TR 산술평균의 순수 함수만 공유한다. Consecutive의 zeroAtr 준비 차단과 MA의 충분자료 ATR0 임계값 거부 차이는 각 호출자에 남긴다. lifecycle/verified/counter와 정책을 합치지 않는다. [IPC v17](ipc-commands.md), [P2-01 연구](research/ma-cross-filters-20261020/report.md).
+
+## LTH 분봉 시각 진단의 분리
+
+`simulation/minute_timing.rs`는 bounded 순수 진단이며 `commands/strategy_preview.rs::lth_preview_assessment`가 기존 실행에 준비된 원본 label만 전달한다. 진단의 timezone 변환 결과를 기존 LTH clock·정렬·신호·정산·hash에 되먹이지 않는다. 공통 `simulation/minute_time.rs::parse_minute_instant`는 RFC3339/compact KST 구문만 공유하고 기존 generic Nanos UTC 출력은 유지한다. 일봉/host Local/epoch fallback을 가진 risk parser나 RFC3339 전용 provider page parser와 합치지 않는다.
+
+응답/목록 상한·시각/공백 의미는 [IPC 계약](ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22)을 따른다. `lthMinuteTimingPanel.tsx`는 current/A-B/legacy/손상 데이터와 compact2일·기본8일을 구분한다. 시간 진단 성공을 실제 coverage나 성과 적합성으로 승격하지 않는다. [작업 검증](completed-history.md#task-lth-minute-timing-20261022).
+
+## RSI 소유와 관측 보호
+
+RSI는 exact전략소유수량/원가·known/unknown age와pending진입origin을기존피드백/metadata 경계에서보존한다. 신호에서소유를먼저바꾸지않고기존단순RSI/매관측교차baseline을유지한다. 순수 age/추세/metadata 구문은검증된 `strategy/observation.rs`를kind=rsi로재사용하며손절0비활성·기존reset전체clear는RSI에서별도로유지한다. 저장·공통두preview strict옵션과UI원형타입을동기화하고추세현재관측을평균에미리넣지않는다. 옵션/체결모델·단위·미상나이정책은[IPC](ipc-commands.md#rsi-v18-실제-소유선택-보호)를따른다.
+
+## 돌파 실패의 자료·소유 경계
+
+CompletedDailyBar의 OHLC·Option volume는 같은 완료 봉으로 전달한다. raw 검증 전에 legacy0 변환을 거친 값에서 유효성을 복원하지 않는다. 완료 history의 scope/date/generation·512 상한과 기본 hooks의 정확한1회 forwarding을 보존한다. 현재 일봉 결정·실제 체결 피드백 뒤 완료 자료를 게시하며 다른 전략의 지표를 중복 초기화하지 않는다.
+
+실패 anchor는 fill 평균가·buffer 문턱과 다르다. nextOpen 신호 뒤0 snapshot을 anchor 삭제로 해석하지 않고 첫 실제 체결에서 후보를 확정한다. pending 해제보다 체결 동기화를 먼저 처리한다. v1/v2·unknown·옵션과 진단은 [IPC](ipc-commands.md#v19-돌파-실패-완료-자료와-실제-소유-보호)를 따른다. 공용 TR 추출은 기존 positive atr14 wrapper와 합산 순서를 유지한다.
+
+### StrongClose의 완료 시장일과 소유 보호
+
+기본1봉 또는 추세N봉을 기존 coordinator에 요청한다. `ticket.market_date`는 검증된 시장 평가일이며 OHLC 동일성·봉 수·호스트 날짜로 대신하지 않는다. dated 기본 hook은 기존 완료자료 hook을 한 번만 전달한다. StrongClose는 개별 구현에서 새날 seed와 같은 날 context 교체를 구분하며, VolatilityExpansion은 새 시장일 관측 시가/고저와 같은 날 범위 보존을 별도로 다룬다. 자료 invalidation/late legacy는 날짜 소비·실수량/원가·보유 나이/peak/armed를 지우거나 소비된 후보를 재무장하지 않는다. 현재 완료봉은 실제 체결 피드백 이후 다음 조건에만 게시한다. [IPC v20](ipc-commands.md#v20-강한-종가-실제-소유와-이전-완료-일봉)·[작업](completed-history.md#task-strong-close-policy-20261022).
+
+### VolatilityExpansion의 완료 범위·관측일과 실제 소유
+
+이전N완료 일봉 범위 평균에 0범위를 포함하고 당일 범위는 종가 판단/실제 체결 피드백 뒤 게시한다. 정수 합산/범위 상한과 current 제외를 보존한다. 기존 dated hook의 검증된 시장일에서 새날 관측 open/high/low만 초기화하며 같은날 재조회·late legacy는 관측일과 보유 보호를 지우지 않는다. 관측 quote를 거래소 전체 OHLC로 표현하지 않는다. 실제 수량·원가·보호 기원과 제안 신호/pending을 분리하고 물리 pending 중 억제된 후보에서 새 기원을 만들지 않는다. 범위 진단은 전용 optional DTO로, 기존 ATR/추세 필터와 독립이다. [IPC v21](ipc-commands.md#v21-변동성-확장-실제-소유범위-빈도관측-보호)을 확인한다.

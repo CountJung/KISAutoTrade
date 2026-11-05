@@ -1142,7 +1142,6 @@ if is_rate_limit && attempt < MAX_RETRIES - 1 {
 }
 ```
 
-> 마지막 업데이트: 2026-07-01T16:33:25
 
 ---
 
@@ -1658,7 +1657,6 @@ let trade_record = TradeRecord::new_overseas(
 
 `DailyStats`와 `RiskManager`는 원화 기준이므로 해외 매도 손익은 체결 시점 환율로 KRW 환산한 값을 반영한다.
 
-> 마지막 업데이트: 2026-07-02T16:45:00
 
 
 ---
@@ -1731,4 +1729,33 @@ UI에서 해외 종목 추가 시 `is_overseas: market === 'US'` 자동 설정 (
 
 기존 주문 응답의 `rt_cd != "0"` 분기는 `KisOrderRejected` 내부 타입으로 전달해, 네트워크/응답 파싱 오류와 구분한다. 예산 예약 해제는 이 확정 거절에만 적용한다. wire 필드·TR-ID는 변경하지 않는다. 자동매수는 지정가, 기존 매도 유형은 유지한다.
 
-마지막 업데이트: 2026-09-11
+
+## 기간별 차트 요청 공식 계약 (2026-10-18)
+
+- `api/rest/chart.rs`는 국내 `FHKST03010100`과 해외 dailyprice `HHDFS76240000`을 사용한다. 해외 현재가의 `HHDFS76200200`과 구분한다. [공식 요청 샘플](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/overseas_stock/dailyprice/dailyprice.py), [공식 응답 컬럼](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/overseas_stock/dailyprice/chk_dailyprice.py).
+- 해외 `output2`의 날짜는 `xymd`, 종가는 `clos`다. ❌ 기존 `bass_dt` 파서는 실제 dailyprice 행을 전부 누락시켰다. ✅ `xymd`와 decimal OHLCV를 그대로 읽고 최신순→오름차순으로 반환한다. 요청/응답 fixture는 생산 빌더·파서를 사용한다.
+- 국내 날짜1/2, 해외 BYMD/GUBN/MODP를 별도로 유지한다. 새 broker page는 한 번에 최대100봉, 오래된 거래일-1일을 다음 날짜 anchor로 사용한다. 샘플의 tr_cont 재귀와 날짜 anchor를 혼합하지 않는다. 공유 auth/rate-limit/timeout·8MiB Content-Length/실제 bytes 상한을 유지하며 HTTP 오류 preview는300자로 제한한다.
+- 공통 IPC/웹 page의 profile/account/client scope 검증과 완료 기간 제외는 `commands/candles.rs`, 미리보기 수집8회/500봉·실패/부족 표시는 `docs/ipc-commands.md`를 따른다. 완료 page를 기존 `initialize_warmup`에 넣으면 최신봉을 이중 제외하므로 live52주에는 manager의 `apply_daily_history`만 사용한다. run/config/profile/account/시장 날짜가 같은 ticket만 적용하고 새날·부족/실패 중 신규 진입을 차단한다.8회/512봉·동시2개·공유client/rate-limit·backoff·보유 손절 보존은 `docs/completed-history.md#task-live-completed-daily-history-20261018`를 따른다.
+
+> 마지막 업데이트: 2026-10-18T11:57:42+09:00
+
+## 자동 실행의 client 고정 (2026-10-18)
+
+`order/execution_run.rs`에서 시작 profile의 ID/broker/account/키/투자 모드와 KIS client를 검증한다. 자동 시세·평가액·주문은 같은 실행 snapshot을 사용하고, `order/submission/provider.rs`의 국내/해외 retry는 예약 때 고정한 `Arc<KisRestClient>`를 끝까지 사용한다. 전역 client를 각 재시도마다 다시 읽어 계좌를 바꾸지 않는다. 기존 EGW00133/EGW00201 최대 3회·2초 간격 정책과 wire 계약은 유지한다. 정지 후에도 이미 예약한 주문은 원 scope로 pending/예산을 기록한다. 실제 provider 응답 검증을 localhost 회귀로 대체했다고 주장하지 않는다.
+
+KIS pending 대조는 저장된 주문 TR-ID의 출처 모드도 확인한다. 생산 request builder의 모의 4개(`VTTC0802U`, `VTTC0801U`, `VTTT1002U`, `VTTT1006U`)와 실전 4개(`TTTC0802U`, `TTTC0801U`, `TTTT1002U`, `TTTT1006U`)만 명시적으로 식별한다. 다른 모드와 TR-ID 누락/미상은 현재 모드로 추정하지 않고 조회·체결·종결을 보류하며 기존 reconciliation health에 표시한다. 원 모드를 선택하면 다시 대조할 수 있다. 이 정책은 기존 `provider_tr_id`를 이용하고 새로운 credential을 저장하지 않는다.
+
+> 마지막 업데이트: 2026-10-18T12:29:40+09:00
+
+
+## 체결 원가와 누적 금액 보존 (2026-10-18)
+
+공식 [국내 일별체결 샘플](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/domestic_stock/inquire_daily_ccld/chk_inquire_daily_ccld.py)은 `tot_ccld_qty`·`tot_ccld_amt`, [해외 체결 샘플](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/overseas_stock/inquire_ccnl/chk_inquire_ccnl.py)은 `ft_ccld_qty`·`ft_ccld_amt3`·`tr_crcy_cd`를 노출한다. 평균가의 정수 절삭 뒤 수량을 곱해 원가를 재구성하면 잔액을 잃을 수 있으므로 누적 체결대금을 별도로 보존한다. 앱의 국내 금액 단위는 KRW 원, 미국 금액은 USD cents다.
+
+정상 체결은 계좌 전체 tracker에 다시 delta 가산/차감하지 않는다. 이미 체결을 포함한 broker snapshot 뒤에 local 대조가 도착할 수 있다. 주문의 exact owner 원장에만 체결을 적용하고 해당 시장 잔고를 재조회한다. 부분 체결/거부/취소·원가 불명 자료의 정책과 검증은 Rust 스킬 §12와 `docs/completed-history.md#task-strategy-fill-ownership-20261018`를 따른다.
+
+pending 대조와 당일 리스크 복원은 저장된 주문 TR-ID의 정확한 허용값으로 투자모드를 검증한다. 계좌 문자열이 같아도 모의 손익을 실전 손실에 합산하지 않으며 미상 출처를 임의 추정하지 않는다. 이 로컬 provenance 검증을 provider 자체의 진위 확인이나 실계좌 운용 검증으로 확대하지 않는다.
+
+> 마지막 업데이트: 2026-10-18T14:30:00+09:00
+
+> 마지막 업데이트: 2026-11-01T00:21:19+00:00

@@ -15,7 +15,7 @@ pub struct DiscordNotifier {
 impl DiscordNotifier {
     pub fn new(bot_token: String, channel_id: String) -> Self {
         Self {
-            client: Client::new(),
+            client: crate::http::client(),
             bot_token,
             channel_id,
         }

@@ -1,0 +1,2090 @@
+[
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "ma_cross",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 9.8147,
+      "terminalReturnPct": 9.8147,
+      "mddPct": 10.7548,
+      "realizedPnlKrw": 981467.09,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 23,
+      "blockedOrders": 11,
+      "turnoverPct": 1167.651,
+      "averageInvestedCapitalPct": 13.8089,
+      "holdingBarPct": 53.1915,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.4001,
+      "sameActualQuantityPathReferenceReturnPct": 12.15
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 1.142,
+      "minReturnPct": -1.525,
+      "maxReturnPct": 7.6045,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "ma_cross",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 7.4794,
+      "terminalReturnPct": 7.4794,
+      "mddPct": 11.899,
+      "realizedPnlKrw": 747938.12,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 23,
+      "blockedOrders": 11,
+      "turnoverPct": 1167.6388,
+      "averageInvestedCapitalPct": 13.8089,
+      "holdingBarPct": 53.1915,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.3704,
+      "sameActualQuantityPathReferenceReturnPct": 12.15
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 1.02675,
+      "minReturnPct": -1.6301,
+      "maxReturnPct": 7.5552,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "rsi",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 8.8303,
+      "terminalReturnPct": 8.8303,
+      "mddPct": 7.6084,
+      "realizedPnlKrw": 883030.52,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 9,
+      "blockedOrders": 36,
+      "turnoverPct": 432.265,
+      "averageInvestedCapitalPct": 7.0314,
+      "holdingBarPct": 28.8564,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.4001,
+      "sameActualQuantityPathReferenceReturnPct": 9.6948
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.6188,
+      "minReturnPct": -1.4799,
+      "maxReturnPct": 4.9274,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "rsi",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 7.9658,
+      "terminalReturnPct": 7.9658,
+      "mddPct": 7.7583,
+      "realizedPnlKrw": 796578.49,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 9,
+      "blockedOrders": 36,
+      "turnoverPct": 432.2553,
+      "averageInvestedCapitalPct": 7.0314,
+      "holdingBarPct": 28.8564,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.3704,
+      "sameActualQuantityPathReferenceReturnPct": 9.6948
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.5816,
+      "minReturnPct": -1.5326,
+      "maxReturnPct": 4.7596,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "momentum",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 20.1403,
+      "terminalReturnPct": 20.1403,
+      "mddPct": 5.653,
+      "realizedPnlKrw": 2014027.39,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 8,
+      "blockedOrders": 117,
+      "turnoverPct": 423.3576,
+      "averageInvestedCapitalPct": 17.3037,
+      "holdingBarPct": 62.8989,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.4001,
+      "sameActualQuantityPathReferenceReturnPct": 20.987
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.42235,
+      "minReturnPct": -1.0865,
+      "maxReturnPct": 6.8784,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "momentum",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 19.2936,
+      "terminalReturnPct": 19.2936,
+      "mddPct": 5.7766,
+      "realizedPnlKrw": 1929357.98,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 8,
+      "blockedOrders": 117,
+      "turnoverPct": 423.3366,
+      "averageInvestedCapitalPct": 17.3037,
+      "holdingBarPct": 62.8989,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.3704,
+      "sameActualQuantityPathReferenceReturnPct": 20.987
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.36775,
+      "minReturnPct": -1.2043,
+      "maxReturnPct": 6.8276,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "deviation",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 5.2714,
+      "terminalReturnPct": 5.2714,
+      "mddPct": 9.0753,
+      "realizedPnlKrw": 527138.38,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 7,
+      "blockedOrders": 216,
+      "turnoverPct": 362.9776,
+      "averageInvestedCapitalPct": 7.4141,
+      "holdingBarPct": 29.9202,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.4001,
+      "sameActualQuantityPathReferenceReturnPct": 5.9973
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -3.6806,
+      "maxReturnPct": 4.2593,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "deviation",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 4.5454,
+      "terminalReturnPct": 4.5454,
+      "mddPct": 9.1305,
+      "realizedPnlKrw": 454543.47,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 7,
+      "blockedOrders": 216,
+      "turnoverPct": 362.9716,
+      "averageInvestedCapitalPct": 7.4141,
+      "holdingBarPct": 29.9202,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.3704,
+      "sameActualQuantityPathReferenceReturnPct": 5.9973
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -3.7377,
+      "maxReturnPct": 4.0225,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "fifty_two_week_high",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": -3.6678,
+      "terminalReturnPct": -3.6678,
+      "mddPct": 12.9356,
+      "realizedPnlKrw": -366783.48,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 2,
+      "blockedOrders": 17,
+      "turnoverPct": 81.3041,
+      "averageInvestedCapitalPct": 15.3711,
+      "holdingBarPct": 57.7128,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.4001,
+      "sameActualQuantityPathReferenceReturnPct": -3.5052
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -1.8539,
+      "maxReturnPct": 1.6911,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "fifty_two_week_high",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": -3.8304,
+      "terminalReturnPct": -3.8304,
+      "mddPct": 12.9864,
+      "realizedPnlKrw": -383044.65,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 2,
+      "blockedOrders": 17,
+      "turnoverPct": 81.3076,
+      "averageInvestedCapitalPct": 15.3711,
+      "holdingBarPct": 57.7128,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.3704,
+      "sameActualQuantityPathReferenceReturnPct": -3.5052
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -2.0292,
+      "maxReturnPct": 1.6517,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "consecutive_move",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 6.4536,
+      "terminalReturnPct": 6.4536,
+      "mddPct": 5.3527,
+      "realizedPnlKrw": 645361.01,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 20,
+      "blockedOrders": 32,
+      "turnoverPct": 969.8533,
+      "averageInvestedCapitalPct": 11.7655,
+      "holdingBarPct": 45.4787,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.4001,
+      "sameActualQuantityPathReferenceReturnPct": 8.3933
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.16415,
+      "minReturnPct": -1.1299,
+      "maxReturnPct": 6.3136,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "consecutive_move",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 5.7071,
+      "terminalReturnPct": 5.7071,
+      "mddPct": 5.2285,
+      "realizedPnlKrw": 570711.48,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 20,
+      "blockedOrders": 33,
+      "turnoverPct": 971.0405,
+      "averageInvestedCapitalPct": 11.8,
+      "holdingBarPct": 45.6117,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.3704,
+      "sameActualQuantityPathReferenceReturnPct": 9.5913
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.31884999999999997,
+      "minReturnPct": -1.2984,
+      "maxReturnPct": 6.0603,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "failed_breakout",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 24.6736,
+      "terminalReturnPct": 24.5912,
+      "mddPct": 11.59,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 2467360.8,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 16.5518,
+      "averageInvestedCapitalPct": 26.7988,
+      "holdingBarPct": 98.6702,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.4001,
+      "sameActualQuantityPathReferenceReturnPct": 24.7067
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 1.126,
+      "minReturnPct": -2.137,
+      "maxReturnPct": 6.8784,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "failed_breakout",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 24.6405,
+      "terminalReturnPct": 24.4757,
+      "mddPct": 11.5932,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 2464048.8,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 16.5683,
+      "averageInvestedCapitalPct": 26.7988,
+      "holdingBarPct": 98.6702,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.3704,
+      "sameActualQuantityPathReferenceReturnPct": 24.7067
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 1.1094,
+      "minReturnPct": -2.1813,
+      "maxReturnPct": 6.8276,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "strong_close",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 26.4001,
+      "terminalReturnPct": 26.3176,
+      "mddPct": 11.4226,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 2640009.08,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 14.827,
+      "averageInvestedCapitalPct": 26.9869,
+      "holdingBarPct": 99.867,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.4001,
+      "sameActualQuantityPathReferenceReturnPct": 26.4297
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 1.5556,
+      "minReturnPct": -5.7738,
+      "maxReturnPct": 5.3743,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "strong_close",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 26.3704,
+      "terminalReturnPct": 26.2056,
+      "mddPct": 11.4255,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 2637042.2,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 14.8418,
+      "averageInvestedCapitalPct": 26.9869,
+      "holdingBarPct": 99.867,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.3704,
+      "sameActualQuantityPathReferenceReturnPct": 26.4297
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 1.23655,
+      "minReturnPct": -6.2084,
+      "maxReturnPct": 5.328,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "volatility_expansion",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 25.5628,
+      "terminalReturnPct": 25.4803,
+      "mddPct": 11.5032,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 2556278.37,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 15.6635,
+      "averageInvestedCapitalPct": 26.927,
+      "holdingBarPct": 99.4681,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.4001,
+      "sameActualQuantityPathReferenceReturnPct": 25.5941
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -2.6118,
+      "maxReturnPct": 3.1411,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "volatility_expansion",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 25.5314,
+      "terminalReturnPct": 25.3666,
+      "mddPct": 11.5062,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 2553144.11,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 15.6791,
+      "averageInvestedCapitalPct": 26.927,
+      "holdingBarPct": 99.4681,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.3704,
+      "sameActualQuantityPathReferenceReturnPct": 25.5941
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -2.7907,
+      "maxReturnPct": 3.1098,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "mean_reversion",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 7.9972,
+      "terminalReturnPct": 7.9972,
+      "mddPct": 5.3108,
+      "realizedPnlKrw": 799722.83,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 11,
+      "blockedOrders": 3,
+      "turnoverPct": 541.9113,
+      "averageInvestedCapitalPct": 5.9824,
+      "holdingBarPct": 24.867,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.4001,
+      "sameActualQuantityPathReferenceReturnPct": 9.0811
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -1.1755,
+      "maxReturnPct": 2.759,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "mean_reversion",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 6.9134,
+      "terminalReturnPct": 6.9134,
+      "mddPct": 5.384,
+      "realizedPnlKrw": 691341.48,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 11,
+      "blockedOrders": 3,
+      "turnoverPct": 541.9022,
+      "averageInvestedCapitalPct": 5.9824,
+      "holdingBarPct": 24.867,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.3704,
+      "sameActualQuantityPathReferenceReturnPct": 9.0811
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -1.3305,
+      "maxReturnPct": 2.6783,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "trend_filter",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 10.9148,
+      "terminalReturnPct": 10.8323,
+      "mddPct": 15.2091,
+      "realizedPnlKrw": -112511.95,
+      "residualPnlKrw": 1203990.35,
+      "completedTrades": 12,
+      "blockedOrders": 8,
+      "turnoverPct": 669.38,
+      "averageInvestedCapitalPct": 21.2574,
+      "holdingBarPct": 78.3245,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.4001,
+      "sameActualQuantityPathReferenceReturnPct": 12.2535
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 1.0084,
+      "minReturnPct": -2.8041,
+      "maxReturnPct": 5.3743,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "trend_filter",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 9.576,
+      "terminalReturnPct": 9.4112,
+      "mddPct": 16.2171,
+      "realizedPnlKrw": -240553.37,
+      "residualPnlKrw": 1198152.86,
+      "completedTrades": 12,
+      "blockedOrders": 8,
+      "turnoverPct": 669.409,
+      "averageInvestedCapitalPct": 21.2574,
+      "holdingBarPct": 78.3245,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.3704,
+      "sameActualQuantityPathReferenceReturnPct": 12.2535
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.92225,
+      "minReturnPct": -2.9164,
+      "maxReturnPct": 5.328,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "price_condition",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 0.7526,
+      "terminalReturnPct": 0.7526,
+      "mddPct": 0.2586,
+      "realizedPnlKrw": 75257.52,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 1,
+      "blockedOrders": 0,
+      "turnoverPct": 30.437,
+      "averageInvestedCapitalPct": 0.0806,
+      "holdingBarPct": 0.5319,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.4001,
+      "sameActualQuantityPathReferenceReturnPct": 0.8134
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": 0.0,
+      "maxReturnPct": 0.7526,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SOXQ",
+      "strategyId": "price_condition",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 51,
+      "returnPct": 0.6917,
+      "terminalReturnPct": 0.6917,
+      "mddPct": 0.2587,
+      "realizedPnlKrw": 69170.2,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 1,
+      "blockedOrders": 0,
+      "turnoverPct": 30.4362,
+      "averageInvestedCapitalPct": 0.0806,
+      "holdingBarPct": 0.5319,
+      "sameRequestedQuantityBuyHoldReturnPct": 26.3704,
+      "sameActualQuantityPathReferenceReturnPct": 0.8134
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": 0.0,
+      "maxReturnPct": 0.6917,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "ma_cross",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 4.8227,
+      "terminalReturnPct": 4.7831,
+      "mddPct": 1.7023,
+      "realizedPnlKrw": 511562.88,
+      "residualPnlKrw": -29295.71,
+      "completedTrades": 18,
+      "blockedOrders": 2,
+      "turnoverPct": 568.2761,
+      "averageInvestedCapitalPct": 11.2882,
+      "holdingBarPct": 72.4734,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.6412,
+      "sameActualQuantityPathReferenceReturnPct": 5.9592
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.5695,
+      "minReturnPct": -0.8004,
+      "maxReturnPct": 1.8953,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "ma_cross",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 3.7986,
+      "terminalReturnPct": 3.7195,
+      "mddPct": 2.0894,
+      "realizedPnlKrw": 413163.91,
+      "residualPnlKrw": -33307.44,
+      "completedTrades": 18,
+      "blockedOrders": 2,
+      "turnoverPct": 568.5225,
+      "averageInvestedCapitalPct": 11.2884,
+      "holdingBarPct": 72.4734,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.619,
+      "sameActualQuantityPathReferenceReturnPct": 6.0726
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.4741,
+      "minReturnPct": -0.9965,
+      "maxReturnPct": 1.8633,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "rsi",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 2.0024,
+      "terminalReturnPct": 2.0024,
+      "mddPct": 3.2581,
+      "realizedPnlKrw": 200238.86,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 7,
+      "blockedOrders": 39,
+      "turnoverPct": 208.9745,
+      "averageInvestedCapitalPct": 3.6893,
+      "holdingBarPct": 25.0,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.6412,
+      "sameActualQuantityPathReferenceReturnPct": 2.4203
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.08195,
+      "minReturnPct": -1.1015,
+      "maxReturnPct": 1.3996,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "rsi",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 1.5844,
+      "terminalReturnPct": 1.5844,
+      "mddPct": 3.3306,
+      "realizedPnlKrw": 158444.21,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 7,
+      "blockedOrders": 39,
+      "turnoverPct": 208.9721,
+      "averageInvestedCapitalPct": 3.6893,
+      "holdingBarPct": 25.0,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.619,
+      "sameActualQuantityPathReferenceReturnPct": 2.4203
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.01715,
+      "minReturnPct": -1.1361,
+      "maxReturnPct": 1.3349,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "momentum",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 4.5582,
+      "terminalReturnPct": 4.5187,
+      "mddPct": 1.9261,
+      "realizedPnlKrw": 112972.31,
+      "residualPnlKrw": 342850.46,
+      "completedTrades": 5,
+      "blockedOrders": 32,
+      "turnoverPct": 153.8486,
+      "averageInvestedCapitalPct": 12.6231,
+      "holdingBarPct": 80.3191,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.6412,
+      "sameActualQuantityPathReferenceReturnPct": 4.8659
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.3903,
+      "minReturnPct": -0.8917,
+      "maxReturnPct": 1.5705,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "momentum",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 4.2505,
+      "terminalReturnPct": 4.1715,
+      "mddPct": 1.9908,
+      "realizedPnlKrw": 85468.9,
+      "residualPnlKrw": 339582.66,
+      "completedTrades": 5,
+      "blockedOrders": 32,
+      "turnoverPct": 153.8635,
+      "averageInvestedCapitalPct": 12.6231,
+      "holdingBarPct": 80.3191,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.619,
+      "sameActualQuantityPathReferenceReturnPct": 4.8659
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.3583,
+      "minReturnPct": -0.9428,
+      "maxReturnPct": 1.5378,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "deviation",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 1.1944,
+      "terminalReturnPct": 1.1944,
+      "mddPct": 3.2887,
+      "realizedPnlKrw": 119440.74,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 1,
+      "blockedOrders": 13,
+      "turnoverPct": 31.3707,
+      "averageInvestedCapitalPct": 4.1258,
+      "holdingBarPct": 24.734,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.6412,
+      "sameActualQuantityPathReferenceReturnPct": 1.2572
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -0.0328,
+      "maxReturnPct": 2.067,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "deviation",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 1.1317,
+      "terminalReturnPct": 1.1317,
+      "mddPct": 3.2896,
+      "realizedPnlKrw": 113166.74,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 1,
+      "blockedOrders": 13,
+      "turnoverPct": 31.3694,
+      "averageInvestedCapitalPct": 4.1258,
+      "holdingBarPct": 24.734,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.619,
+      "sameActualQuantityPathReferenceReturnPct": 1.2572
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -0.0652,
+      "maxReturnPct": 2.006,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "fifty_two_week_high",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 5.984,
+      "terminalReturnPct": 5.9445,
+      "mddPct": 3.2477,
+      "realizedPnlKrw": -43397.9,
+      "residualPnlKrw": 641799.46,
+      "completedTrades": 1,
+      "blockedOrders": 0,
+      "turnoverPct": 38.209,
+      "averageInvestedCapitalPct": 12.8257,
+      "holdingBarPct": 78.9894,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.6412,
+      "sameActualQuantityPathReferenceReturnPct": 6.0604
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.2356,
+      "minReturnPct": -1.0867,
+      "maxReturnPct": 1.232,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "fifty_two_week_high",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 5.9076,
+      "terminalReturnPct": 5.8286,
+      "mddPct": 3.2501,
+      "realizedPnlKrw": -48370.88,
+      "residualPnlKrw": 639129.26,
+      "completedTrades": 1,
+      "blockedOrders": 0,
+      "turnoverPct": 38.2228,
+      "averageInvestedCapitalPct": 12.8257,
+      "holdingBarPct": 78.9894,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.619,
+      "sameActualQuantityPathReferenceReturnPct": 6.0604
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.2062,
+      "minReturnPct": -1.1814,
+      "maxReturnPct": 1.1959,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "consecutive_move",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 2.9175,
+      "terminalReturnPct": 2.9175,
+      "mddPct": 2.2825,
+      "realizedPnlKrw": 291748.7,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 29,
+      "blockedOrders": 1,
+      "turnoverPct": 884.1641,
+      "averageInvestedCapitalPct": 10.1076,
+      "holdingBarPct": 64.0957,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.6412,
+      "sameActualQuantityPathReferenceReturnPct": 4.6858
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.162,
+      "minReturnPct": -1.0896,
+      "maxReturnPct": 0.8681,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "consecutive_move",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": -0.3474,
+      "terminalReturnPct": -0.4265,
+      "mddPct": 3.8499,
+      "realizedPnlKrw": -21002.74,
+      "residualPnlKrw": -13741.41,
+      "completedTrades": 28,
+      "blockedOrders": 5,
+      "turnoverPct": 862.8445,
+      "averageInvestedCapitalPct": 10.68,
+      "holdingBarPct": 67.5532,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.619,
+      "sameActualQuantityPathReferenceReturnPct": 3.1039
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": -0.20065,
+      "minReturnPct": -1.4186,
+      "maxReturnPct": 0.7401,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "failed_breakout",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 8.185,
+      "terminalReturnPct": 8.1455,
+      "mddPct": 3.1804,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 818501.34,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 11.5791,
+      "averageInvestedCapitalPct": 15.1476,
+      "holdingBarPct": 98.1383,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.6412,
+      "sameActualQuantityPathReferenceReturnPct": 8.2082
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.44205,
+      "minReturnPct": -1.381,
+      "maxReturnPct": 1.5705,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "failed_breakout",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 8.1618,
+      "terminalReturnPct": 8.0828,
+      "mddPct": 3.1811,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 816184.36,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 11.5907,
+      "averageInvestedCapitalPct": 15.1476,
+      "holdingBarPct": 98.1383,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.619,
+      "sameActualQuantityPathReferenceReturnPct": 8.2082
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.41054999999999997,
+      "minReturnPct": -1.4162,
+      "maxReturnPct": 1.5378,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "strong_close",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 8.6412,
+      "terminalReturnPct": 8.6017,
+      "mddPct": 3.1668,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 864122.44,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 11.1233,
+      "averageInvestedCapitalPct": 15.3441,
+      "holdingBarPct": 99.867,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.6412,
+      "sameActualQuantityPathReferenceReturnPct": 8.6635
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.7618,
+      "minReturnPct": -0.8886,
+      "maxReturnPct": 1.7474,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "strong_close",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 8.619,
+      "terminalReturnPct": 8.5399,
+      "mddPct": 3.1674,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 861896.67,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 11.1344,
+      "averageInvestedCapitalPct": 15.3441,
+      "holdingBarPct": 99.867,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.619,
+      "sameActualQuantityPathReferenceReturnPct": 8.6635
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.74195,
+      "minReturnPct": -0.9876,
+      "maxReturnPct": 1.6545,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "volatility_expansion",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 5.6269,
+      "terminalReturnPct": 5.5874,
+      "mddPct": 3.2589,
+      "realizedPnlKrw": -43713.3,
+      "residualPnlKrw": 606406.79,
+      "completedTrades": 1,
+      "blockedOrders": 0,
+      "turnoverPct": 38.1096,
+      "averageInvestedCapitalPct": 11.379,
+      "holdingBarPct": 67.9521,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.6412,
+      "sameActualQuantityPathReferenceReturnPct": 5.7031
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -0.5649,
+      "maxReturnPct": 1.4574,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "volatility_expansion",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 5.5507,
+      "terminalReturnPct": 5.4717,
+      "mddPct": 3.2613,
+      "realizedPnlKrw": -48595.69,
+      "residualPnlKrw": 603665.83,
+      "completedTrades": 1,
+      "blockedOrders": 0,
+      "turnoverPct": 38.1237,
+      "averageInvestedCapitalPct": 11.379,
+      "holdingBarPct": 67.9521,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.619,
+      "sameActualQuantityPathReferenceReturnPct": 5.7031
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -0.7192,
+      "maxReturnPct": 1.43,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "mean_reversion",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 4.2519,
+      "terminalReturnPct": 4.2124,
+      "mddPct": 3.9552,
+      "realizedPnlKrw": 367717.01,
+      "residualPnlKrw": 57471.56,
+      "completedTrades": 11,
+      "blockedOrders": 0,
+      "turnoverPct": 359.2195,
+      "averageInvestedCapitalPct": 6.3229,
+      "holdingBarPct": 40.1596,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.6412,
+      "sameActualQuantityPathReferenceReturnPct": 4.9703
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.18805,
+      "minReturnPct": -1.2396,
+      "maxReturnPct": 1.2621,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "mean_reversion",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 0.0835,
+      "terminalReturnPct": 0.0045,
+      "mddPct": 4.3719,
+      "realizedPnlKrw": -45281.98,
+      "residualPnlKrw": 53633.29,
+      "completedTrades": 11,
+      "blockedOrders": 0,
+      "turnoverPct": 355.7775,
+      "averageInvestedCapitalPct": 5.1258,
+      "holdingBarPct": 32.9787,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.619,
+      "sameActualQuantityPathReferenceReturnPct": 1.5065
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.1371,
+      "minReturnPct": -1.3393,
+      "maxReturnPct": 1.1456,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "trend_filter",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 6.4121,
+      "terminalReturnPct": 6.3726,
+      "mddPct": 1.6576,
+      "realizedPnlKrw": 358914.93,
+      "residualPnlKrw": 282293.53,
+      "completedTrades": 4,
+      "blockedOrders": 0,
+      "turnoverPct": 115.1892,
+      "averageInvestedCapitalPct": 13.8837,
+      "holdingBarPct": 89.4947,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.6412,
+      "sameActualQuantityPathReferenceReturnPct": 6.6424
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.6725000000000001,
+      "minReturnPct": -1.4167,
+      "maxReturnPct": 1.4993,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "trend_filter",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 6.1817,
+      "terminalReturnPct": 6.1027,
+      "mddPct": 1.7233,
+      "realizedPnlKrw": 339264.63,
+      "residualPnlKrw": 278904.68,
+      "completedTrades": 4,
+      "blockedOrders": 0,
+      "turnoverPct": 115.2024,
+      "averageInvestedCapitalPct": 13.8837,
+      "holdingBarPct": 89.4947,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.619,
+      "sameActualQuantityPathReferenceReturnPct": 6.6425
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.62,
+      "minReturnPct": -1.4843,
+      "maxReturnPct": 1.4719,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "price_condition",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 0.5483,
+      "terminalReturnPct": 0.5483,
+      "mddPct": 0.2847,
+      "realizedPnlKrw": 54828.39,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 1,
+      "blockedOrders": 0,
+      "turnoverPct": 22.8178,
+      "averageInvestedCapitalPct": 0.243,
+      "holdingBarPct": 2.1277,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.6412,
+      "sameActualQuantityPathReferenceReturnPct": 0.5939
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": 0.0,
+      "maxReturnPct": 0.5483,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "SPY",
+      "strategyId": "price_condition",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 2,
+      "returnPct": 0.5026,
+      "terminalReturnPct": 0.5026,
+      "mddPct": 0.2848,
+      "realizedPnlKrw": 50264.89,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 1,
+      "blockedOrders": 0,
+      "turnoverPct": 22.8172,
+      "averageInvestedCapitalPct": 0.243,
+      "holdingBarPct": 2.1277,
+      "sameRequestedQuantityBuyHoldReturnPct": 8.619,
+      "sameActualQuantityPathReferenceReturnPct": 0.5939
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": 0.0,
+      "maxReturnPct": 0.5026,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "ma_cross",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 8.326,
+      "terminalReturnPct": 8.2725,
+      "mddPct": 2.3655,
+      "realizedPnlKrw": 863180.4,
+      "residualPnlKrw": -30584.07,
+      "completedTrades": 20,
+      "blockedOrders": 0,
+      "turnoverPct": 834.9592,
+      "averageInvestedCapitalPct": 14.2493,
+      "holdingBarPct": 71.4096,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.1004,
+      "sameActualQuantityPathReferenceReturnPct": 9.9959
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.70405,
+      "minReturnPct": -1.194,
+      "maxReturnPct": 3.3784,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "ma_cross",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 6.656,
+      "terminalReturnPct": 6.5492,
+      "mddPct": 2.9444,
+      "realizedPnlKrw": 701589.85,
+      "residualPnlKrw": -35987.03,
+      "completedTrades": 20,
+      "blockedOrders": 0,
+      "turnoverPct": 834.9759,
+      "averageInvestedCapitalPct": 14.2493,
+      "holdingBarPct": 71.4096,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.0772,
+      "sameActualQuantityPathReferenceReturnPct": 9.9959
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.5810500000000001,
+      "minReturnPct": -1.3267,
+      "maxReturnPct": 3.3371,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "rsi",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 2.3211,
+      "terminalReturnPct": 2.3211,
+      "mddPct": 4.4547,
+      "realizedPnlKrw": 232109.5,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 7,
+      "blockedOrders": 41,
+      "turnoverPct": 264.9461,
+      "averageInvestedCapitalPct": 5.0005,
+      "holdingBarPct": 26.7287,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.1004,
+      "sameActualQuantityPathReferenceReturnPct": 2.851
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0933,
+      "minReturnPct": -1.8976,
+      "maxReturnPct": 1.3716,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "rsi",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 1.7912,
+      "terminalReturnPct": 1.7912,
+      "mddPct": 4.5506,
+      "realizedPnlKrw": 179120.57,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 7,
+      "blockedOrders": 41,
+      "turnoverPct": 264.9432,
+      "averageInvestedCapitalPct": 5.0005,
+      "holdingBarPct": 26.7287,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.0772,
+      "sameActualQuantityPathReferenceReturnPct": 2.851
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0398,
+      "minReturnPct": -1.9422,
+      "maxReturnPct": 1.3217,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "momentum",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 11.4065,
+      "terminalReturnPct": 11.3531,
+      "mddPct": 2.503,
+      "realizedPnlKrw": 580627.56,
+      "residualPnlKrw": 560020.37,
+      "completedTrades": 4,
+      "blockedOrders": 46,
+      "turnoverPct": 166.2228,
+      "averageInvestedCapitalPct": 15.9701,
+      "holdingBarPct": 78.7234,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.1004,
+      "sameActualQuantityPathReferenceReturnPct": 11.7389
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 1.06095,
+      "minReturnPct": -0.7933,
+      "maxReturnPct": 2.8741,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "momentum",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 11.074,
+      "terminalReturnPct": 10.9672,
+      "mddPct": 2.5837,
+      "realizedPnlKrw": 551603.84,
+      "residualPnlKrw": 555798.03,
+      "completedTrades": 4,
+      "blockedOrders": 46,
+      "turnoverPct": 166.2378,
+      "averageInvestedCapitalPct": 15.9701,
+      "holdingBarPct": 78.7234,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.0772,
+      "sameActualQuantityPathReferenceReturnPct": 11.7389
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 1.02305,
+      "minReturnPct": -0.8584,
+      "maxReturnPct": 2.8318,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "deviation",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 3.2066,
+      "terminalReturnPct": 3.1532,
+      "mddPct": 5.1012,
+      "realizedPnlKrw": 209022.59,
+      "residualPnlKrw": 111640.46,
+      "completedTrades": 1,
+      "blockedOrders": 57,
+      "turnoverPct": 64.0515,
+      "averageInvestedCapitalPct": 8.1361,
+      "holdingBarPct": 37.633,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.1004,
+      "sameActualQuantityPathReferenceReturnPct": 3.3347
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -1.1418,
+      "maxReturnPct": 2.652,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "deviation",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 3.0785,
+      "terminalReturnPct": 2.9717,
+      "mddPct": 5.1029,
+      "realizedPnlKrw": 201328.61,
+      "residualPnlKrw": 106521.8,
+      "completedTrades": 1,
+      "blockedOrders": 57,
+      "turnoverPct": 64.0749,
+      "averageInvestedCapitalPct": 8.1361,
+      "holdingBarPct": 37.633,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.0772,
+      "sameActualQuantityPathReferenceReturnPct": 3.3347
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -1.1849,
+      "maxReturnPct": 2.6156,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "fifty_two_week_high",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 12.0123,
+      "terminalReturnPct": 11.9589,
+      "mddPct": 4.938,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 1201229.37,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 14.6955,
+      "averageInvestedCapitalPct": 18.046,
+      "holdingBarPct": 87.367,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.1004,
+      "sameActualQuantityPathReferenceReturnPct": 12.0417
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.1961,
+      "minReturnPct": -0.9561,
+      "maxReturnPct": 1.9898,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "fifty_two_week_high",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 11.9829,
+      "terminalReturnPct": 11.8761,
+      "mddPct": 4.9393,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 1198288.8,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 14.7102,
+      "averageInvestedCapitalPct": 18.046,
+      "holdingBarPct": 87.367,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.0772,
+      "sameActualQuantityPathReferenceReturnPct": 12.0417
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.15030000000000002,
+      "minReturnPct": -1.8272,
+      "maxReturnPct": 1.9416,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "consecutive_move",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 9.1525,
+      "terminalReturnPct": 9.0991,
+      "mddPct": 4.1337,
+      "realizedPnlKrw": 937557.14,
+      "residualPnlKrw": -22302.53,
+      "completedTrades": 24,
+      "blockedOrders": 4,
+      "turnoverPct": 939.3173,
+      "averageInvestedCapitalPct": 14.3,
+      "holdingBarPct": 70.6117,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.1004,
+      "sameActualQuantityPathReferenceReturnPct": 11.0312
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.862,
+      "minReturnPct": -1.922,
+      "maxReturnPct": 2.3085,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "consecutive_move",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 8.2701,
+      "terminalReturnPct": 8.1633,
+      "mddPct": 3.6059,
+      "realizedPnlKrw": 854700.64,
+      "residualPnlKrw": -27688.94,
+      "completedTrades": 23,
+      "blockedOrders": 4,
+      "turnoverPct": 894.1831,
+      "averageInvestedCapitalPct": 14.1939,
+      "holdingBarPct": 69.8138,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.0772,
+      "sameActualQuantityPathReferenceReturnPct": 11.8468
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.8079000000000001,
+      "minReturnPct": -2.0963,
+      "maxReturnPct": 2.3576,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "failed_breakout",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 14.1995,
+      "terminalReturnPct": 14.1461,
+      "mddPct": 4.8406,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 1419949.15,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 12.5105,
+      "averageInvestedCapitalPct": 19.493,
+      "holdingBarPct": 98.1383,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.1004,
+      "sameActualQuantityPathReferenceReturnPct": 14.2245
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 1.07735,
+      "minReturnPct": -2.9651,
+      "maxReturnPct": 2.7895,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "failed_breakout",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 14.1745,
+      "terminalReturnPct": 14.0677,
+      "mddPct": 4.8417,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 1417445.81,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 12.523,
+      "averageInvestedCapitalPct": 19.493,
+      "holdingBarPct": 98.1383,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.0772,
+      "sameActualQuantityPathReferenceReturnPct": 14.2245
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 1.03945,
+      "minReturnPct": -3.0118,
+      "maxReturnPct": 2.7471,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "strong_close",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 15.1004,
+      "terminalReturnPct": 15.047,
+      "mddPct": 4.8017,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 1510043.57,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 11.6104,
+      "averageInvestedCapitalPct": 19.7003,
+      "holdingBarPct": 99.867,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.1004,
+      "sameActualQuantityPathReferenceReturnPct": 15.1236
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 1.8166,
+      "minReturnPct": -2.2942,
+      "maxReturnPct": 3.3196,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "strong_close",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 15.0772,
+      "terminalReturnPct": 14.9704,
+      "mddPct": 4.8027,
+      "realizedPnlKrw": -0.0,
+      "residualPnlKrw": 1507720.32,
+      "completedTrades": 0,
+      "blockedOrders": 0,
+      "turnoverPct": 11.622,
+      "averageInvestedCapitalPct": 19.7003,
+      "holdingBarPct": 99.867,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.0772,
+      "sameActualQuantityPathReferenceReturnPct": 15.1236
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 1.7576,
+      "minReturnPct": -2.5074,
+      "maxReturnPct": 3.2021,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "volatility_expansion",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 10.7332,
+      "terminalReturnPct": 10.6798,
+      "mddPct": 4.9968,
+      "realizedPnlKrw": -61571.61,
+      "residualPnlKrw": 1134889.89,
+      "completedTrades": 1,
+      "blockedOrders": 0,
+      "turnoverPct": 41.5541,
+      "averageInvestedCapitalPct": 18.1575,
+      "holdingBarPct": 88.2979,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.1004,
+      "sameActualQuantityPathReferenceReturnPct": 10.8163
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -1.7758,
+      "maxReturnPct": 2.1735,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "volatility_expansion",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 10.6501,
+      "terminalReturnPct": 10.5433,
+      "mddPct": 5.0006,
+      "realizedPnlKrw": -66810.83,
+      "residualPnlKrw": 1131816.71,
+      "completedTrades": 1,
+      "blockedOrders": 0,
+      "turnoverPct": 41.57,
+      "averageInvestedCapitalPct": 18.1575,
+      "holdingBarPct": 88.2979,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.0772,
+      "sameActualQuantityPathReferenceReturnPct": 10.8163
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -1.9277,
+      "maxReturnPct": 2.1354,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "mean_reversion",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": -1.3113,
+      "terminalReturnPct": -1.3647,
+      "mddPct": 4.327,
+      "realizedPnlKrw": -200922.48,
+      "residualPnlKrw": 69796.89,
+      "completedTrades": 6,
+      "blockedOrders": 0,
+      "turnoverPct": 246.3067,
+      "averageInvestedCapitalPct": 3.484,
+      "holdingBarPct": 18.0851,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.1004,
+      "sameActualQuantityPathReferenceReturnPct": -0.8187
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -1.293,
+      "maxReturnPct": 1.5946,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "mean_reversion",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": -1.8039,
+      "terminalReturnPct": -1.9107,
+      "mddPct": 4.5823,
+      "realizedPnlKrw": -244984.28,
+      "residualPnlKrw": 64594.59,
+      "completedTrades": 6,
+      "blockedOrders": 0,
+      "turnoverPct": 246.3342,
+      "averageInvestedCapitalPct": 3.484,
+      "holdingBarPct": 18.0851,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.0772,
+      "sameActualQuantityPathReferenceReturnPct": -0.8187
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": -1.3776,
+      "maxReturnPct": 1.5305,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "trend_filter",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 11.801,
+      "terminalReturnPct": 11.7476,
+      "mddPct": 2.7465,
+      "realizedPnlKrw": 727126.47,
+      "residualPnlKrw": 452970.59,
+      "completedTrades": 3,
+      "blockedOrders": 0,
+      "turnoverPct": 107.307,
+      "averageInvestedCapitalPct": 18.1083,
+      "holdingBarPct": 90.9574,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.1004,
+      "sameActualQuantityPathReferenceReturnPct": 12.0156
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 1.4802499999999998,
+      "minReturnPct": -1.9102,
+      "maxReturnPct": 2.3106,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "trend_filter",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 11.5863,
+      "terminalReturnPct": 11.4796,
+      "mddPct": 2.7498,
+      "realizedPnlKrw": 710099.93,
+      "residualPnlKrw": 448534.26,
+      "completedTrades": 3,
+      "blockedOrders": 0,
+      "turnoverPct": 107.3217,
+      "averageInvestedCapitalPct": 18.1083,
+      "holdingBarPct": 90.9574,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.0772,
+      "sameActualQuantityPathReferenceReturnPct": 12.0156
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 1.4402,
+      "minReturnPct": -1.9986,
+      "maxReturnPct": 2.263,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "price_condition",
+      "costBps": 10,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 0.567,
+      "terminalReturnPct": 0.567,
+      "mddPct": 0.2433,
+      "realizedPnlKrw": 56703.09,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 1,
+      "blockedOrders": 0,
+      "turnoverPct": 23.8117,
+      "averageInvestedCapitalPct": 0.1259,
+      "holdingBarPct": 1.0638,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.1004,
+      "sameActualQuantityPathReferenceReturnPct": 0.6147
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": 0.0,
+      "maxReturnPct": 0.567,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  },
+  {
+    "continuous": {
+      "kind": "continuous",
+      "symbol": "QQQ",
+      "strategyId": "price_condition",
+      "costBps": 20,
+      "quarter": "2023-2025",
+      "orderQuantity": 3,
+      "returnPct": 0.5194,
+      "terminalReturnPct": 0.5194,
+      "mddPct": 0.2666,
+      "realizedPnlKrw": 51940.81,
+      "residualPnlKrw": 0.0,
+      "completedTrades": 1,
+      "blockedOrders": 0,
+      "turnoverPct": 23.8111,
+      "averageInvestedCapitalPct": 0.1259,
+      "holdingBarPct": 1.0638,
+      "sameRequestedQuantityBuyHoldReturnPct": 15.0772,
+      "sameActualQuantityPathReferenceReturnPct": 0.6147
+    },
+    "separateQuarterAccountDistribution": {
+      "count": 12,
+      "medianReturnPct": 0.0,
+      "minReturnPct": 0.0,
+      "maxReturnPct": 0.5194,
+      "note": "Separate reset accounts. These returns are never summed/compounded into a three-year return."
+    }
+  }
+]

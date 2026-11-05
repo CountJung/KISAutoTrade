@@ -41,6 +41,9 @@ test('LTH minute result labels coverage and keeps its assessment in A/B snapshot
   })
   expect(assessment).toMatchObject({ model: 'intradaySample', performanceStatus: 'sampleOnly', intradayBars: 3, timestampStatus: 'unverified', sessionStatus: 'unverified' })
   await expect(card.getByTestId('strategy-ab-comparison').getByText(/분봉 표본 ·/)).toBeVisible()
+  await expect(card.getByTestId('phase-policy')).toHaveCount(2)
+  await expect(card.getByRole('table', { name: '동일 장부 구간 성과' })).toHaveCount(2)
+  await expect(card.getByText(/구간 진단 정보 없음/)).toHaveCount(4)
 })
 
 test('Legacy LTH replay without assessment hides performance instead of trusting old metrics', async ({ page }) => {

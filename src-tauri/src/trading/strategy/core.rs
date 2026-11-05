@@ -97,18 +97,51 @@ impl StrategyConfig {
             && self.broker_account_id.as_deref() == broker_account_id.filter(|v| !v.is_empty())
     }
 
+    /// Position-preserving edits require the same strategy ID and broker/account.
+    /// Keep matches_scope's existing account normalization on the candidate side.
+    pub(super) fn same_identity(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.matches_scope(other.broker_id, other.broker_account_id.as_deref())
+    }
+
     pub fn targets_symbol(&self, symbol: &str) -> bool {
         self.target_symbols.iter().any(|target| target == symbol)
     }
 }
 
 /// 전략 초기화용 OHLC 캔들.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OhlcCandle {
     pub open: u64,
     pub high: u64,
     pub low: u64,
     pub close: u64,
+}
+
+/// Atomic completed DAILY observation; unknown volume is distinct from verified zero.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompletedDailyBar {
+    pub ohlc: OhlcCandle,
+    pub volume: Option<u64>,
+}
+
+/// No fractional/negative/scientific values or fabricated zero for missing data.
+pub fn parse_completed_daily_volume(raw: &str) -> Option<u64> {
+    let raw = raw.trim();
+    if raw.is_empty() || raw.len() > 64 {
+        return None;
+    }
+    if raw.contains(',') {
+        let parts = raw.split(',').collect::<Vec<_>>();
+        if !(1..=3).contains(&parts[0].len()) || parts[1..].iter().any(|s| s.len() != 3) {
+            return None;
+        }
+    }
+    let digits = raw.replace(',', "");
+    if !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    digits.parse().ok()
 }
 
 /// 전략 상태에서 읽은 실제 지표 준비 상태. 가격 단위가 아닌 관측 봉 수다.
@@ -119,6 +152,55 @@ pub struct HistoryReadiness {
     pub ready: bool,
 }
 
+/// Strategy-entry diagnostics, distinct from execution quantity-sizing ATR.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EntryFilterPreparation {
+    pub enabled: bool,
+    pub ready: bool,
+    pub status: String,
+    pub cadence: String,
+    pub required_completed_bars: usize,
+    pub available_completed_bars: usize,
+    pub true_range_samples: usize,
+    pub candidates: u64,
+    pub unready_candidates: u64,
+    pub min_move_rejections: u64,
+    pub atr_rejections: u64,
+    pub trend_rejections: u64,
+    pub passed_candidates: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub slope_rejections: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bandwidth_rejections: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub volume_rejections: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub breakout_basis: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prior_volume_ratio: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prior_atr: Option<f64>,
+}
+
+/// Volatility-specific observation counts; passing a condition is not a fill.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VolatilityExpansionPreparation {
+    pub ready: bool,
+    pub status: String,
+    pub cadence: String,
+    pub required_completed_bars: usize,
+    pub available_completed_bars: usize,
+    pub evaluated_observations: u64,
+    pub owned_observations: u64,
+    pub candidate_observations: u64,
+    pub unready_candidates: u64,
+    pub range_rejections: u64,
+    pub direction_rejections: u64,
+    pub passed_candidates: u64,
+}
+
 /// 전략 trait — 모든 자동매매 전략이 구현해야 함
 pub trait Strategy: Send + Sync {
     fn id(&self) -> &str;
@@ -127,8 +209,43 @@ pub trait Strategy: Send + Sync {
     fn config_mut(&mut self) -> &mut StrategyConfig;
     fn is_enabled(&self) -> bool;
     fn set_enabled(&mut self, enabled: bool);
+    /// Opt-in reconfiguration for a strategy that can preserve its actual held state.
+    /// Returning false leaves replacement to the manager; never transfer positions
+    /// between different broker/account scopes.
+    fn reconfigure_preserving_position(&mut self, _config: StrategyConfig) -> bool {
+        false
+    }
+    /// None means the strategy has no private position cache. Never infer ownership
+    /// from another strategy's holdings when this returns Some(false).
+    fn has_held_position(&self, _symbol: &str) -> Option<bool> {
+        None
+    }
     /// 틱 데이터를 받아 매매 신호 반환
     fn on_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal;
+    /// Live evaluation advances observations but leaves confirmed ownership unchanged.
+    /// Stateless strategies can share replay evaluation directly.
+    fn on_live_tick(&mut self, symbol: &str, price: u64, volume: u64) -> Signal {
+        self.on_tick(symbol, price, volume)
+    }
+    /// Publish only this strategy's confirmed owned quantity, never account totals.
+    fn sync_owned_position(&mut self, symbol: &str, quantity: u64, avg_price: u64) {
+        self.sync_position(symbol, quantity, avg_price);
+    }
+    /// Keep signal-time protection metadata while the accepted order is pending.
+    fn set_order_pending(&mut self, _symbol: &str, _pending: bool) {}
+    /// Discard an unreserved candidate without changing confirmed ownership.
+    fn discard_unsubmitted_signal(&mut self, _symbol: &str) {}
+    /// Minimal protection checkpoint, scoped by the coordinator to the exact owner.
+    fn owned_position_metadata(&self, _symbol: &str) -> Option<serde_json::Value> {
+        None
+    }
+    fn restore_owned_position_metadata(
+        &mut self,
+        _symbol: &str,
+        _metadata: &serde_json::Value,
+    ) -> Result<(), String> {
+        Err("This strategy does not support owned position metadata".into())
+    }
     /// 일봉 replay의 날짜 시작. 당일 시가만 공개하며 보유 포지션을 지우지 않는다.
     fn on_trading_day_start(&mut self, _symbol: &str, _open: u64) {}
     /// 완료 시점에 공개된 당일 OHLC로 종가 관측을 평가한다.
@@ -150,12 +267,60 @@ pub trait Strategy: Send + Sync {
             .collect::<Vec<_>>();
         self.initialize_historical(symbol, &closes);
     }
+    /// Defaults forward the established hook exactly once for existing strategies.
+    fn initialize_daily_bars(&mut self, symbol: &str, bars: &[CompletedDailyBar]) {
+        self.initialize_ohlc(symbol, &bars.iter().map(|b| b.ohlc).collect::<Vec<_>>());
+    }
+    fn apply_completed_daily_bars(&mut self, symbol: &str, bars: &[CompletedDailyBar]) {
+        self.apply_completed_daily_history(
+            symbol,
+            &bars.iter().map(|b| b.ohlc).collect::<Vec<_>>(),
+        );
+    }
+    /// Verified market-day identity is supplied only after coordinator ticket guards.
+    fn apply_completed_daily_bars_for_market_day(
+        &mut self,
+        symbol: &str,
+        _market_day: &str,
+        bars: &[CompletedDailyBar],
+    ) {
+        self.apply_completed_daily_bars(symbol, bars);
+    }
+    fn on_completed_daily_bar(&mut self, symbol: &str, bar: &CompletedDailyBar) {
+        self.on_completed_candle(symbol, &bar.ohlc);
+    }
     /// 전략 시작 시 장중 가격 배열로 초기화. 실시간 틱 기반 반동/매수세 판단이 필요한 전략에서 재정의.
     fn initialize_intraday_prices(&mut self, _symbol: &str, _prices: &[u64]) {}
     /// 전략 시작 시 장중 OHLC 배열로 초기화. 미리보기와 실시간 전략의 1분봉 판단을 맞춰야 하는 전략에서 재정의.
     fn initialize_intraday_ohlc(&mut self, _symbol: &str, _candles: &[OhlcCandle]) {}
     /// 전략 시작 시 일봉 변동 범위(고가-저가) 배열로 초기화. 변동성 확장 전략에서 사용.
     fn initialize_range_data(&mut self, _symbol: &str, _ranges: &[u64]) {}
+    /// Opt-in scoped live completed-daily context; defaults preserve other strategies.
+    fn required_completed_daily_bars(&self) -> Option<usize> {
+        None
+    }
+    fn apply_completed_daily_history(&mut self, symbol: &str, candles: &[OhlcCandle]) {
+        self.initialize_ohlc(symbol, candles);
+    }
+    fn invalidate_completed_daily_history(&mut self, symbol: &str) {
+        self.apply_completed_daily_history(symbol, &[]);
+    }
+    fn completed_daily_history_readiness(&self, symbol: &str) -> Option<HistoryReadiness> {
+        self.history_readiness(symbol)
+    }
+    fn legacy_warmup_requires_daily_verification(&self) -> bool {
+        false
+    }
+    fn volatility_expansion_preparation(
+        &self,
+        _symbol: &str,
+    ) -> Option<VolatilityExpansionPreparation> {
+        None
+    }
+    fn entry_filter_preparation(&self, _symbol: &str) -> Option<EntryFilterPreparation> {
+        None
+    }
+
     /// 실제 지표와 버퍼의 준비 상태. 미지원 전략은 준비 완료로 추측하지 않는다.
     fn history_readiness(&self, _symbol: &str) -> Option<HistoryReadiness> {
         None
@@ -184,17 +349,33 @@ pub fn initialize_strategy_warmup(
     daily_ohlc: &[OhlcCandle],
     intraday_ohlc: &[OhlcCandle],
 ) {
+    let bars = daily_ohlc
+        .iter()
+        .map(|ohlc| CompletedDailyBar {
+            ohlc: *ohlc,
+            volume: None,
+        })
+        .collect::<Vec<_>>();
+    initialize_strategy_warmup_with_daily_bars(strategy, symbol, &bars, intraday_ohlc);
+}
+
+pub fn initialize_strategy_warmup_with_daily_bars(
+    strategy: &mut dyn Strategy,
+    symbol: &str,
+    daily_ohlc: &[CompletedDailyBar],
+    intraday_ohlc: &[OhlcCandle],
+) {
     if !daily_ohlc.is_empty() {
         let high_close = daily_ohlc
             .iter()
-            .map(|candle| (candle.high, candle.close))
+            .map(|candle| (candle.ohlc.high, candle.ohlc.close))
             .collect::<Vec<_>>();
         let ranges = daily_ohlc
             .iter()
-            .map(|candle| candle.high.saturating_sub(candle.low))
+            .map(|candle| candle.ohlc.high.saturating_sub(candle.ohlc.low))
             .collect::<Vec<_>>();
         strategy.initialize_candles(symbol, &high_close);
-        strategy.initialize_ohlc(symbol, daily_ohlc);
+        strategy.initialize_daily_bars(symbol, daily_ohlc);
         strategy.initialize_range_data(symbol, &ranges);
     }
     if !intraday_ohlc.is_empty() {

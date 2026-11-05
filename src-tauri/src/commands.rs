@@ -30,6 +30,8 @@ mod orders;
 pub use orders::*;
 mod market;
 pub use market::*;
+mod candles;
+pub use candles::*;
 mod records;
 pub use records::*;
 mod settings;
@@ -88,14 +90,14 @@ use crate::{
         },
         risk::RiskManager,
         strategy::{
-            BrokerPositionSnapshot, ConsecutiveMoveParams, ConsecutiveMoveStrategy,
-            DeviationParams, DeviationStrategy, FailedBreakoutParams, FailedBreakoutStrategy,
-            FiftyTwoWeekHighParams, FiftyTwoWeekHighStrategy, LeveragedTrendHoldParams,
-            LeveragedTrendHoldStrategy, MaCrossParams, MeanReversionParams, MeanReversionStrategy,
-            MomentumParams, MomentumStrategy, MovingAverageCrossStrategy, OhlcCandle,
-            PriceConditionParams, PriceConditionStrategy, RsiParams, RsiStrategy, StrategyConfig,
-            StrategyManager, StrongCloseParams, StrongCloseStrategy, TrendFilterParams,
-            TrendFilterStrategy, VolatilityExpansionParams, VolatilityExpansionStrategy,
+            ConsecutiveMoveParams, ConsecutiveMoveStrategy, DeviationParams, DeviationStrategy,
+            FailedBreakoutParams, FailedBreakoutStrategy, FiftyTwoWeekHighParams,
+            FiftyTwoWeekHighStrategy, LeveragedTrendHoldParams, LeveragedTrendHoldStrategy,
+            MaCrossParams, MeanReversionParams, MeanReversionStrategy, MomentumParams,
+            MomentumStrategy, MovingAverageCrossStrategy, OhlcCandle, PriceConditionParams,
+            PriceConditionStrategy, RsiParams, RsiStrategy, StrategyConfig, StrategyManager,
+            StrongCloseParams, StrongCloseStrategy, TrendFilterParams, TrendFilterStrategy,
+            VolatilityExpansionParams, VolatilityExpansionStrategy,
         },
         views::{build_strategy_view, StrategyView},
     },
@@ -260,6 +262,13 @@ impl AppState {
         )));
         {
             let mut manager = order_manager.lock().await;
+            // Manual/configuration gates must already see the selected account
+            // before the first automatic run, including application restart.
+            manager.set_execution_scope(crate::broker::BrokerScope::new(
+                config.broker_id,
+                (!config.broker_account_id.is_empty())
+                    .then(|| crate::broker::BrokerAccountId(config.broker_account_id.clone())),
+            ));
             manager.restore_pending_orders(restored_pending_orders);
             if let Some(error) = pending_restore_error {
                 manager.block_for_persistence_failure(format!(
@@ -523,15 +532,6 @@ fn usd_to_cents(value: &str) -> u64 {
         .unwrap_or(0)
 }
 
-fn normalize_overseas_order_exchange(code: &str) -> String {
-    match code.trim().to_uppercase().as_str() {
-        "NAS" | "NASD" | "NASDAQ" => "NASD".to_string(),
-        "NYS" | "NYSE" => "NYSE".to_string(),
-        "AMS" | "AMEX" => "AMEX".to_string(),
-        other => other.to_string(),
-    }
-}
-
 fn parse_amount_i64(value: &str) -> i64 {
     value.trim().replace(',', "").parse::<i64>().unwrap_or(0)
 }
@@ -562,7 +562,7 @@ pub struct CmdError {
 }
 
 impl CmdError {
-    fn from(e: anyhow::Error) -> Self {
+    pub(crate) fn from(e: anyhow::Error) -> Self {
         Self {
             code: "ERROR".into(),
             message: e.to_string(),

@@ -2,6 +2,7 @@ pub mod api;
 pub mod broker;
 pub mod commands;
 pub mod config;
+pub(crate) mod http;
 pub mod logging;
 pub mod market;
 pub mod market_hours;
@@ -11,6 +12,7 @@ pub mod storage;
 pub mod trading;
 pub mod updater;
 
+use crate::trading::order::OrderManager;
 use anyhow::Context;
 use fs2::FileExt;
 use std::path::PathBuf;
@@ -369,7 +371,7 @@ pub fn run() {
             }
             // 6) 잠고 백그라운드 갱신 데몬 — refresh_config.interval_sec마다 잔고 조회 후 이벤트 발행
             // 프론트엔드는 balance-updated / overseas-balance-updated 이벤트를 리신하여
-            // TanStack Query 캐시를 직접 갱신합니다 (폴링 전환 가능).
+            // 현재 계좌의 TanStack Query 잔고를 재조회합니다.
             {
                 let st: tauri::State<AppState> = app.state();
                 let rest_arc         = st.rest_client.clone();
@@ -377,8 +379,7 @@ pub fn run() {
                 let profiles_arc     = st.profiles.clone();
                 let interval_tx      = st.refresh_interval_tx.clone();
                 let stock_store_arc  = st.stock_store.clone();
-                let position_tracker = st.position_tracker.clone();
-                let overseas_position_tracker = st.overseas_position_tracker.clone();
+                let holdings_orders = st.order_manager.clone();
                 let app_handle       = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     let mut interval_rx = interval_tx.subscribe();
@@ -411,74 +412,22 @@ pub fn run() {
 
                         let client = rest_arc.read().await.clone();
                         if !client.app_key().is_empty() {
-                            // 국내 잔고
-                            match client.get_balance().await {
-                                Ok(resp) => {
-                                    stock_store_arc.upsert_many(
-                                        resp.items.iter().map(|i| (i.pdno.clone(), i.prdt_name.clone()))
-                                    ).await;
-                                    let parsed_positions: Result<Vec<_>, String> = resp
-                                        .items
-                                        .iter()
-                                        .map(|item| {
-                                            let quantity = item.hldg_qty.trim().replace(',', "").parse::<u64>()
-                                                .map_err(|_| format!("{} 보유수량 형식 오류", item.pdno))?;
-                                            let avg = item.pchs_avg_pric.trim().replace(',', "").parse::<f64>()
-                                                .map_err(|_| format!("{} 평균매입가 형식 오류", item.pdno))?
-                                                .max(0.0).round() as u64;
-                                            let current = item.prpr.trim().replace(',', "").parse::<u64>()
-                                                .map_err(|_| format!("{} 현재가 형식 오류", item.pdno))?;
-                                            Ok((item.pdno.clone(), item.prdt_name.clone(), quantity, avg, current))
-                                        })
-                                        .collect();
-                                    if let Ok(parsed_positions) = parsed_positions {
-                                        let mut tracker = position_tracker.lock().await;
-                                        tracker.replace(parsed_positions);
-                                    } else if let Err(error) = parsed_positions {
-                                        tracing::error!("국내 holdings 형식 오류로 포지션 갱신 차단: {}", error);
-                                    }
-                                    let payload = serde_json::json!({
-                                        "items": resp.items,
-                                        "summary": resp.summary,
-                                    });
-                                    let _ = app_handle.emit("balance-updated", payload);
-                                }
-                                Err(e) => tracing::debug!("잔고 백그라운드 조회 실패: {}", e),
+                            // Parse and publish under the shared account/version gate.
+                            // Only accepted responses emit events while that gate is held.
+                            match OrderManager::refresh_kis_domestic_shared(&holdings_orders, Some(&stock_store_arc), |response| {
+                                let _ = app_handle.emit("balance-updated", serde_json::json!({
+                                    "items": response.items, "summary": response.summary,
+                                }));
+                            }).await {
+                                Ok(_) => {},
+                                Err(error) => tracing::debug!("잔고 백그라운드 응답 보류: {}", error),
                             }
-                            // 해외 잔고
-                            match client.get_overseas_balance().await {
-                                Ok(resp) => {
-                                    let parsed_positions: Result<Vec<_>, String> = resp
-                                        .items
-                                        .iter()
-                                        .map(|item| {
-                                            let quantity = item.ovrs_cblc_qty.trim().replace(',', "").parse::<u64>()
-                                                .map_err(|_| format!("{} 해외 보유수량 형식 오류", item.ovrs_pdno))?;
-                                            let parse_cents = |value: &str| value.trim().replace(',', "").parse::<f64>()
-                                                .map(|price| (price.max(0.0) * 100.0).round() as u64)
-                                                .map_err(|_| format!("{} 해외 가격 형식 오류", item.ovrs_pdno));
-                                            Ok((
-                                                item.ovrs_pdno.clone(),
-                                                item.ovrs_item_name.clone(),
-                                                item.ovrs_excg_cd.clone(),
-                                                quantity,
-                                                parse_cents(&item.pchs_avg_pric)?,
-                                                parse_cents(&item.now_pric2)?,
-                                            ))
-                                        })
-                                        .collect();
-                                    if let Ok(parsed_positions) = parsed_positions {
-                                        overseas_position_tracker.lock().await.replace(parsed_positions);
-                                    } else if let Err(error) = parsed_positions {
-                                        tracing::error!("해외 holdings 형식 오류로 포지션 갱신 차단: {}", error);
-                                    }
-                                    let payload = serde_json::json!({
-                                        "items": resp.items,
-                                        "summary": resp.summary,
-                                    });
-                                    let _ = app_handle.emit("overseas-balance-updated", payload);
-                                }
-                                Err(e) => tracing::debug!("해외 잔고 백그라운드 조회 실패: {}", e),
+                            if let Err(error) = OrderManager::refresh_kis_overseas_shared(&holdings_orders, |response| {
+                                let _ = app_handle.emit("overseas-balance-updated", serde_json::json!({
+                                    "items": response.items, "summary": response.summary,
+                                }));
+                            }).await {
+                                tracing::debug!("해외 잔고 백그라운드 응답 보류: {}", error);
                             }
                         }
                         tokio::select! {
@@ -512,8 +461,10 @@ pub fn run() {
             commands::submit_toss_small_buy_verification,
             commands::get_toss_market_calendar,
             commands::get_toss_chart_data,
+            commands::get_candle_page,
             commands::preview_leveraged_trend_hold,
             commands::preview_strategy,
+            commands::preview_strategy_continuous,
             commands::get_chart_data,
             commands::get_price,
             commands::place_order,
@@ -559,6 +510,8 @@ pub fn run() {
             commands::place_overseas_order,
             commands::get_risk_config,
             commands::get_auto_trading_budget,
+            commands::get_budget_recovery,
+            commands::approve_budget_recovery,
             commands::update_auto_trading_budget,
             commands::update_risk_config,
             commands::clear_emergency_stop,
@@ -586,10 +539,16 @@ pub fn run() {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 let state: tauri::State<commands::AppState> = window.state();
                 let is_trading = state.is_trading.clone();
+                let strategy_manager = state.strategy_manager.clone();
+                let order_manager = state.order_manager.clone();
                 tauri::async_runtime::spawn(async move {
                     let mut guard = is_trading.lock().await;
                     if *guard {
                         *guard = false;
+                        let mut manager = strategy_manager.lock().await;
+                        manager.advance_history_generation();
+                        manager.clear_history_execution_identity();
+                        order_manager.lock().await.end_execution_run();
                         tracing::info!("앱 종료 — 자동매매 정지 신호 전송");
                     }
                 });

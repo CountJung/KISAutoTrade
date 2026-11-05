@@ -11,7 +11,8 @@
 |------|------|
 | 디렉토리 맵 + 아키텍처 | `docs/project-map.md` |
 | 에이전트 코드 탐색 도구 운영 | `docs/agent-tooling.md` |
-| 개선 백로그 | `todo.md` |
+| 개선 백로그 | [docs/todo.md](docs/todo.md) |
+| 완료·경과 이력 | [docs/completed-history.md](docs/completed-history.md) |
 | IPC 커맨드 목록 (35개+) | `docs/ipc-commands.md` |
 | 코딩 가이드 (AppState·IPC·데몬) | `docs/coding-guide.md` |
 | KIS API 스킬 | `.github/skills/kis-api/SKILL.md` |
@@ -60,15 +61,20 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 ## Codex 작업 원칙
 
+- 사용자가 다른 언어를 명시적으로 요청하지 않으면 진행 상황·질문·최종 안내와 에이전트 간 위임·검토 메시지는 한국어로 작성한다. 코드·명령·파일/심볼명과 필요한 영어 기술 용어는 원문을 유지한다. 전송 전에 한국어·영어 외의 불필요한 자연어가 섞이지 않았는지 문장 전체를 점검한다. 검토 결과를 전달할 때도 같은 기준을 적용하며, 이미 출력했다면 해당 내용을 즉시 한국어로 다시 안내한다.
+- 루트 문서는 `README.md`, `AGENTS.md`, `CLAUDE.md`를 유지하고 일반 운영·설계·할일 문서와 라이선스(`docs/LICENSE`)는 `docs/`에 둔다. 현재 작업은 `docs/todo.md`, 완료·중간 경과는 `docs/completed-history.md`의 같은 ID에 간략히 합친다. 도구가 요구하는 `.github/`, `.codex/`, `.claude/`, `.serena/` 진입 설정·스킬 경로는 유지한다.
+- 새 문서보다 기존 정본 갱신을 우선한다. 날짜별 작업·검증·인수인계 보고서를 만들지 않는다. 새 파일은 기존 정본으로 담을 수 없는 독립 책임/수명이 있을 때만 생성 사유·소유자·진입 링크를 정하고, 종료 시 고유 결정·검증/미검증 근거를 이력으로 합친다. [문서 소유권과 기록 규칙](docs/agent-tooling.md#문서-소유권과-기록-규칙)을 따른다.
 - `.env`, `secure_config.json`, `profiles.json`은 읽지 않는다.
 - 코드 변경 전 현재 구현을 먼저 검색하고, 기존 패턴을 우선한다.
 - 작업별 검증과 리뷰·문서 게이트가 완료되면 변경을 커밋하고 현재 브랜치를 origin에 푸시한다. 캐시·민감 파일은 제외하며 강제 푸시는 하지 않는다. (사용자 지시: 2026-10-03)
 - 교차 모듈 심볼 변경은 `symbol_navigator`에게 Serena 참조 추적을 위임한다.
 - 파일 추가·이동·삭제 또는 구조 변경은 `project_mapper`에게 프로젝트 맵 pass를 위임한다.
 - 중복 helper 후보는 `helper_curator`에게 Graphify 후보 탐색과 Serena 참조 검증을 위임하고, 실제 동등성이 확인된 경우에만 공용 유틸로 승격한다.
+- 주식 전략 연구는 `stock_analyst`에게 생산 replay 결과의 비용·손익·표본 해석을 감사하도록 위임한다. 실제 자료/fixture와 평가 불가를 구분하고 기존 TODO에 근거·완료 조건을 기록한다. 역할은 주문·자동매매 시작·민감 계정 접근을 맡지 않는다.
+- UI/UX 검토는 `ui_ux_expert` (`.codex/agents/ui_ux_expert.toml`)에게 화면·흐름·접근성 감사를 위임한다. 실제 mock/offline 관측·코드 추론·미검증을 구분하고 기존 TODO의 근거·영향·완료 기준으로 합친다. 역할 설정은 UI 구현·실거래·계좌/자격증명 접근 권한을 부여하지 않는다. 사용법은 [역할 운영](docs/agent-tooling.md#uiux-전문가-사용)을 따른다.
 - KIS API 동작·TR-ID·제한사항은 추측하지 말고 공식 포털 또는 `koreainvestment/open-trading-api` 샘플로 확인한다.
 - 새 IPC 커맨드는 Rust command, `lib.rs` 등록, TypeScript 타입/래퍼/훅, 문서를 함께 갱신한다.
-- 반복 매매·손실 방지 관련 변경은 `todo.md`와 관련 스킬 문서에 남긴다.
+- 반복 매매·손실 방지 관련 변경은 `docs/todo.md`와 관련 스킬 문서에 남긴다.
 - Copilot 호환 지침과 `.github/skills/**`의 원본 스킬은 프로젝트 브리지 스킬(`.codex/skills/kisautotrade-*`)을 통해 재사용한다. Codex 런타임이 계정 스킬만 읽는 경우 `scripts/sync-codex-skills.ps1`로 동기화한다. 원본은 저장소의 `.github/skills/**/SKILL.md`로 유지한다.
 - 코드 리뷰 또는 문서 업데이트 조건이 충족되면 `.github/codex-instructions.md`의 위임 게이트를 따른다. subagent 도구가 있으면 review/documentation pass를 위임하고, 도구가 없으면 같은 체크리스트를 직접 수행한 뒤 다음 턴용 위임 프롬프트를 최종 보고에 남긴다.
 
@@ -80,19 +86,20 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 | 날짜 | 한줄 요약 |
 |------|----------|
-| 2026-10-05 | P1-05 LTH 일봉 context·분봉 지표 분리, 일봉 성과 평가 차단과 분봉 표본/시간 미검증 표시; 실제 3개월 분봉 검증은 잔여 |
-| 2026-10-03 | SOXQ 연구·종가 warmup 수정, 프로젝트 내부 캐시/상태 점검, 평가·준비 상태 분리 및 P1-03 일봉 이벤트와 P1-04 generic LTH 현재시각 경로 차단 |
-| 2026-09-11 | 자동매매 전용 예산 원장과 기존 레버리지 상승 추세의 선택형 볼린저 필터 및 E2E 검증 추가 |
-| 2026-07-25 | 프로젝트 맵 자동 검증, Serena 심볼 추적, Graphify 헬퍼 공용화 위임 체계 추가 |
-| 2026-07-15 | 전략 replay/backtest, 비용·리스크 가정, 무미래참조 fixture, scope별 A/B 연구 UI 추가 |
+| 2026-11-05 | CI source-harness 전체 예산만60초로 분리·기본30초/expect5초 유지; 초기 clock 지연 원인은 미확정이며 [검증 이력](docs/completed-history.md#keyboard-final-ci-20261031) 참조 |
+| 2026-11-05 | Toss 공개 거래내역 경로를 고정 inventory에 추가·기존 검사 유지; 로컬 공식 JSON 다운로드 제한과 검증 상태는 [이력](docs/completed-history.md#toss-inventory-20261105) |
+| 2026-11-01 | 날짜별 완료 기록을 기존 이력/연구 부록으로 통합·신규 문서 생성 기준 정리; 남은11개·코드 UI557/Rust901 근거 보존 |
+| 2026-10-31 | 키보드5개 순차 완료·UI557/Rust901·최종 테스트/보안 CI58/65 성공·[회차 정본](docs/completed-history.md#task-keyboard-improvements-20261031), 기존 대기11개 보존 |
+| 2026-10-31 | Toss identity 협상·캔들 안전 파싱 단계 교정·Rust901/clock4·UI408·CI53/60 통과; 실사용 원인 미확정·상세는 [기록](docs/completed-history.md#task-toss-simulation-response-parsing-20261031) |
+
 ## 운영 문서 스택
 
-작업 전 변경 성격에 맞춰 다음 루트 문서를 함께 확인한다.
+작업 전 변경 성격에 맞춰 다음 운영 문서를 함께 확인한다.
 
-- [`MASTER_PLAN.html`](MASTER_PLAN.html): 사람용 단계 계획과 금융 안전 게이트
-- [`PROJECT_MAP.md`](PROJECT_MAP.md): 작업별 시작 파일과 핵심 경로
-- [`ARCHITECTURE.md`](ARCHITECTURE.md): React/Tauri/Axum/주문·리스크·저장 경계
-- [`HARNESS_MAP.md`](HARNESS_MAP.md): 변경 유형별 검증 명령
-- [`tasks/TASK_TEMPLATE.md`](tasks/TASK_TEMPLATE.md): 범위·위험·완료 조건·검증 기록 템플릿
+- [`docs/MASTER_PLAN.html`](docs/MASTER_PLAN.html): 사람용 단계 계획과 금융 안전 게이트
+- [`docs/PROJECT_MAP.md`](docs/PROJECT_MAP.md): 작업별 시작 파일과 핵심 경로
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): React/Tauri/Axum/주문·리스크·저장 경계
+- [`docs/HARNESS_MAP.md`](docs/HARNESS_MAP.md): 변경 유형별 검증 명령
+- [문서 소유권과 기록 규칙](docs/agent-tooling.md#문서-소유권과-기록-규칙): 정본 선택·열린 작업·간략 이력의 기록 기준
 
 기존 상세 자료인 `docs/project-map.md`, `docs/agent-tooling.md`, `docs/ipc-commands.md`, `docs/coding-guide.md`는 계속 유효하다. Serena는 공용 타입, IPC, 주문, 리스크의 실제 참조 범위를 확인해야 할 때만 사용하고, Graphify는 호출 계층이나 공용 helper를 바꾸는 구조 리팩터링 때만 사용한다. 금융 안전 규칙과 provider 경계는 도구 사용 여부와 관계없이 항상 우선한다.

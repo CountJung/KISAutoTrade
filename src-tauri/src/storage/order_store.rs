@@ -123,9 +123,10 @@ impl OrderRecord {
 
     pub fn matches_scope(&self, scope: &BrokerScope) -> bool {
         self.broker_id.unwrap_or(BrokerId::Kis) == scope.broker_id
-            && scope.account_id.as_ref().map_or(true, |account| {
-                self.broker_account_id.as_deref() == Some(account.0.as_str())
-            })
+            && scope
+                .account_id
+                .as_ref()
+                .is_none_or(|account| self.broker_account_id.as_deref() == Some(account.0.as_str()))
     }
 }
 
@@ -161,6 +162,11 @@ impl OrderStore {
         records.push(record);
         write_json(&path, &records).await?;
         Ok(())
+    }
+
+    /// Recovery inspects every retained primary history, without backup fallback.
+    pub(crate) async fn recovery_records(&self) -> Result<Vec<OrderRecord>> {
+        super::database::recovery_history::records(&self.data_dir, "orders").await
     }
 
     pub async fn get_by_date(&self, date: chrono::NaiveDate) -> Result<Vec<OrderRecord>> {

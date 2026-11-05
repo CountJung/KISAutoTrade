@@ -17,7 +17,7 @@ Before acting on this repository, read these canonical files from that resolved 
 
 1. `AGENTS.md`
 2. `.github/codex-instructions.md`
-3. `todo.md` when backlog, priorities, or status matter
+3. `docs/todo.md` when backlog, priorities, or status matter
 4. `docs/agent-tooling.md` when project mapping, Serena symbol tracing,
    Graphify, duplicate helpers, or custom sub-agents are involved
 

@@ -22,6 +22,7 @@ fn event(c: &ChartCandle) -> SimulationEvent {
     SimulationEvent {
         time: c.date.clone(),
         chart_time: c.date.clone(),
+        open_units: p.open,
         close_units: p.close,
         high_units: p.high,
         low_units: p.low,

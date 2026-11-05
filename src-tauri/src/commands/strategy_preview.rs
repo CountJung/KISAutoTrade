@@ -1,20 +1,27 @@
 use super::*;
 
+mod continuous;
+mod driver;
 mod generic;
 use crate::trading::simulation::{
-    replay_input_hash, report_position_snapshot, run_backtest, BacktestReportView,
-    ReplayAssessmentView, ReplayMetadataView, SimulationAssumptions, SimulationEvent,
-    REPLAY_ENGINE_VERSION,
+    diagnose_minute_timing, replay_input_hash, BacktestReportView, MinuteLabelConvention,
+    MinuteTimingInput, ReplayAssessmentView, ReplayMetadataView, ReplaySession,
+    SimulationAssumptions, SimulationEvent, TimingMarket, REPLAY_ENGINE_VERSION,
 };
 use crate::trading::strategy::{
-    LeveragedTrendHoldPreviewSignal, LeveragedTrendHoldTimedCandle, Signal,
+    LeveragedTrendHoldPreviewSignal, LeveragedTrendHoldPreviewStep, LeveragedTrendHoldTimedCandle,
+    Signal,
+};
+pub use continuous::{
+    preview_strategy_continuous_from_candles, ChunkContinuityView, ContinuousStrategyPreviewChunk,
+    ContinuousStrategyPreviewInput, ContinuousStrategyPreviewView, ReplayContinuityView,
 };
 pub use generic::{
     preview_strategy_from_candles, StrategyPreparationView, StrategyPreviewInput,
     StrategyPreviewSignalView, StrategyPreviewView,
 };
 
-const LTH_PREVIEW_STRATEGY_VERSION: &str = "leveraged-trend-hold-v3";
+const LTH_PREVIEW_STRATEGY_VERSION: &str = "leveraged-trend-hold-v4";
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -77,6 +84,71 @@ fn normalize_preview_symbol(symbol: String) -> CmdResult<String> {
         });
     }
     Ok(symbol)
+}
+
+/// Align user scenario labels with the actual normalized evaluation bars. Never
+/// shift an unmatched dividend/FX event to the nearest observed bar.
+fn align_accounting_scenarios(
+    assumptions: &mut SimulationAssumptions,
+    labels: &[String],
+    interval: &str,
+    is_overseas: bool,
+) -> CmdResult<()> {
+    if assumptions.fx_scenario.len() > 64
+        || assumptions.dividend_scenario.len() > 64
+        || assumptions
+            .fx_scenario
+            .iter()
+            .any(|point| point.bar_time.len() > 64)
+        || assumptions
+            .dividend_scenario
+            .iter()
+            .any(|point| point.bar_time.len() > 64)
+    {
+        return Err(CmdError {
+            code: "INVALID_ACCOUNTING_SCENARIO".into(),
+            message: "환율·배당 시나리오는 각각 최대 64개, 시각은 64바이트 이하여야 합니다.".into(),
+        });
+    }
+    let canonical = |label: &str| {
+        if matches!(interval, "1m" | "M1") {
+            generic::normalize_minute_time(label)
+        } else {
+            let compact = label.replace('-', "");
+            (compact.len() == 8 && chrono::NaiveDate::parse_from_str(&compact, "%Y%m%d").is_ok())
+                .then_some(compact)
+        }
+    };
+    let mut aliases = std::collections::HashMap::<String, Vec<String>>::new();
+    for label in labels {
+        if let Some(key) = canonical(label) {
+            aliases.entry(key).or_default().push(label.clone());
+        }
+    }
+    for label in assumptions
+        .fx_scenario
+        .iter_mut()
+        .map(|point| &mut point.bar_time)
+        .chain(
+            assumptions
+                .dividend_scenario
+                .iter_mut()
+                .map(|point| &mut point.bar_time),
+        )
+    {
+        let matches = canonical(label).and_then(|key| aliases.get(&key));
+        match matches {
+            Some(matches) if matches.len() == 1 => *label = matches[0].clone(),
+            _ => return Err(CmdError { code: "INVALID_ACCOUNTING_SCENARIO".into(),
+                message: "시나리오 시각은 평가봉 하나와 정확히 일치해야 합니다. 사전자료·누락봉·중복 시각으로 옮기지 않습니다.".into() }),
+        }
+    }
+    assumptions
+        .validate_scenarios(is_overseas, labels)
+        .map_err(|message| CmdError {
+            code: "INVALID_ACCOUNTING_SCENARIO".into(),
+            message,
+        })
 }
 
 fn broker_money_amount(money: &BrokerMoney) -> Option<f64> {
@@ -176,6 +248,38 @@ fn broker_candles_to_timed_ohlc(
         }
     }
     timed
+}
+
+/// Descriptive assessment of exactly the prepared rows. Does not influence replay execution.
+fn lth_preview_assessment(
+    interval: &str,
+    daily_context_bars: usize,
+    source_rows: usize,
+    count: u16,
+    timed: &[LeveragedTrendHoldTimedCandle],
+    is_overseas: bool,
+    reference_as_of: chrono::DateTime<chrono::Utc>,
+) -> ReplayAssessmentView {
+    let mut assessment = ReplayAssessmentView::lth(interval, daily_context_bars, timed.len());
+    if interval == "1m" {
+        let labels = timed
+            .iter()
+            .map(|row| row.time.as_str())
+            .collect::<Vec<_>>();
+        assessment.minute_timing = Some(diagnose_minute_timing(MinuteTimingInput {
+            labels: &labels,
+            source_rows,
+            selected_rows: source_rows.min(count as usize),
+            market: if is_overseas {
+                TimingMarket::Us
+            } else {
+                TimingMarket::Kr
+            },
+            label_convention: MinuteLabelConvention::BarClose,
+            reference_as_of,
+        }));
+    }
+    assessment
 }
 
 fn daily_chart_time(value: &str, close_day_offset: i64) -> String {
@@ -302,6 +406,13 @@ fn chart_candle_to_ohlc(candle: &ChartCandle, is_overseas: bool) -> Option<OhlcC
 }
 
 #[tauri::command]
+pub async fn preview_strategy_continuous(
+    input: ContinuousStrategyPreviewInput,
+) -> CmdResult<ContinuousStrategyPreviewView> {
+    preview_strategy_continuous_from_candles(input)
+}
+
+#[tauri::command]
 pub async fn preview_strategy(input: StrategyPreviewInput) -> CmdResult<StrategyPreviewView> {
     preview_strategy_from_candles(input)
 }
@@ -315,12 +426,12 @@ fn lth_preview_signals_for_interval<F>(
     execute: F,
 ) -> Vec<LeveragedTrendHoldPreviewSignal>
 where
-    F: FnMut(&LeveragedTrendHoldPreviewSignal, &LeveragedTrendHoldTimedCandle) -> bool,
+    F: FnMut(LeveragedTrendHoldPreviewStep<'_>) -> (u64, u64),
 {
     if interval != "1m" {
         return Vec::new();
     }
-    crate::trading::strategy::LeveragedTrendHoldStrategy::preview_signals_with_execution(
+    crate::trading::strategy::LeveragedTrendHoldStrategy::preview_signals_with_driver(
         symbol,
         params,
         daily_context,
@@ -333,6 +444,8 @@ pub async fn preview_leveraged_trend_hold_for_profile(
     input: LeveragedTrendHoldPreviewInput,
     profile: AccountProfile,
 ) -> CmdResult<LeveragedTrendHoldPreviewView> {
+    // Freeze diagnostics before provider I/O; fixtures inject their own reference instant.
+    let reference_as_of = chrono::Utc::now();
     if profile.broker_id != BrokerId::Toss {
         return Err(CmdError {
             code: "BROKER_NOT_SUPPORTED".into(),
@@ -384,8 +497,7 @@ pub async fn preview_leveraged_trend_hold_for_profile(
     }
     let count = input.count.unwrap_or(200).clamp(20, 200);
     let params_fingerprint = serde_json::to_string(&input.params).unwrap_or_default();
-    let assumptions = input.assumptions.clone();
-    let assumptions_fingerprint = serde_json::to_string(&assumptions).unwrap_or_default();
+    let mut assumptions = input.assumptions.clone();
     let params: LeveragedTrendHoldParams =
         serde_json::from_value(input.params).map_err(|e| CmdError {
             code: "INVALID_PARAMS".into(),
@@ -481,90 +593,87 @@ pub async fn preview_leveraged_trend_hold_for_profile(
             } else {
                 candle.time.clone()
             },
+            open_units: candle.candle.open,
             close_units: candle.candle.close,
             high_units: candle.candle.high,
             low_units: candle.candle.low,
             signal: None,
         })
         .collect::<Vec<_>>();
-    let event_index_by_time = base_execution_events
-        .iter()
-        .enumerate()
-        .map(|(index, event)| (event.time.clone(), index))
-        .collect::<std::collections::HashMap<_, _>>();
-    let mut execution_events = Vec::with_capacity(base_execution_events.len());
-    let mut next_execution_index = 0usize;
-    let preview_signals = lth_preview_signals_for_interval(
+    if interval == "1d"
+        && (!assumptions.fx_scenario.is_empty() || !assumptions.dividend_scenario.is_empty())
+    {
+        return Err(CmdError { code: "SCENARIO_NOT_EVALUABLE".into(),
+            message: "LTH 일봉은 자료 진단입니다. 현금흐름 시나리오 성과는 분봉 표본에서만 계산할 수 있습니다.".into() });
+    }
+    align_accounting_scenarios(
+        &mut assumptions,
+        &base_execution_events
+            .iter()
+            .map(|event| event.time.clone())
+            .collect::<Vec<_>>(),
         interval,
+        entry_is_overseas,
+    )?;
+    let assumptions_fingerprint = serde_json::to_string(&assumptions).unwrap_or_default();
+    let benchmark_quantity = params
+        .entries
+        .iter()
+        .find(|entry| entry.leveraged_symbol.eq_ignore_ascii_case(&symbol))
+        .map(|entry| entry.quantity.max(1))
+        .unwrap_or(1);
+    let mut session = ReplaySession::new(
+        "leveraged_trend_hold",
         &symbol,
-        params,
-        &ohlc,
-        &timed,
-        |preview_signal, _| {
-            let Some(&signal_index) = event_index_by_time.get(&preview_signal.time) else {
-                return false;
-            };
-            while next_execution_index <= signal_index {
-                execution_events.push(base_execution_events[next_execution_index].clone());
-                next_execution_index += 1;
-            }
-            let signal = match preview_signal.side.as_str() {
-                "buy" => Signal::Buy {
-                    symbol: symbol.clone(),
-                    quantity: preview_signal.quantity,
-                    reason: preview_signal.reason.clone(),
-                },
-                "sell" => Signal::Sell {
-                    symbol: symbol.clone(),
-                    quantity: preview_signal.quantity,
-                    reason: preview_signal.reason.clone(),
-                },
-                _ => Signal::Hold,
-            };
-            if let Some(event) = execution_events.last_mut() {
-                event.signal = (signal != Signal::Hold).then_some(signal);
-            }
-            let report = run_backtest(
-                "leveraged_trend_hold",
-                &symbol,
-                entry_is_overseas,
-                assumptions.clone(),
-                &execution_events,
-            );
-            report
-                .trades
-                .last()
-                .is_some_and(|trade| trade.status == "filled")
+        entry_is_overseas,
+        assumptions,
+        &[],
+        if interval == "1m" {
+            base_execution_events.len()
+        } else {
+            0
         },
     );
-    let mut signals_by_time = std::collections::HashMap::<String, Vec<Signal>>::new();
-    for signal in &preview_signals {
-        let replay_signal = match signal.side.as_str() {
-            "buy" => Signal::Buy {
-                symbol: symbol.clone(),
-                quantity: signal.quantity,
-                reason: signal.reason.clone(),
-            },
-            "sell" => Signal::Sell {
-                symbol: symbol.clone(),
-                quantity: signal.quantity,
-                reason: signal.reason.clone(),
-            },
-            _ => Signal::Hold,
-        };
-        if replay_signal != Signal::Hold {
-            signals_by_time
-                .entry(signal.time.clone())
-                .or_default()
-                .push(replay_signal);
-        }
-    }
-    let mut simulation_events = base_execution_events;
-    for event in &mut simulation_events {
-        event.signal = signals_by_time
-            .remove(&event.time)
-            .and_then(|mut signals| signals.pop());
-    }
+    let mut observation_index = 0;
+    let mut close_processed = false;
+    let preview_signals =
+        lth_preview_signals_for_interval(interval, &symbol, params, &ohlc, &timed, |step| {
+            let Some(event) = base_execution_events.get(observation_index) else {
+                return session.position_snapshot();
+            };
+            match step {
+                LeveragedTrendHoldPreviewStep::Open(_) => {
+                    session.begin_bar(event);
+                    close_processed = false;
+                }
+                LeveragedTrendHoldPreviewStep::Signal(preview_signal, _) => {
+                    let mut event = event.clone();
+                    event.signal = Some(if preview_signal.side == "buy" {
+                        Signal::Buy {
+                            symbol: symbol.clone(),
+                            quantity: preview_signal.quantity,
+                            reason: preview_signal.reason.clone(),
+                        }
+                    } else {
+                        Signal::Sell {
+                            symbol: symbol.clone(),
+                            quantity: preview_signal.quantity,
+                            reason: preview_signal.reason.clone(),
+                        }
+                    });
+                    session.process_close(&event);
+                    close_processed = true;
+                }
+                LeveragedTrendHoldPreviewStep::Close(_) => {
+                    if !close_processed {
+                        session.process_close(event);
+                    }
+                    observation_index += 1;
+                }
+            }
+            session.position_snapshot()
+        });
+    let simulation_events = base_execution_events;
     let signal_views = preview_signals
         .into_iter()
         .map(|signal| LeveragedTrendHoldPreviewSignalView {
@@ -661,19 +770,28 @@ pub async fn preview_leveraged_trend_hold_for_profile(
         // Provider time/DST/session coverage has not been independently validated.
         look_ahead_safe: false,
         input_hash,
-        assessment: Some(ReplayAssessmentView::lth(
+        assessment: Some(lth_preview_assessment(
             interval,
             ohlc.len(),
-            if interval == "1m" { timed.len() } else { 0 },
+            simulation_candles.len(),
+            count,
+            &timed,
+            entry_is_overseas,
+            reference_as_of,
         )),
     };
-    let backtest = run_backtest(
-        "leveraged_trend_hold",
-        &symbol,
-        entry_is_overseas,
-        assumptions,
-        &simulation_events,
-    );
+    let mut backtest = session.finish();
+    if interval == "1m" {
+        crate::trading::simulation::attach_comparison(
+            &mut backtest,
+            "leveraged_trend_hold",
+            &symbol,
+            entry_is_overseas,
+            benchmark_quantity,
+            &[],
+            &simulation_events,
+        );
+    }
 
     Ok(LeveragedTrendHoldPreviewView {
         symbol,
@@ -716,3 +834,51 @@ mod preparation_tests;
 #[cfg(test)]
 #[path = "strategy_preview/daily_event_tests.rs"]
 mod daily_event_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/entry_filter_tests.rs"]
+mod entry_filter_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/momentum_entry_tests.rs"]
+mod momentum_entry_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/deviation_entry_tests.rs"]
+mod deviation_entry_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/mean_reversion_entry_tests.rs"]
+mod mean_reversion_entry_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/ma_cross_entry_tests.rs"]
+mod ma_cross_entry_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/minute_timing_tests.rs"]
+mod minute_timing_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/rsi_entry_tests.rs"]
+mod rsi_entry_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/failed_breakout_entry_tests.rs"]
+mod failed_breakout_entry_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/strong_close_entry_tests.rs"]
+mod strong_close_entry_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/volatility_entry_tests.rs"]
+mod volatility_entry_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/trend_filter_tests.rs"]
+mod trend_filter_tests;
+
+#[cfg(test)]
+#[path = "strategy_preview/pc_replay_tests.rs"]
+mod pc_replay_tests;

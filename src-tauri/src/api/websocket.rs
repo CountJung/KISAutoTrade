@@ -1,13 +1,24 @@
 use anyhow::Result;
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
 };
 use tauri::{AppHandle, Emitter};
-use tokio::sync::{broadcast, RwLock};
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use tokio::{
+    io::{AsyncRead, AsyncWrite},
+    sync::{broadcast, RwLock},
+    task::JoinHandle,
+};
+use tokio_tungstenite::{
+    connect_async_with_config,
+    tungstenite::{protocol::WebSocketConfig, Message},
+    MaybeTlsStream, WebSocketStream,
+};
 
 use crate::api::token::TokenManager;
 
@@ -86,23 +97,137 @@ impl KisWebSocketClient {
         let url = self.ws_url();
         let token = self.token_manager.read().await.get_token().await?;
 
-        let (ws_stream, _) = connect_async(url).await?;
+        let ws_stream = connect_stream(url).await?;
         tracing::info!("KIS WebSocket 연결: {}", url);
 
-        // 연결 성공 — 상태 업데이트 및 이벤트 emit
-        ws_connected.store(true, Ordering::Relaxed);
-        let _ = app_handle.emit(
-            "ws-status",
-            WsStatusEvent {
-                connected: true,
-                message: "KIS WebSocket 연결됨".to_string(),
+        // The adapter alone owns AppHandle; the same transport lifecycle is
+        // exercised by credential-free loopback tests.
+        start_subscription(
+            ws_stream,
+            token,
+            symbols,
+            self.price_tx.clone(),
+            ws_connected,
+            move |event| {
+                let _ = app_handle.emit("ws-status", event);
             },
-        );
+        )
+        .await?;
+        Ok(())
+    }
+}
 
-        let (mut write, mut read) = ws_stream.split();
+// 0.25 increased the eager read buffer to 128 KiB. Keep the former
+// 0.24 read chunk size (4096); this does not limit frame or message sizes.
+fn websocket_config() -> WebSocketConfig {
+    WebSocketConfig::default().read_buffer_size(4 * 1024)
+}
 
-        // 승인 키 발급 요청 (CTLT_TYPE = G)
-        let approval_req = serde_json::json!({
+async fn connect_stream(
+    url: &str,
+) -> Result<WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>> {
+    // Keep native roots and the resolved ring provider. No custom verifier,
+    // connector, process-wide provider install, or user-configurable endpoint.
+    Ok(
+        connect_async_with_config(url, Some(websocket_config()), false)
+            .await?
+            .0,
+    )
+}
+
+fn publish_status<F: Fn(WsStatusEvent)>(connected: &AtomicBool, sink: &F, value: bool) {
+    connected.store(value, Ordering::Relaxed);
+    sink(WsStatusEvent {
+        connected: value,
+        message: if value {
+            "KIS WebSocket 연결됨"
+        } else {
+            "KIS WebSocket 연결 끊김"
+        }
+        .into(),
+    });
+}
+
+/// Start one explicitly requested subscription; no retries or reconnect loop.
+async fn start_subscription<S, F>(
+    mut stream: WebSocketStream<S>,
+    token: String,
+    symbols: Vec<String>,
+    price_tx: broadcast::Sender<RealtimePrice>,
+    connected: Arc<AtomicBool>,
+    status_sink: F,
+) -> Result<JoinHandle<()>>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    F: Fn(WsStatusEvent) + Send + 'static,
+{
+    publish_status(&connected, &status_sink, true);
+    if let Err(error) = send_subscription(&mut stream, &token, &symbols).await {
+        publish_status(&connected, &status_sink, false);
+        return Err(error);
+    }
+    Ok(tokio::spawn(async move {
+        while let Some(message) = stream.next().await {
+            match message {
+                Ok(Message::Text(text)) => {
+                    if let Some(event) = parse_realtime_price(&text) {
+                        let _ = price_tx.send(event);
+                    }
+                }
+                Ok(Message::Close(_)) => {
+                    // Tungstenite queues the peer's close reply while reading.
+                    // Flush it before dropping the transport, but never let a
+                    // stalled peer delay the disconnected status indefinitely.
+                    match tokio::time::timeout(Duration::from_secs(2), stream.flush()).await {
+                        Ok(Ok(())) => {}
+                        Ok(Err(error)) => tracing::warn!("KIS WebSocket 종료 응답 오류: {}", error),
+                        Err(_) => tracing::warn!("KIS WebSocket 종료 응답 시간 초과"),
+                    }
+                    tracing::warn!("KIS WebSocket 연결 종료");
+                    break;
+                }
+                Err(error) => {
+                    tracing::error!("KIS WebSocket 오류: {}", error);
+                    break;
+                }
+                _ => {}
+            }
+        }
+        publish_status(&connected, &status_sink, false);
+        tracing::info!("KIS WebSocket 수신 루프 종료");
+    }))
+}
+
+async fn send_subscription<S>(
+    stream: &mut WebSocketStream<S>,
+    token: &str,
+    symbols: &[String],
+) -> Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    // 승인 키 발급 요청 (CTLT_TYPE = G)
+    let approval_req = serde_json::json!({
+        "header": {
+            "approval_key": token,
+            "custtype": "P",
+            "tr_type": "1",
+            "content-type": "utf-8"
+        },
+        "body": {
+            "input": {
+                "tr_id": "CTLT_TYPE",
+                "tr_key": ""
+            }
+        }
+    });
+    stream
+        .send(Message::Text(approval_req.to_string().into()))
+        .await?;
+
+    // 구독 요청 (H0STCNT0 = 체결가)
+    for symbol in symbols {
+        let sub_req = serde_json::json!({
             "header": {
                 "approval_key": token,
                 "custtype": "P",
@@ -111,69 +236,17 @@ impl KisWebSocketClient {
             },
             "body": {
                 "input": {
-                    "tr_id": "CTLT_TYPE",
-                    "tr_key": ""
+                    "tr_id": "H0STCNT0",
+                    "tr_key": symbol
                 }
             }
         });
-        write.send(Message::Text(approval_req.to_string())).await?;
-
-        // 구독 요청 (H0STCNT0 = 체결가)
-        for symbol in &symbols {
-            let sub_req = serde_json::json!({
-                "header": {
-                    "approval_key": token,
-                    "custtype": "P",
-                    "tr_type": "1",
-                    "content-type": "utf-8"
-                },
-                "body": {
-                    "input": {
-                        "tr_id": "H0STCNT0",
-                        "tr_key": symbol
-                    }
-                }
-            });
-            write.send(Message::Text(sub_req.to_string())).await?;
-        }
-
-        let price_tx = self.price_tx.clone();
-
-        // 수신 루프 (별도 태스크로 구동)
-        tokio::spawn(async move {
-            while let Some(msg) = read.next().await {
-                match msg {
-                    Ok(Message::Text(text)) => {
-                        if let Some(event) = parse_realtime_price(&text) {
-                            let _ = price_tx.send(event);
-                        }
-                    }
-                    Ok(Message::Close(_)) => {
-                        tracing::warn!("KIS WebSocket 연결 종료");
-                        break;
-                    }
-                    Err(e) => {
-                        tracing::error!("KIS WebSocket 오류: {}", e);
-                        break;
-                    }
-                    _ => {}
-                }
-            }
-
-            // 루프 종료 = 연결 끊김 — 상태 업데이트 및 이벤트 emit
-            ws_connected.store(false, Ordering::Relaxed);
-            let _ = app_handle.emit(
-                "ws-status",
-                WsStatusEvent {
-                    connected: false,
-                    message: "KIS WebSocket 연결 끊김".to_string(),
-                },
-            );
-            tracing::info!("KIS WebSocket 수신 루프 종료");
-        });
-
-        Ok(())
+        stream
+            .send(Message::Text(sub_req.to_string().into()))
+            .await?;
     }
+
+    Ok(())
 }
 
 /// KIS WebSocket 실시간 체결 데이터 파싱
@@ -209,3 +282,7 @@ fn parse_realtime_price(text: &str) -> Option<RealtimePrice> {
         volume: fields[5].parse().unwrap_or(0),
     })
 }
+
+#[cfg(test)]
+#[path = "websocket/tests.rs"]
+mod tests;

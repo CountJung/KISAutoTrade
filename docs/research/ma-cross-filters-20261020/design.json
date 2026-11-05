@@ -1,0 +1,702 @@
+{
+  "source": "../strategy-review-20261018/input.json",
+  "sourceSha256": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+  "evaluationStart": "20230103",
+  "evaluationEnd": "20251231",
+  "evaluationBarsPerSymbol": 752,
+  "historyBars": 252,
+  "costBps": [
+    10,
+    20
+  ],
+  "initialCapitalKrw": 10000000,
+  "exchangeRateKrw": 1450,
+  "taxBps": 0,
+  "executionModel": "nextOpen",
+  "dividendScenario": [],
+  "fxScenario": [],
+  "stopLossPct": 0,
+  "takeProfitPct": 0,
+  "partitions": [
+    "12 calendar-quarter chunks",
+    "500+252 bars"
+  ],
+  "matchedPathReference": "Fixed accepted share quantities/timing; previous close to current open gap PnL plus current open to close PnL at fixed FX. Equals final equity plus recorded fees/tax/slippage. Not an independent signal benchmark, cost-free rerun or same percentage exposure.",
+  "declaredAt": "2026-10-20T22:48:06.653579+09:00",
+  "declaredBeforeCandidateRuns": false,
+  "baselineCommit": "327739a941f4423a677dd2d0673b024e53508bee",
+  "plannedEngineVersion": "strategy-replay-v17",
+  "expectedContinuousRuns": 48,
+  "expectedAlternatePartitionRuns": 48,
+  "expectedIndependentQuarterResetRuns": 576,
+  "configs": [
+    {
+      "symbol": "SOXQ",
+      "strategyId": "ma_cross",
+      "orderQuantity": 51,
+      "params": {
+        "short_period": 5,
+        "long_period": 20
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "19.91"
+    },
+    {
+      "symbol": "SPY",
+      "strategyId": "ma_cross",
+      "orderQuantity": 2,
+      "params": {
+        "short_period": 5,
+        "long_period": 20
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "382.43"
+    },
+    {
+      "symbol": "QQQ",
+      "strategyId": "ma_cross",
+      "orderQuantity": 3,
+      "params": {
+        "short_period": 5,
+        "long_period": 20
+      },
+      "historyStart": 52,
+      "evaluationStart": 304,
+      "evaluationEndExclusive": 1056,
+      "quantityReferenceDate": "20221230",
+      "quantityReferenceClose": "266.28"
+    }
+  ],
+  "variants": [
+    {
+      "id": "legacy",
+      "engine": "baseline",
+      "params": {}
+    },
+    {
+      "id": "unfiltered",
+      "engine": "current",
+      "params": {}
+    },
+    {
+      "id": "trend200",
+      "engine": "current",
+      "params": {
+        "long_trend_period": 200
+      }
+    },
+    {
+      "id": "slope0_1",
+      "engine": "current",
+      "params": {
+        "min_long_ma_slope_pct": 0.1
+      }
+    },
+    {
+      "id": "atr0_5",
+      "engine": "current",
+      "params": {
+        "min_atr_pct": 0.5
+      }
+    },
+    {
+      "id": "bandwidth2",
+      "engine": "current",
+      "params": {
+        "min_bandwidth_pct": 2.0
+      }
+    },
+    {
+      "id": "atr2",
+      "engine": "current",
+      "params": {
+        "min_atr_pct": 2.0
+      }
+    },
+    {
+      "id": "bandwidth10",
+      "engine": "current",
+      "params": {
+        "min_bandwidth_pct": 10.0
+      }
+    }
+  ],
+  "entryPolicy": {
+    "scope": "Only existing golden-cross Buy candidates. Keep all original cross baselines/Sell emissions and common owned-quantity/order/risk guards; do not restore a rejected cross later. No strategy-owned holdings correction in this study.",
+    "defaults": "Existing short5/long20. All optional thresholds0/longTrend0 disabled. No operating settings changed.",
+    "context": "All new filters use strict prior completed DAILY OHLC; never quote/minute synthetic OHLC. Existing5/20cross uses native input observations; live roughly10seconds is not5/20days. Current daily OHLC is appended only after decision.",
+    "trend": "candidate currentPrice > prior N completed DAILY close arithmetic mean, N=200; strict.",
+    "slope": "(prior long_period completed DAILY close mean / mean one DAILY bar earlier - 1)*100 >=0.1. Requires long_period+1 prior DAILY bars. Active slope permits long_period1..511.",
+    "atr": "Arithmetic mean of14 true ranges from15 prior completed DAILY OHLC, divided by most recent prior DAILY close*100 >=0.5. Zero ATR is ready but rejected by active positive threshold.",
+    "bandwidth": "4*population standard deviation(ddof0) / mean *100 of20 prior completed DAILY closes >=2. Zero width is ready but rejected by positive threshold.",
+    "validation": "long_trend_period integer0..512; min_long_ma_slope_pct/min_atr_pct finite0..100; min_bandwidth_pct finite0..1000; null/string/fractional integer rejected at save and both previews. Malformed optional runtime blocks Buy only, preserving original legacy params/Sell.",
+    "counters": "Candidate counts describe raw golden-cross emissions including held Buy possibilities before common guard. Filter rejection reasons may overlap; ready/pass are not fills."
+  },
+  "compatibility": {
+    "allDefaultFlatRuns": 1224,
+    "expectation": "Full backtest/signals exact for every default run; replay engine metadata may differ. Unfiltered continuous6 plus reset72 economic/backtest/signal path exact to archived327739a."
+  },
+  "limitations": [
+    "Retrospective diagnostics on observed prices. StageA original fixed thresholds plus one post-hoc round stress per inert volatility filter. No grid/combinations/return-optimized threshold/winner selection/further retuning. Amended whole protocol is not preregistered or unseen OOS.",
+    "Same frozen prices/initial quantities do not imply matched actual exposure. Separate quarter reset accounts never compound or sum.",
+    "New candidate evaluation excludes2026; existing1224 compatibility includes2026 and is not independent OOS.",
+    "Selected correlated ETFs3, tiny completed samples, fixed FX/no dividends and uncertified market calendar/corporate action coverage; no live/provider/order validation."
+  ],
+  "stageA": {
+    "originalDesignSha256": "f97577b60c7a1f5e444c53ed7248d354b598577c60c0ff7eaef08cff831afebd",
+    "originalDesign": {
+      "source": "../strategy-review-20261018/input.json",
+      "sourceSha256": "d48ce5b59b7876c0a1457121e877fdc1117a77f990b4ec07ce649c92fe153317",
+      "evaluationStart": "20230103",
+      "evaluationEnd": "20251231",
+      "evaluationBarsPerSymbol": 752,
+      "historyBars": 252,
+      "costBps": [
+        10,
+        20
+      ],
+      "initialCapitalKrw": 10000000,
+      "exchangeRateKrw": 1450,
+      "taxBps": 0,
+      "executionModel": "nextOpen",
+      "dividendScenario": [],
+      "fxScenario": [],
+      "stopLossPct": 0,
+      "takeProfitPct": 0,
+      "partitions": [
+        "12 calendar-quarter chunks",
+        "500+252 bars"
+      ],
+      "matchedPathReference": "Fixed accepted share quantities/timing; previous close to current open gap PnL plus current open to close PnL at fixed FX. Equals final equity plus recorded fees/tax/slippage. Not an independent signal benchmark, cost-free rerun or same percentage exposure.",
+      "declaredAt": "2026-10-20T22:48:06.653579+09:00",
+      "declaredBeforeCandidateRuns": true,
+      "baselineCommit": "327739a941f4423a677dd2d0673b024e53508bee",
+      "plannedEngineVersion": "strategy-replay-v17",
+      "expectedContinuousRuns": 36,
+      "expectedAlternatePartitionRuns": 36,
+      "expectedIndependentQuarterResetRuns": 432,
+      "configs": [
+        {
+          "symbol": "SOXQ",
+          "strategyId": "ma_cross",
+          "orderQuantity": 51,
+          "params": {
+            "short_period": 5,
+            "long_period": 20
+          },
+          "historyStart": 52,
+          "evaluationStart": 304,
+          "evaluationEndExclusive": 1056,
+          "quantityReferenceDate": "20221230",
+          "quantityReferenceClose": "19.91"
+        },
+        {
+          "symbol": "SPY",
+          "strategyId": "ma_cross",
+          "orderQuantity": 2,
+          "params": {
+            "short_period": 5,
+            "long_period": 20
+          },
+          "historyStart": 52,
+          "evaluationStart": 304,
+          "evaluationEndExclusive": 1056,
+          "quantityReferenceDate": "20221230",
+          "quantityReferenceClose": "382.43"
+        },
+        {
+          "symbol": "QQQ",
+          "strategyId": "ma_cross",
+          "orderQuantity": 3,
+          "params": {
+            "short_period": 5,
+            "long_period": 20
+          },
+          "historyStart": 52,
+          "evaluationStart": 304,
+          "evaluationEndExclusive": 1056,
+          "quantityReferenceDate": "20221230",
+          "quantityReferenceClose": "266.28"
+        }
+      ],
+      "variants": [
+        {
+          "id": "legacy",
+          "engine": "baseline",
+          "params": {}
+        },
+        {
+          "id": "unfiltered",
+          "engine": "current",
+          "params": {}
+        },
+        {
+          "id": "trend200",
+          "engine": "current",
+          "params": {
+            "long_trend_period": 200
+          }
+        },
+        {
+          "id": "slope0_1",
+          "engine": "current",
+          "params": {
+            "min_long_ma_slope_pct": 0.1
+          }
+        },
+        {
+          "id": "atr0_5",
+          "engine": "current",
+          "params": {
+            "min_atr_pct": 0.5
+          }
+        },
+        {
+          "id": "bandwidth2",
+          "engine": "current",
+          "params": {
+            "min_bandwidth_pct": 2.0
+          }
+        }
+      ],
+      "entryPolicy": {
+        "scope": "Only existing golden-cross Buy candidates. Keep all original cross baselines/Sell emissions and common owned-quantity/order/risk guards; do not restore a rejected cross later. No strategy-owned holdings correction in this study.",
+        "defaults": "Existing short5/long20. All optional thresholds0/longTrend0 disabled. No operating settings changed.",
+        "context": "All new filters use strict prior completed DAILY OHLC; never quote/minute synthetic OHLC. Existing5/20cross uses native input observations; live roughly10seconds is not5/20days. Current daily OHLC is appended only after decision.",
+        "trend": "candidate currentPrice > prior N completed DAILY close arithmetic mean, N=200; strict.",
+        "slope": "(prior long_period completed DAILY close mean / mean one DAILY bar earlier - 1)*100 >=0.1. Requires long_period+1 prior DAILY bars. Active slope permits long_period1..511.",
+        "atr": "Arithmetic mean of14 true ranges from15 prior completed DAILY OHLC, divided by most recent prior DAILY close*100 >=0.5. Zero ATR is ready but rejected by active positive threshold.",
+        "bandwidth": "4*population standard deviation(ddof0) / mean *100 of20 prior completed DAILY closes >=2. Zero width is ready but rejected by positive threshold.",
+        "validation": "long_trend_period integer0..512; min_long_ma_slope_pct/min_atr_pct finite0..100; min_bandwidth_pct finite0..1000; null/string/fractional integer rejected at save and both previews. Malformed optional runtime blocks Buy only, preserving original legacy params/Sell.",
+        "counters": "Candidate counts describe raw golden-cross emissions including held Buy possibilities before common guard. Filter rejection reasons may overlap; ready/pass are not fills."
+      },
+      "compatibility": {
+        "allDefaultFlatRuns": 1224,
+        "expectation": "Full backtest/signals exact for every default run; replay engine metadata may differ. Unfiltered continuous6 plus reset72 economic/backtest/signal path exact to archived327739a."
+      },
+      "limitations": [
+        "Retrospective diagnostics on already observed frozen prices; one fixed candidate per filter, no grid, parameter combination, post-hoc threshold tuning, winner selection or OOS claim.",
+        "Same frozen prices/initial quantities do not imply matched actual exposure. Separate quarter reset accounts never compound or sum.",
+        "New candidate evaluation excludes2026; existing1224 compatibility includes2026 and is not independent OOS.",
+        "Selected correlated ETFs3, tiny completed samples, fixed FX/no dividends and uncertified market calendar/corporate action coverage; no live/provider/order validation."
+      ]
+    },
+    "runSummary": {
+      "baselineCommit": "327739a",
+      "continuousRuns": 36,
+      "elapsedSeconds": 14.135796083,
+      "independentQuarterResetRuns": 432,
+      "maCrossDefaultReportAndSignalParityRuns": 102,
+      "note": "Quarter-reset returns are separate accounts and are never aggregated into continuous performance",
+      "partitionEquivalenceRuns": 36,
+      "partitions": [
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "19d2676e95fad7a2",
+          "inputHash": "02e3f1eb92c65cc7",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SOXQ",
+          "variant": "legacy"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "62fe33cb1a6f923e",
+          "inputHash": "7bab69890a7a1781",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SOXQ",
+          "variant": "legacy"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "d46850e0d5cc1752",
+          "inputHash": "c4e7c4d8feee7a3b",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SPY",
+          "variant": "legacy"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "30f091d6322ae05b",
+          "inputHash": "8ab350de7afa985d",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SPY",
+          "variant": "legacy"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "2cc243d652d3300d",
+          "inputHash": "38c9116477a89918",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "QQQ",
+          "variant": "legacy"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "b9a8754e722e9467",
+          "inputHash": "d11384a2fbc2fac6",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "QQQ",
+          "variant": "legacy"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "19d2676e95fad7a2",
+          "inputHash": "c22b716bf799d375",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SOXQ",
+          "variant": "unfiltered"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "62fe33cb1a6f923e",
+          "inputHash": "82591ef84daefbcf",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SOXQ",
+          "variant": "unfiltered"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "ae3f54c647f4b354",
+          "inputHash": "3f6810d206e52e0f",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SOXQ",
+          "variant": "trend200"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "9aa1674272b27b60",
+          "inputHash": "b47b5a8cdc4e90e9",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SOXQ",
+          "variant": "trend200"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "186422bf32b7ed5c",
+          "inputHash": "a5cf087f0d1eb0c8",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SOXQ",
+          "variant": "slope0_1"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "589f37678361f9d0",
+          "inputHash": "2f3950d58e4372ca",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SOXQ",
+          "variant": "slope0_1"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "8f2d6a4c67ba01cd",
+          "inputHash": "d2760d041beec9c4",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SOXQ",
+          "variant": "atr0_5"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "9f4e432393e7d489",
+          "inputHash": "ebbf7c858aff6cb6",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SOXQ",
+          "variant": "atr0_5"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "fb2a68ed02461df1",
+          "inputHash": "454d0abd4c49ced1",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SOXQ",
+          "variant": "bandwidth2"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "9a904623d178c535",
+          "inputHash": "e47dd8d83ac7072b",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SOXQ",
+          "variant": "bandwidth2"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "d46850e0d5cc1752",
+          "inputHash": "30e72592a8a59c89",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SPY",
+          "variant": "unfiltered"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "30f091d6322ae05b",
+          "inputHash": "15ff895fcf1d2f0b",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SPY",
+          "variant": "unfiltered"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "729bb90f1a26ef7d",
+          "inputHash": "8ea0a1b0434f7897",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SPY",
+          "variant": "trend200"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "64feb5bad82df254",
+          "inputHash": "5f88227549339dc9",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SPY",
+          "variant": "trend200"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "ad38f673a0f390a3",
+          "inputHash": "7e13c091d350e5ae",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SPY",
+          "variant": "slope0_1"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "5b595a894f647356",
+          "inputHash": "28e80deef3a2c670",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SPY",
+          "variant": "slope0_1"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "cf5daf3834e7a121",
+          "inputHash": "83deeb0e5644cd46",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SPY",
+          "variant": "atr0_5"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "597d29556258aa52",
+          "inputHash": "f950f37bd10199e8",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SPY",
+          "variant": "atr0_5"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "01609befcd203651",
+          "inputHash": "30be7ed15dcc1225",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SPY",
+          "variant": "bandwidth2"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "658139a7b6ee3f22",
+          "inputHash": "1d57f805206c0287",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "SPY",
+          "variant": "bandwidth2"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "2cc243d652d3300d",
+          "inputHash": "d0bb320072dfb2ae",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "QQQ",
+          "variant": "unfiltered"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "b9a8754e722e9467",
+          "inputHash": "c477d6293cb23f6c",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "QQQ",
+          "variant": "unfiltered"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "8c2323111a34d140",
+          "inputHash": "713863eb83172c68",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "QQQ",
+          "variant": "trend200"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "8d44fbe101188696",
+          "inputHash": "214b2c0b7bb60716",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "QQQ",
+          "variant": "trend200"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "31c2f077f9bb30c9",
+          "inputHash": "9c4aecc519e08919",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "QQQ",
+          "variant": "slope0_1"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "40cadc79d659db11",
+          "inputHash": "4221504084bf2fdf",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "QQQ",
+          "variant": "slope0_1"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "85a69df8a3e4f3b8",
+          "inputHash": "f18eb391d43a6ef5",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "QQQ",
+          "variant": "atr0_5"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "ba46466ac6a48742",
+          "inputHash": "0ea7a781e7fcb2bb",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "QQQ",
+          "variant": "atr0_5"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 10,
+          "economicHash": "96088a28ab4c1320",
+          "inputHash": "30365ac53ccd5bb2",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "QQQ",
+          "variant": "bandwidth2"
+        },
+        {
+          "alternativeChunks": 2,
+          "costBps": 20,
+          "economicHash": "06c3ceb081891af6",
+          "inputHash": "03ef7bb856027030",
+          "quarterChunks": 12,
+          "strategyId": "ma_cross",
+          "symbol": "QQQ",
+          "variant": "bandwidth2"
+        }
+      ],
+      "unchangedStrategyFullReportAndSignalParityRuns": 1224
+    },
+    "validation": {
+      "baselineCommit": "327739a",
+      "unchangedStrategyFullReportAndSignalParityRuns": 1224,
+      "maCrossDefaultReportAndSignalParityRuns": 102,
+      "continuousRuns": 36,
+      "alternatePartitionEquivalenceRuns": 36,
+      "separateQuarterResetRuns": 432,
+      "independentArithmeticChecks": 81143,
+      "priorDailyPredicateChecks": 2212,
+      "archives": {
+        "continuous-results.jsonl.gz": {
+          "uncompressedSha256": "87ed48aff392fec7f614459c7a419fdd5bb9c2aeed6870bcb4625312f7193776",
+          "uncompressedBytes": 6229474,
+          "compressedBytes": 1083303
+        },
+        "reset-results.jsonl.gz": {
+          "uncompressedSha256": "8b503491f9b7267090e088d66ce179fbbb476f0836405f872f8c42a514de283e",
+          "uncompressedBytes": 8892326,
+          "compressedBytes": 1076096
+        }
+      },
+      "scope": "Exact factorial coverage, next observed open/directional slippage, recorded accepted quantities, cash/exposure/terminal and causal market PnL. No strategy signal reimplementation."
+    },
+    "finding": "ATR0.5 and bandwidth2 rejected no candidates in continuous or reset accounts; all78 backtests/signals exact to unfiltered. Active efficacy not evaluated."
+  },
+  "declaredBeforeContinuousRuns": false,
+  "followup": {
+    "declaredAt": "2026-10-20T23:03:28.821043+09:00",
+    "declaredAfterStageA": true,
+    "declaredBeforeItsCandidateRuns": true,
+    "variants": [
+      "atr2",
+      "bandwidth10"
+    ],
+    "reason": "Single round high-volatility stress threshold for each after StageA no selectivity. Post-hoc exploratory thresholds, not economically optimized, matched selectivity, preregistration or OOS. No grid, combinations, repeated retuning or winner selection. If also inert, stop and report unevaluated efficacy.",
+    "newContinuousRuns": 12,
+    "newAlternatePartitionRuns": 12,
+    "newSeparateQuarterResetRuns": 144,
+    "controls": "All36original continuous/partition controls input and economic hashes must remain exact. Frozen runtime/source/data/config/costs unchanged."
+  }
+}

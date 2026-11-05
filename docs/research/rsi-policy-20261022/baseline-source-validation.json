@@ -1,0 +1,10 @@
+{
+  "commit": "978640c25ae23b64629690fcaded0bb2d0475891",
+  "sourceComparison": "Exact git object bytes, archived source isolated before implementation; no working tree overlay",
+  "sha256": {
+    "src-tauri/src/trading/strategy/classic.rs": "226eda5a7f11ba09f7fa12bd590eca8773263e206e72349605750b59e51ff75a",
+    "src-tauri/src/commands/strategy_preview/driver.rs": "5cdfbd1879ea812a86b23f6a0202e75ddc14c6d5fb3c567bbea180803212bf65",
+    "src-tauri/src/trading/simulation.rs": "a35d64ef8e51fff033475719da2240035424352b25ce9a6f226ecb2e83cecfa4",
+    "Cargo.lock": "b9e526c8fa3bcca291aa28237b06d996b2cdb7c28cc115f04e96923ef7f3d628"
+  }
+}
