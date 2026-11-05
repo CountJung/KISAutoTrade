@@ -35,14 +35,14 @@ description: "토스증권 Open API 전용 스킬. Toss OpenAPI JSON, OAuth2 Cli
 npm run verify:toss-openapi
 ```
 
-2026-10-29 공식 공개 스펙 확인 기준:
+2026-11-05 공식 공개 문서 확인 기준 (로컬 JSON 다운로드는 네트워크 정책으로 차단):
 
 | 항목 | 값 |
 |------|----|
 | title | `토스증권 Open API` |
 | version | `1.2.28` |
 | base URL | `https://openapi.tossinvest.com` |
-| paths | 39 |
+| paths | 40 |
 
 ## Authentication
 
@@ -174,3 +174,9 @@ npm run verify:toss-openapi
 공식 공개 v1.2.28은 기존38경로를 유지하고 `GET /api/v1/rankings/investor-trading`1개를 추가해39경로/42 operations다. count는 선택1~100/default100, OAuth2 Bearer·RANKING group이며 계좌 헤더는 없다. 검증기의 정확한 목록을 갱신하고 인증/오류/rate-limit 검사를 유지한다. 앱의 신규 API 호출·거래 기능을 추가하지 않는다. REST 명세의 AsyncAPI3 별도 안내와 현재 앱의 Toss REST 구현을 구분하고 실제 WebSocket 지원/연결 성공으로 확대하지 않는다. [정본](../../../docs/toss-openapi.md).
 
 > 마지막 업데이트: 2026-11-01T00:21:19+00:00
+
+## 2026-11-05 REST inventory 보정
+
+공식 공개 v1.2.28 문서에서 `GET /api/v1/transactions`를 확인했다. 기존39개 기대 경로를 보존하고 해당1개만 추가해40개로 검증한다. 본인 계좌 거래내역 조회로 OAuth2·`X-Tossinvest-Account`가 필요하며 앱 기능은 미구현이다. inventory 수 검사를 제거하거나 임의 경로를 허용하지 않고 기존 제목·서버·오류·rate-limit 검사를 유지한다. 공개 문서 확인과 실제 계좌 API 검증은 구분한다. 로컬 다운로드·원문 해시 확인의 제한은 [정본](../../../docs/toss-openapi.md#2026-11-05-공개-rest-inventory-보정)을 따른다.
+
+> 마지막 업데이트: 2026-11-05T00:40:29+00:00

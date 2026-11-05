@@ -33,6 +33,7 @@ const EXPECTED_PATHS = [
   '/api/v1/sectors/{sectorId}/etfs',
   '/api/v1/accounts',
   '/api/v1/holdings',
+  '/api/v1/transactions',
   '/api/v1/orders',
   '/api/v1/orders/{orderId}',
   '/api/v1/orders/{orderId}/modify',

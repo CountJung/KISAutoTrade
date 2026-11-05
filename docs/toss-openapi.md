@@ -2,7 +2,7 @@
 
 > Source of truth: `https://openapi.tossinvest.com/openapi-docs/latest/openapi.json`
 
-마지막 확인: 2026-10-29
+마지막 확인: 2026-11-05 (공개 문서 확인; 로컬 JSON 다운로드는 네트워크 정책으로 차단)
 
 ## 공식 스펙 스냅샷
 
@@ -11,7 +11,7 @@
 | OpenAPI title | `토스증권 Open API` |
 | version | `1.2.28` |
 | base URL | `https://openapi.tossinvest.com` |
-| paths | 39 |
+| paths | 40 |
 | 인증 | OAuth2 Client Credentials Grant |
 
 ## 구현 전 검증
@@ -59,6 +59,7 @@ npm run verify:toss-openapi
 | Sector | GET | `/api/v1/sectors/{sectorId}/etfs` | 공개 스펙 확인, 앱 기능 미구현 |
 | Account | GET | `/api/v1/accounts` | accountSeq 조회 진입점 |
 | Asset | GET | `/api/v1/holdings` | `X-Tossinvest-Account` 필요 |
+| Transaction | GET | `/api/v1/transactions` | 본인 계좌 거래내역, OAuth2·`X-Tossinvest-Account` 필요, 앱 기능 미구현 |
 | Order | GET, POST | `/api/v1/orders` | 주문 목록/생성, `clientOrderId` 지원 |
 | Order History | GET | `/api/v1/orders/{orderId}` | 주문 상세 |
 | Order | POST | `/api/v1/orders/{orderId}/modify` | 정정 |
@@ -153,3 +154,7 @@ npm run verify:toss-openapi
 ## 2026-10-31 시뮬레이션 본문 파싱의 로컬 교정
 
 Toss 전용 client의 무압축 identity 협상과 캔들 전용 안전 단계 진단으로 합성HTTP의 rawgzip→UTF8 실패 경로를 교정했다. 실제 사용자 응답이 gzip이었다는 증거는 없으며 잘린/손상본문·미지원coding은 계속 명시 실패한다. 신규14개·기존/인접 검증과 전체 Rust/시뮬레이션·CI·게시 근거, 운영앱/실계좌 미실행 범위는 [단일 작업 기록](completed-history.md#task-toss-simulation-response-parsing-20261031)을 따른다. DTO·가격/시각·재시도/금융 guard·TLS/의존성 정책을 변경한 것이 아니다.
+
+## 2026-11-05 공개 REST inventory 보정
+
+[공식 JSON](https://openapi.tossinvest.com/openapi-docs/latest/openapi.json)의 v1.2.28 공개 문서에서 `GET /api/v1/transactions`를 확인했다. 기존 39개 고정 경로를 유지하고 이 경로만 추가해 40개를 기대한다. 본인 계좌 거래내역 조회이며 OAuth2와 `X-Tossinvest-Account`가 필요하다. 정확한 경로 수·누락 경로·제목·서버·오류·rate-limit 검사는 유지하며, 앱의 거래내역 기능은 구현하지 않는다. 로컬 공식 JSON 다운로드·원문 SHA256 확인은 클라우드 네트워크 정책으로 차단됐으므로 이전 절의 해시를 최신 해시로 재사용하지 않는다. 검증 진행 상태는 [이력](completed-history.md#toss-inventory-20261105)을 따른다.

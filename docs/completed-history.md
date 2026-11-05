@@ -12,6 +12,15 @@
 - 연구는 실제 자료/합성 가정·생산 실행/독립 재정산·실현/잔여 평가·연속/별도 초기화 계좌를 구분한다. 과거 사후 연구를 독립 OOS나 전략 채택 근거로 승격하지 않는다. 실제 provider·실자료·정책 결정은 TODO에 남긴다.
 - 완료 작업은 아래 통합 영수증과 불변 Git 원문, 연구 판단은 기존 research 정본을 따른다. 이력 압축은 구현·수치·설정·거래 정책 변경이 아니다.
 
+<a id="toss-inventory-20261105"></a>
+## Toss REST inventory 보정 — 2026-11-05
+
+PR #15의 Release Gate 41941404293에서 공식40개/기대39개 차이를 보고받아 개발 HEAD `dd4e4989ca4f5dd40cdb7a55d05f4e9fb2b40175`의 검증 목록에 `/api/v1/transactions` 한 줄을 추가했다. 공식 공개 v1.2.28 문서의 GET·OAuth2·계좌 헤더 계약을 재확인하고 [정본](toss-openapi.md#2026-11-05-공개-rest-inventory-보정)·원본 스킬을 동기화했다. 기존 목록·검사·런타임 거래 코드는 유지한다.
+
+합성22개 통과: 기존39개 순서·목록 보존 및 한 줄 외 동일, 원래39개 성공/40개 실패와 수정40개 성공/39개 실패, 추가·동수 대체·제목·서버·버전·계좌 헤더·rate-limit3종·오류 DTO·HTTP/JSON/전송 실패를 대조했다. syntax·diff check, 지도·TODO·Graphify freshness와 문서 링크/앵커95개를 통과했고 독립 코드/문서 감사의 필수 지적은 없다. TODO renderer는2개 통과/브라우저1개 환경 차단이다(벤더 다운로드403, 시스템 Chromium의 file URL 관리자 차단). 로컬 `npm run verify:toss-openapi`는 네트워크 정책의 CONNECT403/fetch failed로 차단돼 공식 JSON 원문 SHA256·로컬 실제 명세 대조는 미완료다. 같은 명령의 새 HEAD GitHub CI 결과는 병합 담당자가 확인한다.
+
+Graphify0.9.26의 정상 재생성은7403nodes를 유지하고16457→17334edges·540→329communities로 파생물을 갱신하므로 핵심 교정과 별도 커밋으로 분리한다. 과거 절대경로 기반700개 node ID의 정규화는 파일·label·위치·type 대응이 동일하고, 전후 graph의 ID 유일성과 dangling edge 없음도 전수 확인했다. 단일파일 갱신은7402node shrink guard로 거부돼 강제하지 않았고 정상 전체 생성물을 사용했다. snapshot의 소스 해시 차이는 검증기1개뿐이며 HTML도 현재 graph에서 재생성했다. zero-node 설정/fixture6개에 대한 도구 경고는 남아 있고 compiler 경고로 오인하지 않는다. 검증 원본은 Git 제외 `.cache/toss-inventory-20261105/`에 보관한다. 계좌·주문 API, 앱 실행·배포·병합은 수행하지 않았다.
+
 ## 키보드 개선 완료 — 2026-10-31
 
 [원래 완료 조건·관측 원문](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md#L13-L112). 아래 줄 범위로 각 ID를 찾을 수 있다.
