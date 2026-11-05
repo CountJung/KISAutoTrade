@@ -1,6 +1,6 @@
 # KISAutoTrade — 완료·경과 이력
 
-> 현재 남은 11개 작업과 완료 조건의 정본은 [todo.md](todo.md)다. 이 문서는 완료된 범위·과거 관측·기각 이유를 요약한다. 아래 수치는 당시 검증이며 문서 압축 중 재실행한 결과가 아니다.
+> 현재 남은 12개 작업과 완료 조건의 정본은 [todo.md](todo.md)다. 이 문서는 완료된 범위·과거 관측·기각 이유를 요약한다. 아래 수치는 당시 검증이며 문서 압축 중 재실행한 결과가 아니다.
 > 원문은 [고정 커밋 4021e38의 이력](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md)에 보존한다. 각 절의 불변 링크에서 원래 TODO 인용·중간 실패·수치·근거를 복원할 수 있다. 2026-10-29 이전 이관 원본은 `6eeb0ea718138438296b832bcbbe3e218fc49564`의 TODO다.
 
 당시 짧은 `P2-13` 표기는 `SOXQ-P2-13`을 뜻한다. 현재 `DEP-P3-01`의 MSRV/DB 결정과 나머지 열린 조건은 [TODO](todo.md)에서 관리한다.
@@ -11,6 +11,13 @@
 - 실제 macOS 한글 IME·Tauri WebView·스크린리더/AT·실계좌·시장자료·운영 DB/배포는 이 결과로 검증 완료하지 않는다. 아래 과거349/408 UI·887 Rust는 당시 기준이다.
 - 연구는 실제 자료/합성 가정·생산 실행/독립 재정산·실현/잔여 평가·연속/별도 초기화 계좌를 구분한다. 과거 사후 연구를 독립 OOS나 전략 채택 근거로 승격하지 않는다. 실제 provider·실자료·정책 결정은 TODO에 남긴다.
 - 완료 작업은 아래 통합 영수증과 불변 Git 원문, 연구 판단은 기존 research 정본을 따른다. 이력 압축은 구현·수치·설정·거래 정책 변경이 아니다.
+
+<a id="p2-sector-01"></a>
+## P2-SECTOR-01 — 섹터 ETF 3전략 구현 가능성 검토 · 2026-11-05
+
+Mac mini 원본 checkout은 clean `dd4e498`/`fix/mac-security-storage-2026-10-06`였고 원격은 `a94e1ab`로 앞서 있어 원본을 보존한 격리 사본에서 fast-forward 후 검토했다. Rust의 종목별 Momentum·단일 symbol preview/ReplaySession·KIS 완료 일봉 page·통화별 live 예산을 읽고, 구현 가능하되 다종목 순위/공통 현금·목표비중·USD 장부가 추가로 필요하다고 판정했다. 기존 max_position_ratio=30%와 guard의 매도 차단도 공격/방어 리밸런싱의 검증 대상으로 남겼다. 공식 KIS dailyprice의 수정주가 입력을 확인했으며 실제 ETF 자료/조정 의미/coverage는 조회하지 않았다. [TODO P2-SECTOR-01](todo.md)에 원장 대조 확정 규칙(RS 백분위/동률·초기 보통·5%p·편도10bp)·30거래일/달력30일·SPY22/섹터21 선행종가와 상태 복원·09:50표시가 대비 nextOpen 근사 차이·인과/기업행위·독립 정산 및 실거래 전 완료 조건을 합쳤다.
+
+이번 범위는 검토와 문서 반영이다. 제품 코드/가상 실험/계좌/주문·운영 설정/배포 변경 및 30일 시뮬레이션 실행은 없으며 수익률을 산출하지 않았다. TODO renderer3/3(모바일 검색·필터/전체항목/escaping 포함), TODO freshness12개·project-map·diff check·기존11개 제목/본문 보존 검사와 독립 문서 감사의 상대 링크/앵커133개 검사를 통과했다. renderer의 첫 sandbox 실행은 macOS Chromium 시작 권한으로 브라우저1개가 실패했고 승인된 sandbox 밖 재실행에서3/3 통과했다. stock_analyst의 코드·표본 감사와 별도 documentation pass에 필수 수정 지적이 없었다. 문서 전용이므로 Rust/TS 빌드·전체 거래 테스트·CI는 이번에 실행하지 않았다. 기존 11개 대기 작업은 유지하고 새 구현 과제1개만 추가했으며 커밋은 이 절을 추가한 동일 Git 이력에서 추적한다.
 
 <a id="toss-inventory-20261105"></a>
 ## Toss REST inventory 보정 — 2026-11-05

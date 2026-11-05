@@ -86,11 +86,11 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-11-05 | 섹터 ETF 기본·방어·공격 구현 가능성 검토와 30일 비교 P2-SECTOR-01 추가; 제품/실험/계좌 변경 없음·[근거](docs/completed-history.md#p2-sector-01) |
 | 2026-11-05 | CI source-harness 전체 예산만60초로 분리·기본30초/expect5초 유지; 초기 clock 지연 원인은 미확정이며 [검증 이력](docs/completed-history.md#keyboard-final-ci-20261031) 참조 |
 | 2026-11-05 | Toss 공개 거래내역 경로를 고정 inventory에 추가·기존 검사 유지; 로컬 공식 JSON 다운로드 제한과 검증 상태는 [이력](docs/completed-history.md#toss-inventory-20261105) |
 | 2026-11-01 | 날짜별 완료 기록을 기존 이력/연구 부록으로 통합·신규 문서 생성 기준 정리; 남은11개·코드 UI557/Rust901 근거 보존 |
 | 2026-10-31 | 키보드5개 순차 완료·UI557/Rust901·최종 테스트/보안 CI58/65 성공·[회차 정본](docs/completed-history.md#task-keyboard-improvements-20261031), 기존 대기11개 보존 |
-| 2026-10-31 | Toss identity 협상·캔들 안전 파싱 단계 교정·Rust901/clock4·UI408·CI53/60 통과; 실사용 원인 미확정·상세는 [기록](docs/completed-history.md#task-toss-simulation-response-parsing-20261031) |
 
 ## 운영 문서 스택
 
