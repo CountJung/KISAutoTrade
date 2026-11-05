@@ -12,7 +12,7 @@
   "scripts/setup-local.sh": "f7cf1306b35f28d00e044a5c5face88277ca4ae8e983eb3be5a8ee37e344e40b",
   "scripts/verify-lockfiles.mjs": "28f0f9d2242b6fd09dff996ff159c42227744c6fcb088a78ac9823ef150e8216",
   "scripts/verify-release-artifacts.mjs": "e6da4f208d10b33d5668bcb6430e91c5ce381e0528328ba202dddcd8511c9a28",
-  "scripts/verify-toss-openapi.mjs": "1ac6da97dcbf4792f8f8144014471fcb1b1f67e69f539575cd32cc964023389e",
+  "scripts/verify-toss-openapi.mjs": "a2538e043f26abbbf76669979cabdda69bbdc4f6034f5f30477969660cb00e71",
   "scripts/webview-smoke/bootstrap.js": "db4c8d5a95efe7300e6ce9dc1923cf1cfccc60cdb725b7f2f10c7cc2b51fbedf",
   "scripts/webview-smoke/bootstrap.test.mjs": "42019411aeb4ddec6cb70a84a97becd7e2d7d042084a1188df20386ed1111a0d",
   "scripts/webview-smoke/driver.mjs": "4f6f200e859166ebb90e950bc9db96cd235f26a6e4144988b1c07f60e3d68ecd",
