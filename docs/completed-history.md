@@ -19,7 +19,7 @@ PR #15의 Release Gate 41941404293에서 공식40개/기대39개 차이를 보�
 
 합성22개 통과: 기존39개 순서·목록 보존 및 한 줄 외 동일, 원래39개 성공/40개 실패와 수정40개 성공/39개 실패, 추가·동수 대체·제목·서버·버전·계좌 헤더·rate-limit3종·오류 DTO·HTTP/JSON/전송 실패를 대조했다. syntax·diff check, 지도·TODO·Graphify freshness와 문서 링크/앵커95개를 통과했고 독립 코드/문서 감사의 필수 지적은 없다. TODO renderer는2개 통과/브라우저1개 환경 차단이다(벤더 다운로드403, 시스템 Chromium의 file URL 관리자 차단). 로컬 `npm run verify:toss-openapi`는 네트워크 정책의 CONNECT403/fetch failed로 차단돼 공식 JSON 원문 SHA256·로컬 실제 명세 대조는 미완료다. 같은 명령의 새 HEAD GitHub CI 결과는 병합 담당자가 확인한다.
 
-Graphify0.9.26의 정상 재생성은7403nodes를 유지하고16457→17334edges·540→329communities로 파생물을 갱신하므로 핵심 교정과 별도 커밋으로 분리한다. 과거 절대경로 기반700개 node ID의 정규화는 파일·label·위치·type 대응이 동일하고, 전후 graph의 ID 유일성과 dangling edge 없음도 전수 확인했다. 단일파일 갱신은7402node shrink guard로 거부돼 강제하지 않았고 정상 전체 생성물을 사용했다. snapshot의 소스 해시 차이는 검증기1개뿐이며 HTML도 현재 graph에서 재생성했다. zero-node 설정/fixture6개에 대한 도구 경고는 남아 있고 compiler 경고로 오인하지 않는다. 검증 원본은 Git 제외 `.cache/toss-inventory-20261105/`에 보관한다. 계좌·주문 API, 앱 실행·배포·병합은 수행하지 않았다.
+Graphify0.9.26 정상 재생성에서 나온 전역 ID·edge·community 변경은 최종 tree에서 제외했다. 원래7403nodes/16457edges·ID·community·HTML·report를 보존하고, 실제 생성 결과 중 검증기1개에 속한 source location12곳·manifest1개·source hash1개만 반영했다. 이 파일의8개 심볼과7개 관계는 줄 위치 외 동일함을 대조했으며, 해시를 수동 계산해 검사를 우회하지 않았다. 단일파일 도구 갱신의7402node shrink guard는 강제하지 않았고, 전체 재생성의 zero-node 설정/fixture6개 경고는 도구 관측으로만 남긴다. 검증 원본과 전체 생성 결과는 Git 제외 `.cache/toss-inventory-20261105/`에 보관한다. 계좌·주문 API, 앱 실행·배포·병합은 수행하지 않았다.
 
 ## 키보드 개선 완료 — 2026-10-31
 
