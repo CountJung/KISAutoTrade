@@ -28,7 +28,7 @@ Mac mini 원본 checkout은 clean `dd4e498`/`fix/mac-security-storage-2026-10-06
 
 실제 생산 CLI로 합성22+30봉·비용10/20bp의 **10장부/300일별 기록·36매도/4부분매도**를 만들고 두 독립 감사가 순위/적격·상태·장전예산·rebalance사유·매도선행·정수수량/현금한도/status·원가/비용·실현/미실현·NAV/MDD/최대일손실/표본변동성/노출/회전율을 대사했다. 별도 Decimal40자리 장부의 최대 절대차는3e-12다. 결과 raw SHA256은 기본 `c6686fc144bc4aa7c7865ffaaf663d56b9b4a533626ebb0cf52c3207e799cd14`, 스트레스 `0e76ec742203f5977babeb6418fe2f999563550086a01dea23e6ce81ea0219e6`이다. 원본/정규화hash·입력/결과·부모audit·독립Decimal/sizing감사 영수증은 격리 사본의 Git제외 `.cache/sector-portfolio/`에 보존했다. 다른 체크아웃에서 재현 가능한 단위fixture는 `sector_portfolio/tests.rs`, UI 예제생성기는 `sectorPortfolioInput.ts`에 있다. 실제 시장 수익률을 산출하거나 합성 수익을 실측으로 승격하지 않았다.
 
-독립 코드/전략·구조/문서·UI/UX pass에 필수 잔여 지적이 없다. 실제1440/375px light 합성화면은 `.cache/sector-frontend/`, 전체 UI로그/보고서는 `.cache/sector-regression/`에 있다. 계좌 로그인·자격증명·실주문·자금이동·실제DB·nativeWebView·실제시장자료/09:50체결은 미검증이다. UI keyboard/AT 세부 제외는 TODO에 남겼다. 원본 Mac checkout은 clean dd4e498 그대로 보존했고 main1b6779c/작업73912e9의 공통 코드 기준을 확인한 격리 사본에서 작업했다. 커밋/원격 및 관련 CI 상태는 동일 작업 Git 이력과 최종 보고에서 추적한다.
+독립 코드/전략·구조/문서·UI/UX pass에 필수 잔여 지적이 없다. 실제1440/375px light 합성화면은 `.cache/sector-frontend/`, 전체 UI로그/보고서는 `.cache/sector-regression/`에 있다. 계좌 로그인·자격증명·실주문·자금이동·실제DB·nativeWebView·실제시장자료/09:50체결은 미검증이다. UI keyboard/AT 세부 제외는 TODO에 남겼다. 원본 Mac checkout은 clean dd4e498 그대로 보존했고 main1b6779c/작업73912e9의 공통 코드 기준을 확인한 격리 사본에서 작업했다. 구현 커밋은 `b2211569a8a3d5e6bf3ec22dd03d76e79fefe103`이며 기존 작업 브랜치에 푸시했다. 해당 SHA의 workflow_runs/statuses는 비어 있다. Release Gate는 PR 또는main에서 실행되므로 main 대상 초안PR을 만들려 했으나 자동 승인 검토가 PR 생성·main 대상 공개에 대한 명시 승인 부족으로 거부했다. PR은 생성되지 않았고 재시도/다른경로우회·main병합·배포를 하지 않았다. 기존 사용자 이력을 확인했지만 이 PR에 대한 새 승인은 없으므로 원격CI는 승인 후 진행할 조건으로 남긴다.
 
 <a id="toss-inventory-20261105"></a>
 ## Toss REST inventory 보정 — 2026-11-05
