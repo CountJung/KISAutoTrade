@@ -19,3 +19,5 @@ export * from './tradingHooks'
 export * from './logHooks'
 
 export * from './budgetRecoveryHooks'
+
+export * from './sectorPortfolioHooks'

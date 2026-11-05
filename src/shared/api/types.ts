@@ -983,3 +983,5 @@ export * from './databaseTypes'
 export * from './strategyResearchTypes'
 
 export type { BudgetRecoveryItem, BudgetRecoveryView, ApproveBudgetRecoveryInput } from './budgetRecoveryTypes'
+
+export * from './sectorPortfolioTypes'

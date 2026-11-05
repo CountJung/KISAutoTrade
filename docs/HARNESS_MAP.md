@@ -358,3 +358,17 @@ export default defineConfig(async (env) => mergeConfig(await base(env), { envDir
 ```
 
 Vite의 절대 내부 index.js를 직접 묶으면 선택 의존성 경고를 만들 수 있고 source 확장자를 생략하면 향후 native config loader 안내가 남는다. 제품 target·chunk 기준·엄격성을 바꾸거나 경고 억제 환경 변수로 대체하지 않는다. 교정 이전 UI 통과와 후속 짧은 loader/build 검증의 시점·안내를 구분한다. 같은 resolved module·source·dist byte가 유지되면 안내 수정만으로 전체 UI를 반복하지 않는다.
+
+
+## 섹터 ETF 순수 연구
+
+`cargo test --workspace --lib sector_portfolio --locked`는 순위/방어/정산과
+production IPC/REST 동일계산·인증 경계·필수누락/대형입력·부작용0을 검사한다.
+최종 전체 lib·all-targets check와 TS/FSD·웹빌드·전체 UI 회귀를 함께 수행한다.
+`tests/e2e/sector-portfolio.spec.ts`는 합성응답의 계좌오류 독립접근·자료파일·stale/
+중복·오류/재시도·download·동일기간/자본/비용 모의대조·375px을 검증한다.
+계좌/브로커/실거래 E2E가 아니며 .env 없는 격리사본 또는 envDir:false 설정을 쓴다.
+
+`cargo run --locked -p kis-auto-trade --example sector_portfolio_replay -- INPUT.json`
+은 앱을 시작하지 않고 공급된 파일을 같은 순수 엔진으로 계산한다. stdout JSON과
+stderr 원문hash를 보존하고 독립 장부로 대사한다. DTO/지원제한은 [IPC 정본](ipc-commands.md#섹터-etf-포트폴리오-연구-v1), 실제 실행·합성/실자료 경계는 [P2-SECTOR-01 이력](completed-history.md#p2-sector-01)을 따른다.

@@ -1,3 +1,4 @@
+import { SectorPortfolioPanel } from './SectorPortfolioPanel'
 import { useStrategyUsSearch } from './useStrategyUsSearch'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { StrategyUsSearch } from './StrategyUsSearch'
@@ -148,6 +149,15 @@ type EditState = { symbols: string[]; quantity: number; params: Record<string, u
 
 // ─── Strategy 메인 ────────────────────────────────────────────────
 export default function Strategy() {
+  return (
+    <Box>
+      <SectorPortfolioPanel />
+      <StrategyAccountPanel />
+    </Box>
+  )
+}
+
+function StrategyAccountPanel() {
   const { data: appConfig } = useAppConfig()
   const activeScopeKey = appConfig?.active_profile_id
     ? `${appConfig.active_profile_id}:${appConfig.active_broker_id}:${appConfig.active_broker_account_id ?? ''}`

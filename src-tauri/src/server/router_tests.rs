@@ -8,14 +8,14 @@ use std::collections::BTreeSet;
 #[tokio::test]
 async fn every_production_binding_is_matched_before_cross_origin_rejection() {
     let fixture = Fixture::new(TOKEN).await;
-    assert_eq!(CASES.len(), 74);
+    assert_eq!(CASES.len(), 75);
     assert_eq!(
         CASES
             .iter()
             .map(|(_, pattern, _)| *pattern)
             .collect::<BTreeSet<_>>()
             .len(),
-        70
+        71
     );
     assert_eq!(
         CASES
@@ -49,7 +49,7 @@ async fn every_production_binding_is_matched_before_cross_origin_rejection() {
         assert_eq!(json_body(response).await["code"], "CROSS_ORIGIN_FORBIDDEN");
     }
     fixture.assert_no_effects().await;
-    eprintln!("route bindings checked: 74; distinct URLs: 70; capture URLs: 13");
+    eprintln!("route bindings checked: 75; distinct URLs: 71; capture URLs: 13");
 }
 
 #[tokio::test]
@@ -89,7 +89,7 @@ async fn every_post_rejects_unconfigured_missing_and_incorrect_tokens_before_ext
         }
         fixture.assert_no_effects().await;
     }
-    eprintln!("POST token-denial cases checked: 35 x 4 = 140");
+    eprintln!("POST token-denial cases checked: 36 x 4 = 144");
 }
 
 #[tokio::test]
@@ -164,7 +164,7 @@ async fn unsupported_methods_keep_405_and_allow_for_every_registered_url() {
         assert_eq!(actual, expected, "{uri}");
     }
     fixture.assert_no_effects().await;
-    eprintln!("405/Allow URL cases checked: 70");
+    eprintln!("405/Allow URL cases checked: 71");
 }
 
 #[tokio::test]

@@ -309,3 +309,17 @@ StrongClose의 live 이전 일봉은 기존 coordinator의 target·scope/profile
 `mean_trend.rs`는 현재 포함 MA 200/5/20·strict 진입과 세 MA 준비 뒤 장기 이탈을 유지하면서 exact 소유 수량/native 평균·pending·관측 나이/최고가/수익 무장을 분리한다. 장기 이탈 확인·수익 되밀림·보유 한도 순서로 실제 잔량 전량 후보를 내며 선택 수익/보유 보호는 지표 미준비에도 평가한다. warmup은 지표만 준비하고 reset은 가격 버퍼를 보존한다. 이탈 연속값은 재시작·과거 재적재·핵심 MA 기간 변경에서0, 동일 프로세스 청크·동량/부분 매도에서 보존한다.
 
 `trend_filter_params`는 저장/단기·연속 preview의 strict 범위를, `trend_filter_protection`은7필드 v1 checkpoint의 원자적 검증을 소유한다. 양수 보유는 나이 불명이어도 metadata를 반환해 기존 OrderManager caller의 반복 소유 갱신에서 cold restore가 반복되지 않게 한다. `strategyPolicyControls`는 페이지 조립만 맡고 `trendFilterControls`는7필드 raw/stored 초안·현재/A-B·단위·legacy 미확인을 유지한다. 고정 기준81fa00d/v21과 v22의 생산 실행·기록 정산은 [P2-11 연구](research/trend-filter-policy-20261023/report.md)에 두고 주문·계좌·운영 DB를 호출하지 않는다.
+
+## 섹터 ETF 연구의 독립 경계
+
+`trading/sector_portfolio`는 고정 universe의 상대강도 순위와 이전 완료자료의
+장전 목표계산을 공개 순수 함수로 제공한다. 별도 USD 다종목 장부가 같은 날짜의
+같은 관측시가를 3전략·SPY/현금 비교에 공유하며 단일종목 KRW ReplaySession을
+합산하거나 FX=1로 가장하지 않는다. 입력 전체 검증 후에만 모든 계정을 계산한다.
+
+`commands/sector_portfolio`·`server/sector_portfolio`는 AppState 없이 같은 계산을
+호출한다. 전략 화면의 독립 연구패널은 계좌별 전략목록 준비와 분리돼 JSON을
+입력·비교·내보낸다. 기존 A/B experimentStore의 축약 저장·scope정리 경로는 사용하지
+않는다. 이 모듈은 운영 factory/daemon/주문/복원 원장에 등록되지 않으며 향후 실제
+연결에는 별도의 소유·예산·예약/부분체결/거절·정지/재시작 검증이 필요하다.
+자료·기업행위 지원 제한과 wire 계약은 [IPC 정본](ipc-commands.md#섹터-etf-포트폴리오-연구-v1)을 따른다.

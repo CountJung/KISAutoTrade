@@ -20,6 +20,8 @@ mod trading;
 pub use trading::*;
 mod strategy_preview;
 pub use strategy_preview::*;
+mod sector_portfolio;
+pub use sector_portfolio::*;
 mod strategy;
 pub use strategy::*;
 mod risk;

@@ -91,6 +91,7 @@
 | `preview_leveraged_trend_hold` | 활성 Toss profile/account scope와 `1m`/`1d` count 20~200을 검증. 일봉은 성과 평가 불가 자료 진단, 분봉은 실제 장중 관측의 모의 표본 결과를 반환. 일봉 context와 분봉 지표를 분리하고 `replay.assessment`에 관측 수·평가 가능 여부·시간/세션 미검증을 기록 |
 | `preview_strategy` | `candles` 평가 구간 + 선택 `historyCandles` 사전자료를 합계 최대 500봉으로 종가 신호·선택 체결 모델 replay. `warmupCount` 생략은 0이며 명시 prefix와 별도 history 동시 지정은 거부. 결과 candles는 평가 구간만 포함. 실제 지표 준비 상태·조건 평가 봉 수(`preparation`), raw 신호·체결/차단·비용/리스크 성과와 OHLCV hash를 반환. generic LTH는 `UNSUPPORTED_GENERIC_REPLAY`로 명시 거부. live 10초 tick·intrabar/provider latency는 재현하지 않음 |
 | `preview_strategy_continuous` | 한 요청의 엄격한 이전 사전자료와 시간순 분할 평가봉을 공통 v12 세션에서 연속 재생. history 최대512봉·1~16묶음·묶음당1~500봉·전체 평가4096봉. 상태 보존과 공급 경계 원장을 반환하며 generic LTH는 거부. 웹 POST `/api/strategy/preview/continuous`와 동일 입력 |
+| `preview_sector_portfolio` | 계좌 없이 제공 JSON의 11개 섹터+SPY를 공통 시계에서 기본·방어·공격+SPY보유/현금으로 비교. USD 독립 장부·이전 완료봉 신호→nextOpen 근사. 웹 POST `/api/strategy/sector-portfolio/preview`와 동일 계산. 운영 전략 등록·주문·파일 저장 없음 |
 | `get_chart_data` | 국내주식 차트 데이터 (일/주/월봉, 날짜 범위와 선택적 count) |
 | `get_overseas_price` | 해외주식 현재가 조회 |
 | `get_overseas_chart_data` | 해외주식 최신 차트 데이터 (일/주/월봉, 선택적 count 상한) |
@@ -452,3 +453,49 @@ UI는 일곱 필드 raw 초안을 유지하고 오류에서 저장·두 preview�
 구간 자산 증감은 실현손익 + 잔여 평가손익 증감 + 순배당이다(표시 금액 반올림 오차 가능). 부분매도를 포함한 각 양수 수량 매도의 원래 배분 진입원가·매수비용은 매도 구간 실현손익에 귀속된다. 기존 raw return/MDD/완료 수·신호·회계·guard는 유지한다. 전반 양수에서 후반0은 보합, 음수는 손실 관측으로 안내하고 양수 수익 절반 조건의 과최적화 경고는 제거한다. 경고 없음은 신뢰 충분이나 독립 검증을 뜻하지 않는다.
 
 flat/전용 LTH/continuous 및 현재/A-B는 같은 설명과 서버 진단을 사용한다. 누락·손상·미지원 진단은 미확인이고 축약 저장된 거래/곡선으로 재계산하지 않는다. LTH 일봉·평가불가·legacy gate는 유지한다. v23은 버전이 포함된 inputHash가 바뀌며 hash 알고리즘은 바꾸지 않는다. [회차 검증](completed-history.md#task-immediate-backlog-20261029).
+
+### 섹터 ETF 포트폴리오 연구 v1
+
+`preview_sector_portfolio({input})` / POST `/api/strategy/sector-portfolio/preview`는
+`trading/sector_portfolio`의 순수 계산을 공유한다. DTO 정본은
+[`types.rs`](../src-tauri/src/trading/sector_portfolio/types.rs)와
+[TypeScript 미러](../src/shared/api/sectorPortfolioTypes.ts)다. 기존 generic
+`StrategyConfig` ID나 MA fallback을 쓰지 않는다. 실제 자동매매의
+OrderManager/TradeGuard/RiskManager·계좌/DB·provider 호출과 독립이며 주문 권한이 없다.
+
+입력은 `source`, `history`, `evaluation`, `expectedSessionDates`, 선택
+`initialCashUsd`(기본10000), `costBps`(10 또는20), `corporateActions`다.
+각 날짜는 `YYYY-MM-DD`, `prices`에는 전체12종목의 `adjustedClose`(신호),
+`open`(체결 근사), `close`(평가) 양수가 필요하다. 사전자료22일 이상·평가1일
+이상·합계500일 이하·엄격한 순서/중복 없음·거래일 선언과 정확히 일치해야 한다.
+어느 필수 가격이든 빠지면 비교 전체를 거부하며 전략별 결측 수익률0을 만들지 않는다.
+
+`source`는 `name/retrievedAt/synthetic/adjustmentPolicy/calendarSource/coverageVerified/
+corporateActionsVerified`다. 가격기준은 `adjustedSignalRawExecution`, coverage 및
+평가창 내 기업행위/미수배당 사건 부재 확인은 true여야 한다. 이는 입력자 선언이며 공급원/공식
+달력을 프로그램이 인증한 표시가 아니다. 수집시각의 뉴욕 날짜보다 엄격히 이전인
+일봉만 허용한다. 평일 검사는 휴장/조기마감 검증을 대체하지 않는다.
+**corporateActions 목록에 전달된 사건은 시점과 무관하게 현재 전체 평가를 거부한다.** 무보유 사전자료의 과거 기업행위는 조정종가 출처에 위임한다. 조정가격만 보고
+수량·배당락 미수/지급 현금을 만들어 내거나 배당을 이중 가산하지 않는다.
+
+확정 선정·비중 규칙은 [P2-SECTOR-01](todo.md)을 따른다. 장전 목표예산은 전일
+비조정 종가 NAV로 고정하고 수량만 관측 시가에서 정수 내림한다. 매도 후 순위대로
+매수하고 비용 포함 현금 부족분을 축소/차단한다. 기본 총편도10bp·세금/현금이자0,
+총편도20bp 스트레스는 별도다. 운영 기본 종목한도30%를 수정하지 않는다.
+
+결과는 `engineVersion/inputHash/source/historyBars/evaluationBars/startDate/endDate/
+executionModel/warnings/rankings/portfolios`다. 5개 독립 포트폴리오 각각에서
+일별 계획·실제 보유·현금·NAV·노출, 거래 요청/실행수량·비용·현금부족과 기말보유,
+순수익·MDD·최대일손실·일수익 표본표준편차·실현/미실현을 보존한다. 비용 제거 값은
+같은 체결 경로에 비용을 되더한 산술값이며 무비용 재실행이 아니다. 기말 가상
+청산은 하지 않는다. 회전율 정의·노출과 체결 한계는 결과 경고를 함께 확인한다.
+`inputHash`는 serde 정규화 SHA256이며 원문 bytes hash와 다르다.
+
+Tauri/REST는 같은 bounded blocking 계산을 사용한다. REST의 기존 POST token·origin
+검사를 유지하고 JSON 기본2MiB 제한을 적용한다. 입력 오류는
+`INVALID_SECTOR_PORTFOLIO_INPUT`, 작업 실패는 `SECTOR_PORTFOLIO_CALCULATION_FAILED`다.
+REST 입력 오류는422, 내부 계산 작업 실패는500이며 malformed JSON/extractor/인증 오류와 구분한다.
+오프라인 `cargo run --locked -p kis-auto-trade --example sector_portfolio_replay -- INPUT.json`
+도 같은 라이브러리를 사용하며 stdout JSON, stderr 원문 SHA256을 제공한다.
+앱 시작·계좌/설정 로드는 수행하지 않는다. 원장의09:50 표시가격과 일봉 nextOpen은
+서로 다른 체결 가정이며 결과를 소급 합산하거나 실측 체결로 표현하지 않는다.

@@ -122,6 +122,9 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
         body: args.input,
       }
 
+    case 'preview_sector_portfolio':
+      return { method: 'POST', url: '/api/strategy/sector-portfolio/preview', body: args.input }
+
     // ─── 해외 현재가 ──────────────────────────────────────────
     case 'get_overseas_price':
       return {

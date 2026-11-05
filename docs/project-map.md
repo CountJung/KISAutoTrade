@@ -406,6 +406,7 @@ KISAutoTrade/
 │   │   ├── marketHooks.ts
 │   │   ├── orderHooks.ts
 │   │   ├── queryKeys.ts
+│   │   ├── sectorPortfolioHooks.ts
 │   │   ├── settingsHooks.ts
 │   │   ├── strategyHooks.ts
 │   │   ├── tradingHooks.ts
@@ -479,9 +480,13 @@ KISAutoTrade/
 │   │   ├── strategy/
 │   │   │   ├── model/
 │   │   │   │   ├── candlePageCollector.ts
-│   │   │   │   └── experimentStore.ts
+│   │   │   │   ├── experimentStore.ts
+│   │   │   │   └── sectorPortfolioInput.ts
 │   │   │   ├── ui/
 │   │   │   │   ├── Page.tsx
+│   │   │   │   ├── SectorPaperComparison.tsx
+│   │   │   │   ├── SectorPortfolioPanel.tsx
+│   │   │   │   ├── SectorPortfolioResults.tsx
 │   │   │   │   ├── StockSearchResults.tsx
 │   │   │   │   ├── StrategyUsSearch.tsx
 │   │   │   │   ├── bollingerControls.tsx
@@ -538,6 +543,8 @@ KISAutoTrade/
 │   │   │   ├── databaseTypes.ts
 │   │   │   ├── index.ts
 │   │   │   ├── liveDailyHistoryTypes.ts
+│   │   │   ├── sectorPortfolioCommands.ts
+│   │   │   ├── sectorPortfolioTypes.ts
 │   │   │   ├── strategyResearchTypes.ts
 │   │   │   ├── transport.ts
 │   │   │   └── types.ts
@@ -588,6 +595,8 @@ KISAutoTrade/
 │   │       └── index.ts
 │   └── main.tsx
 ├── src-tauri/
+│   ├── examples/
+│   │   └── sector_portfolio_replay.rs
 │   ├── icons/
 │   │   ├── android/
 │   │   │   ├── mipmap-anydpi-v26/
@@ -753,6 +762,7 @@ KISAutoTrade/
 │   │   │   ├── orders.rs
 │   │   │   ├── records.rs
 │   │   │   ├── risk.rs
+│   │   │   ├── sector_portfolio.rs
 │   │   │   ├── settings.rs
 │   │   │   ├── strategy.rs
 │   │   │   ├── strategy_preview.rs
@@ -776,6 +786,8 @@ KISAutoTrade/
 │   │   │   ├── mod.rs
 │   │   │   └── types.rs
 │   │   ├── server/
+│   │   │   ├── sector_portfolio/
+│   │   │   │   └── tests.rs
 │   │   │   ├── budget.rs
 │   │   │   ├── extractor_tests.rs
 │   │   │   ├── market.rs
@@ -786,6 +798,7 @@ KISAutoTrade/
 │   │   │   ├── route_cases.rs
 │   │   │   ├── router.rs
 │   │   │   ├── router_tests.rs
+│   │   │   ├── sector_portfolio.rs
 │   │   │   ├── security.rs
 │   │   │   ├── test_support.rs
 │   │   │   ├── toss.rs
@@ -902,6 +915,12 @@ KISAutoTrade/
 │   │   │   │   │   ├── dependency_contract_tests.rs
 │   │   │   │   │   └── tests.rs
 │   │   │   │   └── fill_accounting.rs
+│   │   │   ├── sector_portfolio/
+│   │   │   │   ├── planner.rs
+│   │   │   │   ├── replay.rs
+│   │   │   │   ├── tests.rs
+│   │   │   │   ├── types.rs
+│   │   │   │   └── validation.rs
 │   │   │   ├── simulation/
 │   │   │   │   ├── session/
 │   │   │   │   │   ├── accounting.rs
@@ -1024,6 +1043,7 @@ KISAutoTrade/
 │   │   │   ├── position.rs
 │   │   │   ├── preflight.rs
 │   │   │   ├── risk.rs
+│   │   │   ├── sector_portfolio.rs
 │   │   │   ├── simulation.rs
 │   │   │   ├── strategy.rs
 │   │   │   └── views.rs
@@ -1061,6 +1081,7 @@ KISAutoTrade/
 │       ├── keyboard-settings-contract.spec.ts
 │       ├── live-daily-history.spec.ts
 │       ├── lth-minute-timing.spec.ts
+│       ├── sector-portfolio.spec.ts
 │       ├── settings-database.spec.ts
 │       ├── strategy-accounting.spec.ts
 │       ├── strategy-atr-readiness.spec.ts
@@ -1176,6 +1197,8 @@ KISAutoTrade/
 | `shared/ui/LiveDailyHistoryPanel.tsx` | Dashboard/Strategy가 기존 상태 query로 공유하는 완료 일봉 준비 패널. 실행/활성 profile·broker/account 범위를 확인하고 상태·확보량·시장 날짜·출처·실패/재시도 사유 표시. 최대 512상태를 요약하고 실제 행은 3개씩 표시하며 프로파일 없는 legacy KIS 실행은 일치 계좌의 실패 진단만 허용 |
 | `api/marketHooks.ts` | 국내/해외/Toss 시세·차트·검색·종목 목록 갱신·시장 일정/유의사항·환율 hook과 해외 차트 preset. 갱신 설정은 `settingsHooks.ts::useRefreshConfig`를 직접 참조. `useCandlePage`는 프로파일·broker/account·종목·간격·거래소·커서별 공통 페이지 조회 계약을 사용 |
 | `api/orderHooks.ts` | 국내/해외 수동 주문·Toss 주문 전 검증/정정·소액 검증·미체결 조회 hook과 주문 후 관련 query 무효화 |
+| `api/sectorPortfolioHooks.ts` | 제공 자료 기반 섹터 비교의 명시적 mutation. 자동 polling·재시도·계좌 query 무효화 없이 `shared/api/sectorPortfolioCommands.ts`를 호출하고 mutation 결과 GC를 즉시 허용 |
+| `shared/api/sectorPortfolio{Types,Commands}.ts` | 섹터 USD 연구 입력·계획·전체 거래/일별 원장·5개 비교 결과의 Rust 미러와 `preview_sector_portfolio` IPC/REST wrapper. 기존 타입/command facade에서 재노출 |
 | `api/strategyHooks.ts` | scope별 전략 목록·수정, 기존 단기 replay·연속 replay·LTH preview mutation hook |
 | `api/settingsHooks.ts` | 업데이트 확인·웹 설정·갱신 주기/상세 설정·broker rate-limit 상태·Discord 테스트 hook |
 | `api/historyHooks.ts` | 당일/기간별 provider 체결·로컬 거래·통계와 거래 보관 설정/현황 hook |
@@ -1213,7 +1236,11 @@ KISAutoTrade/
 | `pages/strategy/ui/useStrategyUsSearch.ts` | Strategy page-local 미국 조회 hook. Page의 input/market/선택 symbol·public config/onSelect를 받아 keyed gate·오류/busy·KIS NAS/NYS/AMS/Toss safety를 연결. 현재 ticket 성공만 item으로 반환하고 입력/선택·이름 cache·전략 저장은 Page에 유지 |
 | `pages/strategy/ui/StrategyUsSearch.tsx` | Strategy 내부 미국 입력/검색/오류의 좁은 표시 모듈. value/selection/searching/error와 onChange/onSearch를 받아 실제 입력 Enter·IME guard와 명명 버튼/조회 중 설명을 조립하며 입력/선택·이름 cache·전략 조립은 Page, 미국 조회/error/busy·broker 탐색은 useStrategyUsSearch가 소유. 표시 child에는 hook/API/state 없음 |
 | `pages/strategy/ui/StockSearchResults.tsx` | Strategy route 내부 국내 검색 결과 JSX의 좁은 표시 추출. open/items/loading과 pointer/선택 callback으로 로딩·결과 테이블·RowSelectionButton을 조립하며 query·선택 상태/이름 캐시·전략 갱신은 Page에 유지. 국내 결과 TableBody의 modifier 없는 Arrow/Home/End만 focus helper에 연결하며 query·선택·이름 cache·복귀 callback은 기존 Page가 소유 |
-| `pages/strategy/ui/Page.tsx` | 활성 broker scope, 전략별 저장 broker/account scope 표시, 전략 활성화/대상 종목/전체 너비 카드/카드별 미리보기 route 조립과 strategyPolicyControls의 정책 UI 연결. 일반·가격조건·LTH 저장 성공은 제출한 immutable 초안과 현재 초안의 identity가 같을 때만 정리하고 scope epoch가 달라진 응답은 현재 편집 상태에 적용하지 않음. 국내/미국 입력 Enter는 순수 키 판정과 지역 유효성을 사용하며 US 표시는 StrategyUsSearch, 조회 lifecycle은 useStrategyUsSearch에 위임. 입력·선택·이름 cache·전략 추가/저장은 Page가 소유 |
+| `pages/strategy/ui/Page.tsx` | 최상위 route가 계좌 독립 `SectorPortfolioPanel`과 기존 `StrategyAccountPanel`을 조립. 계좌 패널은 활성 broker scope, 전략별 저장 broker/account scope 표시, 전략 활성화/대상 종목/전체 너비 카드/카드별 미리보기 route 조립과 strategyPolicyControls의 정책 UI 연결. 일반·가격조건·LTH 저장 성공은 제출한 immutable 초안과 현재 초안의 identity가 같을 때만 정리하고 scope epoch가 달라진 응답은 현재 편집 상태에 적용하지 않음. 국내/미국 입력 Enter는 순수 키 판정과 지역 유효성을 사용하며 US 표시는 StrategyUsSearch, 조회 lifecycle은 useStrategyUsSearch에 위임. 입력·선택·이름 cache·전략 추가/저장은 Page가 소유 |
+| `pages/strategy/model/sectorPortfolioInput.ts` | JSON 객체·배열·크기·시계열 행의 프런트 입력 검사와 명시적으로 합성인 예제 생성. 금융·가격·거래일 달력 검증의 최종 소유자는 Rust 엔진 |
+| `pages/strategy/ui/SectorPortfolioPanel.tsx` | 계좌 패널과 독립된 섹터 연구 Accordion. JSON 파일/텍스트 입력·명시 계산·입력 세대별 오래된 결과 폐기와 입력/결과 다운로드를 소유하며 provider 조회·자동매매·저장을 호출하지 않음 |
+| `pages/strategy/ui/SectorPortfolioResults.tsx` | 기본/방어/공격·SPY·현금의 같은 기간 USD 요약, 마지막 계획·실제 비중/보유·순위·입력 hash·출처/가정·검증 한계를 표시 |
+| `pages/strategy/ui/SectorPaperComparison.tsx` | 선택적으로 직접 입력한 모의 평가 JSON을 동일 시작일·초기 USD·비용 가정에서 날짜별 코드 재생과 대조. 모의 계좌나 원장을 조회하지 않으며 09:50 표시가격과 다음 시가 근사의 차이를 공개 |
 | `pages/strategy/ui/priceConditionEditorPanel.tsx` | 가격조건 전략의 종목별 수량·매수가·익절가·익절률·손절률 편집 테이블 |
 | `pages/strategy/ui/strategyMetadata.ts` | 일반 전략 파라미터 입력 메타, 전략 설명, strategy id 기반 타입 판별. FailedBreakout의 기존20/0.5와 선택 기준·ATR/거래량·수익 보호 쌍·보유 관측, Consecutive의 관측 횟수와 선택 진입3필드, Momentum 기본 level/선택 crossing·재무장 %p와 Deviation 진입 모드·장기/보유 관측 수·native 손절률, MeanReversion 청산 모드·장기/보유 관측 수와 기존 손절0, MA 교차의 기존 관측 기간과 완료 일봉 필터4개, RSI의 기존14/30/70 단순평균·진입 추세/손절/보유 관측3개와 StrongClose의 기존 기준3/손절3·이전 완료 일봉 추세/수익 보호 쌍/보유 관측4개의 단위·상한과 VolatilityExpansion의 기존10/2/3·선택 수익 보호 쌍/보유 관측3개의 단위·엄격 범위와 TrendFilter의 기존200/5/20·이탈 확인1·선택 수익 보호 쌍/보유 관측의 단위·상한 설명을 소유 |
 | `pages/strategy/ui/strategyPolicyControls.tsx` | 전략별 controls·정책 필드 판별·raw 값 보존·검증 함수의 page-local 조립. 전략별 범위·관계·raw 해석은 각 controls에 남기고 Page의 저장/preview 정책을 연결 |
@@ -1318,6 +1345,7 @@ KISAutoTrade/
 | `commands/trading/daily_history/jobs.rs` | 실행 프로파일에 고정한 background scheduler. 같은 profile/종목의 여러 설정을 최대 요구량 1회 조회로 공유하고 동시 2작업만 실행. 완료 handle만 수거해 apply_daily_history_with_volume에 전달하며 제거/새 generation/config/scope/시장 날짜의 과거 작업 취소. 실패/부족은 30~900초 backoff, 정지/drop 시 작업 중단 |
 | `commands/trading/daily_history/{tests.rs,jobs/tests.rs}` | 합성 DTO/fetch로 실제 252/512봉·중복/미완료/오류·scope drift·수집 상한, 공유 조회·동시 2작업·backoff·대기 중 손절·정지/재시작 결과 폐기 검증 |
 | `commands/strategy.rs` | 포지션 조회, 전략 목록/수정 IPC. 공통 `trading/configuration.rs`에 검증·저장·보유 상태 보존과 revision 게시를 위임하며 전략 view는 `trading/views.rs::build_strategy_view()` 재사용 |
+| `commands/sector_portfolio.rs` | AppState 없는 제공 자료 전용 `preview_sector_portfolio` IPC. `spawn_blocking`에서 공통 연구 엔진을 호출하고 입력/계산 실패를 CmdError로 반환 |
 | `commands/risk.rs` | 리스크 설정/비상정지 IPC와 pending 주문 view |
 | `trading/strategy.rs` | 전략 facade. 공개 import 경로를 유지하면서 하위 전략 모듈을 re-export |
 | `trading/strategy/classic.rs` | 분리된 RSI·Momentum·Deviation 타입/검증의 공개 re-export facade. 기존 import 경로와 historical/reconfigure/live feedback 회귀 진입을 유지 |
@@ -1357,6 +1385,13 @@ KISAutoTrade/
 | `trading/strategy/manager/live_history_tests.rs` | 마지막 완료 high/close·다음날 고가 만료·252/512봉·대상 cap·재시작/config ABA·scope/profile 변경·quote 중 자정·DST·실패 중 손절·동일 scope 설정/rollback 보유 보존·무관 전략 불변 fixture. Consecutive context 갱신/무효화·15/512봉 요구량·이전 tick 관측과 기존 청산 보존도 검증 |
 | `trading/strategy/manager/strong_close_history_tests.rs` | StrongClose의 새 시장일 seed/같은 날 소비 보존·실패/무효화/늦은 legacy 초기화·profile/scope/generation 지연 결과 거부·추세200/보유 청산과 다른 전략의 dated 기본 훅 단일 위임을 검증 |
 | `trading/strategy/manager/volatility_history_tests.rs` | 같은 시장일 재조회·실패·늦은 legacy 초기화의 당일 관측 범위 보존, 미확인 pending의 나이 오확정 방지·기존 진입 증거 유지, scope/generation 거부와 자료 부족 중 실제 보유 청산을 검증 |
+| `trading/sector_portfolio.rs` | 고정11개 비레버리지 섹터 ETF와 SPY의 연구 facade. 독립 USD 원장·플래너를 공개하며 기존 단일 종목 KRW ReplaySession·전략 manager 등록·AppState·provider·주문·저장과 분리 |
+| `trading/sector_portfolio/types.rs` | 공급 자료/출처·달력·조정/비조정 가격, 전략/방어 상태·목표 계획·보유/거래/일별 원장·전체 비교 report의 camelCase DTO |
+| `trading/sector_portfolio/validation.rs` | 매일12종목 완전성·유한 양수 가격·날짜/준비/평가 분리·최소22개 사전봉·합계500봉·명시 거래일 목록/출처/완료일 검증. 기업행위 입력은 미지원 오류로 전체 평가를 거부하며 공급원·공식 달력의 자동 인증을 하지 않음 |
+| `trading/sector_portfolio/planner.rs` | 완료된 이전 종가의 5/20일 SPY 상대강도·평균 백분위 순위/적격성·동률 순서를 계산. 기본/방어/공격 및 SPY/현금의 선택·방어 상태·재배분 판단과 이전 평가액 USD 예산을 만들며 당일 실행가격은 받지 않음 |
+| `trading/sector_portfolio/replay.rs` | 공통 공급 가격으로 독립5개 USD 장부를 계산. 이전 완료 자료로 계획 후 당일 원시 시가에 정수주 매도→매수·현금/비용 반영, 원시 종가 평가·일별/거래 원장·수익/낙폭/비중·입력 hash/가정을 반환하며 실제 체결과 구분 |
+| `trading/sector_portfolio/tests.rs` | 합성 자료로 순위/적격/동률·방어 상태·정수주/현금/비용/대사·미래 suffix 불변·누락 가격/달력/준비·기업행위 미지원과 입력 경계를 검증 |
+| `examples/sector_portfolio_replay.rs` | 앱 초기화·설정/자격증명 로드 없는 파일 입력 CLI. 같은 엔진의 전체 report를 stdout JSON으로, 원본 바이트 SHA-256을 stderr로 출력하며 입력은2MiB 이내 |
 | `trading/simulation.rs` | deterministic simulated portfolio, 공통 TradeGuard/RiskManager 기반 주문 가능 판정, 비용·환율·equity·MDD·turnover·exposure·고정 chronological 앞/뒤 구간 관측 지표. v23은 같은 장부 구간 진단 v1을 선택 필드로 추가하고 후반 보합/손실을 구분하며 누적수익 절반 조건의 과최적화 판정을 제거한다. `run_backtest`/`run_backtest_with_history`는 ReplaySession을 구동하는 batch facade다. 동일 주기 과거 관측으로 위험 지표만 준비하고 주문·equity는 평가 구간에서만 만든다. ATR 미준비·변동폭 0 또는 거래당 위험 예산 0이면 선택적 ATR 수량 산정의 신규 매수를 차단하고 보유분 매도는 유지한다. preview command가 engine/strategy/source/scope/params/가정/warmup 경계와 실제 replay OHLCV fingerprint를 hash한다. v9 replay 시각은 RFC3339 offset의 실제 instant를 우선 사용한다. |
 | `trading/simulation/session.rs` | 공통 ReplaySession 회계·리스크·포지션·보류 신호 상태. begin_bar에서 해당 봉 FX와 직전 보유 수량의 배당을 적용한 후 전일 손실 상태 갱신·이전 신호 시가 체결·연구 보호 청산을 처리하고 process_close에서 ATR·종가 신호·mark/equity·관측 투자 비중을 반영. native 평균 체결가와 진입 KRW 원가를 분리하고 sameClose/nextOpen, 원시 신호·보호 주문·마지막 미체결을 구분 |
 | `trading/simulation/accounting.rs` | 비용 출처/방향별·최소 수수료, 최대 64개 FX·배당 시나리오 DTO와 평가 봉 라벨·중복·수치·배당 조정 가격 중복 계상 검증. 공통 fee 계산과 회계 결과 DTO를 소유 |
@@ -1490,12 +1525,14 @@ KISAutoTrade/
 | `server/mod.rs` | 웹 서버 상태·환경 조립과 socket 바인딩, 공통 handler 및 SPA/정적 파일 fallback 처리. route 조립은 `router::build_router()`에 위임 |
 | `server/router.rs` | 생산 route table·SPA fallback·상태·자체 보안 middleware 조립. 앱 기동·환경 로드·socket 바인딩과 분리하며 테스트도 동일 `build_router()` 사용 |
 | `server/security.rs` | Origin/Host 일치와 변경 요청의 Bearer token 검사, LAN 바인딩 정책. `CorsLayer` 없이 자체 정책을 적용 |
-| `server/route_cases.rs` | 의존성 전환 전 공개 경로의 고정 테스트 계약: 74개 method/route binding·70개 URL·13개 capture 경로 |
+| `server/route_cases.rs` | 의존성 전환 전 공개 경로의 고정 테스트 계약: 75개 method/route binding·71개 URL·13개 capture 경로 |
 | `server/router_tests.rs` | 생산 route 매칭, token/Origin 거절·무부작용, HEAD/OPTIONS·405/Allow, SPA/정적 파일과 격리 socket 계약 |
 | `server/extractor_tests.rs` | 생산 JSON/Query/Path 입력 거절과 본문 한도, percent decoding·경로 세그먼트·trailing JSON의 handler 이전 거절 계약 |
 | `server/view_contract_tests.rs` | 실제 IPC view builder·제공 캔들 preview 계산과 REST 응답 대조, casing/타입·민감 token 비노출·오류 status/envelope 계약 |
 | `server/provider_contract_tests.rs` | loopback 합성 KIS의 capture/query/header·응답 mapping/오류 envelope와 Toss·제어 route의 안전 오류 계약. 실제 provider 접속·엔진 시작과 구분 |
 | `server/test_support.rs` | `cfg(test)` 생산 router fixture·요청/본문 helper. 임시 JSON 저장소·loopback 합성 provider·명시적 보안값을 조립하며 앱/환경/설정 로드·keychain·전역 DB 설치를 하지 않음 |
+| `server/sector_portfolio.rs` | `POST /api/strategy/sector-portfolio/preview`를 AppState 없이 동일 IPC 계산 함수로 전달. 생산 router의 Origin/token·본문 제한을 유지하고 계산 오류는422로 반환 |
+| `server/sector_portfolio/tests.rs` | 합성 요청의 REST/IPC 결과 일치·가격 누락 오류·본문 한도와 계좌/주문/저장 무부작용 경계를 생산 router로 확인 |
 | `server/budget.rs` | `/api/auto-trading-budget` GET/POST. IPC와 같은 scope 검증·정지 조건·예산 view를 사용 |
 | `server/market.rs` | 웹 REST KIS 잔고/해외잔고, broker holdings, 현재가, 주문, 차트, 종목 검색/갱신. 잔고 읽기 응답은 공통 holdings ReadOnly identity gate를 거쳐 반환하며 tracker 게시를 만들지 않음. 공통 캔들 페이지 GET은 `commands/candles.rs`의 동일 서비스와 camelCase view를 재사용 |
 | `server/records.rs` | 웹 REST 포지션, 통계/체결 조회, pending 주문, 로그 설정/최근 로그, 체결 보관 설정/통계, 프론트엔드 로그. REST 보관 설정 변경도 IPC와 같이 즉시 purge를 예약 |
@@ -2380,6 +2417,39 @@ UI의 연속 일봉 수집은 최대48페이지·4608봉을 유지하고 엄격�
 manifest와 실행 순서를 기록한다. `validate.py`는 생산 fill을 독립 대사하고
 소스/산출물 hash를 보관한다. 구현·검증 범위는
 [작업 기록](completed-history.md#task-replay-accounting-20261018)을 따른다.
+
+### 제공 자료 기반 섹터 ETF USD 비교
+
+```text
+Strategy route → SectorPortfolioPanel (계좌 패널과 독립)
+    ↓ sectorPortfolioInput: JSON 입력 검사·합성 예제 구분
+sectorPortfolioHooks → sectorPortfolioCommands → transport
+    ↓ IPC preview_sector_portfolio / POST /api/strategy/sector-portfolio/preview
+commands/sector_portfolio.rs::calculate_sector_portfolio (AppState 없음)
+    ↓ spawn_blocking
+trading/sector_portfolio: validation → planner → replay → 전체 report
+    ↑ examples/sector_portfolio_replay.rs (파일 입력·같은 공개 엔진)
+    ↓ SectorPortfolioResults / 입력·결과 JSON 다운로드
+SectorPaperComparison: 직접 입력한 모의 평가와 동일 날짜 대조
+```
+
+이 경로는 기존 단일 종목 KRW `ReplaySession`과 별도의 USD 연구 원장을 사용한다.
+사용자가 제공한 SPY·11개 섹터의 최소22개 이전 완료봉과 평가 구간을 분리하고,
+12종목의 같은 관측 가격을 모든 비교 장부가 공유한다. 누락 가격/날짜·선언 거래일
+불일치·지원하지 않는 기업행위는 비교 전체를 오류로 반환한다. 출처와 조정 기준,
+거래일 coverage 및 평가창 기업행위 부재는 입력자 선언이며 자동 인증이 아니다.
+
+플래너는 평가일보다 이전인 조정종가로 선정·방어 상태·USD 예산을 고정한다.
+재생기는 당일 비조정 시가의 정수주 매도 후 매수와 편도10/20bp 비용, 종가 평가를
+각각 적용한다. 기본/방어/공격과 SPY/현금의5개 결과는 같은 기간·초기 USD·가격·비용을
+사용한다. 실제 원장의 뉴욕09:50 조회 표시가격과 일봉 nextOpen 체결 근사를 구분한다.
+계좌·provider·AppState·주문 manager·저장소·자동매매 등록은 사용하지 않으며,
+`experimentStore`의 축약/정리 경로에도 결과를 저장하지 않는다.
+
+[브라우저 회귀](../tests/e2e/sector-portfolio.spec.ts)는 계좌 API 실패에도 연구
+패널의 입력·계산·오류·결과 다운로드·모의 평가 대조와 반응형 표시를 합성 응답으로
+확인한다. 실제 데이터 확보·공식 달력/기업행위 검증과 계좌 모의투자의 실측 검증은
+이 구조 계약과 별도다.
 
 ### 오프라인 전략 전수 연구
 

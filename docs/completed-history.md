@@ -17,7 +17,18 @@
 
 Mac mini 원본 checkout은 clean `dd4e498`/`fix/mac-security-storage-2026-10-06`였고 원격은 `a94e1ab`로 앞서 있어 원본을 보존한 격리 사본에서 fast-forward 후 검토했다. Rust의 종목별 Momentum·단일 symbol preview/ReplaySession·KIS 완료 일봉 page·통화별 live 예산을 읽고, 구현 가능하되 다종목 순위/공통 현금·목표비중·USD 장부가 추가로 필요하다고 판정했다. 기존 max_position_ratio=30%와 guard의 매도 차단도 공격/방어 리밸런싱의 검증 대상으로 남겼다. 공식 KIS dailyprice의 수정주가 입력을 확인했으며 실제 ETF 자료/조정 의미/coverage는 조회하지 않았다. [TODO P2-SECTOR-01](todo.md)에 원장 대조 확정 규칙(RS 백분위/동률·초기 보통·5%p·편도10bp)·30거래일/달력30일·SPY22/섹터21 선행종가와 상태 복원·09:50표시가 대비 nextOpen 근사 차이·인과/기업행위·독립 정산 및 실거래 전 완료 조건을 합쳤다.
 
-이번 범위는 검토와 문서 반영이다. 제품 코드/가상 실험/계좌/주문·운영 설정/배포 변경 및 30일 시뮬레이션 실행은 없으며 수익률을 산출하지 않았다. TODO renderer3/3(모바일 검색·필터/전체항목/escaping 포함), TODO freshness12개·project-map·diff check·기존11개 제목/본문 보존 검사와 독립 문서 감사의 상대 링크/앵커133개 검사를 통과했다. renderer의 첫 sandbox 실행은 macOS Chromium 시작 권한으로 브라우저1개가 실패했고 승인된 sandbox 밖 재실행에서3/3 통과했다. stock_analyst의 코드·표본 감사와 별도 documentation pass에 필수 수정 지적이 없었다. 문서 전용이므로 Rust/TS 빌드·전체 거래 테스트·CI는 이번에 실행하지 않았다. 기존 11개 대기 작업은 유지하고 새 구현 과제1개만 추가했으며 커밋은 이 절을 추가한 동일 Git 이력에서 추적한다.
+최초 회차의 범위는 검토와 문서 반영이었다. 제품 코드/가상 실험/계좌/주문·운영 설정/배포 변경 및 30일 시뮬레이션 실행은 없으며 수익률을 산출하지 않았다. TODO renderer3/3(모바일 검색·필터/전체항목/escaping 포함), TODO freshness12개·project-map·diff check·기존11개 제목/본문 보존 검사와 독립 문서 감사의 상대 링크/앵커133개 검사를 통과했다. renderer의 첫 sandbox 실행은 macOS Chromium 시작 권한으로 브라우저1개가 실패했고 승인된 sandbox 밖 재실행에서3/3 통과했다. stock_analyst의 코드·표본 감사와 별도 documentation pass에 필수 수정 지적이 없었다. 문서 전용이므로 Rust/TS 빌드·전체 거래 테스트·CI는 이번에 실행하지 않았다. 기존 11개 대기 작업은 유지하고 새 구현 과제1개만 추가했으며 커밋은 이 절을 추가한 동일 Git 이력에서 추적한다.
+
+
+### 후속 구현·합성 검증
+
+사용자의 코드 구현 요청 후 같은 ID를 이어 `sector_portfolio-v1` 순수 USD 엔진과 공통 순위/장전 planner·계좌 독립 연구 UI·IPC/REST·오프라인 example을 구현했다. 초기Normal·history는 지표만 준비, 이전종가 예산→공통관측시가 정수수량·매도후순위매수·10/20bp 총비용·독립5계정·전체입력실패를 명시한다. 모의 원장 요약은 같은 시작일/초기자본/비용과 동일 평가일만 대조하며 기존 experimentStore 축약 경로를 쓰지 않는다. 운영 OrderManager/guard/risk·provider/계좌·파일저장/배포에는 연결하지 않았다. 기업행위 사건목록 또는 평가창 사건/미수 부재 미확인 입력은 전체 거부하며 실제 처리 구현은 TODO에 남겼다.
+
+로컬 전체 Rust **920/920(최종18.83초)**, 전체 브라우저 **561/561(3.6분)**(기존557+신규4), 집중 UI4개(28.7초), TypeScript·Vite config타입·FSD·웹production빌드·lockfiles·fmt·TODO3·bootstrap4·지도·Graphify freshness를 통과했다. 초기 추가 회귀1개는 첫양수종가 당일을 장전에 미리 쓰는 fixture 기대 오류였고 엔진을 바꾸지 않고 혼합쌍 유지/다음날 양수2회복귀를 명시해 통과했다. 서버 내부 작업실패500/입력422를 분리한 후에도 전체920개가 통과했으며 최종 로그는 검증 캐시에 보존한다. 합성 POST 인증/동일origin·대형입력413·IPC/REST동일JSON·부작용0을 검증했다. compiler 경고0이며 기존 NO_COLOR/FORCE_COLOR 안내와 Graphify의6개 설정/fixture zero-node 경고는 도구 관측으로 구분한다. Graphify 실제 재생성은7574nodes/17692edges이며5000node시각화상한으로 오래된graph.html이 제거됐다. node/graph source를 수동 조작하지 않았다.
+
+실제 생산 CLI로 합성22+30봉·비용10/20bp의 **10장부/300일별 기록·36매도/4부분매도**를 만들고 두 독립 감사가 순위/적격·상태·장전예산·rebalance사유·매도선행·정수수량/현금한도/status·원가/비용·실현/미실현·NAV/MDD/최대일손실/표본변동성/노출/회전율을 대사했다. 별도 Decimal40자리 장부의 최대 절대차는3e-12다. 결과 raw SHA256은 기본 `c6686fc144bc4aa7c7865ffaaf663d56b9b4a533626ebb0cf52c3207e799cd14`, 스트레스 `0e76ec742203f5977babeb6418fe2f999563550086a01dea23e6ce81ea0219e6`이다. 원본/정규화hash·입력/결과·부모audit·독립Decimal/sizing감사 영수증은 격리 사본의 Git제외 `.cache/sector-portfolio/`에 보존했다. 다른 체크아웃에서 재현 가능한 단위fixture는 `sector_portfolio/tests.rs`, UI 예제생성기는 `sectorPortfolioInput.ts`에 있다. 실제 시장 수익률을 산출하거나 합성 수익을 실측으로 승격하지 않았다.
+
+독립 코드/전략·구조/문서·UI/UX pass에 필수 잔여 지적이 없다. 실제1440/375px light 합성화면은 `.cache/sector-frontend/`, 전체 UI로그/보고서는 `.cache/sector-regression/`에 있다. 계좌 로그인·자격증명·실주문·자금이동·실제DB·nativeWebView·실제시장자료/09:50체결은 미검증이다. UI keyboard/AT 세부 제외는 TODO에 남겼다. 원본 Mac checkout은 clean dd4e498 그대로 보존했고 main1b6779c/작업73912e9의 공통 코드 기준을 확인한 격리 사본에서 작업했다. 커밋/원격 및 관련 CI 상태는 동일 작업 Git 이력과 최종 보고에서 추적한다.
 
 <a id="toss-inventory-20261105"></a>
 ## Toss REST inventory 보정 — 2026-11-05

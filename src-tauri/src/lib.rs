@@ -465,6 +465,7 @@ pub fn run() {
             commands::preview_leveraged_trend_hold,
             commands::preview_strategy,
             commands::preview_strategy_continuous,
+            commands::preview_sector_portfolio,
             commands::get_chart_data,
             commands::get_price,
             commands::place_order,
