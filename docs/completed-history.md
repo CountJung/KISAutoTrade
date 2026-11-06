@@ -54,6 +54,21 @@ Mac mini 원본 checkout은 clean `dd4e498`/`fix/mac-security-storage-2026-10-06
 
 `cargo clippy --workspace --all-targets --all-features --offline -- -D warnings`가 경고0으로 통과했다(`.cache/simulation-menu/clippy.log`). 앱/Node config TypeScript·FSD·lockfiles·지도와 Graphify force-refresh(7803nodes/18158edges)가 통과했고 신규15파일·기존6shim을 대조했다. 일반 AppShell의 기존 읽기는 유지하되 메뉴·검증·계산에서 금융 변이가 없고 프로필 A→B→A/동일 ID·동일 시각 재게시의 인증 수집 무효화와 USD 입력/결과·수동 모의 초안 보존을 합성 검사했다. KIS 이외 프로필은 인증 수집을 보류하며 파일 계산은 독립적이다. backend API·엔진은 변경하지 않았다. 현재 실행·코드 근거는 `.cache/simulation-menu/{full-ui,rust,native-build,menu-focused,graphify}.log`와 `.cache/simulation-native/results`에 보존한다. 최종 문서/원본 스킬 변경 Markdown12개의 상대 링크/앵커356개·TODO12개 동기화·기존11개 제목/본문 보존·최근 이력5개·project-map·diff 검사도 통과했다. 현재 변경 SHA의 원격 CI는 커밋·푸시 후 [PR #16 Checks](https://github.com/CountJung/KISAutoTrade/pull/16/checks)에서 별도로 확인하며 로컬 통과를 원격 통과로 기록하지 않는다. 실제 시장자료/모의 원장 자동 연동·운영 native 화면/IPC·실계좌 준비 검증은 미완료다.
 
+<a id="p2-sector-01-20d"></a>
+### 20거래일 표시자료·신호 진단
+
+코드 `5ca8c4e3e4ed4e46ecb76c861d8773d0987a87f8`에서 2026-10-09 시가 근사~11-05 종가의20거래일과09-09~10-08 사전22거래일을 검토했다. StockAnalysis의 SPY+11개 섹터는 각각50개 공통 날짜(08-27~11-05)를 확보했고 OHLC 범위·가격3000셀·누락0을 검사했다. 사용 구간은22+20회이며 수집50회를 평가50일로 부르지 않는다. 직접 HTTP는403이어서 `.cache/sector-20d/raw/*.web.txt`의 web 도구 추출문서 고정본과 hash를 보관했으며 원 HTTP bytes·페이지별 정확한 조회시각·당시 이용 가능 자료(PIT)는 확인하지 못했다. 개별 가격은 센트 표시값이고 조정 정의도 미확인이다. 근거는 `.cache/sector-20d/evidence/data-quality.json`이다.
+
+`corporateActionsVerified=false` 등 미확인 선언을 유지한 실제 생산 Rust CLI는 `UNVERIFIED_SECTOR_SOURCE`로 exit1·성과 출력0bytes를 반환했다. 확인 flag를 올리거나 gate를 우회하지 않았다. 성과 원장·체결/현금흐름·순손익·MDD·회전율·10/20bp 비용 비교를 계산하지 않았으며0% 성과로 표시하지 않는다. 별도 임시 Cargo/Rust harness는 공개 `rank_sectors`/`plan_sector_portfolio`만 사용해 전일 완료자료의 순위·선정·방어상태를 출력했다. 보유는 비우고 현금은 고정한 가정이므로 목표비중 합계는 실제 투자 노출이 아니다.
+
+표시자료의 선정 결과는 기본형1개2일/2개1일/3개17일, 공격형1개2일/2개18일이다. 방어형은 보통11일·방어9일이며 실행일10-21 각15%,10-29 각30%,11-03 각15%로 전환했다(각각 전일 완료 신호). 첫10-09는XLK 하나로 기본/방어30%·공격47.5% 목표, 마지막11-05는 기본XLP/XLRE/XLV 각30%·방어 같은3개 각15%·공격XLP/XLRE 각47.5% 목표다. 독립 감사는20×11=220순위·60전략신호·1600수치(최대차0)·중복 점수43개와 원표→입력1512가격셀을 대사했다. 사전22회/30회 prefix의20행 및 평가 first1/first10 prefix가 같았다. rawClose 감도에서20일 선정/상태 차이0도 관측했으나 조정 정의나 다른 기간의 동등성을 입증하지 않는다. 첫날XLY의 표시 R20은 정확0이라 원 가격 정밀도의 부호를 알기 전 경계 판정을 확대하지 않는다. `signals.json`·`stock-signal-audit.json`·`raw-adjusted-sensitivity.json`에 보존했다.
+
+공식 [SSGA 배당 XLSX](https://www.ssga.com/library-content/products/fund-data/etfs/us/spdr-etf-historical-distributions.xlsx)는HTTP200/584557bytes·SHA256 `4add18439e505ba6c114bea5d352ac68b1ea5420bc99abdf2e21500dd6f1faa2`를 확인했다. 대상1193개 과거 배당행의 파싱과 독립 XML 감사에서 준비기간12배당락·평가기간 배당락/자본이득 행0을 확인했다. SPY의10-30 지급은09-18 권리에 해당해10-09 신규 빈 보유 장부의 새 현금으로 넣지 않는다. 이 배당 파일은 분할/병합 부재·공급자 가격 조정 정의를 증명하지 않는다. Yahoo는 검색요약 대신 직접 캐시 원문을 비교해11-05 종가733.00은 일치했으나 조정열9일이0.005달러보다 차이 났다(최대0.0078101, 실제 준비창3일 포함). 공급원은 혼합하지 않았고 이를 독립 feed 인증으로 부르지 않는다. `ssga-window-check.json`·`stock-distribution-audit.json`과 원본 파일/영수증이 근거다.
+
+운영 시세/계정 없이 오류 표시를 확인하려던 격리 bare Wry harness는 생산 crate·IPC·keychain·reqwest 없이 incognito·HTTP/WS/file 차단으로 빌드했다. 45초 제한으로1회 실행을 시도했으나 exit134·`sysmon request failed with error: sysmond service not found`로 종료돼 host report/PNG는0개다. native 시도는 권한 상승·재시도 없이 중단했고 native 화면·실제 Tauri IPC·일반 운영 앱은 검증하지 않았다. 브라우저 첫 sandbox 시도도 page 생성 전 Mach bootstrap Permission denied1100/SIGTRAP로 종료됐으나, 보안 검토를 거친 격리 브라우저에서는 공유 production Research 화면을 확인했다. 실제22+20 입력의 flag/내용 보존·기록된 실제 CLI 거절 응답의422 fixture 표시·성과영역/결과 다운로드 없음·preview fixture1회·외부/계좌/금융 요청 시도0·pageerror0·375px 가로 넘침0과 desktop/mobile PNG2개를 확인했다. 이는 오류 UI 렌더 관측이며 브라우저에서 실제 backend나 native IPC를 실행한 검증은 아니다. `.cache/sector-20d/evidence/error-ui-browser-receipt.json`과 `unverified-source-{desktop,mobile}.png`에 보존했다.
+
+최종 캐시 요약은 `.cache/sector-20d/evidence/research-summary.json`(수치·제한·근거파일 hash), 독립 감사는 같은 `evidence/stock-{data,signal,distribution}-audit.json`이다. 원래 P2의 검증된 실제30일 비교는 열린 상태로 유지하고11/6~24 forward 실험의 규칙·성과 원장·schedule은 바꾸지 않았다. 제안은2회 확인 상태·전일/당일09:50 기록·목표/실현 현금·적격 부족 시 현금·비용/센트 경계를 추가로 관찰하는 shadow 범위이며 사후 최적화·실제 주문·방어 효능/우월성 추천으로 승격하지 않는다. 제품 코드는 변경하지 않았다. 문서3곳과 파생 TODO HTML의 링크/앵커145개·TODO12개 동기화·기존11개 제목/본문 보존·project-map·diff 검사도 통과했다.
+
 <a id="toss-inventory-20261105"></a>
 ## Toss REST inventory 보정 — 2026-11-05
 
