@@ -72,7 +72,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>검증형 실자료 재개 조건:</strong> 공급자의 조정 정의와 분할/병합·배당 권리/지급을 포함한 평가창 기업행위 근거를 확보한 뒤 입력 버전/hash·정수주·비용10/20bp를 고정해 생산 replay와 독립 장부를 대사한다. PIT 미확인 자료는 사후 근사로 표시하며20일 진단으로30일 완료를 대체하지 않는다. 추가 shadow 관찰은 두 완료일 방어상태·전일 신호/당일09:50 기록·목표 현금/실현 현금·적격 부족분 현금·센트 경계 정밀도를 기록하는 범위다. 새 규칙/주문·기존 실험 변경은 하지 않는다.</li>
 <li class="subtask"><span aria-label="미완료">☐</span> <strong>기업행위·운영 연결:</strong> 평가창의 분할·배당락 적격수량/미수·지급현금 원장은 미지원이다. 검증형은 사건 목록 또는 부재 미확인 입력을 전체 거부한다. 별도 가격근사형도 알려진 사건은 거부하며 미확인 사건을 정산한 결과로 취급하지 않는다. 사건별 실제 원본으로 수량/원가/권리/지급을 구현·대사한 뒤에만 지원을 넓힌다. 실제 자동매매 연결은 scoped소유·예산예약·동시/중복·부분/거절·guard/risk·정지/재시작·checkpoint·실패복구 및 사용자가 보는 상태를 먼저 구현/검증하며 계좌 준비 중이라는 말로 금융 동작을 승인받은 것으로 간주하지 않는다.</li>
 <li><strong>수집 기간·UI 후속:</strong> 차트가격 근사 수집은20·30거래일 선택(기본30)과 별도 사전22봉을 지원한다. 기간 편집/되돌림은 재동의를 요구하고 이전 응답을 버린다. 합성 native 브리지의22+30 입력/요청·옵션ABA와375px light/dark의3개 결과표 실제 방향키 가로스크롤/마지막열 접근·상세 전략 Home/End/Enter/Escape를 검증했다. 실제30일 시세나 정규장 전용 일봉 인증을 수행한 것은 아니며 공급자 일봉의 정규장/시간외 포함 범위는 미검증이다. <a href="completed-history.md#p2-sector-01-local-followup">후속 근거</a>.</li>
-<li><strong>UI 관측 한계:</strong> 기존1440/375px light 화면·키보드focus·오류/stale/모의대조와 이번375px light/dark 표·상세전략 선택만 검증했다. 파일선택Enter/Space·모든select의전체키보드흐름·확대/스크린리더/nativeWebView는 해당 focused 검사/PNG로 확인하지 않았다. 결함 판정 없이 이 경계를 유지한다.</li>
+<li><strong>UI 관측 한계:</strong> 기존1440/375px light·오류/stale/모의대조와375px light/dark 표·상세전략 선택을 검증했다. 후속으로 JSON 파일선택3곳의 Enter/Space·같은 파일 재선택·계산 요청0과 비교방식/비용/수집기간/상세전략의 키보드 선택을 확인했다.1280×900의200% CSS 확대에서는 비교/비용/전략 선택·계산 버튼·가로 넘침0을 관측했다. 브라우저 filechooser 이벤트/합성 파일과 CSS 확대의 범위이며 OS 파일 대화상자 외형·브라우저 도구창 확대·스크린리더/nativeWebView는 미검증이다. <a href="completed-history.md#p2-sector-01-local-followup">후속 근거</a>.</li>
 <li><strong>해석·실거래 전 조건:</strong> 30일은 로직·비용·회계·대응 경로를 확인할 단기 회고이며 우월성/통계 유의성·급락 방어·실거래 안전성의 증거가 아니다. 최소 수개월~수년의 서로 다른 사전 고정 국면·비용 스트레스·별도 미관측 기간·forward paper와 장애/복원 검증 후 채택을 검토한다. 과거 실제 다음 시가도 호가·유동성·체결 가능성을 입증하지 않는다. 실계좌 read-only/소액 주문·운영 배포는 별도 승인 범위이며 기존 P1-PROVIDER-01·P1-SCOPE-01을 완료로 바꾸지 않는다. <a href="completed-history.md#p2-sector-01">검토 이력</a>.</li></ul>
 <a class="permalink" href="#task-33bc655e96" aria-label="이 할일 링크">#</a>
 </article>
@@ -139,11 +139,12 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li>영향/우선순위: P2 사용자 판단. 모든 동작에 무조건 확인창을 넣으면 긴급 정지 접근성이 악화될 수 있으므로 임의로 적용하지 않는다.</li>
 <li>필요한 판단: 실전 시작·비상정지 해제·매수 재개·수동 주문 중 어느 행동에 어떤 scope/모드/영향 요약·최종 확인을 요구할지, 모의/실전 차이와 긴급 정지의 즉시성 유지 기준. 기존 KIS/Toss 동의·preflight·guard를 완화하는 선택지는 포함하지 않는다.</li>
 <li>개선 방향: 결정 전에는 현행 진입점·현재 확인/guard 존재 여부와 영향 표를 작성한다. 결정 뒤 presentation flow만 좁게 설계하고 backend 중복요청/멱등·권한 규칙을 유지한다. P1-UX-01의 상태 미확인 표시와 연결하되 동작 정책은 별도.</li>
+<li><strong>결정 전 조사 완료(2026-11-06):</strong> <a href="ARCHITECTURE.md#p2-ux-07-action-matrix">현행8행 영향표</a>에 시작/정지·비상정지 발동/해제·매수 재개·KIS 국내/미국·Toss 수동주문의 진입점/확인/pending/백엔드 scope·risk·예약 guard를 실제 코드에서 추적했다. 정지와 기접수 주문 취소/청산, 비상정지 해제와 daemon 시작/손실 카운터 초기화, 매수 재개와 입금/잔고 확인의 차이를 구분했다. 정적 조사이며 실제 행동 실행·새 확인 정책·동시 진입점 중복0 검증은 아니다. 아래 사용자 결정과 완료 조건은 유지한다.</li>
 <li>완료/검증: 사용자 승인한 action matrix가 정본에 남고 mock에서 취소=mutation0·승인=정확1·pending중중복0·scope/모드 변경 시 기존 확인 무효화를 확인한다. 긴급 정지는 추가 확인 때문에 지연되지 않는다. 실제 주문/실전 시작/해제는 실행하지 않으며 실제 provider 검증을 대신 완료하지 않는다.</li>
 <li><strong>키보드 안전 기준 보강(2026-10-31, 판단 대기 유지):</strong> 조회 입력의 Enter와 위험 행동의 명시 버튼 활성화를 구분한다. 주문·실전 시작·삭제·위험 해제를 입력의 단순Enter나 전역 단축키로 실행하지 않으며, 의도적으로 focus한 버튼의 Enter/Space에도 기존 동의·preflight·확인·pending·scope guard가 동일하게 적용되어야 한다. Enter key repeat/두 번 활성화·IME확정·Escape 취소/닫기·scope변경을 action matrix에 추가한다. 취소=변이0·최종승인=정확1·pending중중복0을 mock으로검증하고 비상정지의즉시성을유지한다. 새확인수준/단축키정책은 이번검토로결정하지않는다.</li></ul>
 <a class="permalink" href="#task-7ca2205786" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="task-179a40026c" data-status="validation" data-source-line="112">
+<article class="task validation" id="task-179a40026c" data-status="validation" data-source-line="113">
 <p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>P1-PROVIDER-01 — KIS/Toss 기존 운영 원장과 실제 정정·취소 응답의 최종 검증.</strong></h2>
@@ -155,7 +156,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>관련 완료 근거:</strong> P1-RECOVERY-01의 UI·fixture 구현은 완료 이력에 보존하며 이 항목의 실제 provider 검증을 대체하지 않는다.</li></ul>
 <a class="permalink" href="#task-179a40026c" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="soxq-p1-05" data-status="validation" data-source-line="121">
+<article class="task validation" id="soxq-p1-05" data-status="validation" data-source-line="122">
 <p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>SOXQ-P1-05 — LTH 일봉 근사와 실제 장중 평가를 구분한다.</strong></h2>
@@ -169,7 +170,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>완료된 부분의 근거:</strong> <a href="completed-history.md#soxq-p1-05">이관 기록</a>을 참고한다. 상위 완료 조건은 유지한다.</li></ul>
 <a class="permalink" href="#soxq-p1-05" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="soxq-p2-12" data-status="validation" data-source-line="132">
+<article class="task validation" id="soxq-p2-12" data-status="validation" data-source-line="133">
 <p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>SOXQ-P2-12 — 검증된 LTH 분봉의 기본·볼린저 옵션별 비교.</strong></h2>
@@ -181,7 +182,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>완료된 부분의 근거:</strong> <a href="completed-history.md#soxq-p2-12">이관 기록</a>을 참고한다. 상위 완료 조건은 유지한다.</li></ul>
 <a class="permalink" href="#soxq-p2-12" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="soxq-p2-13" data-status="validation" data-source-line="140">
+<article class="task validation" id="soxq-p2-13" data-status="validation" data-source-line="141">
 <p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>SOXQ-P2-13 — 가격조건의 실제 장중 손절·재진입 효능을 검증한다.</strong></h2>
@@ -193,7 +194,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>의존성:</strong> 비식별 자료만으로 가능한 생산 검증은 자료 확보 후 자동 진행한다. 실제 계좌/provider 연결·금융거래는 이번 구현 범위에 포함되지 않는다.</li></ul>
 <a class="permalink" href="#soxq-p2-13" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="soxq-p2-09" data-status="validation" data-source-line="148">
+<article class="task validation" id="soxq-p2-09" data-status="validation" data-source-line="149">
 <p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>SOXQ-P2-09 — 변동성 확장의 실제 장중 근거 검증.</strong> 테스트 가능한 구현·일봉 비교는 완료했으며 최초 장중 발동·실제 체결 가능성 조건은 열린 상태다. <a href="completed-history.md#task-volatility-expansion-policy-20261022">작업</a>, <a href="research/volatility-expansion-policy-20261022/report.md">사전 설계·비교·한계</a>, <a href="research/volatility-expansion-policy-20261022/independent-audit.json">독립 감사</a>.</h2>
@@ -206,7 +207,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <a class="permalink" href="#soxq-p2-09" aria-label="이 할일 링크">#</a>
 </article></section>
 <p id="empty" hidden>일치하는 열린 할일이 없습니다. 검색어나 상태를 바꿔 주세요.</p>
-<footer>원본 SHA-256: c7201b865ecff5640ab4b5542b5a30067326e342700e7a901a73c1d0212e9dfd<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
+<footer>원본 SHA-256: 17db158ebd86c7048bb9cfafb4268e5744e8a532f11eb45cc2a6cbe5db93f2ad<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
 </main>
 <script>
 const status = document.getElementById('status');

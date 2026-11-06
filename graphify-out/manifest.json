@@ -2975,8 +2975,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/sector-portfolio.spec.ts": {
-    "mtime": 1793963254.66607,
-    "ast_hash": "fef4b906570136399ad3f43a70c8e5bd",
+    "mtime": 1793963771.3232243,
+    "ast_hash": "79fe17b84de4fe6dc027975ef939d32a",
     "semantic_hash": ""
   },
   "src-tauri/examples/sector_data_prepare.rs": {
@@ -3260,8 +3260,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/broker-chart-portfolio.spec.ts": {
-    "mtime": 1793962963.661528,
-    "ast_hash": "664555276026ab9754481b171b2355cb",
+    "mtime": 1793963963.3725836,
+    "ast_hash": "4c95892e7cd47ff1adca1ea57b96f5aa",
     "semantic_hash": ""
   },
   "tests/e2e/fixtures/brokerChartFixture.ts": {

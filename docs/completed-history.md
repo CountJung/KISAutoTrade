@@ -105,6 +105,21 @@ Rust `cargo check --workspace --all-targets --locked --offline`, 전체lib965/96
 
 내보낸22+30 합성 입력의 독립 사본에서만 가격근사 확인을true로 해 생산 `broker_chart_price_replay` CLI를 실행했다. source.synthetic=true 및 검증flag=false를 유지한5장부/150일별 행의 데이터흐름 관측이며 합성 수익을 실제 성과로 보고하지 않는다. 원수집본의 한계확인false는 보존했다. 독립 감사는52공통일·12종목·5장부/150행·가상체결9개의10bp 비용을 확인했으며 전체 금융 모델 재구현 대사는 아니다. 입력 raw SHA256 `2902c7672ce6687c2056243a8544a3fa0e87e185691cf143632469e481b04439`, 보고서 raw SHA256 `ec26f34bc4b545c7408fae4abbceafe343a6a98e788e67f8b4330e0006303ffe`이며 `.cache/sector-frontend/broker-chart-30-replay-{input,report}.json`과 실행log가 근거다. 한국투자·토스 차트범위와 미국 정규장만의 모의 의도를 유지하며, 일봉 DTO의 관측일/달력값은 정규장·시간외 포함범위의 인증이 아니므로 이를 미검증으로 남긴다. 실제30일 검증·기업행위 정산·운영연결은 계속 열려 있다. read-only 독립 코드/문서 감사에 차단할 회귀는 없었다. 배포·실계좌조회·주문·자금이동·운영설정 변경은 없다.
 
+후속 순차 pass에서 파일선택기3곳(검증형·자료준비·차트가격)의 실제 focus→Enter/Space→filechooser 이벤트→같은 이름/내용 파일 재선택과 입력 반영·계산 요청0을 확인했다.1280×900의200% CSS zoom에서는 비교모드 Home/End/Enter/Escape·비용/상세전략 선택·한계확인/계산 버튼을 실제 키보드로 조작하고 선택 영역/문서 가로 넘침0을 확인했다. 렌더 확대이며 실제 OS 파일 대화상자 외형·브라우저 도구창 확대·스크린리더/WebView를 검증한 것은 아니다. `.cache/sector-frontend/price-results-css-zoom-200.png`가 production preview의 관측 PNG다.
+
+이 후속은 제품 소스 변경 없이 회귀검사·문서만 보강했다. 관련 dev16/16(18.7초), 동일 제품 소스의 빌드 산출물 production14/14(9.9초)가 통과했고 두 환경 검사를 고유30개로 합산하지 않는다. native 브리지2개는 dev전용이며14개와 별도 플랫폼 인증이 아니다. TypeScript·FSD·lockfile·project-map·TODO 동기화·Graphify 실제 update/check·diff 검사와 독립 리뷰를 통과했다. Rust965와 웹빌드는 앞의 같은 제품 소스 결과이며 후속에서 재실행한 것으로 기록하지 않는다. 갱신한 TODO HTML의 기존 renderer3개도 실제 Chromium의375px 검색/상태필터·JavaScript 없는12개 읽기를 포함해 통과했다.
+
+선행 코드 커밋 **`dbf45a409b2a44b72d366676bb0d47b2ee726b74`**를 지정해 원격 CI를 확인했다. [Release Gate70](https://github.com/CountJung/KISAutoTrade/actions/runs/42208552559)의 frontend·rust(normal/research check와 lib test)·e2e·toss-openapi와 [Dependency Security76](https://github.com/CountJung/KISAutoTrade/actions/runs/42208552487)의 cargo-audit·npm-audit가 모두 성공했다. E2E job127861200239의 실제 로그는 **584/584(18.5분)**이며2026-11-06T11:32:17Z 완료를 확인했다. 후속 푸시로 이 실행을 취소하지 않고 결과를 먼저 보존했다. 이 영수증은 지정한 선행 커밋의 결과이며 후속 테스트/문서 커밋의 CI 성공을 뜻하지 않는다. 기존 보안 예외·도구 안내와 실제 운영 검증의 미완료 경계도 유지한다.
+
+<a id="p2-ux-07-action-audit"></a>
+## P2-UX-07 — 확인 정책 결정 전 현행 영향 조사 · 2026-11-06
+
+TODO에 허용된 결정 전 준비를 진행해 [아키텍처의8행 영향표](ARCHITECTURE.md#p2-ux-07-action-matrix)에 Sidebar/Dashboard 시작·정지, 비상정지 발동/해제, 매수 재개, KIS 국내/미국·Toss 수동주문의 진입점/현재 확인/pending과 backend scope/risk/예약을 코드로 추적했다. Serena가 노출되지 않아 rg와 파일 읽기로 참조를 확인했으며 독립 UI 전문 감사와 주문 준비/예약·execution run 종료를 대조했다. 실제 행동·계좌 조회·자격증명 사용은 없다.
+
+정지와 기접수 주문 취소/청산, 비상정지 해제와 daemon 시작/손실 카운터 초기화, 매수 재개와 입금/잔고 재확인의 차이를 구분했다. 최종 확인창이 없는 현행 UI와 backend guard를 구분하고, UI pending이 컴포넌트별이라는 한계와 수동주문에 자동예산 예약이 일괄 적용되지 않는 분기를 기록했다. 새 확인 정책·단축키·금융 권한은 바꾸지 않았다.
+
+이 표는 현행 정적 조사 완료이며 P2-UX-07 상위는 계속 사용자 판단 대기다. 행동별 확인 수준·scope/모드/영향 요약·입력 변경 시 무효화·모의/실전 차이 결정 후 취소0/승인1/pending 중복0/범위 변경 무효화 검사를 진행한다. 나머지11개 제목/차단 조건도 보존했고 상위 TODO는12개다.
+
 <a id="toss-inventory-20261105"></a>
 ## Toss REST inventory 보정 — 2026-11-05
 

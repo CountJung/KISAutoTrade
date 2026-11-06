@@ -139,6 +139,28 @@ UI/전략 Signal
 
 비상정지 해제나 risk limit 완화는 단순 UI 설정 변경이 아니다. 자동매매 정지 상태, 현재 scope, pending 주문, durable runtime을 확인하고 명시적 운영 승인을 받아야 한다.
 
+<a id="p2-ux-07-action-matrix"></a>
+### 위험 행동의 현행 영향표 — P2-UX-07
+
+`dbf45a4`의 코드 정적 추적(2026-11-06)이다. 아래 직접 실행은 최종 확인창 없이 버튼 handler가 mutation을 호출한다는 뜻이며 backend guard 부재나 실제 오주문 관측을 뜻하지 않는다. 금융 동작은 실행하지 않았고 Serena 도구가 없어 `rg`/파일 읽기로 참조를 추적했다. 새 확인 정책·단축키·금융 실행 승인은 아니다.
+
+| 행동·진입점 | 현재 UI 확인·pending | backend 경계·영향 |
+|---|---|---|
+| 자동매매 시작: [Sidebar L66](../src/widgets/sidebar/ui/Sidebar.tsx#L66), [Dashboard L491](../src/pages/dashboard/ui/Page.tsx#L491) → `start_trading` | 직접 실행. Sidebar는 시작/정지 pending 모두 차단; Dashboard는 시작 pending·설정 미준비 차단. 프로필/모드 표시는 있지만 행동별 재확인 토큰은 없다. | [trading.rs L100](../src-tauri/src/commands/trading.rs#L100): 설정·저장소/Toss 저장 동의, 보유/평가액 동기화·pending 대조·risk 복원, profile/client snapshot과 execution scope 생성 후 daemon 실행 상태를 켠다. 이후 주문 가능한 상태이며 비상정지 해제와 별개다. |
+| 자동매매 정지: 같은 Sidebar, [Dashboard L480](../src/pages/dashboard/ui/Page.tsx#L480) → `stop_trading` | 직접 실행. Sidebar는 시작/정지 pending 모두, Dashboard는 정지 pending만 차단. | [trading.rs L420](../src-tauri/src/commands/trading.rs#L420): 실행 flag·history generation·execution run을 끝내고 실행 프로필 식별자를 비운다. 이 함수는 기접수 주문 취소·보유 청산을 호출하지 않으며 이미 예약한 주문의 원래 scope 추적은 유지한다. |
+| 비상정지 발동: [Dashboard RiskPanel L254](../src/pages/dashboard/ui/Page.tsx#L254) → `activate_emergency_stop` | 직접 실행·자체 activating 중 차단. RiskPanel은 risk.enabled일 때 표시된다. | [risk.rs L209](../src-tauri/src/commands/risk.rs#L209): emergency flag와 runtime 저장. [주문 prepare](../src-tauri/src/trading/order/submission/prepare.rs#L65)에서 신규 매수·매도를 차단하며 daemon 실행 flag 변경이나 기접수 주문 취소와 다르다. |
+| 비상정지 해제: [Dashboard L122](../src/pages/dashboard/ui/Page.tsx#L122) → `clear_emergency_stop` | 직접 실행·자체 clearing 중 차단, 시장 상황 확인 안내. 행동별 scope/모드 확인 토큰은 없다. | [risk.rs L200](../src-tauri/src/commands/risk.rs#L200): flag=false와 저장. [RiskManager L544](../src-tauri/src/trading/risk.rs#L544)는 손실 카운터를 초기화하지 않아 한도 초과 시 can_trade=false가 유지될 수 있다. daemon 시작·매수 정지 해제는 하지 않는다. 저장 실패 IPC 오류와 이미 변경한 메모리 flag를 구분한다. |
+| 매수 재개: [Dashboard L520](../src/pages/dashboard/ui/Page.tsx#L520), [Trading L205](../src/pages/trading/ui/tradingOrderForm.tsx#L205) → `clear_buy_suspension` | 직접 실행·각 컴포넌트 pending 차단. Dashboard는 persistenceBlocked일 때 버튼을 숨기며 Trading 버튼은 같은 표시 조건이 없다. | [trading.rs L482](../src-tauri/src/commands/trading.rs#L482) → [health.rs L97](../src-tauri/src/trading/order/health.rs#L97): persistenceBlocked이면 해제하지 않는다. 그 외 매수 정지와 사유만 지운다. 입금·잔고 재조회·비상정지 해제·daemon 시작은 하지 않는다. |
+| KIS 국내 수동 매수/매도: [Trading L222](../src/pages/trading/ui/tradingOrderForm.tsx#L222) → `place_order` | 직접 제출. 종목·수량·지정가 가격을 handler에서 확인하고 주문 pending 등으로 버튼 차단. 이 경로에는 KIS 실전 행동별 동의 UI가 없다. | [orders.rs L20](../src-tauri/src/commands/orders.rs#L20): 방향/유형·현재가/평가액·KIS account scope 확인 후 공통 제출. 성공 응답은 provider 접수이며 체결 완료 인증이 아니다. |
+| KIS 미국 수동 매수/매도: 같은 Trading → `place_overseas_order` | USD 양수가격과 모의 AMEX/일부 ETF 매도 제한 검사. 최종 확인창 없음. | [market.rs L351](../src-tauri/src/commands/market.rs#L351): 현재가·계좌평가액·KIS scope와 Limit 주문으로 공통 제출. 모의 제한 UI 확인을 provider 성공·정규장 허용 인증으로 확대하지 않는다. |
+| Toss 국내/미국 수동 매수/매도: 같은 Trading → `place_order` Toss 분기 | 저장 동의와 preflight canSubmit·공통 pending으로 차단하고 handler도 재확인. 미국 명시 세션은 달력/개장 확인, auto는 provider 판정 위임. 최종 행동별 확인창 없음. | [orders.rs L130](../src-tauri/src/commands/orders.rs#L130): 동의/계좌 설정·제출 직전 preflight·scope별 local pending·선택 세션/provider open orders·계좌평가액 확인 후 공통 제출. 운영 기능 추적이며 정규장만의 모의 연구 설정 변경이 아니다. |
+
+수동주문 공통 [submission.rs L294](../src-tauri/src/trading/order/submission.rs#L294)는 설정 저장 gate·실행 scope/profile/client snapshot과 준비 후 snapshot을 대조한다. 최종 예약은 persistence 장애·보유 재확인·매수 정지·TradeGuard·scope별 pending/submitting 충돌을 검사한다(L750–814). 매수는 일일손실/비상정지·최대비중, 매도는 확인된 보유·비상정지를 검사한다. 자동매매 예산 예약은 `!is_manual` 분기이므로 모든 수동주문에 자동예산 예약이 적용된다고 설명하지 않는다.
+
+UI pending은 컴포넌트별 상태다. 다른 진입점까지 포함한 중복 요청0·scope 변경 시 행동별 확인 무효화는 이번 정적 조사로 검증하지 않았다. 시작/정지/해제 command의 행동별 확인 토큰과 backend 현재 상태/잠금/주문 snapshot 방어를 구분한다. 기존 합성 주문폼·상태 표시 검사는 실제 주문·최종 확인 정책 검증을 대체하지 않는다.
+
+남은 사용자 결정은 행동별 최종 확인 수준·broker/account/모드/영향 요약·입력/scope 변경 시 확인 무효화·모의/실전 차이다. 긴급 정지·비상정지 발동의 즉시성을 유지한다. 결정 후 취소=mutation0·승인=정확1·pending중중복0·scope/모드 변경 시 확인 무효화를 mock에서 검증한다. [열린 P2-UX-07](todo.md)은 계속 판단 대기다.
+
 ## 8. 전략과 preview
 
 `trading/strategy/core.rs`가 `Signal`, config, trait와 warmup을 정의하고 `manager.rs`가 전략 생성을 조정한다. 실제 전략은 `strategy/*` 하위 모듈에 있다. live loop는 `trading/mod.rs`와 `commands/trading/daemon.rs`가 시세 tick을 전략에 전달한다. `commands/trading.rs`는 상태/시작·정지 IPC facade이며 positions/balance/risk_restore/history 하위 모듈이 포지션·평가액·당일 복원·legacy 사전자료를 맡고 daily_history가 52주 완료 일봉의 비동기 수집을 맡는다.

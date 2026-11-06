@@ -3,6 +3,7 @@ import type { SectorPortfolioInput } from '../../src/shared/api/sectorPortfolioT
 import { fixtureReport } from './fixtures/sectorPortfolioFixture'
 import { syntheticSectorPortfolioInput } from '../../src/pages/strategy/model/sectorPortfolioInput'
 import { mockApi } from './fixtures/strategyResearchFixture'
+import { requestFixture } from './fixtures/sectorDataFixture'
 
 async function setup(page: Page, options: { fail?: boolean; delayed?: Promise<void>; started?: () => void; accountError?: boolean; withRanking?: boolean } = {}) {
   const requests: SectorPortfolioInput[] = []
@@ -109,6 +110,27 @@ for (const theme of ['light', 'dark'] as const) test(`375px ${theme} results tab
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await captureResults(page, `.cache/sector-frontend/keyboard-results-${theme}-mobile.png`)
   expect(requests).toHaveLength(1); expect(violations).toEqual([]); expect(errors).toEqual([])
+})
+
+test('strict and preparation JSON choosers support Enter and Space without submitting a calculation', async ({ page }) => {
+  const { panel, requests, violations, errors } = await setup(page)
+  for (const target of [
+    { tab: '세 전략 비교', button: '자료 JSON 불러오기', field: '섹터 비교 자료 JSON', input: syntheticSectorPortfolioInput() },
+    { tab: '자료 준비', button: '자료 준비 JSON 불러오기', field: '자료 준비 JSON', input: requestFixture() },
+  ]) {
+    await panel.getByRole('tab', { name: target.tab, exact: true }).click()
+    const button = panel.getByRole('button', { name: target.button, exact: true })
+    const field = panel.getByLabel(target.field, { exact: true })
+    for (const key of ['Enter', 'Space']) {
+      await field.fill('')
+      await button.focus(); await expect(button).toBeFocused()
+      const chooser = page.waitForEvent('filechooser', { timeout: 5000 })
+      await page.keyboard.press(key)
+      await (await chooser).setFiles({ name: 'keyboard-sector.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(target.input)) })
+      await expect(field).toHaveValue(JSON.stringify(target.input))
+    }
+  }
+  expect(requests).toEqual([]); expect(violations).toEqual([]); expect(errors).toEqual([])
 })
 
 test('late calculations are discarded after edits and duplicate activation sends one pure request', async ({ page }) => {
