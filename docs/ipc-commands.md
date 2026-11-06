@@ -619,7 +619,9 @@ UI JSON은1.5MB, native 정규화 입력/REST/오프라인 CLI는2MiB 상한이�
 일반 native 전용 `get_broker_chart_scope()`는 명시 클릭 때 opaque profileId/provider/paper만
 반환한다. `collect_broker_chart_data({input})`는 `expectedProfileId`,
 `authenticatedQuotesAcknowledged=true`, `evaluationBars=1..120`, 선택 `endDate/exchangeMappings`를
-받는다. UI 수집은 평가20봉과 사전22봉이다. 종료일 생략은 뉴욕 전일이며 실제 평가 종료는
+받는다. UI 수집은 평가20·30거래일을 선택하며 기본30봉에 사전22봉을 더한다. 기간·종료일을
+변경하면 시세 조회 동의를 해제하고 이전 조건의 늦은 응답을 버린다(조건을 되돌려도 동일).
+이미 독립 입력·계산한 장부는 수집 조건만으로 지우지 않는다. 종료일 생략은 뉴욕 전일이며 실제 평가 종료는
 그 이전 수신 SPY 완료봉이다. 시세 인증/토큰 발급·갱신이 가능하지만 잔고·계좌목록·주문을
 조회하지 않는다. 각 provider await 전후·최종 반환에 profile snapshot/client identity를 대조한다.
 프로필 publication/동의가 바뀐 늦은 UI 수집 응답은 버리고 이미 독립 입력한 계산 결과는 보존한다.

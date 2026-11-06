@@ -92,6 +92,19 @@ Mac mini 원본 checkout은 clean `dd4e498`/`fix/mac-security-storage-2026-10-06
 
 seed/REST 보호 route/Toss raw wire 보강 후 로컬 Rust965/965(16.66초), server29/29와 normal/research all-targets check·엄격 all-features Clippy 경고0·앱/Node TypeScript·연구 웹 build·FSD·lockfile 검사를 통과했다. 전체 UI580개 통과는 마지막 경미 보강 **이전** 실행이며 이후 focused6/6을 확인했다. 예상 전체581을 실행 성공으로 기록하지 않는다. native 수집 집중1개와 native 화면 PNG는 브라우저 mock이며 실제 OS native IPC 화면은 미검증이다. KIS quote/auth·Toss auth의 합성307/308 redirect는 두 번째 서버 수신0을 확인했다. Toss raw wire 회귀16/16은 캐시 토큰 재사용·quote GET1·OAuth POST0·계좌 header0을 검증했으며 실제 Toss 인증 성공이 아니다. Graphify는8014nodes/18661edges/357communities로 재생성했고5000상한 HTML 생략은 도구 안내다. 최종 원격 CI는 커밋·푸시 뒤 [PR #16의 해당 HEAD Checks](https://github.com/CountJung/KISAutoTrade/pull/16/checks)에서 별도로 확인한다. 원래 **검증된 실제30일 비교**·기업행위 정산·운영 연결은 계속 미완료다.
 
+<a id="p2-sector-01-local-followup"></a>
+### P2-SECTOR-01 로컬 후속 — 수집30봉·키보드 관측 · 2026-11-06
+
+외장 원본은 clean `e7e9742`/`fix/mac-security-storage-2026-10-06`이며 원격보다4커밋 뒤였다. 원본을 바꾸지 않고 현재 작업 폴더의 격리 사본을 승인된 같은 원격 브랜치 `50c65f2`까지 fast-forward했다. TODO12개를 코드와 대조해 독립 로컬 진행이 가능한 P2-SECTOR-01을 먼저 보강했다. DB/MSRV·scope·확인정책·서명 결정과 나머지 실제 장중자료/운영검증의 보류는 유지한다.
+
+차트가격 근사 UI의 고정20봉 요청을20/30거래일 선택(기본30)+사전22봉으로 바꿨다. 기간 변경은 요청 revision을 올리고 동의를 해제해30→20→30 뒤 이전 응답도 버린다. 이미 입력한 독립 장부는 옵션만으로 지우지 않는다. 합성 native 브리지에서 정확한 요청/늦은응답 폐기·재동의·22+30 입력과 원본 수집JSON 내보내기를 확인했다. 실제 native 프로세스/IPC·시세 인증이 아닌 브라우저 합성이다.
+
+집중 Playwright13개가 통과했고 내보내기 기대 추가 후 native 합성2개도 다시 통과했다(재실행을 고유 검사 수에 더하지 않음).375px light/dark에서 성과·계획보유·순위의3개 표 실제 방향키 scrollLeft/마지막열 geometry와 상세전략 Home/End/Enter/Escape를 관측했다. 외부/미허용/실제금융 요청·pageerror0이며 native fixture는 운영 shell 없이 실행했다. PNG와 원본은 Git제외 `.cache/sector-frontend/{broker-chart-30-mobile,keyboard-results-light-mobile,keyboard-results-dark-mobile}.png`에 있다. 파일선택키보드·모든select·확대·스크린리더·실제WebView는 미검증이다.
+
+Rust `cargo check --workspace --all-targets --locked --offline`, 전체lib965/965(16.34초), 앱/Node TypeScript·환경파일을 읽지 않는 Vite 웹빌드·FSD·lockfile·project-map·TODO HTML 동기화를 확인했다. 컴파일러 경고0이다. 처음 sandbox의 loopback 금지로 실패한 Rust/브라우저는 제한된 환경과 별도 승인된 실행에서 통과했으며 실제 provider/자격증명은 사용하지 않았다. Graphify 실제 update/check를 수행했으며 기존 zero-node 설정/fixture6개·5000노드 HTML 생략 안내는 코드 경고와 구분한다.
+
+내보낸22+30 합성 입력의 독립 사본에서만 가격근사 확인을true로 해 생산 `broker_chart_price_replay` CLI를 실행했다. source.synthetic=true 및 검증flag=false를 유지한5장부/150일별 행의 데이터흐름 관측이며 합성 수익을 실제 성과로 보고하지 않는다. 원수집본의 한계확인false는 보존했다. 독립 감사는52공통일·12종목·5장부/150행·가상체결9개의10bp 비용을 확인했으며 전체 금융 모델 재구현 대사는 아니다. 입력 raw SHA256 `2902c7672ce6687c2056243a8544a3fa0e87e185691cf143632469e481b04439`, 보고서 raw SHA256 `ec26f34bc4b545c7408fae4abbceafe343a6a98e788e67f8b4330e0006303ffe`이며 `.cache/sector-frontend/broker-chart-30-replay-{input,report}.json`과 실행log가 근거다. 한국투자·토스 차트범위와 미국 정규장만의 모의 의도를 유지하며, 일봉 DTO의 관측일/달력값은 정규장·시간외 포함범위의 인증이 아니므로 이를 미검증으로 남긴다. 실제30일 검증·기업행위 정산·운영연결은 계속 열려 있다. read-only 독립 코드/문서 감사에 차단할 회귀는 없었다. 배포·실계좌조회·주문·자금이동·운영설정 변경은 없다.
+
 <a id="toss-inventory-20261105"></a>
 ## Toss REST inventory 보정 — 2026-11-05
 

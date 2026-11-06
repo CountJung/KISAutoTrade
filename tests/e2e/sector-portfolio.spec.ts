@@ -4,7 +4,7 @@ import { fixtureReport } from './fixtures/sectorPortfolioFixture'
 import { syntheticSectorPortfolioInput } from '../../src/pages/strategy/model/sectorPortfolioInput'
 import { mockApi } from './fixtures/strategyResearchFixture'
 
-async function setup(page: Page, options: { fail?: boolean; delayed?: Promise<void>; started?: () => void; accountError?: boolean } = {}) {
+async function setup(page: Page, options: { fail?: boolean; delayed?: Promise<void>; started?: () => void; accountError?: boolean; withRanking?: boolean } = {}) {
   const requests: SectorPortfolioInput[] = []
   const violations: string[] = []
   const errors: string[] = []
@@ -17,7 +17,14 @@ async function setup(page: Page, options: { fail?: boolean; delayed?: Promise<vo
     options.started?.()
     if (options.delayed) await options.delayed
     if (options.fail) await route.fulfill({ status: 400, json: { code: 'SECTOR_INVALID', error: '거래일 누락으로 평가 불가' } })
-    else await route.fulfill({ json: fixtureReport(input) })
+    else {
+      const report = fixtureReport(input)
+      if (options.withRanking) report.rankings = [{ date: report.endDate, signalDate: input.history.at(-1)!.date,
+        spyR20: 0, previousSpyR20: 0, rankings: Object.keys(input.history[0].prices).filter(symbol => symbol !== 'SPY').map(symbol => ({
+          symbol, r5: 0, r20: 0, rs5: 0, rs20: 0, percentile5: 0, percentile20: 0, score: 0, eligible: false,
+        })) }]
+      await route.fulfill({ json: report })
+    }
   })
   if (options.accountError) await page.route('**/api/app-config', route => route.fulfill({ status: 500, json: { code: 'FIXTURE', error: '합성 설정 조회 오류' } }))
   await page.route('**/*', async route => {
@@ -65,6 +72,43 @@ test('JSON research works independently of account errors, preserves metadata an
   await expect(panel.getByRole('button', { name: '세 전략 비교 계산', exact: true })).toBeDisabled()
   expect(violations).toEqual([])
   expect(errors).toEqual([])
+})
+
+for (const theme of ['light', 'dark'] as const) test(`375px ${theme} results tables scroll with arrow keys and strategy select completes without pointer`, async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 900 })
+  await page.addInitScript(theme => localStorage.setItem('act-settings', JSON.stringify({ state: { theme }, version: 0 })), theme)
+  const { panel, requests, violations, errors } = await setup(page, { withRanking: true })
+  await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
+  await panel.getByRole('button', { name: '합성 예제 입력', exact: true }).click()
+  await panel.getByRole('button', { name: '세 전략 비교 계산', exact: true }).click()
+  const results = panel.getByTestId('sector-portfolio-results')
+  await expect(results).toBeVisible()
+  const select = results.getByRole('combobox', { name: '상세 비교 전략', exact: true })
+  await select.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('End'); await page.keyboard.press('Enter')
+  await expect(select).toContainText('현금')
+  await select.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Home'); await page.keyboard.press('Escape')
+  await expect(select).toContainText('현금')
+  await select.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Home'); await page.keyboard.press('Enter')
+  await expect(select).toContainText('기본형')
+  await page.addStyleTag({ content: '* { scroll-behavior: auto !important; }' })
+  for (const label of ['세 전략과 비교군 성과표', '섹터 계획과 실제 보유', '섹터 상대강도 순위']) {
+    const table = results.getByLabel(label, { exact: true })
+    await table.focus(); await expect(table).toBeFocused()
+    expect(await table.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
+    for (let i = 0; i < 40; i++) await page.keyboard.press('ArrowRight')
+    await expect.poll(() => table.evaluate(element => element.scrollWidth - element.clientWidth - element.scrollLeft)).toBeLessThan(2)
+    const finalColumn = await table.evaluate(element => {
+      const cell = element.querySelector('thead th:last-child')!.getBoundingClientRect()
+      const box = element.getBoundingClientRect()
+      return cell.right <= box.right + 2 && cell.left >= box.left - 2
+    })
+    expect(finalColumn).toBe(true)
+    for (let i = 0; i < 40; i++) await page.keyboard.press('ArrowLeft')
+    await expect.poll(() => table.evaluate(element => element.scrollLeft)).toBeLessThan(2)
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await captureResults(page, `.cache/sector-frontend/keyboard-results-${theme}-mobile.png`)
+  expect(requests).toHaveLength(1); expect(violations).toEqual([]); expect(errors).toEqual([])
 })
 
 test('late calculations are discarded after edits and duplicate activation sends one pure request', async ({ page }) => {

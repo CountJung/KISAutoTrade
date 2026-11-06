@@ -33,6 +33,7 @@ function download(value: unknown, name: string) {
 export function BrokerChartPortfolioPanel({ researchOnly, quoteScopeKey, quoteScopeReady, quoteScopeCurrent }: Props) {
   const [text, setText] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [evaluationBars, setEvaluationBars] = useState<20 | 30>(30)
   const [error, setError] = useState<string | null>(null)
   const [completed, setCompleted] = useState<Completed | null>(null)
   const [collection, setCollection] = useState<BrokerChartCollection | null>(null)
@@ -115,7 +116,7 @@ export function BrokerChartPortfolioPanel({ researchOnly, quoteScopeKey, quoteSc
     const request = startQuote()
     try {
       const value = await collectMutation.mutateAsync({ expectedProfileId: scope.profileId, authenticatedQuotesAcknowledged: true,
-        evaluationBars: 20, ...(endDate ? { endDate } : {}) })
+        evaluationBars, ...(endDate ? { endDate } : {}) })
       if (current(ticket) && optionsTicket === sourceRevision.current && quoteCurrent(request)) {
         const input = { ...value.input, acknowledgedPriceOnly: false,
           knownCorporateActions: [...value.input.knownCorporateActions, ...knownCorporateActions] }
@@ -155,6 +156,13 @@ export function BrokerChartPortfolioPanel({ researchOnly, quoteScopeKey, quoteSc
         <Typography component="h4" variant="subtitle2">인증 차트 자료 수집 · 선택 사항</Typography>
         {!canAuthenticate && <Alert severity="info">일반 데스크톱 앱에서만 명시적으로 인증 시세를 수집합니다. 이 실행 환경에서는 JSON 입력과 순수 계산을 사용할 수 있습니다.</Alert>}
         {canAuthenticate && !quoteScopeReady && <Alert severity="info">KIS 또는 Toss 조회 프로필 확인이 완료될 때까지 인증 수집을 보류합니다.</Alert>}
+        <TextField select label="차트 수집 평가 거래일" value={evaluationBars} size="small" onChange={event => {
+          const next = Number(event.target.value)
+          if (next !== 20 && next !== 30) return
+          sourceRevision.current += 1; setEvaluationBars(next); setSourceAck(null)
+        }} helperText={`사전22봉 + 평가${evaluationBars}봉을 요청합니다. 수신한 관측 거래일이며 공식 달력·기업행위 검증 완료를 뜻하지 않습니다.`}>
+          <MenuItem value={20}>20거래일</MenuItem><MenuItem value={30}>30거래일</MenuItem>
+        </TextField>
         <TextField label="차트 조회 종료일 (선택)" value={endDate} onChange={event => {
           sourceRevision.current += 1; setEndDate(event.target.value); setSourceAck(null)
         }} size="small" placeholder="YYYY-MM-DD" helperText="비워두면 뉴욕 전일을 조회 기준으로 고정합니다. 최종 평가 종료일은 수신한 SPY 완료봉 기준입니다." />
@@ -162,7 +170,7 @@ export function BrokerChartPortfolioPanel({ researchOnly, quoteScopeKey, quoteSc
         {scope && <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>확인한 시세 범위: {scope.profileId} · {scope.provider.toUpperCase()} · {scope.provider === 'kis' ? scope.paper ? '모의' : '실전' : '실전 시세'}</Typography>}
         {scope?.provider === 'kis' && <Typography variant="body2">KIS 기본 매핑은 2026-11-06 공식 마스터 스냅샷의 고정12종목을 사용합니다. 오류·빈 자료면 수집을 중단하며 매핑 최신성을 자동 인증하지 않습니다.</Typography>}
         <FormControlLabel control={<Checkbox checked={acknowledgedSource} disabled={!canAuthenticate || !scope || pendingQuote} onChange={(_, checked) => setSourceAck(checked ? quoteScopeKey : null)} />} label="확인한 프로필의 인증 시세 조회에 동의합니다 (주문·잔고 동의 아님)" />
-        <Box><Button variant="outlined" disabled={!canAuthenticate || !scope || !acknowledgedSource || pendingQuote || Boolean(endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate))} onClick={() => void collect()} aria-busy={pendingQuote}>차트 자료 20봉 수집</Button></Box>
+        <Box><Button variant="outlined" disabled={!canAuthenticate || !scope || !acknowledgedSource || pendingQuote || Boolean(endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate))} onClick={() => void collect()} aria-busy={pendingQuote}>차트 자료 {evaluationBars}봉 수집</Button></Box>
         {pendingQuote && <Typography role="status" variant="body2">{quoteRequest?.key === quoteScopeKey ? '차트 조회 요청 중입니다.' : '이전 프로필 요청 종료를 기다립니다. 이전 응답은 적용하지 않습니다.'}</Typography>}
       </Stack>
     </Box>
