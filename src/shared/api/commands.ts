@@ -377,3 +377,4 @@ export * from './databaseCommands'
 export { getBudgetRecovery, approveBudgetRecovery } from './budgetRecoveryCommands'
 
 export * from './sectorPortfolioCommands'
+export * from './sectorDataCommands'

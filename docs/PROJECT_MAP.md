@@ -17,9 +17,11 @@ strategy → guard/preflight/risk → OrderManager → KIS/Toss
 JSON/DB storage + pending/order/trade/risk + Discord/event
 ```
 
-별도 연구 경로는 Strategy의 `SectorPortfolioPanel` → `sectorPortfolioHooks` → IPC/REST
-→ `trading/sector_portfolio`다. 사용자가 제공한 자료로 USD 비교 원장만 계산하며,
-AppState·provider·OrderManager·storage를 사용하지 않는다. CLI도 같은 엔진을 호출한다.
+순수 연구 경로는 `SectorPortfolioPanel` → IPC/REST → `sector_data` 검증 또는
+`sector_portfolio` 계산이며 AppState·provider·주문·storage를 사용하지 않는다.
+`research-only` native는 별도 identifier와 두 순수 IPC만 등록한다. 일반 native의
+명시적 `get_sector_quote_scope`/`collect_sector_data`만 별도 AppState·인증 시세 경로를
+사용하며 주문·잔고·자동매매로 연결하지 않는다. [자료/실행 계약](ipc-commands.md#섹터-자료-준비와-연구-전용-실행)을 따른다.
 
 상세 계층과 주문 시퀀스는 [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)를 본다.
 
@@ -38,7 +40,7 @@ AppState·provider·OrderManager·storage를 사용하지 않는다. CLI도 같�
 | DB IPC | `src/api/databaseHooks.ts` | `src/shared/api/databaseCommands.ts`, `commands/database.rs` |
 | Tauri command 추가 | `src-tauri/src/commands/<domain>.rs` | `commands.rs`, `lib.rs::generate_handler!`, `docs/ipc-commands.md` |
 | Web REST 대응 | `src-tauri/src/server/router.rs`, `server/mod.rs` | router는 생산 route·보안 middleware 조립, mod는 상태·환경·바인딩과 SPA/정적 파일 처리. `server/{market,profiles,records,toss,trading,budget}.rs`, transport route map |
-| Web REST route·응답 계약 | `src-tauri/src/server/route_cases.rs`, `server/router_tests.rs` | `server/{extractor_tests,view_contract_tests,provider_contract_tests,test_support}.rs`. 고정75 binding/71 URL/13 capture 경로를 생산 router로 대조하며 자체 Origin/token 정책·입력 거절·IPC view·loopback 합성 KIS 경계를 확인. 실제 provider 운용 검증과 구분 |
+| Web REST route·응답 계약 | `src-tauri/src/server/route_cases.rs`, `server/router_tests.rs` | `server/{extractor_tests,view_contract_tests,provider_contract_tests,test_support}.rs`. 고정76 binding/72 URL/13 capture 경로를 생산 router로 대조하며 자체 Origin/token 정책·입력 거절·IPC view·loopback 합성 KIS 경계를 확인. 실제 provider 운용 검증과 구분 |
 | 공통 HTTP·TLS 정책 | `src-tauri/src/http.rs`, `http/tests.rs` | `http/testdata/*.der`, `api/{rest,token}.rs`, `broker/toss/http.rs`, `commands/settings.rs`, `market/mod.rs`, `notifications/discord.rs`, `server/profiles.rs`. reqwest 생성14곳의 번들 roots·client별 ring/HTTP1을 공유하고 호출자 정책과 WS0.30/native roots 경계는 유지 |
 | WebSocket 구독·상태·종료 | `src-tauri/src/api/websocket.rs`, `api/websocket/tests.rs` | private connect_stream/websocket_config(4096)·start_subscription/send_subscription/publish_status, `http/testdata/*.der`.0.30/native roots 유지, Close flush·전송 실패 flag 복원, 합성 WS/WSS와 실제 운용 검증 구분; 자동 재연결 없음 |
 | KIS 연동 | `src-tauri/src/api/rest.rs`, `api/rest/*` | `api/token.rs`, `api/websocket.rs`, `broker/kis.rs` |
@@ -54,6 +56,7 @@ AppState·provider·OrderManager·storage를 사용하지 않는다. CLI도 같�
 | 변동성 확장 이전 범위·시장일 관측·실제 소유 | `trading/strategy/breakout/volatility_expansion.rs`, `volatility_expansion/{params,context,protection}.rs` | `strategy/{core,manager/live_history}.rs`, `manager/volatility_history_tests.rs`, `configuration/tests/volatility.rs`, `strategy_preview/volatility_entry_tests.rs`, `src/shared/api/strategyResearchTypes.ts`, `volatilityExpansion{Controls,Preparation}.tsx`, `tests/e2e/strategy-volatility-expansion-policy.spec.ts`, `docs/research/volatility-expansion-policy-20261022/` |
 | 강한 종가 완료 시장일·실제 소유·선택 보호 | `trading/strategy/breakout/strong_close.rs`, `strong_close/{params,context,protection}.rs` | `strategy/{core,manager/live_history}.rs`, `manager/strong_close_history_tests.rs`, `configuration/tests/strong_close.rs`, `strategy_preview/strong_close_entry_tests.rs`, `strongClose{Controls,Preparation}.tsx`, `tests/e2e/strategy-strong-close-policy.spec.ts`, `docs/research/strong-close-policy-20261022/` |
 | 돌파 실패 실제 소유·선택 진입/보호 | `trading/strategy/sequence/failed_breakout.rs`, `failed_breakout/{params,context,protection}.rs` | `strategy/{core,completed_daily,manager/live_history}.rs`, `configuration/tests/failed_breakout.rs`, `strategy_preview/failed_breakout_entry_tests.rs`, `failedBreakout{Controls,Preparation}.tsx`, `tests/e2e/strategy-failed-breakout-policy.spec.ts`, `docs/research/failed-breakout-policy-20261022/` |
+| 섹터 자료 준비·연구 전용 native | `trading/sector_data/{types,collector,validation}.rs`, `commands/sector_data.rs`·`server/sector_data.rs`, `research.rs`·`main.rs` | `src/pages/research/`, `SectorDataPreparationPanel.tsx`, `sectorDataPreparation.ts`, `tauri.research.conf.json`·`vite.research.config.ts`, `examples/sector_data_prepare.rs`. 순수 파일 검증과 일반 native의 명시 인증 수집을 분리하며 [현재 사용법](user-guide.md#연구-전용-앱과-섹터-자료-준비)·[검증 한계](completed-history.md#p2-sector-01)를 따른다. |
 | 섹터 ETF 3전략 USD 연구 엔진 | [trading/sector_portfolio.rs](../src-tauri/src/trading/sector_portfolio.rs), `sector_portfolio/{types,validation,planner,replay,tests}.rs` | [commands/sector_portfolio.rs](../src-tauri/src/commands/sector_portfolio.rs), `server/sector_portfolio.rs`·`sector_portfolio/tests.rs`, [examples/sector_portfolio_replay.rs](../src-tauri/examples/sector_portfolio_replay.rs). 제공된 12종목 자료·최소22개 사전 완료봉·별도 평가 구간으로 기본/방어/공격과 SPY/현금을 계산. 기존 단일 종목 KRW ReplaySession·실행 전략 등록과 분리 |
 | 섹터 비교 UI·모의 원장 대조 | [SectorPortfolioPanel.tsx](../src/pages/strategy/ui/SectorPortfolioPanel.tsx), `SectorPortfolioResults.tsx`, `SectorPaperComparison.tsx` | `src/pages/strategy/model/sectorPortfolioInput.ts`, `src/api/sectorPortfolioHooks.ts`, `src/shared/api/sectorPortfolio{Types,Commands}.ts`, [tests/e2e/sector-portfolio.spec.ts](../tests/e2e/sector-portfolio.spec.ts). 계좌 로딩과 독립된 JSON 입력·결과 다운로드와 수동 모의 평가 대조. 09:50 표시가격과 nextOpen 근사 차이를 표시 |
 | Replay 체결 모델·연구 보호 청산 | `trading/simulation/{session,execution_tests}.rs`, `simulation.rs` | `commands/strategy_preview{,/generic}.rs`, `strategy/leveraged_trend_hold/preview.rs`, `strategyResearchPanel.tsx`, `tests/e2e/strategy-execution-model.spec.ts` |

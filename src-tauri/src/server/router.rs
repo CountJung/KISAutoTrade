@@ -83,6 +83,10 @@ pub(super) fn build_router(state: ServerState) -> Router {
             post(sector_portfolio::preview_handler),
         )
         .route(
+            "/api/strategy/sector-data/validate",
+            post(sector_data::validate_handler),
+        )
+        .route(
             "/api/strategy/preview/continuous",
             post(strategy_continuous_preview_handler),
         )

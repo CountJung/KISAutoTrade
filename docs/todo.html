@@ -55,22 +55,23 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <p class="section">1. 바로 진행할 코드·개선 작업</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>P2-SECTOR-01 — 비레버리지 섹터 ETF 기본·방어·공격의 공통 포트폴리오 엔진과 동일 기간 30일 비교를 구현·검증한다.</strong></h2>
-<ul><li><strong>현재 범위:</strong> 후속 사용자 요청으로 <a href="../src-tauri/src/trading/sector_portfolio.rs">순수 USD 엔진</a>, <a href="../src/pages/strategy/ui/SectorPortfolioPanel.tsx">계좌 독립 연구패널</a>, IPC/REST·오프라인 CLI를 구현했다. 3전략+SPY단순보유/현금은 공통 날짜·같은 티커의 실행가격을 공유한다. 필수가격 누락은 비교 전체 오류이며0%로 대체하지 않는다. 운영 factory/daemon·계좌/provider/주문·저장·배포는 연결하지 않았다. 확정 규칙은 <a href="https://chatgpt.com/space/page_516a8048a3408191996bf8d2a704dec9">모의 원장</a>에 대조했고 가격/성과를 복사하거나 독립 검증한 것으로 간주하지 않는다.</li>
+<ul><li><strong>현재 범위:</strong> 후속 사용자 요청으로 <a href="../src-tauri/src/trading/sector_portfolio.rs">순수 USD 엔진</a>, <a href="../src/pages/strategy/ui/SectorPortfolioPanel.tsx">계좌 독립 연구패널</a>, IPC/REST·오프라인 CLI를 구현했다. 3전략+SPY단순보유/현금은 공통 날짜·같은 티커의 실행가격을 공유한다. 필수가격 누락은 비교 전체 오류이며0%로 대체하지 않는다. 계산 엔진은 운영 factory/daemon·주문·저장·배포와 분리한다. 추가 보강은 별도 연구 전용 native 실행과 일반 native의 명시적 인증 시세 수집·순수 자료 검증 경로이며, 이번 단계에서 실제 인증/API·profile 파일에 접근하지 않았다. 확정 규칙은 <a href="https://chatgpt.com/space/page_516a8048a3408191996bf8d2a704dec9">모의 원장</a>에 대조했고 가격/성과를 복사하거나 독립 검증한 것으로 간주하지 않는다.</li>
 <li><strong>확정 3전략:</strong> 비레버리지 11개 XLC/XLY/XLP/XLE/XLF/XLV/XLI/XLB/XLRE/XLK/XLU의 선정기를 공유하며 SPY는 신호 기준으로만 사용한다. 기본은 상위 최대3개 각30%(최대90%); 방어는 같은 선정 종목에서 SPY20일 수익률이 2거래일 연속 <strong>0 이하</strong>이면 각15%(최대45%), 2일 연속 <strong>양수</strong>이면 각30%로 복귀하고 혼합 신호는 이전 상태를 유지한다. 최초 상태는 보통이며 첫 매수 전 두 완료 거래일 조건을 먼저 적용한다. 공격은 상위 최대2개 각47.5%(최대95%)이며 레버리지·공매도·차입을 쓰지 않는다. 적격 부족분은 현금이며 남은 종목으로 비중을 재분배하지 않는다.</li>
 <li><strong>확정 선정·리밸런싱·비용:</strong> 조정 종가 A로 Rn=A(t)/A(t−n)−1, RSn=Rn(ETF)−Rn(SPY)를 계산한다. 11개 전체의 RS5/RS20 각각 오름차순 평균순위에 백분위=(순위−1)/10을 적용하고 두 백분위를 동일 가중 평균한다. 적격은 <strong>R20&gt;0 및 RS20&gt;0</strong>, 점수 내림차순→RS20 내림차순→티커 오름차순이다. 매 거래일 장전 전일 종가로 선정/기준NAV/목표예산을 고정하고, 어느 ETF든 실제−목표 비중 절댓값 <strong>5%p 이상</strong> 또는 선정 집합/방어 상태 변경이면 해당 전략 전체를 리밸런싱한다. 단순 순위 변경/현금 비중만으로 재매매하지 않는다. 매도 후 장전 순위대로 매수하며 목표 수량=floor(고정예산/실행가격), 매수는 floor(가용현금/(가격×1.001)) 이내다. 편도 <strong>전체 비용0.1%=10bp를 한 번</strong>, 세금/현금이자0을 세 전략에 동일 적용한다. 비용을 별도 수수료/슬리피지로 중복 가산하지 않는다.</li>
 <li><strong>구현·기존 엔진과 차이:</strong> 기존 Momentum은 종목별lookback, generic/ReplaySession은 단일종목 KRW 장부다. 새 <code>sector_portfolio/{validation,planner,replay,types}.rs</code>가 고정12종목·공통시계·USD다종목 현금/보유/원가를 별도로 소유한다. 공개 <code>rank_sectors</code>/<code>plan_sector_portfolio</code>를 replay가 공유하며 연구ID를 MA fallback이나 실제 자동매매 목록에 등록하지 않는다. <code>commands/sector_portfolio.rs</code>와 <code>server/sector_portfolio.rs</code>는 같은 bounded blocking 계산이며 기존POST보안·2MiB JSON·500봉 상한을 유지한다. <a href="ipc-commands.md#섹터-etf-포트폴리오-연구-v1">IPC 정본</a>, <a href="../src-tauri/src/trading/sector_portfolio/types.rs">입출력 형식</a>.</li>
 <li><strong>자료 가능 범위·미확인:</strong> <a href="../src-tauri/src/api/rest/chart.rs">KIS 차트</a>는 해외 dailyprice·MODP=1·OHLCV 매핑, <a href="../src-tauri/src/broker/kis.rs">KIS adapter</a>는 D/W/M·최대100봉 페이지/날짜 cursor를 구현하며 1m page는 미지원이다. <a href="../src-tauri/src/commands/candles.rs">공통 page</a>는 scope/asOf·미완료봉 제외를 제공한다. <a href="https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/overseas_stock/dailyprice/dailyprice.py">공식 dailyprice</a>도 수정주가 입력을 제공하나, 실제 ETF/SPY의 요청 기간 coverage·거래소 매핑·이용 권한·배당 포함 조정 의미·point-in-time 일관성은 이번에 조회/검증하지 않았다. Toss adjusted 입력도 동일한 검증이 필요하다. 원장의 StockAnalysis와 KIS/Toss를 동일 feed로 간주하지 않으며 교체 시 신호·조정 기준 차이를 대조한다. 원본/정규화 hash·수집 시각·조정/출처·누락/중복·상장/기업행위를 기록하고 누락을 종가 채우기나 합성으로 감추지 않는다.</li>
+<li><strong>연구 전용 실행·자료 준비:</strong> <code>dev:research</code>/<code>build:research</code>와 별도 identifier의 native는 AppState/profile/config/store/plugin/server/daemon 없이 파일 검증·계산 두 IPC만 제공한다. 일반 native에서 명시 클릭·expectedProfileId·인증 시세 동의를 거친 고정12종목 MODP0/1 수집은 별도 경로다. REST는 순수 자료 검증만 추가하며 인증 수집/scope 조회는 제공하지 않는다. 수집 후에는 공식 달력/특별휴장·12개 거래소매핑 근거·조정 의미·평가창 기업행위 부재를 수동 대조해 ready가 된 입력만 계산한다. <a href="user-guide.md#연구-전용-앱과-섹터-자료-준비">현재 사용법</a>·<a href="ipc-commands.md#섹터-자료-준비와-연구-전용-실행">wire 계약</a>.</li>
 <li><strong>30일과 선행 자료:</strong> 초안의 주 비교는 공통 종료일 직전 <strong>완료된 미국 30거래일</strong>, 달력30일은 별도 보조 창으로 실제 거래일 수를 명시한다. 시작/종료·거래소 달력·조기마감·America/New_York/DST와 조회 cutoff를 결과를 보기 전 고정한다. 20일 수익률 하나는 종가21개, 연속2개는 최소22개가 필요하므로 지표의 수학적 최소는 SPY22개·섹터21개이나, <strong>현재 공통날짜 API는 전체12종목 각각22개 사전봉 + 평가30봉(각52봉)</strong>을 요구한다. 섹터만51봉으로 줄인 입력은 현재 미지원이다. 최초 상태=보통에서 첫 판정의 두 SPY 수익률을 적용하고 이전 가상 거래를 만들지 않는다. 현재 요청은 항상 새 독립 계좌이며 기존 모의 상태/보유를 복원하지 않는다. 운영 재시작/checkpoint 연결은 별도 남은 조건이고 더 긴 prefix로 초기상태를 바꾸는 연구는 별도 시나리오다. 30봉만 받아 warmup 후 축소된 창을 30일 성과라 하지 않는다.</li>
 <li><strong>인과·자금·기업행위:</strong> 전일 완료 자료로 순위/방어상태·목표예산을 고정하고 다음 거래일 시가 근사 체결을 분리한다. 최종 정수 수량은 실행 시 관측 가격으로 산출하되 그 가격으로 전일 선택·예산을 바꾸지 않는다. 갭/비용 부족 시 차단·수량 축소를 기록한다. 원장의 별도 비교는 <strong>11월6~24일 장전08:45·09:50조회 표시가·16:20평가(뉴욕)</strong>이며 과거 일봉 nextOpen은 이09:50가격을 복원하지 못하는 별도 근사다. 두 실험의 기간/성과를 소급 합산하거나 같은 체결로 부르지 않는다. sameClose는 실제 체결 가능성을 보장하지 않는다. 3개 독립 가상 계좌에 동일 USD10,000·동일 창/자료/비용/정수주 규칙을 적용한다. <a href="../src-tauri/src/trading/simulation/accounting.rs">현재 정산</a>은 KRW 유휴 현금이며 USD 현금 보유 장부가 아니므로 새 연구엔진에 USD 현금·다종목 보유/원가·NAV를 구현했다. KRW/FX 평가·실제 주문예약은 이번 엔진에 없으며 향후 운영 연결에서 별도 검증한다. 조정가격 신호열과 실제 체결가격/분할 수량·원가·배당락/지급 현금을 구분하고 배당 조정 가격+현금배당 중복을 금지한다. 자동 기업행위 검증/반영은 현재 완료됐다고 주장하지 않는다.</li>
 <li><strong>주문·리스크 의존성:</strong> <a href="../src-tauri/src/trading/simulation.rs">simulation 가정</a>의 기본 max_position_ratio=0.3·fee/tax/slippage/FX는 공격47.5%나 해외 실제 비용을 자동 충족하지 않는다. 연구별 비중 제한을 맞추고 기본 편도총10bp·세금0·추가비용0을 명시한다. 비교용 총비용20bp 등 스트레스는 기본과 분리하며 운영 설정은 바꾸지 않는다. 현재 순수 연구는 운영 guard/risk를 호출하지 않으며 이 계층의 통과 성과로 표현하지 않는다. 운영 연결에서는 guard가 방어축소/교체를 막는 경우와 실제 접수/부분/거절·지연/잔여 노출을 따로 검증해야 하고 원하는 결과를 얻으려 guard를 우회하지 않는다. 실제 운용 연결은 기존 소유권·scope·예산 예약·중복 방지·정지/재시작 복원을 유지한 별도 단계다.</li>
 <li class="subtask"><span aria-label="완료">☑</span> <strong>로컬 구현·검증:</strong> 순위/상태/리밸런싱·정수주/비용/현금 부족·종목교체·부분매도 원가·미래자료 불변·초기혼합·독립 일별NAV/MDD/표본변동성 단위17개와 REST동등성/무부작용2개가 전체 Rust920개에 포함돼 통과했다. 타입/FSD·웹빌드와 새 화면4개를 검증했다. 합성22+30봉·편도10/20bp의10장부/300일별 기록·36매도/4부분매도를 CLI와 독립 장부로 대사했다. 이 수치는 실제 시장 성과가 아니다. UI는 입력/출처·SHA·비용·비중/현금·기말보유·전체JSON을 보존하며, 모의 원장 요약은 시작일/자본/비용 일치와 동일 평가일만 비교한다. 상세 최신 검증·원본 경로는 <a href="completed-history.md#p2-sector-01">같은 ID 이력</a>을 따른다.</li>
-<li class="subtask"><span aria-label="미완료">☐</span> <strong>검증된 실제30일 비교:</strong> 전체12종목의 원본·조정 기준·거래소 달력/coverage·기업행위 부재를 확인한 같은 입력을 준비해 실제 자료의 기본/방어/공격+SPY/현금 순/총손익·MDD·최대일손실·비연율변동성·노출·비용·회전율을 독립 대사한다. 부모 대화의 별도 사후 계산과 파일/hash/체결근사가 일치하는지 먼저 확인한다. 모의09:50가격 기록이 없으면 nextOpen 결과만 별도 근사로 보고하며 원장 성과와 합산하지 않는다. 회전율은 현재 (매수+매도대금)/초기자금×100, f64USD전체정밀도이며 원장의 다른 분모·센트정산과 차이를 명시한다.</li>
+<li class="subtask"><span aria-label="미완료">☐</span> <strong>검증된 실제30일 비교:</strong> 인증 수집 구현·로컬 fixture 검증과 실제 API 성공을 구분한다. 사용자의 계좌 연결 진술은 독립 검증이 아니다. 전체12종목의 원본·조정 기준·거래소 달력/coverage·기업행위 부재를 확인한 같은 입력을 준비해 실제 자료의 기본/방어/공격+SPY/현금 순/총손익·MDD·최대일손실·비연율변동성·노출·비용·회전율을 독립 대사한다. 부모 대화의 별도 사후 계산과 파일/hash/체결근사가 일치하는지 먼저 확인한다. 모의09:50가격 기록이 없으면 nextOpen 결과만 별도 근사로 보고하며 원장 성과와 합산하지 않는다. 회전율은 현재 (매수+매도대금)/초기자금×100, f64USD전체정밀도이며 원장의 다른 분모·센트정산과 차이를 명시한다.</li>
 <li class="subtask"><span aria-label="미완료">☐</span> <strong>기업행위·운영 연결:</strong> 평가창의 분할·배당락 적격수량/미수·지급현금 원장은 미지원이다. 사건 목록 또는 부재 미확인 입력은 현재 전체 거부한다. 사건별 실제 원본으로 수량/원가/권리/지급을 구현·대사한 뒤에만 지원을 넓힌다. 실제 자동매매 연결은 scoped소유·예산예약·동시/중복·부분/거절·guard/risk·정지/재시작·checkpoint·실패복구 및 사용자가 보는 상태를 먼저 구현/검증하며 계좌 준비 중이라는 말로 금융 동작을 승인받은 것으로 간주하지 않는다.</li>
 <li><strong>UI 관측 한계:</strong> 합성응답의1440/375px light 화면·키보드focus·오류/stale/모의대조는 검증했다. 표 실제키보드 가로스크롤·파일선택Enter/Space·select전체키보드흐름·dark/확대/스크린리더/nativeWebView는 해당 focused 검사/PNG로 확인하지 않았다. 결함 판정 없이 이 경계를 유지한다.</li>
 <li><strong>해석·실거래 전 조건:</strong> 30일은 로직·비용·회계·대응 경로를 확인할 단기 회고이며 우월성/통계 유의성·급락 방어·실거래 안전성의 증거가 아니다. 최소 수개월~수년의 서로 다른 사전 고정 국면·비용 스트레스·별도 미관측 기간·forward paper와 장애/복원 검증 후 채택을 검토한다. 과거 실제 다음 시가도 호가·유동성·체결 가능성을 입증하지 않는다. 실계좌 read-only/소액 주문·운영 배포는 별도 승인 범위이며 기존 P1-PROVIDER-01·P1-SCOPE-01을 완료로 바꾸지 않는다. <a href="completed-history.md#p2-sector-01">검토 이력</a>.</li></ul>
 <a class="permalink" href="#task-33bc655e96" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task implementation" id="task-5b7108079d" data-status="implementation" data-source-line="53">
+<article class="task implementation" id="task-5b7108079d" data-status="implementation" data-source-line="54">
 <p class="section">2. 선행 결정 후 진행할 코드 작업</p>
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>DEP-P3-02 — SQLx 0.8.6→0.9.0의 SQL·DB 인증·잔여 RSA를 분리 검증한다.</strong> 우선순위 2, DEP-P3-01 완료 후 전환.</h2>
@@ -78,7 +79,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>완료 조건:</strong> 허용된 테이블 식별자와 bind 경계를 보존하고 격리 DB의 schema/import/export·transaction rollback·TLS 및 지원 인증 계약을 통과한다. <code>cargo fmt --all -- --check</code> 및 <code>--locked</code> check/test/strict clippy/build와 최소 Rust/stable CI를 확인한다. RUSTSEC-2023-0071은 별도 dependency tree/audit로 재평가하고 SQLx 상승만으로 해소됐다고 처리하지 않는다. 기존 비TLS 지원 제거·인증 정책 변경은 별도 사용자 결정 없이 하지 않는다. <a href="https://raw.githubusercontent.com/transact-rs/sqlx/v0.9.0/CHANGELOG.md">공식 0.9 변경</a>.</li></ul>
 <a class="permalink" href="#task-5b7108079d" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-f86c78f20a" data-status="decision" data-source-line="60">
+<article class="task decision" id="task-f86c78f20a" data-status="decision" data-source-line="61">
 <p class="section">3. 사용자 판단·준비가 필요한 항목</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2><strong>P1-DB-01 — MariaDB contract fixture와 지원 버전 matrix 검증.</strong></h2>
@@ -90,7 +91,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>의존성:</strong> DEP-P3-01과 같은 DB 지원정책을 공유한다. 보류 해제와 matrix의 실제 실행을 별도 확인한다.</li></ul>
 <a class="permalink" href="#task-f86c78f20a" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-f1e74cc052" data-status="decision" data-source-line="68">
+<article class="task decision" id="task-f1e74cc052" data-status="decision" data-source-line="69">
 <p class="section">3. 사용자 판단·준비가 필요한 항목</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2><strong>DEP-P3-01 — 격리 DB 검증환경과 프로젝트 MSRV 기준을 결정한다.</strong> 우선순위 1, SQLx 전환의 선행조건.</h2>
@@ -102,7 +103,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>객관적 완료 기준:</strong> 선택한 최소 Rust와 stable의 check/test, 지원 DB matrix별 실제 계약 실행 건수와 성공/거부를 기록한다. 즉시 반환·미실행을 통과로 세지 않고 schema/transaction·TLS·인증·복구를 확인한다. RSA 해소 판정은 별도 audit/의존성 근거로만 한다. <a href="completed-history.md#security-mac-handoff">2026-10-24 검증·보류</a>, <a href="release-security.md">정책·RSA 잔여</a>.</li></ul>
 <a class="permalink" href="#task-f1e74cc052" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-b2beeba529" data-status="decision" data-source-line="76">
+<article class="task decision" id="task-b2beeba529" data-status="decision" data-source-line="77">
 <p class="section">3. 사용자 판단·준비가 필요한 항목</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2><strong>P1-SCOPE-01 — 여러 broker/account 포지션과 pending을 동시에 상주·대조하는 multi-scope runtime.</strong></h2>
@@ -113,7 +114,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>객관적 완료 기준:</strong> 동시 scope의 주문/체결/pending·캐시·소유 원가·재시작·부분 실패가 서로 침범하지 않으며 scope별/전체 정지·리스크를 실패 fixture와 UI에서 검증한다. 실제 계좌 운용은 별도 승인 검증으로 남긴다. <a href="ARCHITECTURE.md">현재 소유·scope 경계</a>, <a href="completed-history.md#task-strategy-fill-ownership-20261018">기존 소유 피드백 검증</a>.</li></ul>
 <a class="permalink" href="#task-b2beeba529" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-aee6a0d21e" data-status="decision" data-source-line="83">
+<article class="task decision" id="task-aee6a0d21e" data-status="decision" data-source-line="84">
 <p class="section">3. 사용자 판단·준비가 필요한 항목</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2><strong>P3-SIGN-01 — 플랫폼 코드 서명·updater 서명 강제를 위한 배포 키 준비.</strong></h2>
@@ -125,7 +126,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>의존성:</strong> 플랫폼/키 관리 결정과 관리자 준비가 먼저다. 구현 완료된 checksum·attestation과 실제 서명 검증을 구분한다.</li></ul>
 <a class="permalink" href="#task-aee6a0d21e" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task decision" id="task-7ca2205786" data-status="decision" data-source-line="93">
+<article class="task decision" id="task-7ca2205786" data-status="decision" data-source-line="94">
 <p class="section">3. 사용자 판단·준비가 필요한 항목</p>
 <p class="badge">🟠 사용자 판단 대기</p>
 <h2><strong>P2-UX-07 — 실전 시작·위험 해제의 확인 수준을 결정한다.</strong></h2>
@@ -137,7 +138,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>키보드 안전 기준 보강(2026-10-31, 판단 대기 유지):</strong> 조회 입력의 Enter와 위험 행동의 명시 버튼 활성화를 구분한다. 주문·실전 시작·삭제·위험 해제를 입력의 단순Enter나 전역 단축키로 실행하지 않으며, 의도적으로 focus한 버튼의 Enter/Space에도 기존 동의·preflight·확인·pending·scope guard가 동일하게 적용되어야 한다. Enter key repeat/두 번 활성화·IME확정·Escape 취소/닫기·scope변경을 action matrix에 추가한다. 취소=변이0·최종승인=정확1·pending중중복0을 mock으로검증하고 비상정지의즉시성을유지한다. 새확인수준/단축키정책은 이번검토로결정하지않는다.</li></ul>
 <a class="permalink" href="#task-7ca2205786" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="task-179a40026c" data-status="validation" data-source-line="105">
+<article class="task validation" id="task-179a40026c" data-status="validation" data-source-line="106">
 <p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>P1-PROVIDER-01 — KIS/Toss 기존 운영 원장과 실제 정정·취소 응답의 최종 검증.</strong></h2>
@@ -149,7 +150,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>관련 완료 근거:</strong> P1-RECOVERY-01의 UI·fixture 구현은 완료 이력에 보존하며 이 항목의 실제 provider 검증을 대체하지 않는다.</li></ul>
 <a class="permalink" href="#task-179a40026c" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="soxq-p1-05" data-status="validation" data-source-line="114">
+<article class="task validation" id="soxq-p1-05" data-status="validation" data-source-line="115">
 <p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>SOXQ-P1-05 — LTH 일봉 근사와 실제 장중 평가를 구분한다.</strong></h2>
@@ -163,7 +164,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>완료된 부분의 근거:</strong> <a href="completed-history.md#soxq-p1-05">이관 기록</a>을 참고한다. 상위 완료 조건은 유지한다.</li></ul>
 <a class="permalink" href="#soxq-p1-05" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="soxq-p2-12" data-status="validation" data-source-line="125">
+<article class="task validation" id="soxq-p2-12" data-status="validation" data-source-line="126">
 <p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>SOXQ-P2-12 — 검증된 LTH 분봉의 기본·볼린저 옵션별 비교.</strong></h2>
@@ -175,7 +176,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>완료된 부분의 근거:</strong> <a href="completed-history.md#soxq-p2-12">이관 기록</a>을 참고한다. 상위 완료 조건은 유지한다.</li></ul>
 <a class="permalink" href="#soxq-p2-12" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="soxq-p2-13" data-status="validation" data-source-line="133">
+<article class="task validation" id="soxq-p2-13" data-status="validation" data-source-line="134">
 <p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>SOXQ-P2-13 — 가격조건의 실제 장중 손절·재진입 효능을 검증한다.</strong></h2>
@@ -187,7 +188,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <li><strong>의존성:</strong> 비식별 자료만으로 가능한 생산 검증은 자료 확보 후 자동 진행한다. 실제 계좌/provider 연결·금융거래는 이번 구현 범위에 포함되지 않는다.</li></ul>
 <a class="permalink" href="#soxq-p2-13" aria-label="이 할일 링크">#</a>
 </article>
-<article class="task validation" id="soxq-p2-09" data-status="validation" data-source-line="141">
+<article class="task validation" id="soxq-p2-09" data-status="validation" data-source-line="142">
 <p class="section">4. 사용자 환경·실자료 검증이 필요한 항목</p>
 <p class="badge">🟠 사용자 검증·자료 대기</p>
 <h2><strong>SOXQ-P2-09 — 변동성 확장의 실제 장중 근거 검증.</strong> 테스트 가능한 구현·일봉 비교는 완료했으며 최초 장중 발동·실제 체결 가능성 조건은 열린 상태다. <a href="completed-history.md#task-volatility-expansion-policy-20261022">작업</a>, <a href="research/volatility-expansion-policy-20261022/report.md">사전 설계·비교·한계</a>, <a href="research/volatility-expansion-policy-20261022/independent-audit.json">독립 감사</a>.</h2>
@@ -200,7 +201,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <a class="permalink" href="#soxq-p2-09" aria-label="이 할일 링크">#</a>
 </article></section>
 <p id="empty" hidden>일치하는 열린 할일이 없습니다. 검색어나 상태를 바꿔 주세요.</p>
-<footer>원본 SHA-256: 5e73b2de7ca97daab0b8dd42a510f9abe6b66f754034975c1b97f1ca10ab5517<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
+<footer>원본 SHA-256: d36f650ad95314d38f079253d144ba58e10efe6885b84cd17b02f6eb7780c88c<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
 </main>
 <script>
 const status = document.getElementById('status');

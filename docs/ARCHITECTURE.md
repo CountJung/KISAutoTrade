@@ -323,3 +323,16 @@ StrongClose의 live 이전 일봉은 기존 coordinator의 target·scope/profile
 않는다. 이 모듈은 운영 factory/daemon/주문/복원 원장에 등록되지 않으며 향후 실제
 연결에는 별도의 소유·예산·예약/부분체결/거절·정지/재시작 검증이 필요하다.
 자료·기업행위 지원 제한과 wire 계약은 [IPC 정본](ipc-commands.md#섹터-etf-포트폴리오-연구-v1)을 따른다.
+
+`trading/sector_data`는 고정12종목 raw/adjusted 자료를 모으는 quote-source 경계와
+provider를 호출하지 않는 bundle 검증을 분리한다. 일반 native의 명시 scope 확인·동의
+수집만 AppState의 KIS snapshot을 사용하며 provider await 전후 ID/client identity를
+검사한다. REST는 순수 검증만 제공하고 수집·scope 조회는 등록하지 않는다.
+
+`research-only` native는 별도 identifier·incognito window·순수 검증/계산 두 IPC를
+사용하며 운영 AppState/profile/config/store/plugin/server/daemon을 초기화하지 않는다.
+`main.tsx`는 marker/query로 운영 router import 전에 연구 화면을 고르고 전용 Vite는
+`.env` 없이 loopback/HMR-off를 사용한다. 일반 앱의 query만으로 native 권한이
+격리되는 것은 아니다. 수집이 수동 확인 선언을 승인하거나 실제 자료 진위를 인증하지
+않으며 기업행위 정산·운영 주문 연결은 미완료다. [상세 계약](ipc-commands.md#섹터-자료-준비와-연구-전용-실행),
+[로컬 실행법](user-guide.md#연구-전용-앱과-섹터-자료-준비)을 따른다.

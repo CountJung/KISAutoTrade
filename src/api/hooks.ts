@@ -21,3 +21,4 @@ export * from './logHooks'
 export * from './budgetRecoveryHooks'
 
 export * from './sectorPortfolioHooks'
+export * from './sectorDataHooks'

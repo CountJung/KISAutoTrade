@@ -7,6 +7,11 @@ pub use planner::{plan_sector_portfolio, rank_sectors};
 mod replay;
 pub use replay::preview_sector_portfolio;
 
+/// Shared fail-closed contract for import preparation and replay.
+pub fn validate_sector_portfolio_input(input: &SectorPortfolioInput) -> Result<(), String> {
+    validation::input(input)
+}
+
 pub const SECTOR_ENGINE_VERSION: &str = "sector-portfolio-v1";
 pub const SECTOR_SYMBOLS: [&str; 11] = [
     "XLC", "XLY", "XLP", "XLE", "XLF", "XLV", "XLI", "XLB", "XLRE", "XLK", "XLU",

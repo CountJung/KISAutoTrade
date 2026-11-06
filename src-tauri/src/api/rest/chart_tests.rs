@@ -7,6 +7,62 @@ use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[test]
+fn sector_daily_modes_preserve_old_adjusted_contract_and_raw_pair() {
+    for (adjusted, expected) in [(false, "0"), (true, "1")] {
+        let recipe = ChartRequest::overseas_daily_mode("SPY", "NYS", "20250930", adjusted);
+        let request = recipe
+            .build(
+                &kis_http_client(),
+                "https://example.invalid",
+                synthetic_auth(),
+            )
+            .build()
+            .unwrap();
+        let query: std::collections::BTreeMap<_, _> =
+            request.url().query_pairs().into_owned().collect();
+        assert_eq!(query["MODP"], expected);
+        assert_eq!(query["GUBN"], "0");
+        assert_eq!(query["BYMD"], "20250930");
+        assert_eq!(query["EXCD"], "NYS");
+        assert_eq!(request.headers()["tr_id"], "HHDFS76240000");
+    }
+    assert_eq!(
+        ChartRequest::overseas("SPY", "NYS", "D", "20250930").query[5].1,
+        "1"
+    );
+}
+
+#[test]
+fn sector_quote_parser_rejects_without_echoing_provider_body_or_message() {
+    for (success, body) in [
+        (false, "secret-account-response-body"),
+        (true, "not-json-secret-account-response-body"),
+        (
+            true,
+            r#"{"rt_cd":"1","msg1":"secret-account-response-body"}"#,
+        ),
+        (
+            true,
+            r#"{"rt_cd":"0","output2":[{"xymd":"20250930","open":"100"}]}"#,
+        ),
+    ] {
+        let error = parse_sector_daily_body(success, body)
+            .unwrap_err()
+            .to_string();
+        assert!(error.starts_with("SECTOR_QUOTE_"));
+        assert!(!error.contains("secret"));
+        assert!(!error.contains("response-body"));
+    }
+    let rows = parse_sector_daily_body(
+        true,
+        r#"{"rt_cd":"0","output2":[{"xymd":"20250930","open":"100","clos":"101"}]}"#,
+    )
+    .unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].close, "101");
+}
+
+#[test]
 fn client_scope_matches_every_account_credential_and_mode() {
     let profile = AccountProfile::new(
         "chart fixture".into(),

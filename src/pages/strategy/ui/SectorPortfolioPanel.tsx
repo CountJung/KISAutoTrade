@@ -16,6 +16,7 @@ import type { SectorPortfolioInput, SectorPortfolioReport } from '../../../share
 import { parseSectorPortfolioInput, SECTOR_INPUT_MAX_BYTES, syntheticSectorPortfolioInput } from '../model/sectorPortfolioInput'
 import { SectorPortfolioResults } from './SectorPortfolioResults'
 import { SectorPaperComparison } from './SectorPaperComparison'
+import { SectorDataPreparationPanel } from './SectorDataPreparationPanel'
 
 type Completed = { input: SectorPortfolioInput; report: SectorPortfolioReport }
 
@@ -25,7 +26,7 @@ function errorMessage(error: unknown): string {
   return '자료 계산을 완료하지 못했습니다. 입력과 서버 연결을 확인하세요.'
 }
 
-export function SectorPortfolioPanel() {
+export function SectorPortfolioPanel({ researchOnly = false }: { researchOnly?: boolean }) {
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [completed, setCompleted] = useState<Completed | null>(null)
@@ -90,13 +91,14 @@ export function SectorPortfolioPanel() {
   }
 
   return (
-    <Accordion disableGutters sx={{ mb: 3, minWidth: 0 }} data-testid="sector-portfolio-panel">
+    <Accordion disableGutters defaultExpanded={researchOnly} sx={{ mb: 3, minWidth: 0 }} data-testid="sector-portfolio-panel">
       <AccordionSummary expandIcon={<ExpandMoreIcon />}><Typography component="h2" variant="subtitle1" sx={{ fontWeight: 700 }}>섹터 ETF 3전략 비교</Typography></AccordionSummary>
       <AccordionDetails sx={{ p: { xs: 1.5, sm: 2.5 }, minWidth: 0 }}>
         <Stack spacing={2}>
           <Alert severity="info">계좌 연결 없이 입력 자료로 계산합니다. 기본형 최대3개×30%, 방어형 같은 종목×15%/30%, 공격형 최대2개×47.5%를 같은 기간·자본·비용으로 비교합니다. 이 패널은 자동매매를 시작하거나 주문하지 않습니다.</Alert>
           <Typography variant="body2">전일 완료 자료로 선정·예산을 고정하고 다음 거래일 시가에 체결하는 일봉 근사입니다. 현재 모의투자의 09:50 조회 표시가격과 다릅니다. 30일 결과만으로 우월성이나 급락 방어를 확정할 수 없습니다.</Typography>
           <Typography variant="body2">SPY와 11개 섹터의 조정 신호종가·비조정 시가/종가, 출처·수집시각·거래일 달력을 JSON으로 입력하세요. 사전자료 최소22봉과 평가자료를 분리하며 합계500봉·1.5MB 이내입니다. 날짜·조정·기업행위·누락 검증 실패는 0% 성과로 표시하지 않습니다.</Typography>
+          <SectorDataPreparationPanel researchOnly={researchOnly} onPrepared={input => changeText(JSON.stringify(input, null, 2))} onInvalidate={() => changeText('')} />
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
             <Button component="label" variant="outlined">자료 JSON 불러오기<input type="file" accept=".json,application/json" aria-label="섹터 자료 JSON 파일" hidden onChange={event => void loadFile(event)} /></Button>
             <Button variant="outlined" onClick={() => changeText(JSON.stringify(syntheticSectorPortfolioInput(), null, 2))}>합성 예제 입력</Button>

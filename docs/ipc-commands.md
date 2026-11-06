@@ -92,6 +92,9 @@
 | `preview_strategy` | `candles` 평가 구간 + 선택 `historyCandles` 사전자료를 합계 최대 500봉으로 종가 신호·선택 체결 모델 replay. `warmupCount` 생략은 0이며 명시 prefix와 별도 history 동시 지정은 거부. 결과 candles는 평가 구간만 포함. 실제 지표 준비 상태·조건 평가 봉 수(`preparation`), raw 신호·체결/차단·비용/리스크 성과와 OHLCV hash를 반환. generic LTH는 `UNSUPPORTED_GENERIC_REPLAY`로 명시 거부. live 10초 tick·intrabar/provider latency는 재현하지 않음 |
 | `preview_strategy_continuous` | 한 요청의 엄격한 이전 사전자료와 시간순 분할 평가봉을 공통 v12 세션에서 연속 재생. history 최대512봉·1~16묶음·묶음당1~500봉·전체 평가4096봉. 상태 보존과 공급 경계 원장을 반환하며 generic LTH는 거부. 웹 POST `/api/strategy/preview/continuous`와 동일 입력 |
 | `preview_sector_portfolio` | 계좌 없이 제공 JSON의 11개 섹터+SPY를 공통 시계에서 기본·방어·공격+SPY보유/현금으로 비교. USD 독립 장부·이전 완료봉 신호→nextOpen 근사. 웹 POST `/api/strategy/sector-portfolio/preview`와 동일 계산. 운영 전략 등록·주문·파일 저장 없음 |
+| `validate_sector_data` | 제공된 raw/adjusted bundle과 수동 검증 근거를 로컬 대조해 준비 상태·진단·hash와 계산용 입력을 반환. 순수 계산이며 POST `/api/strategy/sector-data/validate`도 같은 계약. 연구 전용 native에서도 제공 |
+| `get_sector_quote_scope` | 일반 native 앱에서 명시 버튼 클릭 때만 활성 profile의 opaque ID·provider·paper 최소정보를 반환. 계좌번호/자격증명은 반환하지 않으며 계좌 연결 성공을 인증하는 응답이 아님. REST/연구 전용 native에는 미등록 |
+| `collect_sector_data` | 일반 native 앱에서 expectedProfileId·인증 시세 조회 동의·고정12종목 manifest를 검증한 뒤 raw(MODP=0)/adjusted(MODP=1) 일봉을 수집. 인증/토큰 발급이 발생할 수 있으나 주문·잔고·자동매매는 호출하지 않음. REST/연구 전용 native에는 미등록 |
 | `get_chart_data` | 국내주식 차트 데이터 (일/주/월봉, 날짜 범위와 선택적 count) |
 | `get_overseas_price` | 해외주식 현재가 조회 |
 | `get_overseas_chart_data` | 해외주식 최신 차트 데이터 (일/주/월봉, 선택적 count 상한) |
@@ -499,3 +502,67 @@ REST 입력 오류는422, 내부 계산 작업 실패는500이며 malformed JSON
 도 같은 라이브러리를 사용하며 stdout JSON, stderr 원문 SHA256을 제공한다.
 앱 시작·계좌/설정 로드는 수행하지 않는다. 원장의09:50 표시가격과 일봉 nextOpen은
 서로 다른 체결 가정이며 결과를 소급 합산하거나 실측 체결로 표현하지 않는다.
+
+### 섹터 자료 준비와 연구 전용 실행
+
+자료 준비 DTO 정본은 [sector_data/types.rs](../src-tauri/src/trading/sector_data/types.rs)와
+[TypeScript 미러](../src/shared/api/sectorDataTypes.ts)다. `SectorDataManifest`는
+`sessionDates/endDate/calendarSource/calendarEvidence/exchangeMappings/synthetic`을
+받는다. 현재 준비 계약은23~500일이며 첫22일을 사전자료로 고정하고 나머지를 평가한다.
+30일 비교에는52일이 필요하다. `exchangeMappings`의 각 행은 `symbol/exchange/evidence`이며 SPY와11개
+섹터의 실제 KIS 시세 EXCD를 사용자가 확인한다. 상장시장 이름만으로 NYSE Arca를
+AMS로 바꾸거나 다른 거래소코드를 임의 대입하지 않는다. 목표는22개 사전 완료봉과
+30개 평가 거래일이며 달력30일과 다르다. 정적 달력은 공식 거래소 달력·특별휴장·DST·
+조기마감 근거와 대조해야 한다. [NYSE 달력](https://www.nyse.com/markets/hours-calendars)과
+[2025-01-09 특별휴장 공지](https://ir.theice.com/press/news-details/2024/The-New-York-Stock-Exchange-Will-Close-Markets-on-January-9-to-Honor-the-Passing-of-Former-President-Jimmy-Carter-on-National-Day-of-Mourning/default.aspx)를
+확인하고 특별휴장을 일반 평일로 채우지 않는다.
+
+일반 native의 `get_sector_quote_scope()`는 직접 클릭 때만 최소정보를 읽는다.
+`collect_sector_data({input})`는 `expectedProfileId/authenticatedQuotesAcknowledged/
+manifest`를 받으며 사용자가 인증 시세 호출을 확인한 뒤 실행한다. 이 동의에는
+시세 조회를 위한 토큰 발급/갱신이 포함될 수 있고 주문 권한은 포함되지 않는다.
+선택 profile·provider·모드가 바뀌면 이전 요청을 다른 범위에 적용하지 않는다.
+사용자의 계좌 연결 진술이나 이 scope 응답은 실제 인증 성공의 독립 검증이 아니다.
+
+수집 결과 `SectorDataBundle`은 `schemaVersion/manifest/retrievedAt/series/pages`다.
+각 `series`는 `symbol/exchange/raw[{date,open,close}]/adjusted[{date,close}]`를 분리하고
+`pages`에는 `symbol/exchange/modp/anchor/rowCount/rowsHash`를 남긴다.
+`rowsHash`는 보존 시세 필드를 정규화한 hash이며 HTTP 응답 원문 bytes hash가 아니다.
+[공식 dailyprice 샘플](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/overseas_stock/dailyprice/chk_dailyprice.py)의
+MODP=0/1 계약만으로 배당 포함 총수익·분할 조정 범위·과거100봉 확보를 보장하지 않는다.
+짝지은 두 가격열의 전체 요청 거래일·중복/누락·날짜·조정 의미를 별도로 검증한다.
+수집은12종목×2모드×최대16페이지를 순차 요청하고 자동 재시도를 하지 않는다.
+일반 native 수집의 전체시간 한도는180초이며 초과하면 `SECTOR_QUOTE_TIME_BUDGET_EXCEEDED`로
+실패한다. 시세 await 전후와 최종 반환 시 profile ID·client Arc를 대조한다.
+빈 페이지·반복/역행·요청기간 초과·누락/추가 거래일은 전체 오류이며 부분성공을
+계산 입력으로 반환하지 않는다. provider 응답 한 페이지는 최대500행이며
+KIS HTTP 요청은 건당30초·기존 응답 bytes 상한8MiB를 사용한다. 이는 imported DTO/REST의
+2MiB 입력 상한과 다르다. 시세 페이지 호출과 보존 페이지 영수증은 최대384개다(필요한 인증 호출은 별도).
+
+`validate_sector_data({input})` / POST `/api/strategy/sector-data/validate`는
+`bundle/verification/initialCashUsd/costBps`를 받는 순수 검증이다.
+`verification`은 `coverageVerified/adjustmentVerified/corporateActionsVerified`와
+`adjustmentEvidence/corporateActionsEvidence/corporateActions`로 구성한다.
+검증 bool과 근거는 사용자의 확인 기록이며 프로그램의 공급원/기업행위 자동 인증이 아니다.
+기업행위 사건·조정 의미 미확인·자료 부족을 합성 시세나0% 수익으로 바꾸지 않는다.
+입력 진단 실패는 HTTP200의 `ready=false/input=null`로 반환하며 malformed JSON·실행실패와
+구분한다. native 정규화 입력도2MiB 상한이며 초과는 `SECTOR_DATA_INPUT_TOO_LARGE`로
+거부한다(REST422). blocking 작업 실패는 `SECTOR_DATA_VALIDATION_FAILED`/REST500이다. 반환은 `ready/diagnostics/warnings/input/bundleHash/verificationHash`이며 준비된
+`input`만 기존3전략 계산으로 넘긴다. 두 hash는 bundle/verification 정규화 JSON의
+SHA256이며 원본 HTTP 내용·자료 진위 인증과 다르다. 파일 입력·순수 검증·계산은
+계좌/provider 호출·계좌 설정 저장을 수행하지 않는다.
+자료 준비 UI의 파일/텍스트 상한은1.5MB(1,500,000bytes)이며 native 정규화 입력·REST 기본 JSON·오프라인 CLI는2MiB다.
+UI 상한은 요청 여유를 두기 위한 별도 제한이다. 오프라인
+`cargo run --locked -p kis-auto-trade --example sector_data_prepare -- INPUT.json`
+(또는 `-- -`의 stdin)은 같은 순수 검증기를 호출하며 stdout에 준비 진단 JSON,
+stderr에 원문 파일 SHA256(`rawInputHash`)을 남긴다. 앱·인증·설정 로드는 수행하지 않는다.
+
+`research-only` feature와 [tauri.research.conf.json](../src-tauri/tauri.research.conf.json)의
+native 진입은 별도 identifier `com.countjung.kisautotrade.research`를 쓰고
+`preview_sector_portfolio`·`validate_sector_data`만 등록한다. AppState·profile/config/
+store·plugin·HTTP server·daemon 초기화가 없다. `src/main.tsx`는 native marker 또는
+`researchOnly=1`을 확인한 뒤 운영 router import 전에 연구 화면을 선택한다.
+쿼리만으로 일반 native의 IPC 권한을 줄이는 것이 아니므로 격리 native 실행은
+전용 feature/config를 함께 사용한다. 전용 Vite 설정은 `.env`를 로드하지 않고
+loopback 서버와 HMR 비활성화를 사용한다. 연구 전용 화면에는 인증 시세 수집이 없다.
+로컬 실행·서명 없는 앱 빌드 명령은 [사용법](user-guide.md#연구-전용-앱과-섹터-자료-준비)을 따른다.

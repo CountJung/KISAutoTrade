@@ -22,6 +22,8 @@ mod strategy_preview;
 pub use strategy_preview::*;
 mod sector_portfolio;
 pub use sector_portfolio::*;
+mod sector_data;
+pub use sector_data::*;
 mod strategy;
 pub use strategy::*;
 mod risk;

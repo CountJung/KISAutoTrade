@@ -372,3 +372,18 @@ production IPC/REST 동일계산·인증 경계·필수누락/대형입력·부�
 `cargo run --locked -p kis-auto-trade --example sector_portfolio_replay -- INPUT.json`
 은 앱을 시작하지 않고 공급된 파일을 같은 순수 엔진으로 계산한다. stdout JSON과
 stderr 원문hash를 보존하고 독립 장부로 대사한다. DTO/지원제한은 [IPC 정본](ipc-commands.md#섹터-etf-포트폴리오-연구-v1), 실제 실행·합성/실자료 경계는 [P2-SECTOR-01 이력](completed-history.md#p2-sector-01)을 따른다.
+
+자료 준비 보강의 focused 명령은 `cargo test --workspace --lib sector_ --locked`다.
+기존 포트폴리오와 새 자료 검증·quote mock·순수 REST·scope identity를 포함하며 실제
+KIS 인증을 실행하지 않는다. `cargo run --locked -p kis-auto-trade --example
+sector_data_prepare -- INPUT.json`은 계좌 없이 같은 자료 검증기를 호출한다.
+입력/HTTP 크기·시간/페이지 상한과 진단의 의미는 [IPC 정본](ipc-commands.md#섹터-자료-준비와-연구-전용-실행)에 둔다.
+
+연구 feature는 `cargo check --workspace --all-targets --features research-only --locked`로
+따로 검사하고 `npm run dev:research`·`npm run build:research`는 전용 runtime/config를
+사용한다. 서명 없는 로컬 bundle의 프로세스 생존 smoke와 실제 native 화면/IPC 클릭·
+계정/시세 성공 검증은 다르다. 브라우저 연구 시작의 API/storage/WS0과 수동 native
+수집 mock도 구분한다. `sector-data-research.spec.ts`의 순수 연구 검사는 production
+preview, `sector-data-native.spec.ts`의 native mock 수집은 별도 source-harness에서
+실행한다. 일반 dev 전체와 CI의 정적 preview+source-harness를 구분해 기록하며, 최종 전체 게이트는
+CI와 같은 후자 구성으로 확인한다. [실제 회차 결과·미검증](completed-history.md#p2-sector-01)을 따른다.

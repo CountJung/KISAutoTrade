@@ -185,6 +185,9 @@ test('Toss keeps loading, failure and successful empty handling while KIS reads 
     await page.goto('/trading')
     await expect(page.getByText('보유한 Toss 종목이 없습니다.', { exact: true })).toHaveCount(0)
     const holdings = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: '보유 종목', exact: true }) })
+    // Wait for the requested broker scope before inspecting its loading UI.
+    // During config loading the conservative KIS placeholder has two spinners.
+    await expect(holdings.getByText(/^Toss(?: · accountSeq .+)?$/)).toBeVisible()
     await expect(holdings.getByRole('progressbar')).toBeVisible()
     release()
     await expect(page.getByText(/Toss 보유종목 조회 실패/)).toBeVisible({ timeout: 12000 })
