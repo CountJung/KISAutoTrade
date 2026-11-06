@@ -73,6 +73,29 @@ impl<'a> ChartRequest<'a> {
 }
 
 impl KisRestClient {
+    /// Research-only unadjusted daily OHLCV. Keeps provider strings and row order;
+    /// date/price validation belongs to the collector. Never exposes response bodies.
+    pub async fn get_broker_chart_daily_quotes(
+        &self,
+        symbol: &str,
+        exchange: &str,
+        base_date: &str,
+    ) -> Result<Vec<ChartCandle>> {
+        let recipe = ChartRequest::overseas_daily_mode(symbol, exchange, base_date, false);
+        let headers = self
+            .auth_headers(recipe.tr_id)
+            .await
+            .map_err(|_| anyhow::anyhow!("BROKER_CHART_AUTH_FAILED"))?;
+        let response = self
+            .send_with_rate_limit(
+                KIS_RATE_GROUP_QUOTE,
+                recipe.build(&self.client, &self.base_url, headers),
+            )
+            .await
+            .map_err(|_| anyhow::anyhow!("BROKER_CHART_TRANSPORT_FAILED"))?;
+        parse_broker_chart_daily_response(response).await
+    }
+
     /// Quote-only sector preparation. Preserves the shared HTTP timeout/rate limiter,
     /// but never echoes provider response bodies or auth/transport errors.
     pub async fn get_sector_daily_quotes(
@@ -152,6 +175,72 @@ impl KisRestClient {
         );
         Ok(candles)
     }
+}
+
+async fn parse_broker_chart_daily_response(response: Response) -> Result<Vec<ChartCandle>> {
+    let success = response.status().is_success();
+    let body = read_kis_response_text(response)
+        .await
+        .map_err(|_| anyhow::anyhow!("BROKER_CHART_RESPONSE_LIMIT_OR_READ_FAILED"))?;
+    parse_broker_chart_daily_body(success, &body)
+}
+
+fn parse_broker_chart_daily_body(success: bool, body: &str) -> Result<Vec<ChartCandle>> {
+    if !success {
+        anyhow::bail!("BROKER_CHART_HTTP_FAILED");
+    }
+    #[derive(Deserialize)]
+    struct Raw {
+        rt_cd: String,
+        msg_cd: Option<String>,
+        output2: Option<Vec<Row>>,
+    }
+    #[derive(Deserialize)]
+    struct Row {
+        xymd: String,
+        open: String,
+        high: String,
+        low: String,
+        clos: String,
+        tvol: String,
+    }
+    let raw: Raw =
+        serde_json::from_str(body).map_err(|_| anyhow::anyhow!("BROKER_CHART_INVALID_RESPONSE"))?;
+    if raw.rt_cd != "0" {
+        if matches!(raw.msg_cd.as_deref(), Some("EGW00133" | "EGW00201")) {
+            anyhow::bail!("BROKER_CHART_RATE_LIMITED");
+        }
+        anyhow::bail!("BROKER_CHART_PROVIDER_REJECTED");
+    }
+    let rows = raw
+        .output2
+        .ok_or_else(|| anyhow::anyhow!("BROKER_CHART_MISSING_ROWS"))?;
+    if rows.is_empty() {
+        anyhow::bail!("BROKER_CHART_EMPTY_ROWS");
+    }
+    if rows.len() > 500 {
+        anyhow::bail!("BROKER_CHART_TOO_MANY_ROWS");
+    }
+    if rows.iter().any(|row| {
+        [
+            &row.xymd, &row.open, &row.high, &row.low, &row.clos, &row.tvol,
+        ]
+        .iter()
+        .any(|value| value.trim().is_empty())
+    }) {
+        anyhow::bail!("BROKER_CHART_EMPTY_FIELD");
+    }
+    Ok(rows
+        .into_iter()
+        .map(|row| ChartCandle {
+            date: row.xymd,
+            open: row.open,
+            high: row.high,
+            low: row.low,
+            close: row.clos,
+            volume: row.tvol,
+        })
+        .collect())
 }
 
 fn parse_sector_daily_body(

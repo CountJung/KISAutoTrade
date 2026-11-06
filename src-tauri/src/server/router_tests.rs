@@ -8,14 +8,14 @@ use std::collections::BTreeSet;
 #[tokio::test]
 async fn every_production_binding_is_matched_before_cross_origin_rejection() {
     let fixture = Fixture::new(TOKEN).await;
-    assert_eq!(CASES.len(), 76);
+    assert_eq!(CASES.len(), 77);
     assert_eq!(
         CASES
             .iter()
             .map(|(_, pattern, _)| *pattern)
             .collect::<BTreeSet<_>>()
             .len(),
-        72
+        73
     );
     assert_eq!(
         CASES
@@ -49,7 +49,7 @@ async fn every_production_binding_is_matched_before_cross_origin_rejection() {
         assert_eq!(json_body(response).await["code"], "CROSS_ORIGIN_FORBIDDEN");
     }
     fixture.assert_no_effects().await;
-    eprintln!("route bindings checked: 76; distinct URLs: 72; capture URLs: 13");
+    eprintln!("route bindings checked: 77; distinct URLs: 73; capture URLs: 13");
 }
 
 #[tokio::test]
@@ -164,7 +164,7 @@ async fn unsupported_methods_keep_405_and_allow_for_every_registered_url() {
         assert_eq!(actual, expected, "{uri}");
     }
     fixture.assert_no_effects().await;
-    eprintln!("405/Allow URL cases checked: 72");
+    eprintln!("405/Allow URL cases checked: 73");
 }
 
 #[tokio::test]

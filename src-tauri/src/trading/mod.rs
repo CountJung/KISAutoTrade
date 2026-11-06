@@ -1,3 +1,4 @@
+pub mod broker_chart;
 pub(crate) mod configuration;
 pub mod guard;
 pub mod order;

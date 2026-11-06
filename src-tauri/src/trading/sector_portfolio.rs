@@ -6,6 +6,9 @@ mod validation;
 pub use planner::{plan_sector_portfolio, rank_sectors};
 mod replay;
 pub use replay::preview_sector_portfolio;
+mod price_research;
+pub use price_research::types::*;
+pub use price_research::{preview_broker_chart_price_approximation, validate_broker_chart_input};
 
 /// Shared fail-closed contract for import preparation and replay.
 pub fn validate_sector_portfolio_input(input: &SectorPortfolioInput) -> Result<(), String> {

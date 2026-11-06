@@ -96,6 +96,11 @@ pub(super) const CASES: &[(&str, &str, &str)] = &[
     ),
     (
         "POST",
+        "/api/strategy/broker-chart/preview",
+        "/api/strategy/broker-chart/preview",
+    ),
+    (
+        "POST",
         "/api/strategy/preview/continuous",
         "/api/strategy/preview/continuous",
     ),

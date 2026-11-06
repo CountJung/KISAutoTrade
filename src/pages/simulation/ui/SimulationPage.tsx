@@ -39,11 +39,11 @@ export default function SimulationPage() {
       <Stack spacing={1}>
         <Typography variant="subtitle2">시세 조회 프로필과 가상 USD 장부</Typography>
         <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-          시세 조회 프로필: {profile ? `${profile.active_profile_name ?? '이름 없음'} · ${profile.active_broker_id === 'kis' ? `KIS · ${profile.kis_is_paper_trading ? '모의' : '실전'}` : 'Toss · KIS 수집 미지원'}` : config.isError ? '확인 실패 · 인증 수집 보류' : '확인 중 · 인증 수집 보류'}
+          시세 조회 프로필: {profile ? `${profile.active_profile_name ?? '이름 없음'} · ${profile.active_broker_id === 'kis' ? `KIS · ${profile.kis_is_paper_trading ? '모의' : '실전'}` : 'Toss · 검증형 KIS 수집 미지원'}` : config.isError ? '확인 실패 · 인증 수집 보류' : '확인 중 · 인증 수집 보류'}
         </Typography>
         <Typography variant="body2">조회 프로필은 시세 자료 수집에 사용합니다. 가상 USD 장부의 초기자금은 입력 자료에 따르며 실제 예수금이나 잔고와 연결하지 않습니다. 프로필이 바뀌면 수집 범위와 동의를 다시 확인하세요. 이미 계산한 가상 장부는 유지됩니다.</Typography>
       </Stack>
     </Paper>
-    <SectorPortfolioPanel mode="workspace" quoteScopeKey={quoteScopeKey} quoteScopeReady={ready && profile?.active_broker_id === 'kis'} quoteScopeCurrent={quoteScopeCurrent} />
+    <SectorPortfolioPanel mode="workspace" quoteScopeKey={quoteScopeKey} quoteScopeReady={ready && profile?.active_broker_id === 'kis'} brokerQuoteScopeReady={ready && (profile?.active_broker_id === 'kis' || profile?.active_broker_id === 'toss')} quoteScopeCurrent={quoteScopeCurrent} />
   </Box>
 }

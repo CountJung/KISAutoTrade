@@ -24,6 +24,8 @@ mod sector_portfolio;
 pub use sector_portfolio::*;
 mod sector_data;
 pub use sector_data::*;
+mod broker_chart;
+pub use broker_chart::*;
 mod strategy;
 pub use strategy::*;
 mod risk;

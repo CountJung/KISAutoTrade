@@ -330,7 +330,7 @@ provider를 호출하지 않는 bundle 검증을 분리한다. 일반 native의 
 수집만 AppState의 KIS snapshot을 사용하며 provider await 전후 ID/client identity를
 검사한다. REST는 순수 검증만 제공하고 수집·scope 조회는 등록하지 않는다.
 
-`research-only` native는 별도 identifier·incognito window·순수 검증/계산 두 IPC를
+`research-only` native는 별도 identifier·incognito window·순수 자료 검증·검증형/차트근사 계산3개 IPC를
 사용하며 운영 AppState/profile/config/store/plugin/server/daemon을 초기화하지 않는다.
 `main.tsx`는 marker/query로 운영 router import 전에 연구 화면을 고르고 전용 Vite는
 `.env` 없이 loopback/HMR-off를 사용한다. 일반 앱의 query만으로 native 권한이
@@ -347,3 +347,14 @@ backend daemon을 중단하지 않으며 `SimulationOperatingStatus`가 최근 �
 수집 기반 준비 bundle의 확인 선언/준비 보고서는 scope 변경 시 재검증한다. 페이지가 unmount되면
 메모리 작업 상태는 별도 영속화를 하지 않는다. 내부 연구 앱의 운영 초기화 제외·자동API0
 관측을 일반 Simulation 경로의 보장으로 확대하지 않는다.
+
+
+`trading/broker_chart`는 명시 동의한 일반 native의 KIS/Toss 비수정 시세 수집을 소유하고,
+`sector_portfolio/price_research`는 별도 DTO의 순수 가격근사 검증·모드 hash를 소유한다.
+기존 replay/planner를 공유하되 strict preview의 확인 조건을 낮추지 않으며 내부 source
+flag도 false다. 알려진 사건은 거부하고 미확인 권리/배당은 정산하지 않는다.
+수집에는 현재 profile snapshot과 client identity를 대조하고 순수 계산에는 AppState를
+전달하지 않는다. REST/연구 native는 순수 preview만 제공한다. Simulation의 기본
+검증형과 근사형은 입력/결과를 각각 보존하며 실제/forward 원장을 갱신하지 않는다.
+[별도 wire·수집 한계](ipc-commands.md#브로커-차트-가격수익률-근사),
+[실측과 미검증](completed-history.md#p2-sector-01-broker-chart)을 따른다.

@@ -69,6 +69,29 @@ Mac mini 원본 checkout은 clean `dd4e498`/`fix/mac-security-storage-2026-10-06
 
 최종 캐시 요약은 `.cache/sector-20d/evidence/research-summary.json`(수치·제한·근거파일 hash), 독립 감사는 같은 `evidence/stock-{data,signal,distribution}-audit.json`이다. 원래 P2의 검증된 실제30일 비교는 열린 상태로 유지하고11/6~24 forward 실험의 규칙·성과 원장·schedule은 바꾸지 않았다. 제안은2회 확인 상태·전일/당일09:50 기록·목표/실현 현금·적격 부족 시 현금·비용/센트 경계를 추가로 관찰하는 shadow 범위이며 사후 최적화·실제 주문·방어 효능/우월성 추천으로 승격하지 않는다. 제품 코드는 변경하지 않았다. 문서3곳과 파생 TODO HTML의 링크/앵커145개·TODO12개 동기화·기존11개 제목/본문 보존·project-map·diff 검사도 통과했다.
 
+<a id="p2-sector-01-broker-chart"></a>
+### 브로커 차트가격 근사·KIS20일 실측
+
+승인된 후속 구현에서 Simulation의 기본 **검증형**을 유지하고 **차트 가격수익률 근사**를 추가했다. 별도 `BrokerChartInput`과 명시 한계 확인·순수 IPC/보호 REST·오프라인 `broker_chart_price_replay`는 생산 rank/planner/정수주 장부를 공유하며 strict source 확인을 완화하지 않는다. 비수정 요청 종가 신호·평가, 다음 관측시가 가상체결·매도선행·현금한도·10/20bp 총비용을 사용하고 알려진 사건은 전체 거부한다. 빈 `knownCorporateActions`는 사건 부재 증명이 아니며 coverage/corporateActions flag는 false, economicReturnVerified/dividendReturnIncluded도 false다. [계약 정본](ipc-commands.md#브로커-차트-가격수익률-근사)에 스키마·상한·hash와 수집 권한 경계를 둔다.
+
+기존 KIS 연결 profile을 내부 quote collector로 사용해12종목 시세12회를 성공했다. 잔고·계좌목록·주문 호출은0이며 설정/키를 변경하지 않았다. 문서 담당은 민감 profile/자격증명을 읽지 않고 비민감 캐시 영수증만 대조했다. Toss 실제 인증은 실행하지 않았다. 공식 KIS AMS 마스터의2026-11-06 dated snapshot에서 대상12개 US/USD/type3/AMS와 매핑 파일을 독립 확인했다. 이는 조회 코드의 날짜 고정 근거이며 상장시장·최신성·NYSE Arca 변환 규칙 인증이 아니다. 현재 코드는 이 근거의 seed와 전체12개 수동 override를 제공하고 오류/빈 자료에서 다른 코드로 fallback하지 않는다.
+
+실자료는 같은 KIS의 SPY 관측일42개와12종목이며 사전2026-09-09~10-08의22회, 평가10-09 시가 근사~11-05 종가의20회다. USD10000의 독립5장부에 같은 창/가격/정수주/비용을 적용했다. SPY 공통관측일은 공식 달력 완전성·PIT·당시 유니버스·기업행위 부재를 인증하지 않는다. KIS MODP0/Toss adjusted=false는 비수정 **요청**이며 경제적으로 완전한 원시가격·과거 조정 부재를 자동 보증하지 않는다. 배당 현금/재투자·분할 권리·실제09:50 호가/체결·유동성/부분체결/거절·운영 guard는 반영하지 않았다. 기말은 마지막 종가 평가로 최종 청산비용을 추가하지 않는다.
+
+| 장부 | 10bp 가격장부 순수익률 | 10bp MDD | 10bp 비용(USD) | 20bp 가격장부 순수익률 |
+|---|---:|---:|---:|---:|
+| 기본 | −0.546545% | 2.611848% | 102.296504 | −1.569826% |
+| 방어 | −0.672030% | 2.611848% | 86.048980 | −1.568592% |
+| 공격 | −4.168766% | 5.402578% | 172.895569 | −5.887444% |
+| SPY 단순보유 | −5.281949% | 5.458223% | 9.314880 | −5.375098% |
+| 현금 | 0% | 0% | 0 | 0% |
+
+이 표는 배당 포함 총수익이나 미래 전략 효과가 아닌 비용 차감 **차트 가격 장부**다. 기본/방어의 같은10bp MDD와 세 전략의 비용 민감도는 별도 국면·미관측 표본을 요구하며 급락 방어·우월성 추천으로 확대하지 않는다. 회전율은(매수+매도대금)/초기자본, 비용 제거 수익은 같은 체결경로의 비용 가산값으로 비용0 재실행이 아니다. 비용/회전율·20bp 민감도를 별도 shadow에서 관찰하는 정도만 제안하며 기존 전략 파라미터·forward3주 규칙/원장/schedule·주문을 바꾸지 않았다.
+
+독립 감사는10/20bp×5장부×20일의200행·11539수치를 대사해 최대 절대차5e-12, 미래 평가 prefix4개 일치와259가상체결을 확인했다. 원수집 입력의 acknowledgedPriceOnly=false를 보존하고 계산 사본에서만 확인/비용을 바꿨으며 strict flags를 승격하지 않았다. `.cache/broker-chart-live/run-20261106/{stock-summary.csv,stock-daily-ledger.csv,stock-live-audit-receipt.json,stock-source-warnings.json}`이 근거다.10bp 보고서 SHA256은 `8475acc06e3920334296accaeda3ba9eb3640ed96d4fabcb49860b2f3af27a07`,20bp는 `b36a1a8d101cbdffc17edc8a38f79a2eb91af4530d5952968ced87ecae9ca807`이다.100행 페이지의 정규화 rowsHash는 기록됐지만 collection에는 선택42행만 보존돼 독립 페이지hash 재계산은 불가능하며 HTTP 원문hash도 아니다. 개인 캐시의 독립 재현 근거를 외부 공개/게시하지 않았다.
+
+seed/REST 보호 route/Toss raw wire 보강 후 로컬 Rust965/965(16.66초), server29/29와 normal/research all-targets check·엄격 all-features Clippy 경고0·앱/Node TypeScript·연구 웹 build·FSD·lockfile 검사를 통과했다. 전체 UI580개 통과는 마지막 경미 보강 **이전** 실행이며 이후 focused6/6을 확인했다. 예상 전체581을 실행 성공으로 기록하지 않는다. native 수집 집중1개와 native 화면 PNG는 브라우저 mock이며 실제 OS native IPC 화면은 미검증이다. KIS quote/auth·Toss auth의 합성307/308 redirect는 두 번째 서버 수신0을 확인했다. Toss raw wire 회귀16/16은 캐시 토큰 재사용·quote GET1·OAuth POST0·계좌 header0을 검증했으며 실제 Toss 인증 성공이 아니다. Graphify는8014nodes/18661edges/357communities로 재생성했고5000상한 HTML 생략은 도구 안내다. 최종 원격 CI는 커밋·푸시 뒤 [PR #16의 해당 HEAD Checks](https://github.com/CountJung/KISAutoTrade/pull/16/checks)에서 별도로 확인한다. 원래 **검증된 실제30일 비교**·기업행위 정산·운영 연결은 계속 미완료다.
+
 <a id="toss-inventory-20261105"></a>
 ## Toss REST inventory 보정 — 2026-11-05
 

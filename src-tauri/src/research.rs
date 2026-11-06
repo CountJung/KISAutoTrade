@@ -31,6 +31,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             crate::commands::preview_sector_portfolio,
+            crate::commands::preview_broker_chart_portfolio,
             crate::commands::validate_sector_data,
         ])
         .run(context)

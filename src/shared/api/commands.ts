@@ -378,3 +378,4 @@ export { getBudgetRecovery, approveBudgetRecovery } from './budgetRecoveryComman
 
 export * from './sectorPortfolioCommands'
 export * from './sectorDataCommands'
+export * from './brokerChartCommands'

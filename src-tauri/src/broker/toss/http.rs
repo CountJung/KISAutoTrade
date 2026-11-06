@@ -15,6 +15,7 @@ pub(super) fn toss_http_client() -> Client {
     let headers = HeaderMap::from_iter([(ACCEPT_ENCODING, HeaderValue::from_static("identity"))]);
     crate::http::client_builder()
         .timeout(TOSS_HTTP_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
         .default_headers(headers)
         .build()
         .expect("Toss reqwest client with timeout should build")

@@ -18,7 +18,7 @@ export default function ResearchPage() {
     <Box component="main" sx={{ minHeight: '100dvh', bgcolor: 'background.default', py: { xs: 2, sm: 4 }, overflowWrap: 'anywhere' }}>
       <Container maxWidth="xl" sx={{ minWidth: 0 }}>
         <Typography component="h1" variant="h5" sx={{ fontWeight: 700, mb: 1 }}>섹터 ETF 독립 연구</Typography>
-        <Typography sx={{ mb: 3 }}>파일 검증과 과거 자료 계산 전용입니다. 시작할 때 계좌·설정·시세를 조회하지 않습니다. KIS 자료 수집은 일반 앱에서 별도로 요청하세요.</Typography>
+        <Typography sx={{ mb: 3 }}>파일 검증과 과거 자료 계산 전용입니다. 시작할 때 계좌·설정·시세를 조회하지 않습니다. 브로커 자료 수집은 일반 앱에서 별도로 요청하세요.</Typography>
         <SectorPortfolioPanel researchOnly />
       </Container>
     </Box>

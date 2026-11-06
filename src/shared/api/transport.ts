@@ -124,6 +124,8 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
 
     case 'preview_sector_portfolio':
       return { method: 'POST', url: '/api/strategy/sector-portfolio/preview', body: args.input }
+    case 'preview_broker_chart_portfolio':
+      return { method: 'POST', url: '/api/strategy/broker-chart/preview', body: args.input }
 
     case 'validate_sector_data':
       return { method: 'POST', url: '/api/strategy/sector-data/validate', body: args.input }

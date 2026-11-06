@@ -92,6 +92,9 @@
 | `preview_strategy` | `candles` 평가 구간 + 선택 `historyCandles` 사전자료를 합계 최대 500봉으로 종가 신호·선택 체결 모델 replay. `warmupCount` 생략은 0이며 명시 prefix와 별도 history 동시 지정은 거부. 결과 candles는 평가 구간만 포함. 실제 지표 준비 상태·조건 평가 봉 수(`preparation`), raw 신호·체결/차단·비용/리스크 성과와 OHLCV hash를 반환. generic LTH는 `UNSUPPORTED_GENERIC_REPLAY`로 명시 거부. live 10초 tick·intrabar/provider latency는 재현하지 않음 |
 | `preview_strategy_continuous` | 한 요청의 엄격한 이전 사전자료와 시간순 분할 평가봉을 공통 v12 세션에서 연속 재생. history 최대512봉·1~16묶음·묶음당1~500봉·전체 평가4096봉. 상태 보존과 공급 경계 원장을 반환하며 generic LTH는 거부. 웹 POST `/api/strategy/preview/continuous`와 동일 입력 |
 | `preview_sector_portfolio` | 계좌 없이 제공 JSON의 11개 섹터+SPY를 공통 시계에서 기본·방어·공격+SPY보유/현금으로 비교. USD 독립 장부·이전 완료봉 신호→nextOpen 근사. 웹 POST `/api/strategy/sector-portfolio/preview`와 동일 계산. 운영 전략 등록·주문·파일 저장 없음 |
+| `preview_broker_chart_portfolio` | 별도 BrokerChartInput의 비수정 종가 신호·nextOpen USD 가격근사. 순수 계산이며 보호 POST `/api/strategy/broker-chart/preview`와 연구 native에서도 제공. 검증형 flag 승격·주문·저장 없음 |
+| `get_broker_chart_scope` | 일반 native에서 명시 클릭 때 KIS/Toss 활성 profile의 opaque ID/provider/paper만 반환. REST/연구 native에 미등록 |
+| `collect_broker_chart_data` | 일반 native에서 expectedProfileId·별도 인증 시세 동의 후 고정12종목 비수정 일봉 수집. 잔고/계좌목록/주문 호출 없음. REST/연구 native에 미등록 |
 | `validate_sector_data` | 제공된 raw/adjusted bundle과 수동 검증 근거를 로컬 대조해 준비 상태·진단·hash와 계산용 입력을 반환. 순수 계산이며 POST `/api/strategy/sector-data/validate`도 같은 계약. 연구 전용 native에서도 제공 |
 | `get_sector_quote_scope` | 일반 native 앱에서 명시 버튼 클릭 때만 활성 profile의 opaque ID·provider·paper 최소정보를 반환. 계좌번호/자격증명은 반환하지 않으며 계좌 연결 성공을 인증하는 응답이 아님. REST/연구 전용 native에는 미등록 |
 | `collect_sector_data` | 일반 native 앱에서 expectedProfileId·인증 시세 조회 동의·고정12종목 manifest를 검증한 뒤 raw(MODP=0)/adjusted(MODP=1) 일봉을 수집. 인증/토큰 발급이 발생할 수 있으나 주문·잔고·자동매매는 호출하지 않음. REST/연구 전용 native에는 미등록 |
@@ -566,10 +569,82 @@ stderr에 원문 파일 SHA256(`rawInputHash`)을 남긴다. 앱·인증·설정
 
 `research-only` feature와 [tauri.research.conf.json](../src-tauri/tauri.research.conf.json)의
 native 진입은 별도 identifier `com.countjung.kisautotrade.research`를 쓰고
-`preview_sector_portfolio`·`validate_sector_data`만 등록한다. AppState·profile/config/
+`preview_sector_portfolio`·`preview_broker_chart_portfolio`·`validate_sector_data`의 순수 IPC3개만 등록한다. AppState·profile/config/
 store·plugin·HTTP server·daemon 초기화가 없다. `src/main.tsx`는 native marker 또는
 `researchOnly=1`을 확인한 뒤 운영 router import 전에 연구 화면을 선택한다.
 쿼리만으로 일반 native의 IPC 권한을 줄이는 것이 아니므로 격리 native 실행은
 전용 feature/config를 함께 사용한다. 전용 Vite 설정은 `.env`를 로드하지 않고
 loopback 서버와 HMR 비활성화를 사용한다. 연구 전용 화면에는 인증 시세 수집이 없다.
 로컬 실행·서명 없는 앱 빌드 명령은 [사용법](user-guide.md#연구-전용-앱과-섹터-자료-준비)을 따른다.
+
+
+### 브로커 차트 가격수익률 근사
+
+`preview_broker_chart_portfolio({input})`와 보호 POST
+`/api/strategy/broker-chart/preview`는 AppState/provider/store 없는 같은 순수 계산이다.
+기본 검증형 `preview_sector_portfolio`와 별도 계약이며 strict 확인 조건을 낮추지 않는다.
+DTO 정본은 [price_research/types.rs](../src-tauri/src/trading/sector_portfolio/price_research/types.rs)와
+[TypeScript 미러](../src/shared/api/brokerChartTypes.ts)다.
+
+`BrokerChartInput`은 `schemaVersion=1/initialCashUsd/costBps/source/history/evaluation/
+expectedSessionDates/acknowledgedPriceOnly/knownCorporateActions`를 받는다.
+source는 `brokerId=kis|toss`, 이름·수집시각·synthetic 선언,
+`adjustment=unadjusted/currency=USD/interval=1d`,
+`sessionBasis=observedSpySessions|brokerCalendar`와 `calendarEvidence`다.
+후자의 calendar도 입력자 선언이며 자동 인증이 아니다. 각 날짜의 prices는 고정12종목의
+`open/high/low/close/volume/currency=USD`이며 JSON 중복 ticker·unknown 필드를 거부한다.
+초기자금은1~1e9 USD, 비용은 편도 총10 또는20bp다. history 최소22개·evaluation1개 이상·
+합계500개 이하이며 전체 날짜는 expectedSessionDates와 동일·엄격 오름차순이어야 한다.
+수집시각/현재시각 중 이른 뉴욕 날짜 이전의 완료 평일만 허용하고 미래 수집시각을 거부한다.
+가격은 유한한0.000001~1e9·OHLC 범위 일치, 거래량은0~9007199254740991로 검사한다.
+공식 거래일의 누락 부재는 이 검사로 증명하지 않는다. 명시 `acknowledgedPriceOnly=true`가
+필수이며 알려진 기업행위가 하나라도 있으면 전체 거부한다. 빈 목록은 사건 부재 인증이 아니다.
+
+비수정 요청 종가를 기존 planner의 신호 슬롯에 전달하되 mode/signal/source로 가격근사임을
+명시한다. 이전 완료봉 신호·전일 NAV 목표예산→다음 관측시가 정수주·매도 후 순위매수·
+비용 포함 현금 한도·차입/공매도 없음·세금/현금이자0·마지막 종가 평가를 공유한다.
+최종 청산비용은 추가하지 않고 매 거래 센트 반올림도 하지 않는다. 배당·분할 권리는 미정산이며
+수익은 배당재투자 총수익이나09:50 실제 모의 표시가격 성과가 아니다.
+
+응답은 `mode=brokerChartPriceApproximation/signalBasis=unadjustedClose/
+dividendReturnIncluded=false/economicReturnVerified=false/inputHash/warnings/result`다.
+중첩 source의 `coverageVerified/corporateActionsVerified`도 false로 유지한다.
+inputHash와 result.inputHash는 mode/signalBasis 태그+전체 DTO의 정규화 SHA256이며
+원본 파일 bytes/HTTP 원문/출처 진위 인증이 아니다. 운영 원장·검증형 입력으로 자동 승격하지 않는다.
+UI JSON은1.5MB, native 정규화 입력/REST/오프라인 CLI는2MiB 상한이다.
+현재 REST는 명령 오류를422의 `code/error`로 반환하며 성공은200이다.
+오프라인 `cargo run --locked -p kis-auto-trade --example broker_chart_price_replay -- INPUT.json`
+(또는 `-`)은 stdout JSON·stderr rawInputHash를 남기며 앱/인증/설정 로드를 하지 않는다.
+
+일반 native 전용 `get_broker_chart_scope()`는 명시 클릭 때 opaque profileId/provider/paper만
+반환한다. `collect_broker_chart_data({input})`는 `expectedProfileId`,
+`authenticatedQuotesAcknowledged=true`, `evaluationBars=1..120`, 선택 `endDate/exchangeMappings`를
+받는다. UI 수집은 평가20봉과 사전22봉이다. 종료일 생략은 뉴욕 전일이며 실제 평가 종료는
+그 이전 수신 SPY 완료봉이다. 시세 인증/토큰 발급·갱신이 가능하지만 잔고·계좌목록·주문을
+조회하지 않는다. 각 provider await 전후·최종 반환에 profile snapshot/client identity를 대조한다.
+프로필 publication/동의가 바뀐 늦은 UI 수집 응답은 버리고 이미 독립 입력한 계산 결과는 보존한다.
+이 scope/수집은 REST와 연구 native에 등록하지 않는다.
+
+고정12종목을 SPY 먼저 순차 수집해 최신22+평가봉 날짜를 고정한다. 다른 ETF가 그 날짜를
+빠뜨리면 교집합으로 숨기지 않고 전체 거부한다. 종목당 최대16페이지·페이지500행·전체180초,
+요청 사이1100ms와 기존 rate limiter를 적용한다. 수집기는 추가 재시도/거래소 탐색을 하지 않으며 기존 Toss의 transport/401 재시도는 적용된다.
+KIS는 MODP0·날짜 anchor, Toss는 `1d/count=200/adjusted=false/before`와 반환 cursor를 쓴다.
+Toss timestamp는 뉴욕 자정 일봉 날짜·USD를 확인하며 공급 시작 이전에는 false 요청에도
+과거 조정이 남을 수 있다. KIS HTTP30초/8MiB, Toss15초/4MiB와 정규화 DTO2MiB는 서로 다른 상한이다.
+
+KIS 기본 exchangeMappings는 [공식 AMS 마스터 ZIP](https://new.real.download.dws.co.kr/common/master/amsmst.cod.zip)의
+2026-11-06T07:17:06.817973Z 스냅샷에서12종목 US/USD/ETP type3/AMS를 확인한 seed다.
+archive SHA256 `508592b86497915bad003ee8917cf6fc215c43cb2cb76377d3b47deda17424ad`와
+URL/수집시각을 반환 매핑 근거에 보존한다. 상장시장 인증·NYSE Arca 추정·runtime 최신성 확인이 아니다.
+수동 override는 전체12종목 각1개 NAS/NYS/AMS와 비어 있지 않은 evidence를 요구하며
+seed에 fallback하지 않는다. Toss는 종목 API이므로 exchangeMappings를 받지 않는다.
+오류·빈 응답이면 중단하고 다른 코드로 인증 요청을 반복하지 않는다.
+
+반환 `BrokerChartCollection`은 `input/diagnostics/receipts/exchangeMappings/collectionHash`다.
+각 receipt의 `symbol/exchange/page/rowCount/oldestDate/newestDate/rowsHash/requestAdjustment`와
+실효 매핑을 보존하며 collectionHash는 input·receipts·매핑의 정규화 hash다.
+선택 창만 반환하므로 더 긴 요청 페이지의 rowsHash를 결과만으로 재계산하지 못할 수 있다.
+이는 HTTP 원문 hash·공식 달력/PIT/기업행위 부재 인증이 아니다. 수집 입력의 한계 확인은
+false로 시작하고 사용자가 계산 전에 별도로 확인한다.
+현재 사용법은 [Simulation 안내](user-guide.md#섹터-etf-기본방어공격-비교),
+실측·독립 대사·미검증은 [P2 이력](completed-history.md#p2-sector-01-broker-chart)에 둔다.

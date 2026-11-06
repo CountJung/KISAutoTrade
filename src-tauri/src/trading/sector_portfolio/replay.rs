@@ -240,6 +240,16 @@ pub fn preview_sector_portfolio(
     input: &SectorPortfolioInput,
 ) -> Result<SectorPortfolioReport, String> {
     validation::input(input)?;
+    let mut report = replay_validated(input)?;
+    report.warnings = strict_warnings(input);
+    Ok(report)
+}
+
+/// Private accounting core. Each public mode must validate its own complete input
+/// before calling this; this function does not certify source metadata.
+pub(super) fn replay_validated(
+    input: &SectorPortfolioInput,
+) -> Result<SectorPortfolioReport, String> {
     let normalized = serde_json::to_vec(input).map_err(|error| error.to_string())?;
     let input_hash = hex::encode(Sha256::digest(&normalized));
     let days: Vec<_> = input
@@ -295,6 +305,22 @@ pub fn preview_sector_portfolio(
         .zip(books)
         .map(|(strategy, book)| book.finish(strategy, input.initial_cash_usd, last))
         .collect();
+    Ok(SectorPortfolioReport {
+        engine_version: SECTOR_ENGINE_VERSION.into(),
+        input_hash,
+        source: input.source.clone(),
+        history_bars: input.history.len(),
+        evaluation_bars: input.evaluation.len(),
+        start_date: input.evaluation[0].date.clone(),
+        end_date: last.date.clone(),
+        execution_model: "nextOpenApproximation".into(),
+        warnings: Vec::new(),
+        rankings,
+        portfolios,
+    })
+}
+
+fn strict_warnings(input: &SectorPortfolioInput) -> Vec<String> {
     let mut warnings = vec![
         "일봉 nextOpen 사후 근사입니다. 원장의 뉴욕09:50 조회 표시가격·동시 실체결을 복원하지 않습니다.".into(),
         "출처·거래일 달력·coverage·평가창 기업행위 부재·조정 기준은 입력자의 선언이며 프로그램이 공급원/공식 달력을 자동 인증하지 않았습니다.".into(),
@@ -318,17 +344,5 @@ pub fn preview_sector_portfolio(
     if input.cost_bps == 20.0 {
         warnings.push("편도 총20bp 스트레스입니다. 기준10bp에20bp를 가산한 값이 아닙니다.".into());
     }
-    Ok(SectorPortfolioReport {
-        engine_version: SECTOR_ENGINE_VERSION.into(),
-        input_hash,
-        source: input.source.clone(),
-        history_bars: input.history.len(),
-        evaluation_bars: input.evaluation.len(),
-        start_date: input.evaluation[0].date.clone(),
-        end_date: last.date.clone(),
-        execution_model: "nextOpenApproximation".into(),
-        warnings,
-        rankings,
-        portfolios,
-    })
+    warnings
 }

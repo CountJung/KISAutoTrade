@@ -398,3 +398,17 @@ AppShell을 유지한 source-harness의 native 모사를 검사한다. 실제 OS
 보존을 함께 검사한다. 일반 AppShell의 기존 운영 조회가 계속되는 상태와 내부 연구
 runtime의 자동API0 관측을 혼합하지 않는다. 실제 계좌·KIS·운영 native 실행은 이
 브라우저 fixture로 검증하지 않는다. [회차 근거](completed-history.md#p2-sector-01)를 따른다.
+
+
+브로커 차트가격 근사 보강은 `cargo test --workspace --lib broker_chart --locked`로
+수집 경계·OHLCV/공통 SPY 날짜·부분누락·페이지/시간/거래소 매핑·순수 preview를 검사한다.
+`broker-chart-portfolio.spec.ts`는 한계 확인·검증형과 별도 상태·입력 오류·stale/중복·
+내보내기·375px를 production preview에서, `broker-chart-native.spec.ts`는 명시 시세 동의·
+프로필 ABA 늦은 응답을 source-harness의 브라우저 native 모사에서 검사한다.
+브라우저 native모사/스크린샷과 실제 OS native 화면·IPC를 구분한다.
+`cargo run --locked -p kis-auto-trade --example broker_chart_price_replay -- INPUT.json`은
+계좌/앱 없이 차트 JSON의 생산 계산을 실행한다. 원본bytes hash와 모드/DTO hash를 구분하고
+독립 장부·동일 평가 prefix·10/20bp 비용을 대사한다. synthetic fixture, 실제 KIS quote 성공,
+Toss 미실행, 페이지 원본 미보존의 각각 범위는 [같은 ID 실측 이력](completed-history.md#p2-sector-01-broker-chart)에 둔다.
+KIS quote/auth와 Toss auth의 redirect 차단은 합성307/308과 두 번째 수신 서버0으로 검사하며
+실제 외부 인증 성공과 혼동하지 않는다.

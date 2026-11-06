@@ -7,6 +7,7 @@ import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
+import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
@@ -19,9 +20,10 @@ import { parseSectorPortfolioInput, SECTOR_INPUT_MAX_BYTES, syntheticSectorPortf
 import { SectorPortfolioResults } from './SectorPortfolioResults'
 import { SectorPaperComparison } from './SectorPaperComparison'
 import { SectorDataPreparationPanel } from './SectorDataPreparationPanel'
+import { BrokerChartPortfolioPanel } from './BrokerChartPortfolioPanel'
 
 type Completed = { input: SectorPortfolioInput; report: SectorPortfolioReport }
-type PanelProps = { researchOnly?: boolean; mode?: 'accordion' | 'workspace'; quoteScopeKey?: string; quoteScopeReady?: boolean; quoteScopeCurrent?: (key: string) => boolean }
+type PanelProps = { researchOnly?: boolean; mode?: 'accordion' | 'workspace'; quoteScopeKey?: string; quoteScopeReady?: boolean; brokerQuoteScopeReady?: boolean; quoteScopeCurrent?: (key: string) => boolean }
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message
@@ -29,11 +31,12 @@ function errorMessage(error: unknown): string {
   return '자료 계산을 완료하지 못했습니다. 입력과 서버 연결을 확인하세요.'
 }
 
-export function SectorPortfolioPanel({ researchOnly = false, mode = 'accordion', quoteScopeKey = 'standalone', quoteScopeReady = true, quoteScopeCurrent }: PanelProps) {
+export function SectorPortfolioPanel({ researchOnly = false, mode = 'accordion', quoteScopeKey = 'standalone', quoteScopeReady = true, brokerQuoteScopeReady = quoteScopeReady, quoteScopeCurrent }: PanelProps) {
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [completed, setCompleted] = useState<Completed | null>(null)
   const [tab, setTab] = useState(0)
+  const [comparisonMode, setComparisonMode] = useState<'strict' | 'chart'>('strict')
   const id = useId()
   const comparisonTab = useRef<HTMLButtonElement>(null)
   const mutation = usePreviewSectorPortfolio()
@@ -59,6 +62,7 @@ export function SectorPortfolioPanel({ researchOnly = false, mode = 'accordion',
   }
   function applyPrepared(input: SectorPortfolioInput) {
     changeText(JSON.stringify(input, null, 2))
+    setComparisonMode('strict')
     if (workspace) { setTab(1); comparisonTab.current?.focus() }
   }
   async function loadFile(event: ChangeEvent<HTMLInputElement>) {
@@ -102,10 +106,10 @@ export function SectorPortfolioPanel({ researchOnly = false, mode = 'accordion',
   const introduction = <Stack spacing={2}>
     <Alert severity="info">{workspace ? '가상 USD 장부로 과거 자료를 재생합니다. ' : '계좌 연결 없이 입력 자료로 계산합니다. '}기본형 최대3개×30%, 방어형 같은 종목×15%/30%, 공격형 최대2개×47.5%를 같은 기간·자본·비용으로 비교합니다. 이 {workspace ? '작업 공간의 수집·검증·계산 버튼은 주문을 보내지 않습니다.' : '패널은 자동매매를 시작하거나 주문하지 않습니다.'}</Alert>
     <Typography variant="body2">전일 완료 자료로 선정·예산을 고정하고 다음 거래일 시가에 체결하는 일봉 근사입니다. 현재 모의투자의 09:50 조회 표시가격과 다릅니다. 30일 결과만으로 우월성이나 급락 방어를 확정할 수 없습니다.</Typography>
-    <Typography variant="body2">SPY와 11개 섹터의 조정 신호종가·비조정 시가/종가, 출처·수집시각·거래일 달력을 JSON으로 입력하세요. 사전자료 최소22봉과 평가자료를 분리하며 합계500봉·1.5MB 이내입니다. 날짜·조정·기업행위·누락 검증 실패는 0% 성과로 표시하지 않습니다.</Typography>
+    <Typography variant="body2">검증형 비교에는 SPY와 11개 섹터의 조정 신호종가·비조정 시가/종가, 출처·수집시각·거래일 달력을 JSON으로 입력하세요. 사전자료 최소22봉과 평가자료를 분리하며 합계500봉·1.5MB 이내입니다. 날짜·조정·기업행위·누락 검증 실패는 0% 성과로 표시하지 않습니다. 차트 가격수익률 근사는 비조정 가격 장부를 별도로 계산합니다.</Typography>
   </Stack>
   const preparation = <SectorDataPreparationPanel researchOnly={researchOnly} mode={workspace ? 'plain' : 'accordion'} quoteScopeKey={quoteScopeKey} quoteScopeReady={quoteScopeReady} quoteScopeCurrent={quoteScopeCurrent} onPrepared={applyPrepared} onInvalidate={() => changeText('')} />
-  const comparison = <Stack spacing={2}>
+  const strictComparison = <Stack spacing={2}>
     {workspace && <Typography component="h2" variant="h6">기본·방어·공격 비교</Typography>}
     <Typography variant="body2">초기자금은 자료 JSON의 initialCashUsd입니다(생략 시 10,000 USD). 실제 예수금이나 보유잔고를 자동 반영하지 않습니다.</Typography>
     <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
@@ -121,6 +125,13 @@ export function SectorPortfolioPanel({ researchOnly = false, mode = 'accordion',
       {!workspace && <SectorPaperComparison report={completed.report} costBps={completed.input.costBps ?? 10} />}
     </>}
   </Stack>
+  const comparison = <Stack spacing={2}>
+    <TextField select label="비교 방식" value={comparisonMode} onChange={event => setComparisonMode(event.target.value as 'strict' | 'chart')} size="small" sx={{ maxWidth: 360 }}>
+      <MenuItem value="strict">검증형 비교</MenuItem><MenuItem value="chart">차트 가격수익률 근사</MenuItem>
+    </TextField>
+    <Box hidden={comparisonMode !== 'strict'} sx={{ minWidth: 0 }}>{strictComparison}</Box>
+    <Box hidden={comparisonMode !== 'chart'} sx={{ minWidth: 0 }}><BrokerChartPortfolioPanel researchOnly={researchOnly} quoteScopeKey={quoteScopeKey} quoteScopeReady={brokerQuoteScopeReady} quoteScopeCurrent={quoteScopeCurrent} /></Box>
+  </Stack>
 
   if (workspace) return <Stack spacing={2} data-testid="sector-portfolio-panel" sx={{ minWidth: 0 }}>
     {introduction}
@@ -132,7 +143,8 @@ export function SectorPortfolioPanel({ researchOnly = false, mode = 'accordion',
     <Box role="tabpanel" id={`${id}-panel-0`} aria-labelledby={`${id}-tab-0`} hidden={tab !== 0} sx={{ minWidth: 0 }}>{preparation}</Box>
     <Box role="tabpanel" id={`${id}-panel-1`} aria-labelledby={`${id}-tab-1`} hidden={tab !== 1} sx={{ minWidth: 0 }}>{comparison}</Box>
     <Box role="tabpanel" id={`${id}-panel-2`} aria-labelledby={`${id}-tab-2`} hidden={tab !== 2} sx={{ minWidth: 0 }}>
-      {completed ? <SectorPaperComparison mode="plain" report={completed.report} costBps={completed.input.costBps ?? 10} /> : <Alert severity="info">먼저 세 전략 비교를 계산하세요. 실제 모의 기록이 있을 때만 요약 JSON을 직접 입력하여 같은 조건과 날짜의 결과를 대조합니다.</Alert>}
+      <Typography variant="body2" sx={{ mb: 2 }}>모의 결과 대조는 검증형 비교의 직접 입력 요약만 사용합니다. 차트 가격 근사 원장을 자동 합산하거나 동기화하지 않습니다.</Typography>
+      {completed ? <SectorPaperComparison mode="plain" report={completed.report} costBps={completed.input.costBps ?? 10} /> : <Alert severity="info">먼저 세 전략 비교를 계산하세요. 검증형 결과와 실제 모의 기록이 있을 때만 요약 JSON을 직접 입력하여 같은 조건과 날짜의 결과를 대조합니다.</Alert>}
     </Box>
   </Stack>
 

@@ -1770,3 +1770,12 @@ pending 대조와 당일 리스크 복원은 저장된 주문 TR-ID의 정확한
 - 순수 검증·연구 계산에는 계좌/profile/provider/store를 전달하지 않는다. 실제 시세 수집의 scope 검증·인증과 파일 검증을 구분하고 주문/잔고/자동매매 권한으로 확대하지 않는다. 현재 wire·지원 범위는 [IPC 정본](../../../docs/ipc-commands.md#섹터-자료-준비와-연구-전용-실행)을 따른다.
 
 > 마지막 업데이트: 2026-11-06T02:55:01+00:00
+
+
+## 브로커 차트 가격근사 수집 (2026-11-06)
+
+- 검증형 `sector_data`의 MODP0/1과 별도로 `trading/broker_chart`는 MODP0 일봉 OHLCV를 요청한다. strict 확인 조건은 유지하고 source coverage/corporateActions flag=false의 독립 가격근사 계약을 쓴다. 빈 사건목록은 분할/배당 부재 증명이 아니다.
+- 기본12종목 조회코드는 공식 `amsmst.cod.zip`의2026-11-06 스냅샷에서 US/USD/type3/AMS를 확인한 seed다. URL·retrievedAt·archive SHA256을 exchangeMappings에 보존한다. 상장시장 이름에서 AMS를 추정하거나 현재 마스터를 자동 인증하지 않는다. 전체12개 NAS/NYS/AMS+evidence 수동 override가 가능하며 오류·빈 페이지·인증 실패에서 다른 코드를 자동 시도하지 않는다.
+- 일반 native의 별도 scope/시세 동의 후 수집만 인증을 사용할 수 있다. SPY 관측 날짜를 고정하고 다른 ETF 누락을 교집합으로 감추지 않는다. 순수 preview/연구 native/REST에 인증 수집을 연결하지 않는다. KIS quote/auth HTTP는 redirect를 따르지 않는다. [wire·상한 정본](../../../docs/ipc-commands.md#브로커-차트-가격수익률-근사), [실제 KIS 성공 범위와 미검증](../../../docs/completed-history.md#p2-sector-01-broker-chart)을 따른다.
+
+> 마지막 업데이트: 2026-11-06T07:35:02+00:00
