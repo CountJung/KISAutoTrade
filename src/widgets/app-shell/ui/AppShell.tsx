@@ -15,6 +15,7 @@ import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import MenuIcon from '@mui/icons-material/Menu'
+import ScienceIcon from '@mui/icons-material/Science'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
@@ -28,6 +29,7 @@ import { clampNumber, readStoredNumber, writeStoredNumber, PAGE_FOCUS_NAVIGATION
 import { createAppTheme, getResolvedMode, THEME_STORAGE_KEY } from '../../../shared/config/theme'
 import { useSettingsStore } from '../../../entities/settings'
 import { useUpdateCheck, useBackendEvents } from '../../../api/hooks'
+import { SimulationOperatingStatus } from './SimulationOperatingStatus'
 
 const SIDEBAR_KEY = 'act:panel:sidebar:width'
 const SIDEBAR_DEFAULT = 220
@@ -306,6 +308,14 @@ export function AppShell() {
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }} color="primary" noWrap>
                 KISAutoTrade
               </Typography>
+              <IconButton
+                size="small"
+                aria-label="시뮬레이션 메뉴로 이동"
+                aria-current={location.pathname === '/simulation' ? 'page' : undefined}
+                color={location.pathname === '/simulation' ? 'primary' : 'default'}
+                onClick={() => { void navigate({ to: '/simulation' }) }}
+                sx={{ ml: 'auto' }}
+              ><ScienceIcon fontSize="small" /></IconButton>
             </Toolbar>
           </AppBar>
         )}
@@ -375,6 +385,7 @@ export function AppShell() {
               pb: isDesktop ? 2 : 9,
             }}
           >
+            {location.pathname === '/simulation' && <SimulationOperatingStatus />}
             <Outlet />
           </Box>
           {mainScrollbar.visible && (

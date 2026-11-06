@@ -503,6 +503,13 @@ REST 입력 오류는422, 내부 계산 작업 실패는500이며 malformed JSON
 앱 시작·계좌/설정 로드는 수행하지 않는다. 원장의09:50 표시가격과 일봉 nextOpen은
 서로 다른 체결 가정이며 결과를 소급 합산하거나 실측 체결로 표현하지 않는다.
 
+일반 앱의 `/simulation`은 기존 검증·계산 IPC와 명시 native 수집 계약을 사용한다.
+메뉴 통합을 위해 새 backend endpoint·원장 자동 조회·매매 명령을 추가하지 않는다.
+가상 `initialCashUsd`는 실제 계좌의 예수금/잔고로 채우지 않으며 프로필 publication
+변경도 순수 입력/결과 또는 계산 hash의 계좌 귀속을 만들지 않는다. 인증 시세 요청의
+범위 확인·동의·늦은 응답만 UI에서 무효화한다. 일반 AppShell의 운영 조회/daemon은
+연구 전용 runtime과 달리 계속되며 [현재 메뉴 사용법](user-guide.md#섹터-etf-기본방어공격-비교)을 따른다.
+
 ### 섹터 자료 준비와 연구 전용 실행
 
 자료 준비 DTO 정본은 [sector_data/types.rs](../src-tauri/src/trading/sector_data/types.rs)와

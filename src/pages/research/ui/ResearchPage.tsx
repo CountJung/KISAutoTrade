@@ -4,7 +4,7 @@ import Container from '@mui/material/Container'
 import CssBaseline from '@mui/material/CssBaseline'
 import Typography from '@mui/material/Typography'
 import { createTheme, ThemeProvider } from '@mui/material/styles'
-import { SectorPortfolioPanel } from '../../strategy/ui/SectorPortfolioPanel'
+import { SectorPortfolioPanel } from '../../../widgets/sector-portfolio'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
 const theme = createTheme({

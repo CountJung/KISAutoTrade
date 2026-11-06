@@ -1,4 +1,4 @@
-import { SectorPortfolioPanel } from './SectorPortfolioPanel'
+import { useNavigate } from '@tanstack/react-router'
 import { useStrategyUsSearch } from './useStrategyUsSearch'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { StrategyUsSearch } from './StrategyUsSearch'
@@ -149,9 +149,12 @@ type EditState = { symbols: string[]; quantity: number; params: Record<string, u
 
 // ─── Strategy 메인 ────────────────────────────────────────────────
 export default function Strategy() {
+  const navigate = useNavigate()
   return (
     <Box>
-      <SectorPortfolioPanel />
+      <Alert severity="info" sx={{ mb: 3 }} action={<Button color="inherit" onClick={() => { void navigate({ to: '/simulation' }) }}>Simulation으로 이동</Button>}>
+        섹터 ETF의 자료 준비·기본형/방어형/공격형 비교·모의 결과 대조는 Simulation 메뉴에서 진행합니다.
+      </Alert>
       <StrategyAccountPanel />
     </Box>
   )

@@ -20,8 +20,8 @@
     "semantic_hash": ""
   },
   "playwright.config.ts": {
-    "mtime": 1793934971.8206582,
-    "ast_hash": "4cc14f876627631226315182135fa390",
+    "mtime": 1793940111.0523808,
+    "ast_hash": "00155b1022b2dd9548d4a29b5b9877a8",
     "semantic_hash": ""
   },
   "scripts/check-fsd-imports.mjs": {
@@ -760,8 +760,8 @@
     "semantic_hash": "59b76fc1faedff9ea62d9770d8a76ee8"
   },
   "src/pages/strategy/ui/Page.tsx": {
-    "mtime": 1793920944.2375586,
-    "ast_hash": "24fd7e6987e7f07c70fa6842d6b2ebbc",
+    "mtime": 1793939613.0551748,
+    "ast_hash": "234d4c6ce2844a6aa5bc6ba999d262ab",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/leveragedTrendHoldEditorPanel.tsx": {
@@ -815,9 +815,9 @@
     "semantic_hash": ""
   },
   "src/router/index.ts": {
-    "mtime": 1793919774.0245557,
-    "ast_hash": "71f5834f7b7604d8fe23a1d653973bbd",
-    "semantic_hash": "71f5834f7b7604d8fe23a1d653973bbd"
+    "mtime": 1793939611.104926,
+    "ast_hash": "028c14ec73504d1a4d45c0fd06b4c6f1",
+    "semantic_hash": ""
   },
   "src/scheduler/index.ts": {
     "mtime": 1793919774.0246618,
@@ -935,8 +935,8 @@
     "semantic_hash": "9a0375e12e137974b815eece78da7e8d"
   },
   "src/widgets/app-shell/ui/AppShell.tsx": {
-    "mtime": 1793919774.0278647,
-    "ast_hash": "40ba4ea5853287dff26988e1be40c94f",
+    "mtime": 1793939612.369637,
+    "ast_hash": "c03b449c289ee92796c826ee597b7016",
     "semantic_hash": ""
   },
   "src/widgets/sidebar/index.ts": {
@@ -945,8 +945,8 @@
     "semantic_hash": "7f9f18ac373889536c28bdda7fac9014"
   },
   "src/widgets/sidebar/ui/Sidebar.tsx": {
-    "mtime": 1793919774.0281396,
-    "ast_hash": "d98695b41b6d43852434430a3ed7ee77",
+    "mtime": 1793939611.7311301,
+    "ast_hash": "bc52f7ef914be95be6e8d2f1a1fdd723",
     "semantic_hash": ""
   },
   "src/widgets/stock-chart/index.ts": {
@@ -2945,23 +2945,23 @@
     "semantic_hash": ""
   },
   "src/pages/strategy/model/sectorPortfolioInput.ts": {
-    "mtime": 1793921120.734031,
-    "ast_hash": "05dd1a61eb047dad42a6eb5447e08f4f",
+    "mtime": 1793939570.1959476,
+    "ast_hash": "91468fce62d51176c7e2af64e33e0c76",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/SectorPaperComparison.tsx": {
-    "mtime": 1793921416.8840542,
-    "ast_hash": "f0624707f3ac9eba02ddf46e869eb450",
+    "mtime": 1793939570.1951168,
+    "ast_hash": "2458b29118aecb4994f3a4bbc8d84f1b",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/SectorPortfolioPanel.tsx": {
-    "mtime": 1793933613.1996017,
-    "ast_hash": "efcc18285de9a1d5b4278db24a78ac2d",
+    "mtime": 1793939570.1944568,
+    "ast_hash": "989b5f593e74cb3eaa08dca9776ab846",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/SectorPortfolioResults.tsx": {
-    "mtime": 1793921035.2686555,
-    "ast_hash": "51ad70b9bf8f5806a878f9b9f40f76bc",
+    "mtime": 1793939570.195319,
+    "ast_hash": "7f4aef9a028601361e8d87e5994a9848",
     "semantic_hash": ""
   },
   "src/shared/api/sectorPortfolioCommands.ts": {
@@ -2975,8 +2975,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/sector-portfolio.spec.ts": {
-    "mtime": 1793933849.3885431,
-    "ast_hash": "913e194d6c839cddb5a5058575f3ab20",
+    "mtime": 1793939779.2316494,
+    "ast_hash": "5557391470331a38761c29befca81cdc",
     "semantic_hash": ""
   },
   "src-tauri/examples/sector_data_prepare.rs": {
@@ -3045,18 +3045,18 @@
     "semantic_hash": ""
   },
   "src/pages/research/ui/ResearchPage.tsx": {
-    "mtime": 1793933389.5900877,
-    "ast_hash": "f03ff97f8270b832edd6d8212dadd309",
+    "mtime": 1793939570.1963198,
+    "ast_hash": "e84a6a04b447b26af13b27155ac6d176",
     "semantic_hash": ""
   },
   "src/pages/strategy/model/sectorDataPreparation.ts": {
-    "mtime": 1793933709.316415,
-    "ast_hash": "2d0a15c30f8914a6a5b5c3ba16266872",
+    "mtime": 1793939570.1961396,
+    "ast_hash": "f70198b67abe8e5e438f818eca1209fc",
     "semantic_hash": ""
   },
   "src/pages/strategy/ui/SectorDataPreparationPanel.tsx": {
-    "mtime": 1793933752.1040704,
-    "ast_hash": "97a606c4e15a42a18701591f5241f747",
+    "mtime": 1793939570.1946847,
+    "ast_hash": "00613e6ec21d98bcafc12d1b7f59e4fb",
     "semantic_hash": ""
   },
   "src/shared/api/sectorDataCommands.ts": {
@@ -3102,6 +3102,81 @@
   "tests/e2e/sector-data-native.spec.ts": {
     "mtime": 1793934971.8204052,
     "ast_hash": "c720e64c1ede2d294a40463ac8af5f13",
+    "semantic_hash": ""
+  },
+  "src/pages/simulation/index.ts": {
+    "mtime": 1793939749.0653622,
+    "ast_hash": "49e3a25221002858ef9c78e827013e3e",
+    "semantic_hash": ""
+  },
+  "src/pages/simulation/ui/SimulationPage.tsx": {
+    "mtime": 1793940284.3389199,
+    "ast_hash": "98e00b141803bc9ca0dbc463b6e5041b",
+    "semantic_hash": ""
+  },
+  "src/widgets/app-shell/ui/SimulationOperatingStatus.tsx": {
+    "mtime": 1793939613.675602,
+    "ast_hash": "3e12a0bcd98663ad90386f46474f3c55",
+    "semantic_hash": ""
+  },
+  "src/widgets/sector-portfolio/index.ts": {
+    "mtime": 1793939570.1962247,
+    "ast_hash": "877242c1d848a08100274d637b7b118b",
+    "semantic_hash": ""
+  },
+  "src/widgets/sector-portfolio/model/sectorDataPreparation.ts": {
+    "mtime": 1793939570.1960695,
+    "ast_hash": "2d0a15c30f8914a6a5b5c3ba16266872",
+    "semantic_hash": ""
+  },
+  "src/widgets/sector-portfolio/model/sectorPortfolioInput.ts": {
+    "mtime": 1793939570.1954522,
+    "ast_hash": "05dd1a61eb047dad42a6eb5447e08f4f",
+    "semantic_hash": ""
+  },
+  "src/widgets/sector-portfolio/ui/SectorDataPreparationPanel.tsx": {
+    "mtime": 1793939925.4553304,
+    "ast_hash": "038c027f0b5917ba5b0b383616174265",
+    "semantic_hash": ""
+  },
+  "src/widgets/sector-portfolio/ui/SectorPaperComparison.tsx": {
+    "mtime": 1793939747.9243283,
+    "ast_hash": "5c118a57d65b86c4e835498b2e080ae4",
+    "semantic_hash": ""
+  },
+  "src/widgets/sector-portfolio/ui/SectorPortfolioPanel.tsx": {
+    "mtime": 1793939875.0502734,
+    "ast_hash": "3e3725e6e03257c31167986649768ead",
+    "semantic_hash": ""
+  },
+  "src/widgets/sector-portfolio/ui/SectorPortfolioResults.tsx": {
+    "mtime": 1793939570.1952398,
+    "ast_hash": "51ad70b9bf8f5806a878f9b9f40f76bc",
+    "semantic_hash": ""
+  },
+  "tests/e2e/fixtures/simulationAppHarness.tsx": {
+    "mtime": 1793940047.1276562,
+    "ast_hash": "605d5600ff73a4520716aaadf4e5bebb",
+    "semantic_hash": ""
+  },
+  "tests/e2e/fixtures/simulationNativeFixture.ts": {
+    "mtime": 1793940047.731424,
+    "ast_hash": "53258f3b4818243f9577ac580b7a1197",
+    "semantic_hash": ""
+  },
+  "tests/e2e/simulation-menu.spec.ts": {
+    "mtime": 1793940103.107984,
+    "ast_hash": "26cdd2dd0979104694068f6b795f5fcf",
+    "semantic_hash": ""
+  },
+  "tests/e2e/simulation-native.spec.ts": {
+    "mtime": 1793940119.0041656,
+    "ast_hash": "e5aacbba893d5ad41b29d21a16bf7ae4",
+    "semantic_hash": ""
+  },
+  "tests/e2e/fixtures/simulationAppHarness.html": {
+    "mtime": 1793940046.4968987,
+    "ast_hash": "f02f2ae39e5ea13803553352b2677b59",
     "semantic_hash": ""
   }
 }

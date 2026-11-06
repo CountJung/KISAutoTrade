@@ -15,6 +15,7 @@ import CircularProgress from '@mui/material/CircularProgress'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import ScienceIcon from '@mui/icons-material/Science'
 import HistoryIcon from '@mui/icons-material/History'
 import ArticleIcon from '@mui/icons-material/Article'
 import SettingsIcon from '@mui/icons-material/Settings'
@@ -35,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: '/', icon: <DashboardIcon /> },
   { label: 'Trading', path: '/trading', icon: <TrendingUpIcon /> },
   { label: 'Strategy', path: '/strategy', icon: <AutoAwesomeIcon /> },
+  { label: 'Simulation', path: '/simulation', icon: <ScienceIcon /> },
   { label: 'History', path: '/history', icon: <HistoryIcon /> },
   { label: 'Log', path: '/log', icon: <ArticleIcon /> },
 ]
@@ -100,7 +102,8 @@ function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; on
             개인용 자동매매
           </Typography>
         )}
-        {/* 자동매매 실행 상태 */}
+        {location.pathname === '/simulation' && <Typography variant="caption" component="p" sx={{ mt: 1, fontWeight: 700 }}>운영 자동매매</Typography>}
+        {/* 자동매매 실행 상태 — 시뮬레이션과 별개의 운영 제어 */}
         <Stack direction="row" spacing={0.75} sx={{ alignItems: "flex-start", mt: 0.75, minWidth: 0 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <QueryStatusSummary

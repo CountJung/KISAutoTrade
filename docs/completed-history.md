@@ -44,6 +44,16 @@ Mac mini 원본 checkout은 clean `dd4e498`/`fix/mac-security-storage-2026-10-06
 
 보강의 최종 로컬 게이트는 **Rust934/934(18.16초)**와 `CI=1 npx playwright test --workers=6`의 **UI566/566(2.7분, retry0/skip0)**로 통과했다. 이전 개발 서버484/82·중간 fixture 구성/준비 경합과 최종 결과를 합산하거나 서로 대체하지 않는다. default/research-only의 all-targets Cargo check, 엄격 Clippy 경고0, 앱/Node config TypeScript와 위 연구 native debug build·프로세스 smoke·오프라인5계정 CLI 동등성도 통과했다. `.cache/sector-account-review/sector-data-rust.log`·`sector-data-ci-mode-e2e.log`와 앞의 검사별 원본이 근거다. 이는 로컬 합성 검증이며 실제 KIS 인증/시장자료·운영 계정/주문/DB·native 화면/IPC 조작·투자 성과 검증을 뜻하지 않는다. 최종 변경 문서의 상대 링크/앵커334개·TODO12개 동기화·기존11개 본문 보존·최근 이력5개·project-map·diff 검사도 통과했다. 최신 변경 SHA의 원격 CI는 커밋·푸시 후 [PR #16 Checks](https://github.com/CountJung/KISAutoTrade/pull/16/checks)에서 별도로 확인한다.
 
+### Simulation 메뉴 통합 — 2026-11-06
+
+사용자가 승인한 메뉴 통합을 `eb0d972` 기반에서 구현했다. 일반 앱 `/simulation`의 자료 준비/세 전략 비교/모의 결과 대조3탭과 데스크톱·모바일 진입을 연결하고 Strategy의 기존 패널은 바로가기로 바꾼다. 공유 UI/model을 widgets로 옮기고 이전 import shim을 남기며 기존 backend API·순수 엔진을 재사용한다. 연구 전용 앱은 선택적인 내부 오프라인 도구로 유지하고 일반 사용에 별도 앱을 요구하지 않는다.
+
+일반 AppShell의 기존 계좌/운영 query와 daemon은 계속된다. 최근 정상·이전·오류/미확인 상태와 별도 운영 제어를 표시하며 메뉴·계산은 시작/정지/주문 변이를 요청하지 않는다. 실제 잔고를 USD 가상자본에 연결하지 않고 profile publication/epoch는 인증 수집 scope/동의/늦은 응답에만 적용해 순수 입력/결과를 보존한다. 모의 대조는 수동 JSON 요약이며 자동 원장 연동이 아니다. 이 회차에서 실제 KIS/계좌·운영 native 앱을 실행하지 않았으며 앞선 연구 전용 앱의 자동API0·Rust934/UI566 수치를 새 통합 검증 결과로 쓰지 않는다.
+
+메뉴 통합의 로컬 최종 게이트는 `CI=1 npx playwright test --workers=6 --output=.cache/simulation-menu/full-ui-results`의 **UI575/575(2.9분, retry0/skip0)**와 **Rust934/934(19.36초)**로 통과했다. 집중 검사는 새production5개(11.6초)·실제 Router/AppShell을 사용하는 브라우저 native모사4개(4.7초)·기존focused9개(6.9초)의18개이며 전체575개와 합산하지 않는다. 실제 OS native IPC·KIS 인증·계좌/잔고·주문·자동매매 시작/정지 호출은 실행하지 않았고 native모사는 `__TAURI_INTERNALS__` 합성 응답이다. 데스크톱/375px 화면의 직접 관측에 필수 잔여 문제가 없었으며 `.cache/simulation-menu/{desktop-workspace,mobile-workspace}.png`가 근거다. 일반 `KISAutoTrade.app`의 서명 없는 로컬 debug bundle 빌드(106.16MiB)는 성공했고 실행·설치·배포하지 않았다. 연구 전용 앱 빌드/프로세스 smoke와도 다른 관측이다.
+
+`cargo clippy --workspace --all-targets --all-features --offline -- -D warnings`가 경고0으로 통과했다(`.cache/simulation-menu/clippy.log`). 앱/Node config TypeScript·FSD·lockfiles·지도와 Graphify force-refresh(7803nodes/18158edges)가 통과했고 신규15파일·기존6shim을 대조했다. 일반 AppShell의 기존 읽기는 유지하되 메뉴·검증·계산에서 금융 변이가 없고 프로필 A→B→A/동일 ID·동일 시각 재게시의 인증 수집 무효화와 USD 입력/결과·수동 모의 초안 보존을 합성 검사했다. KIS 이외 프로필은 인증 수집을 보류하며 파일 계산은 독립적이다. backend API·엔진은 변경하지 않았다. 현재 실행·코드 근거는 `.cache/simulation-menu/{full-ui,rust,native-build,menu-focused,graphify}.log`와 `.cache/simulation-native/results`에 보존한다. 최종 문서/원본 스킬 변경 Markdown12개의 상대 링크/앵커356개·TODO12개 동기화·기존11개 제목/본문 보존·최근 이력5개·project-map·diff 검사도 통과했다. 현재 변경 SHA의 원격 CI는 커밋·푸시 후 [PR #16 Checks](https://github.com/CountJung/KISAutoTrade/pull/16/checks)에서 별도로 확인하며 로컬 통과를 원격 통과로 기록하지 않는다. 실제 시장자료/모의 원장 자동 연동·운영 native 화면/IPC·실계좌 준비 검증은 미완료다.
+
 <a id="toss-inventory-20261105"></a>
 ## Toss REST inventory 보정 — 2026-11-05
 

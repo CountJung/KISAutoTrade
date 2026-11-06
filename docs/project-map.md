@@ -482,6 +482,10 @@ KISAutoTrade/
 │   │   │   │   ├── settingsNavigation.tsx
 │   │   │   │   └── useProfileDialogSession.ts
 │   │   │   └── index.ts
+│   │   ├── simulation/
+│   │   │   ├── ui/
+│   │   │   │   └── SimulationPage.tsx
+│   │   │   └── index.ts
 │   │   ├── strategy/
 │   │   │   ├── model/
 │   │   │   │   ├── candlePageCollector.ts
@@ -590,7 +594,18 @@ KISAutoTrade/
 │   ├── widgets/
 │   │   ├── app-shell/
 │   │   │   ├── ui/
-│   │   │   │   └── AppShell.tsx
+│   │   │   │   ├── AppShell.tsx
+│   │   │   │   └── SimulationOperatingStatus.tsx
+│   │   │   └── index.ts
+│   │   ├── sector-portfolio/
+│   │   │   ├── model/
+│   │   │   │   ├── sectorDataPreparation.ts
+│   │   │   │   └── sectorPortfolioInput.ts
+│   │   │   ├── ui/
+│   │   │   │   ├── SectorDataPreparationPanel.tsx
+│   │   │   │   ├── SectorPaperComparison.tsx
+│   │   │   │   ├── SectorPortfolioPanel.tsx
+│   │   │   │   └── SectorPortfolioResults.tsx
 │   │   │   └── index.ts
 │   │   ├── sidebar/
 │   │   │   ├── ui/
@@ -1093,6 +1108,9 @@ KISAutoTrade/
 │       │   ├── sectorDataHarness.html
 │       │   ├── sectorDataHarness.tsx
 │       │   ├── sectorPortfolioFixture.ts
+│       │   ├── simulationAppHarness.html
+│       │   ├── simulationAppHarness.tsx
+│       │   ├── simulationNativeFixture.ts
 │       │   ├── strategyResearchFixture.ts
 │       │   └── uxReviewFixture.ts
 │       ├── balance-events.spec.ts
@@ -1111,6 +1129,8 @@ KISAutoTrade/
 │       ├── sector-data-research.spec.ts
 │       ├── sector-portfolio.spec.ts
 │       ├── settings-database.spec.ts
+│       ├── simulation-menu.spec.ts
+│       ├── simulation-native.spec.ts
 │       ├── strategy-accounting.spec.ts
 │       ├── strategy-atr-readiness.spec.ts
 │       ├── strategy-configuration-errors.spec.ts
@@ -1211,7 +1231,8 @@ KISAutoTrade/
 | 모듈 | 책임 |
 |------|------|
 | `main.tsx`, `index.html` | 연구 marker 또는 `researchOnly=1`을 운영 router의 동적 import와 `act-theme` 읽기 전에 판정. 연구 페이지는 light theme으로 분리하며 URL 선택 자체는 native IPC 권한 경계를 바꾸지 않음 |
-| `pages/research/` | router·AppShell·계좌/설정 store를 import하지 않는 독립 연구 entry. 고유 QueryClient/theme으로 파일 자료 준비·검증·USD 비교 패널만 조립 |
+| `pages/research/` | router·AppShell·계좌/설정 store를 import하지 않는 독립 연구 entry. 고유 QueryClient/theme으로 `widgets/sector-portfolio`의 파일 자료 준비·검증·USD 비교 패널만 조립 |
+| `pages/simulation/` | 일반 앱 `/simulation` route. 공유 섹터 위젯의 자료 준비/세 전략 비교/모의 결과 대조3탭을 조립하며 기존 AppConfig의 현재 profile·broker·투자모드·`dataUpdateCount`/publication 상태를 수집 권한 세대로 전달. profile 변경은 수집 scope/동의를 무효화하고 입력 기반 USD 결과는 유지 |
 | `vite.research.config.ts` | 공통 Vite 설정을 재사용하되 `envDir:false`, loopback127.0.0.1·strictPort1420·HMR/WS 비활성으로 연구 dev/build 설정을 한정 |
 | `router/` | TanStack Router 기반 라우팅 |
 | `shared/api/` | Tauri IPC/Web REST wrapper, Rust 타입 미러 (`BrokerHoldingView` 포함) |
@@ -1243,7 +1264,8 @@ KISAutoTrade/
 | `api/budgetRecoveryHooks.ts` | 복구 목록을 broker/account/profile/투자 모드별로 조회. 창 재진입 자동 갱신 없이 명시적 재조회하고, 승인 뒤 원래 scope의 복구·예산 및 pending query를 무효화 |
 | `shared/api/budgetRecovery{Types,Commands}.ts` | 복구 항목·승인 요청의 Rust 미러와 데스크톱 IPC 래퍼. 운영자 근거 대조와 실제 체결 확인을 구분하며 웹 REST 복구 경로는 제공하지 않음 |
 | `api/databaseHooks.ts` | DB 설정/상태/이관 Tauri-only TanStack Query hooks |
-| `widgets/app-shell/` | 전체 앱 레이아웃, ThemeProvider, responsive navigation, 좌측 사이드바 자동매매 시작/정지 전역 조작. route 위치는 메모리 ref로만 복원해 reload는 기존0에서 시작. 명시 focus 알림의 routeKey·현재 route·pending route가 모두 같을 때만 pending을 취소하고 listener를 cleanup하며 기존 복원 함수/1200ms·scroll/resize는 유지 |
+| `widgets/app-shell/` | 전체 앱 레이아웃, ThemeProvider, responsive navigation, 좌측 사이드바 자동매매 시작/정지 전역 조작. Simulation은 데스크톱/모바일 Drawer와 모바일 상단 바로가기로 진입하며 기존 하단6개 탭은 유지. route 위치는 메모리 ref로만 복원해 reload는 기존0에서 시작. 명시 focus 알림의 routeKey·현재 route·pending route가 모두 같을 때만 pending을 취소하고 listener를 cleanup하며 기존 복원 함수/1200ms·scroll/resize는 유지 |
+| `widgets/app-shell/ui/SimulationOperatingStatus.tsx` | `/simulation`에서 기존 운영 상태 cache를 표시하고 실행/정지·미확인/이전 정상 상태와 명시 재조회를 구분. 자체 polling 없이 기존 Sidebar 조회를 공유하며 주문/자동매매 시작·정지를 호출하지 않음. 메뉴에서도 앱의 기존 운영 조회/권한이 계속됨을 안내 |
 | `widgets/stock-chart/` | 국내/해외/Toss canvas 차트와 동일 변환 projection을 사용하는 내부 텍스트 자료 대안. 각 toChartPoints의 기존 시각/제외/가격 변환은 유지하고 useMemo 결과를 canvas·텍스트에 공유하며 query/금융 계산을 추가하지 않음 |
 | `widgets/stock-chart/ui/StockChart.tsx` | 기존 KIS 국내/Toss 조회 gate·preset·canvas lifecycle을 소유. 공개 symbol/stockName/source에 선택적 market(KR/US) 표시 문맥만 추가해 Trading이 전달. KIS 국내 가격은 KRW, Toss DTO의 통화 부재는 시장 추정 없이 미확인으로 표시 |
 | `widgets/stock-chart/ui/OverseasStockChart.tsx` | 기존 symbol/exchange/stockName·해외 query/preset·canvas lifecycle과 KIS USD 가격 경계를 유지하며 동일 chartPoints를 내부 CandleDataSummary에도 전달 |
@@ -1269,13 +1291,14 @@ KISAutoTrade/
 | `pages/strategy/ui/useStrategyUsSearch.ts` | Strategy page-local 미국 조회 hook. Page의 input/market/선택 symbol·public config/onSelect를 받아 keyed gate·오류/busy·KIS NAS/NYS/AMS/Toss safety를 연결. 현재 ticket 성공만 item으로 반환하고 입력/선택·이름 cache·전략 저장은 Page에 유지 |
 | `pages/strategy/ui/StrategyUsSearch.tsx` | Strategy 내부 미국 입력/검색/오류의 좁은 표시 모듈. value/selection/searching/error와 onChange/onSearch를 받아 실제 입력 Enter·IME guard와 명명 버튼/조회 중 설명을 조립하며 입력/선택·이름 cache·전략 조립은 Page, 미국 조회/error/busy·broker 탐색은 useStrategyUsSearch가 소유. 표시 child에는 hook/API/state 없음 |
 | `pages/strategy/ui/StockSearchResults.tsx` | Strategy route 내부 국내 검색 결과 JSX의 좁은 표시 추출. open/items/loading과 pointer/선택 callback으로 로딩·결과 테이블·RowSelectionButton을 조립하며 query·선택 상태/이름 캐시·전략 갱신은 Page에 유지. 국내 결과 TableBody의 modifier 없는 Arrow/Home/End만 focus helper에 연결하며 query·선택·이름 cache·복귀 callback은 기존 Page가 소유 |
-| `pages/strategy/ui/Page.tsx` | 최상위 route가 계좌 독립 `SectorPortfolioPanel`과 기존 `StrategyAccountPanel`을 조립. 계좌 패널은 활성 broker scope, 전략별 저장 broker/account scope 표시, 전략 활성화/대상 종목/전체 너비 카드/카드별 미리보기 route 조립과 strategyPolicyControls의 정책 UI 연결. 일반·가격조건·LTH 저장 성공은 제출한 immutable 초안과 현재 초안의 identity가 같을 때만 정리하고 scope epoch가 달라진 응답은 현재 편집 상태에 적용하지 않음. 국내/미국 입력 Enter는 순수 키 판정과 지역 유효성을 사용하며 US 표시는 StrategyUsSearch, 조회 lifecycle은 useStrategyUsSearch에 위임. 입력·선택·이름 cache·전략 추가/저장은 Page가 소유 |
-| `pages/strategy/model/sectorDataPreparation.ts` | 1.5MB 이하 준비 JSON의 구조/배열 상한 검사와 미확인 상태의 manifest template. 근거 export를 재입력해도 이전 report를 신뢰하지 않고 Rust 검증을 다시 요청 |
-| `pages/strategy/ui/SectorDataPreparationPanel.tsx` | 자료/근거 파일·텍스트 입력·검증/보류 진단·hash·다운로드·검증된 비교 입력 적용. 일반 native에서만 사용자의 scope 조회와 동의 뒤 KIS 자료 수집을 요청하며 입력/동의 변경 시 이전 준비 결과를 무효화 |
-| `pages/strategy/model/sectorPortfolioInput.ts` | JSON 객체·배열·크기·시계열 행의 프런트 입력 검사와 명시적으로 합성인 예제 생성. 금융·가격·거래일 달력 검증의 최종 소유자는 Rust 엔진 |
-| `pages/strategy/ui/SectorPortfolioPanel.tsx` | 계좌 패널과 독립된 섹터 비교 Accordion. 자료 준비 child와 JSON 비교 입력·명시 계산·입력 세대별 오래된 결과 폐기·다운로드를 조립. 연구 모드는 기본 펼침과 파일 검증/계산만 제공하고 일반 native의 명시 시세 수집은 준비 child가 소유 |
-| `pages/strategy/ui/SectorPortfolioResults.tsx` | 기본/방어/공격·SPY·현금의 같은 기간 USD 요약, 마지막 계획·실제 비중/보유·순위·입력 hash·출처/가정·검증 한계를 표시 |
-| `pages/strategy/ui/SectorPaperComparison.tsx` | 선택적으로 직접 입력한 모의 평가 JSON을 동일 시작일·초기 USD·비용 가정에서 날짜별 코드 재생과 대조. 모의 계좌나 원장을 조회하지 않으며 09:50 표시가격과 다음 시가 근사의 차이를 공개 |
+| `pages/strategy/ui/Page.tsx` | Simulation 이동 안내와 기존 `StrategyAccountPanel`을 조립. 계좌 패널은 활성 broker scope, 전략별 저장 broker/account scope 표시, 전략 활성화/대상 종목/전체 너비 카드/카드별 미리보기 route 조립과 strategyPolicyControls의 정책 UI 연결. 일반·가격조건·LTH 저장 성공은 제출한 immutable 초안과 현재 초안의 identity가 같을 때만 정리하고 scope epoch가 달라진 응답은 현재 편집 상태에 적용하지 않음. 국내/미국 입력 Enter는 순수 키 판정과 지역 유효성을 사용하며 US 표시는 StrategyUsSearch, 조회 lifecycle은 useStrategyUsSearch에 위임. 입력·선택·이름 cache·전략 추가/저장은 Page가 소유 |
+| `widgets/sector-portfolio/index.ts` | Simulation·독립 Research가 공유하는 섹터 비교 위젯의 공개 `SectorPortfolioPanel` 진입점. 기존 `pages/strategy`의4개 sector UI·2개 model 경로는 구현 없는 호환 re-export로 유지 |
+| `widgets/sector-portfolio/model/sectorDataPreparation.ts` | 1.5MB 이하 준비 JSON의 구조/배열 상한 검사와 미확인 상태의 manifest template. 근거 export를 재입력해도 이전 report를 신뢰하지 않고 Rust 검증을 다시 요청 |
+| `widgets/sector-portfolio/ui/SectorDataPreparationPanel.tsx` | 자료/근거 입력·검증 진단·hash·다운로드·비교 입력 적용. 일반 native의 명시 scope/동의 수집을 소유하며 현재 quote 세대와 요청 token을 응답 직전 대조. profile 재게시/ABA 시 수집 권한·지연 응답·수집 자료의 확인은 무효화하되 이미 적용한 가상 USD 실험은 지우지 않음 |
+| `widgets/sector-portfolio/model/sectorPortfolioInput.ts` | JSON 객체·배열·크기·시계열 행의 프런트 입력 검사와 명시적으로 합성인 예제 생성. 금융·가격·거래일 달력 검증의 최종 소유자는 Rust 엔진 |
+| `widgets/sector-portfolio/ui/SectorPortfolioPanel.tsx` | 자료 준비·입력·명시 계산·이전 결과 폐기·다운로드를 조립. workspace 모드는 상태를 유지하는3개 키보드 탭을 제공하고 검증 입력 적용 시 비교 탭으로 focus 이동. 독립 연구는 기존 Accordion과 파일 검증/계산만 제공하며 실제 잔고를 초기 USD로 사용하지 않음 |
+| `widgets/sector-portfolio/ui/SectorPortfolioResults.tsx` | 기본/방어/공격·SPY·현금의 같은 기간 USD 요약, 마지막 계획·실제 비중/보유·순위·입력 hash·출처/가정·검증 한계를 표시 |
+| `widgets/sector-portfolio/ui/SectorPaperComparison.tsx` | 선택적으로 직접 입력한 모의 평가 JSON을 동일 시작일·초기 USD·비용 가정에서 날짜별 코드 재생과 대조. 모의 계좌나 원장을 조회하지 않으며 09:50 표시가격과 다음 시가 근사의 차이를 공개 |
 | `pages/strategy/ui/priceConditionEditorPanel.tsx` | 가격조건 전략의 종목별 수량·매수가·익절가·익절률·손절률 편집 테이블 |
 | `pages/strategy/ui/strategyMetadata.ts` | 일반 전략 파라미터 입력 메타, 전략 설명, strategy id 기반 타입 판별. FailedBreakout의 기존20/0.5와 선택 기준·ATR/거래량·수익 보호 쌍·보유 관측, Consecutive의 관측 횟수와 선택 진입3필드, Momentum 기본 level/선택 crossing·재무장 %p와 Deviation 진입 모드·장기/보유 관측 수·native 손절률, MeanReversion 청산 모드·장기/보유 관측 수와 기존 손절0, MA 교차의 기존 관측 기간과 완료 일봉 필터4개, RSI의 기존14/30/70 단순평균·진입 추세/손절/보유 관측3개와 StrongClose의 기존 기준3/손절3·이전 완료 일봉 추세/수익 보호 쌍/보유 관측4개의 단위·상한과 VolatilityExpansion의 기존10/2/3·선택 수익 보호 쌍/보유 관측3개의 단위·엄격 범위와 TrendFilter의 기존200/5/20·이탈 확인1·선택 수익 보호 쌍/보유 관측의 단위·상한 설명을 소유 |
 | `pages/strategy/ui/strategyPolicyControls.tsx` | 전략별 controls·정책 필드 판별·raw 값 보존·검증 함수의 page-local 조립. 전략별 범위·관계·raw 해석은 각 controls에 남기고 Page의 저장/preview 정책을 연결 |
@@ -2467,7 +2490,7 @@ manifest와 실행 순서를 기록한다. `validate.py`는 생산 fill을 독�
 main.rs: feature=research-only → research.rs 제한 Builder
     ↓ 별도 앱 ID/연구 marker, 운영 setup 실행 없음
 index.html / main.tsx: 운영 theme/store/router 평가 전 연구 entry 선택
-    ↓ pages/research → SectorPortfolioPanel(researchOnly)
+    ↓ pages/research → widgets/sector-portfolio::SectorPortfolioPanel(researchOnly)
 SectorDataPreparationPanel → 파일 bundle+manifest+수동 근거
     ↓ validate_sector_data (연구/일반 IPC 또는 보호 REST)
 sector_data::validate_sector_bundle → ready/input 또는 보류 진단
@@ -2504,7 +2527,9 @@ KIS 수집은 일반 데스크톱 앱의 활성 KIS profile을 사용한 인증 
 ### 제공 자료 기반 섹터 ETF USD 비교
 
 ```text
-Strategy route → SectorPortfolioPanel (계좌 패널과 독립)
+Simulation route → widgets/sector-portfolio::SectorPortfolioPanel(workspace)
+    ↑ Strategy 안내 / Sidebar·Drawer / 모바일 상단 바로가기
+    ↑ 독립 Research도 같은 공개 widget을 researchOnly로 사용
     ↓ sectorPortfolioInput: JSON 입력 검사·합성 예제 구분
 sectorPortfolioHooks → sectorPortfolioCommands → transport
     ↓ IPC preview_sector_portfolio / POST /api/strategy/sector-portfolio/preview
@@ -2515,6 +2540,20 @@ trading/sector_portfolio: validation → planner → replay → 전체 report
     ↓ SectorPortfolioResults / 입력·결과 JSON 다운로드
 SectorPaperComparison: 직접 입력한 모의 평가와 동일 날짜 대조
 ```
+
+`/simulation`은 기존 운영 AppShell 내부의 별도 화면이다. 자료 준비·세 전략 비교·
+모의 결과 대조를3개 탭으로 제공하고 탭 이동 시 입력/결과를 유지한다. 가상 USD
+초기자금은 입력 자료에서 정하며 계좌 잔고나 예수금으로 채우지 않는다. 화면은
+AppConfig의 현재 profile/broker/투자모드와 `dataUpdateCount`/게시 상태로 수집 동의의
+세대를 구분한다. 수집 scope 재확인은 요구하되 이미 적용한 가상 실험을 계좌 전환으로
+지우지 않는다. 같은 ID·같은 시각의 재게시도 별도 세대로 처리하며 지연 수집 응답은
+현재 QueryClient 상태를 응답 직전 다시 확인한다.
+
+`SimulationOperatingStatus`는 기존 운영 상태 query cache의 실행/정지·불확실성을
+안내한다. 메뉴 진입/비교 버튼은 주문이나 운영 시작·정지를 호출하지 않지만,
+일반 앱의 기존 전역 query·daemon과 운영 권한은 계속된다. 이는 운영 AppShell을
+평가하지 않는 위 독립 연구 entry와 구분한다. 이 통합은 기존 API/백엔드 계약을
+추가하지 않으며 모바일 하단6개 항목을 유지하고 Drawer와 상단 바로가기를 사용한다.
 
 이 경로는 기존 단일 종목 KRW `ReplaySession`과 별도의 USD 연구 원장을 사용한다.
 사용자가 제공한 SPY·11개 섹터의 최소22개 이전 완료봉과 평가 구간을 분리하고,
@@ -2533,6 +2572,14 @@ SectorPaperComparison: 직접 입력한 모의 평가와 동일 날짜 대조
 패널의 입력·계산·오류·결과 다운로드·모의 평가 대조와 반응형 표시를 합성 응답으로
 확인한다. 실제 데이터 확보·공식 달력/기업행위 검증과 계좌 모의투자의 실측 검증은
 이 구조 계약과 별도다.
+
+[Simulation 메뉴 회귀](../tests/e2e/simulation-menu.spec.ts)는 실제 route의 메뉴·
+Strategy 바로가기·3단계 상태/키보드·운영 상태 실패·계정 설정 실패 경계를 합성 REST로
+확인한다. [native 동작 회귀](../tests/e2e/simulation-native.spec.ts)는
+`fixtures/simulationAppHarness.{html,tsx}`가 실제 router·AppShell·SimulationPage를
+브라우저에 렌더링하고 `simulationNativeFixture.ts`의 합성 Tauri allowlist를 사용해
+명시 scope/동의·A→B→A·동일시각 재게시·가상 장부 보존을 확인한다. 후자는 CI
+`chromium-source-harness` 대상이며 실제 native 운영 앱 실행이나 계좌 접근 검증이 아니다.
 
 ### 오프라인 전략 전수 연구
 

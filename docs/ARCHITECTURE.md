@@ -318,9 +318,10 @@ StrongClose의 live 이전 일봉은 기존 coordinator의 target·scope/profile
 합산하거나 FX=1로 가장하지 않는다. 입력 전체 검증 후에만 모든 계정을 계산한다.
 
 `commands/sector_portfolio`·`server/sector_portfolio`는 AppState 없이 같은 계산을
-호출한다. 전략 화면의 독립 연구패널은 계좌별 전략목록 준비와 분리돼 JSON을
-입력·비교·내보낸다. 기존 A/B experimentStore의 축약 저장·scope정리 경로는 사용하지
-않는다. 이 모듈은 운영 factory/daemon/주문/복원 원장에 등록되지 않으며 향후 실제
+호출한다. `/simulation`의3탭 작업 공간과 내부 연구 화면은 `widgets/sector-portfolio`의
+입력·준비·비교·수동 대조 UI를 공유한다. 기존 Strategy 위치에는 바로가기를 두며
+이전 페이지 import는 shim으로 유지한다. 기존 A/B experimentStore의 축약 저장·scope정리 경로는
+사용하지 않는다. 이 모듈은 운영 factory/daemon/주문/복원 원장에 등록되지 않으며 향후 실제
 연결에는 별도의 소유·예산·예약/부분체결/거절·정지/재시작 검증이 필요하다.
 자료·기업행위 지원 제한과 wire 계약은 [IPC 정본](ipc-commands.md#섹터-etf-포트폴리오-연구-v1)을 따른다.
 
@@ -336,3 +337,13 @@ provider를 호출하지 않는 bundle 검증을 분리한다. 일반 native의 
 격리되는 것은 아니다. 수집이 수동 확인 선언을 승인하거나 실제 자료 진위를 인증하지
 않으며 기업행위 정산·운영 주문 연결은 미완료다. [상세 계약](ipc-commands.md#섹터-자료-준비와-연구-전용-실행),
 [로컬 실행법](user-guide.md#연구-전용-앱과-섹터-자료-준비)을 따른다.
+
+일반 `/simulation`은 운영 AppShell 안의 경로다. Sidebar·계좌/운영 상태 query와 기존
+backend daemon을 중단하지 않으며 `SimulationOperatingStatus`가 최근 정상/이전/오류를
+표시한다. 메뉴·수집/검증·계산은 주문이나 시작/정지 명령을 보내지 않고 Sidebar의
+운영 제어는 별도로 유지한다. `initialCashUsd`는 파일 가정이며 운영 잔고를 가져오지
+않는다. 프로필 publication/epoch는 시세 scope/ack·늦은 수집 결과의 유효성에만 사용하고
+이미 적용한 비교 입력·계산 결과의 계좌 귀속이나 자동 삭제를 만들지 않는다.
+수집 기반 준비 bundle의 확인 선언/준비 보고서는 scope 변경 시 재검증한다. 페이지가 unmount되면
+메모리 작업 상태는 별도 영속화를 하지 않는다. 내부 연구 앱의 운영 초기화 제외·자동API0
+관측을 일반 Simulation 경로의 보장으로 확대하지 않는다.

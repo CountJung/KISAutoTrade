@@ -19,7 +19,7 @@ async function setup(page: Page, options: { fail?: boolean; delayed?: Promise<vo
     if (options.fail) await route.fulfill({ status: 400, json: { code: 'SECTOR_INVALID', error: '거래일 누락으로 평가 불가' } })
     else await route.fulfill({ json: fixtureReport(input) })
   })
-  if (options.accountError) await page.route('**/api/strategies', route => route.fulfill({ status: 500, json: { code: 'FIXTURE', error: '합성 계좌 목록 오류' } }))
+  if (options.accountError) await page.route('**/api/app-config', route => route.fulfill({ status: 500, json: { code: 'FIXTURE', error: '합성 설정 조회 오류' } }))
   await page.route('**/*', async route => {
     const url = new URL(route.request().url())
     if (url.protocol === 'data:' || url.protocol === 'blob:') return route.fallback()
@@ -30,10 +30,9 @@ async function setup(page: Page, options: { fail?: boolean; delayed?: Promise<vo
     }
     await route.fallback()
   })
-  await page.goto('/strategy')
+  await page.goto('/simulation')
   const panel = page.getByTestId('sector-portfolio-panel')
-  await panel.getByRole('button', { name: '섹터 ETF 3전략 비교', exact: true }).click()
-  await expect(panel.locator('.MuiCollapse-root').first()).toHaveClass(/MuiCollapse-entered/)
+  await panel.getByRole('tab', { name: '세 전략 비교', exact: true }).click()
   return { panel, requests, violations, errors }
 }
 
@@ -102,7 +101,7 @@ test('file import, equal-window paper comparison, mobile keyboard controls and s
   await panel.getByLabel('섹터 자료 JSON 파일').setInputFiles({ name: 'synthetic.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(input)) })
   await panel.getByRole('button', { name: '세 전략 비교 계산', exact: true }).click()
   await expect(panel.getByTestId('sector-portfolio-results')).toBeVisible()
-  await panel.getByRole('button', { name: '현재 모의 원장과 대조 (선택)', exact: true }).click()
+  await panel.getByRole('tab', { name: '모의 결과 대조', exact: true }).click()
   const paper = panel.getByLabel('모의 원장 평가 JSON', { exact: true })
   const mark = { date: input.evaluation[0].date, strategy: 'base', equityUsd: 10001, priceSource: '합성 UI 입력 · 09:50 표시가' }
   await paper.fill(JSON.stringify({ initialCashUsd: 10_000, costBps: 10, startDate: '2020-01-01', marks: [mark] }))
@@ -122,6 +121,7 @@ test('file import, equal-window paper comparison, mobile keyboard controls and s
   await paper.fill(JSON.stringify({ initialCashUsd: 10_000, costBps: 10, startDate: input.evaluation[0].date, marks: [mark, mark] }))
   await expect(panel).toContainText('같은 전략·날짜의 모의 평가가 중복')
   await expect(panel.getByLabel('모의 원장과 코드 재생 차이')).toHaveCount(0)
+  await panel.getByRole('tab', { name: '세 전략 비교', exact: true }).click()
   await panel.getByLabel('상세 비교 전략', { exact: true }).focus()
   await page.keyboard.press('ArrowDown')
   await page.getByRole('option', { name: '방어형', exact: true }).click()

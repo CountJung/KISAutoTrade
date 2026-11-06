@@ -387,3 +387,14 @@ sector_data_prepare -- INPUT.json`은 계좌 없이 같은 자료 검증기를 �
 preview, `sector-data-native.spec.ts`의 native mock 수집은 별도 source-harness에서
 실행한다. 일반 dev 전체와 CI의 정적 preview+source-harness를 구분해 기록하며, 최종 전체 게이트는
 CI와 같은 후자 구성으로 확인한다. [실제 회차 결과·미검증](completed-history.md#p2-sector-01)을 따른다.
+
+Simulation 메뉴 통합은 기존 순수 backend 계약과 별도로 경로/화면 검증을 한다.
+`simulation-menu.spec.ts`는 production 경로를, `simulation-native.spec.ts`는 실제 Router와
+AppShell을 유지한 source-harness의 native 모사를 검사한다. 실제 OS native 검증이 아니다.
+데스크톱 Sidebar·모바일 전체메뉴/상단 바로가기·하단6개 유지, 세 탭의 키보드/focus·
+자료 준비→비교 적용·모의 요약 대조·파일/오류/stale/download를 확인한다. 운영 상태의
+현재/이전/오류 표시와 별도 정지 접근, 메뉴/계산의 시작·정지/주문 변이0을 mock으로
+검증한다. profile publication/epoch의 scope·동의·늦은 수집 무효화와 순수 입력/결과
+보존을 함께 검사한다. 일반 AppShell의 기존 운영 조회가 계속되는 상태와 내부 연구
+runtime의 자동API0 관측을 혼합하지 않는다. 실제 계좌·KIS·운영 native 실행은 이
+브라우저 fixture로 검증하지 않는다. [회차 근거](completed-history.md#p2-sector-01)를 따른다.
