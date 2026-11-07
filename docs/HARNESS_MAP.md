@@ -86,7 +86,10 @@ npm run test:database-tls-contract
 
 ## 5. Playwright
 
-설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 Vite dev `127.0.0.1:1430`을 사용한다. 직전 2026-10-29 기준은349개였으며 이후 UI/UX 추가 spec도 같은 production 프로젝트에 포함된다. 추가 집중 검증·최종 전체 실행 수는 [UI/UX 회차 기록](completed-history.md#task-uiux-improvements-20261030)과 [키보드 회차 기록](completed-history.md#task-keyboard-improvements-20261031)에 각 실제 결과로 남긴다. CI는 먼저 `npm run build:web`를 수행하고 두 서버·프로젝트를 사용한다. 기존 UI317개와 새 UI/UX spec은 `chromium`의 production preview `127.0.0.1:1431`, 소스 모듈 가로채기를 요구하는 `balance-events.spec.ts`, `toss-commission-ratio.spec.ts`, `strategy-deviation-policy.spec.ts`의 기존32개와 `keyboard-search-scope.spec.ts`·`keyboard-results-scope.spec.ts`는 `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 검사한다. 기존27파일·349개의 검사 범위와 새 회귀를 중복·누락 없이 유지한다.
+P2-UX-07의 focused 진입점은 `financial-confirmation.spec.ts`와 `trading-form-contract.spec.ts`다. source bridge는 생산 router/QueryClient/UI를 유지하며 exact HTTP 요청열·취소0/승인1(명시 재시도만2)·중복 방지와 account/path/method/body/query/origin 오류의403 negative control을 검사한다. scope는 브라우저 캐시 관측이며 무본문 start/해제 요청이 서버 identity를 전달한다는 증거가 아니다. 각 spec을 정규 CI 프로젝트 환경에서 선택 실행하고 Escape/backdrop 포커스·synthetic IME·modifier/repeat·해제 비대상 상태 보존·정상 Sell·좁은 화면/dark를 검사한다. 실제 Rust IPC·계좌·OS IME·native WebView 검증과 구분한다. 실행 수치·관측 결과·미검증 범위는 [P2-UX-07 이력](completed-history.md#p2-ux-07)에만 둔다.
+
+
+설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 Vite dev `127.0.0.1:1430`을 사용한다. CI는 먼저 `npm run build:web`를 수행하고 `chromium`의 production preview `127.0.0.1:1431`에서 UI를, `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 소스 모듈 가로채기가 필요한 spec을 검사한다. spec의 match/ignore 정본은 설정 파일이며 전체 UI를 source 서버에 강제한 추가 진단으로 dist lane을 대체하지 않는다. 등록·실행 수치와 실제 결과는 해당 [완료 이력](completed-history.md)에 기록하며 목록 검사를 실행 통과로 집계하지 않는다.
 
 spec은 mock transport를 사용하며 실제 Tauri IPC·provider 주문 검증과 구분한다. 테스트는 기본·production `chromium`·로컬 30초, CI 전용 `chromium-source-harness`만 초기화를 포함해 60초이며 assertion은 모두 5초다. source 초기 clock 지연의 근본 원인을 해결한 것은 아니며, 60초에서도 실패하면 추가 연장하지 않고 새 trace로 재진단한다. CI는 list와 HTML reporter를 함께 생성하고 실패 trace·screenshot을 보존한다.
 

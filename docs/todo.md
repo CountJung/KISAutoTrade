@@ -12,7 +12,7 @@
 | 전략 연구·해석 | 섹터 USD 연구엔진·비교UI 로컬 구현; 실자료·기업행위·운영연결 잔여 | 3개: P2-SECTOR-01, SOXQ-P2-13·09 | 검증된30일 입력·기업행위 정산/운영연결, 기존 장중 근거 | 장중 자료 2; 확정 원장 규칙·과거 체결 가정 구분 |
 | LTH 실제 장중 평가 | 일봉 평가불가·분봉 시각 진단 구현 완료; 실제 기간 평가 대기 | 2개: SOXQ-P1-05, SOXQ-P2-12 | 실제 3개월 원본/coverage·DST 검증 후 옵션 비교 | 같은 원본 자료 공유·검증 2 |
 | DB 지원·호환 전환 | 기존 기본 저장 유지; MariaDB/MSRV 전환은 모의투자와 분리 | 3개: P1-DB-01, DEP-P3-01·02 | 지원 matrix·최소 Rust 결정 후 SQLx/DB/RSA 검증 | 정책 결정 2; SQLx 착수 의존 |
-| UI/UX 사용 흐름 | 정지 즉시·실전 시작/위험 해제/수동 주문 확인 방향 확정 | 1개: P2-UX-07 | 확인 UI·중복/취소/scope 변경 회귀 | 추가 정책 결정 없이 mock부터 진행 |
+| UI/UX 사용 흐름 | 정지 즉시·공용 확인 UI의 로컬 구현·검증 통과 | 1개: P2-UX-07 | 새 SHA의 원격 CI 확인 | 실제 native·계좌 검증은 별도 범위 |
 | 구조·의존성 유지보수 | 모듈·HTTP/WS·서버·UI·빌드·도구 전환과 후보별 유지 평가·CI 완료 | 0개 | 즉시 구역 완료; 근거는 완료 이력 | Xcode 보류 유지 |
 | 릴리스 서명 | 수동 서명 배포 우선 검토; 실제 서명·자동 업데이트 미완료 | 1개: P3-SIGN-01 | 플랫폼·키 관리 결정과 단계별 서명 검증 | 사용자 결정·관리자 준비 1 |
 
@@ -43,13 +43,14 @@ DB 이관과 SQLx/MSRV는 2~3구역, 서명·자동 업데이트는 P3-SIGN-01�
   - **검증 대상:** broker/account/모드 전환과 늦은 응답, A→B→A, pending·부분체결·실패/재시작에서 조회·캐시·소유 원가·예약이 다른 scope로 섞이지 않는지 확인한다. 순수 모의 계산은 실제 예수금·보유를 쓰지 않고 주문·시작/재개 변이를 만들지 않아야 한다. 일반 AppShell의 기존 운영 조회/daemon까지 자동 중단됐다고 표현하지 않는다.
   - **완료 조건:** 현재 구현/검사와 부족한 경로를 구분한 합성 회귀를 통과하고 UI의 선택 계좌·모드/미확인 상태, 전환 차단·복원 결과를 확인한다. 기존 backend guard를 완화하지 않으며 실제 계좌 운용은 하지 않는다. [현재 경계](ARCHITECTURE.md)·[기존 소유 검증](completed-history.md#task-strategy-fill-ownership-20261018).
   - **보류 항목 재개 조건:** 동시 다계좌가 필요해지면 지원 broker/시장 조합·계좌별/전체 리스크·전체 비상정지부터 별도 결정한다. 원래 multi-scope 목표와 완료 조건은 [결정 이력](completed-history.md#simulation-plan-20261107)에 보존했다.
-  - **이번 보강·잔여:** 지연된 예산 저장은 필수 profile/mode를 서버 selection lock 아래 검증한다. 같은 scope 설정 복구의 새 금액 GET, 실제 설정 재점검 버튼, 저장 후 GET 지연/실패·초안 보존 및 ABA 늦은 응답을 보강했다. 새 영속 모드 귀속/legacy 차단은 수동 매도 회귀 때문에 그 부분만 철회했고 기존 유자금 schema 재시작·수동 매도를 합성 검증했다. **검증된 legacy 이관·원장 모드 격리는 미해결**이다. Rust 전체969개 통과와 별도로 revision Chromium은 Mach port 권한 오류로 시작 실패했으며 부모 UI 재실행이 필요하다. 실제 계좌/자료·native IPC E2E 검증으로 확대하지 않고 미완료를 유지한다. [증거·명령·한계](completed-history.md#p1-scope-01).
+  - **이번 보강·잔여:** 지연된 예산 저장은 필수 profile/mode를 서버 selection lock 아래 검증한다. 같은 scope 설정 복구의 새 금액 GET, 실제 설정 재점검 버튼, 저장 후 GET 지연/실패·초안 보존 및 ABA 늦은 응답을 보강했다. 새 영속 모드 귀속/legacy 차단은 수동 매도 회귀 때문에 그 부분만 철회했고 기존 유자금 schema 재시작·수동 매도를 합성 검증했다. **검증된 legacy 이관·원장 모드 격리·서버 발급 ABA generation은 미해결**이다. 초기 revision Chromium은 Mach port 권한 오류로 시작 실패했으나 부모의 후속 UI 회귀는 통과했다. Rust/UI 실행 수치와 경과는 [P1 이력](completed-history.md#p1-scope-01)에만 기록하며 실제 계좌/자료·native IPC E2E 검증으로 확대하지 않고 미완료를 유지한다.
 
 - [ ] **🟢 자동 구현** **P2-UX-07 — 정지는 즉시 실행하고 실전 시작·위험 해제·수동 주문의 확인 흐름을 구현한다.**
   - **확정 확인 범위:** 정지·비상정지는 추가 확인 없이 즉시 요청한다. 실전 거래 시작·비상정지 해제·매수 재개·수동 주문은 계좌·broker·모드·실행 내용/영향을 보여준 뒤 최종 확인한다. 수동 주문에는 종목·매수/매도·수량·주문 유형/가격을 함께 표시한다. 순수 시뮬레이션 계산에 실전 주문 확인을 끼워 넣지 않는다.
-  - **구현 대상·현재 근거:** [현행8행 영향표](ARCHITECTURE.md#p2-ux-07-action-matrix)의 Sidebar/Dashboard 시작·정지/위험 해제와 KIS 국내/미국·Toss 수동 주문을 대조해 presentation flow를 좁게 보강한다. 현행 정적 조사는 완료했지만 새 확인 UI와 동시 진입점 중복 방지는 아직 검증되지 않았다. [조사 이력](completed-history.md#p2-ux-07-action-audit).
+  - **구현 대상·현재 근거:** [현행 영향표](ARCHITECTURE.md#p2-ux-07-action-matrix)의 Sidebar/Dashboard 시작·정지/위험 해제와 KIS 국내/미국·Toss 수동 주문에 공용 확인 UI·동기 공유 잠금·공개세대/초안 무효화를 보강했다. 최종 renderer 빌드와 로컬 CI 정본 dist/source·독립 리뷰는 통과했고 남은 게이트는 새 커밋의 원격 CI 확인이다. 실제 검사와 독립 리뷰의 정본은 [P2-UX-07 이력](completed-history.md#p2-ux-07)이다.
   - **보존할 의미:** 정지는 이미 접수된 주문 취소/포지션 청산을 뜻하지 않는다. 비상정지 해제는 daemon 시작·손실 카운터 초기화가 아니며 매수 재개는 입금/잔고 확인이 아니다. 이 차이를 확인 문구와 결과 상태에 반영하고 기존 KIS/Toss 동의·preflight·scope/risk·예약·멱등 규칙을 그대로 유지한다.
   - **완료 조건:** mock에서 취소/Escape=mutation0, 최종 확인=정확1, pending·두 번 활성화·Enter repeat=중복0을 확인한다. 확인 중 계좌/모드·주문 입력이 바뀌면 이전 확인을 무효화한다. 조회 입력 Enter·IME 확정·전역 단축키가 위험 행동을 실행하지 않으며 의도적으로 focus한 버튼의 Enter/Space에도 같은 보호가 적용된다. 긴급 정지 접근성·실패/재시도·포커스 복귀와 실제 native 미검증 범위를 기록한다. 실제 주문·실전 시작/해제는 실행하지 않는다.
+  - **검증 기록·경계:** 실행 수치·접근성 관측·회귀와 미검증 범위는 [완료 이력](completed-history.md#p2-ux-07)에만 기록한다. mock/source 성공을 실제 OS IME/native·계좌 검증으로 승격하지 않으며 원장 모드·legacy/server ABA는 P1에 열린 채 유지한다.
 
 - [ ] **🟢 자동 구현** **P1-SESSION-01 — 미국 모의투자의 정규장·DST·거래일 판정을 일치시킨다.**
   - **확인한 제한:** `commands/strategy_preview.rs`의 `preview_session_bounds`와 `minute_replay_trading_date`는 일부 미국 미리보기 시각을 고정 KST로 계산한다. 이 미리보기 제한을 앱 전체의 오거래 증거로 확대하지 않는다. 기존 `market_hours.rs`·분봉 timing 진단과 실제 caller부터 대조하고 재사용할 시간/달력 기준을 정한다.

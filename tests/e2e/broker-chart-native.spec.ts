@@ -129,6 +129,10 @@ test('30-session collection preserves 22 warmup bars and option ABA requires fre
   await chart.getByRole('button', { name: '차트 조회 프로필 확인', exact: true }).click()
   await ack.check(); await collect.click()
   await expect(chart.getByRole('status')).toBeVisible()
+  // A pending renderer is not proof the async fake installed its release gate.
+  await expect.poll(() => page.evaluate(() => (window as unknown as {
+    __windowCalls: { command: string }[]
+  }).__windowCalls.filter(call => call.command === 'collect_broker_chart_data').length)).toBe(1)
   // A→B→A options must not make the original request current again.
   await windowSelect.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Home'); await page.keyboard.press('Enter')
   await expect(ack).not.toBeChecked()

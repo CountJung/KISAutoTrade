@@ -47,7 +47,7 @@ async function safe(state: Awaited<ReturnType<typeof setup>>) {
   expect(state.audit.unknown).toEqual([])
   expect(state.audit.errors).toEqual([])
   expect(state.reads.filter(read => read.path === '/api/auto-trading-budget').every(read =>
-    read.method === 'GET' && JSON.stringify(read.query) === JSON.stringify({ brokerId: 'kis', brokerAccountId: '12345678-01' }))).toBe(true)
+    read.method === 'GET' && JSON.stringify(read.query) === JSON.stringify({ brokerId: 'kis', brokerAccountId: '12345678-01', expectedProfileId: 'paper', expectedIsPaper: 'true' }))).toBe(true)
   expect(state.reads.some(read => read.path === '/api/auto-trading-budget')).toBe(true)
   expect(state.audit.counts.get('/api/budget-recovery') ?? 0).toBe(0)
   expect(state.audit.counts.get('/api/database-config') ?? 0).toBe(0)

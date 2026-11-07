@@ -1,3 +1,4 @@
+import { FinancialConfirmationProvider } from '../../../features/financial-confirmation'
 import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router'
@@ -281,6 +282,7 @@ export function AppShell() {
 
   return (
     <ThemeProvider theme={muiTheme}>
+      <FinancialConfirmationProvider>
       <CssBaseline />
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', minHeight: 0, overflow: 'hidden' }}>
 
@@ -461,6 +463,7 @@ export function AppShell() {
             </BottomNavigation>
           </Paper>
         )}      </Box>
+      </FinancialConfirmationProvider>
     </ThemeProvider>
   )
 }

@@ -3,6 +3,23 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import type { ChartCandle } from '../../src/api/types'
 import { mockUx } from './fixtures/uxReviewFixture'
 
+async function pressArrowRightAndWaitForNativeScrollEnd(page: Page, scroller: Locator) {
+  // Register before the key; the first changed pixel is not native scroll completion.
+  const completion = await scroller.evaluateHandle(element => {
+    const state = { ended: false }
+    element.addEventListener('scrollend', event => {
+      if (event.target === element && event.isTrusted) state.ended = true
+    }, { once: true })
+    return state
+  })
+  try {
+    await page.keyboard.press('ArrowRight')
+    await expect.poll(() => completion.evaluate(state => state.ended)).toBe(true)
+  } finally {
+    await completion.dispose()
+  }
+}
+
 test.use({ timezoneId: 'UTC' })
 const domestic = (page: Page) => page.getByRole('textbox', { name: '6자리 종목코드 (예: 005930, 0005A0)' })
 const data = (page: Page) => page.getByTestId('candle-data-summary')
@@ -307,9 +324,17 @@ for (const market of ['KR', 'US'] as const) test(`Chart lifecycle ${market}: own
   const maxHorizontal = await scroller.evaluate(element => element.scrollWidth - element.clientWidth)
   expect(maxHorizontal).toBeGreaterThan(0)
   for (let step = 0; step < 24; step++) {
-    const previous = await scroller.evaluate(element => element.scrollLeft)
-    if (previous >= maxHorizontal - 1) break
-    await page.keyboard.press('ArrowRight')
+    const { previous, atEnd } = await scroller.evaluate(element => {
+      const bounds = element.getBoundingClientRect()
+      const lastHeader = element.querySelector('thead th:last-child')!.getBoundingClientRect()
+      return {
+        previous: element.scrollLeft,
+        atEnd: element.scrollLeft >= element.scrollWidth - element.clientWidth - 1
+          && lastHeader.left >= bounds.left && lastHeader.right <= bounds.right + 1,
+      }
+    })
+    if (atEnd) break
+    await pressArrowRightAndWaitForNativeScrollEnd(page, scroller)
     await expect.poll(() => scroller.evaluate(element => element.scrollLeft)).toBeGreaterThan(previous)
   }
   const horizontalAfter = await scroller.evaluate(element => element.scrollLeft)

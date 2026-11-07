@@ -1,3 +1,5 @@
+import { useConfirmedStartTrading } from '../../../features/financial-confirmation/tradingActions'
+import { financialActionKeyDown } from '../../../features/financial-confirmation'
 import Drawer from '@mui/material/Drawer'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
@@ -22,7 +24,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
 import { useNavigate, useLocation } from '@tanstack/react-router'
-import { useAppConfig, useStartTrading, useStopTrading, useTradingStatus } from '../../../api/hooks'
+import { useAppConfig, useStopTrading, useTradingStatus } from '../../../api/hooks'
 import type { BrokerId } from '../../../api/types'
 import { QueryStatusSummary } from '../../../shared/ui'
 
@@ -58,10 +60,10 @@ function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; on
   const { data: appConfig } = useAppConfig()
   const tradingStatusQuery = useTradingStatus()
   const { data: tradingStatus } = tradingStatusQuery
-  const { mutate: startTrading, isPending: startPending } = useStartTrading()
+  const { mutate: startTrading, isPending: startPending } = useConfirmedStartTrading()
   const { mutate: stopTrading, isPending: stopPending } = useStopTrading()
   const isRunning = tradingStatus?.isRunning ?? false
-  const tradingActionPending = startPending || stopPending
+  const tradingActionPending = isRunning ? stopPending : startPending || stopPending
   const tradingActionLabel = isRunning ? '자동매매 정지' : '자동매매 시작'
   const handleTradingAction = () => {
     if (isRunning) {
@@ -124,6 +126,7 @@ function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; on
                 color={isRunning ? 'error' : 'primary'}
                 aria-label={tradingActionLabel}
                 onClick={handleTradingAction}
+                onKeyDown={financialActionKeyDown}
                 disabled={tradingActionPending}
                 sx={{
                   width: 24,

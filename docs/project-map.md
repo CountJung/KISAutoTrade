@@ -438,6 +438,9 @@ KISAutoTrade/
 │   ├── features/
 │   │   ├── discord-notification-config/
 │   │   │   └── index.ts
+│   │   ├── financial-confirmation/
+│   │   │   ├── index.tsx
+│   │   │   └── tradingActions.ts
 │   │   ├── log-filter/
 │   │   │   └── index.ts
 │   │   ├── strategy-configure/
@@ -1138,6 +1141,7 @@ KISAutoTrade/
 │       ├── broker-chart-portfolio.spec.ts
 │       ├── budget-recovery.spec.ts
 │       ├── candle-pagination.spec.ts
+│       ├── financial-confirmation.spec.ts
 │       ├── keyboard-profile-dialogs.spec.ts
 │       ├── keyboard-results-navigation.spec.ts
 │       ├── keyboard-results-scope.spec.ts
@@ -1280,6 +1284,7 @@ KISAutoTrade/
 | `api/settingsHooks.ts` | 업데이트 확인·웹 설정·갱신 주기/상세 설정·broker rate-limit 상태·Discord 테스트 hook |
 | `api/historyHooks.ts` | 당일/기간별 provider 체결·로컬 거래·통계와 거래 보관 설정/현황 hook |
 | `api/tradingHooks.ts` | 자동매매 상태·시작/정지·매수 정지 해제·포지션·리스크 설정·비상정지 hook |
+| `features/financial-confirmation/` | AppShell 아래 공용 확인 Dialog와 동기 잠금. 실전 시작·비상정지 해제·매수 재개 및 Trading 수동 주문의 scope 공개세대·주문 초안 유효성을 확인하고 기존 mutation hook을 호출. 정지·비상정지 발동은 확인창 안에서도 기존 mutation을 즉시 요청하며, 순수 시뮬레이션 계산에는 연결하지 않음 |
 | `api/logHooks.ts` | 로그 설정·최근 로그 조회·프런트 로그 기록 hook과 `frontendLogger` |
 | `api/queryKeys.ts` | TanStack Query `KEYS` 단일 원천 (`hooks.ts`에서 하위 호환 re-export) |
 | `api/backendEvents.ts` | Tauri backend event 구독. 환율은 전역 캐시를 갱신하고 잔고 이벤트는 payload를 대입하지 않고 현재 계좌 query를 무효화하여 재조회. listener 등록/해제 지연과 실패 및 unmount 뒤 callback을 처리 |
@@ -1715,6 +1720,7 @@ keyring/RGL 유지·미삭제 판단은 [9회차 기록](completed-history.md#ta
 | `tests/e2e/uiux-history-status.spec.ts` | 합성 History 통계/체결의 조회 전·최초 지연/독립 실패·정상0/빈 목록·이전 자료와 시각 보존/개별 키보드 재시도 회귀. 좁은 다크 화면의 날짜 초안/적용 query·기존 통계 산술/KRW·USD/provider trace를 확인하며 API 쓰기·외부/알 수 없는 요청·page 오류를 대조 |
 | `tests/e2e/uiux-holdings.spec.ts` | 합성 KIS 국내/해외 잔고의 최초 지연/실패·정상 빈 목록·이전 보유/빈 자료·정상 시각 보존/갱신·개별 키보드 재시도와 기존 선택→폼 매핑 회귀. Toss 표시/수량·KIS 조회 비활성 경계도 확인하며 기존 Toss POST 조회는 별도 read-only fixture로만 허용 |
 | `tests/e2e/uiux-status.spec.ts` | Sidebar/Dashboard 실행 상태의 미확인·최초 조회 실패·실행/정지 이전 상태의 재조회 실패와 키보드/반복 재시도 회귀. API 쓰기·외부 요청·page 오류가 없는 합성 경계를 확인 |
+| `tests/e2e/financial-confirmation.spec.ts` | production router·QueryClient를 유지하는 source HTTP mock의 위험 행동 확인 회귀. 최종 확인/취소·키보드·공개세대·주문 초안 변경·pending/오류 재시도를 검증하며 실제 Rust IPC·provider 주문 실행과 구분 |
 | `docs/completed-history.md#task-immediate-backlog-20261029` | 즉시 작업의 고정 ID·순서·회차별 범위와 검증·커밋 근거. P1-RECOVERY-01의 로컬 복구와 P1-PROVIDER-01 실제 운용, SOXQ-P2-13의 합성 계약·고정 일봉 재현과 실제 장중 효능 미완료를 구분 |
 | `docs/research/price-condition-contracts-20261029/{design.json,runner.rs}` | 기존 PC 고정 기준가·수량·2023~2025 일봉·두 비용·nextOpen 설계를 당시 v22 생산 API로6연속/6대체분할/72별도분기 재현. 선언은 이번 실행 전 고정이며 이미 관측한 자료의 재현으로, baselineCommit의 별도 빌드나 새 OOS가 아님 |
 | `docs/research/price-condition-contracts-20261029/validate.py` | 동결 입력 hash와 기록 fill의 현금·원가·비용·손익·노출·기말·가격경로를 독립 산술 대사하고 보관 PC78원장과 현재78원장 backtest/signals/preparation을 비교. 전략 신호를 다시 생성하지 않음 |

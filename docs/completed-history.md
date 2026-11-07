@@ -5,6 +5,27 @@
 
 당시 짧은 `P2-13` 표기는 `SOXQ-P2-13`을 뜻한다. 현재 `DEP-P3-01`의 MSRV/DB 결정과 나머지 열린 조건은 [TODO](todo.md)에서 관리한다.
 
+<a id="p2-ux-07"></a>
+## P2-UX-07 — 위험 행동 확인·로컬 dist/source 통과·CI 대기 (2026-11-07)
+
+- 기준 `80c81c86794507262bde5f248279722d5ea28a46` 위의 보강이며 구현 커밋은 이 절의 Git 이력으로 추적한다. 로컬 dist/source 게이트는 통과했고 새 SHA의 원격 CI 확인 전까지 P2 상위 TODO는 열린 상태다.
+- 실전 시작·비상정지 해제·매수 재개·KIS 국내/미국·Toss 수동 주문은 `features/financial-confirmation`의 공용 Dialog·동기 소비/공유 잠금을 사용한다. KIS 모의 시작 면제는 요청 시 캡처한 동일 신뢰 config로 판단한다.
+- 정지·비상정지는 즉시 요청하며 미전송 확인만 무효화한다. 기접수 주문 취소·포지션 청산·이미 전송한 요청 취소나 모든 정지 mutation의 전역 잠금을 뜻하지 않는다.
+- 비상정지 해제는 daemon 시작/손실 카운터 초기화가 아니며 매수 재개는 입금/잔고 검증이 아니다. 기존 backend/IPC·동의/preflight·scope/risk·예산/예약/멱등·원장/수수료 정책은 유지한다. **P1 원장 모드·legacy 검증 이관·server ABA는 미해결**이다.
+- scope·AppConfig 공개세대·fetch/error/invalidated/publication pending·초안/입력·unmount와 경로 ABA가 기존 확인을 무효화한다. opener는 busy 전에 캡처하고 닫기 transition 후 새 확인이 없고 연결된 경우에만 복귀한다.
+- 부모는 Escape/backdrop 포커스2건과 same-task 모의→실전/경로 ABA의 RED→GREEN을 관측했다. RED에는 최종 확인 전 mock start POST1과 되살아난 승인이 있었으며, 수정 후 core 독립 리뷰와 SHA256 일치를 확인했다.
+- exact origin/method/path/noquery/body·전체 요청열·취소0/승인1·중복 방지·6종403 negative control을 검사했다. unknown API/외부/앱 WS 차단을 유지한다. 캐시/Dialog scope 대조는 무본문 요청이 서버 identity를 전달한다는 증거가 아니다.
+- 부모의 envDir:false source HTTP mock focused 실행은 확인 흐름32개·기존 주문폼5개의 **37/37 통과, 실패·skip0**다. synthetic IME/229·브라우저 modifier/repeat·정상 Sell·해제 비대상 상태 보존·375px/dark DOM reflow·색상 대비를 관측했으며 테스트-only focus 강제는 없다.
+- CI와 같은 source 프로젝트 대상을 로컬에서 실행해 **88/88 통과, 실패·skip·flaky0(1.6분)**를 확인했다. CI 정본 등록은 dist UI541개+source88개=629개이며 등록은 실행 통과가 아니다. source88에는 focused 확인32개가 포함되므로 중복 합산하지 않는다.
+- 기존 source-harness 진단34/34와 기존2spec25/25도 별도 결과다. 예산 복구 exact 기대값의 profile/mode를 추가하고, frozen clock의 실제 응답/body·초기 config 공개 barrier와 held mock IPC 진입 확인을 보강했다. 기존 debounce/IME/횟수·timeout·금융 guard는 완화하지 않았다.
+- 최종 부모 코드의 `npm run build:web -- --config .cache/p2-ux-07/offline-final-build.config.mts`는 **exit0**이다. `envDir:false`·별도 `.cache/p2-ux-07/final-dist`를 사용했고 실제 preview의 index/router와 빌드 파일 SHA256 일치를 확인했다. 이후 제품 소스7개는 같은 해시를 유지했다. 앱/Node/변경 spec 타입·lockfiles·FSD·TODO·project-map·Graphify freshness·diff도 통과했다.
+- 실제 CI dist541개 첫 실행은 **534pass/7fail, skip·flaky0, 전역 오류0(9.0분)**다. 6건은 기존 Settings navigation의 exact GET 기대값에 profile/mode가 빠진 것으로 trace에서 확인해 두 필드를 보강했다. 나머지 차트 검사에서는 네이티브 스크롤 부분 이동 뒤 다음 키를 보내고 한 픽셀 일찍 종료하는 경계를 관측했다.
+- 키 전에 실제 scroller의 trusted `scrollend`를 준비하고 완료 후 다음 키를 보내며, 기존 오른쪽 끝·마지막 열 가시성 조건을 함께 만족할 때만 반복을 끝내도록 보강했다. 실제 이동·헤더/값 가시성·focus·overflow·기존 허용 오차와 timeout을 유지했다. 수정 원본2spec은 **14/14**, 진단 observer 없이 원본 KR/US 각10회는 **20/20**이다. 별도 차단 대조군2건은 네 번째 키를 막자 중간120에서 의도대로 실패해 무이동을 정상 끝으로 오인하지 않음을 확인했다. 마지막2파일의 독립 리뷰는 새 P1/P2 없음이며 부모도 같은 SHA256을 확인했다.
+- 최종 production 번들의 CI 정본 dist 프로젝트는 **541/541 통과, 실패·skip·flaky0, 전역 오류0(7.1분)**다. 부모가 JSON으로 unique541건과 앞선 source88건의 비중복 합계629건을 확인했다. focused·진단·반복 시도를 여기에 더하지 않는다. 완료 뒤에도 제품7파일·마지막 리뷰2파일·빌드 index/router 해시는 동일했다. **새 커밋 원격 CI는 대기**다. 상세 명령·JSON/trace는 `~/.hermes/cache/kisautotrade-e2e-audit/`, 압축 전 경과는 `~/.hermes/cache/kisautotrade-sequential/`에 보존한다.
+- all629를 dev에 강제한 추가 진단은3회 조기 종료했고 마지막은234pass/3fail/1interrupt/391not-run이다. 실패3건은 LiveDailyHistory UI이며, 별도 격리7건은6pass/1fail이다. 개발 HMR을 strict0 가드가 잡은 설정 불일치는 개발 entry만 제거했으며 앱 WS 가드는 유지했다.
+- 원래 assertion을 유지한 진단에서 cache success/idle·512행과 실패 직후 기대 DOM 요약을 관측했지만5초 assertion은 실패했다. 개발 초기화/렌더 타이밍 추론일 뿐 production 회귀 해결 증거가 아니며 해당 UI/spec은 수정하지 않았다. 현재 검증은 CI의 dist/source 분리를 따른다.
+- 이전 `80c81c8` CI의 보안/Rust/frontend/Toss/build는 성공, E2E는 실패했다. 원문 로그는 권한403으로 미확보해 원격 실패 테스트명은 확정하지 않았다. 실제 OS IME·native WebView/Rust IPC·provider/계좌/API·주문·daemon/운영 DB·서명/배포는 실행하지 않았으며 mock 통과로 승격하지 않는다.
+
 <a id="p1-scope-01"></a>
 ## P1-SCOPE-01 — 단일 활성 계좌 격리 보강 (2026-11-07)
 

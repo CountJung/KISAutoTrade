@@ -878,3 +878,13 @@ RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저
 > 마지막 업데이트: 2026-11-06T04:48:58+00:00
 
 > 마지막 업데이트: 2026-11-07T14:37:57+09:00
+
+
+## 금융 행동 확인 — P2-UX-07
+
+- `features/financial-confirmation`의 AppShell 단일 Provider로 실전 시작(KIS 실전/Toss)·비상정지 해제·매수 재개·KIS/Toss 수동 주문을 확인한다. 기존 mutation hook과 backend 동의/preflight/scope/owner/risk/예약 guard를 그대로 사용한다. 수동 주문은 최종 단계에서도 현재 입력·preflight/세션을 재검사한다.
+- 확인은 AppConfig 공개세대/신뢰 상태·profile/broker/account/mode 및 초안 generation에 귀속한다. ABA·동일 scope 재공개·설정 미확인·입력 변경·unmount는 이전 확인을 무효화한다. 동기 소비와 공용 잠금으로 두 진입점/연타/키 반복 중복을 막고 오류는 닫기 후 새 확인으로만 재시도한다.
+- 취소 초기 focus·MUI Escape/배경 닫기·focus 복귀를 유지한다. 일반 입력 Enter/IME·modifier·repeat를 금융 자동 제출로 연결하지 않는다. 정지/비상정지 발동은 기존 즉시 요청이고 확인창 안에서도 접근 가능하다. 정지=취소/청산, 위험 해제=daemon 시작/손실 초기화, 매수 재개=입금/잔고 검증으로 표현하지 않는다. 순수 Simulation 계산에는 연결하지 않는다.
+- 브라우저 source mock·정적 추론·native/실계좌 미검증을 분리한다. [계약/검증 상태](../../../docs/completed-history.md#p2-ux-07)를 따른다.
+
+> 마지막 업데이트: 2026-11-07T15:24:26+09:00

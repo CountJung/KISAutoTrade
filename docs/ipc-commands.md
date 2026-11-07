@@ -234,6 +234,8 @@ v9 generic 1m 입력은 RFC3339 offset을 실제 순간으로 해석하고 고�
 
 ## 자동 매매
 
+P2-UX-07은 기존 command payload/서버 guard를 보존한 frontend 확인 흐름이다. 실전 시작·위험 해제·수동 주문은 공개 계좌/모드와 영향을 최종 확인하고 정지/비상정지는 즉시 기존 command를 요청한다. start/정지/위험 해제의 기존 HTTP API는 body가 없으며 확인 snapshot의 broker/profile/account/paper는 frontend 캐시 관측이다. 이 identity가 요청 body에 포함되거나 UI 승인 토큰이 새 IPC·backend server ABA 인증이 된 것으로 해석하지 않는다. [8행 영향표](ARCHITECTURE.md#p2-ux-07-action-matrix)를 따른다.
+
 | Command | 설명 |
 |---------|------|
 | `get_trading_status` | 자동 매매 상태와 건강 정보 조회 (holdings sync/reconciliation/pending/persistence/daemon 실패, 실행 scope 포함) |
