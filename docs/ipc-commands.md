@@ -30,13 +30,14 @@
 | Command | 입력 / 반환 |
 |---|---|
 | `get_auto_trading_budget` | `input: { brokerId, brokerAccountId }` → `AutoTradingBudgetView` |
-| `update_auto_trading_budget` | 위 scope + `krwAmount`, `usdAmount` → 저장 후 view |
+| `update_auto_trading_budget` | 위 scope + 필수 `expectedProfileId`, `expectedIsPaper`, `krwAmount`, `usdAmount` → 저장 후 view |
 
 - REST: `GET /api/auto-trading-budget?brokerId=...&brokerAccountId=...`, `POST /api/auto-trading-budget` (동일 input body). 기존 웹 인증 경계 적용.
 - KRW는 원, USD는 **센트** 정수이며 최대 `9007199254740991`. UI는 달러를 센트로 변환한다.
 - 반환: `scope: { brokerId, accountId }`, `krw`/`usd` 각각 `allocatedAmount`, `cashAmount`, `reservedAmount`, `availableAmount`, `ownedPositionCount`, `blockedReason`, `feeBufferBps`.
 - 활성 계좌와 요청 scope 불일치는 `BUDGET_SCOPE_CHANGED`, 계좌 미선택은 `BUDGET_SCOPE_REQUIRED`, 실행 중 변경은 `TRADING_RUNNING`, 원장/예산 거부는 `AUTO_TRADING_BUDGET_ERROR`.
 - 원장 기본 배정액 0: 자동매수 차단. 리스크 사용 토글과 독립. Settings의 자동매매 전용 예산에서 조회/변경한다.
+- 저장의 expected profile/mode는 IPC와 REST 모두 selection lock 아래 검증한다. broker/account가 같아도 profile/mode가 달라지면 `BUDGET_SCOPE_CHANGED`이며, 필드 없는 legacy payload는 역직렬화 오류다(REST 422). 원장 schema는 기존 broker/account 기준을 유지한다. 새 영속 `is_paper` 및 legacy 자금/수동 주문 차단은 호환 회귀 때문에 철회했으며, 모드별 원장 격리·검증된 이관은 미해결이다. UI의 publication은 늦은 응답의 표시/재조회/초안 초기화를 제한하며 서버 발급 ABA generation은 아니다.
 
 ## 응답 불명 주문 복구 (Tauri 데스크톱 전용)
 

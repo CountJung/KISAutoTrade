@@ -252,6 +252,7 @@ Web 일반 잔고와 IPC/Web broker holdings는 ReadOnly ticket으로 계좌 연
 scope의 payload/placeholder를 넘기지 않고 요청 시작·완료 때 config를 확인한다.
 프로파일 전환은 이전 config 요청과 보유 쿼리를 취소하고 이전 범위 캐시를 제거한다.
 새 config를 확인하지 못한 상태에서 이전 계좌 잔고를 현재 자료로 표시하지 않는다.
+예산·복구 조회도 같은 설정 신뢰·취소/캐시 제거 경계를 사용한다. 기존 key 뒤에 AppConfig의 성공 공개 횟수와 profile/broker/account/모드를 붙이며, 같은 scope의 설정 복구도 새 공개 후 조회가 성공해야 금액을 표시한다. Settings의 설정 재점검은 AppConfig와 진단을 함께 재조회한다. 예산 저장은 요청 시 공개 횟수를 캡처하며, 같은 공개의 후속 GET 성공 뒤에만 성공/초안 초기화를 허용한다. 재조회 실패는 저장 반영 가능성을 알리고 초안을 유지하며, 이전 공개의 응답은 현재 금액을 무효화하지 않는다. 복구 조회의 무폴링·명시 검토 정책은 유지한다. Settings의 계좌 선택은 전환 pending·실행 중·거래/설정 미확인에서 차단한다.
 증권사 잔고의 체결 반영 지연은 남아 있다. 정상 체결 소유권은 위 별도 원장과
 feedback으로 다루며 계좌 게시 gate만으로 이를 대신하지 않는다.
 
@@ -286,6 +287,8 @@ feedback으로 다루며 계좌 게시 gate만으로 이를 대신하지 않는�
 ## 자동매매 예산 경계
 
 `trading/order/budget.rs`는 broker/account와 KRW/USD별 배정·현금·소유수량·예약 원장을 담당한다. `orders/auto_trading_budget.json`을 공통 managed storage 경계로 읽고 쓴다. 과거 백업으로 자금이 되돌아가지 않도록 원장 JSON 파싱 실패 시 자동 복구를 하지 않는다.
+
+예산 저장 입력의 `expectedProfileId`·`expectedIsPaper`는 필수다. IPC/REST 모두 storage→selection lock 획득 후 선택 broker/account/profile/mode를 검증하고 원장을 변경한다. 누락 payload는 역직렬화 단계에서 거부한다. 이 검증은 처리 전에 지연된 paper 요청이 live 선택에 적용되는 것을 막지만, 원장 자체의 모드 귀속을 제공하지 않는다. 기존 원장은 broker/account 단위다. 새 `is_paper` 영속화와 legacy 유자금 차단은 수동 매도 회귀 때문에 철회했다. 모드 없는 자금의 소유/모드를 입증하는 이관과 모드별 원장 격리는 미해결이며 현재 선택으로 추정·삭제·자동 이관하지 않는다.
 
 `submit_order_shared`는 manager 잠금 내에서 예산 intent를 영속화한 뒤 provider에 제출한다. 부분체결은 누적 수량/금액으로 멱등 적용하고, terminal 표식을 pending 제거 이전에 저장해 중간 종료를 복구한다. 확정 주문 거절만 예약을 해제하며 transport/파싱 실패와 애매한 HTTP 결과는 예약을 유지한다. 매수만 지정가로 제한하고 기존 자동매도 주문 유형을 보존한다. 예산은 위험 관리 비활성화로 우회되지 않는다.
 

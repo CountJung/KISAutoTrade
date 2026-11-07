@@ -125,7 +125,7 @@ test('Dedicated trading budget saves scoped KRW and USD cents and validates inpu
   await usd.fill('100.50')
   const request = page.waitForRequest((r) => r.url().includes('/api/auto-trading-budget') && r.method() === 'POST')
   await save.click()
-  expect((await request).postDataJSON()).toEqual({ brokerId: 'kis', brokerAccountId: '12345678-01', krwAmount: 1000000, usdAmount: 10050 })
+  expect((await request).postDataJSON()).toEqual({ brokerId: 'kis', brokerAccountId: '12345678-01', expectedProfileId: 'paper', expectedIsPaper: true, krwAmount: 1000000, usdAmount: 10050 })
   await expect(page.getByText('자동매매 예산을 저장했습니다.')).toBeVisible()
   await expect(page.getByText('사용 가능액: ₩1,000,000')).toBeVisible()
   await page.reload()

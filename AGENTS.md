@@ -86,11 +86,11 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 | 날짜 | 한줄 요약 |
 |------|----------|
+| 2026-11-07 | 선택 계좌 예산 저장·캐시 신뢰 복구와 모의/실전 전환 회귀 보강; Rust969/E2E41 통과·원장 모드 이관/native 미완료·[근거](docs/completed-history.md#p1-scope-01) |
 | 2026-11-07 | 단일 활성 계좌·위험 동작 확인 방향과 정규장/DST·KIS/Toss 수집 후속을 TODO에 반영; 구현·실거래 미실행·[근거](docs/completed-history.md#simulation-plan-20261107) |
 | 2026-11-06 | 검증형 유지·브로커 차트가격 근사/명시 시세 수집 추가; KIS20일 가격장부 실측·총수익/기업행위/native화면 미검증·[정본](docs/completed-history.md#p2-sector-01-broker-chart) |
 | 2026-11-06 | Simulation 메뉴·공유3탭 통합; 운영 조회/제어와 가상USD 계산·명시 시세 수집 범위 분리·[정본](docs/user-guide.md#섹터-etf-기본방어공격-비교) |
 | 2026-11-06 | 별도 연구 native·명시 인증 시세 수집/순수 자료 검증 경계 보강; 실제API/계좌연결 미검증·[정본](docs/ipc-commands.md#섹터-자료-준비와-연구-전용-실행) |
-| 2026-11-05 | 순수USD 섹터3전략·계좌독립 비교UI/IPC/CLI 구현·로컬Rust920/UI561; 실제자료/기업행위/운영연결 미완료·[근거](docs/completed-history.md#p2-sector-01) |
 
 ## 운영 문서 스택
 

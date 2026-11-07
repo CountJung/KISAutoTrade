@@ -1,3 +1,5 @@
+import { useQueryClient } from '@tanstack/react-query'
+import { refreshAccountConfig } from '../../../api/accountHooks'
 import { useEffect, useRef, useState } from 'react'
 
 import Alert from '@mui/material/Alert'
@@ -26,6 +28,7 @@ import SyncIcon from '@mui/icons-material/Sync'
 
 import {
   useAppConfig,
+  useAccountPublicationPending,
   useCheckConfig,
   useCheckTossProfileConnection,
   useDeleteProfile,
@@ -53,6 +56,8 @@ function ProfileCard({
   onDelete,
   onSetActive,
   isRunning,
+  activating,
+  selectionBlocked,
   tradingProfileId,
 }: {
   profile: AccountProfileView
@@ -60,9 +65,10 @@ function ProfileCard({
   onDelete: (p: AccountProfileView, trigger: HTMLButtonElement) => void
   onSetActive: (id: string) => void
   isRunning: boolean
+  activating: boolean
+  selectionBlocked: boolean
   tradingProfileId: string | null
 }) {
-  const { isPending: activating } = useSetActiveProfile()
   const { mutate: detectProfile, isPending: detecting } = useDetectProfileTradingType()
   const { mutate: checkTossProfile, isPending: checkingToss } = useCheckTossProfileConnection()
   const { mutate: updateProfile, isPending: updatingMode } = useUpdateProfile()
@@ -124,7 +130,8 @@ function ProfileCard({
                   <IconButton
                     size="small"
                     onClick={() => onSetActive(profile.id)}
-                    disabled={activating}
+                    disabled={activating || selectionBlocked}
+                    aria-label={`${profile.name} 선택`}
                     sx={{ p: 0 }}
                   >
                     <RadioButtonUncheckedIcon color="disabled" fontSize="small" />
@@ -337,16 +344,28 @@ function ProfileCard({
 // ── 메인 Settings 페이지 ───────────────────────────────────────────
 
 export function AccountProfilesSection() {
-  const { data: appConfig } = useAppConfig()
+  const configQuery = useAppConfig()
+  const publishing = useAccountPublicationPending()
+  const { mutate: setActive, isPending: activating, error: activationError } = useSetActiveProfile()
+  const appConfig = configQuery.isSuccess && !configQuery.isFetching && !configQuery.isStale && !publishing
+    ? configQuery.data : undefined
   const activeBrokerConfigured = appConfig?.active_broker_configured ?? appConfig?.kis_configured ?? false
   const activeBrokerIsKis = appConfig?.active_broker_id === 'kis'
   const activeBrokerModeLabel = activeBrokerIsKis
     ? appConfig?.kis_is_paper_trading ? '모의투자 모드' : '실전투자 모드'
     : 'Toss 실거래 모드'
   const { data: diag, refetch: recheckConfig, isFetching: diagFetching } = useCheckConfig()
-  const { data: tradingStatus } = useTradingStatus()
+  const queryClient = useQueryClient()
+  const [retryingConfig, setRetryingConfig] = useState(false)
+  const retryConfig = async () => {
+    setRetryingConfig(true)
+    try { await Promise.all([refreshAccountConfig(queryClient), recheckConfig()]) }
+    catch { /* appConfig exposes the failed read and keeps money hidden. */ }
+    finally { setRetryingConfig(false) }
+  }
+  const tradingQuery = useTradingStatus()
+  const tradingStatus = tradingQuery.data
   const { data: profiles = [], isLoading: profilesLoading } = useProfiles()
-  const { mutate: setActive } = useSetActiveProfile()
   const { mutateAsync: deleteProfile } = useDeleteProfile()
   const [addBroker, setAddBroker] = useState<BrokerId | null>(null)
   const [editProfile, setEditProfile] = useState<AccountProfileView | null>(null)
@@ -424,7 +443,9 @@ export function AccountProfilesSection() {
                 onEdit={setEditProfile}
                 onDelete={openDelete}
                 onSetActive={(id) => setActive(id)}
-                isRunning={tradingStatus?.isRunning ?? false}
+                activating={activating}
+                selectionBlocked={!appConfig || tradingQuery.isError || tradingStatus?.isRunning !== false}
+                isRunning={tradingStatus?.isRunning === true}
                 tradingProfileId={tradingStatus?.tradingProfileId ?? null}
               />
             ))}
@@ -450,6 +471,10 @@ export function AccountProfilesSection() {
     <>
       <Section id="settings-active-profile" title="활성 증권사 프로파일">
         <Stack spacing={2}>
+          {!appConfig && <Alert severity={configQuery.isError ? 'error' : 'info'}>
+            {configQuery.isError ? '계좌 선택 상태 확인 실패. 설정을 다시 조회하세요.' : '계좌 선택 상태를 확인하는 중…'}
+          </Alert>}
+          {activationError && <Alert severity="error">{cmdErrMsg(activationError)}</Alert>}
           <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
             {appConfig ? (
               <>
@@ -526,8 +551,8 @@ export function AccountProfilesSection() {
             <Button
               size="small"
               variant="outlined"
-              onClick={() => recheckConfig()}
-              disabled={diagFetching}
+              onClick={() => { void retryConfig() }}
+              disabled={diagFetching || retryingConfig}
               startIcon={diagFetching ? <CircularProgress size={16} /> : undefined}
             >
               설정 재점검

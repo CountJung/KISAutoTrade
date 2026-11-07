@@ -1367,6 +1367,8 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 
 ## 응답 불명 자동 주문의 운영자 복구 (2026-10-29)
 
+- 예산 저장은 필수 `expectedProfileId`·`expectedIsPaper`와 broker/account를 IPC·REST 공통 selection lock 아래 검증한다. 처리 전 지연 요청이 다른 profile/mode에 적용되지 않아야 하며 누락 payload를 현재 선택에 암묵 바인딩하지 않는다. 새 원장 `is_paper`/legacy 유자금 차단은 수동 매도 회귀로 철회했다. 기존 broker/account schema·ownership/risk guard를 유지하고 현재 선택으로 모드를 추정하거나 원장을 삭제하지 않는다. 검증된 legacy 이관·영속 모드 격리는 [P1-SCOPE-01](../../../docs/completed-history.md#p1-scope-01)의 미해결 경계다.
+
 - `trading/order/submission/recovery.rs`는 provider 호출 전 비민감 PendingOrder snapshot을 예산 원장에 저장한다. 원래 reservation ID·exact owner/generation·프로파일/모드·시장·주문 시각·clientOrderId를 보존하고 현재 설정으로 과거 소유를 추정하지 않는다.
 - `trading/order/budget/recovery.rs`는 desktop IPC의 운영자 대조 승인만 담당한다. 영수증 intent 저장→원래 pending 복원 순서와 동일 입력 재시도, terminal 재생성 금지, 원장 backup 자동 복구 금지를 유지한다. receipt 없이 legacy unknown을 승인하지 않는다.
 - 승인 전에 기존 pending·복구 receipt·정상 주문/체결 이력의 provider ID 충돌을 확인한다. 다른 local ID의 체결을 새 예약으로 재반영해서는 안 된다. 원래 pending intent가 없는 부분 체결/ownership watermark는 보류한다.
@@ -1432,3 +1434,5 @@ thiserror 전환은 오류 정의를 그대로 두고 Display/From/source/downca
 - 순수 연구 endpoint에 AppState/provider/order/store를 넣지 않는다. 기존 POST 보안·JSON bound와 IPC/REST 동등성·no-effects fixture를 유지한다. 운영 factory/daemon에 연구ID를 등록하거나 MA fallback에 태우지 않는다. 실제 연결은 별도 TODO·소유/예산/guard/복원 검증이 필요하다.
 
 > 마지막 업데이트: 2026-11-05T23:35:02Z
+
+> 마지막 업데이트: 2026-11-07T14:37:57+09:00

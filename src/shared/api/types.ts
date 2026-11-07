@@ -34,6 +34,8 @@ export interface AutoTradingBudgetView {
 }
 
 export interface UpdateAutoTradingBudgetInput extends AutoTradingBudgetInput {
+  expectedProfileId: string
+  expectedIsPaper: boolean
   krwAmount: number
   usdAmount: number
 }

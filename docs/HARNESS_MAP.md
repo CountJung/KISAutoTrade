@@ -66,6 +66,12 @@ cargo test --workspace --lib --locked
 
 필터가 실제 테스트명과 일치해 실행 건수가 0이면 성공으로 간주하지 않는다. 출력의 `running N tests`를 확인하고 다른 필터 또는 전체 lib test로 보완한다. DB contract test는 외부 DB 환경 요구 여부와 skip 상태를 결과에 명시한다.
 
+### P1-SCOPE-01 단일 활성 계좌 격리
+
+`cargo test --workspace --lib budget_save --locked`는 서버 handler를 storage lock 앞에서 지연시킨 profile/mode 변경 거부와 필수 입력/정상 저장을, `cargo test --workspace --lib legacy_funded --locked`는 기존 schema 재시작·매도 예약/ownership 상한 및 loopback 수동 매도를 검사한다. `scope_` 필터는 KIS→Toss→KIS 공통 parse/publication 경계를 포함한다. 영속 모드 귀속·legacy 차단은 철회했고 모드별 자금 격리를 검증한 것으로 해석하지 않는다. `cargo test --workspace --lib ownership_fill_restart --locked`는 부분체결→risk 저장 실패→새 manager 재시작→다른 broker/account/모드 보류→원 scope 누적 재시도·원가/손익 멱등을 검사한다. 기존 `holdings`·`submission::run_tests`·`fills::reconciliation` 필터도 유지한다. 모든 자료는 임시 원장·합성 client 또는 loopback이며 Toss HTTP 성공을 뜻하지 않는다.
+
+`tests/e2e/balance-events.spec.ts`는 생산 hooks의 모드 ABA·A→B→A 이후 늦은 예산 저장·같은 scope config 복구의 지연/실패·복구 무폴링을, `uiux-holdings.spec.ts`의 `scope Settings`는 실제 Settings 표시·선택 차단/복원·보이는 설정 재점검·저장 후 GET 지연/실패와 초안 유지를 mock으로 검사한다. `simulation-native.spec.ts`의 가상 USD 입력/보유 비참조·금융 mutation0 회귀를 함께 유지한다. envDir:false 격리 설정을 사용하며 browser launch 실패·목록 수·실제 실행을 구분한다. 이번 결과와 미검증은 [P1-SCOPE-01 이력](completed-history.md#p1-scope-01)을 따른다.
+
 ### PostgreSQL TLS·단절·복구
 
 ```bash

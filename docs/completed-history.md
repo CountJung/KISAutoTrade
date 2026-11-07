@@ -5,6 +5,23 @@
 
 당시 짧은 `P2-13` 표기는 `SOXQ-P2-13`을 뜻한다. 현재 `DEP-P3-01`의 MSRV/DB 결정과 나머지 열린 조건은 [TODO](todo.md)에서 관리한다.
 
+<a id="p1-scope-01"></a>
+## P1-SCOPE-01 — 단일 활성 계좌 격리 보강 (2026-11-07)
+
+기준 `779f52f48bbac8d3ec7b530bcbe5755b51fde42e` 위의 단계적 보강이며 구현 커밋은 이 절을 추가한 Git 이력으로 추적한다. 기존 holdings ticket/epoch·exact owner·원 client 예약/pending 후처리를 보존하고 KIS→Toss→KIS 늦은 ticket, 부분체결→risk 저장 실패→재시작→원 scope 누적 재시도/원가·손익 멱등 회귀를 보강했다. Toss는 공통 parse/publication 합성 fixture이며 외부 HTTP/auth 성공 증거가 아니다.
+
+독립 리뷰의 P1 두 건을 수정했다. 저장 입력의 `expectedProfileId`·`expectedIsPaper`를 필수화하고 IPC/REST 공통 storage→selection lock 아래 broker/account/profile/mode를 검증한다. 실제 handler를 storage lock 앞에서 대기시킨 뒤 동일 계좌 profile/mode를 바꾸는 거부 회귀와 누락 payload/정상 저장을 검증했다. 기존 원장에는 모드를 입증할 정보가 없어 안전한 명시 이관을 제공할 수 없으므로 **새 `is_paper` 영속화와 legacy 유자금 차단만 철회**했다. 기존 유자금 schema 재시작·소유수량/매도 예약 상한, loopback 수동 매도의 전략소유 제외를 검증했다. 현재 선택으로 모드를 추정하거나 원장을 삭제/초기화하지 않는다. **원장 모드 격리·검증된 이관은 미해결**이며 서버 발급 ABA generation도 없다.
+
+frontend는 AppConfig 성공 공개 횟수를 query key/완료 검증에 포함해 같은 scope 설정 복구도 새 예산/복구 GET 성공 전 금액/editor를 복원하지 않는다. 보이는 설정 재점검은 AppConfig+진단과 금액을 재검증한다. 저장은 onMutate 공개 횟수 캡처와 동일 공개의 후속 GET 성공 뒤에만 성공/초안 초기화를 허용한다. GET 지연은 pending 유지, 실패는 저장 반영 가능성 안내/초안 보존, 이전 공개의 응답은 현재 query를 무효화하지 않는다. 복구는 무폴링·명시 검토를 유지한다. 신규 mock은 exact origin/method/path·예산 broker/account/profile/mode와 저장 횟수를 검사하며 잘못된 endpoint/method/account negative control을 추가했다.
+
+revision 검증: `cargo check --workspace --all-targets --locked`, `cargo test --workspace --lib --locked` **969개 통과·실패0/ignored0**, compiler warning0. focused `budget_save` 2개·`legacy_funded` 2개도 통과했다(전체와 중복 합산하지 않음). 최종 전체 실행은 DB 환경4개를 자식에서 제거했으며 PostgreSQL/TLS 계약5개는 즉시 반환으로 실제 DB 검증이 아니다. `npx tsc --noEmit`, `npm run check:fsd`, envDir:false의 `npx vite build --config .cache/p1-scope-01/offline-vite.config.mts`, fmt check·project-map·TODO render/check(열린14개)·diff check를 통과했다. Graphify freshness는 소스 변경으로 stale 실패했으며 요청대로 산출물을 재생성하지 않았다. 소스 독립 감사에서 추가 blocking 결함은 발견되지 않았고 Serena 도구가 없어 참조를 rg로 대체했다.
+
+부모의 이전 Chromium은 **30개 중29통과/1실패**(같은 scope 설정 복구 후 재조회 공백)였고 revision 통과 증거가 아니다. revision 브라우저1개 시도는 `MachPortRendezvousServer ... Permission denied (1100)`/SIGTRAP으로 시작 실패해 추가 launch를 중단했다. 현재4파일 **40개 --list**는 실행 성공 수가 아니다. 부모 재실행: `./node_modules/.bin/playwright test --config .cache/p1-scope-01/playwright.config.ts tests/e2e/balance-events.spec.ts tests/e2e/uiux-holdings.spec.ts tests/e2e/settings-database.spec.ts tests/e2e/simulation-native.spec.ts`. native는 injected Tauri browser mock이며 Rust IPC E2E가 아니다. 실제 native·계좌·provider API/auth·실자료·운영 DB·주문·시작/재개는 실행하지 않았다. P1-SCOPE-01은 미완료이며 일반 AppShell 운영 query/daemon 중단을 주장하지 않는다. 커밋/푸시·브랜치 변경·stash/reset/checkout/clean은 실행하지 않았다.
+
+부모 재검증에서는 잔여 query-key assertion을 계좌 suffix와 공개 세대 증가 검사로 함께 보정한 뒤 같은4파일을 별도 포트의 headless Chromium에서 **40/40 통과**했다. 설정 복구 뒤 금액 재조회 실패·저장 후 GET 지연/실패·late save ABA·잘못된 endpoint/method/account negative control을 포함하며 실제 native IPC는 아니다. 부모가 fmt check·Cargo check·전체 Rust lib **969/969**(실패0/ignored0)·FSD·TODO/지도·diff 검사와 웹 production build도 실행해 통과했다. Graphify는 LLM 없이 AST 일반 update를 실제 수행해 **8023 nodes/13821 edges**로 갱신하고 freshness 검사를 통과했다. 설정/fixture6개 zero-node 및5000node 시각화 상한 안내는 도구 한계이며 compiler warning과 구분한다. 이 확인 시점에는 수정 후 최종 독립 리뷰가 진행 중이며 원장 모드 격리·검증 이관·서버 발급 ABA generation은 여전히 미해결이다.
+
+마지막 P2 리뷰에서 `invalidateQueries`가 paused 재조회 완료를 보장하지 않는 문제가 추가됐다. 부모가 POST 성공 후 onlineManager를 offline으로 바꾸는 합성 회귀를 실행해 수정 전 `pending` 대신 `success`가 나오는 실패를 재현했고, 현재 공개 세대의 정확한 query를 취소/명시 fetch한 뒤 실제 GET 완료를 기다리도록 수정해 통과했다. 해당 회귀를 포함한 같은4파일은 **41/41**, TypeScript/FSD·TODO/지도·diff·Graphify freshness도 통과했다(AST8023nodes/13822edges). 수정 후 마지막 웹 재빌드는 도구의 lifecycle 스크립트 검사1MiB 한도에 막혀 실행되지 않았으며 앞선 build 통과를 이 마지막 수정의 build 결과로 바꾸지 않는다. 최종 소규모 P2 재리뷰는 추가 actionable 결함 없음으로 끝났으며 원격 CI는 이 시점 대기다. 원래 P1 미완료 경계는 유지한다.
+
 <a id="simulation-plan-20261107"></a>
 ## 모의투자 후속 계획 반영 — 2026-11-07
 
