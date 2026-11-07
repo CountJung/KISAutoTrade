@@ -7,6 +7,7 @@ pub mod logging;
 pub mod market;
 pub mod market_hours;
 pub mod notifications;
+pub mod research;
 pub mod server;
 pub mod storage;
 pub mod trading;
@@ -48,6 +49,11 @@ fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result
         }
     }
     Ok(())
+}
+
+// One macro expansion: macOS embeds a global Info.plist symbol per expansion.
+pub(crate) fn app_context() -> tauri::Context<tauri::Wry> {
+    tauri::generate_context!()
 }
 
 pub fn run() {
@@ -465,6 +471,13 @@ pub fn run() {
             commands::preview_leveraged_trend_hold,
             commands::preview_strategy,
             commands::preview_strategy_continuous,
+            commands::preview_sector_portfolio,
+            commands::preview_broker_chart_portfolio,
+            commands::get_broker_chart_scope,
+            commands::collect_broker_chart_data,
+            commands::validate_sector_data,
+            commands::get_sector_quote_scope,
+            commands::collect_sector_data,
             commands::get_chart_data,
             commands::get_price,
             commands::place_order,
@@ -555,6 +568,6 @@ pub fn run() {
                 tracing::info!("앱 종료 요청");
             }
         })
-        .run(tauri::generate_context!())
+        .run(app_context())
         .expect("Tauri 애플리케이션 실행 중 오류 발생");
 }

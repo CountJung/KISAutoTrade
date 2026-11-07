@@ -260,3 +260,83 @@ async fn application_error_status_and_envelopes_remain_distinct() {
     assert!(value["error"].is_string());
     fixture.assert_no_effects().await;
 }
+
+#[tokio::test]
+async fn budget_save_delayed_before_handler_locks_rejects_changed_profile_or_mode() {
+    for change_profile in [false, true] {
+        let fixture = Fixture::new(TOKEN).await;
+        *fixture.state.profiles.write().await = crate::config::ProfilesConfig {
+            active_id: Some(fixture.profile.id.clone()),
+            profiles: vec![fixture.profile.clone()],
+        };
+        let input = json!({
+            "brokerId": "kis", "brokerAccountId": fixture.profile.broker_account_id(),
+            "expectedProfileId": fixture.profile.id, "expectedIsPaper": fixture.profile.is_paper_trading,
+            "krwAmount": 1000, "usdAmount": 0
+        });
+        // Hold a production handler lock, not a response mock: processing has not
+        // reached selection validation or storage when the profile changes.
+        let maintenance = fixture.state.storage_maintenance.lock().await;
+        let mut handler = Box::pin(super::budget::update_budget_handler(
+            axum::extract::State(fixture.state.clone()),
+            axum::Json(serde_json::from_value(input).unwrap()),
+        ));
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(20), &mut handler)
+                .await
+                .is_err()
+        );
+        {
+            let _selection = fixture.state.strategy_update_lock.lock().await;
+            let mut profiles = fixture.state.profiles.write().await;
+            if change_profile {
+                profiles.profiles[0].id = "replacement-profile".into();
+                profiles.active_id = Some("replacement-profile".into());
+            } else {
+                profiles.profiles[0].is_paper_trading = !fixture.profile.is_paper_trading;
+            }
+        }
+        drop(maintenance);
+        let response = handler.await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(json_body(response).await["code"], "BUDGET_SCOPE_CHANGED");
+        fixture.assert_no_effects().await;
+    }
+}
+
+#[tokio::test]
+async fn budget_save_requires_explicit_profile_and_mode_and_accepts_current_context() {
+    let fixture = Fixture::new(TOKEN).await;
+    *fixture.state.profiles.write().await = crate::config::ProfilesConfig {
+        active_id: Some(fixture.profile.id.clone()),
+        profiles: vec![fixture.profile.clone()],
+    };
+    let complete = json!({"brokerId":"kis", "brokerAccountId":fixture.profile.broker_account_id(),
+        "expectedProfileId":fixture.profile.id, "expectedIsPaper":fixture.profile.is_paper_trading,
+        "krwAmount":1000, "usdAmount":0});
+    for field in ["expectedProfileId", "expectedIsPaper"] {
+        let mut legacy = complete.clone();
+        legacy.as_object_mut().unwrap().remove(field);
+        let response = fixture
+            .send(
+                authorized("POST", "/api/auto-trading-budget")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(legacy.to_string()))
+                    .unwrap(),
+            )
+            .await;
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        fixture.assert_no_effects().await;
+    }
+    let response = fixture
+        .send(
+            authorized("POST", "/api/auto-trading-budget")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(complete.to_string()))
+                .unwrap(),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(json_body(response).await["krw"]["allocatedAmount"], 1000);
+    assert!(fixture.requests.lock().await.is_empty());
+}

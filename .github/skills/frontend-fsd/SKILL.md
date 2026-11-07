@@ -110,3 +110,11 @@ ESLint나 별도 스크립트를 추가하기 전까지는 수동으로 아래�
 - Trading route는 `useTradingOrderModel`에 기존broker별query gate/state/effect/command closure를, `tradingOrderForm`에공통주문표시를둔다. LTH editor도 `useLeveragedTrendHoldEditorModel`을parent에서한번호출하고tickerPicker/previewPanel에같은model을전달한다. child에서hook을중복호출해독립state/query를만들지않는다. 이page전용상태는shared에승격하지않고기존public entry를보존한다. [분리검증](../../../docs/completed-history.md#task-immediate-backlog-20261029).
 
 > 마지막 업데이트: 2026-11-01T00:21:19+00:00
+
+
+## Simulation 공용 작업 공간
+
+- `src/pages/simulation/`과 `src/pages/research/`는 `src/widgets/sector-portfolio/index.ts`의 공개 UI를 공유한다. `ui/`·`model/`을 page 간 깊은 import로 공유하거나 두 계산 흐름으로 복제하지 않는다.
+- 이전 `src/pages/strategy/ui/Sector{PortfolioPanel,PortfolioResults,PaperComparison,DataPreparationPanel}.tsx`와 `model/sector{PortfolioInput,DataPreparation}.ts`는 호환 re-export shim이다. 구현은 widgets에 유지하고 기존 API·입력/결과 계약을 바꾸지 않는다. 현재 경계는 [아키텍처](../../../docs/ARCHITECTURE.md#섹터-etf-연구의-독립-경계)를 따른다.
+
+> 마지막 업데이트: 2026-11-06T04:48:58+00:00

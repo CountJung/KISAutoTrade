@@ -1,9 +1,12 @@
+pub mod broker_chart;
 pub(crate) mod configuration;
 pub mod guard;
 pub mod order;
 pub mod position;
 pub mod preflight;
 pub mod risk;
+pub mod sector_data;
+pub mod sector_portfolio;
 pub mod simulation;
 pub mod strategy;
 pub mod views;

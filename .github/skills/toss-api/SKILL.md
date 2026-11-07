@@ -180,3 +180,12 @@ npm run verify:toss-openapi
 공식 공개 v1.2.28 문서에서 `GET /api/v1/transactions`를 확인했다. 기존39개 기대 경로를 보존하고 해당1개만 추가해40개로 검증한다. 본인 계좌 거래내역 조회로 OAuth2·`X-Tossinvest-Account`가 필요하며 앱 기능은 미구현이다. inventory 수 검사를 제거하거나 임의 경로를 허용하지 않고 기존 제목·서버·오류·rate-limit 검사를 유지한다. 공개 문서 확인과 실제 계좌 API 검증은 구분한다. 로컬 다운로드·원문 해시 확인의 제한은 [정본](../../../docs/toss-openapi.md#2026-11-05-공개-rest-inventory-보정)을 따른다.
 
 > 마지막 업데이트: 2026-11-05T00:40:29+00:00
+
+
+## 차트가격 근사 경로 (2026-11-06)
+
+- `trading/broker_chart/provider.rs`는 명시 동의한 일반 native에서만 일봉 `1d/count=200/adjusted=false/before`를 요청하고 cursor 역행·USD·뉴욕 자정 timestamp를 검사한다. exchangeMappings는 받지 않는다. scope/동의/늦은 응답은 profile publication에 묶고 순수 계산 입력과 결과는 보존한다.
+- adjusted=false는 비수정 요청 플래그다. 서비스 제공 시작 이전 과거 구간이 이미 수정됐을 수 있으므로 원시가격/배당총수익/기업행위 부재를 인증하지 않는다. 별도 한계 확인 DTO이며 strict 검증 flags는 false로 유지한다. 알려진 기업행위는 거부한다.
+- Toss HTTP 클라이언트는 quote/auth redirect를 따르지 않는다. 합성 raw wire 검사는 캐시 토큰 재사용·시세 GET만·계좌 헤더 없음·NY DST 일자 매핑과307/308 목적지 수신0을 대조한다. 실제 Toss 인증/시세 성공 증거로 확대하지 않는다. [계약과 상한](../../../docs/ipc-commands.md#브로커-차트-가격수익률-근사), [회차 근거](../../../docs/completed-history.md#p2-sector-01-broker-chart)를 따른다.
+
+> 마지막 업데이트: 2026-11-06T07:35:02+00:00

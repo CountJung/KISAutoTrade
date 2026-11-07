@@ -181,6 +181,7 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 - 페이지별로 임의 Chip 조합을 새로 만들지 말고 공통 컴포넌트를 재사용해 broker/profile/account 표시 순서와 색상을 유지한다.
 - Strategy 카드처럼 저장 데이터 자체에 broker/account scope가 있는 경우 카드 header에 해당 scope chip을 표시하고, 현재 활성 scope와 다르면 `warning` 색상으로 표시한다.
 - Settings의 계좌 프로파일 관리는 KIS/Toss 섹션을 분리한다. KIS 계좌번호와 Toss `accountSeq`는 같은 문자열 필드에 저장되더라도 UI에서는 같은 목록·같은 broker 선택 폼으로 섞지 않는다.
+- 계좌 선택 버튼은 실제 선택 mutation의 pending을 공유하고 설정/거래 상태 미확인·실행 중에는 차단한다. 차단 조건을 실행 상태 표시로 재사용하지 않는다. 선택 실패는 오류를 표시하고 현재 config 재확인 전 이전 계좌·모드를 확정 상태로 표시하지 않는다. 예산·복구 캐시와 초안의 전환 규칙은 React 스킬의 계좌별 캐시 절을 따른다.
 - 활성 broker가 Toss인 Dashboard/Trading/Strategy는 KIS 잔고·시세·주문 흐름을 호출하지 않고 Toss 보유종목/시세, 주문 전 검증, 실거래 동의 상태를 명확히 표시한다.
 - Dashboard의 Toss 소액 수동매매 검증 gate는 `src/features/manual-order`의 공유 컴포넌트를 사용한다. Dashboard는 검색 종목 1주 시장가 매수 조건을 사전검증하고, 실거래 동의·최종 확인 checkbox·최대 허용금액을 같은 화면에서 보여준 뒤 Dashboard 전용 버튼으로만 실제 소액매매 검증을 제출한다. Trading은 일반 주문 패널에서 `TossOrderPreflightPanel`을 표시하고 `canSubmit=true`일 때 수동 주문 버튼을 활성화한다. Strategy/자동매매 화면에는 소액매매 검증 UI를 두지 않는다.
 - Trading의 Toss 수동 주문창은 접수 주문 목록을 같은 패널 안에서 보여준다. 좁은 좌측 주문 패널에서는 다열 테이블을 쓰지 말고 주문별 카드로 종목, 매수/매도, 주문가, 수량, 체결수량, 상태를 표시한다. 가격 정정 UI는 카드 안의 전체 폭 입력 폼으로 제공해 주문 ID나 컬럼 폭 때문에 가격/정정 버튼이 가려지지 않게 한다. 접수 주문 정정 성공/실패는 Alert로 표시하고, 토큰·secret·계좌 원문은 노출하지 않는다.
@@ -689,7 +690,7 @@ UI 규칙:
 - 결과는 raw signal, 주문 가능, 체결 가정, 차단을 분리하고 누적 수익률/MDD/승률/손익비/turnover/exposure, equity curve, in/out-of-sample, 거래 목록을 표시한다. 큰 거래 목록은 UI에서 100건 이하로 제한해 jank를 막는다.
 - replay cadence와 live 10초 tick cadence, warmup, 데이터 source/range, 재현 hash를 함께 표시해 일봉/1분봉 근사와 실제 tick을 혼동하지 않게 한다.
 - 전용 LTH의 `replay.assessment`로 성과 표시 가능 여부를 결정한다. `dailyDiagnostic/notEvaluable` 일봉과 유효 분봉 0개는 자료 진단만 표시하고 수익률·승률·자산 곡선·거래 성과·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리하며 빈 backtest를 0% 성과로 표시하지 않는다. generic 성과 패널은 기존 계약을 유지한다.
-- `intradaySample/sampleOnly`는 “분봉 표본 모의 결과”로 제목/경고를 표시한다. 별도 일봉 context 수와 실제 장중 관측 수, 최대 200봉/3개월 대표성 부족, 원본 시간대·DST·세션 미검증과 고정 KST 근사를 명시한다. `warmupCount=0`을 일봉 context 없음으로 해석하지 않는다. A/B snapshot은 assessment를 replay에 보존하며 기존 미검증 LTH 저장 결과의 성과도 숨긴다.
+- `intradaySample/sampleOnly`는 “분봉 표본 모의 결과”로 제목/경고를 표시한다. 일봉 context·실제 장중 관측 수와 최대200봉/3개월 대표성 부족을 명시한다. US1m은 선택 executionClock의 NY/DST 계획 정규장·실제 채택/제외·단일 cutoff와 legacy Asia/Seoul blackout을 일반 평일창 pure 진단과 구분한다. 계획 달력 적용을 실제 원본/offset·발행/세션·기간 coverage 인증으로 표시하지 않는다. KR/legacy의 고정 KST 한계는 유지하며 clock 누락/미지원/손상은 legacy/unknown으로 표시한다. 현재/저장 A/B·reload의 정책/채택 identity 차이와 unknown을 경고하되 동일 정책/채택봉의 asOf 밀리초만으로 다른 모델 경고를 만들지 않는다. `warmupCount=0`은 일봉 context 없음이 아니다. snapshot은 assessment를 보존하며 assessment가 없는 기존 LTH 저장 결과의 성과는 숨긴다. 실행 clock만 없는 legacy 표본은 그 사실을 경고하고 기록 열람을 유지한다. [typed 계약](../../../docs/ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22).
 - 단기 generic preview는 모든 전략에 동일한 요청 평가 봉 수를 우선 적용한다. 공통 완료봉 페이지를 최대8회·보관500봉 안에서 조회해 평가50/100/200봉과 이전252봉을 별도 `historyCandles`로 보낸다. 준비 부족을 감추기 위해 요청 평가 봉을 history로 옮기거나200·252 기준을 줄이지 않고 요청·실제 평가·사전자료 수와 수집 중단 사유를 표시한다. 연속 일봉의 별도 상한과 날짜 범위는 아래 v12 항목을 따른다.
 - `preparation`에서 자료 부족·지표 준비 중·조건 불충족·신호 무체결·체결 가정을 구분한다. 제공 자료와 실제 지표 버퍼 수, 시작/종료 준비, 처리 후 첫 준비 시각, 조건 평가 봉 수를 함께 읽는다. seed-only 또는 미지원 구간은 평가 불가로 표시하며 null을 false/0으로 단정하지 않는다.
 - A/B 실험은 broker/account/strategy/symbol scope별 localStorage에 두 slot만 저장한다. 전략 버전, params, data source/interval/range, 비용 가정, 생성 시각을 포함하고 credential/secret은 저장하지 않는다. source/기간이 다르면 직접 비교 경고를 표시한다.
@@ -809,10 +810,10 @@ UI 규칙:
 ## LTH 분봉 시각·세션 진단 UI
 
 - current/A-B의 선택 `assessment.minuteTiming`을 같은 panel로 표시한다. 정보없음·미지원버전·손상된 날짜/예시/limitations는 경고로 처리하고 시간대 검증을 만들어내지 않는다. 기본8일/compact2일의 실제 표시 수와 전체/생략 날짜수를 구분한다. 긴 시각과 label은 좁은 화면에서도 줄바꿈한다.
-- 원본 label 현지시각/봉시작UTC/종가 공개 가능UTC와 asOf, 공급/선택/실행/가격제외 수를 구분한다. 일반 평일창의 미관측 슬롯은 실제 누락 확정이 아니며 달력·발행·전체 coverage·기존 fixed KST 실행시계 한계를 보인다. 표기/시간대/진단버전/검증가정이 다른A/B는 경고한다. sampleOnly/notEvaluable·일봉 성과숨김과 이전결과 보호를 유지한다.
+- 원본 label 현지시각/봉시작UTC/종가 공개 가능UTC와 asOf, 공급/선택/실행/실제 가격제외 수를 구분한다. 일반 평일창의 미관측 슬롯은 실제 누락 확정이 아니다. US 연구 executionClock의 적용된 NY 계획 달력·채택 근거와 pure 진단을 분리하고, KR/legacy 고정 KST 및 실제 발행/전체 coverage 미검증을 표시한다. 표기/시간대/진단버전/검증가정과 실행 정책/채택 identity·unknown이 다른 A/B는 경고하되 같은 정책/채택봉의 asOf 밀리초 차이는 제외한다. sampleOnly/notEvaluable·일봉 성과숨김과 이전결과 보호를 유지한다.
 - `tests/e2e/lth-minute-timing.spec.ts`의 mock으로 저장/복원·손상 배열·다른가정·legacy·일봉/빈자료·375px overflow/compact수를 확인한다. [작업 기록](../../../docs/completed-history.md#task-lth-minute-timing-20261022).
 
-> 마지막 업데이트: 2026-10-22T20:33:31+09:00
+> 마지막 업데이트: 2026-11-08T00:24:21+09:00 (부모 관측 기준)
 
 ## RSI 선택 보호 UI
 
@@ -865,3 +866,25 @@ RSI의신규추세/손절/보유관측은별도 `rsiControls.tsx`에두고raw저
 > 마지막 업데이트: 2026-10-31T10:33:01+00:00
 
 > 마지막 업데이트: 2026-11-01T00:21:19+00:00
+
+
+## 운영 앱 안의 Simulation 작업 공간
+
+- JSON 불러오기 label 버튼은 input.setInputFiles만으로 키보드 지원을 판정하지 않는다. 실제 focus와 Enter/Space의 filechooser 이벤트·동일파일 재선택·의도치않은 계산요청0을 확인한다. CSS zoom 검사는 정확 배율/viewport와 실제 브라우저 도구창·OS/WebView 확대의 미검증을 구분한다. 위험행동 확인정책 전 현행 영향은 [아키텍처 표](../../../docs/ARCHITECTURE.md#p2-ux-07-action-matrix)를 참조하며 정적 추적을 실제 금융 안전성 검증으로 확대하지 않는다.
+- 차트 가격근사의 인증 수집은 평가20·30거래일(기본30)과 별도 사전22봉을 사용한다. 기간/종료일 변경은 동의를 해제하고 요청 revision을 증가시켜 옵션 A→B→A 뒤 늦은 응답도 버린다. 이미 입력한 독립 장부는 조건 편집만으로 지우지 않는다. 수집30봉 선택을 검증된 실제30일 성과나 정규장 가격만의 인증으로 표현하지 않는다.
+- 가상 USD 장부는 자료 준비/세 전략 비교/수동 모의 대조의3탭으로 나눈다. 준비 입력 적용 후 비교 탭을 선택하고 해당 탭으로 focus를 옮긴다. tabpanel은 mount를 유지하고 hidden으로 전환해 입력/수동 초안을 보존한다.
+- 일반 AppShell의 계좌/운영 query·daemon·native 권한은 유지된다. `QueryStatusSummary`로 최근 정상/이전/오류 상태를 표시하고 별도 운영 제어와 정지 접근을 유지한다. 메뉴·계산을 운영 시작/정지로 표현하거나 내부 연구 앱의 초기화 격리 보장을 적용하지 않는다. 상세 사용 흐름은 [사용법 정본](../../../docs/user-guide.md#섹터-etf-기본방어공격-비교)을 따른다.
+
+> 마지막 업데이트: 2026-11-06T04:48:58+00:00
+
+> 마지막 업데이트: 2026-11-07T14:37:57+09:00
+
+
+## 금융 행동 확인 — P2-UX-07
+
+- `features/financial-confirmation`의 AppShell 단일 Provider로 실전 시작(KIS 실전/Toss)·비상정지 해제·매수 재개·KIS/Toss 수동 주문을 확인한다. 기존 mutation hook과 backend 동의/preflight/scope/owner/risk/예약 guard를 그대로 사용한다. 수동 주문은 최종 단계에서도 현재 입력·preflight/세션을 재검사한다.
+- 확인은 AppConfig 공개세대/신뢰 상태·profile/broker/account/mode 및 초안 generation에 귀속한다. ABA·동일 scope 재공개·설정 미확인·입력 변경·unmount는 이전 확인을 무효화한다. 동기 소비와 공용 잠금으로 두 진입점/연타/키 반복 중복을 막고 오류는 닫기 후 새 확인으로만 재시도한다.
+- 취소 초기 focus·MUI Escape/배경 닫기·focus 복귀를 유지한다. 일반 입력 Enter/IME·modifier·repeat를 금융 자동 제출로 연결하지 않는다. 정지/비상정지 발동은 기존 즉시 요청이고 확인창 안에서도 접근 가능하다. 정지=취소/청산, 위험 해제=daemon 시작/손실 초기화, 매수 재개=입금/잔고 검증으로 표현하지 않는다. 순수 Simulation 계산에는 연결하지 않는다.
+- 브라우저 source mock·정적 추론·native/실계좌 미검증을 분리한다. [계약/검증 상태](../../../docs/completed-history.md#p2-ux-07)를 따른다.
+
+> 마지막 업데이트: 2026-11-07T15:24:26+09:00

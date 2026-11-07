@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useScopedAccountQuery } from './accountHooks'
 import { approveBudgetRecovery, getBudgetRecovery } from '../shared/api/budgetRecoveryCommands'
 import type { ApproveBudgetRecoveryInput, BudgetRecoveryView } from '../shared/api/budgetRecoveryTypes'
 import type { AutoTradingBudgetInput, CmdError } from './types'
@@ -10,13 +11,12 @@ export interface RecoveryIdentity {
 }
 
 export function useBudgetRecovery(scope: AutoTradingBudgetInput | undefined, identity: RecoveryIdentity, enabled: boolean) {
-  return useQuery<BudgetRecoveryView, CmdError>({
-    queryKey: KEYS.budgetRecovery(scope?.brokerId, scope?.brokerAccountId, identity.profileId, identity.isPaper),
-    queryFn: () => getBudgetRecovery(scope!),
+  return useScopedAccountQuery(KEYS.budgetRecovery(scope?.brokerId, scope?.brokerAccountId, identity.profileId, identity.isPaper), () => getBudgetRecovery(scope!), {
     enabled: enabled && Boolean(scope?.brokerAccountId),
     staleTime: 0,
     // Review explicitly; a background refresh must not silently replace an approval draft.
     refetchOnWindowFocus: false,
+    refetchInterval: false,
   })
 }
 

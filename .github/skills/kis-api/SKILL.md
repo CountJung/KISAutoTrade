@@ -1759,3 +1759,23 @@ pending 대조와 당일 리스크 복원은 저장된 주문 TR-ID의 정확한
 > 마지막 업데이트: 2026-10-18T14:30:00+09:00
 
 > 마지막 업데이트: 2026-11-01T00:21:19+00:00
+
+
+## 섹터 연구의 인증 시세 수집과 가격 조정 (2026-11-06)
+
+- `sector_data`는 고정11개 섹터+SPY만 다룬다. 일반 native의 명시 scope 확인·`expectedProfileId`·`authenticatedQuotesAcknowledged` 뒤에 시세 인증/토큰 발급·갱신이 발생할 수 있다. scope 응답은 opaque profile ID/provider/paper만 반환하며 계좌번호·키나 인증 성공을 제공하지 않는다. 화면 mount·연구 전용 native·REST에서 인증 수집을 시작하지 않는다.
+- [공식 chk_dailyprice.py](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/overseas_stock/dailyprice/chk_dailyprice.py)는 MODP0 미반영/1 반영을 명시한다. MODP0의 raw 시가/종가와 MODP1 조정 종가를 별도 요청·열로 보존한다. 수정주가 플래그만으로 배당 포함 총수익·분할 조정 범위·원시가격 동일성을 인증하지 않는다.
+- EXCD 매핑은 종목마다 사용자가 확인한 근거를 요구한다. 상장시장 NYSE Arca를 AMS로 추정하지 않는다. 날짜 anchor 페이지의 반환 봉수·과거 coverage는 실제 응답으로 검증하며100봉을 보장하지 않는다. 공식 달력과 특별휴장(예:2025-01-09)·DST·조기마감은 수동 근거로 대조한다.
+- `SectorPageReceipt.rowsHash`는 보존 시세 필드의 정규화 hash다. HTTP 응답 원문 hash로 부르지 않는다. `validate_sector_data`의 bundle/verification hash도 입력 기록의 재현용이며 공급원 진위 인증이 아니다. raw/adjusted 누락·불일치·기업행위/조정 미확인을 합성 가격이나0% 성과로 숨기지 않는다.
+- 순수 검증·연구 계산에는 계좌/profile/provider/store를 전달하지 않는다. 실제 시세 수집의 scope 검증·인증과 파일 검증을 구분하고 주문/잔고/자동매매 권한으로 확대하지 않는다. 현재 wire·지원 범위는 [IPC 정본](../../../docs/ipc-commands.md#섹터-자료-준비와-연구-전용-실행)을 따른다.
+
+> 마지막 업데이트: 2026-11-06T02:55:01+00:00
+
+
+## 브로커 차트 가격근사 수집 (2026-11-06)
+
+- 검증형 `sector_data`의 MODP0/1과 별도로 `trading/broker_chart`는 MODP0 일봉 OHLCV를 요청한다. strict 확인 조건은 유지하고 source coverage/corporateActions flag=false의 독립 가격근사 계약을 쓴다. 빈 사건목록은 분할/배당 부재 증명이 아니다.
+- 기본12종목 조회코드는 공식 `amsmst.cod.zip`의2026-11-06 스냅샷에서 US/USD/type3/AMS를 확인한 seed다. URL·retrievedAt·archive SHA256을 exchangeMappings에 보존한다. 상장시장 이름에서 AMS를 추정하거나 현재 마스터를 자동 인증하지 않는다. 전체12개 NAS/NYS/AMS+evidence 수동 override가 가능하며 오류·빈 페이지·인증 실패에서 다른 코드를 자동 시도하지 않는다.
+- 일반 native의 별도 scope/시세 동의 후 수집만 인증을 사용할 수 있다. SPY 관측 날짜를 고정하고 다른 ETF 누락을 교집합으로 감추지 않는다. 순수 preview/연구 native/REST에 인증 수집을 연결하지 않는다. KIS quote/auth HTTP는 redirect를 따르지 않는다. [wire·상한 정본](../../../docs/ipc-commands.md#브로커-차트-가격수익률-근사), [실제 KIS 성공 범위와 미검증](../../../docs/completed-history.md#p2-sector-01-broker-chart)을 따른다.
+
+> 마지막 업데이트: 2026-11-06T07:35:02+00:00

@@ -27,6 +27,7 @@ pub use core::{
     EntryFilterPreparation, HistoryReadiness, OhlcCandle, Signal, Strategy, StrategyConfig,
     StrategySignal, VolatilityExpansionPreparation,
 };
+pub(crate) use leveraged_trend_hold::research_session as lth_research_session;
 pub use leveraged_trend_hold::{
     LeveragedTrendHoldEntry, LeveragedTrendHoldParams, LeveragedTrendHoldPreviewSignal,
     LeveragedTrendHoldPreviewStep, LeveragedTrendHoldStrategy, LeveragedTrendHoldTimedCandle,

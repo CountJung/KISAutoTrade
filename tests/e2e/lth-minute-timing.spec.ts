@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import type { LthMinuteTiming } from '../../src/api/types'
+import type { LthExecutionClock, LthMinuteTiming } from '../../src/api/types'
 import { mockApi } from './fixtures/strategyResearchFixture'
 
 function timing(patch: Partial<LthMinuteTiming> = {}): LthMinuteTiming {
@@ -146,4 +146,135 @@ test('mobile diagnostics wrap timestamps and show truncation without horizontal 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await card(page).getByRole('button', { name: '현재 결과를 A로 저장', exact: true }).click()
   await expect(card(page).getByTestId('strategy-ab-comparison').getByTestId('lth-minute-timing')).toContainText('날짜 진단 2/10개')
+})
+
+// Structural typing keeps the fixture checked before the optional wire is introduced.
+function executionTiming(policy = 'us-regular-close-v1', patch: Partial<LthExecutionClock> = {}) {
+  return timing(Object.assign({}, { executionClock: {
+    version: policy, timezone: 'America/New_York', tzdbVersion: '2025b',
+    labelPolicy: 'barClose:[close-1m,close);close<=asOf', blackoutTimezone: 'Asia/Seoul', blackoutWindows: [],
+    calendarSource: 'NYSE planned 2023-2028; Carter 2025-01-09 override; extraordinary coverage unverified',
+    calendarHorizon: '2023-2028', asOf: '2026-03-09T13:33:30Z', admissionIdentity: 'synthetic-admission',
+    sourceRows: 5, adoptedRows: 3, warmupRows: 252, unknownRows: 0,
+    excluded: [{ reason: 'future', count: 2 }],
+    examples: [{ inputIndex: 4, label: '2026-03-09T13:34:00Z', labelTruncated: false, reason: 'future' }], omittedExamples: 0,
+    days: [{ date: '2026-03-09', open: '2026-03-09T09:30:00-04:00', close: '2026-03-09T16:00:00-04:00', earlyClose: false, adoptedRows: 3 }],
+    dayCount: 1, omittedDays: 0, ...patch,
+  } }))
+}
+
+test('execution clock survives keyboard save and reload; same-period policy differences warn', async ({ page }) => {
+  const options = { activeBroker: 'toss' as const, leveragedTiming: executionTiming() }
+  await mockApi(page, options); await page.goto('/strategy'); await preview(page)
+  await expect(card(page).getByTestId('lth-execution-clock')).toContainText('us-regular-close-v1')
+  const save = card(page).getByRole('button', { name: '현재 결과를 A로 저장', exact: true })
+  await save.focus(); await page.keyboard.press('Enter')
+  const stored = await page.evaluate(() => {
+    const key = Object.keys(localStorage).find((key) => key.startsWith('act:strategy-experiments:v1:') && !key.endsWith(':index'))
+    return key ? JSON.parse(localStorage.getItem(key)!).A.replay : null
+  })
+  expect(stored.assessment.minuteTiming).toEqual(options.leveragedTiming)
+  expect(stored.lookAheadSafe).toBe(false)
+  await page.reload(); await preview(page)
+  await expect(card(page).getByTestId('strategy-ab-comparison').getByTestId('lth-execution-clock')).toContainText('Asia/Seoul')
+  options.leveragedTiming = executionTiming('future-clock-v2')
+  await preview(page)
+  await card(page).getByRole('button', { name: '현재 결과를 B로 저장', exact: true }).click()
+  await expect(card(page).getByTestId('strategy-ab-comparison')).toContainText('실행 clock 근거가 없거나 정책·채택열이 다릅니다')
+})
+
+test('two legacy US minute records do not certify matching execution clocks', async ({ page }) => {
+  await mockApi(page, { activeBroker: 'toss', leveragedTiming: timing() })
+  await page.goto('/strategy'); await preview(page)
+  for (const slot of ['A', 'B']) await card(page).getByRole('button', { name: `현재 결과를 ${slot}로 저장`, exact: true }).click()
+  await expect(card(page).getByTestId('strategy-ab-comparison')).toContainText('실행 clock 근거가 없거나 정책·채택열이 다릅니다')
+})
+
+for (const patch of [
+  { calendarSource: 'different planned calendar basis' },
+  { blackoutTimezone: 'America/New_York' },
+  { blackoutWindows: ['22:40-23:00'] },
+  { admissionIdentity: 'different-adopted-sequence' },
+] satisfies Partial<LthExecutionClock>[]) {
+  test(`same-period execution policy ${JSON.stringify(patch)} differs in A/B`, async ({ page }) => {
+    const options = { activeBroker: 'toss' as const, leveragedTiming: executionTiming() }
+    await mockApi(page, options); await page.goto('/strategy'); await preview(page)
+    await card(page).getByRole('button', { name: '현재 결과를 A로 저장', exact: true }).click()
+    options.leveragedTiming = executionTiming('us-regular-close-v1', patch)
+    await preview(page)
+    await card(page).getByRole('button', { name: '현재 결과를 B로 저장', exact: true }).click()
+    await expect(card(page).getByTestId('strategy-ab-comparison')).toContainText('실행 clock 근거가 없거나 정책·채택열이 다릅니다')
+  })
+}
+
+for (const [field, malformed] of [['days', [null]], ['examples', [null]], ['excluded', [null]], ['blackoutWindows', [null]]] as const) {
+  test(`malformed execution ${field} falls back after reload`, async ({ page }) => {
+    const value = executionTiming()
+    const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message))
+    Object.assign(value.executionClock!, { [field]: malformed })
+    await mockApi(page, { activeBroker: 'toss', leveragedTiming: value }); await page.goto('/strategy'); await preview(page)
+    await expect(card(page).getByTestId('lth-execution-clock-unknown')).toBeVisible()
+    await card(page).getByRole('button', { name: '현재 결과를 A로 저장', exact: true }).click()
+    await page.reload(); await preview(page)
+    await expect(card(page).getByTestId('strategy-ab-comparison').getByTestId('lth-execution-clock-unknown')).toBeVisible()
+    expect(errors).toEqual([])
+  })
+}
+
+test('both unknown execution records remain warnings and fit 375px', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await mockApi(page, { activeBroker: 'toss', leveragedTiming: executionTiming('us-regular-close-v1', { unknownRows: 1 }) })
+  await page.goto('/strategy'); await preview(page)
+  for (const slot of ['A', 'B']) await card(page).getByRole('button', { name: `현재 결과를 ${slot}로 저장`, exact: true }).click()
+  const saved = card(page).getByTestId('strategy-ab-comparison')
+  await expect(saved).toContainText('실행 clock 근거가 없거나 정책·채택열이 다릅니다')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
+test('US clock snapshots stay isolated by ticker scope and preserve full replay readback', async ({ page }) => {
+  const options = { activeBroker: 'toss' as const, leveragedTiming: executionTiming() }
+  const writes: unknown[] = []; const forbidden: string[] = []
+  await mockApi(page, { ...options, updateRequests: writes })
+  page.on('request', (request) => { if (/\/api\/(?:orders|trading\/(?:start|stop))/.test(request.url())) forbidden.push(request.url()) })
+  await page.goto('/strategy'); await preview(page)
+  await card(page).getByRole('button', { name: '현재 결과를 A로 저장', exact: true }).click()
+  const first = await page.evaluate(() => Object.fromEntries(Object.keys(localStorage)
+    .filter((key) => key.startsWith('act:strategy-experiments:v1:') && !key.endsWith(':index'))
+    .map((key) => [key, JSON.parse(localStorage.getItem(key)!)])))
+  await card(page).getByRole('combobox', { name: '시뮬레이션 티커' }).click()
+  await page.getByRole('option', { name: /KORU/ }).click()
+  await expect(page.getByRole('listbox')).toHaveCount(0)
+  await preview(page)
+  await expect(card(page).getByTestId('strategy-ab-comparison')).toHaveCount(0)
+  await card(page).getByRole('button', { name: '현재 결과를 B로 저장', exact: true }).click()
+  await page.reload(); await preview(page)
+  const all = await page.evaluate(() => Object.fromEntries(Object.keys(localStorage)
+    .filter((key) => key.startsWith('act:strategy-experiments:v1:') && !key.endsWith(':index'))
+    .map((key) => [key, JSON.parse(localStorage.getItem(key)!)])))
+  for (const [key, value] of Object.entries(first)) expect(all[key]).toEqual(value)
+  expect(Object.keys(all)).toHaveLength(2)
+  expect(writes).toEqual([]); expect(forbidden).toEqual([])
+})
+
+test('new versus legacy execution evidence warns without deleting either replay', async ({ page }) => {
+  const options = { activeBroker: 'toss' as const, leveragedTiming: executionTiming() }
+  await mockApi(page, options); await page.goto('/strategy'); await preview(page)
+  await card(page).getByRole('button', { name: '현재 결과를 A로 저장', exact: true }).click()
+  options.leveragedTiming = timing()
+  await preview(page)
+  await card(page).getByRole('button', { name: '현재 결과를 B로 저장', exact: true }).click()
+  await page.reload(); await preview(page)
+  const saved = card(page).getByTestId('strategy-ab-comparison')
+  await expect(saved).toContainText('실행 clock 근거가 없거나 정책·채택열이 다릅니다')
+  await expect(saved.getByTestId('lth-execution-clock')).toHaveCount(1)
+  await expect(saved.getByTestId('lth-execution-clock-unknown')).toHaveCount(1)
+})
+
+test('two missing US minute clocks remain unknown after reload', async ({ page }) => {
+  await mockApi(page, { activeBroker: 'toss' }); await page.goto('/strategy'); await preview(page)
+  for (const slot of ['A', 'B']) await card(page).getByRole('button', { name: `현재 결과를 ${slot}로 저장`, exact: true }).click()
+  await page.reload(); await preview(page)
+  const saved = card(page).getByTestId('strategy-ab-comparison')
+  await expect(saved).toContainText('실행 clock 근거가 없거나 정책·채택열이 다릅니다')
+  await expect(saved.getByTestId('lth-minute-timing-missing')).toHaveCount(2)
 })

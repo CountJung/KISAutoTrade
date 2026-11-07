@@ -37,13 +37,13 @@ export default defineConfig({
   projects: process.env.CI ? [
     {
       name: 'chromium',
-      testIgnore: ['**/._*', '**/balance-events.spec.ts', '**/toss-commission-ratio.spec.ts', '**/strategy-deviation-policy.spec.ts', '**/keyboard-search-scope.spec.ts', '**/keyboard-results-scope.spec.ts'],
+      testIgnore: ['**/._*', '**/financial-confirmation.spec.ts', '**/balance-events.spec.ts', '**/toss-commission-ratio.spec.ts', '**/strategy-deviation-policy.spec.ts', '**/keyboard-search-scope.spec.ts', '**/keyboard-results-scope.spec.ts', '**/sector-data-native.spec.ts', '**/simulation-native.spec.ts', '**/broker-chart-native.spec.ts'],
       use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:1431' },
     },
     {
       name: 'chromium-source-harness',
       timeout: 60_000,
-      testMatch: ['**/balance-events.spec.ts', '**/toss-commission-ratio.spec.ts', '**/strategy-deviation-policy.spec.ts', '**/keyboard-search-scope.spec.ts', '**/keyboard-results-scope.spec.ts'],
+      testMatch: ['**/financial-confirmation.spec.ts', '**/balance-events.spec.ts', '**/toss-commission-ratio.spec.ts', '**/strategy-deviation-policy.spec.ts', '**/keyboard-search-scope.spec.ts', '**/keyboard-results-scope.spec.ts', '**/sector-data-native.spec.ts', '**/simulation-native.spec.ts', '**/broker-chart-native.spec.ts'],
       use: { ...devices['Desktop Chrome'], baseURL: 'http://127.0.0.1:1430' },
     },
   ] : [

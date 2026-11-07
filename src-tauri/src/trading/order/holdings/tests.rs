@@ -6,6 +6,162 @@ use crate::trading::{
 
 mod http;
 
+#[tokio::test]
+async fn scope_kis_toss_kis_publication_rejects_both_old_tickets_and_restores_fresh_markets() {
+    use crate::broker::{
+        BrokerCurrency, BrokerHolding, BrokerMarket, BrokerMoney, BrokerQuantity, BrokerSymbol,
+    };
+    let f = fixture().await;
+    let old_kis = query(&f, HoldingsMarkets::Both).await;
+    let old_kis_read = query(&f, HoldingsMarkets::ReadOnly).await;
+    let mut toss = f.profile.clone();
+    toss.broker_id = BrokerId::Toss;
+    toss.id = "fixture-toss".into();
+    toss.is_paper_trading = false;
+    // Deliberately reuse the account text across brokers to exercise the namespace.
+    let toss_scope = test_support::scope(&toss);
+    let toss_client = test_support::client("http://127.0.0.1:1".into(), &toss).await;
+    let mut m = f.manager.lock().await;
+    m.end_execution_run();
+    *m.profiles.write().await = ProfilesConfig {
+        active_id: Some(toss.id.clone()),
+        profiles: vec![toss.clone()],
+    };
+    *m.rest_client.write().await = toss_client.clone();
+    m.set_execution_scope(toss_scope.clone());
+    m.clear_position_trackers_for_scope_change().await;
+    m.begin_execution_run(
+        toss_scope.clone(),
+        Some(toss.id.clone()),
+        2,
+        toss_client,
+        Some(toss),
+    )
+    .unwrap();
+    let rows: Vec<_> = [
+        (BrokerMarket::Kr, "005930", "3", BrokerCurrency::Krw),
+        (BrokerMarket::Us, "SOXQ", "4", BrokerCurrency::Usd),
+    ]
+    .into_iter()
+    .map(|(market, symbol, qty, currency)| BrokerHolding {
+        broker: BrokerId::Toss,
+        account_id: toss_scope.account_id.clone(),
+        market,
+        symbol: BrokerSymbol(symbol.into()),
+        symbol_name: "synthetic Toss".into(),
+        quantity: BrokerQuantity(qty.into()),
+        average_price: BrokerMoney {
+            amount: "12.34".into(),
+            currency,
+        },
+        current_price: BrokerMoney {
+            amount: "15.00".into(),
+            currency,
+        },
+        unrealized_pnl: None,
+        raw: serde_json::Value::Null,
+    })
+    .collect();
+    let fresh_toss = m
+        .begin_holdings_query(BrokerId::Toss, HoldingsMarkets::Both)
+        .await
+        .unwrap();
+    m.publish_holdings(
+        fresh_toss,
+        HoldingsUpdate::from_toss(&toss_scope, &rows).unwrap(),
+    )
+    .await
+    .unwrap();
+    assert!(m
+        .publish_holdings(
+            old_kis,
+            HoldingsUpdate::Both {
+                domestic: vec![],
+                overseas: vec![]
+            }
+        )
+        .await
+        .is_err());
+    assert!(m
+        .publish_holdings(old_kis_read, HoldingsUpdate::ReadOnly)
+        .await
+        .is_err());
+    assert_eq!(
+        m.position_tracker
+            .lock()
+            .await
+            .get("005930")
+            .unwrap()
+            .quantity,
+        3
+    );
+    assert_eq!(
+        m.overseas_position_tracker
+            .lock()
+            .await
+            .get("SOXQ")
+            .unwrap()
+            .avg_price_cents,
+        1234.0
+    );
+    let old_toss = m
+        .begin_holdings_query(BrokerId::Toss, HoldingsMarkets::Both)
+        .await
+        .unwrap();
+    m.end_execution_run();
+    *m.profiles.write().await = ProfilesConfig {
+        active_id: Some(f.profile.id.clone()),
+        profiles: vec![f.profile.clone()],
+    };
+    *m.rest_client.write().await = f.client.clone();
+    m.set_execution_scope(test_support::scope(&f.profile));
+    m.clear_position_trackers_for_scope_change().await;
+    m.begin_execution_run(
+        test_support::scope(&f.profile),
+        Some(f.profile.id.clone()),
+        3,
+        f.client.clone(),
+        Some(f.profile.clone()),
+    )
+    .unwrap();
+    let fresh_kis = m
+        .begin_holdings_query(BrokerId::Kis, HoldingsMarkets::Both)
+        .await
+        .unwrap();
+    m.publish_holdings(
+        fresh_kis,
+        HoldingsUpdate::Both {
+            domestic: vec![("005930".into(), "fresh KIS".into(), 2, 100, 110)],
+            overseas: vec![],
+        },
+    )
+    .await
+    .unwrap();
+    assert!(m
+        .publish_holdings(
+            old_toss,
+            HoldingsUpdate::from_toss(&toss_scope, &rows).unwrap()
+        )
+        .await
+        .is_err());
+    assert_eq!(
+        m.position_tracker
+            .lock()
+            .await
+            .get("005930")
+            .unwrap()
+            .quantity,
+        2
+    );
+    assert!(m
+        .overseas_position_tracker
+        .lock()
+        .await
+        .get("SOXQ")
+        .is_none());
+    // These are common publication/parse contracts; no Toss HTTP fetch or auth is executed.
+}
+
 async fn fixture() -> Fixture {
     let fixture = Fixture::new("http://127.0.0.1:1".into()).await;
     fixture.begin(1).await;

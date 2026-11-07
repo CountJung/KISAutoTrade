@@ -5,11 +5,13 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
+    "rewriteRelativeImportExtensions": true,
     "types": [
       "node"
     ]
   },
   "include": [
-    "vite.config.ts"
+    "vite.config.ts",
+    "vite.research.config.ts"
   ]
 }

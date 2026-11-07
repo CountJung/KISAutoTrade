@@ -3,6 +3,7 @@ use super::*;
 mod continuous;
 mod driver;
 mod generic;
+mod lth_regular;
 use crate::trading::simulation::{
     diagnose_minute_timing, replay_input_hash, BacktestReportView, MinuteLabelConvention,
     MinuteTimingInput, ReplayAssessmentView, ReplayMetadataView, ReplaySession,
@@ -262,6 +263,12 @@ fn lth_preview_assessment(
 ) -> ReplayAssessmentView {
     let mut assessment = ReplayAssessmentView::lth(interval, daily_context_bars, timed.len());
     if interval == "1m" {
+        if is_overseas {
+            assessment
+                .limitations
+                .retain(|text| !text.contains("고정 KST"));
+            assessment.limitations.push("US 연구는 NY 정규장 계획 달력(2023–2028)과 알려진 특별휴장만 적용합니다. 전체 특별휴장·실제 공급원 coverage·발행 시점은 미검증입니다.".into());
+        }
         let labels = timed
             .iter()
             .map(|row| row.time.as_str())
@@ -306,6 +313,11 @@ fn daily_chart_time(value: &str, close_day_offset: i64) -> String {
 }
 
 fn minute_replay_trading_date(value: &str, is_overseas: bool, toss_us_session: &str) -> String {
+    if is_overseas && toss_us_session == "regular" {
+        return crate::trading::strategy::lth_research_session::trading_date(value)
+            .map(|date| date.format("%Y%m%d").to_string())
+            .unwrap_or_default();
+    }
     let minute = value
         .chars()
         .filter(|c| c.is_ascii_digit())
@@ -543,7 +555,7 @@ pub async fn preview_leveraged_trend_hold_for_profile(
         .iter()
         .find_map(|candle| broker_money_amount(&candle.close).map(|_| candle.close.currency))
         .unwrap_or(BrokerCurrency::Usd);
-    let chart_candles = broker_candles_to_chart(&simulation_candles, count);
+    let mut chart_candles = broker_candles_to_chart(&simulation_candles, count);
     let replay_start = daily_candles.len().saturating_sub(count as usize);
     let entry_is_overseas = params
         .entries
@@ -556,14 +568,33 @@ pub async fn preview_leveraged_trend_hold_for_profile(
         &params.toss_us_session,
         params.entry_window_start_min,
     );
-    let timed = broker_candles_to_timed_ohlc(
-        &simulation_candles,
-        count,
-        interval,
-        daily_open_minute,
-        daily_close_minute,
-        daily_close_day_offset,
-    );
+    // US selection/admission happens before daily warmup, driver Open and replay.
+    // Keep provenance internally for the later wire/UI pass.
+    let us_prepared = if interval == "1m" && entry_is_overseas {
+        Some(lth_regular::prepare(
+            &simulation_candles,
+            &daily_candles,
+            count,
+            reference_as_of,
+        )?)
+    } else {
+        None
+    };
+    let timed = if let Some(prepared) = &us_prepared {
+        prepared.timed.clone()
+    } else {
+        broker_candles_to_timed_ohlc(
+            &simulation_candles,
+            count,
+            interval,
+            daily_open_minute,
+            daily_close_minute,
+            daily_close_day_offset,
+        )
+    };
+    if let Some(prepared) = &us_prepared {
+        chart_candles = lth_regular::chart(&simulation_candles, prepared);
+    }
     let first_replay_date = timed.first().map(|candle| {
         if interval == "1m" {
             minute_replay_trading_date(&candle.time, entry_is_overseas, &params.toss_us_session)
@@ -576,7 +607,9 @@ pub async fn preview_leveraged_trend_hold_for_profile(
                 .collect::<String>()
         }
     });
-    let warmup_daily = if interval == "1d" {
+    let warmup_daily = if let Some(prepared) = &us_prepared {
+        prepared.warmup.as_slice()
+    } else if interval == "1d" {
         &daily_candles[..replay_start]
     } else {
         let cutoff = first_replay_date.as_deref().unwrap_or_default();
@@ -622,57 +655,17 @@ pub async fn preview_leveraged_trend_hold_for_profile(
         .find(|entry| entry.leveraged_symbol.eq_ignore_ascii_case(&symbol))
         .map(|entry| entry.quantity.max(1))
         .unwrap_or(1);
-    let mut session = ReplaySession::new(
-        "leveraged_trend_hold",
+    let blackout_windows = params.blackout_windows.clone();
+    let (preview_signals, session) = lth_regular::execute(
+        interval,
         &symbol,
+        params,
+        &ohlc,
+        &timed,
+        &base_execution_events,
         entry_is_overseas,
         assumptions,
-        &[],
-        if interval == "1m" {
-            base_execution_events.len()
-        } else {
-            0
-        },
     );
-    let mut observation_index = 0;
-    let mut close_processed = false;
-    let preview_signals =
-        lth_preview_signals_for_interval(interval, &symbol, params, &ohlc, &timed, |step| {
-            let Some(event) = base_execution_events.get(observation_index) else {
-                return session.position_snapshot();
-            };
-            match step {
-                LeveragedTrendHoldPreviewStep::Open(_) => {
-                    session.begin_bar(event);
-                    close_processed = false;
-                }
-                LeveragedTrendHoldPreviewStep::Signal(preview_signal, _) => {
-                    let mut event = event.clone();
-                    event.signal = Some(if preview_signal.side == "buy" {
-                        Signal::Buy {
-                            symbol: symbol.clone(),
-                            quantity: preview_signal.quantity,
-                            reason: preview_signal.reason.clone(),
-                        }
-                    } else {
-                        Signal::Sell {
-                            symbol: symbol.clone(),
-                            quantity: preview_signal.quantity,
-                            reason: preview_signal.reason.clone(),
-                        }
-                    });
-                    session.process_close(&event);
-                    close_processed = true;
-                }
-                LeveragedTrendHoldPreviewStep::Close(_) => {
-                    if !close_processed {
-                        session.process_close(event);
-                    }
-                    observation_index += 1;
-                }
-            }
-            session.position_snapshot()
-        });
     let simulation_events = base_execution_events;
     let signal_views = preview_signals
         .into_iter()
@@ -700,7 +693,9 @@ pub async fn preview_leveraged_trend_hold_for_profile(
     } else {
         "일봉"
     };
-    let message = if interval == "1d" {
+    let message = if us_prepared.is_some() {
+        format!("{symbol} Toss 원본 공급 {}행 중 NY 정규장 채택 {}봉으로 {}개 신호를 계산했습니다. 실제 공급/발행/coverage와 실운용은 미검증입니다.", simulation_candles.len(), timed.len(), signal_views.len())
+    } else if interval == "1d" {
         format!("{symbol} 일봉 {}개는 가격 진단만 제공합니다. 실제 장중 관측이 없어 진입·청산과 투자 성과를 평가할 수 없습니다.", chart_candles.len())
     } else if signal_views.is_empty() {
         format!(
@@ -732,10 +727,19 @@ pub async fn preview_leveraged_trend_hold_for_profile(
         .join("|");
     let count_fingerprint = count.to_string();
     let scope_fingerprint = format!("{}|{}", profile.id, profile.account_no);
-    let input_hash = replay_input_hash(&[
+    let strategy_version = if us_prepared.is_some() {
+        lth_regular::STRATEGY_VERSION
+    } else {
+        LTH_PREVIEW_STRATEGY_VERSION
+    };
+    let clock_fingerprint = us_prepared.as_ref().map(|prepared| {
+        lth_regular::execution_clock(&simulation_candles, prepared, &blackout_windows)
+            .admission_identity
+    });
+    let mut hash_parts = vec![
         REPLAY_ENGINE_VERSION,
         "leveraged_trend_hold",
-        LTH_PREVIEW_STRATEGY_VERSION,
+        strategy_version,
         &symbol,
         interval,
         &params_fingerprint,
@@ -744,10 +748,14 @@ pub async fn preview_leveraged_trend_hold_for_profile(
         &count_fingerprint,
         &warmup_fingerprint,
         &event_fingerprint,
-    ]);
+    ];
+    if let Some(clock) = &clock_fingerprint {
+        hash_parts.push(clock);
+    }
+    let input_hash = replay_input_hash(&hash_parts);
     let replay = ReplayMetadataView {
         engine_version: REPLAY_ENGINE_VERSION.into(),
-        strategy_version: LTH_PREVIEW_STRATEGY_VERSION.into(),
+        strategy_version: strategy_version.into(),
         source_interval: interval.into(),
         replay_cadence: if interval == "1m" {
             "minuteClose"
@@ -770,15 +778,25 @@ pub async fn preview_leveraged_trend_hold_for_profile(
         // Provider time/DST/session coverage has not been independently validated.
         look_ahead_safe: false,
         input_hash,
-        assessment: Some(lth_preview_assessment(
-            interval,
-            ohlc.len(),
-            simulation_candles.len(),
-            count,
-            &timed,
-            entry_is_overseas,
-            reference_as_of,
-        )),
+        assessment: Some(if let Some(prepared) = &us_prepared {
+            lth_regular::assessment(
+                &simulation_candles,
+                prepared,
+                count,
+                ohlc.len(),
+                &blackout_windows,
+            )
+        } else {
+            lth_preview_assessment(
+                interval,
+                ohlc.len(),
+                simulation_candles.len(),
+                count,
+                &timed,
+                entry_is_overseas,
+                reference_as_of,
+            )
+        }),
     };
     let mut backtest = session.finish();
     if interval == "1m" {

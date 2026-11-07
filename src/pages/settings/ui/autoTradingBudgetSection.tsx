@@ -6,7 +6,7 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useAppConfig, useAutoTradingBudget, useTradingStatus, useUpdateAutoTradingBudget } from '../../../api/hooks'
-import type { AutoTradingBudgetInput, AutoTradingBudgetView, BudgetCurrencyView } from '../../../api/types'
+import type { UpdateAutoTradingBudgetInput, AutoTradingBudgetView, BudgetCurrencyView } from '../../../api/types'
 import { Section } from './section'
 import { BudgetRecoverySection } from './budgetRecoverySection'
 
@@ -32,7 +32,7 @@ function CurrencyStatus({ value, currency }: { value: BudgetCurrencyView; curren
   )
 }
 
-function BudgetEditor({ scope, data, running }: { scope: AutoTradingBudgetInput; data: AutoTradingBudgetView; running: boolean }) {
+function BudgetEditor({ scope, data, running }: { scope: Omit<UpdateAutoTradingBudgetInput, 'krwAmount' | 'usdAmount'>; data: AutoTradingBudgetView; running: boolean }) {
   const [draft, setDraft] = useState<{ krw: string; usd: string } | null>(null)
   const update = useUpdateAutoTradingBudget()
   const krw = draft?.krw ?? String(data.krw.allocatedAmount)
@@ -82,7 +82,8 @@ export function AutoTradingBudgetSection() {
   const { data: config } = useAppConfig()
   const { data: trading } = useTradingStatus()
   const scope = config?.active_broker_account_id
-    ? { brokerId: config.active_broker_id, brokerAccountId: config.active_broker_account_id }
+    ? { brokerId: config.active_broker_id, brokerAccountId: config.active_broker_account_id,
+      expectedProfileId: config.active_profile_id ?? '', expectedIsPaper: config.kis_is_paper_trading }
     : undefined
   const budget = useAutoTradingBudget(scope)
   return (
@@ -93,7 +94,7 @@ export function AutoTradingBudgetSection() {
         {scope && budget.isLoading && <Typography>예산을 불러오는 중…</Typography>}
         {budget.error && <Alert severity="error">{budget.error.message || '예산을 불러오지 못했습니다.'}</Alert>}
         {scope && budget.data && budget.data.scope?.brokerId === scope.brokerId && budget.data.scope?.accountId === scope.brokerAccountId &&
-          <BudgetEditor key={`${scope.brokerId}:${scope.brokerAccountId}`} scope={scope} data={budget.data} running={trading?.isRunning !== false} />}
+          <BudgetEditor key={`${config?.active_profile_id}:${scope.brokerId}:${scope.brokerAccountId}:${config?.kis_is_paper_trading}`} scope={scope} data={budget.data} running={trading?.isRunning !== false} />}
         <BudgetRecoverySection scope={scope} identity={{ profileId: config?.active_profile_id ?? null,
           isPaper: config?.active_broker_id === 'kis' && config.kis_is_paper_trading }} running={trading?.isRunning !== false} />
       </Stack>

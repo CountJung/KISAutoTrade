@@ -30,6 +30,8 @@ Frontend는 provider credential이나 핵심 주문 상태의 권위자가 아�
 
 `src/router/index.ts`가 dashboard, trading, strategy, history, log, settings route를 조립하고 `widgets/app-shell`이 공통 셸을 제공한다. 화면은 FSD 계층(`pages`, `widgets`, `features`, `entities`, `shared`)을 사용한다.
 
+Settings의 목차·목차 복귀는 `settingsNavigation.tsx::focusSettingsTarget`에서 경로별 복원 취소 알림과 `preventScroll` focus를 유지하고, 가장 가까운 `app-main-scroll`만 상대좌표·border·기존 scroll margin으로 이동한다. main의 끝에서 자연스럽게 clamp되며 상위 `overflow:hidden` 셸까지 이동해 상단 정렬을 강요하지 않는다. main 밖의 독립 렌더는 기존 `scrollIntoView` fallback을 유지한다. 명시적 목적지가 포커스를 유지하는 동안 DOM·크기 변경 관측을 예약 프레임 하나로 합쳐 main 안의 가시성만 재검사한다. wheel/touch/pointer·스크롤 키·새 focus/navigation·페이지 이탈은 이 추적을 취소하며 observer/listener/예약 프레임을 정리한다. 보정은 focus를 다시 강요하지 않고 연결 상태·현재 focus·경로를 재검사한다. AppShell의 같은 경로 복원 취소·다른 경로 보호·사용자 의도 경계는 바꾸지 않는다.
+
 서버 데이터는 `src/api/hooks.ts`와 `databaseHooks.ts`의 TanStack Query로 읽고 변경한다. query key의 단일 진입점은 `src/api/queryKeys.ts`다. account/settings/trading UI 상태는 `entities/*/model`의 Zustand store가 담당한다.
 
 `src/shared/api/transport.ts`는 실행 환경을 감지한다.
@@ -139,6 +141,28 @@ UI/전략 Signal
 
 비상정지 해제나 risk limit 완화는 단순 UI 설정 변경이 아니다. 자동매매 정지 상태, 현재 scope, pending 주문, durable runtime을 확인하고 명시적 운영 승인을 받아야 한다.
 
+<a id="p2-ux-07-action-matrix"></a>
+### 위험 행동의 현행 영향표 — P2-UX-07
+
+`features/financial-confirmation`의 단일 Provider가 Sidebar/Dashboard와 Trading의 확인·전송 잠금을 공유하며 기존 mutation 훅을 호출한다. 아래 표는 UI 확인과 기존 backend 경계의 역할을 설명한다. backend 설명은 코드 추론이며 실제 Rust IPC/native 실행 증거가 아니다. 변경 경과·실제 검사·미검증 범위의 정본은 [P2-UX-07 이력](completed-history.md#p2-ux-07)이다.
+
+| 행동·진입점 | 현재 UI 확인·pending | backend 경계·영향 |
+|---|---|---|
+| 자동매매 시작: [Sidebar L66](../src/widgets/sidebar/ui/Sidebar.tsx#L66), [Dashboard L491](../src/pages/dashboard/ui/Page.tsx#L491) → `start_trading` | 실전(KIS 실전·Toss)은 scope/영향 최종 확인. KIS 모의 시작은 request 시 캡처한 신뢰 가능한 config가 KIS 모의일 때만 즉시 요청. 단일 동기 잠금으로 Sidebar/Dashboard 중복 요청을 차단한다. | [trading.rs L100](../src-tauri/src/commands/trading.rs#L100): 설정·저장소/Toss 저장 동의, 보유/평가액 동기화·pending 대조·risk 복원, profile/client snapshot과 execution scope 생성 후 daemon 실행 상태를 켠다. 이후 주문 가능한 상태이며 비상정지 해제와 별개다. |
+| 자동매매 정지: 같은 Sidebar, [Dashboard L480](../src/pages/dashboard/ui/Page.tsx#L480) → `stop_trading` | 추가 확인 없이 기존 정지 요청. 실행 중 Sidebar는 정지 pending만 차단하며 확인창 안에도 즉시 정지 진입점이 있다. | [trading.rs L420](../src-tauri/src/commands/trading.rs#L420): 실행 flag·history generation·execution run을 끝내고 실행 프로필 식별자를 비운다. 이 함수는 기접수 주문 취소·보유 청산을 호출하지 않으며 이미 예약한 주문의 원래 scope 추적은 유지한다. |
+| 비상정지 발동: [Dashboard RiskPanel L254](../src/pages/dashboard/ui/Page.tsx#L254) → `activate_emergency_stop` | 추가 확인 없이 기존 비상정지 요청. 확인창 안에서도 즉시 발동하며 미전송 승인은 무효화한다. | [risk.rs L209](../src-tauri/src/commands/risk.rs#L209): emergency flag와 runtime 저장. [주문 prepare](../src-tauri/src/trading/order/submission/prepare.rs#L65)에서 신규 매수·매도를 차단하며 daemon 실행 flag 변경이나 기접수 주문 취소와 다르다. |
+| 비상정지 해제: [Dashboard L122](../src/pages/dashboard/ui/Page.tsx#L122) → `clear_emergency_stop` | 현재 broker/계좌/프로필/모드와 해제 영향을 확인한다. daemon 시작·손실 카운터 초기화가 아님을 표시한다. | [risk.rs L200](../src-tauri/src/commands/risk.rs#L200): flag=false와 저장. [RiskManager L544](../src-tauri/src/trading/risk.rs#L544)는 손실 카운터를 초기화하지 않아 한도 초과 시 can_trade=false가 유지될 수 있다. daemon 시작·매수 정지 해제는 하지 않는다. 저장 실패 IPC 오류와 이미 변경한 메모리 flag를 구분한다. |
+| 매수 재개: [Dashboard L520](../src/pages/dashboard/ui/Page.tsx#L520), [Trading L205](../src/pages/trading/ui/tradingOrderForm.tsx#L205) → `clear_buy_suspension` | Dashboard/Trading이 공용 확인·잠금을 사용한다. 입금/잔고 검증·비상정지 해제·daemon 시작이 아님을 표시한다. | [trading.rs L482](../src-tauri/src/commands/trading.rs#L482) → [health.rs L97](../src-tauri/src/trading/order/health.rs#L97): persistenceBlocked이면 해제하지 않는다. 그 외 매수 정지와 사유만 지운다. 입금·잔고 재조회·비상정지 해제·daemon 시작은 하지 않는다. |
+| KIS 국내 수동 매수/매도: [Trading L222](../src/pages/trading/ui/tradingOrderForm.tsx#L222) → `place_order` | 종목·매수매도·수량·실제 유형/가격(KRW)을 최종 확인한다. 기존 입력 검사와 backend guard는 보존한다. | [orders.rs L20](../src-tauri/src/commands/orders.rs#L20): 방향/유형·현재가/평가액·KIS account scope 확인 후 공통 제출. 성공 응답은 provider 접수이며 체결 완료 인증이 아니다. |
+| KIS 미국 수동 매수/매도: 같은 Trading → `place_overseas_order` | 종목·매수매도·수량·지정가 USD/거래소를 최종 확인하고 기존 해외 모의 제한을 재검사한다. | [market.rs L351](../src-tauri/src/commands/market.rs#L351): 현재가·계좌평가액·KIS scope와 Limit 주문으로 공통 제출. 모의 제한 UI 확인을 provider 성공·정규장 허용 인증으로 확대하지 않는다. |
+| Toss 국내/미국 수동 매수/매도: 같은 Trading → `place_order` Toss 분기 | 국내/미국 종목·방향·수량·유형/가격·미국 세션을 최종 확인한다. 기존 동의/preflight/세션 검사를 최종 실행 때 다시 통과한다. | [orders.rs L130](../src-tauri/src/commands/orders.rs#L130): 동의/계좌 설정·제출 직전 preflight·scope별 local pending·선택 세션/provider open orders·계좌평가액 확인 후 공통 제출. 운영 기능 추적이며 정규장만의 모의 연구 설정 변경이 아니다. |
+
+수동주문 공통 [submission.rs L294](../src-tauri/src/trading/order/submission.rs#L294)는 설정 저장 gate·실행 scope/profile/client snapshot과 준비 후 snapshot을 대조한다. 최종 예약은 persistence 장애·보유 재확인·매수 정지·TradeGuard·scope별 pending/submitting 충돌을 검사한다(L750–814). 매수는 일일손실/비상정지·최대비중, 매도는 확인된 보유·비상정지를 검사한다. 자동매매 예산 예약은 `!is_manual` 분기이므로 모든 수동주문에 자동예산 예약이 적용된다고 설명하지 않는다.
+
+확인 토큰은 AppConfig `dataUpdateCount`와 broker/account/profile/name/모드, router `onBeforeNavigate` 세대를 고정한다. 브라우저 back/forward로 원래 경로에 돌아와도 이전 승인은 되살아나지 않는다. 모의 시작 생략 여부도 같은 request에서 캡처한 신뢰 config로만 결정한다. config fetch/error/invalidated·프로필 publication pending·공개세대 변경 또는 주문 초안 generation 변경은 이전 확인을 영구 무효화한다. 최종 확인은 동기 소비 후 기존 mutation을 정확히 한 번 호출하며 오류 재시도는 닫기→새 확인이 필요하다. Cancel/Escape/배경 닫기는 전송하지 않고 일반 입력/IME·반복·modifier 금융키를 자동 제출로 쓰지 않는다. 순수 Simulation 계산은 이 흐름을 호출하지 않는다. 이 frontend 공개세대는 P1의 미해결 server ABA/원장 모드 이관을 해결하지 않는다.
+
+확인창은 busy로 opener가 비활성화되기 전에 해당 요소를 캡처하고, 취소에 초기 focus를 준 뒤 transition 종료 후 같은 opener로 복귀한다. 처리 중에도 즉시 정지/비상정지 요청은 가능하지만 이미 전송한 요청을 취소하지 않는다. focused mock 계약은 각 행동 전 exact origin/method/path/noquery/body(무본문 포함) 요청열을 선언하고 최종 전체 배열을 비교한다. broker/profile/account/paper는 요청 시점의 **브라우저 캐시 관측 메타데이터**이며 Dialog의 broker·프로필명·계좌·모드와 대조한다. start/정지/위험 해제 API는 무본문이므로 서버로 identity를 전송한 증거가 아니다. 잘못된 account/path/method/body/query/origin은 HTTP403과 거부 기록으로 검사한다. 해제의 비대상 상태 보존은 HTTP fake를 사용한 frontend 검증이고 실제 backend 위험정책 검증은 아니다. 확장 회귀·375px/dark는 mock 관측을 마쳤으며 native/실계좌 검증은 남았다. [경과·부모 명령](completed-history.md#p2-ux-07).
+
 ## 8. 전략과 preview
 
 `trading/strategy/core.rs`가 `Signal`, config, trait와 warmup을 정의하고 `manager.rs`가 전략 생성을 조정한다. 실제 전략은 `strategy/*` 하위 모듈에 있다. live loop는 `trading/mod.rs`와 `commands/trading/daemon.rs`가 시세 tick을 전략에 전달한다. `commands/trading.rs`는 상태/시작·정지 IPC facade이며 positions/balance/risk_restore/history 하위 모듈이 포지션·평가액·당일 복원·legacy 사전자료를 맡고 daily_history가 52주 완료 일봉의 비동기 수집을 맡는다.
@@ -151,10 +175,10 @@ v12 generic의 단기 `preview_strategy`와 새 `preview_strategy_continuous`는
 
 Generic 일봉 event 경로는 `Strategy`의 시가-only 날짜 시작 → 완성 OHLC 종가 tick → 실제 실행 결과의 포지션 동기화 → 완료봉 훅으로 흐른다. 강한 종가는 완료일 조건을 다음 평가일에 사용하고, 변동성 확장은 보유 상태를 유지한 채 당일 고저가를 초기화하고 이전 N개 완료 범위(0 포함)를 bounded ring으로 갱신한다. 두 전략은 `D`/`1d`만 지원한다. live quote polling은 완료 일봉 이벤트를 공급하지 않으며 기존 tick 경계를 유지한다. 신호는 완료 종가에서 판단하고 체결은 공통 세션의 sameClose/nextOpen 가정에 따른다.
 
-전용 LTH preview와 전략 v4는 일봉 context를 분봉 EMA/RSI/ADX·반동·볼린저 관측과 별도 bounded 버퍼에 보관한다. 분봉 OHLC initializer는 OHLC·반동·볼린저 snapshot을 교체하고 가격 initializer는 반동 가격 snapshot만 교체한다. 일봉 재초기화는 기존 분봉과 실제 보유 상태를 보존한다. `1d`는 전략·체결 경로를 실행하지 않는 `dailyDiagnostic/notEvaluable` 자료 진단이며 시가를 장중 진입 가격으로 합성하지 않는다. `1m`은 실제 관측을 입력 시각에 재생하는 최대 200봉 `intradaySample/sampleOnly`이고 유효 관측이 없으면 `notEvaluable`이다. `ReplayMetadata.assessment`는 일봉 context/분봉 수와 시간대·DST·세션 미검증을 기록하며, `warmupCount=0`으로 일봉을 분봉 지표 사전자료로 계산하지 않는다. 고정 KST 세션 근사 때문에 LTH `lookAheadSafe=false`이며 deterministic 계산만으로 시장 시각 정확성을 주장하지 않는다. UI는 일봉 및 assessment 없는 기존 LTH 응답의 성과/A-B 저장을 숨긴다. 실제 3개월 분봉·거래소 시간 검증은 P1-05 잔여 조건이다.
+전용 LTH preview는 일봉 context를 분봉 EMA/RSI/ADX·반동·볼린저 관측과 별도 bounded 버퍼에 보관한다. 분봉 OHLC initializer는 OHLC·반동·볼린저 snapshot을 교체하고 가격 initializer는 반동 가격 snapshot만 교체한다. 일봉 재초기화는 기존 분봉과 실제 보유 상태를 보존한다. `1d`는 전략·체결 경로를 실행하지 않는 `dailyDiagnostic/notEvaluable` 자료 진단이며 시가를 장중 진입 가격으로 합성하지 않는다. `1m`은 최대 200봉 `intradaySample/sampleOnly`이고 유효 관측이 없으면 `notEvaluable`이다. 미국 연구 v5는 `lth_regular::prepare`에서 실제 instant 정렬·중복 전체 제외·단일 cutoff 및 NY 계획 정규장 안의 종료 표기 봉 전체 구간을 먼저 검증한다. 같은 채택 순서/인덱스가 Open→분봉 지표/LTH→ReplaySession과 원본 라벨/OHLCV 차트에 흐르며, 이전 NY 거래일의 일봉만 별도 context로 사용한다. `research_session`이 NY/DST·2023–2028 계획 달력과 알려진 Carter 예외를 소유하고 horizon 밖은 unknown으로 제외한다. blackout 설정은 legacy Asia/Seoul 분이며 KR/일봉 v4·live 세션 설정은 유지한다. `ReplayMetadata.assessment`의 시각/세션 unverified·`warmupCount=0`·`lookAheadSafe=false`는 유지한다. 계획 달력 적용은 실제 provider 원본/offset·발행·정규장 전용 일봉 구성·모든 특별휴장/기간 coverage 인증이 아니다. UI는 일봉 및 assessment 없는 기존 LTH 응답의 성과/A-B 저장을 숨긴다. 실제 3개월 검증은 P1-05 잔여 조건이다.
 
 
-v9 generic 분봉은 offset 포함 RFC3339 또는 KST compact 시각을 고정 정밀도 UTC instant로 정규화해 정렬·중복·사전자료 겹침을 검사한다. `simulation.rs`와 공용 preview 차트도 RFC3339의 실제 instant를 우선 해석하며 관측 갭을 보간하지 않는다. 이 변경은 전용 LTH의 고정 KST 세션/DST 미검증 상태를 해소하지 않는다.
+v9 generic 분봉은 offset 포함 RFC3339 또는 KST compact 시각을 고정 정밀도 UTC instant로 정규화해 정렬·중복·사전자료 겹침을 검사한다. `simulation.rs`와 공용 preview 차트도 RFC3339의 실제 instant를 우선 해석하며 관측 갭을 보간하지 않는다. 구문 정규화와 위 US LTH 연구의 세션 채택 정책은 별도 책임이며 실제 provider 시각/coverage 미검증을 해소하지 않는다.
 
 현재 replay의 `simulation/atr.rs`는 같은 간격의 이전 close를 포함한 TR14를 보관한다. `run_backtest_with_history`의 검증된 이전 자료는 ATR 지표만 준비하며 주문·equity에는 포함하지 않는다. 15관측/14TR 준비 상태를 `backtest.atrPreparation`으로 전략 준비와 구분한다. 연구 수량 산정 활성 시 부족/0변동폭/0bps는 신규 매수만 차단한다. 전용 LTH v4의 callback은 실제 잔여 수량·평균 체결가를 반환하여 ATR 수량 변경과 부분 청산 뒤에도 보호 상태를 유지한다. 기존 bool API는 raw 신호 연구용 호환 wrapper다.
 
@@ -230,6 +254,7 @@ Web 일반 잔고와 IPC/Web broker holdings는 ReadOnly ticket으로 계좌 연
 scope의 payload/placeholder를 넘기지 않고 요청 시작·완료 때 config를 확인한다.
 프로파일 전환은 이전 config 요청과 보유 쿼리를 취소하고 이전 범위 캐시를 제거한다.
 새 config를 확인하지 못한 상태에서 이전 계좌 잔고를 현재 자료로 표시하지 않는다.
+예산·복구 조회도 같은 설정 신뢰·취소/캐시 제거 경계를 사용한다. 기존 key 뒤에 AppConfig의 성공 공개 횟수와 profile/broker/account/모드를 붙이며, 같은 scope의 설정 복구도 새 공개 후 조회가 성공해야 금액을 표시한다. Settings의 설정 재점검은 AppConfig와 진단을 함께 재조회한다. 예산 저장은 요청 시 공개 횟수를 캡처하며, 같은 공개의 후속 GET 성공 뒤에만 성공/초안 초기화를 허용한다. 재조회 실패는 저장 반영 가능성을 알리고 초안을 유지하며, 이전 공개의 응답은 현재 금액을 무효화하지 않는다. 복구 조회의 무폴링·명시 검토 정책은 유지한다. Settings의 계좌 선택은 전환 pending·실행 중·거래/설정 미확인에서 차단한다.
 증권사 잔고의 체결 반영 지연은 남아 있다. 정상 체결 소유권은 위 별도 원장과
 feedback으로 다루며 계좌 게시 gate만으로 이를 대신하지 않는다.
 
@@ -265,6 +290,8 @@ feedback으로 다루며 계좌 게시 gate만으로 이를 대신하지 않는�
 
 `trading/order/budget.rs`는 broker/account와 KRW/USD별 배정·현금·소유수량·예약 원장을 담당한다. `orders/auto_trading_budget.json`을 공통 managed storage 경계로 읽고 쓴다. 과거 백업으로 자금이 되돌아가지 않도록 원장 JSON 파싱 실패 시 자동 복구를 하지 않는다.
 
+예산 저장 입력의 `expectedProfileId`·`expectedIsPaper`는 필수다. IPC/REST 모두 storage→selection lock 획득 후 선택 broker/account/profile/mode를 검증하고 원장을 변경한다. 누락 payload는 역직렬화 단계에서 거부한다. 이 검증은 처리 전에 지연된 paper 요청이 live 선택에 적용되는 것을 막지만, 원장 자체의 모드 귀속을 제공하지 않는다. 기존 원장은 broker/account 단위다. 새 `is_paper` 영속화와 legacy 유자금 차단은 수동 매도 회귀 때문에 철회했다. 모드 없는 자금의 소유/모드를 입증하는 이관과 모드별 원장 격리는 미해결이며 현재 선택으로 추정·삭제·자동 이관하지 않는다.
+
 `submit_order_shared`는 manager 잠금 내에서 예산 intent를 영속화한 뒤 provider에 제출한다. 부분체결은 누적 수량/금액으로 멱등 적용하고, terminal 표식을 pending 제거 이전에 저장해 중간 종료를 복구한다. 확정 주문 거절만 예약을 해제하며 transport/파싱 실패와 애매한 HTTP 결과는 예약을 유지한다. 매수만 지정가로 제한하고 기존 자동매도 주문 유형을 보존한다. 예산은 위험 관리 비활성화로 우회되지 않는다.
 
 `leveraged_trend_hold/bollinger.rs`는 기존 전략 내부 필터다. 별도의 분봉 버퍼로 일봉 warmup 혼합을 막고, 세 진입 경로와 기존 청산 처리에 연결된다. 새로운 strategy ID는 없다.
@@ -286,7 +313,7 @@ v17 MA cross는 기존 관측 교차를 보존하고 별도 bounded512 완료 �
 
 ## LTH minute timing 진단 경계
 
-`strategy_preview → lth_preview_assessment → simulation/minute_timing`은 기존 준비된 분봉 label의 별도 읽기 전용 경로다. 실제 순간의 거래소 timezone 변환·봉 시작/종가 가능 시각·일별 정규 시간창의 미관측 슬롯을 bounded metadata로 만든다. 원본 label 및 기존 fixed KST 실행시계·매매 신호·회계·hash는 유지한다. 구문 파서만 `simulation/minute_time`에서 generic 분봉 정규화와 공유한다. `assessment.minuteTiming`은 전용1m만 제공하고 UI와 저장A/B에 같은 진단을 표시한다. 달력/실제 발행/coverage·성과 적합성은 인증하지 않으며 [IPC 계약](ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22)과 [작업 기록](completed-history.md#task-lth-minute-timing-20261022)을 따른다.
+`strategy_preview → lth_preview_assessment → simulation/minute_timing`의 pure 진단은 준비된 분봉 label을 읽어 실제 순간의 거래소 timezone·봉 시작/종가 가능 시각·일반 평일창 내부 미관측 슬롯을 bounded metadata로 만든다. 진단 자체는 관측·신호·회계·hash를 바꾸지 않는다. US 연구의 실제 채택/제외·계획 달력 근거는 같은 v1 객체의 선택 `executionClock`에 별도로 투영한다. 일반 평일창 슬롯과 적용된 계획 달력의 날짜/마감을 혼동하지 않는다. 구문 파서만 `simulation/minute_time`에서 generic 정규화와 공유한다. UI와 저장 A/B는 실행 정책·채택 identity 차이와 legacy/unknown을 표시하되 같은 정책/채택봉의 asOf 밀리초 차이는 다른 모델로 취급하지 않는다. 달력/실제 발행/coverage flag는 false이고 성과 적합성도 인증하지 않는다. [IPC 계약](ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22), [현재 경과](completed-history.md#p1-session-01), [과거 진단 기록](completed-history.md#task-lth-minute-timing-20261022)을 따른다.
 
 ## RSI 소유 피드백
 
@@ -309,3 +336,52 @@ StrongClose의 live 이전 일봉은 기존 coordinator의 target·scope/profile
 `mean_trend.rs`는 현재 포함 MA 200/5/20·strict 진입과 세 MA 준비 뒤 장기 이탈을 유지하면서 exact 소유 수량/native 평균·pending·관측 나이/최고가/수익 무장을 분리한다. 장기 이탈 확인·수익 되밀림·보유 한도 순서로 실제 잔량 전량 후보를 내며 선택 수익/보유 보호는 지표 미준비에도 평가한다. warmup은 지표만 준비하고 reset은 가격 버퍼를 보존한다. 이탈 연속값은 재시작·과거 재적재·핵심 MA 기간 변경에서0, 동일 프로세스 청크·동량/부분 매도에서 보존한다.
 
 `trend_filter_params`는 저장/단기·연속 preview의 strict 범위를, `trend_filter_protection`은7필드 v1 checkpoint의 원자적 검증을 소유한다. 양수 보유는 나이 불명이어도 metadata를 반환해 기존 OrderManager caller의 반복 소유 갱신에서 cold restore가 반복되지 않게 한다. `strategyPolicyControls`는 페이지 조립만 맡고 `trendFilterControls`는7필드 raw/stored 초안·현재/A-B·단위·legacy 미확인을 유지한다. 고정 기준81fa00d/v21과 v22의 생산 실행·기록 정산은 [P2-11 연구](research/trend-filter-policy-20261023/report.md)에 두고 주문·계좌·운영 DB를 호출하지 않는다.
+
+## 섹터 ETF 연구의 독립 경계
+
+`trading/sector_portfolio`는 고정 universe의 상대강도 순위와 이전 완료자료의
+장전 목표계산을 공개 순수 함수로 제공한다. 별도 USD 다종목 장부가 같은 날짜의
+같은 관측시가를 3전략·SPY/현금 비교에 공유하며 단일종목 KRW ReplaySession을
+합산하거나 FX=1로 가장하지 않는다. 입력 전체 검증 후에만 모든 계정을 계산한다.
+
+`commands/sector_portfolio`·`server/sector_portfolio`는 AppState 없이 같은 계산을
+호출한다. `/simulation`의3탭 작업 공간과 내부 연구 화면은 `widgets/sector-portfolio`의
+입력·준비·비교·수동 대조 UI를 공유한다. 기존 Strategy 위치에는 바로가기를 두며
+이전 페이지 import는 shim으로 유지한다. 기존 A/B experimentStore의 축약 저장·scope정리 경로는
+사용하지 않는다. 이 모듈은 운영 factory/daemon/주문/복원 원장에 등록되지 않으며 향후 실제
+연결에는 별도의 소유·예산·예약/부분체결/거절·정지/재시작 검증이 필요하다.
+자료·기업행위 지원 제한과 wire 계약은 [IPC 정본](ipc-commands.md#섹터-etf-포트폴리오-연구-v1)을 따른다.
+
+`trading/sector_data`는 고정12종목 raw/adjusted 자료를 모으는 quote-source 경계와
+provider를 호출하지 않는 bundle 검증을 분리한다. 일반 native의 명시 scope 확인·동의
+수집만 AppState의 KIS snapshot을 사용하며 provider await 전후 ID/client identity를
+검사한다. REST는 순수 검증만 제공하고 수집·scope 조회는 등록하지 않는다.
+
+`research-only` native는 별도 identifier·incognito window·순수 자료 검증·검증형/차트근사 계산3개 IPC를
+사용하며 운영 AppState/profile/config/store/plugin/server/daemon을 초기화하지 않는다.
+`main.tsx`는 marker/query로 운영 router import 전에 연구 화면을 고르고 전용 Vite는
+`.env` 없이 loopback/HMR-off를 사용한다. 일반 앱의 query만으로 native 권한이
+격리되는 것은 아니다. 수집이 수동 확인 선언을 승인하거나 실제 자료 진위를 인증하지
+않으며 기업행위 정산·운영 주문 연결은 미완료다. [상세 계약](ipc-commands.md#섹터-자료-준비와-연구-전용-실행),
+[로컬 실행법](user-guide.md#연구-전용-앱과-섹터-자료-준비)을 따른다.
+
+일반 `/simulation`은 운영 AppShell 안의 경로다. Sidebar·계좌/운영 상태 query와 기존
+backend daemon을 중단하지 않으며 `SimulationOperatingStatus`가 최근 정상/이전/오류를
+표시한다. 메뉴·수집/검증·계산은 주문이나 시작/정지 명령을 보내지 않고 Sidebar의
+운영 제어는 별도로 유지한다. `initialCashUsd`는 파일 가정이며 운영 잔고를 가져오지
+않는다. 프로필 publication/epoch는 시세 scope/ack·늦은 수집 결과의 유효성에만 사용하고
+이미 적용한 비교 입력·계산 결과의 계좌 귀속이나 자동 삭제를 만들지 않는다.
+수집 기반 준비 bundle의 확인 선언/준비 보고서는 scope 변경 시 재검증한다. 페이지가 unmount되면
+메모리 작업 상태는 별도 영속화를 하지 않는다. 내부 연구 앱의 운영 초기화 제외·자동API0
+관측을 일반 Simulation 경로의 보장으로 확대하지 않는다.
+
+
+`trading/broker_chart`는 명시 동의한 일반 native의 KIS/Toss 비수정 시세 수집을 소유하고,
+`sector_portfolio/price_research`는 별도 DTO의 순수 가격근사 검증·모드 hash를 소유한다.
+기존 replay/planner를 공유하되 strict preview의 확인 조건을 낮추지 않으며 내부 source
+flag도 false다. 알려진 사건은 거부하고 미확인 권리/배당은 정산하지 않는다.
+수집에는 현재 profile snapshot과 client identity를 대조하고 순수 계산에는 AppState를
+전달하지 않는다. REST/연구 native는 순수 preview만 제공한다. Simulation의 기본
+검증형과 근사형은 입력/결과를 각각 보존하며 실제/forward 원장을 갱신하지 않는다.
+[별도 wire·수집 한계](ipc-commands.md#브로커-차트-가격수익률-근사),
+[실측과 미검증](completed-history.md#p2-sector-01-broker-chart)을 따른다.

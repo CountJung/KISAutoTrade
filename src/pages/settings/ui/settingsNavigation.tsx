@@ -1,4 +1,5 @@
-import { notifyPageFocusNavigation } from '../../../shared/lib'
+import { useEffect } from 'react'
+import { notifyPageFocusNavigation, PAGE_FOCUS_NAVIGATION_EVENT } from '../../../shared/lib'
 
 import Link from '@mui/material/Link'
 import Paper from '@mui/material/Paper'
@@ -30,13 +31,77 @@ export const settingsHeadingFocus = {
   '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 4 },
 }
 
+let cancelSettingsVisibility: (() => void) | undefined
+
 // Explicit focus/scroll without a URL hash or history entry. AppShell owns route restoration.
 export function focusSettingsTarget(id: string) {
+  cancelSettingsVisibility?.()
   const target = document.getElementById(id)
   if (!target) return
   notifyPageFocusNavigation(window.location.pathname)
   target.focus({ preventScroll: true })
-  target.scrollIntoView({ block: 'start', inline: 'nearest' })
+  const main = target.closest<HTMLElement>('[data-testid="app-main-scroll"]')
+  if (!main) {
+    target.scrollIntoView({ block: 'start', inline: 'nearest' })
+    return
+  }
+  // scrollIntoView also moves overflow:hidden shell ancestors when main is clamped.
+  const margin = Number.parseFloat(getComputedStyle(target).scrollMarginTop) || 0
+  const offset = target.getBoundingClientRect().top - main.getBoundingClientRect().top
+  main.scrollTop += offset - main.clientTop - margin
+  // Keep only this explicit destination visible across late query/layout changes.
+  // No polling: one frame per observed change, and never refocus the heading.
+  const route = window.location.pathname
+  let active = true
+  let frame: number | undefined
+  const cancel = () => {
+    if (!active) return
+    active = false
+    if (frame !== undefined) cancelAnimationFrame(frame)
+    resize.disconnect()
+    mutations.disconnect()
+    for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown', 'focusin', 'popstate', PAGE_FOCUS_NAVIGATION_EVENT]) {
+      window.removeEventListener(type, intent, true)
+    }
+    if (cancelSettingsVisibility === cancel) cancelSettingsVisibility = undefined
+  }
+  const intent = (event: Event) => {
+    if (event.type === 'focusin' && event.target === target) return
+    if (event instanceof KeyboardEvent && !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End', ' ', 'Tab', 'Enter'].includes(event.key)) return
+    cancel()
+  }
+  const schedule = () => {
+    if (!active || frame !== undefined) return
+    frame = requestAnimationFrame(() => {
+      frame = undefined
+      if (!target.isConnected || !main.isConnected || document.activeElement !== target || window.location.pathname !== route) {
+        cancel()
+        return
+      }
+      const rect = target.getBoundingClientRect()
+      const top = main.getBoundingClientRect().top + main.clientTop
+      if (rect.top < top || rect.bottom > top + main.clientHeight) {
+        const currentMargin = Number.parseFloat(getComputedStyle(target).scrollMarginTop) || 0
+        main.scrollTop += rect.top - top - currentMargin
+      }
+    })
+  }
+  const resize = new ResizeObserver(schedule)
+  const observeContent = () => {
+    if (!target.isConnected || !main.isConnected) { cancel(); return }
+    resize.disconnect()
+    resize.observe(main)
+    Array.from(main.children).forEach(child => resize.observe(child))
+    schedule()
+  }
+  const mutations = new MutationObserver(observeContent)
+  cancelSettingsVisibility = cancel
+  // Capture has already passed for the Enter/click that initiated this request.
+  for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown', 'focusin', 'popstate', PAGE_FOCUS_NAVIGATION_EVENT]) {
+    window.addEventListener(type, intent, { capture: true, passive: true })
+  }
+  mutations.observe(main, { childList: true, subtree: true, characterData: true })
+  observeContent()
 }
 
 export function SettingsContentsLink({ title }: { title: string }) {
@@ -50,6 +115,7 @@ export function SettingsContentsLink({ title }: { title: string }) {
 }
 
 export function SettingsContents() {
+  useEffect(() => () => cancelSettingsVisibility?.(), [])
   return (
     <Paper component="nav" aria-labelledby={settingsTocId} sx={{ p: 3, mb: 2 }}>
       <Typography id={settingsTocId} component="h2" variant="subtitle1" tabIndex={-1}

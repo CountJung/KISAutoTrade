@@ -14,10 +14,25 @@ const CURSOR_MARKER: &str = "DO_NOT_LEAK_CURSOR";
 const ENDPOINT: &str = "/api/v1/candles";
 const EMPTY_PAGE: &[u8] = br#"{"result":{"candles":[],"nextBefore":null}}"#;
 
+#[tokio::test]
+async fn toss_token_client_never_forwards_post_body_to_redirect_destination() {
+    let destination = Wire::start(vec![response(200, b"{}")]).await;
+    for status in [307, 308] {
+        let redirect = format!("HTTP/1.1 {status} Redirect\r\nLocation: {}/must-not-receive\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", destination.base);
+        let source = Wire::start(vec![redirect.into_bytes()]).await;
+        let client = source.client(false).await;
+        assert!(client.issue_token().await.is_err());
+        assert_eq!(source.count.load(Ordering::SeqCst), 1);
+    }
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    assert_eq!(destination.count.load(Ordering::SeqCst), 0);
+}
+
 struct Wire {
     base: String,
     requests: Arc<AsyncMutex<Vec<String>>>,
     accept_encodings: Arc<AsyncMutex<Vec<Option<String>>>>,
+    account_header_count: Arc<AtomicUsize>,
     count: Arc<AtomicUsize>,
     task: JoinHandle<()>,
 }
@@ -35,6 +50,8 @@ impl Wire {
         let seen = requests.clone();
         let accept_encodings = Arc::new(AsyncMutex::new(Vec::new()));
         let encodings = accept_encodings.clone();
+        let account_header_count = Arc::new(AtomicUsize::new(0));
+        let account_headers = account_header_count.clone();
         let calls = count.clone();
         let task = tokio::spawn(async move {
             for response in responses {
@@ -49,6 +66,12 @@ impl Wire {
                     head.push(socket.read_u8().await.unwrap());
                 }
                 let head = String::from_utf8(head).unwrap();
+                if head.lines().any(|line| {
+                    line.split_once(':')
+                        .is_some_and(|(name, _)| name.eq_ignore_ascii_case("x-tossinvest-account"))
+                }) {
+                    account_headers.fetch_add(1, Ordering::SeqCst);
+                }
                 encodings.lock().await.push(head.lines().find_map(|line| {
                     line.split_once(':')
                         .filter(|(name, _)| name.eq_ignore_ascii_case("accept-encoding"))
@@ -76,6 +99,7 @@ impl Wire {
             base,
             requests,
             accept_encodings,
+            account_header_count,
             count,
             task,
         }
@@ -97,6 +121,58 @@ impl Wire {
         client
     }
 }
+
+#[tokio::test]
+async fn broker_chart_toss_raw_provider_reuses_token_and_sends_quote_only_contract() {
+    use crate::trading::broker_chart::{BrokerChartClient, BrokerChartQuoteSource};
+
+    let body = br#"{"result":{"candles":[{"timestamp":"2026-11-05T00:00:00-05:00","openPrice":"100.25","highPrice":"102.5","lowPrice":"99.75","closePrice":"101.50","volume":"12345","currency":"USD"}],"nextBefore":null}}"#;
+    let wire = Wire::start(vec![response(200, body)]).await;
+    // Model an existing in-process operational client with a cached synthetic token.
+    // Its account value must neither affect the cache key nor enter chart requests.
+    let operational = wire.client(true).await;
+    let collector = TossOpenApiClient::new(
+        format!("{}/", wire.base),
+        "synthetic-client",
+        "synthetic-secret",
+        None::<String>,
+    );
+    assert!(Arc::ptr_eq(
+        &operational.token_state,
+        &collector.token_state
+    ));
+    assert_eq!(collector.get_token().await.unwrap(), TOKEN_MARKER);
+    let provider = BrokerChartClient::Toss(Arc::new(collector));
+    let page = provider
+        .fetch("SPY", None, "2026-11-05", None)
+        .await
+        .unwrap();
+    assert_eq!(page.rows.len(), 1);
+    assert_eq!(page.rows[0].date, "2026-11-05");
+    let price = &page.rows[0].prices["SPY"];
+    assert_eq!(
+        (price.open, price.high, price.low, price.close, price.volume),
+        (100.25, 102.5, 99.75, 101.50, 12345.0)
+    );
+    assert!(page.next_cursor.is_none());
+
+    let requests = wire.requests.lock().await;
+    assert_eq!(requests.len(), 1);
+    let mut request = requests[0].split_whitespace();
+    assert_eq!(request.next(), Some("GET"));
+    let url = reqwest::Url::parse(&format!("{}{}", wire.base, request.next().unwrap())).unwrap();
+    assert_eq!(url.path(), "/api/v1/candles");
+    let query: std::collections::BTreeMap<_, _> = url.query_pairs().into_owned().collect();
+    assert_eq!(query["symbol"], "SPY");
+    assert_eq!(query["interval"], "1d");
+    assert_eq!(query["count"], "200");
+    assert_eq!(query["adjusted"], "false");
+    assert_eq!(query["before"], "2026-11-05T23:59:59-05:00");
+    assert_eq!(wire.account_header_count.load(Ordering::SeqCst), 0);
+    // Exactly one quote GET also proves there was no OAuth/account request.
+    assert_eq!(wire.count.load(Ordering::SeqCst), 1);
+}
+
 fn response(status: u16, body: &[u8]) -> Vec<u8> {
     let mut bytes=format!("HTTP/1.1 {status} Synthetic\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",body.len()).into_bytes();
     bytes.extend_from_slice(body);

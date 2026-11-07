@@ -677,4 +677,55 @@ mod tests {
         assert_eq!(view.krw.available_amount, 1010);
         tokio::fs::remove_dir_all(path).await.unwrap();
     }
+
+    #[tokio::test]
+    async fn legacy_funded_ledger_restart_preserves_ownership_and_sell_reservation() {
+        let path = std::env::temp_dir().join(format!("budget-legacy-{}", uuid::Uuid::new_v4()));
+        let s = scope("one");
+        let mut m = manager(path.clone());
+        m.update_auto_trading_budget(&s, 2020, 500).await.unwrap();
+        let id = m
+            .reserve_budget(&s, "005930", false, true, 4, 100)
+            .await
+            .unwrap();
+        let p = pending(id, s.clone(), true);
+        m.accept_budget(&p).await.unwrap();
+        m.apply_budget_fill(&p, 4, 400).await.unwrap();
+        m.release_budget(&p).await.unwrap();
+        let bytes = tokio::fs::read(m.pending_order_store.budget_path())
+            .await
+            .unwrap();
+        let ledger: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert!(ledger["accounts"][0].get("is_paper").is_none());
+        drop(m);
+        let mut restarted = manager(path.clone());
+        assert_eq!(
+            restarted.budget_owned(&s, "005930", false).await.unwrap(),
+            4
+        );
+        assert_eq!(
+            restarted
+                .auto_trading_budget(&s)
+                .await
+                .unwrap()
+                .usd
+                .cash_amount,
+            500
+        );
+        assert_eq!(
+            tokio::fs::read(restarted.pending_order_store.budget_path())
+                .await
+                .unwrap(),
+            bytes
+        );
+        assert!(restarted
+            .reserve_budget(&s, "005930", false, false, 5, 100)
+            .await
+            .is_err());
+        restarted
+            .reserve_budget(&s, "005930", false, false, 4, 100)
+            .await
+            .unwrap();
+        tokio::fs::remove_dir_all(path).await.unwrap();
+    }
 }

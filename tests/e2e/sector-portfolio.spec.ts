@@ -1,0 +1,201 @@
+import { expect, test, type Page } from '@playwright/test'
+import type { SectorPortfolioInput } from '../../src/shared/api/sectorPortfolioTypes'
+import { fixtureReport } from './fixtures/sectorPortfolioFixture'
+import { syntheticSectorPortfolioInput } from '../../src/pages/strategy/model/sectorPortfolioInput'
+import { mockApi } from './fixtures/strategyResearchFixture'
+import { requestFixture } from './fixtures/sectorDataFixture'
+
+async function setup(page: Page, options: { fail?: boolean; delayed?: Promise<void>; started?: () => void; accountError?: boolean; withRanking?: boolean } = {}) {
+  const requests: SectorPortfolioInput[] = []
+  const violations: string[] = []
+  const errors: string[] = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.routeWebSocket('**/*', socket => socket.close())
+  await mockApi(page)
+  await page.route('**/api/strategy/sector-portfolio/preview', async route => {
+    const input = route.request().postDataJSON() as SectorPortfolioInput
+    requests.push(input)
+    options.started?.()
+    if (options.delayed) await options.delayed
+    if (options.fail) await route.fulfill({ status: 400, json: { code: 'SECTOR_INVALID', error: '거래일 누락으로 평가 불가' } })
+    else {
+      const report = fixtureReport(input)
+      if (options.withRanking) report.rankings = [{ date: report.endDate, signalDate: input.history.at(-1)!.date,
+        spyR20: 0, previousSpyR20: 0, rankings: Object.keys(input.history[0].prices).filter(symbol => symbol !== 'SPY').map(symbol => ({
+          symbol, r5: 0, r20: 0, rs5: 0, rs20: 0, percentile5: 0, percentile20: 0, score: 0, eligible: false,
+        })) }]
+      await route.fulfill({ json: report })
+    }
+  })
+  if (options.accountError) await page.route('**/api/app-config', route => route.fulfill({ status: 500, json: { code: 'FIXTURE', error: '합성 설정 조회 오류' } }))
+  await page.route('**/*', async route => {
+    const url = new URL(route.request().url())
+    if (url.protocol === 'data:' || url.protocol === 'blob:') return route.fallback()
+    const purePreview = url.pathname === '/api/strategy/sector-portfolio/preview' && route.request().method() === 'POST'
+    if (!['127.0.0.1', 'localhost'].includes(url.hostname) || (route.request().method() !== 'GET' && !purePreview)) {
+      violations.push(`${route.request().method()} ${url.pathname}`)
+      return route.abort()
+    }
+    await route.fallback()
+  })
+  await page.goto('/simulation')
+  const panel = page.getByTestId('sector-portfolio-panel')
+  await panel.getByRole('tab', { name: '세 전략 비교', exact: true }).click()
+  return { panel, requests, violations, errors }
+}
+
+async function captureResults(page: Page, path: string) {
+  await page.addStyleTag({ content: '* { scroll-behavior: auto !important; }' })
+  await page.getByTestId('sector-portfolio-results').evaluate(element => element.scrollIntoView({ block: 'start', behavior: 'instant' }))
+  await page.screenshot({ path, fullPage: true, animations: 'disabled' })
+}
+
+test('JSON research works independently of account errors, preserves metadata and renders five portfolios without financial mutations', async ({ page }) => {
+  const { panel, requests, violations, errors } = await setup(page, { accountError: true })
+  await expect(panel.getByRole('button', { name: '세 전략 비교 계산', exact: true })).toBeDisabled()
+  await panel.getByRole('button', { name: '합성 예제 입력', exact: true }).click()
+  await panel.getByRole('button', { name: '세 전략 비교 계산', exact: true }).click()
+  await expect(panel.getByTestId('sector-portfolio-results')).toBeVisible()
+  expect(requests).toHaveLength(1)
+  expect(requests[0]).toEqual(syntheticSectorPortfolioInput())
+  await expect(panel).toContainText('합성 자료 결과')
+  await expect(panel).toContainText('09:50 조회 표시가격과 다릅니다')
+  await expect(panel.getByLabel('세 전략과 비교군 성과표').locator('tbody tr')).toHaveCount(5)
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await captureResults(page, '.cache/sector-frontend/desktop-results.png')
+  await expect(panel.getByRole('button', { name: '입력과 결과 JSON 다운로드', exact: true })).toBeVisible()
+  const downloadPromise = page.waitForEvent('download')
+  await panel.getByRole('button', { name: '입력과 결과 JSON 다운로드', exact: true }).click()
+  const download = await downloadPromise
+  expect(download.suggestedFilename()).toMatch(/^sector-portfolio-/)
+  await panel.getByLabel('섹터 비교 자료 JSON', { exact: true }).fill('{')
+  await expect(panel.getByTestId('sector-portfolio-results')).toHaveCount(0)
+  await expect(panel.getByRole('button', { name: '세 전략 비교 계산', exact: true })).toBeDisabled()
+  expect(violations).toEqual([])
+  expect(errors).toEqual([])
+})
+
+for (const theme of ['light', 'dark'] as const) test(`375px ${theme} results tables scroll with arrow keys and strategy select completes without pointer`, async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 900 })
+  await page.addInitScript(theme => localStorage.setItem('act-settings', JSON.stringify({ state: { theme }, version: 0 })), theme)
+  const { panel, requests, violations, errors } = await setup(page, { withRanking: true })
+  await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
+  await panel.getByRole('button', { name: '합성 예제 입력', exact: true }).click()
+  await panel.getByRole('button', { name: '세 전략 비교 계산', exact: true }).click()
+  const results = panel.getByTestId('sector-portfolio-results')
+  await expect(results).toBeVisible()
+  const select = results.getByRole('combobox', { name: '상세 비교 전략', exact: true })
+  await select.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('End'); await page.keyboard.press('Enter')
+  await expect(select).toContainText('현금')
+  await select.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Home'); await page.keyboard.press('Escape')
+  await expect(select).toContainText('현금')
+  await select.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Home'); await page.keyboard.press('Enter')
+  await expect(select).toContainText('기본형')
+  await page.addStyleTag({ content: '* { scroll-behavior: auto !important; }' })
+  for (const label of ['세 전략과 비교군 성과표', '섹터 계획과 실제 보유', '섹터 상대강도 순위']) {
+    const table = results.getByLabel(label, { exact: true })
+    await table.focus(); await expect(table).toBeFocused()
+    expect(await table.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
+    for (let i = 0; i < 40; i++) await page.keyboard.press('ArrowRight')
+    await expect.poll(() => table.evaluate(element => element.scrollWidth - element.clientWidth - element.scrollLeft)).toBeLessThan(2)
+    const finalColumn = await table.evaluate(element => {
+      const cell = element.querySelector('thead th:last-child')!.getBoundingClientRect()
+      const box = element.getBoundingClientRect()
+      return cell.right <= box.right + 2 && cell.left >= box.left - 2
+    })
+    expect(finalColumn).toBe(true)
+    for (let i = 0; i < 40; i++) await page.keyboard.press('ArrowLeft')
+    await expect.poll(() => table.evaluate(element => element.scrollLeft)).toBeLessThan(2)
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await captureResults(page, `.cache/sector-frontend/keyboard-results-${theme}-mobile.png`)
+  expect(requests).toHaveLength(1); expect(violations).toEqual([]); expect(errors).toEqual([])
+})
+
+test('strict and preparation JSON choosers support Enter and Space without submitting a calculation', async ({ page }) => {
+  const { panel, requests, violations, errors } = await setup(page)
+  for (const target of [
+    { tab: '세 전략 비교', button: '자료 JSON 불러오기', field: '섹터 비교 자료 JSON', input: syntheticSectorPortfolioInput() },
+    { tab: '자료 준비', button: '자료 준비 JSON 불러오기', field: '자료 준비 JSON', input: requestFixture() },
+  ]) {
+    await panel.getByRole('tab', { name: target.tab, exact: true }).click()
+    const button = panel.getByRole('button', { name: target.button, exact: true })
+    const field = panel.getByLabel(target.field, { exact: true })
+    for (const key of ['Enter', 'Space']) {
+      await field.fill('')
+      await button.focus(); await expect(button).toBeFocused()
+      const chooser = page.waitForEvent('filechooser', { timeout: 5000 })
+      await page.keyboard.press(key)
+      await (await chooser).setFiles({ name: 'keyboard-sector.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(target.input)) })
+      await expect(field).toHaveValue(JSON.stringify(target.input))
+    }
+  }
+  expect(requests).toEqual([]); expect(violations).toEqual([]); expect(errors).toEqual([])
+})
+
+test('late calculations are discarded after edits and duplicate activation sends one pure request', async ({ page }) => {
+  let release: () => void = () => {}
+  const delayed = new Promise<void>(resolve => { release = resolve })
+  const { panel, requests, violations } = await setup(page, { delayed })
+  await panel.getByRole('button', { name: '합성 예제 입력', exact: true }).click()
+  const run = panel.getByRole('button', { name: '세 전략 비교 계산', exact: true })
+  await run.dblclick()
+  await expect.poll(() => requests.length).toBe(1)
+  await panel.getByLabel('섹터 비교 자료 JSON', { exact: true }).fill('{}')
+  release()
+  await expect(panel.getByRole('button', { name: '세 전략 비교 계산', exact: true })).toBeDisabled()
+  await expect(panel.getByTestId('sector-portfolio-results')).toHaveCount(0)
+  expect(requests).toHaveLength(1)
+  expect(violations).toEqual([])
+})
+
+test('backend validation failure is visible as unevaluable and a fresh retry is possible', async ({ page }) => {
+  const { panel, requests, violations } = await setup(page, { fail: true })
+  await panel.getByRole('button', { name: '합성 예제 입력', exact: true }).click()
+  await panel.getByRole('button', { name: '세 전략 비교 계산', exact: true }).click()
+  await expect(panel).toContainText('거래일 누락으로 평가 불가')
+  await expect(panel.getByTestId('sector-portfolio-results')).toHaveCount(0)
+  await panel.getByRole('button', { name: '세 전략 비교 계산', exact: true }).click()
+  await expect.poll(() => requests.length).toBe(2)
+  expect(violations).toEqual([])
+})
+
+test('file import, equal-window paper comparison, mobile keyboard controls and stale-result removal', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  const { panel, violations, errors } = await setup(page)
+  const input = syntheticSectorPortfolioInput()
+  await panel.getByLabel('섹터 자료 JSON 파일').setInputFiles({ name: 'synthetic.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(input)) })
+  await panel.getByRole('button', { name: '세 전략 비교 계산', exact: true }).click()
+  await expect(panel.getByTestId('sector-portfolio-results')).toBeVisible()
+  await panel.getByRole('tab', { name: '모의 결과 대조', exact: true }).click()
+  const paper = panel.getByLabel('모의 원장 평가 JSON', { exact: true })
+  const mark = { date: input.evaluation[0].date, strategy: 'base', equityUsd: 10001, priceSource: '합성 UI 입력 · 09:50 표시가' }
+  await paper.fill(JSON.stringify({ initialCashUsd: 10_000, costBps: 10, startDate: '2020-01-01', marks: [mark] }))
+  await expect(panel).toContainText('직접 비교하려면 모의 원장의 시작일과 초기자금')
+  await expect(panel.getByLabel('모의 원장과 코드 재생 차이')).toHaveCount(0)
+  await paper.fill(JSON.stringify({ initialCashUsd: 11_000, costBps: 10, startDate: input.evaluation[0].date, marks: [mark] }))
+  await expect(panel).toContainText('직접 비교하려면 모의 원장의 시작일과 초기자금')
+  await expect(panel.getByLabel('모의 원장과 코드 재생 차이')).toHaveCount(0)
+  await paper.fill(JSON.stringify({ initialCashUsd: 10_000, costBps: 10, startDate: input.evaluation[0].date, marks: [{ ...mark, date: '2020-01-01' }] }))
+  await expect(panel.getByLabel('모의 원장과 코드 재생 차이')).toContainText('같은 평가일 없음')
+  await expect(panel.getByLabel('모의 원장과 코드 재생 차이')).toContainText('비교 불가')
+  await paper.fill(JSON.stringify({ initialCashUsd: 10_000, costBps: 20, startDate: input.evaluation[0].date, marks: [mark] }))
+  await expect(panel).toContainText('비용 가정이 달라 직접 비교할 수 없습니다')
+  await expect(panel.getByLabel('모의 원장과 코드 재생 차이')).toHaveCount(0)
+  await paper.fill(JSON.stringify({ initialCashUsd: 10_000, costBps: 10, startDate: input.evaluation[0].date, marks: [mark] }))
+  await expect(panel.getByLabel('모의 원장과 코드 재생 차이')).toContainText('1.00')
+  await paper.fill(JSON.stringify({ initialCashUsd: 10_000, costBps: 10, startDate: input.evaluation[0].date, marks: [mark, mark] }))
+  await expect(panel).toContainText('같은 전략·날짜의 모의 평가가 중복')
+  await expect(panel.getByLabel('모의 원장과 코드 재생 차이')).toHaveCount(0)
+  await panel.getByRole('tab', { name: '세 전략 비교', exact: true }).click()
+  await panel.getByLabel('상세 비교 전략', { exact: true }).focus()
+  await page.keyboard.press('ArrowDown')
+  await page.getByRole('option', { name: '방어형', exact: true }).click()
+  await expect(panel.getByLabel('상세 비교 전략', { exact: true })).toContainText('방어형')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await captureResults(page, '.cache/sector-frontend/mobile-results.png')
+  await panel.getByRole('button', { name: '합성 예제 입력', exact: true }).click()
+  await expect(panel.getByTestId('sector-portfolio-results')).toHaveCount(0)
+  expect(violations).toEqual([])
+  expect(errors).toEqual([])
+})

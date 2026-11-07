@@ -104,7 +104,7 @@ Graphify의 `dedup`은 동일 그래프 엔티티를 합치는 기능이며 복�
    확인한다.
 
 커밋 대상은 `graphify-out/graph.json`, `graph.html`,
-`GRAPH_REPORT.md`, `manifest.json`, `source-hashes.json`이다. 이 생성물은
+`GRAPH_REPORT.md`, `manifest.json`, `source-hashes.json`이다. `graph.html`은 도구가 생성한 경우만 포함하며 기본5000node 상한으로 생략될 수 있고, 그때 오래된 HTML을 보존하지 않는다. 이 생성물은
 `helper_curator`가 helper 이동 후 갱신하며 `npm run check:graphify`로
 freshness를 검증한다. 캐시, 비용 파일, 로컬 절대 경로와 분석 중간 산출물은
 `.gitignore`로 제외한다.

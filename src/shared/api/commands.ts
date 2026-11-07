@@ -375,3 +375,7 @@ export const getBrokerRateLimitStatus = (): Promise<BrokerRateLimitScopeView[]> 
 export * from './databaseCommands'
 
 export { getBudgetRecovery, approveBudgetRecovery } from './budgetRecoveryCommands'
+
+export * from './sectorPortfolioCommands'
+export * from './sectorDataCommands'
+export * from './brokerChartCommands'

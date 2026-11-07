@@ -508,12 +508,22 @@ async fn delayed_old_account_insufficient_balance_does_not_suspend_new_account()
                 health_before,
                 serde_json::to_value(&manager.health).unwrap()
             );
-            let old_budget = manager
-                .auto_trading_budget(&original.broker_scope)
-                .await
+            // Inspect durable capital after late rejection cleanup.
+            let ledger: serde_json::Value = serde_json::from_slice(
+                &tokio::fs::read(manager.pending_order_store.budget_path())
+                    .await
+                    .unwrap(),
+            )
+            .unwrap();
+            let old_budget = ledger["accounts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["scope"] == serde_json::to_value(&original.broker_scope).unwrap())
                 .unwrap();
-            assert_eq!(old_budget.krw.available_amount, 2000);
-            assert_eq!(old_budget.krw.reserved_amount, 0);
+            assert_eq!(old_budget["krw"]["cash"], 2000);
+            assert_eq!(old_budget["krw"]["reservations"], serde_json::json!({}));
+            assert!(old_budget["krw"]["blocked"].is_null());
             if change_account {
                 let current_budget = manager
                     .auto_trading_budget(&current.broker_scope)
