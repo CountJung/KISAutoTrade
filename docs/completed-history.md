@@ -37,7 +37,7 @@
 - 이전 `80c81c8` CI의 보안/Rust/frontend/Toss/build는 성공, E2E는 실패했다. 원문 로그는 권한403으로 미확보해 원격 실패 테스트명은 확정하지 않았다. 실제 OS IME·native WebView/Rust IPC·provider/계좌/API·주문·daemon/운영 DB·서명/배포는 실행하지 않았으며 mock 통과로 승격하지 않는다.
 
 <a id="p1-session-01"></a>
-## P1-SESSION-01 — US LTH 연구 정규장·실행 근거 보강 경과 (2026-11-08 KST, 미완료)
+## P1-SESSION-01 — US LTH 연구 정규장·실행 근거 보강 완료 (2026-11-08 KST, 코드/mock·구현 SHA CI 범위)
 
 기준 HEAD `de6d5eb0d6473bfca554d0c3c16aed25682585d7` 위의 동결 제품/검사16파일을 대상으로 한 부모 관측이다. A2 admission+execute 앞176행과 보호6파일은 유지했다. US `1m` 연구의 NY/DST 계획 정규장·단일 cutoff·동일 채택 cohort를 Open→지표/LTH→Replay와 차트에 연결하고, B는 선택 executionClock·현재/저장 A/B·legacy/unknown 표시를 추가했다. KR/일봉 v4·live·legacy KST blackout은 보존한다. 정확 필드/시계 버전은 [IPC](ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22)가 소유한다.
 
@@ -45,7 +45,11 @@
 
 부모는 분 경계가 아닌 초 단위 라벨의 마감 투영이 일반장15:59·단축장12:59로 잘리는 문제를 **RED exit101 → 계획 마감16:00/13:00 정확 투영 GREEN1**로 수정했고 최종 포맷 소스를 위 전체 Rust에서 재확인했다. 별도 기존 UI 대조의 RED1은 최종29 통과에 더하지 않는다. 동결 snapshot 영수증의16파일 SHA256은 문서 작업 시작 시 실제 파일과 일치했다.
 
-이 기록은 부모의 관측을 정리한 것이며 문서 writer의 신규 실행으로 집계하지 않는다. **전체 정본 E2E는645/645(dist557/source88), 약11분 통과**했고 skip/flaky/전역 오류는0이다. 등록 inventory와 실제 단일 passed 결과·물리 case/file 교집합0을 JSON으로 대조했으며 동결 소스16·빌드 입력·실제 제공 index/router 해시가 유지됐다. 독립 코드/UI 리뷰와 문서 내용 리뷰도 각 동결 해시에서 actionable 문제 없이 수용했다. focused29·진단 RED·반복 실행은 전체645에 다시 더하지 않는다. TODO/지도·Graphify 생성/신선도 검사와 별도 Node 회귀7개도 통과했다. Node·focused 결과는 앱 E2E645에 합산하지 않는다. Graphify의 기존 metadata/fixture zero-node6 경고와 대형 HTML 시각화 생략은 Rust warning0와 별개다. 정상 커밋/푸시·정확 최종 SHA CI는 아직 대기다. 계획 달력2023–2028+알려진 Carter 예외는 모든 특별휴장 완전성이나 실제 원본/offset·발행 지연·정규장 전용 일봉 OHLC·기간 coverage를 인증하지 않는다. 검증 flag는 false, lookAheadSafe=false·sampleOnly/notEvaluable를 유지한다. 실제 native/live·계좌·운영 DB는 미검증이며 P1 원장 모드/legacy/server ABA 및 DATA/SECTOR 후속은 별도 미완료다. 남은 조건은 [TODO 같은 ID](todo.md)를 따른다.
+이 기록은 부모의 관측을 정리한 것이며 문서 writer의 신규 실행으로 집계하지 않는다. **전체 정본 E2E는645/645(dist557/source88), 약11분 통과**했고 skip/flaky/전역 오류는0이다. 등록 inventory와 실제 단일 passed 결과·물리 case/file 교집합0을 JSON으로 대조했으며 동결 소스16·빌드 입력·실제 제공 index/router 해시가 유지됐다. 독립 코드/UI 리뷰와 문서 내용 리뷰도 각 동결 해시에서 actionable 문제 없이 수용했다. focused29·진단 RED·반복 실행은 전체645에 다시 더하지 않는다. TODO/지도·Graphify 생성/신선도 검사와 별도 Node 회귀7개도 통과했다. Node·focused 결과는 앱 E2E645에 합산하지 않는다. Graphify의 기존 metadata/fixture zero-node6 경고와 대형 HTML 시각화 생략은 Rust warning0와 별개다.
+
+구현 `6f38a79559717ad81f4c62dcc538c1a7c336afda`를 현재 브랜치에 정상 커밋·푸시했고 검증한28경로의 staged/committed blob과 원격 SHA·clean 상태를 대조했다. 정확 구현 SHA의 Release Gate `42388449522`와 Dependency Security `42388449513`은 모두 성공이다. E2E `128450732239`, frontend `128450732414`, Toss 규격 `128450732578`, Rust `128450732601` 및 npm/cargo 감사 job의 성공도 확인했다. 원격 E2E 실행 step은 성공했지만 failure-only 보고 업로드는 skipped·artifact0이므로 원격 정확 case 수는 미확정이며 로컬645와 혼동하지 않는다. P1-SESSION-01은 이 코드/mock·구현 SHA CI 범위로 완료 이관했고, 실제3개월 원본/기간·전략 검증은 SOXQ-P1-05·SOXQ-P2-12에 유지한다.
+
+계획 달력2023–2028+알려진 Carter 예외는 모든 특별휴장 완전성이나 실제 원본/offset·발행 지연·정규장 전용 일봉 OHLC·기간 coverage를 인증하지 않는다. 검증 flag는 false, lookAheadSafe=false·sampleOnly/notEvaluable를 유지한다. 실제 native/live·계좌·운영 DB는 미검증이며 P1 원장 모드/legacy/server ABA 및 DATA/SECTOR 후속은 별도 미완료다. 실자료·후속 조건은 [TODO의 SOXQ-P1-05·SOXQ-P2-12·P1-DATA-01 등 기존 ID](todo.md)에서 유지한다.
 
 <a id="p1-scope-01"></a>
 ## P1-SCOPE-01 — 단일 활성 계좌 격리 보강 (2026-11-07)
