@@ -89,6 +89,10 @@ npm run test:database-tls-contract
 P2-UX-07의 focused 진입점은 `financial-confirmation.spec.ts`와 `trading-form-contract.spec.ts`다. source bridge는 생산 router/QueryClient/UI를 유지하며 exact HTTP 요청열·취소0/승인1(명시 재시도만2)·중복 방지와 account/path/method/body/query/origin 오류의403 negative control을 검사한다. scope는 브라우저 캐시 관측이며 무본문 start/해제 요청이 서버 identity를 전달한다는 증거가 아니다. 각 spec을 정규 CI 프로젝트 환경에서 선택 실행하고 Escape/backdrop 포커스·synthetic IME·modifier/repeat·해제 비대상 상태 보존·정상 Sell·좁은 화면/dark를 검사한다. 실제 Rust IPC·계좌·OS IME·native WebView 검증과 구분한다. 실행 수치·관측 결과·미검증 범위는 [P2-UX-07 이력](completed-history.md#p2-ux-07)에만 둔다.
 
 
+설정 목차·복귀의 진입점은 `uiux-settings-navigation.spec.ts`다. 제목의 focus·가시성뿐 아니라 main 프레임 자체의 viewport 포함을 함께 확인해 잘린 main 안의 상대좌표만으로 통과시키지 않는다. 첫 제목 이동 뒤에 상단 예산 응답을 공개하고 실제 응답 완료·body·입력 렌더를 기다린 뒤 다시 focus와 가시성을 검사한다. 실제 wheel/PageUp 취소 대조는 입력 전에 정확한 main의 trusted `scrollend` 대기를 설치하고 완료·실제 이동을 모두 확인한 뒤 예산 응답을 공개한다. 늦은 예산 렌더가 목적지로 되돌려 보내지 않는지 검사하며 리스너·handle은 `finally`에서 정리한다. 지연/오류·미저장 초안·좁은 화면과 경로 복원/같은 경로 취소·다른 경로 보호를 유지하며 테스트에서 focus/scroll 보정이나 대기 연장으로 결함을 숨기지 않는다. 재현·수치·원격 artifact 근거는 [P2 이력](completed-history.md#p2-ux-07)에서 관리한다.
+
+`candle-pagination.spec.ts`의 분석 구간 선택은 실제 popup의 Grow 진입 완료를 기다린 뒤 한 번 클릭하고, 선택값과 listbox 제거를 확인한 뒤 collector를 실행한다. 초기 축소 상태의 잠깐 안정만으로 선택이 끝났다고 보거나 실패한 선택을 재클릭/강제 클릭·대기 연장으로 숨기지 않는다. 페이지·커서·scope·취소·원본 보존 oracle은 그대로 유지한다.
+
 설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 Vite dev `127.0.0.1:1430`을 사용한다. CI는 먼저 `npm run build:web`를 수행하고 `chromium`의 production preview `127.0.0.1:1431`에서 UI를, `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 소스 모듈 가로채기가 필요한 spec을 검사한다. spec의 match/ignore 정본은 설정 파일이며 전체 UI를 source 서버에 강제한 추가 진단으로 dist lane을 대체하지 않는다. 등록·실행 수치와 실제 결과는 해당 [완료 이력](completed-history.md)에 기록하며 목록 검사를 실행 통과로 집계하지 않는다.
 
 spec은 mock transport를 사용하며 실제 Tauri IPC·provider 주문 검증과 구분한다. 테스트는 기본·production `chromium`·로컬 30초, CI 전용 `chromium-source-harness`만 초기화를 포함해 60초이며 assertion은 모두 5초다. source 초기 clock 지연의 근본 원인을 해결한 것은 아니며, 60초에서도 실패하면 추가 연장하지 않고 새 trace로 재진단한다. CI는 list와 HTML reporter를 함께 생성하고 실패 trace·screenshot을 보존한다.

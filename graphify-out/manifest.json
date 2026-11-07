@@ -1500,8 +1500,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/candle-pagination.spec.ts": {
-    "mtime": 1792827266.789688,
-    "ast_hash": "a2f85538d447088cb61be108c3905990",
+    "mtime": 1794053301.1119685,
+    "ast_hash": "e6205d850e7c5f507f5e3c77e5e56134",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/trading/daily_history.rs": {
@@ -2765,8 +2765,8 @@
     "semantic_hash": ""
   },
   "src/pages/settings/ui/settingsNavigation.tsx": {
-    "mtime": 1793346228.1357753,
-    "ast_hash": "a8b367f59a8f0e47e9dfa3bdcdbe5596",
+    "mtime": 1794049435.060498,
+    "ast_hash": "4b674c48f12f960553dc8e7995b008bc",
     "semantic_hash": ""
   },
   "src/shared/lib/pageFocusNavigation.ts": {
@@ -2775,8 +2775,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/uiux-settings-navigation.spec.ts": {
-    "mtime": 1794042534.9449098,
-    "ast_hash": "d00c2e8fb207cac5315faa389d5ef1da",
+    "mtime": 1794051279.3677223,
+    "ast_hash": "d7c0c2f6eb9e52179daf589af5bb8b68",
     "semantic_hash": ""
   },
   "src/widgets/stock-chart/ui/CandleDataSummary.tsx": {

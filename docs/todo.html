@@ -67,7 +67,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>P2-UX-07 — 정지는 즉시 실행하고 실전 시작·위험 해제·수동 주문의 확인 흐름을 구현한다.</strong></h2>
 <ul><li><strong>확정 확인 범위:</strong> 정지·비상정지는 추가 확인 없이 즉시 요청한다. 실전 거래 시작·비상정지 해제·매수 재개·수동 주문은 계좌·broker·모드·실행 내용/영향을 보여준 뒤 최종 확인한다. 수동 주문에는 종목·매수/매도·수량·주문 유형/가격을 함께 표시한다. 순수 시뮬레이션 계산에 실전 주문 확인을 끼워 넣지 않는다.</li>
-<li><strong>구현 대상·현재 근거:</strong> <a href="ARCHITECTURE.md#p2-ux-07-action-matrix">현행 영향표</a>의 Sidebar/Dashboard 시작·정지/위험 해제와 KIS 국내/미국·Toss 수동 주문에 공용 확인 UI·동기 공유 잠금·공개세대/초안 무효화를 보강했다. 최종 renderer 빌드와 로컬 CI 정본 dist/source·독립 리뷰는 통과했고 남은 게이트는 새 커밋의 원격 CI 확인이다. 실제 검사와 독립 리뷰의 정본은 <a href="completed-history.md#p2-ux-07">P2-UX-07 이력</a>이다.</li>
+<li><strong>구현 대상·현재 근거:</strong> <a href="ARCHITECTURE.md#p2-ux-07-action-matrix">현행 영향표</a>의 Sidebar/Dashboard 시작·정지/위험 해제와 KIS 국내/미국·Toss 수동 주문에 공용 확인 UI·동기 공유 잠금·공개세대/초안 무효화를 보강했다. <code>5860043</code> 원격 CI의 설정 목차 스크롤 회귀는 main 한정 이동과 frame 검사로, 추가 진단의 늦은 예산 렌더 공백은 목적지 가시성 추적·사용자 의도 취소로 보강했다. 스크롤 완료·메뉴 선택 전제를 보강한 후속 로컬 전체 회귀와 최종 독립 리뷰는 통과했으며 후속 새 SHA의 원격 CI는 남아 있다. 실제 검사와 독립 리뷰의 정본은 <a href="completed-history.md#p2-ux-07">P2-UX-07 이력</a>이다.</li>
 <li><strong>보존할 의미:</strong> 정지는 이미 접수된 주문 취소/포지션 청산을 뜻하지 않는다. 비상정지 해제는 daemon 시작·손실 카운터 초기화가 아니며 매수 재개는 입금/잔고 확인이 아니다. 이 차이를 확인 문구와 결과 상태에 반영하고 기존 KIS/Toss 동의·preflight·scope/risk·예약·멱등 규칙을 그대로 유지한다.</li>
 <li><strong>완료 조건:</strong> mock에서 취소/Escape=mutation0, 최종 확인=정확1, pending·두 번 활성화·Enter repeat=중복0을 확인한다. 확인 중 계좌/모드·주문 입력이 바뀌면 이전 확인을 무효화한다. 조회 입력 Enter·IME 확정·전역 단축키가 위험 행동을 실행하지 않으며 의도적으로 focus한 버튼의 Enter/Space에도 같은 보호가 적용된다. 긴급 정지 접근성·실패/재시도·포커스 복귀와 실제 native 미검증 범위를 기록한다. 실제 주문·실전 시작/해제는 실행하지 않는다.</li>
 <li><strong>검증 기록·경계:</strong> 실행 수치·접근성 관측·회귀와 미검증 범위는 <a href="completed-history.md#p2-ux-07">완료 이력</a>에만 기록한다. mock/source 성공을 실제 OS IME/native·계좌 검증으로 승격하지 않으며 원장 모드·legacy/server ABA는 P1에 열린 채 유지한다.</li></ul>
@@ -230,7 +230,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <a class="permalink" href="#soxq-p2-09" aria-label="이 할일 링크">#</a>
 </article></section>
 <p id="empty" hidden>일치하는 열린 할일이 없습니다. 검색어나 상태를 바꿔 주세요.</p>
-<footer>원본 SHA-256: 4be009bc60dd67e297a3797a2a596890a3cd99c5d567a29e14fa17a819cba5a9<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
+<footer>원본 SHA-256: 74e30d1f7e3a5231a6002671ce7a0afcdc62f3489eb79c04eaaf9e1deba51d79<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
 </main>
 <script>
 const status = document.getElementById('status');

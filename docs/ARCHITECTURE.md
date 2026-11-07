@@ -30,6 +30,8 @@ Frontend는 provider credential이나 핵심 주문 상태의 권위자가 아�
 
 `src/router/index.ts`가 dashboard, trading, strategy, history, log, settings route를 조립하고 `widgets/app-shell`이 공통 셸을 제공한다. 화면은 FSD 계층(`pages`, `widgets`, `features`, `entities`, `shared`)을 사용한다.
 
+Settings의 목차·목차 복귀는 `settingsNavigation.tsx::focusSettingsTarget`에서 경로별 복원 취소 알림과 `preventScroll` focus를 유지하고, 가장 가까운 `app-main-scroll`만 상대좌표·border·기존 scroll margin으로 이동한다. main의 끝에서 자연스럽게 clamp되며 상위 `overflow:hidden` 셸까지 이동해 상단 정렬을 강요하지 않는다. main 밖의 독립 렌더는 기존 `scrollIntoView` fallback을 유지한다. 명시적 목적지가 포커스를 유지하는 동안 DOM·크기 변경 관측을 예약 프레임 하나로 합쳐 main 안의 가시성만 재검사한다. wheel/touch/pointer·스크롤 키·새 focus/navigation·페이지 이탈은 이 추적을 취소하며 observer/listener/예약 프레임을 정리한다. 보정은 focus를 다시 강요하지 않고 연결 상태·현재 focus·경로를 재검사한다. AppShell의 같은 경로 복원 취소·다른 경로 보호·사용자 의도 경계는 바꾸지 않는다.
+
 서버 데이터는 `src/api/hooks.ts`와 `databaseHooks.ts`의 TanStack Query로 읽고 변경한다. query key의 단일 진입점은 `src/api/queryKeys.ts`다. account/settings/trading UI 상태는 `entities/*/model`의 Zustand store가 담당한다.
 
 `src/shared/api/transport.ts`는 실행 환경을 감지한다.
