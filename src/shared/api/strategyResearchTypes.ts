@@ -112,7 +112,31 @@ export interface LthMinuteTimingDay {
   trailingUnobservedWindowSlots: number
 }
 
+export interface LthExecutionClock {
+  version: string
+  timezone: string
+  tzdbVersion: string
+  labelPolicy: string
+  blackoutTimezone: string
+  blackoutWindows: string[]
+  calendarSource: string
+  calendarHorizon: string
+  asOf: string
+  admissionIdentity: string
+  sourceRows: number
+  adoptedRows: number
+  warmupRows: number
+  unknownRows: number
+  excluded: { reason: string; count: number }[]
+  examples: { inputIndex: number; label: string; labelTruncated: boolean; reason: string }[]
+  omittedExamples: number
+  days: { date: string; open: string; close: string; earlyClose: boolean; adoptedRows: number }[]
+  dayCount: number
+  omittedDays: number
+}
+
 export interface LthMinuteTiming {
+  executionClock?: LthExecutionClock
   diagnosticVersion: string
   labelConvention: 'barClose' | 'barStart' | 'unknown'
   market: 'us' | 'kr'

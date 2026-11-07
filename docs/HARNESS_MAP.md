@@ -187,7 +187,7 @@ npm run build:app
 
 실패, warning, 0-test, 환경 blocker를 성공으로 축약하지 않는다.
 
-LTH 역사 시각/실시간 경로 분리 변경은 `cd src-tauri && cargo test --locked --test lth_replay_clock`로 production library(단위 테스트 clock 대역 없음)의 입력 시각·blackout·청산·미래 봉 불변을 검증한다. generic LTH 거부는 lib preparation 테스트와 오프라인 연구 runner의 `rejectedRuns`를 함께 확인한다.
+LTH 역사 시각/실시간 경로 분리 변경은 `cd src-tauri && cargo test --locked --test lth_replay_clock`로 production library(단위 테스트 clock 대역 없음)의 입력 instant·NY/DST·정규/단축장 청산 시계와 legacy KST blackout의 offset 불변을 검증한다. 이 low-level timed API는 asOf를 받지 않는다. 계획 휴장·horizon unknown·단일 cutoff·미래/시간외 극단가격 봉의 준비 단계 제외는 `cargo test --workspace --lib strategy_preview --locked --offline`의 실제 prepare→execute fixture가 검증한다. US 연구의 채택은 Open→지표/전략→Replay 전에 끝나고 동일 cohort·인덱스/차트 순서를 사용하는지 확인하며 KR/일봉·live 불변을 구분한다. generic LTH 거부는 lib preparation 테스트와 오프라인 연구 runner의 `rejectedRuns`를 함께 확인한다.
 
 P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_tests`와 lib preview/assessment 테스트에서 일봉의 분봉 지표·반동·볼린저 혼입 방지, snapshot 교체, 포지션 보존, 독립 버퍼 상한, 일봉 전략/체결 미호출 및 유효 분봉 0개의 평가 불가를 확인한다. UI는 `npx playwright test tests/e2e/strategy-scrollbar.spec.ts tests/e2e/strategy-replay-assessment.spec.ts`로 일봉/legacy 성과·A/B 숨김, 분봉 표본 경고와 assessment 보존, 기존 generic 성과 표시를 함께 검증한다. synthetic fixture는 시장 coverage 검증을 대체하지 않는다. 실제 2026-07-06~10-02 SOXQ 분봉을 보관하고 시간대·DST·세션·기간 coverage 검증 후 별도 재평가해야 P1-05 전체 완료다.
 
@@ -264,9 +264,9 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 
 ## LTH 분봉 시각 진단 (2026-10-22)
 
-- `cargo test --offline -p kis-auto-trade minute_timing`: pure20개와 command5개의 합성 fixture. RFC3339/compact·DST·동일순간 alias/역순·barClose/barStart/unknown·초 경계·휴일 미인증·내부 gap/야간/주말·512행/64바이트/8일/6예시·asOf를 확인한다. command fixture는 기존 signals/backtest/hash와 실제 비어있지 않은 신호·체결을 비교하며 daily skipNone/empty notEvaluable을 확인한다.
-- `npx playwright test tests/e2e/lth-minute-timing.spec.ts tests/e2e/strategy-replay-assessment.spec.ts`: 현재/저장/복원·다른봉표기 비교·legacy/미지원/손상 컬렉션·빈자료/일봉 성과숨김·모바일과 compact 날짜수를 mock으로 검증한다. fixture는 LTH lookAheadSafe=false를 유지한다.
-- 공용 timestamp 구문 추출은 기존 generic 정규화·회계 시나리오 정렬 회귀와 전체 Rust 검증으로 확인한다. 입력 시계·신호·정산은 기존 `lth_replay_clock`을 함께 통과한다. 실제 provider/3개월 coverage 검증으로 확대하지 않는다. [결과와 한계](completed-history.md#task-lth-minute-timing-20261022).
+- `cargo test --offline -p kis-auto-trade minute_timing`: pure 일반 평일창 진단과 command 실행 근거의 합성 fixture. RFC3339/compact·DST·동일순간 alias/역순·barClose/barStart/unknown·초 경계·휴일 미인증·내부 gap/야간/주말·512행/64바이트/8일/6예시·asOf를 확인한다. command fixture는 기존 signals/backtest/hash와 실제 비어있지 않은 신호·체결을 비교하며 daily skipNone/empty notEvaluable을 확인한다.
+- `npx playwright test tests/e2e/lth-minute-timing.spec.ts tests/e2e/strategy-replay-assessment.spec.ts`: 현재/저장 A/B/reload의 executionClock·동일 기간 정책/채택 차이·unknown, legacy/미지원/손상 fallback과 일반 평일창 진단 분리·빈자료/일봉 성과숨김·모바일/compact를 mock으로 검증한다. fixture는 LTH lookAheadSafe=false를 유지한다.
+- 공용 timestamp 구문은 generic 정규화·회계 시나리오 정렬 회귀와 전체 Rust로 확인한다. `cargo test --workspace --lib strategy_preview --locked --offline` 및 `cargo test --workspace --lib leveraged_trend_hold --locked --offline`로 생산 admission·실제 제외/가격 수·일봉 context cutoff·nonaligned label의 정확16:00/13:00 마감 투영과 같은 채택봉에서 asOf 밀리초 차이의 identity 불변을 대조한다. 실제 provider/발행·전체 특별휴장/3개월 coverage 검증으로 확대하지 않는다. 실행 결과는 [P1-SESSION-01 이력](completed-history.md#p1-session-01), 과거 진단은 [당시 기록](completed-history.md#task-lth-minute-timing-20261022)이 소유한다.
 
 ## RSI 소유·선택 진입/청산 (2026-10-22)
 

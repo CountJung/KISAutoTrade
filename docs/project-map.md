@@ -747,6 +747,7 @@ KISAutoTrade/
 │   │   │   │   ├── failed_breakout_entry_tests.rs
 │   │   │   │   ├── generic.rs
 │   │   │   │   ├── generic_tests.rs
+│   │   │   │   ├── lth_regular.rs
 │   │   │   │   ├── ma_cross_entry_tests.rs
 │   │   │   │   ├── mean_reversion_entry_tests.rs
 │   │   │   │   ├── minute_timing_tests.rs
@@ -1033,6 +1034,7 @@ KISAutoTrade/
 │   │   │   │   │   ├── live_feedback_tests.rs
 │   │   │   │   │   ├── preview.rs
 │   │   │   │   │   ├── reconfigure_tests.rs
+│   │   │   │   │   ├── research_session.rs
 │   │   │   │   │   ├── session.rs
 │   │   │   │   │   └── tests.rs
 │   │   │   │   ├── ma_cross/
@@ -1391,12 +1393,13 @@ KISAutoTrade/
 | `commands/orders.rs` | 수동 주문 제출 IPC |
 | `commands/records.rs` | 체결/거래/통계 조회, Discord config 저장, frontend log 저장 IPC |
 | `commands/settings.rs` | app config/check_config, refresh interval, log/web 설정, USD/KRW 환율 IPC |
-| `commands/strategy_preview.rs` | 기존 단기 generic과 새 continuous 공개 surface/IPC를 re-export하고 공통 변환·현금흐름 가정 검증 및 Toss LTH preview를 유지한다. LTH는 활성 profile/account·분봉 시작 이전 완료 일봉 맥락을 검증하고 일봉 합성 장중 관측을 실행하지 않는다. 분봉 Open/Signal/Close를 ReplaySession에 연결하며 assessment의 진단/표본/시각·세션 미검증 경계를 유지한다. provider I/O 전 referenceAsOf를 고정하고 실행용 lexical tail/가격 필터를 지난 원본 timed 라벨만 별도 minuteTiming으로 진단해 시그널·정산·입력 hash와 분리 |
+| `commands/strategy_preview.rs` | 기존 단기 generic과 새 continuous 공개 surface/IPC를 re-export하고 공통 변환·현금흐름 가정 검증 및 Toss LTH preview를 유지한다. LTH는 활성 profile/account·분봉 시작 이전 완료 일봉 맥락을 검증하고 일봉 합성 장중 관측을 실행하지 않는다. 분봉 Open/Signal/Close를 ReplaySession에 연결하며 assessment의 진단/표본/시각·세션 미검증 경계를 유지한다. provider I/O 전 referenceAsOf를 고정하고 US1m은 lth_regular에 NY 정규장 admission·동일 채택봉 실행/차트·executionClock 조립을 위임한다. KR/legacy lexical tail과 pure minuteTiming 일반 평일창 진단은 구분 |
+| `commands/strategy_preview/lth_regular.rs` | US1m 원본 instant 정렬·모호한 중복 전체 제외·계획 정규장 전체 봉/단일 cutoff·유효가격·tail 채택 및 이전 NY 거래일 일봉 context를 준비한다. 동일 인덱스 Open/Signal/Close→Replay 실행, 원본 라벨/OHLCV 차트와 bounded 실행 근거·실제 제외 집계를 조립. provider I/O 없음 |
 | `commands/strategy_preview/generic.rs` | 기존 단기 입력 DTO·신호/준비 view와 선택 volatilityExpansionPreparation 응답 및 공통 OHLC/시각 정규화. history+평가 합계 500봉, legacy warmupCount와 strictly-prior history 경계를 보존한 뒤 공통 driver에 한 청크로 위임한다. 기존 flat 입력 정렬은 유지하고 연속 입력에는 별도 엄격 시간순 정규화를 제공한다. generic LTH 및 강한 종가/변동성 확장의 비일봉 거부 유지. 분봉 RFC3339/compact KST 구문 해석만 minute_time::parse_minute_instant에 위임하고 기존 고정 정밀도 UTC 정규화 출력은 유지 |
 | `commands/strategy_preview/driver.rs` | 단기/연속이 공유하는 생산 전략 driver. 과거 warmup·ReplaySession을 한 번 만들고 모든 청크를 시간순으로 공급해 전략 지표·실제 포지션 피드백·guard/risk·pending·ATR을 보존하며 끝에서 한 번만 finish/비교한다. 정규화 현금흐름 검증·전역 준비/분할 지표·결과 조립과 mode를 포함하고 청크 분할은 제외한 입력 hash를 소유. factory 전에 FailedBreakout/Consecutive/Momentum/Deviation/MeanReversion/MA 교차/RSI/StrongClose/VolatilityExpansion 새 params와 FailedBreakout 완료 고가/ATR/거래량·Consecutive ATR/MA·MA 교차4필터의 일봉 간격을 검증하고 평가 후 선택 진입 준비/후보 진단을 최상위 응답에 추가. CompletedDailyBar로 history와 판단 후 완료봉의 OHLC·선택 거래량을 전달하고 FailedBreakout/StrongClose/VolatilityExpansion에 실제 pending을 피드백. StrongClose/VolatilityExpansion의 기존 일봉 전용 gate를 유지하며 실제 체결 포지션 피드백 뒤 현재 완료봉을 게시한다. VolatilityExpansion 전용 준비/관측 진단도 최상위 응답에 추가. 거래량 필터 활성 hash는 원문 거래량 미확인과 검증된0을 구분. Momentum/Deviation/MeanReversion 옵션은 기존 params로 전송하며 새 응답 DTO를 만들지 않음 |
 | `commands/strategy_preview/failed_breakout_entry_tests.rs` | 두 preview의 엄격 params/비일봉 거부·nextOpen 원래 기준 승계, 청크/미래 suffix 인과성·현재 OHLC/거래량 배제·미확인/0 hash, 실제 guard 거절 후 cap/수익 보호 재후보와 공통 ATR 수량 산정/잔량 Sell 회귀 |
 | `commands/strategy_preview/continuous.rs` | 공급 자료만 사용하는 단일 요청 연속 API. 1~16청크·각 1~500봉·평가 총4096봉·history 최대512봉을 제한하고 청크 안/사이의 시간 역전·중복과 평가/history 겹침을 실행 전에 거부한다. 서버 세션 저장 없이 공통 driver 한 인스턴스를 사용하며 기존 preview JSON에 continuity ledger를 함께 반환 |
-| `commands/strategy_preview/minute_timing_tests.rs` | 합성 BrokerCandle로 실제 준비 lexical tail/count200·가격 제외와 실행 라벨 일치, daily 진단 생략/빈1분 평가불가, 공용 parser wrapper byte 호환 및 진단 유무/asOf 차이가 생산 신호·정산·입력 hash를 바꾸지 않는 경계를 검증 |
+| `commands/strategy_preview/minute_timing_tests.rs` | 합성 BrokerCandle로 US 생산 admission/차트/실행 근거의 동일 채택 순서·실제 제외/가격 수·cutoff·일봉 경계, nonaligned 마감 투영과 legacy 진단/빈1분/일봉 생략·parser 호환을 검증 |
 | `commands/strategy_preview/rsi_entry_tests.rs` | 실제 단기/연속 preview의 optional strict 거부, nextOpen 실제 체결 원가/손절·체결 뒤 보유 나이/청크 경계, 분할 일치·미래 suffix 인과성, 거절 교차 비재생·flatSell/heldBuy 제거와 최소수익 guard 거부 뒤 cap 재후보를 합성 입력으로 검증 |
 | `commands/strategy_preview/strong_close_entry_tests.rs` | 단기/연속의 엄격 선택 params·일봉 전용, nextOpen 실제 평균가·guard 거절 후 cap/수익 보호 재후보·잔량 Sell, 분할/미래 suffix 인과성·현재 고가/거래량 배제·공통 ATR 수량 산정을 합성 입력으로 검증 |
 | `commands/strategy_preview/volatility_entry_tests.rs` | 단기/연속의 엄격6필드 검증·일봉 전용, nextOpen 실제 평균가와 guard 거절 후 cap/수익 보호 재후보·실제 잔량, 청크/미래 suffix 인과성·전용 준비 진단과 공통 ATR 조정 수량 회귀를 합성 입력으로 검증 |
@@ -1506,7 +1509,7 @@ KISAutoTrade/
 | `trading/simulation/execution_tests.rs` | 다음 관측 봉 시가·마지막 미체결·갭 수량/리스크·미래 ATR 차단·실제 체결 원가 보호/부분 매도·동시 도달 정책·chunk/batch 회계 일치·기본 sameClose 수치 호환 합성 회귀 |
 | `trading/simulation/assessment.rs` | optional `ReplayAssessmentView`로 LTH의 dailyDiagnostic/notEvaluable과 intradaySample/sampleOnly를 구분한다. 분봉 관측0개도 notEvaluable이며 일봉 맥락·장중 봉 수와 미검증 시각/세션·모델 한계를 제공. 선택 minuteTiming은1분 전용 진단이며 timestampStatus/sessionStatus·lookAheadSafe·성과 적합성은 바꾸지 않음 |
 | `trading/simulation/minute_time.rs` | pub(crate) 순수 분봉 구문 parser. RFC3339 offset을 UTC 실제 순간으로 변환하고 compact12/14는 기존 KST 가정으로 해석. naive local ISO/date-only를 추측하지 않으며 generic wrapper와 시각 진단이 재사용. 세션/봉 완료·호스트 시간대·전략 시계를 소유하지 않음 |
-| `trading/simulation/minute_timing.rs` | 별도 lth-minute-timing-v1 진단과 camelCase DTO. barClose/barStart/unknown·US NY/KR Seoul·명시 asOf로 라벨의 시작/종가 공개 가능 시각, 중복/역순/비분정렬·일반 평일 정규창·주말/미완료·동일 관측일 내부 슬롯 공백을 계산. 입력512·라벨64byte·날짜8·예시6 상한과 산술 gap으로 bounded 유지. 실제 휴장/조기마감·provider/요청 coverage·실제 발행 검증은 false이며 실행 라벨을 정렬/추가/제거하지 않음 |
+| `trading/simulation/minute_timing.rs` | 별도 lth-minute-timing-v1 진단과 camelCase DTO. barClose/barStart/unknown·US NY/KR Seoul·명시 asOf로 라벨의 시작/종가 공개 가능 시각, 중복/역순/비분정렬·일반 평일 정규창·주말/미완료·동일 관측일 내부 슬롯 공백을 계산. 입력512·라벨64byte·날짜8·예시6 상한과 산술 gap으로 bounded 유지. pure 진단은 실행 라벨을 정렬/추가/제거하지 않음. 선택 executionClock DTO는 US 생산 admission의 별도 투영이며 일반 평일창 진단과 구분. 달력/coverage/실제 발행 검증 flag는 false |
 | `trading/simulation/minute_timing_tests.rs` | 합성 시각의 DST 전후/중복 현지시간·offset 동일 순간/역순·KST 자정 날짜, 봉 시작/종료/unknown·시장 일반창 경계·초/소수초·asOf·내부gap/앞뒤창·야간/주말/휴장 미인증·입력/날짜/예시 상한과 parser byte 호환을 검증 |
 | `trading/simulation/atr.rs` | 이전 종가를 포함한 True Range 14개를 bounded ring에 보관하고 단순 평균 ATR을 계산한다. 같은 주기 관측 15봉을 요구하며 갭을 보존하고 누락 봉을 보간하지 않는다. `AtrPreparationView`로 사전 관측 수·시작/종료 준비·최초 준비 시각·미준비 평가봉 수를 제공 |
 | `trading/simulation/tests.rs` | 비용·리스크·실행 차단, 날짜별 손실 상태, ATR 준비·위험 예산·실제 포지션과 동일 replay/report/hash 회귀 fixture |
@@ -1547,7 +1550,8 @@ KISAutoTrade/
 | `trading/strategy/leveraged_trend_hold/preview.rs` | 입력 timestamp 기반 timed replay와 Open/Signal/Close driver callback으로 공통 session의 체결 포지션을 피드백. 실제 잔여 수량·평균 체결가 snapshot을 사용한다. 부분 청산 뒤 잔량과 가격 기준을 보존하며 bool callback 호환 경로도 유지한다. EMA/RSI/ADX·반등·볼린저는 실제 장중 관측만 적재하고 일봉 맥락으로 분봉 준비 상태를 만들지 않음 |
 | `trading/strategy/leveraged_trend_hold/indicators.rs` | 장중 버퍼 기반 EMA/RSI/ADX와 진입·단계/급반등 조건 계산 |
 | `trading/strategy/leveraged_trend_hold/exits.rs` | 최소 보유 관측·초기 위험·수익 보호·진입 실패 청산 조건과 포지션 정리 |
-| `trading/strategy/leveraged_trend_hold/session.rs` | live/timed 세션·blackout·시각 파싱. timed 경로는 입력 시각을 사용하지만 거래소 시간대/DST 검증이 없는 고정 KST 모델 |
+| `trading/strategy/leveraged_trend_hold/research_session.rs` | US timed 연구 전용 NY/DST 거래일·종료 표기 봉 전체 구간·2023–2028 계획 휴장/조기마감+알려진 Carter 예외, horizon unknown과 legacy Seoul blackout 분 변환을 소유. provider 완료/cutoff는 상위 prepare가 검사하며 전체 특별휴장/자료 coverage 인증은 아님 |
+| `trading/strategy/leveraged_trend_hold/session.rs` | 기존 live 세션·blackout·시각 파싱과 KR/legacy 고정 KST 모델. US timed 연구의 정규장 판정은 research_session으로 분리하며 live 설정/blackout 벽시각을 임의 재해석하지 않음 |
 | `trading/strategy/leveraged_trend_hold/{tests,buffer_tests}.rs` | 기존 진입·청산 회귀와 일봉/분봉 독립 상한·재초기화·보유/실행 피드백 불변, 부분 수량과 평균 체결가 동기화 fixture |
 | `trading/strategy/leveraged_trend_hold/bollinger.rs` | 레버리지 전략의 볼린저 스퀴즈·추세 돌파 진입 확인과 중심선/ATR 청산 조건. 마지막 미확정 봉을 제외하고 종목별 캔들 버퍼를 512개로 제한 |
 | `tests/lth_replay_clock.rs` | `cfg(test)` live clock 대역 없이 production library의 LTH timed replay를 검증하는 통합 테스트. 입력 시각 기반 세션·blackout·장마감, 비어 있지 않은 반복 신호/체결과 미래 봉 변경 불변 fixture |
@@ -2425,20 +2429,21 @@ P2-14의 직전 코드 기본 모드 호환과 QQQ 체결 모델 비교는
 
 ```text
 preview_leveraged_trend_hold_for_profile: provider I/O 전 referenceAsOf 고정
-    ↓ 기존 profile/account·1m count와 조회/lexical tail/가격 필터 유지
-실행용 timed 라벨 + 공급/선택 수 → lth_preview_assessment (1m만)
+    ↓ 기존 profile/account·1m count 유지
+US1m lth_regular::prepare → instant/중복·NY 계획 정규장 전체봉·cutoff·가격·tail 채택
+    ↓ 동일 채택 cohort → Open/지표/LTH/Replay 및 원본 라벨/OHLCV 차트
+실행용 timed 라벨 + 공급/채택 수 → lth_regular::assessment / lth_preview_assessment (1m만)
     ↓ minute_time::parse_minute_instant (generic 정규화와 구문만 공유)
 minute_timing::diagnose_minute_timing → assessment.minuteTiming (선택)
-    ↓ 기존 ReplaySession 신호·정산·입력 hash와 독립
+    ↓ US 실행 근거는 선택 executionClock, pure 일반 평일창 진단은 실행과 독립
 strategyResearchPanel → LthMinuteTimingPanel 현재/A-B·legacy 누락/버전 차이
 ```
 
-진단은 실행에 준비된 label만 최대512개 해석하며 실제 replay의 순서나
-관측을 바꾸지 않는다. 전용 preview의 기존 선택 상한200과 공급/선택/가격
-제외/실행/진단 처리 수를 구분한다. RFC3339는 offset의 실제 순간을 NY 또는
-Seoul로 변환하고 compact12/14는 기존 KST 가정이다. generic wrapper의
-nanosecond UTC 문자열·정렬/중복 계약은 유지하며 LTH의 fixed KST 전략
-시계와 live 동작은 교체하지 않는다.
+진단은 준비 label만 최대512개 읽으며 replay 관측을 바꾸지 않는다. US 연구의
+채택 상한200·원본 준비 cohort·실제 가격 제외·실행·진단 수를 구분한다.
+RFC3339는 실제 순간, compact12/14는 기존 KST 가정이다. generic wrapper의
+nanosecond UTC/정렬·중복 계약은 유지한다. US 연구만 NY 계획 정규장 시계를
+적용하고 KR/일봉·live·legacy KST blackout은 보존한다.
 
 생산 Toss1분은 barClose로 label−60초 시작·label 종가 공개 가능 시각을
 계산한다. 명시 barStart fixture는 label/+60초이며 unknown은 시각 해석만
@@ -2453,8 +2458,10 @@ nanosecond UTC 문자열·정렬/중복 계약은 유지하며 LTH의 fixed KST 
 requestedPeriodCoverage/actualPublicationVerified는 false다. 입력512·
 라벨64byte·날짜8개·예시6개로 제한하고 긴 기간의 minute 배열을 만들지 않는다.
 
-UI는 현재 및 저장된 A/B에서 별도 진단 버전·봉 표기·시간대·legacy 세션
-정책/검증 가정 차이를 알린다. 누락된 과거 응답이나 지원하지 않는 버전을
+UI는 현재 및 저장된 A/B/reload에서 진단 버전·봉 표기·시간대와 실제 실행
+정책/채택 identity·unknown 차이를 알린다. 같은 정책/채택봉의 asOf 밀리초만
+다르면 다른 모델로 보지 않는다. 선택 executionClock의 날짜/마감은 적용된
+계획 달력 근거이며 위 일반 평일창 슬롯이나 완전성 인증이 아니다. 누락된 과거 응답이나 지원하지 않는 버전을
 정상 진단으로 추정하지 않는다. 기존 sampleOnly/notEvaluable·미검증
 시각/세션·lookAheadSafe=false를 유지하며 실제3개월 분봉 검증과
 P1-05/P2-12는 별도 과제다. 범위·검증 기록은

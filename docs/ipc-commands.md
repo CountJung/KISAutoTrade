@@ -119,9 +119,9 @@
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v23`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations, minuteTiming?}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v23`, 전용 LTH 미국 `1m` 연구는 `leveraged-trend-hold-v5-us-regular`, KR/일봉은 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations, minuteTiming?}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
-전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
+전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. US 연구는 NY/DST 계획 정규장으로 채택하며 legacy blackout은 KST를 유지한다. 결정적 계산·계획 달력 적용은 실제 원본 시간대/offset·발행·정규장 전용 일봉·기간 coverage 검증이 아니므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
 v8 `BacktestReport.atrPreparation`은 `{period:14, historyBars, readyAtStart, readyAtEnd, firstReadyTime, unreadyEvaluationBars, rangePolicy:"observedBarsWithPreviousCloseNoInterpolation"}`다. 전략의 `preparation`과 별도이며 이전 close를 포함한 최근 TR14개를 사용한다. generic의 검증된 같은 간격 history만 지표를 준비하고 주문·손익에는 넣지 않는다. 분봉 LTH는 분봉 관측에서만 ATR을 준비한다. `volatilitySizingEnabled`의 기본 false는 유지하며, 활성화 시 미준비·0범위·0bps 위험예산 매수는 명시 차단한다. `atrPreparation`이 없는 보관/legacy 응답은 UI에서 준비 여부 미상으로 표시한다.
 
@@ -393,11 +393,18 @@ UI는 네 필드의 raw 초안·유효성·활성 잠금·저장/두 preview 차
 
 ### LTH 분봉 시각 진단 v1 (2026-10-22)
 
-전용 `1m`의 `replay.assessment.minuteTiming`은 선택 객체이며 `diagnosticVersion=lth-minute-timing-v1`이다. `1d`/generic에는 생략한다. 기존 engine v17/LTH v4·입력 hash·시계·신호·정산은 유지한다. 요청 시작의 `referenceAsOf`를 고정하고, 준비된 실행 label을 읽기만 한다. sourceRows/selectedRows/usedRows/priceExcludedRows는 provider 결과/기존 lexical tail 선택/유효 가격 관측/가격 제외를 구분한다. 진단 처리 상한512행·label64바이트·날짜8개·예시6개이며 inputTruncated/omittedDayRows를 반환한다. 전체 합계는 처리한 입력 범위에서 계산하고 날짜 목록만 줄인다.
+전용 `1m`의 `replay.assessment.minuteTiming`은 선택 객체이며 `diagnosticVersion=lth-minute-timing-v1`이다. `1d`/generic에는 생략한다. pure 진단 자체는 신호·정산·입력 hash를 바꾸지 않는다. 요청 시작의 `referenceAsOf`를 고정하고 준비된 실행 label을 읽는다. US 연구에서는 sourceRows/selectedRows가 원본 공급/준비 cohort 전체, usedRows가 채택 관측이며 priceExcludedRows는 실제 `invalidPrice` 제외만 센다. KR/legacy 경로의 lexical tail 의미와 구분한다. 진단 처리 상한512행·label64바이트·날짜8개·예시6개이며 inputTruncated/omittedDayRows를 반환한다. 전체 합계는 처리한 입력 범위에서 계산하고 날짜 목록만 줄인다.
 
 RFC3339는 실제 순간을 America/New_York 또는 Asia/Seoul로 변환한다. compact12/14는 기존 KST 가정으로 별도 집계한다. `labelConvention=barClose`인 Toss는 label−60초/label을 봉 시작/종가 공개 가능 시각 모델로 제공한다. 내부 barStart fixture는 label/label+60초, unknown은 세션·공개 가능 시각·공백 판정을 하지 않는다. `firstMarketLocal/lastMarketLocal`은 원본 label 순간의 시간순 경계이며, 원본 실행 순서를 바꾸지 않는다. duplicateInstants/outOfOrderRows/nonMinuteAlignedRows/unfinishedRows는 동일 순간/실제 순간 역순/초·소수초/기준시각 뒤 종가를 센다. 진단 때문에 실행 관측을 제외하지 않는다.
 
-일별 days는 일반 평일 정규 시간창 안의 정렬된 고유 분 격자를 산술 비교한다. interiorUnobservedSlots/maxInteriorGapSlots는 같은 관측 날짜 내부이며, 앞뒤 시간창과 무관측 날짜·야간·주말을 실제 누락으로 확정하지 않는다. regularRows는 중복·초단위도 포함한 시간창 분류 수, regularUniqueBars는 분 경계의 고유 격자 수다. 달력·자료 완전성·요청 기간·실제 발행/수신 검증 flag4개는 false다. legacySessionPolicy=legacyFixedKstUnverified, sampleOnly/notEvaluable·timestamp/session unverified·lookAheadSafe=false를 유지한다. UI/A-B는 객체를 보존하고 이전 응답의 객체 부재·미지원/손상 형식을 경고하며 봉 표기·시간대·진단 버전·검증 가정 차이를 따로 표시한다. 실제3개월 검증은 P1-05/P2-12에 남는다.
+일별 days는 일반 평일 정규 시간창 안의 정렬된 고유 분 격자를 산술 비교한다. interiorUnobservedSlots/maxInteriorGapSlots는 같은 관측 날짜 내부이며, 앞뒤 시간창과 무관측 날짜·야간·주말을 실제 누락으로 확정하지 않는다. regularRows는 중복·초단위도 포함한 시간창 분류 수, regularUniqueBars는 분 경계의 고유 격자 수다. 이 pure 진단의 `legacySessionPolicy=legacyFixedKstUnverified`는 실제 US 채택 정책의 대체 근거가 아니다. 달력·자료 완전성·요청 기간·실제 발행/수신 검증 flag4개와 lookAheadSafe는 false, sampleOnly/notEvaluable·timestamp/session unverified는 유지한다.
+
+US 연구의 선택 `minuteTiming.executionClock`은 다음 실제 typed 필드를 제공한다(진단 v1과 분리된 실행 근거).
+
+- 문자열: `version=us-regular-close-v1`, `timezone=America/New_York`, `tzdbVersion`, `labelPolicy=barClose:[close-1m,close);close<=asOf`, `blackoutTimezone=Asia/Seoul`, `calendarSource`, `calendarHorizon=2023-2028`, `asOf`, `admissionIdentity`. `blackoutWindows`는 문자열 배열이다.
+- 수: `sourceRows`, `adoptedRows`, `warmupRows`, `unknownRows`, `omittedExamples`, `dayCount`, `omittedDays`. `excluded`는 `{reason,count}[]`, `examples`는 `{inputIndex,label,labelTruncated,reason}[]`, `days`는 `{date,open,close,earlyClose,adoptedRows}[]`다. 예시는6개·라벨128문자·날짜8개로 제한하고 생략 수를 따로 둔다.
+- 실제 발생한 제외만 집계한다. reason은 `invalidTime|calendarUnknown|weekend|plannedHoliday|extraordinaryClosure|outsideRegular|future|duplicateInstant|invalidPrice|selectionLimit`이며 `unknownRows`는 `calendarUnknown` 수다. NY 계획 달력2023–2028과 알려진2025-01-09 Carter 예외를 적용하나 모든 특별휴장 coverage 인증은 아니다. 봉 전체 구간 채택은 Open·지표/전략·Replay 전에 끝나며 차트도 같은 채택 순서·원본 라벨·OHLCV를 사용한다.
+- `admissionIdentity`는 실행 정책/채택봉 근거이며 raw asOf는 제외한다. replay `inputHash`는 params·비용·scope 등도 포함하므로 순수 dataset hash가 아니다. 현재/저장 A/B·reload는 실행 정책·채택 identity 차이 및 unknown을 경고한다. 같은 정책/채택봉에서 asOf 밀리초만 달라진 결과를 다른 모델로 보지 않는다. 누락·미지원·손상 clock은 legacy/unknown으로 표시하며 실행 검증으로 추정하지 않는다. 실제 provider 발행 지연·정규장 전용 일봉/기간 coverage·성과 인증은 별개이고 실제3개월 검증은 P1-05/P2-12에 남는다.
 
 ### RSI v18 실제 소유·선택 보호
 

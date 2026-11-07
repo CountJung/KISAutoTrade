@@ -175,10 +175,10 @@ v12 generic의 단기 `preview_strategy`와 새 `preview_strategy_continuous`는
 
 Generic 일봉 event 경로는 `Strategy`의 시가-only 날짜 시작 → 완성 OHLC 종가 tick → 실제 실행 결과의 포지션 동기화 → 완료봉 훅으로 흐른다. 강한 종가는 완료일 조건을 다음 평가일에 사용하고, 변동성 확장은 보유 상태를 유지한 채 당일 고저가를 초기화하고 이전 N개 완료 범위(0 포함)를 bounded ring으로 갱신한다. 두 전략은 `D`/`1d`만 지원한다. live quote polling은 완료 일봉 이벤트를 공급하지 않으며 기존 tick 경계를 유지한다. 신호는 완료 종가에서 판단하고 체결은 공통 세션의 sameClose/nextOpen 가정에 따른다.
 
-전용 LTH preview와 전략 v4는 일봉 context를 분봉 EMA/RSI/ADX·반동·볼린저 관측과 별도 bounded 버퍼에 보관한다. 분봉 OHLC initializer는 OHLC·반동·볼린저 snapshot을 교체하고 가격 initializer는 반동 가격 snapshot만 교체한다. 일봉 재초기화는 기존 분봉과 실제 보유 상태를 보존한다. `1d`는 전략·체결 경로를 실행하지 않는 `dailyDiagnostic/notEvaluable` 자료 진단이며 시가를 장중 진입 가격으로 합성하지 않는다. `1m`은 실제 관측을 입력 시각에 재생하는 최대 200봉 `intradaySample/sampleOnly`이고 유효 관측이 없으면 `notEvaluable`이다. `ReplayMetadata.assessment`는 일봉 context/분봉 수와 시간대·DST·세션 미검증을 기록하며, `warmupCount=0`으로 일봉을 분봉 지표 사전자료로 계산하지 않는다. 고정 KST 세션 근사 때문에 LTH `lookAheadSafe=false`이며 deterministic 계산만으로 시장 시각 정확성을 주장하지 않는다. UI는 일봉 및 assessment 없는 기존 LTH 응답의 성과/A-B 저장을 숨긴다. 실제 3개월 분봉·거래소 시간 검증은 P1-05 잔여 조건이다.
+전용 LTH preview는 일봉 context를 분봉 EMA/RSI/ADX·반동·볼린저 관측과 별도 bounded 버퍼에 보관한다. 분봉 OHLC initializer는 OHLC·반동·볼린저 snapshot을 교체하고 가격 initializer는 반동 가격 snapshot만 교체한다. 일봉 재초기화는 기존 분봉과 실제 보유 상태를 보존한다. `1d`는 전략·체결 경로를 실행하지 않는 `dailyDiagnostic/notEvaluable` 자료 진단이며 시가를 장중 진입 가격으로 합성하지 않는다. `1m`은 최대 200봉 `intradaySample/sampleOnly`이고 유효 관측이 없으면 `notEvaluable`이다. 미국 연구 v5는 `lth_regular::prepare`에서 실제 instant 정렬·중복 전체 제외·단일 cutoff 및 NY 계획 정규장 안의 종료 표기 봉 전체 구간을 먼저 검증한다. 같은 채택 순서/인덱스가 Open→분봉 지표/LTH→ReplaySession과 원본 라벨/OHLCV 차트에 흐르며, 이전 NY 거래일의 일봉만 별도 context로 사용한다. `research_session`이 NY/DST·2023–2028 계획 달력과 알려진 Carter 예외를 소유하고 horizon 밖은 unknown으로 제외한다. blackout 설정은 legacy Asia/Seoul 분이며 KR/일봉 v4·live 세션 설정은 유지한다. `ReplayMetadata.assessment`의 시각/세션 unverified·`warmupCount=0`·`lookAheadSafe=false`는 유지한다. 계획 달력 적용은 실제 provider 원본/offset·발행·정규장 전용 일봉 구성·모든 특별휴장/기간 coverage 인증이 아니다. UI는 일봉 및 assessment 없는 기존 LTH 응답의 성과/A-B 저장을 숨긴다. 실제 3개월 검증은 P1-05 잔여 조건이다.
 
 
-v9 generic 분봉은 offset 포함 RFC3339 또는 KST compact 시각을 고정 정밀도 UTC instant로 정규화해 정렬·중복·사전자료 겹침을 검사한다. `simulation.rs`와 공용 preview 차트도 RFC3339의 실제 instant를 우선 해석하며 관측 갭을 보간하지 않는다. 이 변경은 전용 LTH의 고정 KST 세션/DST 미검증 상태를 해소하지 않는다.
+v9 generic 분봉은 offset 포함 RFC3339 또는 KST compact 시각을 고정 정밀도 UTC instant로 정규화해 정렬·중복·사전자료 겹침을 검사한다. `simulation.rs`와 공용 preview 차트도 RFC3339의 실제 instant를 우선 해석하며 관측 갭을 보간하지 않는다. 구문 정규화와 위 US LTH 연구의 세션 채택 정책은 별도 책임이며 실제 provider 시각/coverage 미검증을 해소하지 않는다.
 
 현재 replay의 `simulation/atr.rs`는 같은 간격의 이전 close를 포함한 TR14를 보관한다. `run_backtest_with_history`의 검증된 이전 자료는 ATR 지표만 준비하며 주문·equity에는 포함하지 않는다. 15관측/14TR 준비 상태를 `backtest.atrPreparation`으로 전략 준비와 구분한다. 연구 수량 산정 활성 시 부족/0변동폭/0bps는 신규 매수만 차단한다. 전용 LTH v4의 callback은 실제 잔여 수량·평균 체결가를 반환하여 ATR 수량 변경과 부분 청산 뒤에도 보호 상태를 유지한다. 기존 bool API는 raw 신호 연구용 호환 wrapper다.
 
@@ -313,7 +313,7 @@ v17 MA cross는 기존 관측 교차를 보존하고 별도 bounded512 완료 �
 
 ## LTH minute timing 진단 경계
 
-`strategy_preview → lth_preview_assessment → simulation/minute_timing`은 기존 준비된 분봉 label의 별도 읽기 전용 경로다. 실제 순간의 거래소 timezone 변환·봉 시작/종가 가능 시각·일별 정규 시간창의 미관측 슬롯을 bounded metadata로 만든다. 원본 label 및 기존 fixed KST 실행시계·매매 신호·회계·hash는 유지한다. 구문 파서만 `simulation/minute_time`에서 generic 분봉 정규화와 공유한다. `assessment.minuteTiming`은 전용1m만 제공하고 UI와 저장A/B에 같은 진단을 표시한다. 달력/실제 발행/coverage·성과 적합성은 인증하지 않으며 [IPC 계약](ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22)과 [작업 기록](completed-history.md#task-lth-minute-timing-20261022)을 따른다.
+`strategy_preview → lth_preview_assessment → simulation/minute_timing`의 pure 진단은 준비된 분봉 label을 읽어 실제 순간의 거래소 timezone·봉 시작/종가 가능 시각·일반 평일창 내부 미관측 슬롯을 bounded metadata로 만든다. 진단 자체는 관측·신호·회계·hash를 바꾸지 않는다. US 연구의 실제 채택/제외·계획 달력 근거는 같은 v1 객체의 선택 `executionClock`에 별도로 투영한다. 일반 평일창 슬롯과 적용된 계획 달력의 날짜/마감을 혼동하지 않는다. 구문 파서만 `simulation/minute_time`에서 generic 정규화와 공유한다. UI와 저장 A/B는 실행 정책·채택 identity 차이와 legacy/unknown을 표시하되 같은 정책/채택봉의 asOf 밀리초 차이는 다른 모델로 취급하지 않는다. 달력/실제 발행/coverage flag는 false이고 성과 적합성도 인증하지 않는다. [IPC 계약](ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22), [현재 경과](completed-history.md#p1-session-01), [과거 진단 기록](completed-history.md#task-lth-minute-timing-20261022)을 따른다.
 
 ## RSI 소유 피드백
 

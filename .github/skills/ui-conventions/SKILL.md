@@ -690,7 +690,7 @@ UI 규칙:
 - 결과는 raw signal, 주문 가능, 체결 가정, 차단을 분리하고 누적 수익률/MDD/승률/손익비/turnover/exposure, equity curve, in/out-of-sample, 거래 목록을 표시한다. 큰 거래 목록은 UI에서 100건 이하로 제한해 jank를 막는다.
 - replay cadence와 live 10초 tick cadence, warmup, 데이터 source/range, 재현 hash를 함께 표시해 일봉/1분봉 근사와 실제 tick을 혼동하지 않게 한다.
 - 전용 LTH의 `replay.assessment`로 성과 표시 가능 여부를 결정한다. `dailyDiagnostic/notEvaluable` 일봉과 유효 분봉 0개는 자료 진단만 표시하고 수익률·승률·자산 곡선·거래 성과·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리하며 빈 backtest를 0% 성과로 표시하지 않는다. generic 성과 패널은 기존 계약을 유지한다.
-- `intradaySample/sampleOnly`는 “분봉 표본 모의 결과”로 제목/경고를 표시한다. 별도 일봉 context 수와 실제 장중 관측 수, 최대 200봉/3개월 대표성 부족, 원본 시간대·DST·세션 미검증과 고정 KST 근사를 명시한다. `warmupCount=0`을 일봉 context 없음으로 해석하지 않는다. A/B snapshot은 assessment를 replay에 보존하며 기존 미검증 LTH 저장 결과의 성과도 숨긴다.
+- `intradaySample/sampleOnly`는 “분봉 표본 모의 결과”로 제목/경고를 표시한다. 일봉 context·실제 장중 관측 수와 최대200봉/3개월 대표성 부족을 명시한다. US1m은 선택 executionClock의 NY/DST 계획 정규장·실제 채택/제외·단일 cutoff와 legacy Asia/Seoul blackout을 일반 평일창 pure 진단과 구분한다. 계획 달력 적용을 실제 원본/offset·발행/세션·기간 coverage 인증으로 표시하지 않는다. KR/legacy의 고정 KST 한계는 유지하며 clock 누락/미지원/손상은 legacy/unknown으로 표시한다. 현재/저장 A/B·reload의 정책/채택 identity 차이와 unknown을 경고하되 동일 정책/채택봉의 asOf 밀리초만으로 다른 모델 경고를 만들지 않는다. `warmupCount=0`은 일봉 context 없음이 아니다. snapshot은 assessment를 보존하며 assessment가 없는 기존 LTH 저장 결과의 성과는 숨긴다. 실행 clock만 없는 legacy 표본은 그 사실을 경고하고 기록 열람을 유지한다. [typed 계약](../../../docs/ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22).
 - 단기 generic preview는 모든 전략에 동일한 요청 평가 봉 수를 우선 적용한다. 공통 완료봉 페이지를 최대8회·보관500봉 안에서 조회해 평가50/100/200봉과 이전252봉을 별도 `historyCandles`로 보낸다. 준비 부족을 감추기 위해 요청 평가 봉을 history로 옮기거나200·252 기준을 줄이지 않고 요청·실제 평가·사전자료 수와 수집 중단 사유를 표시한다. 연속 일봉의 별도 상한과 날짜 범위는 아래 v12 항목을 따른다.
 - `preparation`에서 자료 부족·지표 준비 중·조건 불충족·신호 무체결·체결 가정을 구분한다. 제공 자료와 실제 지표 버퍼 수, 시작/종료 준비, 처리 후 첫 준비 시각, 조건 평가 봉 수를 함께 읽는다. seed-only 또는 미지원 구간은 평가 불가로 표시하며 null을 false/0으로 단정하지 않는다.
 - A/B 실험은 broker/account/strategy/symbol scope별 localStorage에 두 slot만 저장한다. 전략 버전, params, data source/interval/range, 비용 가정, 생성 시각을 포함하고 credential/secret은 저장하지 않는다. source/기간이 다르면 직접 비교 경고를 표시한다.
@@ -810,10 +810,10 @@ UI 규칙:
 ## LTH 분봉 시각·세션 진단 UI
 
 - current/A-B의 선택 `assessment.minuteTiming`을 같은 panel로 표시한다. 정보없음·미지원버전·손상된 날짜/예시/limitations는 경고로 처리하고 시간대 검증을 만들어내지 않는다. 기본8일/compact2일의 실제 표시 수와 전체/생략 날짜수를 구분한다. 긴 시각과 label은 좁은 화면에서도 줄바꿈한다.
-- 원본 label 현지시각/봉시작UTC/종가 공개 가능UTC와 asOf, 공급/선택/실행/가격제외 수를 구분한다. 일반 평일창의 미관측 슬롯은 실제 누락 확정이 아니며 달력·발행·전체 coverage·기존 fixed KST 실행시계 한계를 보인다. 표기/시간대/진단버전/검증가정이 다른A/B는 경고한다. sampleOnly/notEvaluable·일봉 성과숨김과 이전결과 보호를 유지한다.
+- 원본 label 현지시각/봉시작UTC/종가 공개 가능UTC와 asOf, 공급/선택/실행/실제 가격제외 수를 구분한다. 일반 평일창의 미관측 슬롯은 실제 누락 확정이 아니다. US 연구 executionClock의 적용된 NY 계획 달력·채택 근거와 pure 진단을 분리하고, KR/legacy 고정 KST 및 실제 발행/전체 coverage 미검증을 표시한다. 표기/시간대/진단버전/검증가정과 실행 정책/채택 identity·unknown이 다른 A/B는 경고하되 같은 정책/채택봉의 asOf 밀리초 차이는 제외한다. sampleOnly/notEvaluable·일봉 성과숨김과 이전결과 보호를 유지한다.
 - `tests/e2e/lth-minute-timing.spec.ts`의 mock으로 저장/복원·손상 배열·다른가정·legacy·일봉/빈자료·375px overflow/compact수를 확인한다. [작업 기록](../../../docs/completed-history.md#task-lth-minute-timing-20261022).
 
-> 마지막 업데이트: 2026-10-22T20:33:31+09:00
+> 마지막 업데이트: 2026-11-08T00:24:21+09:00 (부모 관측 기준)
 
 ## RSI 선택 보호 UI
 

@@ -418,3 +418,385 @@ fn daily_diagnostic_never_evaluates_strategy_or_execution_even_with_intraday_inp
     assert_eq!(assessment["intradayBars"], 0);
     assert_eq!(assessment["dailyContextBars"], 252);
 }
+
+#[test]
+fn us_minute_preparation_same_instant_keeps_ny_date_and_daily_warmup() {
+    use chrono::{Duration, TimeZone};
+    let ny = chrono_tz::America::New_York;
+    let kst = chrono_tz::Asia::Seoul;
+    let mut mismatches = Vec::new();
+    // Winter's 05:30 KST is still the prior NY trading day's regular session.
+    // Summer control covers the same NY close-labelled minute under DST.
+    for (month, day) in [(1, 7), (7, 7)] {
+        let instant = ny.with_ymd_and_hms(2026, month, day, 15, 30, 0).unwrap();
+        let expected_date = instant.format("%Y%m%d").to_string();
+        let daily = [-1, 0, 1]
+            .into_iter()
+            .map(|delta| BrokerCandle {
+                symbol: BrokerSymbol("KORU".into()),
+                market: BrokerMarket::Us,
+                date: (instant.date_naive() + Duration::days(delta))
+                    .format("%Y%m%d")
+                    .to_string(),
+                open: BrokerMoney::usd("100"),
+                high: BrokerMoney::usd("101"),
+                low: BrokerMoney::usd("99"),
+                close: BrokerMoney::usd("100"),
+                volume: BrokerQuantity("1000".into()),
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(daily_warmup_end_before(&daily, &expected_date), 1);
+        for label in [
+            instant.to_utc().to_rfc3339(),
+            instant.to_rfc3339(),
+            instant.with_timezone(&kst).to_rfc3339(),
+        ] {
+            assert_eq!(
+                chrono::DateTime::parse_from_rfc3339(&label).unwrap(),
+                instant
+            );
+            let mut source = daily[1].clone();
+            source.date = label.clone();
+            // Same production preparation chain used before LTH initialization.
+            // The async profile entrypoint requires broker I/O; intentionally not called here.
+            let prepared =
+                super::lth_regular::prepare(&[source], &daily, 1, instant.to_utc()).unwrap();
+            let date = minute_replay_trading_date(&prepared.timed[0].time, true, "regular");
+            assert_eq!(prepared.sessions[0].date.format("%Y%m%d").to_string(), date);
+            let warmup = prepared.warmup.len();
+            if date != expected_date || warmup != 1 {
+                mismatches.push((label, expected_date.clone(), date, warmup));
+            }
+        }
+    }
+    assert!(mismatches.is_empty(),
+        "US preparation expected NY date and one prior daily warmup; (input, expected, actual, warmup): {mismatches:#?}");
+}
+
+fn a2_us_bar(label: &str, price: u64) -> BrokerCandle {
+    BrokerCandle {
+        symbol: BrokerSymbol("KORU".into()),
+        market: BrokerMarket::Us,
+        date: label.into(),
+        open: BrokerMoney::usd(price.to_string()),
+        high: BrokerMoney::usd(price.to_string()),
+        low: BrokerMoney::usd(price.to_string()),
+        close: BrokerMoney::usd(price.to_string()),
+        volume: BrokerQuantity("1000".into()),
+    }
+}
+
+fn a2_us_params() -> crate::trading::strategy::LeveragedTrendHoldParams {
+    let mut params: crate::trading::strategy::LeveragedTrendHoldParams = serde_json::from_value(
+        serde_json::json!({"entries":[{"leveraged_symbol":"KORU","quantity":1,"is_overseas":true}]})
+    ).unwrap();
+    params.intraday_rebound_enabled = true;
+    params.rapid_rebound_enabled = false;
+    params.rebound_baseline_ticks = 2;
+    params.rebound_confirm_ticks = 2;
+    params.rebound_pullback_pct = 4.0;
+    params.rebound_buy_pressure_pct = 2.0;
+    params.rebound_rsi_min = 20.0;
+    params.no_trade_adx_below = 0.0;
+    params.entry_window_start_min = 10000;
+    params.entry_window_end_min = 10001;
+    params
+}
+
+// Same production preparation and execution helpers used after the async fetch.
+// No provider/profile/account construction is needed for synthetic input.
+fn a2_us_run(
+    source: &[BrokerCandle],
+    daily: &[BrokerCandle],
+    as_of: chrono::DateTime<chrono::Utc>,
+    params: crate::trading::strategy::LeveragedTrendHoldParams,
+) -> (super::lth_regular::Prepared, serde_json::Value) {
+    use crate::trading::simulation::SimulationEvent;
+    let prepared = super::lth_regular::prepare(source, daily, 200, as_of).unwrap();
+    let events = prepared
+        .timed
+        .iter()
+        .map(|row| SimulationEvent {
+            time: row.time.clone(),
+            chart_time: row.time.clone(),
+            open_units: row.candle.open,
+            high_units: row.candle.high,
+            low_units: row.candle.low,
+            close_units: row.candle.close,
+            signal: None,
+        })
+        .collect::<Vec<_>>();
+    let (signals, session) = super::lth_regular::execute(
+        "1m",
+        "KORU",
+        params,
+        &super::broker_candles_to_ohlc(&prepared.warmup),
+        &prepared.timed,
+        &events,
+        true,
+        SimulationAssumptions::default(),
+    );
+    (
+        prepared,
+        serde_json::json!({"signals": signals, "backtest": session.finish()}),
+    )
+}
+
+#[test]
+fn us_regular_production_preparation_and_execution_admission_boundaries() {
+    use crate::trading::strategy::lth_research_session::Exclusion;
+    use chrono::Duration;
+    let cases = [
+        ("2026-01-07T09:30:00-05:00", Some(Exclusion::OutsideRegular)),
+        ("2026-01-07T09:30:59-05:00", Some(Exclusion::OutsideRegular)),
+        ("2026-01-07T09:31:00-05:00", None),
+        ("2026-01-07T16:00:00-05:00", None),
+        ("2026-01-07T16:00:01-05:00", Some(Exclusion::OutsideRegular)),
+        ("2026-11-27T13:00:00-05:00", None),
+        ("2026-11-27T13:00:01-05:00", Some(Exclusion::OutsideRegular)),
+        ("2026-07-02T16:00:00-04:00", None), // no invented half-day before July3
+        ("2027-12-31T16:00:00-05:00", None), // no bank-calendar substitution
+        ("2023-07-03T13:00:00-04:00", None),
+        ("2024-12-24T13:00:00-05:00", None),
+        ("2025-12-24T13:00:00-05:00", None),
+        ("2025-12-25T12:00:00-05:00", Some(Exclusion::PlannedHoliday)),
+        ("2026-04-03T12:00:00-04:00", Some(Exclusion::PlannedHoliday)),
+        (
+            "2025-01-09T12:00:00-05:00",
+            Some(Exclusion::ExtraordinaryClosure),
+        ),
+        ("2026-07-11T12:00:00-04:00", Some(Exclusion::Weekend)),
+        (
+            "2022-12-30T12:00:00-05:00",
+            Some(Exclusion::CalendarUnknown),
+        ),
+        (
+            "2029-01-02T12:00:00-05:00",
+            Some(Exclusion::CalendarUnknown),
+        ),
+    ];
+    for (label, reason) in cases {
+        let instant = chrono::DateTime::parse_from_rfc3339(label)
+            .unwrap()
+            .to_utc();
+        let (prepared, result) = a2_us_run(&[a2_us_bar(label, 100)], &[], instant, a2_us_params());
+        assert_eq!(prepared.as_of, instant);
+        assert!(prepared.calendar_source.contains("2023-2028"));
+        match reason {
+            Some(reason) => {
+                assert!(prepared.timed.is_empty(), "{label}");
+                assert_eq!(prepared.excluded, vec![(0, reason)]);
+            }
+            None => {
+                assert_eq!(prepared.timed.len(), 1, "{label}");
+                assert!(prepared.excluded.is_empty());
+            }
+        }
+        assert_eq!(
+            result["backtest"]["equityCurve"].as_array().unwrap().len(),
+            prepared.timed.len()
+        );
+        assert_eq!(result["signals"], serde_json::json!([])); // genuinely insufficient, no synthetic seed
+        let assessment =
+            super::lth_preview_assessment("1m", 0, 1, 200, &prepared.timed, true, instant);
+        assert_eq!(assessment.timestamp_status, "unverified");
+        assert_eq!(assessment.session_status, "unverified");
+        if reason.is_some() {
+            assert_eq!(assessment.performance_status, "notEvaluable");
+        }
+    }
+    let label = "2026-01-07T09:31:00-05:00";
+    let instant = chrono::DateTime::parse_from_rfc3339(label)
+        .unwrap()
+        .to_utc();
+    for delta in [-1, 0, 1] {
+        let (prepared, _) = a2_us_run(
+            &[a2_us_bar(label, 100)],
+            &[],
+            instant + Duration::seconds(delta),
+            a2_us_params(),
+        );
+        assert_eq!(prepared.timed.len(), usize::from(delta >= 0));
+        if delta < 0 {
+            assert_eq!(prepared.excluded, vec![(0, Exclusion::Future)]);
+        }
+    }
+}
+
+#[test]
+fn us_regular_production_replay_excluded_extremes_cannot_contaminate_warmup_or_fills() {
+    use crate::trading::strategy::lth_research_session::Exclusion;
+    use chrono::{Duration, TimeZone};
+    let ny = chrono_tz::America::New_York;
+    let warmup = ny.with_ymd_and_hms(2026, 1, 6, 12, 30, 0).unwrap();
+    let open = ny.with_ymd_and_hms(2026, 1, 7, 9, 31, 0).unwrap();
+    let exit = ny.with_ymd_and_hms(2026, 1, 7, 15, 55, 0).unwrap();
+    let mut source = (0..90)
+        .map(|i| {
+            a2_us_bar(
+                &(warmup + Duration::minutes(i)).to_rfc3339(),
+                102 + i as u64,
+            )
+        })
+        .collect::<Vec<_>>();
+    source.extend(
+        [190, 180, 181, 186]
+            .into_iter()
+            .enumerate()
+            .map(|(i, p)| a2_us_bar(&(open + Duration::minutes(i as i64)).to_rfc3339(), p)),
+    );
+    source.push(a2_us_bar(&exit.to_rfc3339(), 186));
+    let daily = ["20260105", "20260106", "20260107", "20260108"].map(|label| a2_us_bar(label, 100));
+    let snapshot = serde_json::to_value(&source).unwrap();
+    let (prepared, baseline) = a2_us_run(&source, &daily, exit.to_utc(), a2_us_params());
+    assert_eq!(prepared.warmup.len(), 1);
+    assert_eq!(baseline["signals"].as_array().unwrap().len(), 2);
+    assert_eq!(baseline["signals"][0]["side"], "buy");
+    assert_eq!(baseline["signals"][1]["side"], "sell");
+    assert_eq!(baseline["backtest"]["summary"]["filledOrderCount"], 2);
+    assert_eq!(baseline["backtest"]["summary"]["completedTrades"], 1);
+    let bad_labels = [
+        "2026-01-07T09:30:00-05:00",
+        "2026-01-06T16:01:00-05:00",
+        "2026-01-01T12:00:00-05:00",
+        "2025-01-09T12:00:00-05:00",
+        "2026-01-07T15:56:00-05:00",
+        "2029-01-02T12:00:00-05:00",
+        "bad-20260107100000",
+    ];
+    for extreme in [1, 9999999] {
+        let mut contaminated = source.clone();
+        contaminated.extend(bad_labels.iter().map(|label| a2_us_bar(label, extreme)));
+        contaminated.reverse(); // preparation sorts instants, not source labels
+        let contaminated_snapshot = serde_json::to_value(&contaminated).unwrap();
+        let (actual, result) = a2_us_run(&contaminated, &daily, exit.to_utc(), a2_us_params());
+        assert_eq!(result, baseline);
+        assert_eq!(actual.sessions, prepared.sessions);
+        assert_eq!(
+            serde_json::to_value(&actual.warmup).unwrap(),
+            serde_json::to_value(&prepared.warmup).unwrap()
+        );
+        assert_eq!(actual.excluded.len(), bad_labels.len());
+        assert!(actual.excluded.iter().any(|(_, r)| *r == Exclusion::Future));
+        assert_eq!(
+            serde_json::to_value(&contaminated).unwrap(),
+            contaminated_snapshot
+        );
+        assert_eq!(actual.as_of, prepared.as_of);
+    }
+    assert_eq!(
+        a2_us_run(&source, &daily, exit.to_utc(), a2_us_params()).1,
+        baseline
+    );
+    assert_eq!(serde_json::to_value(&source).unwrap(), snapshot);
+    // Conflicting prices at one instant: reject both, with no arbitrary winner.
+    let mut duplicate = source.clone();
+    duplicate.push(a2_us_bar(&open.to_utc().to_rfc3339(), 9999999));
+    let (dup, _) = a2_us_run(&duplicate, &daily, exit.to_utc(), a2_us_params());
+    assert_eq!(
+        dup.excluded
+            .iter()
+            .filter(|(_, r)| *r == Exclusion::DuplicateInstant)
+            .count(),
+        2
+    );
+    assert_eq!(dup.timed.len(), source.len() - 1);
+    // Live session selection does not authorize extended research.
+    for policy in ["auto", "day", "pre", "regular", "after"] {
+        let mut params = a2_us_params();
+        params.toss_us_session = policy.into();
+        assert_eq!(
+            a2_us_run(&source, &daily, exit.to_utc(), params).1,
+            baseline
+        );
+    }
+}
+
+#[test]
+fn us_regular_production_dst_offsets_warmup_and_clock_agree() {
+    use chrono::{Duration, FixedOffset, TimeZone};
+    let ny = chrono_tz::America::New_York;
+    for (month, previous, day) in [
+        (1, 6, 7),
+        (3, 5, 6),
+        (3, 6, 9),
+        (7, 6, 7),
+        (10, 29, 30),
+        (11, 2, 3),
+        (11, 25, 27),
+    ] {
+        let start = ny
+            .with_ymd_and_hms(2026, month, previous, 12, 30, 0)
+            .unwrap();
+        let open = ny.with_ymd_and_hms(2026, month, day, 9, 31, 0).unwrap();
+        let (hour, minute) = if month == 11 && day == 27 {
+            (13, 0)
+        } else {
+            (15, 55)
+        };
+        let exit = ny
+            .with_ymd_and_hms(2026, month, day, hour, minute, 0)
+            .unwrap();
+        let mut rows = (0..90)
+            .map(|i| a2_us_bar(&(start + Duration::minutes(i)).to_rfc3339(), 102 + i as u64))
+            .collect::<Vec<_>>();
+        rows.extend(
+            [190, 180, 181, 186]
+                .into_iter()
+                .enumerate()
+                .map(|(i, p)| a2_us_bar(&(open + Duration::minutes(i as i64)).to_rfc3339(), p)),
+        );
+        rows.push(a2_us_bar(&exit.to_rfc3339(), 186));
+        let daily = [start, open, exit + Duration::days(1)]
+            .map(|time| a2_us_bar(&time.format("%Y%m%d").to_string(), 100));
+        let (base_prepared, base) = a2_us_run(&rows, &daily, exit.to_utc(), a2_us_params());
+        assert_eq!(
+            base_prepared.warmup.len(),
+            0,
+            "first admitted minute's day must not warm itself"
+        );
+        assert_eq!(
+            base["signals"].as_array().unwrap().len(),
+            2,
+            "{month}/{day}"
+        );
+        assert_eq!(base["backtest"]["summary"]["filledOrderCount"], 2);
+        let canonical = |mut value: serde_json::Value| {
+            for signal in value["signals"].as_array_mut().unwrap() {
+                let instant =
+                    chrono::DateTime::parse_from_rfc3339(signal["time"].as_str().unwrap()).unwrap();
+                signal["time"] = serde_json::json!(instant.to_utc().to_rfc3339());
+            }
+            (
+                value["signals"].clone(),
+                value["backtest"]["summary"].clone(),
+            )
+        };
+        for offset in [0, -4 * 3600, -5 * 3600, 9 * 3600] {
+            let mut alternate = rows.clone();
+            for row in &mut alternate {
+                let instant = chrono::DateTime::parse_from_rfc3339(&row.date).unwrap();
+                row.date = instant
+                    .with_timezone(&FixedOffset::east_opt(offset).unwrap())
+                    .to_rfc3339();
+            }
+            alternate.reverse();
+            let (prepared, result) = a2_us_run(&alternate, &daily, exit.to_utc(), a2_us_params());
+            assert_eq!(prepared.sessions, base_prepared.sessions);
+            assert_eq!(canonical(result), canonical(base.clone()));
+        }
+        // Legacy compact labels are strictly KST; the same NY dates still apply.
+        let mut compact = rows.clone();
+        for row in &mut compact {
+            row.date = chrono::DateTime::parse_from_rfc3339(&row.date)
+                .unwrap()
+                .with_timezone(&chrono_tz::Asia::Seoul)
+                .format("%Y%m%d%H%M%S")
+                .to_string();
+        }
+        let (prepared, result) = a2_us_run(&compact, &daily, exit.to_utc(), a2_us_params());
+        assert_eq!(prepared.sessions, base_prepared.sessions);
+        assert_eq!(result["backtest"]["summary"], base["backtest"]["summary"]);
+        assert_eq!(result["signals"].as_array().unwrap().len(), 2);
+    }
+}
