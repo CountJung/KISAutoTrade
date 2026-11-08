@@ -24,6 +24,26 @@ pub struct CollectBrokerChartInput {
     pub exchange_mappings: Vec<super::sector_data::SectorExchangeMapping>,
 }
 
+/// Identity body bytes excluding HTTP framing/headers. Reception completion is
+/// neither provider publication time nor authenticity/PIT/coverage certification.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrokerChartResponseSource {
+    pub sha256: String,
+    pub byte_length: usize,
+    pub received_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<crate::broker::candles::CandleResponseSource> for BrokerChartResponseSource {
+    fn from(source: crate::broker::candles::CandleResponseSource) -> Self {
+        Self {
+            sha256: source.sha256,
+            byte_length: source.byte_length,
+            received_at: source.collected_at,
+        }
+    }
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BrokerChartPageReceipt {
@@ -35,6 +55,9 @@ pub struct BrokerChartPageReceipt {
     pub newest_date: String,
     pub rows_hash: String,
     pub request_adjustment: String,
+    /// Missing means unavailable/unknown; preserve legacy JSON and collection hash.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_source: Option<BrokerChartResponseSource>,
 }
 
 #[derive(Serialize)]
@@ -66,6 +89,7 @@ fn kis_default_mappings() -> Vec<super::sector_data::SectorExchangeMapping> {
 pub struct RawBrokerChartPage {
     pub rows: Vec<BrokerChartDay>,
     pub next_cursor: Option<String>,
+    pub response_source: Option<BrokerChartResponseSource>,
 }
 
 /// Fetch one symbol only; each returned day's map must contain exactly that symbol.
@@ -168,6 +192,7 @@ async fn series<S: BrokerChartQuoteSource>(
             newest_date: newest,
             rows_hash: hash(&page.rows)?,
             request_adjustment: "unadjusted".into(),
+            response_source: page.response_source,
         });
         let before = rows.len();
         for (date, price) in page_rows {
@@ -312,7 +337,7 @@ pub async fn collect_broker_chart<S: BrokerChartQuoteSource>(
     };
     let input=BrokerChartInput{schema_version:1,initial_cash_usd:10000.0,cost_bps:10.0,source:BrokerChartSource{broker_id:broker,name:format!("{broker_name} daily unadjusted chart; price-only approximation"),retrieved_at:retrieved_at.into(),synthetic:false,adjustment:BrokerChartAdjustment::Unadjusted,currency:BrokerChartCurrency::Usd,interval:BrokerChartInterval::Daily,session_basis:BrokerChartSessionBasis::ObservedSpySessions,calendar_evidence:"Same-provider SPY returned daily dates; exchange-calendar completeness is not independently certified. API route acceptance is not listing-venue certification.".into()},history:days[..22].to_vec(),evaluation:days[22..].to_vec(),expected_session_dates:dates,acknowledged_price_only:false,known_corporate_actions:Vec::new()};
     let collection_hash = hash(&(&input, &receipts, &exchange_mappings))?;
-    let mut diagnostics = vec!["동일 증권사 SPY의 관측 거래일을 기준으로12종목을 대조했습니다. 공식 달력·당시 버전의 완전성 인증은 아닙니다.".into(),"기업행위 목록이 비어 있어도 부재를 검증한 것이 아닙니다. 배당/분할 미정산 가격근사이며 한계 확인 후 계산하세요.".into(),"페이지 hash는 보존 시세 필드의 정규화 hash이며 HTTP 원문이나 출처 진위 인증이 아닙니다.".into()];
+    let mut diagnostics = vec!["동일 증권사 SPY의 관측 거래일을 기준으로12종목을 대조했습니다. 공식 달력·당시 버전의 완전성 인증은 아닙니다.".into(),"기업행위 목록이 비어 있어도 부재를 검증한 것이 아닙니다. 배당/분할 미정산 가격근사이며 한계 확인 후 계산하세요.".into(),"rowsHash는 보존 시세 필드의 정규화 hash입니다. optional responseSource는 identity HTTP body bytes의 SHA256·길이·수신 완료 UTC이며 공개 시각/PIT·출처 진위 인증이 아닙니다. 누락은 미확보/unknown이며 fetch 없음·0bytes 인증이 아닙니다.".into()];
     if default_mapping {
         diagnostics.push("KIS 기본 조회코드는 공식 AMSMST.COD의 2026-11-06 스냅샷(12종목 US/USD/ETP type3/AMS)을 사용합니다. URL·수집시각·archive SHA256은 exchangeMappings에 보존했습니다. 현재 상장시장·매핑 최신성의 자동 인증이 아니며, 오래되어 오류나 빈 자료가 반환되면 다른 거래소 코드로 추정하지 않고 중단합니다.".into());
     } else if broker == BrokerChartBroker::Kis {

@@ -421,9 +421,19 @@ runtime의 자동API0 관측을 혼합하지 않는다. 실제 계좌·KIS·운�
 내보내기·375px를 production preview에서, `broker-chart-native.spec.ts`는 명시 시세 동의·
 프로필 ABA 늦은 응답을 source-harness의 브라우저 native 모사에서 검사한다.
 브라우저 native모사/스크린샷과 실제 OS native 화면·IPC를 구분한다.
+Toss raw 응답 회귀는 `broker::toss::client::response_parsing_tests`의 최종 성공 응답
+귀속과 provider 내부의 실제 Toss client→수집→직렬화 receipt 관통을 구분해 검사한다.
+후자는 같은 collection의 종목·페이지별 서로 다른 합성 wire body를 고정 SHA/길이와
+매칭하고 UTC 수신 범위·경제 입력/rowsHash/계산 결과 불변을 검사한다.
+`broker_chart::tests`는 None의 고정 before JSON/hash 호환과 Some의 metadata-only
+collectionHash 영향을 검사한다. native 모사는 전체 source 값의 다운로드 보존·KIS
+source 키 생략과 기존 동의/22+30/ABA 장벽을 유지한다.
+첫 응답 출처 재사용·메타데이터 누락의 고의 오류 주입은 post-implementation negative
+control이며 원상 복구 후 정상 검사를 수행하고 고유 전체 통과 수에 합산하지 않는다.
 `cargo run --locked -p kis-auto-trade --example broker_chart_price_replay -- INPUT.json`은
 계좌/앱 없이 차트 JSON의 생산 계산을 실행한다. 원본bytes hash와 모드/DTO hash를 구분하고
-독립 장부·동일 평가 prefix·10/20bp 비용을 대사한다. synthetic fixture, 실제 KIS quote 성공,
-Toss 미실행, 페이지 원본 미보존의 각각 범위는 [같은 ID 실측 이력](completed-history.md#p2-sector-01-broker-chart)에 둔다.
+독립 장부·동일 평가 prefix·10/20bp 비용을 대사한다. 과거 실제 KIS quote·원문 미보존과
+새 Toss 합성 provider 관통의 각각 범위는
+[같은 ID 실측 이력](completed-history.md#p2-sector-01-broker-chart)에 둔다. 합성 HTTP 성공은 실제 Toss 인증 성공이 아니다.
 KIS quote/auth와 Toss auth의 redirect 차단은 합성307/308과 두 번째 수신 서버0으로 검사하며
 실제 외부 인증 성공과 혼동하지 않는다.

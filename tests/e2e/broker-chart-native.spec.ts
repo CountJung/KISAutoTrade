@@ -13,15 +13,18 @@ test('synthetic native source needs separate explicit consent, discards ABA late
     const calls: { command: string; args: unknown }[] = []
     const collection = { input: { ...input, acknowledgedPriceOnly: false }, diagnostics: ['합성 수집 fixture · 실제 API 호출 없음'],
       receipts: [{ symbol: 'SPY', exchange: null, page: 1, rowCount: 42, oldestDate: input.history[0].date,
-        newestDate: input.evaluation[19].date, rowsHash: 'e'.repeat(64), requestAdjustment: 'unadjusted' }], collectionHash: 'd'.repeat(64),
+        newestDate: input.evaluation[19].date, rowsHash: 'e'.repeat(64), requestAdjustment: 'unadjusted',
+        responseSource: { sha256: 'a'.repeat(64), byteLength: 183, receivedAt: '2026-11-06T12:00:00Z' } },
+        { symbol: 'XLB', exchange: null, page: 1, rowCount: 42, oldestDate: input.history[0].date,
+          newestDate: input.evaluation[19].date, rowsHash: 'b'.repeat(64), requestAdjustment: 'unadjusted' }], collectionHash: 'd'.repeat(64),
       exchangeMappings: [{ symbol: 'SPY', exchange: 'AMS', evidence: '합성 매핑 fixture · 실제 마스터 확인 아님' }] }
-    Object.assign(window, { __brokerCalls: calls, __holdCollect: false, __releaseCollect: () => {}, __TAURI_INTERNALS__: {
+    Object.assign(window, { __brokerCalls: calls, __holdCollect: false, __collectHeld: false, __releaseCollect: () => {}, __TAURI_INTERNALS__: {
       invoke: async (command: string, args: unknown) => {
         calls.push({ command, args })
         if (command === 'get_broker_chart_scope') return { profileId: 'synthetic-toss', provider: 'toss', paper: false }
         if (command === 'preview_broker_chart_portfolio') return report
         if (command === 'collect_broker_chart_data') {
-          if ((window as unknown as { __holdCollect: boolean }).__holdCollect) await new Promise<void>(resolve => Object.assign(window, { __releaseCollect: resolve }))
+          if ((window as unknown as { __holdCollect: boolean }).__holdCollect) await new Promise<void>(resolve => Object.assign(window, { __releaseCollect: resolve, __collectHeld: true }))
           return collection
         }
         throw new Error(`차단한 네이티브 요청: ${command}`)
@@ -51,6 +54,7 @@ test('synthetic native source needs separate explicit consent, discards ABA late
   await page.evaluate(() => Object.assign(window, { __holdCollect: true }))
   await collect.click()
   await expect.poll(async () => (await calls()).filter(call => call.command === 'collect_broker_chart_data').length).toBe(1)
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __collectHeld: boolean }).__collectHeld)).toBe(true)
   await page.getByRole('button', { name: '합성 프로필 B', exact: true }).click()
   await page.getByRole('button', { name: '합성 프로필 A 재게시', exact: true }).click()
   await expect(lookup).toBeDisabled()
@@ -75,7 +79,11 @@ test('synthetic native source needs separate explicit consent, discards ABA late
   const downloaded = await downloadPromise
   const evidence = JSON.parse(await readFile((await downloaded.path())!, 'utf8'))
   expect(evidence.mode).toBe('brokerChartPriceApproximation')
-  expect(evidence.collection.receipts).toEqual([expect.objectContaining({ symbol: 'SPY', requestAdjustment: 'unadjusted', rowsHash: 'e'.repeat(64) })])
+  expect(evidence.collection.receipts).toHaveLength(2)
+  expect(evidence.collection.receipts[0]).toEqual(expect.objectContaining({ symbol: 'SPY', requestAdjustment: 'unadjusted', rowsHash: 'e'.repeat(64) }))
+  expect(evidence.collection.receipts[0].responseSource).toEqual({ sha256: 'a'.repeat(64), byteLength: 183, receivedAt: '2026-11-06T12:00:00Z' })
+  expect(evidence.collection.receipts[1].symbol).toBe('XLB')
+  expect(evidence.collection.receipts[1]).not.toHaveProperty('responseSource')
   expect(evidence.collection.collectionHash).toBe('d'.repeat(64))
   expect(evidence.collection.exchangeMappings).toEqual([{ symbol: 'SPY', exchange: 'AMS', evidence: '합성 매핑 fixture · 실제 마스터 확인 아님' }])
   expect(evidence.collection.input.knownCorporateActions).toEqual([])
@@ -86,7 +94,7 @@ test('synthetic native source needs separate explicit consent, discards ABA late
   expect(requests).toHaveLength(2)
   expect(requests[1].args).toEqual({ input: { expectedProfileId: 'synthetic-toss', authenticatedQuotesAcknowledged: true, evaluationBars: 20 } })
   await page.setViewportSize({ width: 1440, height: 1000 })
-  await page.screenshot({ path: '.cache/sector-frontend/broker-chart-native-desktop.png', fullPage: true, animations: 'disabled' })
+  await page.screenshot({ path: '.cache/p2-sector-01-provenance/broker-chart-native-desktop.png', fullPage: true, animations: 'disabled' })
   expect(safe.apiCalls).toEqual([]); expect(safe.violations).toEqual([]); expect(safe.errors).toEqual([])
 })
 
@@ -103,12 +111,12 @@ test('30-session collection preserves 22 warmup bars and option ABA requires fre
   expect(input.history).toHaveLength(22); expect(input.evaluation).toHaveLength(30)
   await page.addInitScript(input => {
     const calls: { command: string; args: unknown }[] = []
-    Object.assign(window, { __windowCalls: calls, __holdWindow: true, __releaseWindow: () => {}, __TAURI_INTERNALS__: {
+    Object.assign(window, { __windowCalls: calls, __holdWindow: true, __windowHeld: false, __releaseWindow: () => {}, __TAURI_INTERNALS__: {
       invoke: async (command: string, args: unknown) => {
         calls.push({ command, args })
         if (command === 'get_broker_chart_scope') return { profileId: 'synthetic-kis', provider: 'kis', paper: true }
         if (command === 'collect_broker_chart_data') {
-          if ((window as unknown as { __holdWindow: boolean }).__holdWindow) await new Promise<void>(resolve => Object.assign(window, { __releaseWindow: resolve }))
+          if ((window as unknown as { __holdWindow: boolean }).__holdWindow) await new Promise<void>(resolve => Object.assign(window, { __releaseWindow: resolve, __windowHeld: true }))
           return { input, diagnostics: ['합성30봉 수집 fixture · 실제 API 호출 없음'], receipts: [], collectionHash: 'f'.repeat(64) }
         }
         throw new Error(`차단한 네이티브 요청: ${command}`)
@@ -133,6 +141,7 @@ test('30-session collection preserves 22 warmup bars and option ABA requires fre
   await expect.poll(() => page.evaluate(() => (window as unknown as {
     __windowCalls: { command: string }[]
   }).__windowCalls.filter(call => call.command === 'collect_broker_chart_data').length)).toBe(1)
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __windowHeld: boolean }).__windowHeld)).toBe(true)
   // A→B→A options must not make the original request current again.
   await windowSelect.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Home'); await page.keyboard.press('Enter')
   await expect(ack).not.toBeChecked()
@@ -151,11 +160,11 @@ test('30-session collection preserves 22 warmup bars and option ABA requires fre
     command: 'collect_broker_chart_data', args: { input: { expectedProfileId: 'synthetic-kis', authenticatedQuotesAcknowledged: true, evaluationBars: 30 } },
   })))
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await page.screenshot({ path: '.cache/sector-frontend/broker-chart-30-mobile.png', fullPage: true, animations: 'disabled' })
+  await page.screenshot({ path: '.cache/p2-sector-01-provenance/broker-chart-30-mobile.png', fullPage: true, animations: 'disabled' })
   const downloadPromise = page.waitForEvent('download')
   await chart.getByRole('button', { name: '차트 수집 근거 JSON 다운로드', exact: true }).click()
   const download = await downloadPromise
-  await download.saveAs('.cache/sector-frontend/broker-chart-30-collection.json')
+  await download.saveAs('.cache/p2-sector-01-provenance/broker-chart-30-collection.json')
   const evidence = JSON.parse(await readFile((await download.path())!, 'utf8'))
   expect(evidence.collection.input).toEqual(input)
   expect(evidence.input).toEqual(input)

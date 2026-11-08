@@ -1505,9 +1505,9 @@ KISAutoTrade/
 | `trading/sector_portfolio/types.rs` | 공급 자료/출처·달력·조정/비조정 가격, 전략/방어 상태·목표 계획·보유/거래/일별 원장·전체 비교 report의 camelCase DTO |
 | `trading/sector_portfolio/validation.rs` | 매일12종목 완전성·유한 양수 가격·날짜/준비/평가 분리·최소22개 사전봉·합계500봉·명시 거래일 목록/출처/완료일 검증. 기업행위 입력은 미지원 오류로 전체 평가를 거부하며 공급원·공식 달력의 자동 인증을 하지 않음 |
 | `trading/sector_portfolio/planner.rs` | 완료된 이전 종가의 5/20일 SPY 상대강도·평균 백분위 순위/적격성·동률 순서를 계산. 기본/방어/공격 및 SPY/현금의 선택·방어 상태·재배분 판단과 이전 평가액 USD 예산을 만들며 당일 실행가격은 받지 않음 |
-| `trading/broker_chart.rs` | 주입 quote source의 bounded 순차 수집과 input/receipt 생성. SPY의 최근22+평가1..120개 관측 날짜를 고정하고 다른11종목 누락을 교집합으로 숨기지 않음. 종목/route당 최대16페이지·동일 overlap 허용/충돌 거부·cursor 무진전 거부, KIS 무매핑 probe는 빈 결과에만 다음 route를 시도하며 인증/HTTP/제한 오류에 route를 바꾸지 않음 |
-| `trading/broker_chart/provider.rs` | KIS MODP0와 Toss adjusted=false의 quote-only transport. KIS 이전일 anchor와 Toss before/cursor·명시USD·뉴욕 자정 일봉 label/DST를 검증하고 추가1.1초 pacing을 적용. 응답을 OHLCV로 정제하며 요청 플래그를 경제적 원시가격/배당총수익 인증으로 해석하지 않음 |
-| `trading/broker_chart/tests.rs` | 합성 source로 SPY관측42봉·종목 누락·overlap/충돌·cursor/16페이지·OHLCV/미완료·route fallback과 수동 mapping 경계를 검증 |
+| `trading/broker_chart.rs` | 주입 quote source의 bounded 순차 수집과 input/receipt 생성. SPY의 최근22+평가1..120개 관측 날짜를 고정하고 다른11종목 누락을 교집합으로 숨기지 않음. 종목/route당 최대16페이지·동일 overlap 허용/충돌 거부·cursor 무진전 거부, KIS 무매핑 probe는 빈 결과에만 다음 route를 시도하며 인증/HTTP/제한 오류에 route를 바꾸지 않음. optional 원문 출처를 page→receipt→기존 collection/export로 운반하며 경제 입력/rowsHash와 구분 |
+| `trading/broker_chart/provider.rs` | KIS MODP0와 Toss adjusted=false의 quote-only transport. KIS 이전일 anchor와 Toss before/cursor·명시USD·뉴욕 자정 일봉 label/DST를 검증하고 추가1.1초 pacing을 적용. Toss는 get_candles_with_source의 동일 성공 tuple을 OHLCV/원문 출처로 운반하고 KIS 출처는 None. 내부 합성 wire 회귀가 종목/페이지별 출처 binding을 검사하며 요청 플래그나 원문 지문을 경제적 원시가격/배당총수익/PIT 인증으로 해석하지 않음 |
+| `trading/broker_chart/tests.rs` | 합성 source로 SPY관측42봉·종목 누락·overlap/충돌·cursor/16페이지·OHLCV/미완료·route fallback과 수동 mapping 경계, None의 고정 before JSON/collectionHash·Some의 metadata-only collectionHash 영향을 검증 |
 | `trading/sector_portfolio/price_research.rs` | 비조정 종가 신호의 별도 공개 validator/preview. 검증형 preview를 호출하지 않고 검증된 입력만 private USD 회계 core로 전달. mode/signalBasis 포함 hash와 배당/경제적 수익 미검증 wrapper를 반환하며 coverage/기업행위 flags를 false로 유지 |
 | `trading/sector_portfolio/price_research/{types,validation,tests}.rs` | 별도 typed mode input/report, 중복 ticker·12종목·USD 일봉 OHLCV·이전22봉/평가·정확한 날짜·알려진 기업행위 전체거부·가격한계 동의 검사. 합성 회귀로 strict거부 보존·완전 입력hash·미래 prefix·정수주/현금/비용 대사를 검증 |
 | `examples/broker_chart_price_replay.rs` | AppState·provider 초기화 없는2MiB 이하 파일/stdin 가격근사 CLI. 같은 순수 엔진의 wrapper report를 stdout, 원본 bytes SHA-256을 stderr로 분리 |
@@ -2663,7 +2663,9 @@ BrokerChartReport: mode/signalBasis/hash/warnings + 전체5개 가격 장부
 일반 native만: 명시 scope 확인·시세 동의 → collect_broker_chart_data
     ↓ 현재 profile/client witness 검사 → broker_chart::collect_broker_chart
     ↓ provider: KIS MODP0 / Toss adjusted=false, SPY 관측 날짜 고정
-12종목 OHLCV input + 페이지 receipts + 한계 진단 (가격한계 동의는 false)
+    ↓ Toss 동일 성공 tuple의 원문 출처 → page → receipt.responseSource (KIS None)
+12종목 OHLCV input + 페이지 receipts + 한계 진단 → 기존 collection/JSON export
+    (가격한계 동의는 false, 원문 출처는 경제 입력/rowsHash/계산 결과와 별개)
 ```
 
 검증형은 조정 신호종가·수동 coverage/기업행위 확인을 계속 요구한다. 가격근사는

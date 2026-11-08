@@ -376,7 +376,7 @@ Sidebar의 운영 제어는 모의 계산과 별도로 표시되며 정지 접�
 
 차트 JSON을 불러오거나 수집한 뒤 **배당 포함 총수익·권리 정산 미검증인 가격 근사 한계**를 확인하고 계산한다. USD10000 기본자본·10bp 또는 별도20bp·정수주·매도 후 매수·현금 한도·차입 없음으로 계산하며 실제 잔고는 사용하지 않는다. 비수정 요청(KIS MODP0/Toss adjusted=false)은 공급자의 과거 조정이 없었다는 보장이 아니다. 빈 `knownCorporateActions`는 사건 부재 확인이 아니고 알려진 사건이 하나라도 있으면 계산을 거부한다. 공식 거래일 완전성·PIT·기업행위 부재는 미확인이고 검증 flag는 false로 유지한다.
 
-결과는 가격 장부의 비용 차감 수익이며 배당재투자 총수익·실제09:50 체결·미래 방어 효능이 아니다. 기말은 마지막 종가 평가로 청산비용을 추가하지 않는다. 검증형/근사형 입력과 결과는 모드 전환 시 각각 유지하고, 수정 시 해당 결과를 지운다. 전체 입력/결과·원래 수집 근거를 JSON으로 내보낼 수 있으며 검증형이나 실제/기존 모의 원장으로 자동 합산하지 않는다. [차트가격 계약](ipc-commands.md#브로커-차트-가격수익률-근사)과 [이번20일 실측·해석 한계](completed-history.md#p2-sector-01-broker-chart)를 따른다.
+결과는 가격 장부의 비용 차감 수익이며 배당재투자 총수익·실제09:50 체결·미래 방어 효능이 아니다. 기말은 마지막 종가 평가로 청산비용을 추가하지 않는다. 검증형/근사형 입력과 결과는 모드 전환 시 각각 유지하고, 수정 시 해당 결과를 지운다. 전체 입력/결과·원래 수집 근거를 JSON으로 내보낼 수 있다. 수집 근거의 `rowsHash`는 정규화 봉의 hash이고 Toss의 optional `responseSource`는 identity 응답 body bytes의 SHA256·byteLength·수신 완료 UTC(`receivedAt`)다. 원문 body·auth header·토큰·계좌정보는 내보내지 않는다. 수신 시각은 공개 시각/PIT가 아니며 출처 진위 인증도 아니다. KIS·legacy·미확보 source는 필드가 생략되고 unknown/unavailable을 뜻하며 fetch 없음/0bytes 인증이 아니다. 누락 시 기존 입력·receipt JSON·collectionHash가 유지되고 확보 시 수집 metadata가 collectionHash에 포함된다. metadata만 달라져도 입력·정규화 봉·전략/포트폴리오 결과 hash는 유지된다. 검증형이나 실제/기존 모의 원장으로 자동 합산하지 않는다. [차트가격 계약](ipc-commands.md#브로커-차트-가격수익률-근사)과 [이번20일 실측·해석 한계](completed-history.md#p2-sector-01-broker-chart)를 따른다.
 
 모의 원장 대조는 선택 입력이며 `initialCashUsd`, `startDate`, `costBps`(10/20),
 `marks` 배열의 `date/strategy/equityUsd/priceSource`를 받는다. 시작일·자본·비용이

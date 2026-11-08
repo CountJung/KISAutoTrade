@@ -656,7 +656,15 @@ seed에 fallback하지 않는다. Toss는 종목 API이므로 exchangeMappings�
 각 receipt의 `symbol/exchange/page/rowCount/oldestDate/newestDate/rowsHash/requestAdjustment`와
 실효 매핑을 보존하며 collectionHash는 input·receipts·매핑의 정규화 hash다.
 선택 창만 반환하므로 더 긴 요청 페이지의 rowsHash를 결과만으로 재계산하지 못할 수 있다.
-이는 HTTP 원문 hash·공식 달력/PIT/기업행위 부재 인증이 아니다. 수집 입력의 한계 확인은
+`rowsHash`는 정규화 봉의 hash이며 HTTP 원문 hash가 아니다. Toss 성공 응답에서 확보한
+optional `responseSource={sha256,byteLength,receivedAt}`는 HTTP framing/header를 제외한
+identity body의 정확 bytes SHA256·길이·수신 완료 UTC이며 JSON 재직렬화 값이 아니다.
+`receivedAt`는 공급자 공개 시각/PIT가 아니다. KIS·legacy·미확보 source는 필드를 생략하며
+unknown/unavailable을 뜻한다(실제 fetch 없음 또는 0bytes 인증이 아님). None일 때 기존
+receipt JSON·collectionHash를 보존하며 Some이면 전체 receipt를 포함하는 기존 hash 식에
+수집 metadata가 포함되어 collectionHash가 달라진다. metadata만으로 input·rowsHash·전략/포트폴리오
+결과 hash는 바뀌지 않는다. 내보내기는 이 metadata를 보존하며 auth header·원문 body·토큰·계좌정보는
+포함하지 않는다. 출처 진위·공식 달력/PIT/기업행위 부재 인증은 아니다. 수집 입력의 한계 확인은
 false로 시작하고 사용자가 계산 전에 별도로 확인한다.
 현재 사용법은 [Simulation 안내](user-guide.md#섹터-etf-기본방어공격-비교),
 실측·독립 대사·미검증은 [P2 이력](completed-history.md#p2-sector-01-broker-chart)에 둔다.

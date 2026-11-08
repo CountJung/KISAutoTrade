@@ -385,5 +385,8 @@ flag도 false다. 알려진 사건은 거부하고 미확인 권리/배당은 �
 수집에는 현재 profile snapshot과 client identity를 대조하고 순수 계산에는 AppState를
 전달하지 않는다. REST/연구 native는 순수 preview만 제공한다. Simulation의 기본
 검증형과 근사형은 입력/결과를 각각 보존하며 실제/forward 원장을 갱신하지 않는다.
+Toss 일봉은 기존 `get_candles_with_source`의 동일 성공 tuple에서 값과 원문 출처를
+함께 받아 page→receipt→기존 collection/export로 운반한다. KIS 원문 출처는 None이며
+기존 미제공 호환을 유지한다. 출처 지문은 자료 진위·발행/PIT·기간 coverage 인증이 아니다.
 [별도 wire·수집 한계](ipc-commands.md#브로커-차트-가격수익률-근사),
 [실측과 미검증](completed-history.md#p2-sector-01-broker-chart)을 따른다.

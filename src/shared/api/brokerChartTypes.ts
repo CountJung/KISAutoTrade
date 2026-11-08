@@ -36,9 +36,13 @@ export interface CollectBrokerChartInput {
   endDate?: string
   exchangeMappings?: BrokerChartExchangeMapping[]
 }
+/** Identity HTTP body fingerprint; receivedAt is UTC body receipt completion, not publication/PIT. */
+export interface BrokerChartResponseSource { sha256: string; byteLength: number; receivedAt: string }
 export interface BrokerChartPageReceipt {
   symbol: string; exchange: string | null; page: number; rowCount: number
   oldestDate: string; newestDate: string; rowsHash: string; requestAdjustment: 'unadjusted'
+  /** Missing for unavailable/unknown provenance, including KIS and legacy collections. */
+  responseSource?: BrokerChartResponseSource
 }
 export interface BrokerChartCollection {
   input: BrokerChartInput

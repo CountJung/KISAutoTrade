@@ -162,6 +162,7 @@ impl BrokerChartQuoteSource for MockQuotes {
         Ok(RawBrokerChartPage {
             rows,
             next_cursor: next,
+            response_source: None,
         })
     }
 }
@@ -569,4 +570,106 @@ fn broker_chart_provider_daily_labels_are_ny_midnight_across_dst_not_host_date()
     );
     assert!(provider::toss_daily_date("2025-11-03T00:00:00Z").is_err());
     assert!(provider::toss_daily_date("2025-11-03T14:00:01+09:00").is_err());
+}
+
+// Fixed before-change oracle: Complete collector output captured before adding the DTO.
+// Input/receipt canonical JSON hashes were independently calculated with Python SHA256.
+#[tokio::test]
+async fn broker_chart_none_preserves_fixed_before_json_and_collection_hash() {
+    for (broker, input_hash, receipts_hash, collection_hash) in [
+        (
+            BrokerChartBroker::Toss,
+            "606cbce7b57d02fb4aca8360c2f89ee132df0aa9bbedfded1ad7a2492c54fa6b",
+            "6467a7cba5a842948473cda6ebd7801fd1a4277e1b11222667f828ca8112443f",
+            "c0e496af693303290c668cbecdf2851ff41ee7b0d155dc9810f6fa440e282cce",
+        ),
+        (
+            BrokerChartBroker::Kis,
+            "b993a9bf221576afbad3fe1c647c1d60d3267e112a742f1cb5241c06fba3c77d",
+            "76d6fd7738e2a438d13e80ba8e5a2c9e4b82596b9a107613777e9d5c0f957515",
+            "ce3831f21b6aa524cc919ac8af0326eff2fe3b4fed496c62c22cd4083258694e",
+        ),
+    ] {
+        let result = MockQuotes::new(Scenario::Complete)
+            .collect(broker)
+            .await
+            .unwrap();
+        let input = serde_json::to_value(&result.input).unwrap();
+        let receipts = serde_json::to_value(&result.receipts).unwrap();
+        assert_eq!(hash(&input).unwrap(), input_hash);
+        assert_eq!(hash(&receipts).unwrap(), receipts_hash);
+        assert_eq!(result.collection_hash, collection_hash);
+        assert!(receipts
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r.get("responseSource").is_none()));
+    }
+}
+
+// Separate from production wiring: metadata alone must not alter economic input/results.
+#[tokio::test]
+async fn broker_chart_source_metadata_changes_collection_only() {
+    struct WithSource(MockQuotes, &'static str);
+    impl BrokerChartQuoteSource for WithSource {
+        async fn fetch(
+            &self,
+            symbol: &str,
+            exchange: Option<&str>,
+            end: &str,
+            cursor: Option<&str>,
+        ) -> Result<RawBrokerChartPage, String> {
+            let mut page = self.0.fetch(symbol, exchange, end, cursor).await?;
+            page.response_source = Some(
+                crate::broker::candles::CandleResponseSource {
+                    sha256: self.1.repeat(64),
+                    byte_length: 183,
+                    collected_at: chrono::DateTime::parse_from_rfc3339("2026-01-01T12:00:00Z")
+                        .unwrap()
+                        .with_timezone(&chrono::Utc),
+                }
+                .into(),
+            );
+            Ok(page)
+        }
+    }
+    let mut collections = Vec::new();
+    let mut reports = Vec::new();
+    for sha in ["a", "b"] {
+        let source = WithSource(MockQuotes::new(Scenario::Complete), sha);
+        let mut collection = collect_broker_chart(
+            &source,
+            BrokerChartBroker::Toss,
+            20,
+            source.0.dates.last().unwrap(),
+            "2026-01-01T12:00:00Z",
+            &[],
+        )
+        .await
+        .unwrap();
+        let exported = serde_json::to_value(&collection).unwrap();
+        assert_eq!(
+            exported["receipts"][0]["responseSource"],
+            serde_json::json!({
+                "sha256": sha.repeat(64), "byteLength": 183, "receivedAt": "2026-01-01T12:00:00Z"
+            })
+        );
+        collection.input.acknowledged_price_only = true;
+        let report = preview_broker_chart_price_approximation(&collection.input).unwrap();
+        assert!(!report.economic_return_verified && !report.dividend_return_included);
+        reports.push(serde_json::to_value(report).unwrap());
+        collections.push(collection);
+    }
+    assert_eq!(
+        hash(&collections[0].input).unwrap(),
+        hash(&collections[1].input).unwrap()
+    );
+    assert_eq!(reports[0], reports[1]);
+    for (a, b) in collections[0].receipts.iter().zip(&collections[1].receipts) {
+        assert_eq!(a.rows_hash, b.rows_hash);
+    }
+    assert_ne!(
+        collections[0].collection_hash,
+        collections[1].collection_hash
+    );
 }
