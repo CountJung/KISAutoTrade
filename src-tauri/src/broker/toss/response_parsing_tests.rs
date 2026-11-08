@@ -666,3 +666,202 @@ async fn stacked_and_repeated_content_encoding_never_hide_a_later_coding() {
         assert_eq!(wire.count.load(Ordering::SeqCst), 1);
     }
 }
+
+#[tokio::test]
+async fn candle_source_known_bytes_through_adapter() {
+    use crate::broker::{BrokerAdapter, BrokerMarket, CandlePageRequest, TossBrokerAdapter};
+    let wire = Wire::start(vec![response(200, EMPTY_PAGE)]).await;
+    let _seed = wire.client(true).await;
+    let adapter = TossBrokerAdapter::with_credentials(
+        &wire.base,
+        "synthetic-client",
+        "synthetic-secret",
+        None::<String>,
+    );
+    let started = Utc::now();
+    let result = adapter
+        .get_candle_page_with_source(&CandlePageRequest {
+            symbol: BrokerSymbol("SPY".into()),
+            market: BrokerMarket::Us,
+            interval: "1m".into(),
+            count: 200,
+            exchange: None,
+            cursor: None,
+        })
+        .await
+        .unwrap();
+    assert!(result.page.candles.is_empty());
+    assert!(
+        result.source.is_some(),
+        "known wire bytes must return Some source, got None"
+    );
+    let source = result.source.unwrap();
+    assert_eq!(
+        source.sha256,
+        "7af528f7e390f720744ad40fa443dd884a70c9e9aada1103224aef3833b7c91e"
+    );
+    assert_eq!(source.byte_length, 43);
+    assert!(source.collected_at >= started && source.collected_at <= Utc::now());
+    assert_eq!(wire.count.load(Ordering::SeqCst), 1);
+    assert_eq!(wire.account_header_count.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn candle_source_raw_identity_chunking_precision_and_legacy_projection() {
+    use crate::broker::{BrokerAdapter, BrokerMarket, CandlePageRequest, TossBrokerAdapter};
+    const PRECISE: &[u8] = br#"{"result":{"candles":[{"timestamp":"2026-11-05T15:00:00-05:00","openPrice":"100.000000000000000001","highPrice":"102.5","lowPrice":"99.75","closePrice":"101.500000000000000009","volume":"12345","currency":"USD"}],"nextBefore":null}}"#;
+    const SPACED: &[u8] = br#"{ "result" : { "nextBefore" : null, "candles" : [] } }"#;
+    let cases = [
+        (
+            EMPTY_PAGE,
+            "7af528f7e390f720744ad40fa443dd884a70c9e9aada1103224aef3833b7c91e",
+            43,
+        ),
+        (
+            SPACED,
+            "96ea1deb0a55453490d8a2b5bf833083b00b71bd13036333235367ff4551f9e5",
+            54,
+        ),
+        (
+            PRECISE,
+            "449751a0cb7edd9c42c4b53d80a955cb33f84b13d4c8046b8fb4825f72e25208",
+            232,
+        ),
+    ];
+    for (body, hash, len) in cases {
+        let wire = Wire::start(vec![
+            response(200, body),
+            chunked(body, 1),
+            chunked(body, 17),
+            response(200, body),
+        ])
+        .await;
+        let client = wire.client(true).await;
+        let adapter = TossBrokerAdapter::with_credentials(
+            &wire.base,
+            "synthetic-client",
+            "synthetic-secret",
+            Some("fixture-account"),
+        );
+        let request = CandlePageRequest {
+            symbol: BrokerSymbol("SPY".into()),
+            market: BrokerMarket::Us,
+            interval: "1m".into(),
+            count: 200,
+            exchange: None,
+            cursor: None,
+        };
+        let started = Utc::now();
+        let first = client
+            .get_candles_with_source(&request.symbol, "1m", Some(200), None, Some(true))
+            .await
+            .unwrap();
+        let second = adapter.get_candle_page_with_source(&request).await.unwrap();
+        let third = adapter.get_candle_page_with_source(&request).await.unwrap();
+        for source in [
+            first.1.unwrap(),
+            second.source.unwrap(),
+            third.source.unwrap(),
+        ] {
+            assert_eq!(source.sha256, hash);
+            assert_eq!(source.byte_length, len);
+            assert!(source.collected_at >= started && source.collected_at <= Utc::now());
+        }
+        let legacy = adapter.get_candle_page(&request).await.unwrap();
+        assert_eq!(second.page.candles, third.page.candles);
+        assert_eq!(second.page.candles, legacy.candles);
+        assert_eq!(legacy.timestamp_semantics, "barClose");
+        assert!(legacy.next_cursor.is_none());
+        if body == PRECISE {
+            assert_eq!(first.0.candles[0].open_price, "100.000000000000000001");
+            assert_eq!(legacy.candles[0].open.amount, "100.000000000000000001");
+            assert_eq!(legacy.candles[0].close.amount, "101.500000000000000009");
+            assert_eq!(legacy.candles[0].volume.0, "12345");
+        } else {
+            assert!(first.0.candles.is_empty());
+            assert!(legacy.candles.is_empty());
+        }
+        assert_eq!(wire.count.load(Ordering::SeqCst), 4);
+        assert_eq!(wire.account_header_count.load(Ordering::SeqCst), 0);
+        let requests = wire.requests.lock().await;
+        assert!(requests
+            .iter()
+            .all(|request| request.starts_with("GET /api/v1/candles?")));
+        assert!(requests
+            .iter()
+            .all(|request| request.contains("count=200") && request.contains("adjusted=true")));
+    }
+}
+
+#[tokio::test]
+async fn candle_sourced_failures_never_return_metadata_or_empty_success() {
+    for raw in [
+        response(200, b"invalid-json"),
+        response(200, &[0xff]),
+        response(500, b"{}"),
+        encoded_response("gzip", EMPTY_PAGE),
+    ] {
+        let wire = Wire::start(vec![raw]).await;
+        let client = wire.client(true).await;
+        assert!(client
+            .get_candles_with_source(&BrokerSymbol("SPY".into()), "1m", Some(200), None, None)
+            .await
+            .is_err());
+        assert_eq!(wire.count.load(Ordering::SeqCst), 1);
+    }
+}
+
+#[tokio::test]
+async fn candle_sourced_refresh_fingerprints_final_200_not_401_body() {
+    use crate::broker::{BrokerAdapter, BrokerMarket, CandlePageRequest, TossBrokerAdapter};
+    const REJECT: &[u8] =
+        br#"{"error":{"code":"invalid-token","message":"synthetic unauthorized"}}"#;
+    const TOKEN: &[u8] =
+        br#"{"access_token":"new-fixture-token","token_type":"Bearer","expires_in":3600}"#;
+    const FINAL: &[u8] = br#"{ "result" : { "nextBefore" : null, "candles" : [] } }"#;
+    let wire = Wire::start(vec![
+        response(401, REJECT),
+        response(200, TOKEN),
+        response(200, FINAL),
+    ])
+    .await;
+    let _seed = wire.client(true).await;
+    let adapter = TossBrokerAdapter::with_credentials(
+        &wire.base,
+        "synthetic-client",
+        "synthetic-secret",
+        None::<String>,
+    );
+    let started = Utc::now();
+    let result = adapter
+        .get_candle_page_with_source(&CandlePageRequest {
+            symbol: BrokerSymbol("SPY".into()),
+            market: BrokerMarket::Us,
+            interval: "1m".into(),
+            count: 200,
+            exchange: None,
+            cursor: None,
+        })
+        .await
+        .unwrap();
+    assert!(result.page.candles.is_empty());
+    let source = result
+        .source
+        .expect("successful final candle page needs raw source");
+    assert_eq!(
+        source.sha256, "96ea1deb0a55453490d8a2b5bf833083b00b71bd13036333235367ff4551f9e5",
+        "source must fingerprint final 200 candle bytes, not the earlier 401 or token body"
+    );
+    assert_eq!(source.byte_length, 54);
+    assert!(source.collected_at >= started && source.collected_at <= Utc::now());
+    assert_eq!(wire.count.load(Ordering::SeqCst), 3);
+    assert_eq!(wire.account_header_count.load(Ordering::SeqCst), 0);
+    let requests = wire.requests.lock().await;
+    assert_eq!(requests.len(), 3);
+    assert!(requests[0].starts_with("GET /api/v1/candles?"));
+    assert!(requests[1].starts_with("POST /oauth2/token "));
+    assert_eq!(
+        requests[0], requests[2],
+        "refresh must retry the same quote request once"
+    );
+}

@@ -36,6 +36,22 @@
 - 원래 assertion을 유지한 진단에서 cache success/idle·512행과 실패 직후 기대 DOM 요약을 관측했지만5초 assertion은 실패했다. 개발 초기화/렌더 타이밍 추론일 뿐 production 회귀 해결 증거가 아니며 해당 UI/spec은 수정하지 않았다. 현재 검증은 CI의 dist/source 분리를 따른다.
 - 이전 `80c81c8` CI의 보안/Rust/frontend/Toss/build는 성공, E2E는 실패했다. 원문 로그는 권한403으로 미확보해 원격 실패 테스트명은 확정하지 않았다. 실제 OS IME·native WebView/Rust IPC·provider/계좌/API·주문·daemon/운영 DB·서명/배포는 실행하지 않았으며 mock 통과로 승격하지 않는다.
 
+<a id="p1-data-01"></a>
+## P1-DATA-01 — LTH bounded 수집·요청 수명·성공 요약 부분 수용 (2026-11-08 KST, 코드/offline 범위)
+
+기준 HEAD `67f8d9ca2618aabbe17533ba4d8faaf80f78f276` 위의 A2/A3/A4/A5.1/A5.2/A5.3 변경을 부모가 검증한 기록이다. **전체 P1-DATA-01은 미완료**이며 최종 구현 SHA 커밋/푸시·CI와 실제 provider/자료/native 조건은 [TODO](todo.md)의 열린 ID에 유지한다. 이 문서 갱신은 새 제품 실행이나 원격 CI 통과가 아니다.
+
+- **수집·실행 연결:** A2 bounded 페이지/cursor·누락/중복·단일 cutoff/absolute deadline, A3 요청 소유 실행, A4 공통 IPC/REST 작업 수명·취소와 UI 세대 무효화를 연결했다. US1m은 `lth_fetch`→`lth_collection`→`lth_regular`, KR/일봉은 기존 조회 호환 경로다. EMA20/60은 실제 분봉 stream을 사용하므로 일봉200개를 필수 warmup으로 삼는 초기 가설은 철회했다. 수집된 typed 봉·중복 제거·admission 제외·평가 채택 수를 구분한다.
+- **출처와 성공 wire:** A5.1은 완전히 수신한 identity HTTP body의 UTF-8/JSON 변환 전 SHA/길이·수신 시각을 같은 성공 retry 결과에 결합한다. A5.2의 버전 있는 native typed hash는 raw body 및 기존 engine hash와 별개다. A5.3은 기존 단일 Summary를 성공 `collectionSummary`로만 운반하고 UI는 구조 검증·표시만 수행한다. 실패는 기존 일반 오류이며 내부 partial Summary의 상세 횟수/사유를 wire/UI로 공개하지 않는다. 정확 계약은 [IPC](ipc-commands.md)·[사용법](user-guide.md)이 소유한다.
+- **단계 수용:** A2/A3/A4/A5.1 이후 A5.2는 12:01 KST, A5.3 성공-only는 13:13 KST에 코드/offline 범위로 수용했다. 단계별 `P1-DATA-01-A{2,3,4}-accepted.json`, `A5-transport-accepted.json`, `A5-collection-accepted.json`, `A5-wire-accepted.json`은 `~/.hermes/cache/kisautotrade-sequential/`에 보존한다. worker의 loopback PermissionDenied/browser EPERM은 원래 미실행이고 부모의 후속 실제 실행으로 별도 귀속한다.
+- **최종 부모 검사:** `P1-DATA-01-A5-wire-review-final-parent-verification.json`의 실제8게이트가 모두 exit0·Rust warning0이다. `cargo test --workspace --lib --locked --offline` **1035통과**, focused strategy_preview **181통과**(전체 lib에 포함), default/research-only all-targets check·app TS·영향43spec TS·FSD·개인 환경 제외 새 web build가 통과했다. HTTP response20·default adapter2·production library 통합6은 앞선 부모 실행에서 통과했고 최종 delta가 cfg-test뿐인 생산 동일성으로 **보존**한 것이지 새 실행이 아니다. 집중·부분 결과를 lib 총수에 합산하지 않는다.
+- **DB 경계:** `KISAT_PG_HOST/PORT/USER/PASSWORD`는 존재 여부만 확인해 모두 false였고 값은 읽지 않았다. lib 총수에는 fixture 미설정으로 조기 반환하는 DB 계약 함수가 포함될 수 있다. 위 Rust 통과를 PostgreSQL 접속·TLS·인증·운영 DB 검증으로 표현하지 않는다.
+- **전체 정본 UI:** 공유 fixture 직접/전이 영향43spec의 **601통과(dist539/source62)**와 정확한 잔여9spec **76통과(dist50/source26)**를 실행했다. 부모가 등록 inventory와 두 실행의 물리 case ID·파일 교집합0을 대조해 **677/677 고유 통과(dist589/source88)**를 확인했다. 각 case 단일 passed attempt이며 재시도/skip/flaky/전역 오류0이다. `P1-DATA-01-A5-canonical-reconciliation.json`이 합집합 증거를 소유한다. 서로 다른 두 실행을 한 번의 full-suite 호출로 부르지 않으며 focused·반복·의도적 실패·중복 완료 알림은 합산하지 않는다. 소유 서버 수명 내 실제 HTTP13자산 바이트와 새 build가 일치했고 실행 뒤 입력/dist 및 동결 제품·보호 파일은 유지됐다. 이는 offline dist renderer/source-harness HTTP mock이며 actual Rust/native/provider 연결 E2E가 아니다.
+- **반증 가능한 보강:** raw metadata 누락, 401→token→최종200의 오래된 source, source 빈 순회/잘못된 stream, 진입 잔여예산 누락, deadline 재충전 등은 별도 통제 fault의 실제 assertion RED와 복원 GREEN으로 확인했다. 준비/컴파일/권한 오류는 behavioral RED로 세지 않았다. 비협조 Ready deadline oracle는 실제 adapter 진입 뒤 paused clock을 같은 poll에서 이동하며 고정 Tokio1.54.1의 advance-before-yield 구현에 의존하므로 업그레이드 시 재검토한다.
+- **기존 결과 호환:** 현재 구현 두 번 비교는 결정성만 입증하므로 보존된 before 함수에 fake adapter만 기계 주입해 1m/1d engine input hash·backtest JSON SHA 고정 oracle을 얻었다. 신규 테스트는 실제 production 실행을 호출하고 expected를 현재 코드에서 계산하지 않는다. 동일 hash fault에서 기존 선택1개 PASS/신규 고정 oracle1개 assertion RED, 복원 후 GREEN을 관측했다. 전체 기존180개가 fault 아래 통과했다는 뜻은 아니다. 임시 include/reference/probe는 최종 소스에서 제거했고 독립 delta 리뷰는 조치할 결함 없음을 확인했다.
+- **stale UI 통제:** 정상 선택3개 PASS 후 보호 hook 소스는 바꾸지 않고 별도 Vite transform artifact에 오래된 결과 게시 fault를 넣었다. 3개 모두 body 완료 뒤 latest-summary assertion에서 예상대로 실패했고 원본 소스·정상 dist는 유지됐다. 이6실행은 정본677에 포함하지 않는다. 특정 fault 검출력이며 모든 앱 continuation ordering의 보편적 인증은 아니다.
+- **미검증 유지:** 공개 규격/소스 snapshot 대조는 실제 broker 성공이 아니다. raw/typed hash와 수신 시각은 발행/PIT·정규장 전용 일봉 OHLC·조정·특별휴장 완전성·30일/3개월 coverage 인증이 아니다. `lookAheadSafe=false`·표본/평가불가 경계를 유지한다. 실제 native/OS IME·계좌/API·새 인증·주문·자동매매/위험 해제·운영 DB·서명/배포는 실행하지 않았다. 실패 상세 공개, P1-SCOPE 원장 모드/검증된 legacy 이관/server ABA와 SECTOR 후속도 완료로 바꾸지 않는다.
+
 <a id="p1-session-01"></a>
 ## P1-SESSION-01 — US LTH 연구 정규장·실행 근거 보강 완료 (2026-11-08 KST, 코드/mock·구현 SHA CI 범위)
 

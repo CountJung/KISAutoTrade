@@ -8,6 +8,156 @@ use crate::broker::{BrokerCandle, BrokerMarket, BrokerMoney, BrokerQuantity, Bro
 use crate::trading::simulation::SimulationAssumptions;
 use crate::trading::strategy::{build_strategy, Signal, StrategyConfig};
 
+struct FetchAdapter {
+    daily: crate::broker::BrokerAdapterResult<Vec<BrokerCandle>>,
+    minute: crate::broker::BrokerAdapterResult<Vec<BrokerCandle>>,
+    calls: std::sync::Mutex<Vec<String>>,
+}
+
+impl FetchAdapter {
+    fn new(
+        daily: crate::broker::BrokerAdapterResult<Vec<BrokerCandle>>,
+        minute: crate::broker::BrokerAdapterResult<Vec<BrokerCandle>>,
+    ) -> Self {
+        Self {
+            daily,
+            minute,
+            calls: std::sync::Mutex::new(Vec::new()),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl crate::broker::BrokerAdapter for FetchAdapter {
+    fn broker_id(&self) -> crate::broker::BrokerId {
+        crate::broker::BrokerId::Toss
+    }
+
+    async fn get_price(
+        &self,
+        _symbol: &BrokerSymbol,
+    ) -> crate::broker::BrokerAdapterResult<crate::broker::BrokerPriceQuote> {
+        panic!("fetch fixture must not request prices")
+    }
+
+    async fn get_candles(
+        &self,
+        symbol: &BrokerSymbol,
+        period_code: &str,
+        from: &str,
+        to: &str,
+    ) -> crate::broker::BrokerAdapterResult<Vec<BrokerCandle>> {
+        assert_eq!(symbol.0, "KORU");
+        assert_eq!((from, to), ("", ""));
+        self.calls.lock().unwrap().push(period_code.into());
+        let result = match period_code {
+            "D" => &self.daily,
+            "1m" => &self.minute,
+            _ => panic!("unexpected candle interval: {period_code}"),
+        };
+        match result {
+            Ok(candles) => Ok(candles.clone()),
+            Err(crate::broker::BrokerAdapterError::InvalidRequest(message)) => Err(
+                crate::broker::BrokerAdapterError::InvalidRequest(message.clone()),
+            ),
+            Err(error) => panic!("unexpected fixture error: {error}"),
+        }
+    }
+    // Other operations, including get_candle_page, keep the trait's unsupported contract.
+}
+
+#[tokio::test]
+async fn lth_fetch_sorts_daily_and_preserves_raw_minute_order() {
+    let daily = vec![a2_us_bar("20260702", 102), a2_us_bar("20260701", 101)];
+    let minute = vec![
+        a2_us_bar("20260702223100", 104),
+        a2_us_bar("20260702223000", 103),
+    ];
+    let adapter = FetchAdapter::new(Ok(daily.clone()), Ok(minute.clone()));
+    let (actual_daily, actual_minute) = super::fetch_leveraged_trend_hold_candles(
+        &adapter,
+        &BrokerSymbol("KORU".into()),
+        "1m",
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(actual_daily, vec![daily[1].clone(), daily[0].clone()]);
+    assert_eq!(actual_minute, minute);
+    assert_eq!(*adapter.calls.lock().unwrap(), ["D", "1m"]);
+}
+
+#[tokio::test]
+async fn lth_fetch_daily_only_returns_an_independent_sorted_clone() {
+    let daily = vec![a2_us_bar("20260702", 102), a2_us_bar("20260701", 101)];
+    let adapter = FetchAdapter::new(Ok(daily.clone()), Ok(Vec::new()));
+    let (actual_daily, mut simulation) = super::fetch_leveraged_trend_hold_candles(
+        &adapter,
+        &BrokerSymbol("KORU".into()),
+        "1d",
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(actual_daily, vec![daily[1].clone(), daily[0].clone()]);
+    assert_eq!(simulation, actual_daily);
+    simulation[0].close = BrokerMoney::usd("999");
+    assert_eq!(actual_daily[0].close, BrokerMoney::usd("101"));
+    assert_eq!(*adapter.calls.lock().unwrap(), ["D"]);
+}
+
+#[tokio::test]
+async fn lth_fetch_daily_failure_stops_before_minute_request() {
+    let adapter = FetchAdapter::new(
+        Err(crate::broker::BrokerAdapterError::InvalidRequest(
+            "daily fixture".into(),
+        )),
+        Ok(vec![a2_us_bar("20260702223000", 103)]),
+    );
+    let error = super::fetch_leveraged_trend_hold_candles(
+        &adapter,
+        &BrokerSymbol("KORU".into()),
+        "1m",
+        None,
+    )
+    .await
+    .unwrap_err();
+
+    assert_eq!(error.code, "TOSS_CANDLES_ERROR");
+    assert_eq!(
+        error.message,
+        "Toss 일봉 조회 실패: invalid broker request: daily fixture"
+    );
+    assert_eq!(*adapter.calls.lock().unwrap(), ["D"]);
+}
+
+#[tokio::test]
+async fn lth_fetch_minute_failure_is_propagated_after_daily_request() {
+    let adapter = FetchAdapter::new(
+        Ok(vec![a2_us_bar("20260701", 101)]),
+        Err(crate::broker::BrokerAdapterError::InvalidRequest(
+            "minute fixture".into(),
+        )),
+    );
+    let error = super::fetch_leveraged_trend_hold_candles(
+        &adapter,
+        &BrokerSymbol("KORU".into()),
+        "1m",
+        None,
+    )
+    .await
+    .unwrap_err();
+
+    assert_eq!(error.code, "TOSS_CANDLES_ERROR");
+    assert_eq!(
+        error.message,
+        "Toss 1분봉 조회 실패: invalid broker request: minute fixture"
+    );
+    assert_eq!(*adapter.calls.lock().unwrap(), ["D", "1m"]);
+}
+
 #[test]
 fn daily_diagnostic_keeps_the_provider_date_without_synthetic_session_offset() {
     assert_eq!(daily_chart_time("20260711", 1), "20260711");
@@ -798,5 +948,225 @@ fn us_regular_production_dst_offsets_warmup_and_clock_agree() {
         assert_eq!(prepared.sessions, base_prepared.sessions);
         assert_eq!(result["backtest"]["summary"], base["backtest"]["summary"]);
         assert_eq!(result["signals"].as_array().unwrap().len(), 2);
+    }
+}
+
+// Explicit synthetic provider data only; this adapter performs no session filtering.
+struct PagedFetchAdapter {
+    provider: Vec<BrokerCandle>,
+    daily: Vec<BrokerCandle>,
+    legacy_calls: std::sync::Mutex<Vec<String>>,
+    page_calls: std::sync::Mutex<Vec<crate::broker::CandlePageRequest>>,
+}
+
+#[async_trait::async_trait]
+impl crate::broker::BrokerAdapter for PagedFetchAdapter {
+    fn broker_id(&self) -> crate::broker::BrokerId {
+        crate::broker::BrokerId::Toss
+    }
+
+    async fn get_price(
+        &self,
+        _: &BrokerSymbol,
+    ) -> crate::broker::BrokerAdapterResult<crate::broker::BrokerPriceQuote> {
+        panic!("synthetic pagination fixture must not request prices")
+    }
+
+    async fn get_candles(
+        &self,
+        symbol: &BrokerSymbol,
+        period: &str,
+        from: &str,
+        to: &str,
+    ) -> crate::broker::BrokerAdapterResult<Vec<BrokerCandle>> {
+        assert_eq!(symbol.0, "KORU");
+        assert_eq!((from, to), ("", ""));
+        self.legacy_calls.lock().unwrap().push(period.into());
+        Ok(match period {
+            "D" => self.daily.clone(),
+            "1m" => self.provider.iter().take(200).cloned().collect(),
+            _ => panic!("unexpected fixture interval: {period}"),
+        })
+    }
+
+    async fn get_candle_page(
+        &self,
+        request: &crate::broker::CandlePageRequest,
+    ) -> crate::broker::BrokerAdapterResult<crate::broker::BrokerCandlePage> {
+        use crate::broker::{BrokerCandlePage, CandleCursor};
+        request.validate()?;
+        assert_eq!(request.symbol.0, "KORU");
+        assert_eq!(request.market, BrokerMarket::Us);
+        assert!(matches!(request.interval.as_str(), "D" | "1m"));
+        self.page_calls.lock().unwrap().push(request.clone());
+        let provider = if request.interval == "D" {
+            &self.daily
+        } else {
+            &self.provider
+        };
+        let start = match &request.cursor {
+            None => 0,
+            Some(CandleCursor::Toss { before }) => {
+                let bound = chrono::DateTime::parse_from_rfc3339(before).unwrap();
+                provider
+                    .iter()
+                    .position(|row| {
+                        chrono::DateTime::parse_from_rfc3339(&row.date).unwrap() <= bound
+                    })
+                    .unwrap_or(provider.len())
+            }
+            _ => panic!("wrong provider cursor"),
+        };
+        let end = (start + usize::from(request.count)).min(provider.len());
+        let candles = provider[start..end].to_vec();
+        let next_cursor = (end < provider.len()).then(|| CandleCursor::Toss {
+            before: candles.last().unwrap().date.clone(),
+        });
+        Ok(BrokerCandlePage {
+            candles,
+            end_reason: next_cursor.is_none().then(|| "fixture exhausted".into()),
+            next_cursor,
+            timestamp_semantics: if request.interval == "D" {
+                "tradingDate"
+            } else {
+                "barClose"
+            },
+        })
+    }
+}
+
+#[tokio::test]
+async fn lth_fetch_pagination_restores_the_requested_regular_evaluation_cohort() {
+    use crate::broker::{BrokerAdapter, CandlePageRequest};
+    use chrono::{Duration, TimeZone};
+    let ny = chrono_tz::America::New_York;
+    let close = ny.with_ymd_and_hms(2026, 1, 7, 16, 0, 0).unwrap();
+    let fixed_as_of = ny.with_ymd_and_hms(2026, 1, 7, 23, 0, 0).unwrap().to_utc();
+    // Independent expected cohort: 200 close-labelled regular minutes, no prepare clone.
+    let reference: Vec<_> = (0..200)
+        .map(|i| {
+            a2_us_bar(
+                &(close - Duration::minutes(199 - i)).to_rfc3339(),
+                100 + i as u64,
+            )
+        })
+        .collect();
+    let after_hours: Vec<_> = (1..=80)
+        .map(|i| {
+            a2_us_bar(
+                &(close + Duration::minutes(i)).to_rfc3339(),
+                10000 + i as u64,
+            )
+        })
+        .collect();
+    assert_eq!(reference.len(), 200);
+    assert_eq!(after_hours.len(), 80);
+    assert_eq!(reference.last().unwrap().date, close.to_rfc3339());
+    for row in reference.iter().chain(&after_hours) {
+        let instant = chrono::DateTime::parse_from_rfc3339(&row.date).unwrap();
+        assert_eq!(instant.with_timezone(&ny).date_naive(), close.date_naive());
+        assert!(instant.to_utc() < fixed_as_of);
+        assert_eq!(row.symbol.0, "KORU");
+        assert_eq!(row.market, BrokerMarket::Us);
+    }
+    let fake = PagedFetchAdapter {
+        provider: reference
+            .iter()
+            .chain(&after_hours)
+            .rev()
+            .cloned()
+            .collect(),
+        daily: vec![a2_us_bar("2026-01-06T00:00:00-05:00", 99)],
+        legacy_calls: Default::default(),
+        page_calls: Default::default(),
+    };
+    // Verify provider contract separately; no collector or regular-session algorithm here.
+    let mut request = CandlePageRequest {
+        symbol: BrokerSymbol("KORU".into()),
+        market: BrokerMarket::Us,
+        interval: "1m".into(),
+        count: 200,
+        exchange: None,
+        cursor: None,
+    };
+    let first = fake.get_candle_page(&request).await.unwrap();
+    assert_eq!(first.candles.len(), 200);
+    request.cursor = first.next_cursor.clone();
+    assert!(request.cursor.is_some());
+    let second = fake.get_candle_page(&request).await.unwrap();
+    assert_eq!(second.candles.len(), 81);
+    assert_eq!(first.candles.last(), second.candles.first());
+    assert!(second.next_cursor.is_none());
+    assert_eq!(
+        fake.page_calls
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|r| r.cursor.clone())
+            .collect::<Vec<_>>(),
+        vec![None, request.cursor.clone()]
+    );
+    fake.page_calls.lock().unwrap().clear();
+
+    // Exercise the actual helper with the same fixed cutoff/count as production.
+    let symbol = BrokerSymbol("KORU".into());
+    let (daily, minute) = super::fetch_leveraged_trend_hold_candles(
+        &fake,
+        &symbol,
+        "1m",
+        Some(super::lth_collection::Context::new(fixed_as_of, 200)),
+    )
+    .await
+    .unwrap();
+    let prepared = super::lth_regular::prepare(&minute, &daily, 200, fixed_as_of).unwrap();
+    assert!(fake.legacy_calls.lock().unwrap().is_empty());
+    let calls = fake.page_calls.lock().unwrap();
+    assert_eq!(calls.len(), 3);
+    assert_eq!(
+        calls
+            .iter()
+            .map(|r| r.interval.as_str())
+            .collect::<Vec<_>>(),
+        vec!["D", "1m", "1m"]
+    );
+    assert!(calls.iter().all(|r| r.count == 200));
+    let seed = Some(crate::broker::CandleCursor::Toss {
+        before: fixed_as_of.to_rfc3339(),
+    });
+    assert_eq!(calls[0].cursor, seed);
+    assert_eq!(calls[1].cursor, seed);
+    assert_eq!(calls[2].cursor, request.cursor);
+    drop(calls);
+    assert_eq!(prepared.warmup.len(), 1); // Daily context is separate from intraday EMA20/60.
+    assert_eq!(
+        prepared.timed.len(),
+        reference.len(),
+        "pagination must replenish regular observations after excluding 80 after-hours rows"
+    );
+    for (actual, expected) in prepared.timed.iter().zip(&reference) {
+        assert_eq!(
+            chrono::DateTime::parse_from_rfc3339(&actual.time).unwrap(),
+            chrono::DateTime::parse_from_rfc3339(&expected.date).unwrap()
+        );
+        let expected_timed = broker_candles_to_timed_ohlc(&[expected.clone()], 1, "1m", 0, 0, 0);
+        assert_eq!(actual.candle, expected_timed[0].candle);
+        // Prepared has no volume field: check retained raw OHLCV at the admitted instant.
+        let raw = minute
+            .iter()
+            .find(|row| {
+                chrono::DateTime::parse_from_rfc3339(&row.date).unwrap()
+                    == chrono::DateTime::parse_from_rfc3339(&actual.time).unwrap()
+            })
+            .unwrap();
+        assert_eq!(
+            (&raw.open, &raw.high, &raw.low, &raw.close, &raw.volume),
+            (
+                &expected.open,
+                &expected.high,
+                &expected.low,
+                &expected.close,
+                &expected.volume
+            )
+        );
     }
 }

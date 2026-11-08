@@ -28,6 +28,18 @@ pub(super) fn build_router(state: ServerState) -> Router {
             "/api/strategy/leveraged-trend-hold/preview",
             post(leveraged_trend_hold_preview_handler),
         )
+        .route(
+            "/api/strategy/leveraged-trend-hold/research/reserve",
+            post(lth_research_reserve_handler),
+        )
+        .route(
+            "/api/strategy/leveraged-trend-hold/research/run",
+            post(lth_research_run_handler),
+        )
+        .route(
+            "/api/strategy/leveraged-trend-hold/research/cancel",
+            post(lth_research_cancel_handler),
+        )
         .route("/api/positions", get(positions_handler))
         .route("/api/price/{symbol}", get(price_handler))
         .route(

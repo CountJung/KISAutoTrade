@@ -1,3 +1,5 @@
+use crate::broker::candles::CandleResponseSource;
+use sha2::{Digest, Sha256};
 use std::time::Duration as StdDuration;
 
 use anyhow::{anyhow, Context};
@@ -22,13 +24,13 @@ pub(super) fn toss_http_client() -> Client {
 }
 
 pub(super) async fn read_toss_response_text(resp: reqwest::Response) -> anyhow::Result<String> {
-    read_response_text(resp, None).await
+    read_response_text(resp, None).await.map(|(text, _)| text)
 }
 
 /// Candles diagnostics never retain raw bytes, dynamic paths or header values.
 pub(super) async fn read_toss_candle_response_text(
     resp: reqwest::Response,
-) -> anyhow::Result<String> {
+) -> anyhow::Result<(String, Option<CandleResponseSource>)> {
     let status = resp.status().as_u16();
     let values = resp.headers().get_all(CONTENT_ENCODING);
     let mut values = values.iter();
@@ -56,7 +58,7 @@ pub(super) async fn read_toss_candle_response_text(
 async fn read_response_text(
     mut resp: reqwest::Response,
     candle_status: Option<u16>,
-) -> anyhow::Result<String> {
+) -> anyhow::Result<(String, Option<CandleResponseSource>)> {
     let limit_error = || {
         match candle_status {
         Some(status) => anyhow!("토스증권 응답 본문이 {} bytes 상한을 초과했습니다: endpoint=/api/v1/candles; status={status}; stage=body_limit; limit_bytes={}", TOSS_MAX_RESPONSE_BYTES, TOSS_MAX_RESPONSE_BYTES),
@@ -83,9 +85,19 @@ async fn read_response_text(
         }
         body.extend_from_slice(&chunk);
     }
+    // Body is complete and bounded. Hash identity payload bytes before UTF-8/JSON;
+    // reqwest has already removed transfer framing. Never retain the body here.
+    let source = candle_status.map(|_| {
+        let collected_at = chrono::Utc::now();
+        CandleResponseSource {
+            sha256: hex::encode(Sha256::digest(&body)),
+            byte_length: body.len(),
+            collected_at,
+        }
+    });
     let bytes_read = body.len();
     match String::from_utf8(body) {
-        Ok(text) => Ok(text),
+        Ok(text) => Ok((text, source)),
         Err(error) => match candle_status {
             Some(status) => {
                 let utf8 = error.utf8_error();

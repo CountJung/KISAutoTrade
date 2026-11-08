@@ -415,3 +415,26 @@ AMS로 추정하거나100봉이 항상 반환된다고 가정하지 않는다. M
 MODP=1 조정 종가를 각각 수집해 대응 날짜를 검증한다. MODP=1의 배당/분할 조정 범위가
 불명확하거나 평가창의 분할·배당/미수 사건 부재를 확인하지 못하면 비교를 보류한다.
 정적 휴장표는 특별휴장·조기마감 공지로 바뀔 수 있으므로 공식 근거와 대조한다.
+
+### US1m 연구 작업 취소
+
+Toss 미국 1분봉 미리보기는 예약 → 수집·계산으로 진행하며, `연구 취소`로 중단할 수 있습니다.
+연구 취소는 브로커 주문 취소가 아닙니다.
+입력·비용 가정 초안·선택 프로파일/계좌/모드를 바꾸거나 화면을 떠나면 소유한 작업을 취소합니다.
+늦게 도착한 예약은 실행하지 않고 취소하며 이전 결과는 다시 표시하지 않습니다.
+`취소 확인 중...`에는 새 실행을 잠그고, `취소 확인 실패`에는 `취소 다시 확인`으로 중단 확인을 재시도합니다.
+KR/일봉은 기존 미리보기를 사용합니다. 기존 minute clock·평가 제한 표시는 유지하며,
+완료 표시는 실제 공급·발행·raw hash·coverage 또는 투자 성과 인증이 아닙니다.
+
+성공 결과의 **수집 상세 기록**은 요청 봉 수와 미지정 요청 시작, 예약 고정 asOf,
+일봉·분봉 관측 UTC 범위, 실제 평가 UTC 범위, 원래 일봉 context join label 범위를 따로 표시합니다.
+페이지 dispatch/returned/validated와 typed rows returned/validated/unique/dedup은 각각 다르며
+HTTP 원본 행수로 해석하지 않습니다. 제외사유와 collector dedup은 Prepared DuplicateInstant 제외와 별개입니다.
+raw 응답 SHA·byteLength·수신시각 collectedAt·stream/responseIndex와 정규화 수집입력 SHA는 서로 다른 지문입니다.
+정규화 지문은 평가 cohort·성과·replay inputHash 인증이 아닙니다.
+source complete/partial/unavailable는 응답 metadata 기록 유무만 뜻합니다.
+coverageVerified=false·publication unknown·dailyOHLC/adjustment unverified이며 요청 기간 전체 확보·출처 진위·PIT를 보장하지 않습니다.
+표시된 상한과 수집 진입 시 남은 예산은 당시 기록이며 현재 잔여시간이나 예산 재충전을 뜻하지 않습니다.
+성공 metadata가 없거나 손상되면 `수집 상세 기록 확인 불가`로 표시합니다.
+실패 시 기존 일반 오류만 제공되며 수집 상세 수치·원인 내역은 제공되지 않습니다.
+재실행·실패·취소·입력 변경 후 이전 상세 기록을 계속 표시하지 않습니다.

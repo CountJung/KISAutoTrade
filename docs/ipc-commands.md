@@ -660,3 +660,44 @@ seed에 fallback하지 않는다. Toss는 종목 API이므로 exchangeMappings�
 false로 시작하고 사용자가 계산 전에 별도로 확인한다.
 현재 사용법은 [Simulation 안내](user-guide.md#섹터-etf-기본방어공격-비교),
 실측·독립 대사·미검증은 [P2 이력](completed-history.md#p2-sector-01-broker-chart)에 둔다.
+
+### US1m 연구 예약·실행·취소 (A4)
+
+일반 앱의 `reserve_lth_research` / `run_lth_research` / `cancel_lth_research`는 각각
+`POST /api/strategy/leveraged-trend-hold/research/{reserve,run,cancel}`과 같은 camelCase DTO를 사용한다.
+연구 전용 native의 순수 IPC 등록 범위에는 추가하지 않는다.
+
+- reserve 입력: `{ preview: LeveragedTrendHoldPreviewInput, expectedBrokerId: "toss", expectedPaperTrading: boolean }`.
+  `preview.expectedProfileId`·`expectedBrokerAccountId`도 필수이며 활성 profile/account/broker/mode를 검증한다.
+  US1m 입력을 준비한 뒤 예약만 한다. provider factory와 I/O는 호출하지 않는다.
+- reserve 응답 및 run/cancel 입력: `{ jobId: string, owner: string }`. 두 값은 정규 소문자 하이픈 UUID이며 owner는 작업 소유 capability다.
+  profile·키·내부 scope snapshot을 wire로 내보내지 않는다. run/cancel은 추가 필드를 거부한다.
+- run은 현재 선택 scope/mode와 예약 소유자를 검증하고 한 번만 소비한다. 새 입력·기준 시각·기간·budget은 받지 않는다.
+  결과는 공통 `LeveragedTrendHoldPreviewView`다. 예약 시 고정한 cutoff와 30초 절대 deadline을 재충전하지 않는다.
+- cancel은 현재 선택 profile을 조회하지 않고 캡처한 owner로 저장 scope를 찾아 기존 취소 await를 재사용한다.
+  실제 owned future drop·quiescence 이후에만 `{ status: "quiescent" }`를 반환한다.
+  unknown·만료·실패는 성공 ACK가 아니며, REST 오류는 기존 `{ code, error }` envelope를 사용한다.
+- run 실패는 runtime 반환 후 owner·현재 scope가 일치하는 Failed/Expired/Abandoned terminal 기록으로
+  quiescence를 확인한 경우에만 `LTH_RESEARCH_FAILED`로 전달한다. 실행 future는 terminal 게시 전에 drop된다.
+  실행 전 만료 확정된 예약도 같은 종료 실패 코드이며 취소 성공 ACK를 뜻하지 않는다.
+  unknown·wrong owner·현재 mode/scope 불일치·Reserved/Running/Cancelling은 종료 증거가 아니다.
+  이 코드를 받은 UI는 연구 실패를 표시하고 재실행을 허용한다. 실패의 부분 counts·구체 timeout/자료 부족 원인·internal FailureSummary는 wire에 제공하지 않는다.
+- transport 응답 유실은 종료 증거가 아니므로 UI는 소유권을 유지하고 cancel ACK까지 새 실행을 잠근다.
+  취소 확인 실패 시 같은 owner로 재확인하며 성공 ACK 전에는 잠금을 해제하지 않는다.
+  Failed/Expired/Abandoned에 대한 cancel 거절은 유지하며 TTL 이후 unknown도 ACK로 바꾸지 않는다.
+
+앱 수명 메모리 registry의 retained 16·active 1·terminal TTL 60초 정책을 유지한다.
+이는 연구 예약 경계이며 금융 영속원장 mode·서버 발급 ABA 해결이 아니다.
+성공 View의 optional `collectionSummary`는 수집 core의 Summary를 camelCase로 그대로 운반한다.
+기존 서버와 KR/일봉의 None은 키를 생략한다. 요청 `requestedStart`(null=미지정)/`requestedCount`/예약 고정 `asOf`,
+일봉·분봉 `daily`/`minute`의 관측 UTC 범위와 dispatch/returned/validated pages,
+returned/validated/unique/duplicate typed rows, `admission`의 채택·제외·일봉 context 사용 수와
+실제 평가 UTC/원래 일봉 join label 범위는 서로 다른 사실이다. collector dedup과 Prepared DuplicateInstant 제외도 다르다.
+`sources`의 stream/responseIndex·raw SHA256/byteLength/`collectedAt`(수신 완료 시각)은 HTTP 응답 지문이며
+`normalizedInputSha256`는 정규화 수집입력 지문이다. 평가 cohort·성과·기존 replay.inputHash를 대체하지 않는다.
+`sourceAvailability` complete/partial/unavailable는 반환 응답 metadata 기록 유무이며 출처 진위·PIT·coverage 인증이 아니다.
+`coverageVerified=false`, `publicationVerification=unknown`, `dailyOhlcVerification`/`adjustmentVerification=unverified`를 유지한다.
+실제 `maxPages`/`maxTypedRows`/`pageSize`/`pageTimeoutSeconds`와 `remainingBudgetMsAtStart`를 표시한다.
+마지막 값은 수집 진입 시 남은 예산이며 현재 잔여시간이 아니다. rawBody·헤더·cursor·계정·capability는 포함하지 않는다.
+성공 metadata 누락·손상 시 UI는 수집 상세 기록 확인 불가로 표시하고 실패에는 상세 수치·원인 내역이 제공되지 않음을 알린다.
+기존 KR/일봉 preview는 유지하며 실제 provider/native 및 전체 DATA 완료를 뜻하지 않는다.

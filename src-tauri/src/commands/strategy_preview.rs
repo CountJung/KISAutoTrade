@@ -3,7 +3,14 @@ use super::*;
 mod continuous;
 mod driver;
 mod generic;
+mod lth_collection;
+mod lth_fetch;
+pub use lth_collection::Summary as LthCollectionSummary;
+use lth_fetch::fetch_leveraged_trend_hold_candles;
 mod lth_regular;
+mod lth_research;
+pub use lth_research::*;
+mod lth_runtime;
 use crate::trading::simulation::{
     diagnose_minute_timing, replay_input_hash, BacktestReportView, MinuteLabelConvention,
     MinuteTimingInput, ReplayAssessmentView, ReplayMetadataView, ReplaySession,
@@ -21,6 +28,7 @@ pub use generic::{
     preview_strategy_from_candles, StrategyPreparationView, StrategyPreviewInput,
     StrategyPreviewSignalView, StrategyPreviewView,
 };
+pub(crate) use lth_runtime::LthResearchRuntime;
 
 const LTH_PREVIEW_STRATEGY_VERSION: &str = "leveraged-trend-hold-v4";
 
@@ -65,6 +73,8 @@ pub struct LeveragedTrendHoldPreviewView {
     pub message: String,
     pub replay: ReplayMetadataView,
     pub backtest: BacktestReportView,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collection_summary: Option<LthCollectionSummary>,
 }
 
 fn normalize_preview_symbol(symbol: String) -> CmdResult<String> {
@@ -452,12 +462,23 @@ where
     )
 }
 
-pub async fn preview_leveraged_trend_hold_for_profile(
+// Own exactly the snapshot cloned under profiles.read. No Debug/serialization: credentials
+// must never enter diagnostics. The existing wire checks id/account, not expected mode.
+struct PreparedLthPreview {
+    profile: AccountProfile,
+    symbol: String,
+    interval: &'static str,
+    count: u16,
+    params: LeveragedTrendHoldParams,
+    params_fingerprint: String,
+    assumptions: SimulationAssumptions,
+    entry_is_overseas: bool,
+}
+
+fn prepare_lth_preview(
     input: LeveragedTrendHoldPreviewInput,
     profile: AccountProfile,
-) -> CmdResult<LeveragedTrendHoldPreviewView> {
-    // Freeze diagnostics before provider I/O; fixtures inject their own reference instant.
-    let reference_as_of = chrono::Utc::now();
+) -> CmdResult<PreparedLthPreview> {
     if profile.broker_id != BrokerId::Toss {
         return Err(CmdError {
             code: "BROKER_NOT_SUPPORTED".into(),
@@ -509,40 +530,89 @@ pub async fn preview_leveraged_trend_hold_for_profile(
     }
     let count = input.count.unwrap_or(200).clamp(20, 200);
     let params_fingerprint = serde_json::to_string(&input.params).unwrap_or_default();
-    let mut assumptions = input.assumptions.clone();
+    let assumptions = input.assumptions.clone();
     let params: LeveragedTrendHoldParams =
         serde_json::from_value(input.params).map_err(|e| CmdError {
             code: "INVALID_PARAMS".into(),
             message: format!("레버리지 전략 파라미터를 해석할 수 없습니다: {e}"),
         })?;
 
+    let entry_is_overseas = params
+        .entries
+        .iter()
+        .find(|entry| entry.leveraged_symbol.eq_ignore_ascii_case(&symbol))
+        .map(|entry| entry.is_overseas)
+        .unwrap_or(true);
+
+    Ok(PreparedLthPreview {
+        profile,
+        symbol,
+        interval,
+        count,
+        params,
+        params_fingerprint,
+        assumptions,
+        entry_is_overseas,
+    })
+}
+
+pub(crate) async fn preview_leveraged_trend_hold_for_profile(
+    input: LeveragedTrendHoldPreviewInput,
+    profile: AccountProfile,
+    runtime: &LthResearchRuntime,
+) -> CmdResult<LeveragedTrendHoldPreviewView> {
+    let reference_as_of = chrono::Utc::now();
+    let prepared = prepare_lth_preview(input, profile)?;
+    if prepared.interval == "1m" && prepared.entry_is_overseas {
+        let scope = lth_runtime::Scope::from_profile(&prepared.profile);
+        let handle = runtime.reserve(prepared)?;
+        runtime
+            .run(&handle, &scope, |prepared, context| async move {
+                execute_lth_preview(prepared, context.as_of, Some(context)).await
+            })
+            .await
+    } else {
+        execute_lth_preview(prepared, reference_as_of, None).await
+    }
+}
+
+async fn execute_lth_preview(
+    prepared: PreparedLthPreview,
+    reference_as_of: chrono::DateTime<chrono::Utc>,
+    collection: Option<lth_collection::Context>,
+) -> CmdResult<LeveragedTrendHoldPreviewView> {
+    // Factory runs only after the runtime has consumed/validated its reservation.
     let adapter = TossBrokerAdapter::with_credentials(
         TossBrokerAdapter::DEFAULT_BASE_URL,
-        profile.app_key.clone(),
-        profile.app_secret.clone(),
-        Some(profile.account_no.clone()),
+        prepared.profile.app_key.clone(),
+        prepared.profile.app_secret.clone(),
+        Some(prepared.profile.account_no.clone()),
     );
-    let broker_symbol = BrokerSymbol(symbol.clone());
+    execute_lth_preview_with_adapter(prepared, reference_as_of, collection, &adapter).await
+}
 
-    let mut daily_candles = adapter
-        .get_candles(&broker_symbol, "D", "", "")
-        .await
-        .map_err(|e| CmdError {
-            code: "TOSS_CANDLES_ERROR".into(),
-            message: format!("Toss 일봉 조회 실패: {e}"),
-        })?;
-    daily_candles.sort_by(|a, b| a.date.cmp(&b.date));
-    let simulation_candles = if interval == "1m" {
-        adapter
-            .get_candles(&broker_symbol, "1m", "", "")
-            .await
-            .map_err(|e| CmdError {
-                code: "TOSS_CANDLES_ERROR".into(),
-                message: format!("Toss 1분봉 조회 실패: {e}"),
-            })?
-    } else {
-        daily_candles.clone()
-    };
+async fn execute_lth_preview_with_adapter(
+    prepared: PreparedLthPreview,
+    reference_as_of: chrono::DateTime<chrono::Utc>,
+    collection: Option<lth_collection::Context>,
+    adapter: &dyn BrokerAdapter,
+) -> CmdResult<LeveragedTrendHoldPreviewView> {
+    let PreparedLthPreview {
+        profile,
+        symbol,
+        interval,
+        count,
+        params,
+        params_fingerprint,
+        mut assumptions,
+        entry_is_overseas,
+    } = prepared;
+    let broker_symbol = BrokerSymbol(symbol.clone());
+    let lth_collection::Outcome {
+        daily: daily_candles,
+        minute: simulation_candles,
+        summary: collection_summary,
+    } = lth_fetch::fetch_outcome(adapter, &broker_symbol, interval, collection).await?;
 
     if simulation_candles.is_empty() {
         return Err(CmdError {
@@ -557,19 +627,13 @@ pub async fn preview_leveraged_trend_hold_for_profile(
         .unwrap_or(BrokerCurrency::Usd);
     let mut chart_candles = broker_candles_to_chart(&simulation_candles, count);
     let replay_start = daily_candles.len().saturating_sub(count as usize);
-    let entry_is_overseas = params
-        .entries
-        .iter()
-        .find(|entry| entry.leveraged_symbol.eq_ignore_ascii_case(&symbol))
-        .map(|entry| entry.is_overseas)
-        .unwrap_or(true);
     let (daily_open_minute, daily_close_minute, daily_close_day_offset) = preview_session_bounds(
         entry_is_overseas,
         &params.toss_us_session,
         params.entry_window_start_min,
     );
     // US selection/admission happens before daily warmup, driver Open and replay.
-    // Keep provenance internally for the later wire/UI pass.
+    // Collection metadata does not alter preparation or replay ownership.
     let us_prepared = if interval == "1m" && entry_is_overseas {
         Some(lth_regular::prepare(
             &simulation_candles,
@@ -821,6 +885,7 @@ pub async fn preview_leveraged_trend_hold_for_profile(
         message,
         replay,
         backtest,
+        collection_summary,
     })
 }
 
@@ -838,7 +903,7 @@ pub async fn preview_leveraged_trend_hold(
         message: "활성 프로파일이 없습니다.".into(),
     })?;
 
-    preview_leveraged_trend_hold_for_profile(input, profile).await
+    preview_leveraged_trend_hold_for_profile(input, profile, &state.lth_research_runtime).await
 }
 
 #[cfg(test)]

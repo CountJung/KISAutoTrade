@@ -102,6 +102,7 @@ use trading::*;
 
 #[derive(Clone)]
 struct ServerState {
+    lth_research_runtime: Arc<crate::commands::LthResearchRuntime>,
     rest_client: Arc<RwLock<Arc<KisRestClient>>>,
     stock_list: Arc<RwLock<Vec<StockSearchItem>>>,
     web_port: u16,
@@ -159,7 +160,7 @@ struct ServerState {
 
 /// 서버 시작 (포트 바인드 실패 시 경고만 내고 종료)
 #[allow(clippy::too_many_arguments)]
-pub async fn start(
+pub(crate) async fn start(
     rest_client: Arc<RwLock<Arc<KisRestClient>>>,
     stock_list: Arc<RwLock<Vec<StockSearchItem>>>,
     port: u16,
@@ -171,6 +172,7 @@ pub async fn start(
     position_tracker: Arc<Mutex<PositionTracker>>,
     config: Arc<RwLock<Arc<AppConfig>>>,
     profiles: Arc<RwLock<ProfilesConfig>>,
+    lth_research_runtime: Arc<crate::commands::LthResearchRuntime>,
     trade_store: Arc<TradeStore>,
     stats_store: Arc<StatsStore>,
     log_config: Arc<RwLock<LogConfig>>,
@@ -203,6 +205,7 @@ pub async fn start(
     }
 
     let state = ServerState {
+        lth_research_runtime,
         rest_client,
         stock_list,
         web_port: port,

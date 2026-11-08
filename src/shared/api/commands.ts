@@ -31,6 +31,9 @@ import type {
   ExecutedOrder,
   FrontendLogInput,
   LogConfig,
+  LthResearchReserveInput,
+  LthResearchHandle,
+  LthResearchCancelView,
   LeveragedTrendHoldPreviewInput,
   LeveragedTrendHoldPreviewView,
   OrderResponse,
@@ -379,3 +382,11 @@ export { getBudgetRecovery, approveBudgetRecovery } from './budgetRecoveryComman
 export * from './sectorPortfolioCommands'
 export * from './sectorDataCommands'
 export * from './brokerChartCommands'
+
+
+export const reserveLthResearch = (input: LthResearchReserveInput): Promise<LthResearchHandle> =>
+  invoke('reserve_lth_research', { input })
+export const runLthResearch = (input: LthResearchHandle): Promise<LeveragedTrendHoldPreviewView> =>
+  invoke('run_lth_research', { input })
+export const cancelLthResearch = (input: LthResearchHandle): Promise<LthResearchCancelView> =>
+  invoke('cancel_lth_research', { input })

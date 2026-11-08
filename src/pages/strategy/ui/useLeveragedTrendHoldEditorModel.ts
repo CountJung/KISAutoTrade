@@ -1,3 +1,4 @@
+import { useLthResearchJob } from './useLthResearchJob'
 import { useKeyedRequestGate } from '../../../shared/lib'
 // State, query gates and command closures remain in the route/editor React lifetime.
 import {
@@ -144,7 +145,7 @@ export function useLeveragedTrendHoldEditorModel(props: LeveragedTrendHoldEditor
     () => previewOptions.find((entry) => entry.leveraged_symbol === previewSymbol) ?? null,
     [previewOptions, previewSymbol],
   )
-  const currentPreview = preview
+  const legacyCurrentPreview = preview
     && preview.symbol === previewEntry?.leveraged_symbol
     && preview.interval === previewInterval
     ? preview
@@ -161,9 +162,15 @@ export function useLeveragedTrendHoldEditorModel(props: LeveragedTrendHoldEditor
     params,
     entries,
     assumptions, accountingDraftRevision,
+    activeBrokerId: appConfig?.active_broker_id,
+    paperTrading: appConfig?.kis_is_paper_trading,
     activeProfileId: appConfig?.active_profile_id,
     activeBrokerAccountId: appConfig?.active_broker_account_id,
   })
+  const researchJob = useLthResearchJob(previewInputKey)
+  const isUsMinute = previewEntry?.is_overseas === true && previewInterval === '1m'
+  const currentPreview = isUsMinute ? researchJob.data : legacyCurrentPreview
+  const invalidateResearch = () => { researchJob.invalidate(); previewGeneration.current += 1; setPreview(null) }
   const { mutate: doPickerRefreshList, isPending: pickerRefreshing } = useRefreshStockList()
   const {
     data: pickerResults = [],
@@ -268,6 +275,7 @@ export function useLeveragedTrendHoldEditorModel(props: LeveragedTrendHoldEditor
 
   const handleAddTarget = () => {
     if (!canAddTarget || !pickerSelection) return
+    invalidateResearch()
     onUpdate([...entries, newTargetEntry(pickerSelection, draftQuantity)])
     setPickerSelection(null)
     setPickerInput('')
@@ -276,10 +284,12 @@ export function useLeveragedTrendHoldEditorModel(props: LeveragedTrendHoldEditor
   }
 
   const handleRemoveTarget = (symbol: string) => {
+    invalidateResearch()
     onUpdate(entries.filter((entry) => entry.leveraged_symbol !== symbol))
   }
 
   const handleQuantity = (symbol: string, quantity: number) => {
+    invalidateResearch()
     onUpdate(entries.map((entry) => (
       entry.leveraged_symbol === symbol
         ? { ...entry, quantity: Math.max(1, quantity) }
@@ -289,21 +299,38 @@ export function useLeveragedTrendHoldEditorModel(props: LeveragedTrendHoldEditor
 
   const handleSensitivityChange = (value: number) => {
     const nextValue = Number.isFinite(value) ? Math.max(1, Math.min(5, value)) : 1
+    invalidateResearch()
     props.onParamsUpdate({ ...params, upward_sensitivity: nextValue })
   }
 
   const updateNumericParam = (key: string, value: number, min: number, max: number) => {
     const nextValue = Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : min
+    invalidateResearch()
     props.onParamsUpdate({ ...params, [key]: nextValue })
   }
 
   const updateIntegerParam = (key: string, value: number, min: number, max: number) => {
     const nextValue = Number.isFinite(value) ? Math.max(min, Math.min(max, Math.round(value))) : min
+    invalidateResearch()
     props.onParamsUpdate({ ...params, [key]: nextValue })
   }
 
   const handlePreview = async () => {
     if (!previewEntry || accountingError) return
+    if (researchJob.blocked) return
+    if (isUsMinute) {
+      if (!isTossActive || !appConfig || appConfig.kis_is_paper_trading === undefined) return
+      await researchJob.start({
+        preview: {
+          symbol: previewEntry.leveraged_symbol, params: { ...params, entries },
+          interval: previewInterval, count: previewCount, assumptions,
+          expectedProfileId: appConfig.active_profile_id,
+          expectedBrokerAccountId: appConfig.active_broker_account_id,
+        },
+        expectedBrokerId: 'toss', expectedPaperTrading: appConfig.kis_is_paper_trading,
+      })
+      return
+    }
     const requestGeneration = previewGeneration.current
     try {
       const result = await previewMutation.mutateAsync({
@@ -324,6 +351,7 @@ export function useLeveragedTrendHoldEditorModel(props: LeveragedTrendHoldEditor
   }
 
   return {
+    researchJob, isUsMinute, invalidateResearch,
     accountingError, appConfig, assumptions, bollingerEnabled,
     breakevenBuffer, canAddTarget, currentPreview, doPickerRefreshList,
     draftQuantity, entries, entryFailureObservations, entrySensitivity,

@@ -114,6 +114,8 @@ use crate::{
 // ────────────────────────────────────────────────────────────────────
 
 pub struct AppState {
+    /// Internal US1m research ownership, shared by IPC and REST for this app lifetime.
+    pub(crate) lth_research_runtime: Arc<LthResearchRuntime>,
     /// 동일 data 디렉토리를 여러 프로세스가 동시에 수정하지 못하게 유지하는 OS file lock.
     pub _data_lock: std::fs::File,
     /// 현재 활성 설정 (프로파일 전환 시 Arc 교체)
@@ -474,6 +476,7 @@ impl AppState {
         }
 
         Self {
+            lth_research_runtime: Arc::new(LthResearchRuntime::new()),
             _data_lock: data_lock,
             config: Arc::new(RwLock::new(config)),
             rest_client: rest_client_rw,

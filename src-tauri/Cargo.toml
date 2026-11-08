@@ -53,6 +53,8 @@ keyring = { version = "3", features = ["apple-native", "windows-native", "sync-s
 windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
 
 [dev-dependencies]
+# Keep deadline/drop regressions independent of wall-clock scheduling.
+tokio = { version = "1", features = ["test-util"] }
 tokio-rustls = { version = "0.26", features = ["ring", "tls12"], default-features = false }
 tower = { version = "0.5", features = ["util"] }
 

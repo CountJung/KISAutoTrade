@@ -1,3 +1,4 @@
+use crate::broker::candles::CandleResponseSource;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex as StdMutex, OnceLock},
@@ -402,6 +403,19 @@ impl TossOpenApiClient {
         before: Option<&str>,
         adjusted: Option<bool>,
     ) -> anyhow::Result<TossCandlePageResponse> {
+        self.get_candles_with_source(symbol, interval, count, before, adjusted)
+            .await
+            .map(|(page, _)| page)
+    }
+
+    pub async fn get_candles_with_source(
+        &self,
+        symbol: &BrokerSymbol,
+        interval: &str,
+        count: Option<u16>,
+        before: Option<&str>,
+        adjusted: Option<bool>,
+    ) -> anyhow::Result<(TossCandlePageResponse, Option<CandleResponseSource>)> {
         if !matches!(interval, "1m" | "1d") {
             return Err(anyhow!(
                 "토스증권 candle interval은 1m 또는 1d만 지원합니다: {interval}"
@@ -427,9 +441,9 @@ impl TossOpenApiClient {
             path.push_str("&adjusted=");
             path.push_str(if adjusted { "true" } else { "false" });
         }
-        self.get_json::<TossApiResponse<TossCandlePageResponse>>(&path, None, None)
+        self.get_json_with_source::<TossApiResponse<TossCandlePageResponse>>(&path, None, None)
             .await
-            .map(|response| response.result)
+            .map(|(response, source)| (response.result, source))
     }
 
     pub async fn fetch_openapi_overview(&self) -> anyhow::Result<TossOpenApiOverview> {
@@ -642,6 +656,20 @@ impl TossOpenApiClient {
     where
         T: for<'de> Deserialize<'de>,
     {
+        self.get_json_with_source(path, account_seq, retry_token)
+            .await
+            .map(|(value, _)| value)
+    }
+
+    async fn get_json_with_source<T>(
+        &self,
+        path: &str,
+        account_seq: Option<&str>,
+        retry_token: Option<String>,
+    ) -> anyhow::Result<(T, Option<CandleResponseSource>)>
+    where
+        T: for<'de> Deserialize<'de>,
+    {
         let had_retry_token = retry_token.is_some();
         let token = match retry_token {
             Some(token) => token,
@@ -688,15 +716,15 @@ impl TossOpenApiClient {
             .await;
         let candle_response =
             path.split('?').next() == Some("/api/v1/candles") && account_seq.is_none();
-        let text = if candle_response {
+        let (text, source) = if candle_response {
             read_toss_candle_response_text(resp).await?
         } else {
-            read_toss_response_text(resp).await?
+            (read_toss_response_text(resp).await?, None)
         };
 
         if status == StatusCode::UNAUTHORIZED && !had_retry_token {
             let new_token = self.refresh_after_unauthorized(&token).await?;
-            return Box::pin(self.get_json(path, account_seq, Some(new_token))).await;
+            return Box::pin(self.get_json_with_source(path, account_seq, Some(new_token))).await;
         }
 
         if !status.is_success() {
@@ -711,17 +739,19 @@ impl TossOpenApiClient {
         if candle_response {
             // serde's message/source can contain response values. Keep only
             // structural diagnostics in the UI-visible error and its chain.
-            serde_json::from_str(&text).map_err(|error| anyhow!(
+            serde_json::from_str(&text).map(|value| (value, source)).map_err(|error| anyhow!(
                 "토스증권 OpenAPI 응답 파싱 실패: endpoint=/api/v1/candles; status={}; stage=json; category={:?}; line={}; column={}",
                 status.as_u16(), error.classify(), error.line(), error.column()
             ))
         } else {
-            serde_json::from_str(&text).with_context(|| {
-                format!(
-                    "토스증권 OpenAPI 응답 파싱 실패: body={}",
-                    body_snippet(&text)
-                )
-            })
+            serde_json::from_str(&text)
+                .map(|value| (value, source))
+                .with_context(|| {
+                    format!(
+                        "토스증권 OpenAPI 응답 파싱 실패: body={}",
+                        body_snippet(&text)
+                    )
+                })
         }
     }
 
