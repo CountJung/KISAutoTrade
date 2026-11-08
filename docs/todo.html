@@ -67,7 +67,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <p class="badge">🟢 자동 구현</p>
 <h2><strong>P1-DATA-01 — KIS/Toss 차트 수집 범위와 누락·시점 경계를 보강한다.</strong></h2>
 <ul><li><strong>완료한 코드/offline 범위:</strong> US1m은 <code>lth_fetch</code>→<code>lth_collection</code>의 bounded 페이지 수집과 <code>lth_regular</code> 채택·평가를 연결했다. A2/A3 수집·실행, A4 비동기 작업/취소, A5.1 raw HTTP 출처, A5.2 typed hash·통계, A5.3 성공 <code>collectionSummary</code>의 공통 DTO/UI 및 전체 정본 E2E 대조를 완료했다. 구체 근거·미실행 경계는 <a href="completed-history.md#p1-data-01">같은 ID 이력</a>이 소유한다. KR/일봉 호환 경로는 유지하며 KIS 1m page 미지원은 바뀌지 않았다.</li>
-<li><strong>남은 일:</strong> 공개 규격 snapshot·로컬 구현 대조와 실제 provider 검증을 구분한다. KIS/Toss의 실제 과거 조회/호출 제한·발행·정규장 전용 일봉 OHLC·조정·기간 coverage, native 연결과 최종 구현 SHA CI는 미완료다. 실패는 현행 일반 오류만 노출하며 부분 수집 횟수/사유의 구조화 공개는 별도 계약 결정·구현 전에는 미제공이다. 고정 cutoff·warmup/평가 구간·상한·중복 제거·scope/취소를 유지하고, KIS 분봉이 불가능하면 두 증권사에서 적법하게 확보한 파일 경로와 미지원 사유를 검토한다. 외부 벤더로 대체하지 않는다.</li>
+<li><strong>남은 일:</strong> 공개 규격 snapshot·로컬 구현 대조와 실제 provider 검증을 구분한다. KIS/Toss의 실제 과거 조회/호출 제한·발행·정규장 전용 일봉 OHLC·조정·기간 coverage, native 연결은 미완료다. 구현 SHA CI는 같은 ID 이력의 범위로 완료했다. 실패는 현행 일반 오류만 노출하며 부분 수집 횟수/사유의 구조화 공개는 별도 계약 결정·구현 전에는 미제공이다. 고정 cutoff·warmup/평가 구간·상한·중복 제거·scope/취소를 유지하고, KIS 분봉이 불가능하면 두 증권사에서 적법하게 확보한 파일 경로와 미지원 사유를 검토한다. 외부 벤더로 대체하지 않는다.</li>
 <li><strong>자료 계약:</strong> 원본/정규화 hash·출처·수집 시각·조정 의미·timezone/봉 표기·요청/실제 기간·세션 coverage를 보존한다. P1-SESSION-01의 정규장 기준으로 누락/중복·날짜 불일치·미완료 봉·미래 참조를 검사하며 누락을 0%·종가 채우기·일봉 보간·합성으로 숨기지 않는다. 실제 장중 순서를 OHLC만으로 복원했다고 주장하지 않는다.</li>
 <li><strong>완료 조건:</strong> 완료한 합성 다중 페이지·deadline/cursor·중간 실패·빈/부분 누락·취소·scope ABA·cutoff·성공요약/stale 회귀를 보존하고 문서/생성물 검사·최종 SHA CI를 확인한다. 실패 상세를 공개하려면 typed wire/UI 계약과 회귀를 별도 검토한다. 실제 자료는 원본 이용 범위·발행/조정·세션/기간 coverage를 확인하고 부족한 기간은 평가 불가로 남긴다. 코드/offline 수용을 실제30일/3개월 자료나 전체 P1-DATA-01 완료로 승격하지 않는다.</li>
 <li><strong>후속 소유자:</strong> 섹터 수집 연결·30일 비교/배당·분할은 P2-SECTOR-01, 실제 장중 3개월·옵션/손절/변동성 효능은 4구역의 기존 ID에서만 완료 판정한다. 현재 증권사별 자료 가능 범위 검토를 계좌 접근·새 인증·실제 주문 승인으로 해석하지 않는다.</li></ul>
@@ -209,7 +209,7 @@ footer { padding-top: 24px; font-size: .85rem; overflow-wrap: anywhere; }
 <a class="permalink" href="#soxq-p2-09" aria-label="이 할일 링크">#</a>
 </article></section>
 <p id="empty" hidden>일치하는 열린 할일이 없습니다. 검색어나 상태를 바꿔 주세요.</p>
-<footer>원본 SHA-256: f38de91ea7c6b35d8300479cdf21c0e2987926ccfd9bfd196fec1285031d1dc7<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
+<footer>원본 SHA-256: 7a0bef5ca1baa4e3a0b78d9994c31533493af3352db84bcdb2626368854dd6be<br>갱신: <code>npm run todo:render</code> · 동기화 확인: <code>npm run check:todo</code></footer>
 </main>
 <script>
 const status = document.getElementById('status');
