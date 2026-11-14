@@ -1431,6 +1431,7 @@ thiserror 전환은 오류 정의를 그대로 두고 Display/From/source/downca
 - `rank_sectors`/`plan_sector_portfolio`는 이전 완료자료만 받고 목표예산을 고정한다. 실행시가로 최종 정수수량을 산출하되 선정/예산에 미래가격을 넣지 않는다. 전체 입력을 먼저 검증해 필수가격 누락 시 모든 비교계정이 함께 평가불가다.
 - 기본총편도10bp를 fee/slippage 양쪽에 중복 가산하지 않는다. 총20bp는 별도 스트레스다. 매도→순위매수·현금한도·실현/잔여원가 대사를 유지한다. 비용 제거값은 동일경로 산술이며 무비용 재실행이 아니다.
 - source 검증bool과 expectedSessionDates는 입력자 선언이다. 실제 달력/공급원 자동인증으로 표시하지 않는다. 기업행위 원장 미지원 중 nonempty events 또는 부재 미확인 입력은 전체 거부하며 배당락 즉시 현금을 만들지 않는다.
+- 표시가격 관측은 `quote_clock`의 정규장 `[open, close)`를, 분봉 close-label은 `regular_clock`의 완료 1분 구간을 사용한다. 개장 순간 포함·폐장 순간 제외인 시세 관측에 분봉 라벨 경계를 재사용하지 않는다. `execution_contract`의 선언 시각/출처·fingerprint·외부 사건 키 검사는 영속 장전 저장·공급원 인증·재시작 멱등성 보장이 아니다. [현재 작업·미검증 경계](../../../docs/todo.md)를 따른다.
 - 순수 연구 endpoint에 AppState/provider/order/store를 넣지 않는다. 기존 POST 보안·JSON bound와 IPC/REST 동등성·no-effects fixture를 유지한다. 운영 factory/daemon에 연구ID를 등록하거나 MA fallback에 태우지 않는다. 실제 연결은 별도 TODO·소유/예산/guard/복원 검증이 필요하다.
 
 > 마지막 업데이트: 2026-11-05T23:35:02Z

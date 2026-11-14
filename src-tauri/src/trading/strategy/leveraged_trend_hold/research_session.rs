@@ -91,6 +91,16 @@ pub(crate) fn kst_minute(label: &str) -> Option<i64> {
 /// Full close-labelled [close-1m, close) must be inside the planned session.
 /// Completion is owned by the upper preparation seam, not this timed clock.
 pub(crate) fn regular_clock(instant: DateTime<Utc>) -> Result<RegularClock, Exclusion> {
+    session_clock(instant, true)
+}
+
+/// Instantaneous display-price observations: open inclusive, close exclusive.
+/// Reuses the research calendar, not a guarantee of extraordinary coverage.
+pub(crate) fn quote_clock(instant: DateTime<Utc>) -> Result<RegularClock, Exclusion> {
+    session_clock(instant, false)
+}
+
+fn session_clock(instant: DateTime<Utc>, close_label: bool) -> Result<RegularClock, Exclusion> {
     let ny = instant.with_timezone(&New_York);
     let date = ny.date_naive();
     let close_minute = schedule(date)?;
@@ -108,7 +118,11 @@ pub(crate) fn regular_clock(instant: DateTime<Utc>) -> Result<RegularClock, Excl
         .single()
         .ok_or(Exclusion::InvalidTime)?
         .to_utc();
-    if instant - Duration::minutes(1) < open || instant > close {
+    if if close_label {
+        instant - Duration::minutes(1) < open || instant > close
+    } else {
+        instant < open || instant >= close
+    } {
         return Err(Exclusion::OutsideRegular);
     }
     let kst = instant.with_timezone(&Seoul);

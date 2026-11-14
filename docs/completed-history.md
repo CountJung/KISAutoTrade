@@ -662,3 +662,14 @@ CI54(553/4)는 실제 입력·backdrop hit와 저장 중 focus를 구분하는 �
 - Hermes는 이번 재시도의 도구 없는 회전율 계약 리뷰에 응답했다. 최초 매수/비용 제외·일별 비율 합산/양방향/1/2 없음·무거래 기여0을 검토했으며 실제 코드 diff 리뷰로 확대하지 않는다. 별도 내부 코드/전략 리뷰와 매퍼 pass를 분리했다.
 - 문서: 사용자 요청에 따라 대기 상세는 [pending](pending.md), 열린 ID·진행중/대기 상태는 [TODO](todo.md), 완료 근거는 이 문서로 분리했다. 기존 최상위 대기8개 원문과 손실매도 정책·실제30일 자료 조건을 보존하고 과거 P2 완료 서술은 기존 이력 링크로 정리했다. TODO 생성/동기화(열린12개), 상대파일링크82개·기존 대기8개 원문 보존·대기 진입10앵커·project-map·diff 검사를 통과했다. docs-canon 원본 검사기 리소스는 조회 불가여서 대체 검사를 수행했으며 원본 검사 통과로 주장하지 않는다.
 - Graphify refresh/check PASS. 도구가 비코드 설정파일6개의 zero nodes와 HTML node limit skip을 경고했으며 이를 Rust compiler 경고나 코드 완전 분석으로 바꾸어 해석하지 않는다. 실제30일 자료·기업행위·운영 연결과 손실매도 옵션 정책은 미완료다.
+
+
+<a id="p2-sector-01-preflight"></a>
+## P2-SECTOR-01 — 2026-11-14 내부 모의 실행 사전검증 기반
+
+- 1차 회전율 커밋 `de45826` 이후 `sector_portfolio/execution_contract`에 2026-11-06~24 비교 실험 전용 순수 구조적 preflight를 추가했다. 세 전략/계획 ID·버전·공통 신호 hash 선언·직전 거래일 NAV·고정 배분·필요 티커 합집합·첫 유효 관측값·실험기간/정규장 경계·외부 확정 사건 키의 중복/부분확정을 검사한다. 공통 관측의 UTC/뉴욕 시각·관측 간격·지연/시각 미확인 한계를 보존하며 필수 가격 누락 시 전체를 거부한다. 함수는 입력을 변경하지 않고 체결·예약·저장·브로커 호출을 하지 않는다.
+- `locked_plan_hash`는 직렬화한 입력의 무결성 fingerprint 대조다. `locked_at`·`signal_input_hash`·`confirmed_event_keys`·source/provider는 호출자가 제공하는 선언/입력값으로서, 과거 장전 저장·원본 시세·시간적 선행성을 입증하지 않는다. HTTPS URL은 로컬 구조 검사(host 필수·userinfo 거부)이며 실제 공급원 확인이 아니다. 영속 장전 동결/CAS·출처 검증·재시작 멱등성·실제 체결 산술/저장/UI 연결은 미구현이다. 실제 계좌·주문·기존 모의 원장은 건드리지 않았다.
+- 시세 관측의 `quote_clock`은 정규장 `[open, close)`를 사용한다. 기존 분봉 `regular_clock`은 `[close-1분, close)`가 세션 내에 있는 close-label 계약을 그대로 보존한다. 기존 연구 달력을 재사용하며 특별 휴장 등 달력의 완전성을 새로 인증한 것은 아니다.
+- 검증: 실제 Rust 생산 코드에 합성 입력을 적용한 sector_portfolio **42/42 PASS**(순수 contract13+기존 sector26+server3), LTH **38/38 PASS**. 두 집합의 범위를 구분하며 실제 시장/계좌/브로커/native UI 성과 검증으로 확대하지 않는다. 최종 `cargo check` PASS(17.04초, 경고0), `tsc --noEmit`·project-map·Graphify refresh/check·diff PASS. Graphify의 기존 설정파일6개 zero-node/HTML 크기 skip 경고는 유지되며 완전한 source 분석을 주장하지 않는다.
+- Hermes의 실제 source 리뷰에서 비선정 `1e-9` 비중이 근사 비교를 통과한 뒤 없는 시세 인덱스로 panic할 수 있음을 발견했다. 비선정 weight/budget의 정확한0 요구·선정/시세 조회 오류 처리와 회귀를 추가했다. 별도 독립 source 리뷰의 malformed source URL 지적도 로컬 parse/회귀로 반영했고 최종 source 리뷰에서 추가 차단 사항이 없었다.
+- 스킬에는 quote 관측과 분봉 close-label의 경계 차이 및 입력 검증의 보장 한계를 짧게 추가하고 [TODO](todo.md)의 잔여 운영 연결·정산 작업을 유지했다. 손실매도 정책·실제 자료 [대기 조건](pending.md)은 변경하지 않았다.

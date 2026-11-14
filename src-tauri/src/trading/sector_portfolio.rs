@@ -5,6 +5,7 @@ mod planner;
 mod validation;
 pub use planner::{plan_sector_portfolio, rank_sectors};
 mod replay;
+pub mod execution_contract;
 pub use replay::preview_sector_portfolio;
 mod price_research;
 pub use price_research::types::*;

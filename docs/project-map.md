@@ -978,10 +978,13 @@ KISAutoTrade/
 │   │   │   │   ├── types.rs
 │   │   │   │   └── validation.rs
 │   │   │   ├── sector_portfolio/
+│   │   │   │   ├── execution_contract/
+│   │   │   │   │   └── tests.rs
 │   │   │   │   ├── price_research/
 │   │   │   │   │   ├── tests.rs
 │   │   │   │   │   ├── types.rs
 │   │   │   │   │   └── validation.rs
+│   │   │   │   ├── execution_contract.rs
 │   │   │   │   ├── planner.rs
 │   │   │   │   ├── price_research.rs
 │   │   │   │   ├── replay.rs

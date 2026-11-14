@@ -2910,8 +2910,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/sector_portfolio.rs": {
-    "mtime": 1794655003.3973024,
-    "ast_hash": "b44d38b15e5ae0b763b4c06d2bb56301",
+    "mtime": 1794655341.4700937,
+    "ast_hash": "0c3f188f55ae19861fba0ac91b264cdc",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/sector_portfolio/planner.rs": {
@@ -3300,8 +3300,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/strategy/leveraged_trend_hold/research_session.rs": {
-    "mtime": 1794061574.2791538,
-    "ast_hash": "486a30b69037d9b44342790bb6f5593a",
+    "mtime": 1794655341.4699445,
+    "ast_hash": "ba1628957ba5d7e96b0ed5f7a2c760f0",
     "semantic_hash": ""
   },
   "src-tauri/src/commands/strategy_preview/lth_collection.rs": {
@@ -3352,6 +3352,16 @@
   "tests/e2e/lth-research-lifecycle.spec.ts": {
     "mtime": 1794107897.6145046,
     "ast_hash": "be71dbf7da53eda503aad536d2485fe9",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/trading/sector_portfolio/execution_contract.rs": {
+    "mtime": 1794655645.2836907,
+    "ast_hash": "14d10cc86bb7bc579300e70486e1e534",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/trading/sector_portfolio/execution_contract/tests.rs": {
+    "mtime": 1794655645.2332003,
+    "ast_hash": "9aaf66db08c7f4144be652555815da25",
     "semantic_hash": ""
   }
 }
