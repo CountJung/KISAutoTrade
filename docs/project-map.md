@@ -365,6 +365,7 @@ KISAutoTrade/
 │   ├── ipc-commands.md
 │   ├── leveraged-trend-hold-parameter-guide.md
 │   ├── mock-trading-e2e-checklist.md
+│   ├── pending.md
 │   ├── project-map.md
 │   ├── release-security.md
 │   ├── todo.html

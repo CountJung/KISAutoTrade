@@ -248,12 +248,12 @@ fn independent_ledger_reconciles_fees_holdings_cash_turnover_and_pnl_for_all_boo
         let mut cash = input.initial_cash_usd;
         let mut shares: BTreeMap<String, u64> = BTreeMap::new();
         let mut fees = 0.0;
-        let mut turnover = 0.0;
+        let mut turnover_by_day: BTreeMap<String, f64> = BTreeMap::new();
         for trade in &portfolio.trades {
             let amount = trade.price_usd * trade.quantity as f64;
             close(trade.cost_usd, amount * 0.001);
             fees += trade.cost_usd;
-            turnover += amount;
+            *turnover_by_day.entry(trade.date.clone()).or_default() += amount;
             if trade.side == "buy" {
                 cash -= amount + trade.cost_usd;
                 *shares.entry(trade.symbol.clone()).or_default() += trade.quantity;
@@ -274,7 +274,20 @@ fn independent_ledger_reconciles_fees_holdings_cash_turnover_and_pnl_for_all_boo
         close(cash, portfolio.summary.ending_cash_usd);
         close(fees, portfolio.summary.total_cost_usd);
         close(
-            turnover / input.initial_cash_usd * 100.0,
+            portfolio
+                .daily
+                .iter()
+                .enumerate()
+                .map(|(index, day)| {
+                    let preopen_nav = if index == 0 {
+                        input.initial_cash_usd
+                    } else {
+                        portfolio.daily[index - 1].equity_usd
+                    };
+                    turnover_by_day.get(&day.date).copied().unwrap_or(0.0) / preopen_nav
+                })
+                .sum::<f64>()
+                * 100.0,
             portfolio.summary.turnover_pct,
         );
         close(
@@ -718,4 +731,49 @@ fn unaffordable_signal_is_a_zero_quantity_diagnostic_not_a_filled_trade() {
         assert!(book.daily.iter().all(|row| row.cash_usd == 1.0));
         close(book.summary.total_cost_usd, 0.0);
     }
+}
+
+#[test]
+fn turnover_uses_daily_preopen_nav_not_initial_or_execution_nav() {
+    let mut input = fixture();
+    // Overnight gaps and large relative drift force later sells and buys.
+    // Prior closes, next opens and initial capital are deliberately different.
+    for (index, day) in input.evaluation.iter_mut().enumerate() {
+        let multiplier = if index % 4 < 2 { 3.0 } else { 1.0 };
+        let price = day.prices.get_mut("XLU").unwrap();
+        price.close *= multiplier;
+        price.adjusted_close *= multiplier;
+        price.open *= multiplier * 1.2;
+    }
+    let report = preview_sector_portfolio(&input).unwrap();
+    let book = &report.portfolios[0];
+    let mut expected = 0.0;
+    let mut total_notional = 0.0;
+    let mut trading_days = 0;
+    let mut mixed_side_day = false;
+    for (index, day) in book.daily.iter().enumerate() {
+        let trades: Vec<_> = book
+            .trades
+            .iter()
+            .filter(|t| t.date == day.date && t.quantity > 0)
+            .collect();
+        let amount: f64 = trades.iter().map(|t| t.price_usd * t.quantity as f64).sum();
+        let nav = if index == 0 {
+            input.initial_cash_usd
+        } else {
+            book.daily[index - 1].equity_usd
+        };
+        close(day.plan.reference_equity_usd, nav);
+        expected += amount / nav * 100.0;
+        total_notional += amount;
+        trading_days += usize::from(amount > 0.0);
+        mixed_side_day |=
+            trades.iter().any(|t| t.side == "buy") && trades.iter().any(|t| t.side == "sell");
+    }
+    assert!(trading_days > 1 && mixed_side_day);
+    close(book.summary.turnover_pct, expected);
+    assert!((expected - total_notional / input.initial_cash_usd * 100.0).abs() > 1.0);
+    let spy = &report.portfolios[3];
+    close(spy.summary.turnover_pct, 99.0); // First buy, no fee in numerator.
+    close(report.portfolios[4].summary.turnover_pct, 0.0); // No trades.
 }

@@ -8,7 +8,7 @@ struct Ledger {
     positions: BTreeMap<String, SectorHolding>,
     realized: f64,
     costs: f64,
-    turnover: f64,
+    turnover_ratio: f64,
     state: Option<DefensiveState>,
     selection: Vec<String>,
     trades: Vec<SectorTrade>,
@@ -35,6 +35,7 @@ impl Ledger {
         if !plan.rebalance {
             return Ok(());
         }
+        let first_trade = self.trades.len();
         let targets: BTreeMap<_, _> = plan.targets.iter().map(|target| {
             let quantity = (target.budget_usd / day.prices[&target.symbol].open).floor();
             if !quantity.is_finite() || !(0.0..=9_007_199_254_740_991.0).contains(&quantity) {
@@ -59,6 +60,13 @@ impl Ledger {
                 self.buy(symbol, target - held, day, fee);
             }
         }
+        // The locked plan values holdings at the previous completed close.
+        // Do not use opening/closing NAV or initial cash for later sessions.
+        let traded_amount = self.trades[first_trade..]
+            .iter()
+            .map(|trade| trade.price_usd * trade.quantity as f64)
+            .sum::<f64>();
+        self.turnover_ratio += traded_amount / plan.reference_equity_usd;
         Ok(())
     }
 
@@ -77,7 +85,6 @@ impl Ledger {
         }
         self.cash += amount - cost;
         self.costs += cost;
-        self.turnover += amount;
         self.trades.push(SectorTrade {
             date: day.date.clone(),
             symbol: symbol.into(),
@@ -118,7 +125,6 @@ impl Ledger {
             row.remaining_buy_cost_usd += cost;
             self.cash -= amount + cost;
             self.costs += cost;
-            self.turnover += amount;
         }
         self.trades.push(SectorTrade {
             date: day.date.clone(),
@@ -215,7 +221,7 @@ impl Ledger {
             unrealized_pnl_usd: unrealized,
             average_exposure_pct: self.daily.iter().map(|row| row.exposure_pct).sum::<f64>()
                 / self.daily.len() as f64,
-            turnover_pct: self.turnover / initial * 100.0,
+            turnover_pct: self.turnover_ratio * 100.0,
             filled_trade_count: self.trades.iter().filter(|row| row.quantity > 0).count(),
             cash_limited_count: self
                 .trades
@@ -332,7 +338,7 @@ fn strict_warnings(input: &SectorPortfolioInput) -> Vec<String> {
         "기말 보유는 마지막 비조정 종가로 평가하며 가상 청산비용을 추가 차감하지 않았습니다. 세금·현금이자는0입니다.".into(),
         "정산은 USD f64 전체 정밀도로 계산하고 센트 단위 반올림을 매 거래에 적용하지 않습니다. 현금/수량 한도를 별도 검사하며 독립 재정산 오차 허용범위를 구분해야 합니다.".into(),
         "비용 제거 수익률은 같은 체결 경로에 비용을 더한 산술값이며 비용0에서 재실행한 전략 결과가 아닙니다. 노출은 봉말 평가비중입니다.".into(),
-        "회전율=매수대금+매도대금 합계/초기자금×100(양방향, 연율화 없음), 변동성=일간 수익률 표본 표준편차(비연율화)입니다. 5%p 비교는 부동소수 경계 보호1e-12를 적용합니다.".into(),
+        "회전율=일별 (매수대금+매도대금)/장전 기준 NAV의 합×100(최초 매수 포함·비용 제외·양방향·1/2 적용 및 연율화 없음), 변동성=일간 수익률 표본 표준편차(비연율화)입니다. 5%p 비교는 부동소수 경계 보호1e-12를 적용합니다.".into(),
         "짧은 회고 구간으로 전략 우월성·급락방어·실거래 안전성을 확정할 수 없습니다. 분할/배당 이벤트가 있거나 부재 검증이 없는 입력은 평가를 거부합니다.".into(),
     ];
     if input.source.synthetic {

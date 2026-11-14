@@ -15,7 +15,7 @@ pub fn validate_sector_portfolio_input(input: &SectorPortfolioInput) -> Result<(
     validation::input(input)
 }
 
-pub const SECTOR_ENGINE_VERSION: &str = "sector-portfolio-v1";
+pub const SECTOR_ENGINE_VERSION: &str = "sector-portfolio-v1.1";
 pub const SECTOR_SYMBOLS: [&str; 11] = [
     "XLC", "XLY", "XLP", "XLE", "XLF", "XLV", "XLI", "XLB", "XLRE", "XLK", "XLU",
 ];

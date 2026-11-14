@@ -653,3 +653,12 @@ CI54(553/4)는 실제 입력·backdrop hit와 저장 중 focus를 구분하는 �
 - `TradeGuard`의 비용 후 기대이익 검사는 `tick_price > avg_price` 조건부여서 모든 손실매도 방지와 다르다. 별도 변형 옵션과 사용자 결정이 필요한 손절/수동/강제청산 우선순위는 [P2-SECTOR-01](todo.md)에 미완료로 남겼다.
 - 문서만 변경했으며 앱·기본값·계좌·자격증명·실제 주문과 기존 모의 원장은 변경하지 않았다. Hermes에 도구 없는 문구 리뷰를 요청했으나 `Gateway inaccessible: authorization`으로 응답을 받지 못했다. 인증 우회/변경 없이 내부 독립 리뷰로 대체했다.
 - 검증: TODO 생성/동기화(열린12개), 상대 파일링크135개, `git diff --check`, 생성기 순수 테스트2개 PASS. 생성기의 브라우저 테스트1개는 Chromium Mach port `Permission denied (1100)`으로 미실행이다. docs-canon 원본 검사기 리소스 조회 실패로 링크/생성물 대체 검사를 수행했으며 원본 검사 통과로 주장하지 않는다. 내부 독립 검토는 전달한 설계 계약의 논리 리뷰이며, 해당 리뷰어의 실제 diff/링크 열람은 아니다. 실제 파일·링크·중복 검토는 문서 담당이 수행했다. Rust/UI 빌드나 실제 broker/성과 검증을 새로 수행한 것으로 해석하지 않는다.
+
+<a id="p2-sector-01-turnover-nav"></a>
+## P2-SECTOR-01 — 2026-11-14 연구 회전율의 장전 NAV 정합화
+
+- 외장 Mac 작업 브랜치 `fix/mac-security-storage-2026-10-06`, 시작 코드 `445111c`의 순수 연구 replay에서 회전율을 일별 `(매수대금+매도대금)/장전 기준 NAV`의 합×100으로 교정했다. 최초 매수 포함·거래비용 분자 제외·양방향·1/2 미적용·비연율화이며 다음 시가/종가 NAV나 초기자금으로 후속 거래일 분모를 대체하지 않는다. `sector-portfolio-v1.1`로 구분하고 검증형/브로커 가격근사형 결과 경고를 함께 갱신했다. 과거 저장 결과·실험 원장·실거래 동작은 수정하지 않았다.
+- 검증: `cargo test --manifest-path src-tauri/Cargo.toml --offline --lib trading::sector_portfolio -- --nocapture` **26/26 PASS**. 실제 Rust 생산 replay에 합성 입력을 넣었으며 overnight gap·다회/양방향 리밸런싱의 전일 NAV 독립 검산과 초기자금 분모와의 구분, 최초 SPY99%·현금 회전율0을 확인했다. `cargo check --offline --manifest-path src-tauri/Cargo.toml` PASS(1분47초, Rust 경고0), `tsc --noEmit` PASS. 실제 자료/native UI/브로커·계좌·주문 성과 검증이 아니다.
+- Hermes는 이번 재시도의 도구 없는 회전율 계약 리뷰에 응답했다. 최초 매수/비용 제외·일별 비율 합산/양방향/1/2 없음·무거래 기여0을 검토했으며 실제 코드 diff 리뷰로 확대하지 않는다. 별도 내부 코드/전략 리뷰와 매퍼 pass를 분리했다.
+- 문서: 사용자 요청에 따라 대기 상세는 [pending](pending.md), 열린 ID·진행중/대기 상태는 [TODO](todo.md), 완료 근거는 이 문서로 분리했다. 기존 최상위 대기8개 원문과 손실매도 정책·실제30일 자료 조건을 보존하고 과거 P2 완료 서술은 기존 이력 링크로 정리했다. TODO 생성/동기화(열린12개), 상대파일링크82개·기존 대기8개 원문 보존·대기 진입10앵커·project-map·diff 검사를 통과했다. docs-canon 원본 검사기 리소스는 조회 불가여서 대체 검사를 수행했으며 원본 검사 통과로 주장하지 않는다.
+- Graphify refresh/check PASS. 도구가 비코드 설정파일6개의 zero nodes와 HTML node limit skip을 경고했으며 이를 Rust compiler 경고나 코드 완전 분석으로 바꾸어 해석하지 않는다. 실제30일 자료·기업행위·운영 연결과 손실매도 옵션 정책은 미완료다.
