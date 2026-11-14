@@ -131,6 +131,15 @@ async fn ownership_fill_restart_loads_partial_cost_and_risk_receipts_from_primar
     let (fixture, key) = fixture(OrderSide::Sell, 2, 2, 200).await;
     let mut manager = fixture.manager.lock().await;
     manager.on_fill("fixture-owned-fill", 1, 120).await.unwrap();
+    // Persist a second cumulative intent but fail its risk save after ownership applied.
+    let risk_path = fixture.path.join("risk/runtime.json");
+    let saved_risk = fixture.path.join("risk/fixture-saved-runtime.json");
+    tokio::fs::rename(&risk_path, &saved_risk).await.unwrap();
+    tokio::fs::create_dir(&risk_path).await.unwrap();
+    assert!(manager.on_fill("fixture-owned-fill", 2, 115).await.is_err());
+    assert!(manager.pending["fixture-owned-fill"].application_started);
+    tokio::fs::remove_dir(&risk_path).await.unwrap();
+    tokio::fs::rename(&saved_risk, &risk_path).await.unwrap();
     let restored = manager.pending_order_store.load().await.unwrap();
     let risk = Arc::new(Mutex::new(crate::trading::risk::RiskManager::default()));
     risk.lock()
@@ -163,6 +172,68 @@ async fn ownership_fill_restart_loads_partial_cost_and_risk_receipts_from_primar
         )
         .unwrap();
     *manager = restarted;
+    // A restarted manager may select another broker/account/mode before A returns.
+    for variant in ["broker", "account", "mode"] {
+        let mut other = fixture.profile.clone();
+        match variant {
+            "broker" => {
+                other.broker_id = BrokerId::Toss;
+                other.is_paper_trading = false;
+            }
+            "account" => other.account_no = "8765432101".into(),
+            _ => other.is_paper_trading = false,
+        }
+        let other_client = test_support::client("http://127.0.0.1:1".into(), &other).await;
+        manager.end_execution_run();
+        *manager.profiles.write().await = crate::config::ProfilesConfig {
+            active_id: Some(other.id.clone()),
+            profiles: vec![other.clone()],
+        };
+        *manager.rest_client.write().await = other_client.clone();
+        manager
+            .begin_execution_run(
+                test_support::scope(&other),
+                Some(other.id.clone()),
+                3,
+                other_client,
+                Some(other),
+            )
+            .unwrap();
+        let pending_before = serde_json::to_value(&manager.pending).unwrap();
+        let owner_before = tokio::fs::read(manager.pending_order_store.ownership_path())
+            .await
+            .unwrap();
+        let risk_before = tokio::fs::read(&risk_path).await.unwrap();
+        let result = manager.on_fill("fixture-owned-fill", 2, 115).await;
+        assert_eq!(result.is_err(), variant == "mode");
+        assert_eq!(
+            serde_json::to_value(&manager.pending).unwrap(),
+            pending_before
+        );
+        assert_eq!(
+            tokio::fs::read(manager.pending_order_store.ownership_path())
+                .await
+                .unwrap(),
+            owner_before
+        );
+        assert_eq!(tokio::fs::read(&risk_path).await.unwrap(), risk_before);
+    }
+    manager.end_execution_run();
+    *manager.rest_client.write().await = fixture.client.clone();
+    *manager.profiles.write().await = crate::config::ProfilesConfig {
+        active_id: Some(fixture.profile.id.clone()),
+        profiles: vec![fixture.profile.clone()],
+    };
+    manager
+        .begin_execution_run(
+            test_support::scope(&fixture.profile),
+            Some(fixture.profile.id.clone()),
+            4,
+            fixture.client.clone(),
+            Some(fixture.profile.clone()),
+        )
+        .unwrap();
+    manager.on_fill("fixture-owned-fill", 2, 115).await.unwrap();
     manager.on_fill("fixture-owned-fill", 2, 115).await.unwrap();
     assert_eq!(
         manager

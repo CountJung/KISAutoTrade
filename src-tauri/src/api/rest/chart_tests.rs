@@ -6,6 +6,318 @@ use axum::http::{Response as HttpResponse, StatusCode};
 use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+#[tokio::test]
+async fn kis_quote_client_never_forwards_credentials_to_redirect_destination() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let destination = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let destination_address = destination.local_addr().unwrap();
+    let calls = std::sync::Arc::new(AtomicUsize::new(0));
+    let observed = calls.clone();
+    let destination_task = tokio::spawn(async move {
+        let (mut stream, _) = destination.accept().await.unwrap();
+        observed.fetch_add(1, Ordering::SeqCst);
+        let _ = stream
+            .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+            .await;
+    });
+    for status in [307, 308] {
+        let source = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let source_address = source.local_addr().unwrap();
+        let source_task = tokio::spawn(async move {
+            let (mut stream, _) = source.accept().await.unwrap();
+            let mut head = Vec::new();
+            while !head.ends_with(b"\r\n\r\n") {
+                assert!(head.len() < 8192);
+                head.push(stream.read_u8().await.unwrap());
+            }
+            let redirect = format!("HTTP/1.1 {status} Redirect\r\nLocation: http://{destination_address}/must-not-receive\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+            stream.write_all(redirect.as_bytes()).await.unwrap();
+        });
+        let client = kis_http_client();
+        let request = ChartRequest::overseas_daily_mode("SPY", "NYS", "20261105", false).build(
+            &client,
+            &format!("http://{source_address}"),
+            synthetic_auth(),
+        );
+        let response = request.send().await.unwrap();
+        assert_eq!(response.status().as_u16(), status);
+        assert_eq!(
+            parse_broker_chart_daily_response(response)
+                .await
+                .unwrap_err()
+                .to_string(),
+            "BROKER_CHART_HTTP_FAILED"
+        );
+        source_task.await.unwrap();
+    }
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    destination_task.abort();
+}
+
+#[tokio::test]
+async fn broker_chart_daily_quotes_use_raw_wire_and_preserve_all_ohlcv_on_loopback() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let body = json!({"rt_cd":"0", "output2":[
+        {"xymd":"20261105","open":"001.2300","high":"2.3400","low":"0.1200","clos":"1.4500","tvol":"000987"},
+        {"xymd":"20261104","open":"1.1000","high":"1.8000","low":"0.9000","clos":"1.2300","tvol":"12345678901234567890"}
+    ]}).to_string();
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut request = Vec::new();
+        loop {
+            let mut chunk = [0; 1024];
+            let count = stream.read(&mut chunk).await.unwrap();
+            assert!(count > 0);
+            request.extend_from_slice(&chunk[..count]);
+            assert!(request.len() <= 8192);
+            if request.windows(4).any(|part| part == b"\r\n\r\n") {
+                break;
+            }
+        }
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        stream.write_all(response.as_bytes()).await.unwrap();
+        String::from_utf8(request).unwrap()
+    });
+    // In-memory synthetic credentials/token: no config file or real auth endpoint.
+    let profile = AccountProfile::new(
+        "raw chart fixture".into(),
+        true,
+        "chart-fixture-key".into(),
+        "chart-fixture-secret".into(),
+        "1234567801".into(),
+    );
+    let config = AppConfig::from_profile(&profile, &DiscordConfig::default());
+    let tokens = TokenManager::new(config);
+    tokens
+        .set_test_access_token("chart-fixture-token".into())
+        .await;
+    let client = KisRestClient::new(
+        format!("http://{address}"),
+        profile.app_key,
+        profile.app_secret,
+        profile.account_no,
+        true,
+        std::sync::Arc::new(tokio::sync::RwLock::new(tokens)),
+    );
+    let candles = client
+        .get_broker_chart_daily_quotes("SPY", "NYS", "20261105")
+        .await
+        .unwrap();
+    assert_eq!(
+        candle_values(candles),
+        [
+            ("20261105", "001.2300", "2.3400", "0.1200", "1.4500", "000987"),
+            (
+                "20261104",
+                "1.1000",
+                "1.8000",
+                "0.9000",
+                "1.2300",
+                "12345678901234567890"
+            )
+        ]
+        .map(|(d, o, h, l, c, v)| (
+            d.into(),
+            o.into(),
+            h.into(),
+            l.into(),
+            c.into(),
+            v.into()
+        ))
+    );
+    let request = server.await.unwrap();
+    assert!(request.starts_with("GET /uapi/overseas-price/v1/quotations/dailyprice?AUTH=&EXCD=NYS&SYMB=SPY&GUBN=0&BYMD=20261105&MODP=0 HTTP/1.1\r\n"));
+    assert!(request.contains("tr_id: HHDFS76240000\r\n"));
+}
+
+#[test]
+fn broker_chart_daily_parser_requires_every_string_without_echoing_values() {
+    let row = json!({"xymd":"20261105","open":"1","high":"2","low":"0.5","clos":"1.5","tvol":"7"});
+    for field in ["xymd", "open", "high", "low", "clos", "tvol"] {
+        let mut missing = row.clone();
+        missing.as_object_mut().unwrap().remove(field);
+        for value in [
+            missing,
+            {
+                let mut numeric = row.clone();
+                numeric[field] = json!(42);
+                numeric
+            },
+            {
+                let mut null = row.clone();
+                null[field] = json!(null);
+                null
+            },
+        ] {
+            let body =
+                json!({"rt_cd":"0","msg1":"secret-provider-body","output2":[value]}).to_string();
+            assert_eq!(
+                parse_broker_chart_daily_body(true, &body)
+                    .unwrap_err()
+                    .to_string(),
+                "BROKER_CHART_INVALID_RESPONSE"
+            );
+        }
+        let mut blank = row.clone();
+        blank[field] = json!("  ");
+        assert_eq!(
+            parse_broker_chart_daily_body(
+                true,
+                &json!({"rt_cd":"0","output2":[blank]}).to_string()
+            )
+            .unwrap_err()
+            .to_string(),
+            "BROKER_CHART_EMPTY_FIELD"
+        );
+    }
+    for (success, body, expected) in [
+        (false, "secret-provider-body", "BROKER_CHART_HTTP_FAILED"),
+        (
+            true,
+            "secret-provider-body",
+            "BROKER_CHART_INVALID_RESPONSE",
+        ),
+        (true, r#"{"output2":[]}"#, "BROKER_CHART_INVALID_RESPONSE"),
+        (
+            true,
+            r#"{"rt_cd":"1","msg1":"secret-provider-body"}"#,
+            "BROKER_CHART_PROVIDER_REJECTED",
+        ),
+        (true, r#"{"rt_cd":"0"}"#, "BROKER_CHART_MISSING_ROWS"),
+        (
+            true,
+            r#"{"rt_cd":"0","output2":null}"#,
+            "BROKER_CHART_MISSING_ROWS",
+        ),
+        (
+            true,
+            r#"{"rt_cd":"0","output2":[]}"#,
+            "BROKER_CHART_EMPTY_ROWS",
+        ),
+    ] {
+        assert_eq!(
+            parse_broker_chart_daily_body(success, body)
+                .unwrap_err()
+                .to_string(),
+            expected
+        );
+    }
+    let body = |count| json!({"rt_cd":"0","output2":vec![row.clone(); count]}).to_string();
+    assert_eq!(
+        parse_broker_chart_daily_body(true, &body(500))
+            .unwrap()
+            .len(),
+        500
+    );
+    assert_eq!(
+        parse_broker_chart_daily_body(true, &body(501))
+            .unwrap_err()
+            .to_string(),
+        "BROKER_CHART_TOO_MANY_ROWS"
+    );
+}
+
+#[test]
+fn broker_chart_daily_parser_separates_quota_codes_without_echoing_provider_details() {
+    for quota in ["EGW00133", "EGW00201"] {
+        let body = json!({"rt_cd":"1","msg_cd":quota,"msg1":"secret-provider-body"});
+        assert_eq!(
+            parse_broker_chart_daily_body(true, &body.to_string())
+                .unwrap_err()
+                .to_string(),
+            "BROKER_CHART_RATE_LIMITED"
+        );
+    }
+    let body = json!({"rt_cd":"1","msg_cd":"secret-provider-code","msg1":"secret-provider-body"});
+    assert_eq!(
+        parse_broker_chart_daily_body(true, &body.to_string())
+            .unwrap_err()
+            .to_string(),
+        "BROKER_CHART_PROVIDER_REJECTED"
+    );
+}
+
+#[tokio::test]
+async fn broker_chart_daily_response_keeps_read_and_size_errors_fixed() {
+    let error = parse_broker_chart_daily_response(response(StatusCode::OK, vec![0xff]))
+        .await
+        .unwrap_err()
+        .to_string();
+    assert_eq!(error, "BROKER_CHART_RESPONSE_LIMIT_OR_READ_FAILED");
+    for announced in [true, false] {
+        let oversized = oversized_local_response(StatusCode::OK, announced).await;
+        assert_eq!(
+            parse_broker_chart_daily_response(oversized)
+                .await
+                .unwrap_err()
+                .to_string(),
+            "BROKER_CHART_RESPONSE_LIMIT_OR_READ_FAILED"
+        );
+    }
+}
+
+#[test]
+fn sector_daily_modes_preserve_old_adjusted_contract_and_raw_pair() {
+    for (adjusted, expected) in [(false, "0"), (true, "1")] {
+        let recipe = ChartRequest::overseas_daily_mode("SPY", "NYS", "20250930", adjusted);
+        let request = recipe
+            .build(
+                &kis_http_client(),
+                "https://example.invalid",
+                synthetic_auth(),
+            )
+            .build()
+            .unwrap();
+        let query: std::collections::BTreeMap<_, _> =
+            request.url().query_pairs().into_owned().collect();
+        assert_eq!(query["MODP"], expected);
+        assert_eq!(query["GUBN"], "0");
+        assert_eq!(query["BYMD"], "20250930");
+        assert_eq!(query["EXCD"], "NYS");
+        assert_eq!(request.headers()["tr_id"], "HHDFS76240000");
+    }
+    assert_eq!(
+        ChartRequest::overseas("SPY", "NYS", "D", "20250930").query[5].1,
+        "1"
+    );
+}
+
+#[test]
+fn sector_quote_parser_rejects_without_echoing_provider_body_or_message() {
+    for (success, body) in [
+        (false, "secret-account-response-body"),
+        (true, "not-json-secret-account-response-body"),
+        (
+            true,
+            r#"{"rt_cd":"1","msg1":"secret-account-response-body"}"#,
+        ),
+        (
+            true,
+            r#"{"rt_cd":"0","output2":[{"xymd":"20250930","open":"100"}]}"#,
+        ),
+    ] {
+        let error = parse_sector_daily_body(success, body)
+            .unwrap_err()
+            .to_string();
+        assert!(error.starts_with("SECTOR_QUOTE_"));
+        assert!(!error.contains("secret"));
+        assert!(!error.contains("response-body"));
+    }
+    let rows = parse_sector_daily_body(
+        true,
+        r#"{"rt_cd":"0","output2":[{"xymd":"20250930","open":"100","clos":"101"}]}"#,
+    )
+    .unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].close, "101");
+}
+
 #[test]
 fn client_scope_matches_every_account_credential_and_mode() {
     let profile = AccountProfile::new(

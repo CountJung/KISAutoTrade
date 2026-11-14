@@ -30,13 +30,14 @@
 | Command | 입력 / 반환 |
 |---|---|
 | `get_auto_trading_budget` | `input: { brokerId, brokerAccountId }` → `AutoTradingBudgetView` |
-| `update_auto_trading_budget` | 위 scope + `krwAmount`, `usdAmount` → 저장 후 view |
+| `update_auto_trading_budget` | 위 scope + 필수 `expectedProfileId`, `expectedIsPaper`, `krwAmount`, `usdAmount` → 저장 후 view |
 
 - REST: `GET /api/auto-trading-budget?brokerId=...&brokerAccountId=...`, `POST /api/auto-trading-budget` (동일 input body). 기존 웹 인증 경계 적용.
 - KRW는 원, USD는 **센트** 정수이며 최대 `9007199254740991`. UI는 달러를 센트로 변환한다.
 - 반환: `scope: { brokerId, accountId }`, `krw`/`usd` 각각 `allocatedAmount`, `cashAmount`, `reservedAmount`, `availableAmount`, `ownedPositionCount`, `blockedReason`, `feeBufferBps`.
 - 활성 계좌와 요청 scope 불일치는 `BUDGET_SCOPE_CHANGED`, 계좌 미선택은 `BUDGET_SCOPE_REQUIRED`, 실행 중 변경은 `TRADING_RUNNING`, 원장/예산 거부는 `AUTO_TRADING_BUDGET_ERROR`.
 - 원장 기본 배정액 0: 자동매수 차단. 리스크 사용 토글과 독립. Settings의 자동매매 전용 예산에서 조회/변경한다.
+- 저장의 expected profile/mode는 IPC와 REST 모두 selection lock 아래 검증한다. broker/account가 같아도 profile/mode가 달라지면 `BUDGET_SCOPE_CHANGED`이며, 필드 없는 legacy payload는 역직렬화 오류다(REST 422). 원장 schema는 기존 broker/account 기준을 유지한다. 새 영속 `is_paper` 및 legacy 자금/수동 주문 차단은 호환 회귀 때문에 철회했으며, 모드별 원장 격리·검증된 이관은 미해결이다. UI의 publication은 늦은 응답의 표시/재조회/초안 초기화를 제한하며 서버 발급 ABA generation은 아니다.
 
 ## 응답 불명 주문 복구 (Tauri 데스크톱 전용)
 
@@ -91,6 +92,13 @@
 | `preview_leveraged_trend_hold` | 활성 Toss profile/account scope와 `1m`/`1d` count 20~200을 검증. 일봉은 성과 평가 불가 자료 진단, 분봉은 실제 장중 관측의 모의 표본 결과를 반환. 일봉 context와 분봉 지표를 분리하고 `replay.assessment`에 관측 수·평가 가능 여부·시간/세션 미검증을 기록 |
 | `preview_strategy` | `candles` 평가 구간 + 선택 `historyCandles` 사전자료를 합계 최대 500봉으로 종가 신호·선택 체결 모델 replay. `warmupCount` 생략은 0이며 명시 prefix와 별도 history 동시 지정은 거부. 결과 candles는 평가 구간만 포함. 실제 지표 준비 상태·조건 평가 봉 수(`preparation`), raw 신호·체결/차단·비용/리스크 성과와 OHLCV hash를 반환. generic LTH는 `UNSUPPORTED_GENERIC_REPLAY`로 명시 거부. live 10초 tick·intrabar/provider latency는 재현하지 않음 |
 | `preview_strategy_continuous` | 한 요청의 엄격한 이전 사전자료와 시간순 분할 평가봉을 공통 v12 세션에서 연속 재생. history 최대512봉·1~16묶음·묶음당1~500봉·전체 평가4096봉. 상태 보존과 공급 경계 원장을 반환하며 generic LTH는 거부. 웹 POST `/api/strategy/preview/continuous`와 동일 입력 |
+| `preview_sector_portfolio` | 계좌 없이 제공 JSON의 11개 섹터+SPY를 공통 시계에서 기본·방어·공격+SPY보유/현금으로 비교. USD 독립 장부·이전 완료봉 신호→nextOpen 근사. 웹 POST `/api/strategy/sector-portfolio/preview`와 동일 계산. 운영 전략 등록·주문·파일 저장 없음 |
+| `preview_broker_chart_portfolio` | 별도 BrokerChartInput의 비수정 종가 신호·nextOpen USD 가격근사. 순수 계산이며 보호 POST `/api/strategy/broker-chart/preview`와 연구 native에서도 제공. 검증형 flag 승격·주문·저장 없음 |
+| `get_broker_chart_scope` | 일반 native에서 명시 클릭 때 KIS/Toss 활성 profile의 opaque ID/provider/paper만 반환. REST/연구 native에 미등록 |
+| `collect_broker_chart_data` | 일반 native에서 expectedProfileId·별도 인증 시세 동의 후 고정12종목 비수정 일봉 수집. 잔고/계좌목록/주문 호출 없음. REST/연구 native에 미등록 |
+| `validate_sector_data` | 제공된 raw/adjusted bundle과 수동 검증 근거를 로컬 대조해 준비 상태·진단·hash와 계산용 입력을 반환. 순수 계산이며 POST `/api/strategy/sector-data/validate`도 같은 계약. 연구 전용 native에서도 제공 |
+| `get_sector_quote_scope` | 일반 native 앱에서 명시 버튼 클릭 때만 활성 profile의 opaque ID·provider·paper 최소정보를 반환. 계좌번호/자격증명은 반환하지 않으며 계좌 연결 성공을 인증하는 응답이 아님. REST/연구 전용 native에는 미등록 |
+| `collect_sector_data` | 일반 native 앱에서 expectedProfileId·인증 시세 조회 동의·고정12종목 manifest를 검증한 뒤 raw(MODP=0)/adjusted(MODP=1) 일봉을 수집. 인증/토큰 발급이 발생할 수 있으나 주문·잔고·자동매매는 호출하지 않음. REST/연구 전용 native에는 미등록 |
 | `get_chart_data` | 국내주식 차트 데이터 (일/주/월봉, 날짜 범위와 선택적 count) |
 | `get_overseas_price` | 해외주식 현재가 조회 |
 | `get_overseas_chart_data` | 해외주식 최신 차트 데이터 (일/주/월봉, 선택적 count 상한) |
@@ -111,9 +119,9 @@
 
 `preview_strategy` v6은 `leveraged_trend_hold` 및 접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 거부한다. 실시간 LTH factory/tick을 실행하거나 비결정적 backtest를 정상 결과로 돌려주지 않는다. 입력 시각 기반 전용 `preview_leveraged_trend_hold`의 Toss profile/account/interval 계약은 유지하며 generic 입력을 provider 조회로 자동 우회하지 않는다. 나머지 12개 전략의 입력·결과 형식은 같다.
 
-현재 엔진은 `strategy-replay-v23`, 전용 LTH는 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations, minuteTiming?}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
+현재 엔진은 `strategy-replay-v23`, 전용 LTH 미국 `1m` 연구는 `leveraged-trend-hold-v5-us-regular`, KR/일봉은 `leveraged-trend-hold-v4`이며 공통 엔진 버전을 응답과 입력 hash에 함께 넣는다. `ReplayMetadata`의 선택 `assessment`는 `{model, performanceStatus, dailyContextBars, intradayBars, timestampStatus, sessionStatus, limitations, minuteTiming?}`다. generic 응답에는 생략한다. 전용 LTH `1d`는 cadence/model=`dailyDiagnostic`, status=`notEvaluable`, `intradayBars=0`이며 장중 가격을 합성하거나 전략·체결을 실행하지 않는다. 호환 `backtest`의 빈 결과를 0% 투자 성과로 해석하지 않으며 UI는 성과·거래표·A/B 저장을 숨긴다. assessment 없는 기존 LTH 응답도 평가 불가로 처리한다.
 
-전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. 입력 시각으로 결정적 계산은 가능하지만 현재 고정 KST 세션 근사, 원본 시간대·DST·기간 coverage가 미검증이므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
+전용 `1m`은 `minuteClose`, model=`intradaySample`, status=`sampleOnly`로 최대 200개 실제 분봉 표본을 반환한다. 유효 분봉이 없으면 `notEvaluable`이다. 이전 완료 일봉은 별도 context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `warmupCount=0`이고 context 수는 `dailyContextBars`로 구분한다. 두 모델은 `timestampStatus=sessionStatus=unverified`, `lookAheadSafe=false`다. US 연구는 NY/DST 계획 정규장으로 채택하며 legacy blackout은 KST를 유지한다. 결정적 계산·계획 달력 적용은 실제 원본 시간대/offset·발행·정규장 전용 일봉·기간 coverage 검증이 아니므로 3개월 성과로 일반화하지 않는다. 기존 profile/account guard와 웹/Tauri 커맨드 이름은 유지한다.
 
 v8 `BacktestReport.atrPreparation`은 `{period:14, historyBars, readyAtStart, readyAtEnd, firstReadyTime, unreadyEvaluationBars, rangePolicy:"observedBarsWithPreviousCloseNoInterpolation"}`다. 전략의 `preparation`과 별도이며 이전 close를 포함한 최근 TR14개를 사용한다. generic의 검증된 같은 간격 history만 지표를 준비하고 주문·손익에는 넣지 않는다. 분봉 LTH는 분봉 관측에서만 ATR을 준비한다. `volatilitySizingEnabled`의 기본 false는 유지하며, 활성화 시 미준비·0범위·0bps 위험예산 매수는 명시 차단한다. `atrPreparation`이 없는 보관/legacy 응답은 UI에서 준비 여부 미상으로 표시한다.
 
@@ -225,6 +233,8 @@ v9 generic 1m 입력은 RFC3339 offset을 실제 순간으로 해석하고 고�
 | `get_trade_archive_stats` | 체결 기록 저장 통계 |
 
 ## 자동 매매
+
+P2-UX-07은 기존 command payload/서버 guard를 보존한 frontend 확인 흐름이다. 실전 시작·위험 해제·수동 주문은 공개 계좌/모드와 영향을 최종 확인하고 정지/비상정지는 즉시 기존 command를 요청한다. start/정지/위험 해제의 기존 HTTP API는 body가 없으며 확인 snapshot의 broker/profile/account/paper는 frontend 캐시 관측이다. 이 identity가 요청 body에 포함되거나 UI 승인 토큰이 새 IPC·backend server ABA 인증이 된 것으로 해석하지 않는다. [8행 영향표](ARCHITECTURE.md#p2-ux-07-action-matrix)를 따른다.
 
 | Command | 설명 |
 |---------|------|
@@ -383,11 +393,18 @@ UI는 네 필드의 raw 초안·유효성·활성 잠금·저장/두 preview 차
 
 ### LTH 분봉 시각 진단 v1 (2026-10-22)
 
-전용 `1m`의 `replay.assessment.minuteTiming`은 선택 객체이며 `diagnosticVersion=lth-minute-timing-v1`이다. `1d`/generic에는 생략한다. 기존 engine v17/LTH v4·입력 hash·시계·신호·정산은 유지한다. 요청 시작의 `referenceAsOf`를 고정하고, 준비된 실행 label을 읽기만 한다. sourceRows/selectedRows/usedRows/priceExcludedRows는 provider 결과/기존 lexical tail 선택/유효 가격 관측/가격 제외를 구분한다. 진단 처리 상한512행·label64바이트·날짜8개·예시6개이며 inputTruncated/omittedDayRows를 반환한다. 전체 합계는 처리한 입력 범위에서 계산하고 날짜 목록만 줄인다.
+전용 `1m`의 `replay.assessment.minuteTiming`은 선택 객체이며 `diagnosticVersion=lth-minute-timing-v1`이다. `1d`/generic에는 생략한다. pure 진단 자체는 신호·정산·입력 hash를 바꾸지 않는다. 요청 시작의 `referenceAsOf`를 고정하고 준비된 실행 label을 읽는다. US 연구에서는 sourceRows/selectedRows가 원본 공급/준비 cohort 전체, usedRows가 채택 관측이며 priceExcludedRows는 실제 `invalidPrice` 제외만 센다. KR/legacy 경로의 lexical tail 의미와 구분한다. 진단 처리 상한512행·label64바이트·날짜8개·예시6개이며 inputTruncated/omittedDayRows를 반환한다. 전체 합계는 처리한 입력 범위에서 계산하고 날짜 목록만 줄인다.
 
 RFC3339는 실제 순간을 America/New_York 또는 Asia/Seoul로 변환한다. compact12/14는 기존 KST 가정으로 별도 집계한다. `labelConvention=barClose`인 Toss는 label−60초/label을 봉 시작/종가 공개 가능 시각 모델로 제공한다. 내부 barStart fixture는 label/label+60초, unknown은 세션·공개 가능 시각·공백 판정을 하지 않는다. `firstMarketLocal/lastMarketLocal`은 원본 label 순간의 시간순 경계이며, 원본 실행 순서를 바꾸지 않는다. duplicateInstants/outOfOrderRows/nonMinuteAlignedRows/unfinishedRows는 동일 순간/실제 순간 역순/초·소수초/기준시각 뒤 종가를 센다. 진단 때문에 실행 관측을 제외하지 않는다.
 
-일별 days는 일반 평일 정규 시간창 안의 정렬된 고유 분 격자를 산술 비교한다. interiorUnobservedSlots/maxInteriorGapSlots는 같은 관측 날짜 내부이며, 앞뒤 시간창과 무관측 날짜·야간·주말을 실제 누락으로 확정하지 않는다. regularRows는 중복·초단위도 포함한 시간창 분류 수, regularUniqueBars는 분 경계의 고유 격자 수다. 달력·자료 완전성·요청 기간·실제 발행/수신 검증 flag4개는 false다. legacySessionPolicy=legacyFixedKstUnverified, sampleOnly/notEvaluable·timestamp/session unverified·lookAheadSafe=false를 유지한다. UI/A-B는 객체를 보존하고 이전 응답의 객체 부재·미지원/손상 형식을 경고하며 봉 표기·시간대·진단 버전·검증 가정 차이를 따로 표시한다. 실제3개월 검증은 P1-05/P2-12에 남는다.
+일별 days는 일반 평일 정규 시간창 안의 정렬된 고유 분 격자를 산술 비교한다. interiorUnobservedSlots/maxInteriorGapSlots는 같은 관측 날짜 내부이며, 앞뒤 시간창과 무관측 날짜·야간·주말을 실제 누락으로 확정하지 않는다. regularRows는 중복·초단위도 포함한 시간창 분류 수, regularUniqueBars는 분 경계의 고유 격자 수다. 이 pure 진단의 `legacySessionPolicy=legacyFixedKstUnverified`는 실제 US 채택 정책의 대체 근거가 아니다. 달력·자료 완전성·요청 기간·실제 발행/수신 검증 flag4개와 lookAheadSafe는 false, sampleOnly/notEvaluable·timestamp/session unverified는 유지한다.
+
+US 연구의 선택 `minuteTiming.executionClock`은 다음 실제 typed 필드를 제공한다(진단 v1과 분리된 실행 근거).
+
+- 문자열: `version=us-regular-close-v1`, `timezone=America/New_York`, `tzdbVersion`, `labelPolicy=barClose:[close-1m,close);close<=asOf`, `blackoutTimezone=Asia/Seoul`, `calendarSource`, `calendarHorizon=2023-2028`, `asOf`, `admissionIdentity`. `blackoutWindows`는 문자열 배열이다.
+- 수: `sourceRows`, `adoptedRows`, `warmupRows`, `unknownRows`, `omittedExamples`, `dayCount`, `omittedDays`. `excluded`는 `{reason,count}[]`, `examples`는 `{inputIndex,label,labelTruncated,reason}[]`, `days`는 `{date,open,close,earlyClose,adoptedRows}[]`다. 예시는6개·라벨128문자·날짜8개로 제한하고 생략 수를 따로 둔다.
+- 실제 발생한 제외만 집계한다. reason은 `invalidTime|calendarUnknown|weekend|plannedHoliday|extraordinaryClosure|outsideRegular|future|duplicateInstant|invalidPrice|selectionLimit`이며 `unknownRows`는 `calendarUnknown` 수다. NY 계획 달력2023–2028과 알려진2025-01-09 Carter 예외를 적용하나 모든 특별휴장 coverage 인증은 아니다. 봉 전체 구간 채택은 Open·지표/전략·Replay 전에 끝나며 차트도 같은 채택 순서·원본 라벨·OHLCV를 사용한다.
+- `admissionIdentity`는 실행 정책/채택봉 근거이며 raw asOf는 제외한다. replay `inputHash`는 params·비용·scope 등도 포함하므로 순수 dataset hash가 아니다. 현재/저장 A/B·reload는 실행 정책·채택 identity 차이 및 unknown을 경고한다. 같은 정책/채택봉에서 asOf 밀리초만 달라진 결과를 다른 모델로 보지 않는다. 누락·미지원·손상 clock은 legacy/unknown으로 표시하며 실행 검증으로 추정하지 않는다. 실제 provider 발행 지연·정규장 전용 일봉/기간 coverage·성과 인증은 별개이고 실제3개월 검증은 P1-05/P2-12에 남는다.
 
 ### RSI v18 실제 소유·선택 보호
 
@@ -452,3 +469,243 @@ UI는 일곱 필드 raw 초안을 유지하고 오류에서 저장·두 preview�
 구간 자산 증감은 실현손익 + 잔여 평가손익 증감 + 순배당이다(표시 금액 반올림 오차 가능). 부분매도를 포함한 각 양수 수량 매도의 원래 배분 진입원가·매수비용은 매도 구간 실현손익에 귀속된다. 기존 raw return/MDD/완료 수·신호·회계·guard는 유지한다. 전반 양수에서 후반0은 보합, 음수는 손실 관측으로 안내하고 양수 수익 절반 조건의 과최적화 경고는 제거한다. 경고 없음은 신뢰 충분이나 독립 검증을 뜻하지 않는다.
 
 flat/전용 LTH/continuous 및 현재/A-B는 같은 설명과 서버 진단을 사용한다. 누락·손상·미지원 진단은 미확인이고 축약 저장된 거래/곡선으로 재계산하지 않는다. LTH 일봉·평가불가·legacy gate는 유지한다. v23은 버전이 포함된 inputHash가 바뀌며 hash 알고리즘은 바꾸지 않는다. [회차 검증](completed-history.md#task-immediate-backlog-20261029).
+
+### 섹터 ETF 포트폴리오 연구 v1
+
+`preview_sector_portfolio({input})` / POST `/api/strategy/sector-portfolio/preview`는
+`trading/sector_portfolio`의 순수 계산을 공유한다. DTO 정본은
+[`types.rs`](../src-tauri/src/trading/sector_portfolio/types.rs)와
+[TypeScript 미러](../src/shared/api/sectorPortfolioTypes.ts)다. 기존 generic
+`StrategyConfig` ID나 MA fallback을 쓰지 않는다. 실제 자동매매의
+OrderManager/TradeGuard/RiskManager·계좌/DB·provider 호출과 독립이며 주문 권한이 없다.
+
+입력은 `source`, `history`, `evaluation`, `expectedSessionDates`, 선택
+`initialCashUsd`(기본10000), `costBps`(10 또는20), `corporateActions`다.
+각 날짜는 `YYYY-MM-DD`, `prices`에는 전체12종목의 `adjustedClose`(신호),
+`open`(체결 근사), `close`(평가) 양수가 필요하다. 사전자료22일 이상·평가1일
+이상·합계500일 이하·엄격한 순서/중복 없음·거래일 선언과 정확히 일치해야 한다.
+어느 필수 가격이든 빠지면 비교 전체를 거부하며 전략별 결측 수익률0을 만들지 않는다.
+
+`source`는 `name/retrievedAt/synthetic/adjustmentPolicy/calendarSource/coverageVerified/
+corporateActionsVerified`다. 가격기준은 `adjustedSignalRawExecution`, coverage 및
+평가창 내 기업행위/미수배당 사건 부재 확인은 true여야 한다. 이는 입력자 선언이며 공급원/공식
+달력을 프로그램이 인증한 표시가 아니다. 수집시각의 뉴욕 날짜보다 엄격히 이전인
+일봉만 허용한다. 평일 검사는 휴장/조기마감 검증을 대체하지 않는다.
+**corporateActions 목록에 전달된 사건은 시점과 무관하게 현재 전체 평가를 거부한다.** 무보유 사전자료의 과거 기업행위는 조정종가 출처에 위임한다. 조정가격만 보고
+수량·배당락 미수/지급 현금을 만들어 내거나 배당을 이중 가산하지 않는다.
+
+확정 선정·비중 규칙은 [P2-SECTOR-01](todo.md)을 따른다. 장전 목표예산은 전일
+비조정 종가 NAV로 고정하고 수량만 관측 시가에서 정수 내림한다. 매도 후 순위대로
+매수하고 비용 포함 현금 부족분을 축소/차단한다. 기본 총편도10bp·세금/현금이자0,
+총편도20bp 스트레스는 별도다. 운영 기본 종목한도30%를 수정하지 않는다.
+
+결과는 `engineVersion/inputHash/source/historyBars/evaluationBars/startDate/endDate/
+executionModel/warnings/rankings/portfolios`다. 5개 독립 포트폴리오 각각에서
+일별 계획·실제 보유·현금·NAV·노출, 거래 요청/실행수량·비용·현금부족과 기말보유,
+순수익·MDD·최대일손실·일수익 표본표준편차·실현/미실현을 보존한다. 비용 제거 값은
+같은 체결 경로에 비용을 되더한 산술값이며 무비용 재실행이 아니다. 기말 가상
+청산은 하지 않는다. 회전율 정의·노출과 체결 한계는 결과 경고를 함께 확인한다.
+`inputHash`는 serde 정규화 SHA256이며 원문 bytes hash와 다르다.
+
+Tauri/REST는 같은 bounded blocking 계산을 사용한다. REST의 기존 POST token·origin
+검사를 유지하고 JSON 기본2MiB 제한을 적용한다. 입력 오류는
+`INVALID_SECTOR_PORTFOLIO_INPUT`, 작업 실패는 `SECTOR_PORTFOLIO_CALCULATION_FAILED`다.
+REST 입력 오류는422, 내부 계산 작업 실패는500이며 malformed JSON/extractor/인증 오류와 구분한다.
+오프라인 `cargo run --locked -p kis-auto-trade --example sector_portfolio_replay -- INPUT.json`
+도 같은 라이브러리를 사용하며 stdout JSON, stderr 원문 SHA256을 제공한다.
+앱 시작·계좌/설정 로드는 수행하지 않는다. 원장의09:50 표시가격과 일봉 nextOpen은
+서로 다른 체결 가정이며 결과를 소급 합산하거나 실측 체결로 표현하지 않는다.
+
+일반 앱의 `/simulation`은 기존 검증·계산 IPC와 명시 native 수집 계약을 사용한다.
+메뉴 통합을 위해 새 backend endpoint·원장 자동 조회·매매 명령을 추가하지 않는다.
+가상 `initialCashUsd`는 실제 계좌의 예수금/잔고로 채우지 않으며 프로필 publication
+변경도 순수 입력/결과 또는 계산 hash의 계좌 귀속을 만들지 않는다. 인증 시세 요청의
+범위 확인·동의·늦은 응답만 UI에서 무효화한다. 일반 AppShell의 운영 조회/daemon은
+연구 전용 runtime과 달리 계속되며 [현재 메뉴 사용법](user-guide.md#섹터-etf-기본방어공격-비교)을 따른다.
+
+### 섹터 자료 준비와 연구 전용 실행
+
+자료 준비 DTO 정본은 [sector_data/types.rs](../src-tauri/src/trading/sector_data/types.rs)와
+[TypeScript 미러](../src/shared/api/sectorDataTypes.ts)다. `SectorDataManifest`는
+`sessionDates/endDate/calendarSource/calendarEvidence/exchangeMappings/synthetic`을
+받는다. 현재 준비 계약은23~500일이며 첫22일을 사전자료로 고정하고 나머지를 평가한다.
+30일 비교에는52일이 필요하다. `exchangeMappings`의 각 행은 `symbol/exchange/evidence`이며 SPY와11개
+섹터의 실제 KIS 시세 EXCD를 사용자가 확인한다. 상장시장 이름만으로 NYSE Arca를
+AMS로 바꾸거나 다른 거래소코드를 임의 대입하지 않는다. 목표는22개 사전 완료봉과
+30개 평가 거래일이며 달력30일과 다르다. 정적 달력은 공식 거래소 달력·특별휴장·DST·
+조기마감 근거와 대조해야 한다. [NYSE 달력](https://www.nyse.com/markets/hours-calendars)과
+[2025-01-09 특별휴장 공지](https://ir.theice.com/press/news-details/2024/The-New-York-Stock-Exchange-Will-Close-Markets-on-January-9-to-Honor-the-Passing-of-Former-President-Jimmy-Carter-on-National-Day-of-Mourning/default.aspx)를
+확인하고 특별휴장을 일반 평일로 채우지 않는다.
+
+일반 native의 `get_sector_quote_scope()`는 직접 클릭 때만 최소정보를 읽는다.
+`collect_sector_data({input})`는 `expectedProfileId/authenticatedQuotesAcknowledged/
+manifest`를 받으며 사용자가 인증 시세 호출을 확인한 뒤 실행한다. 이 동의에는
+시세 조회를 위한 토큰 발급/갱신이 포함될 수 있고 주문 권한은 포함되지 않는다.
+선택 profile·provider·모드가 바뀌면 이전 요청을 다른 범위에 적용하지 않는다.
+사용자의 계좌 연결 진술이나 이 scope 응답은 실제 인증 성공의 독립 검증이 아니다.
+
+수집 결과 `SectorDataBundle`은 `schemaVersion/manifest/retrievedAt/series/pages`다.
+각 `series`는 `symbol/exchange/raw[{date,open,close}]/adjusted[{date,close}]`를 분리하고
+`pages`에는 `symbol/exchange/modp/anchor/rowCount/rowsHash`를 남긴다.
+`rowsHash`는 보존 시세 필드를 정규화한 hash이며 HTTP 응답 원문 bytes hash가 아니다.
+[공식 dailyprice 샘플](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/overseas_stock/dailyprice/chk_dailyprice.py)의
+MODP=0/1 계약만으로 배당 포함 총수익·분할 조정 범위·과거100봉 확보를 보장하지 않는다.
+짝지은 두 가격열의 전체 요청 거래일·중복/누락·날짜·조정 의미를 별도로 검증한다.
+수집은12종목×2모드×최대16페이지를 순차 요청하고 자동 재시도를 하지 않는다.
+일반 native 수집의 전체시간 한도는180초이며 초과하면 `SECTOR_QUOTE_TIME_BUDGET_EXCEEDED`로
+실패한다. 시세 await 전후와 최종 반환 시 profile ID·client Arc를 대조한다.
+빈 페이지·반복/역행·요청기간 초과·누락/추가 거래일은 전체 오류이며 부분성공을
+계산 입력으로 반환하지 않는다. provider 응답 한 페이지는 최대500행이며
+KIS HTTP 요청은 건당30초·기존 응답 bytes 상한8MiB를 사용한다. 이는 imported DTO/REST의
+2MiB 입력 상한과 다르다. 시세 페이지 호출과 보존 페이지 영수증은 최대384개다(필요한 인증 호출은 별도).
+
+`validate_sector_data({input})` / POST `/api/strategy/sector-data/validate`는
+`bundle/verification/initialCashUsd/costBps`를 받는 순수 검증이다.
+`verification`은 `coverageVerified/adjustmentVerified/corporateActionsVerified`와
+`adjustmentEvidence/corporateActionsEvidence/corporateActions`로 구성한다.
+검증 bool과 근거는 사용자의 확인 기록이며 프로그램의 공급원/기업행위 자동 인증이 아니다.
+기업행위 사건·조정 의미 미확인·자료 부족을 합성 시세나0% 수익으로 바꾸지 않는다.
+입력 진단 실패는 HTTP200의 `ready=false/input=null`로 반환하며 malformed JSON·실행실패와
+구분한다. native 정규화 입력도2MiB 상한이며 초과는 `SECTOR_DATA_INPUT_TOO_LARGE`로
+거부한다(REST422). blocking 작업 실패는 `SECTOR_DATA_VALIDATION_FAILED`/REST500이다. 반환은 `ready/diagnostics/warnings/input/bundleHash/verificationHash`이며 준비된
+`input`만 기존3전략 계산으로 넘긴다. 두 hash는 bundle/verification 정규화 JSON의
+SHA256이며 원본 HTTP 내용·자료 진위 인증과 다르다. 파일 입력·순수 검증·계산은
+계좌/provider 호출·계좌 설정 저장을 수행하지 않는다.
+자료 준비 UI의 파일/텍스트 상한은1.5MB(1,500,000bytes)이며 native 정규화 입력·REST 기본 JSON·오프라인 CLI는2MiB다.
+UI 상한은 요청 여유를 두기 위한 별도 제한이다. 오프라인
+`cargo run --locked -p kis-auto-trade --example sector_data_prepare -- INPUT.json`
+(또는 `-- -`의 stdin)은 같은 순수 검증기를 호출하며 stdout에 준비 진단 JSON,
+stderr에 원문 파일 SHA256(`rawInputHash`)을 남긴다. 앱·인증·설정 로드는 수행하지 않는다.
+
+`research-only` feature와 [tauri.research.conf.json](../src-tauri/tauri.research.conf.json)의
+native 진입은 별도 identifier `com.countjung.kisautotrade.research`를 쓰고
+`preview_sector_portfolio`·`preview_broker_chart_portfolio`·`validate_sector_data`의 순수 IPC3개만 등록한다. AppState·profile/config/
+store·plugin·HTTP server·daemon 초기화가 없다. `src/main.tsx`는 native marker 또는
+`researchOnly=1`을 확인한 뒤 운영 router import 전에 연구 화면을 선택한다.
+쿼리만으로 일반 native의 IPC 권한을 줄이는 것이 아니므로 격리 native 실행은
+전용 feature/config를 함께 사용한다. 전용 Vite 설정은 `.env`를 로드하지 않고
+loopback 서버와 HMR 비활성화를 사용한다. 연구 전용 화면에는 인증 시세 수집이 없다.
+로컬 실행·서명 없는 앱 빌드 명령은 [사용법](user-guide.md#연구-전용-앱과-섹터-자료-준비)을 따른다.
+
+
+### 브로커 차트 가격수익률 근사
+
+`preview_broker_chart_portfolio({input})`와 보호 POST
+`/api/strategy/broker-chart/preview`는 AppState/provider/store 없는 같은 순수 계산이다.
+기본 검증형 `preview_sector_portfolio`와 별도 계약이며 strict 확인 조건을 낮추지 않는다.
+DTO 정본은 [price_research/types.rs](../src-tauri/src/trading/sector_portfolio/price_research/types.rs)와
+[TypeScript 미러](../src/shared/api/brokerChartTypes.ts)다.
+
+`BrokerChartInput`은 `schemaVersion=1/initialCashUsd/costBps/source/history/evaluation/
+expectedSessionDates/acknowledgedPriceOnly/knownCorporateActions`를 받는다.
+source는 `brokerId=kis|toss`, 이름·수집시각·synthetic 선언,
+`adjustment=unadjusted/currency=USD/interval=1d`,
+`sessionBasis=observedSpySessions|brokerCalendar`와 `calendarEvidence`다.
+후자의 calendar도 입력자 선언이며 자동 인증이 아니다. 각 날짜의 prices는 고정12종목의
+`open/high/low/close/volume/currency=USD`이며 JSON 중복 ticker·unknown 필드를 거부한다.
+초기자금은1~1e9 USD, 비용은 편도 총10 또는20bp다. history 최소22개·evaluation1개 이상·
+합계500개 이하이며 전체 날짜는 expectedSessionDates와 동일·엄격 오름차순이어야 한다.
+수집시각/현재시각 중 이른 뉴욕 날짜 이전의 완료 평일만 허용하고 미래 수집시각을 거부한다.
+가격은 유한한0.000001~1e9·OHLC 범위 일치, 거래량은0~9007199254740991로 검사한다.
+공식 거래일의 누락 부재는 이 검사로 증명하지 않는다. 명시 `acknowledgedPriceOnly=true`가
+필수이며 알려진 기업행위가 하나라도 있으면 전체 거부한다. 빈 목록은 사건 부재 인증이 아니다.
+
+비수정 요청 종가를 기존 planner의 신호 슬롯에 전달하되 mode/signal/source로 가격근사임을
+명시한다. 이전 완료봉 신호·전일 NAV 목표예산→다음 관측시가 정수주·매도 후 순위매수·
+비용 포함 현금 한도·차입/공매도 없음·세금/현금이자0·마지막 종가 평가를 공유한다.
+최종 청산비용은 추가하지 않고 매 거래 센트 반올림도 하지 않는다. 배당·분할 권리는 미정산이며
+수익은 배당재투자 총수익이나09:50 실제 모의 표시가격 성과가 아니다.
+
+응답은 `mode=brokerChartPriceApproximation/signalBasis=unadjustedClose/
+dividendReturnIncluded=false/economicReturnVerified=false/inputHash/warnings/result`다.
+중첩 source의 `coverageVerified/corporateActionsVerified`도 false로 유지한다.
+inputHash와 result.inputHash는 mode/signalBasis 태그+전체 DTO의 정규화 SHA256이며
+원본 파일 bytes/HTTP 원문/출처 진위 인증이 아니다. 운영 원장·검증형 입력으로 자동 승격하지 않는다.
+UI JSON은1.5MB, native 정규화 입력/REST/오프라인 CLI는2MiB 상한이다.
+현재 REST는 명령 오류를422의 `code/error`로 반환하며 성공은200이다.
+오프라인 `cargo run --locked -p kis-auto-trade --example broker_chart_price_replay -- INPUT.json`
+(또는 `-`)은 stdout JSON·stderr rawInputHash를 남기며 앱/인증/설정 로드를 하지 않는다.
+
+일반 native 전용 `get_broker_chart_scope()`는 명시 클릭 때 opaque profileId/provider/paper만
+반환한다. `collect_broker_chart_data({input})`는 `expectedProfileId`,
+`authenticatedQuotesAcknowledged=true`, `evaluationBars=1..120`, 선택 `endDate/exchangeMappings`를
+받는다. UI 수집은 평가20·30거래일을 선택하며 기본30봉에 사전22봉을 더한다. 기간·종료일을
+변경하면 시세 조회 동의를 해제하고 이전 조건의 늦은 응답을 버린다(조건을 되돌려도 동일).
+이미 독립 입력·계산한 장부는 수집 조건만으로 지우지 않는다. 종료일 생략은 뉴욕 전일이며 실제 평가 종료는
+그 이전 수신 SPY 완료봉이다. 시세 인증/토큰 발급·갱신이 가능하지만 잔고·계좌목록·주문을
+조회하지 않는다. 각 provider await 전후·최종 반환에 profile snapshot/client identity를 대조한다.
+프로필 publication/동의가 바뀐 늦은 UI 수집 응답은 버리고 이미 독립 입력한 계산 결과는 보존한다.
+이 scope/수집은 REST와 연구 native에 등록하지 않는다.
+
+고정12종목을 SPY 먼저 순차 수집해 최신22+평가봉 날짜를 고정한다. 다른 ETF가 그 날짜를
+빠뜨리면 교집합으로 숨기지 않고 전체 거부한다. 종목당 최대16페이지·페이지500행·전체180초,
+요청 사이1100ms와 기존 rate limiter를 적용한다. 수집기는 추가 재시도/거래소 탐색을 하지 않으며 기존 Toss의 transport/401 재시도는 적용된다.
+KIS는 MODP0·날짜 anchor, Toss는 `1d/count=200/adjusted=false/before`와 반환 cursor를 쓴다.
+Toss timestamp는 뉴욕 자정 일봉 날짜·USD를 확인하며 공급 시작 이전에는 false 요청에도
+과거 조정이 남을 수 있다. KIS HTTP30초/8MiB, Toss15초/4MiB와 정규화 DTO2MiB는 서로 다른 상한이다.
+
+KIS 기본 exchangeMappings는 [공식 AMS 마스터 ZIP](https://new.real.download.dws.co.kr/common/master/amsmst.cod.zip)의
+2026-11-06T07:17:06.817973Z 스냅샷에서12종목 US/USD/ETP type3/AMS를 확인한 seed다.
+archive SHA256 `508592b86497915bad003ee8917cf6fc215c43cb2cb76377d3b47deda17424ad`와
+URL/수집시각을 반환 매핑 근거에 보존한다. 상장시장 인증·NYSE Arca 추정·runtime 최신성 확인이 아니다.
+수동 override는 전체12종목 각1개 NAS/NYS/AMS와 비어 있지 않은 evidence를 요구하며
+seed에 fallback하지 않는다. Toss는 종목 API이므로 exchangeMappings를 받지 않는다.
+오류·빈 응답이면 중단하고 다른 코드로 인증 요청을 반복하지 않는다.
+
+반환 `BrokerChartCollection`은 `input/diagnostics/receipts/exchangeMappings/collectionHash`다.
+각 receipt의 `symbol/exchange/page/rowCount/oldestDate/newestDate/rowsHash/requestAdjustment`와
+실효 매핑을 보존하며 collectionHash는 input·receipts·매핑의 정규화 hash다.
+선택 창만 반환하므로 더 긴 요청 페이지의 rowsHash를 결과만으로 재계산하지 못할 수 있다.
+`rowsHash`는 정규화 봉의 hash이며 HTTP 원문 hash가 아니다. Toss 성공 응답에서 확보한
+optional `responseSource={sha256,byteLength,receivedAt}`는 HTTP framing/header를 제외한
+identity body의 정확 bytes SHA256·길이·수신 완료 UTC이며 JSON 재직렬화 값이 아니다.
+`receivedAt`는 공급자 공개 시각/PIT가 아니다. KIS·legacy·미확보 source는 필드를 생략하며
+unknown/unavailable을 뜻한다(실제 fetch 없음 또는 0bytes 인증이 아님). None일 때 기존
+receipt JSON·collectionHash를 보존하며 Some이면 전체 receipt를 포함하는 기존 hash 식에
+수집 metadata가 포함되어 collectionHash가 달라진다. metadata만으로 input·rowsHash·전략/포트폴리오
+결과 hash는 바뀌지 않는다. 내보내기는 이 metadata를 보존하며 auth header·원문 body·토큰·계좌정보는
+포함하지 않는다. 출처 진위·공식 달력/PIT/기업행위 부재 인증은 아니다. 수집 입력의 한계 확인은
+false로 시작하고 사용자가 계산 전에 별도로 확인한다.
+현재 사용법은 [Simulation 안내](user-guide.md#섹터-etf-기본방어공격-비교),
+실측·독립 대사·미검증은 [P2 이력](completed-history.md#p2-sector-01-broker-chart)에 둔다.
+
+### US1m 연구 예약·실행·취소 (A4)
+
+일반 앱의 `reserve_lth_research` / `run_lth_research` / `cancel_lth_research`는 각각
+`POST /api/strategy/leveraged-trend-hold/research/{reserve,run,cancel}`과 같은 camelCase DTO를 사용한다.
+연구 전용 native의 순수 IPC 등록 범위에는 추가하지 않는다.
+
+- reserve 입력: `{ preview: LeveragedTrendHoldPreviewInput, expectedBrokerId: "toss", expectedPaperTrading: boolean }`.
+  `preview.expectedProfileId`·`expectedBrokerAccountId`도 필수이며 활성 profile/account/broker/mode를 검증한다.
+  US1m 입력을 준비한 뒤 예약만 한다. provider factory와 I/O는 호출하지 않는다.
+- reserve 응답 및 run/cancel 입력: `{ jobId: string, owner: string }`. 두 값은 정규 소문자 하이픈 UUID이며 owner는 작업 소유 capability다.
+  profile·키·내부 scope snapshot을 wire로 내보내지 않는다. run/cancel은 추가 필드를 거부한다.
+- run은 현재 선택 scope/mode와 예약 소유자를 검증하고 한 번만 소비한다. 새 입력·기준 시각·기간·budget은 받지 않는다.
+  결과는 공통 `LeveragedTrendHoldPreviewView`다. 예약 시 고정한 cutoff와 30초 절대 deadline을 재충전하지 않는다.
+- cancel은 현재 선택 profile을 조회하지 않고 캡처한 owner로 저장 scope를 찾아 기존 취소 await를 재사용한다.
+  실제 owned future drop·quiescence 이후에만 `{ status: "quiescent" }`를 반환한다.
+  unknown·만료·실패는 성공 ACK가 아니며, REST 오류는 기존 `{ code, error }` envelope를 사용한다.
+- run 실패는 runtime 반환 후 owner·현재 scope가 일치하는 Failed/Expired/Abandoned terminal 기록으로
+  quiescence를 확인한 경우에만 `LTH_RESEARCH_FAILED`로 전달한다. 실행 future는 terminal 게시 전에 drop된다.
+  실행 전 만료 확정된 예약도 같은 종료 실패 코드이며 취소 성공 ACK를 뜻하지 않는다.
+  unknown·wrong owner·현재 mode/scope 불일치·Reserved/Running/Cancelling은 종료 증거가 아니다.
+  이 코드를 받은 UI는 연구 실패를 표시하고 재실행을 허용한다. 실패의 부분 counts·구체 timeout/자료 부족 원인·internal FailureSummary는 wire에 제공하지 않는다.
+- transport 응답 유실은 종료 증거가 아니므로 UI는 소유권을 유지하고 cancel ACK까지 새 실행을 잠근다.
+  취소 확인 실패 시 같은 owner로 재확인하며 성공 ACK 전에는 잠금을 해제하지 않는다.
+  Failed/Expired/Abandoned에 대한 cancel 거절은 유지하며 TTL 이후 unknown도 ACK로 바꾸지 않는다.
+
+앱 수명 메모리 registry의 retained 16·active 1·terminal TTL 60초 정책을 유지한다.
+이는 연구 예약 경계이며 금융 영속원장 mode·서버 발급 ABA 해결이 아니다.
+성공 View의 optional `collectionSummary`는 수집 core의 Summary를 camelCase로 그대로 운반한다.
+기존 서버와 KR/일봉의 None은 키를 생략한다. 요청 `requestedStart`(null=미지정)/`requestedCount`/예약 고정 `asOf`,
+일봉·분봉 `daily`/`minute`의 관측 UTC 범위와 dispatch/returned/validated pages,
+returned/validated/unique/duplicate typed rows, `admission`의 채택·제외·일봉 context 사용 수와
+실제 평가 UTC/원래 일봉 join label 범위는 서로 다른 사실이다. collector dedup과 Prepared DuplicateInstant 제외도 다르다.
+`sources`의 stream/responseIndex·raw SHA256/byteLength/`collectedAt`(수신 완료 시각)은 HTTP 응답 지문이며
+`normalizedInputSha256`는 정규화 수집입력 지문이다. 평가 cohort·성과·기존 replay.inputHash를 대체하지 않는다.
+`sourceAvailability` complete/partial/unavailable는 반환 응답 metadata 기록 유무이며 출처 진위·PIT·coverage 인증이 아니다.
+`coverageVerified=false`, `publicationVerification=unknown`, `dailyOhlcVerification`/`adjustmentVerification=unverified`를 유지한다.
+실제 `maxPages`/`maxTypedRows`/`pageSize`/`pageTimeoutSeconds`와 `remainingBudgetMsAtStart`를 표시한다.
+마지막 값은 수집 진입 시 남은 예산이며 현재 잔여시간이 아니다. rawBody·헤더·cursor·계정·capability는 포함하지 않는다.
+성공 metadata 누락·손상 시 UI는 수집 상세 기록 확인 불가로 표시하고 실패에는 상세 수치·원인 내역이 제공되지 않음을 알린다.
+기존 KR/일봉 preview는 유지하며 실제 provider/native 및 전체 DATA 완료를 뜻하지 않는다.

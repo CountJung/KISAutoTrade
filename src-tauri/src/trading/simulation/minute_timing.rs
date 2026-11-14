@@ -76,9 +76,61 @@ pub struct MinuteTimingDayView {
     pub trailing_unobserved_window_slots: usize,
 }
 
+/// Actual US research admission evidence, separate from ordinary-weekday diagnostics.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionClockView {
+    pub version: String,
+    pub timezone: String,
+    pub tzdb_version: String,
+    pub label_policy: String,
+    pub blackout_timezone: String,
+    pub blackout_windows: Vec<String>,
+    pub calendar_source: String,
+    pub calendar_horizon: String,
+    pub as_of: String,
+    pub admission_identity: String,
+    pub source_rows: usize,
+    pub adopted_rows: usize,
+    pub warmup_rows: usize,
+    pub unknown_rows: usize,
+    pub excluded: Vec<ExecutionExclusionCount>,
+    pub examples: Vec<ExecutionExclusionExample>,
+    pub omitted_examples: usize,
+    pub days: Vec<ExecutionDayView>,
+    pub day_count: usize,
+    pub omitted_days: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionExclusionCount {
+    pub reason: String,
+    pub count: usize,
+}
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionExclusionExample {
+    pub input_index: usize,
+    pub label: String,
+    pub label_truncated: bool,
+    pub reason: String,
+}
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionDayView {
+    pub date: String,
+    pub open: String,
+    pub close: String,
+    pub early_close: bool,
+    pub adopted_rows: usize,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LthMinuteTimingView {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub execution_clock: Option<ExecutionClockView>,
     pub diagnostic_version: String,
     pub label_convention: MinuteLabelConvention,
     pub market: TimingMarket,
@@ -152,6 +204,7 @@ fn local(value: DateTime<Utc>, timezone: Tz) -> String {
 pub(crate) fn diagnose_minute_timing(input: MinuteTimingInput<'_>) -> LthMinuteTimingView {
     let timezone = input.market.timezone();
     let mut view = LthMinuteTimingView {
+        execution_clock: None,
         diagnostic_version: "lth-minute-timing-v1".into(),
         label_convention: input.label_convention,
         market: input.market,

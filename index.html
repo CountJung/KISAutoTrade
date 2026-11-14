@@ -9,6 +9,10 @@
       // Hydration 방지: React 마운트 전에 테마를 적용하여 깜빡임 방지
       ;(function () {
         try {
+          if (window.__KIS_RESEARCH_ONLY__ === true || new URLSearchParams(window.location.search).get('researchOnly') === '1') {
+            document.documentElement.dataset.theme = 'light'
+            return
+          }
           var theme = localStorage.getItem('act-theme') || 'system'
           var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
           var resolved = theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme

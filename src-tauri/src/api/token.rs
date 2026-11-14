@@ -14,6 +14,81 @@ pub struct AccessToken {
     pub expires_at: DateTime<Utc>,
 }
 
+#[cfg(test)]
+mod redirect_tests {
+    use super::*;
+    use crate::config::{AccountProfile, DiscordConfig};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
+
+    #[tokio::test]
+    async fn kis_token_client_never_forwards_post_body_to_redirect_destination() {
+        let destination = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let destination_address = destination.local_addr().unwrap();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let observed = calls.clone();
+        let destination_task = tokio::spawn(async move {
+            let (mut stream, _) = destination.accept().await.unwrap();
+            observed.fetch_add(1, Ordering::SeqCst);
+            let _ = stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+                .await;
+        });
+        let profile = AccountProfile::new(
+            "redirect fixture".into(),
+            true,
+            "synthetic-key".into(),
+            "synthetic-secret".into(),
+            "1234567801".into(),
+        );
+        let manager =
+            TokenManager::new(AppConfig::from_profile(&profile, &DiscordConfig::default()));
+        for status in [307, 308] {
+            let source = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let source_address = source.local_addr().unwrap();
+            let source_task = tokio::spawn(async move {
+                let (mut stream, _) = source.accept().await.unwrap();
+                let mut head = Vec::new();
+                while !head.ends_with(b"\r\n\r\n") {
+                    assert!(head.len() < 8192);
+                    head.push(stream.read_u8().await.unwrap());
+                }
+                let head = String::from_utf8(head).unwrap();
+                let length = head
+                    .lines()
+                    .find_map(|line| {
+                        line.split_once(':')
+                            .filter(|(key, _)| key.eq_ignore_ascii_case("content-length"))
+                            .map(|(_, value)| value.trim().parse::<usize>().unwrap())
+                    })
+                    .unwrap();
+                assert!(length < 1024);
+                let mut body = vec![0; length];
+                stream.read_exact(&mut body).await.unwrap();
+                let redirect = format!("HTTP/1.1 {status} Redirect\r\nLocation: http://{destination_address}/must-not-receive\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                stream.write_all(redirect.as_bytes()).await.unwrap();
+            });
+            // Exercise the exact client built by TokenManager::new, using synthetic
+            // JSON and loopback only; never call issue_token or read operating config.
+            let response = manager
+                .client
+                .post(format!("http://{source_address}/oauth2/tokenP"))
+                .json(&serde_json::json!({"appkey":"synthetic-key","appsecret":"synthetic-secret"}))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(response.status().as_u16(), status);
+            source_task.await.unwrap();
+        }
+        tokio::time::sleep(StdDuration::from_millis(100)).await;
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+        destination_task.abort();
+    }
+}
+
 impl AccessToken {
     pub fn is_expired(&self) -> bool {
         Utc::now() >= self.expires_at - chrono::Duration::minutes(5)
@@ -42,6 +117,7 @@ impl TokenManager {
         Self {
             client: crate::http::client_builder()
                 .timeout(StdDuration::from_secs(15))
+                .redirect(reqwest::redirect::Policy::none())
                 .build()
                 .expect("KIS reqwest client with timeout should build"),
             config,

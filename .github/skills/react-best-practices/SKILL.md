@@ -505,7 +505,8 @@ const savedGeometry = useMemo(() => {
 - profile 변경 5종은 동일 mutation scope로 직렬화한다. 변경 중이거나 AppConfig 조회 중·실패·무효화 상태이면 잔고 data를 숨기고 조회를 보류한다. 새 설정이 확인된 뒤 현재 계좌를 다시 조회한다. 오류는 기존 잔고 오류 UI로 전달한다.
 - 설정 응답을 공개할 때 이전 AppConfig retryer를 먼저 취소하고 첫 await 전에 새 설정을 동기 공개한다. 설정 응답이 없는 추가/삭제는 이전 설정을 즉시 무효화하고 오류를 전파하는 fetchQuery로 새 설정을 확정한다.
 - mutation 요청 오류도 backend 공개 전 실패라고 추정하지 않는다. 설정 저장 실패나 응답 유실 전에 계좌가 이미 바뀌었을 수 있으므로 설정·잔고를 무효화하고 현재 설정을 재확인한다. 재확인 실패 중에는 이전 data를 숨기며 원래 변경 오류를 유지한다.
-- 잔고 queryFn 시작/종료 모두 현재 설정의 신뢰 상태와 scope를 검사한다. 전환 시 진행 중인 세 잔고 query를 취소하고 이전 scope 캐시를 제거한다. A→B→A에서도 전환 중 완료한 캐시를 재사용하지 않는다.
+- 잔고 queryFn 시작/종료 모두 현재 설정의 신뢰 상태와 scope를 검사한다. 전환 시 진행 중인 국내·해외·broker 잔고 및 예산·복구 query를 취소하고 이전 scope 캐시를 제거한다. 예산·복구는 기존 KEYS prefix 뒤에 AppConfig 성공 공개 횟수와 같은 scope suffix를 붙이는 `useScopedAccountQuery`를 재사용한다. A→B→A에서도 전환 중 완료한 캐시를 재사용하지 않는다.
+- 같은 scope의 설정 복구도 새 공개의 금액 GET 성공까지 이전 금액/editor를 숨긴다. 설정 재점검은 진단만이 아니라 AppConfig와 금액을 재검증한다. 예산 저장은 onMutate에서 공개 횟수를 캡처하고 동일 공개에서만 후속 GET을 await한다. GET 실패는 저장 반영 가능성을 알리고 초안을 유지하며, 공개가 바뀐 늦은 응답은 현재 query 무효화·성공/초안 초기화를 수행하지 않는다. 복구 조회는 `refetchInterval:false`와 `refetchOnWindowFocus:false`를 명시해 승인 초안의 수동 검토를 보존한다. 예산 편집기의 key에는 profile과 투자 모드도 포함한다.
 - `backendEvents.ts`의 잔고 이벤트는 payload를 캐시에 직접 넣지 않고 현재 query를 무효화하는 힌트로만 쓴다. 등록 완료가 unmount보다 늦으면 즉시 해제하며 해제 후 callback은 active guard로 무시한다.
 - ❌ 계좌 없는 전역 key에 늦은 이벤트 payload를 setQueryData하면 이전 계좌 잔고가 표시될 수 있다. ✅ 현재 scope로 다시 조회하고 backend 게시 gate와 frontend scope 검증을 함께 유지한다.
 
@@ -529,3 +530,5 @@ React/DOM/types를 같은 지원 major로 맞추고 실제 peer/clean lock 설�
 오프라인 wrapper는 repo 캐시의 bare vite import와 명시 .ts source 경로로 원래 config를 재사용한다. Vite 내부 절대 index.js를 묶거나 경고 억제로 초기화 문제를 가리지 않는다. [명령·안내·재검증 범위](../../../docs/HARNESS_MAP.md)를 따른다.
 
 > 마지막 업데이트: 2026-10-29T12:53:42+00:00
+
+> 마지막 업데이트: 2026-11-07T14:37:57+09:00

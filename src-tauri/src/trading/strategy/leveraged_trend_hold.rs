@@ -10,6 +10,7 @@ mod exits;
 mod indicators;
 mod live;
 mod preview;
+pub(crate) mod research_session;
 mod session;
 #[cfg(test)]
 mod tests;

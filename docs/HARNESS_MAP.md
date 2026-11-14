@@ -66,6 +66,12 @@ cargo test --workspace --lib --locked
 
 필터가 실제 테스트명과 일치해 실행 건수가 0이면 성공으로 간주하지 않는다. 출력의 `running N tests`를 확인하고 다른 필터 또는 전체 lib test로 보완한다. DB contract test는 외부 DB 환경 요구 여부와 skip 상태를 결과에 명시한다.
 
+### P1-SCOPE-01 단일 활성 계좌 격리
+
+`cargo test --workspace --lib budget_save --locked`는 서버 handler를 storage lock 앞에서 지연시킨 profile/mode 변경 거부와 필수 입력/정상 저장을, `cargo test --workspace --lib legacy_funded --locked`는 기존 schema 재시작·매도 예약/ownership 상한 및 loopback 수동 매도를 검사한다. `scope_` 필터는 KIS→Toss→KIS 공통 parse/publication 경계를 포함한다. 영속 모드 귀속·legacy 차단은 철회했고 모드별 자금 격리를 검증한 것으로 해석하지 않는다. `cargo test --workspace --lib ownership_fill_restart --locked`는 부분체결→risk 저장 실패→새 manager 재시작→다른 broker/account/모드 보류→원 scope 누적 재시도·원가/손익 멱등을 검사한다. 기존 `holdings`·`submission::run_tests`·`fills::reconciliation` 필터도 유지한다. 모든 자료는 임시 원장·합성 client 또는 loopback이며 Toss HTTP 성공을 뜻하지 않는다.
+
+`tests/e2e/balance-events.spec.ts`는 생산 hooks의 모드 ABA·A→B→A 이후 늦은 예산 저장·같은 scope config 복구의 지연/실패·복구 무폴링을, `uiux-holdings.spec.ts`의 `scope Settings`는 실제 Settings 표시·선택 차단/복원·보이는 설정 재점검·저장 후 GET 지연/실패와 초안 유지를 mock으로 검사한다. `simulation-native.spec.ts`의 가상 USD 입력/보유 비참조·금융 mutation0 회귀를 함께 유지한다. envDir:false 격리 설정을 사용하며 browser launch 실패·목록 수·실제 실행을 구분한다. 이번 결과와 미검증은 [P1-SCOPE-01 이력](completed-history.md#p1-scope-01)을 따른다.
+
 ### PostgreSQL TLS·단절·복구
 
 ```bash
@@ -80,7 +86,14 @@ npm run test:database-tls-contract
 
 ## 5. Playwright
 
-설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 Vite dev `127.0.0.1:1430`을 사용한다. 직전 2026-10-29 기준은349개였으며 이후 UI/UX 추가 spec도 같은 production 프로젝트에 포함된다. 추가 집중 검증·최종 전체 실행 수는 [UI/UX 회차 기록](completed-history.md#task-uiux-improvements-20261030)과 [키보드 회차 기록](completed-history.md#task-keyboard-improvements-20261031)에 각 실제 결과로 남긴다. CI는 먼저 `npm run build:web`를 수행하고 두 서버·프로젝트를 사용한다. 기존 UI317개와 새 UI/UX spec은 `chromium`의 production preview `127.0.0.1:1431`, 소스 모듈 가로채기를 요구하는 `balance-events.spec.ts`, `toss-commission-ratio.spec.ts`, `strategy-deviation-policy.spec.ts`의 기존32개와 `keyboard-search-scope.spec.ts`·`keyboard-results-scope.spec.ts`는 `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 검사한다. 기존27파일·349개의 검사 범위와 새 회귀를 중복·누락 없이 유지한다.
+P2-UX-07의 focused 진입점은 `financial-confirmation.spec.ts`와 `trading-form-contract.spec.ts`다. source bridge는 생산 router/QueryClient/UI를 유지하며 exact HTTP 요청열·취소0/승인1(명시 재시도만2)·중복 방지와 account/path/method/body/query/origin 오류의403 negative control을 검사한다. scope는 브라우저 캐시 관측이며 무본문 start/해제 요청이 서버 identity를 전달한다는 증거가 아니다. 각 spec을 정규 CI 프로젝트 환경에서 선택 실행하고 Escape/backdrop 포커스·synthetic IME·modifier/repeat·해제 비대상 상태 보존·정상 Sell·좁은 화면/dark를 검사한다. 실제 Rust IPC·계좌·OS IME·native WebView 검증과 구분한다. 실행 수치·관측 결과·미검증 범위는 [P2-UX-07 이력](completed-history.md#p2-ux-07)에만 둔다.
+
+
+설정 목차·복귀의 진입점은 `uiux-settings-navigation.spec.ts`다. 제목의 focus·가시성뿐 아니라 main 프레임 자체의 viewport 포함을 함께 확인해 잘린 main 안의 상대좌표만으로 통과시키지 않는다. 첫 제목 이동 뒤에 상단 예산 응답을 공개하고 실제 응답 완료·body·입력 렌더를 기다린 뒤 다시 focus와 가시성을 검사한다. 실제 wheel/PageUp 취소 대조는 입력 전에 정확한 main의 trusted `scrollend` 대기를 설치하고 완료·실제 이동을 모두 확인한 뒤 예산 응답을 공개한다. 늦은 예산 렌더가 목적지로 되돌려 보내지 않는지 검사하며 리스너·handle은 `finally`에서 정리한다. 지연/오류·미저장 초안·좁은 화면과 경로 복원/같은 경로 취소·다른 경로 보호를 유지하며 테스트에서 focus/scroll 보정이나 대기 연장으로 결함을 숨기지 않는다. 재현·수치·원격 artifact 근거는 [P2 이력](completed-history.md#p2-ux-07)에서 관리한다.
+
+`candle-pagination.spec.ts`의 분석 구간 선택은 실제 popup의 Grow 진입 완료를 기다린 뒤 한 번 클릭하고, 선택값과 listbox 제거를 확인한 뒤 collector를 실행한다. 초기 축소 상태의 잠깐 안정만으로 선택이 끝났다고 보거나 실패한 선택을 재클릭/강제 클릭·대기 연장으로 숨기지 않는다. 페이지·커서·scope·취소·원본 보존 oracle은 그대로 유지한다.
+
+설정은 `playwright.config.ts`, spec은 `tests/e2e/`에 있다. 로컬 기본 실행은 Vite dev `127.0.0.1:1430`을 사용한다. CI는 먼저 `npm run build:web`를 수행하고 `chromium`의 production preview `127.0.0.1:1431`에서 UI를, `chromium-source-harness`의 Vite dev `127.0.0.1:1430`에서 소스 모듈 가로채기가 필요한 spec을 검사한다. spec의 match/ignore 정본은 설정 파일이며 전체 UI를 source 서버에 강제한 추가 진단으로 dist lane을 대체하지 않는다. 등록·실행 수치와 실제 결과는 해당 [완료 이력](completed-history.md)에 기록하며 목록 검사를 실행 통과로 집계하지 않는다.
 
 spec은 mock transport를 사용하며 실제 Tauri IPC·provider 주문 검증과 구분한다. 테스트는 기본·production `chromium`·로컬 30초, CI 전용 `chromium-source-harness`만 초기화를 포함해 60초이며 assertion은 모두 5초다. source 초기 clock 지연의 근본 원인을 해결한 것은 아니며, 60초에서도 실패하면 추가 연장하지 않고 새 trace로 재진단한다. CI는 list와 HTML reporter를 함께 생성하고 실패 trace·screenshot을 보존한다.
 
@@ -174,7 +187,9 @@ npm run build:app
 
 실패, warning, 0-test, 환경 blocker를 성공으로 축약하지 않는다.
 
-LTH 역사 시각/실시간 경로 분리 변경은 `cd src-tauri && cargo test --locked --test lth_replay_clock`로 production library(단위 테스트 clock 대역 없음)의 입력 시각·blackout·청산·미래 봉 불변을 검증한다. generic LTH 거부는 lib preparation 테스트와 오프라인 연구 runner의 `rejectedRuns`를 함께 확인한다.
+LTH 역사 시각/실시간 경로 분리 변경은 `cd src-tauri && cargo test --locked --test lth_replay_clock`로 production library(단위 테스트 clock 대역 없음)의 입력 instant·NY/DST·정규/단축장 청산 시계와 legacy KST blackout의 offset 불변을 검증한다. 이 low-level timed API는 asOf를 받지 않는다. 계획 휴장·horizon unknown·단일 cutoff·미래/시간외 극단가격 봉의 준비 단계 제외는 `cargo test --workspace --lib strategy_preview --locked --offline`의 실제 prepare→execute fixture가 검증한다. US 연구의 채택은 Open→지표/전략→Replay 전에 끝나고 동일 cohort·인덱스/차트 순서를 사용하는지 확인하며 KR/일봉·live 불변을 구분한다. generic LTH 거부는 lib preparation 테스트와 오프라인 연구 runner의 `rejectedRuns`를 함께 확인한다.
+
+LTH bounded 수집/출처/job 회귀는 lib `strategy_preview`의 collector/deadline·provenance·요청 수명/취소와 `lth_fetch.rs`의 실제 실행 seam·preserved-before 고정 oracle, Toss raw HTTP 합성 fixture를 함께 확인한다. `tests/e2e/lth-research-lifecycle.spec.ts`는 성공 `collectionSummary`·실패 시 기존 결과 제거·입력/scope 세대·늦은 응답을 HTTP mock으로 검사한다. 공유 fixture 변경은 직접/전이 import 영향군까지 검사하고 최종 root CI와 같은 dist/source partition의 전체 등록·실행 case 집합을 대조한다. 더 좁은 영향군 통과만으로 전체 정본을 대신하지 않는다. 개인 환경 파일을 제외한 새 build와 실제 served bytes를 확인하며 actual Rust/native/provider 연결과 혼동하지 않는다. 실제 실행/보존 게이트·고유 수치·통제 실험은 [P1-DATA-01 이력](completed-history.md#p1-data-01)이 소유하고 최종 SHA CI는 별도 게이트다. Rust 총 통과 수에는 DB fixture 미설정으로 조기 반환하는 함수가 포함될 수 있으므로 실제 PostgreSQL 인증 증거로 쓰지 않는다.
 
 P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_tests`와 lib preview/assessment 테스트에서 일봉의 분봉 지표·반동·볼린저 혼입 방지, snapshot 교체, 포지션 보존, 독립 버퍼 상한, 일봉 전략/체결 미호출 및 유효 분봉 0개의 평가 불가를 확인한다. UI는 `npx playwright test tests/e2e/strategy-scrollbar.spec.ts tests/e2e/strategy-replay-assessment.spec.ts`로 일봉/legacy 성과·A/B 숨김, 분봉 표본 경고와 assessment 보존, 기존 generic 성과 표시를 함께 검증한다. synthetic fixture는 시장 coverage 검증을 대체하지 않는다. 실제 2026-07-06~10-02 SOXQ 분봉을 보관하고 시간대·DST·세션·기간 coverage 검증 후 별도 재평가해야 P1-05 전체 완료다.
 
@@ -251,9 +266,9 @@ P1-05 일봉/분봉 분리는 `cd src-tauri && cargo test --locked --lib buffer_
 
 ## LTH 분봉 시각 진단 (2026-10-22)
 
-- `cargo test --offline -p kis-auto-trade minute_timing`: pure20개와 command5개의 합성 fixture. RFC3339/compact·DST·동일순간 alias/역순·barClose/barStart/unknown·초 경계·휴일 미인증·내부 gap/야간/주말·512행/64바이트/8일/6예시·asOf를 확인한다. command fixture는 기존 signals/backtest/hash와 실제 비어있지 않은 신호·체결을 비교하며 daily skipNone/empty notEvaluable을 확인한다.
-- `npx playwright test tests/e2e/lth-minute-timing.spec.ts tests/e2e/strategy-replay-assessment.spec.ts`: 현재/저장/복원·다른봉표기 비교·legacy/미지원/손상 컬렉션·빈자료/일봉 성과숨김·모바일과 compact 날짜수를 mock으로 검증한다. fixture는 LTH lookAheadSafe=false를 유지한다.
-- 공용 timestamp 구문 추출은 기존 generic 정규화·회계 시나리오 정렬 회귀와 전체 Rust 검증으로 확인한다. 입력 시계·신호·정산은 기존 `lth_replay_clock`을 함께 통과한다. 실제 provider/3개월 coverage 검증으로 확대하지 않는다. [결과와 한계](completed-history.md#task-lth-minute-timing-20261022).
+- `cargo test --offline -p kis-auto-trade minute_timing`: pure 일반 평일창 진단과 command 실행 근거의 합성 fixture. RFC3339/compact·DST·동일순간 alias/역순·barClose/barStart/unknown·초 경계·휴일 미인증·내부 gap/야간/주말·512행/64바이트/8일/6예시·asOf를 확인한다. command fixture는 기존 signals/backtest/hash와 실제 비어있지 않은 신호·체결을 비교하며 daily skipNone/empty notEvaluable을 확인한다.
+- `npx playwright test tests/e2e/lth-minute-timing.spec.ts tests/e2e/strategy-replay-assessment.spec.ts`: 현재/저장 A/B/reload의 executionClock·동일 기간 정책/채택 차이·unknown, legacy/미지원/손상 fallback과 일반 평일창 진단 분리·빈자료/일봉 성과숨김·모바일/compact를 mock으로 검증한다. fixture는 LTH lookAheadSafe=false를 유지한다.
+- 공용 timestamp 구문은 generic 정규화·회계 시나리오 정렬 회귀와 전체 Rust로 확인한다. `cargo test --workspace --lib strategy_preview --locked --offline` 및 `cargo test --workspace --lib leveraged_trend_hold --locked --offline`로 생산 admission·실제 제외/가격 수·일봉 context cutoff·nonaligned label의 정확16:00/13:00 마감 투영과 같은 채택봉에서 asOf 밀리초 차이의 identity 불변을 대조한다. 실제 provider/발행·전체 특별휴장/3개월 coverage 검증으로 확대하지 않는다. 실행 결과는 [P1-SESSION-01 이력](completed-history.md#p1-session-01), 과거 진단은 [당시 기록](completed-history.md#task-lth-minute-timing-20261022)이 소유한다.
 
 ## RSI 소유·선택 진입/청산 (2026-10-22)
 
@@ -358,3 +373,67 @@ export default defineConfig(async (env) => mergeConfig(await base(env), { envDir
 ```
 
 Vite의 절대 내부 index.js를 직접 묶으면 선택 의존성 경고를 만들 수 있고 source 확장자를 생략하면 향후 native config loader 안내가 남는다. 제품 target·chunk 기준·엄격성을 바꾸거나 경고 억제 환경 변수로 대체하지 않는다. 교정 이전 UI 통과와 후속 짧은 loader/build 검증의 시점·안내를 구분한다. 같은 resolved module·source·dist byte가 유지되면 안내 수정만으로 전체 UI를 반복하지 않는다.
+
+
+## 섹터 ETF 순수 연구
+
+`cargo test --workspace --lib sector_portfolio --locked`는 순위/방어/정산과
+production IPC/REST 동일계산·인증 경계·필수누락/대형입력·부작용0을 검사한다.
+최종 전체 lib·all-targets check와 TS/FSD·웹빌드·전체 UI 회귀를 함께 수행한다.
+`tests/e2e/sector-portfolio.spec.ts`는 합성응답의 계좌오류 독립접근·자료파일·stale/
+중복·오류/재시도·download·동일기간/자본/비용 모의대조·375px을 검증한다.
+계좌/브로커/실거래 E2E가 아니며 .env 없는 격리사본 또는 envDir:false 설정을 쓴다.
+
+`cargo run --locked -p kis-auto-trade --example sector_portfolio_replay -- INPUT.json`
+은 앱을 시작하지 않고 공급된 파일을 같은 순수 엔진으로 계산한다. stdout JSON과
+stderr 원문hash를 보존하고 독립 장부로 대사한다. DTO/지원제한은 [IPC 정본](ipc-commands.md#섹터-etf-포트폴리오-연구-v1), 실제 실행·합성/실자료 경계는 [P2-SECTOR-01 이력](completed-history.md#p2-sector-01)을 따른다.
+
+자료 준비 보강의 focused 명령은 `cargo test --workspace --lib sector_ --locked`다.
+기존 포트폴리오와 새 자료 검증·quote mock·순수 REST·scope identity를 포함하며 실제
+KIS 인증을 실행하지 않는다. `cargo run --locked -p kis-auto-trade --example
+sector_data_prepare -- INPUT.json`은 계좌 없이 같은 자료 검증기를 호출한다.
+입력/HTTP 크기·시간/페이지 상한과 진단의 의미는 [IPC 정본](ipc-commands.md#섹터-자료-준비와-연구-전용-실행)에 둔다.
+
+연구 feature는 `cargo check --workspace --all-targets --features research-only --locked`로
+따로 검사하고 `npm run dev:research`·`npm run build:research`는 전용 runtime/config를
+사용한다. 서명 없는 로컬 bundle의 프로세스 생존 smoke와 실제 native 화면/IPC 클릭·
+계정/시세 성공 검증은 다르다. 브라우저 연구 시작의 API/storage/WS0과 수동 native
+수집 mock도 구분한다. `sector-data-research.spec.ts`의 순수 연구 검사는 production
+preview, `sector-data-native.spec.ts`의 native mock 수집은 별도 source-harness에서
+실행한다. 일반 dev 전체와 CI의 정적 preview+source-harness를 구분해 기록하며, 최종 전체 게이트는
+CI와 같은 후자 구성으로 확인한다. [실제 회차 결과·미검증](completed-history.md#p2-sector-01)을 따른다.
+
+Simulation 메뉴 통합은 기존 순수 backend 계약과 별도로 경로/화면 검증을 한다.
+`simulation-menu.spec.ts`는 production 경로를, `simulation-native.spec.ts`는 실제 Router와
+AppShell을 유지한 source-harness의 native 모사를 검사한다. 실제 OS native 검증이 아니다.
+데스크톱 Sidebar·모바일 전체메뉴/상단 바로가기·하단6개 유지, 세 탭의 키보드/focus·
+자료 준비→비교 적용·모의 요약 대조·파일/오류/stale/download를 확인한다. 운영 상태의
+현재/이전/오류 표시와 별도 정지 접근, 메뉴/계산의 시작·정지/주문 변이0을 mock으로
+검증한다. profile publication/epoch의 scope·동의·늦은 수집 무효화와 순수 입력/결과
+보존을 함께 검사한다. 일반 AppShell의 기존 운영 조회가 계속되는 상태와 내부 연구
+runtime의 자동API0 관측을 혼합하지 않는다. 실제 계좌·KIS·운영 native 실행은 이
+브라우저 fixture로 검증하지 않는다. [회차 근거](completed-history.md#p2-sector-01)를 따른다.
+
+
+브로커 차트가격 근사 보강은 `cargo test --workspace --lib broker_chart --locked`로
+수집 경계·OHLCV/공통 SPY 날짜·부분누락·페이지/시간/거래소 매핑·순수 preview를 검사한다.
+`broker-chart-portfolio.spec.ts`는 한계 확인·검증형과 별도 상태·입력 오류·stale/중복·
+내보내기·375px를 production preview에서, `broker-chart-native.spec.ts`는 명시 시세 동의·
+프로필 ABA 늦은 응답을 source-harness의 브라우저 native 모사에서 검사한다.
+브라우저 native모사/스크린샷과 실제 OS native 화면·IPC를 구분한다.
+Toss raw 응답 회귀는 `broker::toss::client::response_parsing_tests`의 최종 성공 응답
+귀속과 provider 내부의 실제 Toss client→수집→직렬화 receipt 관통을 구분해 검사한다.
+후자는 같은 collection의 종목·페이지별 서로 다른 합성 wire body를 고정 SHA/길이와
+매칭하고 UTC 수신 범위·경제 입력/rowsHash/계산 결과 불변을 검사한다.
+`broker_chart::tests`는 None의 고정 before JSON/hash 호환과 Some의 metadata-only
+collectionHash 영향을 검사한다. native 모사는 전체 source 값의 다운로드 보존·KIS
+source 키 생략과 기존 동의/22+30/ABA 장벽을 유지한다.
+첫 응답 출처 재사용·메타데이터 누락의 고의 오류 주입은 post-implementation negative
+control이며 원상 복구 후 정상 검사를 수행하고 고유 전체 통과 수에 합산하지 않는다.
+`cargo run --locked -p kis-auto-trade --example broker_chart_price_replay -- INPUT.json`은
+계좌/앱 없이 차트 JSON의 생산 계산을 실행한다. 원본bytes hash와 모드/DTO hash를 구분하고
+독립 장부·동일 평가 prefix·10/20bp 비용을 대사한다. 과거 실제 KIS quote·원문 미보존과
+새 Toss 합성 provider 관통의 각각 범위는
+[같은 ID 실측 이력](completed-history.md#p2-sector-01-broker-chart)에 둔다. 합성 HTTP 성공은 실제 Toss 인증 성공이 아니다.
+KIS quote/auth와 Toss auth의 redirect 차단은 합성307/308과 두 번째 수신 서버0으로 검사하며
+실제 외부 인증 성공과 혼동하지 않는다.

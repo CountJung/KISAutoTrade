@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
-import type { BalanceResult, OverseasBalanceResult } from '../../src/api/types'
+import type { AppConfigView, BalanceResult, OverseasBalanceResult } from '../../src/api/types'
 import { mockUx } from './fixtures/uxReviewFixture'
+import { fakeProfiles } from './fixtures/keyboardProfileFixture'
 
 // Synthetic holdings only: every API response stays in the browser route fixture.
 const domestic: BalanceResult = {
@@ -26,6 +27,201 @@ function assertReadOnly(audit: Awaited<ReturnType<typeof mockUx>>) {
   expect(audit.errors).toEqual([])
   expect(audit.unknown).toEqual([])
 }
+
+async function scopeSettings(page: Page) {
+  const profiles = structuredClone(fakeProfiles.slice(0, 3))
+  // Same account, different mode: the editor must not carry its paper draft into live.
+  profiles[1].broker_account_id = profiles[0].broker_account_id
+  profiles[1].account_no = profiles[0].account_no
+  profiles[1].is_paper_trading = false
+  const origin = new URL(String(test.info().project.use.baseURL)).origin
+  const rejected: string[] = []
+  const saves: unknown[] = []
+  let allocated = 1000, budgetFails = false, holdBudget = false
+  const budgetReleases: (() => void)[] = []
+  let active = 0
+  let configFails = false
+  const config = (): AppConfigView => ({ active_profile_id: profiles[active].id, active_profile_name: profiles[active].name,
+    active_broker_id: profiles[active].broker_id, active_broker_account_id: profiles[active].broker_account_id,
+    kis_is_paper_trading: profiles[active].is_paper_trading, kis_app_key_masked: 'SYNTHETIC-***', kis_account_no: '',
+    kis_configured: true, active_broker_configured: true, discord_enabled: false, notification_levels: [] })
+  const audit = await mockUx(page, { appConfigOverride: config() })
+  audit.responses.set('/api/app-config', route => route.fulfill(configFails
+    ? { status: 503, json: { error: 'Synthetic config unavailable' } } : { json: config() }))
+  audit.responses.set('/api/profiles', route => route.fulfill({ json: profiles.map((p, i) => ({ ...p, is_active: i === active })) }))
+  const currency = { allocatedAmount: 1000, cashAmount: 1000, reservedAmount: 0, availableAmount: 1000,
+    ownedPositionCount: 0, blockedReason: null, feeBufferBps: 100 }
+  audit.responses.set('/api/auto-trading-budget', async route => {
+    const url = new URL(route.request().url()), selected = profiles[active]
+    if (url.origin !== origin || route.request().method() !== 'GET' || url.searchParams.get('brokerId') !== selected.broker_id || url.searchParams.get('brokerAccountId') !== selected.broker_account_id) {
+      rejected.push('budget read scope/method'); return route.fulfill({ status: 400, json: { message: 'Synthetic budget scope denied' } })
+    }
+    const response = budgetFails ? { status: 503, json: { message: '합성 저장 후 재조회 실패' } } : active === 1
+      ? { status: 400, json: { message: '합성 예산 투자 모드 불일치' } }
+      : { json: { scope: { brokerId: selected.broker_id, accountId: selected.broker_account_id }, krw: { ...currency, allocatedAmount: allocated, cashAmount: allocated, availableAmount: allocated }, usd: currency } }
+    if (holdBudget) await new Promise<void>(resolve => budgetReleases.push(resolve))
+    return route.fulfill(response)
+  })
+  await page.route('**/api/auto-trading-budget', async route => {
+    if (route.request().method() === 'GET') return route.fallback()
+    const input = route.request().postDataJSON(), selected = profiles[active]
+    if (new URL(route.request().url()).origin !== origin || route.request().method() !== 'POST' ||
+      input.brokerId !== selected.broker_id || input.brokerAccountId !== selected.broker_account_id ||
+      input.expectedProfileId !== selected.id || input.expectedIsPaper !== selected.is_paper_trading) {
+      rejected.push('budget write scope/method'); return route.fulfill({ status: 400, json: { message: 'Synthetic budget scope denied' } })
+    }
+    saves.push(input); allocated = input.krwAmount
+    return route.fulfill({ json: { scope: { brokerId: selected.broker_id, accountId: selected.broker_account_id }, krw: { ...currency, allocatedAmount: allocated }, usd: currency } })
+  })
+  const selections: string[] = []
+  let hold = false, reject = false
+  let release!: () => void
+  await page.route('**/api/profiles/*/set-active', async route => {
+    const request = route.request(), url = new URL(request.url())
+    if (url.origin !== origin || request.method() !== 'POST') { rejected.push('selection origin/method'); return route.abort() }
+    const id = url.pathname.split('/')[3]
+    const next = profiles.findIndex(p => p.id === id)
+    if (next < 0) throw new Error('Unknown synthetic selection')
+    selections.push(id)
+    if (hold) await new Promise<void>(resolve => { release = resolve })
+    if (reject) return route.fulfill({ status: 409, json: { message: '합성 계좌 전환 거부' } })
+    active = next
+    await route.fulfill({ json: config() })
+  })
+  await page.route('**/*', route => {
+    const request = route.request(), url = new URL(request.url())
+    const staticPath = ['/', '/settings', '/@vite/client', '/@react-refresh', '/favicon.ico'].includes(url.pathname) || ['/src/', '/node_modules/', '/@fs/', '/assets/'].some(prefix => url.pathname.startsWith(prefix))
+    if (url.origin !== origin || (!url.pathname.startsWith('/api/') && (request.method() !== 'GET' || !staticPath))) {
+      rejected.push('network ' + request.method() + ' ' + url.href); return route.abort()
+    }
+    return route.fallback()
+  })
+  await page.routeWebSocket('**/*', socket => {
+    const url = new URL(socket.url())
+    if (url.origin.replace(/^ws/, 'http') !== origin || url.pathname !== '/') rejected.push('WS ' + socket.url())
+    socket.close()
+  })
+  return { audit, profiles, selections, saves, rejected,
+    holdBudget: () => { holdBudget = true }, budgetWaiters: () => budgetReleases.length,
+    releaseBudget: () => { holdBudget = false; budgetReleases.splice(0).forEach(release => release()) },
+    failBudget: (value: boolean) => { budgetFails = value },
+    hold: () => { hold = true }, release: () => { hold = false; release() },
+    reject: (value: boolean) => { reject = value }, configFails: (value: boolean) => { configFails = value } }
+}
+
+test('scope Settings blocks pending selection, exposes unknown failure and restores mode-specific budget drafts', async ({ page }) => {
+  const state = await scopeSettings(page)
+  const summary = page.getByRole('region', { name: '활성 증권사 프로파일', exact: true })
+  const choose = (i: number) => page.getByRole('button', { name: `${state.profiles[i].name} 선택`, exact: true })
+  const budget = page.getByRole('region', { name: '자동매매 전용 예산', exact: true })
+  const draft = budget.getByRole('textbox', { name: '자동매매 원화 배정액 (원)', exact: true })
+  await page.goto('/settings')
+  await expect(summary).toContainText(`활성: ${state.profiles[0].name}`)
+  await expect(summary).toContainText('모의투자 모드')
+  await expect(choose(1)).toBeEnabled()
+  await draft.fill('1111')
+  state.hold(); state.reject(true); state.configFails(true)
+  await choose(1).click()
+  await expect.poll(() => state.selections.length).toBe(1)
+  await expect(choose(1)).toBeDisabled(); await expect(choose(2)).toBeDisabled()
+  await expect(summary).toContainText('계좌 선택 상태를 확인하는 중')
+  await expect(draft).toHaveCount(0)
+  state.release()
+  await expect(summary).toContainText('계좌 선택 상태 확인 실패', { timeout: 12000 })
+  await expect(summary).toContainText('합성 계좌 전환 거부')
+  await expect(summary).not.toContainText(`활성: ${state.profiles[0].name}`)
+  await expect(draft).toHaveCount(0)
+  state.configFails(false); state.reject(false); state.holdBudget()
+  await page.getByRole('button', { name: '설정 재점검', exact: true }).click()
+  await expect.poll(() => state.budgetWaiters()).toBeGreaterThan(0)
+  await expect(draft).toHaveCount(0)
+  state.releaseBudget()
+  await expect(draft).toHaveValue('1000')
+  await draft.fill('1111')
+  await choose(1).click()
+  await expect(summary).toContainText('실전투자 모드')
+  await expect(summary).toContainText(`계좌: ${state.profiles[1].broker_account_id}`)
+  await expect(budget).toContainText('합성 예산 투자 모드 불일치', { timeout: 12000 })
+  await expect(draft).toHaveCount(0)
+  await choose(0).click()
+  await expect(summary).toContainText('모의투자 모드')
+  await expect(draft).toHaveValue('1000')
+  await choose(2).click()
+  await expect(summary).toContainText('Toss 실거래 모드')
+  await expect(summary).toContainText(`계좌: ${state.profiles[2].broker_account_id}`)
+  expect(state.selections).toEqual([state.profiles[1].id, state.profiles[1].id, state.profiles[0].id, state.profiles[2].id])
+  expect(state.rejected).toEqual([])
+  expect(state.saves).toHaveLength(0)
+  assertReadOnly(state.audit) // Only the explicitly mocked profile selections above are allowed writes.
+})
+
+for (const fails of [false, true]) {
+  test(`scope Settings budget save waits for same-scope GET and retains draft on failure=${fails}`, async ({ page }) => {
+    const state = await scopeSettings(page)
+    await page.goto('/settings')
+    const draft = page.getByRole('textbox', { name: '자동매매 원화 배정액 (원)', exact: true })
+    const save = page.getByRole('button', { name: '자동매매 예산 저장', exact: true })
+    await expect(draft).toHaveValue('1000')
+    await draft.fill('2345')
+    state.holdBudget(); state.failBudget(fails)
+    await save.click()
+    await expect.poll(() => state.saves.length).toBe(1)
+    await expect.poll(() => state.budgetWaiters()).toBeGreaterThan(0)
+    await expect(page.getByText('자동매매 예산을 저장했습니다.', { exact: true })).toHaveCount(0)
+    await expect(draft).toHaveValue('2345')
+    await expect(page.getByRole('button', { name: '저장 중…', exact: true })).toBeDisabled()
+    state.releaseBudget()
+    if (fails) {
+      await expect(page.getByText(/예산은 저장됐지만 재조회에 실패/)).toBeVisible({ timeout: 15000 })
+      await expect(draft).toHaveValue('2345')
+      await expect(save).toBeEnabled()
+    } else {
+      await expect(page.getByText('자동매매 예산을 저장했습니다.', { exact: true })).toBeVisible()
+      await expect(draft).toHaveValue('2345')
+      await expect(save).toBeDisabled()
+    }
+    expect(state.saves).toHaveLength(1)
+    expect(state.rejected).toEqual([])
+    assertReadOnly(state.audit)
+  })
+}
+
+test('scope Settings budget fixture negative control rejects wrong account and method', async ({ page }) => {
+  const state = await scopeSettings(page)
+  await page.goto('/settings')
+  await expect(page.getByRole('textbox', { name: '자동매매 원화 배정액 (원)', exact: true })).toBeVisible()
+  const statuses = await page.evaluate(async () => Promise.all([
+    fetch('/api/auto-trading-budget?brokerId=kis&brokerAccountId=WRONG').then(r => r.status),
+    fetch('/api/auto-trading-budget', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: '{}' }).then(r => r.status),
+    fetch('/api/auto-trading-budget', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ brokerId: 'kis', brokerAccountId: 'WRONG', expectedProfileId: 'WRONG', expectedIsPaper: false }) }).then(r => r.status),
+  ]))
+  expect(statuses).toEqual([400, 400, 400])
+  expect(state.rejected).toHaveLength(3)
+  expect(state.saves).toHaveLength(0)
+  assertReadOnly(state.audit)
+})
+
+test('scope Settings disables selection while trading state is unknown or running without claiming unknown is running', async ({ page }) => {
+  const state = await scopeSettings(page)
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  state.audit.responses.set('/api/trading/status', async route => {
+    await gate
+    await route.fulfill({ json: { isRunning: true, activeStrategies: [], positionCount: 0, totalUnrealizedPnl: 0,
+      wsConnected: false, tradingProfileId: state.profiles[0].id, tradingBrokerId: 'kis', tradingAccountId: state.profiles[0].broker_account_id } })
+  })
+  try {
+    await page.goto('/settings')
+    const choose = page.getByRole('button', { name: `${state.profiles[1].name} 선택`, exact: true })
+    await expect(choose).toBeDisabled()
+    await expect(page.getByText('매매 대기', { exact: true })).toHaveCount(0)
+    release()
+    await expect(page.getByText('● 자동매매 실행 중', { exact: true })).toBeVisible()
+    await expect(choose).toBeDisabled()
+    expect(state.selections).toEqual([])
+    assertReadOnly(state.audit)
+  } finally { release() }
+})
 
 for (const market of markets) {
   test(`KIS ${market.name}: initial delay and failure are not empty; independent keyboard retry confirms empty`, async ({ page }) => {
@@ -185,6 +381,9 @@ test('Toss keeps loading, failure and successful empty handling while KIS reads 
     await page.goto('/trading')
     await expect(page.getByText('보유한 Toss 종목이 없습니다.', { exact: true })).toHaveCount(0)
     const holdings = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: '보유 종목', exact: true }) })
+    // Wait for the requested broker scope before inspecting its loading UI.
+    // During config loading the conservative KIS placeholder has two spinners.
+    await expect(holdings.getByText(/^Toss(?: · accountSeq .+)?$/)).toBeVisible()
     await expect(holdings.getByRole('progressbar')).toBeVisible()
     release()
     await expect(page.getByText(/Toss 보유종목 조회 실패/)).toBeVisible({ timeout: 12000 })

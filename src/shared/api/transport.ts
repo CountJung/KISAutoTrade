@@ -105,6 +105,13 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
       }
     }
 
+    case 'reserve_lth_research':
+      return { method: 'POST', url: '/api/strategy/leveraged-trend-hold/research/reserve', body: args.input }
+    case 'run_lth_research':
+      return { method: 'POST', url: '/api/strategy/leveraged-trend-hold/research/run', body: args.input }
+    case 'cancel_lth_research':
+      return { method: 'POST', url: '/api/strategy/leveraged-trend-hold/research/cancel', body: args.input }
+
     case 'preview_leveraged_trend_hold':
       return {
         method: 'POST',
@@ -121,6 +128,14 @@ function resolveRest(command: string, args: Args = {}): RestRequest {
         url: '/api/strategy/preview',
         body: args.input,
       }
+
+    case 'preview_sector_portfolio':
+      return { method: 'POST', url: '/api/strategy/sector-portfolio/preview', body: args.input }
+    case 'preview_broker_chart_portfolio':
+      return { method: 'POST', url: '/api/strategy/broker-chart/preview', body: args.input }
+
+    case 'validate_sector_data':
+      return { method: 'POST', url: '/api/strategy/sector-data/validate', body: args.input }
 
     // ─── 해외 현재가 ──────────────────────────────────────────
     case 'get_overseas_price':
@@ -380,7 +395,11 @@ async function restInvoke<T>(command: string, args: Args = {}): Promise<T> {
 
   const data = (await res.json()) as Record<string, unknown>
   if (data && typeof data === 'object' && 'error' in data && data.error) {
-    throw new Error(String(data.error))
+    const error = new Error(String(data.error))
+    if (['reserve_lth_research', 'run_lth_research', 'cancel_lth_research'].includes(command)) {
+      throw Object.assign(error, { code: data.code })
+    }
+    throw error
   }
   return data as T
 }

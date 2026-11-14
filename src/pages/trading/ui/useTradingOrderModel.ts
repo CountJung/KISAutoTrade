@@ -1,3 +1,5 @@
+import { useFinancialConfirmation } from '../../../features/financial-confirmation'
+import { useConfirmedBuyResume } from '../../../features/financial-confirmation/tradingActions'
 // State, query gates and command closures remain in the route/editor React lifetime.
 import { useEffect, useRef, useState } from 'react'
 import * as cmd from '../../../api/commands'
@@ -5,7 +7,6 @@ import {
   useAppConfig,
   useBalance,
   useBrokerHoldings,
-  useClearBuySuspension,
   useOverseasBalance,
   useOverseasPrice,
   usePlaceOrder,
@@ -176,12 +177,21 @@ export function useTradingOrderModel() {
           isError: isTossCalendarError }                            = useTossMarketCalendar({ enabled: isTossActive })
   const { data: searchResults = [], isFetching: isFetchingSearch,
           isError: isSearchError, error: searchError }              = useStockSearch(searchQuery)
-  const { mutate: placeOrder,         isPending: isPendingKr }     = usePlaceOrder()
-  const { mutate: placeOverseasOrder, isPending: isPendingUs }     = usePlaceOverseasOrder()
+  const { mutateAsync: placeOrder,         isPending: isPendingKr }     = usePlaceOrder()
+  const { mutateAsync: placeOverseasOrder, isPending: isPendingUs }     = usePlaceOverseasOrder()
   const { mutate: doRefreshList,      isPending: isRefreshing }    = useRefreshStockList()
   const { data: tradingStatus }                                     = useTradingStatus()
-  const { mutate: clearBuySuspension, isPending: clearingBuySusp } = useClearBuySuspension()
-  const isPending = isPendingKr || isPendingUs
+  const { mutate: clearBuySuspension, isPending: clearingBuySusp } = useConfirmedBuyResume()
+  const confirmation = useFinancialConfirmation(JSON.stringify([market, symbol, inputValue, usExchange,
+    side, orderType, tossSession, quantity, price]))
+  const submitRef = useRef<(confirmed: boolean) => Promise<unknown>>(async () => {})
+  const requestOrder = () => confirmation.request({
+    title: '수동 주문 확인',
+    summary: `${stockName || symbol} (${symbol}) · ${market === 'KR' ? '국내' : '미국'} · ${side === 'Buy' ? '매수' : '매도'}\n수량 ${parseInt(quantity)}주 · ${market === 'US' && !isTossActive ? '지정가' : orderType === 'Market' ? '시장가' : '지정가'} · ${orderType === 'Market' && (market === 'KR' || isTossActive) ? '가격 미지정 (시장가)' : (market === 'KR' && !isTossActive ? parseInt(price) : parseFloat(price)).toLocaleString('ko-KR', { maximumFractionDigits: 8 }) + (market === 'KR' ? ' KRW' : ' USD')}\n${market === 'US' ? isTossActive ? '세션 ' + tossSessionLabel(tossSession) : '거래소 ' + overseasOrderExchange : ''}`,
+    impact: '선택 계좌에 주문을 제출합니다. 접수 성공은 체결 완료가 아니며 기존 동의·사전검증·소유·위험·중복 방지 guard는 유지됩니다.',
+    execute: () => submitRef.current(true),
+  })
+  const isPending = isPendingKr || isPendingUs || confirmation.busy
 
   // STOCK_LIST_EMPTY 에러 감지: KRX 다운로드 미완료 or 실패
   const isStockListEmpty = isSearchError && (searchError as CmdError | null)?.code === 'STOCK_LIST_EMPTY'
@@ -281,7 +291,7 @@ export function useTradingOrderModel() {
     if (market === 'US' && usCurrentPrice)  setPrice(usCurrentPrice.toFixed(2))
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async (confirmed = false) => {
     setResult(null)
     setErrorMsg(null)
     const qty = parseInt(quantity)
@@ -310,7 +320,8 @@ export function useTradingOrderModel() {
           return
         }
       }
-      placeOrder(
+      if (!confirmed) { requestOrder(); return }
+      return await placeOrder(
         {
           symbol,
           side,
@@ -332,7 +343,6 @@ export function useTradingOrderModel() {
           },
         },
       )
-      return
     }
 
     if (market === 'KR') {
@@ -342,7 +352,8 @@ export function useTradingOrderModel() {
         setErrorMsg('지정가 주문은 가격을 입력해야 합니다.')
         return
       }
-      placeOrder(
+      if (!confirmed) { requestOrder(); return }
+      return await placeOrder(
         { symbol, side, order_type: orderType, quantity: qty, price: orderType === 'Market' ? 0 : prc },
         {
           onSuccess: (d) => {
@@ -367,7 +378,8 @@ export function useTradingOrderModel() {
         )
         return
       }
-      placeOverseasOrder(
+      if (!confirmed) { requestOrder(); return }
+      return await placeOverseasOrder(
         { symbol, exchange: overseasOrderExchange, side, quantity: qty, price: prc },
         {
           onSuccess: (d) => {
@@ -398,12 +410,14 @@ export function useTradingOrderModel() {
     }
   }
 
+  submitRef.current = handleSubmit
+
   return {
     TOSS_US_SESSION_OPTIONS, appConfig, availableCash, balance, balanceQuery,
     brokerHoldings, brokerHoldingsError, brokerHoldingsLoading, clearBuySuspension,
     clearingBuySusp, closeTimerRef, doRefreshList, errorMsg,
     fmt, fmtTossSessionWindow, handleFillMarketPrice, handleSelectBrokerHolding,
-    handleSelectHolding, handleSelectOverseasHolding, handleSubmit, handleUsSearch,
+    handleSelectHolding, handleSelectOverseasHolding, handleSubmit: () => { void handleSubmit() }, handleUsSearch,
     inputValue, isFetchingSearch, isPaperTrading, isPaperUnsupportedUsSell,
     isPending, isRefreshing, isStockListEmpty, isTossActive,
     isTossCalendarError, isTossCalendarLoading, isTossPreflightError, isTossPreflightLoading,

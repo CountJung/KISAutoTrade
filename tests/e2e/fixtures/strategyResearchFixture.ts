@@ -85,7 +85,39 @@ export const readyPreparation: StrategyPreviewPreparation = {
   outcome: 'conditionsNotMet',
 }
 
+// Synthetic display metadata only; hashes are not provider evidence.
+export function syntheticCollectionSummary(): import('../../../src/shared/api/strategyResearchTypes').LthCollectionSummary {
+  const source = (stream: 'D' | '1m', responseIndex: number) => ({ stream, responseIndex,
+    sha256: (stream === 'D' ? 'ab' : 'cd').repeat(32), byteLength: 1234,
+    collectedAt: '2026-07-07T21:01:00Z' })
+  return {
+    requestedStart: null, asOf: '2026-07-07T21:00:00Z', requestedCount: 200,
+    maxPages: 16, maxTypedRows: 3200, pageSize: 200, pageTimeoutSeconds: 15, remainingBudgetMsAtStart: 27123,
+    daily: { dispatchedPages: 1, returnedPages: 1, validatedPages: 1, returnedTypedRows: 2, validatedTypedRows: 2, uniqueRows: 2, duplicateRows: 0,
+      observedStart: '2026-07-02T04:00:00Z', observedEnd: '2026-07-06T04:00:00Z', sources: [source('D', 1)] },
+    minute: { dispatchedPages: 15, returnedPages: 15, validatedPages: 15, returnedTypedRows: 202, validatedTypedRows: 202, uniqueRows: 201, duplicateRows: 1,
+      observedStart: '2026-07-07T13:30:00Z', observedEnd: '2026-07-07T20:00:00Z', sources: Array.from({ length: 15 }, (_, i) => source('1m', i + 1)) },
+    admission: { adoptedRows: 200, usedDailyRows: 1, excluded: { selectionLimit: 1 }, evaluationStart: '2026-07-07T13:31:00Z', evaluationEnd: '2026-07-07T20:00:00Z', dailyContextStart: '20260706', dailyContextEnd: '20260706' },
+    admissionStatus: 'lastCompleted', sourceAvailability: 'complete', normalizedInputSha256: 'ef'.repeat(32),
+    coverageVerified: false, publicationVerification: 'unknown', dailyOhlcVerification: 'unverified', adjustmentVerification: 'unverified',
+  }
+}
+
 type MockOptions = {
+  // Opt-in for the research lifecycle: reject unknown APIs and non-research mutations.
+  strictResearchApi?: boolean
+  unexpectedApiRequests?: string[]
+  researchReserveGate?: Promise<void>
+  researchRunGate?: Promise<void>
+  researchRunGateForJob?: (jobId: string) => Promise<void>
+  // Targeted transport-race control: a response prepared before cancel may arrive late.
+  researchLateSuccessAfterCancel?: boolean
+  researchCancelGate?: Promise<void>
+  researchCancelFails?: boolean
+  researchRunFails?: boolean
+  researchCollectionSummary?: unknown
+  researchEvents?: Array<{ action: string; body: Record<string, unknown> }>
+  leveragedDomestic?: boolean
   strategyDelayMs?: number
   genericPreviewDelayMs?: number
   leveragedPreviewDelayMs?: number
@@ -230,16 +262,31 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
     ...(options.genericSymbol && item.id === 'ma_cross_default' ? {
       targetSymbols: [options.genericSymbol], targetSymbolNames: { [options.genericSymbol]: 'Mock overseas' },
     } : {}),
+    ...(options.leveragedDomestic && item.id === 'leveraged_trend_hold_default' ? {
+      params: { ...item.params, entries: strategyEntries.map((entry) => ({ ...entry, is_overseas: false })) },
+    } : {}),
     brokerId: activeBroker,
     brokerAccountId: activeBroker === 'toss' ? '1' : '12345678-01',
   }))
 
+  let researchSequence = 0
+  const researchJobs = new Map<string, { preview: Record<string, unknown>; owner: string; cancelled: boolean; consumed: boolean }>()
   let candlePageIndex = 0
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url())
     if (!url.pathname.startsWith('/api/')) {
       await route.continue()
       return
+    }
+    if (options.strictResearchApi) {
+      const method = route.request().method()
+      const readOnlyPost = /^\/api\/strategy\/leveraged-trend-hold\/(preview|research\/(reserve|run|cancel))$/.test(url.pathname)
+      const safeGet = method === 'GET' && !/^\/api\/(strategy\/|trading\/(start|stop)(\/|$)|profiles\/)/.test(url.pathname)
+      if (!safeGet && !(method === 'POST' && readOnlyPost)) {
+        options.unexpectedApiRequests?.push(`${method} ${url.pathname}`)
+        await route.fulfill({ status: 501, json: { code: 'UNEXPECTED_MOCK_API', error: 'Unsafe research fixture request' } })
+        return
+      }
     }
     if (url.pathname === '/api/check-update') {
       await route.fulfill({ json: { hasUpdate: false, currentVersion: '0.1.2', latestVersion: '0.1.2', releaseUrl: '' } })
@@ -326,6 +373,15 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
         brokerAccountId: activeAccountId(),
         orderQuantity: options.scopeController?.current === 'B' ? 9 : item.orderQuantity,
       })) })
+      return
+    }
+    if (options.strictResearchApi && url.pathname === '/api/profiles' && route.request().method() === 'GET' && !options.scopeController) {
+      await route.fulfill({ json: [{
+        id: activeProfileId(), broker_id: activeBroker, broker_account_id: activeAccountId(),
+        name: 'Offline active profile', is_paper_trading: options.appConfigOverride?.kis_is_paper_trading ?? true,
+        live_trading_consent: false, app_key_masked: '***', account_no: activeAccountId(),
+        is_active: true, is_configured: true,
+      }] })
       return
     }
     if (url.pathname === '/api/profiles' && route.request().method() === 'GET' && options.scopeController) {
@@ -448,8 +504,52 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
       })
       return
     }
-    if (url.pathname === '/api/strategy/leveraged-trend-hold/preview') {
+    const researchAction = url.pathname.match(/^\/api\/strategy\/leveraged-trend-hold\/research\/(reserve|run|cancel)$/)?.[1]
+    let researchPreview: Record<string, unknown> | undefined
+    const researchSummary = options.researchCollectionSummary
+    if (researchAction) {
       const body = route.request().postDataJSON() as Record<string, unknown>
+      options.researchEvents?.push({ action: researchAction, body })
+      if (researchAction === 'reserve') {
+        const preview = body.preview as Record<string, unknown>
+        if (typeof body.expectedPaperTrading !== 'boolean' || body.expectedBrokerId !== 'toss'
+          || preview.expectedProfileId !== activeProfileId() || preview.expectedBrokerAccountId !== activeAccountId()) {
+          await route.fulfill({ json: { code: 'LTH_RESEARCH_REJECTED', error: 'synthetic scope mismatch' } }); return
+        }
+        const jobId = `00000000-0000-4000-8000-${String(++researchSequence).padStart(12, '0')}`
+        const owner = `00000000-0000-4000-9000-${String(researchSequence).padStart(12, '0')}`
+        researchJobs.set(jobId, { preview, owner, cancelled: false, consumed: false })
+        if (options.researchReserveGate) await options.researchReserveGate
+        await route.fulfill({ json: { jobId, owner } }); return
+      }
+      const job = researchJobs.get(String(body.jobId))
+      if (!job || job.owner !== body.owner) {
+        await route.fulfill({ json: { code: 'LTH_RUNTIME_REJECTED', error: 'synthetic unknown or owner' } }); return
+      }
+      if (researchAction === 'cancel') {
+        if (options.researchCancelGate) await options.researchCancelGate
+        if (options.researchCancelFails) {
+          await route.fulfill({ json: { code: 'LTH_RUNTIME_REJECTED', error: 'synthetic cancellation failure' } }); return
+        }
+        job.cancelled = true
+        await route.fulfill({ json: { status: 'quiescent' } }); return
+      }
+      if (job.consumed || job.cancelled) {
+        await route.fulfill({ json: { code: 'LTH_RUNTIME_REJECTED', error: 'synthetic consumed' } }); return
+      }
+      job.consumed = true
+      if (options.researchRunGateForJob) await options.researchRunGateForJob(String(body.jobId))
+      if (options.researchRunGate) await options.researchRunGate
+      if (job.cancelled && !options.researchLateSuccessAfterCancel) {
+        await route.fulfill({ json: { code: 'LTH_RUNTIME_REJECTED', error: 'synthetic cancelled' } }); return
+      }
+      if (options.researchRunFails) {
+        await route.fulfill({ json: { code: 'LTH_RESEARCH_FAILED', error: 'synthetic collection failure' } }); return
+      }
+      researchPreview = job.preview
+    }
+    if (url.pathname === '/api/strategy/leveraged-trend-hold/preview' || researchAction === 'run') {
+      const body = researchPreview ?? route.request().postDataJSON() as Record<string, unknown>
       options.previewRequests?.push(body)
       if (options.leveragedPreviewDelayMs) {
         await new Promise((resolve) => setTimeout(resolve, options.leveragedPreviewDelayMs))
@@ -490,6 +590,7 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
               adx: 22,
             },
           ],
+          ...(researchAction === 'run' && researchSummary !== undefined ? { collectionSummary: researchSummary } : {}),
           generatedAt: '2026-07-07T17:03:00+09:00',
           message: 'mock preview signals',
           ...mockResearchResult(body, String(body.interval ?? '1m')),
@@ -506,6 +607,11 @@ export async function mockApi(page: import('@playwright/test').Page, options: Mo
           },
         },
       })
+      return
+    }
+    if (options.strictResearchApi) {
+      options.unexpectedApiRequests?.push(`${route.request().method()} ${url.pathname}`)
+      await route.fulfill({ status: 501, json: { code: 'UNEXPECTED_MOCK_API', error: 'Unregistered research fixture request' } })
       return
     }
     await route.fulfill({ json: {} })

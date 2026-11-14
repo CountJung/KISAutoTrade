@@ -1,3 +1,4 @@
+import { LthCollectionSummaryPanel } from './lthCollectionSummaryPanel'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -16,22 +17,26 @@ import type { LeveragedTrendHoldEditorModel, PreviewCount, PreviewInterval } fro
 // Presentation only: the parent retains query/state ownership and callback closures.
 export function LeveragedTrendHoldPreviewPanel({ model }: { model: LeveragedTrendHoldEditorModel }) {
   const {
+    researchJob, isUsMinute, invalidateResearch,
     entries, accountingError, appConfig, assumptions,
     bollingerEnabled, currentPreview, handlePreview, isTossActive,
-    params, previewCount, previewEntry, previewGeneration,
+    params, previewCount, previewEntry,
     previewInterval, previewMutation, previewOptions, previewSymbol,
-    setAccountingDraftRevision, setAccountingError, setAssumptions, setPreview,
+    setAccountingDraftRevision, setAccountingError, setAssumptions,
     setPreviewCount, setPreviewInterval, setPreviewSymbol,
   } = model
+  const busy = previewMutation.isPending || researchJob.isPending
+  const locked = previewMutation.isPending || researchJob.blocked
+  const statusLabel = ({ reserving: '예약 중...', running: '수집·계산 중...', cancelling: '취소 확인 중...', cancelFailed: '취소 확인 실패', failed: '연구 실패', idle: '' } as const)[researchJob.phase]
   return (
     <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.25 }}>
       <Stack spacing={1}>
         <SimulationAssumptionsEditor
           key={`${appConfig?.active_profile_id}:${appConfig?.active_broker_account_id}:${previewEntry?.leveraged_symbol}`}
           isOverseas={previewEntry?.is_overseas ?? false} onValidationChange={setAccountingError}
-          onDraftChange={() => { previewGeneration.current += 1; setPreview(null); setAccountingDraftRevision((revision) => revision + 1) }}
+          onDraftChange={() => { invalidateResearch(); setAccountingDraftRevision((revision) => revision + 1) }}
           value={assumptions}
-          onChange={setAssumptions}
+          onChange={(value) => { invalidateResearch(); setAssumptions(value) }}
           disabled={previewMutation.isPending}
         />
         <Stack direction={{ xs: 'column', md: 'row' }} sx={{ alignItems: { xs: 'stretch', md: 'center' }, justifyContent: "space-between", gap: 1 }}>
@@ -59,6 +64,7 @@ export function LeveragedTrendHoldPreviewPanel({ model }: { model: LeveragedTren
               value={previewSymbol}
               disabled={previewOptions.length === 0 || previewMutation.isPending}
               onChange={(e) => {
+                invalidateResearch()
                 setPreviewSymbol(e.target.value)
                 previewMutation.reset()
               }}
@@ -76,7 +82,7 @@ export function LeveragedTrendHoldPreviewPanel({ model }: { model: LeveragedTren
               size="small"
               value={previewInterval}
               disabled={previewMutation.isPending}
-              onChange={(event) => setPreviewInterval(event.target.value as PreviewInterval)}
+              onChange={(event) => { invalidateResearch(); setPreviewInterval(event.target.value as PreviewInterval) }}
               sx={{ minWidth: { xs: '100%', sm: 110 } }}
             >
               <MenuItem value="1m">1분봉</MenuItem>
@@ -88,7 +94,7 @@ export function LeveragedTrendHoldPreviewPanel({ model }: { model: LeveragedTren
               size="small"
               value={previewCount}
               disabled={previewMutation.isPending}
-              onChange={(event) => setPreviewCount(Number(event.target.value) as PreviewCount)}
+              onChange={(event) => { invalidateResearch(); setPreviewCount(Number(event.target.value) as PreviewCount) }}
               sx={{ minWidth: { xs: '100%', sm: 120 } }}
             >
               <MenuItem value={50}>최근 50봉</MenuItem>
@@ -99,14 +105,19 @@ export function LeveragedTrendHoldPreviewPanel({ model }: { model: LeveragedTren
               size="small"
               variant="outlined"
               onClick={handlePreview}
-              disabled={!isTossActive || !previewEntry || previewMutation.isPending || !!accountingError}
-              startIcon={previewMutation.isPending ? <CircularProgress size={14} /> : <RefreshIcon fontSize="small" />}
+              disabled={!isTossActive || !previewEntry || locked || !!accountingError}
+              startIcon={busy ? <CircularProgress size={14} /> : <RefreshIcon fontSize="small" />}
               sx={{ alignSelf: { xs: 'stretch', sm: 'center' }, whiteSpace: 'nowrap' }}
             >
-              {previewMutation.isPending ? '계산 중...' : '미리보기 계산'}
+              {busy ? (statusLabel || '계산 중...') : '미리보기 계산'}
             </Button>
+            {researchJob.blocked && <Button size="small" onClick={researchJob.cancel} disabled={researchJob.phase === 'cancelling'}>
+              {researchJob.phase === 'cancelFailed' ? '취소 다시 확인' : '연구 취소'}
+            </Button>}
           </Stack>
         </Stack>
+        {(isUsMinute || researchJob.blocked) && statusLabel && <Typography role="status" variant="caption">{statusLabel}</Typography>}
+        {researchJob.error && <Alert severity="warning">{researchJob.error} · 수집 상세 수치·원인 내역은 제공되지 않음</Alert>}
 
         {!isTossActive && (
           <Alert severity="info" sx={{ py: 0.5 }}>
@@ -129,6 +140,7 @@ export function LeveragedTrendHoldPreviewPanel({ model }: { model: LeveragedTren
             <Alert severity={currentPreview.signals.length > 0 ? 'success' : 'info'} sx={{ py: 0.5 }}>
               <Typography variant="caption">{currentPreview.message}</Typography>
             </Alert>
+            {isUsMinute && <LthCollectionSummaryPanel summary={currentPreview.collectionSummary} />}
             <LeveragedTrendHoldPreviewChart
               candles={currentPreview.candles}
               signals={currentPreview.signals}

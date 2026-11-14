@@ -272,7 +272,7 @@ fn validate_symbol(symbol: &str) -> Result<(), CmdError> {
 - 급반등 단독 진입(`rapid_rebound_enabled`)은 기존 장중 반동과 별도 옵션이다. 최근 `rapid_rebound_lookback_ticks` 관측치 안에서 선행 고점 대비 저점 하락률(`rapid_rebound_drop_pct`)과 저점 대비 현재가 회복률(`rapid_rebound_recovery_pct`)을 보고, 저점 후 `rapid_rebound_max_low_age_ticks` 안에 회복했을 때만 진입한다. 이 경로도 EMA/ADX 추세 조건을 요구하지 않으며, 실시간 `on_tick()`과 `preview_signals()`가 같은 `rapid_rebound_entry_ok()` helper를 사용해야 한다.
 - 장중 반동/급반등 관측 버퍼는 `rebound_price_cap()`에서 두 옵션의 필요 길이 중 큰 값을 `bounded_window_with_extra()`로 감싼다. user-param을 그대로 `VecDeque` capacity로 쓰지 않는다.
 - Toss 실행 scope에서 자동매매를 시작하면 Toss `1d` candles로 일봉 OHLC를 초기화하고, Toss `1m` candles의 OHLC를 레버리지 전략 장중 상태에도 주입한다. 실시간 현재가 polling은 같은 분 안에서는 마지막 1분봉과 반동 관측값을 갱신하고, 분이 바뀔 때만 새 관측치를 추가한다. 공개 데이터와 Toss 데이터가 섞이지 않게 strategy preview/진단도 가능하면 Toss candles 경로를 우선 사용한다.
-- 레버리지 미리보기 입력은 `interval=1m|1d`와 `count=20..200`을 검증한다. v7/LTH v3에서 이전 완료 일봉은 별도 bounded context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `1d`는 장중 가격·진입/청산을 합성하지 않는 `dailyDiagnostic/notEvaluable` 자료 진단으로 전략·체결을 실행하지 않는다. `1m`은 실제 관측의 `intradaySample/sampleOnly`이며 유효 분봉 0개는 `notEvaluable`이다. 고정 KST 세션 근사와 원본 시간대·DST·세션 미검증을 assessment에 명시하고 `lookAheadSafe=false`로 둔다. `warmupCount=0`과 `dailyContextBars`를 구분하며 최대 200봉 표본을 3개월 성과로 표시하지 않는다.
+- 레버리지 미리보기 입력은 `interval=1m|1d`와 `count=20..200`을 검증한다. v7/LTH v3에서 이전 완료 일봉은 별도 bounded context이며 분봉 EMA/RSI/ADX·반동·볼린저 warmup에 넣지 않는다. `1d`는 장중 가격·진입/청산을 합성하지 않는 `dailyDiagnostic/notEvaluable` 자료 진단으로 전략·체결을 실행하지 않는다. `1m`은 실제 관측의 `intradaySample/sampleOnly`이며 유효 분봉 0개는 `notEvaluable`이다. US `1m` 연구는 NY/DST 계획 정규장 채택을 적용하고 KR/일봉·live·legacy KST blackout을 보존한다. 실제 원본/offset·발행·세션/기간 coverage 미검증을 assessment에 명시하고 `lookAheadSafe=false`로 둔다. `warmupCount=0`과 `dailyContextBars`를 구분하며 최대 200봉 표본을 3개월 성과로 표시하지 않는다.
 - 레버리지 전략 청산은 초기 손절, 반등 실패 손절, 수익 보호 청산을 분리한다. `initial_stop_loss_pct`는 보호 활성 전에도 진입가 대비 손실을 즉시 제한한다. 반등 실패 손절은 `entry_failure_observations`와 `min_hold_observations`를 모두 지난 뒤에도 고점 수익률이 `trailing_activation_profit_pct`에 닿지 못한 채 진입가 아래일 때만 발생한다. 이렇게 해야 매수 직후 작은 음수 흔들림이 “실패”로 과도하게 해석되지 않는다. 이후 고점 수익률이 `trailing_activation_profit_pct` 이상일 때만 본전 보호/추적손절/추세 이탈 청산을 검사한다. 보호 활성 후 `breakeven_buffer_pct` 이하로 내려오면 본전 보호 청산, 고점 대비 `trailing_stop_pct` 이상 밀리면 수익 보호 추적손절, EMA/RSI 추세 이탈은 현재 수익률이 버퍼보다 높을 때만 청산한다. 미리보기와 실시간 `on_tick()`은 같은 초기 손절/보호 청산 helper를 사용해야 한다.
 - `RiskManager`의 전략/종목별 일일 매수 제한은 재진입 전략을 막을 수 있어 차단 조건으로 사용하지 않는다. 하위 호환 필드는 남기되 view/update 경로는 0으로 노출·저장하고, 매도 일일 제한과 연속 손실 차단은 별도 방어로 유지한다.
 
@@ -1109,9 +1109,9 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 - 강한 종가는 매 완료봉으로 다음 평가일 조건을 준비한다. 변동성 확장은 날짜 시작 시 당일 시가·고저가만 초기화하고 보유 상태와 이전 N일 범위를 유지한다. 조건 평가 시 이전 N일 평균에 당일 범위를 섞지 않고, 완료 후 bounded ring에 적재하며 flat-day 0범위도 일수에 포함한다. 날짜 전환에 `reset()`을 사용하지 않는다.
 - 강한 종가·변동성 확장의 generic replay는 일봉만 허용하며 다른 간격은 `UNSUPPORTED_REPLAY_INTERVAL`이다. cadence는 `dailyCloseWithDayBoundary`. 강한 종가의 다음 평가일 신호도 완료 종가에서 발생하며 v10의 sameClose/nextOpen 실행 모델에 따라 체결한다. live 현재가 polling에는 완료 일봉 이벤트를 연결하지 않는다. 기본 훅은 no-op/기존 tick 위임이며 다른 전략·전용 LTH 동작을 보존한다.
 - Generic preview v6은 factory와 같은 `starts_with("leveraged_trend_hold")` 기준으로 기본/접미 ID를 `UNSUPPORTED_GENERIC_REPLAY`로 명시 거부한다. LTH의 실시간 분/세션/blackout clock을 과거 재생에 호출하지 않으며 `deterministic=false`·준비 미지원 표시에 그치지 않는다. broker 조회 전용 커맨드로 generic 제공봉을 자동 우회하지 않는다.
-- LTH `preview_signals_with_execution`은 실제 분봉의 `timed.time`으로 세션·blackout·장마감을 판단한다. 응답 `generatedAt`만 생성 시각이고 신호/체결/hash의 입력이 아니다. `cfg(test)` live clock 대역으로 production 재현성을 주장하지 않고 별도 integration fixture 및 production runner의 서로 다른 분/시간대 재실행을 검증한다. 고정 KST 세션·DST 한계는 입력 재현성과 별개이며 `lookAheadSafe=false`다.
+- LTH `preview_signals_with_execution`은 실제 분봉의 `timed.time`으로 세션·blackout·장마감을 판단한다. 응답 `generatedAt`만 생성 시각이고 신호/체결/hash의 입력이 아니다. `cfg(test)` live clock 대역으로 production 재현성을 주장하지 않고 별도 integration fixture 및 production runner의 서로 다른 분/시간대 재실행을 검증한다. US timed 연구는 `research_session`의 NY/DST 계획 정규장과 legacy KST blackout을 분리한다. `lth_regular::prepare`에서 instant 정렬·중복 전체 제외·종료 표기 봉 전체 구간/단일 cutoff·유효가격/tail 채택을 Open·지표·전략·Replay 전에 끝내고 같은 cohort/인덱스와 차트 라벨/OHLCV를 사용한다. 계획 달력2023–2028+알려진 Carter 예외와 horizon unknown을 실제 provider/모든 특별휴장 coverage 인증으로 확대하지 않는다. KR/일봉·live는 기존 경계를 유지하며 `lookAheadSafe=false`다.
 - LTH 일봉 `initialize_ohlc`는 context만 교체하고 기존 분봉 지표와 보유 포지션을 보존한다. `initialize_intraday_ohlc`는 분봉 OHLC·반동 가격·볼린저 snapshot을 교체하며 누적 append로 과거 관측을 중복하지 않는다. `initialize_intraday_prices`는 반동 가격 snapshot만 교체하고 OHLC·볼린저를 초기화하지 않는다. 분봉 EMA/RSI/ADX·반동·볼린저는 분봉만 소비하고 각 버퍼 상한을 독립 유지한다. 빈 일봉 재초기화도 실제 보유 손절을 막지 않는다.
-- 전용 LTH v8/LTH v4의 엔진 버전은 공통 `REPLAY_ENGINE_VERSION`을 응답과 hash에 함께 사용한다. `ReplayMetadata.assessment`는 선택 필드이며 generic에는 생략한다. `1d`는 `dailyDiagnostic/notEvaluable`, `1m`은 `intradaySample/sampleOnly`(유효 관측 0개면 `notEvaluable`)다. `dailyContextBars`와 `intradayBars`를 분리하고 `warmupCount=0`으로 일봉이 분봉 지표를 준비했다고 주장하지 않는다. `timestampStatus/sessionStatus=unverified`와 한국어 limitations를 남긴다. 일봉 호환 빈 backtest를 0% 성과로 해석하지 않는다. 실제 2026-07-06~10-02 SOXQ 분봉·시간대·DST·세션 coverage 확보/검증은 P1-05 잔여 조건이다.
+- 전용 LTH의 엔진 버전은 공통 `REPLAY_ENGINE_VERSION`을 응답과 hash에 함께 사용하며 US1m은 `leveraged-trend-hold-v5-us-regular`, KR/일봉은 v4다. `ReplayMetadata.assessment`는 선택 필드이며 generic에는 생략한다. `1d`는 `dailyDiagnostic/notEvaluable`, `1m`은 `intradaySample/sampleOnly`(유효 관측 0개면 `notEvaluable`)다. `dailyContextBars`와 `intradayBars`를 분리하고 `warmupCount=0`으로 일봉이 분봉 지표를 준비했다고 주장하지 않는다. `timestampStatus/sessionStatus=unverified`와 한국어 limitations를 남긴다. 일봉 호환 빈 backtest를 0% 성과로 해석하지 않는다. 실제 2026-07-06~10-02 SOXQ 분봉·시간대·DST·세션 coverage 확보/검증은 P1-05 잔여 조건이다.
 - 전략이 raw signal 생성 시 내부 `in_position`을 선반영했는데 주문이 skip되면 `SubmissionOutcome::Skipped`의 실제 `held_quantity`/`avg_price`를 `StrategyManager::sync_position()`에 되먹임한다. 수량 0 snapshot도 flat 상태로 반영해야 한다.
 - 자동매매 시작 플래그 lock은 broker reconcile/risk restore/warmup이 완료될 때까지 daemon 첫 tick을 막아야 한다.
 
@@ -1316,9 +1316,9 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 
 - `simulation/minute_timing`은 기존 준비 label만 읽는 pure metadata다. RFC3339 실제 순간→시장 timezone, compact12/14=KST 가정을 구분하며 Toss barClose는 label−60초/label이다. 요청 시작 asOf를 명시하고 일반 평일창을 실제 달력으로 표현하지 않는다.
 - 입력512·label64byte·날짜8·예시6 상한과 산술 gap만 사용한다. 분 경계 고유 관측과 raw 시간창 분류를 구분하고 내부 미관측 슬롯을 공급원 누락으로 확정하지 않는다. 야간·주말·무관측 날짜와 tail 앞뒤를 누락으로 합산하지 않는다. flag4개는 미검증false이며 성과 적합성을 승격하지 않는다.
-- `minute_time::parse_minute_instant`는 generic 기존 문법/UTC Nanos 출력 보존을 위해 syntax만 공유한다. risk/daily/hostLocal/epoch 또는 provider page parser와 합치지 않는다. 진단 결과로 기존 LTH fixed KST 시계·선택순서·신호·정산·입력hash를 바꾸지 않는다. daily skipNone, empty notEvaluable, 실제 nonempty 신호/체결의 전후 동일성을 검증한다. [상세](../../../docs/completed-history.md#task-lth-minute-timing-20261022).
+- `minute_time::parse_minute_instant`는 generic 기존 문법/UTC Nanos 출력 보존을 위해 syntax만 공유한다. risk/daily/hostLocal/epoch 또는 provider page parser와 합치지 않는다. pure 진단은 선택순서·신호·정산·입력hash를 바꾸지 않는다. US 연구의 적용된 계획 달력/채택 근거는 선택 `executionClock`이며 일반 평일창 슬롯과 분리한다. 실제 제외/가격 수만 집계하고 누락·미지원·손상 clock은 legacy/unknown으로 남긴다. 정책/채택 identity는 A/B에 보존하되 같은 정책/채택봉의 raw asOf 밀리초 차이를 다른 모델로 만들지 않는다. daily skipNone, empty notEvaluable와 nonempty 신호/체결 회귀를 확인한다. [현재 계약](../../../docs/ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22), [과거 진단](../../../docs/completed-history.md#task-lth-minute-timing-20261022).
 
-> 마지막 업데이트: 2026-10-22T20:33:31+09:00
+> 마지막 업데이트: 2026-11-08T00:24:21+09:00 (부모 관측 기준)
 
 ## RSI v18 소유·선택 보호
 
@@ -1366,6 +1366,8 @@ provider API 호출 간격과 429 backoff는 `src-tauri/src/broker/rate_limit.rs
 
 
 ## 응답 불명 자동 주문의 운영자 복구 (2026-10-29)
+
+- 예산 저장은 필수 `expectedProfileId`·`expectedIsPaper`와 broker/account를 IPC·REST 공통 selection lock 아래 검증한다. 처리 전 지연 요청이 다른 profile/mode에 적용되지 않아야 하며 누락 payload를 현재 선택에 암묵 바인딩하지 않는다. 새 원장 `is_paper`/legacy 유자금 차단은 수동 매도 회귀로 철회했다. 기존 broker/account schema·ownership/risk guard를 유지하고 현재 선택으로 모드를 추정하거나 원장을 삭제하지 않는다. 검증된 legacy 이관·영속 모드 격리는 [P1-SCOPE-01](../../../docs/completed-history.md#p1-scope-01)의 미해결 경계다.
 
 - `trading/order/submission/recovery.rs`는 provider 호출 전 비민감 PendingOrder snapshot을 예산 원장에 저장한다. 원래 reservation ID·exact owner/generation·프로파일/모드·시장·주문 시각·clientOrderId를 보존하고 현재 설정으로 과거 소유를 추정하지 않는다.
 - `trading/order/budget/recovery.rs`는 desktop IPC의 운영자 대조 승인만 담당한다. 영수증 intent 저장→원래 pending 복원 순서와 동일 입력 재시도, terminal 재생성 금지, 원장 backup 자동 복구 금지를 유지한다. receipt 없이 legacy unknown을 승인하지 않는다.
@@ -1422,3 +1424,21 @@ thiserror 전환은 오류 정의를 그대로 두고 Display/From/source/downca
 > 마지막 업데이트: 2026-10-29T12:01:40+00:00
 
 > 마지막 업데이트: 2026-11-01T00:21:19+00:00
+
+## 섹터 포트폴리오 연구 경계
+
+- `trading/sector_portfolio`의 고정12종목·USD 공통현금 장부는 기존 단일종목 KRW `ReplaySession`과 다르다. FX=1이나 종목별 수익률 합산으로 대체하지 않는다.
+- `rank_sectors`/`plan_sector_portfolio`는 이전 완료자료만 받고 목표예산을 고정한다. 실행시가로 최종 정수수량을 산출하되 선정/예산에 미래가격을 넣지 않는다. 전체 입력을 먼저 검증해 필수가격 누락 시 모든 비교계정이 함께 평가불가다.
+- 기본총편도10bp를 fee/slippage 양쪽에 중복 가산하지 않는다. 총20bp는 별도 스트레스다. 매도→순위매수·현금한도·실현/잔여원가 대사를 유지한다. 비용 제거값은 동일경로 산술이며 무비용 재실행이 아니다.
+- source 검증bool과 expectedSessionDates는 입력자 선언이다. 실제 달력/공급원 자동인증으로 표시하지 않는다. 기업행위 원장 미지원 중 nonempty events 또는 부재 미확인 입력은 전체 거부하며 배당락 즉시 현금을 만들지 않는다.
+- 표시가격 관측은 `quote_clock`의 정규장 `[open, close)`를, 분봉 close-label은 `regular_clock`의 완료 1분 구간을 사용한다. 개장 순간 포함·폐장 순간 제외인 시세 관측에 분봉 라벨 경계를 재사용하지 않는다. `execution_contract`의 선언 시각/출처·fingerprint·외부 사건 키 검사는 영속 장전 저장·공급원 인증·재시작 멱등성 보장이 아니다. [현재 작업·미검증 경계](../../../docs/todo.md)를 따른다.
+- 순수 연구 endpoint에 AppState/provider/order/store를 넣지 않는다. 기존 POST 보안·JSON bound와 IPC/REST 동등성·no-effects fixture를 유지한다. 운영 factory/daemon에 연구ID를 등록하거나 MA fallback에 태우지 않는다. 실제 연결은 별도 TODO·소유/예산/guard/복원 검증이 필요하다.
+
+> 마지막 업데이트: 2026-11-05T23:35:02Z
+
+> 마지막 업데이트: 2026-11-07T14:37:57+09:00
+
+
+### 손실 매도 방지 옵션의 계획 경계
+
+2026-11-14 요청의 구현·수용 기준 정본은 [P2-SECTOR-01](../../../docs/todo.md)이다. 기존 `TradeGuard`의 비용 후 기대이익 검사와 전면 손실매도 금지는 다르다. 별도 옵션을 구현할 때 기존 v1/기본값·손절/리스크 경계를 임의 변경하지 말고, 실제 매도되지 않은 대금을 매수 예산에 포함하지 않는다. 손절·수동·강제청산 우선순위가 미결정이면 실거래 적용을 하지 않는다.

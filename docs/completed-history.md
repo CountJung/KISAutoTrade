@@ -1,9 +1,101 @@
 # KISAutoTrade — 완료·경과 이력
 
-> 현재 남은 11개 작업과 완료 조건의 정본은 [todo.md](todo.md)다. 이 문서는 완료된 범위·과거 관측·기각 이유를 요약한다. 아래 수치는 당시 검증이며 문서 압축 중 재실행한 결과가 아니다.
+> 현재 남은 작업과 완료 조건의 정본은 [todo.md](todo.md)다. 이 문서는 완료된 범위·과거 관측·기각 이유를 요약한다. 아래 수치는 당시 검증이며 문서 압축 중 재실행한 결과가 아니다.
 > 원문은 [고정 커밋 4021e38의 이력](https://github.com/CountJung/KISAutoTrade/blob/4021e38bc5caaf4751eacaf96c20dc54dcf0f708/docs/completed-history.md)에 보존한다. 각 절의 불변 링크에서 원래 TODO 인용·중간 실패·수치·근거를 복원할 수 있다. 2026-10-29 이전 이관 원본은 `6eeb0ea718138438296b832bcbbe3e218fc49564`의 TODO다.
 
 당시 짧은 `P2-13` 표기는 `SOXQ-P2-13`을 뜻한다. 현재 `DEP-P3-01`의 MSRV/DB 결정과 나머지 열린 조건은 [TODO](todo.md)에서 관리한다.
+
+<a id="p2-ux-07"></a>
+## P2-UX-07 — 위험 행동 확인·설정 가시성 보강·원격 CI 통과 (2026-11-07)
+
+- 기준 `80c81c86794507262bde5f248279722d5ea28a46` 위의 공용 확인 구현은 `586004310ef6c4c60dd43b9727ba21985a1c96a6`으로 푸시했다. 아래 원격 frame·추가 지연 레이아웃 및 테스트 입력 전제의 후속 보강은 로컬 전체 회귀와 최종 독립 코드·문서 검토를 통과했다. 후속 구현은 `dff35f4651e683923969ecfbed0629c2bdea5127`로 정상 커밋·푸시했고 해당 SHA 원격 CI 성공까지 확인해 P2의 코드/mock 검증 범위를 완료했다. 실제 native·계좌와 P1 잔여 조건은 아래 경계대로 유지한다.
+- 실전 시작·비상정지 해제·매수 재개·KIS 국내/미국·Toss 수동 주문은 `features/financial-confirmation`의 공용 Dialog·동기 소비/공유 잠금을 사용한다. KIS 모의 시작 면제는 요청 시 캡처한 동일 신뢰 config로 판단한다. 확인에는 broker/account/모드·실행 영향과 수동 주문의 종목·매수/매도·수량·유형/가격을 표시하며 순수 모의 계산은 대상이 아니다.
+- 정지·비상정지는 즉시 요청하며 미전송 확인만 무효화한다. 기접수 주문 취소·포지션 청산·이미 전송한 요청 취소나 모든 정지 mutation의 전역 잠금을 뜻하지 않는다.
+- 비상정지 해제는 daemon 시작/손실 카운터 초기화가 아니며 매수 재개는 입금/잔고 검증이 아니다. 기존 backend/IPC·동의/preflight·scope/risk·예산/예약/멱등·원장/수수료 정책은 유지한다. **P1 원장 모드·legacy 검증 이관·server ABA는 미해결**이다.
+- scope·AppConfig 공개세대·fetch/error/invalidated/publication pending·초안/입력·unmount와 경로 ABA가 기존 확인을 무효화한다. opener는 busy 전에 캡처하고 닫기 transition 후 새 확인이 없고 연결된 경우에만 복귀한다.
+- 부모는 Escape/backdrop 포커스2건과 same-task 모의→실전/경로 ABA의 RED→GREEN을 관측했다. RED에는 최종 확인 전 mock start POST1과 되살아난 승인이 있었으며, 수정 후 core 독립 리뷰와 SHA256 일치를 확인했다.
+- exact origin/method/path/noquery/body·전체 요청열·취소0/승인1·중복 방지·6종403 negative control을 검사했다. unknown API/외부/앱 WS 차단을 유지한다. 캐시/Dialog scope 대조는 무본문 요청이 서버 identity를 전달한다는 증거가 아니다.
+- 부모의 envDir:false source HTTP mock focused 실행은 확인 흐름32개·기존 주문폼5개의 **37/37 통과, 실패·skip0**다. synthetic IME/229·브라우저 modifier/repeat·정상 Sell·해제 비대상 상태 보존·375px/dark DOM reflow·색상 대비를 관측했으며 테스트-only focus 강제는 없다.
+- CI와 같은 source 프로젝트 대상을 로컬에서 실행해 **88/88 통과, 실패·skip·flaky0(1.6분)**를 확인했다. 당시 CI 정본 등록은 dist UI541개+source88개=629개이며 등록은 실행 통과가 아니다. source88에는 focused 확인32개가 포함되므로 중복 합산하지 않는다.
+- 기존 source-harness 진단34/34와 기존2spec25/25도 별도 결과다. 예산 복구 exact 기대값의 profile/mode를 추가하고, frozen clock의 실제 응답/body·초기 config 공개 barrier와 held mock IPC 진입 확인을 보강했다. 기존 debounce/IME/횟수·timeout·금융 guard는 완화하지 않았다.
+- `5860043`에 반영한 부모 코드의 `npm run build:web -- --config .cache/p2-ux-07/offline-final-build.config.mts`는 **exit0**이다. `envDir:false`·별도 `.cache/p2-ux-07/final-dist`를 사용했고 실제 preview의 index/router와 빌드 파일 SHA256 일치를 확인했다. 이후 제품 소스7개는 같은 해시를 유지했다. 앱/Node/변경 spec 타입·lockfiles·FSD·TODO·project-map·Graphify freshness·diff도 통과했다.
+- 로컬에서 CI 정본 dist541개를 처음 실행한 결과는 **534pass/7fail, skip·flaky0, 전역 오류0(9.0분)**다. 6건은 기존 Settings navigation의 exact GET 기대값에 profile/mode가 빠진 것으로 trace에서 확인해 두 필드를 보강했다. 나머지 차트 검사에서는 네이티브 스크롤 부분 이동 뒤 다음 키를 보내고 한 픽셀 일찍 종료하는 경계를 관측했다.
+- 키 전에 실제 scroller의 trusted `scrollend`를 준비하고 완료 후 다음 키를 보내며, 기존 오른쪽 끝·마지막 열 가시성 조건을 함께 만족할 때만 반복을 끝내도록 보강했다. 실제 이동·헤더/값 가시성·focus·overflow·기존 허용 오차와 timeout을 유지했다. 수정 원본2spec은 **14/14**, 진단 observer 없이 원본 KR/US 각10회는 **20/20**이다. 별도 차단 대조군2건은 네 번째 키를 막자 중간120에서 의도대로 실패해 무이동을 정상 끝으로 오인하지 않음을 확인했다. 마지막2파일의 독립 리뷰는 새 P1/P2 없음이며 부모도 같은 SHA256을 확인했다.
+- `5860043`을 준비한 로컬 production 번들의 CI 정본 dist 프로젝트는 **541/541 통과, 실패·skip·flaky0, 전역 오류0(7.1분)**다. 부모가 JSON으로 unique541건과 앞선 source88건의 비중복 합계629건을 확인했다. focused·진단·반복 시도를 여기에 더하지 않는다. 완료 뒤에도 제품7파일·마지막 리뷰2파일·빌드 index/router 해시는 동일했다. 상세 명령·JSON/trace는 `~/.hermes/cache/kisautotrade-e2e-audit/`, 압축 전 경과는 `~/.hermes/cache/kisautotrade-sequential/`에 보존한다.
+- `5860043`의 실제 PR16 원격 CI는 보안·frontend·Rust·Toss·빌드가 성공했으나 E2E는 **628/629 통과·실패1, skip·flaky·전역 오류0**였다. 실패는 `uiux-settings-navigation.spec.ts`의 지연/실패 risk 첫 목적지 geometry 검사다. 공개 artifact13570048150의 ZIP 크기·SHA256을 GitHub 원 metadata와 대조한 뒤 HTML을 실행하지 않고 report JSON/trace를 해석해 정확한 실패를 확인했다. 로그403을 반복하거나 새 인증·자격증명을 요청하지 않았다.
+- 원격 Enter 전후 snapshot은 main3553과 숨은 셸 부모325의 동시 스크롤을 기록했다. 로컬 observer도 부모324·main rect−324…396을 관측했지만 기존 상대좌표 검사는 통과했다. main 자체의 viewport 포함까지 요구하자 기존 불변 번들에서 **RED1/1**을 재현했다. 제품의 Settings local helper를 main만 이동하도록 바꾸되 notify·preventScroll focus·기존 margin·자연 clamp·경로/user-intent 복원을 보존했다. main 밖의 기존 fallback은 유지하며 전역 스크롤 초기화나 테스트-only 보정은 없다.
+- 후속 `npm run build:web -- --config .cache/p2-ux-07/offline-navigation-build.config.mts`는 **exit0**, outDir은 `.cache/p2-ux-07/navigation-final-dist`다. 강화 원본 Settings/Chart는 **14/14**, Settings 반복은 **30/30**이다. 새 코드의 CI source 프로젝트는 개발 클라이언트/HMR을 유지하고 `.env`만 제외한 별도 포트에서 **88/88 통과·실패/skip/flaky/전역 오류0(1.7분)**였다. 소스·spec 두 파일의 독립 리뷰는 새 P1/P2 없음이며 부모가 동일 해시를 확인했다. 새 preview의 index/router도 빌드 파일과 일치했다.
+- 후속 새 번들의 정본 dist는 **541/541 통과·실패/skip/flaky/전역 오류0(9.0분)**다. 부모가 새 두 JSON의 모든 결과와 물리 case를 projectName 없이 대조해 합계629·파일 교집합0을 확인했다. 반복·focused·진단은 합산하지 않았다. 실행 뒤에도 제품8파일·spec2파일·번들 index/router 해시는 빌드 영수증과 같았다. **이 시점에는 후속 새 SHA의 원격 CI 대기 상태였으며** `5860043`의 원격 실패를 성공으로 바꾸어 기록하지 않는다.
+- 추가 격리 진단은 risk 응답을 보류한 채 budget 응답을 첫 제목 이동 뒤에 공개하고 실제 응답 완료·예산 입력 렌더를 기다렸다. **5회 모두** heading focus는 유지됐지만 가시성 검사가 실패했다. 스크린샷의 Sidebar/main frame은 정상 높이였고 risk 제목은 아래로 밀려 보이지 않았다. 정본 통과는 이 지연 순서의 해결 근거가 아니다. 후속 커밋을 보류하고 로컬 포커스 가시성의 레이아웃 추적·사용자 의도 취소·cleanup 및 정본 회귀의 추가 보강으로 넘겼다. 원격 실패에서 지연 레이아웃의 정확한 기여는 아직 단정하지 않는다.
+- 지연 보정 후보는 `settingsNavigation.tsx`의 단일 소유 추적·DOM/크기 관측·RAF·입력/경로/unmount 정리와 risk 정본의 응답 순서·실제 wheel/PageUp 취소 대조를 보강했다. 별도 `.cache/p2-ux-07/layout-anchor-final-dist`의 `envDir:false` production build는 **exit0**, 실제 preview index/router 바이트·해시를 확인했다. 같은 정본 risk는 이전 불변 main-only 번들에서 **RED1/1**, 새 번들의 Settings/Chart는 **16/16**, 원본 Settings 반복은 **40/40(1.1분)** 통과했다. passive capture wheel/key 취소만 누락시킨 negative control은 **2건 모두 예상 실패**하여 취소 검사의 반증 가능성을 확인했다. app/spec/Node TS·FSD·lockfiles와 실행 뒤 제품8/spec2/번들2 해시는 통과/일치했다. 이때 CI dist **543개는 등록 목록만 확인했다**. 새 코드의 같은 raw Vite/HMR·envDir:false source 실행은 **88/88 통과·실패/skip/flaky/전역 오류0(1.6분)**였으며 부모가 JSON의 물리88·모든 결과와 실행 뒤 입력 해시를 확인했다. 당시 전체 dist 재검증·최종 독립 리뷰·새 SHA 원격 CI는 후속 게이트로 남겼다.
+- 독립 리뷰는 제품 소스의 새 P1/P2는 없었지만 취소 spec이 native 스크롤의 첫 이동만 기다린다는 P2를 지적했다. 진행 중인 전체 dist는 의도적으로 중단하고 종료를 확인한 뒤, 입력 전 정확한 main의 trusted `scrollend` 설치·완료 대기와 `finally` 정리를 보강했다. 중단 실행을 전체 통과/실패나 완료 건수로 기록하지 않는다. 제품8·번들 해시는 그대로라 검증된 build를 재사용하고 spec-only 영수증으로 변경을 구분했다. 강화 후 원본 Settings/Chart **16/16(22.2초)**·원본 Settings 반복 **40/40(1.1분)**·취소 누락 대조 **2건 예상 실패**와 spec TS를 재확인했다. source의 실행 대상에는 수정한 UI spec이 없고 runtime도 바뀌지 않아 앞선 source 근거를 유지한다. 이후 새 전체 dist·test-only 재리뷰·최종 문서/원격 CI를 진행했다.
+- 다음 전체 dist는 **542통과/1timeout·skip/flaky/전역 오류0(9.3분)**였다. 실패는 `candle-pagination.spec.ts`의 repeatedCursor case에서 collector 실행 전 미리보기 버튼을 기다린 것이다. trace의 구간 선택은 클릭 완료 로그 뒤에도50봉·menu open이었고 candle-page 요청은0이었다. 원본 격리 **10/10** 재실행은 원인 해결 근거로 삼지 않았다. popup 이동을 native down/up 사이에 놓은 별도 timing fault에서 원래 helper는 같은30초 대기로 실패하고 준비 완료를 기다리는 helper는 통과했다. 이는 moving-popup lost-click 기전 대조이며 원래 native packet의 정확 인과를 단정하지 않는다. 영구 spec에는 CSS/delay fault 없이 Grow 완료→원래 클릭1회→선택값/listbox 해제만 보강했고 collector·fixture·기존 oracle은 수정하지 않았다. 확장 spec TS와 원본 Candle/Settings/Chart **38/38(49초)**·수정한 repeatedCursor 반복 **10/10(16.9초)**을 확인했다. 제품8·번들·Settings spec은 불변이며 새로 바뀐 두 UI spec이 source 실행 대상 밖임을 확인했다. 다음 전체 dist와 추가 test-only 리뷰로 게이트를 넘겼다.
+- 메뉴 보강 후 같은 production 번들의 정본 dist는 **543/543 통과·실패/skip/flaky/전역 오류0(9.1분)**다. 부모가 새 JSON의 모든 단일 결과와 등록 목록의 case 일치, 앞선 동일 runtime source88 결과를 대조해 **물리631개·파일 교집합0**을 확인했다. source 실행 뒤 변경한 두 UI spec은 source lane 대상 밖이며 제품8·번들2는 불변이라 source 근거를 유지한 것이지 새 source 실행을 주장하는 것은 아니다. focused·반복·진단·의도적 실패·중복 완료 알림은 더하지 않았다. 실행 후 제품8/spec3/번들2 해시는 영수증과 같았다. Settings spec의 독립 재리뷰는 이전 native 완료 대기 P2 해결·새 P1/P2 없음이며 부모가 제품/spec 동일 SHA256을 확인했다. Candle helper 독립 리뷰도 새 P1/P2 없음이며 부모가 동일 SHA256을 확인했다. 최종 문서 delta pass도 새 actionable 없음이고 report JSON을 독립 파싱한 물리631·파일 교집합0이 부모 결과와 일치했다. 이 시점에는 후속 새 SHA 원격 CI 게이트가 남아 있었다.
+- 후속 `dff35f4651e683923969ecfbed0629c2bdea5127`의 실제 PR16 **Release Gate42374152326·Dependency Security42374152224 모두 success**를 확인했다. 공개 job/step metadata에서 e2e·frontend·rust·toss-openapi 및 npm/cargo audit가 모두 성공이며, production build와 `npm run test:e2e`, 기본/research-only Rust check·library test도 실제 실행 성공이다. 실제 commit blob은 검증 제품8/spec3/payload12 해시와 같고 원격 SHA·clean도 일치했다. 성공 시 실패 전용 보고서 업로드 step이 생략돼 artifact는0이며 **원격 테스트 건수는 별도 확정하지 않았다**. 로컬 물리631을 원격 실행 건수로 복사하지 않는다. 근거는 `~/.hermes/cache/kisautotrade-e2e-audit/p2-ci-dff35f4-success-receipt.json`에 보존한다. P2는 이 코드/mock·CI 범위에서 완료하고 실제 OS IME/native·실계좌/API/주문/운영 DB와 P1 원장·legacy/server ABA는 미완료로 유지한다.
+- all629를 dev에 강제한 추가 진단은3회 조기 종료했고 마지막은234pass/3fail/1interrupt/391not-run이다. 실패3건은 LiveDailyHistory UI이며, 별도 격리7건은6pass/1fail이다. 개발 HMR을 strict0 가드가 잡은 설정 불일치는 개발 entry만 제거했으며 앱 WS 가드는 유지했다.
+- 원래 assertion을 유지한 진단에서 cache success/idle·512행과 실패 직후 기대 DOM 요약을 관측했지만5초 assertion은 실패했다. 개발 초기화/렌더 타이밍 추론일 뿐 production 회귀 해결 증거가 아니며 해당 UI/spec은 수정하지 않았다. 현재 검증은 CI의 dist/source 분리를 따른다.
+- 이전 `80c81c8` CI의 보안/Rust/frontend/Toss/build는 성공, E2E는 실패했다. 원문 로그는 권한403으로 미확보해 원격 실패 테스트명은 확정하지 않았다. 실제 OS IME·native WebView/Rust IPC·provider/계좌/API·주문·daemon/운영 DB·서명/배포는 실행하지 않았으며 mock 통과로 승격하지 않는다.
+
+<a id="p1-data-01"></a>
+## P1-DATA-01 — LTH bounded 수집·요청 수명·성공 요약 부분 수용 (2026-11-08 KST, 코드/offline 범위)
+
+기준 HEAD `67f8d9ca2618aabbe17533ba4d8faaf80f78f276` 위의 A2/A3/A4/A5.1/A5.2/A5.3 변경을 부모가 검증한 기록이다. **전체 P1-DATA-01은 미완료**이며 실제 provider/자료/native 조건은 [TODO](todo.md)의 열린 ID에 유지한다. 구현 SHA의 커밋/푸시·원격 CI는 아래 근거대로 완료했다. 이 마감 문서 갱신은 새 제품 실행이 아니며 문서-only 후속 SHA의 CI와 구현 SHA의 결과를 구분한다.
+
+- **수집·실행 연결:** A2 bounded 페이지/cursor·누락/중복·단일 cutoff/absolute deadline, A3 요청 소유 실행, A4 공통 IPC/REST 작업 수명·취소와 UI 세대 무효화를 연결했다. US1m은 `lth_fetch`→`lth_collection`→`lth_regular`, KR/일봉은 기존 조회 호환 경로다. EMA20/60은 실제 분봉 stream을 사용하므로 일봉200개를 필수 warmup으로 삼는 초기 가설은 철회했다. 수집된 typed 봉·중복 제거·admission 제외·평가 채택 수를 구분한다.
+- **출처와 성공 wire:** A5.1은 완전히 수신한 identity HTTP body의 UTF-8/JSON 변환 전 SHA/길이·수신 시각을 같은 성공 retry 결과에 결합한다. A5.2의 버전 있는 native typed hash는 raw body 및 기존 engine hash와 별개다. A5.3은 기존 단일 Summary를 성공 `collectionSummary`로만 운반하고 UI는 구조 검증·표시만 수행한다. 실패는 기존 일반 오류이며 내부 partial Summary의 상세 횟수/사유를 wire/UI로 공개하지 않는다. 정확 계약은 [IPC](ipc-commands.md)·[사용법](user-guide.md)이 소유한다.
+- **단계 수용:** A2/A3/A4/A5.1 이후 A5.2는 12:01 KST, A5.3 성공-only는 13:13 KST에 코드/offline 범위로 수용했다. 단계별 `P1-DATA-01-A{2,3,4}-accepted.json`, `A5-transport-accepted.json`, `A5-collection-accepted.json`, `A5-wire-accepted.json`은 `~/.hermes/cache/kisautotrade-sequential/`에 보존한다. worker의 loopback PermissionDenied/browser EPERM은 원래 미실행이고 부모의 후속 실제 실행으로 별도 귀속한다.
+- **최종 부모 검사:** `P1-DATA-01-A5-wire-review-final-parent-verification.json`의 실제8게이트가 모두 exit0·Rust warning0이다. `cargo test --workspace --lib --locked --offline` **1035통과**, focused strategy_preview **181통과**(전체 lib에 포함), default/research-only all-targets check·app TS·영향43spec TS·FSD·개인 환경 제외 새 web build가 통과했다. HTTP response20·default adapter2·production library 통합6은 앞선 부모 실행에서 통과했고 최종 delta가 cfg-test뿐인 생산 동일성으로 **보존**한 것이지 새 실행이 아니다. 집중·부분 결과를 lib 총수에 합산하지 않는다.
+- **DB 경계:** `KISAT_PG_HOST/PORT/USER/PASSWORD`는 존재 여부만 확인해 모두 false였고 값은 읽지 않았다. lib 총수에는 fixture 미설정으로 조기 반환하는 DB 계약 함수가 포함될 수 있다. 위 Rust 통과를 PostgreSQL 접속·TLS·인증·운영 DB 검증으로 표현하지 않는다.
+- **전체 정본 UI:** 공유 fixture 직접/전이 영향43spec의 **601통과(dist539/source62)**와 정확한 잔여9spec **76통과(dist50/source26)**를 실행했다. 부모가 등록 inventory와 두 실행의 물리 case ID·파일 교집합0을 대조해 **677/677 고유 통과(dist589/source88)**를 확인했다. 각 case 단일 passed attempt이며 재시도/skip/flaky/전역 오류0이다. `P1-DATA-01-A5-canonical-reconciliation.json`이 합집합 증거를 소유한다. 서로 다른 두 실행을 한 번의 full-suite 호출로 부르지 않으며 focused·반복·의도적 실패·중복 완료 알림은 합산하지 않는다. 소유 서버 수명 내 실제 HTTP13자산 바이트와 새 build가 일치했고 실행 뒤 입력/dist 및 동결 제품·보호 파일은 유지됐다. 이는 offline dist renderer/source-harness HTTP mock이며 actual Rust/native/provider 연결 E2E가 아니다.
+- **반증 가능한 보강:** raw metadata 누락, 401→token→최종200의 오래된 source, source 빈 순회/잘못된 stream, 진입 잔여예산 누락, deadline 재충전 등은 별도 통제 fault의 실제 assertion RED와 복원 GREEN으로 확인했다. 준비/컴파일/권한 오류는 behavioral RED로 세지 않았다. 비협조 Ready deadline oracle는 실제 adapter 진입 뒤 paused clock을 같은 poll에서 이동하며 고정 Tokio1.54.1의 advance-before-yield 구현에 의존하므로 업그레이드 시 재검토한다.
+- **기존 결과 호환:** 현재 구현 두 번 비교는 결정성만 입증하므로 보존된 before 함수에 fake adapter만 기계 주입해 1m/1d engine input hash·backtest JSON SHA 고정 oracle을 얻었다. 신규 테스트는 실제 production 실행을 호출하고 expected를 현재 코드에서 계산하지 않는다. 동일 hash fault에서 기존 선택1개 PASS/신규 고정 oracle1개 assertion RED, 복원 후 GREEN을 관측했다. 전체 기존180개가 fault 아래 통과했다는 뜻은 아니다. 임시 include/reference/probe는 최종 소스에서 제거했고 독립 delta 리뷰는 조치할 결함 없음을 확인했다.
+- **stale UI 통제:** 정상 선택3개 PASS 후 보호 hook 소스는 바꾸지 않고 별도 Vite transform artifact에 오래된 결과 게시 fault를 넣었다. 3개 모두 body 완료 뒤 latest-summary assertion에서 예상대로 실패했고 원본 소스·정상 dist는 유지됐다. 이6실행은 정본677에 포함하지 않는다. 특정 fault 검출력이며 모든 앱 continuation ordering의 보편적 인증은 아니다.
+- **정본·구현 SHA 마감:** 문서/HTML·project-map·Graphify 갱신 및 신선도·lockfile/diff의 부모9게이트와 별도 Node 회귀7개가 통과했다. 제품/계약·보호64 해시는 유지했고 내용4문서 리뷰는 새 actionable 없음, 지도/그래프 리뷰의 protocol 표기1건은 실제 `reserve → run(await) / cancel`에 맞춰 두 곳을 수정했다. 경미한 수치/표기 delta는 역제거 SHA 일치와 직접 근거·후속 검사로 확인했으며 전체 제품 검증을 새 실행으로 집계하지 않았다. Graphify zero-node6 경고와 대형 HTML 시각화 생략은 Rust warning0와 별개다.
+- **원격 실측:** 구현 `25d4d32448a966b15db995ee668db4b0c1361834`를 현재 브랜치에 정상 커밋·푸시했다. 정확44경로의 staged/committed blob은 검증/리뷰 해시와 같고 원격 SHA·clean 상태를 확인했다. 같은 head SHA의 Release Gate **42448719636**·Dependency Security **42448719642**가 모두 success이며 E2E **128633122224**, Rust **128633122260**, frontend **128633122304**, Toss **128633122121** 및 cargo/npm audit가 성공했다. `npm run build:web`·`npm run test:e2e`와 기본/research-only Rust check·lib test의 실제 step 성공을 확인했다. 원격 정확 case 수는 별도 확정하지 않았으며 로컬677을 원격 통과 수로 복사하지 않는다. 원문 metadata·검증은 `P1-DATA-01-exact-ci-verification.json`, blob/원격 대조는 `P1-DATA-01-commit-receipt.json`에 보존한다.
+- **미검증 유지:** 공개 규격/소스 snapshot 대조는 실제 broker 성공이 아니다. raw/typed hash와 수신 시각은 발행/PIT·정규장 전용 일봉 OHLC·조정·특별휴장 완전성·30일/3개월 coverage 인증이 아니다. `lookAheadSafe=false`·표본/평가불가 경계를 유지한다. 실제 native/OS IME·계좌/API·새 인증·주문·자동매매/위험 해제·운영 DB·서명/배포는 실행하지 않았다. 실패 상세 공개, P1-SCOPE 원장 모드/검증된 legacy 이관/server ABA와 SECTOR 후속도 완료로 바꾸지 않는다.
+
+<a id="p1-session-01"></a>
+## P1-SESSION-01 — US LTH 연구 정규장·실행 근거 보강 완료 (2026-11-08 KST, 코드/mock·구현 SHA CI 범위)
+
+기준 HEAD `de6d5eb0d6473bfca554d0c3c16aed25682585d7` 위의 동결 제품/검사16파일을 대상으로 한 부모 관측이다. A2 admission+execute 앞176행과 보호6파일은 유지했다. US `1m` 연구의 NY/DST 계획 정규장·단일 cutoff·동일 채택 cohort를 Open→지표/LTH→Replay와 차트에 연결하고, B는 선택 executionClock·현재/저장 A/B·legacy/unknown 표시를 추가했다. KR/일봉 v4·live·legacy KST blackout은 보존한다. 정확 필드/시계 버전은 [IPC](ipc-commands.md#lth-분봉-시각-진단-v1-2026-10-22)가 소유한다.
+
+부모 영수증 `P1-SESSION-01-B-focused-parent-receipt.json`의 최종 Rust는 `cargo test --workspace --lib --locked --offline` **976통과/실패0/ignored0**, `cargo test --workspace --test lth_replay_clock --locked --offline` **6통과**, `cargo check --workspace --all-targets --locked --offline` **exit0·warning0**다. focused strategy_preview129/LTH38은 lib976과 중복되므로 합산하지 않는다. focused dist/mock UI는 **29/29·skip/flaky/전역 오류0, 약56초**이며 반복29를 다시 더하지 않는다. 테스트 webServer가 실제 제공한 index/router 바이트·SHA256이 빌드와 일치했다. 이는 native IPC/실제 provider 검증이 아니다.
+
+부모는 분 경계가 아닌 초 단위 라벨의 마감 투영이 일반장15:59·단축장12:59로 잘리는 문제를 **RED exit101 → 계획 마감16:00/13:00 정확 투영 GREEN1**로 수정했고 최종 포맷 소스를 위 전체 Rust에서 재확인했다. 별도 기존 UI 대조의 RED1은 최종29 통과에 더하지 않는다. 동결 snapshot 영수증의16파일 SHA256은 문서 작업 시작 시 실제 파일과 일치했다.
+
+이 기록은 부모의 관측을 정리한 것이며 문서 writer의 신규 실행으로 집계하지 않는다. **전체 정본 E2E는645/645(dist557/source88), 약11분 통과**했고 skip/flaky/전역 오류는0이다. 등록 inventory와 실제 단일 passed 결과·물리 case/file 교집합0을 JSON으로 대조했으며 동결 소스16·빌드 입력·실제 제공 index/router 해시가 유지됐다. 독립 코드/UI 리뷰와 문서 내용 리뷰도 각 동결 해시에서 actionable 문제 없이 수용했다. focused29·진단 RED·반복 실행은 전체645에 다시 더하지 않는다. TODO/지도·Graphify 생성/신선도 검사와 별도 Node 회귀7개도 통과했다. Node·focused 결과는 앱 E2E645에 합산하지 않는다. Graphify의 기존 metadata/fixture zero-node6 경고와 대형 HTML 시각화 생략은 Rust warning0와 별개다.
+
+구현 `6f38a79559717ad81f4c62dcc538c1a7c336afda`를 현재 브랜치에 정상 커밋·푸시했고 검증한28경로의 staged/committed blob과 원격 SHA·clean 상태를 대조했다. 정확 구현 SHA의 Release Gate `42388449522`와 Dependency Security `42388449513`은 모두 성공이다. E2E `128450732239`, frontend `128450732414`, Toss 규격 `128450732578`, Rust `128450732601` 및 npm/cargo 감사 job의 성공도 확인했다. 원격 E2E 실행 step은 성공했지만 failure-only 보고 업로드는 skipped·artifact0이므로 원격 정확 case 수는 미확정이며 로컬645와 혼동하지 않는다. P1-SESSION-01은 이 코드/mock·구현 SHA CI 범위로 완료 이관했고, 실제3개월 원본/기간·전략 검증은 SOXQ-P1-05·SOXQ-P2-12에 유지한다.
+
+계획 달력2023–2028+알려진 Carter 예외는 모든 특별휴장 완전성이나 실제 원본/offset·발행 지연·정규장 전용 일봉 OHLC·기간 coverage를 인증하지 않는다. 검증 flag는 false, lookAheadSafe=false·sampleOnly/notEvaluable를 유지한다. 실제 native/live·계좌·운영 DB는 미검증이며 P1 원장 모드/legacy/server ABA 및 DATA/SECTOR 후속은 별도 미완료다. 실자료·후속 조건은 [TODO의 SOXQ-P1-05·SOXQ-P2-12·P1-DATA-01 등 기존 ID](todo.md)에서 유지한다.
+
+<a id="p1-scope-01"></a>
+## P1-SCOPE-01 — 단일 활성 계좌 격리 보강 (2026-11-07)
+
+기준 `779f52f48bbac8d3ec7b530bcbe5755b51fde42e` 위의 단계적 보강이며 구현 커밋은 이 절을 추가한 Git 이력으로 추적한다. 기존 holdings ticket/epoch·exact owner·원 client 예약/pending 후처리를 보존하고 KIS→Toss→KIS 늦은 ticket, 부분체결→risk 저장 실패→재시작→원 scope 누적 재시도/원가·손익 멱등 회귀를 보강했다. Toss는 공통 parse/publication 합성 fixture이며 외부 HTTP/auth 성공 증거가 아니다.
+
+독립 리뷰의 P1 두 건을 수정했다. 저장 입력의 `expectedProfileId`·`expectedIsPaper`를 필수화하고 IPC/REST 공통 storage→selection lock 아래 broker/account/profile/mode를 검증한다. 실제 handler를 storage lock 앞에서 대기시킨 뒤 동일 계좌 profile/mode를 바꾸는 거부 회귀와 누락 payload/정상 저장을 검증했다. 기존 원장에는 모드를 입증할 정보가 없어 안전한 명시 이관을 제공할 수 없으므로 **새 `is_paper` 영속화와 legacy 유자금 차단만 철회**했다. 기존 유자금 schema 재시작·소유수량/매도 예약 상한, loopback 수동 매도의 전략소유 제외를 검증했다. 현재 선택으로 모드를 추정하거나 원장을 삭제/초기화하지 않는다. **원장 모드 격리·검증된 이관은 미해결**이며 서버 발급 ABA generation도 없다.
+
+frontend는 AppConfig 성공 공개 횟수를 query key/완료 검증에 포함해 같은 scope 설정 복구도 새 예산/복구 GET 성공 전 금액/editor를 복원하지 않는다. 보이는 설정 재점검은 AppConfig+진단과 금액을 재검증한다. 저장은 onMutate 공개 횟수 캡처와 동일 공개의 후속 GET 성공 뒤에만 성공/초안 초기화를 허용한다. GET 지연은 pending 유지, 실패는 저장 반영 가능성 안내/초안 보존, 이전 공개의 응답은 현재 query를 무효화하지 않는다. 복구는 무폴링·명시 검토를 유지한다. 신규 mock은 exact origin/method/path·예산 broker/account/profile/mode와 저장 횟수를 검사하며 잘못된 endpoint/method/account negative control을 추가했다.
+
+revision 검증: `cargo check --workspace --all-targets --locked`, `cargo test --workspace --lib --locked` **969개 통과·실패0/ignored0**, compiler warning0. focused `budget_save` 2개·`legacy_funded` 2개도 통과했다(전체와 중복 합산하지 않음). 최종 전체 실행은 DB 환경4개를 자식에서 제거했으며 PostgreSQL/TLS 계약5개는 즉시 반환으로 실제 DB 검증이 아니다. `npx tsc --noEmit`, `npm run check:fsd`, envDir:false의 `npx vite build --config .cache/p1-scope-01/offline-vite.config.mts`, fmt check·project-map·TODO render/check(열린14개)·diff check를 통과했다. Graphify freshness는 소스 변경으로 stale 실패했으며 요청대로 산출물을 재생성하지 않았다. 소스 독립 감사에서 추가 blocking 결함은 발견되지 않았고 Serena 도구가 없어 참조를 rg로 대체했다.
+
+부모의 이전 Chromium은 **30개 중29통과/1실패**(같은 scope 설정 복구 후 재조회 공백)였고 revision 통과 증거가 아니다. revision 브라우저1개 시도는 `MachPortRendezvousServer ... Permission denied (1100)`/SIGTRAP으로 시작 실패해 추가 launch를 중단했다. 현재4파일 **40개 --list**는 실행 성공 수가 아니다. 부모 재실행: `./node_modules/.bin/playwright test --config .cache/p1-scope-01/playwright.config.ts tests/e2e/balance-events.spec.ts tests/e2e/uiux-holdings.spec.ts tests/e2e/settings-database.spec.ts tests/e2e/simulation-native.spec.ts`. native는 injected Tauri browser mock이며 Rust IPC E2E가 아니다. 실제 native·계좌·provider API/auth·실자료·운영 DB·주문·시작/재개는 실행하지 않았다. P1-SCOPE-01은 미완료이며 일반 AppShell 운영 query/daemon 중단을 주장하지 않는다. 커밋/푸시·브랜치 변경·stash/reset/checkout/clean은 실행하지 않았다.
+
+부모 재검증에서는 잔여 query-key assertion을 계좌 suffix와 공개 세대 증가 검사로 함께 보정한 뒤 같은4파일을 별도 포트의 headless Chromium에서 **40/40 통과**했다. 설정 복구 뒤 금액 재조회 실패·저장 후 GET 지연/실패·late save ABA·잘못된 endpoint/method/account negative control을 포함하며 실제 native IPC는 아니다. 부모가 fmt check·Cargo check·전체 Rust lib **969/969**(실패0/ignored0)·FSD·TODO/지도·diff 검사와 웹 production build도 실행해 통과했다. Graphify는 LLM 없이 AST 일반 update를 실제 수행해 **8023 nodes/13821 edges**로 갱신하고 freshness 검사를 통과했다. 설정/fixture6개 zero-node 및5000node 시각화 상한 안내는 도구 한계이며 compiler warning과 구분한다. 이 확인 시점에는 수정 후 최종 독립 리뷰가 진행 중이며 원장 모드 격리·검증 이관·서버 발급 ABA generation은 여전히 미해결이다.
+
+마지막 P2 리뷰에서 `invalidateQueries`가 paused 재조회 완료를 보장하지 않는 문제가 추가됐다. 부모가 POST 성공 후 onlineManager를 offline으로 바꾸는 합성 회귀를 실행해 수정 전 `pending` 대신 `success`가 나오는 실패를 재현했고, 현재 공개 세대의 정확한 query를 취소/명시 fetch한 뒤 실제 GET 완료를 기다리도록 수정해 통과했다. 해당 회귀를 포함한 같은4파일은 **41/41**, TypeScript/FSD·TODO/지도·diff·Graphify freshness도 통과했다(AST8023nodes/13822edges). 수정 후 마지막 웹 재빌드는 도구의 lifecycle 스크립트 검사1MiB 한도에 막혀 실행되지 않았으며 앞선 build 통과를 이 마지막 수정의 build 결과로 바꾸지 않는다. 최종 소규모 P2 재리뷰는 추가 actionable 결함 없음으로 끝났으며 원격 CI는 이 시점 대기다. 원래 P1 미완료 경계는 유지한다.
+
+<a id="simulation-plan-20261107"></a>
+## 모의투자 후속 계획 반영 — 2026-11-07
+
+기준 코드는 `ef24ccf5fe76d85c54f5788faad5bec0771d632b`, 환경은 맥미니 외장 KISAutoTrade의 기존 작업 브랜치다. 11월6일의 KIS/Toss 차트 한정·미국 정규장 한정 요청과 11월7일 제안 반영 요청을 대조해 TODO의 작업 순서·상태·완료 조건을 갱신했다. 새 구현·설정 변경·실자료 수집·계좌/주문 실행은 없다. 기존 12개 ID는 보존하고 시간/수집 경계 2개를 추가했으며, 상세 잔여 조건과 현재 집계는 [TODO](todo.md)가 소유한다.
+
+P1-SCOPE-01은 당분간 단일 활성 계좌 유지와 전환/모의·실전 격리 검증으로 좁혔다. 원래 **여러 broker/account 포지션과 pending을 동시에 상주·대조하는 multi-scope runtime**은 보류이며 구현 완료가 아니다. 재개 시 broker/시장 조합·계좌별/전체 리스크·정지 범위를 먼저 결정하고 `(broker, account, market, symbol)` tracker·scope별 credential reconciliation을 설계한다. 동시 주문/체결/pending·캐시·소유 원가·재시작·부분 실패의 독립성과 scope별/전체 정지를 실패 fixture/UI에서 검증한다는 기존 완료 조건은 유지한다. 실제 계좌 운용은 별도 승인 범위다.
+
+P2-UX-07은 정지/비상정지 즉시성, 실전 시작·비상정지 해제·매수 재개·수동 주문 확인으로 방향을 확정해 자동 구현으로 이동했다. 11월6일 [현행 영향 조사](#p2-ux-07-action-audit)의 정적 근거는 유지하고 새 정책 구현/검증은 TODO에 남긴다. DB/SQLx·MSRV와 배포 키 준비는 시뮬레이션과 분리하며 서명된 수동 배포 우선 검토·자동 업데이트 별도 단계로 정리했다. 기존 보류를 해제하거나 보안/인증 설정을 바꾸지 않았다.
+
+문서 전용 검증은 TODO renderer **3/3**, 생성 HTML 동기화 **14개**, 상대 링크/앵커 **147개·오류0**, 기존12개 ID·실자료 대기5개 원문 보존, project-map·Graphify freshness·diff check를 통과했다. renderer의 최초2/3 결과는 macOS Chromium의 Mach bootstrap 권한으로 브라우저1개가 시작 전에 실패한 것이며, 승인된 동일 명령 재실행에서3/3 통과했다. npm은 주입된 `http-proxy` 환경 설정의 향후 지원 중단 안내를 출력했고 제품 코드 경고는 아니다. 전용 문서 검사 스크립트를 찾거나 읽을 수 없어 실행하지 못했으며 대체 링크/앵커·보존 검사와 별도의 내용 리뷰를 수행했다. 독립 문서 리뷰의 서명 게이트 유지·과거 집계 시제 권고를 반영했다. 생성 HTML의 모바일 폭·키보드 필터/검색·dark mode·JavaScript 없는 전체 항목 접근까지 확인했으며 거래 코드·Rust/TypeScript 빌드·실제 native/API·CI는 실행하지 않았다. 현재 실행의 GitHub 네트워크 허용 변경은 확인되지 않아 push/원격 CI는 미실행이다. 이 문서 변경의 로컬 커밋은 해당 Git 이력으로 추적한다.
 
 ## 이력 사용과 추적
 
@@ -11,6 +103,122 @@
 - 실제 macOS 한글 IME·Tauri WebView·스크린리더/AT·실계좌·시장자료·운영 DB/배포는 이 결과로 검증 완료하지 않는다. 아래 과거349/408 UI·887 Rust는 당시 기준이다.
 - 연구는 실제 자료/합성 가정·생산 실행/독립 재정산·실현/잔여 평가·연속/별도 초기화 계좌를 구분한다. 과거 사후 연구를 독립 OOS나 전략 채택 근거로 승격하지 않는다. 실제 provider·실자료·정책 결정은 TODO에 남긴다.
 - 완료 작업은 아래 통합 영수증과 불변 Git 원문, 연구 판단은 기존 research 정본을 따른다. 이력 압축은 구현·수치·설정·거래 정책 변경이 아니다.
+
+<a id="p2-sector-01"></a>
+## P2-SECTOR-01 — 섹터 ETF 3전략 구현 가능성 검토 · 2026-11-05
+
+Mac mini 원본 checkout은 clean `dd4e498`/`fix/mac-security-storage-2026-10-06`였고 원격은 `a94e1ab`로 앞서 있어 원본을 보존한 격리 사본에서 fast-forward 후 검토했다. Rust의 종목별 Momentum·단일 symbol preview/ReplaySession·KIS 완료 일봉 page·통화별 live 예산을 읽고, 구현 가능하되 다종목 순위/공통 현금·목표비중·USD 장부가 추가로 필요하다고 판정했다. 기존 max_position_ratio=30%와 guard의 매도 차단도 공격/방어 리밸런싱의 검증 대상으로 남겼다. 공식 KIS dailyprice의 수정주가 입력을 확인했으며 실제 ETF 자료/조정 의미/coverage는 조회하지 않았다. [TODO P2-SECTOR-01](todo.md)에 원장 대조 확정 규칙(RS 백분위/동률·초기 보통·5%p·편도10bp)·30거래일/달력30일·SPY22/섹터21 선행종가와 상태 복원·09:50표시가 대비 nextOpen 근사 차이·인과/기업행위·독립 정산 및 실거래 전 완료 조건을 합쳤다.
+
+최초 회차의 범위는 검토와 문서 반영이었다. 제품 코드/가상 실험/계좌/주문·운영 설정/배포 변경 및 30일 시뮬레이션 실행은 없으며 수익률을 산출하지 않았다. TODO renderer3/3(모바일 검색·필터/전체항목/escaping 포함), TODO freshness12개·project-map·diff check·기존11개 제목/본문 보존 검사와 독립 문서 감사의 상대 링크/앵커133개 검사를 통과했다. renderer의 첫 sandbox 실행은 macOS Chromium 시작 권한으로 브라우저1개가 실패했고 승인된 sandbox 밖 재실행에서3/3 통과했다. stock_analyst의 코드·표본 감사와 별도 documentation pass에 필수 수정 지적이 없었다. 문서 전용이므로 Rust/TS 빌드·전체 거래 테스트·CI는 이번에 실행하지 않았다. 기존 11개 대기 작업은 유지하고 새 구현 과제1개만 추가했으며 커밋은 이 절을 추가한 동일 Git 이력에서 추적한다.
+
+
+### 후속 구현·합성 검증
+
+사용자의 코드 구현 요청 후 같은 ID를 이어 `sector_portfolio-v1` 순수 USD 엔진과 공통 순위/장전 planner·계좌 독립 연구 UI·IPC/REST·오프라인 example을 구현했다. 초기Normal·history는 지표만 준비, 이전종가 예산→공통관측시가 정수수량·매도후순위매수·10/20bp 총비용·독립5계정·전체입력실패를 명시한다. 모의 원장 요약은 같은 시작일/초기자본/비용과 동일 평가일만 대조하며 기존 experimentStore 축약 경로를 쓰지 않는다. 운영 OrderManager/guard/risk·provider/계좌·파일저장/배포에는 연결하지 않았다. 기업행위 사건목록 또는 평가창 사건/미수 부재 미확인 입력은 전체 거부하며 실제 처리 구현은 TODO에 남겼다.
+
+로컬 전체 Rust **920/920(최종18.83초)**, 전체 브라우저 **561/561(3.6분)**(기존557+신규4), 집중 UI4개(28.7초), TypeScript·Vite config타입·FSD·웹production빌드·lockfiles·fmt·TODO3·bootstrap4·지도·Graphify freshness를 통과했다. 초기 추가 회귀1개는 첫양수종가 당일을 장전에 미리 쓰는 fixture 기대 오류였고 엔진을 바꾸지 않고 혼합쌍 유지/다음날 양수2회복귀를 명시해 통과했다. 서버 내부 작업실패500/입력422를 분리한 후에도 전체920개가 통과했으며 최종 로그는 검증 캐시에 보존한다. 합성 POST 인증/동일origin·대형입력413·IPC/REST동일JSON·부작용0을 검증했다. compiler 경고0이며 기존 NO_COLOR/FORCE_COLOR 안내와 Graphify의6개 설정/fixture zero-node 경고는 도구 관측으로 구분한다. Graphify 실제 재생성은7574nodes/17692edges이며5000node시각화상한으로 오래된graph.html이 제거됐다. node/graph source를 수동 조작하지 않았다.
+
+실제 생산 CLI로 합성22+30봉·비용10/20bp의 **10장부/300일별 기록·36매도/4부분매도**를 만들고 두 독립 감사가 순위/적격·상태·장전예산·rebalance사유·매도선행·정수수량/현금한도/status·원가/비용·실현/미실현·NAV/MDD/최대일손실/표본변동성/노출/회전율을 대사했다. 별도 Decimal40자리 장부의 최대 절대차는3e-12다. 결과 raw SHA256은 기본 `c6686fc144bc4aa7c7865ffaaf663d56b9b4a533626ebb0cf52c3207e799cd14`, 스트레스 `0e76ec742203f5977babeb6418fe2f999563550086a01dea23e6ce81ea0219e6`이다. 원본/정규화hash·입력/결과·부모audit·독립Decimal/sizing감사 영수증은 격리 사본의 Git제외 `.cache/sector-portfolio/`에 보존했다. 다른 체크아웃에서 재현 가능한 단위fixture는 `sector_portfolio/tests.rs`, UI 예제생성기는 `sectorPortfolioInput.ts`에 있다. 실제 시장 수익률을 산출하거나 합성 수익을 실측으로 승격하지 않았다.
+
+독립 코드/전략·구조/문서·UI/UX pass에 필수 잔여 지적이 없다. 실제1440/375px light 합성화면은 `.cache/sector-frontend/`, 전체 UI로그/보고서는 `.cache/sector-regression/`에 있다. 계좌 로그인·자격증명·실주문·자금이동·실제DB·nativeWebView·실제시장자료/09:50체결은 미검증이다. UI keyboard/AT 세부 제외는 TODO에 남겼다. 원본 Mac checkout은 clean dd4e498 그대로 보존했고 main1b6779c/작업73912e9의 공통 코드 기준을 확인한 격리 사본에서 작업했다. 구현 커밋은 `b2211569a8a3d5e6bf3ec22dd03d76e79fefe103`이며 기존 작업 브랜치에 푸시했다. 최초 원격 확인 때 해당 SHA의 workflow_runs/statuses는 비어 있었고 초안PR 생성은 자동 승인 검토의 명시 승인 부족으로 거부됐다. 이후 2026-11-06 사용자가 CI 확인을 명시 승인해 같은 PR 생성만 한 번 재시도했고 [초안PR #16](https://github.com/CountJung/KISAutoTrade/pull/16)을 생성했다. 최초 [Release Gate64](https://github.com/CountJung/KISAutoTrade/actions/runs/42139403940)의 head_sha는 `16d2db140b8f07def755a936dc40760581b3c7ae`이며 frontend/rust/e2e/toss-openapi 실행을 확인했다. 이 승인 이력 문서 반영 후에는 PR의 최종 HEAD에 연결된 검사를 다시 대조한다. 검사별 완료 결과와 정확한 SHA는 PR Checks 및 최종 보고를 정본으로 삼으며, 과거 SHA의 통과를 최종 HEAD의 통과로 바꾸어 기록하지 않는다. PR 승인·병합·main변경·운영배포·계좌/거래 동작은 수행하지 않는다.
+
+### 연구 전용 실행·시세 자료 준비 보강 — 2026-11-06
+
+사용자가 승인한 후속 보강에서 연구 전용 `research-only` native와 별도 identifier/config·운영 router 이전의 동적 연구 화면 진입을 추가했다. AppState/profile/config/store/plugin/server/daemon 없이 파일 검증·3전략 계산만 제공하고 로컬 서명 없는 `.app` 빌드를 운영 설치·배포와 구분한다. 일반 native의 최소 opaque scope 확인과 명시 동의 시세 수집은 별도 경로다. 실제 API 호출을 자동 실행하거나 계좌 연결 진술을 인증 성공 근거로 쓰지 않는다.
+
+자료 경로는 고정12종목의 MODP0 raw/MODP1 adjusted 열과 페이지별 보존필드 hash를 분리하고 순수 검증에서 달력·매핑·조정/기업행위 수동 근거를 요구한다. 공식 chk_dailyprice.py의 MODP0/1만 확인했으며 NYSE Arca→AMS·배당총수익·100봉 보장을 추론하지 않았다. 22사전봉+30평가 거래일·특별휴장·nextOpen 대09:50 차이를 현재 사용법/IPC와 같은 TODO에 반영한다. 이번 단계에서 실제 인증/API·개인 profile/계정 파일에 접근하지 않았으며 실제 시장 성과·운영 연결은 미완료다. 앞 절의 Rust920/UI561 수치는 이전 구현 회차의 검증이며 이 보강의 새 검사 결과를 뜻하지 않는다. `cargo test --workspace --lib sector_ --locked`의 보강 후 집중 검증은32/32(신규 자료13·기존 포트폴리오19, 실행0.18초/컴파일17.91초·경고0) 통과했다. 최초 sandbox에서 localhost fixture bind가 거부된4개는 허용 환경에서 같은 합성 검사를 다시 실행해 통과했고 실제 외부/KIS 호출은0이다. scope ID/client Arc helper와 mock source 범위오류는 검증했지만 실제 AppState를 provider await 중 A→B→A로 전환한 통합 검증은 아니다. 전체 Rust/UI·실제 연구 native 빌드/실행 결과는 이 집중 검사로 대체하지 않는다. docs-canon 첫 문서 pass에서 기존 정본6곳을 갱신했고 상대 링크/앵커186개·TODO12개 동기화·기존11개 제목/본문 보존·AGENTS 최근5개·diff 검사를 통과했다. 스킬의 check_docs.py resource를 읽을 수 없어 전용 검사기는 실행하지 못했으며 이 형식 검사와 별도의 코드/계약 내용 대조를 수행했다.
+
+보강 UI는 집중9개(23.4초, 기존4+연구/자료준비5)와 production preview 연구4개(6.0초)를 통과했다. production 연구 시작에서 자동 계좌/설정/시세 API·localStorage 읽기·WebSocket 시도는0이었다. dev의 Vite 전용 loopback WebSocket 시도는 식별·차단했고 앱 WebSocket과 구분한다. 첫 dev2회는 이를 구분하지 않은 assertion으로 실패했으며 허용된 금융/API 경계를 바꾸지 않고 검사 분류를 고쳤다. `.cache/sector-frontend/verification.log`와 research-mobile/collector-desktop PNG가 근거다. collector-desktop은 mock native 응답의 브라우저 화면이며 실제 native/KIS 성공 증거가 아니다. 초기 non-CI 개발 서버의 전체 실행은484통과/82실패였으며 전체 통과로 보고하지 않는다. Vite 개발 WS와 fixture 준비 상태 문제가 관측됐고 대표 live-clock 검사는 이전 e7e9742의 정적 진입과 새 동적 진입 서버에서 모두 동일하게 실패했다. 이 A/B로 bootstrap 단독 회귀를 입증하지 못했으며82건 모두의 원인을 확정한 것도 아니다. 정적 production preview에서 같은 대표4개 spec은55/55(45.5초) 통과했다(`.cache/sector-frontend/prod-regression-report.json`). 최종 전체 게이트는 CI와 같은 정적 preview+별도 source-harness 구성으로 재실행했으며 아래 최종 결과와 구분한다. CI 구성의 native mock 수집 검사는 별도 `sector-data-native.spec.ts`의 source-harness로 배정했다. 기존 holdings/Toss 검사의 초기 profile 준비 중 KIS placeholder를 조회하던 경합은 제품 코드를 바꾸지 않고 Toss 표식의 표시를 기다리도록 fixture를 보강해 반복 검사했다. 상세 실패 목록·중간 실행을 합산하지 않고 최종 전체 결과와 구분한다.
+
+`cargo clippy --workspace --all-targets --all-features --offline -- -D warnings`가 통과했다. 연구 전용 debug bundle `target/debug/bundle/macos/KISAutoTrade Research.app`을 서명 없이 빌드했고 identifier `com.countjung.kisautotrade.research`를 확인했다. 해당 bundle 실행파일을 직접 시작해 수분간 프로세스 생존을 확인한 뒤 종료한 smoke이며 native 화면·IPC 클릭·실계좌 연결을 검증하지 않았다. 빌드의 `--no-sign` 안내는 서명 생략 관측이며 compiler 경고와 구분한다. 운영 앱 설치·교체·배포는 하지 않았다.
+
+오프라인 생산 Rust CLI에서12종목의 합성22사전봉+30평가봉 bundle→순수 검증→5계정 replay를 연결했고 생성 입력으로 계산한 portfolios가 직접 준비한 기준 입력의 계산 결과와 정확히 같았다. 미확인(false) 선언·빈 확인 근거/누락 가격쌍은 `ready=false/input=null`로 차단했다. `.cache/sector-account-review/sector-data-cli-receipt.json`·`sector-data-*-report.json`·`sector-data-native-build.log`·`sector-data-clippy.log`에 보존했다. 실제 API/인증은0이며 이 검증은 실제 시세 진위·조정 의미·거래소 매핑·기업행위 부재나 투자 성과를 입증하지 않는다.
+
+보강의 최종 로컬 게이트는 **Rust934/934(18.16초)**와 `CI=1 npx playwright test --workers=6`의 **UI566/566(2.7분, retry0/skip0)**로 통과했다. 이전 개발 서버484/82·중간 fixture 구성/준비 경합과 최종 결과를 합산하거나 서로 대체하지 않는다. default/research-only의 all-targets Cargo check, 엄격 Clippy 경고0, 앱/Node config TypeScript와 위 연구 native debug build·프로세스 smoke·오프라인5계정 CLI 동등성도 통과했다. `.cache/sector-account-review/sector-data-rust.log`·`sector-data-ci-mode-e2e.log`와 앞의 검사별 원본이 근거다. 이는 로컬 합성 검증이며 실제 KIS 인증/시장자료·운영 계정/주문/DB·native 화면/IPC 조작·투자 성과 검증을 뜻하지 않는다. 최종 변경 문서의 상대 링크/앵커334개·TODO12개 동기화·기존11개 본문 보존·최근 이력5개·project-map·diff 검사도 통과했다. 최신 변경 SHA의 원격 CI는 커밋·푸시 후 [PR #16 Checks](https://github.com/CountJung/KISAutoTrade/pull/16/checks)에서 별도로 확인한다.
+
+### Simulation 메뉴 통합 — 2026-11-06
+
+사용자가 승인한 메뉴 통합을 `eb0d972` 기반에서 구현했다. 일반 앱 `/simulation`의 자료 준비/세 전략 비교/모의 결과 대조3탭과 데스크톱·모바일 진입을 연결하고 Strategy의 기존 패널은 바로가기로 바꾼다. 공유 UI/model을 widgets로 옮기고 이전 import shim을 남기며 기존 backend API·순수 엔진을 재사용한다. 연구 전용 앱은 선택적인 내부 오프라인 도구로 유지하고 일반 사용에 별도 앱을 요구하지 않는다.
+
+일반 AppShell의 기존 계좌/운영 query와 daemon은 계속된다. 최근 정상·이전·오류/미확인 상태와 별도 운영 제어를 표시하며 메뉴·계산은 시작/정지/주문 변이를 요청하지 않는다. 실제 잔고를 USD 가상자본에 연결하지 않고 profile publication/epoch는 인증 수집 scope/동의/늦은 응답에만 적용해 순수 입력/결과를 보존한다. 모의 대조는 수동 JSON 요약이며 자동 원장 연동이 아니다. 이 회차에서 실제 KIS/계좌·운영 native 앱을 실행하지 않았으며 앞선 연구 전용 앱의 자동API0·Rust934/UI566 수치를 새 통합 검증 결과로 쓰지 않는다.
+
+메뉴 통합의 로컬 최종 게이트는 `CI=1 npx playwright test --workers=6 --output=.cache/simulation-menu/full-ui-results`의 **UI575/575(2.9분, retry0/skip0)**와 **Rust934/934(19.36초)**로 통과했다. 집중 검사는 새production5개(11.6초)·실제 Router/AppShell을 사용하는 브라우저 native모사4개(4.7초)·기존focused9개(6.9초)의18개이며 전체575개와 합산하지 않는다. 실제 OS native IPC·KIS 인증·계좌/잔고·주문·자동매매 시작/정지 호출은 실행하지 않았고 native모사는 `__TAURI_INTERNALS__` 합성 응답이다. 데스크톱/375px 화면의 직접 관측에 필수 잔여 문제가 없었으며 `.cache/simulation-menu/{desktop-workspace,mobile-workspace}.png`가 근거다. 일반 `KISAutoTrade.app`의 서명 없는 로컬 debug bundle 빌드(106.16MiB)는 성공했고 실행·설치·배포하지 않았다. 연구 전용 앱 빌드/프로세스 smoke와도 다른 관측이다.
+
+`cargo clippy --workspace --all-targets --all-features --offline -- -D warnings`가 경고0으로 통과했다(`.cache/simulation-menu/clippy.log`). 앱/Node config TypeScript·FSD·lockfiles·지도와 Graphify force-refresh(7803nodes/18158edges)가 통과했고 신규15파일·기존6shim을 대조했다. 일반 AppShell의 기존 읽기는 유지하되 메뉴·검증·계산에서 금융 변이가 없고 프로필 A→B→A/동일 ID·동일 시각 재게시의 인증 수집 무효화와 USD 입력/결과·수동 모의 초안 보존을 합성 검사했다. KIS 이외 프로필은 인증 수집을 보류하며 파일 계산은 독립적이다. backend API·엔진은 변경하지 않았다. 현재 실행·코드 근거는 `.cache/simulation-menu/{full-ui,rust,native-build,menu-focused,graphify}.log`와 `.cache/simulation-native/results`에 보존한다. 최종 문서/원본 스킬 변경 Markdown12개의 상대 링크/앵커356개·TODO12개 동기화·기존11개 제목/본문 보존·최근 이력5개·project-map·diff 검사도 통과했다. 현재 변경 SHA의 원격 CI는 커밋·푸시 후 [PR #16 Checks](https://github.com/CountJung/KISAutoTrade/pull/16/checks)에서 별도로 확인하며 로컬 통과를 원격 통과로 기록하지 않는다. 실제 시장자료/모의 원장 자동 연동·운영 native 화면/IPC·실계좌 준비 검증은 미완료다.
+
+<a id="p2-sector-01-20d"></a>
+### 20거래일 표시자료·신호 진단
+
+코드 `5ca8c4e3e4ed4e46ecb76c861d8773d0987a87f8`에서 2026-10-09 시가 근사~11-05 종가의20거래일과09-09~10-08 사전22거래일을 검토했다. StockAnalysis의 SPY+11개 섹터는 각각50개 공통 날짜(08-27~11-05)를 확보했고 OHLC 범위·가격3000셀·누락0을 검사했다. 사용 구간은22+20회이며 수집50회를 평가50일로 부르지 않는다. 직접 HTTP는403이어서 `.cache/sector-20d/raw/*.web.txt`의 web 도구 추출문서 고정본과 hash를 보관했으며 원 HTTP bytes·페이지별 정확한 조회시각·당시 이용 가능 자료(PIT)는 확인하지 못했다. 개별 가격은 센트 표시값이고 조정 정의도 미확인이다. 근거는 `.cache/sector-20d/evidence/data-quality.json`이다.
+
+`corporateActionsVerified=false` 등 미확인 선언을 유지한 실제 생산 Rust CLI는 `UNVERIFIED_SECTOR_SOURCE`로 exit1·성과 출력0bytes를 반환했다. 확인 flag를 올리거나 gate를 우회하지 않았다. 성과 원장·체결/현금흐름·순손익·MDD·회전율·10/20bp 비용 비교를 계산하지 않았으며0% 성과로 표시하지 않는다. 별도 임시 Cargo/Rust harness는 공개 `rank_sectors`/`plan_sector_portfolio`만 사용해 전일 완료자료의 순위·선정·방어상태를 출력했다. 보유는 비우고 현금은 고정한 가정이므로 목표비중 합계는 실제 투자 노출이 아니다.
+
+표시자료의 선정 결과는 기본형1개2일/2개1일/3개17일, 공격형1개2일/2개18일이다. 방어형은 보통11일·방어9일이며 실행일10-21 각15%,10-29 각30%,11-03 각15%로 전환했다(각각 전일 완료 신호). 첫10-09는XLK 하나로 기본/방어30%·공격47.5% 목표, 마지막11-05는 기본XLP/XLRE/XLV 각30%·방어 같은3개 각15%·공격XLP/XLRE 각47.5% 목표다. 독립 감사는20×11=220순위·60전략신호·1600수치(최대차0)·중복 점수43개와 원표→입력1512가격셀을 대사했다. 사전22회/30회 prefix의20행 및 평가 first1/first10 prefix가 같았다. rawClose 감도에서20일 선정/상태 차이0도 관측했으나 조정 정의나 다른 기간의 동등성을 입증하지 않는다. 첫날XLY의 표시 R20은 정확0이라 원 가격 정밀도의 부호를 알기 전 경계 판정을 확대하지 않는다. `signals.json`·`stock-signal-audit.json`·`raw-adjusted-sensitivity.json`에 보존했다.
+
+공식 [SSGA 배당 XLSX](https://www.ssga.com/library-content/products/fund-data/etfs/us/spdr-etf-historical-distributions.xlsx)는HTTP200/584557bytes·SHA256 `4add18439e505ba6c114bea5d352ac68b1ea5420bc99abdf2e21500dd6f1faa2`를 확인했다. 대상1193개 과거 배당행의 파싱과 독립 XML 감사에서 준비기간12배당락·평가기간 배당락/자본이득 행0을 확인했다. SPY의10-30 지급은09-18 권리에 해당해10-09 신규 빈 보유 장부의 새 현금으로 넣지 않는다. 이 배당 파일은 분할/병합 부재·공급자 가격 조정 정의를 증명하지 않는다. Yahoo는 검색요약 대신 직접 캐시 원문을 비교해11-05 종가733.00은 일치했으나 조정열9일이0.005달러보다 차이 났다(최대0.0078101, 실제 준비창3일 포함). 공급원은 혼합하지 않았고 이를 독립 feed 인증으로 부르지 않는다. `ssga-window-check.json`·`stock-distribution-audit.json`과 원본 파일/영수증이 근거다.
+
+운영 시세/계정 없이 오류 표시를 확인하려던 격리 bare Wry harness는 생산 crate·IPC·keychain·reqwest 없이 incognito·HTTP/WS/file 차단으로 빌드했다. 45초 제한으로1회 실행을 시도했으나 exit134·`sysmon request failed with error: sysmond service not found`로 종료돼 host report/PNG는0개다. native 시도는 권한 상승·재시도 없이 중단했고 native 화면·실제 Tauri IPC·일반 운영 앱은 검증하지 않았다. 브라우저 첫 sandbox 시도도 page 생성 전 Mach bootstrap Permission denied1100/SIGTRAP로 종료됐으나, 보안 검토를 거친 격리 브라우저에서는 공유 production Research 화면을 확인했다. 실제22+20 입력의 flag/내용 보존·기록된 실제 CLI 거절 응답의422 fixture 표시·성과영역/결과 다운로드 없음·preview fixture1회·외부/계좌/금융 요청 시도0·pageerror0·375px 가로 넘침0과 desktop/mobile PNG2개를 확인했다. 이는 오류 UI 렌더 관측이며 브라우저에서 실제 backend나 native IPC를 실행한 검증은 아니다. `.cache/sector-20d/evidence/error-ui-browser-receipt.json`과 `unverified-source-{desktop,mobile}.png`에 보존했다.
+
+최종 캐시 요약은 `.cache/sector-20d/evidence/research-summary.json`(수치·제한·근거파일 hash), 독립 감사는 같은 `evidence/stock-{data,signal,distribution}-audit.json`이다. 원래 P2의 검증된 실제30일 비교는 열린 상태로 유지하고11/6~24 forward 실험의 규칙·성과 원장·schedule은 바꾸지 않았다. 제안은2회 확인 상태·전일/당일09:50 기록·목표/실현 현금·적격 부족 시 현금·비용/센트 경계를 추가로 관찰하는 shadow 범위이며 사후 최적화·실제 주문·방어 효능/우월성 추천으로 승격하지 않는다. 제품 코드는 변경하지 않았다. 문서3곳과 파생 TODO HTML의 링크/앵커145개·TODO12개 동기화·기존11개 제목/본문 보존·project-map·diff 검사도 통과했다.
+
+<a id="p2-sector-01-broker-chart"></a>
+### 브로커 차트가격 근사·KIS20일 실측
+
+승인된 후속 구현에서 Simulation의 기본 **검증형**을 유지하고 **차트 가격수익률 근사**를 추가했다. 별도 `BrokerChartInput`과 명시 한계 확인·순수 IPC/보호 REST·오프라인 `broker_chart_price_replay`는 생산 rank/planner/정수주 장부를 공유하며 strict source 확인을 완화하지 않는다. 비수정 요청 종가 신호·평가, 다음 관측시가 가상체결·매도선행·현금한도·10/20bp 총비용을 사용하고 알려진 사건은 전체 거부한다. 빈 `knownCorporateActions`는 사건 부재 증명이 아니며 coverage/corporateActions flag는 false, economicReturnVerified/dividendReturnIncluded도 false다. [계약 정본](ipc-commands.md#브로커-차트-가격수익률-근사)에 스키마·상한·hash와 수집 권한 경계를 둔다.
+
+기존 KIS 연결 profile을 내부 quote collector로 사용해12종목 시세12회를 성공했다. 잔고·계좌목록·주문 호출은0이며 설정/키를 변경하지 않았다. 문서 담당은 민감 profile/자격증명을 읽지 않고 비민감 캐시 영수증만 대조했다. Toss 실제 인증은 실행하지 않았다. 공식 KIS AMS 마스터의2026-11-06 dated snapshot에서 대상12개 US/USD/type3/AMS와 매핑 파일을 독립 확인했다. 이는 조회 코드의 날짜 고정 근거이며 상장시장·최신성·NYSE Arca 변환 규칙 인증이 아니다. 현재 코드는 이 근거의 seed와 전체12개 수동 override를 제공하고 오류/빈 자료에서 다른 코드로 fallback하지 않는다.
+
+실자료는 같은 KIS의 SPY 관측일42개와12종목이며 사전2026-09-09~10-08의22회, 평가10-09 시가 근사~11-05 종가의20회다. USD10000의 독립5장부에 같은 창/가격/정수주/비용을 적용했다. SPY 공통관측일은 공식 달력 완전성·PIT·당시 유니버스·기업행위 부재를 인증하지 않는다. KIS MODP0/Toss adjusted=false는 비수정 **요청**이며 경제적으로 완전한 원시가격·과거 조정 부재를 자동 보증하지 않는다. 배당 현금/재투자·분할 권리·실제09:50 호가/체결·유동성/부분체결/거절·운영 guard는 반영하지 않았다. 기말은 마지막 종가 평가로 최종 청산비용을 추가하지 않는다.
+
+| 장부 | 10bp 가격장부 순수익률 | 10bp MDD | 10bp 비용(USD) | 20bp 가격장부 순수익률 |
+|---|---:|---:|---:|---:|
+| 기본 | −0.546545% | 2.611848% | 102.296504 | −1.569826% |
+| 방어 | −0.672030% | 2.611848% | 86.048980 | −1.568592% |
+| 공격 | −4.168766% | 5.402578% | 172.895569 | −5.887444% |
+| SPY 단순보유 | −5.281949% | 5.458223% | 9.314880 | −5.375098% |
+| 현금 | 0% | 0% | 0 | 0% |
+
+이 표는 배당 포함 총수익이나 미래 전략 효과가 아닌 비용 차감 **차트 가격 장부**다. 기본/방어의 같은10bp MDD와 세 전략의 비용 민감도는 별도 국면·미관측 표본을 요구하며 급락 방어·우월성 추천으로 확대하지 않는다. 회전율은(매수+매도대금)/초기자본, 비용 제거 수익은 같은 체결경로의 비용 가산값으로 비용0 재실행이 아니다. 비용/회전율·20bp 민감도를 별도 shadow에서 관찰하는 정도만 제안하며 기존 전략 파라미터·forward3주 규칙/원장/schedule·주문을 바꾸지 않았다.
+
+독립 감사는10/20bp×5장부×20일의200행·11539수치를 대사해 최대 절대차5e-12, 미래 평가 prefix4개 일치와259가상체결을 확인했다. 원수집 입력의 acknowledgedPriceOnly=false를 보존하고 계산 사본에서만 확인/비용을 바꿨으며 strict flags를 승격하지 않았다. `.cache/broker-chart-live/run-20261106/{stock-summary.csv,stock-daily-ledger.csv,stock-live-audit-receipt.json,stock-source-warnings.json}`이 근거다.10bp 보고서 SHA256은 `8475acc06e3920334296accaeda3ba9eb3640ed96d4fabcb49860b2f3af27a07`,20bp는 `b36a1a8d101cbdffc17edc8a38f79a2eb91af4530d5952968ced87ecae9ca807`이다.100행 페이지의 정규화 rowsHash는 기록됐지만 collection에는 선택42행만 보존돼 독립 페이지hash 재계산은 불가능하며 HTTP 원문hash도 아니다. 개인 캐시의 독립 재현 근거를 외부 공개/게시하지 않았다.
+
+seed/REST 보호 route/Toss raw wire 보강 후 로컬 Rust965/965(16.66초), server29/29와 normal/research all-targets check·엄격 all-features Clippy 경고0·앱/Node TypeScript·연구 웹 build·FSD·lockfile 검사를 통과했다. 전체 UI580개 통과는 마지막 경미 보강 **이전** 실행이며 이후 focused6/6을 확인했다. 예상 전체581을 실행 성공으로 기록하지 않는다. native 수집 집중1개와 native 화면 PNG는 브라우저 mock이며 실제 OS native IPC 화면은 미검증이다. KIS quote/auth·Toss auth의 합성307/308 redirect는 두 번째 서버 수신0을 확인했다. Toss raw wire 회귀16/16은 캐시 토큰 재사용·quote GET1·OAuth POST0·계좌 header0을 검증했으며 실제 Toss 인증 성공이 아니다. Graphify는8014nodes/18661edges/357communities로 재생성했고5000상한 HTML 생략은 도구 안내다. 최종 원격 CI는 커밋·푸시 뒤 [PR #16의 해당 HEAD Checks](https://github.com/CountJung/KISAutoTrade/pull/16/checks)에서 별도로 확인한다. 원래 **검증된 실제30일 비교**·기업행위 정산·운영 연결은 계속 미완료다.
+
+**2026-11-08 원문 출처 운반 후속 — 코드/offline·정본·구현 SHA CI 완료.** 기존 30일 UI·사전22봉·수집기·엔진을 재구현하지 않고 Toss `get_candles_with_source(1d)`의 동일 성공 응답 값/출처를 page→receipt→기존 collection/export에 연결했다. optional `responseSource`는 `sha256`·`byteLength`·UTC `receivedAt`을 담으며 정규화 `rowsHash`와 다르다. KIS는 미제공 None이고 key 생략과 before 고정 JSON/collectionHash를 유지한다. Some은 전체 receipts projection을 통해 collectionHash에 반영되지만 경제 입력·rowsHash·계산 결과는 바꾸지 않는다. 스키마·원문 표현 경계는 [IPC 정본](ipc-commands.md#브로커-차트-가격수익률-근사)이 소유한다. 원문 bytes 자체를 collection에 복제한 것이 아니며 과거 KIS 실측의 미보존 원문을 소급 복구하지 않는다.
+
+부모는 실제 생산 Toss client를 합성 loopback에 연결해 12종목×2페이지의 서로 다른 raw body를 각 receipt의 종목/페이지 키·고정 SHA/길이·UTC 수신 범위와 대조했다. 두 wire 변형의 48개 SHA/길이를 Python으로 독립 검산했고 두 21봉을 합친 정규화 자료가 기존 42봉 raw fixture와 정확히 같음을 확인했다. 기존 동일 body 반복 검사는 첫 source 재사용 오류 아래 집중31개가 모두 통과하는 공백이 있었다. 강화 후 같은 오류는 새 관통 검사에서 `source binding: SPY page 2` assertion으로 실패했고, provider에서 source만 None으로 버린 오류도 메타데이터 존재 검사에서 실패했다. 둘 다 컴파일/설정/권한 오류가 아닌 **post-implementation negative control**이며 실제 제품 결함이나 원래 TDD RED의 증거로 부르지 않는다. 각 오류를 제거해 검토된 전체 소스 hash를 복구한 후 최종 전체 Rust lib **1038/1038**, normal/research all-targets check·diff 검사가 모두 exit0·경고0이었다. 집중31개는 전체 lib에 중복 가산하지 않는다. 독립 최종 provider 감사와 나머지 제품/TS·문서 감사는 지적 없음으로 수용했다. worker의 loopback 권한 거부는 여전히 NOTRUN이며 부모 성공으로 소급 변경하지 않는다.
+
+UI는 새 source-harness **88/88**이 각1회 통과했고 skip/retry/flaky/global errors는0이었다. 초기70통과/18실패는 별도 실패 기록으로 보존했다. 부모 custom Vite cacheDir가 dependency URL을 바꿔 strict asset guard에 걸린 하네스 불일치였으며 실제 CI의 cache 경로를 복원했을 뿐 앱/fixture/미허용 API·WebSocket 차단을 완화하지 않았다. 이전 DATA의 dist **589개는 새 실행이 아니라 유지한 근거**다. 현재 root CI 등록과 새88+유지589의 고유 case 집합이 정확히 일치해 canonical **677개**, source/dist의 case·파일 교집합0을 확인했다. 관련 test/dependency71파일과 새 production build의13개 assets·입력 hash 동일성으로 유지 범위를 확인했고 집중 재실행·고의 실패는 합산하지 않았다. 이는 offline renderer/합성 native bridge이며 실제 Rust IPC/WebView나 외부 broker 실행 증거가 아니다.
+
+코드/offline 수용은 2026-11-08 15:49 KST다. 기존 소유 정본·파생 HTML/지도/그래프의 갱신·내용 검토와 정확한17파일 정상 커밋/푸시를 마쳤다. 구현 `e991f5589e64582ca650df2f55b7516bce2a7dec`의 원격 SHA 일치와 Release Gate `42458130674`·Dependency Security `42458130749` 성공을 확인했다. Rust/frontend/E2E/Toss 규격·cargo-audit/npm-audit의 실제 job 및 필수 실행 step 성공이며 원격 개별 case 수·skip/flaky를 인증하거나 로컬677개를 원격 통과 수로 복사하지 않는다. 이번 작업에서 계좌/자격증명·실제 API·운영 앱/DB·주문·자동매매·배포에 접근하지 않았다. 실제 Toss 인증, provider 발행/PIT·정규장 전용 일봉 OHLC·기업행위/조정·30일/3개월 coverage·native·실제DB/계좌·원장 mode/legacy/server ABA를 검증한 것이 아니며 원래 실제30일·기업행위 정산·운영 연결의 열린 조건을 유지한다.
+
+<a id="p2-sector-01-local-followup"></a>
+### P2-SECTOR-01 로컬 후속 — 수집30봉·키보드 관측 · 2026-11-06
+
+외장 원본은 clean `e7e9742`/`fix/mac-security-storage-2026-10-06`이며 원격보다4커밋 뒤였다. 원본을 바꾸지 않고 현재 작업 폴더의 격리 사본을 승인된 같은 원격 브랜치 `50c65f2`까지 fast-forward했다. TODO12개를 코드와 대조해 독립 로컬 진행이 가능한 P2-SECTOR-01을 먼저 보강했다. DB/MSRV·scope·확인정책·서명 결정과 나머지 실제 장중자료/운영검증의 보류는 유지한다.
+
+차트가격 근사 UI의 고정20봉 요청을20/30거래일 선택(기본30)+사전22봉으로 바꿨다. 기간 변경은 요청 revision을 올리고 동의를 해제해30→20→30 뒤 이전 응답도 버린다. 이미 입력한 독립 장부는 옵션만으로 지우지 않는다. 합성 native 브리지에서 정확한 요청/늦은응답 폐기·재동의·22+30 입력과 원본 수집JSON 내보내기를 확인했다. 실제 native 프로세스/IPC·시세 인증이 아닌 브라우저 합성이다.
+
+집중 Playwright13개가 통과했고 내보내기 기대 추가 후 native 합성2개도 다시 통과했다(재실행을 고유 검사 수에 더하지 않음).375px light/dark에서 성과·계획보유·순위의3개 표 실제 방향키 scrollLeft/마지막열 geometry와 상세전략 Home/End/Enter/Escape를 관측했다. 외부/미허용/실제금융 요청·pageerror0이며 native fixture는 운영 shell 없이 실행했다. PNG와 원본은 Git제외 `.cache/sector-frontend/{broker-chart-30-mobile,keyboard-results-light-mobile,keyboard-results-dark-mobile}.png`에 있다. 파일선택키보드·모든select·확대·스크린리더·실제WebView는 미검증이다.
+
+Rust `cargo check --workspace --all-targets --locked --offline`, 전체lib965/965(16.34초), 앱/Node TypeScript·환경파일을 읽지 않는 Vite 웹빌드·FSD·lockfile·project-map·TODO HTML 동기화를 확인했다. 컴파일러 경고0이다. 처음 sandbox의 loopback 금지로 실패한 Rust/브라우저는 제한된 환경과 별도 승인된 실행에서 통과했으며 실제 provider/자격증명은 사용하지 않았다. Graphify 실제 update/check를 수행했으며 기존 zero-node 설정/fixture6개·5000노드 HTML 생략 안내는 코드 경고와 구분한다.
+
+내보낸22+30 합성 입력의 독립 사본에서만 가격근사 확인을true로 해 생산 `broker_chart_price_replay` CLI를 실행했다. source.synthetic=true 및 검증flag=false를 유지한5장부/150일별 행의 데이터흐름 관측이며 합성 수익을 실제 성과로 보고하지 않는다. 원수집본의 한계확인false는 보존했다. 독립 감사는52공통일·12종목·5장부/150행·가상체결9개의10bp 비용을 확인했으며 전체 금융 모델 재구현 대사는 아니다. 입력 raw SHA256 `2902c7672ce6687c2056243a8544a3fa0e87e185691cf143632469e481b04439`, 보고서 raw SHA256 `ec26f34bc4b545c7408fae4abbceafe343a6a98e788e67f8b4330e0006303ffe`이며 `.cache/sector-frontend/broker-chart-30-replay-{input,report}.json`과 실행log가 근거다. 한국투자·토스 차트범위와 미국 정규장만의 모의 의도를 유지하며, 일봉 DTO의 관측일/달력값은 정규장·시간외 포함범위의 인증이 아니므로 이를 미검증으로 남긴다. 실제30일 검증·기업행위 정산·운영연결은 계속 열려 있다. read-only 독립 코드/문서 감사에 차단할 회귀는 없었다. 배포·실계좌조회·주문·자금이동·운영설정 변경은 없다.
+
+후속 순차 pass에서 파일선택기3곳(검증형·자료준비·차트가격)의 실제 focus→Enter/Space→filechooser 이벤트→같은 이름/내용 파일 재선택과 입력 반영·계산 요청0을 확인했다.1280×900의200% CSS zoom에서는 비교모드 Home/End/Enter/Escape·비용/상세전략 선택·한계확인/계산 버튼을 실제 키보드로 조작하고 선택 영역/문서 가로 넘침0을 확인했다. 렌더 확대이며 실제 OS 파일 대화상자 외형·브라우저 도구창 확대·스크린리더/WebView를 검증한 것은 아니다. `.cache/sector-frontend/price-results-css-zoom-200.png`가 production preview의 관측 PNG다.
+
+이 후속은 제품 소스 변경 없이 회귀검사·문서만 보강했다. 관련 dev16/16(18.7초), 동일 제품 소스의 빌드 산출물 production14/14(9.9초)가 통과했고 두 환경 검사를 고유30개로 합산하지 않는다. native 브리지2개는 dev전용이며14개와 별도 플랫폼 인증이 아니다. TypeScript·FSD·lockfile·project-map·TODO 동기화·Graphify 실제 update/check·diff 검사와 독립 리뷰를 통과했다. Rust965와 웹빌드는 앞의 같은 제품 소스 결과이며 후속에서 재실행한 것으로 기록하지 않는다. 갱신한 TODO HTML의 기존 renderer3개도 실제 Chromium의375px 검색/상태필터·JavaScript 없는12개 읽기를 포함해 통과했다.
+
+선행 코드 커밋 **`dbf45a409b2a44b72d366676bb0d47b2ee726b74`**를 지정해 원격 CI를 확인했다. [Release Gate70](https://github.com/CountJung/KISAutoTrade/actions/runs/42208552559)의 frontend·rust(normal/research check와 lib test)·e2e·toss-openapi와 [Dependency Security76](https://github.com/CountJung/KISAutoTrade/actions/runs/42208552487)의 cargo-audit·npm-audit가 모두 성공했다. E2E job127861200239의 실제 로그는 **584/584(18.5분)**이며2026-11-06T11:32:17Z 완료를 확인했다. 후속 푸시로 이 실행을 취소하지 않고 결과를 먼저 보존했다. 이 영수증은 지정한 선행 커밋의 결과이며 후속 테스트/문서 커밋의 CI 성공을 뜻하지 않는다. 기존 보안 예외·도구 안내와 실제 운영 검증의 미완료 경계도 유지한다.
+
+<a id="p2-ux-07-action-audit"></a>
+## P2-UX-07 — 확인 정책 결정 전 현행 영향 조사 · 2026-11-06
+
+TODO에 허용된 결정 전 준비를 진행해 [아키텍처의8행 영향표](ARCHITECTURE.md#p2-ux-07-action-matrix)에 Sidebar/Dashboard 시작·정지, 비상정지 발동/해제, 매수 재개, KIS 국내/미국·Toss 수동주문의 진입점/현재 확인/pending과 backend scope/risk/예약을 코드로 추적했다. Serena가 노출되지 않아 rg와 파일 읽기로 참조를 확인했으며 독립 UI 전문 감사와 주문 준비/예약·execution run 종료를 대조했다. 실제 행동·계좌 조회·자격증명 사용은 없다.
+
+정지와 기접수 주문 취소/청산, 비상정지 해제와 daemon 시작/손실 카운터 초기화, 매수 재개와 입금/잔고 재확인의 차이를 구분했다. 최종 확인창이 없는 현행 UI와 backend guard를 구분하고, UI pending이 컴포넌트별이라는 한계와 수동주문에 자동예산 예약이 일괄 적용되지 않는 분기를 기록했다. 새 확인 정책·단축키·금융 권한은 바꾸지 않았다.
+
+당시 이 표는 현행 정적 조사 완료였고 P2-UX-07 상위는 사용자 판단 대기였다. 11월7일의 후속 결정은 [계획 반영 이력](#simulation-plan-20261107)을 따른다. 행동별 확인 수준·scope/모드/영향 요약·입력 변경 시 무효화·모의/실전 차이 결정 후 취소0/승인1/pending 중복0/범위 변경 무효화 검사를 진행한다. 당시 나머지11개 제목/차단 조건도 보존했고 상위 TODO는12개였다.
 
 <a id="toss-inventory-20261105"></a>
 ## Toss REST inventory 보정 — 2026-11-05
@@ -437,3 +645,31 @@ CI54(553/4)는 실제 입력·backdrop hit와 저장 중 focus를 구분하는 �
 ## 문서 압축·통합 — 2026-11-01
 
 현재 정본/열린 작업/가이드/결정/완료 로그를 구분해 작업35·템플릿1·구 설계1·인수인계2·연구 검증/감사6의45파일을 기존 이력·기록 규칙·연구 부록으로 통합했다. 새 문서를 만들지 않았으며 원본은 고정4021e38 Git 링크로 복원한다. 문서 MD/HTML은83→38개, 원자료·설계·실행기213개와 TODO11개의 조건·기존 이력8앵커를 보존한다. 코드·의존성·계정/보안·운영배포는 변경하지 않았다. 문서 형식75개 오류0·지도/TODO/그래프 freshness·HTML 회귀3개·원자료/ID/조건 보존 검사를 통과했고 독립 내용 리뷰의 필수 P0/P1/P2 잔여는 없다. UI557/Rust901은 앞선 정확 코드의 결과를 보존한 것이다. 상세 문서 수/분량은 실제 최종 diff로 집계하며 별도 날짜 보고서를 생성하지 않는다.
+
+
+## 2026-11-14 섹터 전략 중복 조사·손실 매도 옵션 계획
+
+- 외장 Mac 체크아웃 `095ce15`, `fix/mac-security-storage-2026-10-06`에서 `sector_portfolio/planner.rs`·`replay.rs`, `strategy.rs`, `guard.rs`와 기존 P2-SECTOR-01을 읽기 대조했다. 3전략 연구 엔진이 이미 존재하므로 중복 신규 구현 대신 운영 연결·원장 대사를 같은 TODO에 추가했다.
+- `TradeGuard`의 비용 후 기대이익 검사는 `tick_price > avg_price` 조건부여서 모든 손실매도 방지와 다르다. 별도 변형 옵션과 사용자 결정이 필요한 손절/수동/강제청산 우선순위는 [P2-SECTOR-01](todo.md)에 미완료로 남겼다.
+- 문서만 변경했으며 앱·기본값·계좌·자격증명·실제 주문과 기존 모의 원장은 변경하지 않았다. Hermes에 도구 없는 문구 리뷰를 요청했으나 `Gateway inaccessible: authorization`으로 응답을 받지 못했다. 인증 우회/변경 없이 내부 독립 리뷰로 대체했다.
+- 검증: TODO 생성/동기화(열린12개), 상대 파일링크135개, `git diff --check`, 생성기 순수 테스트2개 PASS. 생성기의 브라우저 테스트1개는 Chromium Mach port `Permission denied (1100)`으로 미실행이다. docs-canon 원본 검사기 리소스 조회 실패로 링크/생성물 대체 검사를 수행했으며 원본 검사 통과로 주장하지 않는다. 내부 독립 검토는 전달한 설계 계약의 논리 리뷰이며, 해당 리뷰어의 실제 diff/링크 열람은 아니다. 실제 파일·링크·중복 검토는 문서 담당이 수행했다. Rust/UI 빌드나 실제 broker/성과 검증을 새로 수행한 것으로 해석하지 않는다.
+
+<a id="p2-sector-01-turnover-nav"></a>
+## P2-SECTOR-01 — 2026-11-14 연구 회전율의 장전 NAV 정합화
+
+- 외장 Mac 작업 브랜치 `fix/mac-security-storage-2026-10-06`, 시작 코드 `445111c`의 순수 연구 replay에서 회전율을 일별 `(매수대금+매도대금)/장전 기준 NAV`의 합×100으로 교정했다. 최초 매수 포함·거래비용 분자 제외·양방향·1/2 미적용·비연율화이며 다음 시가/종가 NAV나 초기자금으로 후속 거래일 분모를 대체하지 않는다. `sector-portfolio-v1.1`로 구분하고 검증형/브로커 가격근사형 결과 경고를 함께 갱신했다. 과거 저장 결과·실험 원장·실거래 동작은 수정하지 않았다.
+- 검증: `cargo test --manifest-path src-tauri/Cargo.toml --offline --lib trading::sector_portfolio -- --nocapture` **26/26 PASS**. 실제 Rust 생산 replay에 합성 입력을 넣었으며 overnight gap·다회/양방향 리밸런싱의 전일 NAV 독립 검산과 초기자금 분모와의 구분, 최초 SPY99%·현금 회전율0을 확인했다. `cargo check --offline --manifest-path src-tauri/Cargo.toml` PASS(1분47초, Rust 경고0), `tsc --noEmit` PASS. 실제 자료/native UI/브로커·계좌·주문 성과 검증이 아니다.
+- Hermes는 이번 재시도의 도구 없는 회전율 계약 리뷰에 응답했다. 최초 매수/비용 제외·일별 비율 합산/양방향/1/2 없음·무거래 기여0을 검토했으며 실제 코드 diff 리뷰로 확대하지 않는다. 별도 내부 코드/전략 리뷰와 매퍼 pass를 분리했다.
+- 문서: 사용자 요청에 따라 대기 상세는 [pending](pending.md), 열린 ID·진행중/대기 상태는 [TODO](todo.md), 완료 근거는 이 문서로 분리했다. 기존 최상위 대기8개 원문과 손실매도 정책·실제30일 자료 조건을 보존하고 과거 P2 완료 서술은 기존 이력 링크로 정리했다. TODO 생성/동기화(열린12개), 상대파일링크82개·기존 대기8개 원문 보존·대기 진입10앵커·project-map·diff 검사를 통과했다. docs-canon 원본 검사기 리소스는 조회 불가여서 대체 검사를 수행했으며 원본 검사 통과로 주장하지 않는다.
+- Graphify refresh/check PASS. 도구가 비코드 설정파일6개의 zero nodes와 HTML node limit skip을 경고했으며 이를 Rust compiler 경고나 코드 완전 분석으로 바꾸어 해석하지 않는다. 실제30일 자료·기업행위·운영 연결과 손실매도 옵션 정책은 미완료다.
+
+
+<a id="p2-sector-01-preflight"></a>
+## P2-SECTOR-01 — 2026-11-14 내부 모의 실행 사전검증 기반
+
+- 1차 회전율 커밋 `de45826` 이후 `sector_portfolio/execution_contract`에 2026-11-06~24 비교 실험 전용 순수 구조적 preflight를 추가했다. 세 전략/계획 ID·버전·공통 신호 hash 선언·직전 거래일 NAV·고정 배분·필요 티커 합집합·첫 유효 관측값·실험기간/정규장 경계·외부 확정 사건 키의 중복/부분확정을 검사한다. 공통 관측의 UTC/뉴욕 시각·관측 간격·지연/시각 미확인 한계를 보존하며 필수 가격 누락 시 전체를 거부한다. 함수는 입력을 변경하지 않고 체결·예약·저장·브로커 호출을 하지 않는다.
+- `locked_plan_hash`는 직렬화한 입력의 무결성 fingerprint 대조다. `locked_at`·`signal_input_hash`·`confirmed_event_keys`·source/provider는 호출자가 제공하는 선언/입력값으로서, 과거 장전 저장·원본 시세·시간적 선행성을 입증하지 않는다. HTTPS URL은 로컬 구조 검사(host 필수·userinfo 거부)이며 실제 공급원 확인이 아니다. 영속 장전 동결/CAS·출처 검증·재시작 멱등성·실제 체결 산술/저장/UI 연결은 미구현이다. 실제 계좌·주문·기존 모의 원장은 건드리지 않았다.
+- 시세 관측의 `quote_clock`은 정규장 `[open, close)`를 사용한다. 기존 분봉 `regular_clock`은 `[close-1분, close)`가 세션 내에 있는 close-label 계약을 그대로 보존한다. 기존 연구 달력을 재사용하며 특별 휴장 등 달력의 완전성을 새로 인증한 것은 아니다.
+- 검증: 실제 Rust 생산 코드에 합성 입력을 적용한 sector_portfolio **42/42 PASS**(순수 contract13+기존 sector26+server3), LTH **38/38 PASS**. 두 집합의 범위를 구분하며 실제 시장/계좌/브로커/native UI 성과 검증으로 확대하지 않는다. 최종 `cargo check` PASS(17.04초, 경고0), `tsc --noEmit`·project-map·Graphify refresh/check·diff PASS. Graphify의 기존 설정파일6개 zero-node/HTML 크기 skip 경고는 유지되며 완전한 source 분석을 주장하지 않는다.
+- Hermes의 실제 source 리뷰에서 비선정 `1e-9` 비중이 근사 비교를 통과한 뒤 없는 시세 인덱스로 panic할 수 있음을 발견했다. 비선정 weight/budget의 정확한0 요구·선정/시세 조회 오류 처리와 회귀를 추가했다. 별도 독립 source 리뷰의 malformed source URL 지적도 로컬 parse/회귀로 반영했고 최종 source 리뷰에서 추가 차단 사항이 없었다.
+- 스킬에는 quote 관측과 분봉 close-label의 경계 차이 및 입력 검증의 보장 한계를 짧게 추가하고 [TODO](todo.md)의 잔여 운영 연결·정산 작업을 유지했다. 손실매도 정책·실제 자료 [대기 조건](pending.md)은 변경하지 않았다.

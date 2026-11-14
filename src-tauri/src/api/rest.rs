@@ -40,6 +40,7 @@ fn kis_http_client() -> Client {
     crate::http::client_builder()
         .connect_timeout(KIS_CONNECT_TIMEOUT)
         .timeout(KIS_HTTP_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
         .build()
         .expect("KIS reqwest client with timeout should build")
 }

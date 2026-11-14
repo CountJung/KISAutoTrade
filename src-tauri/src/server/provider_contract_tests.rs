@@ -165,3 +165,110 @@ async fn toss_and_control_routes_keep_safe_errors_without_provider_or_engine_sta
         .contains("missing-fixture"));
     fixture.assert_no_effects().await;
 }
+
+#[tokio::test]
+async fn lth_research_unknown_cancel_is_an_error_without_provider_dispatch() {
+    let fixture = Fixture::new(TOKEN).await;
+    let response = fixture.send(authorized("POST", "/api/strategy/leveraged-trend-hold/research/cancel")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(r#"{"jobId":"00000000-0000-4000-8000-000000000001","owner":"00000000-0000-4000-8000-000000000002"}"#)).unwrap()).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let value = json_body(response).await;
+    assert_eq!(value["code"], "LTH_RUNTIME_REJECTED");
+    assert!(value["error"]
+        .as_str()
+        .unwrap()
+        .contains("unknown_or_expired"));
+    assert!(fixture.requests.lock().await.is_empty());
+}
+
+#[tokio::test]
+async fn lth_research_production_routes_reserve_scope_cancel_and_reuse_without_provider() {
+    let fixture = Fixture::new(TOKEN).await;
+    let mut profile = fixture.profile.clone();
+    profile.id = "synthetic-toss".into();
+    profile.broker_id = crate::broker::BrokerId::Toss;
+    let reserve = json!({
+        "preview": {"symbol":"KORU", "interval":"1m", "count":20,
+            "params":{"entries":[{"leveraged_symbol":"KORU","quantity":1,"is_overseas":true}]},
+            "expectedProfileId":profile.id, "expectedBrokerAccountId":profile.account_no},
+        "expectedBrokerId":"toss", "expectedPaperTrading":profile.is_paper_trading
+    });
+    {
+        let mut profiles = fixture.state.profiles.write().await;
+        profiles.active_id = Some(profile.id.clone());
+        profiles.profiles = vec![profile];
+    }
+    let send = |path: &str, body: serde_json::Value| {
+        authorized("POST", path)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(body.to_string()))
+            .unwrap()
+    };
+    let base = "/api/strategy/leveraged-trend-hold/research";
+    let mut missing_mode = reserve.clone();
+    missing_mode
+        .as_object_mut()
+        .unwrap()
+        .remove("expectedPaperTrading");
+    let response = fixture
+        .send(send(&format!("{base}/reserve"), missing_mode))
+        .await;
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let handle = json_body(
+        fixture
+            .send(send(&format!("{base}/reserve"), reserve))
+            .await,
+    )
+    .await;
+    assert_eq!(handle.as_object().unwrap().len(), 2);
+    assert!(handle["jobId"].as_str().is_some());
+    assert!(fixture.requests.lock().await.is_empty());
+    let mut wrong = handle.clone();
+    wrong["owner"] = uuid::Uuid::new_v4().to_string().into();
+    let response = json_body(fixture.send(send(&format!("{base}/run"), wrong)).await).await;
+    assert_eq!(response["code"], "LTH_RUNTIME_REJECTED");
+    {
+        let mut profiles = fixture.state.profiles.write().await;
+        profiles.profiles[0].is_paper_trading = !profiles.profiles[0].is_paper_trading;
+    }
+    let response = json_body(
+        fixture
+            .send(send(&format!("{base}/run"), handle.clone()))
+            .await,
+    )
+    .await;
+    assert_eq!(response["code"], "LTH_RUNTIME_REJECTED");
+    // Remove the current profile entirely; cancel must still use stored owner/scope.
+    fixture.state.profiles.write().await.active_id = None;
+    let ack = json_body(
+        fixture
+            .send(send(&format!("{base}/cancel"), handle.clone()))
+            .await,
+    )
+    .await;
+    assert_eq!(ack, json!({"status":"quiescent"}));
+    {
+        let mut profiles = fixture.state.profiles.write().await;
+        profiles.active_id = Some("synthetic-toss".into());
+        profiles.profiles[0].is_paper_trading = !profiles.profiles[0].is_paper_trading;
+    }
+    let reused = json_body(
+        fixture
+            .send(send(&format!("{base}/run"), handle.clone()))
+            .await,
+    )
+    .await;
+    assert_eq!(reused["code"], "LTH_RUNTIME_REJECTED");
+    assert!(reused["error"].as_str().unwrap().contains("not_reserved"));
+    let mut invalid = handle;
+    invalid["count"] = 200.into();
+    assert_eq!(
+        fixture
+            .send(send(&format!("{base}/run"), invalid))
+            .await
+            .status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    assert!(fixture.requests.lock().await.is_empty());
+}

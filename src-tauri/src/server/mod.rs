@@ -16,6 +16,7 @@
 ///   POST /api/strategy/leveraged-trend-hold/preview → Toss 1분봉 기반 레버리지 전략 미리보기
 ///   POST /api/strategy/preview/continuous → 제공 캔들의 상태 보존 연속 연구
 ///   POST /api/strategy/preview            → 제공된 캔들 기반 범용 전략 미리보기
+///   POST /api/strategy/sector-portfolio/preview → 제공 자료로 USD 섹터 3전략 비교(주문 없음)
 ///   GET  /api/price/:symbol                   → 국내 현재가 JSON
 ///   GET  /api/overseas-price/:ex/:sym         → 해외 현재가 JSON (NAS/NYS/AMS)
 ///   GET  /api/executed                        → 당일 체결 JSON
@@ -87,6 +88,8 @@ mod market;
 mod profiles;
 mod records;
 mod router;
+mod sector_data;
+mod sector_portfolio;
 mod security;
 mod toss;
 mod trading;
@@ -99,6 +102,7 @@ use trading::*;
 
 #[derive(Clone)]
 struct ServerState {
+    lth_research_runtime: Arc<crate::commands::LthResearchRuntime>,
     rest_client: Arc<RwLock<Arc<KisRestClient>>>,
     stock_list: Arc<RwLock<Vec<StockSearchItem>>>,
     web_port: u16,
@@ -156,7 +160,7 @@ struct ServerState {
 
 /// 서버 시작 (포트 바인드 실패 시 경고만 내고 종료)
 #[allow(clippy::too_many_arguments)]
-pub async fn start(
+pub(crate) async fn start(
     rest_client: Arc<RwLock<Arc<KisRestClient>>>,
     stock_list: Arc<RwLock<Vec<StockSearchItem>>>,
     port: u16,
@@ -168,6 +172,7 @@ pub async fn start(
     position_tracker: Arc<Mutex<PositionTracker>>,
     config: Arc<RwLock<Arc<AppConfig>>>,
     profiles: Arc<RwLock<ProfilesConfig>>,
+    lth_research_runtime: Arc<crate::commands::LthResearchRuntime>,
     trade_store: Arc<TradeStore>,
     stats_store: Arc<StatsStore>,
     log_config: Arc<RwLock<LogConfig>>,
@@ -200,6 +205,7 @@ pub async fn start(
     }
 
     let state = ServerState {
+        lth_research_runtime,
         rest_client,
         stock_list,
         web_port: port,
