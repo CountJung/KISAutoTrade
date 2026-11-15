@@ -35,6 +35,26 @@ use crate::{
     config::AccountProfile,
 };
 
+async fn release_definitively_rejected_budget(
+    manager: &mut OrderManager,
+    budget_id: Option<&str>,
+    error: &anyhow::Error,
+) -> Result<()> {
+    if error
+        .downcast_ref::<crate::api::rest::KisOrderRejected>()
+        .is_some()
+        || error
+            .downcast_ref::<crate::market_hours::UsSessionClosed>()
+            .is_some()
+        || crate::broker::toss::error::definitively_rejected(error)
+    {
+        if let Some(id) = budget_id {
+            manager.reject_budget(id).await?;
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone)]
 struct SubmissionReservation {
     broker_scope: BrokerScope,
@@ -641,14 +661,12 @@ impl OrderManager {
                         insufficient_balance && same_provider_mode,
                         &msg,
                     );
-                    if e.downcast_ref::<crate::api::rest::KisOrderRejected>()
-                        .is_some()
-                        || crate::broker::toss::error::definitively_rejected(&e)
-                    {
-                        if let Some(id) = &prepared.submission.budget_id {
-                            manager.reject_budget(id).await?;
-                        }
-                    }
+                    release_definitively_rejected_budget(
+                        &mut manager,
+                        prepared.submission.budget_id.as_deref(),
+                        &e,
+                    )
+                    .await?;
                 }
                 append_failed_order(
                     &deps.order_store,

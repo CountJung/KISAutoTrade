@@ -673,3 +673,14 @@ CI54(553/4)는 실제 입력·backdrop hit와 저장 중 focus를 구분하는 �
 - 검증: 실제 Rust 생산 코드에 합성 입력을 적용한 sector_portfolio **42/42 PASS**(순수 contract13+기존 sector26+server3), LTH **38/38 PASS**. 두 집합의 범위를 구분하며 실제 시장/계좌/브로커/native UI 성과 검증으로 확대하지 않는다. 최종 `cargo check` PASS(17.04초, 경고0), `tsc --noEmit`·project-map·Graphify refresh/check·diff PASS. Graphify의 기존 설정파일6개 zero-node/HTML 크기 skip 경고는 유지되며 완전한 source 분석을 주장하지 않는다.
 - Hermes의 실제 source 리뷰에서 비선정 `1e-9` 비중이 근사 비교를 통과한 뒤 없는 시세 인덱스로 panic할 수 있음을 발견했다. 비선정 weight/budget의 정확한0 요구·선정/시세 조회 오류 처리와 회귀를 추가했다. 별도 독립 source 리뷰의 malformed source URL 지적도 로컬 parse/회귀로 반영했고 최종 source 리뷰에서 추가 차단 사항이 없었다.
 - 스킬에는 quote 관측과 분봉 close-label의 경계 차이 및 입력 검증의 보장 한계를 짧게 추가하고 [TODO](todo.md)의 잔여 운영 연결·정산 작업을 유지했다. 손실매도 정책·실제 자료 [대기 조건](pending.md)은 변경하지 않았다.
+
+
+<a id="p1-session-01-runtime"></a>
+## P1-SESSION-01 — 2026-11-16 KST KIS 자동 해외 세션·미전송 경계 보강
+
+- 외장 Mac의 시작 코드 `5eaf9cc`에서 KIS 미국 자동주문 평일 버퍼를 기존 연구 계획 달력2023–2028의 NY 정규장 quote_clock으로 교체했다. DST·휴장·조기종료와 범위 밖 차단을 적용하며 초기 prepare·최종 요청·재시도에서 검사한다. 인증/header 준비·rate wait 이후 request.send 호출 직전에도 재검사하되 실제 네트워크 write 순간을 보장하지 않는다. Toss 달력 None은 차단하고 조회 성공 시 기존 명시 extended 세션 정책을 유지했다.
+- 최초 미전송 또는 이전 시도가 모두 확정 거부된 경우에만 typed 미전송 오류로 예약 예산을 해제한다. 한 번이라도 전송 결과가 불확실하면 이후 확정 거부/마감으로 덮지 않고 최초 불확실 오류를 보존한다. 이 공용 retry 보수화는 수동 경로에도 적용되므로 모든 수동 동작 불변으로 표현하지 않는다. 국내·수동 세션 허용 정책·Toss 최종 제출 정책·LTH live 고정 KST elapsed/blackout은 미변경이다.
+- 검증: submission20/20·market_hours8/8·transport gate1/1·sector_portfolio42/42·LTH38/38의 합성/로컬 검사 **109 PASS**, 경고0. 실제 생산 시계는 Utc::now를 사용하고 시험 clock은 localhost fixture에 한정했다. 최종 cargo check PASS(20.01초, 경고0), tsc PASS, 독립 실제 diff 리뷰 PASS. Hermes는 이번 인증 문제로 참여하지 못해 내부 독립 리뷰를 사용했다. 실제 브로커·계좌 조회·주문·자금 이동은 하지 않았다.
+- Graphify refresh/check·project-map·diff PASS. Graphify 비코드 설정6개 zero-node/HTML 크기 skip의 기존 도구 한계는 유지한다. 코드/mock 완료를 실제 거래나 모든 임시휴장·모든 전략 DST 대응으로 확대하지 않으며 [후속 검증](pending.md#p1-session-01-runtime)은 별도로 대기한다.
+
+- 포맷: 변경8개 파일의 `rustfmt --check --config skip_children=true` PASS. 전체 cargo fmt 검사는 기존 비관련 broker_chart/provider.rs·sector_portfolio.rs 포맷 때문에 실패했으며 해당 사용자/기존 영역을 수정하지 않았다. 전체 fmt 통과로 주장하지 않는다.

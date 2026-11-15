@@ -1779,3 +1779,8 @@ pending 대조와 당일 리스크 복원은 저장된 주문 TR-ID의 정확한
 - 일반 native의 별도 scope/시세 동의 후 수집만 인증을 사용할 수 있다. SPY 관측 날짜를 고정하고 다른 ETF 누락을 교집합으로 감추지 않는다. 순수 preview/연구 native/REST에 인증 수집을 연결하지 않는다. KIS quote/auth HTTP는 redirect를 따르지 않는다. [wire·상한 정본](../../../docs/ipc-commands.md#브로커-차트-가격수익률-근사), [실제 KIS 성공 범위와 미검증](../../../docs/completed-history.md#p2-sector-01-broker-chart)을 따른다.
 
 > 마지막 업데이트: 2026-11-06T07:35:02+00:00
+
+
+### KIS 자동 해외 세션·미전송 경계
+
+KIS 자동 해외는 NY 계획 정규장 검사를 prepare·재시도와 인증/header·rate wait 후 request.send 호출 직전에 수행한다. 최초 미전송/앞선 모두 확정거부만 typed 미전송으로 예약을 해제하고, 최초 불확실 응답은 후속 마감/거부로 지우지 않는다. 공용 retry 보수화와 수동 세션 허용 정책은 구분한다. 실제 network write 순간·임시휴장 완전성은 보장하지 않는다. [검증·후속 정본](../../../docs/completed-history.md#p1-session-01-runtime)을 따른다.

@@ -286,6 +286,11 @@ async fn reserved_pipeline_keeps_original_client_for_every_retry_and_tracks_old_
             axum::serve(listener, router).await.unwrap();
         });
         let f = Fixture::new(base_url).await;
+        f.client.set_test_session_clock(|| {
+            chrono::DateTime::parse_from_rfc3339("2026-11-09T15:00:00Z")
+                .unwrap()
+                .to_utc()
+        });
         let context = f.begin(1).await;
         {
             let mut manager = f.manager.lock().await;

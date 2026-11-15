@@ -7,6 +7,15 @@ pub(super) async fn prepare_order_submission(
     held_quantity: u64,
     deps: &SubmissionDeps,
 ) -> PrepareDecision {
+    let enforce_session = !submission.is_manual
+        && submission.broker_scope.broker_id == BrokerId::Kis
+        && submission.exchange.is_some();
+    if let Err(error) = crate::market_hours::ensure_kis_automatic_us_session(
+        enforce_session,
+        deps.rest_client.automatic_session_now(),
+    ) {
+        return PrepareDecision::Skip(error.to_string());
+    }
     if let Some((symbol, side)) = daily_order_limit_key(&submission.signal) {
         let limit_reason = deps
             .risk_manager

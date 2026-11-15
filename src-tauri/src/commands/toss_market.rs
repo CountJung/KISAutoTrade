@@ -486,7 +486,7 @@ pub(crate) async fn get_active_toss_calendar_override(
         Ok(calendar) => Some(calendar),
         Err(e) => {
             tracing::warn!(
-                "Toss market-calendar 매핑 실패 — 기존 장 시간 fallback 사용: {}",
+                "Toss market-calendar 매핑 실패 — 미국 자동매매 세션 확인 보류: {}",
                 e.message
             );
             None

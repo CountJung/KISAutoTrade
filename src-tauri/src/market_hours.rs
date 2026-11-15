@@ -1,15 +1,7 @@
-//! 시장 개장 시간 판별 모듈
-//!
-//! KST(UTC+9) 기준으로 KRX(국내)와 NYSE/NASDAQ(미국) 정규 세션 개장 여부를 판별한다.
-//! API 호출 전 사전 체크로 불필요한 API 호출을 줄여 EGW00201 레이트 리밋을 방지한다.
-//! 공휴일은 별도 달력 없이 KIS API 에러 응답(`장종료`, `장시작전` 등)으로 보완한다.
-//!
-//! ## 시간표 요약
-//!
-//! | 시장 | 정규 세션 (KST) | 비고 |
-//! |------|---------------|------|
-//! | KRX (국내) | 월~금 09:00 ~ 15:30 | 한국 공휴일 제외(API 에러로 보완) |
-//! | NYSE/NASDAQ (해외) | 22:00 ~ 07:00 (야간) | 하계 22:30~05:00, 동계 23:30~06:00 기준 + 버퍼 |
+//! 시장 개장 시간 사전 검사. 국내 기존 KST 규칙은 유지한다.
+//! 미국 기본 경로는 계획 달력(2023–2028), NY 정규장/DST/조기종료를 적용한다.
+//! 달력 범위 밖은 차단한다. 임시휴장 전체를 실시간 인증하는 달력은 아니다.
+//! Toss 명시 세션은 공급자 달력대로 유지하며 누락 시 임의 시간표로 대체하지 않는다.
 
 use chrono::{DateTime, Datelike, FixedOffset, Timelike, Weekday};
 
@@ -135,7 +127,12 @@ impl MarketCalendarOverride {
         self.us_sessions
             .as_ref()
             .map(|sessions| sessions.is_open_at(policy, now))
-            .or_else(|| self.is_us_open_at(now))
+            .or_else(|| match policy {
+                UsTradingSessionPolicy::Auto | UsTradingSessionPolicy::Regular => {
+                    self.is_us_open_at(now)
+                }
+                _ => None,
+            })
     }
 }
 
@@ -165,44 +162,28 @@ pub fn is_krx_open_at(now: DateTime<FixedOffset>) -> bool {
     (540..930).contains(&mins)
 }
 
-/// 미국 주식 시장(NYSE/NASDAQ) 세션 개장 여부 (KST 기준 야간)
-///
-/// ## 변환 기준 (정규장 09:30 ~ 16:00 ET)
-///
-/// | DST 구분 | ET 오프셋 | KST 변환 |
-/// |---------|---------|---------|
-/// | 하계(EDT, UTC−4) | −4h | **22:30 ~ 05:00 KST** |
-/// | 동계(EST, UTC−5) | −5h | **23:30 ~ 06:00 KST** |
-///
-/// 버퍼 포함 범위: **KST 22:00 ~ 07:00** (하계/동계 모두 커버)
-///
-/// ## 유효 요일 (KST 기준)
-/// - `22:00 ~ 24:00`: 월~금 (당일 미국 시장 개장)
-/// - `00:00 ~ 07:00`: 화~토 (전날 미국 시장 연속)
-///
-/// 미국 공휴일(추수감사절·크리스마스 등)은 KIS API 에러로 보완
+/// 미국 계획 정규장: 개장 포함/종료 제외. 출처·범위 한계는 공유 달력 참조.
 pub fn is_us_open() -> bool {
     is_us_open_at(now_kst())
 }
 
 pub fn is_us_open_at(now: DateTime<FixedOffset>) -> bool {
-    let weekday = now.weekday();
-    let mins = now.hour() * 60 + now.minute();
+    crate::trading::strategy::lth_research_session::quote_clock(now.to_utc()).is_ok()
+}
 
-    if mins >= 22 * 60 {
-        // 22:00 이후: 월~금 야간 → 미국 당일 시장 개장
-        matches!(
-            weekday,
-            Weekday::Mon | Weekday::Tue | Weekday::Wed | Weekday::Thu | Weekday::Fri
-        )
-    } else if mins < 7 * 60 {
-        // 00:00 ~ 07:00: 화~토 새벽 → 전날 미국 야간 시장 연속
-        matches!(
-            weekday,
-            Weekday::Tue | Weekday::Wed | Weekday::Thu | Weekday::Fri | Weekday::Sat
-        )
+/// Local automatic KIS rejection: no provider request was sent in this attempt.
+#[derive(Debug, thiserror::Error)]
+#[error("US_SESSION_CLOSED: 미국 정규장 장운영시간 밖이거나 계획 달력 미확인으로 자동 주문을 보류합니다.")]
+pub(crate) struct UsSessionClosed;
+
+pub(crate) fn ensure_kis_automatic_us_session(
+    enforce: bool,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<(), UsSessionClosed> {
+    if enforce && !is_us_open_at(now.fixed_offset()) {
+        Err(UsSessionClosed)
     } else {
-        false
+        Ok(())
     }
 }
 
@@ -222,15 +203,23 @@ pub fn is_market_open_for_with_calendar(
     symbol: &str,
     calendar: Option<&MarketCalendarOverride>,
 ) -> bool {
-    let now = now_kst();
+    is_market_open_for_with_calendar_at(symbol, calendar, now_kst())
+}
+
+pub fn is_market_open_for_with_calendar_at(
+    symbol: &str,
+    calendar: Option<&MarketCalendarOverride>,
+    now: DateTime<FixedOffset>,
+) -> bool {
     if is_domestic_symbol(symbol) {
         calendar
             .and_then(|override_calendar| override_calendar.is_kr_open_at(now))
             .unwrap_or_else(|| is_krx_open_at(now))
     } else {
-        calendar
-            .and_then(|override_calendar| override_calendar.is_us_open_at(now))
-            .unwrap_or_else(|| is_us_open_at(now))
+        is_us_open_at(now)
+            && calendar
+                .and_then(|override_calendar| override_calendar.is_us_open_at(now))
+                .unwrap_or(true)
     }
 }
 
@@ -239,7 +228,15 @@ pub fn is_market_open_for_with_calendar_policy(
     calendar: Option<&MarketCalendarOverride>,
     us_policy: UsTradingSessionPolicy,
 ) -> bool {
-    let now = now_kst();
+    is_market_open_for_with_calendar_policy_at(symbol, calendar, us_policy, now_kst())
+}
+
+pub fn is_market_open_for_with_calendar_policy_at(
+    symbol: &str,
+    calendar: Option<&MarketCalendarOverride>,
+    us_policy: UsTradingSessionPolicy,
+    now: DateTime<FixedOffset>,
+) -> bool {
     if is_domestic_symbol(symbol) {
         calendar
             .and_then(|override_calendar| override_calendar.is_kr_open_at(now))
@@ -249,7 +246,7 @@ pub fn is_market_open_for_with_calendar_policy(
             .and_then(|override_calendar| {
                 override_calendar.is_us_open_at_with_policy(now, us_policy)
             })
-            .unwrap_or_else(|| is_us_open_at(now))
+            .unwrap_or(false)
     }
 }
 
@@ -283,6 +280,128 @@ pub fn open_markets_summary_with_calendar(calendar: Option<&MarketCalendarOverri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn at(s: &str) -> DateTime<FixedOffset> {
+        DateTime::parse_from_rfc3339(s).unwrap()
+    }
+
+    #[test]
+    fn planned_us_session_blocks_holidays_unknown_year_and_observes_dst_and_early_close() {
+        for open in [
+            "2026-07-06T13:30:00Z",
+            "2026-11-09T14:30:00Z",
+            "2026-11-27T17:59:59Z",
+        ] {
+            assert!(is_us_open_at(at(open)), "{open}");
+        }
+        for closed in [
+            "2026-11-09T14:29:59Z",
+            "2026-11-09T21:00:00Z",
+            "2026-07-06T20:00:00Z",
+            "2026-11-26T15:00:00Z",
+            "2026-11-27T18:00:00Z",
+            "2026-11-08T15:00:00Z",
+            "2029-11-09T15:00:00Z",
+        ] {
+            assert!(!is_us_open_at(at(closed)), "{closed}");
+        }
+    }
+
+    #[test]
+    fn kis_none_uses_strict_calendar_but_toss_missing_calendar_fails_closed() {
+        let now = at("2026-11-09T15:00:00Z");
+        assert!(is_market_open_for_with_calendar_at("AAPL", None, now));
+        assert!(!is_market_open_for_with_calendar_policy_at(
+            "AAPL",
+            None,
+            UsTradingSessionPolicy::Auto,
+            now
+        ));
+        let calendar = MarketCalendarOverride {
+            kr: None,
+            us: Some(MarketDayCalendar::closed()),
+            us_sessions: None,
+        };
+        assert!(!is_market_open_for_with_calendar_at(
+            "AAPL",
+            Some(&calendar),
+            now
+        ));
+        let holiday = at("2026-11-26T15:00:00Z");
+        let calendar = MarketCalendarOverride {
+            kr: None,
+            us: MarketDayCalendar::regular("2026-11-26T14:30:00Z", "2026-11-26T21:00:00Z"),
+            us_sessions: None,
+        };
+        assert!(!is_market_open_for_with_calendar_at(
+            "AAPL",
+            Some(&calendar),
+            holiday
+        ));
+    }
+
+    #[test]
+    fn explicit_toss_extended_calendar_is_not_narrowed_to_regular_session() {
+        let now = at("2026-11-09T22:00:00Z");
+        let calendar = MarketCalendarOverride {
+            kr: None,
+            us: None,
+            us_sessions: Some(UsMarketSessionCalendar {
+                after_session: MarketSessionWindow::parse(
+                    "2026-11-09T21:00:00Z",
+                    "2026-11-10T01:00:00Z",
+                ),
+                ..Default::default()
+            }),
+        };
+        assert!(!is_us_open_at(now));
+        assert!(is_market_open_for_with_calendar_policy_at(
+            "AAPL",
+            Some(&calendar),
+            UsTradingSessionPolicy::After,
+            now
+        ));
+        assert!(is_market_open_for_with_calendar_policy_at(
+            "AAPL",
+            Some(&calendar),
+            UsTradingSessionPolicy::Auto,
+            now
+        ));
+        assert!(!is_market_open_for_with_calendar_policy_at(
+            "AAPL",
+            Some(&calendar),
+            UsTradingSessionPolicy::Regular,
+            now
+        ));
+    }
+
+    #[test]
+    fn incomplete_legacy_calendar_cannot_substitute_regular_for_extended_policy() {
+        let now = at("2026-11-09T15:00:00Z");
+        let calendar = MarketCalendarOverride {
+            kr: None,
+            us: MarketDayCalendar::regular("2026-11-09T14:30:00Z", "2026-11-09T21:00:00Z"),
+            us_sessions: None,
+        };
+        assert!(is_market_open_for_with_calendar_policy_at(
+            "AAPL",
+            Some(&calendar),
+            UsTradingSessionPolicy::Regular,
+            now
+        ));
+        for policy in [
+            UsTradingSessionPolicy::Day,
+            UsTradingSessionPolicy::Pre,
+            UsTradingSessionPolicy::After,
+        ] {
+            assert!(!is_market_open_for_with_calendar_policy_at(
+                "AAPL",
+                Some(&calendar),
+                policy,
+                now
+            ));
+        }
+    }
 
     #[test]
     fn domestic_symbol_detection() {

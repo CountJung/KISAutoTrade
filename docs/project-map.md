@@ -1580,7 +1580,7 @@ KISAutoTrade/
 | `http.rs` | 공통 reqwest0.13 HTTP client/client_builder. 번들 Mozilla webpki roots와 client별 ring·TLS1.2/1.3·HTTP/1.1 ALPN을 지정해 기존 HTTP 신뢰 경계를 유지. OS 인증서 저장소나 전역 crypto provider는 변경하지 않고 timeout·쿠키·proxy·헤더·redirect·retry는 호출자에 남김 |
 | `http/tests.rs` | loopback HTTP/TLS 합성 계약: query·헤더·JSON/OAuth form, 쿠키·redirect/교차 origin 민감 헤더, 오류·timeout·proxy, TLS1.2/1.3·SNI·ALPN·미신뢰 CA/hostname 거부, 응답 단절 후 인증/주문 POST 재전송 부재와 기존 WS 기본 ring builder 호환 확인 |
 | `http/testdata/{ca.der,server.der,server-key.der}` | localhost TLS 계약 전용 합성 CA·서버 인증서·시험 개인키 fixture. 운영 인증서나 계좌 credential이 아니며 테스트의 별도 trust store에만 사용 |
-| `api/rest.rs` | KIS REST client facade. rate-limit group을 거쳐 잔고/주문/체결/시세/차트 요청 수행. HTTP redirect를 따라가지 않음 |
+| `api/rest.rs` | KIS REST client facade. rate-limit group을 거쳐 잔고/주문/체결/시세/차트 요청 수행. HTTP redirect를 따라가지 않음. KIS 자동 해외 요청은 인증/header·rate wait 후 send 호출 직전 세션을 재검사하며 실제 network write 시각 보장은 아님 |
 | `api/rest/chart.rs` | 기존 KIS 국내/해외 일·주·월봉 request/response 처리와 공통 인증·rate limit·timeout·응답 크기 제한. 검증형 섹터 준비는 MODP0/1의 날짜/시가/종가, 가격근사 수집은 MODP0 전체 OHLCV를 정제. 가격근사 오류는 고정 코드로 반환하며 빈 결과만 route probe의 다음 후보를 허용 |
 | `api/rest/chart_tests.rs` | 합성 인증값으로 production 차트 request/response recipe, Unicode 오류와 HTTP body cap을 검증하는 build-only/localhost fixture. 실제 provider 응답 검증과 구분 |
 | `api/rest/types.rs` | KIS REST 타입, `OrderSide`/`OrderType`, 국내/해외 잔고·체결·시세 응답, 해외 주문 사전 검증 |
@@ -1627,7 +1627,7 @@ KISAutoTrade/
 | `trading/order/submission/owned.rs` | 주문 전 소유 원장 세대와 exact 전략 key 고정. 자동 매도는 실제 관측 수량과 해당 전략 소유 수량으로 제한하고 수동 매도는 다른 전략·예산 소유분을 제외. 매도 원가 snapshot을 저장 주문에 연결 |
 | `trading/order/submission/owned/tests.rs` | 실제 shared 제출의 owner별 자동/수동 매도 수량 제한, 준비 후 소유 수량 변경의 예약 재검증과 전체 잔고 선반영 fixture |
 | `trading/order/submission/prepare.rs` | 위험·보유수량·주문 유형과 가격 검증, provider별 준비 요청 생성 |
-| `trading/order/submission/provider.rs` | 준비 요청 전송. KIS 국내/해외 재시도는 최초 snapshot의 같은 client를 사용하고 Toss 요청은 고정 profile을 사용 |
+| `trading/order/submission/provider.rs` | 준비 요청 전송. 고정 client/profile을 유지하고 KIS 자동 해외 세션을 최종 요청/재시도에 재확인. 공용 retry는 최초 불확실 오류를 보존하며 확정 미전송만 별도 분류 |
 | `trading/order/submission/records.rs` | 접수·실패 주문과 pending record 생성, provider trace·원래 broker scope 보존 |
 | `trading/order/submission/run_tests.rs`, `trading/order/test_support.rs` | 합성 profile·캐시 토큰·localhost provider로 실행 context, 준비/예약 경합, 예약 후 client 고정과 pending 추적 검증. 실제 계좌/provider 검증과 분리 |
 | `trading/order/budget.rs` | broker/account와 KRW/USD별 전용 현금·자동매매 소유수량·주문 예약 원장. 주문 전 예약 저장, 접수/체결/종료 반영, 미확인 주문·저장 실패 시 차단. load/save에서 종결 영수증까지 TradeGuard 보호를 복원하며 복원 오류도 영속화 차단으로 전달 |
@@ -1649,7 +1649,7 @@ KISAutoTrade/
 | `trading/risk/fill_accounting.rs` | 당일 체결 이벤트별 손익·전략 손실 보호를 한 번만 반영하는 bounded 영수증과 runtime 저장/복원. 다른 날짜 체결과 변경된 이벤트 payload를 구분 |
 | `trading/risk/fill_accounting/tests.rs` | 체결 손익 중복·이벤트 변경·날짜·산술 상한과 runtime 복원 경계의 회귀 fixture |
 | `tests/e2e/toss-commission-ratio.spec.ts` | 실제 Toss preflight 패널의 소수 비율→퍼센트 표시와 수수료 포함 필요 현금·잔고 부족 표시를 합성 자료로 검증 |
-| `market_hours.rs` | 시장 개장 여부 (KRX 09:00-15:30 / US 22:00-07:00 KST) |
+| `market_hours.rs` | 시장 개장 여부: 국내 기존 KST 유지, US 기본은 NY 계획 정규장/DST·2023–2028 휴장/조기종료·unknown 차단. Toss 명시 달력 세션은 유지하고 누락 차단 |
 | `server/mod.rs` | 웹 서버 상태·환경 조립과 socket 바인딩, 공통 handler 및 SPA/정적 파일 fallback 처리. route 조립은 `router::build_router()`에 위임 |
 | `server/router.rs` | 생산 route table·SPA fallback·상태·자체 보안 middleware 조립. 앱 기동·환경 로드·socket 바인딩과 분리하며 테스트도 동일 `build_router()` 사용 |
 | `server/security.rs` | Origin/Host 일치와 변경 요청의 Bearer token 검사, LAN 바인딩 정책. `CorsLayer` 없이 자체 정책을 적용 |
