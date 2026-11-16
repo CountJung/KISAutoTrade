@@ -545,7 +545,7 @@
   "tests/e2e/backtest-period.spec.ts": "e509c698d900fbf244730c8e240954d0f7d3555cf1273c0603cd2acda91092c2",
   "tests/e2e/balance-events.spec.ts": "75f068401cbac77dbd70b16d97866685b9075ae6351d5577daa7d184604f9c87",
   "tests/e2e/broker-chart-native.spec.ts": "2477d01e013c93abdb0d6de630862fd8ffcc2cf99428b50ebb91d46a159e9d75",
-  "tests/e2e/broker-chart-portfolio.spec.ts": "ba3dc5c856946be7402f9731d4c1cd4795536a7ce38e390d0c9bbe7071ac6f1a",
+  "tests/e2e/broker-chart-portfolio.spec.ts": "7365e3af76ca845d744e8cb4af67bc8738968a3b381127889683347c7f6e4532",
   "tests/e2e/budget-recovery.spec.ts": "f1b2fe17797e50fa468693e2ba04cd626a9109e25b22ece5daf463c3efc26f2b",
   "tests/e2e/candle-pagination.spec.ts": "ea4a0aef72c6de293d1d22e732533f3527dd50fb2f82bf032a4bccfae51cf978",
   "tests/e2e/financial-confirmation.spec.ts": "a18967908c82af3eca75ef1ec813dc628974661c9d072d41c650c154dee4b59c",

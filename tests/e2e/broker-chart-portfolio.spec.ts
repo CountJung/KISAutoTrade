@@ -65,7 +65,7 @@ test('research price mode needs its own acknowledgement, preserves 20bp raw meta
   expect(state.calls[0]).toMatchObject({ initialCashUsd: 10_000, costBps: 20, acknowledgedPriceOnly: true, source: { adjustment: 'unadjusted', synthetic: true } })
   expect(state.calls[0].history).toHaveLength(22); expect(state.calls[0].evaluation).toHaveLength(20)
   await expect(chart).toContainText('배당재투자 총수익이 아닙니다')
-  await expect(chart).toContainText('실제 09:50')
+  await expect(chart).toContainText('매일 모의 실행에서 확보한 표시가격·실제 체결과 다르며')
   const promise = page.waitForEvent('download')
   await chart.getByRole('button', { name: '가격 근사 입력과 결과 JSON 다운로드', exact: true }).click()
   const downloaded = await promise

@@ -3260,8 +3260,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/broker-chart-portfolio.spec.ts": {
-    "mtime": 1794023223.3786693,
-    "ast_hash": "4c95892e7cd47ff1adca1ea57b96f5aa",
+    "mtime": 1794814275.0698233,
+    "ast_hash": "64595d491fd250506965e84fc366f972",
     "semantic_hash": ""
   },
   "tests/e2e/fixtures/brokerChartFixture.ts": {
