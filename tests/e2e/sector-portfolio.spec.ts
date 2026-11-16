@@ -5,7 +5,7 @@ import { syntheticSectorPortfolioInput } from '../../src/pages/strategy/model/se
 import { mockApi } from './fixtures/strategyResearchFixture'
 import { requestFixture } from './fixtures/sectorDataFixture'
 
-async function setup(page: Page, options: { fail?: boolean; delayed?: Promise<void>; started?: () => void; accountError?: boolean; withRanking?: boolean } = {}) {
+async function setup(page: Page, options: { fail?: boolean; delayed?: Promise<void>; started?: () => void; accountError?: boolean; withRanking?: boolean; withTrades?: boolean } = {}) {
   const requests: SectorPortfolioInput[] = []
   const violations: string[] = []
   const errors: string[] = []
@@ -20,6 +20,10 @@ async function setup(page: Page, options: { fail?: boolean; delayed?: Promise<vo
     if (options.fail) await route.fulfill({ status: 400, json: { code: 'SECTOR_INVALID', error: '거래일 누락으로 평가 불가' } })
     else {
       const report = fixtureReport(input)
+      if (options.withTrades) report.portfolios[0].trades = Array.from({ length: 26 }, (_, index) => ({
+        date: report.startDate, symbol: 'XLK', side: 'buy', requestedQuantity: index + 1, quantity: index + 1,
+        priceUsd: 10, costUsd: 0.01, cashAfterUsd: 9990, status: 'filled',
+      }))
       if (options.withRanking) report.rankings = [{ date: report.endDate, signalDate: input.history.at(-1)!.date,
         spyR20: 0, previousSpyR20: 0, rankings: Object.keys(input.history[0].prices).filter(symbol => symbol !== 'SPY').map(symbol => ({
           symbol, r5: 0, r20: 0, rs5: 0, rs20: 0, percentile5: 0, percentile20: 0, score: 0, eligible: false,
@@ -198,4 +202,38 @@ test('file import, equal-window paper comparison, mobile keyboard controls and s
   await expect(panel.getByTestId('sector-portfolio-results')).toHaveCount(0)
   expect(violations).toEqual([])
   expect(errors).toEqual([])
+})
+
+test('result explains net profit and new-account assumptions and bounds history pages', async ({ page }) => {
+  const { panel, violations, errors } = await setup(page, { withTrades: true })
+  await panel.getByRole('button', { name: '합성 예제 입력', exact: true }).click()
+  await panel.getByRole('button', { name: '세 전략 비교 계산', exact: true }).click()
+  const results = panel.getByTestId('sector-portfolio-results')
+  await expect(results.getByRole('columnheader', { name: '순손익 USD', exact: true })).toBeVisible()
+  await expect(results).toContainText('새 가상 현금계좌로 시작합니다')
+  await expect(results).toContainText('편도 총비용 10.00bp')
+  await expect(results.getByRole('img', { name: '초기자금과 일별 종가 평가자산 곡선', exact: true })).toBeVisible()
+  const history = results.getByTestId('sector-portfolio-history')
+  await history.locator('summary').filter({ hasText: '일별 평가내역' }).click()
+  const daily = history.getByLabel('선택 전략 일별 평가내역', { exact: true })
+  await expect(daily.locator('tbody tr')).toHaveCount(25)
+  await history.getByRole('button', { name: '일별 평가 다음 페이지', exact: true }).click()
+  await expect(daily.locator('tbody tr')).toHaveCount(5)
+  await history.locator('summary').filter({ hasText: '가상 체결내역' }).click()
+  const trades = history.getByLabel('선택 전략 가상 체결내역', { exact: true })
+  await expect(trades.locator('tbody tr')).toHaveCount(25)
+  await history.getByRole('button', { name: '가상 체결 다음 페이지', exact: true }).click()
+  await expect(trades.locator('tbody tr')).toHaveCount(1)
+  await history.getByRole('button', { name: '가상 체결 이전 페이지', exact: true }).click()
+  await expect(trades.locator('tbody tr')).toHaveCount(25)
+  await results.getByRole('combobox', { name: '상세 비교 전략', exact: true }).click()
+  await page.getByRole('option', { name: '방어형', exact: true }).click()
+  await history.locator('summary').filter({ hasText: '일별 평가내역' }).click()
+  await expect(daily.locator('tbody tr')).toHaveCount(25)
+  await expect(history.getByRole('button', { name: '일별 평가 이전 페이지', exact: true })).toBeDisabled()
+  await history.locator('summary').filter({ hasText: '가상 체결내역' }).click()
+  await expect(history).toContainText('이 기간에 기록된 가상 체결이 없습니다')
+  await page.setViewportSize({ width: 375, height: 900 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  expect(violations).toEqual([]); expect(errors).toEqual([])
 })

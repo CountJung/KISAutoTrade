@@ -421,6 +421,9 @@ runtime의 자동API0 관측을 혼합하지 않는다. 실제 계좌·KIS·운�
 내보내기·375px를 production preview에서, `broker-chart-native.spec.ts`는 명시 시세 동의·
 프로필 ABA 늦은 응답을 source-harness의 브라우저 native 모사에서 검사한다.
 브라우저 native모사/스크린샷과 실제 OS native 화면·IPC를 구분한다.
+`sector-portfolio.spec.ts`의 결과 회귀는 순손익·새계좌/비용 안내·자산곡선,
+일별25건 페이지/전략 변경 초기화·26건 체결의25/1 페이지·체결 빈 상태와375px 폭을 검사한다.
+곡선/표 UI fixture 통과는 실제 provider 데이터의 경제 손익 대사가 아니다.
 `backtest-period.spec.ts`는 뉴욕 기준 주/월·연도/DST/말일 경계와 날짜 검증을 순수 함수로,
 `broker-chart-native.spec.ts`는5봉·날짜 범위 요청/동의·입력 오류·조건 변경 후 늦은 응답 폐기를
 합성 브리지로 검사한다. Rust `broker_chart`는 범위의 사전22봉·빈 평가·누락·180일/120평가봉

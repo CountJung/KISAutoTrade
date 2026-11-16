@@ -2975,8 +2975,8 @@
     "semantic_hash": ""
   },
   "tests/e2e/sector-portfolio.spec.ts": {
-    "mtime": 1794023223.4020896,
-    "ast_hash": "79fe17b84de4fe6dc027975ef939d32a",
+    "mtime": 1794813165.2388475,
+    "ast_hash": "fbb7748f0ca2786b07b95294a79283f9",
     "semantic_hash": ""
   },
   "src-tauri/examples/sector_data_prepare.rs": {
@@ -3150,8 +3150,8 @@
     "semantic_hash": ""
   },
   "src/widgets/sector-portfolio/ui/SectorPortfolioResults.tsx": {
-    "mtime": 1794023223.3739758,
-    "ast_hash": "51ad70b9bf8f5806a878f9b9f40f76bc",
+    "mtime": 1794813005.3873057,
+    "ast_hash": "a632ba526445c17377ade4ffaa73ea4d",
     "semantic_hash": ""
   },
   "tests/e2e/fixtures/simulationAppHarness.tsx": {
@@ -3205,8 +3205,8 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/broker_chart/tests.rs": {
-    "mtime": 1794812694.6124399,
-    "ast_hash": "dc82f2aacb95028e42d0084f10c3bb07",
+    "mtime": 1794812927.8698342,
+    "ast_hash": "205c16bb8bf982a4710feba2864b5426",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/sector_portfolio/price_research.rs": {
@@ -3250,13 +3250,13 @@
     "semantic_hash": ""
   },
   "src/widgets/sector-portfolio/ui/BrokerChartPortfolioPanel.tsx": {
-    "mtime": 1794812651.745748,
-    "ast_hash": "18432640ff2aa9332f0a8bd0dc8bef50",
+    "mtime": 1794812843.5298095,
+    "ast_hash": "cee33f00c8e4d77269ffb762e27e9a4d",
     "semantic_hash": ""
   },
   "tests/e2e/broker-chart-native.spec.ts": {
-    "mtime": 1794812701.3555386,
-    "ast_hash": "40457dbe4f79c69bff9a68c1b4d4a79a",
+    "mtime": 1794812843.5300343,
+    "ast_hash": "b8351d840f299d7195b06018a3c6a317",
     "semantic_hash": ""
   },
   "tests/e2e/broker-chart-portfolio.spec.ts": {
@@ -3372,6 +3372,11 @@
   "tests/e2e/backtest-period.spec.ts": {
     "mtime": 1794812701.4086258,
     "ast_hash": "239f4587364f2c4463cb085755ac9efe",
+    "semantic_hash": ""
+  },
+  "src/widgets/sector-portfolio/ui/SectorPortfolioHistory.tsx": {
+    "mtime": 1794813109.2555273,
+    "ast_hash": "44c1961fc8898e9bd56ed813755af45d",
     "semantic_hash": ""
   }
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SectorPortfolioHistory } from './SectorPortfolioHistory'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import MenuItem from '@mui/material/MenuItem'
@@ -33,6 +34,8 @@ export function SectorPortfolioResults({ report, input }: { report: SectorPortfo
       <Typography variant="body2">
         평가 {report.startDate} ~ {report.endDate} · {report.evaluationBars}거래일 · 사전자료 {report.historyBars}봉 · 체결 모델 {report.executionModel}
       </Typography>
+      <Alert severity="info">새 가상 현금계좌로 시작합니다. 기존 보유·방어 상태는 이어받지 않으며 전일 신호 → 다음 거래일 시가 근사 → 종가 평가입니다. 마지막 날 강제 매도하지 않고 미실현손익을 포함합니다. 매일 원장의 종목별 관측가격 재현이나 실제 주문·리스크 방어 검증 결과가 아닙니다.</Alert>
+      <Typography variant="body2">초기자금 {number(input.initialCashUsd ?? 10000)} USD · 편도 총비용 {number(input.costBps ?? 10)}bp ({number((input.costBps ?? 10) / 100)}%) · 세금·현금이자 0. 수익금은 비용 반영 기말자산−초기자금이며 세후 확정 수익이 아닙니다.</Typography>
       <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
         출처 {report.source.name} · 수집 {report.source.retrievedAt} · 달력 {report.source.calendarSource}<br />
         조정 기준 {report.source.adjustmentPolicy} · coverage 선언 {report.source.coverageVerified ? '확인' : '미확인'} · 기업행위 선언 {report.source.corporateActionsVerified ? '확인' : '미확인'}<br />
@@ -40,11 +43,11 @@ export function SectorPortfolioResults({ report, input }: { report: SectorPortfo
       </Typography>
       <TableContainer component={Box} tabIndex={0} aria-label="세 전략과 비교군 성과표" sx={{ maxWidth: '100%' }}>
         <Table size="small" sx={{ minWidth: 1000 }}>
-          <TableHead><TableRow>{['전략', '기말자산 USD', '순수익률', 'MDD', '최대 일손실', '일 변동성', '비용 USD', '평균 투자비중', '회전율', '체결 / 현금제한', '현금 USD'].map(label => <TableCell key={label}>{label}</TableCell>)}</TableRow></TableHead>
+          <TableHead><TableRow>{['전략', '기말자산 USD', '순손익 USD', '순수익률', 'MDD', '최대 일손실', '일 변동성', '비용 USD', '평균 투자비중', '회전율', '체결 / 현금제한', '현금 USD'].map(label => <TableCell key={label}>{label}</TableCell>)}</TableRow></TableHead>
           <TableBody>{report.portfolios.map(({ strategy, summary: s }) => (
             <TableRow key={strategy}>
               <TableCell component="th" scope="row">{sectorStrategyLabel[strategy]}</TableCell>
-              <TableCell>{number(s.endingEquityUsd)}</TableCell><TableCell>{pct(s.netReturnPct)}</TableCell>
+              <TableCell>{number(s.endingEquityUsd)}</TableCell><TableCell>{number(s.endingEquityUsd - s.initialCashUsd)}</TableCell><TableCell>{pct(s.netReturnPct)}</TableCell>
               <TableCell>{pct(s.maxDrawdownPct)}</TableCell><TableCell>{pct(s.maxDailyLossPct)}</TableCell>
               <TableCell>{pct(s.dailyVolatilityPct)}</TableCell><TableCell>{number(s.totalCostUsd)}</TableCell>
               <TableCell>{pct(s.averageExposurePct)}</TableCell><TableCell>{pct(s.turnoverPct)}</TableCell>
@@ -56,6 +59,7 @@ export function SectorPortfolioResults({ report, input }: { report: SectorPortfo
       <TextField select label="상세 비교 전략" value={selected} onChange={event => setSelected(event.target.value as SectorStrategy)} size="small" sx={{ maxWidth: 240 }}>
         {report.portfolios.map(item => <MenuItem key={item.strategy} value={item.strategy}>{sectorStrategyLabel[item.strategy]}</MenuItem>)}
       </TextField>
+      {portfolio && <SectorPortfolioHistory key={`${report.inputHash}-${selected}`} portfolio={portfolio} />}
       {portfolio && last && <>
         <Typography variant="subtitle2">마지막 평가일 {last.date}의 계획과 보유</Typography>
         <Typography variant="body2">

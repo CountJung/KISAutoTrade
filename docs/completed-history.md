@@ -694,3 +694,12 @@ CI54(553/4)는 실제 입력·backdrop hit와 저장 중 focus를 구분하는 �
 - 로컬 검증: `cargo check --locked`, TypeScript, 웹 production build, FSD, Graphify freshness 통과. Rust `broker_chart` 합성36건 통과 후180/181일·120/121봉 경계 회귀를 보강하고 `broker_chart_period`5건을 최종 재실행해 모두 통과했다. 두 실행에는 겹치는 테스트가 있어41개 고유 테스트로 합산하지 않는다. `cargo check --locked`의 compiler 경고는0개였다. Playwright 순수기간2건과 native 브리지 모사 UI3건, 합계5건 통과했다. 기본 Chromium의 Mach port 권한 오류 후 승인된 재실행이 성공했으며 실제 인증 시세를 호출하지 않았다.
 - 독립 diff 리뷰에서 차단 결함은 없었고 기간 상한 회귀·필수 종료일 문구를 보강했다. Hermes 리뷰는 인증 도메인 네트워크 정책 차단으로 수행하지 못했다. Graphify의 기존 설정6개 zero-node/HTML 크기 skip, npm 외부 http-proxy 설정 및 runner NO_COLOR 경고는 코드 compiler 경고와 구분한다.
 - native bundle 명령은 의도치 않은 전체 빌드가 시작되어 dependency compile 단계에서 중지했다. 설치·실행·배포는 하지 않았으며 웹 빌드 통과를 native 앱 검증으로 부르지 않는다. 실제 KIS/Toss 데이터·기간 coverage·조정/기업행위·native IPC와 원격 CI는 이번 로컬 완료 범위 밖이다. 정확 원장 재현과 손실매도 정책은 [대기 정본](pending.md)을 유지한다.
+
+
+<a id="p2-sector-01-results"></a>
+## P2-SECTOR-01 — 2026-11-16 순손익·자산곡선·상세내역 표시
+
+- 기간 개선 커밋 `1e90729`의 원격 반영 이후 같은 외장 Mac 체크아웃에서 공유 결과 UI를 보강했다. 성과표에 비용 반영 기말자산−초기자금인 순손익 USD를 추가하고 새 현금계좌·전일 신호/다음 시가/종가 평가·기말 강제청산 없음·미실현손익 포함·편도 비용/세금0/현금이자0을 명시했다. 순손익을 세후 확정수익이나 원장 관측가격 재현으로 표현하지 않는다.
+- `SectorPortfolioHistory.tsx`는 선택 전략의 초기자금+일별 종가 평가 SVG곡선, 일별/가상 체결내역과25건 페이지·체결 빈 상태를 담당한다. 입력 hash와 선택 전략으로 remount하여 페이지를 초기화하며 앱 조회·실계좌·주문을 호출하지 않는다. 자동 축척/거래일 등간격의 한계와 상세 표 대안을 제공한다. 현재 사용법은 [가이드](user-guide.md#섹터-etf-기본방어공격-비교)를 따른다.
+- 검증: 합성 브라우저 Playwright13건(기간 관련5+섹터 UI8) 통과 후 가상 체결26건 fixture의25/1 페이지·이전/다음 경계를 보강하여 `sector-portfolio`8건을 최종 재실행했고 모두 통과했다. 중복 실행이므로21개 고유 테스트로 합산하지 않는다. 독립 source 리뷰에서 차단 결함 없음. 실제 데스크톱 screenshot을 확인했고375px 라이트/다크 회귀를 실행했다. 초기 TypeScript2개 오류를 수정한 뒤 최종 TypeScript·웹 production build·FSD·Graphify freshness를 통과했다. 모의 브리지/fixture UI 관측을 실제 OS native IPC·실제 provider·설치 앱·실거래 검증으로 확대하지 않는다.
+- 정확 원장 입력/상태 replay·실자료 조정/기업행위 검증·손실매도 금지 정책의 [대기 조건](pending.md)은 유지한다. 원격 CI·배포·주문은 이 UI 완료 범위에 포함하지 않는다.

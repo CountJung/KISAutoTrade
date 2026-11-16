@@ -616,6 +616,7 @@ KISAutoTrade/
 │   │   │   │   ├── BrokerChartPortfolioPanel.tsx
 │   │   │   │   ├── SectorDataPreparationPanel.tsx
 │   │   │   │   ├── SectorPaperComparison.tsx
+│   │   │   │   ├── SectorPortfolioHistory.tsx
 │   │   │   │   ├── SectorPortfolioPanel.tsx
 │   │   │   │   └── SectorPortfolioResults.tsx
 │   │   │   └── index.ts
