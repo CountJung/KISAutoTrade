@@ -13,6 +13,7 @@ import Typography from '@mui/material/Typography'
 import { useBrokerChartScope, useCollectBrokerChartData, usePreviewBrokerChartPortfolio } from '../../../api/brokerChartHooks'
 import type { BrokerChartCollection, BrokerChartInput, BrokerChartReport, BrokerChartScope } from '../../../shared/api/brokerChartTypes'
 import { brokerChartResultsView, parseBrokerChartInput, syntheticBrokerChartInput } from '../model/brokerChartInput'
+import { backtestPeriodError, backtestPreset, type BacktestPeriod } from '../model/backtestPeriod'
 import { SECTOR_INPUT_MAX_BYTES } from '../model/sectorPortfolioInput'
 import { SectorPortfolioResults } from './SectorPortfolioResults'
 
@@ -33,7 +34,10 @@ function download(value: unknown, name: string) {
 export function BrokerChartPortfolioPanel({ researchOnly, quoteScopeKey, quoteScopeReady, quoteScopeCurrent }: Props) {
   const [text, setText] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [evaluationBars, setEvaluationBars] = useState<20 | 30>(30)
+  const [evaluationBars, setEvaluationBars] = useState<5 | 20 | 30>(30)
+  const [period, setPeriod] = useState<BacktestPeriod>('sessions')
+  const [startDate, setStartDate] = useState('')
+  const periodError = backtestPeriodError(period, startDate, endDate)
   const [error, setError] = useState<string | null>(null)
   const [completed, setCompleted] = useState<Completed | null>(null)
   const [collection, setCollection] = useState<BrokerChartCollection | null>(null)
@@ -109,14 +113,14 @@ export function BrokerChartPortfolioPanel({ researchOnly, quoteScopeKey, quoteSc
   }
   async function collect() {
     if (!canAuthenticate || !quoteScopeReady || !scope || !acknowledgedSource || activeQuote.current
-      || !(quoteScopeCurrent?.(quoteScopeKey) ?? true) || (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate))) return
+      || !(quoteScopeCurrent?.(quoteScopeKey) ?? true) || periodError) return
     const ticket = revision.current
     const optionsTicket = sourceRevision.current
     const knownCorporateActions = parsed.input?.knownCorporateActions ?? []
     const request = startQuote()
     try {
       const value = await collectMutation.mutateAsync({ expectedProfileId: scope.profileId, authenticatedQuotesAcknowledged: true,
-        evaluationBars, ...(endDate ? { endDate } : {}) })
+        evaluationBars, ...(period !== 'sessions' ? { startDate } : {}), ...(endDate ? { endDate } : {}) })
       if (current(ticket) && optionsTicket === sourceRevision.current && quoteCurrent(request)) {
         const input = { ...value.input, acknowledgedPriceOnly: false,
           knownCorporateActions: [...value.input.knownCorporateActions, ...knownCorporateActions] }
@@ -149,28 +153,41 @@ export function BrokerChartPortfolioPanel({ researchOnly, quoteScopeKey, quoteSc
   return <Stack spacing={2} data-testid="broker-chart-panel" sx={{ minWidth: 0 }}>
     <Typography component="h3" variant="h6">차트 가격수익률 근사</Typography>
     <Alert severity="warning">배당재투자 총수익이 아닙니다. 비수정 요청으로 반환된 가격을 사용하며 공급자 조정 범위·과거 기수정 가능성은 검증하지 않았습니다. 비조정 종가 신호·평가에는 분배락 가격 영향이 포함되며, 미확인 배당·분할 등 권리를 정산하지 않습니다. 알려진 기업행위는 계산을 거부합니다.</Alert>
-    <Typography variant="body2">독립 가상 USD 장부입니다. 이전 완료봉의 신호·예산과 다음 시가(nextOpen) 정수주, 매도 후 매수·현금 한도·편도 총10/20bp를 가정합니다. 실제 09:50 모의 표시가격·실제 체결과 다르며 검증형 결과나 실제·모의 원장과 자동 합산하지 않습니다.</Typography>
+    <Typography variant="body2">독립 가상 USD 장부입니다. 이전 완료봉의 신호·예산과 다음 시가(nextOpen) 정수주, 매도 후 매수·현금 한도·편도 총10/20bp를 가정합니다. 매일 모의 실행에서 확보한 표시가격·실제 체결과 다르며 검증형 결과나 실제·모의 원장과 자동 합산하지 않습니다.</Typography>
     <Typography variant="body2">브로커에는 비수정(unadjusted) USD 일봉 OHLCV를 요청합니다. SPY와11개 섹터의 사전22봉·평가20봉 예제를 제공하며, 관측 SPY 날짜는 공식 거래일 달력 완전성의 인증이 아닙니다. 초기자금 기본10,000 USD에 실제 잔고를 반영하지 않습니다.</Typography>
     <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
       <Stack spacing={1.5}>
         <Typography component="h4" variant="subtitle2">인증 차트 자료 수집 · 선택 사항</Typography>
         {!canAuthenticate && <Alert severity="info">일반 데스크톱 앱에서만 명시적으로 인증 시세를 수집합니다. 이 실행 환경에서는 JSON 입력과 순수 계산을 사용할 수 있습니다.</Alert>}
         {canAuthenticate && !quoteScopeReady && <Alert severity="info">KIS 또는 Toss 조회 프로필 확인이 완료될 때까지 인증 수집을 보류합니다.</Alert>}
-        <TextField select label="차트 수집 평가 거래일" value={evaluationBars} size="small" onChange={event => {
-          const next = Number(event.target.value)
-          if (next !== 20 && next !== 30) return
-          sourceRevision.current += 1; setEvaluationBars(next); setSourceAck(null)
-        }} helperText={`사전22봉 + 평가${evaluationBars}봉을 요청합니다. 수신한 관측 거래일이며 공식 달력·기업행위 검증 완료를 뜻하지 않습니다.`}>
-          <MenuItem value={20}>20거래일</MenuItem><MenuItem value={30}>30거래일</MenuItem>
+        <TextField select label="과거 평가 기간" value={period} size="small" onChange={event => {
+          const next = event.target.value as BacktestPeriod
+          sourceRevision.current += 1; setPeriod(next); setSourceAck(null)
+          if (next === 'lastWeek' || next === 'month') {
+            const range = backtestPreset(next); setStartDate(range.startDate); setEndDate(range.endDate)
+          }
+        }} helperText="기간은 선택 시 뉴욕 날짜로 고정합니다. 달력 기간과 거래일 수는 다르며 휴장일은 평가봉이 아닙니다.">
+          <MenuItem value="sessions">거래일 수 지정</MenuItem><MenuItem value="lastWeek">지난주 (월~일)</MenuItem>
+          <MenuItem value="month">최근 1개월 (달력)</MenuItem><MenuItem value="custom">시작·종료일 직접 지정</MenuItem>
         </TextField>
-        <TextField label="차트 조회 종료일 (선택)" value={endDate} onChange={event => {
+        {period === 'sessions' ? <TextField select label="차트 수집 평가 거래일" value={evaluationBars} size="small" onChange={event => {
+          const next = Number(event.target.value)
+          if (next !== 5 && next !== 20 && next !== 30) return
+          sourceRevision.current += 1; setEvaluationBars(next); setSourceAck(null)
+        }} helperText={`사전22봉 + 평가${evaluationBars}봉을 요청합니다. 최근5거래일은 달력 지난주와 다릅니다. 공식 달력·기업행위 검증 완료를 뜻하지 않습니다.`}>
+          <MenuItem value={5}>최근 5거래일</MenuItem><MenuItem value={20}>20거래일</MenuItem><MenuItem value={30}>30거래일</MenuItem>
+        </TextField> : <TextField label="차트 조회 시작일" value={startDate} disabled={period !== 'custom'} onChange={event => {
+          sourceRevision.current += 1; setStartDate(event.target.value); setSourceAck(null)
+        }} size="small" placeholder="YYYY-MM-DD" helperText="범위 안의 관측 SPY 완료봉 최대120개와 시작 전22봉을 수집합니다. 준비봉 부족·빈 기간은 계산하지 않습니다." />}
+        <TextField label={period === 'sessions' ? '차트 조회 종료일 (선택)' : '차트 조회 종료일'} value={endDate} disabled={period === 'lastWeek' || period === 'month'} onChange={event => {
           sourceRevision.current += 1; setEndDate(event.target.value); setSourceAck(null)
-        }} size="small" placeholder="YYYY-MM-DD" helperText="비워두면 뉴욕 전일을 조회 기준으로 고정합니다. 최종 평가 종료일은 수신한 SPY 완료봉 기준입니다." />
+        }} size="small" placeholder="YYYY-MM-DD" helperText={period === 'sessions' ? '비워두면 뉴욕 전일을 조회 기준으로 고정합니다. 최종 평가 종료일은 수신한 SPY 완료봉 기준입니다.' : '시작·종료일을 모두 포함합니다. 최근1개월은 종료일 한 달 전(말일 보정)의 다음날부터입니다. 미래·미완료 봉은 사용하지 않습니다.'} />
+        {periodError && <Alert severity="error">{periodError}</Alert>}
         <Box><Button variant="outlined" disabled={!canAuthenticate || !quoteScopeReady || pendingQuote} onClick={() => void lookupScope()}>차트 조회 프로필 확인</Button></Box>
         {scope && <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>확인한 시세 범위: {scope.profileId} · {scope.provider.toUpperCase()} · {scope.provider === 'kis' ? scope.paper ? '모의' : '실전' : '실전 시세'}</Typography>}
         {scope?.provider === 'kis' && <Typography variant="body2">KIS 기본 매핑은 2026-11-06 공식 마스터 스냅샷의 고정12종목을 사용합니다. 오류·빈 자료면 수집을 중단하며 매핑 최신성을 자동 인증하지 않습니다.</Typography>}
         <FormControlLabel control={<Checkbox checked={acknowledgedSource} disabled={!canAuthenticate || !scope || pendingQuote} onChange={(_, checked) => setSourceAck(checked ? quoteScopeKey : null)} />} label="확인한 프로필의 인증 시세 조회에 동의합니다 (주문·잔고 동의 아님)" />
-        <Box><Button variant="outlined" disabled={!canAuthenticate || !scope || !acknowledgedSource || pendingQuote || Boolean(endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate))} onClick={() => void collect()} aria-busy={pendingQuote}>차트 자료 {evaluationBars}봉 수집</Button></Box>
+        <Box><Button variant="outlined" disabled={!canAuthenticate || !scope || !acknowledgedSource || pendingQuote || Boolean(periodError)} onClick={() => void collect()} aria-busy={pendingQuote}>{period === 'sessions' ? `차트 자료 ${evaluationBars}봉 수집` : '지정 기간 차트 자료 수집'}</Button></Box>
         {pendingQuote && <Typography role="status" variant="body2">{quoteRequest?.key === quoteScopeKey ? '차트 조회 요청 중입니다.' : '이전 프로필 요청 종료를 기다립니다. 이전 응답은 적용하지 않습니다.'}</Typography>}
       </Stack>
     </Box>

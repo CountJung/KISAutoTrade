@@ -20,6 +20,8 @@ pub struct CollectBrokerChartInput {
     pub authenticated_quotes_acknowledged: bool,
     pub evaluation_bars: usize,
     pub end_date: Option<String>,
+    /// Inclusive calendar start. When present, evaluation_bars is ignored.
+    pub start_date: Option<String>,
     #[serde(default)]
     pub exchange_mappings: Vec<super::sector_data::SectorExchangeMapping>,
 }
@@ -136,12 +138,18 @@ fn same_price(a: &BrokerChartPrice, b: &BrokerChartPrice) -> bool {
         && a.currency == b.currency
 }
 
+#[derive(Clone, Copy)]
+enum CollectionWindow<'a> {
+    Bars(usize),
+    Period(&'a str),
+}
+
 async fn series<S: BrokerChartQuoteSource>(
     source: &S,
     symbol: &str,
     exchange: Option<&str>,
     end: &str,
-    target: usize,
+    target: CollectionWindow<'_>,
     first: Option<&str>,
     receipts: &mut Vec<BrokerChartPageReceipt>,
 ) -> Result<BTreeMap<String, BrokerChartPrice>, String> {
@@ -204,9 +212,16 @@ async fn series<S: BrokerChartQuoteSource>(
                 rows.insert(date, price);
             }
         }
-        if (first.is_none() && rows.len() >= target)
-            || first.is_some_and(|start| oldest.as_str() <= start)
-        {
+        let reached = match target {
+            CollectionWindow::Bars(count) => rows.len() >= count,
+            CollectionWindow::Period(start) => {
+                if rows.range(start.to_string()..).count() > 120 {
+                    return Err("BROKER_CHART_INVALID_WINDOW".into());
+                }
+                rows.range(..start.to_string()).count() >= 22
+            }
+        };
+        if (first.is_none() && reached) || first.is_some_and(|start| oldest.as_str() <= start) {
             return Ok(rows);
         }
         if rows.len() == before {
@@ -233,13 +248,45 @@ pub async fn collect_broker_chart<S: BrokerChartQuoteSource>(
     retrieved_at: &str,
     mappings: &[super::sector_data::SectorExchangeMapping],
 ) -> Result<BrokerChartCollection, String> {
-    if !(1..=120).contains(&evaluation_bars) {
+    collect_broker_chart_period(
+        source,
+        broker,
+        evaluation_bars,
+        None,
+        end_date,
+        retrieved_at,
+        mappings,
+    )
+    .await
+}
+
+/// Optional inclusive calendar range, retaining the same bounded quotation contract.
+pub async fn collect_broker_chart_period<S: BrokerChartQuoteSource>(
+    source: &S,
+    broker: BrokerChartBroker,
+    evaluation_bars: usize,
+    start_date: Option<&str>,
+    end_date: &str,
+    retrieved_at: &str,
+    mappings: &[super::sector_data::SectorExchangeMapping],
+) -> Result<BrokerChartCollection, String> {
+    if start_date.is_none() && !(1..=120).contains(&evaluation_bars) {
         return Err("BROKER_CHART_INVALID_WINDOW".into());
     }
     let end =
         NaiveDate::parse_from_str(end_date, "%Y-%m-%d").map_err(|_| "BROKER_CHART_INVALID_END")?;
     if end.format("%Y-%m-%d").to_string() != end_date {
         return Err("BROKER_CHART_INVALID_END".into());
+    }
+    if let Some(start_label) = start_date {
+        let start = NaiveDate::parse_from_str(start_label, "%Y-%m-%d")
+            .map_err(|_| "BROKER_CHART_INVALID_START")?;
+        if start.to_string() != start_label {
+            return Err("BROKER_CHART_INVALID_START".into());
+        }
+        if start > end || (end - start).num_days() >= 180 {
+            return Err("BROKER_CHART_INVALID_RANGE".into());
+        }
     }
     let collected = chrono::DateTime::parse_from_rfc3339(retrieved_at)
         .map_err(|_| "BROKER_CHART_INVALID_RETRIEVAL")?;
@@ -280,7 +327,10 @@ pub async fn collect_broker_chart<S: BrokerChartQuoteSource>(
     }
     let mut receipts = Vec::new();
     let mut values = BTreeMap::new();
-    let total = 22 + evaluation_bars;
+    let target = start_date.map_or(
+        CollectionWindow::Bars(22 + evaluation_bars.min(120)),
+        CollectionWindow::Period,
+    );
     let mut dates: Vec<String> = Vec::new();
     for symbol in std::iter::once("SPY").chain(ALL_SYMBOLS.iter().copied().filter(|s| *s != "SPY"))
     {
@@ -303,16 +353,41 @@ pub async fn collect_broker_chart<S: BrokerChartQuoteSource>(
             symbol,
             exchange,
             end_date,
-            total,
+            target,
             dates.first().map(String::as_str),
             &mut receipts,
         )
         .await?;
         if symbol == "SPY" {
-            dates = rows.keys().rev().take(total).cloned().collect();
-            dates.reverse();
-            if dates.len() != total {
-                return Err("BROKER_CHART_INSUFFICIENT_SPY_HISTORY".into());
+            if let Some(start) = start_date {
+                let evaluation: Vec<_> = rows
+                    .range(start.to_string()..)
+                    .map(|(d, _)| d.clone())
+                    .collect();
+                if evaluation.is_empty() {
+                    return Err("BROKER_CHART_EMPTY_EVALUATION".into());
+                }
+                if evaluation.len() > 120 {
+                    return Err("BROKER_CHART_INVALID_WINDOW".into());
+                }
+                dates = rows
+                    .range(..start.to_string())
+                    .rev()
+                    .take(22)
+                    .map(|(d, _)| d.clone())
+                    .collect();
+                dates.reverse();
+                if dates.len() != 22 {
+                    return Err("BROKER_CHART_INSUFFICIENT_SPY_HISTORY".into());
+                }
+                dates.extend(evaluation);
+            } else {
+                let total = 22 + evaluation_bars;
+                dates = rows.keys().rev().take(total).cloned().collect();
+                dates.reverse();
+                if dates.len() != total {
+                    return Err("BROKER_CHART_INSUFFICIENT_SPY_HISTORY".into());
+                }
             }
         }
         if dates.iter().any(|d| !rows.contains_key(d)) {
@@ -338,6 +413,9 @@ pub async fn collect_broker_chart<S: BrokerChartQuoteSource>(
     let input=BrokerChartInput{schema_version:1,initial_cash_usd:10000.0,cost_bps:10.0,source:BrokerChartSource{broker_id:broker,name:format!("{broker_name} daily unadjusted chart; price-only approximation"),retrieved_at:retrieved_at.into(),synthetic:false,adjustment:BrokerChartAdjustment::Unadjusted,currency:BrokerChartCurrency::Usd,interval:BrokerChartInterval::Daily,session_basis:BrokerChartSessionBasis::ObservedSpySessions,calendar_evidence:"Same-provider SPY returned daily dates; exchange-calendar completeness is not independently certified. API route acceptance is not listing-venue certification.".into()},history:days[..22].to_vec(),evaluation:days[22..].to_vec(),expected_session_dates:dates,acknowledged_price_only:false,known_corporate_actions:Vec::new()};
     let collection_hash = hash(&(&input, &receipts, &exchange_mappings))?;
     let mut diagnostics = vec!["동일 증권사 SPY의 관측 거래일을 기준으로12종목을 대조했습니다. 공식 달력·당시 버전의 완전성 인증은 아닙니다.".into(),"기업행위 목록이 비어 있어도 부재를 검증한 것이 아닙니다. 배당/분할 미정산 가격근사이며 한계 확인 후 계산하세요.".into(),"rowsHash는 보존 시세 필드의 정규화 hash입니다. optional responseSource는 identity HTTP body bytes의 SHA256·길이·수신 완료 UTC이며 공개 시각/PIT·출처 진위 인증이 아닙니다. 누락은 미확보/unknown이며 fetch 없음·0bytes 인증이 아닙니다.".into()];
+    if let Some(start) = start_date {
+        diagnostics.push(format!("요청 달력 범위 {start}~{end_date}; 실제 관측 평가 {}~{} ({}거래일), 사전22봉. 휴장일은 관측 자료에 없으며 공식 달력 검증은 별도입니다.", input.evaluation[0].date, input.evaluation.last().expect("nonempty evaluation").date, input.evaluation.len()));
+    }
     if default_mapping {
         diagnostics.push("KIS 기본 조회코드는 공식 AMSMST.COD의 2026-11-06 스냅샷(12종목 US/USD/ETP type3/AMS)을 사용합니다. URL·수집시각·archive SHA256은 exchangeMappings에 보존했습니다. 현재 상장시장·매핑 최신성의 자동 인증이 아니며, 오래되어 오류나 빈 자료가 반환되면 다른 거래소 코드로 추정하지 않고 중단합니다.".into());
     } else if broker == BrokerChartBroker::Kis {

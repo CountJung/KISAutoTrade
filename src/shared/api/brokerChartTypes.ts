@@ -32,7 +32,9 @@ export interface BrokerChartExchangeMapping { symbol: string; exchange: string; 
 export interface CollectBrokerChartInput {
   expectedProfileId: string
   authenticatedQuotesAcknowledged: boolean
+  /** Ignored when startDate selects a bounded calendar range. */
   evaluationBars: number
+  startDate?: string
   endDate?: string
   exchangeMappings?: BrokerChartExchangeMapping[]
 }

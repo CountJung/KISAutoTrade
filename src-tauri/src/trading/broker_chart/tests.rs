@@ -266,7 +266,7 @@ async fn broker_chart_collector_rejects_repeated_cursor_no_progress_and_exhausts
             "SPY",
             None,
             source.dates.last().unwrap(),
-            100,
+            CollectionWindow::Bars(100),
             None,
             &mut Vec::new(),
         )
@@ -672,4 +672,232 @@ async fn broker_chart_source_metadata_changes_collection_only() {
         collections[0].collection_hash,
         collections[1].collection_hash
     );
+}
+
+#[tokio::test]
+async fn broker_chart_period_collects_five_sessions_with_exact_warmup() {
+    let source = MockQuotes::new(Scenario::Complete);
+    let result = collect_broker_chart_period(
+        &source,
+        BrokerChartBroker::Toss,
+        30,
+        Some(&source.dates[40]),
+        source.dates.last().unwrap(),
+        "2026-01-01T12:00:00Z",
+        &[],
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.input.history.len(), 22);
+    assert_eq!(result.input.evaluation.len(), 5);
+    assert_eq!(result.input.expected_session_dates, source.dates[18..]);
+    assert!(result.diagnostics.iter().any(|d| d.contains("5거래일")));
+    let count = collect_broker_chart(
+        &source,
+        BrokerChartBroker::Toss,
+        5,
+        source.dates.last().unwrap(),
+        "2026-01-01T12:00:00Z",
+        &[],
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.collection_hash, count.collection_hash);
+}
+
+#[tokio::test]
+async fn broker_chart_period_paginates_until_twenty_two_prior_sessions() {
+    let source = MockQuotes::new(Scenario::InclusiveOverlap);
+    let result = collect_broker_chart_period(
+        &source,
+        BrokerChartBroker::Toss,
+        30,
+        Some(&source.dates[25]),
+        source.dates.last().unwrap(),
+        "2026-01-01T12:00:00Z",
+        &[],
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.input.expected_session_dates, source.dates[3..]);
+    assert_eq!(result.receipts.len(), 24);
+}
+
+#[tokio::test]
+async fn broker_chart_period_rejects_bad_ranges_before_fetch() {
+    for (start, end, expected) in [
+        ("2025-02-30", "2025-10-31", "BROKER_CHART_INVALID_START"),
+        ("2025-9-1", "2025-10-31", "BROKER_CHART_INVALID_START"),
+        ("2025-11-01", "2025-10-31", "BROKER_CHART_INVALID_RANGE"),
+        ("2025-01-01", "2025-10-31", "BROKER_CHART_INVALID_RANGE"),
+        ("2026-01-01", "2026-01-01", "BROKER_CHART_UNFINISHED_DAY"),
+    ] {
+        let source = MockQuotes::new(Scenario::Complete);
+        let err = collect_broker_chart_period(
+            &source,
+            BrokerChartBroker::Toss,
+            30,
+            Some(start),
+            end,
+            "2026-01-01T12:00:00Z",
+            &[],
+        )
+        .await
+        .err()
+        .unwrap();
+        assert_eq!(err, expected);
+        assert!(source.calls.lock().unwrap().is_empty());
+    }
+}
+
+#[tokio::test]
+async fn broker_chart_period_rejects_empty_window_insufficient_history_and_sector_gap() {
+    for (scenario, start, expected) in [
+        (
+            Scenario::Complete,
+            "2025-11-03",
+            "BROKER_CHART_EMPTY_EVALUATION",
+        ),
+        (
+            Scenario::Complete,
+            "2025-09-02",
+            "BROKER_CHART_INSUFFICIENT_HISTORY",
+        ),
+        (
+            Scenario::MissingSectorDate,
+            "2025-10-27",
+            "BROKER_CHART_SESSION_GAP: XLK",
+        ),
+    ] {
+        let source = MockQuotes::new(scenario);
+        let end = if start == "2025-11-03" {
+            "2025-11-04"
+        } else {
+            source.dates.last().unwrap()
+        };
+        let error = collect_broker_chart_period(
+            &source,
+            BrokerChartBroker::Toss,
+            30,
+            Some(start),
+            end,
+            "2026-01-01T12:00:00Z",
+            &[],
+        )
+        .await
+        .err()
+        .unwrap();
+        assert_eq!(error, expected);
+    }
+}
+
+#[test]
+fn broker_chart_collection_request_preserves_legacy_and_optional_range() {
+    let legacy = serde_json::json!({"expectedProfileId":"synthetic", "authenticatedQuotesAcknowledged":true,
+        "evaluationBars":5});
+    let input: CollectBrokerChartInput = serde_json::from_value(legacy.clone()).unwrap();
+    assert!(input.start_date.is_none());
+    let mut ranged = legacy;
+    ranged["startDate"] = "2025-10-01".into();
+    let input: CollectBrokerChartInput = serde_json::from_value(ranged).unwrap();
+    assert_eq!(input.start_date.as_deref(), Some("2025-10-01"));
+}
+
+#[tokio::test]
+async fn broker_chart_period_enforces_inclusive_calendar_and_observed_session_bounds() {
+    struct WideQuotes(MockQuotes);
+    impl BrokerChartQuoteSource for WideQuotes {
+        async fn fetch(
+            &self,
+            symbol: &str,
+            _exchange: Option<&str>,
+            end: &str,
+            _cursor: Option<&str>,
+        ) -> Result<RawBrokerChartPage, String> {
+            self.0.calls.lock().unwrap().push(Request {
+                symbol: symbol.into(),
+                exchange: None,
+                cursor: None,
+            });
+            Ok(RawBrokerChartPage {
+                rows: self
+                    .0
+                    .dates
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, d)| d.as_str() <= end)
+                    .map(|(i, _)| self.0.row(symbol, i))
+                    .collect(),
+                next_cursor: None,
+                response_source: None,
+            })
+        }
+    }
+    let mut fixture = MockQuotes::new(Scenario::Complete);
+    let mut date = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+    fixture.dates.clear();
+    while fixture.dates.len() < 160 {
+        if !matches!(date.weekday(), Weekday::Sat | Weekday::Sun) {
+            fixture.dates.push(date.to_string());
+        }
+        date += Duration::days(1);
+    }
+    let source = WideQuotes(fixture);
+    let start = source.0.dates[22].clone();
+    let exact = collect_broker_chart_period(
+        &source,
+        BrokerChartBroker::Toss,
+        30,
+        Some(&start),
+        &source.0.dates[141],
+        "2026-01-01T12:00:00Z",
+        &[],
+    )
+    .await
+    .unwrap();
+    assert_eq!(exact.input.evaluation.len(), 120);
+    assert_eq!(exact.input.history.len(), 22);
+    let too_many = collect_broker_chart_period(
+        &source,
+        BrokerChartBroker::Toss,
+        30,
+        Some(&start),
+        &source.0.dates[142],
+        "2026-01-01T12:00:00Z",
+        &[],
+    )
+    .await
+    .err()
+    .unwrap();
+    assert_eq!(too_many, "BROKER_CHART_INVALID_WINDOW");
+    // 180 inclusive calendar days is accepted; day181 fails before any fetch.
+    source.0.calls.lock().unwrap().clear();
+    let accepted = collect_broker_chart_period(
+        &source,
+        BrokerChartBroker::Toss,
+        30,
+        Some("2025-07-06"),
+        "2026-01-01",
+        "2026-01-02T12:00:00Z",
+        &[],
+    )
+    .await
+    .unwrap();
+    assert!(!accepted.input.evaluation.is_empty());
+    assert!(!source.0.calls.lock().unwrap().is_empty());
+    source.0.calls.lock().unwrap().clear();
+    let rejected = collect_broker_chart_period(
+        &source,
+        BrokerChartBroker::Toss,
+        30,
+        Some("2025-07-05"),
+        "2026-01-01",
+        "2026-01-02T12:00:00Z",
+        &[],
+    )
+    .await
+    .err()
+    .unwrap();
+    assert_eq!(rejected, "BROKER_CHART_INVALID_RANGE");
+    assert!(source.0.calls.lock().unwrap().is_empty());
 }

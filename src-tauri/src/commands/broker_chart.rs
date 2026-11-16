@@ -17,8 +17,23 @@ use std::sync::Arc;
 fn error(code: &str) -> CmdError {
     CmdError {
         code: code.into(),
-        message: "브로커 차트 근사 작업이 보류되었습니다. 자료·프로필·동의 상태를 확인하세요."
-            .into(),
+        message: match code {
+            "BROKER_CHART_INVALID_START" | "BROKER_CHART_INVALID_END" =>
+                "조회 시작일·종료일을 실제 날짜 YYYY-MM-DD 형식으로 입력하세요.",
+            "BROKER_CHART_INVALID_RANGE" =>
+                "시작일은 종료일 이하여야 하며 달력 범위는 최대180일입니다.",
+            "BROKER_CHART_INVALID_WINDOW" =>
+                "평가 기간은 관측 거래일 기준1~120일이어야 합니다.",
+            "BROKER_CHART_UNFINISHED_DAY" =>
+                "아직 완료되지 않은 뉴욕 당일 또는 미래 날짜는 조회할 수 없습니다. 뉴욕 전일 이하로 선택하세요.",
+            "BROKER_CHART_EMPTY_EVALUATION" =>
+                "선택한 기간에 관측된 평가 거래일이 없습니다. 휴장일 또는 자료 누락 여부를 확인하세요.",
+            "BROKER_CHART_INSUFFICIENT_HISTORY" | "BROKER_CHART_INSUFFICIENT_SPY_HISTORY" =>
+                "평가 기간과 시작일 이전22거래일 자료가 부족합니다. 기간을 줄이거나 공급원 자료 범위를 확인하세요. 누락 가격은 임의로 채우지 않습니다.",
+            code if code.starts_with("BROKER_CHART_SESSION_GAP:") =>
+                "SPY 기준 날짜에 일부 ETF 자료가 없습니다. 누락일을 제외해 성과를 축소하지 않고 계산을 보류합니다.",
+            _ => "브로커 차트 근사 작업이 보류되었습니다. 자료·프로필·동의 상태를 확인하세요.",
+        }.into(),
     }
 }
 
@@ -150,10 +165,11 @@ pub async fn collect_broker_chart_data(
     };
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(180),
-        collect_broker_chart(
+        collect_broker_chart_period(
             &source,
             broker,
             input.evaluation_bars,
+            input.start_date.as_deref(),
             &end,
             &now.to_rfc3339(),
             &input.exchange_mappings,

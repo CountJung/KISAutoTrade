@@ -684,3 +684,13 @@ CI54(553/4)는 실제 입력·backdrop hit와 저장 중 focus를 구분하는 �
 - Graphify refresh/check·project-map·diff PASS. Graphify 비코드 설정6개 zero-node/HTML 크기 skip의 기존 도구 한계는 유지한다. 코드/mock 완료를 실제 거래나 모든 임시휴장·모든 전략 DST 대응으로 확대하지 않으며 [후속 검증](pending.md#p1-session-01-runtime)은 별도로 대기한다.
 
 - 포맷: 변경8개 파일의 `rustfmt --check --config skip_children=true` PASS. 전체 cargo fmt 검사는 기존 비관련 broker_chart/provider.rs·sector_portfolio.rs 포맷 때문에 실패했으며 해당 사용자/기존 영역을 수정하지 않았다. 전체 fmt 통과로 주장하지 않는다.
+
+
+<a id="p2-sector-01-period"></a>
+## P2-SECTOR-01 — 2026-11-16 과거 평가기간 선택·수집
+
+- 외장 Mac의 `fix/mac-security-storage-2026-10-06`, 시작 HEAD `c6c2e5b`에서 기존 차트가격 근사 수집을 확장했다. 새 전략·앱을 복제하지 않고 최근5/20/30거래일, 뉴욕 기준 지난주(월~일)·최근1개월·직접 시작/종료일을 제공한다. 날짜 정의와 사용자 절차는 [가이드](user-guide.md#섹터-etf-기본방어공격-비교), `startDate` 우선·최대180일/평가120봉·사전22봉 계약은 [IPC 정본](ipc-commands.md#브로커-차트-가격수익률-근사)에 둔다.
+- 기간/날짜 변경의 재동의와 이전 조건 응답 폐기, 기존 독립 입력/결과 보존을 유지했다. 준비봉 부족·빈 평가창·누락/잘못된 날짜는 평가를 만들지 않으며 요청 기간과 수신 SPY 실제 평가범위가 다른 점을 진단으로 표시한다. 휴장일·특별휴장 완전성이나 배당/분할 정산 검증으로 확대하지 않는다.
+- 로컬 검증: `cargo check --locked`, TypeScript, 웹 production build, FSD, Graphify freshness 통과. Rust `broker_chart` 합성36건 통과 후180/181일·120/121봉 경계 회귀를 보강하고 `broker_chart_period`5건을 최종 재실행해 모두 통과했다. 두 실행에는 겹치는 테스트가 있어41개 고유 테스트로 합산하지 않는다. `cargo check --locked`의 compiler 경고는0개였다. Playwright 순수기간2건과 native 브리지 모사 UI3건, 합계5건 통과했다. 기본 Chromium의 Mach port 권한 오류 후 승인된 재실행이 성공했으며 실제 인증 시세를 호출하지 않았다.
+- 독립 diff 리뷰에서 차단 결함은 없었고 기간 상한 회귀·필수 종료일 문구를 보강했다. Hermes 리뷰는 인증 도메인 네트워크 정책 차단으로 수행하지 못했다. Graphify의 기존 설정6개 zero-node/HTML 크기 skip, npm 외부 http-proxy 설정 및 runner NO_COLOR 경고는 코드 compiler 경고와 구분한다.
+- native bundle 명령은 의도치 않은 전체 빌드가 시작되어 dependency compile 단계에서 중지했다. 설치·실행·배포는 하지 않았으며 웹 빌드 통과를 native 앱 검증으로 부르지 않는다. 실제 KIS/Toss 데이터·기간 coverage·조정/기업행위·native IPC와 원격 CI는 이번 로컬 완료 범위 밖이다. 정확 원장 재현과 손실매도 정책은 [대기 정본](pending.md)을 유지한다.

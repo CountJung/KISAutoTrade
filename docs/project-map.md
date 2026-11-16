@@ -608,6 +608,7 @@ KISAutoTrade/
 │   │   │   └── index.ts
 │   │   ├── sector-portfolio/
 │   │   │   ├── model/
+│   │   │   │   ├── backtestPeriod.ts
 │   │   │   │   ├── brokerChartInput.ts
 │   │   │   │   ├── sectorDataPreparation.ts
 │   │   │   │   └── sectorPortfolioInput.ts
@@ -1153,6 +1154,7 @@ KISAutoTrade/
 │       │   ├── simulationNativeFixture.ts
 │       │   ├── strategyResearchFixture.ts
 │       │   └── uxReviewFixture.ts
+│       ├── backtest-period.spec.ts
 │       ├── balance-events.spec.ts
 │       ├── broker-chart-native.spec.ts
 │       ├── broker-chart-portfolio.spec.ts

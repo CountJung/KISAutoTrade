@@ -2910,7 +2910,7 @@
     "semantic_hash": ""
   },
   "src-tauri/src/trading/sector_portfolio.rs": {
-    "mtime": 1794655341.4700937,
+    "mtime": 1794812800.9042413,
     "ast_hash": "0c3f188f55ae19861fba0ac91b264cdc",
     "semantic_hash": ""
   },
@@ -3190,23 +3190,23 @@
     "semantic_hash": ""
   },
   "src-tauri/src/commands/broker_chart.rs": {
-    "mtime": 1794023223.2958899,
-    "ast_hash": "279b775ccb662e7618da784e31b067a0",
+    "mtime": 1794812730.4949563,
+    "ast_hash": "448b7abe46ede0d62b72643924892200",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/broker_chart.rs": {
-    "mtime": 1794120075.432308,
-    "ast_hash": "c7b2ac892f09c689c6c6c5afbff0eefa",
+    "mtime": 1794812654.5591438,
+    "ast_hash": "f4739beb76a2aa262bd122a0ffff59c2",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/broker_chart/provider.rs": {
-    "mtime": 1794120199.7207556,
+    "mtime": 1794812792.0563765,
     "ast_hash": "f9af0c0695c01a6ea51346c5a6878590",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/broker_chart/tests.rs": {
-    "mtime": 1794116879.8219113,
-    "ast_hash": "806f985ba8a2768efff368baa03390ea",
+    "mtime": 1794812694.6124399,
+    "ast_hash": "dc82f2aacb95028e42d0084f10c3bb07",
     "semantic_hash": ""
   },
   "src-tauri/src/trading/sector_portfolio/price_research.rs": {
@@ -3240,8 +3240,8 @@
     "semantic_hash": ""
   },
   "src/shared/api/brokerChartTypes.ts": {
-    "mtime": 1794116720.1706839,
-    "ast_hash": "99446e618710449bd639d6b92cbf4ca1",
+    "mtime": 1794812651.7437513,
+    "ast_hash": "88d6318b5e052ae87cf53465f874ce32",
     "semantic_hash": ""
   },
   "src/widgets/sector-portfolio/model/brokerChartInput.ts": {
@@ -3250,13 +3250,13 @@
     "semantic_hash": ""
   },
   "src/widgets/sector-portfolio/ui/BrokerChartPortfolioPanel.tsx": {
-    "mtime": 1794023223.3687224,
-    "ast_hash": "4495f1e3ed6e125edf4c0cf6fd102570",
+    "mtime": 1794812651.745748,
+    "ast_hash": "18432640ff2aa9332f0a8bd0dc8bef50",
     "semantic_hash": ""
   },
   "tests/e2e/broker-chart-native.spec.ts": {
-    "mtime": 1794116969.6541622,
-    "ast_hash": "ebf9a1d28348c9b9a632aad90180fd98",
+    "mtime": 1794812701.3555386,
+    "ast_hash": "40457dbe4f79c69bff9a68c1b4d4a79a",
     "semantic_hash": ""
   },
   "tests/e2e/broker-chart-portfolio.spec.ts": {
@@ -3362,6 +3362,16 @@
   "src-tauri/src/trading/sector_portfolio/execution_contract/tests.rs": {
     "mtime": 1794655645.2332003,
     "ast_hash": "9aaf66db08c7f4144be652555815da25",
+    "semantic_hash": ""
+  },
+  "src/widgets/sector-portfolio/model/backtestPeriod.ts": {
+    "mtime": 1794812651.7192929,
+    "ast_hash": "583f69b36a15623b05568d57f0bccf16",
+    "semantic_hash": ""
+  },
+  "tests/e2e/backtest-period.spec.ts": {
+    "mtime": 1794812701.4086258,
+    "ast_hash": "239f4587364f2c4463cb085755ac9efe",
     "semantic_hash": ""
   }
 }

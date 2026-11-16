@@ -628,8 +628,13 @@ UI JSON은1.5MB, native 정규화 입력/REST/오프라인 CLI는2MiB 상한이�
 
 일반 native 전용 `get_broker_chart_scope()`는 명시 클릭 때 opaque profileId/provider/paper만
 반환한다. `collect_broker_chart_data({input})`는 `expectedProfileId`,
-`authenticatedQuotesAcknowledged=true`, `evaluationBars=1..120`, 선택 `endDate/exchangeMappings`를
-받는다. UI 수집은 평가20·30거래일을 선택하며 기본30봉에 사전22봉을 더한다. 기간·종료일을
+`authenticatedQuotesAcknowledged=true`, `evaluationBars`, 선택 `startDate/endDate/exchangeMappings`를
+받는다. `startDate` 생략 시 기존 `evaluationBars=1..120`으로 최근 완료봉 수를 지정한다.
+`startDate`가 있으면 `evaluationBars`를 무시하고 양끝 포함 달력 범위를 선택한다. 날짜 범위는
+최대180일·실제 관측 SPY 평가봉1..120개이며 시작 전22개 완료봉을 별도로 요구한다.
+빈 평가기간·사전봉 부족·역전/잘못된 날짜는 거부하며 범위 밖 봉으로 채우지 않는다.
+UI는5·20·30거래일(기본30), 지난주·최근1개월·직접 날짜 범위를 제공한다. 프리셋은 선택 시
+뉴욕 날짜로 고정하며 실제 기간 정의는 [사용법](user-guide.md#섹터-etf-기본방어공격-비교)을 따른다. 기간·종료일을
 변경하면 시세 조회 동의를 해제하고 이전 조건의 늦은 응답을 버린다(조건을 되돌려도 동일).
 이미 독립 입력·계산한 장부는 수집 조건만으로 지우지 않는다. 종료일 생략은 뉴욕 전일이며 실제 평가 종료는
 그 이전 수신 SPY 완료봉이다. 시세 인증/토큰 발급·갱신이 가능하지만 잔고·계좌목록·주문을
@@ -637,7 +642,7 @@ UI JSON은1.5MB, native 정규화 입력/REST/오프라인 CLI는2MiB 상한이�
 프로필 publication/동의가 바뀐 늦은 UI 수집 응답은 버리고 이미 독립 입력한 계산 결과는 보존한다.
 이 scope/수집은 REST와 연구 native에 등록하지 않는다.
 
-고정12종목을 SPY 먼저 순차 수집해 최신22+평가봉 날짜를 고정한다. 다른 ETF가 그 날짜를
+고정12종목을 SPY 먼저 순차 수집해22개 사전봉+선택한 평가봉 날짜를 고정한다. 다른 ETF가 그 날짜를
 빠뜨리면 교집합으로 숨기지 않고 전체 거부한다. 종목당 최대16페이지·페이지500행·전체180초,
 요청 사이1100ms와 기존 rate limiter를 적용한다. 수집기는 추가 재시도/거래소 탐색을 하지 않으며 기존 Toss의 transport/401 재시도는 적용된다.
 KIS는 MODP0·날짜 anchor, Toss는 `1d/count=200/adjusted=false/before`와 반환 cursor를 쓴다.

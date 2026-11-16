@@ -44,7 +44,7 @@ test('synthetic native source needs separate explicit consent, discards ABA late
   const lookup = chart.getByRole('button', { name: '차트 조회 프로필 확인', exact: true })
   const windowSelect = chart.getByRole('combobox', { name: '차트 수집 평가 거래일', exact: true })
   await expect(windowSelect).toContainText('30거래일')
-  await windowSelect.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Home'); await page.keyboard.press('Enter')
+  await windowSelect.click(); await page.getByRole('option', { name: '20거래일', exact: true }).click()
   const collect = chart.getByRole('button', { name: '차트 자료 20봉 수집', exact: true })
   const ack = chart.getByRole('checkbox', { name: '확인한 프로필의 인증 시세 조회에 동의합니다 (주문·잔고 동의 아님)', exact: true })
   await expect(collect).toBeDisabled()
@@ -143,7 +143,7 @@ test('30-session collection preserves 22 warmup bars and option ABA requires fre
   }).__windowCalls.filter(call => call.command === 'collect_broker_chart_data').length)).toBe(1)
   await expect.poll(() => page.evaluate(() => (window as unknown as { __windowHeld: boolean }).__windowHeld)).toBe(true)
   // A→B→A options must not make the original request current again.
-  await windowSelect.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Home'); await page.keyboard.press('Enter')
+  await windowSelect.click(); await page.getByRole('option', { name: '20거래일', exact: true }).click()
   await expect(ack).not.toBeChecked()
   await windowSelect.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('End'); await page.keyboard.press('Enter')
   await page.evaluate(() => (window as unknown as { __releaseWindow: () => void }).__releaseWindow())
@@ -168,5 +168,48 @@ test('30-session collection preserves 22 warmup bars and option ABA requires fre
   const evidence = JSON.parse(await readFile((await download.path())!, 'utf8'))
   expect(evidence.collection.input).toEqual(input)
   expect(evidence.input).toEqual(input)
+  expect(safe.apiCalls).toEqual([]); expect(safe.violations).toEqual([]); expect(safe.errors).toEqual([])
+})
+
+
+test('calendar presets and custom periods preserve explicit consent and reject invalid ranges', async ({ page }) => {
+  const safe = await blockUnsafe(page)
+  await page.clock.setFixedTime(new Date('2026-11-16T15:00:00Z'))
+  await page.addInitScript(() => {
+    const calls: unknown[] = []
+    Object.assign(window, { __periodCalls: calls, __TAURI_INTERNALS__: { invoke: async (command: string, args: unknown) => {
+      if (command === 'get_broker_chart_scope') return { profileId: 'fixture', provider: 'kis', paper: true }
+      if (command === 'collect_broker_chart_data') { calls.push(args); throw new Error('합성 자료 부족 · 실제 API 없음') }
+      throw new Error('허용되지 않은 요청')
+    } } })
+  })
+  await page.goto('/tests/e2e/fixtures/brokerChartHarness.html')
+  await page.getByRole('tab', { name: '세 전략 비교', exact: true }).click()
+  await page.getByRole('combobox', { name: '비교 방식', exact: true }).click()
+  await page.getByRole('option', { name: '차트 가격수익률 근사', exact: true }).click()
+  const chart = page.getByTestId('broker-chart-panel')
+  const select = chart.getByRole('combobox', { name: '과거 평가 기간', exact: true })
+  const ack = chart.getByRole('checkbox', { name: '확인한 프로필의 인증 시세 조회에 동의합니다 (주문·잔고 동의 아님)', exact: true })
+  await chart.getByRole('button', { name: '차트 조회 프로필 확인', exact: true }).click()
+  await ack.check()
+  await select.click(); await page.getByRole('option', { name: '지난주 (월~일)', exact: true }).click()
+  await expect(ack).not.toBeChecked()
+  await expect(chart.getByLabel('차트 조회 시작일', { exact: true })).toHaveValue('2026-11-09')
+  await expect(chart.getByLabel('차트 조회 종료일', { exact: true })).toHaveValue('2026-11-15')
+  await ack.check(); await chart.getByRole('button', { name: '지정 기간 차트 자료 수집', exact: true }).click()
+  await expect(chart).toContainText('합성 자료 부족')
+  expect(await page.evaluate(() => (window as unknown as { __periodCalls: unknown[] }).__periodCalls)).toEqual([
+    { input: { expectedProfileId: 'fixture', authenticatedQuotesAcknowledged: true, evaluationBars: 30, startDate: '2026-11-09', endDate: '2026-11-15' } },
+  ])
+  await select.click(); await page.getByRole('option', { name: '최근 1개월 (달력)', exact: true }).click()
+  await expect(chart.getByLabel('차트 조회 시작일', { exact: true })).toHaveValue('2026-10-16')
+  await select.click(); await page.getByRole('option', { name: '시작·종료일 직접 지정', exact: true }).click()
+  await chart.getByLabel('차트 조회 시작일', { exact: true }).fill('2026-02-30')
+  await expect(chart).toContainText('시작일과 종료일을 실제')
+  await expect(chart.getByRole('button', { name: '지정 기간 차트 자료 수집', exact: true })).toBeDisabled()
+  await chart.getByLabel('차트 조회 시작일', { exact: true }).fill('2026-12-01')
+  await expect(chart).toContainText('시작일은 종료일보다 늦을 수 없습니다')
+  await page.setViewportSize({ width: 375, height: 900 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   expect(safe.apiCalls).toEqual([]); expect(safe.violations).toEqual([]); expect(safe.errors).toEqual([])
 })

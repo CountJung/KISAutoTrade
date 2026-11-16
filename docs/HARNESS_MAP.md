@@ -421,6 +421,10 @@ runtime의 자동API0 관측을 혼합하지 않는다. 실제 계좌·KIS·운�
 내보내기·375px를 production preview에서, `broker-chart-native.spec.ts`는 명시 시세 동의·
 프로필 ABA 늦은 응답을 source-harness의 브라우저 native 모사에서 검사한다.
 브라우저 native모사/스크린샷과 실제 OS native 화면·IPC를 구분한다.
+`backtest-period.spec.ts`는 뉴욕 기준 주/월·연도/DST/말일 경계와 날짜 검증을 순수 함수로,
+`broker-chart-native.spec.ts`는5봉·날짜 범위 요청/동의·입력 오류·조건 변경 후 늦은 응답 폐기를
+합성 브리지로 검사한다. Rust `broker_chart`는 범위의 사전22봉·빈 평가·누락·180일/120평가봉
+상한을 검사하며 관측 SPY 날짜를 공식 휴장 달력의 완전성 증명으로 취급하지 않는다.
 Toss raw 응답 회귀는 `broker::toss::client::response_parsing_tests`의 최종 성공 응답
 귀속과 provider 내부의 실제 Toss client→수집→직렬화 receipt 관통을 구분해 검사한다.
 후자는 같은 collection의 종목·페이지별 서로 다른 합성 wire body를 고정 SHA/길이와
