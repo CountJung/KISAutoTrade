@@ -715,3 +715,12 @@ CI54(553/4)는 실제 입력·backdrop hit와 저장 중 focus를 구분하는 �
 - `price_research/validation.rs`에 전체 원시가격 구간의 `firstDate < 2025-12-05 <= lastDate` 방어를 추가했다. 준비봉 내부 사건과 당일 봉 누락도 차단하며 첫 봉이 당일/이후 또는 전체가 이전인 입력은 다른 검증을 유지한 채 이 경계만 통과한다. 기존 `knownCorporateActions` 비어 있지 않음 거부는 유지한다. 현재 계약과 사용자 안내는 [IPC](ipc-commands.md#브로커-차트-가격수익률-근사)·[가이드](user-guide.md#섹터-etf-기본방어공격-비교)가 소유한다.
 - 검증: 수정 전 추가한2개 회귀 중1개가 실패했고1개가 통과했다. 실패는 경계를 가로지르는 입력이 오류 대신 정상 보고서를 반환하는 기존 결함을 재현한 것이다. 수정 후 `sector_portfolio`45/45(새 경계3개 포함), `cargo check` 경고0, TypeScript·웹 production build·FSD·Graphify update/check·project-map update/check·diff 검사를 통과했다. 독립 source 리뷰에서 차단 결함은 없었다. 별도 `broker_chart` 필터40/40(53.25초)도 통과했다. 앞선45건과 겹치므로85개 고유 테스트로 합산하지 않는다. CI=1 production preview의 `broker-chart-portfolio`7/7(8.3초)도 통과했다. 첫 sandbox 실행은 MachPort 제한으로 브라우저가 시작되지 않아 승인된 제한 밖 재실행을 사용했다. 이는 기존 UI mock 브리지 회귀이며 실제 native IPC 또는 새 분할 경계의 UI 통합 테스트는 아니다.
 - 실제 자료·계좌·주문을 사용하지 않았으며 strict 모드, 공급자 가격 보정/조정 의미, 기업행위 자동발견·정산과 생산 UI는 변경하지 않았다. 이 제한적 방어를 총수익 검증이나 모든 분할의 안전성 보장으로 확대하지 않는다.
+
+
+<a id="p2-sector-01-loss-baseline"></a>
+## P2-SECTOR-01 — 2026-11-18 KST 손실매도 정책 독립 baseline 회귀
+
+- 외장 Mac 시작 HEAD `1f8f148`에서 기존 부분매도·현금 한도·방어전환 회귀를 먼저 확인한 뒤 `sector_portfolio/tests.rs`에 `v1_defensive_partial_sales_preserve_fee_inclusive_loss_zero_and_profit_boundaries` 테이블 테스트1개를 추가했다. 편도10/20bp 각각 원가격 손실, 가격은 이익이지만 비용 후 손실, 비용 포함 본전, 비용 후 이익의8시나리오다. 기존 생산 replay가 방어 축소 시 모든 경계에서 부분매도를 계속하는 baseline을 고정한다.
+- 매수·매도 양방향 비용을 포함한 독립 손익식, 잔여 수량·배분 매수비용·실현/미실현손익과 NAV를 대사한다. 본전 비교의 floating-point 오차 허용은 테스트 산술 오차일 뿐 미래 손실매도 방지 정책의 승인 임계값이 아니다. 기존 회귀를 새 기능으로 중복 구현하지 않았다.
+- 테스트 코드만 추가했으며 생산 기능·옵션/flag·UI·기본값·실제 원장은 변경하지 않았다. ON 정책·기본 OFF 확정·손절/수동/강제청산 우선순위·재시작 지원은 미구현/미결정 상태를 유지한다. [Rust 계획 경계](../.github/skills/rust-skills/SKILL.md#손실-매도-방지-옵션의-계획-경계)와 [정책 대기](pending.md#p2-sector-01-loss-policy)를 따른다.
+- 검증: 신규 focused 테스트 1개(8개 시나리오)와 전체 `sector_portfolio` 46/46(0.14초)이 통과했다. 신규 테스트는 전체 필터에 포함되므로 47개로 합산하지 않는다. focused 실행 및 `cargo check`의 컴파일러 경고는 0개이며 TypeScript·웹 production build·FSD·Graphify update/check·project-map check·diff·변경 범위 rustfmt 검사를 통과했다. 독립 최종 리뷰에서 차단 이슈는 없었다. UI/생산 로직 변경이 없어 브라우저를 추가 실행하지 않았으며 실제 자료·계좌·주문·native 실행 검증은 하지 않았다.

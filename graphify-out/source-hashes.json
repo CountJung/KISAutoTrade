@@ -260,7 +260,7 @@
   "src-tauri/src/trading/sector_portfolio/price_research/types.rs": "f73dfbc0ebac98c3f5f66549fe74dc45ae568f092b290e8c546f66c60e499d72",
   "src-tauri/src/trading/sector_portfolio/price_research/validation.rs": "ddde3fa7769edb741c76737ff72c443400958db3cfd3ef52bf1aa622753f8e09",
   "src-tauri/src/trading/sector_portfolio/replay.rs": "bd25299eabb839de3c3f843522e1d03e181caae2d02aab2d721ba9d590406faf",
-  "src-tauri/src/trading/sector_portfolio/tests.rs": "92d951ea017c1150cc3cb1be0de3956a11ae8ad4bd946fce4350bf2852ca2587",
+  "src-tauri/src/trading/sector_portfolio/tests.rs": "f2405eaa5195ecf7c1e0dc13005f65eebbb2b5251ad0bb0184929c36c2c30ae1",
   "src-tauri/src/trading/sector_portfolio/types.rs": "62d57fcf4b97a7b91997fd74f5a895942edfaa7a0532b5d50544a028988f3245",
   "src-tauri/src/trading/sector_portfolio/validation.rs": "3ae2ebad0457efdd45f242a443a0e12176ea5f55937ac7de524bf91b127a09c3",
   "src-tauri/src/trading/simulation.rs": "1af07518c744893fa4074ca6d138b72be2229e71f2e7e3f02b8f075f1f39c2ce",

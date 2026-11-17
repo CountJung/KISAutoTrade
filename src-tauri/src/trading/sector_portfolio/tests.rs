@@ -777,3 +777,90 @@ fn turnover_uses_daily_preopen_nav_not_initial_or_execution_nav() {
     close(spy.summary.turnover_pct, 99.0); // First buy, no fee in numerator.
     close(report.portfolios[4].summary.turnover_pct, 0.0); // No trades.
 }
+
+/// Baseline fixture for a future policy comparison, not an implementation or
+/// approval of loss-sale suppression. v1 must continue its defensive rebalance
+/// on both sides of the fee-inclusive break-even boundary.
+#[test]
+fn v1_defensive_partial_sales_preserve_fee_inclusive_loss_zero_and_profit_boundaries() {
+    for cost_bps in [10.0, 20.0] {
+        let fee = cost_bps / 10_000.0;
+        let break_even = 100.0 * (1.0 + fee) / (1.0 - fee);
+        for (case, sale_price, expected_sign) in [
+            ("raw loss", 90.0, -1),
+            ("price gain but net loss", 100.0 * (1.0 + fee), -1),
+            ("fee-inclusive break even", break_even, 0),
+            ("fee-inclusive profit", break_even + 0.25, 1),
+        ] {
+            let mut input = fixture();
+            input.cost_bps = cost_bps;
+            input.evaluation.truncate(3);
+            input.expected_session_dates.truncate(25);
+            for (index, day) in input.history.iter_mut().enumerate() {
+                day.prices.get_mut("SPY").unwrap().adjusted_close = 100.0 + index as f64 * 0.01;
+            }
+            for (index, day) in input.evaluation.iter_mut().enumerate() {
+                day.prices.get_mut("SPY").unwrap().adjusted_close = 80.0;
+                for symbol in SECTOR_SYMBOLS {
+                    let price = day.prices.get_mut(symbol).unwrap();
+                    price.open = if index == 2 { sale_price } else { 100.0 };
+                    price.close = price.open;
+                }
+            }
+            let report = preview_sector_portfolio(&input).unwrap();
+            let book = &report.portfolios[1];
+            assert_eq!(book.daily[0].plan.defensive_state, DefensiveState::Normal);
+            assert_eq!(book.daily[1].plan.defensive_state, DefensiveState::Normal);
+            assert_eq!(
+                book.daily[2].plan.defensive_state,
+                DefensiveState::Defensive
+            );
+            assert_eq!(book.trades.len(), 6, "{cost_bps}bp {case}");
+            assert_eq!(book.ending_holdings.len(), 3);
+            let mut expected_realized = 0.0;
+            for holding in &book.ending_holdings {
+                let buys: Vec<_> = book
+                    .trades
+                    .iter()
+                    .filter(|t| t.symbol == holding.symbol && t.side == "buy")
+                    .collect();
+                let sells: Vec<_> = book
+                    .trades
+                    .iter()
+                    .filter(|t| t.symbol == holding.symbol && t.side == "sell")
+                    .collect();
+                assert_eq!(buys.len(), 1);
+                assert_eq!(sells.len(), 1);
+                let (buy, sell) = (buys[0], sells[0]);
+                assert_eq!(buy.date, input.evaluation[0].date);
+                assert_eq!(sell.date, input.evaluation[2].date);
+                assert_eq!(sell.status, "filled");
+                assert!(sell.quantity > 0 && sell.quantity < buy.quantity);
+                close(buy.price_usd, 100.0);
+                close(sell.price_usd, sale_price);
+                let sold = sell.quantity as f64;
+                // Independent per-share calculation includes BOTH directions.
+                let pnl = sold * (sale_price * (1.0 - fee) - 100.0 * (1.0 + fee));
+                match expected_sign {
+                    -1 => assert!(pnl < -1e-7, "{cost_bps}bp {case}"),
+                    // Floating-point assertion tolerance only: this does not
+                    // define an acceptance threshold for a future sale policy.
+                    0 => close(pnl, 0.0),
+                    _ => assert!(pnl > 1e-7, "{cost_bps}bp {case}"),
+                }
+                expected_realized += pnl;
+                assert_eq!(holding.quantity, buy.quantity - sell.quantity);
+                close(holding.average_cost_usd, 100.0);
+                close(
+                    holding.remaining_buy_cost_usd,
+                    holding.quantity as f64 * 100.0 * fee,
+                );
+            }
+            close(book.summary.realized_pnl_usd, expected_realized);
+            close(
+                book.summary.ending_equity_usd - input.initial_cash_usd,
+                book.summary.realized_pnl_usd + book.summary.unrealized_pnl_usd,
+            );
+        }
+    }
+}
