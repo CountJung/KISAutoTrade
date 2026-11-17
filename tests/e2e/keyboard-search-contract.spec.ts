@@ -11,6 +11,7 @@ async function setup(page: Page, broker: 'kis' | 'toss') {
 }
 async function usInput(page: Page, surface: Surface): Promise<Locator> {
   await page.goto(surface === 'Trading' ? '/trading' : '/strategy')
+  await states.get(page)!.ready()
   if (surface === 'LTH') {
     const card = page.getByTestId('strategy-card-grid').filter({ hasText: 'LeveragedTrendHoldStrategy' })
     const input = card.getByRole('textbox', { name: 'ETF 티커', exact: true })
@@ -55,6 +56,7 @@ for (const broker of ['kis', 'toss'] as const) {
   test(`P2-KBD-01 ${label} contract Trading KR Enter uses the search path and preserves direct code and button keys`, async ({ page }) => {
     const state = await setup(page, broker)
     await page.goto('/trading')
+    await state.ready()
     const input = page.getByRole('textbox', { name: '6자리 종목코드 (예: 005930, 0005A0)', exact: true })
     await expect(page.getByLabel('현재 broker scope').first().getByText(broker === 'kis' ? 'KIS' : 'Toss', { exact: true })).toBeVisible()
     await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
@@ -143,6 +145,7 @@ for (const broker of ['kis', 'toss'] as const) for (const surface of ['Strategy'
   test(`P2-KBD-01 ${broker.toUpperCase()} contract ${surface} KR Enter starts a name query before auto debounce and ignores IME without duplicate reads`, async ({ page }) => {
     const state = await setup(page, broker)
     await page.goto('/strategy')
+    await state.ready()
     const card = page.getByTestId('strategy-card-grid').filter({ hasText: 'LeveragedTrendHoldStrategy' })
     await expect(card.getByRole('textbox', { name: 'ETF 티커', exact: true })).toBeVisible()
     if (surface === 'LTH') await card.getByRole('button', { name: '국내', exact: true }).click()
@@ -173,11 +176,13 @@ for (const broker of ['kis', 'toss'] as const) for (const surface of ['Strategy'
       await input.dispatchEvent('compositionend', { data: enterTerm })
     }
     const frozenAt = await page.evaluate(() => Date.now())
+    const response = state.waitForRead(`/api/search/${encodeURIComponent(enterTerm)}`)
     await input.press('Enter')
     state.notes.push({ surface, stage: 'normal-KR-Enter-clock-frozen-before-auto', frozenAt })
     // Playwright's real-time poll leaves browser time frozen: baseline's auto250 cannot satisfy this.
     await expect.poll(() => state.audit.counts.get(`/api/search/${encodeURIComponent(enterTerm)}`) ?? 0).toBe(1)
     expect(await page.evaluate(() => Date.now())).toBe(frozenAt)
+    await response // Finish the real HTTP read before advancing the notification clock.
     await page.clock.runFor(300)
     expect(state.audit.counts.get(`/api/search/${encodeURIComponent(enterTerm)}`)).toBe(1)
     state.notes.push({ surface, stage: 'after-original-auto-debounce', nameReads: state.audit.counts.get(`/api/search/${encodeURIComponent(enterTerm)}`) })

@@ -34,6 +34,8 @@ export interface AutoTradingBudgetView {
 }
 
 export interface UpdateAutoTradingBudgetInput extends AutoTradingBudgetInput {
+  expectedProfileId: string
+  expectedIsPaper: boolean
   krwAmount: number
   usdAmount: number
 }
@@ -983,3 +985,7 @@ export * from './databaseTypes'
 export * from './strategyResearchTypes'
 
 export type { BudgetRecoveryItem, BudgetRecoveryView, ApproveBudgetRecoveryInput } from './budgetRecoveryTypes'
+
+export * from './sectorPortfolioTypes'
+export * from './sectorDataTypes'
+export * from './brokerChartTypes'

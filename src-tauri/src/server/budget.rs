@@ -1,6 +1,7 @@
 use super::*;
 use crate::commands::{
-    budget_error, checked_budget_scope, AutoTradingBudgetInput, UpdateAutoTradingBudgetInput,
+    budget_error, checked_budget_scope, checked_budget_update_scope, AutoTradingBudgetInput,
+    UpdateAutoTradingBudgetInput,
 };
 
 pub(super) async fn budget_handler(
@@ -35,8 +36,7 @@ pub(super) async fn update_budget_handler(
                 message: "자동매매를 정지한 후 예산을 변경하세요.".into(),
             });
         }
-        let scope =
-            checked_budget_scope(&s.profiles, input.broker_id, &input.broker_account_id).await?;
+        let scope = checked_budget_update_scope(&s.profiles, &input).await?;
         s.order_manager
             .lock()
             .await

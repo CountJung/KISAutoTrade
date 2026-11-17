@@ -28,6 +28,18 @@ pub(super) fn build_router(state: ServerState) -> Router {
             "/api/strategy/leveraged-trend-hold/preview",
             post(leveraged_trend_hold_preview_handler),
         )
+        .route(
+            "/api/strategy/leveraged-trend-hold/research/reserve",
+            post(lth_research_reserve_handler),
+        )
+        .route(
+            "/api/strategy/leveraged-trend-hold/research/run",
+            post(lth_research_run_handler),
+        )
+        .route(
+            "/api/strategy/leveraged-trend-hold/research/cancel",
+            post(lth_research_cancel_handler),
+        )
         .route("/api/positions", get(positions_handler))
         .route("/api/price/{symbol}", get(price_handler))
         .route(
@@ -78,6 +90,18 @@ pub(super) fn build_router(state: ServerState) -> Router {
         .route("/api/strategies", get(strategies_handler))
         .route("/api/strategies/{id}", post(update_strategy_handler))
         .route("/api/strategy/preview", post(strategy_preview_handler))
+        .route(
+            "/api/strategy/sector-portfolio/preview",
+            post(sector_portfolio::preview_handler),
+        )
+        .route(
+            "/api/strategy/broker-chart/preview",
+            post(sector_portfolio::broker_chart_preview_handler),
+        )
+        .route(
+            "/api/strategy/sector-data/validate",
+            post(sector_data::validate_handler),
+        )
         .route(
             "/api/strategy/preview/continuous",
             post(strategy_continuous_preview_handler),

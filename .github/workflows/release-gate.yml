@@ -44,6 +44,7 @@ jobs:
           workspaces: './src-tauri -> target'
       - run: cargo metadata --locked --format-version 1 --no-deps > /dev/null
       - run: cargo check --workspace --all-targets --locked
+      - run: cargo check --workspace --all-targets --features research-only --locked
       - run: cargo test --workspace --lib --locked
 
   e2e:

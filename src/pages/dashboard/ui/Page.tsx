@@ -1,3 +1,5 @@
+import { useConfirmedStartTrading, useConfirmedBuyResume, useConfirmedEmergencyRelease } from '../../../features/financial-confirmation/tradingActions'
+import { financialActionKeyDown } from '../../../features/financial-confirmation'
 import Typography from '@mui/material/Typography'
 import Grid from '@mui/material/Grid'
 import Paper from '@mui/material/Paper'
@@ -41,16 +43,13 @@ import {
   useTodayStats,
   useCheckConfig,
   useTradingStatus,
-  useStartTrading,
   useStopTrading,
   useRiskConfig,
   useUpdateRiskConfig,
-  useClearEmergencyStop,
   useActivateEmergencyStop,
   useExchangeRate,
   useExchangeRateStatus,
   useRefreshInterval,
-  useClearBuySuspension,
   KEYS,
 } from '../../../api/hooks'
 import { fmtBrokerMoney, fmtDecimalString, fmtNumber, parseDecimalString } from '../../../shared/lib'
@@ -81,7 +80,7 @@ function exchangeRateSourceLabel(source?: string) {
 function RiskPanel() {
   const { data: risk, isLoading } = useRiskConfig()
   const { mutate: update, isPending: saving } = useUpdateRiskConfig()
-  const { mutate: clearStop, isPending: clearing } = useClearEmergencyStop()
+  const { mutate: clearStop, isPending: clearing } = useConfirmedEmergencyRelease()
   const { mutate: activateStop, isPending: activating } = useActivateEmergencyStop()
 
   const [limitInput, setLimitInput]   = useState('')
@@ -119,6 +118,7 @@ function RiskPanel() {
               size="small"
               color="inherit"
               startIcon={clearing ? <CircularProgress size={14} color="inherit" /> : <LockOpenIcon />}
+              onKeyDown={financialActionKeyDown}
               onClick={() => clearStop()}
               disabled={clearing}
             >
@@ -238,7 +238,7 @@ function RiskPanel() {
           color={risk.isEmergencyStop ? 'error.main' : risk.canTrade ? 'success.main' : 'warning.main'}
         >
           {risk.isEmergencyStop
-            ? '🚫 비상정지 활성 — 자동매매 중단됨'
+            ? '🚫 비상정지 활성 — 신규 주문 차단'
             : risk.canTrade ? '✅ 거래 가능 상태' : '⚠️ 거래 불가 상태'}
         </Typography>
         {!risk.isEmergencyStop && (
@@ -361,9 +361,9 @@ export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useTodayStats({ refetchInterval: intervalMs })
   const tradingStatusQuery = useTradingStatus()
   const { data: tradingStatus } = tradingStatusQuery
-  const { mutate: startTrading, isPending: startPending } = useStartTrading()
+  const { mutate: startTrading, isPending: startPending } = useConfirmedStartTrading()
   const { mutate: stopTrading, isPending: stopPending } = useStopTrading()
-  const { mutate: clearBuySuspension, isPending: clearingBuySusp } = useClearBuySuspension()
+  const { mutate: clearBuySuspension, isPending: clearingBuySusp } = useConfirmedBuyResume()
 
   const totalBalance = parseInt(balance?.summary?.tot_evlu_amt ?? '0') || 0
   // D+2 가수도정산금액 우선 (실제 인출·매매 가능), 없으면 D+1, 없으면 D+0
@@ -488,6 +488,7 @@ export default function Dashboard() {
               color="primary"
               size="small"
               startIcon={startPending ? <CircularProgress size={16} /> : <PlayArrowIcon />}
+              onKeyDown={financialActionKeyDown}
               onClick={() => startTrading()}
               disabled={startPending || !configReady}
             >
@@ -517,6 +518,7 @@ export default function Dashboard() {
             <Button
               size="small"
               color="inherit"
+              onKeyDown={financialActionKeyDown}
               onClick={() => clearBuySuspension()}
               disabled={clearingBuySusp}
               startIcon={clearingBuySusp ? <CircularProgress size={12} color="inherit" /> : undefined}

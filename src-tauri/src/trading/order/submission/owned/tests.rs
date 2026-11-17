@@ -261,7 +261,7 @@ async fn ownership_recheck_after_preparation_prevents_a_stale_sell_reservation()
 }
 
 #[tokio::test]
-async fn actual_manual_sell_refresh_excludes_strategy_owned_shares() {
+async fn actual_manual_sell_refresh_with_legacy_funded_budget_excludes_strategy_owned_shares() {
     async fn balance() -> axum::Json<serde_json::Value> {
         axum::Json(
             serde_json::json!({"rt_cd":"0","msg_cd":"0","msg1":"synthetic holdings",
@@ -295,6 +295,19 @@ async fn actual_manual_sell_refresh_excludes_strategy_owned_shares() {
     };
     {
         let mut manager = f.manager.lock().await;
+        manager
+            .update_auto_trading_budget(&run.broker_scope, 1000, 500)
+            .await
+            .unwrap();
+        let budget: serde_json::Value = serde_json::from_slice(
+            &tokio::fs::read(manager.pending_order_store.budget_path())
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(budget["accounts"][0].get("is_paper").is_none());
+        // Force the production budget_owned path to read the pre-upgrade schema.
+        manager.budget = None;
         let mut ledger = manager.load_ownership_ledger().await.unwrap();
         ledger
             .apply_cumulative(&OwnershipFill {
@@ -324,6 +337,7 @@ async fn actual_manual_sell_refresh_excludes_strategy_owned_shares() {
     .await
     .unwrap();
     assert!(matches!(outcome, SubmissionOutcome::Submitted { .. }));
+    assert_eq!(requests.lock().await.len(), 1);
     assert_eq!(requests.lock().await[0]["ORD_QTY"], "10");
     let mut manager = f.manager.lock().await;
     assert!(manager.pending["owned-order-1"].ownership_key.is_none());

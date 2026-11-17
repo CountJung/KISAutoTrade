@@ -31,9 +31,14 @@ export function useAppConfig(
 }
 
 // ─── 잔고 ──────────────────────────────────────────────────────────
-const holdingsPrefixes = [KEYS.balance, KEYS.overseasBalance, KEYS.brokerHoldings] as const
+const holdingsPrefixes = [KEYS.balance, KEYS.overseasBalance, KEYS.brokerHoldings,
+  ['autoTradingBudget'], ['budgetRecovery']] as const
 const profileMutationKey = ['account-profile-publication'] as const
 const profileMutationScope = { id: 'account-profile-publication' }
+
+export function useAccountPublicationPending() {
+  return useIsMutating({ mutationKey: profileMutationKey }) > 0
+}
 
 function trustedAccountConfig(qc: QueryClient) {
   const state = qc.getQueryState<AppConfigView>(KEYS.appConfig)
@@ -55,11 +60,11 @@ async function resetAccountHoldings(qc: QueryClient) {
     // Also evict a completed response from the server-switch/UI-response gap, so
     // returning to an earlier account cannot reuse another account's cached data.
     qc.removeQueries({ queryKey: prefix, predicate: (query) =>
-      query.queryKey.length !== prefix.length + scope.length ||
-      scope.some((value, index) => query.queryKey[prefix.length + index] !== value),
+      query.queryKey.length < prefix.length + scope.length ||
+      scope.some((value, index) => query.queryKey[query.queryKey.length - scope.length + index] !== value),
     })
   }
-  await Promise.all(holdingsPrefixes.map((prefix) => qc.invalidateQueries({ queryKey: [...prefix, ...scope] })))
+  await Promise.all(holdingsPrefixes.map((prefix) => qc.invalidateQueries({ queryKey: prefix })))
 }
 
 class AccountConfigRefreshError extends Error {
@@ -71,7 +76,7 @@ class AccountConfigRefreshError extends Error {
 
 /** Server mutations without an AppConfig response leave the old config untrusted
  * immediately, and propagate a refresh failure instead of accepting stale data. */
-async function refreshAccountConfig(qc: QueryClient) {
+export async function refreshAccountConfig(qc: QueryClient) {
   const cancelled = qc.cancelQueries({ queryKey: KEYS.appConfig })
   void qc.invalidateQueries({ queryKey: KEYS.appConfig, refetchType: 'none' })
   const holdings = resetAccountHoldings(qc)
@@ -98,27 +103,30 @@ async function reconcileRejectedProfileMutation(qc: QueryClient, error: unknown)
   }
 }
 
-function useScopedAccountQuery<T>(
-  prefix: readonly string[],
+export function useScopedAccountQuery<T>(
+  prefix: readonly unknown[],
   fetch: () => Promise<T>,
   options?: Partial<UseQueryOptions<T>>,
 ) {
   const configQuery = useAppConfig()
   const qc = useQueryClient()
-  const mutations = useIsMutating({ mutationKey: profileMutationKey })
-  const ready = configQuery.isSuccess && !configQuery.isFetching && !configQuery.isStale && mutations === 0
+  const publishing = useAccountPublicationPending()
+  const ready = configQuery.isSuccess && !configQuery.isFetching && !configQuery.isStale && !publishing
   const config = ready ? configQuery.data : undefined
   const scope = accountScope(config)
+  // A successful config read starts a new publication, including same-scope
+  // recovery. Never restore pre-failure money until that publication reads it.
+  const publication = qc.getQueryState(KEYS.appConfig)?.dataUpdateCount ?? 0
   const scopeMatches = () => {
     const current = trustedAccountConfig(qc)
-    return !!config && !!current && qc.isMutating({ mutationKey: profileMutationKey }) === 0 &&
+    return !!config && !!current && qc.getQueryState(KEYS.appConfig)?.dataUpdateCount === publication && qc.isMutating({ mutationKey: profileMutationKey }) === 0 &&
       scope.every((value, index) => value === accountScope(current)[index])
   }
   const result = useQuery({
     staleTime: 30_000,
     refetchInterval: POLL_INTERVALS.SLOW,
     ...options,
-    queryKey: [...prefix, ...scope],
+    queryKey: [...prefix, publication, ...scope],
     queryFn: async () => {
       if (!scopeMatches()) throw new Error('계좌가 변경되었습니다. 현재 계좌의 잔고를 다시 조회합니다.')
       const result = await fetch()

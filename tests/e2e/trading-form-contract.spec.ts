@@ -1,20 +1,51 @@
 import { expect, test, type Page } from '@playwright/test'
+import { isDeepStrictEqual } from 'node:util'
 import { mockApi } from './fixtures/strategyResearchFixture'
+
+type OrderContract = { origin: string; method: string; path: string; query: string; input: Record<string, unknown> }
+const contracts = new WeakMap<Page, { expected: OrderContract[]; actual: OrderContract[]; denied: string[] }>()
+test.afterEach(async ({ page }) => {
+  const contract = contracts.get(page)
+  if (!contract) return
+  expect(contract.actual).toEqual(contract.expected)
+  expect(contract.denied).toEqual([])
+})
 
 async function setup(page: Page, broker: 'kis' | 'toss' = 'kis') {
   const orders: Array<{ path: string; input: Record<string, unknown> }> = []
-  const control = { canSubmit: false, failNext: false }
+  const origin = new URL(String(test.info().project.use.baseURL)).origin
+  const contract = { expected: [] as OrderContract[], actual: [] as OrderContract[], denied: [] as string[] }
+  contracts.set(page, contract)
+  const control = { canSubmit: false, failNext: false,
+    allow: (...requests: Array<{ path: string; input: Record<string, unknown> }>) => {
+      expect(orders).toEqual([])
+      contract.expected = requests.map(request => ({ ...request, origin, method: 'POST', query: '' }))
+    },
+  }
   await mockApi(page, { activeBroker: broker, appConfigOverride: { kis_is_paper_trading: broker === 'kis' } })
   await page.route('**/api/**', async route => {
-    const path = new URL(route.request().url()).pathname
+    const request = route.request(), url = new URL(request.url()), path = url.pathname
     if (!path.startsWith('/api/')) return route.fallback()
     if (path === '/api/order' || path === '/api/overseas-order') {
-      orders.push({ path, input: route.request().postDataJSON() })
+      let input: Record<string, unknown>
+      try { input = request.postDataJSON() } catch { input = { malformedBody: request.postData() } }
+      const observed = { origin: url.origin, method: request.method(), path, query: url.search, input }
+      if (!isDeepStrictEqual(observed, contract.expected[orders.length])) {
+        contract.denied.push(request.method() + ' ' + url.href)
+        return route.fulfill({ status: 403, json: { code: 'UNEXPECTED_ORDER', message: 'Synthetic order contract denied request' } })
+      }
+      contract.actual.push(observed)
+      orders.push({ path, input })
       if (control.failNext) {
         control.failNext = false
         return route.fulfill({ status: 400, json: { code: 'MOCK_REJECT', message: '합성 주문 거절' } })
       }
       return route.fulfill({ json: { odno: 'MOCK-ONLY', ord_tmd: '120000', krx_fwdg_ord_orgno: 'MOCK' } })
+    }
+    if (url.origin !== origin || (request.method() !== 'GET'
+      && !['/api/toss-open-orders', '/api/toss-order-preflight'].includes(path))) {
+      contract.denied.push(request.method() + ' ' + url.href)
+      return route.fulfill({ status: 403, json: { code: 'UNEXPECTED_MUTATION', message: 'Synthetic fixture denies writes' } })
     }
     if (path.startsWith('/api/overseas-chart/')) return route.fulfill({ json: [] })
     if (path.startsWith('/api/price/')) return route.fulfill({ json: { stck_prpr: '10000', hts_kor_isnm: '합성 종목', prdy_vrss: '0', prdy_ctrt: '0', acml_vol: '100' } })
@@ -43,6 +74,7 @@ const quantity = (page: Page) => page.getByRole('textbox', { name: '주문수량
 
 test('KIS domestic limit validates quantity, keeps rejection draft and clears after mock success', async ({ page }) => {
   const { orders, control } = await setup(page)
+  control.allow(...Array(2).fill({ path: '/api/order', input: { symbol: '0005A0', side: 'Buy', order_type: 'Limit', quantity: 2, price: 10000 } }))
   await page.goto('/trading')
   await domestic(page).fill('0005A0')
   const submit = page.getByRole('button', { name: '매수 주문', exact: true })
@@ -54,28 +86,37 @@ test('KIS domestic limit validates quantity, keeps rejection draft and clears af
   await expect(page.getByRole('textbox', { name: '주문가격', exact: true })).toHaveValue('10000')
   control.failNext = true
   await submit.click()
+  expect(orders).toHaveLength(0)
+  await page.getByRole('button', { name: '최종 확인', exact: true }).click()
   await expect(page.getByText('합성 주문 거절', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '닫기', exact: true }).click()
   await expect(quantity(page)).toHaveValue('2')
   await submit.click()
+  expect(orders).toHaveLength(1)
+  await page.getByRole('button', { name: '최종 확인', exact: true }).click()
   await expect(page.getByText('주문 완료 — 주문번호: MOCK-ONLY', { exact: true })).toBeVisible()
   expect(orders.map(o => o.input)).toEqual(Array(2).fill({ symbol: '0005A0', side: 'Buy', order_type: 'Limit', quantity: 2, price: 10000 }))
   await expect(quantity(page)).toHaveValue('')
 })
 
 test('KIS domestic market order retains zero price contract', async ({ page }) => {
-  const { orders } = await setup(page)
+  const { orders, control } = await setup(page)
+  control.allow({ path: '/api/order', input: { symbol: '005930', side: 'Buy', order_type: 'Market', quantity: 3, price: 0 } })
   await page.goto('/trading')
   await domestic(page).fill('005930')
   await page.getByRole('button', { name: '시장가', exact: true }).click()
   await expect(page.getByRole('textbox', { name: '주문가격', exact: true })).toHaveCount(0)
   await quantity(page).fill('3')
   await page.getByRole('button', { name: '매수 주문', exact: true }).click()
+  expect(orders).toHaveLength(0)
+  await page.getByRole('button', { name: '최종 확인', exact: true }).click()
   await expect(page.getByText('주문 완료 — 주문번호: MOCK-ONLY', { exact: true })).toBeVisible()
-  expect(orders[0]).toEqual({ path: '/api/order', input: { symbol: '005930', side: 'Buy', order_type: 'Market', quantity: 3, price: 0 } })
+  expect(orders).toEqual([{ path: '/api/order', input: { symbol: '005930', side: 'Buy', order_type: 'Market', quantity: 3, price: 0 } }])
 })
 
 test('KIS US maps exchange and keeps paper sell restriction', async ({ page }) => {
-  const { orders } = await setup(page)
+  const { orders, control } = await setup(page)
+  control.allow({ path: '/api/overseas-order', input: { symbol: 'AAPL', exchange: 'NASD', side: 'Buy', quantity: 2, price: 100.25 } })
   await page.goto('/trading')
   await page.getByRole('button', { name: '미국', exact: true }).click()
   const ticker = page.getByRole('textbox', { name: '티커 (AAPL, TSLA …)' })
@@ -84,8 +125,10 @@ test('KIS US maps exchange and keeps paper sell restriction', async ({ page }) =
   await page.getByRole('button', { name: '현재가', exact: true }).click()
   await quantity(page).fill('2')
   await page.getByRole('button', { name: '매수 주문 (USD 지정가)', exact: true }).click()
+  expect(orders).toHaveLength(0)
+  await page.getByRole('button', { name: '최종 확인', exact: true }).click()
   await expect(page.getByText('주문 완료 — 주문번호: MOCK-ONLY', { exact: true })).toBeVisible()
-  expect(orders[0]).toEqual({ path: '/api/overseas-order', input: { symbol: 'AAPL', exchange: 'NASD', side: 'Buy', quantity: 2, price: 100.25 } })
+  expect(orders).toEqual([{ path: '/api/overseas-order', input: { symbol: 'AAPL', exchange: 'NASD', side: 'Buy', quantity: 2, price: 100.25 } }])
   await ticker.fill('SPY')
   await ticker.press('Enter')
   await page.getByRole('button', { name: '매도', exact: true }).click()
@@ -95,6 +138,7 @@ test('KIS US maps exchange and keeps paper sell restriction', async ({ page }) =
 
 test('Toss preflight blocks submission, closed explicit session blocks, auto preserves mock payload', async ({ page }) => {
   const { orders, control } = await setup(page, 'toss')
+  control.allow({ path: '/api/order', input: { symbol: 'AAPL', side: 'Buy', order_type: 'Limit', quantity: 2, price: 100.25, toss_session: 'auto' } })
   await page.goto('/trading')
   await page.getByRole('button', { name: '미국', exact: true }).click()
   const ticker = page.getByRole('textbox', { name: '티커 (AAPL, TSLA …)' })
@@ -114,13 +158,16 @@ test('Toss preflight blocks submission, closed explicit session blocks, auto pre
   expect(orders).toHaveLength(0)
   await page.getByRole('button', { name: '자동', exact: true }).click()
   await submit.click()
+  expect(orders).toHaveLength(0)
+  await page.getByRole('button', { name: '최종 확인', exact: true }).click()
   await expect(page.getByText('Toss 주문 완료 — 주문번호: MOCK-ONLY')).toBeVisible()
-  expect(orders[0]).toEqual({ path: '/api/order', input: { symbol: 'AAPL', side: 'Buy', order_type: 'Limit', quantity: 2, price: 100.25, toss_session: 'auto' } })
+  expect(orders).toEqual([{ path: '/api/order', input: { symbol: 'AAPL', side: 'Buy', order_type: 'Limit', quantity: 2, price: 100.25, toss_session: 'auto' } }])
 })
 
 test('market switch clears draft and mobile form remains inside viewport', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 })
-  await setup(page)
+  const { control } = await setup(page)
+  control.allow()
   await page.goto('/trading')
   await domestic(page).fill('005930')
   await quantity(page).fill('2')

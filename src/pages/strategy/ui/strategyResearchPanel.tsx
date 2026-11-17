@@ -57,7 +57,7 @@ import { DeviationPolicySummary } from './deviationControls'
 import { MomentumEntrySummary } from './momentumEntryControls'
 import { ConsecutiveEntrySummary } from './consecutiveEntryControls'
 import { ConsecutiveEntryPreparation } from './consecutiveEntryPreparation'
-import { LthMinuteTimingPanel, lthTimingComparisonKey } from './lthMinuteTimingPanel'
+import { LthMinuteTimingPanel, lthTimingComparisonKey, hasLthExecutionEvidence, hasLthExecutionClock } from './lthMinuteTimingPanel'
 import { fmtRoundedKrw as fmtMoney } from '../../../shared/lib/formatters'
 
 export function defaultSimulationAssumptions(isOverseas: boolean): SimulationAssumptions {
@@ -418,6 +418,11 @@ export function StrategyResearchResults({
       && slots.A.replay.assessment?.model === slots.B.replay.assessment?.model
     : true
   const differentTiming = slots.A && slots.B && lthTimingComparisonKey(slots.A.replay.assessment?.minuteTiming) !== lthTimingComparisonKey(slots.B.replay.assessment?.minuteTiming)
+  const usEntry = Array.isArray(params.entries) && params.entries.some((entry: unknown) => !!entry && typeof entry === 'object'
+    && 'leveraged_symbol' in entry && entry.leveraged_symbol === symbol && 'is_overseas' in entry && entry.is_overseas === true)
+  const uncertainUsClock = isLeveragedReplay && replay.sourceInterval === '1m' && slots.A && slots.B
+    && (slots.A.replay.assessment?.minuteTiming?.market === 'us' || slots.B.replay.assessment?.minuteTiming?.market === 'us' || usEntry)
+    && (!hasLthExecutionEvidence(slots.A.replay.assessment?.minuteTiming) || !hasLthExecutionEvidence(slots.B.replay.assessment?.minuteTiming) || differentTiming)
   const differentExecution = slots.A && slots.B && (
     slots.A.replay.engineVersion !== slots.B.replay.engineVersion
     || slots.A.calculationMode !== slots.B.calculationMode
@@ -459,7 +464,7 @@ export function StrategyResearchResults({
               ? '유효한 분봉 관측이 없어 장중 신호·체결·투자 성과를 평가할 수 없습니다.'
               : '일봉 OHLC만으로 장중 진입·관측 횟수·청산 경로를 재현할 수 없어 수익률과 거래 성과를 계산하지 않습니다.'
             : '최대 200봉의 분봉 표본입니다. 3개월 성과를 대표하지 않으며 실제 10초 관측과 다릅니다.'}
-          {' '}시각의 시간대·DST와 거래 세션은 검증되지 않았습니다.
+          {' '}{hasLthExecutionClock(assessment.minuteTiming) ? '연구 NY 실행 clock 적용 근거는 아래와 같습니다. 실제 공급원 timestamp·발행·세션 coverage는 미검증입니다.' : '시각의 시간대·DST와 거래 세션은 검증되지 않았습니다.'}
         </Typography>
       )}
       {assessment?.limitations.map((limitation, index) => (
@@ -539,6 +544,7 @@ export function StrategyResearchResults({
         <Box sx={{ p: 1.25, border: 1, borderColor: 'divider', borderRadius: 1 }} data-testid="strategy-ab-comparison">
           <Typography variant="caption" sx={{ fontWeight: 700, display: "block", mb: 0.75  }}>저장된 A/B 실험 비교</Typography>
           {!comparable && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 데이터 source/봉/기간이 달라 직접 비교할 수 없습니다.</Alert>}
+          {uncertainUsClock && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>US LTH 분봉 실행 clock 근거가 없거나 정책·채택열이 다릅니다. 기록 열람과 나란히 요약은 가능하지만 같은 검증 모델로 인증할 수 없습니다.</Alert>}
           {differentTiming && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 시각 진단 버전·봉 표기·시간대 또는 검증 가정이 다릅니다. 진단 정보가 없는 이전 결과와 직접 비교하지 마세요.</Alert>}
           {strategyId.startsWith('failed_breakout') && slots.A && slots.B && JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 돌파 파라미터가 다릅니다. 기준 가격·완료 일봉 조건·수익 보호·보유 관측 상한을 확인하세요.</Alert>}
           {strategyId.startsWith('volatility_expansion') && slots.A && slots.B && (JSON.stringify(slots.A.params) !== JSON.stringify(slots.B.params) || slots.A.volatilityExpansionPreparation?.cadence !== slots.B.volatilityExpansionPreparation?.cadence) && <Alert severity="warning" sx={{ mb: 1, py: 0.25 }}>A와 B의 변동성 확장 조건 또는 관측 주기가 다릅니다. 이전 완료 범위·배수·기존 손절과 선택 수익 보호·보유 관측 한도를 확인하세요.</Alert>}

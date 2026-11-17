@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use thiserror::Error;
 
+use super::candles::BrokerCandlePageWithSource;
 use super::domain::{
     BrokerAccountId, BrokerCandle, BrokerHolding, BrokerId, BrokerOrderId, BrokerOrderReceipt,
     BrokerOrderRequest, BrokerPriceQuote, BrokerSymbol,
@@ -51,6 +52,15 @@ pub trait BrokerAdapter: Send + Sync {
             broker: self.broker_id(),
             operation: "get_candle_page",
         })
+    }
+
+    async fn get_candle_page_with_source(
+        &self,
+        request: &CandlePageRequest,
+    ) -> BrokerAdapterResult<BrokerCandlePageWithSource> {
+        self.get_candle_page(request)
+            .await
+            .map(|page| BrokerCandlePageWithSource { page, source: None })
     }
 
     async fn list_holdings(
@@ -108,6 +118,55 @@ mod tests {
                 operation: "get_price",
             })
         }
+    }
+
+    struct LegacyPageAdapter(std::sync::atomic::AtomicUsize);
+
+    #[async_trait]
+    impl BrokerAdapter for LegacyPageAdapter {
+        fn broker_id(&self) -> BrokerId {
+            BrokerId::Kis
+        }
+        async fn get_price(&self, symbol: &BrokerSymbol) -> BrokerAdapterResult<BrokerPriceQuote> {
+            DummyAdapter.get_price(symbol).await
+        }
+        async fn get_candle_page(
+            &self,
+            _request: &CandlePageRequest,
+        ) -> BrokerAdapterResult<BrokerCandlePage> {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(BrokerCandlePage {
+                candles: Vec::new(),
+                next_cursor: None,
+                end_reason: Some("legacy".into()),
+                timestamp_semantics: "tradingDate",
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn sourced_default_calls_old_page_exactly_once_and_preserves_unsupported() {
+        let request = CandlePageRequest {
+            symbol: BrokerSymbol("SPY".into()),
+            market: BrokerMarket::Us,
+            interval: "D".into(),
+            count: 200,
+            exchange: None,
+            cursor: None,
+        };
+        let fake = LegacyPageAdapter(std::sync::atomic::AtomicUsize::new(0));
+        let result = fake.get_candle_page_with_source(&request).await.unwrap();
+        assert!(result.source.is_none());
+        assert_eq!(result.page.end_reason.as_deref(), Some("legacy"));
+        assert_eq!(result.page.timestamp_semantics, "tradingDate");
+        assert_eq!(fake.0.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert!(matches!(
+            DummyAdapter.get_candle_page_with_source(&request).await,
+            Err(BrokerAdapterError::Unsupported {
+                operation: "get_candle_page",
+                ..
+            })
+        ));
     }
 
     #[tokio::test]

@@ -534,8 +534,12 @@ pub async fn run_trading_daemon(
         }
         if market_state == MarketReadiness::Closed {
             tracing::info!(
-                "모든 시장 폐장 ({}) — 5분 대기 후 재확인",
-                open_markets_summary_with_calendar(market_calendar.as_ref())
+                "확인된 허용 거래 세션 없음(달력 미확인 포함): {} — 5분 대기 후 재확인",
+                if matches!(price_source, PriceSource::Toss(_)) && market_calendar.is_none() {
+                    "Toss 달력 미확인: 미국 자동매매 보류".to_string()
+                } else {
+                    open_markets_summary_with_calendar(market_calendar.as_ref())
+                }
             );
             market_pause_until =
                 Some(tokio::time::Instant::now() + tokio::time::Duration::from_secs(300));

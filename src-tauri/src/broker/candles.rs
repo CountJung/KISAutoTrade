@@ -65,6 +65,22 @@ pub struct BrokerCandlePage {
     pub timestamp_semantics: &'static str,
 }
 
+/// Identity Content-Encoding payload bytes, excluding HTTP framing and headers.
+/// Collection time is body receipt completion, not provider publication time.
+/// This fingerprint does not certify provider authenticity, PIT or coverage.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CandleResponseSource {
+    pub sha256: String,
+    pub byte_length: usize,
+    pub collected_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BrokerCandlePageWithSource {
+    pub page: BrokerCandlePage,
+    pub source: Option<CandleResponseSource>,
+}
+
 /// KIS daily/weekly/monthly APIs use a date anchor, never a Toss timestamp.
 pub fn kis_cursor_date(
     cursor: Option<&CandleCursor>,

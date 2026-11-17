@@ -7,7 +7,15 @@ async function genericCard(page: Page, count = 200): Promise<Locator> {
   const card = page.locator('.MuiPaper-root').filter({ hasText: 'MovingAverageCrossStrategy' }).first()
   if (count !== 50) {
     await card.getByRole('combobox', { name: '분석 구간' }).click()
-    await page.getByRole('option', { name: `최근 ${count}봉`, exact: true }).click()
+    const option = page.getByRole('option', { name: `최근 ${count}봉`, exact: true })
+    // A stable initial Grow scale can precede the entrance animation's first frame.
+    await expect.poll(() => option.evaluate(element => {
+      const popup = element.closest('.MuiPopover-paper')
+      return !!popup && getComputedStyle(popup).transform === 'none' && getComputedStyle(popup).opacity === '1'
+    })).toBe(true)
+    await option.click()
+    await expect(card.getByRole('combobox', { name: '분석 구간' })).toHaveText(`최근 ${count}봉`)
+    await expect(page.getByRole('listbox')).toHaveCount(0)
   }
   return card
 }

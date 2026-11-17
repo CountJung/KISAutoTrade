@@ -3,6 +3,7 @@ import { AppShell } from '../widgets/app-shell'
 import Dashboard from '../pages/dashboard'
 import Trading from '../pages/trading'
 import Strategy from '../pages/strategy'
+import Simulation from '../pages/simulation'
 import History from '../pages/history'
 import Log from '../pages/log'
 import Settings from '../pages/settings'
@@ -35,6 +36,12 @@ const historyRoute = createRoute({
   component: History,
 })
 
+const simulationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/simulation',
+  component: Simulation,
+})
+
 const logRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/log',
@@ -51,6 +58,7 @@ const routeTree = rootRoute.addChildren([
   dashboardRoute,
   tradingRoute,
   strategyRoute,
+  simulationRoute,
   historyRoute,
   logRoute,
   settingsRoute,

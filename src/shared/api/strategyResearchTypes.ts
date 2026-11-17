@@ -112,7 +112,31 @@ export interface LthMinuteTimingDay {
   trailingUnobservedWindowSlots: number
 }
 
+export interface LthExecutionClock {
+  version: string
+  timezone: string
+  tzdbVersion: string
+  labelPolicy: string
+  blackoutTimezone: string
+  blackoutWindows: string[]
+  calendarSource: string
+  calendarHorizon: string
+  asOf: string
+  admissionIdentity: string
+  sourceRows: number
+  adoptedRows: number
+  warmupRows: number
+  unknownRows: number
+  excluded: { reason: string; count: number }[]
+  examples: { inputIndex: number; label: string; labelTruncated: boolean; reason: string }[]
+  omittedExamples: number
+  days: { date: string; open: string; close: string; earlyClose: boolean; adoptedRows: number }[]
+  dayCount: number
+  omittedDays: number
+}
+
 export interface LthMinuteTiming {
+  executionClock?: LthExecutionClock
   diagnosticVersion: string
   labelConvention: 'barClose' | 'barStart' | 'unknown'
   market: 'us' | 'kr'
@@ -383,6 +407,54 @@ export interface LeveragedTrendHoldPreviewSignal {
   adx?: number | null
 }
 
+export interface LthCollectionPageSource {
+  stream: 'D' | '1m'
+  responseIndex: number
+  sha256: string
+  byteLength: number
+  collectedAt: string
+}
+export interface LthCollectionStream {
+  dispatchedPages: number
+  returnedPages: number
+  returnedTypedRows: number
+  validatedPages: number
+  validatedTypedRows: number
+  duplicateRows: number
+  uniqueRows: number
+  observedStart: string | null
+  observedEnd: string | null
+  sources: LthCollectionPageSource[]
+}
+export interface LthCollectionSummary {
+  requestedStart: string | null
+  asOf: string
+  requestedCount: number
+  maxPages: number
+  maxTypedRows: number
+  pageSize: number
+  pageTimeoutSeconds: number
+  remainingBudgetMsAtStart: number
+  daily: LthCollectionStream
+  minute: LthCollectionStream
+  admission: {
+    adoptedRows: number
+    excluded: Record<string, number>
+    usedDailyRows: number
+    evaluationStart: string | null
+    evaluationEnd: string | null
+    dailyContextStart: string | null
+    dailyContextEnd: string | null
+  } | null
+  admissionStatus: 'lastCompleted' | 'unavailable'
+  sourceAvailability: 'complete' | 'partial' | 'unavailable'
+  normalizedInputSha256: string | null
+  coverageVerified: false
+  publicationVerification: 'unknown'
+  dailyOhlcVerification: 'unverified'
+  adjustmentVerification: 'unverified'
+}
+
 export interface LeveragedTrendHoldPreviewView {
   symbol: string
   interval: '1m' | '1d'
@@ -393,6 +465,7 @@ export interface LeveragedTrendHoldPreviewView {
   message: string
   replay: ReplayMetadata
   backtest: BacktestReport
+  collectionSummary?: LthCollectionSummary
 }
 
 export interface StrategyPreviewInput {
@@ -457,4 +530,19 @@ export interface StrategyPreviewPreparation {
   historyStatus: 'sufficient' | 'insufficient' | 'notRequired' | 'unsupported'
   indicatorStatus: 'ready' | 'warmingUp' | 'unsupported'
   outcome: 'conditionsNotMet' | 'noTrades' | 'traded' | 'notEvaluable'
+}
+
+
+/** US1m reservation only; no financial-ledger mode or server ABA guarantee. */
+export interface LthResearchReserveInput {
+  preview: LeveragedTrendHoldPreviewInput
+  expectedBrokerId: 'toss'
+  expectedPaperTrading: boolean
+}
+export interface LthResearchHandle {
+  jobId: string
+  owner: string
+}
+export interface LthResearchCancelView {
+  status: 'quiescent'
 }

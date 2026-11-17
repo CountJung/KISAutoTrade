@@ -47,7 +47,7 @@ async function safe(state: Awaited<ReturnType<typeof setup>>) {
   expect(state.audit.unknown).toEqual([])
   expect(state.audit.errors).toEqual([])
   expect(state.reads.filter(read => read.path === '/api/auto-trading-budget').every(read =>
-    read.method === 'GET' && JSON.stringify(read.query) === JSON.stringify({ brokerId: 'kis', brokerAccountId: '12345678-01' }))).toBe(true)
+    read.method === 'GET' && JSON.stringify(read.query) === JSON.stringify({ brokerId: 'kis', brokerAccountId: '12345678-01', expectedProfileId: 'paper', expectedIsPaper: 'true' }))).toBe(true)
   expect(state.reads.some(read => read.path === '/api/auto-trading-budget')).toBe(true)
   expect(state.audit.counts.get('/api/budget-recovery') ?? 0).toBe(0)
   expect(state.audit.counts.get('/api/database-config') ?? 0).toBe(0)
@@ -68,7 +68,8 @@ async function destination(page: Page, id: string, label: string) {
   await expect(heading).toBeFocused()
   await expect.poll(() => heading.evaluate(element => {
     const rect = element.getBoundingClientRect(), container = document.querySelector('[data-testid="app-main-scroll"]')!.getBoundingClientRect()
-    return rect.top >= container.top && rect.bottom <= container.bottom && rect.left >= 0 && rect.right <= innerWidth
+    return container.top >= 0 && container.bottom <= innerHeight
+      && rect.top >= container.top && rect.bottom <= container.bottom && rect.left >= 0 && rect.right <= innerWidth
   })).toBe(true)
   await expect.poll(() => heading.evaluate(element => getComputedStyle(element).outlineStyle)).toBe('solid')
   expect(new URL(page.url()).hash).toBe('')
@@ -82,7 +83,8 @@ async function returnToContents(page: Page, label: string) {
     const heading = element.querySelector('h2')!.getBoundingClientRect()
     const link = element.querySelector('a')!.getBoundingClientRect()
     const container = document.querySelector('[data-testid="app-main-scroll"]')!.getBoundingClientRect()
-    return heading.top >= container.top && heading.bottom <= container.bottom && link.top >= container.top && link.bottom <= container.bottom
+    return container.top >= 0 && container.bottom <= innerHeight
+      && heading.top >= container.top && heading.bottom <= container.bottom && link.top >= container.top && link.bottom <= container.bottom
   })).toBe(true)
 }
 async function screenshot(page: Page, name: string) {
@@ -122,13 +124,30 @@ for (const layout of [{ name: 'desktop', width: 1280, dark: false }, { name: 'na
 }
 
 test('Settings navigation: delayed and failed risk keep a real focus destination and error visibility', async ({ page }) => {
-  const state = await setup(page), held = gate()
+  const state = await setup(page), held = gate(), budgetHeld = gate()
+  const originalBudget = state.audit.responses.get('/api/auto-trading-budget')!
+  state.audit.responses.set('/api/auto-trading-budget', async route => {
+    await budgetHeld.promise
+    return typeof originalBudget === 'function' ? originalBudget(route) : route.fulfill(originalBudget)
+  })
+  const budgetResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auto-trading-budget' && response.request().method() === 'GET')
   state.control.hold = held.promise
   state.control.status = 500
   state.audit.responses.set('/api/broker-rate-limit-status', { status: 500, json: { message: 'Synthetic rate limit unavailable' } })
   try {
     await page.goto('/settings')
     await destination(page, 'settings-risk', '리스크 관리')
+    budgetHeld.release()
+    const budget = await budgetResponse
+    await budget.finished()
+    expect((await budget.json()).scope.brokerId).toBe('kis')
+    await expect(page.getByRole('textbox', { name: '자동매매 원화 배정액 (원)', exact: true })).toBeVisible()
+    const riskHeading = page.getByRole('heading', { name: '리스크 관리', exact: true })
+    await expect(riskHeading).toBeFocused()
+    await expect.poll(() => riskHeading.evaluate(element => {
+      const target = element.getBoundingClientRect(), main = document.querySelector('[data-testid="app-main-scroll"]')!.getBoundingClientRect()
+      return main.top >= 0 && main.bottom <= innerHeight && target.top >= main.top && target.bottom <= main.bottom
+    })).toBe(true)
     await expect(page.getByText('리스크 설정을 불러오는 중…', { exact: true })).toBeVisible()
     held.release()
     await expect(page.getByText('리스크 설정을 불러오지 못했습니다.', { exact: true })).toBeVisible()
@@ -141,8 +160,74 @@ test('Settings navigation: delayed and failed risk keep a real focus destination
     await expect(page.getByText(/DB password와 테이블 삭제 기능은 보안을 위해/)).toBeVisible()
     await expect(page.getByLabel('Password')).toHaveCount(0)
     await safe(state)
-  } finally { held.release() }
+  } finally { budgetHeld.release(); held.release() }
 })
+
+for (const intent of ['wheel', 'PageUp'] as const) {
+  test(`Settings navigation: late budget respects ${intent} intent after focus`, async ({ page }) => {
+    const state = await setup(page), held = gate(), budgetHeld = gate()
+    const originalBudget = state.audit.responses.get('/api/auto-trading-budget')!
+    state.audit.responses.set('/api/auto-trading-budget', async route => {
+      await budgetHeld.promise
+      return typeof originalBudget === 'function' ? originalBudget(route) : route.fulfill(originalBudget)
+    })
+    state.control.hold = held.promise
+    try {
+      await page.goto('/settings')
+      // Remove native anchoring from this cancellation control, not from the positive case.
+      await main(page).evaluate(element => { element.style.overflowAnchor = 'none' })
+      const heading = await destination(page, 'settings-risk', '리스크 관리')
+      const initialTop = await main(page).evaluate(element => element.scrollTop)
+      // Install on this exact main before input; the first moved pixel is not completion.
+      const completion = await main(page).evaluateHandle(element => {
+        const state = { ended: false, cleanup: () => element.removeEventListener('scrollend', onEnd) }
+        function onEnd(event: Event) {
+          if (event.target === element && event.isTrusted) state.ended = true
+        }
+        element.addEventListener('scrollend', onEnd)
+        return state
+      })
+      try {
+        if (intent === 'wheel') {
+          const box = await main(page).boundingBox()
+          expect(box).not.toBeNull()
+          await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
+          await page.mouse.wheel(0, -600)
+        } else {
+          await page.keyboard.press('PageUp')
+        }
+        await expect.poll(() => completion.evaluate(state => state.ended)).toBe(true)
+        await expect.poll(() => main(page).evaluate(element => element.scrollTop)).toBeLessThan(initialTop - 100)
+      } finally {
+        await completion.evaluate(state => state.cleanup())
+        await completion.dispose()
+      }
+      // Publish the late layout only after the trusted native scroll has ended.
+      const response = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auto-trading-budget'
+        && response.request().method() === 'GET')
+      budgetHeld.release()
+      const budget = await response
+      await budget.finished()
+      expect((await budget.json()).scope.brokerId).toBe('kis')
+      await expect(page.getByRole('textbox', { name: '자동매매 원화 배정액 (원)', exact: true })).toBeVisible()
+      await expect(heading).toBeFocused()
+      await expect.poll(() => heading.evaluate(element => {
+        const rect = element.getBoundingClientRect()
+        const container = document.querySelector('[data-testid="app-main-scroll"]')!.getBoundingClientRect()
+        return rect.top > container.bottom
+      })).toBe(true)
+      // Flush layout-driven observer work without advancing a clock or correcting scroll.
+      await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+      expect(await main(page).evaluate(element => element.scrollTop)).toBeLessThan(initialTop - 100)
+      await expect(heading).toBeFocused()
+      await returnToContents(page, '리스크 관리')
+      held.release()
+      await expect(page.getByText('리스크 설정을 불러오는 중…', { exact: true })).toHaveCount(0)
+      await expect(page.getByRole('heading', { name: '설정 목차', exact: true })).toBeFocused()
+      await safe(state)
+    } finally { budgetHeld.release(); held.release() }
+  })
+}
 
 test('Settings navigation: unsaved budget values and existing save gates survive local jumps without writes', async ({ page }) => {
   const state = await setup(page)

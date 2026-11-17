@@ -40,6 +40,7 @@ fn kis_http_client() -> Client {
     crate::http::client_builder()
         .connect_timeout(KIS_CONNECT_TIMEOUT)
         .timeout(KIS_HTTP_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
         .build()
         .expect("KIS reqwest client with timeout should build")
 }
@@ -76,6 +77,8 @@ pub struct KisRestClient {
     /// KIS API 진단 로그 활성화 플래그 (런타임 토글 가능)
     api_debug: Arc<AtomicBool>,
     rate_limiter: RateLimitScheduler,
+    #[cfg(test)]
+    session_clock: std::sync::RwLock<Option<fn() -> chrono::DateTime<chrono::Utc>>>,
 }
 
 mod chart;
@@ -118,7 +121,23 @@ impl KisRestClient {
             token_manager,
             api_debug: Arc::new(AtomicBool::new(false)),
             rate_limiter,
+            #[cfg(test)]
+            session_clock: std::sync::RwLock::new(None),
         }
+    }
+
+    pub(crate) fn automatic_session_now(&self) -> chrono::DateTime<chrono::Utc> {
+        #[cfg(test)]
+        if let Some(clock) = *self.session_clock.read().expect("test clock lock") {
+            return clock();
+        }
+        chrono::Utc::now()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_test_session_clock(&self, clock: fn() -> chrono::DateTime<chrono::Utc>) {
+        assert!(self.base_url.starts_with("http://127.0.0.1:"));
+        *self.session_clock.write().expect("test clock lock") = Some(clock);
     }
 
     /// TokenManager 참조 반환 (WebSocket 클라이언트와 토큰 공유용)
@@ -183,8 +202,19 @@ impl KisRestClient {
         group: &'static str,
         request: RequestBuilder,
     ) -> Result<Response> {
+        self.send_with_rate_limit_guarded(group, request, || Ok(()))
+            .await
+    }
+
+    async fn send_with_rate_limit_guarded(
+        &self,
+        group: &'static str,
+        request: RequestBuilder,
+        before_send: impl FnOnce() -> Result<()>,
+    ) -> Result<Response> {
         self.rate_limiter.wait(group).await;
-        let resp = match request.send().await {
+        let resp = match send_after_gate(before_send, || async { Ok(request.send().await?) }).await
+        {
             Ok(resp) => resp,
             Err(error) => {
                 self.rate_limiter.record_outcome(group, false).await;
@@ -730,6 +760,23 @@ impl KisRestClient {
     //         VTTT1002U(모의매수) VTTT1006U(모의매도)
     // ──────────────────────────────────────────────────────────
     pub async fn place_overseas_order(&self, req: &OverseasOrderRequest) -> Result<OrderResponse> {
+        self.place_overseas_order_with_session_gate(req, false)
+            .await
+    }
+
+    /// Automatic US regular-session orders only. Manual callers keep the original policy.
+    pub(crate) async fn place_automatic_overseas_order(
+        &self,
+        req: &OverseasOrderRequest,
+    ) -> Result<OrderResponse> {
+        self.place_overseas_order_with_session_gate(req, true).await
+    }
+
+    async fn place_overseas_order_with_session_gate(
+        &self,
+        req: &OverseasOrderRequest,
+        enforce_session: bool,
+    ) -> Result<OrderResponse> {
         validate_overseas_order(req, self.is_paper)?;
 
         let tr_id = match (self.is_paper, &req.side) {
@@ -775,9 +822,16 @@ impl KisRestClient {
         };
 
         let resp = self
-            .send_with_rate_limit(
+            .send_with_rate_limit_guarded(
                 KIS_RATE_GROUP_ORDER,
                 self.client.post(&url).headers(headers).json(&body),
+                || {
+                    crate::market_hours::ensure_kis_automatic_us_session(
+                        enforce_session,
+                        self.automatic_session_now(),
+                    )
+                    .map_err(Into::into)
+                },
             )
             .await?;
 
@@ -864,3 +918,57 @@ impl KisRestClient {
 #[cfg(test)]
 #[path = "rest/dependency_contract_tests.rs"]
 mod dependency_contract_tests;
+
+/// Called only after any rate-limit wait. The send future is not created on rejection.
+async fn send_after_gate<T, F, Fut>(before_send: impl FnOnce() -> Result<()>, send: F) -> Result<T>
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Result<T>>,
+{
+    before_send()?;
+    send().await
+}
+
+#[cfg(test)]
+mod automatic_session_gate_tests {
+    use super::*;
+    use std::cell::Cell;
+
+    #[tokio::test]
+    async fn gate_after_simulated_wait_prevents_transport_and_preserves_typed_error() {
+        let sent = Cell::new(false);
+        let open = chrono::DateTime::parse_from_rfc3339("2026-11-09T20:59:59Z")
+            .unwrap()
+            .to_utc();
+        crate::market_hours::ensure_kis_automatic_us_session(true, open).unwrap();
+        // A token/rate-limit wait crossed the close; use a deterministic clock.
+        tokio::task::yield_now().await;
+        let closed = open + chrono::Duration::seconds(1);
+        let error = send_after_gate(
+            || {
+                crate::market_hours::ensure_kis_automatic_us_session(true, closed)
+                    .map_err(Into::into)
+            },
+            || async {
+                sent.set(true);
+                Ok(())
+            },
+        )
+        .await
+        .unwrap_err();
+        assert!(!sent.get());
+        assert!(error
+            .downcast_ref::<crate::market_hours::UsSessionClosed>()
+            .is_some());
+        send_after_gate(
+            || Ok(()),
+            || async {
+                sent.set(true);
+                Ok(())
+            },
+        )
+        .await
+        .unwrap();
+        assert!(sent.get());
+    }
+}

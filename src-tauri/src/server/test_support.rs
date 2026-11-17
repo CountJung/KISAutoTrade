@@ -113,6 +113,7 @@ impl Fixture {
         let mut rate = ExchangeRateView::default_krw();
         rate.updated_at = "2026-10-29T00:00:00Z".into();
         let state = ServerState {
+            lth_research_runtime: Arc::new(crate::commands::LthResearchRuntime::new()),
             rest_client,
             stock_list: Arc::new(RwLock::new(vec![])),
             web_port: 7474,

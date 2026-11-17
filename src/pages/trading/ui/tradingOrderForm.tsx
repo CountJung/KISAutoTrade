@@ -1,3 +1,4 @@
+import { financialActionKeyDown } from '../../../features/financial-confirmation'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -202,6 +203,7 @@ export function TradingOrderForm({ model }: { model: TradingOrderModel }) {
             <Button
               size="small"
               color="inherit"
+              onKeyDown={financialActionKeyDown}
               onClick={() => clearBuySuspension()}
               disabled={clearingBuySusp}
               startIcon={clearingBuySusp ? <CircularProgress size={12} color="inherit" /> : undefined}
@@ -219,13 +221,15 @@ export function TradingOrderForm({ model }: { model: TradingOrderModel }) {
         variant="contained"
         color={side === 'Buy' ? 'primary' : 'error'}
         fullWidth
+        type="button"
+        onKeyDown={financialActionKeyDown}
         onClick={handleSubmit}
         disabled={isPending || !symbol || isPaperUnsupportedUsSell || (isTossActive && !tossManualOrderReady)}
         startIcon={isPending ? <CircularProgress size={16} color="inherit" /> : undefined}
         sx={{ py: 1.2 }}
       >
         {side === 'Buy' ? '매수 주문' : '매도 주문'}
-        {market === 'US' && ' (USD 지정가)'}
+        {market === 'US' && (isTossActive && orderType === 'Market' ? ' (USD 시장가)' : ' (USD 지정가)')}
       </Button>
 
       {isTossActive && <TossOpenOrdersPanel symbol={symbol} />}

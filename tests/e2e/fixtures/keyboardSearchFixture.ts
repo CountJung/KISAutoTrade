@@ -9,6 +9,18 @@ function gate() { let release!: () => void; const promise = new Promise<void>(re
 export async function keyboardSearchFixture(page: Page, broker: 'kis' | 'toss') {
   await page.clock.install()
   const audit = await mockUx(page, { activeBroker: broker, appConfigOverride: { kis_is_paper_trading: broker === 'kis' } })
+  // A dispatched request is not a completed response. With browser time frozen,
+  // TanStack's notification can remain queued after a real HTTP response arrives.
+  const waitForRead = (path: string) => {
+    const pending = page.waitForResponse(response => new URL(response.url()).pathname === path
+      && response.request().method() === 'GET').then(async response => {
+      await response.finished()
+      await page.evaluate(() => Promise.resolve())
+    })
+    void pending.catch(() => {}) // An interrupted test may never await its read.
+    return pending
+  }
+  const initialConfig = waitForRead('/api/app-config')
   const reads: Array<{ path: string; method: string; settled: boolean }> = []
   const readPosts: string[] = []
   const notes: unknown[] = []
@@ -53,7 +65,8 @@ export async function keyboardSearchFixture(page: Page, broker: 'kis' | 'toss') 
     return route.fulfill({ json: [] }) // Existing semantic read only; no order/preflight mutation exception.
   })
   return {
-    audit, reads, readPosts, notes, broker, logicalPath,
+    audit, reads, readPosts, notes, broker, logicalPath, waitForRead,
+    ready: async () => { await initialConfig; await page.clock.runFor(1) },
     logicalReads: () => reads.filter(read => read.path === logicalPath).length,
     release: async () => {
       control.hold = undefined; held.release()

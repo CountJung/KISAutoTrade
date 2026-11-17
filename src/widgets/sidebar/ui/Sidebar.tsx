@@ -1,3 +1,5 @@
+import { useConfirmedStartTrading } from '../../../features/financial-confirmation/tradingActions'
+import { financialActionKeyDown } from '../../../features/financial-confirmation'
 import Drawer from '@mui/material/Drawer'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
@@ -15,13 +17,14 @@ import CircularProgress from '@mui/material/CircularProgress'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import ScienceIcon from '@mui/icons-material/Science'
 import HistoryIcon from '@mui/icons-material/History'
 import ArticleIcon from '@mui/icons-material/Article'
 import SettingsIcon from '@mui/icons-material/Settings'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import StopIcon from '@mui/icons-material/Stop'
 import { useNavigate, useLocation } from '@tanstack/react-router'
-import { useAppConfig, useStartTrading, useStopTrading, useTradingStatus } from '../../../api/hooks'
+import { useAppConfig, useStopTrading, useTradingStatus } from '../../../api/hooks'
 import type { BrokerId } from '../../../api/types'
 import { QueryStatusSummary } from '../../../shared/ui'
 
@@ -35,6 +38,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: '/', icon: <DashboardIcon /> },
   { label: 'Trading', path: '/trading', icon: <TrendingUpIcon /> },
   { label: 'Strategy', path: '/strategy', icon: <AutoAwesomeIcon /> },
+  { label: 'Simulation', path: '/simulation', icon: <ScienceIcon /> },
   { label: 'History', path: '/history', icon: <HistoryIcon /> },
   { label: 'Log', path: '/log', icon: <ArticleIcon /> },
 ]
@@ -56,10 +60,10 @@ function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; on
   const { data: appConfig } = useAppConfig()
   const tradingStatusQuery = useTradingStatus()
   const { data: tradingStatus } = tradingStatusQuery
-  const { mutate: startTrading, isPending: startPending } = useStartTrading()
+  const { mutate: startTrading, isPending: startPending } = useConfirmedStartTrading()
   const { mutate: stopTrading, isPending: stopPending } = useStopTrading()
   const isRunning = tradingStatus?.isRunning ?? false
-  const tradingActionPending = startPending || stopPending
+  const tradingActionPending = isRunning ? stopPending : startPending || stopPending
   const tradingActionLabel = isRunning ? '자동매매 정지' : '자동매매 시작'
   const handleTradingAction = () => {
     if (isRunning) {
@@ -100,7 +104,8 @@ function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; on
             개인용 자동매매
           </Typography>
         )}
-        {/* 자동매매 실행 상태 */}
+        {location.pathname === '/simulation' && <Typography variant="caption" component="p" sx={{ mt: 1, fontWeight: 700 }}>운영 자동매매</Typography>}
+        {/* 자동매매 실행 상태 — 시뮬레이션과 별개의 운영 제어 */}
         <Stack direction="row" spacing={0.75} sx={{ alignItems: "flex-start", mt: 0.75, minWidth: 0 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <QueryStatusSummary
@@ -121,6 +126,7 @@ function DrawerContent({ drawerWidth, onMobileClose }: { drawerWidth: number; on
                 color={isRunning ? 'error' : 'primary'}
                 aria-label={tradingActionLabel}
                 onClick={handleTradingAction}
+                onKeyDown={financialActionKeyDown}
                 disabled={tradingActionPending}
                 sx={{
                   width: 24,

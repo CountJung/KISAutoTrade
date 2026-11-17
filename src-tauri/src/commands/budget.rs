@@ -12,6 +12,8 @@ pub struct AutoTradingBudgetInput {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateAutoTradingBudgetInput {
+    pub expected_profile_id: String,
+    pub expected_is_paper: bool,
     pub broker_id: BrokerId,
     pub broker_account_id: String,
     pub krw_amount: u64,
@@ -42,6 +44,29 @@ pub(crate) async fn checked_budget_scope(
         broker_id,
         Some(BrokerAccountId(broker_account_id.to_string())),
     ))
+}
+
+/// Caller holds strategy_update_lock through validation and the ledger mutation.
+pub(crate) async fn checked_budget_update_scope(
+    profiles: &Arc<RwLock<ProfilesConfig>>,
+    input: &UpdateAutoTradingBudgetInput,
+) -> CmdResult<BrokerScope> {
+    let scope = checked_budget_scope(profiles, input.broker_id, &input.broker_account_id).await?;
+    let profiles = profiles.read().await;
+    let profile = profiles.get_active().ok_or_else(|| CmdError {
+        code: "BUDGET_SCOPE_CHANGED".into(),
+        message: "선택 계좌를 다시 확인하세요.".into(),
+    })?;
+    if profile.id != input.expected_profile_id
+        || profile.is_paper_trading != input.expected_is_paper
+    {
+        return Err(CmdError {
+            code: "BUDGET_SCOPE_CHANGED".into(),
+            message: "선택 프로필 또는 투자 모드가 변경되었습니다. 예산 화면을 다시 확인하세요."
+                .into(),
+        });
+    }
+    Ok(scope)
 }
 
 pub(crate) fn budget_error(error: anyhow::Error) -> CmdError {
@@ -81,8 +106,7 @@ pub async fn update_auto_trading_budget(
             message: "자동매매를 정지한 후 예산을 변경하세요.".into(),
         });
     }
-    let scope =
-        checked_budget_scope(&state.profiles, input.broker_id, &input.broker_account_id).await?;
+    let scope = checked_budget_update_scope(&state.profiles, &input).await?;
     state
         .order_manager
         .lock()

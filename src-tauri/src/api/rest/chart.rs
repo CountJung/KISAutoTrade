@@ -49,6 +49,17 @@ impl<'a> ChartRequest<'a> {
         }
     }
 
+    fn overseas_daily_mode(
+        symbol: &'a str,
+        exchange: &'a str,
+        base_date: &'a str,
+        adjusted: bool,
+    ) -> Self {
+        let mut request = Self::overseas(symbol, exchange, "D", base_date);
+        request.query[5].1 = if adjusted { "1" } else { "0" };
+        request
+    }
+
     fn build(&self, client: &Client, base_url: &str, mut headers: HeaderMap) -> RequestBuilder {
         headers.insert(
             "tr_id",
@@ -62,6 +73,56 @@ impl<'a> ChartRequest<'a> {
 }
 
 impl KisRestClient {
+    /// Research-only unadjusted daily OHLCV. Keeps provider strings and row order;
+    /// date/price validation belongs to the collector. Never exposes response bodies.
+    pub async fn get_broker_chart_daily_quotes(
+        &self,
+        symbol: &str,
+        exchange: &str,
+        base_date: &str,
+    ) -> Result<Vec<ChartCandle>> {
+        let recipe = ChartRequest::overseas_daily_mode(symbol, exchange, base_date, false);
+        let headers = self
+            .auth_headers(recipe.tr_id)
+            .await
+            .map_err(|_| anyhow::anyhow!("BROKER_CHART_AUTH_FAILED"))?;
+        let response = self
+            .send_with_rate_limit(
+                KIS_RATE_GROUP_QUOTE,
+                recipe.build(&self.client, &self.base_url, headers),
+            )
+            .await
+            .map_err(|_| anyhow::anyhow!("BROKER_CHART_TRANSPORT_FAILED"))?;
+        parse_broker_chart_daily_response(response).await
+    }
+
+    /// Quote-only sector preparation. Preserves the shared HTTP timeout/rate limiter,
+    /// but never echoes provider response bodies or auth/transport errors.
+    pub async fn get_sector_daily_quotes(
+        &self,
+        symbol: &str,
+        exchange: &str,
+        base_date: &str,
+        adjusted: bool,
+    ) -> Result<Vec<crate::trading::sector_data::SectorQuoteRow>> {
+        let recipe = ChartRequest::overseas_daily_mode(symbol, exchange, base_date, adjusted);
+        let headers = self
+            .auth_headers(recipe.tr_id)
+            .await
+            .map_err(|_| anyhow::anyhow!("SECTOR_QUOTE_AUTH_FAILED"))?;
+        let response = self
+            .send_with_rate_limit(
+                KIS_RATE_GROUP_QUOTE,
+                recipe.build(&self.client, &self.base_url, headers),
+            )
+            .await
+            .map_err(|_| anyhow::anyhow!("SECTOR_QUOTE_TRANSPORT_FAILED"))?;
+        let success = response.status().is_success();
+        let body = read_kis_response_text(response)
+            .await
+            .map_err(|_| anyhow::anyhow!("SECTOR_QUOTE_RESPONSE_LIMIT_OR_READ_FAILED"))?;
+        parse_sector_daily_body(success, &body)
+    }
     /// 국내 기간별 차트 (일/주/월, 실전·모의 공통).
     pub async fn get_chart_data(
         &self,
@@ -114,6 +175,111 @@ impl KisRestClient {
         );
         Ok(candles)
     }
+}
+
+async fn parse_broker_chart_daily_response(response: Response) -> Result<Vec<ChartCandle>> {
+    let success = response.status().is_success();
+    let body = read_kis_response_text(response)
+        .await
+        .map_err(|_| anyhow::anyhow!("BROKER_CHART_RESPONSE_LIMIT_OR_READ_FAILED"))?;
+    parse_broker_chart_daily_body(success, &body)
+}
+
+fn parse_broker_chart_daily_body(success: bool, body: &str) -> Result<Vec<ChartCandle>> {
+    if !success {
+        anyhow::bail!("BROKER_CHART_HTTP_FAILED");
+    }
+    #[derive(Deserialize)]
+    struct Raw {
+        rt_cd: String,
+        msg_cd: Option<String>,
+        output2: Option<Vec<Row>>,
+    }
+    #[derive(Deserialize)]
+    struct Row {
+        xymd: String,
+        open: String,
+        high: String,
+        low: String,
+        clos: String,
+        tvol: String,
+    }
+    let raw: Raw =
+        serde_json::from_str(body).map_err(|_| anyhow::anyhow!("BROKER_CHART_INVALID_RESPONSE"))?;
+    if raw.rt_cd != "0" {
+        if matches!(raw.msg_cd.as_deref(), Some("EGW00133" | "EGW00201")) {
+            anyhow::bail!("BROKER_CHART_RATE_LIMITED");
+        }
+        anyhow::bail!("BROKER_CHART_PROVIDER_REJECTED");
+    }
+    let rows = raw
+        .output2
+        .ok_or_else(|| anyhow::anyhow!("BROKER_CHART_MISSING_ROWS"))?;
+    if rows.is_empty() {
+        anyhow::bail!("BROKER_CHART_EMPTY_ROWS");
+    }
+    if rows.len() > 500 {
+        anyhow::bail!("BROKER_CHART_TOO_MANY_ROWS");
+    }
+    if rows.iter().any(|row| {
+        [
+            &row.xymd, &row.open, &row.high, &row.low, &row.clos, &row.tvol,
+        ]
+        .iter()
+        .any(|value| value.trim().is_empty())
+    }) {
+        anyhow::bail!("BROKER_CHART_EMPTY_FIELD");
+    }
+    Ok(rows
+        .into_iter()
+        .map(|row| ChartCandle {
+            date: row.xymd,
+            open: row.open,
+            high: row.high,
+            low: row.low,
+            close: row.clos,
+            volume: row.tvol,
+        })
+        .collect())
+}
+
+fn parse_sector_daily_body(
+    success: bool,
+    body: &str,
+) -> Result<Vec<crate::trading::sector_data::SectorQuoteRow>> {
+    if !success {
+        anyhow::bail!("SECTOR_QUOTE_HTTP_FAILED");
+    }
+    #[derive(Deserialize)]
+    struct Raw {
+        rt_cd: String,
+        output2: Option<Vec<Row>>,
+    }
+    #[derive(Deserialize)]
+    struct Row {
+        xymd: String,
+        open: String,
+        clos: String,
+    }
+    let raw: Raw =
+        serde_json::from_str(body).map_err(|_| anyhow::anyhow!("SECTOR_QUOTE_INVALID_RESPONSE"))?;
+    if raw.rt_cd != "0" {
+        anyhow::bail!("SECTOR_QUOTE_PROVIDER_REJECTED");
+    }
+    let rows = raw
+        .output2
+        .ok_or_else(|| anyhow::anyhow!("SECTOR_QUOTE_MISSING_ROWS"))?;
+    if rows.len() > 500 {
+        anyhow::bail!("SECTOR_QUOTE_TOO_MANY_ROWS");
+    }
+    Ok(rows
+        .into_iter()
+        .map(|row| crate::trading::sector_data::SectorQuoteRow {
+            date: row.xymd,
+            open: row.open,
+            close: row.clos,
+        })
+        .collect())
 }
 
 async fn parse_domestic_response(resp: Response) -> Result<Vec<ChartCandle>> {

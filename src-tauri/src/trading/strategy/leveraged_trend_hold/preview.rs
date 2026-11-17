@@ -149,6 +149,27 @@ impl LeveragedTrendHoldStrategy {
         })
     }
 
+    // Timed regular research uses NY; legacy extended timed callers retain KST
+    // policies. No host clock or raw-offset wall clock participates here.
+    fn timed_session(label: &str, overseas: bool, policy: &str) -> Option<(i64, i64)> {
+        if !overseas {
+            return Self::preview_session_minutes(
+                Self::minute_of_day_from_time(label)?,
+                false,
+                policy,
+            );
+        }
+        if policy == "regular" {
+            let clock = research_session::label_clock(label).ok()?;
+            Some((clock.elapsed, clock.to_close))
+        } else {
+            let instant = crate::trading::simulation::minute_time::parse_minute_instant(label)?;
+            let kst_label = instant.with_timezone(&chrono_tz::Asia::Seoul).to_rfc3339();
+            let minute = Self::minute_of_day_from_time(&kst_label)?;
+            Self::preview_session_minutes(minute, overseas, policy)
+        }
+    }
+
     /// Settle the prior close at this open before observing this candle's close.
     /// Close is emitted even when no strategy signal is generated.
     pub fn preview_signals_with_driver<F>(
@@ -290,42 +311,45 @@ impl LeveragedTrendHoldStrategy {
                     drive(LeveragedTrendHoldPreviewStep::Close(timed));
                     continue;
                 }
-                if let Some(mins) = Self::minute_of_day_from_time(&timed.time) {
-                    if let Some((_, minutes_to_close)) = Self::preview_session_minutes(
-                        mins,
-                        entry.is_overseas,
-                        &strategy.params.toss_us_session,
-                    ) {
-                        if minutes_to_close <= strategy.params.exit_before_close_min {
-                            let signal = strategy.preview_signal(
-                                &timed.time,
-                                "sell",
-                                &normalized_symbol,
-                                price,
-                                position.quantity,
-                                format!(
-                                    "LeveragedTrendHold 장마감 청산: 마감 {minutes_to_close}분 전"
-                                ),
-                            );
-                            position.sync(
-                                drive(LeveragedTrendHoldPreviewStep::Signal(&signal, timed)),
-                                price,
-                            );
-                            signals.push(signal);
-                        }
+                if let Some((_, minutes_to_close)) = Self::timed_session(
+                    &timed.time,
+                    entry.is_overseas,
+                    &strategy.params.toss_us_session,
+                ) {
+                    if minutes_to_close <= strategy.params.exit_before_close_min {
+                        let signal = strategy.preview_signal(
+                            &timed.time,
+                            "sell",
+                            &normalized_symbol,
+                            price,
+                            position.quantity,
+                            format!("LeveragedTrendHold 장마감 청산: 마감 {minutes_to_close}분 전"),
+                        );
+                        position.sync(
+                            drive(LeveragedTrendHoldPreviewStep::Signal(&signal, timed)),
+                            price,
+                        );
+                        signals.push(signal);
                     }
                 }
                 drive(LeveragedTrendHoldPreviewStep::Close(timed));
                 continue;
             }
 
-            let session = Self::minute_of_day_from_time(&timed.time).and_then(|mins| {
-                Self::preview_session_minutes(
-                    mins,
-                    entry.is_overseas,
-                    &strategy.params.toss_us_session,
-                )
-                .filter(|_| !Self::is_blackout_minute(mins, &strategy.params.blackout_windows))
+            let session = Self::timed_session(
+                &timed.time,
+                entry.is_overseas,
+                &strategy.params.toss_us_session,
+            )
+            .filter(|_| {
+                let minute = if entry.is_overseas {
+                    research_session::kst_minute(&timed.time)
+                } else {
+                    Self::minute_of_day_from_time(&timed.time)
+                };
+                minute.is_some_and(|minute| {
+                    !Self::is_blackout_minute(minute, &strategy.params.blackout_windows)
+                })
             });
             let Some((elapsed, _)) = session else {
                 drive(LeveragedTrendHoldPreviewStep::Close(timed));

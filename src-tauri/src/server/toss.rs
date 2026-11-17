@@ -192,11 +192,61 @@ pub(super) async fn leveraged_trend_hold_preview_handler(
         Err(response) => return response,
     };
 
-    match crate::commands::preview_leveraged_trend_hold_for_profile(input, profile).await {
+    match crate::commands::preview_leveraged_trend_hold_for_profile(
+        input,
+        profile,
+        &s.lth_research_runtime,
+    )
+    .await
+    {
         Ok(preview) => Json(serde_json::to_value(preview).unwrap_or_default()),
         Err(e) => Json(serde_json::json!({
             "code": e.code,
             "error": e.message,
         })),
+    }
+}
+
+pub(super) async fn lth_research_reserve_handler(
+    State(s): State<ServerState>,
+    Json(input): Json<crate::commands::LthResearchReserveInput>,
+) -> Json<serde_json::Value> {
+    let profile = match active_profile(&s).await {
+        Ok(profile) => profile,
+        Err(response) => return response,
+    };
+    research_response(crate::commands::reserve_lth_research_for_profile(
+        input,
+        profile,
+        &s.lth_research_runtime,
+    ))
+}
+pub(super) async fn lth_research_run_handler(
+    State(s): State<ServerState>,
+    Json(input): Json<crate::commands::LthResearchHandle>,
+) -> Json<serde_json::Value> {
+    let profile = match active_profile(&s).await {
+        Ok(profile) => profile,
+        Err(response) => return response,
+    };
+    research_response(
+        crate::commands::run_lth_research_for_profile(input, profile, &s.lth_research_runtime)
+            .await,
+    )
+}
+pub(super) async fn lth_research_cancel_handler(
+    State(s): State<ServerState>,
+    Json(input): Json<crate::commands::LthResearchHandle>,
+) -> Json<serde_json::Value> {
+    research_response(
+        crate::commands::cancel_lth_research_owned(input, &s.lth_research_runtime).await,
+    )
+}
+fn research_response<T: serde::Serialize>(
+    result: Result<T, crate::commands::CmdError>,
+) -> Json<serde_json::Value> {
+    match result {
+        Ok(value) => Json(serde_json::to_value(value).unwrap_or_default()),
+        Err(error) => Json(serde_json::json!({ "code": error.code, "error": error.message })),
     }
 }

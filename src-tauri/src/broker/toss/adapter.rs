@@ -1,3 +1,4 @@
+use crate::broker::candles::BrokerCandlePageWithSource;
 use async_trait::async_trait;
 
 use super::{
@@ -309,6 +310,15 @@ impl BrokerAdapter for TossBrokerAdapter {
         &self,
         request: &CandlePageRequest,
     ) -> BrokerAdapterResult<BrokerCandlePage> {
+        self.get_candle_page_with_source(request)
+            .await
+            .map(|result| result.page)
+    }
+
+    async fn get_candle_page_with_source(
+        &self,
+        request: &CandlePageRequest,
+    ) -> BrokerAdapterResult<BrokerCandlePageWithSource> {
         request
             .validate()
             .map_err(|error| BrokerAdapterError::InvalidRequest(error.to_string()))?;
@@ -324,9 +334,9 @@ impl BrokerAdapter for TossBrokerAdapter {
         };
         let before = toss_cursor_before(request.cursor.as_ref())
             .map_err(|error| BrokerAdapterError::InvalidRequest(error.to_string()))?;
-        let page = self
+        let (page, source) = self
             .client
-            .get_candles(
+            .get_candles_with_source(
                 &request.symbol,
                 interval,
                 Some(request.count),
@@ -350,15 +360,18 @@ impl BrokerAdapter for TossBrokerAdapter {
             ));
         }
         let (next_cursor, end_reason) = next_toss_cursor(before, page.next_before)?;
-        Ok(BrokerCandlePage {
-            candles,
-            next_cursor,
-            end_reason,
-            timestamp_semantics: if interval == "1m" {
-                "barClose"
-            } else {
-                "tradingDate"
+        Ok(BrokerCandlePageWithSource {
+            page: BrokerCandlePage {
+                candles,
+                next_cursor,
+                end_reason,
+                timestamp_semantics: if interval == "1m" {
+                    "barClose"
+                } else {
+                    "tradingDate"
+                },
             },
+            source,
         })
     }
 

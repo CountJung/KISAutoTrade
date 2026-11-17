@@ -85,7 +85,7 @@ test('desktop requires matching evidence and explicit confirmation; binding does
   await approve.click()
   await expect(page.getByText(/미체결 대조 대상으로 연결됐습니다/)).toBeVisible()
   expect(await approvals(page)).toEqual([{ command: 'approve_budget_recovery', args: { input: {
-    brokerId: 'kis', brokerAccountId: 'fixture-account', reservationId: original.reservationId,
+    brokerId: 'kis', brokerAccountId: 'fixture-account', expectedProfileId: 'fixture-profile', expectedIsPaper: true, reservationId: original.reservationId,
     snapshotRevision: original.snapshotRevision, providerOrderId: 'fixture-provider-2',
     clientOrderId: original.clientOrderId, evidenceReference: '비식별 합성 fixture 1', confirmed: true,
   } } }])

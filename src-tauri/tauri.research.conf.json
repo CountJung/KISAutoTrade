@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "KISAutoTrade Research",
+  "identifier": "com.countjung.kisautotrade.research",
+  "build": {
+    "beforeDevCommand": "npm run dev -- --config vite.research.config.ts",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build:web:research"
+  },
+  "app": { "windows": [] },
+  "bundle": {
+    "shortDescription": "계좌 연결 없는 섹터 ETF 자료 검증 및 모의 비교"
+  }
+}

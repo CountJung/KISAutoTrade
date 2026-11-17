@@ -22,7 +22,10 @@ pub use session::{PhaseDiagnosticsView, ReplaySession};
 pub(crate) mod minute_time;
 mod minute_timing;
 pub(crate) use minute_timing::{diagnose_minute_timing, MinuteTimingInput};
-pub use minute_timing::{LthMinuteTimingView, MinuteLabelConvention, TimingMarket};
+pub use minute_timing::{
+    ExecutionClockView, ExecutionDayView, ExecutionExclusionCount, ExecutionExclusionExample,
+    LthMinuteTimingView, MinuteLabelConvention, TimingMarket,
+};
 mod assessment;
 pub use assessment::ReplayAssessmentView;
 mod atr;

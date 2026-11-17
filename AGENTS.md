@@ -86,11 +86,11 @@ npm run check:project-map            # 파일/모듈 구조 문서 drift 검사
 
 | 날짜 | 한줄 요약 |
 |------|----------|
-| 2026-11-05 | CI source-harness 전체 예산만60초로 분리·기본30초/expect5초 유지; 초기 clock 지연 원인은 미확정이며 [검증 이력](docs/completed-history.md#keyboard-final-ci-20261031) 참조 |
-| 2026-11-05 | Toss 공개 거래내역 경로를 고정 inventory에 추가·기존 검사 유지; 로컬 공식 JSON 다운로드 제한과 검증 상태는 [이력](docs/completed-history.md#toss-inventory-20261105) |
-| 2026-11-01 | 날짜별 완료 기록을 기존 이력/연구 부록으로 통합·신규 문서 생성 기준 정리; 남은11개·코드 UI557/Rust901 근거 보존 |
-| 2026-10-31 | 키보드5개 순차 완료·UI557/Rust901·최종 테스트/보안 CI58/65 성공·[회차 정본](docs/completed-history.md#task-keyboard-improvements-20261031), 기존 대기11개 보존 |
-| 2026-10-31 | Toss identity 협상·캔들 안전 파싱 단계 교정·Rust901/clock4·UI408·CI53/60 통과; 실사용 원인 미확정·상세는 [기록](docs/completed-history.md#task-toss-simulation-response-parsing-20261031) |
+| 2026-11-07 | 선택 계좌 예산 저장·캐시 신뢰 복구와 모의/실전 전환 회귀 보강; Rust969/E2E41 통과·원장 모드 이관/native 미완료·[근거](docs/completed-history.md#p1-scope-01) |
+| 2026-11-07 | 단일 활성 계좌·위험 동작 확인 방향과 정규장/DST·KIS/Toss 수집 후속을 TODO에 반영; 구현·실거래 미실행·[근거](docs/completed-history.md#simulation-plan-20261107) |
+| 2026-11-06 | 검증형 유지·브로커 차트가격 근사/명시 시세 수집 추가; KIS20일 가격장부 실측·총수익/기업행위/native화면 미검증·[정본](docs/completed-history.md#p2-sector-01-broker-chart) |
+| 2026-11-06 | Simulation 메뉴·공유3탭 통합; 운영 조회/제어와 가상USD 계산·명시 시세 수집 범위 분리·[정본](docs/user-guide.md#섹터-etf-기본방어공격-비교) |
+| 2026-11-06 | 별도 연구 native·명시 인증 시세 수집/순수 자료 검증 경계 보강; 실제API/계좌연결 미검증·[정본](docs/ipc-commands.md#섹터-자료-준비와-연구-전용-실행) |
 
 ## 운영 문서 스택
 

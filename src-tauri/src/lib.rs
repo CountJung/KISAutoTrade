@@ -7,6 +7,7 @@ pub mod logging;
 pub mod market;
 pub mod market_hours;
 pub mod notifications;
+pub mod research;
 pub mod server;
 pub mod storage;
 pub mod trading;
@@ -48,6 +49,11 @@ fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result
         }
     }
     Ok(())
+}
+
+// One macro expansion: macOS embeds a global Info.plist symbol per expansion.
+pub(crate) fn app_context() -> tauri::Context<tauri::Wry> {
+    tauri::generate_context!()
 }
 
 pub fn run() {
@@ -258,6 +264,7 @@ pub fn run() {
                 let position_tracker     = st.position_tracker.clone();
                 let config               = st.config.clone();
                 let profiles             = st.profiles.clone();
+                let lth_research_runtime = st.lth_research_runtime.clone();
                 let trade_store          = st.trade_store.clone();
                 let stats_store          = st.stats_store.clone();
                 let log_config           = st.log_config.clone();
@@ -278,7 +285,7 @@ pub fn run() {
                     server::start(
                         rest_client, stock_list, port,
                         is_trading, storage_maintenance, database_manager, strategy_manager, strategy_update_lock, position_tracker,
-                        config, profiles, trade_store, stats_store,
+                        config, profiles, lth_research_runtime, trade_store, stats_store,
                         log_config, log_dir, trade_archive_config, data_dir,
                         risk_manager, risk_store, order_manager, stock_store, strategy_store,
                         profiles_path, discord, exchange_rate_krw, refresh_config,
@@ -463,8 +470,18 @@ pub fn run() {
             commands::get_toss_chart_data,
             commands::get_candle_page,
             commands::preview_leveraged_trend_hold,
+            commands::reserve_lth_research,
+            commands::run_lth_research,
+            commands::cancel_lth_research,
             commands::preview_strategy,
             commands::preview_strategy_continuous,
+            commands::preview_sector_portfolio,
+            commands::preview_broker_chart_portfolio,
+            commands::get_broker_chart_scope,
+            commands::collect_broker_chart_data,
+            commands::validate_sector_data,
+            commands::get_sector_quote_scope,
+            commands::collect_sector_data,
             commands::get_chart_data,
             commands::get_price,
             commands::place_order,
@@ -555,6 +572,6 @@ pub fn run() {
                 tracing::info!("앱 종료 요청");
             }
         })
-        .run(tauri::generate_context!())
+        .run(app_context())
         .expect("Tauri 애플리케이션 실행 중 오류 발생");
 }
