@@ -386,3 +386,71 @@ fn broker_chart_three_strategy_raw_gaps_reconcile_cash_integer_fees_and_pnl() {
         );
     }
 }
+
+// Dates/prices are synthetic. The boundary is the issuer's published ex-split date.
+fn split_boundary_fixture(start: &str) -> BrokerChartInput {
+    let mut input = fixture();
+    let mut date = NaiveDate::parse_from_str(start, "%Y-%m-%d").unwrap();
+    for day in input.history.iter_mut().chain(&mut input.evaluation) {
+        while matches!(date.weekday(), Weekday::Sat | Weekday::Sun) {
+            date += Duration::days(1);
+        }
+        day.date = date.to_string();
+        date += Duration::days(1);
+    }
+    input.expected_session_dates = input
+        .history
+        .iter()
+        .chain(&input.evaluation)
+        .map(|day| day.date.clone())
+        .collect();
+    input.source.retrieved_at = "2026-04-01T00:00:00Z".into();
+    input
+}
+
+#[test]
+fn broker_chart_known_issuer_split_blocks_warmup_evaluation_and_missing_event_bar() {
+    for start in ["2025-11-03", "2025-11-17"] {
+        let input = split_boundary_fixture(start);
+        assert!(input.known_corporate_actions.is_empty());
+        assert_eq!(
+            preview_broker_chart_price_approximation(&input).unwrap_err(),
+            "KNOWN_BROKER_CHART_SPLIT_BOUNDARY: 2025-12-05 XLB/XLE/XLK/XLU/XLY 2:1"
+        );
+        let mut missing = input.clone();
+        missing.history.retain(|day| day.date != "2025-12-05");
+        missing.evaluation.retain(|day| day.date != "2025-12-05");
+        // Keep at least 22 preparation bars after removal.
+        if missing.history.len() < 22 {
+            missing.history.push(missing.evaluation.remove(0));
+        }
+        missing
+            .expected_session_dates
+            .retain(|date| date != "2025-12-05");
+        assert!(preview_broker_chart_price_approximation(&missing)
+            .unwrap_err()
+            .starts_with("KNOWN_BROKER_CHART_SPLIT_BOUNDARY"));
+    }
+}
+
+#[test]
+fn broker_chart_known_issuer_split_does_not_block_same_side_windows() {
+    for start in ["2025-09-01", "2025-12-05", "2025-12-08"] {
+        assert!(preview_broker_chart_price_approximation(&split_boundary_fixture(start)).is_ok());
+    }
+}
+
+#[test]
+fn broker_chart_known_issuer_split_last_day_boundary_is_inclusive() {
+    for (end, blocked) in [("2025-12-04", false), ("2025-12-05", true)] {
+        let mut input = split_boundary_fixture("2025-11-03");
+        input.evaluation.retain(|day| day.date.as_str() <= end);
+        input
+            .expected_session_dates
+            .retain(|date| date.as_str() <= end);
+        assert_eq!(
+            preview_broker_chart_price_approximation(&input).is_err(),
+            blocked
+        );
+    }
+}

@@ -706,3 +706,12 @@ CI54(553/4)는 실제 입력·backdrop hit와 저장 중 focus를 구분하는 �
 - 정확 원장 입력/상태 replay·실자료 조정/기업행위 검증·손실매도 금지 정책의 [대기 조건](pending.md)은 유지한다. 배포·주문은 이 UI 완료 범위에 포함하지 않는다.
 
 - 위 테스트 기대값 수정은 CI와 같은 production preview 모드에서도 `broker-chart-portfolio.spec.ts`7/7 통과했다. 이7건은 앞선20건과 겹치므로 합산하지 않는다. 수정 커밋의 원격 CI는 별도 확인한다.
+
+
+<a id="p2-sector-01-split-boundary"></a>
+## P2-SECTOR-01 — 2026-11-17 차트 가격근사의 공시 분할 경계 방어
+
+- 시작 HEAD `f33ca04`에서 `knownCorporateActions`가 비어 있으면 차트 가격근사의 준비+평가 구간이 공시된 분할 전후를 가로질러도 통과할 수 있음을 확인했다. [State Street AP 공시](https://www.ssga.com/library-content/products/fund-docs/etfs/us/information-schedules/ap-notice/notice-to-aps-stock-splits-11-21-25.pdf)와 [공식 FAQ](https://www.ssga.com/library-content/products/fund-docs/etfs/us/information-schedules/select-sector-spdr-fund-share-splits-faq.pdf)의 검색 인덱스 본문에서 XLB/XLE/XLK/XLU/XLY2:1, 분할 후 거래 개시2025-12-05를 확인했다. AP 문서 날짜는2025-11-21이며12월5일을 공시일로 부르지 않는다. 직접 PDF 열기의404와 별개로 인덱스 근거를 사용했고, 실제 브로커 가격이나 기업행위 전체 이력을 검증한 것은 아니다.
+- `price_research/validation.rs`에 전체 원시가격 구간의 `firstDate < 2025-12-05 <= lastDate` 방어를 추가했다. 준비봉 내부 사건과 당일 봉 누락도 차단하며 첫 봉이 당일/이후 또는 전체가 이전인 입력은 다른 검증을 유지한 채 이 경계만 통과한다. 기존 `knownCorporateActions` 비어 있지 않음 거부는 유지한다. 현재 계약과 사용자 안내는 [IPC](ipc-commands.md#브로커-차트-가격수익률-근사)·[가이드](user-guide.md#섹터-etf-기본방어공격-비교)가 소유한다.
+- 검증: 수정 전 추가한2개 회귀 중1개가 실패했고1개가 통과했다. 실패는 경계를 가로지르는 입력이 오류 대신 정상 보고서를 반환하는 기존 결함을 재현한 것이다. 수정 후 `sector_portfolio`45/45(새 경계3개 포함), `cargo check` 경고0, TypeScript·웹 production build·FSD·Graphify update/check·project-map update/check·diff 검사를 통과했다. 독립 source 리뷰에서 차단 결함은 없었다. 별도 `broker_chart` 필터40/40(53.25초)도 통과했다. 앞선45건과 겹치므로85개 고유 테스트로 합산하지 않는다. CI=1 production preview의 `broker-chart-portfolio`7/7(8.3초)도 통과했다. 첫 sandbox 실행은 MachPort 제한으로 브라우저가 시작되지 않아 승인된 제한 밖 재실행을 사용했다. 이는 기존 UI mock 브리지 회귀이며 실제 native IPC 또는 새 분할 경계의 UI 통합 테스트는 아니다.
+- 실제 자료·계좌·주문을 사용하지 않았으며 strict 모드, 공급자 가격 보정/조정 의미, 기업행위 자동발견·정산과 생산 UI는 변경하지 않았다. 이 제한적 방어를 총수익 검증이나 모든 분할의 안전성 보장으로 확대하지 않는다.

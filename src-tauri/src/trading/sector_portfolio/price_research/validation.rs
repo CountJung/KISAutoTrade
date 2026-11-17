@@ -82,5 +82,20 @@ pub(super) fn input(input: &BrokerChartInput) -> Result<(), String> {
             }
         }
     }
+    // Issuer-confirmed 2:1 split: post-split trading starts 2025-12-05.
+    // https://www.ssga.com/library-content/products/fund-docs/etfs/us/information-schedules/ap-notice/notice-to-aps-stock-splits-11-21-25.pdf
+    // Raw closes on opposite sides cannot share a signal/accounting basis.
+    // Check the entire interval, including preparation bars and missing event bars.
+    // This targeted guard is NOT a complete corporate-action registry or an
+    // assertion about either broker's historical adjustment semantics.
+    let split_date = "2025-12-05";
+    let first = input.history.first().expect("validated nonempty history");
+    let last = input
+        .evaluation
+        .last()
+        .expect("validated nonempty evaluation");
+    if first.date.as_str() < split_date && split_date <= last.date.as_str() {
+        return Err("KNOWN_BROKER_CHART_SPLIT_BOUNDARY: 2025-12-05 XLB/XLE/XLK/XLU/XLY 2:1".into());
+    }
     Ok(())
 }

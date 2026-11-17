@@ -609,6 +609,12 @@ source는 `brokerId=kis|toss`, 이름·수집시각·synthetic 선언,
 가격은 유한한0.000001~1e9·OHLC 범위 일치, 거래량은0~9007199254740991로 검사한다.
 공식 거래일의 누락 부재는 이 검사로 증명하지 않는다. 명시 `acknowledgedPriceOnly=true`가
 필수이며 알려진 기업행위가 하나라도 있으면 전체 거부한다. 빈 목록은 사건 부재 인증이 아니다.
+추가 고정 방어로 전체 `history+evaluation`의 첫 날짜 < `2025-12-05` ≤ 마지막 날짜이면
+`KNOWN_BROKER_CHART_SPLIT_BOUNDARY` 오류를 반환한다. 공시된 XLB/XLE/XLK/XLU/XLY의2:1
+분할 후 거래 개시일을 가로지르는 원시가격 혼합을 막으며 `knownCorporateActions=[]`와
+사건 당일 봉 누락으로 우회할 수 없다. 첫 봉이 당일/이후거나 전체가 이전이면 이 고정 경계는
+차단하지 않는다(다른 검증은 계속 적용). 사건 근거는 [검증 이력](completed-history.md#p2-sector-01-split-boundary)에 둔다.
+이 방어는 전체 기업행위 발견/공급자 조정 여부 인증/배당·분할 정산이 아니며 strict 검증형을 변경하지 않는다.
 
 비수정 요청 종가를 기존 planner의 신호 슬롯에 전달하되 mode/signal/source로 가격근사임을
 명시한다. 이전 완료봉 신호·전일 NAV 목표예산→다음 관측시가 정수주·매도 후 순위매수·
